@@ -42,7 +42,19 @@ func TestViewShots(t *testing.T) {
 	if dir == "" {
 		t.Skip()
 	}
-	_, tt, _ := viewsLibrary(t)
+	_, tt, coll := viewsLibrary(t)
+	coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
+	coll.AddProperty("Yazar", PropText, nil)
+	for _, p := range coll.All() {
+		switch p.Title {
+		case "Dune":
+			p.SetValue("yazar", "Frank Herbert")
+			p.SetValue("durum", "Yapılacak")
+		case "Anna Karenina":
+			p.SetValue("yazar", "Lev Tolstoy")
+			p.SetValue("durum", "Bitti")
+		}
+	}
 	save := func(name string) {
 		f, _ := os.Create(dir + "/" + name + ".png")
 		png.Encode(f, tt.Image())
@@ -208,4 +220,35 @@ func TestSettingsShot(t *testing.T) {
 	png.Encode(f, tt.Image())
 	f.Close()
 	a.setMCP(false)
+}
+
+// TestPropsShots draws a page with properties and the dialog adding one: run with PROPS=dir.
+func TestPropsShots(t *testing.T) {
+	dir := os.Getenv("PROPS")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "Çöl gezegeni Arrakis.\n\n---\n\nBaharat her şeydir.\n")
+	tt.SetSize(1180, 640)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Advance(300 * time.Millisecond)
+	save("page-empty")
+	c := a.page.Coll
+	c.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
+	c.AddProperty("Yazar", PropText, nil)
+	c.AddProperty("Yıl", PropNumber, nil)
+	a.page.SetValue("durum", "Sürüyor")
+	a.page.SetValue("yazar", "Frank Herbert")
+	a.page.SetValue("yil", "1965")
+	tt.Advance(300 * time.Millisecond)
+	save("page-props")
+	tt.Click("Özellik ekle")
+	tt.Advance(500 * time.Millisecond)
+	tt.Type("Tür")
+	tt.Frame()
+	save("prop-dialog")
 }

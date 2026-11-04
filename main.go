@@ -126,12 +126,18 @@ type app struct {
 	settingsOpen bool
 	mcpServer    *http.Server
 	mcpErr       string
-	invalidate   func() // asks the window for a frame, from any goroutine
+
+	prop        propEdit           // the property dialog
+	propBuf     map[string]*string // the text of the properties' fields, by page and property
+	propEditing string             // the field being typed in
+	propErr     string             // the field whose value did not fit
+	invalidate  func()             // asks the window for a frame, from any goroutine
 }
 
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
 	a.loadSettings()
+	a.propBuf = map[string]*string{}
 	for _, c := range lib.Collections {
 		if len(c.Pages) > 0 {
 			a.open(c.Pages[0])
@@ -283,6 +289,7 @@ func (a *app) view(c *ui.Context) {
 		})
 	})
 	a.settingsDialog(c)
+	a.propDialog(c)
 	ryugo.Toaster(c)
 	if a.notice != "" {
 		c.Toast(a.notice)
@@ -317,22 +324,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			a.saveErr = err.Error()
 		}
 	}
-	// Its properties: the status, which is its column on the board.
-	ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
-		ui.Text(c, "Durum").FontSize(13).TextColor(c.Theme().TextMuted).Width(56)
-		st := p.Coll.StatusOf(p)
-		var opts []ryugo.Option[string]
-		for _, s := range p.Coll.StatusList() {
-			opts = append(opts, ryugo.Option[string]{Value: s, Label: s})
-		}
-		ryugo.Select(c.Key("status:"+p.Dir), &st, opts, ryugo.SelectOptions{Label: "Durum", Size: ryugo.Sm}).Width(170)
-		if st != p.Coll.StatusOf(p) {
-			a.flush() // the text typed is on disk before the page is written again
-			if err := p.SetStatus(st); err != nil {
-				a.saveErr = err.Error()
-			}
-		}
-	})
+	a.propsSection(c, p)
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,

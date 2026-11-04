@@ -44,8 +44,10 @@ type Collection struct {
 	// Views are the ways the collection's page shows its pages, the first of
 	// them by default; ActiveView is the one shown last.
 	Views []View `json:"views,omitempty"`
-	// Statuses are the states a page of it goes through, in order: the
-	// columns of its board. defaultStatuses when empty.
+	// Properties are the fields its pages have, as Thymer's collections:
+	// none until one is added (properties.go).
+	Properties []Property `json:"properties,omitempty"`
+	// Statuses is what came before properties: read, made a "Durum" choice.
 	Statuses   []string `json:"statuses,omitempty"`
 	ActiveView string   `json:"activeView,omitempty"`
 	Dir        string   `json:"-"`
@@ -59,8 +61,10 @@ type View struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 	Type  string `json:"type"` // "list" | "table" | "board"
-	Sort  string `json:"sort"` // "title" | "created" | "modified"
+	Sort  string `json:"sort"` // "title" | "created" | "modified" | "prop:<id>"
 	Desc  bool   `json:"desc,omitempty"`
+	// GroupBy is the choice property a board's columns are the options of.
+	GroupBy string `json:"groupBy,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.
@@ -68,93 +72,13 @@ func defaultViews() []View {
 	return []View{
 		{ID: "list", Label: "Liste", Type: "list", Sort: "modified", Desc: true},
 		{ID: "table", Label: "Tablo", Type: "table", Sort: "title"},
-		boardView,
 	}
-}
-
-// boardView is the board: a column per status, its cards dragged between them.
-var boardView = View{ID: "board", Label: "Pano", Type: "board", Sort: "rank"}
-
-// defaultStatuses are a collection's statuses unless it names its own.
-var defaultStatuses = []string{"Yapılacak", "Sürüyor", "Bitti"}
-
-// StatusList is the collection's statuses, in order.
-func (c *Collection) StatusList() []string {
-	if len(c.Statuses) == 0 {
-		return defaultStatuses
-	}
-	return c.Statuses
-}
-
-// StatusOf is page p's status: its own if the collection has it, else the first.
-func (c *Collection) StatusOf(p *Page) string {
-	list := c.StatusList()
-	if slices.Contains(list, p.Status) {
-		return p.Status
-	}
-	return list[0]
-}
-
-// Column is the pages of the collection with status s, in their order on the board.
-func (c *Collection) Column(s string) []*Page {
-	var out []*Page
-	for _, p := range c.All() {
-		if c.StatusOf(p) == s {
-			out = append(out, p)
-		}
-	}
-	slices.SortStableFunc(out, func(a, b *Page) int {
-		switch {
-		case a.Rank == b.Rank:
-			return a.Created.Compare(b.Created)
-		case a.Rank == 0: // not yet placed: after the placed ones
-			return 1
-		case b.Rank == 0:
-			return -1
-		}
-		return a.Rank - b.Rank
-	})
-	return out
-}
-
-// MoveOnBoard gives p status s and puts it at index among that column's
-// other pages; the pages of the column whose place changed are written.
-func (c *Collection) MoveOnBoard(p *Page, s string, index int) error {
-	col := slices.DeleteFunc(c.Column(s), func(q *Page) bool { return q == p })
-	index = max(0, min(index, len(col)))
-	col = slices.Insert(col, index, p)
-	p.Status = s
-	for i, q := range col {
-		if q.Rank == i+1 && q != p {
-			continue
-		}
-		q.Rank = i + 1
-		body, err := q.Body()
-		if err != nil {
-			return err
-		}
-		if err := q.Save(body); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// SetStatus gives p status s, at the end of its column on the board.
-func (p *Page) SetStatus(s string) error {
-	if p.Coll.StatusOf(p) == s {
-		return nil
-	}
-	return p.Coll.MoveOnBoard(p, s, len(p.Coll.Column(s)))
 }
 
 // View returns the view shown: the active one, else the first.
 func (c *Collection) View() *View {
 	if len(c.Views) == 0 {
 		c.Views = defaultViews()
-	}
-	if !slices.ContainsFunc(c.Views, func(v View) bool { return v.Type == "board" }) {
-		c.Views = append(c.Views, boardView) // made before boards were
 	}
 	for i := range c.Views {
 		if c.Views[i].ID == c.ActiveView {
@@ -203,10 +127,10 @@ func (c *Collection) All() []*Page {
 type Page struct {
 	Title    string
 	Created  time.Time
-	Modified time.Time // when its file was last written
-	Order    int       // its place among its siblings, from 1; 0: not yet placed (by creation)
-	Status   string    // its state, one of its collection's statuses; empty: the first
-	Rank     int       // its place in its status's column on the board, from 1; 0: not yet placed
+	Modified time.Time         // when its file was last written
+	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
+	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
+	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
 	Dir      string
 	Coll     *Collection
 	Parent   *Page
@@ -247,6 +171,11 @@ func OpenLibrary(root string) (*Library, error) {
 		}
 		c.Dir = dir
 		c.Pages = readPages(dir, c, nil)
+		if c.migrate() {
+			if err := c.save(); err != nil {
+				return nil, err
+			}
+		}
 		l.Collections = append(l.Collections, c)
 	}
 	sort.SliceStable(l.Collections, func(i, j int) bool { return l.Collections[i].Name < l.Collections[j].Name })
@@ -272,8 +201,7 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 			p.Title = e.Name()
 		}
 		fmt.Sscan(meta["order"], &p.Order)
-		fmt.Sscan(meta["rank"], &p.Rank)
-		p.Status = meta["status"]
+		p.readMeta(meta)
 		if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
 			p.Created = t
 		} else if info, err := e.Info(); err == nil {
@@ -361,9 +289,7 @@ func (p *Page) Save(body string) error {
 	if p.Order > 0 {
 		sb.WriteString(fmt.Sprintf("order: %d\n", p.Order))
 	}
-	if p.Status != "" {
-		sb.WriteString("status: " + quoteYAML(p.Status) + "\n")
-	}
+	p.writeProps(&sb)
 	if p.Rank > 0 {
 		sb.WriteString(fmt.Sprintf("rank: %d\n", p.Rank))
 	}
@@ -686,11 +612,11 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 		return nil, nil, err
 	}
 	meta, body := splitFrontMatter(string(src))
-	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent, Status: meta["status"]}
+	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent}
+	p.readMeta(meta)
 	if p.Title == "" {
 		p.Title = item.Title
 	}
-	fmt.Sscan(meta["rank"], &p.Rank)
 	if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
 		p.Created = t
 	}

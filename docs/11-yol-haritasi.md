@@ -3,6 +3,48 @@
 Her aşama kendi başına çalışan, denenebilir bir uygulama bırakır. Bir aşama bitmeden sonrakine geçilmez. Kararlar
 [00](00-OKU-BENI.md)'da: eklenti yok, yalnız tema dışarıdan; caret'ler Go'da; MCP uygulamanın içinde.
 
+## Güncel durum (4 Kasım 2026)
+
+Aşağıdaki ilk aşamalar başka bir yoldan yapıldı: editör MyGo'nun `ui/richtext`'i (blok = paragraf), veri düz klasörler
+ve Markdown, bileşenler Ryugo. **Bitenler:** işaretsiz Markdown, ``` ve `---`, Slime/Mizan caret'leri, koleksiyonlar ve
+alt sayfalar, sürükle-bırak ağaç, liste/tablo/pano, çöp, MCP sunucusu ve ayarlar.
+
+**Eksik kalan, Thymer'e göre:** özellikler herkese zorla verilmiş (Durum), ve "blok editör" dediğimiz hâlde bloklarla
+ilgili hiçbir şey yok. Sıradaki aşamalar bunlar:
+
+### Aşama A — Özellikler, Thymer gibi isteğe bağlı
+1. Koleksiyonun **özellik şeması**: varsayılan olarak boş. Sayfadaki **+ Özellik ekle** ile eklenir: Seçim, Metin,
+   Sayı, Tarih, Bağlantı (sonra Etiket, Sayfa bağlantısı, Kişi). Ad, tür, seçenekler sonradan düzenlenir, silinir.
+2. Değerler sayfanın ön maddesinde (`özellik-kimliği: değer`); tanımadığımız anahtarlar korunur.
+3. Sayfada başlığın altında **özellikler bölümü**; yalnız şemada özellik varsa görünür.
+4. Tablo her özelliği sütun yapar, ona göre sıralar. **Pano** yalnız bir Seçim özelliği varsa vardır ve ona göre
+   gruplar; değeri olmayanlar "Boş" sütununda.
+5. MCP özellikleri okur, yazar, şemaya ekler.
+
+### Aşama B — Bloklar
+Blok = bir paragraf ve altındakiler (girintisi daha derin olan liste öğeleri; bir başlığın altında sonraki aynı ya da
+üst düzey başlığa kadar olanlar).
+1. **Tutamak** (⋮⋮): imleç bir bloğun üstündeyken solunda belirir; tıklanınca **blok menüsü**: Dönüştür (metin,
+   başlık 1–3, liste, görev, alıntı, kod), Çoğalt, Sil, Bağlantıyı kopyala.
+2. **Sürükle-bırak**: tutamaktan tutulan blok, altındakilerle birlikte kalkar (Ryugo'nun kart efektleri); bloklar yer
+   açar; bırakınca yerine süzülür. Girintiye göre içe ya da dışa bırakma.
+3. **⌘⇧↑ / ⌘⇧↓** bloğu altındakilerle birlikte taşır; **⌘/** katlar.
+4. **Katlama**: başlıklar ve alt öğesi olan liste öğeleri solundaki okla katlanır; katlı hâli sayfada hatırlanır.
+5. **/ menüsü**: boş satırda `/` yazınca blok türleri listesi (klavyeyle seçilir).
+6. **Blok seçimi**: Esc caret'in bloğunu seçer, ↑↓ ve ⇧ ile genişler; seçili bloklar birlikte taşınır, silinir,
+   kopyalanır (Markdown).
+7. **Kutular** (callout: bilgi, uyarı, not) ve sonra sütunlar.
+
+### Aşama C — Dosyalar dışarıdan değişince
+Kitaplık klasörü izlenir: başka bir editörün, betiğin ya da ajanın yaptığı değişiklik pencereye gelir; açık sayfada
+çakışma olursa ikisi de kaybolmaz.
+
+### Aşama D — Komut paleti (⌘P / ⌘K) ve kısayollar
+
+### Aşama E — Temalar veri dosyası olarak
+
+---
+
 ## Aşama 0 — İskelet
 1. Yeni bir MyGo projesi; `mizan-go` bileşenleri ve tokenları bağımlılık olarak.
 2. Üç bölgeli pencere: kenar çubuğu, panel alanı, durum çubuğu ([01](01-thymer-genel-bakis.md)).

@@ -141,18 +141,18 @@ func (a *app) do(fn func() error) error {
 // "kitaplar/dune/notlar".
 
 type pageInfo struct {
-	ID       string     `json:"id"`
-	Title    string     `json:"title"`
-	Status   string     `json:"status"`
-	Children []pageInfo `json:"children,omitempty"`
+	ID         string            `json:"id"`
+	Title      string            `json:"title"`
+	Properties map[string]string `json:"properties,omitempty"` // by property name
+	Children   []pageInfo        `json:"children,omitempty"`
 }
 
 type collInfo struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Pages    int      `json:"pages"`
-	Statuses []string `json:"statuses"`
-	SubPages bool     `json:"subPages"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Pages      int        `json:"pages"`
+	Properties []Property `json:"properties"`
+	SubPages   bool       `json:"subPages"`
 }
 
 func (a *app) idOf(dir string) string {
@@ -185,9 +185,42 @@ func (a *app) findPage(id string) (*Page, error) {
 func (a *app) tree(ps []*Page) []pageInfo {
 	var out []pageInfo
 	for _, p := range ps {
-		out = append(out, pageInfo{ID: a.idOf(p.Dir), Title: p.Title, Status: p.Coll.StatusOf(p), Children: a.tree(p.Children)})
+		out = append(out, pageInfo{ID: a.idOf(p.Dir), Title: p.Title, Properties: values(p), Children: a.tree(p.Children)})
 	}
 	return out
+}
+
+// values is page p's values, by property name.
+func values(p *Page) map[string]string {
+	out := map[string]string{}
+	for i := range p.Coll.Properties {
+		pr := &p.Coll.Properties[i]
+		if v := p.Value(pr); v != "" {
+			out[pr.Name] = v
+		}
+	}
+	return out
+}
+
+// setValues gives page p the values vs, by property name or id.
+func (a *app) setValues(p *Page, vs map[string]string) error {
+	if p == a.page {
+		a.flush()
+	}
+	for name, v := range vs {
+		pr := p.Coll.PropNamed(name)
+		if pr == nil {
+			var names []string
+			for _, x := range p.Coll.Properties {
+				names = append(names, x.Name)
+			}
+			return fmt.Errorf("%s has no property %q (it has: %s; add_property adds one)", p.Coll.Name, name, strings.Join(names, ", "))
+		}
+		if err := p.SetValue(pr.ID, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // result is v as the tool's text, JSON.
@@ -245,23 +278,32 @@ type (
 		Query      string `json:"query" jsonschema:"words to find in titles and text, any case"`
 		Collection string `json:"collection,omitempty" jsonschema:"only in this collection"`
 	}
+	propSpec struct {
+		Name    string   `json:"name" jsonschema:"the property's name"`
+		Type    string   `json:"type" jsonschema:"choice, text, number, date (2026-11-04) or url"`
+		Options []string `json:"options,omitempty" jsonschema:"a choice's options, in order: the columns of the board"`
+	}
 	newCollArgs struct {
-		Name     string   `json:"name" jsonschema:"the collection's name"`
-		Statuses []string `json:"statuses,omitempty" jsonschema:"its statuses in order, the columns of its board; Yapılacak, Sürüyor, Bitti if not given"`
+		Name       string     `json:"name" jsonschema:"the collection's name"`
+		Properties []propSpec `json:"properties,omitempty" jsonschema:"the fields its pages have; none if not given"`
+	}
+	addPropArgs struct {
+		Collection string `json:"collection" jsonschema:"the collection: its id or its name"`
+		propSpec
 	}
 	newPageArgs struct {
-		Collection string `json:"collection" jsonschema:"the collection: its id or its name"`
-		Title      string `json:"title" jsonschema:"the page's title"`
-		Parent     string `json:"parent,omitempty" jsonschema:"a page to make it a sub-page of"`
-		Markdown   string `json:"markdown,omitempty" jsonschema:"its text, in Markdown"`
-		Status     string `json:"status,omitempty" jsonschema:"one of the collection's statuses"`
+		Collection string            `json:"collection" jsonschema:"the collection: its id or its name"`
+		Title      string            `json:"title" jsonschema:"the page's title"`
+		Parent     string            `json:"parent,omitempty" jsonschema:"a page to make it a sub-page of"`
+		Markdown   string            `json:"markdown,omitempty" jsonschema:"its text, in Markdown"`
+		Properties map[string]string `json:"properties,omitempty" jsonschema:"values of the collection's properties, by name"`
 	}
 	updateArgs struct {
-		Page     string  `json:"page" jsonschema:"the page's id"`
-		Title    *string `json:"title,omitempty" jsonschema:"a new title"`
-		Markdown *string `json:"markdown,omitempty" jsonschema:"new text in Markdown: replaces the page's text"`
-		Append   string  `json:"append,omitempty" jsonschema:"Markdown to add at the end of the page's text"`
-		Status   string  `json:"status,omitempty" jsonschema:"one of the collection's statuses"`
+		Page       string            `json:"page" jsonschema:"the page's id"`
+		Title      *string           `json:"title,omitempty" jsonschema:"a new title"`
+		Markdown   *string           `json:"markdown,omitempty" jsonschema:"new text in Markdown: replaces the page's text"`
+		Append     string            `json:"append,omitempty" jsonschema:"Markdown to add at the end of the page's text"`
+		Properties map[string]string `json:"properties,omitempty" jsonschema:"values of the collection's properties, by name; an empty one clears it"`
 	}
 	moveArgs struct {
 		Page       string `json:"page" jsonschema:"the page's id"`
@@ -282,7 +324,7 @@ func (a *app) newMCPServer() *mcp.Server {
 			var out []collInfo
 			a.do(func() error {
 				for _, c := range a.lib.Collections {
-					out = append(out, collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Statuses: c.StatusList(), SubPages: c.SubPages})
+					out = append(out, collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Properties: c.Properties, SubPages: c.SubPages})
 				}
 				return nil
 			})
@@ -321,7 +363,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
-				out = map[string]any{"id": a.idOf(p.Dir), "title": p.Title, "status": p.Coll.StatusOf(p),
+				out = map[string]any{"id": a.idOf(p.Dir), "title": p.Title, "properties": values(p),
 					"collection": p.Coll.Name, "created": p.Created, "modified": p.Modified, "markdown": body}
 				return nil
 			})
@@ -380,9 +422,8 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
-				if len(in.Statuses) > 0 {
-					c.Statuses = in.Statuses
-					if err := c.save(); err != nil {
+				for _, ps := range in.Properties {
+					if _, err := c.AddProperty(ps.Name, ps.Type, ps.Options); err != nil {
 						return err
 					}
 				}
@@ -425,10 +466,8 @@ func (a *app) newMCPServer() *mcp.Server {
 						return err
 					}
 				}
-				if in.Status != "" {
-					if err := a.setStatus(p, in.Status); err != nil {
-						return err
-					}
+				if err := a.setValues(p, in.Properties); err != nil {
+					return err
 				}
 				id = a.idOf(p.Dir)
 				return nil
@@ -439,7 +478,24 @@ func (a *app) newMCPServer() *mcp.Server {
 			return result(map[string]string{"id": id})
 		})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "update_page", Description: "Changes a page: its title, its text (replaced, or added to at the end) or its status."},
+	mcp.AddTool(s, &mcp.Tool{Name: "add_property", Description: "Adds a property (a field) to a collection's pages: a choice, text, number, date or url. A collection has none until one is added; its first choice gives it a board."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in addPropArgs) (*mcp.CallToolResult, any, error) {
+			var pr *Property
+			err := a.do(func() error {
+				c, err := a.findColl(in.Collection)
+				if err != nil {
+					return err
+				}
+				pr, err = c.AddProperty(in.Name, in.Type, in.Options)
+				return err
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			return result(pr)
+		})
+
+	mcp.AddTool(s, &mcp.Tool{Name: "update_page", Description: "Changes a page: its title, its text (replaced, or added to at the end) or its properties' values."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in updateArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
@@ -482,10 +538,8 @@ func (a *app) newMCPServer() *mcp.Server {
 						return err
 					}
 				}
-				if in.Status != "" {
-					if err := a.setStatus(p, in.Status); err != nil {
-						return err
-					}
+				if err := a.setValues(p, in.Properties); err != nil {
+					return err
 				}
 				id = a.idOf(p.Dir)
 				return nil
@@ -563,19 +617,6 @@ func (a *app) newMCPServer() *mcp.Server {
 			return result(map[string]string{"trashed": in.Page})
 		})
 	return s
-}
-
-// setStatus gives p status s, one of its collection's.
-func (a *app) setStatus(p *Page, s string) error {
-	for _, x := range p.Coll.StatusList() {
-		if strings.EqualFold(x, s) {
-			if p == a.page {
-				a.flush()
-			}
-			return p.SetStatus(x)
-		}
-	}
-	return fmt.Errorf("no status %q in %s: %s", s, p.Coll.Name, strings.Join(p.Coll.StatusList(), ", "))
 }
 
 func indexOf(ps []*Page, p *Page) int {

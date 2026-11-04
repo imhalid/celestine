@@ -15,6 +15,11 @@ The library is plain files, as [Locus](https://github.com/oneo-me/locus) keeps n
 Markdown), a sub-page a page's folder inside another's. The sidebar lists collections and their pages as a tree: a
 collection's + makes a page in it, a page's + a page under it, ⌃N a page in the open one's collection.
 
+A collection has no properties until one is added, as in Thymer: **+ Özellik ekle** under a page's title adds a choice,
+a text, a number, a date or a link to every page of its collection. Values are in the pages' front matter (front
+matter ryudit doesn't know is kept); the table shows each property as a column, and the first choice gives the
+collection a board of it.
+
 | Type | Becomes |
 | --- | --- |
 | `# ` `## ` `### ` | heading 1–3 |
@@ -38,7 +43,7 @@ claude mcp add --transport http ryudit http://127.0.0.1:7457/mcp --header "Autho
 ```
 
 Its tools: `list_collections`, `list_pages`, `read_page`, `search`, `create_collection`, `create_page`,
-`update_page` (title, text replaced or appended, status), `move_page`, `trash_page`. Pages are named by their
+`update_page` (title, text replaced or appended, property values), `add_property`, `move_page`, `trash_page`. Pages are named by their
 folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the window at once.
 
 ## Layout
@@ -52,6 +57,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `drag.go` | Dragging pages in the tree, as [Ryugo](https://github.com/imhalid/ryu-go)'s cards move: the row lifts, rows make room, the row it goes into glows, it glides into place |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
+| `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
 | `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |

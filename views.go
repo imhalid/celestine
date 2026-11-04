@@ -79,7 +79,7 @@ func (a *app) collectionView(c *ui.Context) {
 				case len(pages) == 0:
 					ui.Text(c, "Bu koleksiyonda henüz sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
 				case v.Type == "board":
-					a.boardView(c, coll, pages)
+					a.boardView(c, coll, v, pages)
 				case v.Type == "table":
 					a.tableView(c, v, pages)
 				default:
@@ -127,9 +127,11 @@ func sortPages(ps []*Page, v *View) {
 			return x.Created.Compare(y.Created)
 		case "modified":
 			return x.Modified.Compare(y.Modified)
-		case "status":
-			list := x.Coll.StatusList()
-			return slices.Index(list, x.Coll.StatusOf(x)) - slices.Index(list, y.Coll.StatusOf(y))
+		}
+		if id, ok := strings.CutPrefix(v.Sort, "prop:"); ok {
+			if pr := x.Coll.Prop(id); pr != nil {
+				return compareValues(pr, x.Value(pr), y.Value(pr))
+			}
 		}
 		return strings.Compare(strings.ToLower(x.Title), strings.ToLower(y.Title))
 	}
@@ -143,6 +145,34 @@ func sortPages(ps []*Page, v *View) {
 		}
 		return d < 0
 	})
+}
+
+// compareValues orders two values of property pr: a choice by its
+// options, a number as a number, the rest as text; no value last.
+func compareValues(pr *Property, a, b string) int {
+	switch {
+	case a == b:
+		return 0
+	case a == "":
+		return 1
+	case b == "":
+		return -1
+	}
+	switch pr.Type {
+	case PropChoice:
+		return slices.Index(pr.Options, a) - slices.Index(pr.Options, b)
+	case PropNumber:
+		x, _ := strconv.ParseFloat(strings.ReplaceAll(a, ",", "."), 64)
+		y, _ := strconv.ParseFloat(strings.ReplaceAll(b, ",", "."), 64)
+		switch {
+		case x < y:
+			return -1
+		case x > y:
+			return 1
+		}
+		return 0
+	}
+	return strings.Compare(strings.ToLower(a), strings.ToLower(b))
 }
 
 // ---- the list ----
@@ -198,22 +228,31 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 
 type column struct {
 	label, field string
-	status       bool    // the cell is the page's status, as a badge
-	width        float32 // 0: the rest
+	prop         *Property // the property it shows; a choice's value is a badge
+	width        float32   // 0: the rest
 	cell         func(p *Page, now time.Time) string
 }
 
-var tableColumns = []column{
-	{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }},
-	{label: "Durum", field: "status", width: 120, status: true},
-	{label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
-	{label: "Oluşturulma", field: "created", width: 150, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
-	{label: "Değiştirilme", field: "modified", width: 140, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
+// tableColumns are the table's columns: the title, the collection's
+// properties, then where it is and when.
+func tableColumns(coll *Collection) []column {
+	cols := []column{{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
+	for i := range coll.Properties {
+		pr := &coll.Properties[i]
+		cols = append(cols, column{label: pr.Name, field: "prop:" + pr.ID, width: 140, prop: pr,
+			cell: func(p *Page, _ time.Time) string { return p.Value(pr) }})
+	}
+	return append(cols,
+		column{label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
+		column{label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
+		column{label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
+	)
 }
 
 func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
+	columns := tableColumns(a.coll)
 	cellBox := func(col column) ui.Element {
 		b := ui.Row(c).Padding(0, 10).AlignItems(ui.Center).Height(36)
 		if col.width > 0 {
@@ -225,7 +264,7 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	}
 	// The header: a column of a field sorts by it, again the other way.
 	ui.Row(c).Children(func() {
-		for _, col := range tableColumns {
+		for _, col := range columns {
 			c.Key("head:" + col.label)
 			h := cellBox(col)
 			if col.field != "" {
@@ -258,10 +297,12 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 			row.Background(t.SurfaceHover.Alpha(0))
 		}
 		row.Children(func() {
-			for i, col := range tableColumns {
+			for i, col := range columns {
 				cellBox(col).Children(func() {
-					if col.status {
-						statusBadge(c, p)
+					if col.prop != nil && col.prop.Type == PropChoice {
+						if v := p.Value(col.prop); v != "" {
+							ryugo.Badge(c, v, choiceTone(col.prop, v))
+						}
 						return
 					}
 					tx := ui.Text(c, col.cell(p, now)).FontSize(13.5).MaxLines(1)
@@ -283,43 +324,46 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 
 // ---- the board ----
 
-// statusTone is the tone of a status: the first gray, the last done, the
-// ones between under way.
-func statusTone(coll *Collection, s string) ryugo.Tone {
-	list := coll.StatusList()
-	switch i := slices.Index(list, s); {
-	case i <= 0:
+// choiceTone is the tone of an option of a choice of a few: the first
+// gray, the last done, the ones between under way; all gray past five.
+func choiceTone(pr *Property, v string) ryugo.Tone {
+	i := slices.Index(pr.Options, v)
+	switch n := len(pr.Options); {
+	case n > 5 || i <= 0:
 		return ryugo.ToneNeutral
-	case i == len(list)-1:
+	case i == n-1:
 		return ryugo.ToneDown
 	}
 	return ryugo.ToneWarn
 }
 
-// statusBadge is page p's status, as a badge in its tone.
-func statusBadge(c *ui.Context, p *Page) ui.Element {
-	s := p.Coll.StatusOf(p)
-	return ryugo.Badge(c, s, statusTone(p.Coll, s))
-}
-
 // boardView shows the pages in a column per status, as Ryugo's board: a
 // card dragged to another column takes its status, and its place among
 // the column's cards; a click opens it.
-func (a *app) boardView(c *ui.Context, coll *Collection, pages []*Page) {
+func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
+	pr := coll.Prop(v.GroupBy)
+	if pr == nil {
+		return
+	}
 	shown := map[*Page]bool{}
 	for _, p := range pages {
 		shown[p] = true
 	}
 	ui.Row(c).Gap(12).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
-		for _, s := range coll.StatusList() {
+		// a column of the pages without a value, first, then one per option
+		for _, s := range append([]string{""}, pr.Options...) {
 			var col []*Page
-			for _, p := range coll.Column(s) {
+			for _, p := range coll.Column(pr.ID, s) {
 				if shown[p] {
 					col = append(col, p)
 				}
 			}
-			ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Title: s, Count: strconv.Itoa(len(col))}, func() {
+			title := s
+			if s == "" {
+				title = pr.Name + " yok"
+			}
+			ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Title: title, Count: strconv.Itoa(len(col))}, func() {
 				for _, p := range col {
 					card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
 						if crumb := parents(p); crumb != "" {
@@ -335,10 +379,10 @@ func (a *app) boardView(c *ui.Context, coll *Collection, pages []*Page) {
 					}
 				}
 			}, func(p *Page, index int) {
-				if err := coll.MoveOnBoard(p, s, index); err != nil {
+				if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
 					a.saveErr = err.Error()
 				}
-			}).Width(260).MinHeight(180).Shrink(0) // an empty column has room to drop on
+			}).Width(1).Grow(1).MaxWidth(280).MinHeight(180) // the columns share the width; an empty one has room to drop on
 		}
 	})
 }

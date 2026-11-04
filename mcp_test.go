@@ -54,28 +54,31 @@ func TestMCPTools(t *testing.T) {
 
 	var tools *mcp.ListToolsResult
 	tools, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 9 {
+	if err != nil || len(tools.Tools) != 10 {
 		t.Fatalf("tools: %v %d", err, len(tools.Tools))
 	}
 	var made struct{ ID string }
-	call(t, cs, "create_collection", map[string]any{"name": "Okumalar", "statuses": []string{"Okunacak", "Okunuyor", "Okundu"}}, &made)
+	call(t, cs, "create_collection", map[string]any{"name": "Okumalar", "properties": []map[string]any{{"name": "Durum", "type": "choice", "options": []string{"Okunacak", "Okunuyor", "Okundu"}}}}, &made)
 	if made.ID != "okumalar" {
 		t.Fatalf("collection id: %q", made.ID)
 	}
 	var page, sub struct{ ID string }
-	call(t, cs, "create_page", map[string]any{"collection": "Okumalar", "title": "Dune", "markdown": "# Notlar\n\n- çöl\n", "status": "okunuyor"}, &page)
+	call(t, cs, "create_page", map[string]any{"collection": "Okumalar", "title": "Dune", "markdown": "# Notlar\n\n- çöl\n", "properties": map[string]string{"durum": "okunuyor"}}, &page)
 	call(t, cs, "create_page", map[string]any{"collection": "okumalar", "title": "Bölüm 1", "parent": page.ID, "markdown": "Paul."}, &sub)
 	if page.ID != "okumalar/dune" || sub.ID != "okumalar/dune/bolum-1" {
 		t.Fatalf("ids: %s %s", page.ID, sub.ID)
 	}
 	var list []pageInfo
 	call(t, cs, "list_pages", map[string]any{"collection": "okumalar"}, &list)
-	if len(list) != 1 || list[0].Status != "Okunuyor" || len(list[0].Children) != 1 || list[0].Children[0].Title != "Bölüm 1" {
+	if len(list) != 1 || list[0].Properties["Durum"] != "Okunuyor" || len(list[0].Children) != 1 || list[0].Children[0].Title != "Bölüm 1" {
 		t.Fatalf("pages: %+v", list)
 	}
-	var read struct{ Title, Status, Markdown string }
+	var read struct {
+		Title, Markdown string
+		Properties      map[string]string
+	}
 	call(t, cs, "read_page", map[string]any{"page": page.ID}, &read)
-	if read.Markdown != "# Notlar\n\n- çöl\n" || read.Status != "Okunuyor" {
+	if read.Markdown != "# Notlar\n\n- çöl\n" || read.Properties["Durum"] != "Okunuyor" {
 		t.Fatalf("read: %+v", read)
 	}
 	var hits []struct {
@@ -86,8 +89,15 @@ func TestMCPTools(t *testing.T) {
 		t.Fatalf("search: %+v", hits)
 	}
 	call(t, cs, "update_page", map[string]any{"page": page.ID, "title": "Dune (1965)", "append": "- baharat"}, nil)
+	// a property added, and a value of it
+	call(t, cs, "add_property", map[string]any{"collection": "okumalar", "name": "Yazar", "type": "text"}, nil)
+	call(t, cs, "update_page", map[string]any{"page": page.ID, "properties": map[string]string{"Yazar": "Frank Herbert"}}, nil)
+	res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "update_page", Arguments: map[string]any{"page": page.ID, "properties": map[string]string{"Yok": "x"}}})
+	if !res.IsError {
+		t.Fatal("a value of a property that is not there")
+	}
 	call(t, cs, "read_page", map[string]any{"page": page.ID}, &read)
-	if read.Title != "Dune (1965)" || read.Markdown != "# Notlar\n\n- çöl\n\n- baharat\n" {
+	if read.Properties["Yazar"] != "Frank Herbert" || read.Title != "Dune (1965)" || read.Markdown != "# Notlar\n\n- çöl\n\n- baharat\n" {
 		t.Fatalf("updated: %+v", read)
 	}
 	// a sub-page to the top of the collection, first
@@ -108,7 +118,7 @@ func TestMCPTools(t *testing.T) {
 		t.Fatal("not in the trash")
 	}
 	// a wrong name is an error the agent reads
-	res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "read_page", Arguments: map[string]any{"page": "yok"}})
+	res, _ = cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "read_page", Arguments: map[string]any{"page": "yok"}})
 	if !res.IsError {
 		t.Fatal("no error for a page that is not there")
 	}
