@@ -33,6 +33,7 @@ Alınmış kararlar (her belgede geçerlidir):
 | 11 | [Yol haritası](11-yol-haritasi.md) | Bizim editörü kurmanın adımları, sırasıyla |
 | 12 | [MyGo ekosistemi](12-mygo-ekosistemi.md) | MyGo için yazılmış kütüphaneler, işimize yarayanlar |
 | 13 | [İstekler](13-istekler.md) | Kullanırken çıkan istek ve düzeltmeler, önerilen sırasıyla |
+| 14 | [Ürün önerileri ve uyarılar](14-urun-onerileri.md) | Benzer uygulamalardan öneriler, riskler (Markdown'ı bozma, dosya izleme…), sıra |
 
 ## Kaynak etiketleri
 
