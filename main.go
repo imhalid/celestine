@@ -74,6 +74,10 @@ type app struct {
 
 	sidebarClosed bool
 
+	drag  dragState   // a page being dragged in the tree
+	rows  []treeEntry // the tree's rows this frame, top to bottom
+	treeR ui.Rect     // the tree's box, from its last frame
+
 	renaming      any // the page or collection whose row is a field, being renamed
 	renameText    string
 	renameFocused bool    // the field has had the focus: losing it keeps the name

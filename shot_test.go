@@ -107,3 +107,38 @@ func TestPolishShots(t *testing.T) {
 	_ = a
 	save("rename")
 }
+
+// TestDragShots draws a drag on its way: a line between rows, then a row lit
+// to take the page under it. Run with DRAG=dir.
+func TestDragShots(t *testing.T) {
+	dir := os.Getenv("DRAG")
+	if dir == "" {
+		t.Skip()
+	}
+	lib, ps, _, _ := dragLibrary(t)
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1180, 700)
+	tt.Advance(time.Second)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	r := a.treeR
+	x := r.X + 70
+	y0 := r.Y + float32(rowOf(a, ps["C"]))*rowH + rowH/2
+	tt.Press(x, y0)
+	for _, to := range []struct {
+		row  int
+		frac float32
+		name string
+	}{{rowOf(a, ps["A"]), 0.12, "drag-line"}, {rowOf(a, ps["A"]), 0.5, "drag-into"}} {
+		y := r.Y + (float32(to.row)+to.frac)*rowH
+		for k := 1; k <= 6; k++ {
+			tt.Move(x+float32(k)*6, y0+(y-y0)*float32(k)/6)
+			tt.Frame()
+		}
+		y0 = y
+		save(to.name)
+	}
+}

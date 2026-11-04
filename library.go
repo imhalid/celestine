@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -120,6 +121,7 @@ type Page struct {
 	Title    string
 	Created  time.Time
 	Modified time.Time // when its file was last written
+	Order    int       // its place among its siblings, from 1; 0: not yet placed (by creation)
 	Dir      string
 	Coll     *Collection
 	Parent   *Page
@@ -184,6 +186,7 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 		if p.Title == "" {
 			p.Title = e.Name()
 		}
+		fmt.Sscan(meta["order"], &p.Order)
 		if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
 			p.Created = t
 		} else if info, err := e.Info(); err == nil {
@@ -195,7 +198,7 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 		p.Children = readPages(pdir, c, p)
 		out = append(out, p)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Created.Before(out[j].Created) })
+	sortSiblings(out)
 	return out
 }
 
@@ -232,7 +235,11 @@ func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Page{Title: title, Created: time.Now().Truncate(time.Second), Dir: dir, Coll: c, Parent: parent}
+	siblings := c.Pages
+	if parent != nil {
+		siblings = parent.Children
+	}
+	p := &Page{Title: title, Created: time.Now().Truncate(time.Second), Dir: dir, Coll: c, Parent: parent, Order: lastOrder(siblings) + 1}
 	if err := p.Save(""); err != nil {
 		return nil, err
 	}
@@ -264,6 +271,9 @@ func (p *Page) Save(body string) error {
 	sb.WriteString("---\n")
 	sb.WriteString("title: " + quoteYAML(p.Title) + "\n")
 	sb.WriteString("created: " + p.Created.Format(time.RFC3339) + "\n")
+	if p.Order > 0 {
+		sb.WriteString(fmt.Sprintf("order: %d\n", p.Order))
+	}
 	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimLeft(body, "\n"))
 	if !strings.HasSuffix(body, "\n") {
@@ -461,4 +471,122 @@ func without(ps []*Page, p *Page) []*Page {
 		}
 	}
 	return out
+}
+
+// sortSiblings puts pages in their order: those placed by hand (Order) by
+// it, the others after them by when they were made.
+func sortSiblings(ps []*Page) {
+	sort.SliceStable(ps, func(i, j int) bool {
+		a, b := ps[i], ps[j]
+		switch {
+		case a.Order > 0 && b.Order > 0:
+			return a.Order < b.Order
+		case a.Order > 0 || b.Order > 0:
+			return a.Order > 0
+		}
+		return a.Created.Before(b.Created)
+	})
+}
+
+func lastOrder(ps []*Page) int {
+	n := 0
+	for _, p := range ps {
+		n = max(n, p.Order)
+	}
+	return max(n, len(ps))
+}
+
+// Contains reports whether q is p or a page under it.
+func (p *Page) Contains(q *Page) bool {
+	for ; q != nil; q = q.Parent {
+		if q == p {
+			return true
+		}
+	}
+	return false
+}
+
+// MovePage puts p in collection c, under parent (nil: at the top), at index
+// among its new siblings: its folder - sub-pages and all - moves when its
+// place in the tree changes, and the order of the siblings it left and joined
+// is written. A page cannot go under itself, nor under a page of a
+// collection without sub-pages.
+func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) error {
+	if parent != nil && p.Contains(parent) {
+		return errors.New("a page cannot go under itself")
+	}
+	if parent != nil && !c.SubPages {
+		return errors.New("this collection has no sub-pages")
+	}
+	from := &p.Coll.Pages
+	if p.Parent != nil {
+		from = &p.Parent.Children
+	}
+	to := &c.Pages
+	container := c.Dir
+	if parent != nil {
+		to, container = &parent.Children, parent.Dir
+	}
+	at := slices.Index(*from, p)
+	*from = slices.Delete(*from, at, at+1)
+	if from == to && at < index {
+		index--
+	}
+	index = max(0, min(index, len(*to)))
+	if filepath.Dir(p.Dir) != container {
+		dir, err := uniqueDir(container, filepath.Base(p.Dir))
+		if err == nil {
+			os.Remove(dir) // made only to find a free name; the rename takes its place
+			err = os.Rename(p.Dir, dir)
+		}
+		if err != nil {
+			*from = slices.Insert(*from, at, p) // as it was
+			return err
+		}
+		p.relocate(p.Dir, dir)
+	}
+	p.Parent = parent
+	p.setColl(c)
+	*to = slices.Insert(*to, index, p)
+	if err := renumber(*to); err != nil {
+		return err
+	}
+	if from != to {
+		return renumber(*from)
+	}
+	return nil
+}
+
+// relocate rewrites the folders of p and the pages under it after their
+// folder moved from old to now.
+func (p *Page) relocate(old, now string) {
+	p.Dir = now + strings.TrimPrefix(p.Dir, old)
+	for _, ch := range p.Children {
+		ch.relocate(old, now)
+	}
+}
+
+func (p *Page) setColl(c *Collection) {
+	p.Coll = c
+	for _, ch := range p.Children {
+		ch.setColl(c)
+	}
+}
+
+// renumber writes the order of siblings, as they stand, into the pages whose order changed.
+func renumber(ps []*Page) error {
+	for i, p := range ps {
+		if p.Order == i+1 {
+			continue
+		}
+		p.Order = i + 1
+		body, err := p.Body()
+		if err != nil {
+			return err
+		}
+		if err := p.Save(body); err != nil {
+			return err
+		}
+	}
+	return nil
 }

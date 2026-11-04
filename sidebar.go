@@ -95,7 +95,16 @@ func (a *app) sidebar(c *ui.Context) float32 {
 				}
 			})
 			ui.Scroll(c).Grow(1).Children(func() {
-				ui.Column(c).Padding(0, 8, 16, 8).Children(func() {
+				if a.drag.dropped > 0 {
+					a.drag.dropped--
+				}
+				tree := ui.Column(c).Padding(0, 8, 16, 8)
+				a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
+				a.drag.x -= 8 // the rows start inside the padding
+				tree.DrawOver(a.drawDrag)
+				a.rows = a.rows[:0]
+				defer a.aim()
+				tree.Children(func() {
 					for _, coll := range a.lib.Collections {
 						a.collectionRow(c, coll)
 						c.Key("coll-kids:" + coll.Dir)
@@ -138,6 +147,16 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		Label(s.label).Role(ui.RoleButton).Transition(rowMove).ContextMenu(s.menu)
 	hover := r.Hovered()
 	renaming := s.item != nil && a.renaming == s.item
+	switch x := s.item.(type) {
+	case *Page:
+		a.rows = append(a.rows, treeEntry{page: x})
+		a.dragRow(r, x)
+		if a.drag.page == x {
+			r.Opacity(0.4)
+		}
+	case *Collection:
+		a.rows = append(a.rows, treeEntry{coll: x})
+	}
 	switch {
 	case renaming:
 		r.Background(t.Background).Border(1, t.Accent)
@@ -163,7 +182,11 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 			add = a.revealButton(c, iconPlus, "Ekle: "+s.name, hover)
 		}
 	})
-	return r.Clicked() && !chev && !add && !renaming, chev, add
+	clicked := r.Clicked()
+	if clicked && a.drag.dropped > 0 { // the press was a drag, not a click
+		clicked = false
+	}
+	return clicked && !chev && !add && !renaming, chev, add
 }
 
 // startRename turns item's row into a field holding its name.
