@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The collection's page: its name, its views (a list grouped by date, a
@@ -27,11 +28,7 @@ func (a *app) collectionView(c *ui.Context) {
 	coll := a.coll
 	v := coll.View()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Row(c).Children(func() {
-			ui.Box(c).Padding(3, 10).Radius(999).Background(t.Surface).Children(func() {
-				ui.Text(c, "Koleksiyon").FontSize(12).TextColor(t.TextMuted)
-			})
-		})
+		ui.Row(c).Children(func() { ryugo.Badge(c, "Koleksiyon", ryugo.ToneNeutral) })
 		c.Key("coll-name:" + coll.Dir)
 		name := ui.TextInputBase(c, &a.collName).Label("Koleksiyon adı").FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 		if name.Changed() {
@@ -45,46 +42,25 @@ func (a *app) collectionView(c *ui.Context) {
 		}
 		// The toolbar: the views, then the search and a new page.
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			// The views as a segmented control: a raised pill behind the one shown,
-			// which slides to the one chosen on a spring, as Mizan's Segmented does.
+			// The views: Ryugo's segmented control, its pill sliding to the one chosen.
 			sel := 0
+			labels := make([]string, len(coll.Views))
 			for i := range coll.Views {
+				labels[i] = coll.Views[i].Label
 				if &coll.Views[i] == v {
 					sel = i
 				}
 			}
-			track := ui.Row(c).Padding(3).Radius(9).Background(t.Surface)
-			px := track.AnimateTo("pill-x", float32(sel)*tabW, springPill)
-			track.Draw(func(p *ui.Painter, r ui.Rect) {
-				pill := ui.Rect{X: r.X + 3 + px, Y: r.Y + 3, W: tabW, H: r.H - 6}
-				p.Shadow(pill, 6, 0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.12))
-				p.Fill(pill, t.Background, 6)
-			})
-			track.Children(func() {
-				for i := range coll.Views {
-					vw := &coll.Views[i]
-					c.Key("view:" + vw.ID)
-					tab := ui.Row(c).Width(tabW).Height(28).Gap(6).Justify(ui.Center).AlignItems(ui.Center).Label("Görünüm: " + vw.Label).Role(ui.RoleButton)
-					tone := t.TextMuted
-					if vw == v {
-						tone = t.Text
-					}
-					tab.Children(func() {
-						ui.Icon(c, viewIcon(vw.Type)).Width(14).Height(14).TextColor(tone)
-						ui.Text(c, vw.Label).FontSize(13).FontWeight(560).TextColor(tone)
-					})
-					if tab.Clicked() && vw != v {
-						if err := coll.SetView(vw.ID); err != nil {
-							a.saveErr = err.Error()
-						}
-					}
+			was := sel
+			ryugo.Segmented(c.Key("views:"+coll.Dir), &sel, labels, ryugo.SegmentedOptions{Label: "Görünüm"})
+			if sel != was {
+				if err := coll.SetView(coll.Views[sel].ID); err != nil {
+					a.saveErr = err.Error()
 				}
-			})
+			}
 			ui.Spacer(c)
-			ui.Box(c).Width(220).Padding(6, 10).Radius(8).Border(1, t.Border).Children(func() {
-				ui.TextInputBase(c, &a.search).Label("Ara").Placeholder("Bu koleksiyonda ara…").FontSize(13)
-			})
-			if ui.Button(c, "+ Yeni sayfa").Label("Yeni sayfa").Clicked() {
+			ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true}).Width(220)
+			if ryugo.Button(c, "Yeni sayfa", ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
 				a.newPage(coll, nil)
 			}
 		})
@@ -110,17 +86,6 @@ func (a *app) collectionView(c *ui.Context) {
 		})
 	})
 }
-
-func viewIcon(typ string) *ui.SVG {
-	if typ == "table" {
-		return iconTable
-	}
-	return iconList
-}
-
-const tabW = 96
-
-var springPill = ui.Animation{Spring: ui.SpringOptions{Duration: 280 * time.Millisecond, Bounce: 0.14}}
 
 // viewSwap is a view coming in: it fades in, a little lower first.
 var viewSwap = ui.ElementTransition{Duration: 220 * time.Millisecond, Enter: &ui.Motion{Opacity: 0, Y: 8}}

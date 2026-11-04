@@ -2,7 +2,10 @@ module github.com/imhalid/ryudit
 
 go 1.27.3
 
-require github.com/egoist/mygo v0.7.4
+require (
+	github.com/egoist/mygo v0.7.4
+	github.com/imhalid/ryu-go v0.1.1-0.20261104162537-81592d21a38d
+)
 
 require (
 	github.com/ebitengine/purego v0.11.1 // indirect

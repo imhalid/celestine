@@ -50,7 +50,7 @@ func TestViewShots(t *testing.T) {
 	}
 	tt.Advance(100 * time.Millisecond)
 	save("list")
-	tt.Click("Görünüm: Tablo")
+	tt.Click("Tablo")
 	tt.Advance(100 * time.Millisecond)
 	save("table")
 }
@@ -97,7 +97,7 @@ func TestPolishShots(t *testing.T) {
 		f.Close()
 	}
 	tt.Advance(time.Second)
-	tt.Click("Görünüm: Tablo")
+	tt.Click("Tablo")
 	tt.Advance(90 * time.Millisecond)
 	save("pill-mid")
 	tt.Advance(time.Second)
@@ -139,6 +139,12 @@ func TestDragShots(t *testing.T) {
 			tt.Frame()
 		}
 		y0 = y
+		tt.Advance(400 * time.Millisecond)
 		save(to.name)
 	}
+	tt.Release(x+36, y0)
+	tt.Advance(120 * time.Millisecond)
+	save("drag-land")
+	tt.Advance(300 * time.Millisecond)
+	save("drag-rise")
 }

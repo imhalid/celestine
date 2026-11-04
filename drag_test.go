@@ -107,8 +107,20 @@ func dragTo(t *testing.T, a *app, tt *ui.Tester, from *Page, i int, frac float32
 	r := a.treeR
 	x := r.X + 70
 	y0 := r.Y + float32(row(from))*rowH + rowH/2
+	// Picked up, the page's rows close their room: the rows below come up.
+	if f := row(from); i > f {
+		n := 0
+		for _, e := range a.rows {
+			if e.page != nil && from.Contains(e.page) {
+				n++
+			}
+		}
+		i -= n
+	}
 	y1 := r.Y + (float32(i)+frac)*rowH
 	tt.Press(x, y0)
+	tt.Move(x, y0+8) // picked up: it may go back to where it was
+	tt.Frame()
 	for k := 1; k <= 8; k++ {
 		tt.Move(x, y0+(y1-y0)*float32(k)/8)
 		tt.Frame()
@@ -152,10 +164,15 @@ func TestDragInTree(t *testing.T) {
 	if ps["A"].Coll != two || ps["C"].Coll != two || !equal(order(one.Pages), []string{"B"}) {
 		t.Fatalf("to a collection: %v / %v", order(one.Pages), order(two.Pages))
 	}
-	// A page cannot be dropped under itself: nothing happens.
-	dragTo(t, a, tt, ps["B"], rowOf(a, ps["B1"]), 0.5)
-	if ps["B"].Parent != nil || ps["B1"].Parent != ps["B"] {
-		t.Fatal("a page went under its own sub-page")
+	// Let go where it was, a page stays: the room it left is where it lands.
+	ps["B"].Open = true
+	tt.Advance(time.Second)
+	dragTo(t, a, tt, ps["B"], rowOf(a, ps["B"]), 0.1)
+	if ps["B"].Parent != nil || ps["B1"].Parent != ps["B"] || !equal(order(one.Pages), []string{"B"}) {
+		t.Fatal("the page moved")
+	}
+	if a.drag.landing != nil || a.moving() {
+		t.Fatal("the copy never landed")
 	}
 }
 

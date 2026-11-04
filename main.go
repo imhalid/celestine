@@ -16,6 +16,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
@@ -100,6 +101,7 @@ type app struct {
 	editAt   time.Time
 	dirty    bool
 	saveErr  string
+	notice   string // a toast to show
 	boxes    []richtext.ParagraphBox
 	focused  bool
 	clock    func() time.Time
@@ -201,6 +203,7 @@ func (a *app) flush() {
 }
 
 func (a *app) view(c *ui.Context) {
+	ryugo.Root(c, ryugo.Options{}) // Ryugo's theme, its components' tokens
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
@@ -244,6 +247,11 @@ func (a *app) view(c *ui.Context) {
 			a.status(c)
 		})
 	})
+	ryugo.Toaster(c)
+	if a.notice != "" {
+		c.Toast(a.notice)
+		a.notice = ""
+	}
 	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
 		a.autosave(c)

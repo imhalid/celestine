@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The window's chrome: our own title bar (the system's is hidden, its window
@@ -34,7 +35,26 @@ var (
 		Exit:  &ui.Motion{Collapse: true, Opacity: 0},
 	}
 	fadeQuick = ui.Animation{Duration: 140 * time.Millisecond}
+	// rowStill and branchStill are the rows and branches in the frame a drop
+	// applies: they are already shown where the drop puts them.
+	rowStill    = ui.ElementTransition{Animation: rowMove.Animation, Colors: true}
+	branchStill = ui.ElementTransition{Animation: branch.Animation, Enter: branch.Enter, Exit: branch.Exit}
 )
+
+// branch is the column of a collection's or a page's children: clipped as
+// it unfolds and folds, but not while rows are dragged out of it and in.
+func (a *app) branch(c *ui.Context) ui.Element {
+	e := ui.Column(c)
+	if a.drag.settle {
+		e.Transition(branchStill)
+	} else {
+		e.Transition(branch)
+	}
+	if !a.moving() {
+		e.Clip()
+	}
+	return e
+}
 
 // titleBar is the bar across the top of the content: room for the window's
 // controls when the sidebar is folded, the sidebar's button and where we are.
@@ -98,18 +118,18 @@ func (a *app) sidebar(c *ui.Context) float32 {
 				if a.drag.dropped > 0 {
 					a.drag.dropped--
 				}
+				a.settleDrop()
 				tree := ui.Column(c).Padding(0, 8, 16, 8)
 				a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
 				a.drag.x -= 8 // the rows start inside the padding
-				tree.DrawOver(a.drawDrag)
+				a.well(c, tree)
 				a.rows = a.rows[:0]
-				defer a.aim()
 				tree.Children(func() {
 					for _, coll := range a.lib.Collections {
 						a.collectionRow(c, coll)
 						c.Key("coll-kids:" + coll.Dir)
 						if coll.Open && len(coll.Pages) > 0 {
-							ui.Column(c).Transition(branch).Clip().Children(func() {
+							a.branch(c).Children(func() {
 								for _, p := range coll.Pages {
 									a.pageRow(c, p)
 								}
@@ -117,6 +137,8 @@ func (a *app) sidebar(c *ui.Context) float32 {
 						}
 					}
 				})
+				a.aim()
+				a.ghost(c)
 			})
 		})
 	})
@@ -144,15 +166,20 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
 	c.Key(s.key)
 	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
-		Label(s.label).Role(ui.RoleButton).Transition(rowMove).ContextMenu(s.menu)
-	hover := r.Hovered()
+		Label(s.label).Role(ui.RoleButton).ContextMenu(s.menu)
+	if a.drag.settle { // the drop: the rows are where they were shown
+		r.Transition(rowStill)
+	} else {
+		r.Transition(rowMove)
+	}
+	hover := r.Hovered() && !a.moving()
 	renaming := s.item != nil && a.renaming == s.item
+	a.placeRow(c, r, len(a.rows), s.item)
 	switch x := s.item.(type) {
 	case *Page:
 		a.rows = append(a.rows, treeEntry{page: x})
-		a.dragRow(r, x)
-		if a.drag.page == x {
-			r.Opacity(0.4)
+		if !renaming {
+			a.dragRow(c, r, x)
 		}
 	case *Collection:
 		a.rows = append(a.rows, treeEntry{coll: x})
@@ -288,7 +315,7 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 	}
 	c.Key("kids:" + p.Dir)
 	if p.Open && len(p.Children) > 0 {
-		ui.Column(c).Transition(branch).Clip().Children(func() {
+		a.branch(c).Children(func() {
 			for _, ch := range p.Children {
 				a.pageRow(c, ch)
 			}
@@ -310,6 +337,7 @@ func (a *app) trashPage(p *Page) {
 		a.saveErr = err.Error()
 		return
 	}
+	a.notice = "“" + p.Title + "” çöpe taşındı"
 	if open {
 		a.page, a.doc = nil, nil
 		if p.Parent != nil {
@@ -330,6 +358,7 @@ func (a *app) trashCollection(c *Collection) {
 		a.saveErr = err.Error()
 		return
 	}
+	a.notice = "“" + c.Name + "” çöpe taşındı"
 	if a.coll == c {
 		a.coll = nil
 	}
@@ -366,7 +395,8 @@ func (a *app) chevron(c *ui.Context, has, open bool) bool {
 func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	t := c.Theme()
 	b := ui.Box(c).Width(26).Height(26).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
-		Label(label).Role(ui.RoleButton).Tooltip(label).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
+		Label(label).Role(ui.RoleButton).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
+	ryugo.Tooltip(c, b, label)
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)
 	} else {

@@ -92,7 +92,7 @@ func TestSearch(t *testing.T) {
 
 func TestTableViewSortsAndRemembers(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
-	if err := tt.Click("Görünüm: Tablo"); err != nil {
+	if err := tt.Click("Tablo"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
