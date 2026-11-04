@@ -67,7 +67,7 @@ func TestLibraryOnDisk(t *testing.T) {
 func TestSidebarMakesSubPage(t *testing.T) {
 	a, tt := newTestApp(t, "gövde")
 	parent := a.page
-	if err := tt.Click("Alt sayfa: Sayfa"); err != nil {
+	if err := tt.Click("Ekle: Sayfa"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(50 * time.Millisecond)

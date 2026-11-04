@@ -42,7 +42,6 @@ const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler
 const (
 	columnMax = 720
 	pageTop   = 48
-	sidebarW  = 252
 )
 
 type caretKind int
@@ -72,7 +71,10 @@ type app struct {
 	coll     *Collection // the collection whose page is shown, instead of a page
 	collName string      // its name field's text
 	search   string      // its search field's text
-	fresh    bool        // the page was just made: its title takes the focus
+
+	sidebarClosed bool
+	sidebarShown  float32 // its width this frame, on the way to open or closed
+	fresh         bool    // the page was just made: its title takes the focus
 
 	theme *richtext.Theme // the editor's, resolved: what locate lays paragraphs out with
 	font  ui.Font
@@ -141,7 +143,8 @@ func main() {
 	a := newApp(lib)
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{{Role: mygo.RoleAppMenu}, {Role: mygo.RoleEditMenu}}))
-		mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, Content: ui.View(a.view)})
+		mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
@@ -204,6 +207,9 @@ func (a *app) view(c *ui.Context) {
 	}
 
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(t.Background)
+	if root.Shortcut(ui.Cmd, ui.KeyBackslash) {
+		a.toggleSidebar()
+	}
 	if root.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
 		a.caretKind = (a.caretKind + 1) % 2
 	}
@@ -211,9 +217,11 @@ func (a *app) view(c *ui.Context) {
 		a.newPage(a.page.Coll, nil)
 	}
 	root.Children(func() {
-		a.sidebar(c)
+		shown := a.sidebar(c)
+		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
-			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop, 32, 0, 32).Children(func() {
+			a.titleBar(c, shown)
+			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32).Children(func() {
 				if a.coll != nil {
 					a.focused = false
 					a.collectionView(c)
@@ -236,13 +244,7 @@ func (a *app) view(c *ui.Context) {
 
 // pageView is the open page: its collection, its title, its text.
 func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
-	t := c.Theme()
-	p := a.page
-	ui.Row(c).Children(func() {
-		ui.Box(c).Padding(3, 10).Radius(999).Background(t.Surface).Children(func() {
-			ui.Text(c, a.crumbs()).FontSize(12).TextColor(t.TextMuted)
-		})
-	})
+	p := a.page // where it is shows in the title bar
 	c.Key("title:" + p.Dir)
 	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
 	if a.fresh {
@@ -277,127 +279,6 @@ func (a *app) crumbs() string {
 		parts = append([]string{q.Title}, parts...)
 	}
 	return strings.Join(append([]string{a.page.Coll.Name}, parts...), "  ›  ")
-}
-
-// sidebar lists the collections and their pages as a tree: a collection's
-// + makes a page in it, a page's + a page under it.
-func (a *app) sidebar(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Width(sidebarW).Background(t.Surface).Padding(18, 10, 10, 10).Gap(1).Children(func() {
-		ui.Row(c).Padding(0, 8, 8, 8).Children(func() {
-			ui.Text(c, "KOLEKSİYONLAR").FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
-			if a.plus(c, "Yeni koleksiyon", true) {
-				if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
-					a.newPage(coll, nil)
-				} else {
-					a.saveErr = err.Error()
-				}
-			}
-		})
-		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).Gap(1).Children(func() {
-				for _, coll := range a.lib.Collections {
-					a.collectionRow(c, coll)
-					if coll.Open {
-						for _, p := range coll.Pages {
-							a.pageRow(c, p)
-						}
-					}
-				}
-			})
-		})
-	})
-}
-
-func (a *app) collectionRow(c *ui.Context, coll *Collection) {
-	t := c.Theme()
-	c.Key("coll:" + coll.Dir)
-	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4).Gap(4).Radius(6).AlignItems(ui.Center).Label("Koleksiyon: " + coll.Name).Role(ui.RoleButton)
-	hover := row.Hovered()
-	switch {
-	case coll == a.coll:
-		row.Background(t.Selection)
-	case hover:
-		row.Background(t.SurfaceHover)
-	}
-	clicked := false
-	row.Children(func() {
-		if a.chevron(c, len(coll.Pages) > 0, coll.Open) {
-			coll.Open = !coll.Open
-			clicked = true
-		}
-		ui.Text(c, coll.Name).FontSize(13.5).FontWeight(600).MaxLines(1).Grow(1)
-		if a.plus(c, "Yeni sayfa: "+coll.Name, hover) {
-			a.newPage(coll, nil)
-			clicked = true
-		}
-	})
-	if row.Clicked() && !clicked {
-		a.openCollection(coll)
-	}
-}
-
-func (a *app) pageRow(c *ui.Context, p *Page) {
-	t := c.Theme()
-	c.Key("page:" + p.Dir)
-	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4+float32(p.Depth()+1)*14).Gap(4).Radius(6).AlignItems(ui.Center)
-	hover := row.Hovered()
-	switch {
-	case p == a.page && a.coll == nil:
-		row.Background(t.Selection)
-	case hover:
-		row.Background(t.SurfaceHover)
-	}
-	handled := false
-	row.Children(func() {
-		if a.chevron(c, len(p.Children) > 0, p.Open) {
-			p.Open = !p.Open
-			handled = true
-		}
-		ui.Text(c, p.Title).FontSize(13.5).MaxLines(1).Grow(1)
-		if p.Coll.SubPages && a.plus(c, "Alt sayfa: "+p.Title, hover) {
-			a.newPage(p.Coll, p)
-			handled = true
-		}
-	})
-	if row.Clicked() && !handled {
-		a.open(p)
-	}
-	if p.Open {
-		for _, ch := range p.Children {
-			a.pageRow(c, ch)
-		}
-	}
-}
-
-// chevron opens and closes a row; it holds its room when there is nothing below.
-func (a *app) chevron(c *ui.Context, has, open bool) bool {
-	t := c.Theme()
-	glyph := "▸"
-	if open {
-		glyph = "▾"
-	}
-	b := ui.Box(c).Width(16).Height(20).AlignItems(ui.Center).Justify(ui.Center)
-	b.Children(func() {
-		if has {
-			ui.Text(c, glyph).FontSize(11).TextColor(t.TextMuted)
-		}
-	})
-	return has && b.Clicked()
-}
-
-// plus is a small + button; shown only when the row is hovered (or always).
-func (a *app) plus(c *ui.Context, label string, shown bool) bool {
-	t := c.Theme()
-	b := ui.Box(c).Width(22).Height(22).Radius(5).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton)
-	if b.Hovered() {
-		b.Background(t.SurfacePressed)
-	}
-	if !shown {
-		b.Opacity(0)
-	}
-	b.Children(func() { ui.Text(c, "+").FontSize(15).TextColor(t.TextMuted) })
-	return b.Clicked()
 }
 
 // track notes what the user did since the last frame: letters written (for
