@@ -1,0 +1,8 @@
+# working documents the editor saves as you type
+/belge.md
+*.md.tmp
+
+# build output
+/ryudit
+*.test
+.DS_Store
