@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 // The library is a folder of plain files, laid out as Locus lays notes out,
@@ -35,22 +37,97 @@ type Library struct {
 }
 
 type Collection struct {
-	Name     string  `json:"name"`
-	Icon     string  `json:"icon,omitempty"`
-	SubPages bool    `json:"subPages"`
-	Dir      string  `json:"-"`
-	Pages    []*Page `json:"-"` // top-level pages, oldest first
-	Open     bool    `json:"-"` // shown expanded in the sidebar
+	Name     string `json:"name"`
+	Icon     string `json:"icon,omitempty"`
+	SubPages bool   `json:"subPages"`
+	// Views are the ways the collection's page shows its pages, the first of
+	// them by default; ActiveView is the one shown last.
+	Views      []View  `json:"views,omitempty"`
+	ActiveView string  `json:"activeView,omitempty"`
+	Dir        string  `json:"-"`
+	Pages      []*Page `json:"-"` // top-level pages, oldest first
+	Open       bool    `json:"-"` // shown expanded in the sidebar
+}
+
+// View is a way of showing a collection's pages: a list grouped by date or a
+// table, sorted by a field.
+type View struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Type  string `json:"type"` // "list" | "table"
+	Sort  string `json:"sort"` // "title" | "created" | "modified"
+	Desc  bool   `json:"desc,omitempty"`
+}
+
+// defaultViews are the views a collection starts with.
+func defaultViews() []View {
+	return []View{
+		{ID: "list", Label: "Liste", Type: "list", Sort: "modified", Desc: true},
+		{ID: "table", Label: "Tablo", Type: "table", Sort: "title"},
+	}
+}
+
+// View returns the view shown: the active one, else the first.
+func (c *Collection) View() *View {
+	if len(c.Views) == 0 {
+		c.Views = defaultViews()
+	}
+	for i := range c.Views {
+		if c.Views[i].ID == c.ActiveView {
+			return &c.Views[i]
+		}
+	}
+	return &c.Views[0]
+}
+
+// SetView shows view id and keeps the choice.
+func (c *Collection) SetView(id string) error {
+	c.ActiveView = id
+	return c.save()
+}
+
+// SetSort sorts view v by field, the other way round when it already is.
+func (c *Collection) SetSort(v *View, field string) error {
+	if v.Sort == field {
+		v.Desc = !v.Desc
+	} else {
+		v.Sort, v.Desc = field, field != "title"
+	}
+	return c.save()
+}
+
+// Rename names the collection; its folder keeps its name.
+func (c *Collection) Rename(name string) error {
+	c.Name = name
+	return c.save()
+}
+
+// All is every page of the collection, sub-pages after their parent.
+func (c *Collection) All() []*Page {
+	var out []*Page
+	var walk func([]*Page)
+	walk = func(ps []*Page) {
+		for _, p := range ps {
+			out = append(out, p)
+			walk(p.Children)
+		}
+	}
+	walk(c.Pages)
+	return out
 }
 
 type Page struct {
 	Title    string
 	Created  time.Time
+	Modified time.Time // when its file was last written
 	Dir      string
 	Coll     *Collection
 	Parent   *Page
 	Children []*Page
 	Open     bool // shown expanded in the sidebar
+
+	excerpt   string // the start of its text, for a list
+	excerptOf time.Time
 }
 
 const collectionFile = "collection.json"
@@ -111,6 +188,9 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 			p.Created = t
 		} else if info, err := e.Info(); err == nil {
 			p.Created = info.ModTime()
+		}
+		if info, err := os.Stat(filepath.Join(pdir, "index.md")); err == nil {
+			p.Modified = info.ModTime()
 		}
 		p.Children = readPages(pdir, c, p)
 		out = append(out, p)
@@ -189,10 +269,32 @@ func (p *Page) Save(body string) error {
 	if !strings.HasSuffix(body, "\n") {
 		sb.WriteString("\n")
 	}
-	return writeAtomic(p.file(), []byte(sb.String()))
+	if err := writeAtomic(p.file(), []byte(sb.String())); err != nil {
+		return err
+	}
+	p.Modified = time.Now()
+	return nil
 }
 
-// SetTitle renames the page; its folder keeps its name.
+// Excerpt is the start of the page's text, plain, on one line: what a list
+// shows under its title. It is read again only when the page changed.
+func (p *Page) Excerpt() string {
+	if p.excerptOf.Equal(p.Modified) && !p.Modified.IsZero() {
+		return p.excerpt
+	}
+	body, err := p.Body()
+	if err != nil {
+		return ""
+	}
+	text := strings.Join(strings.Fields(richtext.ParseMarkdown(body).PlainText()), " ")
+	if r := []rune(text); len(r) > 180 {
+		text = strings.TrimSpace(string(r[:180])) + "…"
+	}
+	p.excerpt, p.excerptOf = text, p.Modified
+	return text
+}
+
+// SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
 	body, err := p.Body()
 	if err != nil {

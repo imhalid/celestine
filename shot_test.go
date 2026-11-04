@@ -35,3 +35,22 @@ func TestShot(t *testing.T) {
 	png.Encode(f, tt.Image())
 	f.Close()
 }
+
+// TestViewShots draws a collection's list and table: run with VIEWS=dir.
+func TestViewShots(t *testing.T) {
+	dir := os.Getenv("VIEWS")
+	if dir == "" {
+		t.Skip()
+	}
+	_, tt, _ := viewsLibrary(t)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Advance(100 * time.Millisecond)
+	save("list")
+	tt.Click("Görünüm: Tablo")
+	tt.Advance(100 * time.Millisecond)
+	save("table")
+}

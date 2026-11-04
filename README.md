@@ -31,7 +31,8 @@ divider (richtext has code blocks, but no shortcut for them).
 
 | Path | What |
 | --- | --- |
-| `library.go` | The library on disk: collections, pages, sub-pages, front matter; no UI |
+| `library.go` | The library on disk: collections, their views, pages, sub-pages, front matter; no UI |
+| `views.go` | A collection's page: its views (a list grouped by date, a sortable table), search, a new page |
 | `main.go` | The window: the sidebar tree, the page (its collection, title, MyGo's rich text editor), autosave |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |
 | `slime.go`, `mizan.go` | The two carets |

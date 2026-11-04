@@ -68,7 +68,11 @@ type app struct {
 	doc   *richtext.Document // its text
 	docs  map[*Page]*richtext.Document
 	title string // the title field's text
-	fresh bool   // the page was just made: its title takes the focus
+
+	coll     *Collection // the collection whose page is shown, instead of a page
+	collName string      // its name field's text
+	search   string      // its search field's text
+	fresh    bool        // the page was just made: its title takes the focus
 
 	theme *richtext.Theme // the editor's, resolved: what locate lays paragraphs out with
 	font  ui.Font
@@ -146,6 +150,7 @@ func main() {
 
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
+	a.coll = nil
 	if p == a.page {
 		return
 	}
@@ -209,6 +214,11 @@ func (a *app) view(c *ui.Context) {
 		a.sidebar(c)
 		ui.Column(c).Grow(1).Children(func() {
 			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop, 32, 0, 32).Children(func() {
+				if a.coll != nil {
+					a.focused = false
+					a.collectionView(c)
+					return
+				}
 				if a.page == nil {
 					ui.Text(c, "Soldan bir sayfa seç ya da + ile yeni bir sayfa aç.").TextColor(t.TextMuted)
 					return
@@ -218,7 +228,7 @@ func (a *app) view(c *ui.Context) {
 			a.status(c)
 		})
 	})
-	if a.doc != nil {
+	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
 		a.autosave(c)
 	}
@@ -302,14 +312,20 @@ func (a *app) sidebar(c *ui.Context) {
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	t := c.Theme()
 	c.Key("coll:" + coll.Dir)
-	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4).Gap(4).Radius(6).AlignItems(ui.Center)
+	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4).Gap(4).Radius(6).AlignItems(ui.Center).Label("Koleksiyon: " + coll.Name).Role(ui.RoleButton)
 	hover := row.Hovered()
-	if hover {
+	switch {
+	case coll == a.coll:
+		row.Background(t.Selection)
+	case hover:
 		row.Background(t.SurfaceHover)
 	}
 	clicked := false
 	row.Children(func() {
-		a.chevron(c, len(coll.Pages) > 0, coll.Open)
+		if a.chevron(c, len(coll.Pages) > 0, coll.Open) {
+			coll.Open = !coll.Open
+			clicked = true
+		}
 		ui.Text(c, coll.Name).FontSize(13.5).FontWeight(600).MaxLines(1).Grow(1)
 		if a.plus(c, "Yeni sayfa: "+coll.Name, hover) {
 			a.newPage(coll, nil)
@@ -317,7 +333,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 		}
 	})
 	if row.Clicked() && !clicked {
-		coll.Open = !coll.Open
+		a.openCollection(coll)
 	}
 }
 
@@ -327,7 +343,7 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4+float32(p.Depth()+1)*14).Gap(4).Radius(6).AlignItems(ui.Center)
 	hover := row.Hovered()
 	switch {
-	case p == a.page:
+	case p == a.page && a.coll == nil:
 		row.Background(t.Selection)
 	case hover:
 		row.Background(t.SurfaceHover)
@@ -458,7 +474,11 @@ func (a *app) status(c *ui.Context) {
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
 	ui.Row(c).Padding(10, 18).Justify(ui.End).Children(func() {
 		where := "ryudit"
-		if a.page != nil {
+		if a.coll != nil {
+			if rel, err := filepath.Rel(a.lib.Root, filepath.Join(a.coll.Dir, collectionFile)); err == nil {
+				where = rel
+			}
+		} else if a.page != nil {
 			if rel, err := filepath.Rel(a.lib.Root, a.page.file()); err == nil {
 				where = rel
 			}
