@@ -165,3 +165,26 @@ func TestDragShots(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	save("drag-rise")
 }
+
+// TestTrashShots draws the toast after a page is thrown away and the
+// trash: run with TRASH=dir.
+func TestTrashShots(t *testing.T) {
+	dir := os.Getenv("TRASH")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt, coll := viewsLibrary(t)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	a.trashPage(coll.Pages[1])
+	tt.Advance(700 * time.Millisecond)
+	save("toast")
+	a.lib.TrashCollection(coll)
+	a.lib.NewCollection("Notlar")
+	tt.Click("Çöp")
+	tt.Advance(time.Second)
+	save("trash")
+}

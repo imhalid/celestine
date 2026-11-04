@@ -74,6 +74,8 @@ func (a *app) titleBar(c *ui.Context, sidebarShown float32) {
 // location is where the content is: the collection, and the pages down to the open one.
 func (a *app) location() string {
 	switch {
+	case a.trashOpen:
+		return "Çöp"
 	case a.coll != nil:
 		return a.coll.Name
 	case a.page != nil:
@@ -140,6 +142,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 				a.aim()
 				a.ghost(c)
 			})
+			a.trashRow(c)
 		})
 	})
 	return w
@@ -333,11 +336,12 @@ func (a *app) trashPage(p *Page) {
 	if open {
 		a.flush()
 	}
-	if err := a.lib.TrashPage(p); err != nil {
+	item, err := a.lib.TrashPage(p)
+	if err != nil {
 		a.saveErr = err.Error()
 		return
 	}
-	a.notice = "“" + p.Title + "” çöpe taşındı"
+	a.trashed = item
 	if open {
 		a.page, a.doc = nil, nil
 		if p.Parent != nil {
@@ -354,11 +358,12 @@ func (a *app) trashCollection(c *Collection) {
 		a.flush()
 		a.page, a.doc = nil, nil
 	}
-	if err := a.lib.TrashCollection(c); err != nil {
+	item, err := a.lib.TrashCollection(c)
+	if err != nil {
 		a.saveErr = err.Error()
 		return
 	}
-	a.notice = "“" + c.Name + "” çöpe taşındı"
+	a.trashed = item
 	if a.coll == c {
 		a.coll = nil
 	}

@@ -512,48 +512,226 @@ func writeAtomic(path string, data []byte) error {
 // folder of the library, so nothing is lost and they can be put back by hand.
 const trashDir = ".cop"
 
+// trashNote is the file a thrown-away folder keeps in it: what it was and
+// where it was, to put it back there.
+const trashNote = ".trashed.json"
+
+// TrashItem is a page or a collection in the trash.
+type TrashItem struct {
+	Kind    string    `json:"kind"` // "page" | "collection"
+	Title   string    `json:"title"`
+	From    string    `json:"from"`            // its folder, from the library's root
+	Where   string    `json:"where,omitempty"` // where it was, to show: its collection and the pages above it
+	Trashed time.Time `json:"trashed"`
+	Dir     string    `json:"-"` // its folder in the trash
+}
+
 // trash moves dir into the library's trash, under a name that keeps when it
-// went and what it was.
-func (l *Library) trash(dir string) error {
+// went and what it was, with a note of where it was.
+func (l *Library) trash(dir string, item TrashItem) (*TrashItem, error) {
 	bin := filepath.Join(l.Root, trashDir)
 	if err := os.MkdirAll(bin, 0o755); err != nil {
-		return err
+		return nil, err
 	}
-	name := time.Now().Format("20060102-150405") + "-" + filepath.Base(dir)
-	to, err := uniqueDir(bin, name)
+	now := time.Now()
+	to, err := uniqueDir(bin, now.Format("20060102-150405")+"-"+filepath.Base(dir))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	os.Remove(to) // uniqueDir made it; the rename takes its place
-	return os.Rename(dir, to)
+	if err := os.Rename(dir, to); err != nil {
+		return nil, err
+	}
+	item.From, _ = filepath.Rel(l.Root, dir)
+	item.Trashed, item.Dir = now.Truncate(time.Second), to
+	data, _ := json.MarshalIndent(item, "", "  ")
+	if err := writeAtomic(filepath.Join(to, trashNote), data); err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 // TrashPage moves page p, its sub-pages with it, to the trash.
-func (l *Library) TrashPage(p *Page) error {
-	if err := l.trash(p.Dir); err != nil {
-		return err
+func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
+	where := p.Coll.Name
+	if crumb := parents(p); crumb != "" {
+		where += " › " + crumb
+	}
+	item, err := l.trash(p.Dir, TrashItem{Kind: "page", Title: p.Title, Where: where})
+	if err != nil {
+		return nil, err
 	}
 	if p.Parent != nil {
 		p.Parent.Children = without(p.Parent.Children, p)
 	} else {
 		p.Coll.Pages = without(p.Coll.Pages, p)
 	}
-	return nil
+	return item, nil
 }
 
 // TrashCollection moves collection c, its pages with it, to the trash.
-func (l *Library) TrashCollection(c *Collection) error {
-	if err := l.trash(c.Dir); err != nil {
-		return err
+func (l *Library) TrashCollection(c *Collection) (*TrashItem, error) {
+	item, err := l.trash(c.Dir, TrashItem{Kind: "collection", Title: c.Name})
+	if err != nil {
+		return nil, err
 	}
-	var keep []*Collection
-	for _, x := range l.Collections {
-		if x != c {
-			keep = append(keep, x)
+	l.Collections = slices.DeleteFunc(l.Collections, func(x *Collection) bool { return x == c })
+	return item, nil
+}
+
+// Trash is what is in the trash, the last thrown away first. A folder put
+// there by hand, without a note, is a page from nowhere: put back, it goes
+// to the first collection.
+func (l *Library) Trash() []*TrashItem {
+	bin := filepath.Join(l.Root, trashDir)
+	entries, _ := os.ReadDir(bin)
+	var out []*TrashItem
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(bin, e.Name())
+		item := &TrashItem{Kind: "page", Title: e.Name()}
+		if data, err := os.ReadFile(filepath.Join(dir, trashNote)); err == nil {
+			json.Unmarshal(data, item)
+		} else {
+			if info, err := e.Info(); err == nil {
+				item.Trashed = info.ModTime()
+			}
+			if data, err := os.ReadFile(filepath.Join(dir, collectionFile)); err == nil {
+				var c Collection
+				json.Unmarshal(data, &c)
+				item.Kind, item.Title = "collection", c.Name
+			} else if src, err := os.ReadFile(filepath.Join(dir, "index.md")); err == nil {
+				if meta, _ := splitFrontMatter(string(src)); meta["title"] != "" {
+					item.Title = meta["title"]
+				}
+			}
+		}
+		item.Dir = dir
+		out = append(out, item)
+	}
+	slices.SortStableFunc(out, func(a, b *TrashItem) int { return b.Trashed.Compare(a.Trashed) })
+	return out
+}
+
+// Restore puts item back where it was: a collection back in the library, a
+// page under the page or in the collection it was in - if that is gone,
+// the top of its collection, else of the first one. It returns what came back.
+func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
+	if item.Kind == "collection" {
+		name := filepath.Base(item.From)
+		if name == "." || name == "" {
+			name = slug(item.Title)
+		}
+		to, err := l.putBack(item, l.Root, name)
+		if err != nil {
+			return nil, nil, err
+		}
+		data, err := os.ReadFile(filepath.Join(to, collectionFile))
+		if err != nil {
+			return nil, nil, err
+		}
+		c := &Collection{SubPages: true, Open: true}
+		if err := json.Unmarshal(data, c); err != nil {
+			return nil, nil, err
+		}
+		c.Dir = to
+		c.Pages = readPages(to, c, nil)
+		l.Collections = append(l.Collections, c)
+		sort.SliceStable(l.Collections, func(i, j int) bool { return l.Collections[i].Name < l.Collections[j].Name })
+		return c, nil, nil
+	}
+	// where it was: the collection or page whose folder held it
+	var coll *Collection
+	var parent *Page
+	home := filepath.Join(l.Root, filepath.Dir(item.From))
+	for _, c := range l.Collections {
+		if c.Dir == home {
+			coll = c
+		}
+		for _, p := range c.All() {
+			if p.Dir == home {
+				coll, parent = c, p
+			}
 		}
 	}
-	l.Collections = keep
-	return nil
+	if coll == nil { // gone too: its collection's top, or the first one's
+		first := strings.Split(filepath.ToSlash(item.From), "/")[0]
+		for _, c := range l.Collections {
+			if filepath.Base(c.Dir) == first {
+				coll = c
+			}
+		}
+		if coll == nil && len(l.Collections) > 0 {
+			coll = l.Collections[0]
+		}
+		if coll == nil {
+			return nil, nil, errors.New("no collection to put the page back in")
+		}
+	}
+	if parent != nil && !coll.SubPages {
+		parent = nil
+	}
+	in, siblings := coll.Dir, &coll.Pages
+	if parent != nil {
+		in, siblings = parent.Dir, &parent.Children
+	}
+	to, err := l.putBack(item, in, filepath.Base(item.From))
+	if err != nil {
+		return nil, nil, err
+	}
+	src, err := os.ReadFile(filepath.Join(to, "index.md"))
+	if err != nil {
+		return nil, nil, err
+	}
+	meta, body := splitFrontMatter(string(src))
+	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent, Status: meta["status"]}
+	if p.Title == "" {
+		p.Title = item.Title
+	}
+	fmt.Sscan(meta["rank"], &p.Rank)
+	if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
+		p.Created = t
+	}
+	p.Children = readPages(to, coll, p)
+	p.Order = lastOrder(*siblings) + 1 // at the end of where it goes
+	if err := p.Save(body); err != nil {
+		return nil, nil, err
+	}
+	*siblings = append(*siblings, p)
+	if parent != nil {
+		parent.Open = true
+	}
+	coll.Open = true
+	return coll, p, nil
+}
+
+// putBack moves item's folder into folder in, named name (or a free name
+// like it), without its note.
+func (l *Library) putBack(item *TrashItem, in, name string) (string, error) {
+	if name == "" || name == "." {
+		name = "geri"
+	}
+	to, err := uniqueDir(in, name)
+	if err != nil {
+		return "", err
+	}
+	os.Remove(to)
+	if err := os.Rename(item.Dir, to); err != nil {
+		return "", err
+	}
+	os.Remove(filepath.Join(to, trashNote))
+	return to, nil
+}
+
+// DeleteForever deletes item from the trash, from the disk.
+func (l *Library) DeleteForever(item *TrashItem) error {
+	bin := filepath.Join(l.Root, trashDir)
+	if filepath.Dir(item.Dir) != bin { // only what is in the trash
+		return errors.New("not in the trash")
+	}
+	return os.RemoveAll(item.Dir)
 }
 
 func without(ps []*Page, p *Page) []*Page {

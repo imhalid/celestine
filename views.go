@@ -21,7 +21,7 @@ const viewMax = 920
 // openCollection shows collection c's page, saving the page that was open.
 func (a *app) openCollection(c *Collection) {
 	a.flush()
-	a.coll, a.collName, a.search = c, c.Name, ""
+	a.coll, a.collName, a.search, a.trashOpen = c, c.Name, "", false
 	c.Open = true
 }
 

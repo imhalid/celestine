@@ -96,21 +96,25 @@ type app struct {
 	mizan     *mizanCaret
 
 	// What changed since the last frame, for the caret and for saving.
-	version  uint64
-	length   int
-	caretAt  int
-	wrote    int
-	edited   bool
-	editAt   time.Time
-	dirty    bool
-	saveErr  string
-	notice   string // a toast to show
-	boxes    []richtext.ParagraphBox
-	focused  bool
-	clock    func() time.Time
-	lastSave string
-	style    richtext.ParagraphStyle // the caret paragraph's, last frame
-	editorR  ui.Rect                 // the editor's box, from its last frame
+	version uint64
+	length  int
+	caretAt int
+	wrote   int
+	edited  bool
+	editAt  time.Time
+	dirty   bool
+	saveErr string
+	notice  string     // a toast to show
+	trashed *TrashItem // just thrown away: a toast offers it back
+
+	trashOpen  bool         // the trash is shown, instead of a page
+	trashItems []*TrashItem // what is in it, read when it opens and changes
+	boxes      []richtext.ParagraphBox
+	focused    bool
+	clock      func() time.Time
+	lastSave   string
+	style      richtext.ParagraphStyle // the caret paragraph's, last frame
+	editorR    ui.Rect                 // the editor's box, from its last frame
 }
 
 func newApp(lib *Library) *app {
@@ -166,7 +170,7 @@ func main() {
 
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
-	a.coll = nil
+	a.coll, a.trashOpen = nil, false
 	if p == a.page {
 		return
 	}
@@ -236,6 +240,11 @@ func (a *app) view(c *ui.Context) {
 		ui.Column(c).Grow(1).Children(func() {
 			a.titleBar(c, shown)
 			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32).Children(func() {
+				if a.trashOpen {
+					a.focused = false
+					a.trashView(c)
+					return
+				}
 				if a.coll != nil {
 					a.focused = false
 					a.collectionView(c)
@@ -254,6 +263,11 @@ func (a *app) view(c *ui.Context) {
 	if a.notice != "" {
 		c.Toast(a.notice)
 		a.notice = ""
+	}
+	if item := a.trashed; item != nil {
+		a.trashed = nil
+		c.ToastAction("“"+item.Title+"” çöpe taşındı", "Geri al", func() { a.restore(item) })
+		a.loadTrash()
 	}
 	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
@@ -401,7 +415,9 @@ func (a *app) status(c *ui.Context) {
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
 	ui.Row(c).Padding(10, 18).Justify(ui.End).Children(func() {
 		where := "ryudit"
-		if a.coll != nil {
+		if a.trashOpen {
+			where = trashDir
+		} else if a.coll != nil {
 			if rel, err := filepath.Rel(a.lib.Root, filepath.Join(a.coll.Dir, collectionFile)); err == nil {
 				where = rel
 			}
