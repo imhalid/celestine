@@ -25,8 +25,11 @@ const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler
 
 - Yeni bir satırda \# ve boşluk: başlık. \- liste, 1. numaralı liste, \[\] görev, \> alıntı.
 - Sözcükleri iki yıldız arasına al: **kalın**. Tek yıldız _italik_, ters tırnak ` + "`kod`" + `, iki tilde ~~üstü çizili~~.
+- Boş bir satırda üç tire: ayırıcı çizgi. Üç ters tırnak: kod bloğu.
 - ⌘B, ⌘I, ⌘U biçimlendirir; ⌘Z bir dönüşümü geri alır.
   - Tab içeri, ⇧Tab dışarı.
+
+---
 
 ## Sayfalar
 
@@ -174,7 +177,7 @@ func (a *app) open(p *Page) {
 		if err != nil {
 			a.saveErr = err.Error()
 		}
-		doc = richtext.NewDocument(richtext.ParseMarkdown(body))
+		doc = richtext.NewDocument(parseBody(body))
 		a.docs[p] = doc
 	}
 	a.page, a.doc, a.title = p, doc, p.Title
@@ -284,7 +287,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		for _, s := range p.Coll.StatusList() {
 			opts = append(opts, ryugo.Option[string]{Value: s, Label: s})
 		}
-		ryugo.Select(c.Key("status:"+p.Dir), &st, opts, ryugo.SelectOptions{Label: "Durum", Size: ryugo.Sm})
+		ryugo.Select(c.Key("status:"+p.Dir), &st, opts, ryugo.SelectOptions{Label: "Durum", Size: ryugo.Sm}).Width(170)
 		if st != p.Coll.StatusOf(p) {
 			a.flush() // the text typed is on disk before the page is written again
 			if err := p.SetStatus(st); err != nil {
@@ -301,7 +304,10 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		ed.AutoFocus()
 	}
 	a.focused = ed.Focused()
-	ed.DrawOver(a.drawCaret)
+	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
+		a.drawDividers(p, r)
+		a.drawCaret(p, r)
+	})
 }
 
 // crumbs is where the page is: its collection and the pages above it.
@@ -325,6 +331,14 @@ func (a *app) track(c *ui.Context) {
 		return
 	}
 	n := text.Len()
+	// "---" and "```" typed: a divider, a block of code (blocks.go)
+	if a.blockShortcuts(text, caret, n-a.length == 1 && caret-a.caretAt == 1) {
+		_, caret = a.doc.Selection()
+		text, v = a.doc.Text(), a.doc.Version()
+		style = text.ParagraphStyleAt(caret)
+		a.length, a.caretAt = text.Len()-1, caret-1 // still the letter typed, to the caret
+		n = text.Len()
+	}
 	if grew := n - a.length; grew > 0 && caret-a.caretAt == grew && grew <= 8 {
 		a.wrote += grew
 	} else {
@@ -413,7 +427,7 @@ func (a *app) autosave(c *ui.Context) {
 }
 
 func (a *app) save() {
-	md := a.doc.Text().Markdown()
+	md := bodyMarkdown(a.doc.Text())
 	if !strings.HasSuffix(md, "\n") {
 		md += "\n"
 	}
