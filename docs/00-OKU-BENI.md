@@ -31,6 +31,8 @@ Alınmış kararlar (her belgede geçerlidir):
 | 09 | [Arama, görevler, günlük](09-arama-gorevler-gunluk.md) | Sorgu dili, görev durumları, günlük sayfaları |
 | 10 | [MCP](10-mcp.md) | Thymer'in MCP araçları ve bizim editörün araç listesi |
 | 11 | [Yol haritası](11-yol-haritasi.md) | Bizim editörü kurmanın adımları, sırasıyla |
+| 12 | [MyGo ekosistemi](12-mygo-ekosistemi.md) | MyGo için yazılmış kütüphaneler, işimize yarayanlar |
+| 13 | [İstekler](13-istekler.md) | Kullanırken çıkan istek ve düzeltmeler, önerilen sırasıyla |
 
 ## Kaynak etiketleri
 

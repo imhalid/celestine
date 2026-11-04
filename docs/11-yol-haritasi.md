@@ -10,7 +10,8 @@ ve Markdown, bileşenler Ryugo. **Bitenler:** işaretsiz Markdown, ``` ve `---`,
 alt sayfalar, sürükle-bırak ağaç, liste/tablo/pano, çöp, MCP sunucusu ve ayarlar.
 
 **Eksik kalan, Thymer'e göre:** özellikler herkese zorla verilmiş (Durum), ve "blok editör" dediğimiz hâlde bloklarla
-ilgili hiçbir şey yok. Sıradaki aşamalar bunlar:
+ilgili hiçbir şey yok. Kullanırken çıkan istek ve düzeltmelerin tam listesi ve sırası:
+[13 — İstekler](13-istekler.md). Sıradaki aşamalar bunlar:
 
 ### Aşama A — Özellikler, Thymer gibi isteğe bağlı
 1. Koleksiyonun **özellik şeması**: varsayılan olarak boş. Sayfadaki **+ Özellik ekle** ile eklenir: Seçim, Metin,
