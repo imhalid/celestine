@@ -78,7 +78,9 @@ func TestMCPTools(t *testing.T) {
 	if read.Markdown != "# Notlar\n\n- çöl\n" || read.Status != "Okunuyor" {
 		t.Fatalf("read: %+v", read)
 	}
-	var hits []struct{ ID string }
+	var hits []struct {
+		ID string `json:"id"`
+	}
 	call(t, cs, "search", map[string]any{"query": "PAUL"}, &hits)
 	if len(hits) != 1 || hits[0].ID != sub.ID {
 		t.Fatalf("search: %+v", hits)

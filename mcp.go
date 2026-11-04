@@ -334,7 +334,10 @@ func (a *app) newMCPServer() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "search", Description: "Finds pages whose title or text holds the words.", Annotations: ro},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in searchArgs) (*mcp.CallToolResult, any, error) {
 			type hit struct {
-				ID, Title, Collection, Excerpt string
+				ID         string `json:"id"`
+				Title      string `json:"title"`
+				Collection string `json:"collection"`
+				Excerpt    string `json:"excerpt"`
 			}
 			var out []hit
 			err := a.do(func() error {
