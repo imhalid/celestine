@@ -53,6 +53,23 @@ func TestViewShots(t *testing.T) {
 	tt.Click("Tablo")
 	tt.Advance(100 * time.Millisecond)
 	save("table")
+	tt.Click("Pano")
+	tt.Advance(time.Second)
+	save("board")
+	// a card held over the next column
+	from, _ := tt.Find("Kart: Dune")
+	to, _ := tt.Find("Sürüyor")
+	x0, y0 := from.X+from.W/2, from.Y+from.H/2
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0+(to.X+60-x0)*float32(k)/10, y0+(to.Y+50-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	tt.Advance(400 * time.Millisecond)
+	save("board-drag")
+	tt.Release(to.X+60, to.Y+50)
+	tt.Advance(time.Second)
+	save("board-dropped")
 }
 
 // TestFoldShots draws the sidebar open, folding and folded: run with FOLD=dir.

@@ -276,6 +276,22 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			a.saveErr = err.Error()
 		}
 	}
+	// Its properties: the status, which is its column on the board.
+	ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
+		ui.Text(c, "Durum").FontSize(13).TextColor(c.Theme().TextMuted).Width(56)
+		st := p.Coll.StatusOf(p)
+		var opts []ryugo.Option[string]
+		for _, s := range p.Coll.StatusList() {
+			opts = append(opts, ryugo.Option[string]{Value: s, Label: s})
+		}
+		ryugo.Select(c.Key("status:"+p.Dir), &st, opts, ryugo.SelectOptions{Label: "Durum", Size: ryugo.Sm})
+		if st != p.Coll.StatusOf(p) {
+			a.flush() // the text typed is on disk before the page is written again
+			if err := p.SetStatus(st); err != nil {
+				a.saveErr = err.Error()
+			}
+		}
+	})
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,

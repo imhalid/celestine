@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,6 +78,8 @@ func (a *app) collectionView(c *ui.Context) {
 					ui.Text(c, "“"+a.search+"” ile eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
 				case len(pages) == 0:
 					ui.Text(c, "Bu koleksiyonda henüz sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
+				case v.Type == "board":
+					a.boardView(c, coll, pages)
 				case v.Type == "table":
 					a.tableView(c, v, pages)
 				default:
@@ -123,6 +127,9 @@ func sortPages(ps []*Page, v *View) {
 			return x.Created.Compare(y.Created)
 		case "modified":
 			return x.Modified.Compare(y.Modified)
+		case "status":
+			list := x.Coll.StatusList()
+			return slices.Index(list, x.Coll.StatusOf(x)) - slices.Index(list, y.Coll.StatusOf(y))
 		}
 		return strings.Compare(strings.ToLower(x.Title), strings.ToLower(y.Title))
 	}
@@ -191,13 +198,15 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 
 type column struct {
 	label, field string
+	status       bool    // the cell is the page's status, as a badge
 	width        float32 // 0: the rest
 	cell         func(p *Page, now time.Time) string
 }
 
 var tableColumns = []column{
 	{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }},
-	{label: "Üst sayfa", width: 170, cell: func(p *Page, _ time.Time) string { return parents(p) }},
+	{label: "Durum", field: "status", width: 120, status: true},
+	{label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
 	{label: "Oluşturulma", field: "created", width: 150, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
 	{label: "Değiştirilme", field: "modified", width: 140, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
 }
@@ -251,6 +260,10 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 		row.Children(func() {
 			for i, col := range tableColumns {
 				cellBox(col).Children(func() {
+					if col.status {
+						statusBadge(c, p)
+						return
+					}
 					tx := ui.Text(c, col.cell(p, now)).FontSize(13.5).MaxLines(1)
 					if i == 0 {
 						tx.FontWeight(560)
@@ -266,6 +279,68 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 			a.open(p)
 		}
 	}
+}
+
+// ---- the board ----
+
+// statusTone is the tone of a status: the first gray, the last done, the
+// ones between under way.
+func statusTone(coll *Collection, s string) ryugo.Tone {
+	list := coll.StatusList()
+	switch i := slices.Index(list, s); {
+	case i <= 0:
+		return ryugo.ToneNeutral
+	case i == len(list)-1:
+		return ryugo.ToneDown
+	}
+	return ryugo.ToneWarn
+}
+
+// statusBadge is page p's status, as a badge in its tone.
+func statusBadge(c *ui.Context, p *Page) ui.Element {
+	s := p.Coll.StatusOf(p)
+	return ryugo.Badge(c, s, statusTone(p.Coll, s))
+}
+
+// boardView shows the pages in a column per status, as Ryugo's board: a
+// card dragged to another column takes its status, and its place among
+// the column's cards; a click opens it.
+func (a *app) boardView(c *ui.Context, coll *Collection, pages []*Page) {
+	t := c.Theme()
+	shown := map[*Page]bool{}
+	for _, p := range pages {
+		shown[p] = true
+	}
+	ui.Row(c).Gap(12).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
+		for _, s := range coll.StatusList() {
+			var col []*Page
+			for _, p := range coll.Column(s) {
+				if shown[p] {
+					col = append(col, p)
+				}
+			}
+			ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Title: s, Count: strconv.Itoa(len(col))}, func() {
+				for _, p := range col {
+					card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
+						if crumb := parents(p); crumb != "" {
+							ui.Text(c, crumb).FontSize(12).TextColor(t.TextMuted).MaxLines(1)
+						}
+						ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
+						if ex := p.Excerpt(); ex != "" {
+							ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(2)
+						}
+					}).Label("Kart: " + p.Title)
+					if card.Clicked() {
+						a.open(p)
+					}
+				}
+			}, func(p *Page, index int) {
+				if err := coll.MoveOnBoard(p, s, index); err != nil {
+					a.saveErr = err.Error()
+				}
+			}).Width(260).MinHeight(180).Shrink(0) // an empty column has room to drop on
+		}
+	})
 }
 
 // newPageRow is the last row of a view: a new page in the collection.
