@@ -51,7 +51,7 @@ func (a *app) trashRow(c *ui.Context) {
 		}
 	}
 	ui.Box(c).Height(1).Background(t.Border.Alpha(0.6)).Margin(0, 12)
-	ui.Column(c).Padding(6, 8, 10, 8).Children(func() {
+	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 		c.Key("trash-row")
 		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
 			Label("Çöp").Role(ui.RoleButton).Transition(rowMove)
@@ -72,6 +72,10 @@ func (a *app) trashRow(c *ui.Context) {
 		})
 		if r.Clicked() {
 			a.openTrash()
+		}
+		r.Grow(1)
+		if a.iconButton(c, iconSettings, "Ayarlar") {
+			a.settingsOpen = true
 		}
 	})
 }

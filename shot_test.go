@@ -188,3 +188,24 @@ func TestTrashShots(t *testing.T) {
 	tt.Advance(time.Second)
 	save("trash")
 }
+
+// TestSettingsShot draws the settings with the MCP server on: run with SETTINGS=file.png.
+func TestSettingsShot(t *testing.T) {
+	out := os.Getenv("SETTINGS")
+	if out == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "metin")
+	a.settings.Port = 0
+	tt.SetSize(1180, 760)
+	tt.Click("Ayarlar")
+	tt.Advance(500 * time.Millisecond)
+	tt.Click("MCP sunucusunu aç")
+	tt.Advance(time.Second)
+	a.settings.Port = defaultPort // as it shows by default
+	tt.Frame()
+	f, _ := os.Create(out)
+	png.Encode(f, tt.Image())
+	f.Close()
+	a.setMCP(false)
+}

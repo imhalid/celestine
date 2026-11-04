@@ -8,9 +8,11 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -115,10 +117,21 @@ type app struct {
 	lastSave   string
 	style      richtext.ParagraphStyle // the caret paragraph's, last frame
 	editorR    ui.Rect                 // the editor's box, from its last frame
+
+	// The settings, and the MCP server they turn on (mcp.go). A frame and
+	// an agent's tool each hold mu: the library is theirs one at a time.
+	mu           sync.Mutex
+	settings     Settings
+	settingsFile string // "" in tests: not kept
+	settingsOpen bool
+	mcpServer    *http.Server
+	mcpErr       string
+	invalidate   func() // asks the window for a frame, from any goroutine
 }
 
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a.loadSettings()
 	for _, c := range lib.Collections {
 		if len(c.Pages) > 0 {
 			a.open(c.Pages[0])
@@ -158,10 +171,18 @@ func main() {
 		log.Fatal(err)
 	}
 	a := newApp(lib)
+	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
+		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
+		a.loadSettings()
+	}
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{{Role: mygo.RoleAppMenu}, {Role: mygo.RoleEditMenu}}))
-		mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
+		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
+		a.invalidate = w.Invalidate
+		if a.settings.MCP {
+			a.setMCP(true)
+		}
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
@@ -210,6 +231,8 @@ func (a *app) flush() {
 }
 
 func (a *app) view(c *ui.Context) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	ryugo.Root(c, ryugo.Options{}) // Ryugo's theme, its components' tokens
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
@@ -259,6 +282,7 @@ func (a *app) view(c *ui.Context) {
 			a.status(c)
 		})
 	})
+	a.settingsDialog(c)
 	ryugo.Toaster(c)
 	if a.notice != "" {
 		c.Toast(a.notice)
