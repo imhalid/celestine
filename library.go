@@ -404,3 +404,61 @@ func writeAtomic(path string, data []byte) error {
 	}
 	return os.Rename(tmp, path)
 }
+
+// trashDir is where pages and collections go when they are thrown away: a
+// folder of the library, so nothing is lost and they can be put back by hand.
+const trashDir = ".cop"
+
+// trash moves dir into the library's trash, under a name that keeps when it
+// went and what it was.
+func (l *Library) trash(dir string) error {
+	bin := filepath.Join(l.Root, trashDir)
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		return err
+	}
+	name := time.Now().Format("20060102-150405") + "-" + filepath.Base(dir)
+	to, err := uniqueDir(bin, name)
+	if err != nil {
+		return err
+	}
+	os.Remove(to) // uniqueDir made it; the rename takes its place
+	return os.Rename(dir, to)
+}
+
+// TrashPage moves page p, its sub-pages with it, to the trash.
+func (l *Library) TrashPage(p *Page) error {
+	if err := l.trash(p.Dir); err != nil {
+		return err
+	}
+	if p.Parent != nil {
+		p.Parent.Children = without(p.Parent.Children, p)
+	} else {
+		p.Coll.Pages = without(p.Coll.Pages, p)
+	}
+	return nil
+}
+
+// TrashCollection moves collection c, its pages with it, to the trash.
+func (l *Library) TrashCollection(c *Collection) error {
+	if err := l.trash(c.Dir); err != nil {
+		return err
+	}
+	var keep []*Collection
+	for _, x := range l.Collections {
+		if x != c {
+			keep = append(keep, x)
+		}
+	}
+	l.Collections = keep
+	return nil
+}
+
+func without(ps []*Page, p *Page) []*Page {
+	var out []*Page
+	for _, q := range ps {
+		if q != p {
+			out = append(out, q)
+		}
+	}
+	return out
+}

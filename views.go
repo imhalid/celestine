@@ -45,16 +45,33 @@ func (a *app) collectionView(c *ui.Context) {
 		}
 		// The toolbar: the views, then the search and a new page.
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Row(c).Gap(2).Padding(2).Radius(8).Background(t.Surface).Children(func() {
+			// The views as a segmented control: a raised pill behind the one shown,
+			// which slides to the one chosen on a spring, as Mizan's Segmented does.
+			sel := 0
+			for i := range coll.Views {
+				if &coll.Views[i] == v {
+					sel = i
+				}
+			}
+			track := ui.Row(c).Padding(3).Radius(9).Background(t.Surface)
+			px := track.AnimateTo("pill-x", float32(sel)*tabW, springPill)
+			track.Draw(func(p *ui.Painter, r ui.Rect) {
+				pill := ui.Rect{X: r.X + 3 + px, Y: r.Y + 3, W: tabW, H: r.H - 6}
+				p.Shadow(pill, 6, 0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.12))
+				p.Fill(pill, t.Background, 6)
+			})
+			track.Children(func() {
 				for i := range coll.Views {
 					vw := &coll.Views[i]
 					c.Key("view:" + vw.ID)
-					tab := ui.Box(c).Padding(5, 12).Radius(6).Label("Görünüm: " + vw.Label).Role(ui.RoleButton)
+					tab := ui.Row(c).Width(tabW).Height(28).Gap(6).Justify(ui.Center).AlignItems(ui.Center).Label("Görünüm: " + vw.Label).Role(ui.RoleButton)
+					tone := t.TextMuted
 					if vw == v {
-						tab.Background(t.Background)
+						tone = t.Text
 					}
 					tab.Children(func() {
-						ui.Text(c, viewGlyph(vw.Type)+"  "+vw.Label).FontSize(13).FontWeight(map[bool]int{true: 600, false: 450}[vw == v])
+						ui.Icon(c, viewIcon(vw.Type)).Width(14).Height(14).TextColor(tone)
+						ui.Text(c, vw.Label).FontSize(13).FontWeight(560).TextColor(tone)
 					})
 					if tab.Clicked() && vw != v {
 						if err := coll.SetView(vw.ID); err != nil {
@@ -74,7 +91,10 @@ func (a *app) collectionView(c *ui.Context) {
 		pages := a.filtered(coll)
 		sortPages(pages, v)
 		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).Gap(2).Padding(4, 0, 40, 0).Children(func() {
+			// A body per view: switching views drops the old one at once and
+			// fades the new one in; within a view, rows come, go and move one by one.
+			c.Key("body:" + coll.Dir + ":" + v.ID)
+			ui.Column(c).Gap(2).Padding(4, 0, 40, 0).Transition(viewSwap).Children(func() {
 				switch {
 				case len(pages) == 0 && a.search != "":
 					ui.Text(c, "“"+a.search+"” ile eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
@@ -91,11 +111,27 @@ func (a *app) collectionView(c *ui.Context) {
 	})
 }
 
-func viewGlyph(typ string) string {
+func viewIcon(typ string) *ui.SVG {
 	if typ == "table" {
-		return "▦"
+		return iconTable
 	}
-	return "☰"
+	return iconList
+}
+
+const tabW = 96
+
+var springPill = ui.Animation{Spring: ui.SpringOptions{Duration: 280 * time.Millisecond, Bounce: 0.14}}
+
+// viewSwap is a view coming in: it fades in, a little lower first.
+var viewSwap = ui.ElementTransition{Duration: 220 * time.Millisecond, Enter: &ui.Motion{Opacity: 0, Y: 8}}
+
+// rowEnter is a row of a view sliding to its new place as the sort changes,
+// fading in when a search lets it in, its hover fading.
+var rowEnter = ui.ElementTransition{
+	Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 320 * time.Millisecond}},
+	Position:  true, Colors: true,
+	Enter: &ui.Motion{Opacity: 0, Y: 6},
+	Exit:  &ui.Motion{Opacity: 0},
 }
 
 // filtered is the collection's pages, those matching the search when there is one.
@@ -153,13 +189,16 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			}
 			if g := dateGroup(when, now); g != last {
 				last = g
-				ui.Text(c, g).FontSize(12).FontWeight(650).TextColor(t.TextMuted).Padding(14, 8, 4, 8)
+				c.Key("group:" + g)
+				ui.Text(c, g).FontSize(12).FontWeight(650).TextColor(t.TextMuted).Padding(14, 8, 4, 8).Transition(rowEnter)
 			}
 		}
 		c.Key("list:" + p.Dir)
-		row := ui.Column(c).Padding(8, 10).Gap(3).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton)
+		row := ui.Column(c).Padding(8, 10).Gap(3).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
+		} else {
+			row.Background(t.SurfaceHover.Alpha(0))
 		}
 		row.Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -238,9 +277,11 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	ui.Box(c).Height(1).Background(t.Border)
 	for _, p := range pages {
 		c.Key("row:" + p.Dir)
-		row := ui.Row(c).Radius(6).Label("Aç: " + p.Title).Role(ui.RoleButton)
+		row := ui.Row(c).Radius(6).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
+		} else {
+			row.Background(t.SurfaceHover.Alpha(0))
 		}
 		row.Children(func() {
 			for i, col := range tableColumns {
@@ -254,7 +295,8 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 				})
 			}
 		})
-		ui.Box(c).Height(1).Background(withAlpha(t.Border, 0.5))
+		c.Key("rule:" + p.Dir)
+		ui.Box(c).Height(1).Background(withAlpha(t.Border, 0.5)).Transition(rowEnter)
 		if row.Clicked() {
 			a.open(p)
 		}

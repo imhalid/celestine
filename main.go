@@ -73,6 +73,10 @@ type app struct {
 	search   string      // its search field's text
 
 	sidebarClosed bool
+
+	renaming      any // the page or collection whose row is a field, being renamed
+	renameText    string
+	renameFocused bool    // the field has had the focus: losing it keeps the name
 	sidebarShown  float32 // its width this frame, on the way to open or closed
 	fresh         bool    // the page was just made: its title takes the focus
 

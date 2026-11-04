@@ -83,3 +83,27 @@ func TestFoldShots(t *testing.T) {
 	tt.Advance(time.Second)
 	save("fold-2-closed")
 }
+
+// TestPolishShots draws the tabs' pill on its way and a row being renamed: run with POLISH=dir.
+func TestPolishShots(t *testing.T) {
+	dir := os.Getenv("POLISH")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt, _ := viewsLibrary(t)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Advance(time.Second)
+	tt.Click("Görünüm: Tablo")
+	tt.Advance(90 * time.Millisecond)
+	save("pill-mid")
+	tt.Advance(time.Second)
+	tt.RightClick("Sayfa: Dune")
+	tt.ChooseMenuItem("Yeniden adlandır")
+	tt.Advance(300 * time.Millisecond)
+	_ = a
+	save("rename")
+}

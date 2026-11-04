@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -113,17 +114,34 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	return w
 }
 
-// treeRow is a row of the tree: its chevron, icon and name, and a + that
-// shows while the row is hovered. It reports a click on the row, on the
-// chevron and on the +.
-func (a *app) treeRow(c *ui.Context, key, label string, depth int, glyph *ui.SVG, name string, strong, selected, has, open, plus bool) (row, chev, add bool) {
+// rowSpec is what a row of the tree shows and does.
+type rowSpec struct {
+	key, label string
+	depth      int
+	glyph      *ui.SVG
+	name       string
+	strong     bool
+	selected   bool
+	has, open  bool // children, and whether they show
+	plus       bool // a + for a new page in it or under it
+	item       any  // the page or collection, to rename it in place
+	menu       func(m *ui.Menu)
+}
+
+// treeRow is a row of the tree: its chevron, icon and name - a field when
+// it is being renamed - and a + that shows while the row is hovered. A right
+// click opens its menu. It reports a click on the row, the chevron and the +.
+func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
-	c.Key(key)
-	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
-		Label(label).Role(ui.RoleButton).Transition(rowMove)
+	c.Key(s.key)
+	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
+		Label(s.label).Role(ui.RoleButton).Transition(rowMove).ContextMenu(s.menu)
 	hover := r.Hovered()
+	renaming := s.item != nil && a.renaming == s.item
 	switch {
-	case selected:
+	case renaming:
+		r.Background(t.Background).Border(1, t.Accent)
+	case s.selected:
 		r.Background(t.Selection)
 	case hover:
 		r.Background(t.SurfaceHover)
@@ -131,22 +149,84 @@ func (a *app) treeRow(c *ui.Context, key, label string, depth int, glyph *ui.SVG
 		r.Background(t.Surface.Alpha(0)) // a color to fade from
 	}
 	r.Children(func() {
-		chev = a.chevron(c, has, open)
-		ui.Icon(c, glyph).Width(15).Height(15).TextColor(t.TextMuted)
-		tx := ui.Text(c, name).FontSize(13.5).MaxLines(1).Grow(1)
-		if strong {
+		chev = a.chevron(c, s.has, s.open)
+		ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(t.TextMuted)
+		if renaming {
+			a.renameField(c)
+			return
+		}
+		tx := ui.Text(c, s.name).FontSize(13.5).MaxLines(1).Grow(1)
+		if s.strong {
 			tx.FontWeight(620)
 		}
-		if plus {
-			add = a.revealButton(c, iconPlus, "Ekle: "+name, hover)
+		if s.plus {
+			add = a.revealButton(c, iconPlus, "Ekle: "+s.name, hover)
 		}
 	})
-	return r.Clicked() && !chev && !add, chev, add
+	return r.Clicked() && !chev && !add && !renaming, chev, add
+}
+
+// startRename turns item's row into a field holding its name.
+func (a *app) startRename(item any, name string) {
+	a.renaming, a.renameText, a.renameFocused = item, name, false
+}
+
+// renameField is the field of a row being renamed: Enter or leaving it
+// keeps the new name, Escape the old one.
+func (a *app) renameField(c *ui.Context) {
+	in := ui.TextInputBase(c, &a.renameText).Label("Yeni ad").FontSize(13.5).Grow(1).AutoFocus()
+	switch {
+	case in.Shortcut(0, ui.KeyEscape):
+		a.renaming = nil
+	case in.Submitted():
+		a.commitRename()
+	case in.Focused():
+		a.renameFocused = true
+	case a.renameFocused: // the focus went elsewhere
+		a.commitRename()
+	}
+}
+
+func (a *app) commitRename() {
+	name := strings.TrimSpace(a.renameText)
+	item := a.renaming
+	a.renaming = nil
+	if name == "" {
+		return
+	}
+	var err error
+	switch x := item.(type) {
+	case *Page:
+		err = x.SetTitle(name)
+		if x == a.page {
+			a.title = name
+		}
+	case *Collection:
+		err = x.Rename(name)
+		if x == a.coll {
+			a.collName = name
+		}
+	}
+	if err != nil {
+		a.saveErr = err.Error()
+	}
 }
 
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
-	row, chev, add := a.treeRow(c, "coll:"+coll.Dir, "Koleksiyon: "+coll.Name, 0, iconStack, coll.Name, true,
-		coll == a.coll, len(coll.Pages) > 0, coll.Open, true)
+	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: iconStack, name: coll.Name,
+		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: true, item: coll,
+		menu: func(m *ui.Menu) {
+			if m.Item("Yeniden adlandır").Chosen() {
+				a.startRename(coll, coll.Name)
+			}
+			if m.Item("Yeni sayfa").Chosen() {
+				a.newPage(coll, nil)
+			}
+			m.Separator()
+			if m.Item("Çöpe taşı").Chosen() {
+				a.trashCollection(coll)
+			}
+		}})
 	switch {
 	case add:
 		a.newPage(coll, nil)
@@ -158,8 +238,23 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 }
 
 func (a *app) pageRow(c *ui.Context, p *Page) {
-	row, chev, add := a.treeRow(c, "page:"+p.Dir, "Sayfa: "+p.Title, p.Depth()+1, iconPage, p.Title, false,
-		p == a.page && a.coll == nil, len(p.Children) > 0, p.Open, p.Coll.SubPages)
+	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: "Sayfa: " + p.Title, depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
+		selected: p == a.page && a.coll == nil, has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
+		menu: func(m *ui.Menu) {
+			if m.Item("Aç").Chosen() {
+				a.open(p)
+			}
+			if m.Item("Yeniden adlandır").Chosen() {
+				a.startRename(p, p.Title)
+			}
+			if p.Coll.SubPages && m.Item("Alt sayfa ekle").Chosen() {
+				a.newPage(p.Coll, p)
+			}
+			m.Separator()
+			if m.Item("Çöpe taşı").Chosen() {
+				a.trashPage(p)
+			}
+		}})
 	switch {
 	case add:
 		a.newPage(p.Coll, p)
@@ -175,6 +270,51 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 				a.pageRow(c, ch)
 			}
 		})
+	}
+}
+
+// trashPage moves p to the library's trash; when it, or a page under it, is
+// open, the page above it opens, or the collection.
+func (a *app) trashPage(p *Page) {
+	open := false
+	for q := a.page; q != nil; q = q.Parent {
+		open = open || q == p
+	}
+	if open {
+		a.flush()
+	}
+	if err := a.lib.TrashPage(p); err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	if open {
+		a.page, a.doc = nil, nil
+		if p.Parent != nil {
+			a.open(p.Parent)
+		} else {
+			a.openCollection(p.Coll)
+		}
+	}
+}
+
+// trashCollection moves c to the library's trash, and shows another one's first page.
+func (a *app) trashCollection(c *Collection) {
+	if a.page != nil && a.page.Coll == c {
+		a.flush()
+		a.page, a.doc = nil, nil
+	}
+	if err := a.lib.TrashCollection(c); err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	if a.coll == c {
+		a.coll = nil
+	}
+	if a.page == nil && a.coll == nil {
+		for _, o := range a.lib.Collections {
+			a.openCollection(o)
+			break
+		}
 	}
 }
 
