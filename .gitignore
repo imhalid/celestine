@@ -6,3 +6,6 @@
 /ryudit
 *.test
 .DS_Store
+
+# the default library the app makes when run here
+/kitaplik/

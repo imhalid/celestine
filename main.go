@@ -1,8 +1,9 @@
-// ryudit: a block editor on MyGo's rich text editor. The Markdown you type
-// turns into structure as you type it and is never seen; the file kept is
-// Markdown, so any other tool can read it. The caret is ours: Slime or Mizan.
+// ryudit: a block editor on MyGo's rich text editor, over a library of
+// collections and pages kept as plain Markdown files (library.go). The
+// Markdown you type turns into structure as you type it and is never seen.
+// The caret is ours: Slime or Mizan.
 //
-// Run with: go run . [file.md]   (default: belge.md here)
+// Run with: go run . [library folder]   (default: ./kitaplik)
 package main
 
 import (
@@ -17,9 +18,7 @@ import (
 	"github.com/egoist/mygo/ui/richtext"
 )
 
-const welcome = `# ryudit
-
-Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
+const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
 
 ## Dene
 
@@ -28,17 +27,22 @@ Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya 
 - ⌘B, ⌘I, ⌘U biçimlendirir; ⌘Z bir dönüşümü geri alır.
   - Tab içeri, ⇧Tab dışarı.
 
+## Sayfalar
+
+- Soldaki bir koleksiyonun yanındaki + yeni sayfa açar; bir sayfanın yanındaki + onun altına alt sayfa.
+- ⌃N bu koleksiyonda yeni sayfa açar.
 - [ ] Kutuya tıkla
 - [x] Bitmiş bir görev
 
-> Dosya düz Markdown: başka her araç okuyabilir.
+> Her sayfa kitaplık klasöründe bir klasör ve içinde index.md: başka her araç okuyabilir.
 
 ⌘⇧M caret'i değiştirir: Slime ya da Mizan.
 `
 
 const (
 	columnMax = 720
-	pageTop   = 56
+	pageTop   = 48
+	sidebarW  = 252
 )
 
 type caretKind int
@@ -59,8 +63,13 @@ type caretFrame struct {
 }
 
 type app struct {
-	doc   *richtext.Document
-	path  string
+	lib   *Library
+	page  *Page              // the page open
+	doc   *richtext.Document // its text
+	docs  map[*Page]*richtext.Document
+	title string // the title field's text
+	fresh bool   // the page was just made: its title takes the focus
+
 	theme *richtext.Theme // the editor's, resolved: what locate lays paragraphs out with
 	font  ui.Font
 
@@ -85,37 +94,93 @@ type app struct {
 	editorR  ui.Rect                 // the editor's box, from its last frame
 }
 
-func newApp(doc *richtext.Document, path string) *app {
-	_, c := doc.Selection()
-	return &app{doc: doc, path: path, jelly: newSlime(), mizan: &mizanCaret{}, version: doc.Version(),
-		length: doc.Text().Len(), caretAt: c, clock: time.Now}
+func newApp(lib *Library) *app {
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	for _, c := range lib.Collections {
+		if len(c.Pages) > 0 {
+			a.open(c.Pages[0])
+			break
+		}
+	}
+	return a
 }
 
-func loadDoc(path string) (*richtext.Document, error) {
-	src, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+// seed gives an empty library a collection and a page to start from.
+func seed(lib *Library) error {
+	if len(lib.Collections) > 0 {
+		return nil
 	}
-	return richtext.NewDocument(richtext.ParseMarkdown(string(src))), nil
+	c, err := lib.NewCollection("Notlar")
+	if err != nil {
+		return err
+	}
+	p, err := c.NewPage(nil, "Hoş geldin")
+	if err != nil {
+		return err
+	}
+	return p.Save(welcome)
 }
 
 func main() {
-	path := "belge.md"
+	root := "kitaplik"
 	if len(os.Args) > 1 {
-		path = os.Args[1]
+		root = os.Args[1]
 	}
-	path, _ = filepath.Abs(path)
-	doc, err := loadDoc(path)
+	root, _ = filepath.Abs(root)
+	lib, err := OpenLibrary(root)
 	if err != nil {
-		doc = richtext.NewDocument(richtext.ParseMarkdown(welcome))
+		log.Fatal(err)
 	}
-	a := newApp(doc, path)
+	if err := seed(lib); err != nil {
+		log.Fatal(err)
+	}
+	a := newApp(lib)
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{{Role: mygo.RoleAppMenu}, {Role: mygo.RoleEditMenu}}))
-		mygo.NewWindow(mygo.WindowOptions{Title: filepath.Base(path), Width: 960, Height: 720, Content: ui.View(a.view)})
+		mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, Content: ui.View(a.view)})
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// open shows page p, saving the page that was open first.
+func (a *app) open(p *Page) {
+	if p == a.page {
+		return
+	}
+	a.flush()
+	doc := a.docs[p]
+	if doc == nil {
+		body, err := p.Body()
+		if err != nil {
+			a.saveErr = err.Error()
+		}
+		doc = richtext.NewDocument(richtext.ParseMarkdown(body))
+		a.docs[p] = doc
+	}
+	a.page, a.doc, a.title = p, doc, p.Title
+	_, caret := doc.Selection()
+	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
+	a.dirty, a.saveErr, a.lastSave = false, "", ""
+	a.boxes = nil
+}
+
+// newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
+func (a *app) newPage(c *Collection, parent *Page) {
+	p, err := c.NewPage(parent, "Adsız")
+	if err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	a.open(p)
+	a.fresh = true
+}
+
+// flush saves the open page now, if it changed.
+func (a *app) flush() {
+	if a.page != nil && a.dirty {
+		a.save()
 	}
 }
 
@@ -129,25 +194,194 @@ func (a *app) view(c *ui.Context) {
 	}
 	a.theme = th
 	a.font = ui.Font{Family: t.Font, Size: 16.5, LineHeight: 1.55}
-	a.track(c)
+	if a.doc != nil {
+		a.track(c)
+	}
 
-	ui.Column(c).Fill().Background(t.Background).Children(func() {
-		page := ui.Row(c).Fill().Justify(ui.Center).Padding(pageTop, 0, 0, 0)
-		if page.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.caretKind = (a.caretKind + 1) % 2
-		}
-		page.Children(func() {
-			ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
-				Label: "Belge", Font: a.font, Theme: th,
-				Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
-			}).Fill().MaxWidth(columnMax).AutoFocus()
-			a.focused = ed.Focused()
-			ed.DrawOver(a.drawCaret)
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(t.Background)
+	if root.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
+		a.caretKind = (a.caretKind + 1) % 2
+	}
+	if root.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
+		a.newPage(a.page.Coll, nil)
+	}
+	root.Children(func() {
+		a.sidebar(c)
+		ui.Column(c).Grow(1).Children(func() {
+			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop, 32, 0, 32).Children(func() {
+				if a.page == nil {
+					ui.Text(c, "Soldan bir sayfa seç ya da + ile yeni bir sayfa aç.").TextColor(t.TextMuted)
+					return
+				}
+				ui.Column(c).Fill().MaxWidth(columnMax).Gap(4).Children(func() { a.pageView(c, th) })
+			})
+			a.status(c)
 		})
-		a.status(c)
 	})
-	a.boxes = a.doc.VisibleParagraphs()
-	a.autosave(c)
+	if a.doc != nil {
+		a.boxes = a.doc.VisibleParagraphs()
+		a.autosave(c)
+	}
+}
+
+// pageView is the open page: its collection, its title, its text.
+func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
+	t := c.Theme()
+	p := a.page
+	ui.Row(c).Children(func() {
+		ui.Box(c).Padding(3, 10).Radius(999).Background(t.Surface).Children(func() {
+			ui.Text(c, a.crumbs()).FontSize(12).TextColor(t.TextMuted)
+		})
+	})
+	c.Key("title:" + p.Dir)
+	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
+	if a.fresh {
+		title.AutoFocus()
+		a.fresh = false
+	}
+	if title.Changed() {
+		name := strings.TrimSpace(a.title)
+		if name == "" {
+			name = "Adsız"
+		}
+		if err := p.SetTitle(name); err != nil {
+			a.saveErr = err.Error()
+		}
+	}
+	c.Key("body:" + p.Dir)
+	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
+		Label: "Sayfa", Font: a.font, Theme: th,
+		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
+	}).Grow(1)
+	if !title.Focused() && !a.fresh {
+		ed.AutoFocus()
+	}
+	a.focused = ed.Focused()
+	ed.DrawOver(a.drawCaret)
+}
+
+// crumbs is where the page is: its collection and the pages above it.
+func (a *app) crumbs() string {
+	var parts []string
+	for q := a.page.Parent; q != nil; q = q.Parent {
+		parts = append([]string{q.Title}, parts...)
+	}
+	return strings.Join(append([]string{a.page.Coll.Name}, parts...), "  ›  ")
+}
+
+// sidebar lists the collections and their pages as a tree: a collection's
+// + makes a page in it, a page's + a page under it.
+func (a *app) sidebar(c *ui.Context) {
+	t := c.Theme()
+	ui.Column(c).Width(sidebarW).Background(t.Surface).Padding(18, 10, 10, 10).Gap(1).Children(func() {
+		ui.Row(c).Padding(0, 8, 8, 8).Children(func() {
+			ui.Text(c, "KOLEKSİYONLAR").FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+			if a.plus(c, "Yeni koleksiyon", true) {
+				if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
+					a.newPage(coll, nil)
+				} else {
+					a.saveErr = err.Error()
+				}
+			}
+		})
+		ui.Scroll(c).Grow(1).Children(func() {
+			ui.Column(c).Gap(1).Children(func() {
+				for _, coll := range a.lib.Collections {
+					a.collectionRow(c, coll)
+					if coll.Open {
+						for _, p := range coll.Pages {
+							a.pageRow(c, p)
+						}
+					}
+				}
+			})
+		})
+	})
+}
+
+func (a *app) collectionRow(c *ui.Context, coll *Collection) {
+	t := c.Theme()
+	c.Key("coll:" + coll.Dir)
+	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4).Gap(4).Radius(6).AlignItems(ui.Center)
+	hover := row.Hovered()
+	if hover {
+		row.Background(t.SurfaceHover)
+	}
+	clicked := false
+	row.Children(func() {
+		a.chevron(c, len(coll.Pages) > 0, coll.Open)
+		ui.Text(c, coll.Name).FontSize(13.5).FontWeight(600).MaxLines(1).Grow(1)
+		if a.plus(c, "Yeni sayfa: "+coll.Name, hover) {
+			a.newPage(coll, nil)
+			clicked = true
+		}
+	})
+	if row.Clicked() && !clicked {
+		coll.Open = !coll.Open
+	}
+}
+
+func (a *app) pageRow(c *ui.Context, p *Page) {
+	t := c.Theme()
+	c.Key("page:" + p.Dir)
+	row := ui.Row(c).Height(30).Padding(0, 6, 0, 4+float32(p.Depth()+1)*14).Gap(4).Radius(6).AlignItems(ui.Center)
+	hover := row.Hovered()
+	switch {
+	case p == a.page:
+		row.Background(t.Selection)
+	case hover:
+		row.Background(t.SurfaceHover)
+	}
+	handled := false
+	row.Children(func() {
+		if a.chevron(c, len(p.Children) > 0, p.Open) {
+			p.Open = !p.Open
+			handled = true
+		}
+		ui.Text(c, p.Title).FontSize(13.5).MaxLines(1).Grow(1)
+		if p.Coll.SubPages && a.plus(c, "Alt sayfa: "+p.Title, hover) {
+			a.newPage(p.Coll, p)
+			handled = true
+		}
+	})
+	if row.Clicked() && !handled {
+		a.open(p)
+	}
+	if p.Open {
+		for _, ch := range p.Children {
+			a.pageRow(c, ch)
+		}
+	}
+}
+
+// chevron opens and closes a row; it holds its room when there is nothing below.
+func (a *app) chevron(c *ui.Context, has, open bool) bool {
+	t := c.Theme()
+	glyph := "▸"
+	if open {
+		glyph = "▾"
+	}
+	b := ui.Box(c).Width(16).Height(20).AlignItems(ui.Center).Justify(ui.Center)
+	b.Children(func() {
+		if has {
+			ui.Text(c, glyph).FontSize(11).TextColor(t.TextMuted)
+		}
+	})
+	return has && b.Clicked()
+}
+
+// plus is a small + button; shown only when the row is hovered (or always).
+func (a *app) plus(c *ui.Context, label string, shown bool) bool {
+	t := c.Theme()
+	b := ui.Box(c).Width(22).Height(22).Radius(5).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton)
+	if b.Hovered() {
+		b.Background(t.SurfacePressed)
+	}
+	if !shown {
+		b.Opacity(0)
+	}
+	b.Children(func() { ui.Text(c, "+").FontSize(15).TextColor(t.TextMuted) })
+	return b.Clicked()
 }
 
 // track notes what the user did since the last frame: letters written (for
@@ -223,13 +457,19 @@ func (a *app) status(c *ui.Context) {
 	}
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
 	ui.Row(c).Padding(10, 18).Justify(ui.End).Children(func() {
-		ui.Text(c, filepath.Base(a.path)+" · "+state+"   ·   caret: "+caret+" (⌘⇧M)").FontSize(11.5).TextColor(t.TextMuted)
+		where := "ryudit"
+		if a.page != nil {
+			if rel, err := filepath.Rel(a.lib.Root, a.page.file()); err == nil {
+				where = rel
+			}
+		}
+		ui.Text(c, where+" · "+state+"   ·   caret: "+caret+" (⌘⇧M)").FontSize(11.5).TextColor(t.TextMuted)
 	})
 }
 
 // autosave writes the file a moment after the last edit.
 func (a *app) autosave(c *ui.Context) {
-	if !a.dirty || a.path == "" || a.saveErr != "" {
+	if !a.dirty || a.page == nil || a.saveErr != "" {
 		return
 	}
 	if wait := 700*time.Millisecond - a.clock().Sub(a.editAt); wait > 0 {
@@ -248,7 +488,7 @@ func (a *app) save() {
 		a.dirty = false
 		return
 	}
-	if err := os.WriteFile(a.path, []byte(md), 0o644); err != nil {
+	if err := a.page.Save(md); err != nil {
 		a.saveErr = err.Error()
 		return
 	}

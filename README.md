@@ -7,8 +7,13 @@ into structure as you type it: `# ` makes a heading and the `#` is gone, `**word
 are gone. Markdown is never seen in the editor; it is only the file format, so any other tool can open what you write.
 
 ```bash
-go run . [file.md]      # default: belge.md here, saved as you type
+go run . [library]      # default: ./kitaplik, made and seeded when missing; saved as you type
 ```
+
+The library is plain files, as [Locus](https://github.com/oneo-me/locus) keeps notes: a collection is a folder with a
+`collection.json`, a page a folder with its `index.md` (title and creation time in the front matter, the body in
+Markdown), a sub-page a page's folder inside another's. The sidebar lists collections and their pages as a tree: a
+collection's + makes a page in it, a page's + a page under it, ⌃N a page in the open one's collection.
 
 | Type | Becomes |
 | --- | --- |
@@ -26,7 +31,8 @@ divider (richtext has code blocks, but no shortcut for them).
 
 | Path | What |
 | --- | --- |
-| `main.go` | The window: MyGo's rich text editor (`ui/richtext`) on a page, Markdown file in and out, autosave |
+| `library.go` | The library on disk: collections, pages, sub-pages, front matter; no UI |
+| `main.go` | The window: the sidebar tree, the page (its collection, title, MyGo's rich text editor), autosave |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |
 | `slime.go`, `mizan.go` | The two carets |
 | `docs/` | Research on Thymer and the step-by-step plan (Turkish) |

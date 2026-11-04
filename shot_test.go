@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/richtext"
 )
 
 // TestShot draws the welcome document: run with SHOT=file.png.
@@ -16,9 +15,21 @@ func TestShot(t *testing.T) {
 	if out == "" {
 		t.Skip()
 	}
-	a := newApp(richtext.NewDocument(richtext.ParseMarkdown(welcome)), "/tmp/belge.md")
-	a.doc.SetSelection(120, 120)
-	tt := ui.NewTester(a.view, 960, 820)
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed(lib); err != nil {
+		t.Fatal(err)
+	}
+	c := lib.Collections[0]
+	for _, title := range []string{"Proje planı", "Okuma listesi"} {
+		p, _ := c.NewPage(nil, title)
+		c.NewPage(p, "Alt sayfa: "+title)
+	}
+	a := newApp(lib)
+	a.doc.SetSelection(40, 40)
+	tt := ui.NewTester(a.view, 1180, 820)
 	tt.Advance(400 * time.Millisecond)
 	f, _ := os.Create(out)
 	png.Encode(f, tt.Image())

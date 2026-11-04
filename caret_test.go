@@ -2,7 +2,6 @@ package main
 
 import (
 	"math"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -36,9 +35,30 @@ ikinci satır
 Son.
 `
 
+// testLibrary is a library in a temporary folder with one collection and a page of src.
+func testLibrary(t *testing.T, src string) *Library {
+	t.Helper()
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := lib.NewCollection("Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := c.NewPage(nil, "Sayfa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	return lib
+}
+
 func newTestApp(t *testing.T, src string) (*app, *ui.Tester) {
 	t.Helper()
-	a := newApp(richtext.NewDocument(richtext.ParseMarkdown(src)), "")
+	a := newApp(testLibrary(t, src))
 	tt := ui.NewTester(a.view, 900, 1400)
 	tt.Advance(50 * time.Millisecond)
 	return a, tt
@@ -112,8 +132,7 @@ func TestMarkdownNeverSeen(t *testing.T) {
 
 // TestSaveAndReload writes the file after an edit, and reading it back gives the same text.
 func TestSaveAndReload(t *testing.T) {
-	path := t.TempDir() + "/not.md"
-	a := newApp(richtext.NewDocument(richtext.ParseMarkdown(sample)), path)
+	a := newApp(testLibrary(t, sample))
 	now := time.Now()
 	a.clock = func() time.Time { return now }
 	tt := ui.NewTester(a.view, 900, 900)
@@ -123,14 +142,13 @@ func TestSaveAndReload(t *testing.T) {
 	if a.dirty {
 		t.Fatalf("not saved (err %q)", a.saveErr)
 	}
-	b, err := loadDoc(path)
+	body, err := a.page.Body()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !b.Text().Equal(a.doc.Text()) {
-		t.Fatalf("reloaded text differs:\n%s\n---\n%s", b.Text().Markdown(), a.doc.Text().Markdown())
+	if b := richtext.ParseMarkdown(body); !b.Equal(a.doc.Text()) {
+		t.Fatalf("reloaded text differs:\n%s\n---\n%s", b.Markdown(), a.doc.Text().Markdown())
 	}
-	_ = os.Remove(path)
 }
 
 // TestUndoGivesMarksBack: ⌘Z right after a shortcut gives back the marks as typed.
