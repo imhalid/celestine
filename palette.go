@@ -65,6 +65,7 @@ func (a *app) commands() []palItem {
 		}
 	}
 	out = append(out,
+		cmd("Görevler", "", iconTask, a.openTasks),
 		cmd("Yeni koleksiyon", "⇧⌘N", iconStack, func() {
 			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
 				a.newPage(c, nil)

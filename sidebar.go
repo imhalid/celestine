@@ -345,7 +345,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 
 func (a *app) pageRow(c *ui.Context, p *Page) {
 	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: "Sayfa: " + p.Title, depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
-		selected: p == a.page && a.coll == nil, has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
+		selected: p == a.page && !a.noPage(), has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
 		menu: func() []menuItem { return a.pageMenu(p, true) }})
 	switch {
 	case add:

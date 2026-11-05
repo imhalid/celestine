@@ -14,6 +14,8 @@ func (a *app) here() place {
 	switch {
 	case a.trashOpen:
 		return place{kind: "trash"}
+	case a.tasksOpen:
+		return place{kind: "tasks"}
 	case a.tag != "":
 		return place{"tag", a.tag}
 	case a.coll != nil:
@@ -60,6 +62,10 @@ func (a *app) goTo(p place) bool {
 	defer func() { a.going = false }()
 	if p.kind == "trash" {
 		a.openTrash()
+		return true
+	}
+	if p.kind == "tasks" {
+		a.openTasks()
 		return true
 	}
 	if p.kind == "tag" {

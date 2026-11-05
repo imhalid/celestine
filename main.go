@@ -114,6 +114,8 @@ type app struct {
 	trashed *TrashItem // just thrown away: a toast offers it back
 
 	trashOpen    bool     // the trash is shown, instead of a page
+	tasksOpen    bool     // the task view is shown (tasks.go)
+	taskFilter   int      // 0 open, 1 done, 2 all
 	tag          string   // the tag (its key) whose pages are shown, instead of a page (tags.go)
 	tagHits      []tagHit // the tags drawn this frame; a click is against the last's
 	tagSeen      []tagHit
@@ -325,7 +327,7 @@ func main() {
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
 	defer a.visit()
-	a.coll, a.trashOpen, a.tag = nil, false, ""
+	a.coll, a.trashOpen, a.tag, a.tasksOpen = nil, false, "", false
 	if p == a.page {
 		return
 	}
@@ -460,7 +462,7 @@ func (a *app) view(c *ui.Context) {
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
-			if !a.trashOpen && a.tag == "" && (a.coll != nil || a.page != nil) {
+			if !a.trashOpen && a.tag == "" && !a.tasksOpen && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
@@ -474,6 +476,11 @@ func (a *app) view(c *ui.Context) {
 				if a.tag != "" {
 					a.focused = false
 					a.tagView(c)
+					return
+				}
+				if a.tasksOpen {
+					a.focused = false
+					a.tasksView(c)
 					return
 				}
 				if a.coll != nil {

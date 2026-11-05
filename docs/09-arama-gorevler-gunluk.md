@@ -38,3 +38,12 @@ Aynı dil arama kutusunda, canlı sorgu bloklarında, koleksiyonun "Related Sect
    Tek bir ayrıştırıcı, her yerde aynı.
 3. **Canlı sorgu bloğu** ve **dinamik koleksiyon** bu motorun üstüne gelir.
 4. Günlük ilk sürüm için isteğe bağlı; koleksiyonlar ve alt sayfalar önce.
+
+## Görev görünümü (Kasım 2026)
+
+Kenar çubuğunun altındaki **Görevler** satırı (açık görev sayısı rozetli) ya da komut paleti: kitaplıktaki bütün `- [ ] …`
+satırları sayfalarına göre gruplanır (son değişen sayfa önde). Üstte Açık / Tamamlanan / Hepsi süzgeci. Onay kutusuna
+tıklamak görevi sayfaya gitmeden işaretler: sayfanın dosyası yazılır, sayfa açıksa editördeki metin de güncellenir.
+Sayfanın adına tıklamak sayfayı açar. Kod bloklarındaki görevler sayılmaz; görevdeki `[[bağlantı]]` adıyla gösterilir.
+Geri/ileri (⌘[ ⌘]) bu görünümü de bilir. Görevler bağlantı dizininin okumasıyla toplanır; bir kutu işaretlenince liste hemen
+yenilenir, başka yerdeki değişiklikler en çok 4 saniye geriden gelir.

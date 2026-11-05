@@ -18,7 +18,7 @@ func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
 // openTrash shows the trash instead of a page.
 func (a *app) openTrash() {
 	a.flush()
-	a.trashOpen, a.coll, a.tag = true, nil, ""
+	a.trashOpen, a.coll, a.tag, a.tasksOpen = true, nil, "", false
 	a.loadTrash()
 	a.visit()
 }
@@ -52,6 +52,7 @@ func (a *app) trashRow(c *ui.Context) {
 		}
 	}
 	ui.Box(c).Height(1).Background(t.Border.Alpha(0.6)).Margin(0, 12)
+	a.tasksRow(c)
 	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 		c.Key("trash-row")
 		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
@@ -138,6 +139,39 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 				a.saveErr = err.Error()
 			}
 			a.loadTrash()
+		}
+	})
+}
+
+// tasksRow is the task view's row, above the trash's, with how many tasks are open.
+func (a *app) tasksRow(c *ui.Context) {
+	t := c.Theme()
+	open := 0
+	for _, k := range a.links.tasks {
+		if !k.done {
+			open++
+		}
+	}
+	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
+		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
+			Label("Görevler").Role(ui.RoleButton).Transition(rowMove)
+		switch {
+		case a.tasksOpen:
+			r.Background(t.Selection)
+		case r.Hovered():
+			r.Background(t.SurfaceHover)
+		default:
+			r.Background(t.Surface.Alpha(0))
+		}
+		r.Children(func() {
+			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(t.TextMuted)
+			ui.Text(c, "Görevler").FontSize(13.5).Grow(1)
+			if open > 0 {
+				ryugo.Badge(c, strconv.Itoa(open), ryugo.ToneNeutral)
+			}
+		})
+		if r.Clicked() {
+			a.openTasks()
 		}
 	})
 }
