@@ -50,6 +50,16 @@ func (a *app) statusExtras(c *ui.Context) {
 		return ui.Text(c, text).FontSize(11.5).TextColor(t.TextMuted).MaxLines(1)
 	}
 	p := a.page
+	if s.ShowToday {
+		b := ui.Row(c.Key("status-today")).Padding(1, 5).Radius(5).AlignItems(ui.Center).Label("Yazma istatistikleri").Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		if b.Hovered() {
+			b.Background(t.SurfaceHover)
+		}
+		b.Children(func() { small("bugün " + strconv.Itoa(a.writtenOn(a.clock())) + " kelime") })
+		if b.Clicked() {
+			a.statsOpen = true
+		}
+	}
 	if s.ShowPath {
 		path := p.Coll.Name
 		if crumb := parents(p); crumb != "" {

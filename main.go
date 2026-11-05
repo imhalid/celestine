@@ -202,7 +202,9 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	importNote    string                    // what the last import said, in the settings
+	importNote    string // what the last import said, in the settings
+	statsOpen     bool   // the dialog of what is written (writing.go)
+	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
@@ -558,6 +560,7 @@ func (a *app) view(c *ui.Context) {
 	a.propDialog(c)
 	a.tagRenameView(c)
 	a.historyView(c)
+	a.writingView(c)
 	a.cellEditView(c)
 	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
@@ -1041,6 +1044,7 @@ func (a *app) save() {
 		a.saveErr = err.Error()
 		return
 	}
+	a.countWriting(a.lastSave, md)
 	a.lastSave, a.dirty = md, false
 	a.linksStale()
 }

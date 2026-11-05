@@ -317,6 +317,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 		toggle("set-caretname", "Caret adı", "Slime ya da Mizan.", &a.settings.HideCaret, true),
 		toggle("set-words", "Kelime sayısı", "Açık sayfanın kelimeleri.", &a.settings.ShowWords, false),
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
+		toggle("set-today", "Bugün yazılan", "Bugün yazılan kelime sayısı; tıklayınca istatistikler açılır.", &a.settings.ShowToday, false),
 		toggle("set-reading", "Okuma süresi", "Dakikada 200 kelime ile: \"3 dk okuma\".", &a.settings.ShowReading, false),
 		toggle("set-path", "Sayfa yolu", "Koleksiyon › üst sayfa › sayfa.", &a.settings.ShowPath, false),
 		toggle("set-sel", "Seçili harf sayısı", "Metin seçiliyken: \"42 harf seçili\".", &a.settings.ShowSel, false),

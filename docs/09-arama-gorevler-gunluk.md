@@ -72,3 +72,11 @@ Göreve `every:week` (ya da Türkçe `her:hafta`) yazmak onu yinelenen yapar: `e
 bu görev yapılmış kalır (yinelenme işareti ondan kalkar), altında aynı görev açık olarak yapılır: günü, görevin kendi `[[günü]]`nden
 bir dönem sonrası (bugünü geçene dek ilerler); günü yoksa bugünden bir dönem sonrası eklenir. Görev görünümünde "↻ her hafta" yazar.
 Örnek: `- [ ] çöpü çıkar [[2026-11-05]] every:hafta` → işaretlenince `- [x] çöpü çıkar [[2026-11-05]]` ve `- [ ] çöpü çıkar [[2026-11-12]] every:hafta`.
+
+## Yazma istatistikleri (Kasım 2026)
+
+Her kayıtta sayfaya eklenen kelimeler günün sayısına eklenir (silinenler düşmez; ayarlarla birlikte kitaplık dosyasında, `writing`,
+son 400 gün). Paletten "Yazma istatistikleri" (ya da durum çubuğundaki "bugün N kelime", Ayarlar ▸ Durum çubuğu ▸ Bugün yazılan)
+bir pencere açar: bugün, bu hafta (pazartesiden), bu ay, üst üste kaç gün yazıldığı, son 30 günün çubukları, en iyi gün ve toplam.
+Günlük hedef (kelime) verilirse çubuklarda hedef çizgisi, bugün için ilerleme çubuğu çıkar ve "üst üste gün" hedefi tutturulan günleri sayar;
+0 ise bir kelime yazmak günü sayar.

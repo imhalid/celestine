@@ -74,6 +74,7 @@ func (a *app) commands() []palItem {
 	}
 	out = append(out,
 		cmd("Görevler", "", iconTask, a.openTasks),
+		cmd("Yazma istatistikleri", "", iconPen, func() { a.statsOpen = true }),
 		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
 		cmd("Kitaplıkta ara", "⇧⌘F", iconSearch, func() { a.openSearch(a.searchQ) }),
 		cmd("Hızlı not", a.quickKeys(), iconPlus, a.showQuick),

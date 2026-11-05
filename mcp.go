@@ -54,11 +54,14 @@ type Settings struct {
 	ShowEdited  bool `json:"showEdited,omitempty"`
 	ShowLinks   bool `json:"showLinks,omitempty"`
 	// the sidebar as it was left: shown or not, and what is open in its tree
-	SidebarClosed bool     `json:"sidebarClosed,omitempty"`
-	PanelOpen     bool     `json:"panelOpen,omitempty"`
-	QuickKey      string   `json:"quickKey,omitempty"` // the quick note's global key
-	TreeSaved     bool     `json:"treeSaved,omitempty"`
-	TreeOpen      []string `json:"treeOpen,omitempty"`
+	SidebarClosed bool           `json:"sidebarClosed,omitempty"`
+	PanelOpen     bool           `json:"panelOpen,omitempty"`
+	Writing       map[string]int `json:"writing,omitempty"`   // the words written, by day (writing.go)
+	WriteGoal     int            `json:"writeGoal,omitempty"` // the words to write in a day
+	ShowToday     bool           `json:"showToday,omitempty"` // today's count in the status bar
+	QuickKey      string         `json:"quickKey,omitempty"`  // the quick note's global key
+	TreeSaved     bool           `json:"treeSaved,omitempty"`
+	TreeOpen      []string       `json:"treeOpen,omitempty"`
 }
 
 // the settings, with what is not set taken as the default
