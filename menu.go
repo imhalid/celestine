@@ -80,6 +80,7 @@ func (a *app) menu() *mygo.Menu {
 			item("Kitaplıkta ara…", "CmdOrCtrl+Shift+F", func() { a.openSearch(a.searchQ) }),
 			mygo.Separator(),
 			item("Bugünün sayfası", "CmdOrCtrl+J", a.openToday),
+			item("Bağlantı grafiği", "CmdOrCtrl+Shift+G", a.openGraph),
 			item("Hızlı not…", "", a.showQuick),
 			item("Geri", "CmdOrCtrl+[", func() { a.step(-1) }),
 			item("İleri", "CmdOrCtrl+]", func() { a.step(1) }),

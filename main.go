@@ -116,7 +116,9 @@ type app struct {
 	trashOpen     bool       // the trash is shown, instead of a page
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	tasksOpen     bool       // the task view is shown (tasks.go)
-	searchOpen    bool       // the search over the whole library is shown (search.go)
+	graphOpen     bool       // the graph of the links is shown (graph.go)
+	graph         graphState
+	searchOpen    bool // the search over the whole library is shown (search.go)
 	searchQ       string
 	searchFocus   bool
 	quickKeyDraft string // the key being typed in the settings
@@ -354,7 +356,7 @@ func main() {
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
 	defer a.visit()
-	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = nil, false, "", false, false
+	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.graphOpen = nil, false, "", false, false, false
 	if p == a.page {
 		return
 	}
@@ -467,6 +469,9 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyF) {
 			a.openFind()
 		}
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyG) {
+			a.openGraph()
+		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF) {
 			a.openSearch(a.searchQ)
 		}
@@ -497,7 +502,7 @@ func (a *app) view(c *ui.Context) {
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
-			if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil) {
+			if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.graphOpen && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
 			topPad := float32(pageTop - barH + 8)
@@ -525,6 +530,11 @@ func (a *app) view(c *ui.Context) {
 				if a.searchOpen {
 					a.focused = false
 					a.searchView(c)
+					return
+				}
+				if a.graphOpen {
+					a.focused = false
+					a.graphView(c)
 					return
 				}
 				if a.coll != nil {

@@ -18,7 +18,7 @@ func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
 // openTrash shows the trash instead of a page.
 func (a *app) openTrash() {
 	a.flush()
-	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen = true, nil, "", false, false
+	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen, a.graphOpen = true, nil, "", false, false, false
 	a.loadTrash()
 	a.visit()
 }
@@ -53,6 +53,7 @@ func (a *app) trashRow(c *ui.Context) {
 	}
 	ui.Box(c).Height(1).Background(t.Border.Alpha(0.6)).Margin(0, 12)
 	a.tasksRow(c)
+	a.graphRow(c)
 	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 		c.Key("trash-row")
 		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
@@ -172,6 +173,30 @@ func (a *app) tasksRow(c *ui.Context) {
 		})
 		if r.Clicked() {
 			a.openTasks()
+		}
+	})
+}
+
+// graphRow is the graph's row, under the tasks'.
+func (a *app) graphRow(c *ui.Context) {
+	t := c.Theme()
+	ui.Row(c.Key("graph-row-wrap")).Padding(0, 8, 0, 8).Children(func() {
+		r := ui.Row(c.Key("graph-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
+			Label("Bağlantı grafiği").Role(ui.RoleButton).Transition(rowMove)
+		switch {
+		case a.graphOpen:
+			r.Background(t.Selection)
+		case r.Hovered():
+			r.Background(t.SurfaceHover)
+		default:
+			r.Background(t.Surface.Alpha(0))
+		}
+		r.Children(func() {
+			ui.Icon(c, iconGraph).Width(15).Height(15).TextColor(t.TextMuted)
+			ui.Text(c, "Bağlantı grafiği").FontSize(13.5).Grow(1)
+		})
+		if r.Clicked() {
+			a.openGraph()
 		}
 	})
 }
