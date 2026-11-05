@@ -54,8 +54,8 @@ func TestCover(t *testing.T) {
 	cur := p.Cover
 	a.removeCover(p)
 	src, _ = os.ReadFile(p.file())
-	if p.Cover != "" || strings.Contains(string(src), "cover") {
-		t.Fatalf("not away:\n%s", src)
+	if p.Cover != coverNone || !strings.Contains(string(src), "cover: none") || strings.Contains(string(src), "kapak-") {
+		t.Fatalf("not away (the page says it wants none):\n%s", src)
 	}
 	if _, err := os.Stat(filepath.Join(p.Dir, cur)); err == nil {
 		t.Fatal("the file stays")

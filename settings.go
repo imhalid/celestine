@@ -277,6 +277,16 @@ func (a *app) settingsEditor(c *ui.Context) {
 					FontSize(float32(fs)).LineHeight(float32(lh)).TextColor(cl.Text)
 			})
 		})
+	auto := !a.settings.NoAutoCover
+	settingGroup(c, "set-cover", func() {
+		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen hareketsiz ve dither'lı bir desen kapak alır; hepsi birbirinden farklıdır. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
+		})
+	})
+	if auto != !a.settings.NoAutoCover {
+		a.settings.NoAutoCover = !auto
+		a.saveSettings()
+	}
 	a.settingsQuick(c)
 	if float32(fs) != a.fontSize() {
 		a.settings.FontSize = fs

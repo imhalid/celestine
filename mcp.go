@@ -56,10 +56,11 @@ type Settings struct {
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool           `json:"sidebarClosed,omitempty"`
 	PanelOpen     bool           `json:"panelOpen,omitempty"`
-	Writing       map[string]int `json:"writing,omitempty"`   // the words written, by day (writing.go)
-	WriteGoal     int            `json:"writeGoal,omitempty"` // the words to write in a day
-	ShowToday     bool           `json:"showToday,omitempty"` // today's count in the status bar
-	QuickKey      string         `json:"quickKey,omitempty"`  // the quick note's global key
+	Writing       map[string]int `json:"writing,omitempty"`     // the words written, by day (writing.go)
+	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
+	ShowToday     bool           `json:"showToday,omitempty"`   // today's count in the status bar
+	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)
+	QuickKey      string         `json:"quickKey,omitempty"`    // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`
 	TreeOpen      []string       `json:"treeOpen,omitempty"`
 }

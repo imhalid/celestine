@@ -43,12 +43,15 @@ func (a *app) pageMoreMenu(p *Page) []menuItem {
 		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
 	}
 	coverTitle := "Kapak resmi ekle…"
-	if p.Cover != "" {
+	if p.imageCover() {
 		coverTitle = "Kapak resmini değiştir…"
 	}
 	out = append(out, menuItem{title: coverTitle, glyph: iconCover, run: func() { a.pickCover(p) }})
-	if p.Cover != "" {
+	if a.coverKind(p) != coverKindNone {
 		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
+	}
+	if p.Cover == coverNone && !a.settings.NoAutoCover {
+		out = append(out, menuItem{title: "Otomatik kapağı geri getir", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
 	}
 	if !p.Coll.Journal {
 		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})

@@ -213,13 +213,14 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	importNote    string              // what the last import said, in the settings
-	embedCache    map[string][]string // the first lines of the pages embedded (embed.go)
-	ctxCache      map[string][]seg    // the lines that link to a page (backlinks.go)
-	bulk          bulkState           // pages being chosen in a collection, to be done to all (bulk.go)
-	chipW         map[string]float32  // how wide the text of each chip is (chips.go)
-	tables        map[string]*tableUI // the state of each collection table, by collection and view (views.go)
-	statsOpen     bool                // the dialog of what is written (writing.go)
+	importNote    string                // what the last import said, in the settings
+	embedCache    map[string][]string   // the first lines of the pages embedded (embed.go)
+	ctxCache      map[string][]seg      // the lines that link to a page (backlinks.go)
+	bulk          bulkState             // pages being chosen in a collection, to be done to all (bulk.go)
+	chipW         map[string]float32    // how wide the text of each chip is (chips.go)
+	autoCovers    map[uint64]*autoCover // the patterns made for the covers of the pages shown lately (autocover.go)
+	tables        map[string]*tableUI   // the state of each collection table, by collection and view (views.go)
+	statsOpen     bool                  // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
@@ -530,7 +531,7 @@ func (a *app) view(c *ui.Context) {
 				padX = 0
 			}
 			topPad := float32(pageTop - barH + 8)
-			if a.page != nil && a.page.Cover != "" && !a.noPage() { // the cover starts under the bar
+			if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
 				topPad = 0
 			}
 			a.barInset, a.topSpace = 0, 0
@@ -657,8 +658,8 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
-			if _, y, over := wrap.PointerPosition(); over && p.Cover != "" {
-				a.coverHover = y < coverBandH
+			if _, y, over := wrap.PointerPosition(); over && a.coverKind(p) != coverKindNone {
+				a.coverHover = y < a.coverBandOf(p)
 			} else {
 				a.coverHover = false
 			}
@@ -780,8 +781,8 @@ func (a *app) caretView(c *ui.Context) {
 // pageHead is the page's title and its properties.
 func (a *app) pageHead(c *ui.Context, p *Page) {
 	ink := c.Theme().Text
-	if p.Cover != "" { // the title lies on the cover, as the band's bottom is dark
-		ui.Box(c.Key("cover-room")).FillWidth().Height(coverRoom)
+	if a.coverKind(p) != coverKindNone { // the title lies on the cover, as the band's bottom is dark
+		ui.Box(c.Key("cover-room")).FillWidth().Height(a.coverRoomOf(p))
 		ink = ui.Hex("#ffffff")
 	}
 	c.Key("title:" + p.Dir)

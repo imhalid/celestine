@@ -45,7 +45,7 @@ func (a *app) propsSection(c *ui.Context, p *Page) {
 			if b.Clicked() {
 				a.prop = propEdit{open: true, coll: coll}
 			}
-			if p.Cover == "" { // a cover is one click away, beside it
+			if a.coverKind(p) == coverKindNone { // a cover is one click away, beside it
 				cb := ui.Row(c.Key("add-cover")).Gap(6).Padding(4, 8, 4, 4).Radius(6).AlignItems(ui.Center).Label("Kapak resmi ekle").Role(ui.RoleButton)
 				if cb.Hovered() {
 					cb.Background(t.SurfaceHover)

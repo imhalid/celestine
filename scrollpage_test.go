@@ -158,6 +158,7 @@ func TestManyLinesPageIsAWindow(t *testing.T) {
 // over the bar too; at the top the title stands where it did.
 func TestPageScrollsUnderTheTitleBar(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
+	a.settings.NoAutoCover = true // a page with no cover: its title lies where it did (a made cover starts under the bar)
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
 	if a.scrollR.Y != 0 || a.barInset != barH {

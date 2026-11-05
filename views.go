@@ -316,7 +316,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 				}
 			})
-			if p.Cover != "" {
+			if p.imageCover() {
 				ui.Box(c.Key("thumb-gap")).Width(12).Height(1).Shrink(0)
 				a.coverThumb(c, p, 72, 52, 8)
 			}

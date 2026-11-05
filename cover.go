@@ -40,28 +40,42 @@ func (a *app) setCover(p *Page, data []byte) error {
 	if err := p.Save(body); err != nil {
 		return err
 	}
-	if old != "" && old != name {
+	if old != "" && old != coverNone && old != name {
 		p.fs().Remove(filepath.Join(p.Dir, old))
 	}
 	return nil
 }
 
-// removeCover takes the cover away, its file with it.
+// removeCover takes the cover away, its file with it, and says the page wants none: not the made one either.
 func (a *app) removeCover(p *Page) {
-	if p.Cover == "" {
+	if p.Cover == coverNone {
 		return
 	}
 	if p == a.page {
 		a.flush()
 	}
 	old := p.Cover
-	p.Cover = ""
+	p.Cover = coverNone // no cover, the made one either: the page said so
 	body, _ := p.Body()
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return
 	}
-	p.fs().Remove(filepath.Join(p.Dir, old))
+	if old != "" && old != coverNone {
+		p.fs().Remove(filepath.Join(p.Dir, old))
+	}
+}
+
+// restoreAutoCover puts the made cover back on a page that had none.
+func (a *app) restoreAutoCover(p *Page) {
+	if p == a.page {
+		a.flush()
+	}
+	p.Cover = ""
+	body, _ := p.Body()
+	if err := p.Save(body); err != nil {
+		a.saveErr = err.Error()
+	}
 }
 
 // pickCover asks for the cover in a dialog.
@@ -102,15 +116,22 @@ const (
 )
 
 func (a *app) coverGap(c *ui.Context, p *Page) {
-	if p.Cover != "" {
+	if a.coverKind(p) != coverKindNone {
 		ui.Box(c.Key("cover-foot")).FillWidth().Height(coverFoot)
 	}
 }
 
 // paintCover is the band's picture, drawn as the wrapper's own, under what
-// is in it: cropped to the width, darker toward the foot.
+// is in it: cropped to the width, darker toward the foot. A page with no
+// picture of its own has the pattern made for it (autocover.go), still, its
+// foot already dark.
 func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
-	if p.Cover == "" {
+	switch a.coverKind(p) {
+	case coverKindNone:
+		return
+	case coverKindAuto:
+		ac := a.autoCoverOf(p)
+		wrap.Draw(func(pt *ui.Painter, r ui.Rect) { ac.paint(pt, ui.Rect{X: r.X, Y: r.Y, W: r.W, H: autoBandH}) })
 		return
 	}
 	cl := ryugo.From(c).Colors
@@ -131,7 +152,7 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 
 // coverButtons are the buttons on the cover, as the pointer is in the band.
 func (a *app) coverButtons(c *ui.Context, p *Page) {
-	if p.Cover == "" {
+	if a.coverKind(p) == coverKindNone {
 		return
 	}
 	cl := ryugo.From(c).Colors
@@ -155,7 +176,7 @@ func readFile(name string) ([]byte, error) { return os.ReadFile(name) }
 // coverThumb is the cover of p as a small picture, cropped to w by h, or
 // nothing when the page has none (or the file is gone).
 func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
-	if p.Cover == "" {
+	if !p.imageCover() {
 		return
 	}
 	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
