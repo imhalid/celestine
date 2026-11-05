@@ -225,3 +225,22 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.Header.Set("Authorization", "Bearer "+b.token)
 	return http.DefaultTransport.RoundTrip(r)
 }
+
+// TestMCPInStatusBar: the server on shows in the status bar, which opens the settings.
+func TestMCPInStatusBar(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	if tt.HasText("MCP") {
+		t.Fatal("shown while off")
+	}
+	a.settings.Port = 0
+	a.setMCP(true)
+	defer a.setMCP(false)
+	tt.Frame()
+	if err := tt.Click("MCP açık: ayarlar"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.settingsOpen {
+		t.Fatal("the settings did not open")
+	}
+}

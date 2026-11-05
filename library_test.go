@@ -77,9 +77,6 @@ func TestSidebarMakesSubPage(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", "index.md")); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.crumbs(); got != "Test  ›  Sayfa" {
-		t.Fatalf("crumbs: %q", got)
-	}
 	// The new title is typed straight away, and saved.
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("Toplantı notları")

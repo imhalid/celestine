@@ -132,10 +132,16 @@ type app struct {
 	propEditing string             // the field being typed in
 	propErr     string             // the field whose value did not fit
 	invalidate  func()             // asks the window for a frame, from any goroutine
+	hist        []place            // where the app went, and where it is in that (nav.go)
+	histAt      int
+	going       bool     // going back or forward: no new place in the history
+	menuBar     bool     // the menu bar has the shortcuts, not the window
+	pageBg      ui.Color // the page's background this frame (bg)
 }
 
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a.histAt = -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
 	for _, c := range lib.Collections {
@@ -182,7 +188,8 @@ func main() {
 		a.loadSettings()
 	}
 	mygo.App.WhenReady(func() {
-		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{{Role: mygo.RoleAppMenu}, {Role: mygo.RoleEditMenu}}))
+		mygo.App.SetMenu(a.menu())
+		a.menuBar = true
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
 		a.invalidate = w.Invalidate
@@ -198,6 +205,7 @@ func main() {
 
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
+	defer a.visit()
 	a.coll, a.trashOpen = nil, false
 	if p == a.page {
 		return
@@ -254,12 +262,24 @@ func (a *app) view(c *ui.Context) {
 		a.track(c)
 	}
 
-	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(t.Background)
-	if root.Shortcut(ui.Cmd, ui.KeyBackslash) {
-		a.toggleSidebar()
-	}
-	if root.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-		a.caretKind = (a.caretKind + 1) % 2
+	a.pageBg = a.bg(c)
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+	if !a.menuBar { // in the app, the menu bar has these (menu.go)
+		if root.Shortcut(ui.Cmd, ui.KeyBackslash) {
+			a.toggleSidebar()
+		}
+		if root.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
+			a.caretKind = (a.caretKind + 1) % 2
+		}
+		if root.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
+			a.step(-1)
+		}
+		if root.Shortcut(ui.Cmd, ui.KeyBracketRight) {
+			a.step(1)
+		}
+		if root.Shortcut(ui.Cmd, ui.KeyComma) {
+			a.settingsOpen = true
+		}
 	}
 	if root.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
 		a.newPage(a.page.Coll, nil)
@@ -268,7 +288,7 @@ func (a *app) view(c *ui.Context) {
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
-			a.titleBar(c, shown)
+			a.titleBar(c)
 			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32).Children(func() {
 				if a.trashOpen {
 					a.focused = false
@@ -288,6 +308,7 @@ func (a *app) view(c *ui.Context) {
 			})
 			a.status(c)
 		})
+		a.sidebarButton(c)
 	})
 	a.settingsDialog(c)
 	a.propDialog(c)
@@ -305,6 +326,15 @@ func (a *app) view(c *ui.Context) {
 		a.boxes = a.doc.VisibleParagraphs()
 		a.autosave(c)
 	}
+}
+
+// bg is the page's background: Ryugo's, but in the dark not its black -
+// its card's dark gray, a step below the sidebar.
+func (a *app) bg(c *ui.Context) ui.Color {
+	if t := ryugo.From(c); t.Dark {
+		return t.Colors.Card
+	}
+	return c.Theme().Background
 }
 
 // pageView is the open page: its collection, its title, its text.
@@ -339,15 +369,6 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		a.drawDividers(p, r)
 		a.drawCaret(p, r)
 	})
-}
-
-// crumbs is where the page is: its collection and the pages above it.
-func (a *app) crumbs() string {
-	var parts []string
-	for q := a.page.Parent; q != nil; q = q.Parent {
-		parts = append([]string{q.Title}, parts...)
-	}
-	return strings.Join(append([]string{a.page.Coll.Name}, parts...), "  ›  ")
 }
 
 // track notes what the user did since the last frame: letters written (for
@@ -406,7 +427,9 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	}
 	f := caretFrame{r: cr, cw: cb.cw, dark: dark, bounds: r, wrote: a.wrote, edited: a.edited}
 	a.wrote, a.edited = 0, false
-	p.Clip(r, 0, func() {
+	// not clipped to the editor's box: at the start of a line the caret
+	// goes past its left edge
+	p.Clip(ui.Rect{X: r.X - 24, Y: r.Y - 12, W: r.W + 48, H: r.H + 24}, 0, func() {
 		if a.caretKind == caretMizan {
 			a.mizan.draw(p, f)
 			return
@@ -430,7 +453,23 @@ func (a *app) status(c *ui.Context) {
 		state = "kaydediliyor…"
 	}
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
-	ui.Row(c).Padding(10, 18).Justify(ui.End).Children(func() {
+	ui.Row(c).Padding(10, 18).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+		// the MCP server on: a dot of the accent, which opens the settings
+		if a.mcpServer != nil {
+			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(6).AlignItems(ui.Center).
+				Label("MCP açık: ayarlar").Role(ui.RoleButton)
+			ryugo.Tooltip(c, m, "MCP sunucusu açık · "+a.mcpURL())
+			if m.Hovered() {
+				m.Background(t.SurfaceHover)
+			}
+			m.Children(func() {
+				ui.Box(c).Size(6, 6).Radius(3).Background(ryugo.From(c).Colors.Down)
+				ui.Text(c, "MCP").FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
+			})
+			if m.Clicked() {
+				a.settingsOpen = true
+			}
+		}
 		where := "ryudit"
 		if a.trashOpen {
 			where = trashDir

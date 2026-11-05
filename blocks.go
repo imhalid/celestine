@@ -88,7 +88,7 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		// a block right after another: a gap between them, which richtext
 		// draws as one
 		if b.Start > 0 && text.ParagraphStyleAt(b.Start-1).CodeBlock {
-			p.Fill(ui.Rect{X: r.X - 2, Y: r.Y + b.Top - 2, W: r.W + 4, H: 2}, th.Background, 0)
+			p.Fill(ui.Rect{X: r.X - 2, Y: r.Y + b.Top - 2, W: r.W + 4, H: 2}, a.pageBg, 0)
 		}
 		if label == "" {
 			continue

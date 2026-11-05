@@ -20,6 +20,7 @@ func (a *app) openTrash() {
 	a.flush()
 	a.trashOpen, a.coll = true, nil
 	a.loadTrash()
+	a.visit()
 }
 
 // restore puts item back and opens it.

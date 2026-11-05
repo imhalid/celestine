@@ -11,6 +11,7 @@ func icon(paths string) *ui.SVG {
 
 var (
 	iconChevron  = icon(`<path d="M9.5 6.5 15 12l-5.5 5.5"/>`)
+	iconBack     = icon(`<path d="M14.5 6.5 9 12l5.5 5.5"/>`)
 	iconPlus     = icon(`<path d="M12 6v12M6 12h12"/>`)
 	iconPage     = icon(`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z"/><path d="M13.5 3.5V8H18"/><path d="M9 13h6M9 16.5h4"/>`)
 	iconStack    = icon(`<path d="M12 3.5 20.5 8 12 12.5 3.5 8 12 3.5Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16 8.5 4.5 8.5-4.5"/>`)

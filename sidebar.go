@@ -56,32 +56,36 @@ func (a *app) branch(c *ui.Context) ui.Element {
 	return e
 }
 
-// titleBar is the bar across the top of the content: room for the window's
-// controls when the sidebar is folded, the sidebar's button and where we are.
-// It moves the window, as a title bar does.
-func (a *app) titleBar(c *ui.Context, sidebarShown float32) {
-	t := c.Theme()
+// titleBar is the bar across the top of the content: empty, as Thymer's,
+// it moves the window, as a title bar does. The sidebar's button is not in
+// it: it stays by the window's controls (sidebarButton).
+func (a *app) titleBar(c *ui.Context) {
 	tb := c.TitleBar()
-	left := max(tb.Left-sidebarShown, 0) + 10
-	ui.Row(c).Height(max(tb.Height, barH)).Padding(0, 16, 0, left).Gap(6).AlignItems(ui.Center).DragWindow().Children(func() {
+	ui.Row(c).Height(max(tb.Height, barH)).DragWindow()
+}
+
+// sidebarButton is the sidebar's button, in the same place whether the
+// sidebar is shown or not: right of the window's controls.
+func (a *app) sidebarButton(c *ui.Context) {
+	tb := c.TitleBar()
+	h := max(tb.Height, barH)
+	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - 26) / 2).Gap(2).Children(func() {
 		if a.iconButton(c, iconSidebar, "Kenar çubuğu (⌘\\)") {
 			a.toggleSidebar()
 		}
-		ui.Text(c, a.location()).FontSize(13).TextColor(t.TextMuted).MaxLines(1).Margin(0, 0, 0, 4)
+		// back and forward, faint when there is nowhere to go
+		for _, d := range []struct {
+			dir   int
+			glyph *ui.SVG
+			label string
+		}{{-1, iconBack, "Geri (⌘[)"}, {1, iconChevron, "İleri (⌘])"}} {
+			ui.Box(c.Key(d.label)).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(d.dir)]).Children(func() {
+				if a.iconButton(c, d.glyph, d.label) {
+					a.step(d.dir)
+				}
+			})
+		}
 	})
-}
-
-// location is where the content is: the collection, and the pages down to the open one.
-func (a *app) location() string {
-	switch {
-	case a.trashOpen:
-		return "Çöp"
-	case a.coll != nil:
-		return a.coll.Name
-	case a.page != nil:
-		return a.crumbs() + "  ›  " + a.page.Title
-	}
-	return "ryudit"
 }
 
 func (a *app) toggleSidebar() { a.sidebarClosed = !a.sidebarClosed }
@@ -189,7 +193,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	}
 	switch {
 	case renaming:
-		r.Background(t.Background).Border(1, t.Accent)
+		r.Background(a.pageBg).Border(1, t.Accent)
 	case s.selected:
 		r.Background(t.Selection)
 	case hover:

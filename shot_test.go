@@ -266,3 +266,30 @@ func TestKeptShot(t *testing.T) {
 	png.Encode(f, tt.Image())
 	f.Close()
 }
+
+// TestChromeShots draws the window's chrome in the dark, the sidebar open
+// and folded: run with CHROME=dir.
+func TestChromeShots(t *testing.T) {
+	dir := os.Getenv("CHROME")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "Satır başında caret.\n\n- liste\n")
+	tt.SetDark(true)
+	tt.SetTitleBar(ui.TitleBar{Left: 78, Height: 38})
+	tt.SetSize(1000, 520)
+	a.settings.Port = 0
+	a.setMCP(true)
+	defer a.setMCP(false)
+	a.doc.SetSelection(0, 0)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Advance(500 * time.Millisecond)
+	save("chrome-open")
+	a.toggleSidebar()
+	tt.Advance(time.Second)
+	save("chrome-folded")
+}

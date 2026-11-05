@@ -23,6 +23,7 @@ func (a *app) openCollection(c *Collection) {
 	a.flush()
 	a.coll, a.collName, a.search, a.trashOpen = c, c.Name, "", false
 	c.Open = true
+	a.visit()
 }
 
 func (a *app) collectionView(c *ui.Context) {
@@ -206,9 +207,6 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 		}
 		row.Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				if crumb := parents(p); crumb != "" {
-					ui.Text(c, crumb+"  ›").FontSize(14).TextColor(t.TextMuted)
-				}
 				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
 				when := p.Modified
 				if v.Sort == "created" {
@@ -368,9 +366,6 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Title: title, Count: strconv.Itoa(len(col))}, func() {
 				for _, p := range col {
 					card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
-						if crumb := parents(p); crumb != "" {
-							ui.Text(c, crumb).FontSize(12).TextColor(t.TextMuted).MaxLines(1)
-						}
 						ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
 						if ex := p.Excerpt(); ex != "" {
 							ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(2)
