@@ -101,7 +101,7 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 	th := ryugo.Painting(p).Colors
 	text := a.doc.Text()
 	a.tagHits = a.tagHits[:0]
-	for _, b := range a.boxes {
+	for _, b := range a.shown(r) {
 		s, e := text.ParagraphRange(b.Start)
 		if e <= s {
 			continue

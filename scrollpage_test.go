@@ -57,3 +57,82 @@ func TestPageScrollsAsAWhole(t *testing.T) {
 		t.Fatalf("typing: the caret %+v is out of %+v", cr, vp)
 	}
 }
+
+// A huge page (20000 lines) is a window: the editor is as high as the page's
+// room and scrolls the text in it. Each frame lays out and paints every
+// paragraph in the editor's height, and that height once grew frame after frame
+// until the whole text was in (seconds a frame); and a document begins with its
+// caret at the end, which a window shorter than its text scrolls itself to. It
+// opens at its top, scrolls on to the end, and the caret goes there and back.
+func TestHugePageIsAWindow(t *testing.T) {
+	var b strings.Builder
+	const lines = 20000
+	for i := 1; i <= lines; i++ {
+		fmt.Fprintf(&b, "- Madde %d: biraz metin, biraz daha metin.\n", i)
+	}
+	a, tt := newTestApp(t, b.String())
+	tt.SetSize(900, 700)
+	settle := func(n int) {
+		for i := 0; i < n; i++ {
+			tt.Advance(100 * time.Millisecond)
+		}
+	}
+	inView := func(what string) (first, last int) {
+		t.Helper()
+		n := len(a.boxes)
+		if n == 0 || n > 100 {
+			t.Fatalf("%s: %d paragraphs laid out of %d", what, n, lines)
+		}
+		return a.boxes[0].Index, a.boxes[n-1].Index
+	}
+	settle(20)
+	if first, _ := inView("opened"); first != 0 {
+		t.Fatalf("opened at paragraph %d, not at its top", first)
+	}
+	if an, ca := a.doc.Selection(); an != 0 || ca != 0 {
+		t.Fatalf("opened with the caret at %d-%d, not at its start", an, ca)
+	}
+	// the wheel takes the text on, and what is in view is all that is laid out
+	prev := 0
+	for i := 0; i < 5; i++ {
+		tt.Wheel(a.editorR.X+100, 300, 0, 3000)
+		settle(3)
+		first, _ := inView("scrolled")
+		if first <= prev {
+			t.Fatalf("the wheel did not take the text on: %d after %d", first, prev)
+		}
+		prev = first
+	}
+	// the caret to the end: the last line is in view, nothing more is laid out
+	n := a.doc.Text().Len()
+	a.doc.SetSelection(n, n)
+	settle(30)
+	if _, last := inView("caret at the end"); last != lines-1 {
+		t.Fatalf("the end of the page is not in view: last paragraph %d of %d", last, lines)
+	}
+	// and back to the start
+	a.doc.SetSelection(0, 0)
+	settle(30)
+	if first, _ := inView("caret at the start"); first != 0 {
+		t.Fatalf("the start of the page is not in view: first paragraph %d", first)
+	}
+}
+
+// A page of many short lines is a window too, though it is short in runes.
+func TestManyLinesPageIsAWindow(t *testing.T) {
+	var b strings.Builder
+	for i := 1; i <= 5000; i++ {
+		fmt.Fprintf(&b, "- satır %d\n", i)
+	}
+	a, tt := newTestApp(t, b.String())
+	tt.SetSize(900, 700)
+	for i := 0; i < 20; i++ {
+		tt.Advance(100 * time.Millisecond)
+	}
+	if n := len(a.boxes); n == 0 || n > 100 {
+		t.Fatalf("%d paragraphs laid out of 5000", n)
+	}
+	if !hugePage(a.doc.Text()) {
+		t.Fatal("5000 lines are not a huge page")
+	}
+}

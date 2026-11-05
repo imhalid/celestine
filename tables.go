@@ -169,7 +169,7 @@ func (a *app) drawTables(p *ui.Painter, r ui.Rect) {
 	th := p.Theme()
 	cl := ryugo.Painting(p).Colors
 	done := map[int]bool{}
-	for _, b := range a.boxes {
+	for _, b := range a.shown(r) {
 		if b.Start > text.Len() {
 			continue
 		}
@@ -177,7 +177,7 @@ func (a *app) drawTables(p *ui.Painter, r ui.Rect) {
 		if kind != "table" {
 			continue
 		}
-		tb, ok := tableBlockAt(text, b.Start)
+		tb, ok := tableAtCached(a.doc, b.Start)
 		if !ok || done[tb.start] {
 			continue
 		}
@@ -740,4 +740,38 @@ func (a *app) dragColumns(ed ui.Element) {
 		}
 		a.doc.SetSelection(a.selPrevA, a.selPrevC)
 	}
+}
+
+// tableMemo keeps the tables read from one version of a document, by every
+// rune a line of one starts at: drawTables asks for each line in view, every
+// frame, and reading a table of a thousand lines takes seconds.
+var tableMemo struct {
+	doc  *richtext.Document
+	ver  uint64
+	hits map[int]*tableBlock // a line's first rune -> its table
+	none map[int]bool        // the paragraphs that are no table
+}
+
+// tableAtCached is tableBlockAt, as it reads it, for the document doc as it is.
+func tableAtCached(doc *richtext.Document, pos int) (tableBlock, bool) {
+	m := &tableMemo
+	if ver := doc.Version(); m.doc != doc || m.ver != ver || m.hits == nil {
+		m.doc, m.ver, m.hits, m.none = doc, ver, map[int]*tableBlock{}, map[int]bool{}
+	}
+	if tb := m.hits[pos]; tb != nil {
+		return *tb, true
+	}
+	if m.none[pos] {
+		return tableBlock{}, false
+	}
+	tb, ok := tableBlockAt(doc.Text(), pos)
+	if !ok {
+		m.none[pos] = true
+		return tb, false
+	}
+	for _, pr := range tb.paras {
+		m.hits[pr[0]] = &tb
+	}
+	m.hits[pos] = &tb
+	return tb, true
 }

@@ -66,7 +66,7 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 	text := a.doc.Text()
 	th := p.Theme()
-	for _, b := range a.boxes {
+	for _, b := range a.shown(r) {
 		if b.Start > text.Len() {
 			continue
 		}

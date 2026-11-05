@@ -372,6 +372,9 @@ func (a *app) open(p *Page) {
 		}
 		a.sweepPictures(p, body)
 		doc = richtext.NewDocument(a.parsePage(p, body))
+		if hugePage(doc.Text()) {
+			doc.SetSelection(0, 0) // a document begins with its caret at the end: a huge page opens at its top
+		}
 		a.docs[p] = doc
 	}
 	a.page, a.doc, a.title = p, doc, p.Title
@@ -785,6 +788,9 @@ func (a *app) editorH(c *ui.Context) float32 {
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
 	least := max(a.scrollR.H-a.headH-a.linksH-8, 160)
+	if hugePage(a.doc.Text()) {
+		return least // a window on the text, which scrolls in it (see hugePageRunes)
+	}
 	n := len(a.boxes)
 	if n == 0 {
 		// nothing laid out yet (a page just opened): room for what the text

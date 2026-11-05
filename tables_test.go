@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 func TestSplitCells(t *testing.T) {
@@ -233,5 +235,32 @@ func TestTableColumnDrag(t *testing.T) {
 	}
 	if !strings.Contains(line, "---:") {
 		t.Fatalf("the alignment of the other column is lost: %q", line)
+	}
+}
+
+// tableAtCached reads a table as tableBlockAt does, once for each version.
+func TestTableAtCached(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("| a | b |\n| --- | --- |\n")
+	for i := 0; i < 50; i++ {
+		fmt.Fprintf(&b, "| %d | x |\n", i)
+	}
+	a, tt := newTestApp(t, b.String())
+	tt.Frame()
+	pos := a.boxes[3].Start
+	want, ok := tableBlockAt(a.doc.Text(), pos)
+	if !ok {
+		t.Fatal("not a table")
+	}
+	got, ok := tableAtCached(a.doc, pos)
+	if !ok || got.start != want.start || got.end != want.end || len(got.cells) != len(want.cells) {
+		t.Fatalf("cached %+v, read %+v", got, want)
+	}
+	if again, _ := tableAtCached(a.doc, a.boxes[5].Start); len(again.cells) != len(want.cells) || tableMemo.hits[a.boxes[5].Start] == nil {
+		t.Fatal("another line of the table was read again")
+	}
+	a.doc.SetText(richtext.ParseMarkdown("yok artık tablo"))
+	if _, ok := tableAtCached(a.doc, 0); ok {
+		t.Fatal("a text that is no table, read as one")
 	}
 }

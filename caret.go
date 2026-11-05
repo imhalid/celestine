@@ -2,7 +2,6 @@ package main
 
 import (
 	"math"
-	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -65,31 +64,22 @@ func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, 
 	if caret > end { // past the last paragraph in view
 		return caretBox{}, false
 	}
+	if end-start > maxCaretParagraph { // one line of a megabyte: laying it out again, for a caret, takes minutes
+		return caretBox{}, false
+	}
 	var para richtext.Paragraph
 	for _, p := range text.Slice(start, end).Paragraphs() {
 		para = p
 		break
 	}
 	para.Style = text.ParagraphStyleAt(start)
-	l, left := layoutParagraph(para, w, base, th)
-	// The caret's place in the layout, in UTF-16 units of the paragraph's text.
+	l, left := longMemo.layout(doc, start, end-start, para, w, base, th)
 	var line string
 	for _, r := range para.Runs {
 		line += r.Text
 	}
-	at := caret - start
-	units := 0
-	for i, r := range line {
-		if utf8.RuneCountInString(line[:i]) >= at {
-			break
-		}
-		if r > 0xFFFF {
-			units += 2
-		} else {
-			units++
-		}
-	}
-	c := l.CaretAt(ui.TextCaretPosition{Index: units, Affinity: ui.TextDownstream})
+	u := units(line, caret-start) // in UTF-16 units of the paragraph's text, as the layout has them
+	c := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextDownstream})
 	full := c
 	mid := c.Y + c.H/2
 	for _, ln := range l.Lines() {
@@ -102,7 +92,7 @@ func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, 
 	// the caret is as wide as the letter after it - but not over a chip,
 	// which is one object, wider than a word: it would swallow it
 	onChip := caret < text.Len() && text.Slice(caret, caret+1).String() == string(richtext.ObjectReplacement)
-	if next := l.NextBoundary(units); next > units && !onChip {
+	if next := l.NextBoundary(u); next > u && !onChip {
 		if nc := l.CaretAt(ui.TextCaretPosition{Index: next}); nc.X > full.X && math.Abs(float64(nc.Y-full.Y)) < 0.5 {
 			cw = nc.X - full.X
 		}
@@ -185,4 +175,43 @@ func spanOf(text string, a richtext.Attributes, st richtext.ParagraphStyle, size
 		s.ObjectWidth, s.ObjectHeight = w, h
 	}
 	return s
+}
+
+// longMemo keeps the layout of the last long paragraph laid out for a caret.
+// The caret is found every frame, and a paragraph is laid out again for it each
+// time: for a paragraph of a few hundred runes that is nothing, for one of
+// half a megabyte (an article pasted as a single line) seconds a frame. It is
+// kept for as long as the text, its place, the width and the look stay as
+// they were: the caret moving changes none of them.
+var longMemo paraMemo
+
+// longParagraphRunes is the length from which a paragraph's layout is kept.
+const longParagraphRunes = 2000
+
+// maxCaretParagraph is the length over which a paragraph gets no caret of ours.
+const maxCaretParagraph = 30000
+
+type paraMemo struct {
+	doc   *richtext.Document
+	ver   uint64
+	start int
+	w     float32
+	base  ui.Font
+	th    *richtext.Theme
+	style richtext.ParagraphStyle
+	l     *ui.TextLayout
+	left  float32
+}
+
+func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (*ui.TextLayout, float32) {
+	if runes < longParagraphRunes {
+		return layoutParagraph(p, w, base, th)
+	}
+	ver := doc.Version()
+	if m.l != nil && m.doc == doc && m.ver == ver && m.start == start && m.w == w && m.base == base && m.th == th && m.style == p.Style {
+		return m.l, m.left
+	}
+	l, left := layoutParagraph(p, w, base, th)
+	*m = paraMemo{doc, ver, start, w, base, th, p.Style, l, left}
+	return l, left
 }

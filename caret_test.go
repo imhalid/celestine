@@ -164,3 +164,41 @@ func TestUndoGivesMarksBack(t *testing.T) {
 		t.Fatalf("after undo: %q", s)
 	}
 }
+
+// units counts UTF-16 units up to a rune, astral runes as two.
+func TestUnits(t *testing.T) {
+	line := "a😀b界c"
+	for at, want := range []int{0, 1, 3, 4, 5, 6, 6} {
+		if got := units(line, at); got != want {
+			t.Errorf("units(%q, %d) = %d, want %d", line, at, got, want)
+		}
+	}
+}
+
+// A paragraph of half a megabyte gets no caret of ours (laying it out again for
+// each frame took minutes), and a long one has its layout kept while it is as it was.
+func TestLongParagraphCaret(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("kelime ", 6000)+"\n\nson")
+	a.doc.SetSelection(3, 3)
+	tt.Frame()
+	if _, ok := locate(a.doc, a.boxes, 600, a.font, a.theme); ok {
+		t.Fatal("a paragraph over maxCaretParagraph got a caret")
+	}
+	short, tt2 := newTestApp(t, strings.Repeat("kelime ", 400)+"\n\nson")
+	short.doc.SetSelection(3, 3)
+	tt2.Frame()
+	short.doc.SetSelection(3, 3)
+	cb, ok := locate(short.doc, short.boxes, 600, short.font, short.theme)
+	if !ok {
+		t.Fatal("no caret in a paragraph of 2800 runes")
+	}
+	l1 := longMemo.l
+	cb2, _ := locate(short.doc, short.boxes, 600, short.font, short.theme)
+	if longMemo.l != l1 || cb2.r != cb.r {
+		t.Fatal("the layout of a long paragraph was made again, the doc as it was")
+	}
+	short.doc.SetSelection(40, 40)
+	if _, ok := locate(short.doc, short.boxes, 600, short.font, short.theme); !ok || longMemo.l != l1 {
+		t.Fatal("the caret moving made the layout again")
+	}
+}

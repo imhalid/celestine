@@ -3,7 +3,6 @@ package main
 import (
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -203,7 +202,7 @@ func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
 	}
 	text := a.doc.Text()
 	warn := ryugo.Painting(p).Colors.Warn
-	for _, b := range a.boxes {
+	for _, b := range a.shown(r) {
 		s, e := text.ParagraphRange(b.Start)
 		var in [][2]int
 		cur := -1
@@ -244,11 +243,12 @@ func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
 
 // units is where rune at is in line, in UTF-16 units, as layouts count.
 func units(line string, at int) int {
-	u := 0
-	for i, r := range line {
-		if utf8.RuneCountInString(line[:i]) >= at {
+	u, runes := 0, 0
+	for _, r := range line {
+		if runes >= at {
 			break
 		}
+		runes++
 		if r > 0xFFFF {
 			u += 2
 		} else {
