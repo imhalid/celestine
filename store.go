@@ -360,6 +360,9 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // copyTree copies the folder srcRoot of src, all that is under it, to dstRoot
 // of dst: a folder library into a file (the first time), and back (an export).
+// A link to a file is copied as the file; a link to a folder (it may point
+// back up the tree), a link to nothing and what is neither file nor folder are
+// left, so that one odd entry never stops a whole copy.
 func copyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
 	if err := dst.MkdirAll(dstRoot); err != nil {
 		return err
@@ -376,6 +379,7 @@ func copyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
 				return err
 			}
 		case strings.HasSuffix(e.Name(), ".tmp"):
+		case !e.Type().IsRegular() && !linksToFile(src, from, e):
 		default:
 			data, err := src.ReadFile(from)
 			if err != nil {
@@ -387,6 +391,15 @@ func copyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
 		}
 	}
 	return nil
+}
+
+// linksToFile reports whether the entry e, at path, is a link to a regular file.
+func linksToFile(fsys FS, path string, e fs.DirEntry) bool {
+	if e.Type()&fs.ModeSymlink == 0 {
+		return false
+	}
+	info, err := fsys.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 // isLibraryFolder reports whether dir holds a library: a folder with a

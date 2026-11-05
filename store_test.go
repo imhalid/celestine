@@ -216,3 +216,48 @@ func TestFolderIntoFile(t *testing.T) {
 		t.Fatalf("exported: %q %v", src, err)
 	}
 }
+
+// One odd entry never stops the copy: a link back up the tree, a link to
+// nothing, and a link to a file (which is copied as the file).
+func TestCopyTreeSkipsLinks(t *testing.T) {
+	src := t.TempDir()
+	page := filepath.Join(src, "koleksiyon", "sayfa")
+	if err := os.MkdirAll(page, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		filepath.Join(src, "koleksiyon", collectionFile): `{"name":"K","subPages":true}`,
+		filepath.Join(page, "index.md"):                  "---\ntitle: S\n---\n\nmetin\n",
+		filepath.Join(page, "gercek.txt"):                "dosya",
+	} {
+		if err := os.WriteFile(name, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for link, target := range map[string]string{
+		"dongu":   ".",             // to its own folder: would loop
+		"yukari":  "../..",         // up the tree
+		"yok":     "olmayan-dosya", // to nothing
+		"dosyaya": "gercek.txt",    // to a file
+	} {
+		if err := os.Symlink(target, filepath.Join(page, link)); err != nil {
+			t.Skip("no symlinks here:", err)
+		}
+	}
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := copyTree(osFS{}, src, st, storeRoot); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := st.ReadFile(filepath.Join(storeRoot, "koleksiyon", "sayfa", "dosyaya")); err != nil || string(b) != "dosya" {
+		t.Fatalf("a link to a file is the file: %q %v", b, err)
+	}
+	for _, gone := range []string{"dongu", "yukari", "yok"} {
+		if _, err := st.Stat(filepath.Join(storeRoot, "koleksiyon", "sayfa", gone)); err == nil {
+			t.Errorf("%s was copied", gone)
+		}
+	}
+}
