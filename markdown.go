@@ -211,6 +211,7 @@ func outsideCode(l string, fn func(string) string) string {
 
 // bodyMarkdown writes the editor's text as the page's Markdown.
 func bodyMarkdown(t richtext.Text) string {
+	t = withoutChips(t) // chips are their [[links]] (chips.go)
 	type span struct {
 		s, e int
 		h    heldBlock

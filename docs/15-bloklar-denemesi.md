@@ -22,6 +22,12 @@ Teknik not: editör ↑↓↵ tuşlarını kendisi alıyor; `/` menüsü bunlar�
 birleştirip seçimi uyguluyor, caret satırdan çıktıysa geri koyup seçimi kaydırıyor). Çalışıyor ve test edildi, ama
 kırılgan bir yöntem: MyGo'ya "tuşu önce bana sor" kancası eklenirse sadeleşir.
 
+## Sonra yapıldı
+
+- **Çipler ve `@` menüsü** (`chips.go`, `slash.go`): `[[Sayfa]]`, `[[Sayfa|takma ad]]` ve `[[2026-11-05]]` metinde
+  çip olarak görünür, dosyaya aynen yazılır; tıklayınca sayfa açılır, olmayan sayfa oluşturulur. `@` ile sayfa,
+  tarih (bugün, yarın…, `2026-11-10`) ve sayfanın seçim özelliklerine değer.
+
 ## Yolu var (sıradakiler)
 
 - **Ekler (attachment) — en önemli bulgu.** richtext metnin içine bizim çizdiğimiz, boyutunu bizim verdiğimiz kutular

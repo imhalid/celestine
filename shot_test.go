@@ -437,3 +437,26 @@ func TestBlockShots(t *testing.T) {
 	tt.Advance(200 * time.Millisecond)
 	save("slash")
 }
+
+// TestChipShots draws chips in a page and the @ menu: run with CHIPS=dir.
+func TestChipShots(t *testing.T) {
+	dir := os.Getenv("CHIPS")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "Bu hafta [[Dune]] ve [[Anna Karenina|Anna]] okunacak, [[2026-11-07]] günü bitmeli. [[Olmayan sayfa]] da var.\n")
+	tt.SetSize(1000, 560)
+	coll := a.page.Coll
+	coll.NewPage(nil, "Dune")
+	coll.NewPage(nil, "Anna Karenina")
+	coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okunuyor", "Okundu"})
+	a.doc.SetText(a.parse("Bu hafta [[Dune]] ve [[Anna Karenina|Anna]] okunacak, [[2026-11-07]] günü bitmeli. [[Olmayan sayfa]] da var.\n"))
+	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	typeEach(tt, "Sonra @")
+	tt.Advance(300 * time.Millisecond)
+	f, _ := os.Create(dir + "/chips-at.png")
+	png.Encode(f, tt.Image())
+	f.Close()
+}

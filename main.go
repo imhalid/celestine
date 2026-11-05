@@ -133,6 +133,8 @@ type app struct {
 	propErr     string             // the field whose value did not fit
 	invalidate  func()             // asks the window for a frame, from any goroutine
 	pal         palette            // the command palette (palette.go)
+	chipHits    []chipHit          // the chips drawn this frame (chips.go)
+	chipSeen    []chipHit          // and last frame, for a click
 	slash       slashMenu          // the / menu (slash.go)
 	caretWin    ui.Rect            // the caret in the window, last drawn
 	grip        gripState          // the grip of the block under the pointer (blockui.go)
@@ -223,7 +225,7 @@ func (a *app) open(p *Page) {
 		if err != nil {
 			a.saveErr = err.Error()
 		}
-		doc = richtext.NewDocument(parseBody(body))
+		doc = richtext.NewDocument(a.parse(body))
 		a.docs[p] = doc
 	}
 	a.page, a.doc, a.title = p, doc, p.Title
@@ -260,7 +262,8 @@ func (a *app) flush() {
 func (a *app) view(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ryugo.Root(c, ryugo.Options{}) // Ryugo's theme, its components' tokens
+	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
+	ryugo.Root(c, ryugo.Options{})                      // Ryugo's theme, its components' tokens
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
@@ -395,6 +398,10 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	a.trackGrip(ed)
+	if ed.Clicked() { // on a chip: its page
+		x, y, _ := ed.PointerPosition()
+		a.clickChip(a.editorR.X+x, a.editorR.Y+y)
+	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)

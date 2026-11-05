@@ -254,7 +254,7 @@ func (a *app) writeBody(p *Page, body string) error {
 		return err
 	}
 	if doc := a.docs[p]; doc != nil {
-		doc.SetText(parseBody(body))
+		doc.SetText(a.parse(body))
 		if p == a.page {
 			_, caret := doc.Selection()
 			a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret

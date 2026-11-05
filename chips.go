@@ -1,0 +1,224 @@
+package main
+
+import (
+	"regexp"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
+	ryugo "github.com/imhalid/ryu-go"
+)
+
+// Chips: a link to a page and a date, in the text, as one object each -
+// richtext's attachments, drawn here. In the file they are Obsidian's
+// links: [[Dune]], [[Dune|the book]], and a date [[2026-11-05]] (as the
+// day's journal page will be called). A click on a page's chip opens it;
+// a link to a page that is not there makes it.
+
+// chip is what an attachment of ours is.
+type chip struct {
+	kind   string // "page" or "date"
+	target string // the page's title, or the day as 2006-01-02
+	alias  string // what a page's chip says instead of its title
+}
+
+// markdown is the chip in the file.
+func (ch *chip) markdown() string {
+	if ch.alias != "" {
+		return "[[" + ch.target + "|" + ch.alias + "]]"
+	}
+	return "[[" + ch.target + "]]"
+}
+
+// label is what the chip says.
+func (ch *chip) label() string {
+	if ch.kind == "date" {
+		if d, err := time.Parse("2006-01-02", ch.target); err == nil {
+			return shortDate(d)
+		}
+	}
+	if ch.alias != "" {
+		return ch.alias
+	}
+	return ch.target
+}
+
+const (
+	chipSize = 14  // its text
+	chipH    = 21  // its height
+	chipPad  = 9   // room on each side of its text
+	chipIcon = 14  // a date's calendar
+	chipEm   = .57 // a letter's width, in ems, to size it before it is drawn
+)
+
+var isDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+// chipOf reads a link's inside: "Dune", "Dune|the book", "2026-11-05".
+func chipOf(inside string) *chip {
+	target, alias, _ := strings.Cut(inside, "|")
+	target = strings.TrimSpace(target)
+	if isDay.MatchString(target) && alias == "" {
+		return &chip{kind: "date", target: target}
+	}
+	return &chip{kind: "page", target: target, alias: strings.TrimSpace(alias)}
+}
+
+// attachment is the chip as richtext's attachment; how it is drawn
+// depends on the app (its pages, its colors), so the app gives it.
+func (a *app) attachment(ch *chip) *richtext.Attachment {
+	w := float32(utf8.RuneCountInString(ch.label()))*chipSize*chipEm + 2*chipPad
+	if ch.kind == "date" {
+		w += chipIcon + 4
+	}
+	return &richtext.Attachment{Width: w, Height: chipH, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawChip(p, r, ch) }}
+}
+
+var wikiInText = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]`)
+
+// withChips turns the [[links]] in t, outside code, into chips.
+func (a *app) withChips(t richtext.Text) richtext.Text {
+	s := t.String()
+	if !strings.Contains(s, "[[") {
+		return t
+	}
+	locs := wikiInText.FindAllStringSubmatchIndex(s, -1)
+	for i := len(locs) - 1; i >= 0; i-- {
+		m := locs[i]
+		start := utf8.RuneCountInString(s[:m[0]])
+		end := start + utf8.RuneCountInString(s[m[0]:m[1]])
+		if t.ParagraphStyleAt(start).CodeBlock || t.AttributesAt(start).Code {
+			continue
+		}
+		attrs := t.AttributesAt(start)
+		attrs.Attachment = a.attachment(chipOf(s[m[2]:m[3]]))
+		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
+	}
+	return t
+}
+
+// parse reads a page's Markdown into the editor's text, its links as chips.
+func (a *app) parse(md string) richtext.Text { return a.withChips(parseBody(md)) }
+
+// withoutChips turns the chips in t back into the text of their links.
+func withoutChips(t richtext.Text) richtext.Text {
+	type at struct {
+		i  int
+		ch *chip
+		a  richtext.Attributes
+	}
+	var found []at
+	for i, r := range t.Runs(0, t.Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok {
+				plain := r.Attributes
+				plain.Attachment = nil
+				found = append(found, at{i, ch, plain})
+			}
+		}
+	}
+	for k := len(found) - 1; k >= 0; k-- {
+		f := found[k]
+		t = t.ReplaceString(f.i, f.i+1, f.ch.markdown(), f.a)
+	}
+	return t
+}
+
+// chipHit is a chip drawn this frame, where it is in the window.
+type chipHit struct {
+	r  ui.Rect
+	ch *chip
+}
+
+// drawChip draws a chip: a page's in the accent, a link to a page that
+// is not there faint and dashed; a date with a calendar.
+func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
+	t := ryugo.Painting(p)
+	cl := t.Colors
+	r = ui.Rect{X: r.X + 1, Y: r.Y, W: r.W - 2, H: r.H}
+	a.chipHits = append(a.chipHits, chipHit{r, ch})
+	text := cl.Accent
+	switch {
+	case ch.kind == "date":
+		p.Fill(r, cl.Fill, r.H/2)
+		text = cl.Text2
+	case a.pageTitled(ch.target) != nil:
+		p.Fill(r, cl.Accent.Alpha(0.12), r.H/2)
+	default:
+		p.Stroke(r, cl.Muted.Alpha(0.6), r.H/2, 1)
+		text = cl.Muted
+	}
+	x := r.X + chipPad - 1
+	if ch.kind == "date" {
+		ic := ui.Rect{X: x, Y: r.Y + (r.H-chipIcon)/2, W: chipIcon, H: chipIcon}
+		p.Stroke(ui.Rect{X: ic.X + 1, Y: ic.Y + 2, W: ic.W - 2, H: ic.H - 3}, text, 2, 1.2)
+		p.Fill(ui.Rect{X: ic.X + 1, Y: ic.Y + 5, W: ic.W - 2, H: 1.2}, text, 0)
+		x += chipIcon + 4
+	}
+	span := ui.Span{Text: ch.label(), Size: chipSize, Weight: 520, Color: text}
+	_, h := p.MeasureText(r.W, span)
+	p.RichText(x, r.Y+(r.H-h)/2, r.X+r.W-x, span)
+}
+
+// pageTitled is the page titled title (any case), in the open page's
+// collection first, or nil.
+func (a *app) pageTitled(title string) *Page {
+	var found *Page
+	for _, c := range a.lib.Collections {
+		for _, p := range c.All() {
+			if strings.EqualFold(p.Title, title) {
+				if a.page != nil && p.Coll == a.page.Coll {
+					return p
+				}
+				if found == nil {
+					found = p
+				}
+			}
+		}
+	}
+	return found
+}
+
+// clickChip opens the page of the chip at x, y in the window, making it
+// first if it is not there, and reports whether there was one.
+func (a *app) clickChip(x, y float32) bool {
+	for _, h := range a.chipSeen {
+		if x < h.r.X || x > h.r.X+h.r.W || y < h.r.Y || y > h.r.Y+h.r.H {
+			continue
+		}
+		if h.ch.kind != "page" {
+			return false
+		}
+		p := a.pageTitled(h.ch.target)
+		if p == nil && a.page != nil {
+			np, err := a.page.Coll.NewPage(nil, h.ch.target)
+			if err != nil {
+				a.saveErr = err.Error()
+				return true
+			}
+			p = np
+		}
+		if p != nil {
+			a.open(p)
+		}
+		return true
+	}
+	return false
+}
+
+// insertChip puts a chip in place of the text from start to the caret,
+// with a space after it.
+func (a *app) insertChip(start int, ch *chip) {
+	_, caret := a.doc.Selection()
+	attrs := a.doc.Text().AttributesAt(start)
+	attrs.Attachment = nil
+	plain := attrs
+	attrs.Attachment = a.attachment(ch)
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.ReplaceString(start, caret, string(richtext.ObjectReplacement), attrs)
+		ed.ReplaceString(start+1, start+1, " ", plain)
+		ed.Select(start+2, start+2)
+	})
+	a.doc.SetTypingAttributes(plain)
+}
