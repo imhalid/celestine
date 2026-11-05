@@ -41,6 +41,11 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 > takvimle, sayı özelliği artı/eksi alanıyla seçiliyor. **Hâlâ yok:** görsel ve dosya eki, gerçek tablo çizimi,
 > canlı sorgu bloğu.
 
+> **Durum (6 Kasım 2026, akşam):** Ayarlar sekmeli: **Görünüm** (tema: sistem/açık/koyu, sayfa genişliği), **Editör**
+> (caret, yazı boyutu, satır aralığı), **Durum çubuğu** (kaydetme durumu, caret adı, kelime ve harf sayısı açılıp
+> kapanır), **MCP**. Hepsi kullanıcının ayar klasöründeki `settings.json`'da kalır ve anında uygulanır. Kısayol
+> ayarı ve tema dosyaları hâlâ yok.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun

@@ -35,6 +35,46 @@ type Settings struct {
 	Token string `json:"token"`
 	// Recent are the kinds of line the / menu was used for last, newest first.
 	Recent []string `json:"recent,omitempty"`
+	// Appearance and the editor; zero is the default.
+	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
+	Caret      int     `json:"caret,omitempty"`      // 0 Slime, 1 Mizan
+	FontSize   float64 `json:"fontSize,omitempty"`   // the text's, 16.5
+	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55
+	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
+	// the status bar: what is hidden, and what is shown besides
+	HideSaved bool `json:"hideSaved,omitempty"`
+	HideCaret bool `json:"hideCaret,omitempty"`
+	ShowWords bool `json:"showWords,omitempty"`
+	ShowChars bool `json:"showChars,omitempty"`
+}
+
+// the settings, with what is not set taken as the default
+func (a *app) fontSize() float32 {
+	if s := a.settings.FontSize; s >= 12 && s <= 28 {
+		return float32(s)
+	}
+	return 16.5
+}
+
+func (a *app) lineHeight() float32 {
+	if s := a.settings.LineHeight; s >= 1.2 && s <= 2.2 {
+		return float32(s)
+	}
+	return 1.55
+}
+
+func (a *app) pageWidth() float32 {
+	if s := a.settings.PageWidth; s >= 480 && s <= 1200 {
+		return float32(s)
+	}
+	return columnMax
+}
+
+// setCaret chooses the caret, and keeps the choice.
+func (a *app) setCaret(k caretKind) {
+	a.caretKind = k
+	a.settings.Caret = int(k)
+	a.saveSettings()
 }
 
 // loadSettings reads the settings, making a token the first time.
@@ -47,6 +87,7 @@ func (a *app) loadSettings() {
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
+	a.caretKind = caretKind(a.settings.Caret % 2)
 	if a.settings.Token == "" {
 		a.settings.Token = newToken()
 		a.saveSettings()

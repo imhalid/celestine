@@ -188,6 +188,9 @@ func TestSettingsDialog(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(500 * time.Millisecond)
+	a.settingsTab = 3 // the MCP tab
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
 	if err := tt.Click("MCP sunucusunu aç"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}

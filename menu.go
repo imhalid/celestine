@@ -51,7 +51,7 @@ func (a *app) menu() *mygo.Menu {
 		{Role: mygo.RoleEditMenu},
 		{Label: "Görünüm", Submenu: []*mygo.MenuItem{
 			item("Kenar çubuğu", "CmdOrCtrl+\\", a.toggleSidebar),
-			item("Caret'i değiştir", "CmdOrCtrl+Shift+M", func() { a.caretKind = (a.caretKind + 1) % 2 }),
+			item("Caret'i değiştir", "CmdOrCtrl+Shift+M", func() { a.setCaret((a.caretKind + 1) % 2) }),
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 		}},

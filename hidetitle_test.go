@@ -180,3 +180,24 @@ func TestChipPosAndDateEdit(t *testing.T) {
 		t.Fatalf("no calendar: %v", tt.Texts())
 	}
 }
+
+// The settings reach the editor and the status bar.
+func TestSettingsTakeEffect(t *testing.T) {
+	a, tt := newTestApp(t, "bir iki üç\n")
+	tt.Frame()
+	if a.font.Size != 16.5 || a.font.LineHeight != 1.55 {
+		t.Fatalf("defaults: %+v", a.font)
+	}
+	a.settings.FontSize, a.settings.LineHeight, a.settings.ShowWords, a.settings.HideCaret = 19, 1.8, true, true
+	tt.Frame()
+	tt.Frame()
+	if a.font.Size != 19 || a.font.LineHeight != 1.8 {
+		t.Fatalf("not taken: %+v", a.font)
+	}
+	if !tt.HasText("3 kelime") {
+		t.Fatalf("no word count: %v", tt.Texts())
+	}
+	if tt.HasText("Slime") {
+		t.Fatal("the caret's name is shown though hidden")
+	}
+}

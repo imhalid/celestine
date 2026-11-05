@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -129,9 +130,13 @@ type app struct {
 	scrollR      ui.Rect        // its room in the window, last frame
 	headH        float32        // the title's and properties' height, last frame
 	titleFocused bool
-	edH          float32  // the editor's height, last frame
-	frame        func()   // asks for a frame that builds the view
-	revealWant   bool     // the caret moved: bring it into view
+	edH          float32 // the editor's height, last frame
+	frame        func()  // asks for a frame that builds the view
+	revealWant   bool    // the caret moved: bring it into view
+	statsVer     uint64  // the version of the text the counts are of
+	statWords    int
+	statChars    int
+	settingsTab  int      // the settings' tab
 	hoverCh      *chip    // the chip the pointer is over
 	dateEdit     dateEdit // the calendar a date chip opens
 	editorR      ui.Rect  // the editor's box, from its last frame
@@ -282,8 +287,8 @@ func (a *app) view(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.frame = c.Invalidate
-	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
-	ryugo.Root(c, ryugo.Options{})                      // Ryugo's theme, its components' tokens
+	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0]                                                              // the last frame's, for a click now
+	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]}) // Ryugo's theme, its components' tokens
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
@@ -295,7 +300,7 @@ func (a *app) view(c *ui.Context) {
 		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
 	}
 	a.theme = th
-	a.font = ui.Font{Family: t.Font, Size: 16.5, LineHeight: 1.55}
+	a.font = ui.Font{Family: t.Font, Size: a.fontSize(), LineHeight: a.lineHeight()}
 	if a.doc != nil {
 		a.track(c)
 	}
@@ -307,7 +312,7 @@ func (a *app) view(c *ui.Context) {
 			a.toggleSidebar()
 		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.caretKind = (a.caretKind + 1) % 2
+			a.setCaret((a.caretKind + 1) % 2)
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
 			a.step(-1)
@@ -420,13 +425,13 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	ui.Column(c).Fill().Children(func() {
 		if a.find.open {
 			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
-				ui.Column(c).FillWidth().MaxWidth(columnMax).Children(func() { a.findBar(c) })
+				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Children(func() { a.findBar(c) })
 			})
 		}
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(&a.pageScroll).Grow(1)
 		sc.Children(func() {
 			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
-				ui.Column(c).FillWidth().MaxWidth(columnMax).Gap(4).Children(func() { a.pageBody(c, p, th) })
+				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
 			})
 		})
 		a.scrollR = sc.LayoutBounds()
@@ -705,15 +710,30 @@ func (a *app) status(c *ui.Context) {
 				ui.Text(c, "MCP").FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
 			})
 			if m.Clicked() {
-				a.settingsOpen = true
+				a.settingsOpen, a.settingsTab = true, 3 // the MCP tab
 			}
 		}
-		// no file paths: how it is saved, and the caret
-		st := ui.Text(c, strings.ToUpper(state[:1])+state[1:]).FontSize(11.5).TextColor(t.TextMuted)
-		if a.saveErr != "" {
-			st.TextColor(ryugo.From(c).Colors.Up)
+		// no file paths: what the settings ask for - the words, how it is saved, the caret
+		if a.settings.ShowWords || a.settings.ShowChars {
+			words, chars := a.docStats()
+			var parts []string
+			if a.settings.ShowWords {
+				parts = append(parts, strconv.Itoa(words)+" kelime")
+			}
+			if a.settings.ShowChars {
+				parts = append(parts, strconv.Itoa(chars)+" harf")
+			}
+			ui.Text(c, strings.Join(parts, " · ")).FontSize(11.5).TextColor(t.TextMuted)
 		}
-		ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
+		if !a.settings.HideSaved {
+			st := ui.Text(c, strings.ToUpper(state[:1])+state[1:]).FontSize(11.5).TextColor(t.TextMuted)
+			if a.saveErr != "" {
+				st.TextColor(ryugo.From(c).Colors.Up)
+			}
+		}
+		if !a.settings.HideCaret {
+			ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
+		}
 	})
 }
 
@@ -743,4 +763,16 @@ func (a *app) save() {
 		return
 	}
 	a.lastSave, a.dirty = md, false
+}
+
+// docStats are the open page's words and letters, counted again when the text changed.
+func (a *app) docStats() (words, chars int) {
+	if a.doc == nil {
+		return 0, 0
+	}
+	if v := a.doc.Version(); v != a.statsVer || a.statChars == 0 {
+		s := a.doc.Text().String()
+		a.statWords, a.statChars, a.statsVer = len(strings.Fields(s)), len([]rune(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), string(richtext.ObjectReplacement), ""))), v
+	}
+	return a.statWords, a.statChars
 }
