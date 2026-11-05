@@ -50,3 +50,14 @@ yenilenir, başka yerdeki değişiklikler en çok 4 saniye geriden gelir.
 
 Sonra eklenenler: görevin metnine tıklamak sayfayı açıp imleci o satıra koyar; görevdeki `[[2026-11-10]]` günü o görevin günü
 olur (hap olarak yanında, gecikmişse kırmızı) ve açık görevler Bugün / Bu hafta / Gecikmiş diye süzülür.
+
+## Kitaplıkta ara (Kasım 2026)
+
+⇧⌘F, Git ▸ Kitaplıkta ara… ya da paletteki "Kitaplıkta ara": bütün sayfaların başlığında ve **metninde** arar. Her kelime
+sayfada (başlıkta ya da metinde) bulunmalı; Türkçe harfler ASCII karşılığı gibi sayılır (`cay` ≈ `çay`); başlıkta geçenler ve
+çok geçenler önde. Her sonuç sayfanın adını, koleksiyonunu ve bulunduğu yerin bir parçasını gösterir, aranan kelimeler
+işaretli. Birine tıklamak sayfayı açar, imleç kelimenin üstüne gelir. Komut paleti (⌘K) de en az 3 harflik aramada, başlık
+eşleşmelerinin ardına "Metinde · …" satırları ve "Kitaplıkta ara: …" komutunu ekler.
+
+Sayfaların metni bağlantı dizininin okumasında toplanır (düz, tek satır; Markdown işaretleri ve `[[bağlantılar]]` sadeleştirilir);
+arama görünümü açılırken dizin yenilenir, başka yerlerde en çok 4 saniye geriden gelir.

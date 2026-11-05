@@ -77,6 +77,7 @@ func (a *app) menu() *mygo.Menu {
 		{Label: "Git", Submenu: []*mygo.MenuItem{
 			item("Hızlı geçiş ve komutlar…", "CmdOrCtrl+K", a.openPalette),
 			item("Sayfada bul…", "CmdOrCtrl+F", a.openFind),
+			item("Kitaplıkta ara…", "CmdOrCtrl+Shift+F", func() { a.openSearch(a.searchQ) }),
 			mygo.Separator(),
 			item("Bugünün sayfası", "CmdOrCtrl+J", a.openToday),
 			item("Hızlı not…", "", a.showQuick),

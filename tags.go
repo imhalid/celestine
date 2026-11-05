@@ -139,13 +139,15 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 // openTag shows the pages that have tag key.
 func (a *app) openTag(key string) {
 	a.flush()
-	a.tag, a.coll, a.trashOpen, a.tasksOpen = key, nil, false, false
+	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.searchOpen = key, nil, false, false, false
 	a.visit()
 }
 
 // noPage reports that something other than a page is shown: a collection,
 // the trash, a tag.
-func (a *app) noPage() bool { return a.coll != nil || a.trashOpen || a.tag != "" || a.tasksOpen }
+func (a *app) noPage() bool {
+	return a.coll != nil || a.trashOpen || a.tag != "" || a.tasksOpen || a.searchOpen
+}
 
 // tagList is every tag of the library, the most used first.
 type tagInfo struct {

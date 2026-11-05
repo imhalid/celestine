@@ -66,6 +66,7 @@ func (a *app) commands() []palItem {
 	}
 	out = append(out,
 		cmd("Görevler", "", iconTask, a.openTasks),
+		cmd("Kitaplıkta ara", "⇧⌘F", iconSearch, func() { a.openSearch(a.searchQ) }),
 		cmd("Hızlı not", a.quickKeys(), iconPlus, a.showQuick),
 		cmd("Yeni koleksiyon", "⇧⌘N", iconStack, func() {
 			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
@@ -170,6 +171,28 @@ func (a *app) paletteItems(q string) []palItem {
 	})
 	if len(out) > 40 {
 		out = out[:40]
+	}
+	// what is in the pages' text, after what is in their names
+	if len([]rune(strings.TrimSpace(q))) >= 3 {
+		have := map[string]bool{}
+		for _, it := range out {
+			if it.to.kind == "page" {
+				have[it.to.dir] = true
+			}
+		}
+		for _, h := range a.searchPages(q, 8, false) {
+			if have[h.page.Dir] {
+				continue
+			}
+			h := h
+			var sb strings.Builder
+			for _, sg := range h.snip {
+				sb.WriteString(sg.text)
+			}
+			out = append(out, palItem{title: h.page.Title, sub: "Metinde · " + sb.String(), glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
+		}
+		query := strings.TrimSpace(q)
+		out = append(out, palItem{title: "Kitaplıkta ara: " + query, sub: "Komut", keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
 	}
 	return out
 }

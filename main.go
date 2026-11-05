@@ -116,7 +116,10 @@ type app struct {
 	trashOpen     bool       // the trash is shown, instead of a page
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	tasksOpen     bool       // the task view is shown (tasks.go)
-	quickKeyDraft string     // the key being typed in the settings
+	searchOpen    bool       // the search over the whole library is shown (search.go)
+	searchQ       string
+	searchFocus   bool
+	quickKeyDraft string // the key being typed in the settings
 	quickKeyErr   string
 	tagRen        tagRename // the dialog to rename a tag (tags.go)
 	vhist         histView  // the dialog of a page's versions (historyui.go)
@@ -344,7 +347,7 @@ func main() {
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
 	defer a.visit()
-	a.coll, a.trashOpen, a.tag, a.tasksOpen = nil, false, "", false
+	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = nil, false, "", false, false
 	if p == a.page {
 		return
 	}
@@ -453,6 +456,9 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyF) {
 			a.openFind()
 		}
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF) {
+			a.openSearch(a.searchQ)
+		}
 		if c.Shortcut(ui.Cmd, ui.KeySlash) && a.doc != nil && a.page != nil {
 			_, caret := a.doc.Selection()
 			a.toggleFold(caret)
@@ -480,7 +486,7 @@ func (a *app) view(c *ui.Context) {
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
-			if !a.trashOpen && a.tag == "" && !a.tasksOpen && (a.coll != nil || a.page != nil) {
+			if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
@@ -499,6 +505,11 @@ func (a *app) view(c *ui.Context) {
 				if a.tasksOpen {
 					a.focused = false
 					a.tasksView(c)
+					return
+				}
+				if a.searchOpen {
+					a.focused = false
+					a.searchView(c)
 					return
 				}
 				if a.coll != nil {

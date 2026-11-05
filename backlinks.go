@@ -20,6 +20,7 @@ type linkIndex struct {
 	tags     map[string][]*Page // a tag (tags.go), lower case, to the pages that have it
 	tagNames map[string]string  // and as it was first written
 	tasks    []taskItem         // the tasks of every page (tasks.go)
+	texts    map[*Page]string   // the text of every page, plain, for the search (search.go)
 	built    time.Time
 	stale    bool
 }
@@ -32,6 +33,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	l := &a.links
 	if l.into == nil || (l.stale && (force || now.Sub(l.built) > 4*time.Second)) {
 		l.into, l.tags, l.tagNames, l.tasks = map[string][]*Page{}, map[string][]*Page{}, map[string]string{}, nil
+		l.texts = map[*Page]string{}
 		l.stale, l.built = false, now
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
@@ -40,6 +42,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 					continue
 				}
 				l.tasks = append(l.tasks, tasksOf(q, body)...)
+				l.texts[q] = plainText(body)
 				for _, name := range tagsOf(body) {
 					k := tagKey(name)
 					if _, ok := l.tagNames[k]; !ok {
