@@ -360,6 +360,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa",
 				"Hepsi bu tek dosyada; ayarlar ve MCP anahtarı da. Dosyayı uygulamanın yanında taşıman yeter.", func() {})
 		},
+		func() { a.settingsImport(c) },
 		func() {
 			note := a.exportNote
 			if note == "" {

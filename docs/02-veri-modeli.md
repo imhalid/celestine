@@ -123,3 +123,13 @@ Sürüm geçmişine sonradan: değişen satırların yanında, bir satır gidip 
 işaretlenir (kelime farkı); pencerenin altındaki alandan o anki hâl **adla saklanır** ("Yayına giden"): adlı kopya 5 dakika
 kuralına bakmaz ve 100 kopya sınırı yüzünden hiç silinmez. `versions` tablosuna `label` sütunu eklendi; eski dosyalarda ilk
 açılışta kendiliğinden eklenir.
+
+## Markdown klasörü içe aktarma
+
+Ayarlar ▸ Kitaplık ▸ "Klasör seç…" (ya da paletten "Markdown klasörü içe aktar…"): bir Obsidian kasası ya da `.md` dosyaları olan
+herhangi bir klasör. Klasörün her **alt klasörü bir koleksiyon** olur (daha derindekiler o koleksiyona düz olarak girer), klasörün
+en üstündeki dosyalar klasörün adını taşıyan bir koleksiyona; her **dosya bir sayfa**. Başlık: ön maddedeki `title`, yoksa ilk `# `
+satırı, yoksa dosya adı. Ön maddedeki `tags` sayfanın sonuna `#etiket` olarak yazılır; `created`/`date` varsa oluşturulma günü olur.
+`![[resim.png]]` ve `![](yol/resim.png)` resmi bulup sayfanın klasörüne kopyalar (Obsidian'ınki kasanın her yerinde aranır; bulunamayan
+`*(resim yok: …)*` olur). `[[bağlantılar]]` olduğu gibi kalır; `.` ile başlayan klasörler (`.obsidian`) atlanır. Kaynak klasör
+yalnız okunur.

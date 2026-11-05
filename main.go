@@ -196,6 +196,7 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
+	importNote    string                    // what the last import said, in the settings
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
