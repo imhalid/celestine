@@ -33,6 +33,8 @@ type Settings struct {
 	MCP   bool   `json:"mcp"`
 	Port  int    `json:"port"`
 	Token string `json:"token"`
+	// Recent are the kinds of line the / menu was used for last, newest first.
+	Recent []string `json:"recent,omitempty"`
 }
 
 // loadSettings reads the settings, making a token the first time.

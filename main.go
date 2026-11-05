@@ -116,6 +116,10 @@ type app struct {
 	clock      func() time.Time
 	lastSave   string
 	style      richtext.ParagraphStyle // the caret paragraph's, last frame
+	refocus    bool                    // the editor takes the keyboard focus in the next frame
+	pageR      ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
+	hoverCh    *chip                   // the chip the pointer is over
+	dateEdit   dateEdit                // the calendar a date chip opens
 	editorR    ui.Rect                 // the editor's box, from its last frame
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
@@ -316,7 +320,9 @@ func (a *app) view(c *ui.Context) {
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
 			a.titleBar(c)
-			ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32).Children(func() {
+			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32)
+			defer func() { a.pageR = pageRow.LayoutBounds() }()
+			pageRow.Children(func() {
 				if a.trashOpen {
 					a.focused = false
 					a.trashView(c)
@@ -337,8 +343,10 @@ func (a *app) view(c *ui.Context) {
 		})
 		a.sidebarButton(c)
 	})
+	a.gutterView(c)
 	a.gripView(c)
 	a.slashView(c)
+	a.dateEditView(c)
 	a.paletteView(c)
 	a.collSettingsView(c)
 	a.settingsDialog(c)
@@ -396,9 +404,20 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	if !title.Focused() && !a.fresh {
 		ed.AutoFocus()
 	}
+	if a.refocus {
+		ed.Focus()
+		a.refocus = false
+	}
 	a.focused = ed.Focused()
 	a.trackGrip(ed)
-	if ed.Clicked() { // on a chip: its page
+	a.hoverCh = nil
+	if x, y, over := ed.PointerPosition(); over {
+		if h := a.chipAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
+			a.hoverCh = h.ch
+			ed.Cursor(ui.CursorPointer)
+		}
+	}
+	if ed.Clicked() { // on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
 		a.clickChip(a.editorR.X+x, a.editorR.Y+y)
 	}

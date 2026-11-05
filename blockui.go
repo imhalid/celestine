@@ -75,6 +75,38 @@ func (a *app) trackGrip(ed ui.Element) {
 	}
 }
 
+// gutterW is the strip of the page's margin left of the text, where the grip
+// is: the pointer there is over the editor too.
+const gutterW = 32
+
+// gutterView is the page's margin left of the text, over the window and
+// invisible: from the page area's edge to the text, it is the editor's. The
+// pointer in it puts the grip by the paragraph it is level with, and a
+// click puts the caret at the start of that paragraph.
+func (a *app) gutterView(c *ui.Context) {
+	g := &a.grip
+	if a.doc == nil || a.coll != nil || a.trashOpen || a.editorR.W == 0 || g.dragging || g.menu || g.pressed {
+		return
+	}
+	r := a.editorR
+	x0 := r.X - gutterW
+	if a.pageR.W > 0 && a.pageR.X < x0 {
+		x0 = a.pageR.X
+	}
+	ui.Overlay(c, func() {
+		gut := ui.Box(c.Key("gutter")).Absolute().Left(x0).Top(r.Y).Size(r.X-x0, r.H).Cursor(ui.CursorText)
+		if _, y, over := gut.PointerPosition(); over {
+			if b, ok := a.paraAtY(y); ok {
+				g.para, g.top, g.h = b.Start, b.Top, b.Height
+				if gut.Clicked() {
+					a.doc.SetSelection(b.Start, b.Start)
+					a.refocus = true
+				}
+			}
+		}
+	})
+}
+
 // gripView is the grip and its menu, over the window.
 func (a *app) gripView(c *ui.Context) {
 	g := &a.grip

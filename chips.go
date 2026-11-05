@@ -139,14 +139,24 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	r = ui.Rect{X: r.X + 1, Y: r.Y, W: r.W - 2, H: r.H}
 	a.chipHits = append(a.chipHits, chipHit{r, ch})
 	text := cl.Accent
+	hover := a.hoverCh == ch
 	switch {
 	case ch.kind == "date":
 		p.Fill(r, cl.Fill, r.H/2)
+		if hover {
+			p.Fill(r, cl.Text.Alpha(0.08), r.H/2)
+		}
 		text = cl.Text2
 	case a.pageTitled(ch.target) != nil:
 		p.Fill(r, cl.Accent.Alpha(0.12), r.H/2)
+		if hover {
+			p.Fill(r, cl.Accent.Alpha(0.16), r.H/2)
+		}
 	default:
 		p.Stroke(r, cl.Muted.Alpha(0.6), r.H/2, 1)
+		if hover {
+			p.Fill(r, cl.Muted.Alpha(0.14), r.H/2)
+		}
 		text = cl.Muted
 	}
 	x := r.X + chipPad - 1
@@ -180,15 +190,29 @@ func (a *app) pageTitled(title string) *Page {
 	return found
 }
 
-// clickChip opens the page of the chip at x, y in the window, making it
-// first if it is not there, and reports whether there was one.
-func (a *app) clickChip(x, y float32) bool {
-	for _, h := range a.chipSeen {
-		if x < h.r.X || x > h.r.X+h.r.W || y < h.r.Y || y > h.r.Y+h.r.H {
-			continue
+// chipAt is the chip drawn at x, y in the window, or nil.
+func (a *app) chipAt(x, y float32) *chipHit {
+	for i := range a.chipSeen {
+		h := &a.chipSeen[i]
+		if x >= h.r.X && x <= h.r.X+h.r.W && y >= h.r.Y && y <= h.r.Y+h.r.H {
+			return h
 		}
-		if h.ch.kind != "page" {
-			return false
+	}
+	return nil
+}
+
+// clickChip opens the page of the chip at x, y in the window, making it
+// first if it is not there, and reports whether there was one; a date's
+// opens a calendar to change it.
+func (a *app) clickChip(x, y float32) bool {
+	if h := a.chipAt(x, y); h != nil {
+		if h.ch.kind == "date" {
+			d, err := time.Parse("2006-01-02", h.ch.target)
+			if err != nil {
+				d = a.clock()
+			}
+			a.dateEdit = dateEdit{open: true, ch: h.ch, at: h.r, cal: d}
+			return true
 		}
 		p := a.pageTitled(h.ch.target)
 		if p == nil && a.page != nil {
@@ -205,6 +229,67 @@ func (a *app) clickChip(x, y float32) bool {
 		return true
 	}
 	return false
+}
+
+// dateEdit is the calendar a date chip opens, under the chip.
+type dateEdit struct {
+	open bool
+	ch   *chip
+	at   ui.Rect
+	cal  time.Time
+}
+
+// chipPos is where the chip is in the text, or -1.
+func (a *app) chipPos(ch *chip) int {
+	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+		if att := r.Attributes.Attachment; att != nil && att.Data == ch {
+			return i
+		}
+	}
+	return -1
+}
+
+// dateEditView is the calendar of a date chip, over the window: a day
+// chosen changes the chip; a click elsewhere or Esc closes it.
+func (a *app) dateEditView(c *ui.Context) {
+	d := &a.dateEdit
+	if !d.open || a.doc == nil {
+		return
+	}
+	if c.Shortcut(0, ui.KeyEscape) {
+		d.open = false
+		return
+	}
+	t := ryugo.From(c)
+	cl := t.Colors
+	ww, wh := c.Size()
+	left := max(8, min(d.at.X, ww-260-8))
+	top := d.at.Y + d.at.H + 6
+	if top+300 > wh {
+		top = max(8, d.at.Y-6-300)
+	}
+	ui.Overlay(c, func() {
+		if ui.Box(c.Key("date-away")).Absolute().Left(0).Top(0).Size(ww, wh).Clicked() {
+			d.open = false
+			return
+		}
+		panel := ui.Column(c.Key("date-edit")).Absolute().Left(left).Top(top).Width(260).Padding(8).
+			Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
+		t.Shadows.ShadowPop.Apply(panel)
+		panel.Children(func() {
+			if cal := ui.Calendar(c, &d.cal); cal.Changed() {
+				if i := a.chipPos(d.ch); i >= 0 {
+					nc := &chip{kind: "date", target: d.cal.Format("2006-01-02")}
+					attrs := a.doc.Text().AttributesAt(i)
+					attrs.Attachment = a.attachment(nc)
+					a.doc.Edit(func(ed *richtext.Edit) {
+						ed.ReplaceString(i, i+1, string(richtext.ObjectReplacement), attrs)
+					})
+				}
+				d.open = false
+			}
+		})
+	})
 }
 
 // insertChip puts a chip in place of the text from start to the caret,

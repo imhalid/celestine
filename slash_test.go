@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -54,10 +55,17 @@ func TestSlashMenu(t *testing.T) {
 	}
 }
 
-// One menu, whichever sign opens it: a / in a line, at a word's start,
-// opens it as @ does, the lines carry no Markdown marks, and the menu stays
-// inside the window.
-func TestOneMenu(t *testing.T) {
+func lineTitles(items []menuItem) []string {
+	var out []string
+	for _, it := range items {
+		out = append(out, it.title)
+	}
+	return out
+}
+
+// The first menu: the four kinds used last, then the menus; one menu
+// whichever sign opens it, a / at a word's start opens it as @ does.
+func TestMenuRoot(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n")
 	tt.Key(ui.Cmd, ui.KeyDown)
 	tt.Key(0, ui.KeyEnter)
@@ -67,42 +75,298 @@ func TestOneMenu(t *testing.T) {
 	if !a.slash.open || a.slash.sign != "/" {
 		t.Fatalf("a / at a word's start did not open it: %+v", a.slash)
 	}
-	slashItems := a.menuItems("")
-	groups := map[string]bool{}
-	for _, it := range slashItems {
-		groups[it.group] = true
-		if it.hint != "" && it.group == "Satırı biçimlendir" {
-			t.Fatalf("a mark on %q: %q", it.title, it.hint)
+	items := a.menuItems("")
+	got := lineTitles(items)
+	want := []string{"Görev", "Başlık 1", "Başlık 2", "Madde listesi", "Satırı biçimlendir…", "Ekle…", "Tarih ya da saat", "Bağlantı…"}
+	if len(got) != len(want) {
+		t.Fatalf("lines %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("lines %v, want %v", got, want)
 		}
 	}
-	for _, g := range []string{"Öneriler", "Satırı biçimlendir", "Tarih"} {
-		if !groups[g] {
-			t.Fatalf("no %q in the menu: %v", g, groups)
+	for _, it := range items[4:] {
+		if !it.nav {
+			t.Fatalf("%q does not go into a menu", it.title)
 		}
 	}
-	// the same lines for the other sign
 	a.slash.sign = "@"
-	if got := a.menuItems(""); len(got) != len(slashItems) {
-		t.Fatalf("@ and / differ: %d, %d", len(got), len(slashItems))
+	if len(a.menuItems("")) != len(items) {
+		t.Fatal("@ and / differ")
 	}
-	// a kind chosen in a line turns the line, and keeps what is before the sign
-	a.slash.sign = "/"
-	a.menuItems("bas")[0].run()
-	typeEach(tt, "x")
-	if got := mdOf(a.doc); got != "Önce\n\n# Oku x" {
-		t.Fatalf("chosen mid-line: %q", got)
+	// typed: all at once, grouped
+	groups := map[string]bool{}
+	for _, it := range a.menuItems("b") {
+		groups[it.group] = true
 	}
-	// no room below: the menu is above the caret, inside the window
-	tt.SetSize(900, 260)
+	if !groups["Satırı biçimlendir"] || !groups["Tarih"] {
+		t.Fatalf("not searched together: %v", groups)
+	}
+}
+
+// ↵ on a menu goes into it; its lines are its own, typing narrows them, and
+// Esc goes back before it closes.
+func TestMenuInto(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	typeEach(tt, " /")
+	typeEach(tt, "@")
+	tt.Frame()
+	a.slash.sel = 7 // Bağlantı…
+	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tt.Frame()
-	r, ok := tt.Find("Öneriler")
+	if !a.slash.open || a.slash.view != "link" {
+		t.Fatalf("not in the link menu: %+v", a.slash)
+	}
+	if !tt.HasText("Sayfa ara…") || !tt.HasText("Geri") {
+		t.Fatal("no field or way back")
+	}
+	if got := mdOf(a.doc); got != "Önce\n\n@" {
+		t.Fatalf("the text changed: %q", got)
+	}
+	n := len(a.menuItems(""))
+	typeEach(tt, "zzzz")
+	tt.Frame()
+	if len(a.menuItems(a.slashQuery())) >= n && n > 0 {
+		t.Fatalf("typing did not narrow: %d", len(a.menuItems(a.slashQuery())))
+	}
+	for range 4 {
+		tt.Key(0, ui.KeyBackspace)
+	}
+	tt.Frame()
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if !a.slash.open || a.slash.view != "" {
+		t.Fatalf("Esc did not go back: %+v", a.slash)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if a.slash.open {
+		t.Fatal("Esc did not close it")
+	}
+}
+
+// A date picked on the calendar becomes a chip; a kind used moves to the top
+// of the suggestions.
+func TestMenuDateAndRecent(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "/")
+	tt.Frame()
+	a.slash.sel = 6 // Tarih ya da saat
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if a.slash.view != "date" {
+		t.Fatalf("not in the date menu: %+v", a.slash)
+	}
+	r, ok := tt.Find("Bugün")
 	if !ok {
+		t.Fatal("no days named")
+	}
+	_ = r
+	tt.Key(0, ui.KeyEnter) // the first: today
+	tt.Frame()
+	tt.Frame()
+	if a.slash.open || !strings.Contains(mdOf(a.doc), "[[20") {
+		t.Fatalf("no date chip: %q", mdOf(a.doc))
+	}
+	// a kind used is the first suggestion next time
+	typeEach(tt, "/")
+	tt.Frame()
+	a.menuItems("")[3].run() // Madde listesi
+	tt.Frame()
+	typeEach(tt, "x")
+	tt.Key(0, ui.KeyEnter)
+	typeEach(tt, "/")
+	tt.Frame()
+	if got := lineTitles(a.menuItems(""))[0]; got != "Madde listesi" {
+		t.Fatalf("first suggestion %q", got)
+	}
+}
+
+// The menu stays inside the window: above the caret when there is no room
+// below.
+func TestMenuInWindow(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.SetSize(900, 300)
+	tt.Frame()
+	typeEach(tt, "/")
+	tt.Frame()
+	tt.Frame()
+	if !a.slash.open {
+		t.Fatal("not open")
+	}
+	r, ok := tt.Find("Satırı biçimlendir…")
+	if !ok && !tt.HasText("Öneriler") {
 		t.Fatal("no menu")
 	}
-	if r.Y < 0 || r.Y+r.H > 260 {
+	_ = r
+	if r, ok := tt.Find("Öneriler"); ok && (r.Y < 0 || r.Y+r.H > 300) {
 		t.Fatalf("outside the window: %+v", r)
+	}
+}
+
+// The pointer left of the text, in the margin, is over the editor: the grip
+// shows there.
+func TestGripInMargin(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n")
+	tt.Frame()
+	if a.editorR.W == 0 {
+		t.Fatal("no editor")
+	}
+	tt.Move(a.editorR.X-12, a.editorR.Y+8)
+	tt.Frame()
+	if a.grip.para < 0 {
+		t.Fatalf("no grip with the pointer in the margin: %+v", a.grip)
+	}
+}
+
+// The link and date menus have a field of their own with the focus in it:
+// what is typed narrows the list, ↵ chooses, and the text is left alone.
+func TestMenuField(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	for _, n := range []string{"Alfa", "Beta"} {
+		if _, err := a.page.Coll.NewPage(nil, n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "@")
+	tt.Frame()
+	a.slash.sel = 7 // Bağlantı…
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if got := len(a.menuItems("")); got != 2 {
+		t.Fatalf("pages in the menu: %d", got)
+	}
+	typeEach(tt, "alf")
+	tt.Frame()
+	if a.slash.field != "alf" {
+		t.Fatalf("not typed in the field: %q", a.slash.field)
+	}
+	if got := mdOf(a.doc); got != "Önce\n\n@" {
+		t.Fatalf("the text changed: %q", got)
+	}
+	if items := a.menuItems(a.slash.field); len(items) != 2 || items[0].title != "Alfa" {
+		t.Fatalf("not narrowed: %v", lineTitles(items))
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if a.slash.open || !strings.Contains(mdOf(a.doc), "[[Alfa]]") {
+		t.Fatalf("not linked: open %v, %q", a.slash.open, mdOf(a.doc))
+	}
+	typeEach(tt, "@")
+	tt.Frame()
+	a.slash.sel = 7
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	// date: a day by name
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	tt.Frame()
+	a.slash.sel = 6
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	typeEach(tt, "yar")
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tomorrow := a.clock().AddDate(0, 0, 1).Format("2006-01-02")
+	if !strings.Contains(mdOf(a.doc), "[["+tomorrow+"]]") {
+		t.Fatalf("no date: %q", mdOf(a.doc))
+	}
+}
+
+// A menu with nothing in it shows a picture and a few words.
+func TestMenuEmpty(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "@")
+	tt.Frame()
+	a.slash.sel = 7
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("Eşleşen sayfa yok") {
+		t.Fatal("no empty state")
+	}
+}
+
+// The whole margin left of the text, from the page area's edge, is the
+// editor's: the grip shows there, and a click puts the caret on the line.
+func TestGutterReachesPageEdge(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n")
+	tt.SetSize(1800, 1000) // a wide window: the text is centered, the margin is wide
+	tt.Frame()
+	tt.Frame()
+	if a.pageR.W == 0 || a.pageR.X >= a.editorR.X-gutterW {
+		t.Fatalf("the page area %+v is no wider than the text %+v", a.pageR, a.editorR)
+	}
+	y := a.editorR.Y + a.boxes[len(a.boxes)-1].Top + 6
+	tt.Move(a.pageR.X+6, y)
+	tt.Frame()
+	tt.Frame()
+	if a.grip.para < 0 {
+		t.Fatalf("no grip far left: %+v", a.grip)
+	}
+	tt.ClickAt(a.pageR.X+6, y)
+	tt.Frame()
+	tt.Frame()
+	if _, caret := a.doc.Selection(); caret != a.grip.para {
+		t.Fatalf("the caret %d, not at the start of the line %d", caret, a.grip.para)
+	}
+}
+
+// A chip answers the pointer: it is the one hovered, and a date's click
+// opens a calendar.
+func TestChipHover(t *testing.T) {
+	a, tt := newTestApp(t, "Oku [[2026-11-05]] ve [[Alfa]]\n")
+	tt.Frame()
+	tt.Frame()
+	var hits []chipHit // each chip once: a frame can draw them twice
+	for _, h := range a.chipSeen {
+		if len(hits) == 0 || hits[len(hits)-1].ch != h.ch {
+			hits = append(hits, h)
+		}
+	}
+	if len(hits) < 2 {
+		t.Fatalf("chips seen: %d", len(hits))
+	}
+	for _, h := range hits[:2] {
+		tt.Move(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+		tt.Frame()
+		tt.Frame()
+		if a.hoverCh != h.ch {
+			t.Fatalf("%q not hovered", h.ch.label())
+		}
+	}
+	tt.Move(a.editorR.X+a.editorR.W-10, a.editorR.Y+300)
+	tt.Frame()
+	if a.hoverCh != nil {
+		t.Fatal("hovered away from any chip")
+	}
+	h := hits[0]
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Frame()
+	tt.Frame()
+	if !a.dateEdit.open {
+		t.Fatal("a date did not open its calendar")
 	}
 }

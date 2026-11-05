@@ -106,10 +106,16 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 
 ## `/` ve `@` menüsü üzerine (5 Kasım 2026, ilk sürümü kullandıktan sonra)
 
-> **Durum (5 Kasım 2026):** 24–27 yapıldı. Tek menü (Öneriler, Satırı biçimlendir, Tarih, Özellik, Bağlantı), iki işaret de
-> kelime başında açar; Markdown işaretleri yok; altta yer yoksa caret'in üstünde açılır, pencereye sığar ve kayar;
-> sayfa satırında ad üstte, yol altında soluk. **Yapılmayan:** `→` alt menüleri (liste düz ve gruplu), Kişi an,
-> Görev durumu, Ekle (görsel, sorgu) — bunlar özellikleri gelince.
+> **Durum (5 Kasım 2026):** 24–27 yapıldı, Thymer'deki gibi. Tek menü, iki işaret de kelime başında açar. Başta
+> **Öneriler**: en son kullanılan 4 satır türü (ayarlarda saklanır; boşsa Görev, Başlık 1, Başlık 2, Madde listesi).
+> Altında alt menüler: **Satırı biçimlendir…**, **Ekle…** (kod, ayırıcı), **Tarih ya da saat** (adlı günler ve bir
+> takvim), **Özellik…** (sayfanın seçimleri), **Bağlantı…** (sayfalar). Alt menünün kendi listesi ve üstünde bir
+> alanı var (yazılan oraya düşer, liste süzülür); ↵ ya da tık girer, Esc ya da **← Geri** döner. Menünün ilk
+> hâlinde yazınca hepsi birlikte aranır. Markdown işaretleri yok; altta yer yoksa caret'in üstünde açılır, pencereye
+> sığar ve kayar; sayfa satırında ad üstte, yol altında soluk. **Yapılmayan:** Kişi an, Görev durumu (ikisinin
+> verisi yok), Ekle'de görsel ve sorgu, → tuşuyla alt menüye girmek (editör tuşu alıyor).
+>
+> Ayrıca bloğun tutamağı için metnin solundaki 32 px'lik şerit editörün parçası: fare orada iken de tutamak çıkar.
 
 24. **`/` ile `@` aynı menü olmalı.** Thymer'de ikisi tek bir öneri menüsünü açar ("this menu is @"). Ben ikisini
     ayırdım: `/` yalnız blok türlerini, `@` yalnız sayfa, tarih ve özellikleri gösteriyor. Yanlış: hangisiyle
@@ -129,6 +135,18 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 27. **Sayfa satırında ad önce gelsin.** "test…  MCP Deneme › Ajandan merh…" gibi: sayfanın adı kesiliyor, yanındaki
     yol yer kaplıyor. Ad tam görünmeli; yol (koleksiyon ve üst sayfa) kısa, soluk ve gerekirse ikinci satırda ya
     da hiç olmamalı.
+28. **`Ekle…` menüsü dolsun.** Şimdi yalnız Kod bloğu ve Ayırıcı var. Thymer'deki gibi eklenecekler, her biri kendi
+    özelliğiyle birlikte ([15](15-bloklar-denemesi.md)'deki "yolu var" ekleri):
+    - **Görsel ve medya** (resim, video): sayfanın klasörüne kopyalanır, `![]()` yazılır (15 · ekler; [14](14-urun-onerileri.md) 20).
+    - **Dosya eki:** sayfanın klasörüne kopyalanır, bağlantı olarak yazılır.
+    - **Tablo:** ham blok olarak değil, gerçek tablo (15 · ekler).
+    - **Bilgi kutuları:** Düz, Alıntı, Uyarı, Bilgi — Obsidian'ın `> [!note]` kutusu (15).
+    - **Canlı sorgu:** eşleşen sayfaları canlı listeler (12, [14](14-urun-onerileri.md) 8).
+    - **Sütunlar:** yapılmıyor (15 · olmuyor).
+    Menüde her biri bir satır, simgesiyle; henüz yapılmayanlar eklenmez. *(B ile, bloklarla birlikte)*
+29. **Menüde Kişi an ve Görev durumu.** Thymer'de var, bizde veri yok: kişi özelliği (14 · öneriler) ve görev durumları
+    ([02](02-veri-modeli.md): yapıldı, başladı, beklemede, önemli) gelince menüye girer. `→` tuşuyla alt menüye
+    girmek de editörün tuşları yüzünden yok; MyGo'ya "tuşu önce bana sor" kancası eklenirse (15 · teknik not) gelir.
 
 ---
 
