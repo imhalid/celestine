@@ -353,6 +353,7 @@ type column struct {
 	label, field string
 	prop         *Property // the property it shows; a choice's value is a badge
 	width        float32   // 0: the rest
+	right        bool      // its values go to the end of the cell: numbers
 	cell         func(p *Page, now time.Time) string
 }
 
@@ -367,7 +368,7 @@ func tableColumns(coll *Collection, v *View) []column {
 	}
 	for i := range coll.Properties {
 		pr := &coll.Properties[i]
-		byKey["prop:"+pr.ID] = column{label: pr.Name, field: "prop:" + pr.ID, width: 140, prop: pr,
+		byKey["prop:"+pr.ID] = column{label: pr.Name, field: "prop:" + pr.ID, width: 140, prop: pr, right: pr.Type == PropNumber,
 			cell: func(p *Page, _ time.Time) string { return p.Value(pr) }}
 	}
 	for _, k := range viewColumns(coll, v) { // the view's, in its order
@@ -378,84 +379,188 @@ func tableColumns(coll *Collection, v *View) []column {
 	return cols
 }
 
+// tablePageSize is how many rows the table shows at a time, with pages under
+// it: the rows are built as they show, and the page around the table scrolls as
+// a whole, so the table is as high as its rows.
+const tablePageSize = 50
+
+// tableTitleMin is the narrowest the title's column goes.
+const tableTitleMin = 200
+
+// tableUI is a table's own state, kept with the view it is of: Ryugo's (the sort
+// it shows, the columns' order and widths, the rows chosen, the page), and the
+// sort as the view has it, to tell which of the two the user changed.
+type tableUI struct {
+	st      ryugo.TableState
+	applied []ryugo.SortKey
+}
+
+// tableLabels are the table's words.
+var tableLabels = ryugo.TableLabels{
+	Search: "Ara", Selected: "%d seçili", Clear: "Temizle",
+	SelectRow: "Satırı seç", SelectAll: "Hepsini seç", Details: "Ayrıntı",
+	NoRows: "Sayfa yok", LoadError: "Sayfalar okunamadı", TryAgain: "Yeniden dene",
+	Pagination: ryugo.PaginationLabels{Group: "Sayfalar", Of: "/", Previous: "Önceki sayfa", Next: "Sonraki sayfa", Page: "Sayfa", Current: "geçerli"},
+}
+
+// tableOf is the state of the table of view v of collection coll.
+func (a *app) tableOf(coll *Collection, v *View) *tableUI {
+	if a.tables == nil {
+		a.tables = map[string]*tableUI{}
+	}
+	key := coll.Dir + "|" + v.ID
+	tu := a.tables[key]
+	if tu == nil {
+		tu = &tableUI{}
+		a.tables[key] = tu
+	}
+	return tu
+}
+
+// viewSortKeys is the view's sort as Ryugo's table has it.
+func viewSortKeys(v *View) []ryugo.SortKey {
+	if v.Sort == "" {
+		return nil
+	}
+	return []ryugo.SortKey{{Column: v.Sort, Desc: v.Desc}}
+}
+
+// takeSort tells which of the table's sort and the view's was changed since
+// they were the same, and brings the other to it: a click on a header changes
+// the table's, the collection's settings the view's.
+func (a *app) takeSort(coll *Collection, v *View, tu *tableUI) {
+	want := viewSortKeys(v)
+	switch {
+	case !slices.Equal(tu.st.Sort, tu.applied): // the user sorted
+		if k := tu.st.Sort; len(k) > 0 {
+			v.Sort, v.Desc = k[0].Column, k[0].Desc
+		} else {
+			v.Sort, v.Desc = "title", false // sorted by nothing: by title
+		}
+		if err := coll.save(); err != nil {
+			a.saveErr = err.Error()
+		}
+		tu.st.Sort = viewSortKeys(v)
+	case !slices.Equal(want, tu.applied):
+		tu.st.Sort = want
+	}
+	tu.applied = slices.Clone(tu.st.Sort)
+}
+
+// pageSortValue is the value a page is sorted by in column col: nil when it has none.
+func pageSortValue(col column, p *Page) any {
+	switch {
+	case col.field == "title":
+		return p.Title
+	case col.field == "created":
+		return p.Created
+	case col.field == "modified":
+		return p.Modified
+	case col.prop != nil:
+		v := p.Value(col.prop)
+		if v == "" {
+			return nil
+		}
+		switch col.prop.Type {
+		case PropChoice:
+			return float64(slices.Index(col.prop.Options, v))
+		case PropNumber:
+			f, _ := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64)
+			return f
+		}
+		return v
+	}
+	return nil
+}
+
+// tableView is the pages as Ryugo's table: the header in its tint, rows divided
+// by hairlines, a column sorted by a click on its header, moved by dragging it
+// and resized by its edge, pages under it. A click on a row opens its page (or
+// chooses it, while rows are chosen), a right click is the page's menu.
 func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
-	columns := tableColumns(a.coll, v)
-	cellBox := func(col column) ui.Element {
-		b := ui.Row(c).Padding(0, 10).AlignItems(ui.Center).Height(36)
-		if col.width > 0 {
-			b.Width(col.width)
-		} else {
-			b.Grow(1)
+	tu := a.tableOf(a.coll, v)
+	a.takeSort(a.coll, v, tu)
+	var cols []ryugo.Column[*Page]
+	for i, col := range tableColumns(a.coll, v) {
+		col, first := col, i == 0
+		id := col.field
+		if id == "" {
+			id = col.label
 		}
-		return b
+		rc := ryugo.Column[*Page]{ID: id, Title: col.label, Sortable: col.field != "", Width: col.width,
+			Value: func(p *Page) any { return pageSortValue(col, p) },
+			Cell: func(c *ui.Context, p *Page) {
+				if col.prop != nil && col.prop.Type == PropChoice {
+					if val := p.Value(col.prop); val != "" {
+						ryugo.Badge(c, val, choiceTone(col.prop, val))
+					}
+					return
+				}
+				tx := ui.Text(c, col.cell(p, now)).FontSize(13.5).SingleLine().Ellipsis("…")
+				if col.right {
+					tx.FontFeatures("tnum")
+				}
+				if first {
+					tx.FontWeight(560)
+				} else {
+					tx.TextColor(t.TextMuted)
+				}
+			}}
+		if col.width == 0 {
+			rc.MinWidth = tableTitleMin
+		}
+		if col.right {
+			rc.Align = ui.End
+		}
+		cols = append(cols, rc)
 	}
-	// The header: a column of a field sorts by it, again the other way.
-	ui.Row(c).Children(func() {
-		for _, col := range columns {
-			c.Key("head:" + col.label)
-			h := cellBox(col)
-			if col.field != "" {
-				h.Label("Sırala: " + col.label).Role(ui.RoleButton)
-				if h.Hovered() {
-					h.Background(t.SurfaceHover)
-				}
-			}
-			h.Children(func() {
-				mark := ""
-				if col.field != "" && col.field == v.Sort {
-					mark = map[bool]string{true: "  ↓", false: "  ↑"}[v.Desc]
-				}
-				ui.Text(c, col.label+mark).FontSize(12).FontWeight(650).TextColor(t.TextMuted)
-			})
-			if col.field != "" && h.Clicked() {
-				if err := a.coll.SetSort(v, col.field); err != nil {
-					a.saveErr = err.Error()
-				}
-			}
+	// the rows chosen are the app's (a.bulk): the table shows them, and says what is chosen in it
+	tu.st.Selected = nil
+	if a.bulk.on && len(a.bulk.sel) > 0 {
+		tu.st.Selected = map[any]bool{}
+		for p := range a.bulk.sel {
+			tu.st.Selected[p] = true
 		}
-	})
-	ui.Box(c).Height(1).Background(t.Border)
-	for _, p := range pages {
-		c.Key("row:" + p.Dir)
-		row := ui.Row(c).Radius(6).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
-		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
-		if row.Hovered() {
-			row.Background(t.SurfaceHover)
-		} else {
-			row.Background(t.SurfaceHover.Alpha(0))
-		}
-		if a.bulk.sel[p] {
-			row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
-		}
-		row.Children(func() {
+	}
+	head, row := ryugo.TableSize(ryugo.Md)
+	rows := min(len(pages), tablePageSize)
+	if left := len(pages) - tu.st.Page*tablePageSize; left < rows {
+		rows = max(left, 0)
+	}
+	height := head + float32(rows)*row
+	if len(pages) > tablePageSize {
+		height += ryugo.PaginationHeight(c, ryugo.Md) + 10 // the pages under the table, and the gap
+	}
+	ryugo.Table(c.Key("table:"+a.coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
+		Key: func(p *Page) any { return p }, Label: "Sayfalar", Height: height + 2,
+		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
+		Open: func(p *Page) {
 			if a.bulk.on {
-				ui.Box(c.Key("mark-wrap")).Width(34).Height(36).Shrink(0).Center().Children(func() { a.bulkMark(c, p) })
+				a.bulkToggle(p) // chosen, not opened; the table's own choice follows, or it would be taken back below
+				if tu.st.Selected == nil {
+					tu.st.Selected = map[any]bool{}
+				}
+				if a.bulk.sel[p] {
+					tu.st.Selected[p] = true
+				} else {
+					delete(tu.st.Selected, p)
+				}
+				return
 			}
-			for i, col := range columns {
-				cellBox(col).Children(func() {
-					if col.prop != nil && col.prop.Type == PropChoice {
-						if v := p.Value(col.prop); v != "" {
-							ryugo.Badge(c, v, choiceTone(col.prop, v))
-						}
-						return
-					}
-					tx := ui.Text(c, col.cell(p, now)).FontSize(13.5).MaxLines(1)
-					if i == 0 {
-						tx.FontWeight(560)
-					} else {
-						tx.TextColor(t.TextMuted)
-					}
-				})
-			}
-		})
-		c.Key("rule:" + p.Dir)
-		ui.Box(c).Height(1).Background(withAlpha(t.Border, 0.5)).Transition(rowEnter)
-		if a.bulkRowClicked(p, row.Clicked()) {
-			// chosen, not opened
-		} else if row.Clicked() {
 			a.open(p)
+		},
+		Row: func(row ui.Element, p *Page) {
+			a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
+		},
+	})
+	if a.bulk.on { // what was chosen in the table, by its boxes
+		a.bulk.sel = map[*Page]bool{}
+		for k := range tu.st.Selected {
+			if p, ok := k.(*Page); ok {
+				a.bulk.sel[p] = true
+			}
 		}
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -99,27 +100,30 @@ func TestTableViewSortsAndRemembers(t *testing.T) {
 	if coll.View().Type != "table" {
 		t.Fatal("the table is not shown")
 	}
-	if err := tt.Click("Sırala: Oluşturulma"); err != nil { // newest first on the first click
+	if err := tt.Click("Oluşturulma"); err != nil { // Ryugo's table: the first click sorts up, oldest first
 		t.Fatal(err)
 	}
 	tt.Frame()
+	if v := coll.View(); v.Sort != "created" || v.Desc {
+		t.Fatalf("first click: %+v", v)
+	}
 	pages := a.filtered(coll)
 	sortPages(pages, coll.View())
-	if got := titles(pages); !equal(got, []string{"Anna Karenina", "Notlar: Dune", "Dune", "Yüzyıllık Yalnızlık"}) {
-		t.Fatalf("by created, newest first: %v", got)
+	if got := titles(pages); !equal(got, []string{"Yüzyıllık Yalnızlık", "Dune", "Notlar: Dune", "Anna Karenina"}) {
+		t.Fatalf("by created, oldest first: %v", got)
 	}
-	if err := tt.Click("Sırala: Oluşturulma"); err != nil { // again: the other way
+	if err := tt.Click("Oluşturulma"); err != nil { // again: the other way
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if !(!coll.View().Desc && coll.View().Sort == "created") {
-		t.Fatalf("second click: %+v", coll.View())
+	if v := coll.View(); !v.Desc || v.Sort != "created" {
+		t.Fatalf("second click: %+v", v)
 	}
 	// The choice is in collection.json.
 	data, _ := os.ReadFile(filepath.Join(coll.Dir, collectionFile))
 	var saved Collection
 	json.Unmarshal(data, &saved)
-	if saved.ActiveView != "table" || saved.Views[1].Sort != "created" || saved.Views[1].Desc {
+	if saved.ActiveView != "table" || saved.Views[1].Sort != "created" || !saved.Views[1].Desc {
 		t.Fatalf("collection.json: %s", data)
 	}
 	again, _ := OpenLibrary(a.lib.Root)
@@ -174,4 +178,86 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// A table's columns are as wide in every row as in the header, whatever the
+// titles: the values stand under their names. (The rows once took the width of
+// their own contents, and the columns after the title drifted by its length.)
+func TestTableColumnsAlign(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("Gezi")
+	pr, _ := c.AddProperty("Ülke", "text", nil)
+	for title, ulke := range map[string]string{"Edirne": "Türkiye", "Bo": "Bulgaristan", "Kapadokya ve çevresindeki vadiler": "Gürcistan", "Prag": "Çekya"} {
+		p, _ := c.NewPage(nil, title)
+		p.SetValue(pr.ID, ulke)
+	}
+	for _, v := range c.Views {
+		if v.Type == "table" {
+			c.SetView(v.ID)
+		}
+	}
+	for _, extra := range []string{"Bütçe", "Ziyaret", "Not"} {
+		c.AddProperty(extra, "text", nil)
+	}
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 900, 760)
+	a.do(func() error { a.openCollection(c); return nil })
+	tt.Advance(600 * time.Millisecond)
+	head, ok := tt.Find("Ülke")
+	if !ok {
+		t.Fatalf("no header: %v", tt.Texts())
+	}
+	first := float32(-1)
+	for _, v := range []string{"Türkiye", "Bulgaristan", "Gürcistan", "Çekya"} {
+		cell, ok := tt.Find(v)
+		if !ok {
+			t.Fatalf("no cell %q: %v", v, tt.Texts())
+		}
+		if first < 0 {
+			first = cell.X
+		}
+		if math.Abs(float64(cell.X-first)) > 1 {
+			t.Errorf("%q starts at x=%v, the others at %v", v, cell.X, first)
+		}
+		if math.Abs(float64(cell.X-head.X)) > 20 { // the header's own inset
+			t.Errorf("%q starts at x=%v, its column's header at %v", v, cell.X, head.X)
+		}
+	}
+}
+
+// In the table a click on a row opens its page, and while rows are being chosen
+// it chooses it instead; the boxes of the table are the app's choice too.
+func TestTableRowOpensOrChooses(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.Open = false // the sidebar does not list the pages: the table has the only rows with these titles
+	if err := tt.Click("Tablo"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	a.bulk.on = true
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Anna Karenina"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if a.coll == nil || len(a.bulk.sel) != 1 {
+		t.Fatalf("a click on a row while choosing: coll %v, chosen %d", a.coll, len(a.bulk.sel))
+	}
+	for p := range a.bulk.sel {
+		if p.Title != "Anna Karenina" {
+			t.Fatalf("chose %q", p.Title)
+		}
+	}
+	a.bulkClear()
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Anna Karenina"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if a.coll != nil || a.page == nil || a.page.Title != "Anna Karenina" {
+		t.Fatalf("a click on a row: coll %v page %v (of %v)", a.coll, a.page, coll.Name)
+	}
 }

@@ -212,6 +212,7 @@ type app struct {
 	embedCache    map[string][]string // the first lines of the pages embedded (embed.go)
 	ctxCache      map[string][]seg    // the lines that link to a page (backlinks.go)
 	bulk          bulkState           // pages being chosen in a collection, to be done to all (bulk.go)
+	tables        map[string]*tableUI // the state of each collection table, by collection and view (views.go)
 	statsOpen     bool                // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
