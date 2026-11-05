@@ -83,7 +83,7 @@ func OpenStore(file string) (*Store, error) {
 		) WITHOUT ROWID`,
 		`CREATE INDEX IF NOT EXISTS nodes_parent ON nodes(parent)`,
 		`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB) WITHOUT ROWID`,
-		`CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL, at INTEGER NOT NULL, taken INTEGER NOT NULL DEFAULT 0, data BLOB NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL, at INTEGER NOT NULL, taken INTEGER NOT NULL DEFAULT 0, label TEXT NOT NULL DEFAULT '', data BLOB NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS versions_path ON versions(path)`,
 	} {
 		if _, err := db.Exec(q); err != nil {
@@ -91,6 +91,7 @@ func OpenStore(file string) (*Store, error) {
 			return nil, err
 		}
 	}
+	db.Exec(`ALTER TABLE versions ADD COLUMN label TEXT NOT NULL DEFAULT ''`) // a file from before names: the column is added (an error when it is there)
 	s := &Store{db: db, File: file}
 	if _, err := db.Exec(`INSERT OR IGNORE INTO nodes (path, parent, dir, data, mtime) VALUES (?, '', 1, NULL, ?)`, storeRoot, time.Now().UnixNano()); err != nil {
 		db.Close()

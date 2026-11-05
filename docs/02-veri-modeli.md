@@ -118,3 +118,8 @@ tutulmaz. Kopyalar sayfa taşınınca ya da çöpe gidince onunla gider, kalıc�
 Sayfa menüsü ▸ **Sürüm geçmişi…**: solda kopyalar ("12 dk önce", saat, boyut), sağda seçilenin sayfanın şimdiki halinden farkı
 (geri gelen satırlar yeşil, giden satırlar kırmızı üstü çizili; uzun aynı bölümler kısaltılır). **Bu sürüme dön** sayfayı o hale
 getirir; dönmeden önceki hal de kopya olarak saklanır, yani dönüş de geri alınabilir. Başlık ve özellikler şimdiki halinde kalır.
+
+Sürüm geçmişine sonradan: değişen satırların yanında, bir satır gidip bir satır gelirken **hangi kelimelerin** değiştiği de
+işaretlenir (kelime farkı); pencerenin altındaki alandan o anki hâl **adla saklanır** ("Yayına giden"): adlı kopya 5 dakika
+kuralına bakmaz ve 100 kopya sınırı yüzünden hiç silinmez. `versions` tablosuna `label` sütunu eklendi; eski dosyalarda ilk
+açılışta kendiliğinden eklenir.

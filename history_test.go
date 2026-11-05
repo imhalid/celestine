@@ -130,3 +130,73 @@ func TestVersionDialog(t *testing.T) {
 		t.Fatalf("the text before the return is not kept: %q", d)
 	}
 }
+
+func TestPairWords(t *testing.T) {
+	ops := diffLines([]string{"bir iki üç dört"}, []string{"bir iki beş dört"})
+	pairWords(ops)
+	if len(ops) != 2 || ops[0].kind != '+' || ops[1].kind != '-' {
+		t.Fatalf("%+v", ops)
+	}
+	marked := func(o diffOp) (out []string) {
+		for _, w := range o.words {
+			if w.kind != '=' {
+				out = append(out, w.text)
+			}
+		}
+		return
+	}
+	if !equal(marked(ops[0]), []string{"üç"}) || !equal(marked(ops[1]), []string{"beş"}) {
+		t.Fatalf("%v %v", marked(ops[0]), marked(ops[1]))
+	}
+}
+
+// TestNamedVersion: a copy the user names is kept whatever was kept lately,
+// is never pushed out by the limit, and has its name in the list.
+func TestNamedVersion(t *testing.T) {
+	st, now := storeAt(t)
+	st.Mkdir("/a")
+	st.WriteFile("/a/index.md", []byte("---\ntitle: A\n---\n\nilk metin\n"))
+	if !st.SaveNamed("/a/index.md", "Yayına giden") {
+		t.Fatal("not kept")
+	}
+	for i := 0; i < historyKeep+20; i++ {
+		*now = now.Add(10 * time.Minute)
+		st.WriteFile("/a/index.md", []byte("---\ntitle: A\n---\n\nmetin "+strings.Repeat("x", i+1)+"\n"))
+	}
+	vs := st.Versions("/a/index.md")
+	named := 0
+	for _, v := range vs {
+		if v.Label == "Yayına giden" {
+			named++
+		}
+	}
+	if named != 1 || len(vs) != historyKeep+1 {
+		t.Fatalf("named %d, copies %d", named, len(vs))
+	}
+}
+
+// TestVersionDialogName: the dialog's field keeps the page as it is under a name.
+func TestVersionDialogName(t *testing.T) {
+	st, now := storeAt(t)
+	lib, _ := OpenLibraryIn(st, storeRoot)
+	seed(lib)
+	a := newApp(lib)
+	a.clock = func() time.Time { return *now }
+	tt := ui.NewTester(a.view, 1100, 800)
+	tt.Advance(50 * time.Millisecond)
+	a.openHistory(a.page)
+	tt.Advance(900 * time.Millisecond)
+	a.vhist.label = "Bugünkü hâl"
+	tt.Frame()
+	r, _ := tt.Find("Sakla")
+	tt.Move(r.X+r.W/2, r.Y+r.H/2) // the pointer is there a frame before the click, as it is for a hand
+	tt.Frame()
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(200 * time.Millisecond)
+	if len(a.vhist.vers) == 0 || a.vhist.vers[0].Label != "Bugünkü hâl" {
+		t.Fatalf("%+v", a.vhist.vers)
+	}
+	if !tt.HasText("Bugünkü hâl") {
+		t.Fatalf("not listed: %v", tt.Texts())
+	}
+}

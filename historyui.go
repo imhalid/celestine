@@ -21,7 +21,8 @@ type histView struct {
 	vers   []Version
 	sel    int
 	ops    []diffOp
-	opsFor int64 // the version the ops are of
+	opsFor int64  // the version the ops are of
+	label  string // the name being typed for a copy to keep
 	list   ui.ScrollState
 	text   ui.ScrollState
 }
@@ -55,6 +56,7 @@ func (a *app) histOps() []diffOp {
 		_, old := splitFrontMatter(string(data))
 		now, _ := v.page.Body()
 		v.ops = diffLines(strings.Split(strings.TrimRight(old, "\n"), "\n"), strings.Split(strings.TrimRight(now, "\n"), "\n"))
+		pairWords(v.ops)
 		v.opsFor = id
 		v.text = ui.ScrollState{}
 	}
@@ -102,7 +104,14 @@ func (a *app) historyView(c *ui.Context) {
 		if len(v.vers) == 0 {
 			hint = "Henüz kopya yok: sayfa değiştikçe burada birikir."
 		}
-		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1)
+		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			in := ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: "Sürümün adı", Placeholder: "Şu hâli adla sakla…", Size: ryugo.Sm}).Width(190)
+			keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
+			if keep {
+				a.saveNamedVersion()
+			}
+		})
 		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), "Bu sürüme dön", ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.putBackVersion()
 		}
@@ -128,7 +137,11 @@ func (a *app) historyView(c *ui.Context) {
 							row.Background(cl.Fill)
 						}
 						row.Children(func() {
-							ui.Text(c, ago(ver.At, now)).FontSize(13.5).FontWeight(600).TextColor(cl.Text)
+							head := ago(ver.At, now)
+							if ver.Label != "" {
+								head = ver.Label
+							}
+							ui.Text(c, head).FontSize(13.5).FontWeight(600).TextColor(cl.Text).MaxLines(1)
 							ui.Text(c, ver.At.Format("2 Jan 2006, 15:04")+"  ·  "+sizeText(ver.Size)).FontSize(11.5).TextColor(cl.Muted)
 						})
 						if row.Clicked() {
@@ -210,6 +223,22 @@ func (a *app) diffRow(c *ui.Context, cl ryugo.Colors, i int, o diffOp) {
 		if strings.TrimSpace(text) == "" {
 			text = " "
 		}
+		if len(o.words) > 0 { // the words that differ marked within the line
+			var spans []ui.Span
+			for k, w := range o.words {
+				sp := ui.Span{Text: w.text, Size: 13, Color: cl.Text}
+				if k > 0 {
+					spans = append(spans, ui.Span{Text: " ", Size: 13})
+				}
+				if w.kind != '=' {
+					sp.Weight, sp.Background, sp.Radius = 700, col.Alpha(0.28), 3
+					sp.Strikethrough = o.kind == '-'
+				}
+				spans = append(spans, sp)
+			}
+			ui.RichText(c, spans...).Grow(1).MinWidth(0)
+			return
+		}
 		t := ui.Text(c, text).FontSize(13).TextColor(map[bool]ui.Color{true: cl.Muted, false: cl.Text}[o.kind == '=']).Grow(1).MinWidth(0).Wrap()
 		if o.kind == '-' {
 			t.Strikethrough()
@@ -223,4 +252,23 @@ func sizeText(n int) string {
 		return strconv.Itoa(n) + " B"
 	}
 	return strconv.FormatFloat(float64(n)/1024, 'f', 1, 64) + " KB"
+}
+
+// saveNamedVersion keeps the page as it is now under the name typed.
+func (a *app) saveNamedVersion() {
+	v := &a.vhist
+	name := strings.TrimSpace(v.label)
+	if name == "" {
+		name = "Sakladığım sürüm"
+	}
+	h, ok := historyOf(v.page)
+	if !ok {
+		return
+	}
+	if v.page == a.page {
+		a.flush()
+	}
+	if h.SaveNamed(v.page.file(), name) {
+		v.vers, v.sel, v.opsFor, v.label = h.Versions(v.page.file()), 0, -1, ""
+	}
 }

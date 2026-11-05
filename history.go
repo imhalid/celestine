@@ -19,9 +19,10 @@ const historyKeep = 100
 
 // Version is a copy of a page.
 type Version struct {
-	ID   int64
-	At   time.Time // when that text was written
-	Size int
+	ID    int64
+	At    time.Time // when that text was written
+	Size  int
+	Label string // a name one gave it: such a copy is kept for good
 }
 
 func (s *Store) clock() time.Time {
@@ -59,7 +60,7 @@ func (s *Store) oldFile(n string) ([]byte, time.Time) {
 // past historyKeep.
 func (s *Store) keep(n string, data []byte, at time.Time) {
 	s.db.Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), s.clock().UnixNano(), data)
-	s.db.Exec(`DELETE FROM versions WHERE path = ?1 AND id NOT IN (SELECT id FROM versions WHERE path = ?1 ORDER BY id DESC LIMIT ?2)`, n, historyKeep)
+	s.db.Exec(`DELETE FROM versions WHERE path = ?1 AND label = '' AND id NOT IN (SELECT id FROM versions WHERE path = ?1 AND label = '' ORDER BY id DESC LIMIT ?2)`, n, historyKeep)
 }
 
 // SnapshotNow keeps the file at name as it is, whatever was kept lately: as
@@ -75,9 +76,21 @@ func (s *Store) SnapshotNow(name string) {
 	}
 }
 
+// SaveNamed keeps the file at name as it is now, under a name of the user's:
+// it is kept whatever was kept lately, and never goes to make room.
+func (s *Store) SaveNamed(name, label string) bool {
+	n := clean(name)
+	old, _ := s.oldFile(n)
+	if old == nil {
+		return false
+	}
+	s.db.Exec(`INSERT INTO versions (path, at, taken, label, data) VALUES (?, ?, ?, ?, ?)`, n, s.clock().UnixNano(), s.clock().UnixNano(), label, old)
+	return true
+}
+
 // Versions are the copies kept of the file at name, the latest first.
 func (s *Store) Versions(name string) []Version {
-	rows, err := s.db.Query(`SELECT id, at, length(data) FROM versions WHERE path = ? ORDER BY id DESC`, clean(name))
+	rows, err := s.db.Query(`SELECT id, at, length(data), label FROM versions WHERE path = ? ORDER BY id DESC`, clean(name))
 	if err != nil {
 		return nil
 	}
@@ -86,7 +99,7 @@ func (s *Store) Versions(name string) []Version {
 	for rows.Next() {
 		var v Version
 		var at int64
-		if rows.Scan(&v.ID, &at, &v.Size) == nil {
+		if rows.Scan(&v.ID, &at, &v.Size, &v.Label) == nil {
 			v.At = time.Unix(0, at)
 			out = append(out, v)
 		}
@@ -114,6 +127,7 @@ type historian interface {
 	Versions(name string) []Version
 	VersionData(name string, id int64) ([]byte, bool)
 	SnapshotNow(name string)
+	SaveNamed(name, label string) bool
 }
 
 // ---- the difference between a version and the present ----
@@ -121,8 +135,48 @@ type historian interface {
 // diffOp is a line of a difference: both have it, only the version has it
 // (it comes back), or only the present (it goes).
 type diffOp struct {
-	kind byte // '=', '+', '-'
-	text string
+	kind  byte // '=', '+', '-'
+	text  string
+	words []diffOp // set where a line that comes back and one that goes are of a pair: the words of this line, those that differ marked
+}
+
+// pairWords sets, for the lines that go and come back side by side, which of
+// their words are what differs: the first line that comes back with the first
+// that goes, and so on.
+func pairWords(ops []diffOp) {
+	for i := 0; i < len(ops); {
+		if ops[i].kind == '=' {
+			i++
+			continue
+		}
+		j := i
+		var adds, dels []int
+		for j < len(ops) && ops[j].kind != '=' {
+			if ops[j].kind == '+' {
+				adds = append(adds, j)
+			} else {
+				dels = append(dels, j)
+			}
+			j++
+		}
+		for k := 0; k < len(adds) && k < len(dels); k++ {
+			a, d := adds[k], dels[k]
+			w := diffLines(strings.Fields(ops[a].text), strings.Fields(ops[d].text))
+			var mine, theirs []diffOp
+			for _, o := range w {
+				switch o.kind {
+				case '=':
+					mine, theirs = append(mine, o), append(theirs, o)
+				case '+':
+					mine = append(mine, o)
+				default:
+					theirs = append(theirs, o)
+				}
+			}
+			ops[a].words, ops[d].words = mine, theirs
+		}
+		i = j
+	}
 }
 
 // diffLines sets the lines of the version against those of the present: the
@@ -155,22 +209,22 @@ func diffLines(version, now []string) []diffOp {
 	for i < n && j < m {
 		switch {
 		case version[i] == now[j]:
-			out = append(out, diffOp{'=', version[i]})
+			out = append(out, diffOp{kind: '=', text: version[i]})
 			i++
 			j++
 		case lcs[i+1][j] >= lcs[i][j+1]:
-			out = append(out, diffOp{'+', version[i]})
+			out = append(out, diffOp{kind: '+', text: version[i]})
 			i++
 		default:
-			out = append(out, diffOp{'-', now[j]})
+			out = append(out, diffOp{kind: '-', text: now[j]})
 			j++
 		}
 	}
 	for ; i < n; i++ {
-		out = append(out, diffOp{'+', version[i]})
+		out = append(out, diffOp{kind: '+', text: version[i]})
 	}
 	for ; j < m; j++ {
-		out = append(out, diffOp{'-', now[j]})
+		out = append(out, diffOp{kind: '-', text: now[j]})
 	}
 	return out
 }
