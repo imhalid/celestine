@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The page's "…" menu, at the top right of the window while a page is open:
@@ -15,21 +16,19 @@ import (
 var iconMore = icon(`<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>`)
 var iconExport = icon(`<path d="M12 4.5v10M8 8.5l4-4 4 4"/><path d="M5 14.5v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/>`)
 
-// pageMoreButton is the "…" at the window's top right.
-func (a *app) pageMoreButton(c *ui.Context) {
+// pageButtons are the side panel's button and the page menu's "…", at the
+// right end of the status bar while a page is open.
+func (a *app) pageButtons(c *ui.Context) {
 	if a.page == nil || a.noPage() {
 		return
 	}
-	tb := c.TitleBar()
-	h := max(tb.Height, barH)
-	row := ui.Row(c.Key("page-more")).Absolute().Right(tb.Right + 12).Top((h - 26) / 2)
-	row.Gap(2).Children(func() {
-		if a.iconButton(c, iconPanel, "Yan panel (⇧⌘\\)") {
+	ui.Row(c.Key("page-buttons")).Gap(2).Children(func() {
+		if a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") {
 			a.togglePanel()
 		}
-		if a.iconButton(c, iconMore, "Sayfa menüsü") {
-			ww, _ := c.Size()
-			a.showContext(ww-tb.Right-12-220, h, a.pageMoreMenu(a.page))
+		if a.barButton(c, iconMore, "Sayfa menüsü") {
+			ww, wh := c.Size()
+			a.showContext(ww-24, wh-34, a.pageMoreMenu(a.page)) // opens upward, from the bar
 		}
 	})
 }
@@ -178,4 +177,16 @@ func safeFile(s string) string {
 		return "sayfa"
 	}
 	return s
+}
+
+// barButton is a small icon button for the status bar, as tall as its text.
+func (a *app) barButton(c *ui.Context, glyph *ui.SVG, label string) bool {
+	t := c.Theme()
+	b := ui.Box(c).Width(22).Height(18).Radius(5).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	ryugo.Tooltip(c, b, label)
+	if b.Hovered() {
+		b.Background(t.SurfaceHover)
+	}
+	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(t.TextMuted) })
+	return b.Clicked()
 }

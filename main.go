@@ -528,7 +528,6 @@ func (a *app) view(c *ui.Context) {
 		})
 		a.sidePanel(c)
 		a.sidebarButton(c)
-		a.pageMoreButton(c)
 	})
 	a.collDragView(c)
 	a.caretView(c)
@@ -913,7 +912,7 @@ func (a *app) status(c *ui.Context) {
 		state = "kaydediliyor…"
 	}
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
-	ui.Row(c).Padding(4, 16).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).Padding(3, 16).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(6).AlignItems(ui.Center).
@@ -952,6 +951,7 @@ func (a *app) status(c *ui.Context) {
 		if !a.settings.HideCaret {
 			ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
 		}
+		a.pageButtons(c)
 	})
 }
 
