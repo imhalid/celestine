@@ -156,3 +156,30 @@ func TestPasteTextStaysText(t *testing.T) {
 		t.Fatalf("pictures %d, text %q", n, a.doc.Text().String())
 	}
 }
+
+// TestPicturesSwept: a picture no line names is deleted when the page is first
+// opened; one that is named, and one of another name, stay.
+func TestPicturesSwept(t *testing.T) {
+	a, _ := newTestApp(t, "metin\n")
+	if err := a.addImage("foto.png", pngBytes(20, 20)); err != nil {
+		t.Fatal(err)
+	}
+	a.save()
+	kept, _ := filepath.Glob(filepath.Join(a.page.Dir, "resim-*.png"))
+	orphan := filepath.Join(a.page.Dir, "resim-20200101-010101.png")
+	mine := filepath.Join(a.page.Dir, "benim.png")
+	os.WriteFile(orphan, pngBytes(5, 5), 0o644)
+	os.WriteFile(mine, pngBytes(5, 5), 0o644)
+	a.docs = map[*Page]*richtext.Document{}
+	a.page = nil
+	a.open(a.lib.Collections[0].Pages[0])
+	if _, err := os.Stat(orphan); err == nil {
+		t.Fatal("the orphan stays")
+	}
+	if _, err := os.Stat(mine); err != nil {
+		t.Fatal("a picture of another name was deleted")
+	}
+	if _, err := os.Stat(kept[0]); err != nil {
+		t.Fatal("a picture in use was deleted")
+	}
+}

@@ -90,3 +90,9 @@ Metinde `#etiket` yazmak yeter: bir kelimenin başında `#`, ardından harfle ba
 - Etiket listesi bağlantı dizini ile aynı okumada yapılır, en çok 4 saniye geriden gelir.
 - Satırın ortasında `#` yazınca var olan etiketler menüde çıkar (en çok kullanılan önde, yazdıkça daralır; ↵ seçer, yeni ad
   yazılırsa "Yeni etiket"). Satır başındaki `#` başlığındır, menü açmaz; kitaplıkta hiç etiket yokken de açılmaz.
+
+Etiket sayfasında **Yeniden adlandır**: bütün sayfalardaki `#etiket` yazıları değişir (kod içindekiler ve `#etiketler` gibi daha
+uzun adlar değişmez); var olan bir etiketin adı yazılırsa ikisi birleşir.
+
+Resimler: bir sayfa bu oturumda ilk kez açılırken, satırı artık hiçbir yerde geçmeyen `resim-…` dosyaları silinir (geri alma
+geçmişi yokken, böylece silinen satır geri gelirse dosya yerinde olur). Elle konan başka adlı dosyalara dokunulmaz.

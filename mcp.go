@@ -49,6 +49,7 @@ type Settings struct {
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool     `json:"sidebarClosed,omitempty"`
 	PanelOpen     bool     `json:"panelOpen,omitempty"`
+	QuickKey      string   `json:"quickKey,omitempty"` // the quick note's global key
 	TreeSaved     bool     `json:"treeSaved,omitempty"`
 	TreeOpen      []string `json:"treeOpen,omitempty"`
 }

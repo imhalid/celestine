@@ -56,3 +56,6 @@ Panel dışına tıklayınca ya da Esc ile kapanır, yazılan taslak durur.
   `[]` ile başlayan satır görevdir (`- [ ]`), görev görünümünde çıkar. Sayfa açıksa editörde de görünür.
 - **Yeni sayfa**: ilk satır başlık olur; sayfa gösterilen koleksiyona, yoksa ilk günlük-dışı koleksiyona yapılır.
 - ⌘↵ (Ctrl↵) ekler, ↵ yeni satır açar.
+
+Hızlı not eklenince ana pencerede "Aç" düğmeli bir bildirim çıkar (notun düştüğü sayfaya götürür). Tuş Ayarlar ▸ Editör ▸
+"Hızlı not tuşu"ndan değiştirilir (CmdOrCtrl+Alt+N gibi); tutmazsa eskisi kalır.

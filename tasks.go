@@ -5,8 +5,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -24,6 +26,7 @@ type taskItem struct {
 	line int
 	done bool
 	text string
+	due  time.Time // a day named in it, as [[2026-11-10]]; zero when none
 }
 
 // tasksOf are the tasks in a page's Markdown, not those in code.
@@ -42,14 +45,23 @@ func tasksOf(p *Page, body string) []taskItem {
 			continue
 		}
 		if m := taskLine.FindStringSubmatch(ln); m != nil && m[3] != "" {
-			out = append(out, taskItem{p, i, m[2] != " ", wikiInText.ReplaceAllStringFunc(m[3], func(s string) string {
+			var due time.Time
+			text := wikiInText.ReplaceAllStringFunc(m[3], func(s string) string {
 				inside := s[2 : len(s)-2]
 				target, alias, _ := strings.Cut(inside, "|")
+				if d, err := parseDay(strings.TrimSpace(target)); err == nil && alias == "" && due.IsZero() {
+					due = d
+					return ""
+				}
 				if alias != "" {
 					return alias
 				}
 				return target
-			})})
+			})
+			if text = strings.TrimSpace(text); text == "" {
+				text = strings.TrimSpace(m[3])
+			}
+			out = append(out, taskItem{p, i, m[2] != " ", text, due})
 		}
 	}
 	return out
@@ -67,6 +79,40 @@ func (a *app) allTasks(force bool) []taskItem {
 		return out[i].line < out[j].line
 	})
 	return out
+}
+
+// openTask opens the page of task k with the caret in the task's line.
+func (a *app) openTask(k taskItem) {
+	a.open(k.page)
+	body, _ := k.page.Body()
+	idx := 0
+	for _, t := range tasksOf(k.page, body) {
+		if t.line == k.line {
+			break
+		}
+		idx++
+	}
+	text := a.doc.Text()
+	n := 0
+	for at, para := range text.Paragraphs() {
+		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
+			continue
+		}
+		if n == idx {
+			a.gotoPos(at)
+			return
+		}
+		n++
+	}
+}
+
+// paraText is the text of a paragraph.
+func paraText(p richtext.Paragraph) string {
+	var sb strings.Builder
+	for _, r := range p.Runs {
+		sb.WriteString(r.Text)
+	}
+	return sb.String()
 }
 
 // openTasks shows the task view.
@@ -124,12 +170,15 @@ func (a *app) tasksView(c *ui.Context) {
 		ui.Text(c, "Görevler").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
 		ui.Text(c, strconv.Itoa(open)+" açık, "+strconv.Itoa(done)+" tamamlandı  ·  sayfalardaki - [ ] satırları").
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
-		ui.Row(c).Children(func() {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{"Açık", "Tamamlanan", "Hepsi"}, ryugo.SegmentedOptions{Label: "Görevler", Size: ryugo.Sm})
+			if a.taskFilter == 0 { // the open ones by their day
+				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hangi gün olsa", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: "Gün", Size: ryugo.Sm})
+			}
 		})
 		var shown []taskItem
 		for _, k := range all {
-			if a.taskFilter == 2 || (a.taskFilter == 0) == !k.done {
+			if (a.taskFilter == 2 || (a.taskFilter == 0) == !k.done) && (a.taskFilter != 0 || dueMatches(k, a.taskDue, a.clock())) {
 				shown = append(shown, k)
 			}
 		}
@@ -184,9 +233,25 @@ func (a *app) taskGroup(c *ui.Context, cl ryugo.Colors, tasks []taskItem) {
 				if k.done {
 					col, st = cl.Muted, true
 				}
-				tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
-				if st {
-					tx.Strikethrough()
+				body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label("Satıra git: " + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				body.Children(func() {
+					tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
+					if st {
+						tx.Strikethrough()
+					}
+					if !k.due.IsZero() {
+						dc := cl.Muted
+						if !k.done && k.due.Before(startOfDay(a.clock())) {
+							dc = cl.Up
+						}
+						ui.Row(c.Key("due")).Padding(1, 7).Radius(6).Gap(4).AlignItems(ui.Center).Background(dc.Alpha(0.12)).Children(func() {
+							ui.Icon(c, iconCalendar).Width(12).Height(12).TextColor(dc)
+							ui.Text(c, shortDate(k.due)).FontSize(11.5).TextColor(dc).NoWrap()
+						})
+					}
+				})
+				if body.Clicked() {
+					a.openTask(k)
 				}
 				if on != k.done {
 					a.toggleTask(k)
@@ -194,4 +259,29 @@ func (a *app) taskGroup(c *ui.Context, cl ryugo.Colors, tasks []taskItem) {
 			})
 		}
 	})
+}
+
+// startOfDay is d at its day's start.
+func startOfDay(d time.Time) time.Time {
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
+}
+
+// dueMatches reports whether open task k is in the group of days chosen:
+// 0 any, 1 today's, 2 this week's (to the Sunday, today's and after), 3 late.
+func dueMatches(k taskItem, group int, now time.Time) bool {
+	if group == 0 {
+		return true
+	}
+	if k.due.IsZero() {
+		return false
+	}
+	today := startOfDay(now)
+	switch group {
+	case 1:
+		return sameDay(k.due, today)
+	case 2:
+		end := today.AddDate(0, 0, (7-int(today.Weekday()))%7+1)
+		return !k.due.Before(today) && k.due.Before(end)
+	}
+	return k.due.Before(today)
 }

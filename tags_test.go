@@ -147,3 +147,63 @@ func TestHashAtLineStart(t *testing.T) {
 		t.Fatalf("not a heading: %+v %q", st, a.doc.Text().String())
 	}
 }
+
+func TestReplaceTag(t *testing.T) {
+	got, n := replaceTag("bir #Fikir ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #FIKIR.", "fikir", "plan")
+	want := "bir #plan ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #plan."
+	if got != want || n != 2 {
+		t.Fatalf("%d: %q", n, got)
+	}
+}
+
+// TestTagRename: a tag is renamed in every page that has it, to a new name or
+// into another tag; the dialog does it.
+func TestTagRename(t *testing.T) {
+	a, tt := newTestApp(t, "bir #fikir burada\n")
+	tt.SetSize(1100, 800)
+	b, _ := a.page.Coll.NewPage(nil, "İki")
+	b.Save("#Fikir ve #plan\n")
+	c3, _ := a.page.Coll.NewPage(nil, "Üç")
+	c3.Save("#fikirler dokunulmaz\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	a.openTag("fikir")
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Yeniden adlandır"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("tasarım")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if a.tagRen.open {
+		t.Fatalf("dialog stays: %q", a.tagRen.err)
+	}
+	if body, _ := a.page.Body(); !strings.Contains(body, "bir #tasarım burada") {
+		t.Fatalf("open page file: %q", body)
+	}
+	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "#tasarım") {
+		t.Fatalf("open page text: %q", md)
+	}
+	if body, _ := b.Body(); !strings.Contains(body, "#tasarım ve #plan") {
+		t.Fatalf("the other: %q", body)
+	}
+	if body, _ := c3.Body(); !strings.Contains(body, "#fikirler") {
+		t.Fatalf("a longer tag changed: %q", body)
+	}
+	if a.tag != "tasarım" {
+		t.Fatalf("view on %q", a.tag)
+	}
+	// merged into one that is there
+	if n, err := a.renameTag("tasarım", "plan"); err != nil || n != 2 {
+		t.Fatalf("merge: %d %v", n, err)
+	}
+	if got := a.tagPages("plan"); len(got) != 2 {
+		t.Fatalf("pages of plan: %d", len(got))
+	}
+	if _, err := a.renameTag("plan", "1x"); err == nil {
+		t.Fatal("a name that is no tag")
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -251,5 +252,24 @@ func (a *app) watchClipboard() {
 			}
 		}
 		a.imgOnClip.Store(pic && !text)
+	}
+}
+
+// ourPicture is the name of a picture the app made.
+var ourPicture = regexp.MustCompile(`^resim-\d{8}-\d{6}(-\d+)?\.(png|jpg|gif|webp|svg)$`)
+
+// sweepPictures deletes the pictures the app made in page p's folder that no
+// line of body names any more. It is done as a page is first opened in a
+// run, when there is no undo to bring a line back; a picture one put there by
+// hand, under another name, is left alone.
+func (a *app) sweepPictures(p *Page, body string) {
+	entries, err := p.fs().ReadDir(p.Dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() && ourPicture.MatchString(e.Name()) && !strings.Contains(body, e.Name()) {
+			p.fs().Remove(filepath.Join(p.Dir, e.Name()))
+		}
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -276,6 +277,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 					FontSize(float32(fs)).LineHeight(float32(lh)).TextColor(cl.Text)
 			})
 		})
+	a.settingsQuick(c)
 	if float32(fs) != a.fontSize() {
 		a.settings.FontSize = fs
 		a.saveSettings()
@@ -418,4 +420,38 @@ func (a *app) settingsMCP(c *ui.Context) {
 				}
 			})
 		})
+}
+
+// settingsQuick is the key of the quick note.
+func (a *app) settingsQuick(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	cur := "—"
+	if a.quick != nil && a.quick.shortcut != "" {
+		cur = a.quick.shortcut
+	} else if a.settings.QuickKey != "" {
+		cur = a.settings.QuickKey
+	}
+	if a.quickKeyDraft == "" {
+		a.quickKeyDraft = cur
+	}
+	settingGroup(c, "set-quick", func() {
+		settingRow(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: "Hızlı not tuşu", Size: ryugo.Sm}).Width(190)
+				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
+				if apply && a.quick != nil {
+					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {
+						a.quickKeyErr = err.Error()
+					} else {
+						a.quickKeyErr = ""
+						a.settings.QuickKey = a.quick.shortcut
+						a.saveSettings()
+					}
+				}
+			})
+		})
+		if a.quickKeyErr != "" {
+			ui.Text(c, a.quickKeyErr).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
+		}
+	})
 }

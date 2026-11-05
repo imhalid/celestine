@@ -79,3 +79,58 @@ func TestTaskView(t *testing.T) {
 		t.Fatalf("here %v", a.here())
 	}
 }
+
+// TestTaskDue: a day named in a task is its day; the filter groups by it.
+func TestTaskDue(t *testing.T) {
+	p := &Page{}
+	got := tasksOf(p, "- [ ] rapor [[2026-11-10]] bitir\n- [ ] günsüz\n- [ ] [[Sayfa]] bak")
+	if got[0].text != "rapor  bitir" && got[0].text != "rapor bitir" {
+		t.Fatalf("text %q", got[0].text)
+	}
+	if got[0].due.Format("2006-01-02") != "2026-11-10" || !got[1].due.IsZero() || got[2].text != "Sayfa bak" {
+		t.Fatalf("%+v", got)
+	}
+	now := time.Date(2026, 11, 5, 15, 0, 0, 0, time.UTC) // a Thursday
+	day := func(s string) taskItem { d, _ := parseDay(s); return taskItem{due: d} }
+	for _, tc := range []struct {
+		due   string
+		group int
+		want  bool
+	}{
+		{"2026-11-05", 1, true}, {"2026-11-06", 1, false},
+		{"2026-11-08", 2, true}, {"2026-11-09", 2, false}, {"2026-11-04", 2, false},
+		{"2026-11-04", 3, true}, {"2026-11-05", 3, false},
+	} {
+		if dueMatches(day(tc.due), tc.group, now) != tc.want {
+			t.Errorf("%s in group %d: want %v", tc.due, tc.group, tc.want)
+		}
+	}
+	if dueMatches(taskItem{}, 1, now) || !dueMatches(taskItem{}, 0, now) {
+		t.Error("a task without a day")
+	}
+}
+
+// TestTaskGoesToItsLine: a task's text opens its page with the caret on it.
+func TestTaskGoesToItsLine(t *testing.T) {
+	a, tt := newTestApp(t, "- [ ] ilk\n\nmetin\n\n- [ ] ikinci [[2026-11-10]]\n- [ ] üçüncü\n")
+	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other.Save("başka\n")
+	a.open(other)
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	tt.Click("Görevler")
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Satıra git: üçüncü"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(300 * time.Millisecond)
+	if a.page.Title != "Sayfa" || a.tasksOpen {
+		t.Fatalf("page %q", a.page.Title)
+	}
+	_, caret := a.doc.Selection()
+	ps, pe := a.doc.Text().ParagraphRange(caret)
+	if got := a.doc.Text().Slice(ps, pe).String(); got != "üçüncü" {
+		t.Fatalf("the caret is in %q", got)
+	}
+}

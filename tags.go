@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"regexp"
 	"sort"
 	"strconv"
@@ -189,7 +190,12 @@ func (a *app) tagView(c *ui.Context) {
 	}
 	pages := a.tagPages(a.tag)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, "#"+name).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
+		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
+			ui.Text(c, "#"+name).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0).Grow(1).MaxLines(1)
+			if ryugo.Button(c.Key("tag-rename-open"), "Yeniden adlandır", ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
+				a.tagRen = tagRename{open: true, key: a.tag, name: name}
+			}
+		})
 		sub := strconv.Itoa(len(pages)) + " sayfa bu etiketi taşıyor"
 		if len(pages) == 0 {
 			sub = "Bu etiketi taşıyan sayfa yok."
@@ -325,4 +331,125 @@ func (a *app) chooseTag(name string) {
 		ed.Select(n, n)
 	})
 	a.doc.SetTypingAttributes(attrs)
+}
+
+// tagRename is the dialog that renames a tag, or merges it into another.
+type tagRename struct {
+	open bool
+	key  string // the tag
+	name string // what it becomes
+	err  string
+}
+
+// replaceTag writes tag key as newName in Markdown body, where it is a tag
+// and not code.
+func replaceTag(body, key, newName string) (string, int) {
+	n := 0
+	lines := strings.Split(body, "\n")
+	inFence := false
+	for i, ln := range lines {
+		if fenceLine.MatchString(ln) {
+			inFence = !inFence
+			continue
+		}
+		if inFence || !strings.Contains(ln, "#") {
+			continue
+		}
+		// the text outside `code` only
+		var sb strings.Builder
+		at := 0
+		fix := func(seg string) string {
+			return tagWord.ReplaceAllStringFunc(seg, func(m string) string {
+				sm := tagWord.FindStringSubmatch(m)
+				if tagKey(sm[2]) != key {
+					return m
+				}
+				n++
+				return sm[1] + "#" + newName
+			})
+		}
+		for _, loc := range inlineCode.FindAllStringIndex(ln, -1) {
+			sb.WriteString(fix(ln[at:loc[0]]))
+			sb.WriteString(ln[loc[0]:loc[1]])
+			at = loc[1]
+		}
+		sb.WriteString(fix(ln[at:]))
+		lines[i] = sb.String()
+	}
+	return strings.Join(lines, "\n"), n
+}
+
+// renameTag renames the tag key in every page that has it; when newName is
+// the name of a tag there is, the two are one. It says how many pages changed.
+func (a *app) renameTag(key, newName string) (int, error) {
+	newName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(newName), "#"))
+	if newName == "" || !tagWord.MatchString(" #"+newName) || !tagQuery.MatchString(newName) || tagWord.FindStringSubmatch(" #" + newName)[2] != newName {
+		return 0, errors.New("etiket harfle başlar; harf, rakam, - _ / içerir")
+	}
+	a.flush()
+	a.linksStale()
+	a.linksTo(nil, a.clock(), true)
+	pages := append([]*Page{}, a.links.tags[key]...)
+	changed := 0
+	for _, p := range pages {
+		body, err := p.Body()
+		if err != nil {
+			return changed, err
+		}
+		nb, n := replaceTag(body, key, newName)
+		if n == 0 {
+			continue
+		}
+		if err := p.Save(nb); err != nil {
+			return changed, err
+		}
+		a.takeOutside(p)
+		changed++
+	}
+	a.linksStale()
+	a.linksTo(nil, a.clock(), true)
+	return changed, nil
+}
+
+// tagRenameView is the dialog.
+func (a *app) tagRenameView(c *ui.Context) {
+	r := &a.tagRen
+	if !r.open {
+		return
+	}
+	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: "Etiketi yeniden adlandır", Width: 420, Footer: func() {
+		ui.Spacer(c)
+		if ryugo.Button(c.Key("tag-rename-ok"), "Kaydet", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+			a.applyTagRename()
+		}
+	}}, func() {
+		cl := ryugo.From(c).Colors
+		ui.Column(c).Gap(10).Children(func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: "Yeni ad"}, func() {
+				in := ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: "Etiketin yeni adı", Placeholder: "fikir", PrefixIcon: iconTag})
+				in.AutoFocus()
+				if in.Submitted() {
+					a.applyTagRename()
+				}
+			})
+			ui.Text(c, "Var olan bir etiketin adını yazarsan ikisi birleşir. Sayfalardaki #etiket yazıları değişir.").FontSize(12.5).TextColor(cl.Muted).Wrap()
+			if r.err != "" {
+				ui.Text(c, r.err).FontSize(12.5).TextColor(cl.Up).Wrap()
+			}
+		})
+	})
+}
+
+func (a *app) applyTagRename() {
+	r := &a.tagRen
+	n, err := a.renameTag(r.key, r.name)
+	if err != nil {
+		r.err = err.Error()
+		return
+	}
+	r.open, r.err = false, ""
+	a.notice = strconv.Itoa(n) + " sayfada etiket değişti"
+	if a.tag == r.key {
+		a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(r.name), "#")))
+	}
 }

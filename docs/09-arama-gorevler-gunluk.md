@@ -47,3 +47,6 @@ tıklamak görevi sayfaya gitmeden işaretler: sayfanın dosyası yazılır, say
 Sayfanın adına tıklamak sayfayı açar. Kod bloklarındaki görevler sayılmaz; görevdeki `[[bağlantı]]` adıyla gösterilir.
 Geri/ileri (⌘[ ⌘]) bu görünümü de bilir. Görevler bağlantı dizininin okumasıyla toplanır; bir kutu işaretlenince liste hemen
 yenilenir, başka yerdeki değişiklikler en çok 4 saniye geriden gelir.
+
+Sonra eklenenler: görevin metnine tıklamak sayfayı açıp imleci o satıra koyar; görevdeki `[[2026-11-10]]` günü o görevin günü
+olur (hap olarak yanında, gecikmişse kırmızı) ve açık görevler Bugün / Bu hafta / Gecikmiş diye süzülür.

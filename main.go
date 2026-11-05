@@ -113,62 +113,67 @@ type app struct {
 	notice  string     // a toast to show
 	trashed *TrashItem // just thrown away: a toast offers it back
 
-	trashOpen    bool       // the trash is shown, instead of a page
-	quick        *quickNote // the panel for a note, over everything (quick.go)
-	tasksOpen    bool       // the task view is shown (tasks.go)
-	taskFilter   int        // 0 open, 1 done, 2 all
-	tag          string     // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	tagHits      []tagHit   // the tags drawn this frame; a click is against the last's
-	tagSeen      []tagHit
-	hoverTag     string
-	ptags        []string // the open page's tags, for the side panel
-	ptagsVer     uint64
-	ptagsDoc     *richtext.Document
-	trashItems   []*TrashItem // what is in it, read when it opens and changes
-	boxes        []richtext.ParagraphBox
-	focused      bool
-	clock        func() time.Time
-	lastSave     string
-	style        richtext.ParagraphStyle // the caret paragraph's, last frame
-	refocus      bool                    // the editor takes the keyboard focus in the next frame
-	pageR        ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
-	heads        map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
-	caretPara    int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
-	caretRel     float32
-	caretTop     float32
-	sel          selBar          // the bar over a selection (selbar.go)
-	edPressed    bool            // the pointer is down in the editor
-	afterView    []func()        // what waits for the view to be built
-	boardFocus   string          // the board column asked for, wide
-	boardOpened  map[string]bool // empty columns the user opened
-	rowsLast     []treeEntry     // the tree's rows, last frame
-	treeFocus    any             // the row the arrow keys moved to, to take the focus
-	treeNav      bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
-	treeHeld     bool            // a row has the focus in this frame
-	treeSigSeen  uint64
-	cdrag        collDragState
-	collRects    map[*Collection]ui.Rect
-	ctx          ctxMenu        // the context menu (ctxmenu.go)
-	pageScroll   ui.ScrollState // the page scrolled as a whole (pageView)
-	scrollR      ui.Rect        // its room in the window, last frame
-	headH        float32        // the title's and properties' height, last frame
-	titleFocused bool
-	edH          float32 // the editor's height, last frame
-	frame        func()  // asks for a frame that builds the view
-	revealWant   bool    // the caret moved: bring it into view
-	statsVer     uint64  // the version of the text the counts are of
-	statWords    int
-	statChars    int
-	settingsTab  int       // the settings' tab
-	links        linkIndex // who links to whom (backlinks.go)
-	linksH       float32   // the backlinks' height, last frame
-	calDay       time.Time // the day open on the calendar, and whether it is
-	calOpen      bool
-	calGrid      ui.Rect
-	calMonth     time.Time // the month the calendar view shows
-	hoverCh      *chip     // the chip the pointer is over
-	dateEdit     dateEdit  // the calendar a date chip opens
-	editorR      ui.Rect   // the editor's box, from its last frame
+	trashOpen     bool       // the trash is shown, instead of a page
+	quick         *quickNote // the panel for a note, over everything (quick.go)
+	tasksOpen     bool       // the task view is shown (tasks.go)
+	quickKeyDraft string     // the key being typed in the settings
+	quickKeyErr   string
+	tagRen        tagRename // the dialog to rename a tag (tags.go)
+	noticePage    *Page     // the page the notice is about, to open from it
+	taskDue       int       // 0 any day, 1 today, 2 this week, 3 late
+	taskFilter    int       // 0 open, 1 done, 2 all
+	tag           string    // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
+	tagSeen       []tagHit
+	hoverTag      string
+	ptags         []string // the open page's tags, for the side panel
+	ptagsVer      uint64
+	ptagsDoc      *richtext.Document
+	trashItems    []*TrashItem // what is in it, read when it opens and changes
+	boxes         []richtext.ParagraphBox
+	focused       bool
+	clock         func() time.Time
+	lastSave      string
+	style         richtext.ParagraphStyle // the caret paragraph's, last frame
+	refocus       bool                    // the editor takes the keyboard focus in the next frame
+	pageR         ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
+	heads         map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
+	caretPara     int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
+	caretRel      float32
+	caretTop      float32
+	sel           selBar          // the bar over a selection (selbar.go)
+	edPressed     bool            // the pointer is down in the editor
+	afterView     []func()        // what waits for the view to be built
+	boardFocus    string          // the board column asked for, wide
+	boardOpened   map[string]bool // empty columns the user opened
+	rowsLast      []treeEntry     // the tree's rows, last frame
+	treeFocus     any             // the row the arrow keys moved to, to take the focus
+	treeNav       bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
+	treeHeld      bool            // a row has the focus in this frame
+	treeSigSeen   uint64
+	cdrag         collDragState
+	collRects     map[*Collection]ui.Rect
+	ctx           ctxMenu        // the context menu (ctxmenu.go)
+	pageScroll    ui.ScrollState // the page scrolled as a whole (pageView)
+	scrollR       ui.Rect        // its room in the window, last frame
+	headH         float32        // the title's and properties' height, last frame
+	titleFocused  bool
+	edH           float32 // the editor's height, last frame
+	frame         func()  // asks for a frame that builds the view
+	revealWant    bool    // the caret moved: bring it into view
+	statsVer      uint64  // the version of the text the counts are of
+	statWords     int
+	statChars     int
+	settingsTab   int       // the settings' tab
+	links         linkIndex // who links to whom (backlinks.go)
+	linksH        float32   // the backlinks' height, last frame
+	calDay        time.Time // the day open on the calendar, and whether it is
+	calOpen       bool
+	calGrid       ui.Rect
+	calMonth      time.Time // the month the calendar view shows
+	hoverCh       *chip     // the chip the pointer is over
+	dateEdit      dateEdit  // the calendar a date chip opens
+	editorR       ui.Rect   // the editor's box, from its last frame
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.
@@ -340,6 +345,7 @@ func (a *app) open(p *Page) {
 		if err != nil {
 			a.saveErr = err.Error()
 		}
+		a.sweepPictures(p, body)
 		doc = richtext.NewDocument(a.parsePage(p, body))
 		a.docs[p] = doc
 	}
@@ -515,6 +521,7 @@ func (a *app) view(c *ui.Context) {
 	a.collSettingsView(c)
 	a.settingsDialog(c)
 	a.propDialog(c)
+	a.tagRenameView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
 	}
@@ -522,8 +529,12 @@ func (a *app) view(c *ui.Context) {
 	a.runLater()
 	ryugo.Toaster(c)
 	if a.notice != "" {
-		c.Toast(a.notice)
-		a.notice = ""
+		if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
+			c.ToastAction(a.notice, "Aç", func() { a.open(pg) })
+		} else {
+			c.Toast(a.notice)
+		}
+		a.notice, a.noticePage = "", nil
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil

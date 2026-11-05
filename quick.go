@@ -103,6 +103,7 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 	}
 	a.takeOutside(p) // the page, if it is open, shows it
 	a.linksStale()
+	a.noticePage = p
 	return "Günlüğe eklendi", nil
 }
 
@@ -132,6 +133,7 @@ func (a *app) captureAsPage(text string) (string, error) {
 		return "", err
 	}
 	a.linksStale()
+	a.noticePage = p
 	return "“" + title + "” sayfası eklendi: " + c.Name, nil
 }
 
@@ -240,7 +242,11 @@ func newQuick(a *app) *quickNote {
 		q.panel.Hide()
 	})
 	q.panel.OnBlur(q.panel.Hide)
-	for _, s := range quickShortcuts {
+	keys := quickShortcuts
+	if k := a.settings.QuickKey; k != "" { // the one chosen first
+		keys = append([]string{k}, keys...)
+	}
+	for _, s := range keys {
 		if err := mygo.GlobalShortcut.Register(s, q.toggle); err == nil {
 			q.shortcut = s
 			break
@@ -283,4 +289,24 @@ func (a *app) quickKeys() string {
 		return ""
 	}
 	return strings.NewReplacer("CmdOrCtrl+", "⌘", "Alt+", "⌥", "Shift+", "⇧").Replace(a.quick.shortcut)
+}
+
+// setShortcut gives the panel another global key; the old one is kept when
+// the new one cannot be had.
+func (q *quickNote) setShortcut(acc string) error {
+	if acc == "" || acc == q.shortcut {
+		return nil
+	}
+	old := q.shortcut
+	if old != "" {
+		mygo.GlobalShortcut.Unregister(old)
+	}
+	if err := mygo.GlobalShortcut.Register(acc, q.toggle); err != nil {
+		if old != "" {
+			mygo.GlobalShortcut.Register(old, q.toggle)
+		}
+		return err
+	}
+	q.shortcut = acc
+	return nil
 }

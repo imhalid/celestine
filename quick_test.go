@@ -99,3 +99,32 @@ func TestQuickPanel(t *testing.T) {
 		t.Fatalf("body %q", b)
 	}
 }
+
+// TestQuickNoticeOpens: the notice of a note put away has an Aç that goes to its page.
+func TestQuickNoticeOpens(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	if _, err := a.captureNote(quickDay, "bir şey"); err != nil {
+		t.Fatal(err)
+	}
+	a.notice = "Günlüğe eklendi"
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Aç"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(100 * time.Millisecond)
+	if today, _ := a.todayPage(); a.page != today {
+		t.Fatalf("open %q", a.page.Title)
+	}
+}
+
+// TestQuickKeySetting: the editor's settings have the key of the quick note.
+func TestQuickKeySetting(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settingsOpen, a.settingsTab = true, 1
+	tt.Frame()
+	tt.Advance(600 * time.Millisecond)
+	if !tt.HasText("Hızlı not tuşu") {
+		t.Fatalf("no row: %v", tt.Texts())
+	}
+}
