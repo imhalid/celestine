@@ -36,7 +36,8 @@ collection a board of it.
 | `---` | divider |
 
 Keys are the editor's, a word processor's: ⌘B ⌘I ⌘U, ⌘K a link, Tab ⇧Tab indent; ⌘Z undoes a conversion and
-gives the marks back. ⌘⇧M switches the caret (Slime, Mizan).
+gives the marks back. ⌘⇧M switches the caret (Slime, Mizan). ⌘K opens the palette (go to any page or collection by a
+few letters of it, run any command), ⌘F finds and replaces in the page, ⌘[ ⌘] go back and forward.
 
 ## MCP
 
@@ -64,6 +65,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
 | `markdown.go`, `frontmatter.go`, `watch.go` | Reading and writing Markdown and front matter without losing what other tools wrote; watching the folder |
 | `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
+| `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
 | `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |

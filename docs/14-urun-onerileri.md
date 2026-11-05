@@ -10,6 +10,7 @@ Her önerinin yanında: neden, nereden, çaba (**K** küçük, **O** orta, **B**
 
 > **Durum (5 Kasım 2026):** U1, U2 ve U3 yapıldı — `markdown.go` (ham bloklar, kod dili, gereksiz kaçışlar),
 > `frontmatter.go` (YAML, yerinde değişiklik), `watch.go` (1,5 sn'de bir diskle karşılaştırma, çakışmada iki sürüm).
+> Ayrıca 5 (⌘K), 6 (⌘F), 25 (geri/ileri) ve 28 (menü çubuğu) yapıldı.
 > Kalan bilinen normalleştirmeler: tek satır sonları birleşir (`a\nb` → `a b`), `__kalın__` → `**kalın**`,
 > `1)` → `1.`, bağlantı başlığı (`"title"`) düşer, alıntıdaki iki paragraf iki alıntı olur. Okunuşları aynı.
 

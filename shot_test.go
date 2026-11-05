@@ -293,3 +293,32 @@ func TestChromeShots(t *testing.T) {
 	tt.Advance(time.Second)
 	save("chrome-folded")
 }
+
+// TestPaletteShots draws the palette, empty and typed, and finding in the
+// page: run with PALETTE=dir.
+func TestPaletteShots(t *testing.T) {
+	dir := os.Getenv("PALETTE")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt, _ := viewsLibrary(t)
+	tt.SetSize(1100, 700)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	a.openPalette()
+	tt.Advance(500 * time.Millisecond)
+	save("palette-empty")
+	tt.Type("dun")
+	tt.Advance(200 * time.Millisecond)
+	save("palette-typed")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(500 * time.Millisecond)
+	a.openFind()
+	tt.Frame()
+	tt.Type("a")
+	tt.Advance(300 * time.Millisecond)
+	save("find")
+}

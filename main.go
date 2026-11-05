@@ -132,6 +132,8 @@ type app struct {
 	propEditing string             // the field being typed in
 	propErr     string             // the field whose value did not fit
 	invalidate  func()             // asks the window for a frame, from any goroutine
+	pal         palette            // the command palette (palette.go)
+	find        finder             // finding in the page (find.go)
 	hist        []place            // where the app went, and where it is in that (nav.go)
 	histAt      int
 	going       bool     // going back or forward: no new place in the history
@@ -221,6 +223,7 @@ func (a *app) open(p *Page) {
 		a.docs[p] = doc
 	}
 	a.page, a.doc, a.title = p, doc, p.Title
+	a.find.ver = 0 // another text to find in
 	_, caret := doc.Selection()
 	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
 	a.dirty, a.saveErr, a.lastSave = false, "", ""
@@ -265,23 +268,29 @@ func (a *app) view(c *ui.Context) {
 	a.pageBg = a.bg(c)
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	if !a.menuBar { // in the app, the menu bar has these (menu.go)
-		if root.Shortcut(ui.Cmd, ui.KeyBackslash) {
+		if c.Shortcut(ui.Cmd, ui.KeyBackslash) {
 			a.toggleSidebar()
 		}
-		if root.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
 			a.caretKind = (a.caretKind + 1) % 2
 		}
-		if root.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
+		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
 			a.step(-1)
 		}
-		if root.Shortcut(ui.Cmd, ui.KeyBracketRight) {
+		if c.Shortcut(ui.Cmd, ui.KeyBracketRight) {
 			a.step(1)
 		}
-		if root.Shortcut(ui.Cmd, ui.KeyComma) {
+		if c.Shortcut(ui.Cmd, ui.KeyComma) {
 			a.settingsOpen = true
 		}
+		if c.Shortcut(ui.Cmd, ui.KeyK) || c.Shortcut(ui.Cmd, ui.KeyP) {
+			a.openPalette()
+		}
+		if c.Shortcut(ui.Cmd, ui.KeyF) {
+			a.openFind()
+		}
 	}
-	if root.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
+	if c.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
 		a.newPage(a.page.Coll, nil)
 	}
 	root.Children(func() {
@@ -310,6 +319,7 @@ func (a *app) view(c *ui.Context) {
 		})
 		a.sidebarButton(c)
 	})
+	a.paletteView(c)
 	a.settingsDialog(c)
 	a.propDialog(c)
 	ryugo.Toaster(c)
@@ -340,6 +350,7 @@ func (a *app) bg(c *ui.Context) ui.Color {
 // pageView is the open page: its collection, its title, its text.
 func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	p := a.page // where it is shows in the title bar
+	a.findBar(c)
 	c.Key("title:" + p.Dir)
 	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
 	if a.fresh {
@@ -366,6 +377,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
+		a.drawMatches(p, r)
 		a.drawDividers(p, r)
 		a.drawCaret(p, r)
 	})
