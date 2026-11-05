@@ -113,11 +113,12 @@ type app struct {
 	notice  string     // a toast to show
 	trashed *TrashItem // just thrown away: a toast offers it back
 
-	trashOpen    bool     // the trash is shown, instead of a page
-	tasksOpen    bool     // the task view is shown (tasks.go)
-	taskFilter   int      // 0 open, 1 done, 2 all
-	tag          string   // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	tagHits      []tagHit // the tags drawn this frame; a click is against the last's
+	trashOpen    bool       // the trash is shown, instead of a page
+	quick        *quickNote // the panel for a note, over everything (quick.go)
+	tasksOpen    bool       // the task view is shown (tasks.go)
+	taskFilter   int        // 0 open, 1 done, 2 all
+	tag          string     // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	tagHits      []tagHit   // the tags drawn this frame; a click is against the last's
 	tagSeen      []tagHit
 	hoverTag     string
 	ptags        []string // the open page's tags, for the side panel
@@ -313,6 +314,7 @@ func main() {
 		a.invalidate = w.Invalidate
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
+		a.quick = newQuick(a)
 		go a.watch()
 		go a.watchClipboard()
 		if a.settings.MCP {

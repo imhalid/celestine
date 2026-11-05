@@ -152,19 +152,38 @@ func (a *app) openDay(d time.Time) {
 		a.notice = "Geçmiş güne sayfa eklenemez: günlüğe yalnız bugünün sayfası eklenir"
 		return
 	}
+	p, err := a.makeDay(c, d)
+	if err != nil {
+		a.saveErr = err.Error()
+	}
+	if p != nil {
+		a.open(p)
+	}
+}
+
+// makeDay makes the page of day d, which is today: its title is the
+// journal's format, and the day it is for the day it is made, by the app's clock.
+func (a *app) makeDay(c *Collection, d time.Time) (*Page, error) {
 	c.creating = true
 	p, err := c.NewPage(nil, c.dayTitle(d))
 	c.creating = false
 	if err != nil {
-		a.saveErr = err.Error()
-		return
+		return nil, err
 	}
-	// the day it is for is the day it is made, by the app's clock
 	p.Created = a.clock().Truncate(time.Second)
-	if err := p.Save(""); err != nil {
-		a.saveErr = err.Error()
+	return p, p.Save("") // a page, though its file would not write
+}
+
+// todayPage is the page of today, made if there is none.
+func (a *app) todayPage() (*Page, error) {
+	c, err := a.journal()
+	if err != nil {
+		return nil, err
 	}
-	a.open(p)
+	if p := a.journalPage(c, a.clock()); p != nil {
+		return p, nil
+	}
+	return a.makeDay(c, a.clock())
 }
 
 // openToday opens today's page, making it first.

@@ -45,3 +45,14 @@ Bütün düğmeler, kısayollar ve MCP aracı bunu çağırır; geri alma, geçm
 4. Hareket: listeye yeni satır yerinde büyüyerek gelir, kenar çubuğunda üst düğüm açılır ve yeni satır vurgulanıp söner.
 5. Quick Add'i "hızlı yakala" olarak düşün: küçük bir giriş kutusu açsın, kullanıcı yazıp Enter'a basınca kaydetsin.
    Thymer'deki gibi tek tıklamada boş bir satır oluşturmasın (yanlışlıkla basınca çöp bırakıyor).
+
+## Hızlı not (Kasım 2026)
+
+Küçük bir panel, tüm pencerelerin üstünde, genel bir tuşla açılır: **⌘⌥N** (olmazsa **⌥⇧N**; Linux/Wayland'da masaüstü
+tuşu portal üzerinden bağlar ve onay isteyebilir). Uygulamada Git ▸ Hızlı not… ve komut paletindeki "Hızlı not" da açar.
+Panel dışına tıklayınca ya da Esc ile kapanır, yazılan taslak durur.
+
+- **Günlüğe** (varsayılan): not, bugünün günlük sayfasının sonuna eklenir (sayfa yoksa yapılır). Her satır bir madde olur;
+  `[]` ile başlayan satır görevdir (`- [ ]`), görev görünümünde çıkar. Sayfa açıksa editörde de görünür.
+- **Yeni sayfa**: ilk satır başlık olur; sayfa gösterilen koleksiyona, yoksa ilk günlük-dışı koleksiyona yapılır.
+- ⌘↵ (Ctrl↵) ekler, ↵ yeni satır açar.
