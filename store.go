@@ -60,6 +60,7 @@ func (osFS) WriteFile(name string, data []byte) error {
 type Store struct {
 	db   *sql.DB
 	File string
+	now  func() time.Time // the clock of the history; the system's when nil
 }
 
 // storeRoot is the root of a store's tree.
@@ -82,6 +83,8 @@ func OpenStore(file string) (*Store, error) {
 		) WITHOUT ROWID`,
 		`CREATE INDEX IF NOT EXISTS nodes_parent ON nodes(parent)`,
 		`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB) WITHOUT ROWID`,
+		`CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL, at INTEGER NOT NULL, taken INTEGER NOT NULL DEFAULT 0, data BLOB NOT NULL)`,
+		`CREATE INDEX IF NOT EXISTS versions_path ON versions(path)`,
 	} {
 		if _, err := db.Exec(q); err != nil {
 			db.Close()
@@ -154,6 +157,9 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	}
 	if data == nil {
 		data = []byte{}
+	}
+	if path.Base(n) == "index.md" {
+		s.snapshotBefore(n, data)
 	}
 	_, err = s.db.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 0, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET data = excluded.data, mtime = excluded.mtime`, n, path.Dir(n), data, time.Now().UnixNano())
@@ -243,6 +249,9 @@ func (s *Store) Rename(oldName, newName string) error {
 		if _, err := tx.Exec(`UPDATE nodes SET path = ?, parent = ? WHERE path = ?`, np, path.Dir(np), p); err != nil {
 			return err
 		}
+		if _, err := tx.Exec(`UPDATE versions SET path = ? WHERE path = ?`, np, p); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -283,6 +292,9 @@ func (s *Store) RemoveAll(name string) error {
 	defer tx.Rollback()
 	for _, p := range all {
 		if _, err := tx.Exec(`DELETE FROM nodes WHERE path = ?`, p); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM versions WHERE path = ?`, p); err != nil {
 			return err
 		}
 	}

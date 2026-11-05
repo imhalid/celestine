@@ -49,6 +49,7 @@ func (a *app) pageMoreMenu(p *Page) []menuItem {
 	out = append(out,
 		menuItem{title: "Bağlantıyı kopyala", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
 		menuItem{title: "Markdown'u kopyala", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }},
+		menuItem{title: "Sürüm geçmişi…", glyph: iconHistory, run: func() { a.openHistory(p) }},
 		menuItem{title: "Dosya olarak dışa aktar…", glyph: iconExport, run: func() { a.exportPage(p) }},
 		menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }},
 	)

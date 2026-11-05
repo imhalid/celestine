@@ -119,6 +119,7 @@ type app struct {
 	quickKeyDraft string     // the key being typed in the settings
 	quickKeyErr   string
 	tagRen        tagRename // the dialog to rename a tag (tags.go)
+	vhist         histView  // the dialog of a page's versions (historyui.go)
 	noticePage    *Page     // the page the notice is about, to open from it
 	taskDue       int       // 0 any day, 1 today, 2 this week, 3 late
 	taskFilter    int       // 0 open, 1 done, 2 all
@@ -522,6 +523,7 @@ func (a *app) view(c *ui.Context) {
 	a.settingsDialog(c)
 	a.propDialog(c)
 	a.tagRenameView(c)
+	a.historyView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
 	}

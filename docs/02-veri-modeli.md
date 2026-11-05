@@ -107,3 +107,13 @@ Markdown'unda `![alt](resim-….png)` satırıdır; başka Markdown araçları d
 - **Eklemek:** metne dosya sürükleyip bırakmak; `/` ▸ Ekle… ▸ Resim…; panoda yalnız resim varken ⌘V (pano 0,5 sn'de bir
   biçimlerine bakılır: resim var, metin yoksa ⌘V uygulamanındır, yoksa editörün).
 - **Silmek:** resmin satırını silmek dosyayı silmez; dosya sayfanın klasöründe kalır (sayfa çöpe gidince birlikte gider).
+
+## Sürüm geçmişi
+
+Tek dosya kitaplığı her sayfanın önceki hallerini tutar (`versions` tablosu): bir sayfanın dosyası üzerine yazılırken, son kopyadan
+5 dakikadan fazla geçmişse eski hali kopyalanır; sayfa başına en çok 100 kopya (eskisi gider). Metinsiz (yalnız ön madde) halleri
+tutulmaz. Kopyalar sayfa taşınınca ya da çöpe gidince onunla gider, kalıcı silinince silinir. Klasör kitaplığı kopya tutmaz.
+
+Sayfa menüsü ▸ **Sürüm geçmişi…**: solda kopyalar ("12 dk önce", saat, boyut), sağda seçilenin sayfanın şimdiki halinden farkı
+(geri gelen satırlar yeşil, giden satırlar kırmızı üstü çizili; uzun aynı bölümler kısaltılır). **Bu sürüme dön** sayfayı o hale
+getirir; dönmeden önceki hal de kopya olarak saklanır, yani dönüş de geri alınabilir. Başlık ve özellikler şimdiki halinde kalır.
