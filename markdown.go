@@ -1,0 +1,353 @@
+package main
+
+import (
+	"regexp"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/egoist/mygo/ui/richtext"
+)
+
+// Reading and writing a page's Markdown without losing what richtext does
+// not know. The library is plain files other tools write too (Obsidian,
+// GitHub, Bear), and a page edited here is written whole: what richtext
+// drops or changes - a table, HTML, math, a footnote, an Obsidian callout,
+// a code block's language, [[links]] - must come back as it was.
+//
+// Reading, those blocks are taken out of the Markdown before richtext reads
+// it, a token paragraph in their place, and put back after as paragraphs
+// of code (the editor shows them in the monospaced font, its marks and
+// all): a "raw" block, named by its first paragraph's ID. Writing, every
+// block of code, raw or not, and every divider is written by us; the rest
+// by richtext, its needless escapes taken back.
+
+// heldBlock is a block we write ourselves.
+type heldBlock struct {
+	kind string // "hr", "code", or a raw block's kind: "table", "html", "math", "footnote", "callout"
+	lang string // a code block's language
+	text string
+}
+
+const (
+	codeIDPrefix = "ryudit:code:" // a code block's first paragraph: its language after it
+	rawIDPrefix  = "ryudit:raw:"  // a raw block's first paragraph: its kind after it
+)
+
+// rawNames are what a raw block is called over it, in the editor.
+var rawNames = map[string]string{"table": "Tablo", "html": "HTML", "math": "Matematik", "footnote": "Dipnot", "callout": "Not kutusu"}
+
+func blockToken(i int) string { return "RYUDITBLOCK" + strconv.Itoa(i) + "X" }
+
+var tokenLine = regexp.MustCompile(`^RYUDITBLOCK(\d+)X$`)
+
+var (
+	hrLine     = regexp.MustCompile(`^ {0,3}(?:(?:- *){3,}|(?:\* *){3,}|(?:_ *){3,})$`)
+	delimRow   = regexp.MustCompile(`^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$`)
+	htmlStart  = regexp.MustCompile(`^ {0,3}<(?:!--|/?[A-Za-z][A-Za-z0-9-]*(?:[\s/>]|$))`)
+	inlineHTML = regexp.MustCompile(`<(?:/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?|!--.*?--)>`)
+	footDef    = regexp.MustCompile(`^ {0,3}\[\^[^\]]+\]:`)
+	callout    = regexp.MustCompile(`^ {0,3}>\s*\[!`)
+)
+
+// parseBody reads a page's Markdown into the editor's text.
+func parseBody(md string) richtext.Text {
+	lines := strings.Split(md, "\n")
+	var out []string
+	var held []heldBlock
+	hold := func(h heldBlock) {
+		out = append(out, "", blockToken(len(held)), "")
+		held = append(held, h)
+	}
+	blank := func(i int) bool { return i < 0 || strings.TrimSpace(lines[i]) == "" }
+	for i := 0; i < len(lines); {
+		l := lines[i]
+		t := strings.TrimSpace(l)
+		indent := len(l) - len(strings.TrimLeft(l, " "))
+		// a fenced block of code, its language kept
+		if indent <= 3 && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
+			n := 0
+			for n < len(t) && t[n] == t[0] {
+				n++
+			}
+			fence, lang := t[:n], strings.TrimSpace(t[n:])
+			if !(fence[0] == '`' && strings.Contains(lang, "`")) {
+				j := i + 1
+				var body []string
+				for ; j < len(lines); j++ {
+					if c := strings.TrimSpace(lines[j]); strings.HasPrefix(c, fence) && strings.Trim(c, fence[:1]) == "" {
+						break
+					}
+					body = append(body, lines[j])
+				}
+				hold(heldBlock{kind: "code", lang: lang, text: strings.Join(body, "\n")})
+				i = j + 1
+				continue
+			}
+		}
+		if indent <= 3 {
+			if kind, n := rawBlock(lines, i, blank(i-1)); n > 0 {
+				hold(heldBlock{kind: kind, text: strings.Join(lines[i:i+n], "\n")})
+				i += n
+				continue
+			}
+			// "---" right under a line of text underlines it as a heading
+			if hrLine.MatchString(l) && (blank(i-1) || !strings.Contains(l, "-")) {
+				hold(heldBlock{kind: "hr"})
+				i++
+				continue
+			}
+		}
+		out = append(out, protectInline(l))
+		i++
+	}
+	t := richtext.ParseMarkdown(strings.Join(out, "\n"))
+	if len(held) == 0 {
+		return t
+	}
+	for _, at := range starts(t) {
+		s, e := t.ParagraphRange(at)
+		m := tokenLine.FindStringSubmatch(t.Slice(s, e).String())
+		if m == nil {
+			continue
+		}
+		k, _ := strconv.Atoi(m[1])
+		if k >= len(held) {
+			continue
+		}
+		h := held[k]
+		if h.kind == "hr" {
+			t = t.ReplaceString(s, e, "", richtext.Attributes{})
+			t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{ID: hrID} })
+			continue
+		}
+		t = t.ReplaceString(s, e, h.text, richtext.Attributes{})
+		end := s + utf8.RuneCountInString(h.text)
+		t = t.FormatParagraphs(s, end, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{CodeBlock: true} })
+		id := codeIDPrefix + h.lang
+		if h.kind != "code" {
+			id = rawIDPrefix + h.kind
+		}
+		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { p.ID = id })
+	}
+	return t
+}
+
+// rawBlock reports whether a block richtext would lose starts at line i -
+// a table, HTML, math, a footnote's definition, an Obsidian callout, or a
+// paragraph with HTML in it (only where a paragraph starts) - and its lines.
+func rawBlock(lines []string, i int, paraStart bool) (string, int) {
+	l := lines[i]
+	until := func(j int, in func(string) bool) int {
+		for j < len(lines) && strings.TrimSpace(lines[j]) != "" && in(lines[j]) {
+			j++
+		}
+		return j - i
+	}
+	any := func(string) bool { return true }
+	t := strings.TrimSpace(l)
+	switch {
+	case strings.Contains(l, "|") && i+1 < len(lines) && strings.Contains(lines[i+1], "-") && delimRow.MatchString(lines[i+1]):
+		return "table", until(i, func(s string) bool { return strings.Contains(s, "|") })
+	case strings.HasPrefix(t, "$$"):
+		if len(t) > 2 && strings.HasSuffix(t, "$$") && t != "$$" {
+			return "math", 1
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if strings.HasSuffix(strings.TrimSpace(lines[j]), "$$") {
+				return "math", j - i + 1
+			}
+		}
+		return "", 0
+	case callout.MatchString(l):
+		return "callout", until(i, func(s string) bool { return strings.HasPrefix(strings.TrimSpace(s), ">") })
+	case footDef.MatchString(l):
+		return "footnote", until(i, any)
+	case htmlStart.MatchString(l):
+		return "html", until(i, any)
+	case paraStart:
+		n := until(i, any)
+		for _, s := range lines[i : i+n] {
+			if inlineHTML.MatchString(withoutCode(s)) {
+				return "html", n
+			}
+		}
+	}
+	return "", 0
+}
+
+// withoutCode is line s without its spans of inline code.
+func withoutCode(s string) string {
+	parts := strings.Split(s, "`")
+	var sb strings.Builder
+	for i, p := range parts {
+		if i%2 == 0 {
+			sb.WriteString(p)
+		}
+	}
+	return sb.String()
+}
+
+// protectInline keeps footnote references as text, which richtext reads
+// as "[1]" and writes so.
+func protectInline(l string) string {
+	if !strings.Contains(l, "[^") {
+		return l
+	}
+	return outsideCode(l, func(s string) string { return strings.ReplaceAll(s, "[^", `\[^`) })
+}
+
+// outsideCode applies fn to the parts of line l outside inline code.
+func outsideCode(l string, fn func(string) string) string {
+	parts := strings.Split(l, "`")
+	for i := range parts {
+		if i%2 == 0 {
+			parts[i] = fn(parts[i])
+		}
+	}
+	return strings.Join(parts, "`")
+}
+
+// bodyMarkdown writes the editor's text as the page's Markdown.
+func bodyMarkdown(t richtext.Text) string {
+	type span struct {
+		s, e int
+		h    heldBlock
+	}
+	var spans []span
+	asc := starts(t)
+	for i, j := 0, len(asc)-1; i < j; i, j = i+1, j-1 {
+		asc[i], asc[j] = asc[j], asc[i]
+	}
+	for i := 0; i < len(asc); {
+		s, e := t.ParagraphRange(asc[i])
+		st := t.ParagraphStyleAt(s)
+		switch {
+		case st.ID == hrID && s == e:
+			spans = append(spans, span{s, e, heldBlock{kind: "hr"}})
+			i++
+		case st.CodeBlock && !st.Quote && st.Indent == 0 && st.List == richtext.NoList:
+			h := heldBlock{kind: "code"}
+			if k, ok := strings.CutPrefix(st.ID, rawIDPrefix); ok {
+				h.kind = k
+			} else if lang, ok := strings.CutPrefix(st.ID, codeIDPrefix); ok {
+				h.lang = lang
+			}
+			var texts []string
+			end, j := e, i
+			for ; j < len(asc); j++ {
+				s2, e2 := t.ParagraphRange(asc[j])
+				st2 := t.ParagraphStyleAt(s2)
+				if !st2.CodeBlock || st2.Quote || st2.Indent != 0 || st2.List != richtext.NoList {
+					break
+				}
+				if j > i && (strings.HasPrefix(st2.ID, codeIDPrefix) || strings.HasPrefix(st2.ID, rawIDPrefix)) {
+					break // the next block
+				}
+				texts = append(texts, t.Slice(s2, e2).String())
+				end = e2
+			}
+			h.text = strings.Join(texts, "\n")
+			spans = append(spans, span{s, end, h})
+			i = j
+		default:
+			i++
+		}
+	}
+	for k := len(spans) - 1; k >= 0; k-- {
+		sp := spans[k]
+		t = t.ReplaceString(sp.s, sp.e, blockToken(k), richtext.Attributes{})
+		t = t.FormatParagraphs(sp.s, sp.s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
+	}
+	lines := strings.Split(t.Markdown(), "\n")
+	fence := ""
+	for i, l := range lines {
+		if m := tokenLine.FindStringSubmatch(l); m != nil {
+			if k, _ := strconv.Atoi(m[1]); k < len(spans) {
+				lines[i] = writeHeld(spans[k].h)
+				continue
+			}
+		}
+		// richtext's own fences (code in a list or a quote): left as they are
+		if t := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(l), ">")); strings.HasPrefix(t, "```") {
+			if fence == "" {
+				fence = "```"
+			} else {
+				fence = ""
+			}
+			continue
+		}
+		if fence == "" {
+			lines[i] = unescape(l)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// writeHeld is a held block's Markdown.
+func writeHeld(h heldBlock) string {
+	switch h.kind {
+	case "hr":
+		return "---"
+	case "code":
+		fence := "```"
+		for strings.Contains(h.text, fence) {
+			fence += "`"
+		}
+		return fence + h.lang + "\n" + h.text + "\n" + fence
+	}
+	return h.text // raw: as it was, as it was edited
+}
+
+var (
+	wikiLink = regexp.MustCompile(`\\\[\\\[(.+?)\\\]\\\]`)
+	footRef  = regexp.MustCompile(`\\\[\^([^\]\\\s]+)\\\]`)
+)
+
+// unescape takes back the escapes richtext writes where Markdown needs
+// none, outside inline code: "!" not before "[", "_" inside a word, "#"
+// starting a line without a space after it (no heading), and the brackets
+// of [[links]] and footnote references.
+func unescape(l string) string {
+	if !strings.Contains(l, `\`) {
+		return l
+	}
+	lead := len(l) - len(strings.TrimLeft(l, " >-*+0123456789.)[]x"))
+	head, rest := l[:lead], l[lead:]
+	if strings.HasPrefix(rest, `\#`) && len(rest) > 2 && rest[2] != ' ' && rest[2] != '#' {
+		rest = rest[1:]
+	}
+	rest = outsideCode(rest, func(s string) string {
+		s = wikiLink.ReplaceAllString(s, "[[$1]]")
+		s = footRef.ReplaceAllString(s, "[^$1]")
+		r := []rune(s)
+		var sb strings.Builder
+		for i := 0; i < len(r); i++ {
+			if r[i] == '\\' && i+1 < len(r) {
+				next := r[i+1]
+				switch {
+				case next == '!' && (i+2 >= len(r) || (r[i+2] != '[' && !(r[i+2] == '\\' && i+3 < len(r) && r[i+3] == '['))):
+					continue
+				case next == '_' && i > 0 && i+2 < len(r) && isWord(r[i-1]) && isWord(r[i+2]):
+					continue
+				}
+			}
+			sb.WriteRune(r[i])
+		}
+		return sb.String()
+	})
+	return head + rest
+}
+
+func isWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
+
+// starts is where t's paragraphs start, last first: to change them from
+// the end, the places of those before staying put.
+func starts(t richtext.Text) []int {
+	var out []int
+	for at := range t.Paragraphs() {
+		out = append([]int{at}, out...)
+	}
+	return out
+}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -21,94 +20,6 @@ import (
 //     Enter after "```".)
 
 const hrID = "ryudit:hr"
-
-// hrToken stands for a divider while richtext reads or writes Markdown:
-// letters only, which Markdown leaves as they are.
-const hrToken = "RYUDITDIVIDER7F3A"
-
-// hrLine is a thematic break: three or more -, * or _, spaces between allowed.
-var hrLine = regexp.MustCompile(`^ {0,3}(?:(?:- *){3,}|(?:\* *){3,}|(?:_ *){3,})$`)
-
-// parseBody reads a page's Markdown, its dividers too.
-func parseBody(md string) richtext.Text {
-	lines := strings.Split(md, "\n")
-	fence, found := false, false
-	for i, l := range lines {
-		t := strings.TrimSpace(l)
-		if strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~") {
-			fence = !fence
-			continue
-		}
-		if fence || !hrLine.MatchString(l) {
-			continue
-		}
-		// "---" right under a line of text underlines it as a heading
-		if i > 0 && strings.TrimSpace(lines[i-1]) != "" && lines[i-1] != hrToken && strings.Contains(l, "-") {
-			continue
-		}
-		lines[i] = hrToken
-		found = true
-	}
-	if !found {
-		return richtext.ParseMarkdown(md)
-	}
-	// each divider a paragraph of its own
-	var sb strings.Builder
-	for i, l := range lines {
-		if l == hrToken {
-			sb.WriteString("\n" + hrToken + "\n")
-		} else {
-			sb.WriteString(l)
-		}
-		if i < len(lines)-1 {
-			sb.WriteString("\n")
-		}
-	}
-	t := richtext.ParseMarkdown(sb.String())
-	for _, at := range starts(t) {
-		s, e := t.ParagraphRange(at)
-		if t.Slice(s, e).String() != hrToken {
-			continue
-		}
-		t = t.ReplaceString(s, e, "", richtext.Attributes{})
-		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{ID: hrID} })
-	}
-	return t
-}
-
-// bodyMarkdown writes a page's text as Markdown, its dividers as "---".
-func bodyMarkdown(t richtext.Text) string {
-	found := false
-	for _, at := range starts(t) {
-		s, e := t.ParagraphRange(at)
-		if t.ParagraphStyleAt(s).ID == hrID && s == e {
-			t = t.ReplaceString(s, e, hrToken, richtext.Attributes{})
-			t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
-			found = true
-		}
-	}
-	md := t.Markdown()
-	if !found {
-		return md
-	}
-	lines := strings.Split(md, "\n")
-	for i, l := range lines {
-		if l == hrToken {
-			lines[i] = "---"
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
-// starts is where t's paragraphs start, last first: to change them from
-// the end, the places of those before staying put.
-func starts(t richtext.Text) []int {
-	var out []int
-	for at := range t.Paragraphs() {
-		out = append([]int{at}, out...)
-	}
-	return out
-}
 
 // blockShortcuts turns the paragraph the caret is at the end of into a
 // divider or a block of code when what was just typed makes it "---" or
@@ -146,19 +57,44 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 	return true
 }
 
-// drawDividers draws the dividers in view: a hairline across the column,
-// in the middle of their line.
+// drawDividers draws over the editor what richtext doesn't: the dividers
+// in view, a hairline across the column in the middle of their line; and
+// the name of a block of code's language, or of a raw block's kind, at its
+// top right corner.
 func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 	text := a.doc.Text()
-	col := p.Theme().Border
+	th := p.Theme()
 	for _, b := range a.boxes {
-		if b.Start > text.Len() || text.ParagraphStyleAt(b.Start).ID != hrID {
+		if b.Start > text.Len() {
 			continue
 		}
-		if s, e := text.ParagraphRange(b.Start); s != e {
+		st := text.ParagraphStyleAt(b.Start)
+		if st.ID == hrID {
+			if s, e := text.ParagraphRange(b.Start); s == e {
+				y := r.Y + b.Top + b.Height/2
+				p.Fill(ui.Rect{X: r.X, Y: y - 0.5, W: r.W, H: 1}, th.Border, 0.5)
+			}
 			continue
 		}
-		y := r.Y + b.Top + b.Height/2
-		p.Fill(ui.Rect{X: r.X, Y: y - 0.5, W: r.W, H: 1}, col, 0.5)
+		label := ""
+		if lang, ok := strings.CutPrefix(st.ID, codeIDPrefix); ok {
+			label = lang
+		} else if kind, ok := strings.CutPrefix(st.ID, rawIDPrefix); ok {
+			label = rawNames[kind] + " · Markdown"
+		}
+		if !st.CodeBlock || !(strings.HasPrefix(st.ID, codeIDPrefix) || strings.HasPrefix(st.ID, rawIDPrefix)) {
+			continue
+		}
+		// a block right after another: a gap between them, which richtext
+		// draws as one
+		if b.Start > 0 && text.ParagraphStyleAt(b.Start-1).CodeBlock {
+			p.Fill(ui.Rect{X: r.X - 2, Y: r.Y + b.Top - 2, W: r.W + 4, H: 2}, th.Background, 0)
+		}
+		if label == "" {
+			continue
+		}
+		span := ui.Span{Text: label, Size: 11, Weight: 560, Color: th.TextMuted.Alpha(0.75)}
+		w, h := p.MeasureText(200, span)
+		p.RichText(r.X+r.W-w-10, r.Y+b.Top+max(0, (b.Height-h)/2), w+1, span)
 	}
 }

@@ -146,7 +146,7 @@ func TestSaveAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := richtext.ParseMarkdown(body); !b.Equal(a.doc.Text()) {
+	if b := parseBody(body); !b.Equal(a.doc.Text()) {
 		t.Fatalf("reloaded text differs:\n%s\n---\n%s", b.Markdown(), a.doc.Text().Markdown())
 	}
 }

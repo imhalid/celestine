@@ -252,3 +252,17 @@ func TestPropsShots(t *testing.T) {
 	tt.Frame()
 	save("prop-dialog")
 }
+
+// TestKeptShot draws a page of Markdown from elsewhere: run with KEPT=file.png.
+func TestKeptShot(t *testing.T) {
+	out := os.Getenv("KEPT")
+	if out == "" {
+		t.Skip()
+	}
+	_, tt := newTestApp(t, "Obsidian'dan gelen bir sayfa, [[Dune]] bağlantısıyla.\n\n| Kitap | Yıl |\n|---|---:|\n| Dune | 1965 |\n| Anna Karenina | 1878 |\n\n```go\nfmt.Println(\"merhaba!\")\n```\n\n> [!note] Not\n> Obsidian not kutusu.\n\nDipnot[^1].\n\n[^1]: Kaynak.\n")
+	tt.SetSize(1000, 700)
+	tt.Advance(300 * time.Millisecond)
+	f, _ := os.Create(out)
+	png.Encode(f, tt.Image())
+	f.Close()
+}

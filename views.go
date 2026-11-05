@@ -183,6 +183,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
 	last := ""
+	seen := map[string]int{} // a group coming again (an order not by date) gets a key of its own
 	for _, p := range pages {
 		if v.Sort != "title" {
 			when := p.Modified
@@ -191,7 +192,8 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			}
 			if g := dateGroup(when, now); g != last {
 				last = g
-				c.Key("group:" + g)
+				seen[g]++
+				c.Key(fmt.Sprintf("group:%s:%d", g, seen[g]))
 				ui.Text(c, g).FontSize(12).FontWeight(650).TextColor(t.TextMuted).Padding(14, 8, 4, 8).Transition(rowEnter)
 			}
 		}
@@ -446,7 +448,7 @@ func ago(t, now time.Time) string {
 // dateGroup is the heading a list puts t under.
 func dateGroup(t, now time.Time) string {
 	switch {
-	case sameDay(t, now):
+	case sameDay(t, now) || t.After(now): // a clock ahead, a file touched elsewhere: today
 		return "Bugün"
 	case sameDay(t, now.AddDate(0, 0, -1)):
 		return "Dün"
