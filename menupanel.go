@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/egoist/mygo/ui"
 	ryugo "github.com/imhalid/ryu-go"
+	"strconv"
 )
 
 // The menu panel the / and @ menu and the block's menu share: a header, a
@@ -120,7 +121,7 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 						switch group {
 						case "":
 						case "~":
-							ui.Column(c.Key("sep")).Height(menuSep).Padding(0, 10).Justify(ui.Center).Children(func() {
+							ui.Column(c.Key("sep"+strconv.Itoa(i))).Height(menuSep).Padding(0, 10).Justify(ui.Center).Children(func() {
 								ui.Box(c).Height(1).Background(cl.Hairline)
 							})
 						default:

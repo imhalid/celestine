@@ -170,6 +170,7 @@ type app struct {
 	settingsStore *Store
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
+	clipText      func(string)              // the clipboard to write; the system's when nil
 	clipImage     func() []byte             // the clipboard's picture; the system's when nil
 	imgOnClip     atomic.Bool               // a picture, and no text, is on the clipboard
 	settingsOpen  bool
@@ -472,6 +473,7 @@ func (a *app) view(c *ui.Context) {
 			a.keepTree()
 		})
 		a.sidebarButton(c)
+		a.pageMoreButton(c)
 	})
 	a.collDragView(c)
 	a.caretView(c)
