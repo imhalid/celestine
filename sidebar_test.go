@@ -71,7 +71,7 @@ func TestRenameInPlace(t *testing.T) {
 	if err := tt.RightClick("Sayfa: Sayfa"); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.ChooseMenuItem("Yeniden adlandır"); err != nil {
+	if err := tt.Click("Yeniden adlandır"); err != nil {
 		t.Fatal(err, tt.Menu())
 	}
 	tt.Advance(50 * time.Millisecond)
@@ -90,7 +90,7 @@ func TestRenameInPlace(t *testing.T) {
 	}
 	// Escape keeps the old name.
 	tt.RightClick("Sayfa: Yeni ad")
-	tt.ChooseMenuItem("Yeniden adlandır")
+	tt.Click("Yeniden adlandır")
 	tt.Advance(50 * time.Millisecond)
 	tt.Type("bozuk")
 	tt.Key(0, ui.KeyEscape)
@@ -113,7 +113,7 @@ func TestTrashPage(t *testing.T) {
 	if err := tt.RightClick("Sayfa: Çocuk"); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.ChooseMenuItem("Çöpe taşı"); err != nil {
+	if err := tt.Click("Çöpe taşı"); err != nil {
 		t.Fatal(err, tt.Menu())
 	}
 	tt.Advance(50 * time.Millisecond)

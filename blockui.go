@@ -97,14 +97,25 @@ func (a *app) gutterView(c *ui.Context) {
 	if a.pageR.W > 0 && a.pageR.X < x0 {
 		x0 = a.pageR.X
 	}
+	// only where the page shows: the editor is as tall as its text
+	top, bottom := r.Y, r.Y+r.H
+	if a.scrollR.H > 0 {
+		top, bottom = max(top, a.scrollR.Y), min(bottom, a.scrollR.Y+a.scrollR.H)
+	}
+	if bottom <= top {
+		return
+	}
 	ui.Overlay(c, func() {
-		gut := ui.Box(c.Key("gutter")).Absolute().Left(x0).Top(r.Y).Size(r.X-x0, r.H).Cursor(ui.CursorText)
+		gut := ui.Box(c.Key("gutter")).Absolute().Left(x0).Top(top).Size(r.X-x0, bottom-top).Cursor(ui.CursorText)
 		if _, y, over := gut.PointerPosition(); over {
-			if b, ok := a.paraAtY(y); ok {
+			if b, ok := a.paraAtY(y + top - r.Y); ok {
 				g.para, g.top, g.h = b.Start, b.Top, b.Height
 				if gut.Clicked() {
 					a.doc.SetSelection(b.Start, b.Start)
 					a.refocus = true
+				}
+				if gut.RightClicked() { // the block's menu, as from its grip
+					g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
 				}
 			}
 		}
@@ -132,7 +143,7 @@ func (a *app) gripView(c *ui.Context) {
 		}
 		grip.Children(func() { gripDots(c, cl.Muted) })
 		a.dragGrip(c, grip)
-		if grip.Clicked() && !g.dragging && g.moved < 4 {
+		if (grip.Clicked() && !g.dragging && g.moved < 4) || grip.RightClicked() {
 			g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
 		}
 		if g.menu {

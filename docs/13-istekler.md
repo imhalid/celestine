@@ -27,6 +27,13 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 > Sayfanın metni başlığıyla aynı bir `# Başlık` ile başlıyorsa o satır gösterilmez, dosyaya aynen geri yazılır
 > (`hidetitle.go`). `[[Sayfa]]` yazılınca son `]`de çipe dönüşür.
 
+> **Durum (5 Kasım 2026, gece):** Sayfa başlığı, özellikler ve metin tek parça kayıyor (editör metni kadar uzun, sayfa
+> bir kaydırma içinde; caret kaydırınca zıplamıyor, yazarken görünür kalıyor). Başlıktan ↑ artık üst satıra geçiyor.
+> `[[` yazınca `]]` kendiliğinden gelir, sayfa listesi açılır (yazdıkça süzülür, ↵ çipe çevirir, `]]` yazınca üstünden
+> geçer). Bağlam menüsü uygulama genelinde (`ctxmenu.go`): ağaç, listeler, pano, çöp, tutamak ve metnin soluna sağ tık.
+> **Yapılamayan:** metnin kendisine sağ tık (MyGo'nun editörü sağ tuşu kendi menüsü için alıyor ve o menü boş); kes /
+> kopyala / yapıştır ve çiple ilgili işler için başka bir yol (seçince beliren araç çubuğu) gerekir.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun

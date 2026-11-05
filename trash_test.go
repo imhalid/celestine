@@ -82,7 +82,7 @@ func TestTrashUndoAndView(t *testing.T) {
 	a.open(child)
 	tt.Advance(time.Second)
 	tt.RightClick("Sayfa: Çocuk")
-	if err := tt.ChooseMenuItem("Çöpe taşı"); err != nil {
+	if err := tt.Click("Çöpe taşı"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(700 * time.Millisecond) // the toast rose
@@ -98,7 +98,7 @@ func TestTrashUndoAndView(t *testing.T) {
 	}
 	tt.Advance(5 * time.Second) // the toast goes
 	tt.RightClick("Sayfa: Çocuk")
-	tt.ChooseMenuItem("Çöpe taşı")
+	tt.Click("Çöpe taşı")
 	tt.Advance(100 * time.Millisecond)
 	if err := tt.Click("Çöp"); err != nil {
 		t.Fatal(err)

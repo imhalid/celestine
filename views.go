@@ -218,6 +218,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 		}
 		c.Key("list:" + p.Dir)
 		row := ui.Column(c).Padding(8, 10).Gap(3).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
 		} else {
@@ -337,6 +338,7 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	for _, p := range pages {
 		c.Key("row:" + p.Dir)
 		row := ui.Row(c).Radius(6).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
 		} else {
@@ -435,6 +437,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 								ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
 							}
 						}).Label("Kart: " + p.Title)
+						a.contextOn(card, func() []menuItem { return a.pageMenu(p, false) })
 						if card.Clicked() {
 							a.open(p)
 						}

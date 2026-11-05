@@ -92,3 +92,91 @@ func TestMoveItem(t *testing.T) {
 		t.Fatalf("to the end: %v", got)
 	}
 }
+
+func chipsIn(a *app) []string {
+	var out []string
+	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok {
+				out = append(out, ch.target)
+			}
+		}
+	}
+	return out
+}
+
+// "[[" closes itself with "]]" and lists the pages; what is typed narrows
+// them, ↵ links the one chosen.
+func TestWikiMenu(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	for _, n := range []string{"Alfa", "Beta"} {
+		if _, err := a.page.Coll.NewPage(nil, n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	typeEach(tt, " [[")
+	tt.Frame()
+	tt.Frame()
+	if got := strings.TrimSpace(a.doc.Text().String()); got != "Önce [[]]" {
+		t.Fatalf("not closed: %q", got)
+	}
+	if !a.slash.open || a.slash.sign != "[[" {
+		t.Fatalf("no menu: %+v", a.slash)
+	}
+	if got := lineTitles(a.menuItems(a.slashQuery())); len(got) != 2 {
+		t.Fatalf("the pages: %v", got)
+	}
+	typeEach(tt, "alf")
+	tt.Frame()
+	if got := lineTitles(a.menuItems(a.slashQuery())); got[0] != "Alfa" {
+		t.Fatalf("not narrowed: %v", got)
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	tt.Frame()
+	if got := mdOf(a.doc); got != "Önce [[Alfa]]" || a.slash.open {
+		t.Fatalf("not linked: %q open %v", got, a.slash.open)
+	}
+	if got := chipsIn(a); len(got) != 1 || got[0] != "Alfa" {
+		t.Fatalf("chips %v", got)
+	}
+}
+
+// Typing the "]]" oneself goes over the ones written, and makes the chip.
+func TestWikiTypedClosing(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	typeEach(tt, " [[Beta]]")
+	tt.Frame()
+	tt.Frame()
+	if got := mdOf(a.doc); got != "Önce [[Beta]]" {
+		t.Fatalf("written: %q", got)
+	}
+	if got := chipsIn(a); len(got) != 1 || got[0] != "Beta" {
+		t.Fatalf("chips %v", got)
+	}
+	if a.slash.open {
+		t.Fatal("menu left open")
+	}
+}
+
+// A chip is found in the text, whatever copy of it the text keeps, so a date
+// chip can be changed from its calendar.
+func TestChipPosAndDateEdit(t *testing.T) {
+	a, tt := newTestApp(t, "Oku [[2026-11-05]] ve\n")
+	tt.Frame()
+	ch := &chip{kind: "date", target: "2026-11-05"}
+	if got := a.chipPos(ch); got != 4 {
+		t.Fatalf("chip at %d", got)
+	}
+	d, _ := parseDay(ch.target)
+	a.dateEdit = dateEdit{open: true, ch: ch, cal: d}
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("November 2026") {
+		t.Fatalf("no calendar: %v", tt.Texts())
+	}
+}

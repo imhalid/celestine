@@ -107,6 +107,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	t := c.Theme()
 	c.Key("trash:" + item.Dir)
 	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(8).AlignItems(ui.Center).Transition(rowEnter).Label("Çöpteki: " + item.Title)
+	a.contextOn(row, func() []menuItem { return a.trashMenu(item) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
 	} else {

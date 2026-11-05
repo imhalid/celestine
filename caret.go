@@ -32,6 +32,8 @@ type caretBox struct {
 	r    ui.Rect
 	full ui.Rect // the caret as the editor has it, the line's full height (tests compare it)
 	cw   float32
+	top  float32 // the top of its paragraph's box
+	para int     // the start of the paragraph
 }
 
 // locate finds the caret of doc in an editor of width w, from the boxes of
@@ -55,6 +57,9 @@ func locate(doc *richtext.Document, boxes []richtext.ParagraphBox, w float32, ba
 	}
 	box := boxes[bi]
 	start, end := text.ParagraphRange(box.Start)
+	if caret > end { // past the last paragraph in view
+		return caretBox{}, false
+	}
 	var para richtext.Paragraph
 	for _, p := range text.Slice(start, end).Paragraphs() {
 		para = p
@@ -89,7 +94,10 @@ func locate(doc *richtext.Document, boxes []richtext.ParagraphBox, w float32, ba
 		}
 	}
 	cw := c.H * 0.5
-	if next := l.NextBoundary(units); next > units {
+	// the caret is as wide as the letter after it - but not over a chip,
+	// which is one object, wider than a word: it would swallow it
+	onChip := caret < text.Len() && text.Slice(caret, caret+1).String() == string(richtext.ObjectReplacement)
+	if next := l.NextBoundary(units); next > units && !onChip {
 		if nc := l.CaretAt(ui.TextCaretPosition{Index: next}); nc.X > full.X && math.Abs(float64(nc.Y-full.Y)) < 0.5 {
 			cw = nc.X - full.X
 		}
@@ -98,7 +106,7 @@ func locate(doc *richtext.Document, boxes []richtext.ParagraphBox, w float32, ba
 	c.Y += box.Top
 	full.X += left
 	full.Y += box.Top
-	return caretBox{r: c, full: full, cw: cw}, true
+	return caretBox{r: c, full: full, cw: cw, top: box.Top, para: box.Start}, true
 }
 
 // layoutParagraph lays a paragraph out as the editor does, and returns how

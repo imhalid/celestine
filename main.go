@@ -109,19 +109,30 @@ type app struct {
 	notice  string     // a toast to show
 	trashed *TrashItem // just thrown away: a toast offers it back
 
-	trashOpen  bool         // the trash is shown, instead of a page
-	trashItems []*TrashItem // what is in it, read when it opens and changes
-	boxes      []richtext.ParagraphBox
-	focused    bool
-	clock      func() time.Time
-	lastSave   string
-	style      richtext.ParagraphStyle // the caret paragraph's, last frame
-	refocus    bool                    // the editor takes the keyboard focus in the next frame
-	pageR      ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
-	heads      map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
-	hoverCh    *chip                   // the chip the pointer is over
-	dateEdit   dateEdit                // the calendar a date chip opens
-	editorR    ui.Rect                 // the editor's box, from its last frame
+	trashOpen    bool         // the trash is shown, instead of a page
+	trashItems   []*TrashItem // what is in it, read when it opens and changes
+	boxes        []richtext.ParagraphBox
+	focused      bool
+	clock        func() time.Time
+	lastSave     string
+	style        richtext.ParagraphStyle // the caret paragraph's, last frame
+	refocus      bool                    // the editor takes the keyboard focus in the next frame
+	pageR        ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
+	heads        map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
+	caretPara    int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
+	caretRel     float32
+	caretTop     float32
+	ctx          ctxMenu        // the context menu (ctxmenu.go)
+	pageScroll   ui.ScrollState // the page scrolled as a whole (pageView)
+	scrollR      ui.Rect        // its room in the window, last frame
+	headH        float32        // the title's and properties' height, last frame
+	titleFocused bool
+	edH          float32  // the editor's height, last frame
+	frame        func()   // asks for a frame that builds the view
+	revealWant   bool     // the caret moved: bring it into view
+	hoverCh      *chip    // the chip the pointer is over
+	dateEdit     dateEdit // the calendar a date chip opens
+	editorR      ui.Rect  // the editor's box, from its last frame
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.
@@ -239,6 +250,7 @@ func (a *app) open(p *Page) {
 	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
 	a.dirty, a.saveErr, a.lastSave = false, "", ""
 	a.boxes = nil
+	a.pageScroll = ui.ScrollState{}
 }
 
 // newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
@@ -267,14 +279,18 @@ func (a *app) flush() {
 func (a *app) view(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.frame = c.Invalidate
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	ryugo.Root(c, ryugo.Options{})                      // Ryugo's theme, its components' tokens
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
 	th.ParagraphSpacing = 0.55
+	// A heading's room above stays under half its line: the editor moves ↑ by
+	// the height of the line the caret is on, and from a heading that must
+	// land in the paragraph above, not in the heading's own room.
 	for i := range th.Headings {
-		th.Headings[i].Top, th.Headings[i].Bottom = 0.9, 0.3
+		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
 	}
 	a.theme = th
 	a.font = ui.Font{Family: t.Font, Size: 16.5, LineHeight: 1.55}
@@ -321,7 +337,13 @@ func (a *app) view(c *ui.Context) {
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
 			a.titleBar(c)
-			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, 32, 0, 32)
+			// the page scrolls over the whole width, its bar at the window's edge:
+			// the margins are inside it
+			padX := float32(32)
+			if !a.trashOpen && a.coll == nil && a.page != nil {
+				padX = 0
+			}
+			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
 			defer func() { a.pageR = pageRow.LayoutBounds() }()
 			pageRow.Children(func() {
 				if a.trashOpen {
@@ -338,16 +360,18 @@ func (a *app) view(c *ui.Context) {
 					ui.Text(c, "Soldan bir sayfa seç ya da + ile yeni bir sayfa aç.").TextColor(t.TextMuted)
 					return
 				}
-				ui.Column(c).Fill().MaxWidth(columnMax).Gap(4).Children(func() { a.pageView(c, th) })
+				a.pageView(c, th)
 			})
 			a.status(c)
 		})
 		a.sidebarButton(c)
 	})
+	a.caretView(c)
 	a.gutterView(c)
 	a.gripView(c)
 	a.slashView(c)
 	a.dateEditView(c)
+	a.contextView(c)
 	a.paletteView(c)
 	a.collSettingsView(c)
 	a.settingsDialog(c)
@@ -377,32 +401,42 @@ func (a *app) bg(c *ui.Context) ui.Color {
 	return c.Theme().Background
 }
 
-// pageView is the open page: its collection, its title, its text.
+// pageView is the open page: its title, its properties and its text, one
+// page that scrolls as a whole. The editor is as tall as its text (and some
+// more, to lay out what is coming), so it has nothing to scroll in itself,
+// and the wheel passes to the scroll around it; where the caret is is kept
+// in view here (drawCaret asks for it).
 func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	p := a.page // where it is shows in the title bar
-	a.findBar(c)
-	c.Key("title:" + p.Dir)
-	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
-	if a.fresh {
-		title.AutoFocus()
-		a.fresh = false
-	}
-	if title.Changed() {
-		name := strings.TrimSpace(a.title)
-		if name == "" {
-			name = "Adsız"
+	// the page is as wide as the window and scrolls in it, the bar at its edge;
+	// the text is a column in the middle, with margins either side
+	ui.Column(c).Fill().Children(func() {
+		if a.find.open {
+			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
+				ui.Column(c).FillWidth().MaxWidth(columnMax).Children(func() { a.findBar(c) })
+			})
 		}
-		if err := p.SetTitle(name); err != nil {
-			a.saveErr = err.Error()
-		}
-	}
-	a.propsSection(c, p)
+		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(&a.pageScroll).Grow(1)
+		sc.Children(func() {
+			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
+				ui.Column(c).FillWidth().MaxWidth(columnMax).Gap(4).Children(func() { a.pageBody(c, p, th) })
+			})
+		})
+		a.scrollR = sc.LayoutBounds()
+	})
+}
+
+// pageBody is the title, the properties and the text.
+func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
+	head := ui.Column(c.Key("page-head")).FillWidth()
+	head.Children(func() { a.pageHead(c, p) })
+	a.headH = head.LayoutBounds().H
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
-	}).Grow(1)
-	if !title.Focused() && !a.fresh {
+	}).FillWidth().Height(a.editorH(c))
+	if !a.titleFocused && !a.fresh {
 		ed.AutoFocus()
 	}
 	if a.refocus {
@@ -423,11 +457,79 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		a.clickChip(a.editorR.X+x, a.editorR.Y+y)
 	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
+		a.editorR = r
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
-		a.drawCaret(p, r)
 	})
+}
+
+// caretView draws the caret in a layer over the window - the editor clips
+// what it draws at its own edge, which cut the caret at the start of a
+// line - itself clipped to the page's room.
+func (a *app) caretView(c *ui.Context) {
+	if a.doc == nil || a.coll != nil || a.trashOpen || a.page == nil {
+		return
+	}
+	ww, wh := c.Size()
+	ui.Overlay(c, func() {
+		ui.Box(c.Key("caret-layer")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
+			a.drawCaret(p, a.editorR)
+		})
+	})
+}
+
+// pageHead is the page's title and its properties.
+func (a *app) pageHead(c *ui.Context, p *Page) {
+	c.Key("title:" + p.Dir)
+	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
+	if a.fresh {
+		title.AutoFocus()
+		a.fresh = false
+	}
+	if title.Changed() {
+		name := strings.TrimSpace(a.title)
+		if name == "" {
+			name = "Adsız"
+		}
+		if err := p.SetTitle(name); err != nil {
+			a.saveErr = err.Error()
+		}
+	}
+	a.titleFocused = title.Focused()
+	// ↓ or ↵ in the title goes into the text
+	if title.Focused() && (title.Shortcut(0, ui.KeyDown) || title.Submitted()) {
+		a.doc.SetSelection(0, 0)
+		a.refocus = true
+	}
+	a.propsSection(c, p)
+}
+
+// editorH is editorHeight, asking for another frame while it grows.
+func (a *app) editorH(c *ui.Context) float32 {
+	h := a.editorHeight()
+	if h != a.edH {
+		a.edH = h
+		c.Invalidate()
+	}
+	return h
+}
+
+// editorHeight is the editor's: its text, and more while there is text
+// still to lay out; at least what is left of the page's room.
+func (a *app) editorHeight() float32 {
+	least := max(a.scrollR.H-a.headH-8, 160)
+	n := len(a.boxes)
+	if n == 0 {
+		return least
+	}
+	last := a.boxes[n-1]
+	_, pe := a.doc.Text().ParagraphRange(last.Start)
+	slack := max(a.scrollR.H*2, 1600)
+	if pe >= a.doc.Text().Len() {
+		slack = 96 // the last paragraph is in
+	}
+	return max(last.Top+last.Height+slack, least)
 }
 
 // track notes what the user did since the last frame: letters written (for
@@ -442,9 +544,13 @@ func (a *app) track(c *ui.Context) {
 			a.trackSlash(text, caret, false, false)
 			_, caret = a.doc.Selection()
 		}
+		if caret != a.caretAt {
+			a.revealWant = true
+		}
 		a.caretAt, a.style = caret, style
 		return
 	}
+	a.revealWant = true
 	n := text.Len()
 	// the / menu (slash.go)
 	if a.trackSlash(text, caret, true, n-a.length == 1 && caret-a.caretAt == 1) {
@@ -462,8 +568,13 @@ func (a *app) track(c *ui.Context) {
 		a.length, a.caretAt = text.Len()-1, caret-1 // still the letter typed, to the caret
 		n = text.Len()
 	}
-	// "[[Page]]" typed: a chip (chips.go)
-	if a.chipShortcut(text, caret, n-a.length == 1 && caret-a.caretAt == 1) {
+	// "[[Page]]": the "]" typed over the one the "[[" wrote, then a chip (chips.go)
+	single := n-a.length == 1 && caret-a.caretAt == 1
+	if a.overtype(text, caret, single) {
+		text, v = a.doc.Text(), a.doc.Version()
+		n = text.Len()
+	}
+	if a.chipShortcut(text, caret, single) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
@@ -486,8 +597,34 @@ func (a *app) track(c *ui.Context) {
 	a.dirty, a.editAt, a.saveErr = true, a.clock(), ""
 }
 
+// revealCaret scrolls the page, when the caret was moved, to bring it into
+// view with some room around it.
+func (a *app) revealCaret(cr ui.Rect) {
+	if !a.revealWant || a.scrollR.H == 0 {
+		return
+	}
+	a.revealWant = false
+	const room = 56
+	vp := a.scrollR
+	var d float32
+	switch {
+	case cr.Y < vp.Y+room:
+		d = cr.Y - (vp.Y + room)
+	case cr.Y+cr.H > vp.Y+vp.H-room:
+		d = cr.Y + cr.H - (vp.Y + vp.H - room)
+	}
+	if d != 0 {
+		a.pageScroll.Y = max(0, a.pageScroll.Y+d)
+		if d < 0 && a.pageScroll.Y < a.headH+room { // near the top: the title and the properties too
+			a.pageScroll.Y = 0
+		}
+		if a.frame != nil {
+			a.frame()
+		}
+	}
+}
+
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
-	a.editorR = r
 	if !a.focused {
 		return
 	}
@@ -495,10 +632,19 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if !ok {
 		return
 	}
+	// scrolled: the caret went with its paragraph, the text under it the
+	// same - the jelly goes with it and is not kicked
+	top := r.Y + cb.top
+	if cb.para == a.caretPara && cb.r.Y-cb.top == a.caretRel && top != a.caretTop {
+		a.jelly.shift(0, top-a.caretTop)
+		a.mizan.shift(top - a.caretTop)
+	}
+	a.caretPara, a.caretRel, a.caretTop = cb.para, cb.r.Y-cb.top, top
 	cr := cb.r
 	cr.X += r.X
 	cr.Y += r.Y
 	a.caretWin = cr
+	a.revealCaret(cr)
 	dark := p.Theme().Dark
 	anchor, caret := a.doc.Selection()
 	if anchor != caret { // over a selection, a plain caret: the jelly would hide what is selected
@@ -509,7 +655,11 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.wrote, a.edited = 0, false
 	// not clipped to the editor's box: at the start of a line the caret
 	// goes past its left edge
-	p.Clip(ui.Rect{X: r.X - 24, Y: r.Y - 12, W: r.W + 48, H: r.H + 24}, 0, func() {
+	room := a.scrollR
+	if room.H == 0 {
+		room = ui.Rect{X: r.X - 24, Y: r.Y - 12, W: r.W + 48, H: r.H + 24}
+	}
+	p.Clip(room, 0, func() {
 		if a.caretKind == caretMizan {
 			a.mizan.draw(p, f)
 			return

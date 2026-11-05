@@ -149,6 +149,9 @@ func (a *app) enterView(v string) {
 // menuItems are the lines of the menu open, for what is typed after its sign.
 func (a *app) menuItems(q string) []menuItem {
 	s := &a.slash
+	if s.sign == "[[" {
+		return a.wikiItems(q)
+	}
 	switch {
 	case s.view != "":
 		return a.viewItems(s.view, q)
@@ -171,6 +174,42 @@ func (a *app) menuItems(q string) []menuItem {
 		nav("Özellik…", "sayfanın seçimleri", "prop", iconSettings)
 	}
 	nav("Bağlantı…", "sayfalar", "link", iconPage)
+	return out
+}
+
+// wikiItems are the pages to link, for what is typed between "[[" and "]]":
+// a day typed as 2026-11-05 too, and a page of that name when none is.
+func (a *app) wikiItems(q string) []menuItem {
+	start := a.slash.start
+	tq := strings.TrimSpace(q)
+	var out []menuItem
+	if d, err := time.Parse("2006-01-02", tq); err == nil {
+		ch := &chip{kind: "date", target: d.Format("2006-01-02")}
+		out = append(out, menuItem{title: shortDate(d), hint: "Tarih", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
+	}
+	exact, n := false, 0
+	for _, it := range a.places() {
+		if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+			continue
+		}
+		if strings.EqualFold(it.title, tq) {
+			exact = true
+		}
+		if n++; n > 60 {
+			continue
+		}
+		title := it.title
+		out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
+	}
+	if tq != "" && !exact && a.page != nil {
+		out = append(out, menuItem{title: "Yeni sayfa: " + tq, glyph: iconPlus, run: func() {
+			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
+				a.saveErr = err.Error()
+				return
+			}
+			a.insertChip(start, &chip{kind: "page", target: tq})
+		}})
+	}
 	return out
 }
 
@@ -361,11 +400,12 @@ func (a *app) slashQueryAt(text richtext.Text, caret int) string {
 	if hasField(s.view) { // typed in the menu's field, not in the text
 		return s.field
 	}
-	if caret <= s.start+1 {
+	skip := len(s.sign) // the sign: / and @ are one rune, [[ two
+	if caret <= s.start+skip {
 		return ""
 	}
 	_, pe := text.ParagraphRange(s.start)
-	return text.Slice(s.start+1, min(caret, pe)).String()
+	return text.Slice(s.start+skip, min(caret, pe)).String()
 }
 
 // trackSlash opens, follows and closes the menu, after an edit or a move
@@ -381,6 +421,17 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		if text.ParagraphStyleAt(ps).CodeBlock || text.AttributesAt(caret-1).Code {
 			return false
 		}
+		if sign == "[" && caret >= 2 && text.Slice(caret-2, caret-1).String() == "[" {
+			// "[[": it is closed with "]]", and the menu lists the pages
+			if text.Slice(caret, min(caret+2, text.Len())).String() != "]]" {
+				a.doc.Edit(func(ed *richtext.Edit) {
+					ed.Replace(caret, caret, richtext.NewText("]]"))
+					ed.Select(caret, caret)
+				})
+			}
+			*s = slashMenu{open: true, sign: "[[", start: caret - 2, at: caret}
+			return true
+		}
 		if sign != "/" && sign != "@" {
 			return false
 		}
@@ -390,7 +441,7 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		*s = slashMenu{open: true, sign: sign, start: caret - 1, at: caret}
 		return false
 	}
-	if s.start >= text.Len() || text.Slice(s.start, s.start+1).String() != s.sign {
+	if s.start+len(s.sign) > text.Len() || text.Slice(s.start, s.start+len(s.sign)).String() != s.sign {
 		s.open = false
 		return false
 	}
@@ -422,8 +473,12 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		}
 		a.doc.SetSelection(s.at, s.at)
 		return false
-	case caret <= s.start || caret > pe:
+	case caret < s.start+len(s.sign) || caret > pe:
 		s.open = false
+	case s.sign == "[[": // a name: spaces are in it, and the "]]" after the caret is its end
+		if strings.ContainsAny(q, "[]\n") || len([]rune(q)) > 80 {
+			s.open = false
+		}
 	case strings.HasPrefix(q, " ") || len([]rune(q)) > 40 || strings.HasSuffix(q, "  "):
 		s.open = false
 	case len(items) == 0 && len([]rune(q)) > 3:
@@ -572,10 +627,20 @@ func (a *app) slashView(c *ui.Context) {
 	}
 	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, scroll: &s.scroll, choose: choose,
 		empty: map[string]string{"link": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]}
+	if s.sign == "[[" {
+		m.empty = "Eşleşen sayfa yok"
+	}
 	if m.empty == "" {
 		m.empty = "Eşleşen yok"
 	}
 	m.head = func() {
+		if s.sign == "[[" {
+			ui.Text(c, "Sayfaya bağla").FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+				ui.Text(c, "[[ ]]").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
+			})
+			return
+		}
 		if s.view == "" { // the title and the sign
 			title := "Öneriler"
 			if q != "" {

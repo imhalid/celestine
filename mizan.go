@@ -31,6 +31,14 @@ type mizanCaret struct {
 	last         time.Time
 }
 
+// shift moves the caret with the content (scrolling) without a glide.
+func (m *mizanCaret) shift(dy float32) {
+	m.prev.Y += dy
+	if m.glide != nil {
+		m.glide.from.Y += dy
+	}
+}
+
 type mizanGlide struct {
 	from ui.Rect
 	t0   time.Time

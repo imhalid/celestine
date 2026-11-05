@@ -242,8 +242,11 @@ type dateEdit struct {
 // chipPos is where the chip is in the text, or -1.
 func (a *app) chipPos(ch *chip) int {
 	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
-		if att := r.Attributes.Attachment; att != nil && att.Data == ch {
-			return i
+		if att := r.Attributes.Attachment; att != nil {
+			// the text keeps its own copies of what an attachment carries: by value
+			if other, ok := att.Data.(*chip); ok && *other == *ch {
+				return i
+			}
 		}
 	}
 	return -1
@@ -320,10 +323,34 @@ func (a *app) chipShortcut(text richtext.Text, caret int, typed bool) bool {
 	return true
 }
 
+var wikiOpen = regexp.MustCompile(`\[\[[^\[\]\n]*\]?$`)
+
+// overtype takes the "]" typed over the "]" the "[[" closed itself with: the
+// caret goes past it, as in any editor that closes brackets; it reports
+// whether it did.
+func (a *app) overtype(text richtext.Text, caret int, typed bool) bool {
+	if !typed || caret < 3 || caret >= text.Len() || text.Slice(caret-1, caret+1).String() != "]]" {
+		return false
+	}
+	ps, _ := text.ParagraphRange(caret - 1)
+	if !wikiOpen.MatchString(text.Slice(ps, caret-1).String()) {
+		return false
+	}
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(caret, caret+1, richtext.Text{})
+		ed.Select(caret, caret)
+	})
+	return true
+}
+
 // insertChip puts a chip in place of the text from start to the caret,
 // with a space after it.
 func (a *app) insertChip(start int, ch *chip) {
 	_, caret := a.doc.Selection()
+	// a "[[" the menu closed itself with "]]": they go with what was typed
+	if t := a.doc.Text(); a.slash.sign == "[[" && caret+2 <= t.Len() && t.Slice(caret, caret+2).String() == "]]" {
+		caret += 2
+	}
 	attrs := a.doc.Text().AttributesAt(start)
 	attrs.Attachment = nil
 	plain := attrs
@@ -335,3 +362,6 @@ func (a *app) insertChip(start int, ch *chip) {
 	})
 	a.doc.SetTypingAttributes(plain)
 }
+
+// parseDay reads a day written 2026-11-05.
+func parseDay(s string) (time.Time, error) { return time.Parse("2006-01-02", s) }

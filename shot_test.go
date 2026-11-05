@@ -131,7 +131,7 @@ func TestPolishShots(t *testing.T) {
 	save("pill-mid")
 	tt.Advance(time.Second)
 	tt.RightClick("Sayfa: Dune")
-	tt.ChooseMenuItem("Yeniden adlandır")
+	tt.Click("Yeniden adlandır")
 	tt.Advance(300 * time.Millisecond)
 	_ = a
 	save("rename")

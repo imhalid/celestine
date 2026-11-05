@@ -161,10 +161,10 @@ type rowSpec struct {
 	name       string
 	strong     bool
 	selected   bool
-	has, open  bool // children, and whether they show
-	plus       bool // a + for a new page in it or under it
-	item       any  // the page or collection, to rename it in place
-	menu       func(m *ui.Menu)
+	has, open  bool              // children, and whether they show
+	plus       bool              // a + for a new page in it or under it
+	item       any               // the page or collection, to rename it in place
+	menu       func() []menuItem // what a right click offers
 }
 
 // treeRow is a row of the tree: its chevron, icon and name - a field when
@@ -174,7 +174,8 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
 	c.Key(s.key)
 	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
-		Label(s.label).Role(ui.RoleButton).ContextMenu(s.menu)
+		Label(s.label).Role(ui.RoleButton)
+	a.contextOn(r, s.menu)
 	if a.drag.settle { // the drop: the rows are where they were shown
 		r.Transition(rowStill)
 	} else {
@@ -278,21 +279,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	tint := collTint(c, coll)
 	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: collGlyph(coll), tint: &tint, name: coll.Name,
 		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: true, item: coll,
-		menu: func(m *ui.Menu) {
-			if m.Item("Yeniden adlandır").Chosen() {
-				a.startRename(coll, coll.Name)
-			}
-			if m.Item("Yeni " + pageNoun(coll)).Chosen() {
-				a.newPage(coll, nil)
-			}
-			if m.Item("Ayarlar…").Chosen() {
-				a.openCollSettings(coll, 0)
-			}
-			m.Separator()
-			if m.Item("Çöpe taşı").Chosen() {
-				a.trashCollection(coll)
-			}
-		}})
+		menu: func() []menuItem { return a.collectionMenu(coll) }})
 	switch {
 	case add:
 		a.newPage(coll, nil)
@@ -306,21 +293,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 func (a *app) pageRow(c *ui.Context, p *Page) {
 	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: "Sayfa: " + p.Title, depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
 		selected: p == a.page && a.coll == nil, has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
-		menu: func(m *ui.Menu) {
-			if m.Item("Aç").Chosen() {
-				a.open(p)
-			}
-			if m.Item("Yeniden adlandır").Chosen() {
-				a.startRename(p, p.Title)
-			}
-			if p.Coll.SubPages && m.Item("Alt sayfa ekle").Chosen() {
-				a.newPage(p.Coll, p)
-			}
-			m.Separator()
-			if m.Item("Çöpe taşı").Chosen() {
-				a.trashPage(p)
-			}
-		}})
+		menu: func() []menuItem { return a.pageMenu(p, true) }})
 	switch {
 	case add:
 		a.newPage(p.Coll, p)

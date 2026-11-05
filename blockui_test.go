@@ -108,3 +108,37 @@ func TestBlockMenuKeys(t *testing.T) {
 		t.Fatal("Esc did not close it")
 	}
 }
+
+// A right click in the margin by a line opens the block's menu, and one on a
+// page in the tree opens the page's, in our own design.
+func TestContextMenus(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n")
+	tt.SetSize(1500, 700)
+	tt.Frame()
+	tt.Frame()
+	y := a.editorR.Y + a.boxes[1].Top + 8
+	tt.RightClickAt(a.pageR.X+10, y)
+	tt.Advance(200 * time.Millisecond)
+	if !a.grip.menu {
+		t.Fatalf("no block menu from the margin: %+v", a.grip)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if err := tt.RightClick("Sayfa: Sayfa"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(100 * time.Millisecond)
+	if !a.ctx.open {
+		t.Fatal("no menu for the page")
+	}
+	for _, want := range []string{"Aç", "Yeniden adlandır", "Çöpe taşı"} {
+		if !tt.HasText(want) {
+			t.Fatalf("no %q in %v", want, tt.Texts())
+		}
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if a.ctx.open {
+		t.Fatal("Esc did not close it")
+	}
+}
