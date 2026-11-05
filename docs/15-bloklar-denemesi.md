@@ -24,6 +24,7 @@ kırılgan bir yöntem: MyGo'ya "tuşu önce bana sor" kancası eklenirse sadele
 
 ## Sonra yapıldı
 
+- **`/` ve `@` tek menü** (13 · 24–27): iki işaret aynı gruplu listeyi açar, taşmaz, işaret göstermez, ad önce gelir.
 - **Çipler ve `@` menüsü** (`chips.go`, `slash.go`): `[[Sayfa]]`, `[[Sayfa|takma ad]]` ve `[[2026-11-05]]` metinde
   çip olarak görünür, dosyaya aynen yazılır; tıklayınca sayfa açılır, olmayan sayfa oluşturulur. `@` ile sayfa,
   tarih (bugün, yarın…, `2026-11-10`) ve sayfanın seçim özelliklerine değer.

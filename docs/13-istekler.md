@@ -106,6 +106,11 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 
 ## `/` ve `@` menüsü üzerine (5 Kasım 2026, ilk sürümü kullandıktan sonra)
 
+> **Durum (5 Kasım 2026):** 24–27 yapıldı. Tek menü (Öneriler, Satırı biçimlendir, Tarih, Özellik, Bağlantı), iki işaret de
+> kelime başında açar; Markdown işaretleri yok; altta yer yoksa caret'in üstünde açılır, pencereye sığar ve kayar;
+> sayfa satırında ad üstte, yol altında soluk. **Yapılmayan:** `→` alt menüleri (liste düz ve gruplu), Kişi an,
+> Görev durumu, Ekle (görsel, sorgu) — bunlar özellikleri gelince.
+
 24. **`/` ile `@` aynı menü olmalı.** Thymer'de ikisi tek bir öneri menüsünü açar ("this menu is @"). Ben ikisini
     ayırdım: `/` yalnız blok türlerini, `@` yalnız sayfa, tarih ve özellikleri gösteriyor. Yanlış: hangisiyle
     açılırsa açılsın aynı içerik gelmeli. Önerilen düzen ([18](#editör-menüleri)'deki gibi):
