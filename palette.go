@@ -2,6 +2,7 @@ package main
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -46,7 +47,7 @@ func (a *app) commands() []palItem {
 		out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
 		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
 	}
-	if p := a.page; p != nil && a.coll == nil && !a.trashOpen {
+	if p := a.page; p != nil && !a.noPage() {
 		if p.Coll.SubPages {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
@@ -113,6 +114,10 @@ func (a *app) places() []palItem {
 			}
 			out = append(out, palItem{title: p.Title, sub: sub, glyph: iconPage, to: place{"page", p.Dir}, run: func() { a.goTo(place{"page", p.Dir}) }})
 		}
+	}
+	for _, ti := range a.allTags() {
+		key := ti.key
+		out = append(out, palItem{title: "#" + ti.name, sub: "Etiket · " + strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
 	}
 	return out
 }

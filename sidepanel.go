@@ -60,7 +60,7 @@ func (a *app) gotoPos(at int) {
 
 // sidePanel is the panel, as wide as it is shown.
 func (a *app) sidePanel(c *ui.Context) {
-	open := a.settings.PanelOpen && a.page != nil && a.coll == nil && !a.trashOpen
+	open := a.settings.PanelOpen && a.page != nil && !a.noPage()
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
 	box := ui.Column(c.Key("side-panel")).Background(t.Surface).Clip()
@@ -81,6 +81,7 @@ func (a *app) sidePanel(c *ui.Context) {
 			ui.Scroll(c.Key("panel-scroll")).Grow(1).Children(func() {
 				ui.Column(c).FillWidth().Padding(2, 14, 20, 14).Gap(18).Children(func() {
 					a.panelOutline(c, cl)
+					a.panelTags(c, cl)
 					a.panelLinks(c, cl, p)
 					a.panelInfo(c, cl, p)
 				})

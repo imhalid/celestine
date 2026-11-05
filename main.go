@@ -113,7 +113,14 @@ type app struct {
 	notice  string     // a toast to show
 	trashed *TrashItem // just thrown away: a toast offers it back
 
-	trashOpen    bool         // the trash is shown, instead of a page
+	trashOpen    bool     // the trash is shown, instead of a page
+	tag          string   // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	tagHits      []tagHit // the tags drawn this frame; a click is against the last's
+	tagSeen      []tagHit
+	hoverTag     string
+	ptags        []string // the open page's tags, for the side panel
+	ptagsVer     uint64
+	ptagsDoc     *richtext.Document
 	trashItems   []*TrashItem // what is in it, read when it opens and changes
 	boxes        []richtext.ParagraphBox
 	focused      bool
@@ -318,7 +325,7 @@ func main() {
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
 	defer a.visit()
-	a.coll, a.trashOpen = nil, false
+	a.coll, a.trashOpen, a.tag = nil, false, ""
 	if p == a.page {
 		return
 	}
@@ -453,7 +460,7 @@ func (a *app) view(c *ui.Context) {
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
-			if !a.trashOpen && (a.coll != nil || a.page != nil) {
+			if !a.trashOpen && a.tag == "" && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
@@ -462,6 +469,11 @@ func (a *app) view(c *ui.Context) {
 				if a.trashOpen {
 					a.focused = false
 					a.trashView(c)
+					return
+				}
+				if a.tag != "" {
+					a.focused = false
+					a.tagView(c)
 					return
 				}
 				if a.coll != nil {
@@ -569,8 +581,13 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.focused = ed.Focused()
 	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
-	a.hoverCh = nil
+	a.hoverCh, a.hoverTag = nil, ""
+	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
 	if x, y, over := ed.PointerPosition(); over {
+		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
+			a.hoverTag = key
+			ed.Cursor(ui.CursorPointer)
+		}
 		if h := a.chipAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
 			a.hoverCh = h.ch
 			ed.Cursor(ui.CursorPointer)
@@ -579,15 +596,20 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	for _, f := range ed.DroppedFiles() { // pictures dropped on the text
 		a.addImageFile(f)
 	}
-	if ed.Clicked() { // on a chip: its page, or its day
+	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
-		a.clickChip(a.editorR.X+x, a.editorR.Y+y)
+		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
+			a.openTag(key)
+		} else {
+			a.clickChip(a.editorR.X+x, a.editorR.Y+y)
+		}
 	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
 		a.editorR = r
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
+		a.drawTags(p, r)
 	})
 	a.backlinksView(c, p)
 }
@@ -596,7 +618,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 // what it draws at its own edge, which cut the caret at the start of a
 // line - itself clipped to the page's room.
 func (a *app) caretView(c *ui.Context) {
-	if a.doc == nil || a.coll != nil || a.trashOpen || a.page == nil {
+	if a.doc == nil || a.noPage() || a.page == nil {
 		return
 	}
 	ww, wh := c.Size()

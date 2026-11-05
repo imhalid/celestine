@@ -16,9 +16,11 @@ import (
 // moment, and nothing is kept in the files for it.
 
 type linkIndex struct {
-	into  map[string][]*Page // a title, lower case, to the pages that link to it
-	built time.Time
-	stale bool
+	into     map[string][]*Page // a title, lower case, to the pages that link to it
+	tags     map[string][]*Page // a tag (tags.go), lower case, to the pages that have it
+	tagNames map[string]string  // and as it was first written
+	built    time.Time
+	stale    bool
 }
 
 // linksStale says the pages changed since the index was made.
@@ -28,12 +30,22 @@ func (a *app) linksStale() { a.links.stale = true }
 func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	l := &a.links
 	if l.into == nil || (l.stale && (force || now.Sub(l.built) > 4*time.Second)) {
-		l.into = map[string][]*Page{}
+		l.into, l.tags, l.tagNames = map[string][]*Page{}, map[string][]*Page{}, map[string]string{}
 		l.stale, l.built = false, now
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
 				body, err := q.Body()
-				if err != nil || !strings.Contains(body, "[[") {
+				if err != nil {
+					continue
+				}
+				for _, name := range tagsOf(body) {
+					k := tagKey(name)
+					if _, ok := l.tagNames[k]; !ok {
+						l.tagNames[k] = name
+					}
+					l.tags[k] = append(l.tags[k], q)
+				}
+				if !strings.Contains(body, "[[") {
 					continue
 				}
 				seen := map[string]bool{}
@@ -47,6 +59,9 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 				}
 			}
 		}
+	}
+	if p == nil { // only the index was wanted (tags.go)
+		return nil
 	}
 	var out []*Page
 	for _, q := range l.into[strings.ToLower(strings.TrimSpace(p.Title))] {

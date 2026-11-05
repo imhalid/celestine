@@ -30,7 +30,7 @@ var (
 // selectionBar draws the bar over the selection, when there is one to show.
 func (a *app) selectionBar(c *ui.Context) {
 	b := &a.sel
-	if a.doc == nil || a.coll != nil || a.trashOpen || a.page == nil || a.slash.open || a.ctx.open || a.grip.menu || a.dateEdit.open || a.modal() {
+	if a.doc == nil || a.noPage() || a.page == nil || a.slash.open || a.ctx.open || a.grip.menu || a.dateEdit.open || a.modal() {
 		b.link = false
 		return
 	}

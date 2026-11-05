@@ -78,3 +78,14 @@ Copy Transclusion (satırı başka yere canlı gömmek için).
 Pencerenin sağ üstündeki panel düğmesi ya da ⇧⌘\ ile açılır, kapanışı hatırlanır (`panelOpen`). Üç bölüm: **İçindekiler**
 (sayfanın başlıkları, tıklayınca imleç oraya gider), **Bağlananlar** (bu sayfaya `[[…]]` ile bağlanan sayfalar) ve **Bilgi**
 (koleksiyon, oluşturulma ve değişme zamanı, kelime ve harf sayısı, alt/üst sayfa). Koleksiyon ve çöp görünümünde kapalı durur.
+
+## Etiketler (Kasım 2026)
+
+Metinde `#etiket` yazmak yeter: bir kelimenin başında `#`, ardından harfle başlayan harf, rakam, `-`, `_` ya da `/`
+(`#proje/alt`). Dosyada başka bir şey tutulmaz; kod bloklarındaki ve `kod` içindeki `#` etiket sayılmaz, `# Başlık` da değil.
+
+- Editörde kelimenin üstüne yumuşak bir hap çizilir (belgeye dokunmaz, geri alma kirlenmez); tıklayınca etiketin sayfası açılır.
+- Etiket sayfası: etiketi taşıyan sayfalar (son değişen önde) ve üstte öteki etiketler, sayı ile. Geri/ileri (⌘[ ⌘]) onu da bilir.
+- Yan panelde "Etiketler" bölümü sayfanınkileri sayar; komut paletinde (⌘K) her etiket `#ad` olarak aranır.
+- Etiket listesi bağlantı dizini ile aynı okumada yapılır, en çok 4 saniye geriden gelir.
+- Henüz yok: `#` yazarken var olan etiketleri öneren menü.

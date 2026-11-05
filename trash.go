@@ -18,7 +18,7 @@ func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
 // openTrash shows the trash instead of a page.
 func (a *app) openTrash() {
 	a.flush()
-	a.trashOpen, a.coll = true, nil
+	a.trashOpen, a.coll, a.tag = true, nil, ""
 	a.loadTrash()
 	a.visit()
 }

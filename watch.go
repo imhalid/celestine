@@ -213,7 +213,7 @@ func (a *app) reloadLibrary() {
 		return
 	}
 	a.doc = nil
-	if pageDir != "" && a.coll == nil && !a.trashOpen { // the open page is gone: its collection, or the first
+	if pageDir != "" && !a.noPage() { // the open page is gone: its collection, or the first
 		for _, c := range a.lib.Collections {
 			a.openCollection(c)
 			break

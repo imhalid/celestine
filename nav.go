@@ -14,6 +14,8 @@ func (a *app) here() place {
 	switch {
 	case a.trashOpen:
 		return place{kind: "trash"}
+	case a.tag != "":
+		return place{"tag", a.tag}
 	case a.coll != nil:
 		return place{"coll", a.coll.Dir}
 	case a.page != nil:
@@ -58,6 +60,13 @@ func (a *app) goTo(p place) bool {
 	defer func() { a.going = false }()
 	if p.kind == "trash" {
 		a.openTrash()
+		return true
+	}
+	if p.kind == "tag" {
+		if len(a.tagPages(p.dir)) == 0 {
+			return false
+		}
+		a.openTag(p.dir)
 		return true
 	}
 	for _, c := range a.lib.Collections {

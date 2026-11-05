@@ -27,5 +27,6 @@ var (
 	iconBoard       = icon(`<rect x="4" y="4.5" width="4.6" height="15" rx="1.4"/><rect x="9.7" y="4.5" width="4.6" height="9" rx="1.4"/><rect x="15.4" y="4.5" width="4.6" height="12" rx="1.4"/>`)
 	iconCheck       = icon(`<path d="m5.5 12.5 4.2 4.2 8.8-9.4"/>`)
 	iconImage       = icon(`<rect x="4.5" y="5.5" width="15" height="13" rx="2.5"/><circle cx="9.5" cy="10.2" r="1.4"/><path d="m5 17 4.5-4.2 3 2.8 2.5-2.3L19.5 17"/>`)
+	iconTag         = icon(`<path d="M9.5 4.5 7.8 19.5M16.2 4.5 14.5 19.5M5 9h14.5M4.5 15h14.5"/>`)
 	iconSearch      = icon(`<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>`)
 )

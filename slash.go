@@ -624,7 +624,7 @@ var viewTitle = map[string]string{"format": "Satırı biçimlendir", "insert": "
 // slashView is the menu under the caret.
 func (a *app) slashView(c *ui.Context) {
 	s := &a.slash
-	if !s.open || a.doc == nil || a.coll != nil || a.trashOpen {
+	if !s.open || a.doc == nil || a.noPage() {
 		return
 	}
 	if c.Shortcut(0, ui.KeyEscape) {

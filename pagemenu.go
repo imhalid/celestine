@@ -17,7 +17,7 @@ var iconExport = icon(`<path d="M12 4.5v10M8 8.5l4-4 4 4"/><path d="M5 14.5v3a2 
 
 // pageMoreButton is the "…" at the window's top right.
 func (a *app) pageMoreButton(c *ui.Context) {
-	if a.page == nil || a.coll != nil || a.trashOpen {
+	if a.page == nil || a.noPage() {
 		return
 	}
 	tb := c.TitleBar()

@@ -26,7 +26,7 @@ type finder struct {
 }
 
 func (a *app) openFind() {
-	if a.page == nil || a.coll != nil || a.trashOpen || a.doc == nil {
+	if a.page == nil || a.noPage() || a.doc == nil {
 		return
 	}
 	f := &a.find
