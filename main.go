@@ -172,7 +172,10 @@ type app struct {
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
 	clipImage     func() []byte             // the clipboard's picture; the system's when nil
-	imgOnClip     atomic.Bool               // a picture, and no text, is on the clipboard
+	outlineOf     []heading                 // the page's headings, for the side panel
+	outlineVer    uint64
+	outlineDoc    *richtext.Document
+	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
 	settingsOpen  bool
 	mcpServer     *http.Server
 	mcpErr        string
@@ -399,6 +402,9 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyBackslash) {
 			a.toggleSidebar()
 		}
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash) {
+			a.togglePanel()
+		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
 			a.setCaret((a.caretKind + 1) % 2)
 		}
@@ -472,6 +478,7 @@ func (a *app) view(c *ui.Context) {
 			a.status(c)
 			a.keepTree()
 		})
+		a.sidePanel(c)
 		a.sidebarButton(c)
 		a.pageMoreButton(c)
 	})

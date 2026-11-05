@@ -72,3 +72,9 @@ Copy Transclusion (satırı başka yere canlı gömmek için).
 4. **Katlama** ve **zoom in** ağaçtan bedavaya gelir.
 5. **Bloklar** (callout, sütunlar, kod) ilk sürümde: kod bloğu ve callout. Sütunlar sonra.
 6. **Sanallaştırma**: satır yükseklikleri önbellekte, yalnız görünenler çizilir; 10.000 satırlık bir belge de akıcı olmalı.
+
+## Yan panel (Kasım 2026)
+
+Pencerenin sağ üstündeki panel düğmesi ya da ⇧⌘\ ile açılır, kapanışı hatırlanır (`panelOpen`). Üç bölüm: **İçindekiler**
+(sayfanın başlıkları, tıklayınca imleç oraya gider), **Bağlananlar** (bu sayfaya `[[…]]` ile bağlanan sayfalar) ve **Bilgi**
+(koleksiyon, oluşturulma ve değişme zamanı, kelime ve harf sayısı, alt/üst sayfa). Koleksiyon ve çöp görünümünde kapalı durur.

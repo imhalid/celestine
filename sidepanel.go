@@ -1,0 +1,180 @@
+package main
+
+import (
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
+	ryugo "github.com/imhalid/ryu-go"
+)
+
+// The side panel, at the window's right while a page is open: its outline,
+// the pages that link to it, and what there is to know of it. It slides in as
+// the sidebar does, and stays as it was left.
+
+const panelW = 280
+
+var (
+	iconPanel   = icon(`<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M14.5 4.5v15"/>`)
+	iconOutline = icon(`<path d="M5 6.5h14M8 11h11M11 15.5h8M11 20h5"/>`)
+)
+
+func (a *app) togglePanel() {
+	a.settings.PanelOpen = !a.settings.PanelOpen
+	a.saveSettings()
+}
+
+// heading is a line of the outline: where it is, how deep, what it says.
+type heading struct {
+	at, level int
+	text      string
+}
+
+// outline is the headings of the page's text, in order.
+func (a *app) outline() []heading {
+	if a.doc == nil {
+		return nil
+	}
+	if v := a.doc.Version(); v != a.outlineVer || a.outlineDoc != a.doc {
+		a.outlineOf, a.outlineVer, a.outlineDoc = nil, v, a.doc
+		t := a.doc.Text()
+		pos := 0
+		for _, ln := range strings.Split(t.String(), "\n") {
+			n := utf8.RuneCountInString(ln)
+			if st := t.ParagraphStyleAt(min(pos, max(t.Len()-1, 0))); st.Heading > 0 && strings.TrimSpace(ln) != "" {
+				a.outlineOf = append(a.outlineOf, heading{pos, st.Heading, strings.TrimSpace(strings.ReplaceAll(ln, string(richtext.ObjectReplacement), ""))})
+			}
+			pos += n + 1
+		}
+	}
+	return a.outlineOf
+}
+
+// gotoPos puts the caret at at and brings it into view.
+func (a *app) gotoPos(at int) {
+	a.doc.SetSelection(at, at)
+	a.revealWant, a.refocus = true, true
+}
+
+// sidePanel is the panel, as wide as it is shown.
+func (a *app) sidePanel(c *ui.Context) {
+	open := a.settings.PanelOpen && a.page != nil && a.coll == nil && !a.trashOpen
+	t := c.Theme()
+	cl := ryugo.From(c).Colors
+	box := ui.Column(c.Key("side-panel")).Background(t.Surface).Clip()
+	w := box.AnimateTo("width", map[bool]float32{true: panelW, false: 0}[open], springSheet)
+	box.Width(w)
+	if w < 0.5 && !open {
+		box.Hidden(true)
+		return
+	}
+	if a.page == nil {
+		return
+	}
+	p := a.page
+	tb := c.TitleBar()
+	box.Children(func() {
+		ui.Column(c).Width(panelW).Grow(1).Children(func() {
+			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
+			ui.Scroll(c.Key("panel-scroll")).Grow(1).Children(func() {
+				ui.Column(c).FillWidth().Padding(2, 14, 20, 14).Gap(18).Children(func() {
+					a.panelOutline(c, cl)
+					a.panelLinks(c, cl, p)
+					a.panelInfo(c, cl, p)
+				})
+			})
+		})
+	})
+}
+
+// panelTitle is a section's heading.
+func panelTitle(c *ui.Context, cl ryugo.Colors, s string) {
+	ui.Text(c, s).FontSize(11).FontWeight(650).TextColor(cl.Muted).Padding(0, 6, 2, 6)
+}
+
+func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
+	ui.Column(c.Key("panel-outline")).FillWidth().Gap(1).Children(func() {
+		panelTitle(c, cl, "İÇİNDEKİLER")
+		hs := a.outline()
+		if len(hs) == 0 {
+			ui.Text(c, "Sayfada başlık yok. # ile başlık yaz.").FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			return
+		}
+		least := 6
+		for _, h := range hs {
+			least = min(least, h.level)
+		}
+		for i, h := range hs {
+			h := h
+			row := ui.Row(c.Key("ol:"+strconv.Itoa(i))).FillWidth().Height(28).Padding(0, 6, 0, 6+float32(h.level-least)*12).AlignItems(ui.Center).
+				Radius(7).Label("Başlık: " + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			if row.Hovered() {
+				row.Background(cl.Fill)
+			}
+			row.Children(func() {
+				ui.Text(c, h.text).FontSize(13).FontWeight(map[bool]int{true: 620, false: 450}[h.level == least]).
+					TextColor(map[bool]ui.Color{true: cl.Text, false: cl.Text2}[h.level == least]).MaxLines(1)
+			})
+			if row.Clicked() {
+				a.gotoPos(h.at)
+			}
+		}
+	})
+}
+
+func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
+	links := a.linksTo(p, a.clock(), false)
+	ui.Column(c.Key("panel-links")).FillWidth().Gap(1).Children(func() {
+		panelTitle(c, cl, "BAĞLANANLAR")
+		if len(links) == 0 {
+			ui.Text(c, "Bu sayfaya bağlanan yok. [[ ile bağlantı kur.").FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			return
+		}
+		for _, q := range links {
+			q := q
+			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(7).Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			if row.Hovered() {
+				row.Background(cl.Fill)
+			}
+			a.contextOn(row, func() []menuItem { return a.pageMenu(q, false) })
+			row.Children(func() {
+				ui.Text(c, q.Title).FontSize(13).TextColor(cl.Text).MaxLines(1)
+				ui.Text(c, q.Coll.Name).FontSize(11.5).TextColor(cl.Muted).MaxLines(1)
+			})
+			if row.Clicked() {
+				a.open(q)
+			}
+		}
+	})
+}
+
+func (a *app) panelInfo(c *ui.Context, cl ryugo.Colors, p *Page) {
+	words, chars := a.docStats()
+	rows := [][2]string{
+		{"Koleksiyon", p.Coll.Name},
+		{"Oluşturuldu", shortDate(p.Created)},
+		{"Değiştirildi", ago(p.Modified, a.clock())},
+		{"Kelime", strconv.Itoa(words)},
+		{"Harf", strconv.Itoa(chars)},
+	}
+	if n := len(p.Children); n > 0 {
+		rows = append(rows, [2]string{"Alt sayfa", strconv.Itoa(n)})
+	}
+	if p.Parent != nil {
+		rows = append(rows, [2]string{"Üst sayfa", p.Parent.Title})
+	}
+	ui.Column(c.Key("panel-info")).FillWidth().Gap(1).Children(func() {
+		panelTitle(c, cl, "BİLGİ")
+		for _, r := range rows {
+			if r[1] == "" {
+				continue
+			}
+			ui.Row(c.Key("pi:"+r[0])).FillWidth().Padding(4, 6).Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, r[0]).FontSize(12.5).TextColor(cl.Muted).Shrink(0)
+				ui.Text(c, r[1]).FontSize(12.5).TextColor(cl.Text2).Grow(1).MaxLines(1).TextAlign(ui.End)
+			})
+		}
+	})
+}

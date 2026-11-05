@@ -23,7 +23,10 @@ func (a *app) pageMoreButton(c *ui.Context) {
 	tb := c.TitleBar()
 	h := max(tb.Height, barH)
 	row := ui.Row(c.Key("page-more")).Absolute().Right(tb.Right + 12).Top((h - 26) / 2)
-	row.Children(func() {
+	row.Gap(2).Children(func() {
+		if a.iconButton(c, iconPanel, "Yan panel (⇧⌘\\)") {
+			a.togglePanel()
+		}
 		if a.iconButton(c, iconMore, "Sayfa menüsü") {
 			ww, _ := c.Size()
 			a.showContext(ww-tb.Right-12-220, h, a.pageMoreMenu(a.page))

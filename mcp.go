@@ -48,6 +48,7 @@ type Settings struct {
 	ShowChars bool `json:"showChars,omitempty"`
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool     `json:"sidebarClosed,omitempty"`
+	PanelOpen     bool     `json:"panelOpen,omitempty"`
 	TreeSaved     bool     `json:"treeSaved,omitempty"`
 	TreeOpen      []string `json:"treeOpen,omitempty"`
 }
