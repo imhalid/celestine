@@ -73,3 +73,8 @@ koleksiyonu verir, büyüklüğü bağlantı sayısı; açık sayfanın noktası
 bir noktayı sürüklemek onu yerine sabitler (diğerleri çevresinde yeniden yerleşir), tıklamak sayfayı açar; imleç bir noktadayken onun
 komşuları ve çizgileri öne çıkar. Üstte arama (eşleşen noktalar parlar), "Bağlantısız sayfalar" anahtarı (kapalıyken hiçbir yere
 bağlı olmayanlar çizilmez) ve "Yeniden düzenle". En çok bağlantılı 700 sayfa çizilir.
+
+Grafik, koleksiyonlara göre kümelenir: her koleksiyon kendi yuvarlağı içinde, adı ve sayfa sayısı üstünde; koleksiyonlar arası bağlantılar
+yuvarlakları birbirine yaklaştırır ve ayrı renkle çizilir. Üç tür çizgi vardır, her biri üstteki düğmeden kapatılır: **`[[bağlantı]]`**
+(mavi), **metinde adı geçen** (bir sayfanın metni başka bir sayfanın başlığını, en az 8 harflik, olduğu gibi içerir; `Biological Neural
+Networks` gibi; mor) ve **alt sayfa** (üst sayfa ile altındaki; gri). Altta koleksiyon rozetleri: birine tıklamak koleksiyonu grafikten çıkarır.

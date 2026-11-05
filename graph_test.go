@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -26,7 +27,7 @@ func TestGraph(t *testing.T) {
 		tt.Advance(32 * time.Millisecond)
 	}
 	g := &a.graph
-	if !a.graphOpen || len(g.nodes) != 3 || len(g.edges) != 3 {
+	if !a.graphOpen || len(g.nodes) != 3 || len(g.edges) != 2 {
 		t.Fatalf("graph: open %v, %d points, %d lines", a.graphOpen, len(g.nodes), len(g.edges))
 	}
 	if g.iter < 320 {
@@ -77,5 +78,55 @@ func TestGraph(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if len(g.nodes) != 3 {
 		t.Fatalf("the lone page is in: %d", len(g.nodes))
+	}
+}
+
+// TestGraphKinds: a page's sub-page and a page that names another by its
+// title are lines too, each kind to be put out; the points keep to their
+// collections' rounds.
+func TestGraphKinds(t *testing.T) {
+	a, tt := newTestApp(t, "Burada Uzun Başlıklı Sayfa diye bir şeyden söz edilir\n")
+	tt.SetSize(1200, 800)
+	other, _ := a.lib.NewCollection("Öteki")
+	big, _ := other.NewPage(nil, "Uzun Başlıklı Sayfa")
+	big.Save("içerik\n")
+	other.SubPages = true
+	sub, _ := other.NewPage(big, "Çocuk")
+	sub.Save("alt\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	a.openGraph()
+	for i := 0; i < 40; i++ {
+		tt.Advance(32 * time.Millisecond)
+	}
+	g := &a.graph
+	kinds := map[int]int{}
+	for _, e := range g.edges {
+		kinds[e.kind]++
+	}
+	if kinds[edgeMention] != 1 || kinds[edgeTree] != 1 || kinds[edgeLink] != 0 {
+		t.Fatalf("lines: %v", kinds)
+	}
+	if len(g.groups) != 2 {
+		t.Fatalf("groups: %d", len(g.groups))
+	}
+	for _, n := range g.nodes {
+		gr := g.groups[n.group]
+		if d := math.Hypot(n.x-gr.cx, n.y-gr.cy); d > groupR(gr.n)+1 {
+			t.Fatalf("%s is %.0f from its center, past %.0f", n.page.Title, d, groupR(gr.n))
+		}
+	}
+	// the kind put out
+	g.kinds[edgeMention] = false
+	g.builtAt = time.Time{}
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	kinds = map[int]int{}
+	for _, e := range g.edges {
+		kinds[e.kind]++
+	}
+	if kinds[edgeMention] != 0 || kinds[edgeTree] != 1 {
+		t.Fatalf("after: %v", kinds)
 	}
 }
