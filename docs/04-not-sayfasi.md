@@ -103,3 +103,6 @@ Sayfa menüsü ▸ "Kapak resmi ekle…" ya da başlığın altındaki "Kapak ek
 bant (232 px; resim kırpılarak sığar, altına doğru kararır) ve başlık beyaz olarak onun üstünde durur; özellikler ve metin bandın
 altından başlar. Resim sayfanın klasöründe `kapak-….png` dosyasıdır ve sayfanın ön maddesinde `cover: kapak-….png` olarak
 durur; değiştirilince eski dosya silinir. İmleç bandın üstündeyken sağ üstte "Kapağı değiştir" ve "Kapağı kaldır" düğmeleri çıkar.
+
+Kapağı olan sayfanın koleksiyon görünümlerinde de resmi görünür: panoda kartın üstünde 84 px'lik bir şerit, listede satırın sağında
+küçük bir resim.

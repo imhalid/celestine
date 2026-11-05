@@ -151,3 +151,22 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 func decodeCheck(data []byte) (ui.ImageSource, error) { return ui.DecodeImage(data) }
 
 func readFile(name string) ([]byte, error) { return os.ReadFile(name) }
+
+// coverThumb is the cover of p as a small picture, cropped to w by h, or
+// nothing when the page has none (or the file is gone).
+func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
+	if p.Cover == "" {
+		return
+	}
+	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
+	if src == nil {
+		return
+	}
+	box := ui.Box(c.Key("thumb:" + p.Dir)).Height(h).Radius(radius).Clip().Shrink(0)
+	if w > 0 {
+		box.Width(w)
+	} else {
+		box.FillWidth()
+	}
+	box.Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, radius, func() { pt.Image(src, r, ui.Cover) }) })
+}

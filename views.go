@@ -313,6 +313,10 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 				}
 			})
+			if p.Cover != "" {
+				ui.Box(c.Key("thumb-gap")).Width(12).Height(1).Shrink(0)
+				a.coverThumb(c, p, 72, 52, 8)
+			}
 		})
 		if a.bulkRowClicked(p, row.Clicked()) {
 			// chosen, not opened
@@ -547,6 +551,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 						for _, p := range col {
 							p := p
 							card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
+								a.coverThumb(c, p, 0, 84, 8)                                           // its cover, across the top
 								ui.Box(c).FillWidth().Height(3).Radius(2).Background(tone.Alpha(0.75)) // its column's color
 								ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
 								if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && focus == id {

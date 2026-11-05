@@ -69,3 +69,40 @@ func TestCover(t *testing.T) {
 		t.Fatalf("menu: %v", titles)
 	}
 }
+
+// TestCoverOnCards: a page with a cover has it as a picture on its card and its row.
+func TestCoverOnCards(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Bitti"})
+	var dune *Page
+	for _, p := range coll.All() {
+		if p.Title == "Dune" {
+			dune = p
+		}
+	}
+	if err := a.setCover(dune, pngBytes(400, 200)); err != nil {
+		t.Fatal(err)
+	}
+	tt.SetSize(1200, 800)
+	tt.Frame()
+	tt.Advance(time.Second)
+	for _, view := range []string{"Liste", "Pano"} {
+		if err := tt.Click(view); err != nil {
+			t.Fatal(err)
+		}
+		tt.Advance(time.Second)
+		px := 0
+		img := tt.Image()
+		// the picture's own colors (blue and green ramps) are nowhere else on the page
+		for y := 0; y < img.Bounds().Dy(); y += 2 {
+			for x := 252; x < img.Bounds().Dx(); x += 2 {
+				if r, g, b, _ := img.At(x, y).RGBA(); b>>8 > 190 && r>>8 < 120 && g>>8 < 120 {
+					px++
+				}
+			}
+		}
+		if px < 40 {
+			t.Fatalf("%s: no picture drawn (%d px)", view, px)
+		}
+	}
+}
