@@ -104,12 +104,33 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
     ölçtüğü), kelime sayısı, harf sayısı, satır/sütun, kaydetme durumu, caret adı, kullanılabilecek kısayollar
     (bağlama göre: editördeyken biçim kısayolları, tabloda sıralama…), MCP. *(D)*
 
+## `/` ve `@` menüsü üzerine (5 Kasım 2026, ilk sürümü kullandıktan sonra)
+
+24. **`/` ile `@` aynı menü olmalı.** Thymer'de ikisi tek bir öneri menüsünü açar ("this menu is @"). Ben ikisini
+    ayırdım: `/` yalnız blok türlerini, `@` yalnız sayfa, tarih ve özellikleri gösteriyor. Yanlış: hangisiyle
+    açılırsa açılsın aynı içerik gelmeli. Önerilen düzen ([18](#editör-menüleri)'deki gibi):
+    - **Öneriler:** Görev, Başlık 1, Başlık 2, Madde listesi;
+    - **Satırı biçimlendir…** (başlıklar, listeler, alıntılar, kod, ayırıcı) →
+    - **Ekle…** (bloklar, sorgular, görseller) →
+    - **Kişi an** →, **Tarih ya da saat** →, **Görev durumu** →, **Özellik** →, **Bağlantı…** (sayfalar,
+      koleksiyonlar) → — `→` olanlar alt menü açar.
+    - Yazınca hepsinin içinde birlikte aranır (sayfa adları, blok türleri, tarihler, özellik değerleri).
+    - `/` satırın neresinde yazılırsa yazılsın açılabilmeli, `@` gibi (kelime başında).
+25. **Menü pencereden taşmasın.** Sayfanın altında açılınca menünün alt kısmı pencerenin dışında kalıyor. Altında
+    yer yoksa caret'in üstünde açılmalı, en fazla yüksekliği pencereye göre sınırlanıp içi kaymalı; sağ kenara
+    yakınsa sola kaymalı.
+26. **Satırlarda Markdown işareti olmasın.** Öğelerin sağındaki `#`, `##`, `-`, `[]`, `` ``` `` gibi ipuçları
+    gereksiz; kaldırılacak (gerekirse yerine kısayol: ⌘⌥1 gibi).
+27. **Sayfa satırında ad önce gelsin.** "test…  MCP Deneme › Ajandan merh…" gibi: sayfanın adı kesiliyor, yanındaki
+    yol yer kaplıyor. Ad tam görünmeli; yol (koleksiyon ve üst sayfa) kısa, soluk ve gerekirse ikinci satırda ya
+    da hiç olmamalı.
+
 ---
 
 ## Önerilen sıra
 
 1. **Hemen (küçükler):** 1, 2, 3, 4, 5, 22.
 2. **Aşama A'yı tamamla:** 10 (koleksiyon ayarları) ve içine 8, 9, 11, 13, 14; sonra 6, 7.
-3. **Aşama B (bloklar)** ile birlikte 18, 19, 20.
+3. **Aşama B (bloklar)** ile birlikte 18, 19, 20; menünün düzeltmeleri 24–27.
 4. **Ayarlar ve durum çubuğu:** 21, 23.
 5. **Sonra:** 12 (dinamik koleksiyon, aramayla), 15 (banner, medyayla), 16–17 (sayfa menüsü, yan panel).
