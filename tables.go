@@ -153,8 +153,11 @@ func (a *app) tableActive(tb tableBlock) bool {
 // drawTables draws the tables in view over their lines, those the caret is
 // not in.
 func (a *app) drawTables(p *ui.Painter, r ui.Rect) {
-	a.tableHits = a.tableHits[:0]
-	defer func() { a.tableSeen = append(a.tableSeen[:0], a.tableHits...) }() // what the last drawing drew
+	a.tableHits, a.borderHits = a.tableHits[:0], a.borderHits[:0]
+	defer func() { // what the last drawing drew
+		a.tableSeen = append(a.tableSeen[:0], a.tableHits...)
+		a.borderSeen = append(a.borderSeen[:0], a.borderHits...)
+	}()
 	if a.doc == nil {
 		return
 	}
@@ -199,27 +202,129 @@ func (a *app) drawTables(p *ui.Painter, r ui.Rect) {
 	}
 }
 
+// dashUnit is how wide a dash of the separator line makes a column, when the
+// line has other than the three dashes of "---": a resized column keeps its
+// width in the file, in its dashes, as any other tool leaves them.
+const dashUnit = 8
+
+// colHint is the width the separator line gives column c, or 0 for none.
+func (tb tableBlock) colHint(c int) float32 {
+	if len(tb.cells) < 2 || c >= len(tb.cells[1]) {
+		return 0
+	}
+	n := strings.Count(tb.cells[1][c], "-")
+	if n == 3 || n == 0 {
+		return 0
+	}
+	return float32(n * dashUnit)
+}
+
+// cellSpans are the spans of a cell: its Markdown as it reads - bold,
+// italic, code, strikethrough, links, [[pages]] and #tags.
+func (a *app) cellSpans(md string, size float32, weight int, th *ui.Theme, accent ui.Color) []ui.Span {
+	var spans []ui.Span
+	add := func(text string, at richtext.Attributes, accented bool) {
+		sp := ui.Span{Text: text, Size: size, Weight: weight, Color: th.Text}
+		if at.Weight >= 600 {
+			sp.Weight = 700
+		}
+		sp.Italic, sp.Strikethrough = at.Italic, at.Strikethrough
+		if at.Code {
+			sp.Font, sp.Background, sp.Radius = "monospace", th.Text.Alpha(0.09), 4
+		}
+		if at.Link != "" || accented {
+			sp.Color = accent
+			sp.Underline = at.Link != ""
+		}
+		spans = append(spans, sp)
+	}
+	pos := 0
+	segment := func(seg string) {
+		if seg == "" {
+			return
+		}
+		// the parser trims a text; the spaces at its ends are kept here
+		lead, trail := len(seg)-len(strings.TrimLeft(seg, " ")), len(seg)-len(strings.TrimRight(seg, " "))
+		if lead == len(seg) {
+			add(seg, richtext.Attributes{}, false)
+			return
+		}
+		if lead > 0 {
+			add(seg[:lead], richtext.Attributes{}, false)
+		}
+		if trail > 0 {
+			defer add(seg[len(seg)-trail:], richtext.Attributes{}, false)
+		}
+		seg = strings.TrimSpace(seg)
+		for _, r := range richtext.ParseMarkdown(seg).Runs(0, richtext.ParseMarkdown(seg).Len()) {
+			text := r.Text
+			if r.Attributes.Code {
+				add(text, r.Attributes, false)
+				continue
+			}
+			at := 0
+			for _, m := range tagWord.FindAllStringSubmatchIndex(text, -1) {
+				if m[4]-1 > at {
+					add(text[at:m[4]-1], r.Attributes, false)
+				}
+				add(text[m[4]-1:m[5]], r.Attributes, true)
+				at = m[5]
+			}
+			if at < len(text) {
+				add(text[at:], r.Attributes, false)
+			}
+		}
+	}
+	for _, m := range wikiInText.FindAllStringSubmatchIndex(md, -1) {
+		segment(md[pos:m[0]])
+		inside := md[m[2]:m[3]]
+		target, alias, _ := strings.Cut(inside, "|")
+		label := strings.TrimSpace(alias)
+		if label == "" {
+			label = strings.TrimSpace(target)
+		}
+		add(label, richtext.Attributes{}, true)
+		pos = m[1]
+	}
+	segment(md[pos:])
+	if len(spans) == 0 {
+		spans = []ui.Span{{Text: " ", Size: size, Weight: weight, Color: th.Text}}
+	}
+	return spans
+}
+
+// colBorder is the line between two columns, where it can be dragged.
+type colBorder struct {
+	r     ui.Rect
+	start int // the table
+	col   int // the column on its left
+	w     float32
+}
+
 func (a *app) drawTable(p *ui.Painter, r ui.Rect, tb tableBlock, boxes []richtext.ParagraphBox, th *ui.Theme, cl ryugo.Colors) {
 	size := a.fontSize() * 0.95
 	const padX = 12
-	span := func(s string, w int, color ui.Color) ui.Span {
-		return ui.Span{Text: s, Size: size, Weight: w, Color: color}
-	}
-	// the columns are as wide as their widest cell
+	// the columns are as wide as their widest cell, or as the dashes say
 	cw := make([]float32, tb.ncols)
-	for line, row := range tb.cells {
-		if line == 1 {
+	for c := 0; c < tb.ncols; c++ {
+		if h := tb.colHint(c); h > 0 {
+			cw[c] = h
 			continue
 		}
-		for c := 0; c < tb.ncols; c++ {
-			w, _ := p.MeasureText(4000, span(strings.TrimSpace(tb.cellAt(line, c)), map[bool]int{true: 650, false: 400}[line == 0], th.Text))
+		for line := range tb.cells {
+			if line == 1 {
+				continue
+			}
+			w, _ := p.MeasureText(4000, a.cellSpans(tb.cellAt(line, c), size, map[bool]int{true: 650, false: 400}[line == 0], th, cl.Accent)...)
 			cw[c] = max(cw[c], w+2*padX)
 		}
-		_ = row
+		cw[c] = max(cw[c], 72)
+	}
+	if live, ok := a.colLive[tb.start]; ok && a.colDrag.active { // being dragged
+		cw[live.col] = max(live.w, 36)
 	}
 	total := float32(0)
 	for c := range cw {
-		cw[c] = max(cw[c], 72)
 		total += cw[c]
 	}
 	if total > r.W {
@@ -249,11 +354,15 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, tb tableBlock, boxes []richtex
 		y := r.Y + boxes[i].Top + boxes[i].Height + (boxes[i+1].Top-boxes[i].Top-boxes[i].Height)/2
 		p.Fill(ui.Rect{X: inner.X, Y: y, W: inner.W, H: 1}, th.Border.Alpha(0.6), 0)
 	}
-	// and the columns'
+	// and the columns': each a border to be dragged
 	x := box.X
-	for c := 0; c < tb.ncols-1; c++ {
+	for c := 0; c < tb.ncols; c++ {
 		x += cw[c]
-		p.Fill(ui.Rect{X: x, Y: inner.Y + 1, W: 1, H: inner.H - 2}, th.Border.Alpha(0.5), 0)
+		if c < tb.ncols-1 {
+			hot := a.colDrag.active && a.colDrag.start == tb.start && a.colDrag.col == c || a.hoverBorder == (borderKey{tb.start + 1, c})
+			p.Fill(ui.Rect{X: x, Y: inner.Y + 1, W: map[bool]float32{true: 2, false: 1}[hot], H: inner.H - 2}, map[bool]ui.Color{true: cl.Accent, false: th.Border.Alpha(0.5)}[hot], 0)
+		}
+		a.borderHits = append(a.borderHits, colBorder{ui.Rect{X: x - 4, Y: box.Y, W: 8, H: box.H}, tb.start, c, cw[c]})
 	}
 	// the cells
 	for line := range tb.cells {
@@ -267,8 +376,8 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, tb tableBlock, boxes []richtex
 		x := box.X
 		for c := 0; c < tb.ncols; c++ {
 			cell := ui.Rect{X: x, Y: rowTop, W: cw[c], H: rowBot - rowTop}
-			s := span(tb.cellAt(line, c), map[bool]int{true: 650, false: 400}[line == 0], th.Text)
-			tw, tH := p.MeasureText(max(cell.W-2*padX, 8), s)
+			spans := a.cellSpans(tb.cellAt(line, c), size, map[bool]int{true: 650, false: 400}[line == 0], th, cl.Accent)
+			tw, tH := p.MeasureText(max(cell.W-2*padX, 8), spans...)
 			tx := cell.X + padX
 			switch tb.aligns[c] {
 			case 1:
@@ -276,11 +385,55 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, tb tableBlock, boxes []richtex
 			case 2:
 				tx = cell.X + cell.W - padX - tw
 			}
-			p.Clip(cell, 0, func() { p.RichText(tx, cell.Y+max(0, (cell.H-tH)/2), max(cell.W-2*padX, 8)+1, s) })
+			p.Clip(cell, 0, func() { p.RichText(tx, cell.Y+max(0, (cell.H-tH)/2), max(cell.W-2*padX, 8)+1, spans...) })
 			a.tableHits = append(a.tableHits, tableHit{cell, tb.start, line, c})
 			x += cw[c]
 		}
 	}
+}
+
+// borderKey names a border: a table (its start, and one more, so that the
+// zero is none), and the column to its left.
+type borderKey struct{ start, col int }
+
+// colDragState is a column being resized.
+type colDragState struct {
+	active     bool
+	start, col int
+	w0, dx     float32
+}
+
+// borderAt is the border at (x, y) of the window, as the last frame drew it.
+func (a *app) borderAt(x, y float32) *colBorder {
+	for i := range a.borderSeen {
+		b := &a.borderSeen[i]
+		if x >= b.r.X && x < b.r.X+b.r.W && y >= b.r.Y && y < b.r.Y+b.r.H {
+			return b
+		}
+	}
+	return nil
+}
+
+// widenColumn writes the width of column col as dashes in the separator line.
+func (a *app) widenColumn(start, col int, w float32) {
+	tb, ok := tableBlockAt(a.doc.Text(), start)
+	if !ok {
+		return
+	}
+	row := a.paddedRow(tb, 1)
+	n := max(4, int(w/dashUnit+0.5))
+	if n == 3 {
+		n = 4
+	}
+	cell := strings.Repeat("-", n)
+	switch tb.aligns[col] {
+	case 1:
+		cell = ":" + cell + ":"
+	case 2:
+		cell += ":"
+	}
+	row[col] = cell
+	a.setLine(tb, 1, joinCells(row))
 }
 
 // tableCellAt is the cell at (x, y) of the window, as the last frame drew it.
@@ -549,3 +702,42 @@ var (
 	iconRowDel = icon(`<rect x="4.5" y="4.5" width="15" height="7" rx="2"/><path d="M9.5 17.5h5"/>`)
 	iconColDel = icon(`<rect x="4.5" y="4.5" width="7" height="15" rx="2"/><path d="M15.5 12h4"/>`)
 )
+
+// dragColumns follows the pointer over the borders of the tables: the cursor
+// there, and a drag of one, which resizes its column and, let go, writes the
+// width into the table's dashes.
+func (a *app) dragColumns(ed ui.Element) {
+	a.hoverBorder = borderKey{}
+	x, y, over := ed.PointerPosition()
+	px, py := a.editorR.X+x, a.editorR.Y+y
+	if over && !a.colDrag.active {
+		if b := a.borderAt(px, py); b != nil {
+			a.hoverBorder = borderKey{b.start + 1, b.col}
+			ed.Cursor(ui.CursorResizeEW)
+			if a.edPressed {
+				a.colDrag = colDragState{active: true, start: b.start, col: b.col, w0: b.w}
+				a.tableKeep = b.start + 1
+			}
+		}
+	}
+	if !a.colDrag.active {
+		return
+	}
+	ed.Cursor(ui.CursorResizeEW)
+	if dx, _, ok := ed.Dragged(); ok {
+		a.colDrag.dx += dx
+	}
+	d := a.colDrag
+	if a.colLive == nil {
+		a.colLive = map[int]colBorder{}
+	}
+	a.colLive[d.start] = colBorder{start: d.start, col: d.col, w: d.w0 + d.dx}
+	if !a.edPressed { // let go
+		a.colDrag = colDragState{}
+		delete(a.colLive, d.start)
+		if d.dx != 0 {
+			a.widenColumn(d.start, d.col, max(d.w0+d.dx, 36))
+		}
+		a.doc.SetSelection(a.selPrevA, a.selPrevC)
+	}
+}

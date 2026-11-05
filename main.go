@@ -135,7 +135,12 @@ type app struct {
 	picSeen       []picHit
 	tableHits     []tableHit // the cells of the tables drawn this frame, and the last frame's (tables.go)
 	tableSeen     []tableHit
-	tableKeep     int // the table the pointer is pressed in: it stays drawn as a table
+	borderHits    []colBorder // the borders between columns, drawn and seen
+	borderSeen    []colBorder
+	hoverBorder   borderKey
+	colDrag       colDragState
+	colLive       map[int]colBorder // the column being dragged, by its table
+	tableKeep     int               // the table the pointer is pressed in: it stays drawn as a table
 	cellEd        cellEdit
 	selPrevA      int // the selection before a pointer went down in the editor
 	selPrevC      int
@@ -674,6 +679,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	for _, f := range ed.DroppedFiles() { // pictures dropped on the text
 		a.addImageFile(f)
 	}
+	a.dragColumns(ed)
 	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
 		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {

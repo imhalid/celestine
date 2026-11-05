@@ -75,3 +75,11 @@ yapar (caret metinde kalır): Enter yazar, Tab sonraki hücreye geçer (son hüc
 Esc vazgeçer. Kutunun altındaki düğmeler: alta satır ekle, sağa sütun ekle, satırı sil, sütunu sil, Markdown olarak düzenle.
 Caret tablonun satırlarına girince (ok tuşlarıyla, ya da Markdown düğmesiyle) satırlar Markdown olarak görünür ve öyle düzenlenir.
 `/` ▸ Ekle… ▸ Tablo yeni tabloyu çizili koyar, ilk hücresi yazılmaya hazırdır.
+
+Tabloda sonradan: hücrelerde Markdown **biçimi çizilir** (kalın, italik, üstü çizili, `kod`, bağlantılar, `[[sayfalar]]` ve `#etiketler`
+accent renginde); sütun çizgisi **sürüklenerek** genişletilir: bırakınca genişlik ayırıcı satıra tire sayısı olarak yazılır
+(`| --- | ------------ |`; 3 tire = kendiliğinden, başka sayı = tire × 8 px), yani başka araçlar tabloyu bozulmadan okur. Hizalar (`:---:`, `---:`) korunur.
+
+Metne sağ tık menüsü hâlâ yok: MyGo'nun editörü kendi bağlam menüsünü boş kurup tıklamayı kendi alıyor, uygulama araya giremiyor
+(`EditorOptions.ContextMenu` gibi bir kanca MyGo'ya eklenmeli). Satırın bloğa dönüşümü, çoğaltma ve silme sol kenardaki tutamaçtan,
+biçimler seçimde çıkan çubuktan yapılır.

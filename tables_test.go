@@ -174,3 +174,64 @@ func TestTableInserted(t *testing.T) {
 		t.Fatalf("%q", md)
 	}
 }
+
+func TestCellSpans(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	spans := a.cellSpans("**kalın** ve `kod` [[Sayfa|ad]] #etiket [bağ](http://x)", 15, 400, &ui.Theme{Text: ui.Hex("#000000")}, ui.Hex("#0000ff"))
+	var text strings.Builder
+	bold, code, accent, link := false, false, 0, false
+	for _, s := range spans {
+		text.WriteString(s.Text)
+		bold = bold || (s.Text == "kalın" && s.Weight == 700)
+		code = code || (s.Text == "kod" && s.Background != ui.Color{})
+		if s.Color == ui.Hex("#0000ff") {
+			accent++
+		}
+		link = link || (s.Text == "bağ" && s.Underline)
+	}
+	if text.String() != "kalın ve kod ad #etiket bağ" || !bold || !code || accent != 3 || !link {
+		t.Fatalf("%q bold %v code %v accent %d link %v", text.String(), bold, code, accent, link)
+	}
+}
+
+// TestTableColumnDrag: a column border is dragged; let go, its width is the
+// dashes of the separator line, as any tool leaves them.
+func TestTableColumnDrag(t *testing.T) {
+	a, tt := newTestApp(t, tableMD)
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	if len(a.borderSeen) != 2 {
+		t.Fatalf("borders: %d", len(a.borderSeen))
+	}
+	b := a.borderSeen[0]
+	x0, y0 := b.r.X+b.r.W/2, b.r.Y+b.r.H/2
+	tt.Move(x0, y0)
+	tt.Frame()
+	tt.Press(x0, y0)
+	for k := 1; k <= 8; k++ {
+		tt.Move(x0+float32(k)*10, y0)
+		tt.Frame()
+	}
+	tt.Release(x0+80, y0)
+	tt.Advance(200 * time.Millisecond)
+	md := a.pageMarkdown(a.page, a.doc.Text())
+	line := ""
+	for _, l := range strings.Split(md, "\n") {
+		if strings.Contains(l, "---") {
+			line = l
+		}
+	}
+	tb := a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
+	if tb.colHint(0) < b.w+60 || a.colDrag.active {
+		t.Fatalf("the column is %v wide in the dashes, was %v: %q", tb.colHint(0), b.w, line)
+	}
+	if an, ca := a.doc.Selection(); an != 0 || ca != 0 {
+		t.Fatalf("the caret moved: %d %d", an, ca)
+	}
+	if !strings.Contains(line, "---:") {
+		t.Fatalf("the alignment of the other column is lost: %q", line)
+	}
+}
