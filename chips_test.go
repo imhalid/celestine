@@ -88,3 +88,27 @@ func TestAtMenu(t *testing.T) {
 		t.Fatalf("made: %v", a.here())
 	}
 }
+
+// A chip is as wide as its text: sized by a letter's width taken as a constant
+// it was long at its end (narrow letters) or short of it (wide ones).
+func TestChipIsAsWideAsItsText(t *testing.T) {
+	a, _ := newTestApp(t, "x")
+	narrow := a.attachment(chipOf("illliiilllii iiilll"))
+	wide := a.attachment(chipOf("MMMWWW MMMWWW"))
+	text := func(label string) float32 {
+		w, _ := ui.ShapeRichTextWith([]ui.Span{{Text: label, Size: chipSize, Weight: 520}}, a.font, ui.TextShape{}).Size()
+		return w
+	}
+	for _, c := range []struct {
+		label string
+		got   float32
+	}{{"illliiilllii iiilll", narrow.Width}, {"MMMWWW MMMWWW", wide.Width}} {
+		tw := text(c.label)
+		if c.got < tw+2*(chipPad-1) || c.got > tw+2*chipPad+2 {
+			t.Errorf("chip %q is %v wide, its text %v: want it %v..%v", c.label, c.got, tw, tw+2*(chipPad-1), tw+2*chipPad+2)
+		}
+	}
+	if narrow.Width >= wide.Width {
+		t.Errorf("narrow letters (%v) are not narrower than wide ones (%v)", narrow.Width, wide.Width)
+	}
+}

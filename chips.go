@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,12 +57,28 @@ func (ch *chip) label() string {
 }
 
 const (
-	chipSize = 14  // its text
-	chipH    = 21  // its height
-	chipPad  = 9   // room on each side of its text
-	chipIcon = 14  // a date's calendar
-	chipEm   = .57 // a letter's width, in ems, to size it before it is drawn
+	chipSize = 14 // its text
+	chipH    = 21 // its height
+	chipPad  = 9  // room on each side of its text
+	chipIcon = 14 // a date's calendar
 )
+
+// chipTextWidth is how wide label is drawn in a chip, as the text itself measures:
+// a letter's width is not a constant, and a chip sized by one was too long at its
+// end. Kept by label: the font does not change under it.
+func (a *app) chipTextWidth(label string) float32 {
+	if w, ok := a.chipW[label]; ok {
+		return w
+	}
+	l := ui.ShapeRichTextWith([]ui.Span{{Text: label, Size: chipSize, Weight: 520}}, a.font, ui.TextShape{})
+	w, _ := l.Size()
+	w = float32(math.Ceil(float64(w)))
+	if a.chipW == nil {
+		a.chipW = map[string]float32{}
+	}
+	a.chipW[label] = w
+	return w
+}
 
 var isDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
@@ -78,7 +95,7 @@ func chipOf(inside string) *chip {
 // attachment is the chip as richtext's attachment; how it is drawn
 // depends on the app (its pages, its colors), so the app gives it.
 func (a *app) attachment(ch *chip) *richtext.Attachment {
-	w := float32(utf8.RuneCountInString(ch.label()))*chipSize*chipEm + 2*chipPad
+	w := a.chipTextWidth(ch.label()) + 2*(chipPad-1) // the text is drawn chipPad-1 in from each side
 	if ch.kind == "date" {
 		w += chipIcon + 4
 	}
