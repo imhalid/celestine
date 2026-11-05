@@ -42,6 +42,14 @@ func (a *app) pageMoreMenu(p *Page) []menuItem {
 	if p.Coll.SubPages {
 		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
 	}
+	coverTitle := "Kapak resmi ekle…"
+	if p.Cover != "" {
+		coverTitle = "Kapak resmini değiştir…"
+	}
+	out = append(out, menuItem{title: coverTitle, glyph: iconCover, run: func() { a.pickCover(p) }})
+	if p.Cover != "" {
+		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
+	}
 	if !p.Coll.Journal {
 		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
 	}

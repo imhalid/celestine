@@ -49,7 +49,7 @@ type Property struct {
 }
 
 // reserved are the front matter keys of the page itself.
-var reserved = []string{"title", "created", "order", "rank"}
+var reserved = []string{"title", "created", "order", "rank", "cover"}
 
 // Prop is the property id, or nil.
 func (c *Collection) Prop(id string) *Property {
@@ -231,6 +231,7 @@ func (c *Collection) migrate() bool {
 // readMeta takes a page's values from its front matter.
 func (p *Page) readMeta(meta map[string]string) {
 	fmt.Sscan(meta["rank"], &p.Rank)
+	p.Cover = meta["cover"]
 	p.Props = map[string]string{}
 	for k, v := range meta {
 		if !slices.Contains(reserved, k) {

@@ -170,6 +170,7 @@ type Page struct {
 	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
 	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
 	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
+	Cover    string            // the picture across its top: a file of its folder (cover.go)
 	Dir      string
 	Coll     *Collection
 	Parent   *Page
@@ -369,6 +370,7 @@ func (p *Page) Save(body string) error {
 		}
 	}
 	f.setInt("rank", p.Rank)
+	f.set("cover", p.Cover)
 	var sb strings.Builder
 	if fm := f.text(); fm != "" {
 		sb.WriteString("---\n" + fm)

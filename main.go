@@ -701,6 +701,7 @@ func (a *app) caretView(c *ui.Context) {
 
 // pageHead is the page's title and its properties.
 func (a *app) pageHead(c *ui.Context, p *Page) {
+	a.coverView(c, p)
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)

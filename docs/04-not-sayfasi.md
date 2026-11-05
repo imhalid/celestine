@@ -96,3 +96,9 @@ uzun adlar değişmez); var olan bir etiketin adı yazılırsa ikisi birleşir.
 
 Resimler: bir sayfa bu oturumda ilk kez açılırken, satırı artık hiçbir yerde geçmeyen `resim-…` dosyaları silinir (geri alma
 geçmişi yokken, böylece silinen satır geri gelirse dosya yerinde olur). Elle konan başka adlı dosyalara dokunulmaz.
+
+## Kapak resmi (Kasım 2026)
+
+Sayfa menüsü ▸ "Kapak resmi ekle…": başlığın üstüne, sütun genişliğinde 200 px yüksekliğinde bir resim (köşeleri yuvarlak,
+kırpılarak sığar). Resim sayfanın klasöründe `kapak-….png` dosyasıdır ve sayfanın ön maddesinde `cover: kapak-….png` olarak
+durur; değiştirilince eski dosya silinir. İmleç kapağın üstündeyken "Değiştir" ve "Kapağı kaldır" düğmeleri çıkar.
