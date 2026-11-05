@@ -64,3 +64,11 @@ arama görünümü açılırken dizin yenilenir, başka yerlerde en çok 4 saniy
 
 Aramada ayrıca: `"tam ifade"` (tırnak içi bütün olarak geçmeli), `başlık:kelime` (başlıkta), `koleksiyon:ad` (o koleksiyonda),
 `#etiket` ya da `etiket:ad` (o etiketi taşıyan). Hepsi birbiriyle ve düz kelimelerle birleşir.
+
+## Yinelenen görevler (Kasım 2026)
+
+Göreve `every:week` (ya da Türkçe `her:hafta`) yazmak onu yinelenen yapar: `every:day`/`gün`, `week`/`hafta`, `month`/`ay`,
+`year`/`yıl`, önüne sayı konabilir (`every:2week`, `her:3gün`). İşaretlenince (görev görünümünden, metindeki kutudan ya da MCP ile)
+bu görev yapılmış kalır (yinelenme işareti ondan kalkar), altında aynı görev açık olarak yapılır: günü, görevin kendi `[[günü]]`nden
+bir dönem sonrası (bugünü geçene dek ilerler); günü yoksa bugünden bir dönem sonrası eklenir. Görev görünümünde "↻ her hafta" yazar.
+Örnek: `- [ ] çöpü çıkar [[2026-11-05]] every:hafta` → işaretlenince `- [x] çöpü çıkar [[2026-11-05]]` ve `- [ ] çöpü çıkar [[2026-11-12]] every:hafta`.

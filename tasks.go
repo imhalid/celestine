@@ -22,11 +22,12 @@ var taskLine = regexp.MustCompile(`^(\s*)[-*+]\s+\[([ xX])\]\s*(.*?)\s*$`)
 // taskItem is a task: its page, which line of the page's Markdown, whether
 // it is done, and what it says.
 type taskItem struct {
-	page *Page
-	line int
-	done bool
-	text string
-	due  time.Time // a day named in it, as [[2026-11-10]]; zero when none
+	page  *Page
+	line  int
+	done  bool
+	text  string
+	due   time.Time // a day named in it, as [[2026-11-10]]; zero when none
+	every string    // how it comes again, as "her hafta"; "" when it does not
 }
 
 // tasksOf are the tasks in a page's Markdown, not those in code.
@@ -58,10 +59,15 @@ func tasksOf(p *Page, body string) []taskItem {
 				}
 				return target
 			})
+			every := ""
+			if r, ok := parseEvery(text); ok {
+				every = r.label()
+				text = everyTok.ReplaceAllString(text, "")
+			}
 			if text = strings.TrimSpace(text); text == "" {
 				text = strings.TrimSpace(m[3])
 			}
-			out = append(out, taskItem{p, i, m[2] != " ", text, due})
+			out = append(out, taskItem{p, i, m[2] != " ", text, due, every})
 		}
 	}
 	return out
@@ -144,7 +150,13 @@ func (a *app) toggleTask(t taskItem) {
 	if t.done {
 		mark = "[ ]"
 	}
-	lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(lines[t.line], mark)
+	if next, ok := comesAgain(lines[t.line], a.clock()); ok && !t.done {
+		// a task that comes again: this one is done, and the next is made
+		lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(everyTok.ReplaceAllString(lines[t.line], ""), "[x]")
+		lines = append(lines[:t.line+1], append([]string{next}, lines[t.line+1:]...)...)
+	} else {
+		lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(lines[t.line], mark)
+	}
 	if err := p.Save(strings.Join(lines, "\n")); err != nil {
 		a.saveErr = err.Error()
 		return
@@ -239,6 +251,9 @@ func (a *app) taskGroup(c *ui.Context, cl ryugo.Colors, tasks []taskItem) {
 					if st {
 						tx.Strikethrough()
 					}
+					if k.every != "" {
+						ui.Text(c, "↻ "+k.every).FontSize(11.5).TextColor(cl.Muted).NoWrap()
+					}
 					if !k.due.IsZero() {
 						dc := cl.Muted
 						if !k.done && k.due.Before(startOfDay(a.clock())) {
@@ -284,4 +299,119 @@ func dueMatches(k taskItem, group int, now time.Time) bool {
 		return !k.due.Before(today) && k.due.Before(end)
 	}
 	return k.due.Before(today)
+}
+
+// ---- tasks that come again ----
+
+// everyTok is how a task says it comes again: every:week, every:2week,
+// her:hafta (day gün, week hafta, month ay, year yıl).
+var everyTok = regexp.MustCompile(`(?i)\s*\b(?:every|her):(\d*)(day|week|month|year|gün|gun|hafta|ay|yıl|yil)\b`)
+
+type recur struct {
+	n    int
+	unit string // day, week, month, year
+}
+
+// parseEvery reads the recurrence a task's text says.
+func parseEvery(s string) (recur, bool) {
+	m := everyTok.FindStringSubmatch(s)
+	if m == nil {
+		return recur{}, false
+	}
+	n := 1
+	if m[1] != "" {
+		n, _ = strconv.Atoi(m[1])
+	}
+	if n < 1 {
+		n = 1
+	}
+	unit := map[string]string{"day": "day", "gün": "day", "gun": "day", "week": "week", "hafta": "week", "month": "month", "ay": "month", "year": "year", "yıl": "year", "yil": "year"}[strings.ToLower(m[2])]
+	return recur{n, unit}, true
+}
+
+// next is the day after d.
+func (r recur) next(d time.Time) time.Time {
+	switch r.unit {
+	case "week":
+		return d.AddDate(0, 0, 7*r.n)
+	case "month":
+		return d.AddDate(0, r.n, 0)
+	case "year":
+		return d.AddDate(r.n, 0, 0)
+	}
+	return d.AddDate(0, 0, r.n)
+}
+
+// label says it as the task view shows it: "her hafta", "her 2 ayda".
+func (r recur) label() string {
+	if r.n == 1 {
+		return map[string]string{"day": "her gün", "week": "her hafta", "month": "her ay", "year": "her yıl"}[r.unit]
+	}
+	return "her " + strconv.Itoa(r.n) + " " + map[string]string{"day": "günde", "week": "haftada", "month": "ayda", "year": "yılda"}[r.unit]
+}
+
+// comesAgain makes the line of the task that follows when the task of line is
+// ticked off, if it comes again: the same, open, its day the next one after
+// today (counting from its own day, or from today when it has none).
+func comesAgain(line string, now time.Time) (string, bool) {
+	r, ok := parseEvery(line)
+	if !ok {
+		return "", false
+	}
+	m := regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX]\](\s*)(.*)$`).FindStringSubmatch(line)
+	if m == nil {
+		return "", false
+	}
+	text := m[3]
+	today := startOfDay(now)
+	base, dated := today, false
+	text = wikiInText.ReplaceAllStringFunc(text, func(s string) string {
+		if dated {
+			return s
+		}
+		inside := strings.TrimSpace(s[2 : len(s)-2])
+		if d, err := parseDay(inside); err == nil {
+			base, dated = d, true
+			return "\x00"
+		}
+		return s
+	})
+	next := r.next(base)
+	for !next.After(today) {
+		next = r.next(next)
+	}
+	day := "[[" + next.Format("2006-01-02") + "]]"
+	if dated {
+		text = strings.Replace(text, "\x00", day, 1)
+	} else {
+		text = strings.TrimSpace(everyTok.ReplaceAllString(text, "")) + " " + day + everyTok.FindString(m[3])
+	}
+	return m[1] + "[ ]" + m[2] + text, true
+}
+
+// rollRecurring looks in the open page for a task ticked off in the text
+// that comes again (every:week): the done one loses its mark, and the next is
+// made under it. A task ticked from the task view is done by toggleTask.
+func (a *app) rollRecurring() {
+	if a.doc == nil || a.page == nil {
+		return
+	}
+	text := a.doc.Text()
+	var at []int
+	for s, para := range text.Paragraphs() {
+		if para.Style.List == richtext.Tasks && para.Style.Checked && everyTok.MatchString(paraText(para)) {
+			at = append(at, s)
+		}
+	}
+	for i := len(at) - 1; i >= 0; i-- {
+		s, e := text.ParagraphRange(at[i])
+		line := strings.TrimRight(bodyMarkdown(text.Slice(s, e)), "\n")
+		next, ok := comesAgain(line, a.clock())
+		if !ok {
+			continue
+		}
+		done := everyTok.ReplaceAllString(line, "")
+		a.doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, a.parse(done+"\n"+next)) })
+		text = a.doc.Text()
+	}
 }

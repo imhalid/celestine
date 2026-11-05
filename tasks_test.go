@@ -134,3 +134,94 @@ func TestTaskGoesToItsLine(t *testing.T) {
 		t.Fatalf("the caret is in %q", got)
 	}
 }
+
+func TestParseEvery(t *testing.T) {
+	for in, want := range map[string]string{
+		"çöp every:week":    "her hafta",
+		"vitamin her:2gün":  "her 2 günde",
+		"kira EVERY:month":  "her ay",
+		"rapor her:3hafta":  "her 3 haftada",
+		"yılbaşı every:yıl": "her yıl",
+	} {
+		r, ok := parseEvery(in)
+		if !ok || r.label() != want {
+			t.Errorf("%q: %v %q, want %q", in, ok, r.label(), want)
+		}
+	}
+	if _, ok := parseEvery("her gün bir şey"); ok {
+		t.Error("a word is not a recurrence")
+	}
+	p := &Page{}
+	k := tasksOf(p, "- [ ] çöpü çıkar [[2026-11-05]] every:hafta")
+	if len(k) != 1 || k[0].text != "çöpü çıkar" || k[0].every != "her hafta" || k[0].due.IsZero() {
+		t.Fatalf("%+v", k)
+	}
+}
+
+// TestRecurringTask: ticking a task that comes again leaves it done and makes
+// the next one, a period on from its day (or from today, when it has none).
+func TestRecurringTask(t *testing.T) {
+	a, tt := newTestApp(t, "- [ ] çöpü çıkar [[2026-11-05]] every:hafta\n- [ ] vitamin her:2gün\n- [ ] bir kez\n")
+	a.clock = func() time.Time { return time.Date(2026, 11, 5, 14, 0, 0, 0, time.UTC) }
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	tasks := a.allTasks(true)
+	var weekly, daily taskItem
+	for _, k := range tasks {
+		switch k.text {
+		case "çöpü çıkar":
+			weekly = k
+		case "vitamin":
+			daily = k
+		}
+	}
+	a.toggleTask(weekly)
+	a.links.built = time.Time{}
+	a.linksStale()
+	for _, k := range a.allTasks(true) { // the lines moved: they are read again, as the view reads them
+		if k.text == "vitamin" {
+			daily = k
+		}
+	}
+	a.toggleTask(daily)
+	body, _ := a.page.Body()
+	for _, want := range []string{
+		"- [x] çöpü çıkar [[2026-11-05]]\n",
+		"- [ ] çöpü çıkar [[2026-11-12]] every:hafta",
+		"- [x] vitamin\n",
+		"- [ ] vitamin [[2026-11-07]] her:2gün",
+		"- [ ] bir kez",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("no %q in:\n%s", want, body)
+		}
+	}
+	// a plain task is only ticked
+	for _, k := range a.allTasks(true) {
+		if k.text == "bir kez" {
+			a.toggleTask(k)
+		}
+	}
+	if body, _ = a.page.Body(); !strings.Contains(body, "- [x] bir kez") || strings.Count(body, "bir kez") != 1 {
+		t.Fatalf("%s", body)
+	}
+}
+
+// TestRecurringInText: a task ticked in the page's own text comes again too.
+func TestRecurringInText(t *testing.T) {
+	a, tt := newTestApp(t, "- [ ] çöpü çıkar [[2026-11-05]] every:hafta\n- [ ] başka\n")
+	a.clock = func() time.Time { return time.Date(2026, 11, 5, 14, 0, 0, 0, time.UTC) }
+	tt.Frame()
+	a.doc.ToggleChecked(0)
+	tt.Frame()
+	a.save()
+	md := a.pageMarkdown(a.page, a.doc.Text())
+	if !strings.Contains(md, "- [x] çöpü çıkar [[2026-11-05]]\n") || !strings.Contains(md, "- [ ] çöpü çıkar [[2026-11-12]] every:hafta\n") || !strings.Contains(md, "- [ ] başka") {
+		t.Fatalf("%q", md)
+	}
+	a.save()
+	if again := a.pageMarkdown(a.page, a.doc.Text()); again != md {
+		t.Fatalf("it rolls on again:\n%q\n%q", md, again)
+	}
+}

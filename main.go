@@ -1028,6 +1028,7 @@ func (a *app) autosave(c *ui.Context) {
 }
 
 func (a *app) save() {
+	a.rollRecurring()
 	md := a.pageMarkdown(a.page, a.doc.Text())
 	if !strings.HasSuffix(md, "\n") {
 		md += "\n"
