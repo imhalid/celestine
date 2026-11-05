@@ -106,3 +106,6 @@ durur; değiştirilince eski dosya silinir. İmleç bandın üstündeyken sağ �
 
 Kapağı olan sayfanın koleksiyon görünümlerinde de resmi görünür: panoda kartın üstünde 84 px'lik bir şerit, listede satırın sağında
 küçük bir resim.
+
+Sayfanın altındaki "bu sayfaya bağlanıyor" listesi ve yan paneldeki "Bağlananlar", her sayfanın altında **bağlantının geçtiği satırı** da
+gösterir (Markdown işaretleri sadeleştirilmiş; bağlantı adı varsa vurgulu), neden bağlandığını söylemek için.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -92,16 +93,21 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 		ui.Text(c, strconv.Itoa(len(links))+" sayfa bu sayfaya bağlanıyor").FontSize(12).FontWeight(650).TextColor(cl.Muted).Padding(0, 6, 4, 6)
 		for _, q := range links {
 			q := q
-			row := ui.Row(c.Key("bl:"+q.Dir)).FillWidth().Height(34).Padding(0, 8).Gap(10).Radius(8).AlignItems(ui.Center).
+			row := ui.Column(c.Key("bl:"+q.Dir)).FillWidth().Padding(6, 8).Gap(2).Radius(8).
 				Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}
 			a.contextOn(row, func() []menuItem { return a.pageMenu(q, false) })
 			row.Children(func() {
-				ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
-				ui.Text(c, q.Title).FontSize(14).TextColor(cl.Text).MaxLines(1).Shrink(1)
-				ui.Text(c, q.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
+				ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+					ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
+					ui.Text(c, q.Title).FontSize(14).TextColor(cl.Text).MaxLines(1).Shrink(1)
+					ui.Text(c, q.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
+				})
+				if segs := a.linkContext(q, p); len(segs) > 0 {
+					ui.RichText(c, contextSpans(segs, 12.5, cl.Muted, cl.Text, cl.Accent.Alpha(0.18))...).Padding(0, 0, 0, 25).MaxLines(2)
+				}
 			})
 			if row.Clicked() {
 				a.open(q)
@@ -109,4 +115,42 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 		}
 	})
 	a.linksH = box.LayoutBounds().H
+}
+
+// linkContext is the line of page q that links to page p, as the words one
+// reads, the link's marked: what a list of the pages that link here shows
+// under each, to tell why. Read again only when q changed.
+func (a *app) linkContext(q, p *Page) []seg {
+	key := q.Dir + "|" + strings.ToLower(p.Title) + "|" + strconv.FormatInt(q.Modified.UnixNano(), 10)
+	if v, ok := a.ctxCache[key]; ok {
+		return v
+	}
+	if a.ctxCache == nil || len(a.ctxCache) > 800 {
+		a.ctxCache = map[string][]seg{}
+	}
+	var out []seg
+	if body, err := q.Body(); err == nil {
+		re := regexp.MustCompile(`(?i)\[\[\s*` + regexp.QuoteMeta(strings.TrimSpace(p.Title)) + `\s*(\|[^\]]*)?\]\]`)
+		for _, ln := range strings.Split(body, "\n") {
+			if m := re.FindString(ln); m != "" {
+				out = snippet(plainText(ln), []string{fold(p.Title)})
+				break
+			}
+		}
+	}
+	a.ctxCache[key] = out
+	return out
+}
+
+// contextSpans are the spans of a link's line.
+func contextSpans(segs []seg, size float32, muted, text, mark ui.Color) []ui.Span {
+	var spans []ui.Span
+	for _, s := range segs {
+		sp := ui.Span{Text: s.text, Size: size, Color: muted}
+		if s.hit {
+			sp.Color, sp.Weight, sp.Background, sp.Radius = text, 650, mark, 3
+		}
+		spans = append(spans, sp)
+	}
+	return spans
 }

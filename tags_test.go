@@ -207,3 +207,30 @@ func TestTagRename(t *testing.T) {
 		t.Fatal("a name that is no tag")
 	}
 }
+
+// TestLinkContext: a page that links here is listed with the line that does.
+func TestLinkContext(t *testing.T) {
+	a, tt := newTestApp(t, "hedef sayfa\n")
+	tt.SetSize(1100, 800)
+	src, _ := a.page.Coll.NewPage(nil, "Kaynak")
+	src.Save("ilk satır\n\nBu cümlede [[Sayfa|hedefe]] bağlanıyor, **kalın** bir de.\n\nson\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	segs := a.linkContext(src, a.page)
+	var all, hit string
+	for _, s := range segs {
+		all += s.text
+		if s.hit {
+			hit += s.text
+		}
+	}
+	if !strings.Contains(all, "Bu cümlede hedefe bağlanıyor, kalın bir de.") || strings.Contains(all, "[[") {
+		t.Fatalf("%q", all)
+	}
+	_ = hit
+	if got := a.linkContext(src, src); len(got) != 0 {
+		t.Fatalf("a line that is no link: %v", got)
+	}
+}

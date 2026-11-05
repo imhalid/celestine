@@ -142,7 +142,11 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 			a.contextOn(row, func() []menuItem { return a.pageMenu(q, false) })
 			row.Children(func() {
 				ui.Text(c, q.Title).FontSize(13).TextColor(cl.Text).MaxLines(1)
-				ui.Text(c, q.Coll.Name).FontSize(11.5).TextColor(cl.Muted).MaxLines(1)
+				if segs := a.linkContext(q, p); len(segs) > 0 {
+					ui.RichText(c, contextSpans(segs, 11.5, cl.Muted, cl.Text, cl.Accent.Alpha(0.18))...).MaxLines(3)
+				} else {
+					ui.Text(c, q.Coll.Name).FontSize(11.5).TextColor(cl.Muted).MaxLines(1)
+				}
 			})
 			if row.Clicked() {
 				a.open(q)
