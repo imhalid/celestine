@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="tile" cx="0.35" cy="0.25" r="1">
+      <stop offset="0" stop-color="#1b1b1d"/>
+      <stop offset="0.55" stop-color="#0a0a0b"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="0.4" stop-color="#fff" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#f1f3f2"/>
+      <stop offset="1" stop-color="#c9cfcd"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="40"/></filter>
+    <clipPath id="tileClip"><rect width="1024" height="1024" rx="232"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#tileClip)">
+    <rect width="1024" height="1024" fill="url(#tile)"/>
+    <ellipse cx="520" cy="520" rx="300" ry="280" fill="#ffffff" opacity="0.10" filter="url(#glow)"/>
+  </g>
+  <rect x="2" y="2" width="1020" height="1020" rx="230" fill="none" stroke="url(#rim)" stroke-width="3"/>
+
+  <g transform="translate(20 50)">
+    <!-- the shoulders, a black collar between them -->
+    <path d="M70 960 C90 800 200 720 330 690 C420 740 600 750 700 690 C830 730 930 820 960 960 Z" fill="url(#fur)"/>
+    <path d="M420 740 C520 770 620 760 690 700 L760 960 L430 960 Z" fill="#050506"/>
+    <path d="M200 860 C260 800 330 770 392 764" fill="none" stroke="#0b0b0c" stroke-width="9" stroke-linecap="round" opacity="0.55"/>
+    <path d="M150 900 C210 846 290 812 360 800" fill="none" stroke="#0b0b0c" stroke-width="6" stroke-linecap="round" opacity="0.35"/>
+    <!-- the head: two sharp ears, a spiked cheek -->
+    <path id="headShape" d="M250 40
+             C318 110 410 170 500 250
+             C536 150 590 70 650 10
+             C706 80 730 150 744 216
+             C806 292 836 360 822 440
+             C808 560 790 610 726 654
+             C628 726 458 740 338 668
+             C284 634 244 586 224 534
+             L100 524 L218 470
+             L84 396 L214 396
+             C212 290 222 150 250 40 Z" fill="url(#fur)"/>
+    <clipPath id="headClip"><use xlink:href="#headShape"/></clipPath>
+    <g clip-path="url(#headClip)">
+      <g fill="none" stroke="#0b0b0c" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M284 246 C328 224 392 236 444 270" stroke-width="13"/>
+        <path d="M570 196 C620 172 680 182 722 214" stroke-width="13"/>
+        <path d="M520 282 C536 306 564 318 594 314" stroke-width="8" opacity="0.8"/>
+        <path d="M478 304 C494 330 528 340 560 334" stroke-width="6" opacity="0.5"/>
+        <path d="M256 140 C266 176 266 212 260 244" stroke-width="7" opacity="0.45"/>
+        <path d="M652 70 C644 106 642 136 646 162" stroke-width="7" opacity="0.45"/>
+      </g>
+      <path d="M326 392 C392 354 486 368 562 430 C500 474 396 478 350 440 C336 428 330 410 326 392 Z" fill="#050506"/>
+      <path d="M312 378 C392 336 502 354 584 426" fill="none" stroke="#050506" stroke-width="17" stroke-linecap="round"/>
+      <ellipse cx="486" cy="420" rx="15" ry="20" fill="#ffffff" opacity="0.92" transform="rotate(-20 486 420)"/>
+      <path d="M706 414 C744 376 804 380 840 426 C808 468 744 472 712 446 Z" fill="#050506"/>
+      <path d="M694 402 C744 358 812 366 850 416" fill="none" stroke="#050506" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="780" cy="422" rx="9" ry="13" fill="#ffffff" opacity="0.85"/>
+      <path d="M640 476 L684 470 L664 502 Z" fill="#050506" stroke="#050506" stroke-width="6" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
