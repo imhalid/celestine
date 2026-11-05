@@ -154,6 +154,9 @@ func (a *app) menuItems(q string) []menuItem {
 	if s.sign == "[[" {
 		return a.wikiItems(q)
 	}
+	if s.sign == "#" {
+		return a.tagItems(q)
+	}
 	switch {
 	case s.view != "":
 		return a.viewItems(s.view, q)
@@ -484,6 +487,13 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 			*s = slashMenu{open: true, sign: "[[", start: caret - 2, at: caret}
 			return true
 		}
+		if sign == "#" { // a tag, in the middle of a line - at its start the # is a heading's - when there are tags to offer
+			if ps == caret-1 || !strings.ContainsAny(text.Slice(caret-2, caret-1).String(), " \t") || len(a.allTags()) == 0 {
+				return false
+			}
+			*s = slashMenu{open: true, sign: "#", start: caret - 1, at: caret}
+			return false
+		}
 		if sign != "/" && sign != "@" {
 			return false
 		}
@@ -527,6 +537,10 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		return false
 	case caret < s.start+len(s.sign) || caret > pe:
 		s.open = false
+	case s.sign == "#": // a tag: its letters, nothing else
+		if !tagQuery.MatchString(q) || len([]rune(q)) > 40 {
+			s.open = false
+		}
 	case s.sign == "[[": // a name: spaces are in it, and the "]]" after the caret is its end
 		if strings.ContainsAny(q, "[]\n") || len([]rune(q)) > 80 {
 			s.open = false
@@ -682,10 +696,20 @@ func (a *app) slashView(c *ui.Context) {
 	if s.sign == "[[" {
 		m.empty = "Eşleşen sayfa yok"
 	}
+	if s.sign == "#" {
+		m.empty = "Henüz etiket yok"
+	}
 	if m.empty == "" {
 		m.empty = "Eşleşen yok"
 	}
 	m.head = func() {
+		if s.sign == "#" {
+			ui.Text(c, "Etiket").FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+				ui.Text(c, "#").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
+			})
+			return
+		}
 		if s.sign == "[[" {
 			ui.Text(c, "Sayfaya bağla").FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func TestTagsOf(t *testing.T) {
@@ -74,5 +77,73 @@ func TestTagView(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if a.tag != "fikir" {
 		t.Fatalf("back: %q", a.tag)
+	}
+}
+
+// TestTagMenu: a # typed in a line offers the tags there are; ↵ takes one,
+// or the new name typed; at the start of a line it is a heading's, and offers nothing.
+func TestTagMenu(t *testing.T) {
+	a, tt := newTestApp(t, "ilk\n")
+	tt.SetSize(1100, 800)
+	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other.Save("başka #fikir ve #plan\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	a.doc.SetSelection(3, 3)
+	tt.Frame()
+	typeEach(tt, " gün ")
+	tt.Type("#")
+	tt.Advance(100 * time.Millisecond)
+	if !a.slash.open || a.slash.sign != "#" || !tt.HasText("#fikir") || !tt.HasText("#plan") {
+		t.Fatalf("no menu: open %v %v", a.slash.open, tt.Texts())
+	}
+	typeEach(tt, "fi")
+	tt.Advance(100 * time.Millisecond)
+	if tt.HasText("#plan") {
+		t.Fatalf("not narrowed: %v", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(100 * time.Millisecond)
+	if got := a.doc.Text().String(); got != "ilk gün #fikir \n" && got != "ilk gün #fikir " {
+		t.Fatalf("text %q", got)
+	}
+	if a.slash.open {
+		t.Fatal("the menu stays")
+	}
+	// a name that is new
+	typeEach(tt, "ve #yeni")
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText("Yeni etiket: #yeni") {
+		t.Fatalf("no new: %v", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(100 * time.Millisecond)
+	if got := a.doc.Text().String(); !strings.Contains(got, "#fikir ve #yeni ") {
+		t.Fatalf("text %q", got)
+	}
+	// a space in the name closes it
+	typeEach(tt, "de #fi bir")
+	tt.Advance(100 * time.Millisecond)
+	if a.slash.open {
+		t.Fatal("open after a space")
+	}
+}
+
+// TestHashAtLineStart: # at the start of a line is a heading's: no menu.
+func TestHashAtLineStart(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other.Save("#fikir\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	typeEach(tt, "# Başlık")
+	tt.Advance(100 * time.Millisecond)
+	if a.slash.open {
+		t.Fatal("a menu on a heading's #")
+	}
+	if st := a.doc.Text().ParagraphStyleAt(0); st.Heading != 1 {
+		t.Fatalf("not a heading: %+v %q", st, a.doc.Text().String())
 	}
 }

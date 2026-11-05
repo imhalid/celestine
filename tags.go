@@ -285,3 +285,44 @@ func (a *app) pageTags() []string {
 	}
 	return a.ptags
 }
+
+// tagQuery is what may be typed after the # of a tag.
+var tagQuery = regexp.MustCompile(`^[\pL\pN_/-]*$`)
+
+// tagItems are the menu of a # typed in a line: the tags there are that
+// match what is typed, the most used first, and the one typed as a new one.
+func (a *app) tagItems(q string) []menuItem {
+	var out []menuItem
+	exact := false
+	for _, ti := range a.allTags() {
+		if q != "" && match(q, ti.name) < 0 {
+			continue
+		}
+		exact = exact || ti.key == tagKey(q)
+		name := ti.name
+		out = append(out, menuItem{title: "#" + name, hint: strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, run: func() { a.chooseTag(name) }})
+		if len(out) == 8 {
+			break
+		}
+	}
+	if q != "" && !exact {
+		out = append(out, menuItem{title: "Yeni etiket: #" + q, group: "Yeni", glyph: iconPlus, run: func() { a.chooseTag(q) }})
+	}
+	return out
+}
+
+// chooseTag puts the tag name in place of what was typed after the #, and a
+// space after it, for the next word.
+func (a *app) chooseTag(name string) {
+	s := &a.slash
+	_, caret := a.doc.Selection()
+	start := s.start
+	attrs := a.doc.Text().AttributesAt(max(start-1, 0))
+	attrs.Attachment, attrs.Link, attrs.Code = nil, "", false
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.ReplaceString(start, max(caret, start), "#"+name+" ", attrs)
+		n := start + utf8.RuneCountInString(name) + 2
+		ed.Select(n, n)
+	})
+	a.doc.SetTypingAttributes(attrs)
+}

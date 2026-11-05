@@ -88,4 +88,5 @@ Metinde `#etiket` yazmak yeter: bir kelimenin başında `#`, ardından harfle ba
 - Etiket sayfası: etiketi taşıyan sayfalar (son değişen önde) ve üstte öteki etiketler, sayı ile. Geri/ileri (⌘[ ⌘]) onu da bilir.
 - Yan panelde "Etiketler" bölümü sayfanınkileri sayar; komut paletinde (⌘K) her etiket `#ad` olarak aranır.
 - Etiket listesi bağlantı dizini ile aynı okumada yapılır, en çok 4 saniye geriden gelir.
-- Henüz yok: `#` yazarken var olan etiketleri öneren menü.
+- Satırın ortasında `#` yazınca var olan etiketler menüde çıkar (en çok kullanılan önde, yazdıkça daralır; ↵ seçer, yeni ad
+  yazılırsa "Yeni etiket"). Satır başındaki `#` başlığındır, menü açmaz; kitaplıkta hiç etiket yokken de açılmaz.
