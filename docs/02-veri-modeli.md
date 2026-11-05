@@ -106,6 +106,7 @@ Markdown'unda `![alt](resim-….png)` satırıdır; başka Markdown araçları d
 
 - **Eklemek:** metne dosya sürükleyip bırakmak; `/` ▸ Ekle… ▸ Resim…; panoda yalnız resim varken ⌘V (pano 0,5 sn'de bir
   biçimlerine bakılır: resim var, metin yoksa ⌘V uygulamanındır, yoksa editörün).
+- **Büyütmek:** resme tıklayınca pencereye sığacak boyda, karartılmış bir sayfanın üstünde açılır; tıklama ya da Esc kapatır.
 - **Silmek:** resmin satırını silmek dosyayı silmez; dosya sayfanın klasöründe kalır (sayfa çöpe gidince birlikte gider).
 
 ## Sürüm geçmişi

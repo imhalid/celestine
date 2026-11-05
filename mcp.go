@@ -46,6 +46,13 @@ type Settings struct {
 	HideCaret bool `json:"hideCaret,omitempty"`
 	ShowWords bool `json:"showWords,omitempty"`
 	ShowChars bool `json:"showChars,omitempty"`
+	// more of the status bar, all off to begin with (statusbar.go)
+	ShowReading bool `json:"showReading,omitempty"`
+	ShowPath    bool `json:"showPath,omitempty"`
+	ShowSel     bool `json:"showSel,omitempty"`
+	ShowPos     bool `json:"showPos,omitempty"`
+	ShowEdited  bool `json:"showEdited,omitempty"`
+	ShowLinks   bool `json:"showLinks,omitempty"`
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool     `json:"sidebarClosed,omitempty"`
 	PanelOpen     bool     `json:"panelOpen,omitempty"`

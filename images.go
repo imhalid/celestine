@@ -73,6 +73,7 @@ func (a *app) pictureAttachment(p *Page, name, ref string) *richtext.Attachment 
 				att.Image, att.Width, att.Height = src, w, w*ih/iw
 				att.Draw = func(p *ui.Painter, r ui.Rect) { // its corners rounded
 					p.Clip(r, 10, func() { p.Image(src, r, ui.Contain) })
+					a.picHits = append(a.picHits, picHit{r, src, name})
 				}
 				return att
 			}
@@ -272,4 +273,56 @@ func (a *app) sweepPictures(p *Page, body string) {
 			p.fs().Remove(filepath.Join(p.Dir, e.Name()))
 		}
 	}
+}
+
+// picHit is a picture drawn, where in the window, for a click on it.
+type picHit struct {
+	r    ui.Rect
+	src  ui.ImageSource
+	name string
+}
+
+// pictureAt is the picture at (x, y) of the window, as the last frame drew it.
+func (a *app) pictureAt(x, y float32) *picHit {
+	for i := range a.picSeen {
+		h := &a.picSeen[i]
+		if x >= h.r.X && x <= h.r.X+h.r.W && y >= h.r.Y && y <= h.r.Y+h.r.H {
+			return h
+		}
+	}
+	return nil
+}
+
+// lightboxView shows the picture clicked at the size the window allows, over
+// a dimmed page; a click anywhere or Esc puts it away.
+func (a *app) lightboxView(c *ui.Context) {
+	lb := a.lightbox
+	if lb == nil {
+		return
+	}
+	if c.Shortcut(0, ui.KeyEscape) {
+		a.lightbox = nil
+		return
+	}
+	ww, wh := c.Size()
+	iw, ih := ui.ImageSize(lb.src)
+	if iw <= 0 || ih <= 0 {
+		a.lightbox = nil
+		return
+	}
+	k := min(1, min((ww-80)/iw, (wh-120)/ih))
+	w, h := iw*k, ih*k
+	ui.Overlay(c, func() {
+		back := ui.Box(c.Key("lb-back")).Absolute().Left(0).Top(0).Size(ww, wh).Background(ui.Hex("#000000").Alpha(0.72)).Cursor(ui.CursorPointer).Label("Resmi kapat").Role(ui.RoleButton)
+		back.Opacity(back.AnimateTo("in", 1, fadeQuick))
+		ui.Box(c.Key("lb-img")).Absolute().Left((ww-w)/2).Top((wh-h)/2-14).Size(w, h).PassThrough().Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Clip(r, 12, func() { p.Image(lb.src, r, ui.Contain) })
+		})
+		if lb.name != "" {
+			ui.Text(c.Key("lb-name"), lb.name).Absolute().Left(0).Top((wh+h)/2 + 2).Width(ww).TextAlign(ui.Center).FontSize(13).TextColor(ui.Hex("#ffffff").Alpha(0.8)).PassThrough()
+		}
+		if back.Clicked() {
+			a.lightbox = nil
+		}
+	})
 }

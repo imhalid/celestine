@@ -75,3 +75,9 @@ Collection (⌃N'nin gideceği koleksiyon), Export (çalışma alanını zip ola
    olarak durur; ayar yalnız klasörü seçer.
 6. Her sayfada açık **Kaydet/Sıfırla** ya da anında uygulama: ikisinden birini seçip her yerde aynı kullan. (Öneri: tema ve
    caret anında uygulansın — denemek kolay olsun — geri kalanlar Kaydet ile.)
+
+## Durum çubuğu (Kasım 2026)
+
+Ayarlar ▸ Durum çubuğu: kaydetme durumu, caret adı, kelime ve harf sayısı; ek olarak (hepsi kapalı başlar) okuma süresi
+(dakikada 200 kelime), sayfa yolu, seçili harf sayısı, satır ve sütun (caret'in paragrafı ve içindeki yeri), son düzenleme,
+geri bağlantı sayısı (tıklayınca yan panel açılır). MCP açıksa nabız atan nokta da burada.

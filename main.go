@@ -127,6 +127,9 @@ type app struct {
 	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	hoverTag      string
+	picHits       []picHit // the pictures drawn this frame, and the last frame's (images.go)
+	picSeen       []picHit
+	lightbox      *picHit  // the picture shown large
 	ptags         []string // the open page's tags, for the side panel
 	ptagsVer      uint64
 	ptagsDoc      *richtext.Document
@@ -524,6 +527,7 @@ func (a *app) view(c *ui.Context) {
 	a.propDialog(c)
 	a.tagRenameView(c)
 	a.historyView(c)
+	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
 	}
@@ -605,9 +609,13 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
+	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
 	if x, y, over := ed.PointerPosition(); over {
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.hoverTag = key
+			ed.Cursor(ui.CursorPointer)
+		}
+		if a.pictureAt(a.editorR.X+x, a.editorR.Y+y) != nil {
 			ed.Cursor(ui.CursorPointer)
 		}
 		if h := a.chipAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
@@ -622,6 +630,8 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		x, y, _ := ed.PointerPosition()
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.openTag(key)
+		} else if pic := a.pictureAt(a.editorR.X+x, a.editorR.Y+y); pic != nil {
+			a.lightbox = pic
 		} else {
 			a.clickChip(a.editorR.X+x, a.editorR.Y+y)
 		}
@@ -885,6 +895,7 @@ func (a *app) status(c *ui.Context) {
 				a.settingsOpen, a.settingsTab = true, 3 // the MCP tab
 			}
 		}
+		a.statusExtras(c)
 		// no file paths: what the settings ask for - the words, how it is saved, the caret
 		if a.settings.ShowWords || a.settings.ShowChars {
 			words, chars := a.docStats()

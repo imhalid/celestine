@@ -183,3 +183,36 @@ func TestPicturesSwept(t *testing.T) {
 		t.Fatal("a picture in use was deleted")
 	}
 }
+
+// TestPictureLightbox: a click on a picture shows it large; a click or Esc puts it away.
+func TestPictureLightbox(t *testing.T) {
+	a, tt := newTestApp(t, "metin\n")
+	tt.SetSize(1000, 800)
+	if err := a.addImage("foto.png", pngBytes(900, 500)); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	tt.Frame()
+	if len(a.picSeen) == 0 {
+		t.Fatal("the picture is not drawn")
+	}
+	h := a.picSeen[0]
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(300 * time.Millisecond)
+	if a.lightbox == nil {
+		t.Fatal("no lightbox")
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if a.lightbox != nil {
+		t.Fatal("Esc leaves it")
+	}
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(300 * time.Millisecond)
+	tt.ClickAt(5, 5)
+	tt.Advance(100 * time.Millisecond)
+	if a.lightbox != nil {
+		t.Fatal("a click leaves it")
+	}
+}
