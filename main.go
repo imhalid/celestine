@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -167,7 +168,10 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	exportNote    string // what the last export said, in the settings
+	exportNote    string                    // what the last export said, in the settings
+	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
+	clipImage     func() []byte             // the clipboard's picture; the system's when nil
+	imgOnClip     atomic.Bool               // a picture, and no text, is on the clipboard
 	settingsOpen  bool
 	mcpServer     *http.Server
 	mcpErr        string
@@ -297,6 +301,7 @@ func main() {
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
 		go a.watch()
+		go a.watchClipboard()
 		if a.settings.MCP {
 			a.setMCP(true)
 		}
@@ -424,6 +429,11 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyDown) && a.doc != nil {
 			moveBlock(a.doc, 1)
 		}
+	}
+	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
+	// pastes text, and nothing of a picture, so the key is ours then
+	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && a.page != nil && a.doc != nil {
+		a.pasteImage()
 	}
 	if c.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
 		a.newPage(a.page.Coll, nil)
@@ -556,6 +566,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 			a.hoverCh = h.ch
 			ed.Cursor(ui.CursorPointer)
 		}
+	}
+	for _, f := range ed.DroppedFiles() { // pictures dropped on the text
+		a.addImageFile(f)
 	}
 	if ed.Clicked() { // on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()

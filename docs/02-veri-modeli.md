@@ -97,3 +97,13 @@ Kitaplık artık klasör değil, uygulamanın yanındaki **tek bir SQLite dosyas
 - Dosya şifreli değil. Dışarıdan okunamaması, düz dosya olmaması kadardır; parola istenirse sonraki iş (SQLCipher ya da
   alan şifreleme).
 - Dışarıdan düzenleme izlemesi (`watch.go`) dosya modunda kapalı: dosyayı uygulamadan başka kimse yazmaz.
+
+## Resimler
+
+Bir resim, sayfanın klasöründe `resim-20261105-135012.png` gibi bir dosyadır (kitaplık dosyasının içinde) ve sayfanın
+Markdown'unda `![alt](resim-….png)` satırıdır; başka Markdown araçları da böyle okur. Editörde kendi paragrafında, en çok
+640 px genişliğinde, köşeleri yuvarlak görünür. Dosya yoksa ya da resim değilse satır korunur, yerinde etiketli bir kutu çizilir.
+
+- **Eklemek:** metne dosya sürükleyip bırakmak; `/` ▸ Ekle… ▸ Resim…; panoda yalnız resim varken ⌘V (pano 0,5 sn'de bir
+  biçimlerine bakılır: resim var, metin yoksa ⌘V uygulamanındır, yoksa editörün).
+- **Silmek:** resmin satırını silmek dosyayı silmez; dosya sayfanın klasöründe kalır (sayfa çöpe gidince birlikte gider).

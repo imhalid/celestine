@@ -45,7 +45,7 @@ func (a *app) parsePage(p *Page, md string) richtext.Text {
 	} else {
 		a.heads[p] = head
 	}
-	return a.parse(rest)
+	return a.withImages(p, a.parse(rest))
 }
 
 // pageMarkdown writes the editor's text of page p as its Markdown, with the

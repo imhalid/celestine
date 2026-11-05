@@ -170,7 +170,7 @@ func (a *app) menuItems(q string) []menuItem {
 		out = append(out, menuItem{title: title, sub: sub, group: "~", glyph: glyph, nav: true, run: func() { a.enterView(view) }})
 	}
 	nav("Satırı biçimlendir…", "başlıklar, listeler, alıntılar", "format", iconFormat)
-	nav("Ekle…", "kod, ayırıcı, tablo, not kutuları", "insert", iconInsert)
+	nav("Ekle…", "kod, ayırıcı, tablo, resim, not kutuları", "insert", iconInsert)
 	nav("Tarih ya da saat", "", "date", iconCalendar)
 	if len(a.choiceItems("")) > 0 {
 		nav("Özellik…", "sayfanın seçimleri", "prop", iconSettings)
@@ -219,6 +219,9 @@ func (a *app) wikiItems(q string) []menuItem {
 // for, for q.
 func (a *app) rawItems(q string) []menuItem {
 	var out []menuItem
+	if q == "" || match(q, "Resim") >= 0 {
+		out = append(out, menuItem{title: "Resim…", sub: "bir dosyadan", glyph: iconImage, group: "Ekle", run: a.chooseImage})
+	}
 	for _, r := range rawTemplates {
 		r := r
 		if q != "" && match(q, r.name) < 0 {
@@ -227,6 +230,19 @@ func (a *app) rawItems(q string) []menuItem {
 		out = append(out, menuItem{title: r.name, sub: r.sub, glyph: r.glyph, group: "Ekle", run: func() { a.chooseRaw(r) }})
 	}
 	return out
+}
+
+// chooseImage takes the "/…" away and asks for the picture.
+func (a *app) chooseImage() {
+	s := &a.slash
+	_, caret := a.doc.Selection()
+	start := s.start
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(start, max(caret, start), richtext.Text{})
+		ed.Select(start, start)
+	})
+	s.open = false
+	a.pickImage()
 }
 
 // chooseRaw takes the "/…" away and puts the block in.
