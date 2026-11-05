@@ -17,11 +17,12 @@ import (
 // moment, and nothing is kept in the files for it.
 
 type linkIndex struct {
-	into     map[string][]*Page // a title, lower case, to the pages that link to it
-	tags     map[string][]*Page // a tag (tags.go), lower case, to the pages that have it
-	tagNames map[string]string  // and as it was first written
-	tasks    []taskItem         // the tasks of every page (tasks.go)
-	texts    map[*Page]string   // the text of every page, plain, for the search (search.go)
+	into     map[string][]*Page  // a title, lower case, to the pages that link to it
+	tags     map[string][]*Page  // a tag (tags.go), lower case, to the pages that have it
+	tagNames map[string]string   // and as it was first written
+	tasks    []taskItem          // the tasks of every page (tasks.go)
+	pages    map[*Page]*pageIdx  // what was read of each page, kept while its file is as it was
+	plain    map[*Page]*plainIdx // the text of a page, plain, for the search (search.go), made when asked for
 	built    time.Time
 	stale    bool
 }
@@ -34,37 +35,33 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	l := &a.links
 	if l.into == nil || (l.stale && (force || now.Sub(l.built) > 4*time.Second)) {
 		l.into, l.tags, l.tagNames, l.tasks = map[string][]*Page{}, map[string][]*Page{}, map[string]string{}, nil
-		l.texts = map[*Page]string{}
 		l.stale, l.built = false, now
+		kept := map[*Page]*pageIdx{}
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
-				body, err := q.Body()
-				if err != nil {
-					continue
+				e := l.pages[q]
+				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) {
+					body, err := q.Body()
+					if err != nil {
+						continue
+					}
+					e = readPageIdx(q, body)
 				}
-				l.tasks = append(l.tasks, tasksOf(q, body)...)
-				l.texts[q] = plainText(body)
-				for _, name := range tagsOf(body) {
+				kept[q] = e
+				l.tasks = append(l.tasks, e.tasks...)
+				for _, name := range e.tags {
 					k := tagKey(name)
 					if _, ok := l.tagNames[k]; !ok {
 						l.tagNames[k] = name
 					}
 					l.tags[k] = append(l.tags[k], q)
 				}
-				if !strings.Contains(body, "[[") {
-					continue
-				}
-				seen := map[string]bool{}
-				for _, m := range wikiInText.FindAllStringSubmatch(body, -1) {
-					target, _, _ := strings.Cut(m[1], "|")
-					key := strings.ToLower(strings.TrimSpace(target))
-					if key != "" && !seen[key] {
-						seen[key] = true
-						l.into[key] = append(l.into[key], q)
-					}
+				for _, key := range e.links {
+					l.into[key] = append(l.into[key], q)
 				}
 			}
 		}
+		l.pages = kept
 	}
 	if p == nil { // only the index was wanted (tags.go)
 		return nil
@@ -153,4 +150,59 @@ func contextSpans(segs []seg, size float32, muted, text, mark ui.Color) []ui.Spa
 		spans = append(spans, sp)
 	}
 	return spans
+}
+
+// pageIdx is what the index reads of a page: its tasks, tags and the pages it
+// links to (their titles, lower case). It is read again only when the file was
+// written since (mod): the index is made on every page opened and every few
+// seconds of editing, and reading every page of a library of thousands each time
+// took seconds, on the thread that draws.
+type pageIdx struct {
+	mod   time.Time
+	tasks []taskItem
+	tags  []string
+	links []string
+}
+
+func readPageIdx(q *Page, body string) *pageIdx {
+	e := &pageIdx{mod: q.Modified, tasks: tasksOf(q, body), tags: tagsOf(body)}
+	if !strings.Contains(body, "[[") {
+		return e
+	}
+	seen := map[string]bool{}
+	for _, m := range wikiInText.FindAllStringSubmatch(body, -1) {
+		target, _, _ := strings.Cut(m[1], "|")
+		key := strings.ToLower(strings.TrimSpace(target))
+		if key != "" && !seen[key] {
+			seen[key] = true
+			e.links = append(e.links, key)
+		}
+	}
+	return e
+}
+
+// plainIdx is the text of a page, plain, and folded as the search compares it.
+type plainIdx struct {
+	mod    time.Time
+	plain  string
+	folded string
+}
+
+// plainOf is the text of page p, plain, as the search shows it. It is made the
+// first time it is asked for, and again when the page was written.
+func (a *app) plainOf(p *Page) *plainIdx {
+	l := &a.links
+	if e := l.plain[p]; e != nil && !p.Modified.IsZero() && e.mod.Equal(p.Modified) {
+		return e
+	}
+	if l.plain == nil {
+		l.plain = map[*Page]*plainIdx{}
+	}
+	e := &plainIdx{mod: p.Modified}
+	if body, err := p.Body(); err == nil {
+		e.plain = plainText(body)
+		e.folded = fold(e.plain)
+	}
+	l.plain[p] = e
+	return e
 }

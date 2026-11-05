@@ -696,6 +696,7 @@ func (a *app) keepTree() {
 func (a *app) applyTree() {
 	a.sidebarClosed = a.settings.SidebarClosed
 	if !a.settings.TreeSaved {
+		a.collapseBigLibrary()
 		return
 	}
 	open := map[string]bool{}
@@ -725,5 +726,26 @@ func (a *app) runLater() {
 	a.afterView = nil
 	for _, fn := range fns {
 		fn()
+	}
+}
+
+// bigLibraryPages is how many pages a library has, over which it starts with
+// its collections closed: the tree is built of a row for every page of an open
+// collection, each frame, and a library started in a mass of 7000 rows took
+// most of a second to draw one frame.
+const bigLibraryPages = 300
+
+// collapseBigLibrary closes the collections of a big library that has no tree
+// of its own yet (settings.TreeSaved), but the one of the page open.
+func (a *app) collapseBigLibrary() {
+	n := 0
+	for _, c := range a.lib.Collections {
+		n += len(c.All())
+	}
+	if n <= bigLibraryPages {
+		return
+	}
+	for _, c := range a.lib.Collections {
+		c.Open = a.page != nil && a.page.Coll == c
 	}
 }

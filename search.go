@@ -198,7 +198,7 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 			continue
 		}
 		for _, p := range c.All() {
-			text, title := fold(a.links.texts[p]), fold(p.Title)
+			text, title := a.plainOf(p).folded, fold(p.Title)
 			score, ok := 0, true
 			for _, w := range pq.words {
 				inTitle, n := strings.Contains(title, w), strings.Count(text, w)
@@ -240,7 +240,7 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 			if len(marks) > 0 {
 				first = marks[0]
 			}
-			out = append(out, searchHit{page: p, score: score, snip: snippet(a.links.texts[p], marks), at: first})
+			out = append(out, searchHit{page: p, score: score, snip: snippet(a.plainOf(p).plain, marks), at: first})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {

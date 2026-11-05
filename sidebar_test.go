@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -133,5 +134,41 @@ func TestTrashPage(t *testing.T) {
 	again, _ := OpenLibrary(a.lib.Root)
 	if n := len(again.Collections[0].Pages[0].Children); n != 0 || len(again.Collections) != 1 {
 		t.Fatalf("read back: %d children, %d collections (the trash is no collection)", n, len(again.Collections))
+	}
+}
+
+// A big library with no tree of its own starts with its collections closed,
+// but the one of the page open; a small one starts as it did.
+func TestBigLibraryStartsClosed(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cols []*Collection
+	for i := 0; i < 4; i++ {
+		c, err := lib.NewCollection(fmt.Sprintf("K%d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cols = append(cols, c)
+	}
+	for i := 0; i < 5; i++ {
+		cols[0].NewPage(nil, fmt.Sprintf("a%d", i))
+	}
+	a := newApp(lib)
+	a.collapseBigLibrary()
+	for _, c := range cols {
+		if !c.Open {
+			t.Fatalf("a small library closed %s", c.Name)
+		}
+	}
+	for i := 0; i < bigLibraryPages; i++ {
+		cols[2].NewPage(nil, fmt.Sprintf("b%d", i))
+	}
+	a.collapseBigLibrary()
+	for _, c := range cols {
+		if want := c == a.page.Coll; c.Open != want {
+			t.Fatalf("%s: open %v, want %v (the page open is in %s)", c.Name, c.Open, want, a.page.Coll.Name)
+		}
 	}
 }
