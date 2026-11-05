@@ -59,3 +59,15 @@ Karar: MCP bir eklenti değil; uygulamanın kendi işlemleri dışarıya açıl�
 5. **Görünürlük**: bir agent bir şey değiştirince arayüzde kısa bir bildirim ("Claude yeni bir sayfa oluşturdu: …") ve
    değişen satırda kısa bir vurgu.
 6. **Test**: her aracın headless Tester ile bir testi; agent'ın yaptığı değişikliğin arayüzde göründüğü doğrulanır.
+
+## Sonradan eklenen araçlar (Kasım 2026)
+
+- `search`: artık uygulamadaki arama: her kelime başlıkta ya da metinde, Türkçe harfler ASCII gibi; `"tam ifade"`,
+  `başlık:kelime`, `koleksiyon:ad`, `#etiket`. Sonuçta bulunduğu yerin bir parçası (`excerpt`) var.
+- `list_tags`: etiketler ve kaç sayfada olduklari; `tag` verilirse o etiketi taşıyan sayfalar.
+- `list_tasks` (`state`: open/done/all, `due`: today/week/late/any, `collection`) ve `set_task` (`page`, `line`, `done`): görevler
+  sayfa ve satırlarıyla; işaretlemek açık sayfayı da günceller.
+- `list_versions`, `read_version`, `restore_version`: sayfanın sürümleri (yalnız tek dosya kitaplığında); geri yüklemeden önceki
+  metin de sürüm olarak saklanır.
+- `create_page` artık `template` (koleksiyonun şablonlarından birinin adı) alır; `list_collections` koleksiyonun şablon adlarını
+  ve (arama koleksiyonuysa) sorgusunu da verir.

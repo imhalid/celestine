@@ -226,6 +226,8 @@ type collInfo struct {
 	Pages      int        `json:"pages"`
 	Properties []Property `json:"properties"`
 	SubPages   bool       `json:"subPages"`
+	Templates  []string   `json:"templates,omitempty"`
+	Query      string     `json:"query,omitempty"`
 }
 
 func (a *app) idOf(dir string) string {
@@ -369,6 +371,7 @@ type (
 		Collection string            `json:"collection" jsonschema:"the collection: its id or its name"`
 		Title      string            `json:"title" jsonschema:"the page's title"`
 		Parent     string            `json:"parent,omitempty" jsonschema:"a page to make it a sub-page of"`
+		Template   string            `json:"template,omitempty" jsonschema:"the name of one of the collection's templates to start from (list_collections names them); its default one if not given"`
 		Markdown   string            `json:"markdown,omitempty" jsonschema:"its text, in Markdown"`
 		Properties map[string]string `json:"properties,omitempty" jsonschema:"values of the collection's properties, by name"`
 	}
@@ -389,7 +392,7 @@ type (
 
 func (a *app) newMCPServer() *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "ryudit", Title: "ryudit", Version: "0.1.0"}, &mcp.ServerOptions{
-		Instructions: "ryudit is a Markdown editor of collections of pages, kept as plain files. Pages are named by ids (their folders, as list_pages gives them). Text is Markdown; the user sees what you write in their window at once.",
+		Instructions: "ryudit is a Markdown editor of collections of pages, kept as plain files. Pages are named by ids (their folders, as list_pages gives them). Text is Markdown; the user sees what you write in their window at once. Pages have #tags and \"- [ ]\" tasks in their text, and the app keeps versions of each page.",
 	})
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
@@ -398,7 +401,11 @@ func (a *app) newMCPServer() *mcp.Server {
 			var out []collInfo
 			a.do(func() error {
 				for _, c := range a.lib.Collections {
-					out = append(out, collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Properties: c.Properties, SubPages: c.SubPages})
+					ci := collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Properties: c.Properties, SubPages: c.SubPages, Query: c.Query}
+					for _, t := range c.allTemplates() {
+						ci.Templates = append(ci.Templates, t.Name)
+					}
+					out = append(out, ci)
 				}
 				return nil
 			})
@@ -447,7 +454,7 @@ func (a *app) newMCPServer() *mcp.Server {
 			return result(out)
 		})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "search", Description: "Finds pages whose title or text holds the words.", Annotations: ro},
+	mcp.AddTool(s, &mcp.Tool{Name: "search", Description: "Finds pages whose title or text holds every word, Turkish letters taken as their ASCII. Also: \"an exact phrase\", başlık:word (in the title), koleksiyon:name, #tag.", Annotations: ro},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in searchArgs) (*mcp.CallToolResult, any, error) {
 			type hit struct {
 				ID         string `json:"id"`
@@ -457,24 +464,26 @@ func (a *app) newMCPServer() *mcp.Server {
 			}
 			var out []hit
 			err := a.do(func() error {
-				q := strings.ToLower(strings.TrimSpace(in.Query))
-				if q == "" {
+				if strings.TrimSpace(in.Query) == "" {
 					return errors.New("no query")
 				}
-				for _, c := range a.lib.Collections {
-					if in.Collection != "" {
-						if want, err := a.findColl(in.Collection); err != nil {
-							return err
-						} else if want != c {
-							continue
-						}
+				var want *Collection
+				if in.Collection != "" {
+					var err error
+					if want, err = a.findColl(in.Collection); err != nil {
+						return err
 					}
-					for _, p := range c.All() {
-						body, _ := p.Body()
-						if strings.Contains(strings.ToLower(p.Title), q) || strings.Contains(strings.ToLower(body), q) {
-							out = append(out, hit{a.idOf(p.Dir), p.Title, c.Name, p.Excerpt()})
-						}
+				}
+				a.linksStale()
+				for _, h := range a.searchPages(in.Query, 0, true) {
+					if want != nil && h.page.Coll != want {
+						continue
 					}
+					var sb strings.Builder
+					for _, sg := range h.snip {
+						sb.WriteString(sg.text)
+					}
+					out = append(out, hit{a.idOf(h.page.Dir), h.page.Title, h.page.Coll.Name, sb.String()})
 				}
 				return nil
 			})
@@ -483,6 +492,8 @@ func (a *app) newMCPServer() *mcp.Server {
 			}
 			return result(out)
 		})
+
+	a.addExtraTools(s, ro)
 
 	mcp.AddTool(s, &mcp.Tool{Name: "create_collection", Description: "Makes a collection."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in newCollArgs) (*mcp.CallToolResult, any, error) {
@@ -534,6 +545,17 @@ func (a *app) newMCPServer() *mcp.Server {
 				p, err := c.NewPage(parent, title)
 				if err != nil {
 					return err
+				}
+				if in.Markdown == "" && in.Template != "" {
+					found := false
+					for _, t := range c.allTemplates() {
+						if strings.EqualFold(t.Name, strings.TrimSpace(in.Template)) {
+							in.Markdown, found = expandTemplate(t.Body, title, a.clock()), true
+						}
+					}
+					if !found {
+						return fmt.Errorf("no template %q in %s", in.Template, c.Name)
+					}
 				}
 				if in.Markdown == "" && c.Template != "" {
 					in.Markdown = expandTemplate(c.Template, title, a.clock()) // as the collection starts its pages

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -54,7 +55,7 @@ func TestMCPTools(t *testing.T) {
 
 	var tools *mcp.ListToolsResult
 	tools, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 10 {
+	if err != nil || len(tools.Tools) != 16 {
 		t.Fatalf("tools: %v %d", err, len(tools.Tools))
 	}
 	var made struct{ ID string }
@@ -245,5 +246,97 @@ func TestMCPInStatusBar(t *testing.T) {
 	tt.Frame()
 	if !a.settingsOpen {
 		t.Fatal("the settings did not open")
+	}
+}
+
+// TestMCPTagsTasksVersions: what an agent can know of tags, tasks and the
+// versions of a page, and do with them.
+func TestMCPTagsTasksVersions(t *testing.T) {
+	st, now := storeAt(t)
+	lib, _ := OpenLibraryIn(st, storeRoot)
+	seed(lib)
+	a := newApp(lib)
+	a.clock = func() time.Time { return *now }
+	tt := ui.NewTester(a.view, 1000, 700)
+	tt.Advance(50 * time.Millisecond)
+	cs := agent(t, a)
+	c := lib.Collections[0]
+	c.Templates = []NamedTemplate{{"Toplantı", "# {{başlık}}\n\n- [ ] karar [[2026-11-04]]\n"}}
+	c.save()
+	var made struct{ ID string }
+	call(t, cs, "create_page", map[string]any{"collection": c.Name, "title": "Haftalık", "template": "toplantı"}, &made)
+	call(t, cs, "update_page", map[string]any{"page": made.ID, "append": "Bir #fikir ve bir görev:\n\n- [ ] başka iş"}, nil)
+	res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "create_page", Arguments: map[string]any{"collection": c.Name, "title": "x", "template": "yok"}})
+	if !res.IsError {
+		t.Fatal("a template that is not there")
+	}
+
+	var tags []struct {
+		Tag   string
+		Pages int
+	}
+	call(t, cs, "list_tags", nil, &tags)
+	if len(tags) != 1 || tags[0].Tag != "fikir" || tags[0].Pages != 1 {
+		t.Fatalf("tags: %+v", tags)
+	}
+	var withTag []struct{ ID, Title string }
+	call(t, cs, "list_tags", map[string]any{"tag": "#Fikir"}, &withTag)
+	if len(withTag) != 1 || withTag[0].ID != made.ID {
+		t.Fatalf("pages of the tag: %+v", withTag)
+	}
+
+	type task struct {
+		Page, Text, Due string
+		Line            int
+		Done            bool
+	}
+	var open []task
+	call(t, cs, "list_tasks", nil, &open)
+	if len(open) < 2 {
+		t.Fatalf("tasks: %+v", open)
+	}
+	var late []task
+	call(t, cs, "list_tasks", map[string]any{"due": "late"}, &late)
+	if len(late) != 1 || late[0].Text != "karar" || late[0].Due != "2026-11-04" {
+		t.Fatalf("late: %+v", late)
+	}
+	call(t, cs, "set_task", map[string]any{"page": late[0].Page, "line": late[0].Line, "done": true}, nil)
+	var done []task
+	call(t, cs, "list_tasks", map[string]any{"state": "done"}, &done)
+	found := false
+	for _, k := range done {
+		found = found || k.Text == "karar"
+	}
+	if !found {
+		t.Fatalf("done: %+v", done)
+	}
+
+	// versions: written over after the quiet, then read and put back
+	p, _ := a.findPage(made.ID)
+	*now = now.Add(10 * time.Minute)
+	p.Save("# Haftalık\n\nbaşka bir metin\n")
+	var vers []struct {
+		ID    int64
+		Label string
+	}
+	call(t, cs, "list_versions", map[string]any{"page": made.ID}, &vers)
+	if len(vers) == 0 {
+		t.Fatal("no versions")
+	}
+	var rv struct{ Markdown string }
+	call(t, cs, "read_version", map[string]any{"page": made.ID, "version": vers[0].ID}, &rv)
+	if !strings.Contains(rv.Markdown, "karar") {
+		t.Fatalf("version text: %q", rv.Markdown)
+	}
+	call(t, cs, "restore_version", map[string]any{"page": made.ID, "version": vers[0].ID}, nil)
+	if body, _ := p.Body(); !strings.Contains(body, "karar") {
+		t.Fatalf("restored: %q", body)
+	}
+	// search takes the filters
+	var hits []struct{ ID string }
+	call(t, cs, "search", map[string]any{"query": "#fikir"}, &hits)
+	call(t, cs, "search", map[string]any{"query": "başlık:haftalik"}, &hits)
+	if len(hits) != 1 {
+		t.Fatalf("search: %+v", hits)
 	}
 }
