@@ -87,3 +87,41 @@ func TestLibrarySearch(t *testing.T) {
 		t.Fatalf("caret %d", caret)
 	}
 }
+
+func TestParseQuery(t *testing.T) {
+	q := parseQuery(`çay "sıcak su" başlık:Notlar koleksiyon:Test #fikir etiket:Plan sadece`)
+	if !equal(q.words, []string{"cay", "sadece"}) || !equal(q.phrases, []string{"sicak su"}) || !equal(q.title, []string{"notlar"}) ||
+		!equal(q.colls, []string{"test"}) || !equal(q.tags, []string{"fikir", "plan"}) {
+		t.Fatalf("%+v", q)
+	}
+	if !parseQuery("  ").empty() || parseQuery("#a").empty() {
+		t.Fatal("empty")
+	}
+}
+
+// TestSearchFilters: a phrase is found only whole; başlık: looks at titles;
+// koleksiyon: and #etiket narrow it.
+func TestSearchFilters(t *testing.T) {
+	a, tt := newTestApp(t, "sıcak su ve çay\n")
+	other, _ := a.lib.NewCollection("Öteki")
+	x, _ := other.NewPage(nil, "Çay rehberi")
+	x.Save("su sıcak olmalı #çay\n")
+	y, _ := a.page.Coll.NewPage(nil, "Üçüncü")
+	y.Save("çay ve #fikir\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	n := func(q string) int { return len(a.searchPages(q, 0, true)) }
+	if n("sıcak su") != 2 || n(`"sıcak su"`) != 1 {
+		t.Fatalf("phrase: %d %d", n("sıcak su"), n(`"sıcak su"`))
+	}
+	if n("başlık:rehberi") != 1 || n("başlık:sıcak") != 0 {
+		t.Fatalf("title: %d %d", n("başlık:rehberi"), n("başlık:sıcak"))
+	}
+	if n("çay koleksiyon:öteki") != 1 || n("çay koleksiyon:test") != 2 {
+		t.Fatalf("collection: %d %d", n("çay koleksiyon:öteki"), n("çay koleksiyon:test"))
+	}
+	if n("#fikir") != 1 || n("çay #çay") != 1 || n("#yok") != 0 {
+		t.Fatalf("tags: %d %d %d", n("#fikir"), n("çay #çay"), n("#yok"))
+	}
+}

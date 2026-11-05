@@ -61,3 +61,6 @@ eşleşmelerinin ardına "Metinde · …" satırları ve "Kitaplıkta ara: …" 
 
 Sayfaların metni bağlantı dizininin okumasında toplanır (düz, tek satır; Markdown işaretleri ve `[[bağlantılar]]` sadeleştirilir);
 arama görünümü açılırken dizin yenilenir, başka yerlerde en çok 4 saniye geriden gelir.
+
+Aramada ayrıca: `"tam ifade"` (tırnak içi bütün olarak geçmeli), `başlık:kelime` (başlıkta), `koleksiyon:ad` (o koleksiyonda),
+`#etiket` ya da `etiket:ad` (o etiketi taşıyan). Hepsi birbiriyle ve düz kelimelerle birleşir.
