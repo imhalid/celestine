@@ -203,6 +203,7 @@ type app struct {
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
 	importNote    string // what the last import said, in the settings
+	bulk          bulkState // pages being chosen in a collection, to be done to all (bulk.go)
 	statsOpen     bool   // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings

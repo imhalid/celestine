@@ -93,3 +93,11 @@ Bir arama koleksiyon olarak kaydedilebilir: arama görünümünde (⇧⌘F) "Kol
 olmaz; liste, tablo ve takvim görünümlerinde, sorgunun kitaplıktaki bulduğu sayfaları gösterir (`#fikir`, `koleksiyon:Notlar
 "toplantı"`…) ve her zaman kitaplığın şimdiki halidir. Sorgu `collection.json`'da `query` alanıdır, koleksiyon ayarları ▸ Genel'de
 değişir. "Yeni sayfa" yoktur; kenar çubuğunda altına sayfa eklenmez. Sayfalar, sahibi olan koleksiyonlarında durur.
+
+## Toplu işlem (Kasım 2026)
+
+Liste ve tablo görünümünde araç çubuğundaki **Seç**: satırların başına seçme kutusu gelir, bir satıra tıklamak sayfayı açmaz,
+işaretler. Üstte çıkan çubuk işaretlenenlere birlikte yapar: **Etiket ekle** (sayfanın sonuna `#etiket`; olanlara eklenmez),
+**Taşı…** (başka bir koleksiyonun en üstüne; arama ve günlük koleksiyonları hedef olmaz), **Özellik ata…** (koleksiyonun bir seçim
+özelliğinin değerini hepsine verir), **Çöpe at**, **Hepsini seç** ve **Bitir**. Pano ve takvimde seçim yoktur; koleksiyon değişince
+seçim kalkar.

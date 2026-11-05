@@ -22,6 +22,7 @@ const viewMax = 920
 func (a *app) openCollection(c *Collection) {
 	a.flush()
 	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = c, c.Name, "", false, "", false, false
+	a.bulkClear()
 	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true
 	a.visit()
@@ -99,6 +100,15 @@ func (a *app) collectionView(c *ui.Context) {
 									a.openRandomDay()
 								}
 							}
+							if v.Type == "list" || v.Type == "table" {
+								if ryugo.Button(c.Key("bulk-on"), map[bool]string{true: "Seçimi bitir", false: "Seç"}[a.bulk.on], ryugo.ButtonOptions{Icon: iconTask, Size: ryugo.Sm}).Clicked() {
+									if a.bulk.on {
+										a.bulkClear()
+									} else {
+										a.bulk.on = true
+									}
+								}
+							}
 							label := "Yeni " + pageNoun(coll)
 							if coll.Journal {
 								label = "Bugünün sayfası"
@@ -127,6 +137,10 @@ func (a *app) collectionView(c *ui.Context) {
 					ui.Column(c).FillWidth().MaxWidth(maxW).Children(func() {
 						pages := a.filtered(coll)
 						sortPages(pages, v)
+						if v.Type == "board" || v.Type == "calendar" {
+							a.bulkClear()
+						}
+						a.bulkBar(c, coll, pages)
 						func() {
 							// A body per view: switching views drops the old one at once and
 							// fades the new one in; within a view, rows come, go and move one by one.
@@ -273,28 +287,36 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			}
 		}
 		c.Key("list:" + p.Dir)
-		row := ui.Column(c).Padding(8, 10).Gap(3).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
 		} else {
 			row.Background(t.SurfaceHover.Alpha(0))
 		}
+		if a.bulk.sel[p] {
+			row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
+		}
 		row.Children(func() {
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
-				fieldChips(c, p, v)
-				when := p.Modified
-				if v.Sort == "created" {
-					when = p.Created
+			a.bulkMark(c, p)
+			ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
+					fieldChips(c, p, v)
+					when := p.Modified
+					if v.Sort == "created" {
+						when = p.Created
+					}
+					ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
+				})
+				if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
+					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 				}
-				ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
 			})
-			if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
-				ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
-			}
 		})
-		if row.Clicked() {
+		if a.bulkRowClicked(p, row.Clicked()) {
+			// chosen, not opened
+		} else if row.Clicked() {
 			a.open(p)
 		}
 	}
@@ -400,7 +422,13 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 		} else {
 			row.Background(t.SurfaceHover.Alpha(0))
 		}
+		if a.bulk.sel[p] {
+			row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
+		}
 		row.Children(func() {
+			if a.bulk.on {
+				ui.Box(c.Key("mark-wrap")).Width(34).Height(36).Shrink(0).Center().Children(func() { a.bulkMark(c, p) })
+			}
 			for i, col := range columns {
 				cellBox(col).Children(func() {
 					if col.prop != nil && col.prop.Type == PropChoice {
@@ -420,7 +448,9 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 		})
 		c.Key("rule:" + p.Dir)
 		ui.Box(c).Height(1).Background(withAlpha(t.Border, 0.5)).Transition(rowEnter)
-		if row.Clicked() {
+		if a.bulkRowClicked(p, row.Clicked()) {
+			// chosen, not opened
+		} else if row.Clicked() {
 			a.open(p)
 		}
 	}
