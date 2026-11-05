@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -218,29 +217,6 @@ func (p *Page) readMeta(meta map[string]string) {
 	for k, v := range meta {
 		if !slices.Contains(reserved, k) {
 			p.Props[k] = v
-		}
-	}
-}
-
-// writeProps writes the page's values: its collection's properties in
-// their order, then whatever else its front matter held.
-func (p *Page) writeProps(sb *strings.Builder) {
-	var keys []string
-	if p.Coll != nil {
-		for _, pr := range p.Coll.Properties {
-			keys = append(keys, pr.ID)
-		}
-	}
-	var rest []string
-	for k := range p.Props {
-		if !slices.Contains(keys, k) {
-			rest = append(rest, k)
-		}
-	}
-	sort.Strings(rest)
-	for _, k := range append(keys, rest...) {
-		if v := p.Props[k]; v != "" {
-			sb.WriteString(k + ": " + quoteYAML(v) + "\n")
 		}
 	}
 }

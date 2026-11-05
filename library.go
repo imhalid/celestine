@@ -280,20 +280,34 @@ func (p *Page) Body() (string, error) {
 	return body, nil
 }
 
-// Save writes the page: its front matter and body.
+// Save writes the page: its body, and its front matter as it is on disk
+// with our keys changed (frontmatter.go).
 func (p *Page) Save(body string) error {
+	f := &front{}
+	if src, err := os.ReadFile(p.file()); err == nil {
+		f, _ = readFront(string(src))
+	}
+	f.set("title", p.Title)
+	if !p.Created.IsZero() {
+		f.set("created", p.Created.Format(time.RFC3339))
+	}
+	f.setInt("order", p.Order)
+	if p.Coll != nil {
+		for _, pr := range p.Coll.Properties {
+			if v := p.Props[pr.ID]; v != f.get(pr.ID) {
+				f.set(pr.ID, v)
+			}
+		}
+	}
+	f.setInt("rank", p.Rank)
 	var sb strings.Builder
-	sb.WriteString("---\n")
-	sb.WriteString("title: " + quoteYAML(p.Title) + "\n")
-	sb.WriteString("created: " + p.Created.Format(time.RFC3339) + "\n")
-	if p.Order > 0 {
-		sb.WriteString(fmt.Sprintf("order: %d\n", p.Order))
+	if fm := f.text(); fm != "" {
+		sb.WriteString("---\n" + fm)
+		if !strings.HasSuffix(fm, "\n") {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("---\n\n")
 	}
-	p.writeProps(&sb)
-	if p.Rank > 0 {
-		sb.WriteString(fmt.Sprintf("rank: %d\n", p.Rank))
-	}
-	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimLeft(body, "\n"))
 	if !strings.HasSuffix(body, "\n") {
 		sb.WriteString("\n")
@@ -302,6 +316,9 @@ func (p *Page) Save(body string) error {
 		return err
 	}
 	p.Modified = time.Now()
+	if f.bad {
+		return errBadFront
+	}
 	return nil
 }
 
@@ -340,43 +357,6 @@ func (p *Page) Depth() int {
 		d++
 	}
 	return d
-}
-
-// Front matter: a few "key: value" lines between "---" lines.
-func splitFrontMatter(src string) (map[string]string, string) {
-	meta := map[string]string{}
-	if !strings.HasPrefix(src, "---\n") {
-		return meta, src
-	}
-	end := strings.Index(src[4:], "\n---")
-	if end < 0 {
-		return meta, src
-	}
-	for _, line := range strings.Split(src[4:4+end], "\n") {
-		k, v, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		v = strings.TrimSpace(v)
-		if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
-			var s string
-			if json.Unmarshal([]byte(v), &s) == nil {
-				v = s
-			}
-		}
-		meta[strings.TrimSpace(k)] = v
-	}
-	body := src[4+end+4:]
-	return meta, strings.TrimLeft(body, "\n")
-}
-
-// quoteYAML quotes a value when YAML would read it as something else.
-func quoteYAML(s string) string {
-	if s == "" || strings.ContainsAny(s, ":#\"'\n[]{},&*!|>%@`") || strings.TrimSpace(s) != s {
-		b, _ := json.Marshal(s)
-		return string(b)
-	}
-	return s
 }
 
 var turkishFold = strings.NewReplacer("ç", "c", "ğ", "g", "ı", "i", "ö", "o", "ş", "s", "ü", "u", "Ç", "c", "Ğ", "g", "İ", "i", "Ö", "o", "Ş", "s", "Ü", "u")
