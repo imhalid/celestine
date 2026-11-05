@@ -21,7 +21,7 @@ const viewMax = 920
 // openCollection shows collection c's page, saving the page that was open.
 func (a *app) openCollection(c *Collection) {
 	a.flush()
-	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.graphOpen = c, c.Name, "", false, "", false, false, false
+	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = c, c.Name, "", false, "", false, false
 	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true
 	a.visit()

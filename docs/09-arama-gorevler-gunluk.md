@@ -64,17 +64,3 @@ arama görünümü açılırken dizin yenilenir, başka yerlerde en çok 4 saniy
 
 Aramada ayrıca: `"tam ifade"` (tırnak içi bütün olarak geçmeli), `başlık:kelime` (başlıkta), `koleksiyon:ad` (o koleksiyonda),
 `#etiket` ya da `etiket:ad` (o etiketi taşıyan). Hepsi birbiriyle ve düz kelimelerle birleşir.
-
-## Bağlantı grafiği (Kasım 2026)
-
-Kenar çubuğunda "Bağlantı grafiği", ⇧⌘G ya da paletten: kitaplığın sayfaları nokta, `[[bağlantılar]]` çizgi. Noktalar yay gibi
-kendiliğinden yerleşir (bağlı olanlar yaklaşır, hepsi birbirini iter; 320 adımda durur) ve görüntü pencereye sığdırılır. Rengi sayfanın
-koleksiyonu verir, büyüklüğü bağlantı sayısı; açık sayfanın noktası halkalı. Tekerlek yakınlaştırır, boşluğu sürüklemek kaydırır,
-bir noktayı sürüklemek onu yerine sabitler (diğerleri çevresinde yeniden yerleşir), tıklamak sayfayı açar; imleç bir noktadayken onun
-komşuları ve çizgileri öne çıkar. Üstte arama (eşleşen noktalar parlar), "Bağlantısız sayfalar" anahtarı (kapalıyken hiçbir yere
-bağlı olmayanlar çizilmez) ve "Yeniden düzenle". En çok bağlantılı 700 sayfa çizilir.
-
-Grafik, koleksiyonlara göre kümelenir: her koleksiyon kendi yuvarlağı içinde, adı ve sayfa sayısı üstünde; koleksiyonlar arası bağlantılar
-yuvarlakları birbirine yaklaştırır ve ayrı renkle çizilir. Üç tür çizgi vardır, her biri üstteki düğmeden kapatılır: **`[[bağlantı]]`**
-(mavi), **metinde adı geçen** (bir sayfanın metni başka bir sayfanın başlığını, en az 8 harflik, olduğu gibi içerir; `Biological Neural
-Networks` gibi; mor) ve **alt sayfa** (üst sayfa ile altındaki; gri). Altta koleksiyon rozetleri: birine tıklamak koleksiyonu grafikten çıkarır.

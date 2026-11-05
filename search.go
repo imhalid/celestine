@@ -259,7 +259,7 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 func (a *app) openSearch(q string) {
 	a.flush()
 	a.searchOpen, a.searchQ, a.searchFocus = true, q, true
-	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.graphOpen = "", nil, false, false, false
+	a.tag, a.coll, a.trashOpen, a.tasksOpen = "", nil, false, false
 	a.linksStale()
 	a.visit()
 }

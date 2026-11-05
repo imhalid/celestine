@@ -118,7 +118,7 @@ func paraText(p richtext.Paragraph) string {
 // openTasks shows the task view.
 func (a *app) openTasks() {
 	a.flush()
-	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.graphOpen = true, "", nil, false, false, false
+	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen = true, "", nil, false, false
 	a.linksStale()
 	a.visit()
 }
