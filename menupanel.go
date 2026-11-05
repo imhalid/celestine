@@ -149,7 +149,11 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 						text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
 					}
 					row.Children(func() {
-						if it.glyph != nil {
+						if it.dot != nil {
+							ui.Box(c).Width(15).Height(15).Shrink(0).Center().Children(func() {
+								ui.Box(c).Size(9, 9).Radius(3.5).Background(*it.dot).Border(1, cl.OnAccent.Alpha(map[bool]float32{true: 0.7, false: 0}[i == m.sel]))
+							})
+						} else if it.glyph != nil {
 							ui.Icon(c, it.glyph).Width(15).Height(15).TextColor(muted)
 						}
 						ui.Column(c).Grow(1).Shrink(1).Children(func() {

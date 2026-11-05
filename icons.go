@@ -24,5 +24,7 @@ var (
 	iconTrash       = icon(`<path d="M4.5 7h15M10 4h4M6.5 7l.8 11.6a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5M14 11v5"/>`)
 	iconRestore     = icon(`<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/>`)
 	iconSettings    = icon(`<path d="M4.5 7.5h9M17.5 7.5h2M4.5 16.5h2M10.5 16.5h9"/><circle cx="15.5" cy="7.5" r="2"/><circle cx="8.5" cy="16.5" r="2"/>`)
+	iconBoard       = icon(`<rect x="4" y="4.5" width="4.6" height="15" rx="1.4"/><rect x="9.7" y="4.5" width="4.6" height="9" rx="1.4"/><rect x="15.4" y="4.5" width="4.6" height="12" rx="1.4"/>`)
+	iconCheck       = icon(`<path d="m5.5 12.5 4.2 4.2 8.8-9.4"/>`)
 	iconSearch      = icon(`<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>`)
 )

@@ -221,3 +221,37 @@ func TestPropertyOnPage(t *testing.T) {
 		t.Fatalf("text %q", a.page.Props["yazar"])
 	}
 }
+
+// TestBoardCardMoveMenu: a card's menu lists the groups; the one chosen takes
+// the card, and the group it is in is marked.
+func TestBoardCardMoveMenu(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
+	tt.Frame()
+	if err := tt.Click("Pano"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(time.Second)
+	if err := tt.RightClick("Kart: Dune"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Grubu değiştir"); err != nil {
+		t.Fatal(err, tt.Menu())
+	}
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText("Durum yok") || !tt.HasText("şimdi burada") {
+		t.Fatalf("the groups: %v", tt.Texts())
+	}
+	// the names are in the board too: the menu is walked by keys
+	for i := 0; i < 3; i++ {
+		tt.Key(0, ui.KeyDown)
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if got := titles(coll.Column("durum", "Bitti")); !equal(got, []string{"Dune"}) {
+		t.Fatalf("column %v", got)
+	}
+	if a.coll != coll {
+		t.Fatal("the menu opened the page")
+	}
+}

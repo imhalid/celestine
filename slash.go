@@ -46,6 +46,7 @@ type menuItem struct {
 	nav                bool   // goes into a menu: the menu stays open
 	danger             bool   // in red: deletes
 	glyph              *ui.SVG
+	dot                *ui.Color // a dot of this color where the glyph goes (a group's)
 	run                func()
 }
 

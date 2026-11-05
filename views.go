@@ -503,7 +503,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 									ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
 								}
 							}).Label("Kart: " + p.Title)
-							a.contextOn(card, func() []menuItem { return a.pageMenu(p, false) })
+							a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
 							if card.Clicked() {
 								a.open(p)
 							}
@@ -517,6 +517,38 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			}
 		})
 	})
+}
+
+// boardCardMenu is what a card offers: its page's menu, and the groups it
+// can be moved to - the one it is in marked - which put it last in the one
+// chosen.
+func (a *app) boardCardMenu(c *ui.Context, coll *Collection, pr *Property, p *Page) []menuItem {
+	items := a.pageMenu(p, false)
+	move := a.into("Grubu değiştir", iconBoard, func() []menuItem {
+		var out []menuItem
+		for _, s := range append([]string{""}, pr.Options...) {
+			s := s
+			title := s
+			if s == "" {
+				title = pr.Name + " yok"
+			}
+			tone := columnTone(c, s)
+			it := menuItem{title: title, dot: &tone, run: func() {
+				if p.Value(pr) == s {
+					return
+				}
+				if err := coll.MoveOnBoard(p, pr.ID, s, len(coll.Column(pr.ID, s))); err != nil {
+					a.saveErr = err.Error()
+				}
+			}}
+			if p.Value(pr) == s {
+				it.hint = "şimdi burada"
+			}
+			out = append(out, it)
+		}
+		return out
+	})
+	return append(items[:1:1], append([]menuItem{move}, items[1:]...)...)
 }
 
 // boardSpring is a column coming to the width it is asked for.
