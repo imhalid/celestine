@@ -105,3 +105,66 @@ func TestDuplicateDeleteTurn(t *testing.T) {
 		t.Fatalf("turn: %q", got)
 	}
 }
+
+// Ekle… puts in a table and a callout as raw blocks: written as Markdown, read back as they are.
+func TestInsertRawBlocks(t *testing.T) {
+	for _, r := range rawTemplates {
+		a, tt := newTestApp(t, "Önce\n")
+		tt.Frame()
+		n := a.doc.Text().Len()
+		a.doc.SetSelection(n, n)
+		tt.Frame()
+		a.insertRaw(n, r)
+		tt.Frame()
+		md := bodyMarkdown(a.doc.Text())
+		if !strings.Contains(md, strings.Join(r.lines, "\n")) {
+			t.Fatalf("%s: not written as Markdown: %q", r.name, md)
+		}
+		back := bodyMarkdown(parseBody(md))
+		if strings.TrimSpace(back) != strings.TrimSpace(md) {
+			t.Fatalf("%s: not read back as it was:\n%q\n%q", r.name, md, back)
+		}
+	}
+}
+
+// A block folded has what is under it held behind a chip; the file has it
+// back, and an unfold puts it where it was.
+func TestFoldAndUnfold(t *testing.T) {
+	src := "# Başlık\n\nBir\n\nİki\n\n# Sonraki\n\n- a\n  - a1\n  - a2\n- b"
+	a, tt := newTestApp(t, src+"\n")
+	tt.Frame()
+	whole := mdOf(a.doc)
+	a.fold(at(a.doc, "Başlık"))
+	tt.Frame()
+	if shown := a.doc.Text().String(); strings.Contains(shown, "Bir") || strings.Contains(shown, "İki") {
+		t.Fatalf("not hidden: %q", shown)
+	}
+	if ch := foldOf(a.doc.Text(), at(a.doc, "Başlık")); ch == nil || ch.lines < 2 {
+		t.Fatalf("no fold chip: %+v", ch)
+	}
+	if got := mdOf(a.doc); got != whole {
+		t.Fatalf("the file would change:\n%q\n%q", got, whole)
+	}
+	// a list item with items under it
+	a.fold(at(a.doc, "a"))
+	if got := mdOf(a.doc); got != whole {
+		t.Fatalf("the file would change with a list folded:\n%q\n%q", got, whole)
+	}
+	// nested: fold the heading again with the list's fold inside it, then put it all back
+	a.toggleFold(at(a.doc, "Sonraki"))
+	if got := mdOf(a.doc); got != whole {
+		t.Fatalf("nested folds change the file:\n%q\n%q", got, whole)
+	}
+	for range 3 {
+		for _, s := range []string{"Başlık", "Sonraki", "a"} {
+			if p := at(a.doc, s); p >= 0 {
+				if ch := foldOf(a.doc.Text(), p); ch != nil {
+					a.unfold(ch)
+				}
+			}
+		}
+	}
+	if got := mdOf(a.doc); got != whole || strings.Contains(a.doc.Text().String(), "⋯") {
+		t.Fatalf("not back:\n%q", got)
+	}
+}

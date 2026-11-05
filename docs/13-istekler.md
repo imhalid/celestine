@@ -34,6 +34,13 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 > **Yapılamayan:** metnin kendisine sağ tık (MyGo'nun editörü sağ tuşu kendi menüsü için alıyor ve o menü boş); kes /
 > kopyala / yapıştır ve çiple ilgili işler için başka bir yol (seçince beliren araç çubuğu) gerekir.
 
+> **Durum (6 Kasım 2026):** Metin seçince biçim çubuğu (`selbar.go`: kalın, italik, üstü çizili, kod, bağlantı).
+> **Ekle…** artık tablo ve dört not kutusu (not, bilgi, ipucu, uyarı) koyuyor: ham Markdown blokları olarak, dosyaya
+> aynen yazılır, kutular türüne göre renkli (`blocks.go`). Başlık ve liste katlama (`fold.go`: tutamağın yanındaki ok,
+> blok menüsü, ⌘/; katlı satır "⋯ N satır" çipi; dosyaya hep açık yazılır, katlı durum hatırlanmaz). Tarih özelliği
+> takvimle, sayı özelliği artı/eksi alanıyla seçiliyor. **Hâlâ yok:** görsel ve dosya eki, gerçek tablo çizimi,
+> canlı sorgu bloğu.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun

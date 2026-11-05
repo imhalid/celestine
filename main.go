@@ -122,6 +122,8 @@ type app struct {
 	caretPara    int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
 	caretRel     float32
 	caretTop     float32
+	sel          selBar         // the bar over a selection (selbar.go)
+	edPressed    bool           // the pointer is down in the editor
 	ctx          ctxMenu        // the context menu (ctxmenu.go)
 	pageScroll   ui.ScrollState // the page scrolled as a whole (pageView)
 	scrollR      ui.Rect        // its room in the window, last frame
@@ -322,6 +324,10 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyF) {
 			a.openFind()
 		}
+		if c.Shortcut(ui.Cmd, ui.KeySlash) && a.doc != nil && a.page != nil {
+			_, caret := a.doc.Selection()
+			a.toggleFold(caret)
+		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyUp) && a.doc != nil {
 			moveBlock(a.doc, -1)
 		}
@@ -367,6 +373,7 @@ func (a *app) view(c *ui.Context) {
 		a.sidebarButton(c)
 	})
 	a.caretView(c)
+	a.selectionBar(c)
 	a.gutterView(c)
 	a.gripView(c)
 	a.slashView(c)
@@ -444,6 +451,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.refocus = false
 	}
 	a.focused = ed.Focused()
+	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
 	a.hoverCh = nil
 	if x, y, over := ed.PointerPosition(); over {

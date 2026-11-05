@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -22,6 +23,9 @@ type chip struct {
 	kind   string // "page" or "date"
 	target string // the page's title, or the day as 2006-01-02
 	alias  string // what a page's chip says instead of its title
+	// a fold's: what it hides, and how many lines (fold.go)
+	hidden *richtext.Text
+	lines  int
 }
 
 // markdown is the chip in the file.
@@ -34,6 +38,9 @@ func (ch *chip) markdown() string {
 
 // label is what the chip says.
 func (ch *chip) label() string {
+	if ch.kind == "fold" {
+		return "⋯ " + strconv.Itoa(ch.lines) + " satır"
+	}
 	if ch.kind == "date" {
 		if d, err := time.Parse("2006-01-02", ch.target); err == nil {
 			return shortDate(d)
@@ -120,6 +127,12 @@ func withoutChips(t richtext.Text) richtext.Text {
 	}
 	for k := len(found) - 1; k >= 0; k-- {
 		f := found[k]
+		if f.ch.kind == "fold" { // what was hidden comes back, under its line
+			_, pe := t.ParagraphRange(f.i)
+			t = t.Replace(pe+1, pe+1, withoutChips(*f.ch.hidden))
+			t = t.Replace(f.i, f.i+1, richtext.Text{})
+			continue
+		}
 		t = t.ReplaceString(f.i, f.i+1, f.ch.markdown(), f.a)
 	}
 	return t
@@ -141,6 +154,12 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	text := cl.Accent
 	hover := a.hoverCh == ch
 	switch {
+	case ch.kind == "fold":
+		p.Fill(r, cl.Fill, r.H/2)
+		if hover {
+			p.Fill(r, cl.Text.Alpha(0.08), r.H/2)
+		}
+		text = cl.Muted
 	case ch.kind == "date":
 		p.Fill(r, cl.Fill, r.H/2)
 		if hover {
@@ -206,6 +225,10 @@ func (a *app) chipAt(x, y float32) *chipHit {
 // opens a calendar to change it.
 func (a *app) clickChip(x, y float32) bool {
 	if h := a.chipAt(x, y); h != nil {
+		if h.ch.kind == "fold" {
+			a.unfold(h.ch)
+			return true
+		}
 		if h.ch.kind == "date" {
 			d, err := time.Parse("2006-01-02", h.ch.target)
 			if err != nil {

@@ -142,6 +142,25 @@ func (a *app) gripView(c *ui.Context) {
 			grip.Background(cl.Fill)
 		}
 		grip.Children(func() { gripDots(c, cl.Muted) })
+		// a block with lines under it, or folded: a chevron to fold it, if there is room
+		if t := a.doc.Text(); r.X-52 >= a.pageR.X && g.para <= t.Len() && (blockHasKids(t, g.para) || foldOf(t, g.para) != nil) {
+			folded := foldOf(t, g.para) != nil
+			ch := ui.Box(c.Key("fold-chevron")).Absolute().Left(r.X-52).Top(r.Y+g.top+(line-24)/2).Size(20, 24).Radius(6).
+				AlignItems(ui.Center).Justify(ui.Center).Label(map[bool]string{true: "Aç", false: "Katla"}[folded]).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			if ch.Hovered() {
+				ch.Background(cl.Fill)
+			}
+			ch.Children(func() {
+				i := ui.Icon(c, iconFoldOpen).Width(16).Height(16).TextColor(cl.Muted)
+				if folded {
+					i.Rotate(-90)
+				}
+			})
+			g.hover = g.hover || ch.Hovered()
+			if ch.Clicked() {
+				a.toggleFold(g.para)
+			}
+		}
 		a.dragGrip(c, grip)
 		if (grip.Clicked() && !g.dragging && g.moved < 4) || grip.RightClicked() {
 			g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
@@ -295,13 +314,19 @@ func (a *app) blockItems() []menuItem {
 		}
 		return out
 	}
-	return []menuItem{
+	var fold []menuItem
+	if ch := foldOf(a.doc.Text(), at); ch != nil {
+		fold = []menuItem{{title: "Aç (katlı)", hint: "⌘/", glyph: iconFoldOpen, run: done(func() { a.unfold(ch) })}}
+	} else if blockHasKids(a.doc.Text(), at) {
+		fold = []menuItem{{title: "Katla", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
+	}
+	return append(fold, []menuItem{
 		{title: "Dönüştür…", glyph: iconFormat, nav: true, run: func() { g.view, g.sel, g.seen, g.scroll = "turn", 0, -1, ui.ScrollState{} }},
 		{title: "Çoğalt", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
 		{title: "Yukarı taşı", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
 		{title: "Aşağı taşı", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
 		{title: "Sil", group: "~", glyph: iconTrash, danger: true, run: done(func() { deleteBlock(a.doc, at) })},
-	}
+	}...)
 }
 
 // blockMenu is the menu of a block, in the / menu's design, under its grip

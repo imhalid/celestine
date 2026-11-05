@@ -168,7 +168,7 @@ func (a *app) menuItems(q string) []menuItem {
 		out = append(out, menuItem{title: title, sub: sub, group: "~", glyph: glyph, nav: true, run: func() { a.enterView(view) }})
 	}
 	nav("Satırı biçimlendir…", "başlıklar, listeler, alıntılar", "format", iconFormat)
-	nav("Ekle…", "kod, ayırıcı", "insert", iconInsert)
+	nav("Ekle…", "kod, ayırıcı, tablo, not kutuları", "insert", iconInsert)
 	nav("Tarih ya da saat", "", "date", iconCalendar)
 	if len(a.choiceItems("")) > 0 {
 		nav("Özellik…", "sayfanın seçimleri", "prop", iconSettings)
@@ -213,6 +213,33 @@ func (a *app) wikiItems(q string) []menuItem {
 	return out
 }
 
+// rawItems are the blocks of Ekle… that are Markdown richtext has no blocks
+// for, for q.
+func (a *app) rawItems(q string) []menuItem {
+	var out []menuItem
+	for _, r := range rawTemplates {
+		r := r
+		if q != "" && match(q, r.name) < 0 {
+			continue
+		}
+		out = append(out, menuItem{title: r.name, sub: r.sub, glyph: r.glyph, group: "Ekle", run: func() { a.chooseRaw(r) }})
+	}
+	return out
+}
+
+// chooseRaw takes the "/…" away and puts the block in.
+func (a *app) chooseRaw(r rawTemplate) {
+	s := &a.slash
+	_, caret := a.doc.Selection()
+	start := s.start
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(start, max(caret, start), richtext.Text{})
+		ed.Select(start, start)
+	})
+	a.insertRaw(start, r)
+	s.open = false
+}
+
 // choiceItems are the values of the page's choices, for q.
 func (a *app) choiceItems(q string) []menuItem {
 	var out []menuItem
@@ -252,6 +279,12 @@ func (a *app) viewItems(view, q string) []menuItem {
 			k := k
 			if formatKinds[k.kind] == (view == "format") {
 				out = append(out, menuItem{title: k.name, glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
+			}
+		}
+		if view == "insert" {
+			for _, it := range a.rawItems(q) {
+				it.group = "" // already under Ekle
+				out = append(out, it)
 			}
 		}
 	case "date":
@@ -303,6 +336,7 @@ func (a *app) searchItems(q string) []menuItem {
 	start := a.slash.start
 	tq := strings.TrimSpace(q)
 	var kinds, days, pages, props, fresh []menuItem
+	raws := a.rawItems(q)
 	// the kinds of line
 	for _, k := range slashItems(q) {
 		k := k
@@ -373,9 +407,9 @@ func (a *app) searchItems(q string) []menuItem {
 		}
 	}
 	if a.slash.sign == "@" {
-		add(pages, days, props, kinds, fresh)
+		add(pages, days, props, kinds, raws, fresh)
 	} else {
-		add(kinds, days, props, pages, fresh)
+		add(kinds, raws, days, props, pages, fresh)
 	}
 	return out
 }

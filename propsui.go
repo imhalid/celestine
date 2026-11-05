@@ -2,7 +2,9 @@ package main
 
 import (
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	ryugo "github.com/imhalid/ryu-go"
@@ -73,6 +75,41 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			ryugo.Select(c.Key("prop-val:"+key), &v, opts, ryugo.SelectOptions{Label: pr.Name, Size: ryugo.Sm}).Width(200)
 			if v != p.Value(pr) {
 				a.setValue(p, pr.ID, v)
+			}
+			return
+		}
+		switch pr.Type {
+		case PropDate: // a calendar to pick from, and a cross to take it away
+			var d time.Time
+			if v := p.Props[pr.ID]; v != "" {
+				d, _ = time.Parse("2006-01-02", v)
+			}
+			was := d
+			ryugo.DatePicker(c.Key("prop-val:"+key), &d, ryugo.DatePickerOptions{Label: pr.Name, Placeholder: "Tarih seç", Size: ryugo.Sm,
+				Format: func(t time.Time) string { return shortDate(t) }}).Width(200)
+			if !d.Equal(was) && !d.IsZero() {
+				a.setValue(p, pr.ID, d.Format("2006-01-02"))
+			}
+			if !was.IsZero() && a.iconButton(c, iconClose, "Temizle: "+pr.Name) {
+				a.setValue(p, pr.ID, "")
+			}
+			return
+		case PropNumber: // a number input with its buttons; none until one is added
+			raw := p.Props[pr.ID]
+			if raw == "" {
+				if ryugo.Button(c.Key("prop-num-add:"+key), "Sayı ekle", ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
+					a.setValue(p, pr.ID, "0")
+				}
+				return
+			}
+			f, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+			was := f
+			ryugo.NumberInput(c.Key("prop-val:"+key), &f, ryugo.NumberInputOptions{Label: pr.Name, Size: ryugo.Sm, Step: 1}).Width(160)
+			if f != was {
+				a.setValue(p, pr.ID, strconv.FormatFloat(f, 'f', -1, 64))
+			}
+			if a.iconButton(c, iconClose, "Temizle: "+pr.Name) {
+				a.setValue(p, pr.ID, "")
 			}
 			return
 		}

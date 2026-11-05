@@ -1,7 +1,9 @@
 package main
 
 import (
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -76,6 +78,13 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 			}
 			continue
 		}
+		// a callout is tinted by its kind
+		if kind, first := rawKindAt(text, b.Start); kind == "callout" {
+			if col, ok := calloutTint(first); ok {
+				p.Fill(ui.Rect{X: r.X, Y: r.Y + b.Top - 1, W: r.W, H: b.Height + 2}, col.Alpha(0.10), 0)
+				p.Fill(ui.Rect{X: r.X, Y: r.Y + b.Top - 1, W: 3, H: b.Height + 2}, col.Alpha(0.85), 0)
+			}
+		}
 		label := ""
 		if lang, ok := strings.CutPrefix(st.ID, codeIDPrefix); ok {
 			label = lang
@@ -97,4 +106,107 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		w, h := p.MeasureText(200, span)
 		p.RichText(r.X+r.W-w-10, r.Y+b.Top+max(0, (b.Height-h)/2), w+1, span)
 	}
+}
+
+// A rawTemplate is a block put in from the Ekle… menu: Markdown richtext
+// has no blocks for, a table and a callout, made as the raw blocks a page
+// read from a file has - so they are edited as Markdown and written as it is.
+type rawTemplate struct {
+	kind, name, sub string
+	lines           []string
+	caret           int // the line the caret goes to
+	glyph           *ui.SVG
+}
+
+var (
+	iconTable   = icon(`<rect x="4.5" y="5.5" width="15" height="13" rx="2"/><path d="M4.5 10h15M4.5 14h15M10 5.5v13"/>`)
+	iconCallout = icon(`<rect x="4.5" y="5.5" width="15" height="13" rx="3"/><path d="M12 9v4M12 15.4v.1"/>`)
+)
+
+var rawTemplates = []rawTemplate{
+	{"table", "Tablo", "satırlar ve sütunlar", []string{"| Sütun 1 | Sütun 2 | Sütun 3 |", "| --- | --- | --- |", "|  |  |  |"}, 2, iconTable},
+	{"callout", "Not kutusu", "[!note]", []string{"> [!note] Not", "> Metni buraya yaz."}, 1, iconCallout},
+	{"callout", "Bilgi kutusu", "[!info]", []string{"> [!info] Bilgi", "> Metni buraya yaz."}, 1, iconCallout},
+	{"callout", "İpucu kutusu", "[!tip]", []string{"> [!tip] İpucu", "> Metni buraya yaz."}, 1, iconCallout},
+	{"callout", "Uyarı kutusu", "[!warning]", []string{"> [!warning] Uyarı", "> Metni buraya yaz."}, 1, iconCallout},
+}
+
+// insertRaw puts a raw block at start (the empty line the caret is on, or
+// under the line it is in), with an empty paragraph after it to write on.
+func (a *app) insertRaw(start int, r rawTemplate) {
+	t := a.doc.Text()
+	ps, pe := t.ParagraphRange(min(start, t.Len()))
+	at, prefix := ps, ""
+	if pe > ps { // a line with text: the block goes under it
+		at, prefix = pe, "\n"
+	}
+	body := strings.Join(r.lines, "\n")
+	first := at + utf8.RuneCountInString(prefix)
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(at, at, richtext.NewText(prefix+body+"\n"))
+		pos := first
+		for i, ln := range r.lines {
+			ed.FormatParagraphs(pos, pos, func(p *richtext.ParagraphStyle) {
+				*p = richtext.ParagraphStyle{CodeBlock: true}
+				if i == 0 {
+					p.ID = rawIDPrefix + r.kind
+				}
+			})
+			pos += utf8.RuneCountInString(ln) + 1
+		}
+		ed.FormatParagraphs(pos, pos, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
+		// the caret in the line asked for, at its end
+		c := first
+		for i := 0; i < r.caret; i++ {
+			c += utf8.RuneCountInString(r.lines[i]) + 1
+		}
+		if r.kind == "table" {
+			c += 2 // into the first cell
+		} else {
+			c += utf8.RuneCountInString(r.lines[r.caret])
+		}
+		ed.Select(c, c)
+	})
+	a.doc.SetTypingAttributes(richtext.Attributes{})
+}
+
+var calloutKind = regexp.MustCompile(`\[!(\w+)\]`)
+
+// rawKindAt is the kind of the raw block the paragraph at s is in, and the
+// text of the block's first line.
+func rawKindAt(t richtext.Text, s int) (kind, first string) {
+	for s >= 0 {
+		st := t.ParagraphStyleAt(s)
+		if !st.CodeBlock {
+			return "", ""
+		}
+		if k, ok := strings.CutPrefix(st.ID, rawIDPrefix); ok {
+			ps, pe := t.ParagraphRange(s)
+			return k, t.Slice(ps, pe).String()
+		}
+		if strings.HasPrefix(st.ID, codeIDPrefix) || s == 0 {
+			return "", ""
+		}
+		s, _ = t.ParagraphRange(s - 1)
+	}
+	return "", ""
+}
+
+// calloutTint is the color of a callout of the kind the line names.
+func calloutTint(line string) (ui.Color, bool) {
+	m := calloutKind.FindStringSubmatch(line)
+	if m == nil {
+		return ui.Color{}, false
+	}
+	switch strings.ToLower(m[1]) {
+	case "warning", "caution", "attention":
+		return ui.Hex("#f5a524"), true
+	case "danger", "error", "bug", "failure":
+		return ui.Hex("#f31260"), true
+	case "tip", "success", "check", "done", "hint":
+		return ui.Hex("#17c964"), true
+	case "question", "help", "faq":
+		return ui.Hex("#a855f7"), true
+	}
+	return ui.Hex("#3b82f6"), true // note, info, abstract, todo, quote, …
 }

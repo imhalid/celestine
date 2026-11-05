@@ -40,10 +40,15 @@ type caretBox struct {
 // the paragraphs in view (doc.VisibleParagraphs), with the base font and theme
 // the editor was given.
 func locate(doc *richtext.Document, boxes []richtext.ParagraphBox, w float32, base ui.Font, th *richtext.Theme) (caretBox, bool) {
+	_, caret := doc.Selection()
+	return locateAt(doc, caret, boxes, w, base, th)
+}
+
+// locateAt is locate for the rune caret, wherever the selection is.
+func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, w float32, base ui.Font, th *richtext.Theme) (caretBox, bool) {
 	if len(boxes) == 0 {
 		return caretBox{}, false
 	}
-	_, caret := doc.Selection()
 	text := doc.Text()
 	bi := -1
 	for i, b := range boxes {
