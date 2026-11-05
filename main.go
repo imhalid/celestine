@@ -175,6 +175,12 @@ type app struct {
 	ctx           ctxMenu        // the context menu (ctxmenu.go)
 	pageScroll    ui.ScrollState // the page scrolled as a whole (pageView)
 	scrollR       ui.Rect        // its room in the window, last frame
+	barInset      float32        // the part of the top of the page the title bar lies over (the page scrolls under it)
+	topSpace      float32        // what the page leaves above its title, in its scroll
+	winScrolled   bool           // a huge page is scrolled in its window: its title and properties give way (trackWindow)
+	winTop        float32        // where its first paragraph is, scrolled to the top
+	winTrim       float32        // the room around the window of a huge page that the page does not have (it starts with a guess)
+	winFlip       time.Time      // when its title last went or came back
 	headH         float32        // the title's and properties' height, last frame
 	titleFocused  bool
 	edH           float32 // the editor's height, last frame
@@ -383,6 +389,7 @@ func (a *app) open(p *Page) {
 	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
 	a.dirty, a.saveErr, a.lastSave = false, "", ""
 	a.boxes = nil
+	a.winScrolled, a.winTop, a.winFlip = false, 0, a.clock()
 	a.pageScroll = ui.ScrollState{}
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
@@ -504,7 +511,10 @@ func (a *app) view(c *ui.Context) {
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
-			a.titleBar(c)
+			pageMode := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && a.coll == nil && a.page != nil
+			if !pageMode {
+				a.titleBar(c)
+			}
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
@@ -514,6 +524,10 @@ func (a *app) view(c *ui.Context) {
 			topPad := float32(pageTop - barH + 8)
 			if a.page != nil && a.page.Cover != "" && !a.noPage() { // the cover starts under the bar
 				topPad = 0
+			}
+			a.barInset, a.topSpace = 0, 0
+			if pageMode { // the page scrolls from the top of the window, under the bar, and starts below it
+				a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 			defer func() { a.pageR = pageRow.LayoutBounds() }()
@@ -551,6 +565,9 @@ func (a *app) view(c *ui.Context) {
 			})
 			a.status(c)
 			a.keepTree()
+			if pageMode {
+				a.titleBarOver(c)
+			}
 		})
 		a.sidePanel(c)
 		a.sidebarButton(c)
@@ -593,6 +610,7 @@ func (a *app) view(c *ui.Context) {
 	}
 	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
+		a.trackWindow()
 		a.autosave(c)
 	}
 }
@@ -617,12 +635,18 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	// the text is a column in the middle, with margins either side
 	ui.Column(c).Fill().Children(func() {
 		if a.find.open {
+			if a.barInset > 0 { // the bar lies over the top: the find bar is below it
+				ui.Box(c.Key("find-top")).FillWidth().Height(a.barInset)
+			}
 			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Children(func() { a.findBar(c) })
 			})
 		}
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(&a.pageScroll).Grow(1)
 		sc.Children(func() {
+			if a.topSpace > 0 {
+				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace)
+			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
 			if _, y, over := wrap.PointerPosition(); over && p.Cover != "" {
@@ -644,14 +668,25 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 
 // pageBody is the title, the properties and the text.
 func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
-	head := ui.Column(c.Key("page-head")).FillWidth()
-	head.Children(func() { a.pageHead(c, p) })
-	a.headH = head.LayoutBounds().H
+	window := hugePage(a.doc.Text())
+	if window && a.winScrolled { // scrolled in its window: the title and the properties are gone with what scrolled
+		a.headH = 0
+	} else {
+		head := ui.Column(c.Key("page-head")).FillWidth()
+		if window {
+			head.Transition(branch).Clip()
+		}
+		head.Children(func() { a.pageHead(c, p) })
+		a.headH = head.LayoutBounds().H
+	}
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
 	}).FillWidth().Height(a.editorH(c))
+	if window {
+		ed.Transition(windowEditor)
+	}
 	if !a.titleFocused && !a.fresh && !a.treeNav {
 		ed.AutoFocus()
 	}
@@ -787,9 +822,18 @@ func (a *app) editorH(c *ui.Context) float32 {
 // editorHeight is the editor's: its text, and more while there is text
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
-	least := max(a.scrollR.H-a.headH-a.linksH-8, 160)
+	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-8, 160)
 	if hugePage(a.doc.Text()) {
-		return least // a window on the text, which scrolls in it (see hugePageRunes)
+		// a window on the text, which scrolls in it (see hugePageRunes); the room
+		// around it (gaps, paddings) is learnt from how far the page around it
+		// still scrolls, so that it does not: a second bar
+		if a.winTrim == 0 {
+			a.winTrim = 40 // a guess, learnt below
+		}
+		if a.pageScroll.MaxY > 0.5 && a.clock().Sub(a.winFlip) > time.Second { // not while the title moves
+			a.winTrim += a.pageScroll.MaxY
+		}
+		return max(least-a.winTrim, 160)
 	}
 	n := len(a.boxes)
 	if n == 0 {
@@ -961,6 +1005,7 @@ func (a *app) status(c *ui.Context) {
 		state = "kaydediliyor…"
 	}
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
+	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	ui.Row(c).Padding(3, 16).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {

@@ -64,7 +64,7 @@ func (a *app) selectionBar(c *ui.Context) {
 	h := float32(40)
 	left := max(8, min(x-8, ww-w-8))
 	top := y - h - 10
-	if top < a.scrollR.Y+4 {
+	if top < a.scrollR.Y+a.barInset+4 {
 		top = y + cb.r.H + 10
 	}
 	ui.Overlay(c, func() {

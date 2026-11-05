@@ -71,6 +71,7 @@ func TestHugePageIsAWindow(t *testing.T) {
 		fmt.Fprintf(&b, "- Madde %d: biraz metin, biraz daha metin.\n", i)
 	}
 	a, tt := newTestApp(t, b.String())
+	a.clock = tt.Now // the time the frames run on
 	tt.SetSize(900, 700)
 	settle := func(n int) {
 		for i := 0; i < n; i++ {
@@ -92,6 +93,12 @@ func TestHugePageIsAWindow(t *testing.T) {
 	if an, ca := a.doc.Selection(); an != 0 || ca != 0 {
 		t.Fatalf("opened with the caret at %d-%d, not at its start", an, ca)
 	}
+	if a.winScrolled || a.headH == 0 {
+		t.Fatalf("at the top the title is shown: scrolled %v, its height %v", a.winScrolled, a.headH)
+	}
+	if a.pageScroll.MaxY > 1 {
+		t.Fatalf("the page around the window scrolls too (%v), a second bar", a.pageScroll.MaxY)
+	}
 	// the wheel takes the text on, and what is in view is all that is laid out
 	prev := 0
 	for i := 0; i < 5; i++ {
@@ -102,6 +109,12 @@ func TestHugePageIsAWindow(t *testing.T) {
 			t.Fatalf("the wheel did not take the text on: %d after %d", first, prev)
 		}
 		prev = first
+	}
+	if !a.winScrolled || a.headH != 0 {
+		t.Fatalf("scrolled, the title gives way: scrolled %v, its height %v", a.winScrolled, a.headH)
+	}
+	if a.pageScroll.MaxY > 1 {
+		t.Fatalf("the page around the window scrolls too (%v), a second bar", a.pageScroll.MaxY)
 	}
 	// the caret to the end: the last line is in view, nothing more is laid out
 	n := a.doc.Text().Len()
@@ -115,6 +128,9 @@ func TestHugePageIsAWindow(t *testing.T) {
 	settle(30)
 	if first, _ := inView("caret at the start"); first != 0 {
 		t.Fatalf("the start of the page is not in view: first paragraph %d", first)
+	}
+	if a.winScrolled || a.headH == 0 {
+		t.Fatalf("back at the top the title comes back: scrolled %v, its height %v", a.winScrolled, a.headH)
 	}
 }
 
@@ -134,5 +150,32 @@ func TestManyLinesPageIsAWindow(t *testing.T) {
 	}
 	if !hugePage(a.doc.Text()) {
 		t.Fatal("5000 lines are not a huge page")
+	}
+}
+
+// The page scrolls from the top of the window, under the title bar, which lies
+// over it: the text is not cut off below an empty band, and the wheel works
+// over the bar too; at the top the title stands where it did.
+func TestPageScrollsUnderTheTitleBar(t *testing.T) {
+	a, tt := newTestApp(t, longPage())
+	tt.SetSize(900, 500)
+	tt.Advance(300 * time.Millisecond)
+	if a.scrollR.Y != 0 || a.barInset != barH {
+		t.Fatalf("the page scrolls from y=%v under a bar of %v, not from the top", a.scrollR.Y, a.barInset)
+	}
+	if a.topSpace != pageTop+8 {
+		t.Fatalf("the page starts %v below the top, where it did: %v", a.topSpace, pageTop+8)
+	}
+	tt.Wheel(a.editorR.X+100, 40, 0, 300) // over the top of the page, below the strip that moves the window
+	tt.Advance(300 * time.Millisecond)
+	if a.pageScroll.Y < 100 {
+		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
+	}
+	// a collection, with no page, keeps its bar above it
+	a.coll = a.lib.Collections[0]
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if a.barInset != 0 || a.topSpace != 0 {
+		t.Fatalf("a collection is under a bar of its own: %v %v", a.barInset, a.topSpace)
 	}
 }

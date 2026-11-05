@@ -101,7 +101,7 @@ func (a *app) gutterView(c *ui.Context) {
 	// only where the page shows: the editor is as tall as its text
 	top, bottom := r.Y, r.Y+r.H
 	if a.scrollR.H > 0 {
-		top, bottom = max(top, a.scrollR.Y), min(bottom, a.scrollR.Y+a.scrollR.H)
+		top, bottom = max(top, a.scrollR.Y+a.barInset), min(bottom, a.scrollR.Y+a.scrollR.H)
 	}
 	if bottom <= top {
 		return

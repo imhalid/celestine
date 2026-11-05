@@ -749,3 +749,16 @@ func (a *app) collapseBigLibrary() {
 		c.Open = a.page != nil && a.page.Coll == c
 	}
 }
+
+// titleBarOver is the title bar over a page that scrolls under it: it lies on
+// the top of the content, empty, and moves the window; the text goes up to the
+// edge of the window beneath it, not cut off below an empty band.
+func (a *app) titleBarOver(c *ui.Context) {
+	// only as high as the window's own title bar: it takes the pointer, to move the
+	// window, and with it the wheel, which the page below would scroll by
+	h := c.TitleBar().Height
+	if h <= 0 {
+		h = 28
+	}
+	ui.Row(c.Key("title-over")).Absolute().Left(0).Right(0).Top(0).Height(h).DragWindow()
+}

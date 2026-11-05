@@ -46,3 +46,27 @@ const hugePageRunes, hugePageParagraphs = 60000, 800
 func hugePage(t richtext.Text) bool {
 	return t.Len() > hugePageRunes || t.ParagraphCount() > hugePageParagraphs
 }
+
+// windowEditor moves the editor of a huge page up as the title above it folds
+// away, and down as it comes back.
+var windowEditor = ui.ElementTransition{Animation: branch.Animation, Position: true}
+
+// trackWindow notes whether a huge page, which scrolls in its window, is
+// scrolled from the top: then its title and properties give way (pageBody)
+// and the text has the whole room, as in a page that scrolls as a whole they
+// would scroll away; and they come back when the text is at the top again.
+func (a *app) trackWindow() {
+	if !hugePage(a.doc.Text()) || len(a.boxes) == 0 {
+		a.winScrolled = false
+		return
+	}
+	b := a.boxes[0]
+	scrolled := b.Index > 0
+	if !scrolled {
+		a.winTop = max(a.winTop, b.Top)
+		scrolled = b.Top < a.winTop-1
+	}
+	if scrolled != a.winScrolled {
+		a.winScrolled, a.winFlip = scrolled, a.clock()
+	}
+}
