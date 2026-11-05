@@ -81,7 +81,7 @@ func (a *app) collectionView(c *ui.Context) {
 			}
 			ui.Spacer(c)
 			ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true}).Width(220)
-			if ryugo.Button(c, "Yeni "+pageNoun(coll), ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
+			if ryugo.Button(c, "Yeni "+pageNoun(coll), ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft}).Clicked() {
 				a.newPage(coll, nil)
 			}
 		})

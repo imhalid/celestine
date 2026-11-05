@@ -118,6 +118,7 @@ type app struct {
 	style      richtext.ParagraphStyle // the caret paragraph's, last frame
 	refocus    bool                    // the editor takes the keyboard focus in the next frame
 	pageR      ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
+	heads      map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
 	hoverCh    *chip                   // the chip the pointer is over
 	dateEdit   dateEdit                // the calendar a date chip opens
 	editorR    ui.Rect                 // the editor's box, from its last frame
@@ -229,7 +230,7 @@ func (a *app) open(p *Page) {
 		if err != nil {
 			a.saveErr = err.Error()
 		}
-		doc = richtext.NewDocument(a.parse(body))
+		doc = richtext.NewDocument(a.parsePage(p, body))
 		a.docs[p] = doc
 	}
 	a.page, a.doc, a.title = p, doc, p.Title
@@ -461,6 +462,14 @@ func (a *app) track(c *ui.Context) {
 		a.length, a.caretAt = text.Len()-1, caret-1 // still the letter typed, to the caret
 		n = text.Len()
 	}
+	// "[[Page]]" typed: a chip (chips.go)
+	if a.chipShortcut(text, caret, n-a.length == 1 && caret-a.caretAt == 1) {
+		_, caret = a.doc.Selection()
+		text, v = a.doc.Text(), a.doc.Version()
+		style = text.ParagraphStyleAt(caret)
+		n = text.Len()
+		a.length, a.caretAt = n, caret
+	}
 	if grew := n - a.length; grew > 0 && caret-a.caretAt == grew && grew <= 8 {
 		a.wrote += grew
 	} else {
@@ -541,19 +550,12 @@ func (a *app) status(c *ui.Context) {
 				a.settingsOpen = true
 			}
 		}
-		where := "ryudit"
-		if a.trashOpen {
-			where = trashDir
-		} else if a.coll != nil {
-			if rel, err := filepath.Rel(a.lib.Root, filepath.Join(a.coll.Dir, collectionFile)); err == nil {
-				where = rel
-			}
-		} else if a.page != nil {
-			if rel, err := filepath.Rel(a.lib.Root, a.page.file()); err == nil {
-				where = rel
-			}
+		// no file paths: how it is saved, and the caret
+		st := ui.Text(c, strings.ToUpper(state[:1])+state[1:]).FontSize(11.5).TextColor(t.TextMuted)
+		if a.saveErr != "" {
+			st.TextColor(ryugo.From(c).Colors.Up)
 		}
-		ui.Text(c, where+" · "+state+"   ·   caret: "+caret+" (⌘⇧M)").FontSize(11.5).TextColor(t.TextMuted)
+		ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
 	})
 }
 
@@ -570,7 +572,7 @@ func (a *app) autosave(c *ui.Context) {
 }
 
 func (a *app) save() {
-	md := bodyMarkdown(a.doc.Text())
+	md := a.pageMarkdown(a.page, a.doc.Text())
 	if !strings.HasSuffix(md, "\n") {
 		md += "\n"
 	}

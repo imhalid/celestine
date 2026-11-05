@@ -256,11 +256,11 @@ func (a *app) writeBody(p *Page, body string) error {
 		return err
 	}
 	if doc := a.docs[p]; doc != nil {
-		doc.SetText(a.parse(body))
+		doc.SetText(a.parsePage(p, body))
 		if p == a.page {
 			_, caret := doc.Selection()
 			a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-			a.lastSave, a.dirty = bodyMarkdown(doc.Text()), false
+			a.lastSave, a.dirty = a.pageMarkdown(p, doc.Text()), false
 		}
 	}
 	return nil

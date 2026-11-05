@@ -9,22 +9,21 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// A collection's settings, as Thymer has them: a panel along the window's
-// edge with tabs - General, Properties, Views, Pages, Code - working on a
-// draft of the collection. Önizle shows the draft on the collection without
-// keeping it, Kaydet keeps it, Vazgeç (or closing) goes back to how it was.
+// A collection's settings, as Thymer has them: a dialog (not a sheet along
+// the window's edge: the window's controls are there) with tabs - General, Properties, Views, Pages, Code - working on a
+// draft of the collection. Kaydet keeps it, Vazgeç (or closing) goes back to
+// how it was.
 
 type collSettings struct {
-	open    bool
-	coll    *Collection
-	draft   Collection
-	orig    []byte // the collection as it was, to go back to
-	preview bool   // the draft is shown on the collection, not kept
-	saved   bool
-	tab     int
-	err     string
+	open  bool
+	coll  *Collection
+	draft Collection
+	orig  []byte // the collection as it was, to go back to
+	saved bool
+	tab   int
+	err   string
 
-	propList, viewList ui.ListState
+	propList, viewList sortState
 	prop               string // the property being changed
 	view               string // the view being changed
 
@@ -69,19 +68,7 @@ func (a *app) openCollSettings(c *Collection, tab int) {
 // panel is still built as it slides away.
 func (a *app) endCollSettings() {
 	cs := &a.cs
-	if !cs.saved && cs.preview {
-		cs.coll.setConfig(cs.orig)
-	}
-	cs.preview, cs.closed = false, true
-}
-
-func (a *app) previewCollSettings() {
-	cs := &a.cs
-	cs.coll.setConfig(cs.draft.configJSON())
-	cs.preview = true
-	if a.coll == cs.coll {
-		a.collName = cs.coll.Name
-	}
+	cs.closed = true
 }
 
 func (a *app) saveCollSettings() {
@@ -107,13 +94,9 @@ func (a *app) collSettingsView(c *ui.Context) {
 		a.endCollSettings() // closed by Vazgeç, Esc or the scrim: as it was
 	}
 	d := &cs.draft
-	ryugo.Sheet(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / Ayarlar", Width: 520, Footer: func() {
+	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / Ayarlar", Width: 560, Fixed: true, Footer: func() {
 		if ryugo.Button(c.Key("cs-cancel"), "Vazgeç", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			cs.open = false
-		}
-		ui.Spacer(c)
-		if ryugo.Button(c.Key("cs-preview"), "Önizle", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-			a.previewCollSettings()
 		}
 		if ryugo.Button(c.Key("cs-save"), "Kaydet", ryugo.ButtonOptions{Size: ryugo.Sm, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
 			a.saveCollSettings()
@@ -218,7 +201,7 @@ func (a *app) csGeneral(c *ui.Context) {
 	})
 	ui.Box(c).Height(1).Background(cl.Hairline)
 	ui.Row(c).Children(func() { // as wide as its label
-		if ryugo.Button(c.Key("cs-trash"), "Koleksiyonu çöpe taşı", ryugo.ButtonOptions{Danger: true, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
+		if ryugo.Button(c.Key("cs-trash"), "Koleksiyonu çöpe taşı", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
 			coll := cs.coll
 			cs.open, cs.saved = false, true
 			a.trashCollection(coll)
@@ -245,23 +228,25 @@ func (a *app) csProperties(c *ui.Context) {
 		}
 	})
 	if len(d.Properties) > 0 {
-		ryugo.Sortable(c.Key("cs-props"), &cs.propList, &d.Properties, ryugo.SortableOptions{
-			Label: func(i int) string { return "Özellik: " + d.Properties[i].Name },
-			Key:   func(i int) any { return d.Properties[i].ID },
-		}, func(p Property) {
-			ui.Text(c, p.Name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
-			ui.Text(c, "· "+PropTypeName(p.Type)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-			if p.Type == PropChoice {
-				ui.Text(c, strings.Join(p.Options, ", ")).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1).Shrink(1)
-			}
-			ui.Spacer(c)
-			if a.iconButton(c, iconEdit, "Düzenle: "+p.Name) {
-				cs.prop = map[bool]string{true: "", false: p.ID}[cs.prop == p.ID]
-			}
+		a.sortList(c, "cs-props", &cs.propList, sortOpts{
+			n:        len(d.Properties),
+			id:       func(i int) string { return d.Properties[i].ID },
+			label:    func(i int) string { return "Özellik: " + d.Properties[i].Name },
+			selected: cs.prop,
+			content: func(i int) {
+				p := d.Properties[i]
+				ui.Text(c, p.Name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
+				ui.Text(c, "· "+PropTypeName(p.Type)).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1).Shrink(0)
+				if p.Type == PropChoice {
+					ui.Text(c, strings.Join(p.Options, ", ")).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1).Shrink(1).MinWidth(0)
+				}
+			},
+			toggle: func(i int) {
+				cs.prop = map[bool]string{true: "", false: d.Properties[i].ID}[cs.prop == d.Properties[i].ID]
+			},
+			editor: func(i int) { a.csPropEditor(c, &d.Properties[i]) },
+			move:   func(from, to int) { d.Properties = moveItem(d.Properties, from, to) },
 		})
-	}
-	if i := slices.IndexFunc(d.Properties, func(p Property) bool { return p.ID == cs.prop }); i >= 0 {
-		a.csPropEditor(c, &d.Properties[i])
 	}
 	a.csAddProperty(c)
 }
@@ -269,8 +254,7 @@ func (a *app) csProperties(c *ui.Context) {
 // csPropEditor changes a property of the draft.
 func (a *app) csPropEditor(c *ui.Context, p *Property) {
 	cs := &a.cs
-	cl := ryugo.From(c).Colors
-	ui.Column(c.Key("cs-prop-edit:" + p.ID)).Gap(10).Padding(12).Radius(12).Background(cl.Well).Children(func() {
+	ui.Column(c.Key("cs-prop-edit:" + p.ID)).FillWidth().Gap(10).Padding(12).Children(func() {
 		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
 			ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: "Özelliğin adı", Size: ryugo.Sm})
 		})
@@ -282,7 +266,7 @@ func (a *app) csPropEditor(c *ui.Context, p *Property) {
 				}
 			})
 		}
-		if ryugo.Button(c.Key("cs-prop-del"), "Özelliği sil", ryugo.ButtonOptions{Danger: true, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("cs-prop-del"), "Özelliği sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			id := p.ID
 			cs.draft.Properties = slices.DeleteFunc(cs.draft.Properties, func(q Property) bool { return q.ID == id })
 			cs.draft.normalize()
@@ -396,24 +380,24 @@ func (a *app) csViews(c *ui.Context) {
 	d := &cs.draft
 	cl := ryugo.From(c).Colors
 	ui.Text(c, "Sayfaları liste, tablo ya da pano olarak göster; neyin görüneceğini her görünümde seç. Sürükleyerek sırala.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
-	ryugo.Sortable(c.Key("cs-views"), &cs.viewList, &d.Views, ryugo.SortableOptions{
-		Label: func(i int) string { return "Görünüm: " + d.Views[i].Label },
-		Key:   func(i int) any { return d.Views[i].ID },
-	}, func(v View) {
-		ui.Text(c, v.Label).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
-		for _, vt := range viewTypes {
-			if vt.Type == v.Type {
-				ui.Text(c, "· "+vt.Name).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+	a.sortList(c, "cs-views", &cs.viewList, sortOpts{
+		n:        len(d.Views),
+		id:       func(i int) string { return d.Views[i].ID },
+		label:    func(i int) string { return "Görünüm: " + d.Views[i].Label },
+		selected: cs.view,
+		content: func(i int) {
+			v := d.Views[i]
+			ui.Text(c, v.Label).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
+			for _, vt := range viewTypes {
+				if vt.Type == v.Type {
+					ui.Text(c, "· "+vt.Name).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1).Shrink(0)
+				}
 			}
-		}
-		ui.Spacer(c)
-		if a.iconButton(c, iconEdit, "Düzenle: "+v.Label) {
-			cs.view = map[bool]string{true: "", false: v.ID}[cs.view == v.ID]
-		}
+		},
+		toggle: func(i int) { cs.view = map[bool]string{true: "", false: d.Views[i].ID}[cs.view == d.Views[i].ID] },
+		editor: func(i int) { a.csViewEditor(c, &d.Views[i]) },
+		move:   func(from, to int) { d.Views = moveItem(d.Views, from, to) },
 	})
-	if i := slices.IndexFunc(d.Views, func(v View) bool { return v.ID == cs.view }); i >= 0 {
-		a.csViewEditor(c, &d.Views[i])
-	}
 	hasChoice := slices.ContainsFunc(d.Properties, func(p Property) bool { return p.Type == PropChoice })
 	ui.Row(c).Children(func() { a.csAddView(c, d, hasChoice) }) // as wide as its label
 	if !hasChoice {
@@ -455,8 +439,7 @@ func (a *app) csAddView(c *ui.Context, d *Collection, hasChoice bool) {
 func (a *app) csViewEditor(c *ui.Context, v *View) {
 	cs := &a.cs
 	d := &cs.draft
-	cl := ryugo.From(c).Colors
-	ui.Column(c.Key("cs-view-edit:" + v.ID)).Gap(12).Padding(12).Radius(12).Background(cl.Well).Children(func() {
+	ui.Column(c.Key("cs-view-edit:" + v.ID)).FillWidth().Gap(12).Padding(12).Children(func() {
 		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
 			ryugo.Input(c.Key("cs-view-name"), &v.Label, ryugo.InputOptions{Label: "Görünümün adı", Size: ryugo.Sm})
 		})
@@ -508,7 +491,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			})
 		}
 		ui.Row(c).Children(func() { // as wide as its label
-			if len(d.Views) > 1 && ryugo.Button(c.Key("cs-view-del"), "Görünümü sil", ryugo.ButtonOptions{Danger: true, Size: ryugo.Sm}).Clicked() {
+			if len(d.Views) > 1 && ryugo.Button(c.Key("cs-view-del"), "Görünümü sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 				id := v.ID
 				d.Views = slices.DeleteFunc(d.Views, func(x View) bool { return x.ID == id })
 				cs.view = ""

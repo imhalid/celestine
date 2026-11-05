@@ -144,11 +144,11 @@ func (a *app) takeOutside(p *Page) {
 		a.notice = "“" + p.Title + "” dışarıda da değişti: senin yazdıkların kaydedildi, öteki sürüm yanına “" + name + "” olarak kondu."
 		return
 	}
-	doc.SetText(a.parse(body))
+	doc.SetText(a.parsePage(p, body))
 	if p == a.page {
 		_, caret := doc.Selection()
 		a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-		a.lastSave = bodyMarkdown(doc.Text())
+		a.lastSave = a.pageMarkdown(p, doc.Text())
 	}
 }
 

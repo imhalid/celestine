@@ -196,7 +196,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	case renaming:
 		r.Background(a.pageBg).Border(1, t.Accent)
 	case s.selected:
-		r.Background(t.Selection)
+		r.Background(ryugo.Mix(t.Surface, ryugo.From(c).Colors.Accent, 0.14)) // a tint, not the loud selection color
 	case hover:
 		r.Background(t.SurfaceHover)
 	default:

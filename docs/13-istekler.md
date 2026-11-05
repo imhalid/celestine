@@ -22,6 +22,11 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 5. **Kenar çubuğu düğmesi sabit dursun.** Kenar çubuğunu açıp kapatan düğme her zaman sol üstte, üç trafik
    lambasının hemen yanında olmalı; kenar çubuğu açıkken içeriğin başlık çubuğuna kaymamalı. *(hemen)*
 
+> **Durum (5 Kasım 2026, akşam):** Koleksiyon ayarlarında özellik ve görünüm listeleri kendi sıralama listemizle
+> (`sortlist.go`): tutamak SVG, açık olan satır vurgulu ve düzenleyicisi satırın içinde; **Önizle** düğmesi kaldırıldı.
+> Sayfanın metni başlığıyla aynı bir `# Başlık` ile başlıyorsa o satır gösterilmez, dosyaya aynen geri yazılır
+> (`hidetitle.go`). `[[Sayfa]]` yazılınca son `]`de çipe dönüşür.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun

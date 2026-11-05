@@ -126,7 +126,7 @@ func (a *app) propDialog(c *ui.Context) {
 		title = "Özelliği düzenle"
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
-		if e.id != "" && ryugo.Button(c.Key("prop-delete"), "Özelliği sil", ryugo.ButtonOptions{Danger: true, Size: ryugo.Sm}).Clicked() {
+		if e.id != "" && ryugo.Button(c.Key("prop-delete"), "Özelliği sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			if err := e.coll.RemoveProperty(e.id); err != nil {
 				e.err = err.Error()
 				return

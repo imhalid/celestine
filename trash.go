@@ -132,7 +132,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 		if ryugo.Button(c.Key("restore:"+item.Dir), "Geri yükle", ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
 		}
-		if ryugo.Button(c.Key("delete:"+item.Dir), "Kalıcı olarak sil: "+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Danger: true, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("delete:"+item.Dir), "Kalıcı olarak sil: "+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			if err := a.lib.DeleteForever(item); err != nil {
 				a.saveErr = err.Error()
 			}

@@ -292,6 +292,34 @@ func (a *app) dateEditView(c *ui.Context) {
 	})
 }
 
+var wikiAtEnd = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]$`)
+
+// chipShortcut turns a [[link]] into a chip as its last bracket is typed,
+// outside code; it reports whether it did, the caret after the chip.
+func (a *app) chipShortcut(text richtext.Text, caret int, typed bool) bool {
+	if !typed || caret < 5 || text.Slice(caret-1, caret).String() != "]" {
+		return false
+	}
+	ps, _ := text.ParagraphRange(caret - 1)
+	if text.ParagraphStyleAt(ps).CodeBlock || text.AttributesAt(caret-1).Code {
+		return false
+	}
+	line := text.Slice(ps, caret).String()
+	m := wikiAtEnd.FindStringSubmatchIndex(line)
+	if m == nil {
+		return false
+	}
+	start := ps + utf8.RuneCountInString(line[:m[0]])
+	attrs := text.AttributesAt(start)
+	attrs.Attachment = a.attachment(chipOf(line[m[2]:m[3]]))
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.ReplaceString(start, caret, string(richtext.ObjectReplacement), attrs)
+		ed.Select(start+1, start+1)
+	})
+	a.doc.SetTypingAttributes(richtext.Attributes{})
+	return true
+}
+
 // insertChip puts a chip in place of the text from start to the caret,
 // with a space after it.
 func (a *app) insertChip(start int, ch *chip) {

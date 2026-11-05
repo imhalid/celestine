@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestCollSettings opens a collection's settings, changes it, previews,
+// TestCollSettings opens a collection's settings, changes it,
 // cancels (as it was), changes again and saves (kept, on disk).
 func TestCollSettings(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
@@ -19,11 +19,6 @@ func TestCollSettings(t *testing.T) {
 		t.Fatal("not open")
 	}
 	a.cs.draft.Name, a.cs.draft.Icon, a.cs.draft.Color = "Okuma", "book", "c3"
-	tt.Click("Önizle")
-	tt.Frame()
-	if coll.Name != "Okuma" || coll.Icon != "book" {
-		t.Fatalf("preview: %q %q", coll.Name, coll.Icon)
-	}
 	tt.Click("Vazgeç")
 	tt.Advance(time.Second)
 	if coll.Name != "Kitaplar" || coll.Icon != "" || a.cs.open {
