@@ -8,6 +8,11 @@ Her önerinin yanında: neden, nereden, çaba (**K** küçük, **O** orta, **B**
 
 ## Önce uyarılar
 
+> **Durum (5 Kasım 2026):** U1, U2 ve U3 yapıldı — `markdown.go` (ham bloklar, kod dili, gereksiz kaçışlar),
+> `frontmatter.go` (YAML, yerinde değişiklik), `watch.go` (1,5 sn'de bir diskle karşılaştırma, çakışmada iki sürüm).
+> Kalan bilinen normalleştirmeler: tek satır sonları birleşir (`a\nb` → `a b`), `__kalın__` → `**kalın**`,
+> `1)` → `1.`, bağlantı başlığı (`"title"`) düşer, alıntıdaki iki paragraf iki alıntı olur. Okunuşları aynı.
+
 ### U1 — Başka araçların Markdown'ını bozuyoruz (ciddi, veri kaybı)
 "Kitaplık düz Markdown, her araç okur" diyoruz. Okuma doğru, ama **bir sayfayı ryudit'te düzenleyip kaydedince**
 richtext'in tanımadığı her şey bozuluyor. Denedim (`parseBody` → `bodyMarkdown`):

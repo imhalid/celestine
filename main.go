@@ -186,6 +186,7 @@ func main() {
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
 		a.invalidate = w.Invalidate
+		go a.watch()
 		if a.settings.MCP {
 			a.setMCP(true)
 		}

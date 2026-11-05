@@ -48,11 +48,12 @@ type Collection struct {
 	// none until one is added (properties.go).
 	Properties []Property `json:"properties,omitempty"`
 	// Statuses is what came before properties: read, made a "Durum" choice.
-	Statuses   []string `json:"statuses,omitempty"`
-	ActiveView string   `json:"activeView,omitempty"`
-	Dir        string   `json:"-"`
-	Pages      []*Page  `json:"-"` // top-level pages, oldest first
-	Open       bool     `json:"-"` // shown expanded in the sidebar
+	Statuses   []string  `json:"statuses,omitempty"`
+	ActiveView string    `json:"activeView,omitempty"`
+	Dir        string    `json:"-"`
+	Pages      []*Page   `json:"-"` // top-level pages, oldest first
+	Open       bool      `json:"-"` // shown expanded in the sidebar
+	seen       time.Time // when its collection.json was last read or written here (watch.go)
 }
 
 // View is a way of showing a collection's pages: a list grouped by date or a
@@ -169,7 +170,7 @@ func OpenLibrary(root string) (*Library, error) {
 		if c.Name == "" {
 			c.Name = e.Name()
 		}
-		c.Dir = dir
+		c.Dir, c.seen = dir, modTime(filepath.Join(dir, collectionFile))
 		c.Pages = readPages(dir, c, nil)
 		if c.migrate() {
 			if err := c.save(); err != nil {
@@ -233,7 +234,20 @@ func (l *Library) NewCollection(name string) (*Collection, error) {
 
 func (c *Collection) save() error {
 	data, _ := json.MarshalIndent(c, "", "  ")
-	return writeAtomic(filepath.Join(c.Dir, collectionFile), append(data, '\n'))
+	file := filepath.Join(c.Dir, collectionFile)
+	if err := writeAtomic(file, append(data, '\n')); err != nil {
+		return err
+	}
+	c.seen = modTime(file)
+	return nil
+}
+
+// modTime is when file was last written; now if it can't be read.
+func modTime(file string) time.Time {
+	if info, err := os.Stat(file); err == nil {
+		return info.ModTime()
+	}
+	return time.Now()
 }
 
 // NewPage makes a page in c, under parent when it is not nil (a sub-page),
@@ -315,7 +329,7 @@ func (p *Page) Save(body string) error {
 	if err := writeAtomic(p.file(), []byte(sb.String())); err != nil {
 		return err
 	}
-	p.Modified = time.Now()
+	p.Modified = modTime(p.file())
 	if f.bad {
 		return errBadFront
 	}
