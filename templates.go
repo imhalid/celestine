@@ -48,6 +48,10 @@ func (c *Collection) allTemplates() []NamedTemplate {
 // newPageFrom makes a page in c with the template's text, and opens it, its
 // title ready to be typed.
 func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
+	if c.Dynamic() {
+		a.newPage(c, parent)
+		return
+	}
 	if c.Journal {
 		a.openToday()
 		return

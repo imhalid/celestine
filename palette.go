@@ -44,7 +44,9 @@ func (a *app) commands() []palItem {
 	}
 	var out []palItem
 	if c := a.currentColl(); c != nil {
-		out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
+		if !c.Dynamic() {
+			out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
+		}
 		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
 		if !c.Journal {
 			for _, t := range c.allTemplates() {

@@ -379,6 +379,10 @@ func (a *app) open(p *Page) {
 
 // newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
 func (a *app) newPage(c *Collection, parent *Page) {
+	if c.Dynamic() {
+		a.notice = "Arama koleksiyonuna sayfa eklenmez: sayfalarını sorgusu bulur"
+		return
+	}
 	if c.Journal { // the journal gets today's page and no other
 		a.openToday()
 		return

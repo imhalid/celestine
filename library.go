@@ -50,7 +50,10 @@ type Collection struct {
 	Template string `json:"template,omitempty"`
 	// Templates are more of them, each with a name (templates.go).
 	Templates []NamedTemplate `json:"templates,omitempty"`
-	SubPages  bool            `json:"subPages"`
+	// Query makes the collection a saved search (dynamic.go): it has no pages of
+	// its own, and shows the pages of the library that the search finds.
+	Query    string `json:"query,omitempty"`
+	SubPages bool   `json:"subPages"`
 	// Journal marks the collection of the days' pages (journal.go): every
 	// library has one, and it is not thrown away.
 	Journal bool `json:"journal,omitempty"`
@@ -293,6 +296,9 @@ func modTime(fsys FS, file string) time.Time {
 func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	if parent != nil && !c.SubPages {
 		return nil, errors.New("this collection has no sub-pages")
+	}
+	if c.Dynamic() {
+		return nil, errors.New("arama koleksiyonuna sayfa eklenmez: sayfalarını sorgusu bulur")
 	}
 	if c.Journal && !c.creating {
 		return nil, errors.New("günlüğe yalnız bugünün sayfası eklenir")

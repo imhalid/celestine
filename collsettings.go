@@ -51,6 +51,7 @@ func (c *Collection) setConfig(data []byte) error {
 	}
 	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
 	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
+	c.Query = fresh.Query
 	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
 	// c.Journal stays as it is: the code tab does not take it away
 	if c.Name == "" {
@@ -171,6 +172,11 @@ func (a *app) csGeneral(c *ui.Context) {
 	ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
 		ryugo.Input(c.Key("cs-name"), &d.Name, ryugo.InputOptions{Label: "Koleksiyonun adı"})
 	})
+	if d.Dynamic() {
+		ryugo.Field(c, ryugo.FieldOptions{Label: "Sorgu", Help: "Bu koleksiyon, aramanın bulduğu sayfaları gösterir: kelime, \"tam ifade\", başlık:kelime, koleksiyon:ad, #etiket."}, func() {
+			ryugo.Input(c.Key("cs-query"), &d.Query, ryugo.InputOptions{Label: "Sorgu", Placeholder: "#fikir koleksiyon:Notlar"})
+		})
+	}
 	ryugo.Field(c, ryugo.FieldOptions{Label: "Açıklama", Help: "Koleksiyonun sayfasında adının altında görünür."}, func() {
 		ryugo.Input(c.Key("cs-desc"), &d.Description, ryugo.InputOptions{Label: "Açıklama", Placeholder: "Bu koleksiyon ne için?"})
 	})

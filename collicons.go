@@ -23,6 +23,7 @@ var collIcons = []struct {
 	{"heart", icon(`<path d="M12 19s-7-4.4-7-9.5A3.8 3.8 0 0 1 12 7a3.8 3.8 0 0 1 7 2.5C19 14.6 12 19 12 19z"/>`)},
 	{"flag", icon(`<path d="M6 20V4.5M6 5h11l-2 4 2 4H6"/>`)},
 	{"bulb", icon(`<path d="M9 17.5h6M10 20.5h4M12 3.5a6 6 0 0 0-3.5 10.9V17h7v-2.6A6 6 0 0 0 12 3.5z"/>`)},
+	{"search", iconSearch},
 	{"code", icon(`<path d="m9 8-4 4 4 4M15 8l4 4-4 4"/>`)},
 	{"briefcase", icon(`<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5.5v2M3.5 12.5h17"/>`)},
 	{"home", icon(`<path d="M4.5 11 12 4.5l7.5 6.5V19a1 1 0 0 1-1 1h-4v-5h-5v5h-4a1 1 0 0 1-1-1z"/>`)},

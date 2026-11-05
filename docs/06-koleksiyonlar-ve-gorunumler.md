@@ -86,3 +86,10 @@ ayarları ▸ Sayfalar ▸ "Başka şablonlar" (ad + metin, ekle/sil). Şablonlu
 yeni sayfa: ad"). `/` ▸ Ekle… ▸ "Şablon: ad" şablonu açık sayfaya, yazıldığı gibi koyar. Şablonda `{{başlık}}` sayfanın başlığı,
 `{{tarih}}` (ya da `{{bugün}}`) bugünün gün bağlantısı (`[[2026-11-05]]`, yani tarih hapı), `{{saat}}` saat olur. Dosyada
 `collection.json`'da `templates` listesidir; MCP ile yapılan sayfalar da varsayılan şablonla başlar.
+
+## Arama koleksiyonu (Kasım 2026)
+
+Bir arama koleksiyon olarak kaydedilebilir: arama görünümünde (⇧⌘F) "Koleksiyon olarak kaydet". Bu koleksiyonun kendi sayfası
+olmaz; liste, tablo ve takvim görünümlerinde, sorgunun kitaplıktaki bulduğu sayfaları gösterir (`#fikir`, `koleksiyon:Notlar
+"toplantı"`…) ve her zaman kitaplığın şimdiki halidir. Sorgu `collection.json`'da `query` alanıdır, koleksiyon ayarları ▸ Genel'de
+değişir. "Yeni sayfa" yoktur; kenar çubuğunda altına sayfa eklenmez. Sayfalar, sahibi olan koleksiyonlarında durur.

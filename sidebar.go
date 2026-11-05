@@ -330,7 +330,7 @@ func (a *app) commitRename() {
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	tint := collTint(c, coll)
 	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: collGlyph(coll), tint: &tint, name: coll.Name,
-		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: true, item: coll,
+		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: !coll.Dynamic(), item: coll,
 		pin: func() { a.pinCollection(coll, !coll.Pinned) }, pinned: coll.Pinned,
 		menu: func() []menuItem { return a.collectionMenu(coll) }})
 	switch {

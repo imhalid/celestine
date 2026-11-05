@@ -65,6 +65,12 @@ func (a *app) collectionView(c *ui.Context) {
 								a.saveErr = err.Error()
 							}
 						}
+						if coll.Dynamic() {
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Margin(-4, 0, 4, 0).Children(func() {
+								ui.Icon(c, iconSearch).Width(14).Height(14).TextColor(t.TextMuted)
+								ui.Text(c, coll.Query).FontSize(13.5).Font(ryugo.FontMono).TextColor(t.TextMuted)
+							})
+						}
 						if coll.Description != "" {
 							ui.Text(c, coll.Description).FontSize(14).TextColor(t.TextMuted).Margin(-4, 0, 4, 0)
 						}
@@ -97,6 +103,9 @@ func (a *app) collectionView(c *ui.Context) {
 							if coll.Journal {
 								label = "Bugünün sayfası"
 							}
+							if coll.Dynamic() {
+								return // it has no pages to make
+							}
 							if ryugo.Button(c, label, ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 								a.newPage(coll, nil)
 							}
@@ -128,6 +137,8 @@ func (a *app) collectionView(c *ui.Context) {
 									a.calendarView(c, coll, v, pages)
 								case len(pages) == 0 && a.search != "":
 									ui.Text(c, "“"+a.search+"” ile eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
+								case len(pages) == 0 && coll.Dynamic():
+									ui.Text(c, "Sorguyla eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
 								case len(pages) == 0:
 									ui.Text(c, "Bu koleksiyonda henüz sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
 								case v.Type == "board":
@@ -137,7 +148,7 @@ func (a *app) collectionView(c *ui.Context) {
 								default:
 									a.listView(c, v, pages)
 								}
-								if !coll.Journal { // its one new page is today's, above
+								if !coll.Journal && !coll.Dynamic() { // its one new page is today's, above
 									a.newPageRow(c, coll)
 								}
 							})
@@ -164,6 +175,12 @@ var rowEnter = ui.ElementTransition{
 // filtered is the collection's pages, those matching the search when there is one.
 func (a *app) filtered(coll *Collection) []*Page {
 	all := coll.All()
+	if coll.Dynamic() { // the pages the query finds, wherever they are
+		all = all[:0:0]
+		for _, h := range a.searchPages(coll.Query, 0, a.links.stale) {
+			all = append(all, h.page)
+		}
+	}
 	q := strings.ToLower(strings.TrimSpace(a.search))
 	if q == "" {
 		return all

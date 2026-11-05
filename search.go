@@ -287,6 +287,7 @@ func (a *app) searchView(c *ui.Context) {
 			in.Focus()
 			a.searchFocus = false
 		}
+		ui.Row(c).Children(func() { a.saveSearchButton(c) })
 		sub := "Her kelimeyi içeren sayfalar. \"tam ifade\", başlık:kelime, koleksiyon:ad, #etiket yazabilirsin."
 		switch {
 		case strings.TrimSpace(a.searchQ) == "":
