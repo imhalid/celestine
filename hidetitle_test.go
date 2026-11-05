@@ -617,3 +617,79 @@ func TestPinSortAndKeepSidebar(t *testing.T) {
 		t.Fatal("not applied")
 	}
 }
+
+// The settings are two columns, and the window is taken by its title and put elsewhere.
+func TestSettingsDragged(t *testing.T) {
+	a, tt := newTestApp(t, "Metin\n")
+	tt.SetSize(1300, 800)
+	tt.Frame()
+	a.settingsOpen = true
+	tt.Frame()
+	tt.Advance(900 * time.Millisecond)
+	for _, s := range settingsSections {
+		if !tt.HasText(s.name) {
+			t.Fatalf("no %q in the list: %v", s.name, tt.Texts())
+		}
+	}
+	before, ok := tt.Find("Editör")
+	if !ok {
+		t.Fatal("no list")
+	}
+	// the window is seen in what is drawn: a point at its left edge is in it, then out of it
+	px, py := 178, 420
+	was := tt.Image().At(px, py)
+	// the dialog's title is above the list (the first "Ayarlar" is the sidebar's gear)
+	x0, y0 := before.X+30, before.Y-80
+	tt.Press(x0, y0)
+	for k := 1; k <= 8; k++ {
+		tt.Move(x0+float32(k)*20, y0+float32(k)*10)
+		tt.Frame()
+	}
+	tt.Release(x0+160, y0+80)
+	tt.Advance(900 * time.Millisecond)
+	if now := tt.Image().At(px, py); now == was {
+		t.Fatalf("the window did not move: %v", now)
+	}
+	// the right side's top drags it too, and the close button closes
+	list, _ := tt.Find("Editör")
+	head, ok := tt.Find("Tema ve sayfanın genişliği")
+	if !ok {
+		t.Fatal("no heading on the right")
+	}
+	x1, y1 := head.X+head.W/2, head.Y
+	tt.Press(x1, y1)
+	for k := 1; k <= 8; k++ {
+		tt.Move(x1-float32(k)*20, y1-float32(k)*5)
+		tt.Frame()
+	}
+	tt.Release(x1-160, y1-40)
+	tt.Advance(900 * time.Millisecond)
+	if now, _ := tt.Find("Editör"); now.X == list.X && now.Y == list.Y {
+		t.Fatalf("the right side did not move it: %v %v %v", now, list, head)
+	}
+	// a section chosen
+	if err := tt.Click("MCP"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if a.settingsTab != 3 {
+		t.Fatalf("tab %d", a.settingsTab)
+	}
+}
+
+// TestSettingsClose: the close button in the corner closes the dialog.
+func TestSettingsClose(t *testing.T) {
+	a, tt := newTestApp(t, "Metin\n")
+	tt.SetSize(1300, 800)
+	tt.Frame()
+	a.settingsOpen = true
+	tt.Frame()
+	tt.Advance(900 * time.Millisecond)
+	if err := tt.Click("Kapat"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(600 * time.Millisecond)
+	if a.settingsOpen {
+		t.Fatal("the close button leaves it open")
+	}
+}

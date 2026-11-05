@@ -90,7 +90,7 @@ const gutterW = 32
 // click puts the caret at the start of that paragraph.
 func (a *app) gutterView(c *ui.Context) {
 	g := &a.grip
-	if a.doc == nil || a.coll != nil || a.trashOpen || a.editorR.W == 0 || g.dragging || g.menu || g.pressed {
+	if a.doc == nil || a.coll != nil || a.trashOpen || a.editorR.W == 0 || g.dragging || g.menu || g.pressed || a.modal() {
 		return
 	}
 	r := a.editorR
@@ -374,4 +374,10 @@ func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 	case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
 		choose(items[g.sel])
 	}
+}
+
+// modal reports whether a dialog is open over the window: what is under it is
+// not pointed at (no grip, no bar) while it is.
+func (a *app) modal() bool {
+	return a.settingsOpen || a.cs.open || a.prop.open || a.pal.open
 }

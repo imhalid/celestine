@@ -14,6 +14,8 @@ github.com/google/jsonschema-go v0.4.3 h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+
 github.com/google/jsonschema-go v0.4.3/go.mod h1:r5quNTdLOYEz95Ru18zA0ydNbBuYoo9tgaYcxEYhJVE=
 github.com/imhalid/ryu-go v0.1.1-0.20261104162537-81592d21a38d h1:eufUYnlgFhwAqxK4PCxyL1N1ync3ZjHMHtP2btUkpN4=
 github.com/imhalid/ryu-go v0.1.1-0.20261104162537-81592d21a38d/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
+github.com/imhalid/ryu-go v0.1.1-0.20261105104104-4b6301e25831 h1:/OGqlwZNKC22aYPLsRTdZsE2o6L4xCjPgXAUk3nPRrA=
+github.com/imhalid/ryu-go v0.1.1-0.20261105104104-4b6301e25831/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/modelcontextprotocol/go-sdk v1.8.0 h1:KIvahhYqwtbeniWVPs3TcXEA7b8jEtwfBpOTAI+Urx4=
 github.com/modelcontextprotocol/go-sdk v1.8.0/go.mod h1:dL7u98E/zjJTGzEq+j30jQ8K2k1mb6LeAH4inEcSGts=
 github.com/segmentio/asm v1.1.3 h1:WM03sfUOENvvKexOLp+pCqgb/WDjsi7EK8gIsICtzhc=

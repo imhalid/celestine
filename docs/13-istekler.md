@@ -76,6 +76,11 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 > adına tıklayınca o sütun geniş olur ve ötekiler yalnız başlık gösterir, boş "yok" sütunu kendiliğinden şerit,
 > fazla sütun yana kayar.
 
+> **Durum (7 Kasım 2026, akşam):** Ayarlar büyük bir pencere, iki sütun: solda bölümler (Görünüm, Editör, Durum çubuğu,
+> MCP, Kitaplık; seçili olan accent gradyanıyla parlar), sağda seçilen bölüm gruplar hâlinde; başlığından tutulup
+> ekranda taşınır. Tema ve caret seçimi küçük resimli kartlar (üstüne gelince kalkar, seçili halkalı); yazı
+> boyutu ayarında canlı önizleme; Kitaplık bölümü klasör yollarını ve sayıları gösterir.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun
