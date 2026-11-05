@@ -278,7 +278,7 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 		Label(it.title).Role(ui.RoleButton)
 	text, muted := cl.Text, cl.Muted
 	if i == a.pal.sel {
-		row.Background(cl.Accent)
+		row.LinearGradient(chosenFill(t))
 		text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
 	} else if row.Hovered() {
 		row.Background(cl.Fill)

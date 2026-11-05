@@ -43,6 +43,7 @@ type menuItem struct {
 	title, hint, group string
 	sub                string // faint, under the title
 	nav                bool   // goes into a menu: the menu stays open
+	danger             bool   // in red: deletes
 	glyph              *ui.SVG
 	run                func()
 }
@@ -468,6 +469,7 @@ const (
 	menuCal   = 224
 	menuEmpty = 112 // the menu with nothing in it
 	menuPad   = 6
+	menuAfter = 4 // the room under a divider
 	menuW     = 300
 	menuGap   = 6
 )
@@ -546,8 +548,6 @@ func (a *app) slashView(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	cr := a.caretWin
-	// where: below the caret, above it when there is more room there, at
-	// most the window's height, and inside its width
 	extra := float32(0)
 	if s.view == "date" {
 		extra = menuCal + 3 // the gaps, a divider and the calendar
@@ -555,169 +555,79 @@ func (a *app) slashView(c *ui.Context) {
 			extra = menuCal + 1
 		}
 	}
-	head := float32(menuTop + 1) // and the divider under it
+	head := float32(menuTop + 1 + menuAfter) // and the divider under it, and the room
 	if hasField(s.view) {
-		head += menuIn + 1
+		head += menuIn + 1 + menuAfter
 	}
-	ww, wh := c.Size()
-	tops, ends, total := menuRows(items, extra)
-	chrome := float32(2*menuPad+2) + head // the padding, the border and the header
-	below := wh - (cr.Y + cr.H + menuGap) - 8 - chrome
-	above := cr.Y - menuGap - 8 - chrome
-	inner, top := min(total, below), cr.Y+cr.H+menuGap
-	if total > below && above > below {
-		inner = min(total, above)
-		top = cr.Y - menuGap - inner - chrome
-	}
-	inner = max(inner, menuRow)
+	pl := placeMenu(c, cr.X-4, cr.Y, cr.Y+cr.H, items, extra, head)
 	if s.fseen != s.field { // typed: the first of the list again
 		s.sel, s.seen, s.scroll.Y, s.fseen = 0, -1, 0, s.field
 	}
-	left := max(8, min(cr.X-4, ww-menuW-8))
-	// the choice stays in sight
-	if s.sel != s.seen && len(items) > 0 {
-		if tops[s.sel] < s.scroll.Y {
-			s.scroll.Y = tops[s.sel]
-		} else if ends[s.sel] > s.scroll.Y+inner {
-			s.scroll.Y = ends[s.sel] - inner
-		}
-	}
-	s.seen = s.sel
+	keepInSight(s.sel, &s.seen, &s.scroll, pl)
 	choose := func(it menuItem) {
 		a.doc.SetSelection(s.at, s.at)
 		s.open = false
 		it.run()
 		s.open = it.nav
 	}
-	ui.Overlay(c, func() {
-		panel := ui.Column(c.Key("slash")).Absolute().Left(left).Top(top).Width(menuW).Padding(menuPad).
-			Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Öneriler")
-		t.Shadows.ShadowPop.Apply(panel)
-		panel.Children(func() {
-			// the header: the title of the menu and the sign, or the way back
-			ui.Row(c.Key("slash-head")).Height(menuTop).Padding(0, 6).AlignItems(ui.Center).Gap(8).Children(func() {
-				if s.view == "" {
-					title := "Öneriler"
-					if q != "" {
-						title = "Sonuçlar"
-					}
-					ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
-					ui.Text(c, "bu menü").FontSize(11.5).TextColor(cl.Muted)
-					ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
-						ui.Text(c, s.sign).FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
-					})
-					return
-				}
-				back := ui.Row(c.Key("slash-back")).Gap(6).AlignItems(ui.Center).Padding(4, 6).Radius(6).Role(ui.RoleButton).Label("Geri").Cursor(ui.CursorPointer)
-				if back.Hovered() {
-					back.Background(cl.Fill)
-				}
-				back.Children(func() {
-					ui.Icon(c, iconBack).Width(14).Height(14).TextColor(cl.Muted)
-					ui.Text(c, "Geri").FontSize(13).TextColor(cl.Muted)
-				})
-				if back.Clicked() {
-					a.doc.SetSelection(s.at, s.at)
-					a.enterView("")
-				}
-				ui.Box(c.Key("slash-gap")).Grow(1)
-				ui.Text(c, viewTitle[s.view]).FontSize(12.5).TextColor(cl.Muted)
-			})
-			ui.Box(c.Key("slash-d1")).Height(1).Background(cl.Hairline).Margin(0, -menuPad)
-			if hasField(s.view) { // what is typed: a field of its own, the focus in it
-				ui.Row(c.Key("slash-field")).Height(menuIn).Padding(0, 6).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
-					ph := map[string]string{"link": "Sayfa ara…", "date": "Yarın, 2026-11-10…"}[s.view]
-					in := ui.TextInputBase(c.Key("slash-in"), &s.field).Label(ph).Placeholder(ph).PlaceholderColor(cl.Muted).
-						FontSize(14).Grow(1).FocusRing(false).AutoFocus()
-					if in.Focused() {
-						s.fin = true
-					}
-					switch {
-					case in.Shortcut(0, ui.KeyEscape):
-						a.enterView("")
-						a.doc.SetSelection(s.at, s.at)
-					case in.Shortcut(0, ui.KeyDown):
-						s.sel = min(s.sel+1, len(items)-1)
-					case in.Shortcut(0, ui.KeyUp):
-						s.sel = max(s.sel-1, 0)
-					case in.Submitted() && len(items) > 0:
-						choose(items[max(0, min(s.sel, len(items)-1))])
-					}
-				})
-				ui.Box(c.Key("slash-d2")).Height(1).Background(cl.Hairline).Margin(0, -menuPad)
+	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, scroll: &s.scroll, choose: choose,
+		empty: map[string]string{"link": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]}
+	if m.empty == "" {
+		m.empty = "Eşleşen yok"
+	}
+	m.head = func() {
+		if s.view == "" { // the title and the sign
+			title := "Öneriler"
+			if q != "" {
+				title = "Sonuçlar"
 			}
-			ui.Scroll(c).TrackScroll(&s.scroll).Height(inner).Children(func() {
-				ui.Column(c).Gap(1).Children(func() {
-					if len(items) == 0 {
-						ui.Column(c.Key("empty")).Height(menuEmpty).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
-							ui.Icon(c, iconNone).Width(30).Height(30).TextColor(cl.Muted.Alpha(0.6))
-							none := map[string]string{"link": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]
-							if none == "" {
-								none = "Eşleşen yok"
-							}
-							ui.Text(c, none).FontSize(13).TextColor(cl.Muted)
-						})
-					}
-					group := ""
-					for i, it := range items {
-						if it.group != group {
-							group = it.group
-							switch group {
-							case "":
-							case "~":
-								ui.Column(c.Key("sep")).Height(menuSep).Padding(0, 10).Justify(ui.Center).Children(func() {
-									ui.Box(c).Height(1).Background(cl.Hairline)
-								})
-							default:
-								ui.Text(c.Key("g:"+group), group).FontSize(11.5).FontWeight(650).TextColor(cl.Muted).
-									Height(menuHead).Padding(8, 10, 0, 10)
-							}
-						}
-						row := ui.Row(c.Key(i)).Height(menuRowH(it)).Padding(0, 10).Gap(10).Radius(t.R(ryugo.RadiusControl) - 4).
-							AlignItems(ui.Center).Label(it.title).Role(ui.RoleButton)
-						text, muted := cl.Text, cl.Muted
-						if i == s.sel {
-							row.Background(cl.Accent)
-							text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
-						} else if row.Hovered() {
-							row.Background(cl.Fill)
-						}
-						row.Children(func() {
-							if it.glyph != nil {
-								ui.Icon(c, it.glyph).Width(15).Height(15).TextColor(muted)
-							}
-							ui.Column(c).Grow(1).Shrink(1).Children(func() {
-								ui.Text(c, it.title).FontSize(14).TextColor(text).MaxLines(1)
-								if it.sub != "" {
-									ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1)
-								}
-							})
-							if it.hint != "" {
-								ui.Text(c, it.hint).FontSize(12.5).TextColor(muted).MaxLines(1)
-							}
-							if it.nav {
-								ui.Icon(c, iconChevron).Width(14).Height(14).TextColor(muted)
-							}
-						})
-						if row.Clicked() {
-							choose(it)
-						}
-					}
-					if s.view == "date" { // the calendar, under the days named
-						if len(items) > 0 {
-							ui.Box(c.Key("cal-d")).Height(1).Background(cl.Hairline)
-						}
-						ui.Column(c.Key("cal")).Height(menuCal).Padding(4, 2).AlignItems(ui.Center).Children(func() {
-							if cal := ui.Calendar(c, &s.cal); cal.Changed() {
-								choose(menuItem{run: func() {
-									a.insertChip(s.start, &chip{kind: "date", target: s.cal.Format("2006-01-02")})
-								}})
-							}
-						})
-					}
-				})
+			ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Text(c, "bu menü").FontSize(11.5).TextColor(cl.Muted)
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+				ui.Text(c, s.sign).FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
+			return
+		}
+		menuBack(c, t, viewTitle[s.view], func() {
+			a.doc.SetSelection(s.at, s.at)
+			a.enterView("")
 		})
-	})
+	}
+	if hasField(s.view) { // what is typed: a field of its own, the focus in it
+		m.field = func() {
+			ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
+			ph := map[string]string{"link": "Sayfa ara…", "date": "Yarın, 2026-11-10…"}[s.view]
+			in := ui.TextInputBase(c.Key("slash-in"), &s.field).Label(ph).Placeholder(ph).PlaceholderColor(cl.Muted).
+				FontSize(14).Grow(1).FocusRing(false).AutoFocus()
+			if in.Focused() {
+				s.fin = true
+			}
+			switch {
+			case in.Shortcut(0, ui.KeyEscape):
+				a.enterView("")
+				a.doc.SetSelection(s.at, s.at)
+			case in.Shortcut(0, ui.KeyDown):
+				s.sel = min(s.sel+1, len(items)-1)
+			case in.Shortcut(0, ui.KeyUp):
+				s.sel = max(s.sel-1, 0)
+			case in.Submitted() && len(items) > 0:
+				choose(items[max(0, min(s.sel, len(items)-1))])
+			}
+		}
+	}
+	if s.view == "date" { // the calendar, under the days named
+		m.under = func() {
+			if len(items) > 0 {
+				ui.Box(c.Key("cal-d")).Height(1).Background(cl.Hairline)
+			}
+			ui.Column(c.Key("cal")).Height(menuCal).Padding(4, 2).AlignItems(ui.Center).Children(func() {
+				if cal := ui.Calendar(c, &s.cal); cal.Changed() {
+					choose(menuItem{run: func() {
+						a.insertChip(s.start, &chip{kind: "date", target: s.cal.Format("2006-01-02")})
+					}})
+				}
+			})
+		}
+	}
+	ui.Overlay(c, func() { a.drawMenu(c, t, m) })
 }

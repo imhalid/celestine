@@ -13,7 +13,7 @@ Gerçekten olmayan iki şey var (sütunlar, kutunun içinde kutu); onlar için k
 | **Blok** = paragraf + altındakiler | Liste öğesi + daha içerideki öğeler; başlık + bir sonraki aynı/üst başlığa kadar; kod ve alıntı dizisi | `blockops.go` |
 | **Taşıma** ⌘⇧↑ ⌘⇧↓ | Blok bir önceki/sonraki blokla yer değiştirir, caret onunla gider; tek ⌘Z | `blockops.go` |
 | **Tutamak** ⋮⋮ | İmlecin üstünde olduğu paragrafın solunda belirir | `blockui.go` |
-| **Blok menüsü** | Dönüştür (metin, başlık 1–3, listeler, görev, alıntı, kod, ayırıcı), Çoğalt, Yukarı/Aşağı taşı, Sil | `blockui.go` |
+| **Blok menüsü** | `/` menüsüyle aynı tasarım (`menupanel.go`): Dönüştür… (alt menü: metin, başlık 1–3, listeler, görev, alıntı, kod, ayırıcı), Çoğalt, Yukarı/Aşağı taşı, Sil; ↑↓ ↵ Esc | `blockui.go` |
 | **Sürükle-bırak** | Tutamaktan tutulan blok kalkar, ilk satırının kopyası imleci izler ("+ altındakiler"), bırakılacak yerde çizgi | `blockui.go` |
 | **`/` menüsü** | Satır başında `/`; yazdıkça süzülür; ↑↓ ↵ Esc | `slash.go` |
 | **Blok menüsü çubukta** | Blok › Yukarı taşı ⌘⇧↑, Aşağı taşı ⌘⇧↓, Çoğalt ⌘D | `menu.go` |

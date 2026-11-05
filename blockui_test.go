@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/egoist/mygo/ui"
 	"testing"
 	"time"
 )
@@ -34,6 +35,10 @@ func TestGripMenuAndDrag(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Dönüştür…"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(300 * time.Millisecond)
 	if err := tt.Click("Başlık 1"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
@@ -62,5 +67,44 @@ func TestGripMenuAndDrag(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	if got := mdOf(a.doc); got != "# İki\n\nÜç\n\nBir" {
 		t.Fatalf("dragged: %q", got)
+	}
+}
+
+// The block's menu answers the keys: ↓ ↵ goes into Dönüştür…, Esc goes back
+// and then closes; Sil deletes the block.
+func TestBlockMenuKeys(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n")
+	tt.Frame()
+	y := a.editorR.Y + a.boxes[1].Top + 6
+	tt.Move(a.editorR.X+30, y)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	tt.Move(g.X+g.W/2, g.Y+g.H/2)
+	tt.Frame()
+	if err := tt.Click("Blok tutamağı"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(200 * time.Millisecond)
+	if !a.grip.menu {
+		t.Fatal("not open")
+	}
+	tt.Key(0, ui.KeyEnter) // the first: Dönüştür…
+	tt.Advance(100 * time.Millisecond)
+	if a.grip.view != "turn" {
+		t.Fatalf("not in the kinds: %q", a.grip.view)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if a.grip.view != "" || !a.grip.menu {
+		t.Fatalf("Esc did not go back: %+v", a.grip)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if a.grip.menu {
+		t.Fatal("Esc did not close it")
 	}
 }

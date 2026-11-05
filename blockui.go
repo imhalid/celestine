@@ -16,6 +16,10 @@ type gripState struct {
 	para     int     // the start of the paragraph the grip is for, -1 for none
 	top, h   float32 // its line in the editor
 	menu     bool
+	view     string // "turn" in the menu's list of kinds, "" the first
+	sel      int
+	seen     int
+	scroll   ui.ScrollState
 	pressed  bool
 	moved    float32
 	dragging bool
@@ -129,33 +133,11 @@ func (a *app) gripView(c *ui.Context) {
 		grip.Children(func() { gripDots(c, cl.Muted) })
 		a.dragGrip(c, grip)
 		if grip.Clicked() && !g.dragging && g.moved < 4 {
-			g.menu = true
+			g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
 		}
-		ryugo.Menu(c.Key("grip-menu"), grip, &g.menu, func(m *ryugo.MenuList) {
-			at := g.para
-			m.Label("Dönüştür")
-			for _, k := range blockKinds {
-				if m.Item(k.name, ryugo.ItemOptions{Shortcut: k.md}) {
-					a.turnBlock(at, k.kind)
-				}
-			}
-			m.Separator()
-			if m.Item("Çoğalt", ryugo.ItemOptions{}) {
-				duplicateBlock(a.doc, at)
-			}
-			if m.Item("Yukarı taşı", ryugo.ItemOptions{Shortcut: "⌘⇧↑"}) {
-				a.doc.SetSelection(at, at)
-				moveBlock(a.doc, -1)
-			}
-			if m.Item("Aşağı taşı", ryugo.ItemOptions{Shortcut: "⌘⇧↓"}) {
-				a.doc.SetSelection(at, at)
-				moveBlock(a.doc, 1)
-			}
-			m.Separator()
-			if m.Item("Sil", ryugo.ItemOptions{Danger: true}) {
-				deleteBlock(a.doc, at)
-			}
-		})
+		if g.menu {
+			a.blockMenu(c, grip.LayoutBounds())
+		}
 		if g.dragging {
 			a.blockGhost(c)
 		}
@@ -272,15 +254,87 @@ func (a *app) blockGhost(c *ui.Context) {
 	})
 }
 
-// gripDots are the grip's dots: two columns of three.
+// iconGrip is the grip's six dots, two columns of three, drawn as an icon.
+var iconGrip = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">` +
+	`<circle cx="8.5" cy="5" r="2.1"/><circle cx="15.5" cy="5" r="2.1"/>` +
+	`<circle cx="8.5" cy="12" r="2.1"/><circle cx="15.5" cy="12" r="2.1"/>` +
+	`<circle cx="8.5" cy="19" r="2.1"/><circle cx="15.5" cy="19" r="2.1"/></svg>`))
+
+// gripDots are the grip's dots.
 func gripDots(c *ui.Context, color ui.Color) {
-	ui.Row(c).Gap(3).Children(func() {
-		for range 2 {
-			ui.Column(c).Gap(3).Children(func() {
-				for range 3 {
-					ui.Box(c).Size(2.5, 2.5).Radius(1.25).Background(color)
-				}
-			})
+	ui.Icon(c, iconGrip).Width(22).Height(22).TextColor(color)
+}
+
+var (
+	iconDuplicate = icon(`<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>`)
+	iconMoveUp    = icon(`<path d="M12 19V5M6 11l6-6 6 6"/>`)
+	iconMoveDown  = icon(`<path d="M12 5v14M6 13l6 6 6-6"/>`)
+)
+
+// blockItems are the lines of the block's menu.
+func (a *app) blockItems() []menuItem {
+	g := &a.grip
+	at := g.para
+	done := func(fn func()) func() { return func() { fn() } }
+	if g.view == "turn" {
+		var out []menuItem
+		for _, k := range blockKinds {
+			k := k
+			out = append(out, menuItem{title: k.name, glyph: kindIcon[k.kind], run: done(func() { a.turnBlock(at, k.kind) })})
 		}
-	})
+		return out
+	}
+	return []menuItem{
+		{title: "Dönüştür…", glyph: iconFormat, nav: true, run: func() { g.view, g.sel, g.seen, g.scroll = "turn", 0, -1, ui.ScrollState{} }},
+		{title: "Çoğalt", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
+		{title: "Yukarı taşı", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
+		{title: "Aşağı taşı", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
+		{title: "Sil", group: "~", glyph: iconTrash, danger: true, run: done(func() { deleteBlock(a.doc, at) })},
+	}
+}
+
+// blockMenu is the menu of a block, in the / menu's design, under its grip
+// (the span at): ↑↓ move, ↵ chooses, Esc goes back and then closes.
+func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
+	g := &a.grip
+	t := ryugo.From(c)
+	items := a.blockItems()
+	g.sel = max(0, min(g.sel, len(items)-1))
+	head := float32(0) // the first menu has no header
+	if g.view != "" {
+		head = menuTop + 1 + menuAfter
+	}
+	pl := placeMenu(c, at.X, at.Y, at.Y+at.H, items, 0, head)
+	keepInSight(g.sel, &g.seen, &g.scroll, pl)
+	choose := func(it menuItem) {
+		it.run()
+		if !it.nav {
+			g.menu = false
+		}
+	}
+	back := func() { g.view, g.sel, g.seen, g.scroll = "", 0, -1, ui.ScrollState{} }
+	ww, wh := c.Size()
+	if ui.Box(c.Key("block-away")).Absolute().Left(0).Top(0).Size(ww, wh).Clicked() {
+		g.menu = false
+		return
+	}
+	m := &menuPanel{key: "block", label: "Blok menüsü", pl: pl, items: items, sel: g.sel, scroll: &g.scroll, choose: choose, empty: "Boş"}
+	if g.view != "" {
+		m.head = func() { menuBack(c, t, "Dönüştür", back) }
+	}
+	panel := a.drawMenu(c, t, m).Focusable().Focus()
+	switch {
+	case panel.Shortcut(0, ui.KeyEscape):
+		if g.view != "" {
+			back()
+		} else {
+			g.menu = false
+		}
+	case panel.Shortcut(0, ui.KeyDown):
+		g.sel = min(g.sel+1, len(items)-1)
+	case panel.Shortcut(0, ui.KeyUp):
+		g.sel = max(g.sel-1, 0)
+	case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
+		choose(items[g.sel])
+	}
 }
