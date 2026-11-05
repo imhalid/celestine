@@ -59,3 +59,10 @@ Panel dışına tıklayınca ya da Esc ile kapanır, yazılan taslak durur.
 
 Hızlı not eklenince ana pencerede "Aç" düğmeli bir bildirim çıkar (notun düştüğü sayfaya götürür). Tuş Ayarlar ▸ Editör ▸
 "Hızlı not tuşu"ndan değiştirilir (CmdOrCtrl+Alt+N gibi); tutmazsa eskisi kalır.
+
+## Dosya sürüklemek (Kasım 2026)
+
+Pencereye bırakılan bir **`.md`, `.markdown` ya da `.txt`** dosyası sayfa olur: gösterilen koleksiyona (günlük ve arama
+koleksiyonları dışında; yoksa açık sayfanın, o da olmazsa ilk uygun koleksiyona), klasör içe aktarmadaki kurallarla (başlık: ön
+madde `title` ya da ilk `# `; `tags`, `created`, resimler gelir) ve sayfa açılır. Bir **resim** metnin üstüne bırakılırsa metne girer, sayfanın
+başka bir yerine bırakılırsa **kapak** olur.

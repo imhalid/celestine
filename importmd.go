@@ -95,7 +95,7 @@ func (a *app) importMarkdown(root string) (importStats, error) {
 		}
 		st.Collections++
 		for _, f := range groups[name] {
-			if err := a.importFile(c, root, f, &st); err != nil {
+			if _, err := a.importFile(c, root, f, &st); err != nil {
 				return st, err
 			}
 		}
@@ -105,10 +105,10 @@ func (a *app) importMarkdown(root string) (importStats, error) {
 }
 
 // importFile makes a page of the file f in c.
-func (a *app) importFile(c *Collection, root, f string, st *importStats) error {
+func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page, error) {
 	data, err := os.ReadFile(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	meta, body := splitFrontMatter(string(data))
 	title := strings.TrimSpace(meta["title"])
@@ -122,7 +122,7 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) error {
 	}
 	p, err := c.NewPage(nil, title)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	body = a.importPictures(p, root, filepath.Dir(f), body, st)
 	if tags := frontTags(meta); len(tags) > 0 {
@@ -134,10 +134,10 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) error {
 		p.Created = fi.ModTime().Truncate(time.Second)
 	}
 	if err := p.Save(body); err != nil {
-		return err
+		return nil, err
 	}
 	st.Pages++
-	return nil
+	return p, nil
 }
 
 // frontTags are the tags of a page's front matter, written as #tags.

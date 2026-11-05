@@ -202,9 +202,9 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	importNote    string // what the last import said, in the settings
+	importNote    string    // what the last import said, in the settings
 	bulk          bulkState // pages being chosen in a collection, to be done to all (bulk.go)
-	statsOpen     bool   // the dialog of what is written (writing.go)
+	statsOpen     bool      // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
@@ -442,6 +442,9 @@ func (a *app) view(c *ui.Context) {
 
 	a.pageBg = a.bg(c)
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
+		a.dropFile(f, false)
+	}
 	if !a.menuBar { // in the app, the menu bar has these (menu.go)
 		if c.Shortcut(ui.Cmd, ui.KeyBackslash) {
 			a.toggleSidebar()
@@ -680,8 +683,8 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 			ed.Cursor(ui.CursorPointer)
 		}
 	}
-	for _, f := range ed.DroppedFiles() { // pictures dropped on the text
-		a.addImageFile(f)
+	for _, f := range ed.DroppedFiles() { // files dropped on the text
+		a.dropFile(f, true)
 	}
 	a.dragColumns(ed)
 	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
