@@ -34,6 +34,7 @@ Alınmış kararlar (her belgede geçerlidir):
 | 12 | [MyGo ekosistemi](12-mygo-ekosistemi.md) | MyGo için yazılmış kütüphaneler, işimize yarayanlar |
 | 13 | [İstekler](13-istekler.md) | Kullanırken çıkan istek ve düzeltmeler, önerilen sırasıyla |
 | 14 | [Ürün önerileri ve uyarılar](14-urun-onerileri.md) | Benzer uygulamalardan öneriler, riskler (Markdown'ı bozma, dosya izleme…), sıra |
+| 15 | [Bloklar denemesi](15-bloklar-denemesi.md) | richtext üstünde bloklar: ne yapıldı, ne olur, ne olmaz; karar |
 
 ## Kaynak etiketleri
 

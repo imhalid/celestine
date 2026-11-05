@@ -133,6 +133,9 @@ type app struct {
 	propErr     string             // the field whose value did not fit
 	invalidate  func()             // asks the window for a frame, from any goroutine
 	pal         palette            // the command palette (palette.go)
+	slash       slashMenu          // the / menu (slash.go)
+	caretWin    ui.Rect            // the caret in the window, last drawn
+	grip        gripState          // the grip of the block under the pointer (blockui.go)
 	cs          collSettings       // a collection\'s settings (collsettings.go)
 	find        finder             // finding in the page (find.go)
 	hist        []place            // where the app went, and where it is in that (nav.go)
@@ -144,7 +147,7 @@ type app struct {
 
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
-	a.histAt = -1
+	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
 	for _, c := range lib.Collections {
@@ -295,6 +298,12 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyF) {
 			a.openFind()
 		}
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyUp) && a.doc != nil {
+			moveBlock(a.doc, -1)
+		}
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyDown) && a.doc != nil {
+			moveBlock(a.doc, 1)
+		}
 	}
 	if c.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
 		a.newPage(a.page.Coll, nil)
@@ -325,6 +334,8 @@ func (a *app) view(c *ui.Context) {
 		})
 		a.sidebarButton(c)
 	})
+	a.gripView(c)
+	a.slashView(c)
 	a.paletteView(c)
 	a.collSettingsView(c)
 	a.settingsDialog(c)
@@ -383,8 +394,10 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		ed.AutoFocus()
 	}
 	a.focused = ed.Focused()
+	a.trackGrip(ed)
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
 		a.drawMatches(p, r)
+		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
 		a.drawCaret(p, r)
 	})
@@ -398,10 +411,22 @@ func (a *app) track(c *ui.Context) {
 	text := a.doc.Text()
 	style := text.ParagraphStyleAt(caret)
 	if v == a.version {
+		if a.slash.open && caret != a.caretAt { // the caret moved: ↑ ↓ in the / menu
+			a.trackSlash(text, caret, false, false)
+			_, caret = a.doc.Selection()
+		}
 		a.caretAt, a.style = caret, style
 		return
 	}
 	n := text.Len()
+	// the / menu (slash.go)
+	if a.trackSlash(text, caret, true, n-a.length == 1 && caret-a.caretAt == 1) {
+		_, caret = a.doc.Selection()
+		text, v = a.doc.Text(), a.doc.Version()
+		style = text.ParagraphStyleAt(caret)
+		n = text.Len()
+		a.length, a.caretAt = n, caret
+	}
 	// "---" and "```" typed: a divider, a block of code (blocks.go)
 	if a.blockShortcuts(text, caret, n-a.length == 1 && caret-a.caretAt == 1) {
 		_, caret = a.doc.Selection()
@@ -438,6 +463,7 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	cr := cb.r
 	cr.X += r.X
 	cr.Y += r.Y
+	a.caretWin = cr
 	dark := p.Theme().Dark
 	anchor, caret := a.doc.Selection()
 	if anchor != caret { // over a selection, a plain caret: the jelly would hide what is selected

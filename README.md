@@ -37,7 +37,9 @@ collection a board of it.
 
 Keys are the editor's, a word processor's: ⌘B ⌘I ⌘U, ⌘K a link, Tab ⇧Tab indent; ⌘Z undoes a conversion and
 gives the marks back. ⌘⇧M switches the caret (Slime, Mizan). ⌘K opens the palette (go to any page or collection by a
-few letters of it, run any command), ⌘F finds and replaces in the page, ⌘[ ⌘] go back and forward.
+few letters of it, run any command), ⌘F finds and replaces in the page, ⌘[ ⌘] go back and forward. A block - a paragraph and what is under it - has a grip (⋮⋮) on its left: its menu
+turns it into another kind, duplicates, moves or deletes it, and it drags; ⌘⇧↑ ⌘⇧↓ move it, `/` at the start of a
+line turns it into a kind of block.
 
 ## MCP
 
@@ -66,6 +68,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `markdown.go`, `frontmatter.go`, `watch.go` | Reading and writing Markdown and front matter without losing what other tools wrote; watching the folder |
 | `collsettings.go`, `collicons.go` | A collection's settings (General, Properties, Views, Pages, Code; draft, preview, save), its icon and color |
 | `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
+| `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
 | `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
 | `icons.go` | The SVG icons |

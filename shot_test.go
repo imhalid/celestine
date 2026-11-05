@@ -377,3 +377,63 @@ func TestCollSettingsShots(t *testing.T) {
 		tt.Advance(time.Second)
 	}
 }
+
+// TestBlockShots draws the grip and its menu, a block dragged, and the /
+// menu: run with BLOCKS=dir.
+func TestBlockShots(t *testing.T) {
+	dir := os.Getenv("BLOCKS")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "# Okuma listesi\n\nBu ay okuyacaklarım.\n\n- Dune\n    - Notlar\n- Anna Karenina\n\nSon paragraf.\n")
+	tt.SetSize(1000, 640)
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Advance(300 * time.Millisecond)
+	r := a.editorR
+	box := func(s string) (float32, float32) {
+		start := at(a.doc, s)
+		for _, b := range a.boxes {
+			if b.Start == start {
+				return r.Y + b.Top, b.Height
+			}
+		}
+		return 0, 0
+	}
+	y, h := box("Dune")
+	tt.Move(r.X+60, y+h/2)
+	tt.Frame()
+	tt.Frame()
+	save("grip")
+	g, _ := tt.Find("Blok tutamağı")
+	tt.Move(g.X+g.W/2, g.Y+g.H/2)
+	tt.Frame()
+	tt.Click("Blok tutamağı")
+	tt.Advance(300 * time.Millisecond)
+	save("grip-menu")
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(300 * time.Millisecond)
+	tt.Move(g.X+g.W/2, g.Y+g.H/2)
+	tt.Frame()
+	tt.Frame()
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	ys, hs := box("Son paragraf.")
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0+float32(k)*4, y0+(ys+hs/2-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	tt.Advance(200 * time.Millisecond)
+	save("grip-drag")
+	tt.Release(x0+40, ys+hs/2)
+	tt.Advance(300 * time.Millisecond)
+	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "/")
+	tt.Advance(200 * time.Millisecond)
+	save("slash")
+}

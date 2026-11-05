@@ -55,6 +55,24 @@ func (a *app) menu() *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 		}},
+		{Label: "Blok", Submenu: []*mygo.MenuItem{
+			item("Yukarı taşı", "CmdOrCtrl+Shift+Up", func() {
+				if a.doc != nil {
+					moveBlock(a.doc, -1)
+				}
+			}),
+			item("Aşağı taşı", "CmdOrCtrl+Shift+Down", func() {
+				if a.doc != nil {
+					moveBlock(a.doc, 1)
+				}
+			}),
+			item("Çoğalt", "CmdOrCtrl+D", func() {
+				if a.doc != nil {
+					_, caret := a.doc.Selection()
+					duplicateBlock(a.doc, caret)
+				}
+			}),
+		}},
 		{Label: "Git", Submenu: []*mygo.MenuItem{
 			item("Hızlı geçiş ve komutlar…", "CmdOrCtrl+K", a.openPalette),
 			item("Sayfada bul…", "CmdOrCtrl+F", a.openFind),

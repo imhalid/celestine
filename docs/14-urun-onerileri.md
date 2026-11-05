@@ -44,6 +44,7 @@ iç içe alan **okunamıyor ve kaydederken bozuluyor**. Etiket özelliği ve Obs
 kitaplığı (ör. `goccy/go-yaml`) şart. *(K)*
 
 ### U4 — Blok editör hedefi richtext'in sınırına çarpacak
+> **Cevap:** [15 — Bloklar denemesi](15-bloklar-denemesi.md). richtext üstünde devam; sütunlar ve iç içe bloklar hariç.
 richtext paragraf düzeyinde iyi; ama **içi başka bloklar olan bloklar** (içinde liste olan bilgi kutusu, açılır/kapanır
 liste, sütunlar), **tablolar**, **satır içi tarih/kişi çipleri** ve **bloklara kalıcı kimlik** (blok bağlantısı,
 transklüzyon) onun modelinde yok. Tutamak, sürükle-bırak, katlama, `/` menüsü üstüne kurulabilir; kutular ve sütunlar
