@@ -74,6 +74,15 @@ func (c *Collection) PropNamed(name string) *Property {
 // AddProperty adds a property to the collection's pages. The first choice
 // gives the collection a board of it.
 func (c *Collection) AddProperty(name, typ string, options []string) (*Property, error) {
+	p, err := c.addProperty(name, typ, options)
+	if err != nil {
+		return nil, err
+	}
+	return p, c.save()
+}
+
+// addProperty adds the property without writing the collection: to a draft.
+func (c *Collection) addProperty(name, typ string, options []string) (*Property, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("a property needs a name")
@@ -93,7 +102,7 @@ func (c *Collection) AddProperty(name, typ string, options []string) (*Property,
 	}
 	c.Properties = append(c.Properties, Property{ID: id, Name: name, Type: typ, Options: cleanOptions(options)})
 	c.normalize()
-	return c.Prop(id), c.save()
+	return c.Prop(id), nil
 }
 
 // EditProperty renames property id and, for a choice, gives it options.

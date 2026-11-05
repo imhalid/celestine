@@ -38,8 +38,15 @@ type Library struct {
 }
 
 type Collection struct {
-	Name     string `json:"name"`
-	Icon     string `json:"icon,omitempty"`
+	Name  string `json:"name"`
+	Icon  string `json:"icon,omitempty"`  // one of collIcons; "" the stack
+	Color string `json:"color,omitempty"` // one of Ryugo's c1…c8; "" none
+	// Description says what the collection is for, under its name.
+	Description string `json:"description,omitempty"`
+	// PageNoun is what a page of it is called ("Tarif"): "Yeni Tarif".
+	PageNoun string `json:"pageNoun,omitempty"`
+	// Template is the Markdown a new page of it starts with.
+	Template string `json:"template,omitempty"`
 	SubPages bool   `json:"subPages"`
 	// Views are the ways the collection's page shows its pages, the first of
 	// them by default; ActiveView is the one shown last.
@@ -66,6 +73,15 @@ type View struct {
 	Desc  bool   `json:"desc,omitempty"`
 	// GroupBy is the choice property a board's columns are the options of.
 	GroupBy string `json:"groupBy,omitempty"`
+	// Columns are a table's columns, in order ("parent", "created",
+	// "modified", "prop:<id>"; the title is always first); all if none.
+	Columns []string `json:"columns,omitempty"`
+	// Fields are the properties a list's rows and a board's cards show.
+	Fields []string `json:"fields,omitempty"`
+	// NoExcerpt hides the start of the text in a list's rows and a board's cards.
+	NoExcerpt bool `json:"noExcerpt,omitempty"`
+	// Collapsed are a board's columns folded to a strip, by option ("" none).
+	Collapsed []string `json:"collapsed,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.

@@ -13,6 +13,8 @@ var (
 	iconChevron     = icon(`<path d="M9.5 6.5 15 12l-5.5 5.5"/>`)
 	iconBack        = icon(`<path d="M14.5 6.5 9 12l5.5 5.5"/>`)
 	iconChevronDown = icon(`<path d="M6.5 9.5 12 15l5.5-5.5"/>`)
+	iconEdit        = icon(`<path d="M14.5 5.5 18.5 9.5 9 19H5v-4z"/><path d="m12.5 7.5 4 4"/>`)
+	iconFold        = icon(`<path d="m14 7-5 5 5 5M19 5v14"/>`)
 	iconClose       = icon(`<path d="M7 7l10 10M17 7 7 17"/>`)
 	iconPlus        = icon(`<path d="M12 6v12M6 12h12"/>`)
 	iconPage        = icon(`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z"/><path d="M13.5 3.5V8H18"/><path d="M9 13h6M9 16.5h4"/>`)

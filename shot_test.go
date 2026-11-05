@@ -322,3 +322,58 @@ func TestPaletteShots(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	save("find")
 }
+
+// TestCollSettingsShots draws a collection's settings, each tab, and its
+// page with an icon, a color and a folded board column: run with CSET=dir.
+func TestCollSettingsShots(t *testing.T) {
+	dir := os.Getenv("CSET")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt, coll := viewsLibrary(t)
+	tt.SetSize(1180, 820)
+	coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okunuyor", "Okundu"})
+	coll.AddProperty("Yazar", PropText, nil)
+	coll.Icon, coll.Color, coll.Description = "book", "c3", "Okuduğum ve okuyacağım kitaplar."
+	for _, p := range coll.All() {
+		switch p.Title {
+		case "Dune":
+			p.SetValue("durum", "Okunuyor")
+			p.SetValue("yazar", "Frank Herbert")
+		case "Anna Karenina":
+			p.SetValue("durum", "Okundu")
+			p.SetValue("yazar", "Lev Tolstoy")
+		}
+	}
+	for i := range coll.Views {
+		if coll.Views[i].Type == "board" {
+			coll.Views[i].Fields = []string{"yazar"}
+			coll.Views[i].Collapsed = []string{"Okundu"}
+		}
+	}
+	save := func(name string) {
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Frame()
+	tt.Click("Pano")
+	tt.Frame()
+	tt.Advance(time.Second)
+	save("cset-board")
+	for i, name := range []string{"general", "props", "views", "pages"} {
+		a.openCollSettings(coll, i)
+		if i == 2 {
+			a.cs.view = "board"
+		}
+		if i == 1 {
+			a.cs.newName = "ya"
+		}
+		tt.Frame()
+		tt.Advance(1500 * time.Millisecond)
+		save("cset-" + name)
+		a.cs.open = false
+		tt.Frame()
+		tt.Advance(time.Second)
+	}
+}

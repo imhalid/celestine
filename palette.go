@@ -42,7 +42,8 @@ func (a *app) commands() []palItem {
 	}
 	var out []palItem
 	if c := a.currentColl(); c != nil {
-		out = append(out, cmd("Yeni sayfa: "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
+		out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
+		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
 	}
 	if p := a.page; p != nil && a.coll == nil && !a.trashOpen {
 		if p.Coll.SubPages {

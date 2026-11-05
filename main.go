@@ -133,6 +133,7 @@ type app struct {
 	propErr     string             // the field whose value did not fit
 	invalidate  func()             // asks the window for a frame, from any goroutine
 	pal         palette            // the command palette (palette.go)
+	cs          collSettings       // a collection\'s settings (collsettings.go)
 	find        finder             // finding in the page (find.go)
 	hist        []place            // where the app went, and where it is in that (nav.go)
 	histAt      int
@@ -237,6 +238,11 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		a.saveErr = err.Error()
 		return
 	}
+	if c.Template != "" { // it starts as the collection says
+		if err := p.Save(c.Template); err != nil {
+			a.saveErr = err.Error()
+		}
+	}
 	a.open(p)
 	a.fresh = true
 }
@@ -320,6 +326,7 @@ func (a *app) view(c *ui.Context) {
 		a.sidebarButton(c)
 	})
 	a.paletteView(c)
+	a.collSettingsView(c)
 	a.settingsDialog(c)
 	a.propDialog(c)
 	ryugo.Toaster(c)

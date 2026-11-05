@@ -6,7 +6,7 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 
 ## Hatalar ve küçük düzeltmeler
 
-> **Durum (5 Kasım 2026):** 1–5 ve 22 yapıldı; ayrıca geri/ileri (⌘[ ⌘]) ve menü çubuğu
+> **Durum (5 Kasım 2026):** 1–5, 8, 10, 11, 13, 14 ve 22 yapıldı (koleksiyon ayarları; filtre ve sütun genişliği henüz yok); ayrıca geri/ileri (⌘[ ⌘]) ve menü çubuğu
 > ([14](14-urun-onerileri.md) 25, 28).
 
 1. **Caret satır başında kesiliyor.** Caret (Slime) satırın en başındayken sol yarısı editörün kenarında kırpılıyor.

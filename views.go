@@ -31,7 +31,22 @@ func (a *app) collectionView(c *ui.Context) {
 	coll := a.coll
 	v := coll.View()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Row(c).Children(func() { ryugo.Badge(c, "Koleksiyon", ryugo.ToneNeutral) })
+		// its icon and the capsule that opens its settings, as Thymer's
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, collGlyph(coll)).Width(20).Height(20).TextColor(collTint(c, coll))
+			b := ui.Row(c.Key("coll-settings-btn")).Gap(6).Padding(3, 10).Radius(999).AlignItems(ui.Center).
+				Background(ryugo.From(c).Colors.Fill).Label("Koleksiyon ayarları").Role(ui.RoleButton)
+			if b.Hovered() {
+				b.Background(ryugo.From(c).Colors.FillSelected)
+			}
+			b.Children(func() {
+				ui.Text(c, "Koleksiyon").FontSize(12).FontWeight(560).TextColor(t.TextMuted)
+				ui.Icon(c, iconSettings).Width(13).Height(13).TextColor(t.TextMuted)
+			})
+			if b.Clicked() {
+				a.openCollSettings(coll, 0)
+			}
+		})
 		c.Key("coll-name:" + coll.Dir)
 		name := ui.TextInputBase(c, &a.collName).Label("Koleksiyon adı").FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 		if name.Changed() {
@@ -42,6 +57,9 @@ func (a *app) collectionView(c *ui.Context) {
 			if err := coll.Rename(n); err != nil {
 				a.saveErr = err.Error()
 			}
+		}
+		if coll.Description != "" {
+			ui.Text(c, coll.Description).FontSize(14).TextColor(t.TextMuted).Margin(-4, 0, 4, 0)
 		}
 		// The toolbar: the views, then the search and a new page.
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -63,7 +81,7 @@ func (a *app) collectionView(c *ui.Context) {
 			}
 			ui.Spacer(c)
 			ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true}).Width(220)
-			if ryugo.Button(c, "Yeni sayfa", ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
+			if ryugo.Button(c, "Yeni "+pageNoun(coll), ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
 				a.newPage(coll, nil)
 			}
 		})
@@ -208,18 +226,40 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 		row.Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
+				fieldChips(c, p, v)
 				when := p.Modified
 				if v.Sort == "created" {
 					when = p.Created
 				}
 				ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
 			})
-			if ex := p.Excerpt(); ex != "" {
+			if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
 				ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 			}
 		})
 		if row.Clicked() {
 			a.open(p)
+		}
+	}
+}
+
+// fieldChips are the values of the properties view v shows on page p's
+// row or card: a choice as a badge, the rest as muted text.
+func fieldChips(c *ui.Context, p *Page, v *View) {
+	t := c.Theme()
+	for _, id := range v.Fields {
+		pr := p.Coll.Prop(id)
+		if pr == nil {
+			continue
+		}
+		val := p.Value(pr)
+		if val == "" {
+			continue
+		}
+		if pr.Type == PropChoice {
+			ryugo.Badge(c.Key("chip:"+id), val, choiceTone(pr, val))
+		} else {
+			ui.Text(c.Key("chip:"+id), val).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		}
 	}
 }
@@ -235,24 +275,30 @@ type column struct {
 
 // tableColumns are the table's columns: the title, the collection's
 // properties, then where it is and when.
-func tableColumns(coll *Collection) []column {
+func tableColumns(coll *Collection, v *View) []column {
 	cols := []column{{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
+	byKey := map[string]column{
+		"parent":   {label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
+		"created":  {label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
+		"modified": {label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
+	}
 	for i := range coll.Properties {
 		pr := &coll.Properties[i]
-		cols = append(cols, column{label: pr.Name, field: "prop:" + pr.ID, width: 140, prop: pr,
-			cell: func(p *Page, _ time.Time) string { return p.Value(pr) }})
+		byKey["prop:"+pr.ID] = column{label: pr.Name, field: "prop:" + pr.ID, width: 140, prop: pr,
+			cell: func(p *Page, _ time.Time) string { return p.Value(pr) }}
 	}
-	return append(cols,
-		column{label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
-		column{label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
-		column{label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
-	)
+	for _, k := range viewColumns(coll, v) { // the view's, in its order
+		if col, ok := byKey[k]; ok {
+			cols = append(cols, col)
+		}
+	}
+	return cols
 }
 
 func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
-	columns := tableColumns(a.coll)
+	columns := tableColumns(a.coll, v)
 	cellBox := func(col column) ui.Element {
 		b := ui.Row(c).Padding(0, 10).AlignItems(ui.Center).Height(36)
 		if col.width > 0 {
@@ -363,25 +409,77 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			if s == "" {
 				title = pr.Name + " yok"
 			}
-			ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Title: title, Count: strconv.Itoa(len(col))}, func() {
-				for _, p := range col {
-					card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
-						ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
-						if ex := p.Excerpt(); ex != "" {
-							ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(2)
-						}
-					}).Label("Kart: " + p.Title)
-					if card.Clicked() {
-						a.open(p)
+			s := s
+			if slices.Contains(v.Collapsed, s) {
+				a.boardStrip(c, coll, v, s, title, len(col))
+				continue
+			}
+			ui.Column(c.Key("colwrap:" + s)).Gap(6).Width(1).Grow(1).MaxWidth(280).Children(func() {
+				// its head: name, count, and a fold
+				ui.Row(c).Gap(8).Padding(0, 4, 0, 10).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, title).FontSize(ryugo.FsSm).FontWeight(600).TextColor(ryugo.From(c).Colors.Text2)
+					ryugo.Badge(c, strconv.Itoa(len(col)), ryugo.ToneNeutral)
+					ui.Spacer(c)
+					if a.iconButton(c, iconFold, "Daralt: "+title) {
+						a.foldColumn(coll, v, s, true)
 					}
-				}
-			}, func(p *Page, index int) {
-				if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
-					a.saveErr = err.Error()
-				}
-			}).Width(1).Grow(1).MaxWidth(280).MinHeight(180) // the columns share the width; an empty one has room to drop on
+				})
+				ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Fill: true}, func() {
+					for _, p := range col {
+						card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
+							ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
+							if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
+								ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(2)
+							}
+							if len(v.Fields) > 0 {
+								ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
+							}
+						}).Label("Kart: " + p.Title)
+						if card.Clicked() {
+							a.open(p)
+						}
+					}
+				}, func(p *Page, index int) {
+					if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
+						a.saveErr = err.Error()
+					}
+				}).MinHeight(180) // an empty one has room to drop on
+			})
 		}
 	})
+}
+
+// boardStrip is a board's column folded: a strip with its count and name,
+// which a click unfolds.
+func (a *app) boardStrip(c *ui.Context, coll *Collection, v *View, s, title string, n int) {
+	cl := ryugo.From(c).Colors
+	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(18).AlignItems(ui.Center).
+		Background(cl.Well).Border(1, cl.WellBorder).Label("Aç: " + title).Role(ui.RoleButton).Shrink(0)
+	if b.Hovered() {
+		b.Background(cl.Fill)
+	}
+	b.Children(func() {
+		ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
+		// its name, written down the strip
+		ui.Box(c).Width(20).Height(150).Children(func() {
+			ui.Text(c, title).FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Text2).NoWrap().
+				Absolute().Left(-65).Top(66).Width(150).Height(18).Rotate(90)
+		})
+	})
+	if b.Clicked() {
+		a.foldColumn(coll, v, s, false)
+	}
+}
+
+// foldColumn folds or unfolds a board's column, and keeps it so.
+func (a *app) foldColumn(coll *Collection, v *View, s string, fold bool) {
+	v.Collapsed = slices.DeleteFunc(v.Collapsed, func(x string) bool { return x == s })
+	if fold {
+		v.Collapsed = append(v.Collapsed, s)
+	}
+	if err := coll.save(); err != nil {
+		a.saveErr = err.Error()
+	}
 }
 
 // newPageRow is the last row of a view: a new page in the collection.
@@ -392,7 +490,7 @@ func (a *app) newPageRow(c *ui.Context, coll *Collection) {
 		row.Background(t.SurfaceHover)
 	}
 	row.Children(func() {
-		ui.Text(c, "+  Yeni sayfa").FontSize(13.5).TextColor(t.TextMuted)
+		ui.Text(c, "+  Yeni "+pageNoun(coll)).FontSize(13.5).TextColor(t.TextMuted)
 	})
 	if row.Clicked() {
 		a.newPage(coll, nil)

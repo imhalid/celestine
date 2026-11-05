@@ -157,6 +157,7 @@ type rowSpec struct {
 	key, label string
 	depth      int
 	glyph      *ui.SVG
+	tint       *ui.Color // the icon's color, when not muted
 	name       string
 	strong     bool
 	selected   bool
@@ -203,7 +204,11 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	}
 	r.Children(func() {
 		chev = a.chevron(c, s.has, s.open)
-		ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(t.TextMuted)
+		tint := t.TextMuted
+		if s.tint != nil {
+			tint = *s.tint
+		}
+		ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(tint)
 		if renaming {
 			a.renameField(c)
 			return
@@ -270,14 +275,18 @@ func (a *app) commitRename() {
 }
 
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
-	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: iconStack, name: coll.Name,
+	tint := collTint(c, coll)
+	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: collGlyph(coll), tint: &tint, name: coll.Name,
 		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: true, item: coll,
 		menu: func(m *ui.Menu) {
 			if m.Item("Yeniden adlandır").Chosen() {
 				a.startRename(coll, coll.Name)
 			}
-			if m.Item("Yeni sayfa").Chosen() {
+			if m.Item("Yeni " + pageNoun(coll)).Chosen() {
 				a.newPage(coll, nil)
+			}
+			if m.Item("Ayarlar…").Chosen() {
+				a.openCollSettings(coll, 0)
 			}
 			m.Separator()
 			if m.Item("Çöpe taşı").Chosen() {

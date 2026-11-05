@@ -64,6 +64,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
 | `markdown.go`, `frontmatter.go`, `watch.go` | Reading and writing Markdown and front matter without losing what other tools wrote; watching the folder |
+| `collsettings.go`, `collicons.go` | A collection's settings (General, Properties, Views, Pages, Code; draft, preview, save), its icon and color |
 | `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
 | `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
