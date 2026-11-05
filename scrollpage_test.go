@@ -171,11 +171,17 @@ func TestPageScrollsUnderTheTitleBar(t *testing.T) {
 	if a.pageScroll.Y < 100 {
 		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
 	}
-	// a collection, with no page, keeps its bar above it
+	// a collection scrolls under it too; a view with a head of its own keeps its bar above it
 	a.coll = a.lib.Collections[0]
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
+	if a.barInset != barH || a.topSpace != pageTop+8 {
+		t.Fatalf("a collection scrolls from y=%v, starting %v below: want %v and %v", a.barInset, a.topSpace, barH, pageTop+8)
+	}
+	a.tasksOpen = true
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
 	if a.barInset != 0 || a.topSpace != 0 {
-		t.Fatalf("a collection is under a bar of its own: %v %v", a.barInset, a.topSpace)
+		t.Fatalf("the tasks have a head of their own: bar %v, top %v", a.barInset, a.topSpace)
 	}
 }

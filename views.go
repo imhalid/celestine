@@ -36,6 +36,9 @@ func (a *app) collectionView(c *ui.Context) {
 	// the window's width, its bar at the edge, as a page of text does
 	ui.Column(c).Fill().Children(func() { // as tall as the room: the scroll in it has a height to scroll in
 		ui.Scroll(c.Key("coll-scroll:" + coll.Dir)).Grow(1).Children(func() {
+			if a.topSpace > 0 { // below the title bar, which lies over the top
+				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace)
+			}
 			ui.Column(c).FillWidth().Gap(10).Children(func() {
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(viewMax).Gap(10).Children(func() {
@@ -536,6 +539,7 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	ryugo.Table(c.Key("table:"+a.coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: "Sayfalar", Height: height + 2,
 		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
+		Pin: true, // the title stays as the table is scrolled sideways
 		Open: func(p *Page) {
 			if a.bulk.on {
 				a.bulkToggle(p) // chosen, not opened; the table's own choice follows, or it would be taken back below

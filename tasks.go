@@ -75,16 +75,21 @@ func tasksOf(p *Page, body string) []taskItem {
 
 // allTasks are the library's tasks: the pages last changed first, each
 // page's in the order of its text.
+// allTasks is every task, the pages changed last first, each page'"'"'s in their order. It is
+// sorted when the index of links is made, not for each frame: 20000 tasks.
 func (a *app) allTasks(force bool) []taskItem {
 	a.linksTo(nil, a.clock(), force)
-	out := append([]taskItem{}, a.links.tasks...)
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].page != out[j].page {
-			return out[i].page.Modified.After(out[j].page.Modified)
-		}
-		return out[i].line < out[j].line
-	})
-	return out
+	if a.links.sorted == nil && len(a.links.tasks) > 0 {
+		out := append([]taskItem{}, a.links.tasks...)
+		sort.SliceStable(out, func(i, j int) bool {
+			if out[i].page != out[j].page {
+				return out[i].page.Modified.After(out[j].page.Modified)
+			}
+			return out[i].line < out[j].line
+		})
+		a.links.sorted = out
+	}
+	return a.links.sorted
 }
 
 // openTask opens the page of task k with the caret in the task's line.
@@ -199,79 +204,108 @@ func (a *app) tasksView(c *ui.Context) {
 			ui.Text(c, msg).TextColor(t.TextMuted).Padding(16, 4)
 			return
 		}
-		ui.Scroll(c.Key("tasks-scroll")).Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Gap(14).Padding(6, 0, 40, 0).Children(func() {
-				for i := 0; i < len(shown); {
-					j := i
-					for j < len(shown) && shown[j].page == shown[i].page {
-						j++
-					}
-					a.taskGroup(c, cl, shown[i:j])
-					i = j
-				}
-			})
-		})
+		// 20000 tasks are 20000 rows: only those in view are built (ui.List), the pages' heads and
+		// their tasks in one list
+		rows := taskRows(shown)
+		a.taskList.Key = func(i int) any { return rows[i].key() }
+		ui.List(c.Key("tasks-list"), &a.taskList, len(rows), func(i int) {
+			if r := rows[i]; r.head {
+				a.taskHead(c, cl, r.task.page, i > 0)
+			} else {
+				a.taskRow(c, cl, r.task)
+			}
+		}).Grow(1)
 	})
 }
 
 // taskGroup is a page and its tasks.
-func (a *app) taskGroup(c *ui.Context, cl ryugo.Colors, tasks []taskItem) {
-	p := tasks[0].page
-	ui.Column(c.Key("tg:" + p.Dir)).FillWidth().Gap(1).Children(func() {
-		head := ui.Row(c.Key("tgh")).FillWidth().Padding(4, 8).Gap(8).Radius(8).AlignItems(ui.Center).
-			Label("Sayfa: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-		if head.Hovered() {
-			head.Background(cl.Fill)
+// taskListRow is a row of the list of tasks: the head of a page's tasks, or one task.
+type taskListRow struct {
+	head bool
+	task taskItem
+}
+
+// key is what the row is known by, as the list keeps its place by it.
+func (r taskListRow) key() string {
+	if r.head {
+		return "h:" + r.task.page.Dir
+	}
+	return "t:" + r.task.page.Dir + ":" + strconv.Itoa(r.task.line)
+}
+
+// taskRows are the tasks as the rows of a list: the head of each page, and its tasks under it.
+func taskRows(shown []taskItem) []taskListRow {
+	rows := make([]taskListRow, 0, len(shown)+len(shown)/4)
+	for i, k := range shown {
+		if i == 0 || shown[i-1].page != k.page {
+			rows = append(rows, taskListRow{head: true, task: k})
 		}
-		a.contextOn(head, func() []menuItem { return a.pageMenu(p, false) })
-		head.Children(func() {
-			ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
-			ui.Text(c, p.Title).FontSize(13.5).FontWeight(650).TextColor(cl.Text).MaxLines(1).Shrink(1)
-			ui.Text(c, p.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
-		})
-		if head.Clicked() {
-			a.open(p)
+		rows = append(rows, taskListRow{task: k})
+	}
+	return rows
+}
+
+// taskHead is the head of a page's tasks: its title and collection, which open it.
+func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, p *Page, gap bool) {
+	c.Key("tgh:" + p.Dir)
+	head := ui.Row(c).FillWidth().Padding(4, 8).Gap(8).Radius(8).AlignItems(ui.Center).
+		Label("Sayfa: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	if gap {
+		head.Margin(14, 0, 0, 0) // the room between two pages' tasks
+	}
+	if head.Hovered() {
+		head.Background(cl.Fill)
+	}
+	a.contextOn(head, func() []menuItem { return a.pageMenu(p, false) })
+	head.Children(func() {
+		ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
+		ui.Text(c, p.Title).FontSize(13.5).FontWeight(650).TextColor(cl.Text).MaxLines(1).Shrink(1)
+		ui.Text(c, p.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
+	})
+	if head.Clicked() {
+		a.open(p)
+	}
+}
+
+// taskRow is one task: its box, its words (a click goes to its line), its day.
+func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
+	c.Key("tk:" + k.page.Dir + ":" + strconv.Itoa(k.line))
+	row := ui.Row(c).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(8).AlignItems(ui.Center)
+	if row.Hovered() {
+		row.Background(cl.Fill.Alpha(0.5))
+	}
+	row.Children(func() {
+		on := k.done
+		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label("Görev: " + k.text)
+		col, st := cl.Text, false
+		if k.done {
+			col, st = cl.Muted, true
 		}
-		for _, k := range tasks {
-			k := k
-			row := ui.Row(c.Key("tk:"+strconv.Itoa(k.line))).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(8).AlignItems(ui.Center)
-			if row.Hovered() {
-				row.Background(cl.Fill.Alpha(0.5))
+		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label("Satıra git: " + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		body.Children(func() {
+			tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
+			if st {
+				tx.Strikethrough()
 			}
-			row.Children(func() {
-				on := k.done
-				ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label("Görev: " + k.text)
-				col, st := cl.Text, false
-				if k.done {
-					col, st = cl.Muted, true
+			if k.every != "" {
+				ui.Text(c, "↻ "+k.every).FontSize(11.5).TextColor(cl.Muted).NoWrap()
+			}
+			if !k.due.IsZero() {
+				dc := cl.Muted
+				if !k.done && k.due.Before(startOfDay(a.clock())) {
+					dc = cl.Up
 				}
-				body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label("Satıra git: " + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-				body.Children(func() {
-					tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
-					if st {
-						tx.Strikethrough()
-					}
-					if k.every != "" {
-						ui.Text(c, "↻ "+k.every).FontSize(11.5).TextColor(cl.Muted).NoWrap()
-					}
-					if !k.due.IsZero() {
-						dc := cl.Muted
-						if !k.done && k.due.Before(startOfDay(a.clock())) {
-							dc = cl.Up
-						}
-						ui.Row(c.Key("due")).Padding(1, 7).Radius(6).Gap(4).AlignItems(ui.Center).Background(dc.Alpha(0.12)).Children(func() {
-							ui.Icon(c, iconCalendar).Width(12).Height(12).TextColor(dc)
-							ui.Text(c, shortDate(k.due)).FontSize(11.5).TextColor(dc).NoWrap()
-						})
-					}
+				ui.Row(c.Key("due")).Padding(1, 7).Radius(6).Gap(4).AlignItems(ui.Center).Background(dc.Alpha(0.12)).Children(func() {
+					ui.Icon(c, iconCalendar).Width(12).Height(12).TextColor(dc)
+					ui.Text(c, shortDate(k.due)).FontSize(11.5).TextColor(dc).NoWrap()
 				})
-				if body.Clicked() {
-					a.openTask(k)
-				}
-				if on != k.done {
-					a.toggleTask(k)
-				}
-			})
+			}
+		})
+		if body.Clicked() {
+			a.openTask(k)
+		}
+		if on != k.done {
+			a.toggleTask(k)
 		}
 	})
 }

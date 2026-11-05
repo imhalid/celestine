@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func TestTasksOf(t *testing.T) {
@@ -223,5 +226,62 @@ func TestRecurringInText(t *testing.T) {
 	a.save()
 	if again := a.pageMarkdown(a.page, a.doc.Text()); again != md {
 		t.Fatalf("it rolls on again:\n%q\n%q", md, again)
+	}
+}
+
+// A library of thousands of tasks builds only the rows in view, and the tasks
+// are still all there: the list scrolls on, and a click on a task goes to its line.
+func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("K")
+	for i := 0; i < 40; i++ {
+		p, _ := c.NewPage(nil, fmt.Sprintf("Sayfa %02d", i))
+		var b strings.Builder
+		for j := 0; j < 100; j++ {
+			fmt.Fprintf(&b, "- [ ] görev %02d-%03d\n", i, j)
+		}
+		p.Save(b.String())
+	}
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1000, 700)
+	a.tasksOpen, a.coll = true, nil
+	tt.Frame()
+	tt.Advance(500 * time.Millisecond)
+	if !tt.HasText("4000 açık, 0 tamamlandı") && !tt.HasText("4000 açık, 0 tamamlandı  ·  sayfalardaki - [ ] satırları") {
+		t.Fatalf("not 4000 tasks: %v", tt.Texts()[:min(8, len(tt.Texts()))])
+	}
+	built := 0
+	for _, s := range tt.Texts() {
+		if strings.HasPrefix(s, "görev ") {
+			built++
+		}
+	}
+	if built == 0 || built > 120 {
+		t.Fatalf("%d tasks built of 4000", built)
+	}
+	// the wheel takes the list on: others show
+	first := ""
+	for _, s := range tt.Texts() {
+		if strings.HasPrefix(s, "görev ") {
+			first = s
+			break
+		}
+	}
+	for i := 0; i < 20; i++ {
+		tt.Wheel(500, 400, 0, 2000)
+		tt.Advance(100 * time.Millisecond)
+	}
+	later := ""
+	for _, s := range tt.Texts() {
+		if strings.HasPrefix(s, "görev ") {
+			later = s
+			break
+		}
+	}
+	if later == "" || later == first {
+		t.Fatalf("the list did not scroll on: %q then %q", first, later)
 	}
 }

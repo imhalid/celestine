@@ -121,13 +121,14 @@ type app struct {
 	searchFocus   bool
 	quickKeyDraft string // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename // the dialog to rename a tag (tags.go)
-	vhist         histView  // the dialog of a page's versions (historyui.go)
-	noticePage    *Page     // the page the notice is about, to open from it
-	taskDue       int       // 0 any day, 1 today, 2 this week, 3 late
-	taskFilter    int       // 0 open, 1 done, 2 all
-	tag           string    // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
+	tagRen        tagRename    // the dialog to rename a tag (tags.go)
+	vhist         histView     // the dialog of a page's versions (historyui.go)
+	noticePage    *Page        // the page the notice is about, to open from it
+	taskDue       int          // 0 any day, 1 today, 2 this week, 3 late
+	taskFilter    int          // 0 open, 1 done, 2 all
+	taskList      ui.ListState // the list of tasks, a row for each in view (tasks.go)
+	tag           string       // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	tagHits       []tagHit     // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	hoverTag      string
 	coverHover    bool     // the pointer is in the cover band
@@ -512,8 +513,9 @@ func (a *app) view(c *ui.Context) {
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).Children(func() {
-			pageMode := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && a.coll == nil && a.page != nil
-			if !pageMode {
+			// a page and a collection scroll as a whole, from the top of the window, under the title bar
+			overBar := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil)
+			if !overBar {
 				a.titleBar(c)
 			}
 			// the page scrolls over the whole width, its bar at the window's edge:
@@ -527,7 +529,7 @@ func (a *app) view(c *ui.Context) {
 				topPad = 0
 			}
 			a.barInset, a.topSpace = 0, 0
-			if pageMode { // the page scrolls from the top of the window, under the bar, and starts below it
+			if overBar { // it scrolls from the top of the window, under the bar, and starts below it
 				a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
@@ -566,7 +568,7 @@ func (a *app) view(c *ui.Context) {
 			})
 			a.status(c)
 			a.keepTree()
-			if pageMode {
+			if overBar {
 				a.titleBarOver(c)
 			}
 		})

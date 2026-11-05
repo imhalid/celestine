@@ -21,6 +21,7 @@ type linkIndex struct {
 	tags     map[string][]*Page  // a tag (tags.go), lower case, to the pages that have it
 	tagNames map[string]string   // and as it was first written
 	tasks    []taskItem          // the tasks of every page (tasks.go)
+	sorted   []taskItem          // and sorted for their view, until the index is made again
 	pages    map[*Page]*pageIdx  // what was read of each page, kept while its file is as it was
 	plain    map[*Page]*plainIdx // the text of a page, plain, for the search (search.go), made when asked for
 	built    time.Time
@@ -36,6 +37,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	if l.into == nil || (l.stale && (force || now.Sub(l.built) > 4*time.Second)) {
 		l.into, l.tags, l.tagNames, l.tasks = map[string][]*Page{}, map[string][]*Page{}, map[string]string{}, nil
 		l.stale, l.built = false, now
+		l.sorted = nil
 		kept := map[*Page]*pageIdx{}
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
