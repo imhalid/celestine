@@ -153,11 +153,11 @@ func (a *app) collectionView(c *ui.Context) {
 								case v.Type == "calendar": // a month shows even with nothing in it
 									a.calendarView(c, coll, v, pages)
 								case len(pages) == 0 && a.search != "":
-									ui.Text(c, "“"+a.search+"” ile eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
+									a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "“"+a.search+"” bu koleksiyonda bir sayfayla eşleşmiyor.", "Aramayı temizle", func() { a.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
-									ui.Text(c, "Sorguyla eşleşen sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
+									a.emptyState(c, iconSearch, "Sorguyla eşleşen sayfa yok", "Bu koleksiyon, sorgusunun bulduğu sayfaları gösterir: "+coll.Query, "", nil)
 								case len(pages) == 0:
-									ui.Text(c, "Bu koleksiyonda henüz sayfa yok.").TextColor(t.TextMuted).Padding(16, 4)
+									a.emptyState(c, collGlyph(coll), "Bu koleksiyon boş", "Aşağıdaki satırla ilk sayfayı yaz.", "", nil)
 								case v.Type == "board":
 									a.boardView(c, coll, v, pages)
 								case v.Type == "table":
@@ -603,86 +603,89 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	// scroll sideways instead of narrowing.
 	cl := ryugo.From(c).Colors
 	focus := a.boardFocus
-	ui.ScrollHorizontal(c).Children(func() {
-		ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
-			for _, s := range append([]string{""}, pr.Options...) {
-				var col []*Page
-				for _, p := range coll.Column(pr.ID, s) {
-					if shown[p] {
-						col = append(col, p)
+	ui.Column(c.Key("board-wrap")).FillWidth().Children(func() { // the fades at its edges lie over the scroll
+		ui.ScrollHorizontal(c).TrackScroll(&a.boardScroll).Children(func() {
+			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
+				for _, s := range append([]string{""}, pr.Options...) {
+					var col []*Page
+					for _, p := range coll.Column(pr.ID, s) {
+						if shown[p] {
+							col = append(col, p)
+						}
 					}
-				}
-				title := s
-				if s == "" {
-					title = pr.Name + " yok"
-				}
-				s := s
-				id := coll.Dir + "|" + v.ID + "|" + s
-				tone := columnTone(c, s)
-				opened := a.boardOpened[id]
-				if slices.Contains(v.Collapsed, s) || (s == "" && len(col) == 0 && !opened) { // the empty "none" column is a strip; the stages are drop places
-					a.boardStrip(c, coll, v, s, title, len(col), id)
-					continue
-				}
-				wrap := ui.Column(c.Key("colwrap:" + s)).Gap(6).Shrink(0)
-				want := float32(250)
-				if focus == id {
-					want = 360
-				}
-				wrap.Width(wrap.AnimateTo("w", want, boardSpring))
-				wrap.Children(func() {
-					// its head: a dot of its color, name, count, and a fold; the name is the focus
-					head := ui.Row(c).Gap(8).Padding(0, 4, 0, 6).AlignItems(ui.Center)
-					head.Children(func() {
-						name := ui.Row(c.Key("colname:"+s)).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(7).Grow(1).MinWidth(0).
-							Label("Odakla: " + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-						if name.Hovered() {
-							name.Background(cl.Fill)
-						}
-						name.Children(func() {
-							ui.Box(c).Size(8, 8).Radius(3).Background(tone)
-							ui.Text(c, title).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text2).MaxLines(1).Shrink(1)
-							ui.Text(c, strconv.Itoa(len(col))).FontSize(12).TextColor(cl.Muted)
+					title := s
+					if s == "" {
+						title = pr.Name + " yok"
+					}
+					s := s
+					id := coll.Dir + "|" + v.ID + "|" + s
+					tone := columnTone(c, s)
+					opened := a.boardOpened[id]
+					if slices.Contains(v.Collapsed, s) || (s == "" && len(col) == 0 && !opened) { // the empty "none" column is a strip; the stages are drop places
+						a.boardStrip(c, coll, v, s, title, len(col), id)
+						continue
+					}
+					wrap := ui.Column(c.Key("colwrap:" + s)).Gap(6).Shrink(0)
+					want := float32(250)
+					if focus == id {
+						want = 360
+					}
+					wrap.Width(wrap.AnimateTo("w", want, boardSpring))
+					wrap.Children(func() {
+						// its head: a dot of its color, name, count, and a fold; the name is the focus
+						head := ui.Row(c).Gap(8).Padding(0, 4, 0, 6).AlignItems(ui.Center)
+						head.Children(func() {
+							name := ui.Row(c.Key("colname:"+s)).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(7).Grow(1).MinWidth(0).
+								Label("Odakla: " + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+							if name.Hovered() {
+								name.Background(cl.Fill)
+							}
+							name.Children(func() {
+								ui.Box(c).Size(8, 8).Radius(3).Background(tone)
+								ui.Text(c, title).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text2).MaxLines(1).Shrink(1)
+								ui.Text(c, strconv.Itoa(len(col))).FontSize(12).TextColor(cl.Muted)
+							})
+							if name.Clicked() {
+								if focus == id {
+									a.boardFocus = ""
+								} else {
+									a.boardFocus = id
+								}
+							}
+							if a.iconButton(c, iconFold, "Daralt: "+title) {
+								a.foldColumn(coll, v, s, true)
+								a.boardOpened[id] = false
+							}
 						})
-						if name.Clicked() {
-							if focus == id {
-								a.boardFocus = ""
-							} else {
-								a.boardFocus = id
+						ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Fill: true}, func() {
+							for _, p := range col {
+								p := p
+								card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
+									a.coverThumb(c, p, 0, 84, 8)                                           // its cover, across the top
+									ui.Box(c).FillWidth().Height(3).Radius(2).Background(tone.Alpha(0.75)) // its column's color
+									ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
+									if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && focus == id {
+										ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(map[bool]int{true: 3, false: 2}[focus == id])
+									}
+									if len(v.Fields) > 0 && focus == id {
+										ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
+									}
+								}).Label("Kart: " + p.Title)
+								a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
+								if card.Clicked() {
+									a.open(p)
+								}
 							}
-						}
-						if a.iconButton(c, iconFold, "Daralt: "+title) {
-							a.foldColumn(coll, v, s, true)
-							a.boardOpened[id] = false
-						}
+						}, func(p *Page, index int) {
+							if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
+								a.saveErr = err.Error()
+							}
+						}).MinHeight(180) // an empty one has room to drop on
 					})
-					ryugo.DropArea(c.Key("col:"+s), ryugo.DropAreaOptions{Fill: true}, func() {
-						for _, p := range col {
-							p := p
-							card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
-								a.coverThumb(c, p, 0, 84, 8)                                           // its cover, across the top
-								ui.Box(c).FillWidth().Height(3).Radius(2).Background(tone.Alpha(0.75)) // its column's color
-								ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
-								if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && focus == id {
-									ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(map[bool]int{true: 3, false: 2}[focus == id])
-								}
-								if len(v.Fields) > 0 && focus == id {
-									ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
-								}
-							}).Label("Kart: " + p.Title)
-							a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
-							if card.Clicked() {
-								a.open(p)
-							}
-						}
-					}, func(p *Page, index int) {
-						if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
-							a.saveErr = err.Error()
-						}
-					}).MinHeight(180) // an empty one has room to drop on
-				})
-			}
+				}
+			})
 		})
+		a.edgeFades(c, &a.boardScroll)
 	})
 }
 

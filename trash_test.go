@@ -111,7 +111,7 @@ func TestTrashUndoAndView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if len(page.Children) != 1 || len(a.trashItems) != 0 || !tt.HasText("Çöp boş.") {
+	if len(page.Children) != 1 || len(a.trashItems) != 0 || !tt.HasText("Çöp boş") {
 		t.Fatalf("restored from the view: %d, %v", len(page.Children), tt.Texts())
 	}
 }

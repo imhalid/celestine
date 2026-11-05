@@ -121,14 +121,17 @@ type app struct {
 	searchFocus   bool
 	quickKeyDraft string // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename    // the dialog to rename a tag (tags.go)
-	vhist         histView     // the dialog of a page's versions (historyui.go)
-	noticePage    *Page        // the page the notice is about, to open from it
-	taskDue       int          // 0 any day, 1 today, 2 this week, 3 late
-	taskFilter    int          // 0 open, 1 done, 2 all
-	taskList      ui.ListState // the list of tasks, a row for each in view (tasks.go)
-	tag           string       // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	tagHits       []tagHit     // the tags drawn this frame; a click is against the last's
+	tagRen        tagRename      // the dialog to rename a tag (tags.go)
+	vhist         histView       // the dialog of a page's versions (historyui.go)
+	noticePage    *Page          // the page the notice is about, to open from it
+	taskDue       int            // 0 any day, 1 today, 2 this week, 3 late
+	taskFilter    int            // 0 open, 1 done, 2 all
+	taskList      ui.ListState   // the list of tasks, a row for each in view (tasks.go)
+	taskQuery     string         // what is typed in the tasks' search
+	taskColl      string         // the collection the tasks are of (its Dir), "" all of them
+	taskFolded    map[*Page]bool // the pages whose tasks are folded away
+	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	tagHits       []tagHit       // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	hoverTag      string
 	coverHover    bool     // the pointer is in the cover band
@@ -166,6 +169,7 @@ type app struct {
 	afterView     []func()        // what waits for the view to be built
 	boardFocus    string          // the board column asked for, wide
 	boardOpened   map[string]bool // empty columns the user opened
+	boardScroll   ui.ScrollState  // the board scrolled sideways: where its edges fade (edgeFades)
 	rowsLast      []treeEntry     // the tree's rows, last frame
 	treeFocus     any             // the row the arrow keys moved to, to take the focus
 	treeNav       bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
@@ -561,7 +565,7 @@ func (a *app) view(c *ui.Context) {
 					return
 				}
 				if a.page == nil {
-					ui.Text(c, "Soldan bir sayfa seç ya da + ile yeni bir sayfa aç.").TextColor(t.TextMuted)
+					a.emptyState(c, iconPage, "Bir sayfa seç", "Soldaki ağaçtan bir sayfa aç, koleksiyon satırındaki + ile de yenisini yaz.", "", nil)
 					return
 				}
 				a.pageView(c, th)

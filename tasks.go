@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,9 +74,7 @@ func tasksOf(p *Page, body string) []taskItem {
 	return out
 }
 
-// allTasks are the library's tasks: the pages last changed first, each
-// page's in the order of its text.
-// allTasks is every task, the pages changed last first, each page'"'"'s in their order. It is
+// allTasks is every task, the pages changed last first, each page's in the order of its text. It is
 // sorted when the index of links is made, not for each frame: 20000 tasks.
 func (a *app) allTasks(force bool) []taskItem {
 	a.linksTo(nil, a.clock(), force)
@@ -183,34 +182,61 @@ func (a *app) tasksView(c *ui.Context) {
 			open++
 		}
 	}
+	// the collections that have tasks, to choose among
+	colls := map[*Collection]int{}
+	for _, k := range all {
+		colls[k.page.Coll]++
+	}
+	if a.taskColl != "" && !slices.ContainsFunc(a.lib.Collections, func(co *Collection) bool { return co.Dir == a.taskColl && colls[co] > 0 }) {
+		a.taskColl = "" // that collection has no tasks now
+	}
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, "Görevler").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
 		ui.Text(c, strconv.Itoa(open)+" açık, "+strconv.Itoa(done)+" tamamlandı  ·  sayfalardaki - [ ] satırları").
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
-		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
 			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{"Açık", "Tamamlanan", "Hepsi"}, ryugo.SegmentedOptions{Label: "Görevler", Size: ryugo.Sm})
 			if a.taskFilter == 0 { // the open ones by their day
-				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hangi gün olsa", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: "Gün", Size: ryugo.Sm})
+				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hepsi", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: "Gün", Size: ryugo.Sm})
 			}
+			ui.Spacer(c)
+			if len(colls) > 1 {
+				opts := []ryugo.Option[string]{{Value: "", Label: "Tüm koleksiyonlar"}}
+				for _, co := range a.lib.Collections {
+					if colls[co] > 0 {
+						opts = append(opts, ryugo.Option[string]{Value: co.Dir, Label: co.Name + "  ·  " + strconv.Itoa(colls[co])})
+					}
+				}
+				ui.Box(c.Key("task-coll-wrap")).Width(176).Children(func() {
+					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: "Koleksiyon", Size: ryugo.Sm})
+				})
+			}
+			ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: "Görevlerde ara", Placeholder: "Görevlerde ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(176)
 		})
+		q := fold(strings.TrimSpace(a.taskQuery))
+		now := a.clock()
 		var shown []taskItem
 		for _, k := range all {
-			if (a.taskFilter == 2 || (a.taskFilter == 0) == !k.done) && (a.taskFilter != 0 || dueMatches(k, a.taskDue, a.clock())) {
+			switch {
+			case a.taskFilter != 2 && (a.taskFilter == 0) == k.done:
+			case a.taskFilter == 0 && !dueMatches(k, a.taskDue, now):
+			case a.taskColl != "" && k.page.Coll.Dir != a.taskColl:
+			case q != "" && !strings.Contains(fold(k.text), q) && !strings.Contains(fold(k.page.Title), q):
+			default:
 				shown = append(shown, k)
 			}
 		}
 		if len(shown) == 0 {
-			msg := map[int]string{0: "Açık görev yok. Bir sayfada [] yazınca görev olur.", 1: "Tamamlanan görev yok.", 2: "Hiç görev yok. Bir sayfada [] yazınca görev olur."}[a.taskFilter]
-			ui.Text(c, msg).TextColor(t.TextMuted).Padding(16, 4)
+			a.noTasks(c, len(all) == 0)
 			return
 		}
 		// 20000 tasks are 20000 rows: only those in view are built (ui.List), the pages' heads and
 		// their tasks in one list
-		rows := taskRows(shown)
+		rows := taskRows(shown, a.taskFolded)
 		a.taskList.Key = func(i int) any { return rows[i].key() }
 		ui.List(c.Key("tasks-list"), &a.taskList, len(rows), func(i int) {
 			if r := rows[i]; r.head {
-				a.taskHead(c, cl, r.task.page, i > 0)
+				a.taskHead(c, cl, r, i > 0)
 			} else {
 				a.taskRow(c, cl, r.task)
 			}
@@ -218,11 +244,33 @@ func (a *app) tasksView(c *ui.Context) {
 	})
 }
 
+// noTasks says there are no tasks to show: none at all, or none with the filters.
+func (a *app) noTasks(c *ui.Context, none bool) {
+	o := ryugo.EmptyStateOptions{Icon: iconTask, Title: "Bu süzgece uyan görev yok", Description: "Süzgeci gevşetince burada görünürler."}
+	switch {
+	case none:
+		o.Title, o.Description = "Henüz görev yok", "Bir sayfada [] yazınca görev olur; burada hepsi, sayfalarına göre durur."
+	case a.taskFilter == 1:
+		o.Title, o.Description = "Tamamlanan görev yok", "Bir görevi işaretleyince buraya gelir."
+	case a.taskFilter == 0 && a.taskDue == 0 && a.taskColl == "" && strings.TrimSpace(a.taskQuery) == "":
+		o.Title, o.Description = "Açık görev kalmadı", "Hepsi tamam."
+	}
+	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0) {
+		o.Action = func() {
+			if ryugo.Button(c.Key("task-clear-filters"), "Süzgeçleri temizle", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				a.taskColl, a.taskQuery, a.taskDue = "", "", 0
+			}
+		}
+	}
+	ui.Column(c).FillWidth().Children(func() { ryugo.EmptyState(c, o) })
+}
+
 // taskGroup is a page and its tasks.
 // taskListRow is a row of the list of tasks: the head of a page's tasks, or one task.
 type taskListRow struct {
 	head bool
 	task taskItem
+	n    int // of a head: how many tasks its page has here
 }
 
 // key is what the row is known by, as the list keeps its place by it.
@@ -234,21 +282,31 @@ func (r taskListRow) key() string {
 }
 
 // taskRows are the tasks as the rows of a list: the head of each page, and its tasks under it.
-func taskRows(shown []taskItem) []taskListRow {
+func taskRows(shown []taskItem, folded map[*Page]bool) []taskListRow {
 	rows := make([]taskListRow, 0, len(shown)+len(shown)/4)
-	for i, k := range shown {
-		if i == 0 || shown[i-1].page != k.page {
-			rows = append(rows, taskListRow{head: true, task: k})
+	for i := 0; i < len(shown); {
+		j := i
+		for j < len(shown) && shown[j].page == shown[i].page {
+			j++
 		}
-		rows = append(rows, taskListRow{task: k})
+		rows = append(rows, taskListRow{head: true, task: shown[i], n: j - i})
+		if !folded[shown[i].page] {
+			for _, k := range shown[i:j] {
+				rows = append(rows, taskListRow{task: k})
+			}
+		}
+		i = j
 	}
 	return rows
 }
 
-// taskHead is the head of a page's tasks: its title and collection, which open it.
-func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, p *Page, gap bool) {
+// taskHead is the head of a page's tasks: a chevron that folds them away, its title
+// and collection, which open it, and how many tasks it has.
+func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) {
+	p := r.task.page
+	folded := a.taskFolded[p]
 	c.Key("tgh:" + p.Dir)
-	head := ui.Row(c).FillWidth().Padding(4, 8).Gap(8).Radius(8).AlignItems(ui.Center).
+	head := ui.Row(c).FillWidth().Padding(2, 8, 2, 2).Gap(4).Radius(8).AlignItems(ui.Center).
 		Label("Sayfa: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	if gap {
 		head.Margin(14, 0, 0, 0) // the room between two pages' tasks
@@ -257,12 +315,27 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, p *Page, gap bool) {
 		head.Background(cl.Fill)
 	}
 	a.contextOn(head, func() []menuItem { return a.pageMenu(p, false) })
+	var fold ui.Element
 	head.Children(func() {
-		ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
+		fold = ui.Box(c.Key("tgh-fold")).Size(26, 26).Shrink(0).Radius(7).Center().Cursor(ui.CursorPointer).
+			Label(map[bool]string{true: "Görevleri aç: ", false: "Görevleri kapat: "}[folded] + p.Title).Role(ui.RoleButton)
+		if fold.Hovered() {
+			fold.Background(cl.Fill)
+		}
+		angle := fold.AnimateTo("turn", map[bool]float32{true: 0, false: 90}[folded], springTurn)
+		fold.Children(func() { ui.Icon(c, iconChevron).Width(13).Height(13).TextColor(cl.Muted).Rotate(angle) })
+		ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted).Margin(0, 4, 0, 2)
 		ui.Text(c, p.Title).FontSize(13.5).FontWeight(650).TextColor(cl.Text).MaxLines(1).Shrink(1)
-		ui.Text(c, p.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
+		ui.Text(c, p.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1).Margin(0, 0, 0, 8)
+		ui.Text(c, strconv.Itoa(r.n)).FontSize(12).TextColor(cl.Muted).FontFeatures("tnum")
 	})
-	if head.Clicked() {
+	switch {
+	case fold.Clicked():
+		if a.taskFolded == nil {
+			a.taskFolded = map[*Page]bool{}
+		}
+		a.taskFolded[p] = !folded
+	case head.Clicked():
 		a.open(p)
 	}
 }

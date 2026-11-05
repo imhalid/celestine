@@ -261,3 +261,46 @@ func TestTableRowOpensOrChooses(t *testing.T) {
 		t.Fatalf("a click on a row: coll %v page %v (of %v)", a.coll, a.page, coll.Name)
 	}
 }
+
+// Views with nothing to show say so with Ryugo's empty state, and what to do.
+func TestEmptyStates(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("Boş")
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1100, 760)
+	a.do(func() error { a.openCollection(c); return nil })
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	if !tt.HasText("Bu koleksiyon boş") {
+		t.Fatalf("an empty collection: %v", tt.Texts())
+	}
+	a.search = "yokböyle"
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("Eşleşen sayfa yok") || !tt.HasText("Aramayı temizle") {
+		t.Fatalf("a search with no hits: %v", tt.Texts())
+	}
+	if err := tt.Click("Aramayı temizle"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if a.search != "" || !tt.HasText("Bu koleksiyon boş") {
+		t.Fatalf("search not cleared: %q", a.search)
+	}
+	a.coll, a.searchOpen = nil, true
+	a.searchQ = ""
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("Kitaplıkta ara") {
+		t.Fatalf("the search page with no words: %v", tt.Texts())
+	}
+	a.searchQ = "hiçbiryerdeyok"
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("Eşleşen sayfa yok") {
+		t.Fatalf("a search of the library with no hits: %v", tt.Texts())
+	}
+}

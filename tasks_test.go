@@ -285,3 +285,68 @@ func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
 		t.Fatalf("the list did not scroll on: %q then %q", first, later)
 	}
 }
+
+// The tasks are searched, chosen by collection, and a page's folded away; with
+// nothing to show the view says why and offers to clear what narrows it.
+func TestTasksFilterSearchFold(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	k1, _ := lib.NewCollection("Kitaplar")
+	k2, _ := lib.NewCollection("Projeler")
+	p1, _ := k1.NewPage(nil, "Dune")
+	p2, _ := k2.NewPage(nil, "Ev tadilatı")
+	p1.Save("- [ ] baharat siparişi\n- [ ] kapak tartışması\n")
+	p2.Save("- [ ] boya al\n- [ ] kapak ölç\n")
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1100, 760)
+	a.tasksOpen, a.coll = true, nil
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	for _, s := range []string{"baharat siparişi", "boya al", "kapak ölç", "kapak tartışması"} {
+		if !tt.HasText(s) {
+			t.Fatalf("no task %q: %v", s, tt.Texts())
+		}
+	}
+	a.taskQuery = "kapak"
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if tt.HasText("baharat siparişi") || tt.HasText("boya al") || !tt.HasText("kapak ölç") || !tt.HasText("kapak tartışması") {
+		t.Fatalf("search kapak: %v", tt.Texts())
+	}
+	a.taskColl = k2.Dir
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if tt.HasText("kapak tartışması") || !tt.HasText("kapak ölç") {
+		t.Fatalf("search kapak in Projeler: %v", tt.Texts())
+	}
+	a.taskQuery = "yok böyle bir şey"
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("Bu süzgece uyan görev yok") || !tt.HasText("Süzgeçleri temizle") {
+		t.Fatalf("no empty state: %v", tt.Texts())
+	}
+	if err := tt.Click("Süzgeçleri temizle"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if a.taskQuery != "" || a.taskColl != "" || !tt.HasText("baharat siparişi") {
+		t.Fatalf("filters not cleared: %q %q", a.taskQuery, a.taskColl)
+	}
+	// a page's tasks fold away, and come back
+	if err := tt.Click("Görevleri kapat: Dune"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if tt.HasText("baharat siparişi") || !tt.HasText("boya al") {
+		t.Fatalf("Dune's tasks did not fold: %v", tt.Texts())
+	}
+	if err := tt.Click("Görevleri aç: Dune"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("baharat siparişi") {
+		t.Fatalf("Dune's tasks did not unfold: %v", tt.Texts())
+	}
+}

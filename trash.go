@@ -91,7 +91,7 @@ func (a *app) trashView(c *ui.Context) {
 		ui.Text(c, "Atılan sayfalar ve koleksiyonlar burada durur; geri yüklenince eski yerlerine dönerler.").
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 8, 0)
 		if len(a.trashItems) == 0 {
-			ui.Text(c, "Çöp boş.").TextColor(t.TextMuted).Padding(16, 4)
+			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
 			return
 		}
 		ui.Scroll(c).Grow(1).Children(func() {
@@ -143,13 +143,19 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	})
 }
 
-// tasksRow is the task view's row, above the trash's, with how many tasks are open.
+// tasksRow is the task view's row, above the trash's, with how many tasks are late
+// or due today: thousands open say nothing, a day's say what is to be done.
 func (a *app) tasksRow(c *ui.Context) {
 	t := c.Theme()
-	open := 0
+	late, today := 0, 0
+	start := startOfDay(a.clock())
 	for _, k := range a.links.tasks {
-		if !k.done {
-			open++
+		switch {
+		case k.done || k.due.IsZero():
+		case k.due.Before(start):
+			late++
+		case sameDay(k.due, start):
+			today++
 		}
 	}
 	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
@@ -166,8 +172,11 @@ func (a *app) tasksRow(c *ui.Context) {
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(t.TextMuted)
 			ui.Text(c, "Görevler").FontSize(13.5).Grow(1)
-			if open > 0 {
-				ryugo.Badge(c, strconv.Itoa(open), ryugo.ToneNeutral)
+			switch {
+			case late > 0:
+				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(late+today), ryugo.ToneUp)
+			case today > 0:
+				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(today), ryugo.ToneWarn)
 			}
 		})
 		if r.Clicked() {

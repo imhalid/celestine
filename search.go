@@ -300,6 +300,14 @@ func (a *app) searchView(c *ui.Context) {
 			}
 		}
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(2, 0, 4, 0)
+		if len(hits) == 0 {
+			if strings.TrimSpace(a.searchQ) == "" {
+				a.emptyState(c, iconSearch, "Kitaplıkta ara", "Sayfaların başlığında ve metninde ara; \"tam ifade\", başlık:, koleksiyon: ve #etiket süzgeçleri de çalışır.", "", nil)
+			} else {
+				a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "Başka bir kelime dene ya da süzgeçleri kaldır.", "", nil)
+			}
+			return
+		}
 		ui.Scroll(c.Key("search-scroll")).Grow(1).Children(func() {
 			ui.Column(c).FillWidth().Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, h := range hits {

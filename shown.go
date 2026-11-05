@@ -70,3 +70,28 @@ func (a *app) trackWindow() {
 		a.winScrolled, a.winFlip = scrolled, a.clock()
 	}
 }
+
+// edgeFades lays a soft fade over each edge of a sideways scroll that has more
+// beyond it - at the right while there is more to the right, at the left once it
+// is scrolled - so that what is cut at the edge reads as going on, not as cut.
+// They let the pointer through. s is the scroll's state (TrackScroll); the page's
+// own background is what they fade to.
+func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
+	const w = 60
+	bg := a.bg(c)
+	for _, side := range []struct {
+		key  string
+		on   bool
+		left bool
+	}{{"fade-left", s.X > 1, true}, {"fade-right", s.X < s.MaxX-1, false}} {
+		e := ui.Box(c.Key(side.key)).Absolute().Top(0).Bottom(0).Width(w).PassThrough()
+		if side.left {
+			e.Left(0)
+			e.LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, From: bg, To: bg.Alpha(0)})
+		} else {
+			e.Right(0)
+			e.LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, From: bg.Alpha(0), To: bg})
+		}
+		e.Opacity(e.AnimateTo("o", map[bool]float32{true: 1, false: 0}[side.on], fadeQuick))
+	}
+}
