@@ -89,30 +89,61 @@ func (a *app) coverFile(p *Page, file string) {
 	}
 }
 
-// coverView is the cover, over the title: the picture cropped to the column,
-// and, as the pointer is on it, the buttons to change and take it away.
-func (a *app) coverView(c *ui.Context, p *Page) {
+// The cover is a band across the top of the page, behind its title: the
+// picture cropped to the band, darker toward its foot, where the title lies;
+// the page's text goes on under it. coverBand is the band, drawn behind the
+// page (an absolute layer in the page's wrapper); pageHead leaves coverRoom
+// above the title, and coverGap the foot below it.
+
+const (
+	coverBandH = 232 // the band's height: the room, the title, the foot
+	coverRoom  = 150 // above the title, in the band
+	coverFoot  = 22  // below the title, in the band
+)
+
+func (a *app) coverGap(c *ui.Context, p *Page) {
+	if p.Cover != "" {
+		ui.Box(c.Key("cover-foot")).FillWidth().Height(coverFoot)
+	}
+}
+
+// paintCover is the band's picture, drawn as the wrapper's own, under what
+// is in it: cropped to the width, darker toward the foot.
+func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 	if p.Cover == "" {
 		return
 	}
-	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
-	box := ui.Box(c.Key("cover:"+p.Dir)).FillWidth().Height(coverH).Radius(14).Clip().Margin(4, 0, 6, 0).Label("Kapak resmi")
 	cl := ryugo.From(c).Colors
-	if src == nil { // gone: a plain band with the buttons
-		box.Background(cl.Well)
-	} else {
-		box.Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, 14, func() { pt.Image(src, r, ui.Cover) }) })
+	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
+	wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
+		band := ui.Rect{X: r.X, Y: r.Y, W: r.W, H: coverBandH}
+		if src == nil {
+			pt.Fill(band, cl.Well, 0)
+			return
+		}
+		pt.Image(src, band, ui.Cover)
+		// the foot darkens, so that the title reads on any picture
+		pt.FillGradient(band, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+			{Color: ui.Hex("#000000").Alpha(0), At: 0.25}, {Color: ui.Hex("#000000").Alpha(0.62), At: 1},
+		}}, 0)
+	})
+}
+
+// coverButtons are the buttons on the cover, as the pointer is in the band.
+func (a *app) coverButtons(c *ui.Context, p *Page) {
+	if p.Cover == "" {
+		return
 	}
-	hot := box.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[box.Hovered()], fadeQuick)
-	box.Children(func() {
-		ui.Row(c.Key("cover-btns")).Absolute().Right(10).Top(10).Gap(6).Opacity(hot).Children(func() {
-			if ryugo.Button(c.Key("cover-change"), "Değiştir", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
-				a.pickCover(p)
-			}
-			if ryugo.Button(c.Key("cover-remove"), "Kapağı kaldır", ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-				a.removeCover(p)
-			}
-		})
+	cl := ryugo.From(c).Colors
+	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(14).Gap(6)
+	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover], fadeQuick))
+	row.Children(func() {
+		if ryugo.Button(c.Key("cover-change"), "Kapağı değiştir", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
+			a.pickCover(p)
+		}
+		if ryugo.Button(c.Key("cover-remove"), "Kapağı kaldır", ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+			a.removeCover(p)
+		}
 	})
 }
 

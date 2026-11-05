@@ -130,6 +130,7 @@ type app struct {
 	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	hoverTag      string
+	coverHover    bool     // the pointer is in the cover band
 	picHits       []picHit // the pictures drawn this frame, and the last frame's (images.go)
 	picSeen       []picHit
 	tableHits     []tableHit // the cells of the tables drawn this frame, and the last frame's (tables.go)
@@ -494,7 +495,11 @@ func (a *app) view(c *ui.Context) {
 			if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
-			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
+			topPad := float32(pageTop - barH + 8)
+			if a.page != nil && a.page.Cover != "" && !a.noPage() { // the cover starts under the bar
+				topPad = 0
+			}
+			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 			defer func() { a.pageR = pageRow.LayoutBounds() }()
 			pageRow.Children(func() {
 				if a.trashOpen {
@@ -601,8 +606,19 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		}
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(&a.pageScroll).Grow(1)
 		sc.Children(func() {
-			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
-				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
+			// a cover is a band behind the top of the page, over its whole width
+			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
+			if _, y, over := wrap.PointerPosition(); over && p.Cover != "" {
+				a.coverHover = y < coverBandH
+			} else {
+				a.coverHover = false
+			}
+			a.paintCover(c, p, wrap)
+			wrap.Children(func() {
+				a.coverButtons(c, p)
+				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
+					ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
+				})
 			})
 		})
 		a.scrollR = sc.LayoutBounds()
@@ -702,16 +718,21 @@ func (a *app) caretView(c *ui.Context) {
 
 // pageHead is the page's title and its properties.
 func (a *app) pageHead(c *ui.Context, p *Page) {
-	a.coverView(c, p)
+	ink := c.Theme().Text
+	if p.Cover != "" { // the title lies on the cover, as the band's bottom is dark
+		ui.Box(c.Key("cover-room")).FillWidth().Height(coverRoom)
+		ink = ui.Hex("#ffffff")
+	}
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label("Başlık").Selectable()
+		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label("Başlık").Selectable().TextColor(ink)
 		a.titleFocused = false
+		a.coverGap(c, p)
 		a.propsSection(c, p)
 		return
 	}
-	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
+	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink)
 	if a.fresh {
 		title.AutoFocus()
 		a.fresh = false
@@ -726,6 +747,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 		}
 	}
 	a.titleFocused = title.Focused()
+	a.coverGap(c, p)
 	// ↓ or ↵ in the title goes into the text
 	if title.Focused() && (title.Shortcut(0, ui.KeyDown) || title.Submitted()) {
 		a.doc.SetSelection(0, 0)

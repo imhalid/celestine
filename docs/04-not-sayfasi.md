@@ -99,6 +99,7 @@ geçmişi yokken, böylece silinen satır geri gelirse dosya yerinde olur). Elle
 
 ## Kapak resmi (Kasım 2026)
 
-Sayfa menüsü ▸ "Kapak resmi ekle…": başlığın üstüne, sütun genişliğinde 200 px yüksekliğinde bir resim (köşeleri yuvarlak,
-kırpılarak sığar). Resim sayfanın klasöründe `kapak-….png` dosyasıdır ve sayfanın ön maddesinde `cover: kapak-….png` olarak
-durur; değiştirilince eski dosya silinir. İmleç kapağın üstündeyken "Değiştir" ve "Kapağı kaldır" düğmeleri çıkar.
+Sayfa menüsü ▸ "Kapak resmi ekle…" ya da başlığın altındaki "Kapak ekle": sayfanın **arka planında**, üstten tüm genişlikte bir
+bant (232 px; resim kırpılarak sığar, altına doğru kararır) ve başlık beyaz olarak onun üstünde durur; özellikler ve metin bandın
+altından başlar. Resim sayfanın klasöründe `kapak-….png` dosyasıdır ve sayfanın ön maddesinde `cover: kapak-….png` olarak
+durur; değiştirilince eski dosya silinir. İmleç bandın üstündeyken sağ üstte "Kapağı değiştir" ve "Kapağı kaldır" düğmeleri çıkar.
