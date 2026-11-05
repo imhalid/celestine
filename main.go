@@ -9,6 +9,7 @@ package main
 import (
 	_ "embed"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -163,9 +164,13 @@ type app struct {
 	mu           sync.Mutex
 	settings     Settings
 	settingsFile string // "" in tests: not kept
-	settingsOpen bool
-	mcpServer    *http.Server
-	mcpErr       string
+	// settingsStore, when the library is a file of its own, keeps the settings
+	// in it; settingsFile then is only where they were before.
+	settingsStore *Store
+	exportNote    string // what the last export said, in the settings
+	settingsOpen  bool
+	mcpServer     *http.Server
+	mcpErr        string
 
 	prop        propEdit           // the property dialog
 	propBuf     map[string]*string // the text of the properties' fields, by page and property
@@ -224,12 +229,45 @@ func seed(lib *Library) error {
 var appIcon []byte
 
 func main() {
-	root := "kitaplik"
+	// The library is a file of its own, next to the program: nothing else
+	// opens it, and the two move together. A folder named on the command line
+	// is a library of plain files, as before; the first time, a folder
+	// library found here is taken into the file.
+	var (
+		lib   *Library
+		store *Store
+		err   error
+	)
+	arg := ""
 	if len(os.Args) > 1 {
-		root = os.Args[1]
+		arg = os.Args[1]
 	}
-	root, _ = filepath.Abs(root)
-	lib, err := OpenLibrary(root)
+	if info, serr := os.Stat(arg); arg != "" && serr == nil && info.IsDir() {
+		root, _ := filepath.Abs(arg)
+		lib, err = OpenLibrary(root)
+	} else {
+		file := libraryFile()
+		if arg != "" {
+			file, _ = filepath.Abs(arg)
+		}
+		_, existed := os.Stat(file)
+		if store, err = OpenStore(file); err == nil {
+			if existed != nil {
+				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
+					if isLibraryFolder(old) {
+						store.db.Exec(`PRAGMA synchronous = OFF`) // a copy of what is still there: no wait for each file
+						err = copyTree(osFS{}, old, store, storeRoot)
+						store.db.Exec(`PRAGMA synchronous = FULL`)
+						if err != nil {
+							log.Fatal(err)
+						}
+						break
+					}
+				}
+			}
+			lib, err = OpenLibraryIn(store, storeRoot)
+		}
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,6 +280,11 @@ func main() {
 	}
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
 		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
+	}
+	if store != nil {
+		a.settingsStore = store
+	}
+	if a.settingsFile != "" || a.settingsStore != nil {
 		a.loadSettings()
 		a.applyTree()
 	}
@@ -769,7 +812,7 @@ func (a *app) status(c *ui.Context) {
 				m.Background(t.SurfaceHover)
 			}
 			m.Children(func() {
-				ui.Box(c).Size(6, 6).Radius(3).Background(ryugo.From(c).Colors.Down)
+				a.pulseDot(c)
 				ui.Text(c, "MCP").FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
 			})
 			if m.Clicked() {
@@ -797,6 +840,32 @@ func (a *app) status(c *ui.Context) {
 		if !a.settings.HideCaret {
 			ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
 		}
+	})
+}
+
+// pulseDot is the light that says the MCP server is up: a green drop - a
+// gradient, lit from above, ringed in a thin line of another green - with a
+// wave going out of it and fading, again and again, as a heartbeat.
+func (a *app) pulseDot(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	base := cl.Down
+	host := ui.Box(c.Key("mcp-pulse")).Size(18, 18).Shrink(0)
+	beat := host.Keyframes("beat", []ui.Keyframe{{At: 0, Value: 0}, {At: 1800 * time.Millisecond, Value: 1}},
+		ui.KeyframeOptions{Repeat: ui.RepeatForever})
+	// a second wave, half a beat behind the first
+	late := host.Keyframes("beat2", []ui.Keyframe{{At: 0, Value: 0}, {At: 900 * time.Millisecond, Value: 0}, {At: 2700 * time.Millisecond, Value: 1}},
+		ui.KeyframeOptions{Repeat: ui.RepeatForever})
+	host.Center().Children(func() {
+		for i, v := range []float32{beat, late} {
+			ui.Box(c.Key("wave"+strconv.Itoa(i))).Absolute().Top(4).Left(4).Size(10, 10).Radius(5).
+				Background(base.Alpha(0.5*(1-v)*(1-v))).Scale(1+1.4*v, 1+1.4*v)
+		}
+		breath := 1 + 0.07*float32(math.Sin(float64(beat)*2*math.Pi))
+		ui.Box(c.Key("drop")).Size(10, 10).Radius(5).
+			LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(base, ui.Hex("#ffffff"), 0.55), To: ryugo.Mix(base, ui.Hex("#000000"), 0.1)}).
+			Border(1, ryugo.Mix(base, ui.Hex("#d6ffe0"), 0.75)).
+			InsetShadow(0, 1, 0, 0, ui.Hex("#ffffff").Alpha(0.35)).
+			Scale(breath, breath)
 	})
 }
 

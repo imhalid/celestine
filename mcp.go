@@ -83,7 +83,15 @@ func (a *app) setCaret(k caretKind) {
 
 // loadSettings reads the settings, making a token the first time.
 func (a *app) loadSettings() {
-	if a.settingsFile != "" {
+	if a.settingsStore != nil { // kept in the library's file, with the token
+		if data := a.settingsStore.Meta(settingsKey); data != nil {
+			json.Unmarshal(data, &a.settings)
+		} else if a.settingsFile != "" { // the settings of before the file: taken in once
+			if data, err := os.ReadFile(a.settingsFile); err == nil {
+				json.Unmarshal(data, &a.settings)
+			}
+		}
+	} else if a.settingsFile != "" {
 		if data, err := os.ReadFile(a.settingsFile); err == nil {
 			json.Unmarshal(data, &a.settings)
 		}
@@ -98,13 +106,22 @@ func (a *app) loadSettings() {
 	}
 }
 
+// settingsKey is what the settings are kept under in a library's file.
+const settingsKey = "settings"
+
 func (a *app) saveSettings() {
+	data, _ := json.MarshalIndent(a.settings, "", "  ")
+	if a.settingsStore != nil {
+		if err := a.settingsStore.SetMeta(settingsKey, data); err != nil {
+			a.saveErr = err.Error()
+		}
+		return
+	}
 	if a.settingsFile == "" {
 		return
 	}
-	data, _ := json.MarshalIndent(a.settings, "", "  ")
 	os.MkdirAll(filepath.Dir(a.settingsFile), 0o755)
-	if err := writeAtomic(a.settingsFile, data); err != nil {
+	if err := (osFS{}).WriteFile(a.settingsFile, data); err != nil {
 		a.saveErr = err.Error()
 	}
 }

@@ -9,3 +9,7 @@
 
 # the default library the app makes when run here
 /kitaplik/
+
+# the default library file the app makes next to itself
+/kitaplik.db
+/kitaplik-md-*/

@@ -80,3 +80,20 @@ type Node struct {           // ağaçtaki her şey
 
 type Op interface{ Apply(*Tree) (undo Op) }   // her değişiklik bir işlem; geri alma = ters işlem
 ```
+
+---
+
+## Kitaplık tek dosyada (Kasım 2026)
+
+Kitaplık artık klasör değil, uygulamanın yanındaki **tek bir SQLite dosyası**: `kitaplik.db`. Sayfalar, koleksiyonlar,
+çöp, ayarlar ve MCP anahtarı hepsi içinde; başka hiçbir program klasörde `.md` göremez, uygulamayı taşımak dosyayı da taşımaktır.
+
+- Kod aynı kaldı: kitaplık hâlâ klasör/dosya ağacı gibi davranıyor, ama `FS` arayüzünün (`store.go`) arkasında. İki zemini var:
+  `osFS` (bir klasör) ve `Store` (tek dosya). Komut satırında bir **klasör** verilirse eskisi gibi düz dosyalarla çalışır.
+- İlk açılışta `kitaplik.db` yoksa ve yanında (ya da çalışılan yerde) bir `kitaplik/` klasörü varsa, olduğu gibi dosyaya alınır;
+  klasöre dokunulmaz, yedek olarak kalır.
+- Ayarlar ▸ Kitaplık: dosyanın yolu ve **Markdown olarak dışa aktar** (dosyanın yanına `kitaplik-md-…` klasörü yazar; bu klasör
+  `ryudit <klasör>` ile yine açılır).
+- Dosya şifreli değil. Dışarıdan okunamaması, düz dosya olmaması kadardır; parola istenirse sonraki iş (SQLCipher ya da
+  alan şifreleme).
+- Dışarıdan düzenleme izlemesi (`watch.go`) dosya modunda kapalı: dosyayı uygulamadan başka kimse yazmaz.

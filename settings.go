@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -335,12 +336,45 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			})
 		}
 	}
+	store, inFile := a.lib.fs.(*Store)
+	if !inFile {
+		settingGroup(c, "set-lib",
+			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
+			row("Ayar dosyası", a.settingsFile, "copy-settings"),
+			func() {
+				settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa", "Hepsi düz dosya: başka bir editörle de açılır.", func() {})
+			})
+		return
+	}
 	settingGroup(c, "set-lib",
-		row("Kitaplık klasörü", a.lib.Root, "copy-root"),
-		row("Ayar dosyası", a.settingsFile, "copy-settings"),
+		row("Kitaplık dosyası", store.File, "copy-root"),
 		func() {
-			settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa", "Hepsi düz dosya: başka bir editörle de açılır.", func() {})
+			settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa",
+				"Hepsi bu tek dosyada; ayarlar ve MCP anahtarı da. Dosyayı uygulamanın yanında taşıman yeter.", func() {})
+		},
+		func() {
+			note := a.exportNote
+			if note == "" {
+				note = "Düz .md klasörü olarak, dosyanın yanına yazılır."
+			}
+			settingRow(c, "Markdown olarak dışa aktar", note, func() {
+				if ryugo.Button(c.Key("export-md"), "Dışa aktar", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.exportNote = a.exportLibrary(store)
+				}
+			})
 		})
+}
+
+// exportLibrary writes the library as a folder of Markdown files next to
+// its file - the folder library of plain files, which ryudit opens as it is
+// given on the command line - and says where it went.
+func (a *app) exportLibrary(store *Store) string {
+	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
+	a.flush()
+	if err := copyTree(store, storeRoot, osFS{}, dir); err != nil {
+		return "Olmadı: " + err.Error()
+	}
+	return "Yazıldı: " + dir
 }
 
 func (a *app) settingsMCP(c *ui.Context) {
