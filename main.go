@@ -7,6 +7,7 @@
 package main
 
 import (
+	_ "embed"
 	"log"
 	"net/http"
 	"os"
@@ -123,8 +124,18 @@ type app struct {
 	caretPara    int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
 	caretRel     float32
 	caretTop     float32
-	sel          selBar         // the bar over a selection (selbar.go)
-	edPressed    bool           // the pointer is down in the editor
+	sel          selBar          // the bar over a selection (selbar.go)
+	edPressed    bool            // the pointer is down in the editor
+	afterView    []func()        // what waits for the view to be built
+	boardFocus   string          // the board column asked for, wide
+	boardOpened  map[string]bool // empty columns the user opened
+	rowsLast     []treeEntry     // the tree's rows, last frame
+	treeFocus    any             // the row the arrow keys moved to, to take the focus
+	treeNav      bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
+	treeHeld     bool            // a row has the focus in this frame
+	treeSigSeen  uint64
+	cdrag        collDragState
+	collRects    map[*Collection]ui.Rect
 	ctx          ctxMenu        // the context menu (ctxmenu.go)
 	pageScroll   ui.ScrollState // the page scrolled as a whole (pageView)
 	scrollR      ui.Rect        // its room in the window, last frame
@@ -136,10 +147,16 @@ type app struct {
 	statsVer     uint64  // the version of the text the counts are of
 	statWords    int
 	statChars    int
-	settingsTab  int      // the settings' tab
-	hoverCh      *chip    // the chip the pointer is over
-	dateEdit     dateEdit // the calendar a date chip opens
-	editorR      ui.Rect  // the editor's box, from its last frame
+	settingsTab  int       // the settings' tab
+	links        linkIndex // who links to whom (backlinks.go)
+	linksH       float32   // the backlinks' height, last frame
+	calDay       time.Time // the day open on the calendar, and whether it is
+	calOpen      bool
+	calGrid      ui.Rect
+	calMonth     time.Time // the month the calendar view shows
+	hoverCh      *chip     // the chip the pointer is over
+	dateEdit     dateEdit  // the calendar a date chip opens
+	editorR      ui.Rect   // the editor's box, from its last frame
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.
@@ -175,6 +192,7 @@ func newApp(lib *Library) *app {
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
+	a.boardOpened = map[string]bool{}
 	for _, c := range lib.Collections {
 		if len(c.Pages) > 0 {
 			a.open(c.Pages[0])
@@ -200,6 +218,11 @@ func seed(lib *Library) error {
 	return p.Save(welcome)
 }
 
+// appIcon is the app's icon, for its window and its Dock (assets/).
+//
+//go:embed assets/icon-512.png
+var appIcon []byte
+
 func main() {
 	root := "kitaplik"
 	if len(os.Args) > 1 {
@@ -214,9 +237,13 @@ func main() {
 		log.Fatal(err)
 	}
 	a := newApp(lib)
+	if _, err := a.journal(); err != nil { // every library has its journal
+		log.Fatal(err)
+	}
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
 		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
 		a.loadSettings()
+		a.applyTree()
 	}
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
@@ -224,6 +251,8 @@ func main() {
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
 		a.invalidate = w.Invalidate
+		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
+		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
 		go a.watch()
 		if a.settings.MCP {
 			a.setMCP(true)
@@ -258,10 +287,20 @@ func (a *app) open(p *Page) {
 	a.dirty, a.saveErr, a.lastSave = false, "", ""
 	a.boxes = nil
 	a.pageScroll = ui.ScrollState{}
+	// a page opened starts clean: the caret is put in its place, not flown
+	// there from where it was in the last page, and what was laid out is gone
+	a.jelly.placed, a.mizan.seen, a.mizan.glide = false, false, nil
+	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
+	a.linksStale()
+	a.links.built = time.Time{} // asked for at once for the page opened
 }
 
 // newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
 func (a *app) newPage(c *Collection, parent *Page) {
+	if c.Journal { // the journal gets today's page and no other
+		a.openToday()
+		return
+	}
 	p, err := c.NewPage(parent, "Adsız")
 	if err != nil {
 		a.saveErr = err.Error()
@@ -326,6 +365,9 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyK) || c.Shortcut(ui.Cmd, ui.KeyP) {
 			a.openPalette()
 		}
+		if c.Shortcut(ui.Cmd, ui.KeyJ) {
+			a.openToday()
+		}
 		if c.Shortcut(ui.Cmd, ui.KeyF) {
 			a.openFind()
 		}
@@ -351,7 +393,7 @@ func (a *app) view(c *ui.Context) {
 			// the page scrolls over the whole width, its bar at the window's edge:
 			// the margins are inside it
 			padX := float32(32)
-			if !a.trashOpen && a.coll == nil && a.page != nil {
+			if !a.trashOpen && (a.coll != nil || a.page != nil) {
 				padX = 0
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(pageTop-barH+8, padX, 0, padX)
@@ -374,9 +416,11 @@ func (a *app) view(c *ui.Context) {
 				a.pageView(c, th)
 			})
 			a.status(c)
+			a.keepTree()
 		})
 		a.sidebarButton(c)
 	})
+	a.collDragView(c)
 	a.caretView(c)
 	a.selectionBar(c)
 	a.gutterView(c)
@@ -388,6 +432,11 @@ func (a *app) view(c *ui.Context) {
 	a.collSettingsView(c)
 	a.settingsDialog(c)
 	a.propDialog(c)
+	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
+		a.treeNav = false
+	}
+	a.treeHeld = false
+	a.runLater()
 	ryugo.Toaster(c)
 	if a.notice != "" {
 		c.Toast(a.notice)
@@ -448,7 +497,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
 	}).FillWidth().Height(a.editorH(c))
-	if !a.titleFocused && !a.fresh {
+	if !a.titleFocused && !a.fresh && !a.treeNav {
 		ed.AutoFocus()
 	}
 	if a.refocus {
@@ -475,6 +524,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
 	})
+	a.backlinksView(c, p)
 }
 
 // caretView draws the caret in a layer over the window - the editor clips
@@ -495,6 +545,13 @@ func (a *app) caretView(c *ui.Context) {
 // pageHead is the page's title and its properties.
 func (a *app) pageHead(c *ui.Context, p *Page) {
 	c.Key("title:" + p.Dir)
+	if p.Coll.Journal { // a day's title is the journal's format, not typed
+		c.Key("title:" + p.Dir)
+		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label("Başlık").Selectable()
+		a.titleFocused = false
+		a.propsSection(c, p)
+		return
+	}
 	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0)
 	if a.fresh {
 		title.AutoFocus()
@@ -531,10 +588,16 @@ func (a *app) editorH(c *ui.Context) float32 {
 // editorHeight is the editor's: its text, and more while there is text
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
-	least := max(a.scrollR.H-a.headH-8, 160)
+	least := max(a.scrollR.H-a.headH-a.linksH-8, 160)
 	n := len(a.boxes)
 	if n == 0 {
-		return least
+		// nothing laid out yet (a page just opened): room for what the text
+		// should take, more than it will, so the editor does not scroll
+		// itself to the caret and then slide as it grows
+		t := a.doc.Text()
+		paras := strings.Count(t.String(), "\n") + 1
+		line := a.fontSize() * a.lineHeight()
+		return min(max(least, (float32(paras)+float32(t.Len())/55)*line*1.5+240), 80000)
 	}
 	last := a.boxes[n-1]
 	_, pe := a.doc.Text().ParagraphRange(last.Start)
@@ -696,7 +759,7 @@ func (a *app) status(c *ui.Context) {
 		state = "kaydediliyor…"
 	}
 	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
-	ui.Row(c).Padding(10, 18).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).Padding(4, 16).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(6).AlignItems(ui.Center).
@@ -763,6 +826,7 @@ func (a *app) save() {
 		return
 	}
 	a.lastSave, a.dirty = md, false
+	a.linksStale()
 }
 
 // docStats are the open page's words and letters, counted again when the text changed.

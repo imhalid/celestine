@@ -88,7 +88,11 @@ func (a *app) sidebarButton(c *ui.Context) {
 	})
 }
 
-func (a *app) toggleSidebar() { a.sidebarClosed = !a.sidebarClosed }
+func (a *app) toggleSidebar() {
+	a.sidebarClosed = !a.sidebarClosed
+	a.settings.SidebarClosed = a.sidebarClosed
+	a.saveSettings()
+}
 
 // sidebar lists the collections and their pages as a tree: a collection's +
 // makes a page in it, a page's + a page under it. Folded, it is as wide as
@@ -112,6 +116,9 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
 			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "KOLEKSİYONLAR").FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+				if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
+					a.collapseAll()
+				}
 				if a.iconButton(c, iconPlus, "Yeni koleksiyon") {
 					if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
 						a.newPage(coll, nil)
@@ -129,6 +136,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 				a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
 				a.drag.x -= 8 // the rows start inside the padding
 				a.well(c, tree)
+				a.rowsLast = append(a.rowsLast[:0], a.rows...)
 				a.rows = a.rows[:0]
 				tree.Children(func() {
 					for _, coll := range a.lib.Collections {
@@ -161,8 +169,10 @@ type rowSpec struct {
 	name       string
 	strong     bool
 	selected   bool
-	has, open  bool              // children, and whether they show
-	plus       bool              // a + for a new page in it or under it
+	has, open  bool   // children, and whether they show
+	plus       bool   // a + for a new page in it or under it
+	pin        func() // a collection's pin, shown as the row is hovered
+	pinned     bool
 	item       any               // the page or collection, to rename it in place
 	menu       func() []menuItem // what a right click offers
 }
@@ -174,13 +184,22 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
 	c.Key(s.key)
 	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
-		Label(s.label).Role(ui.RoleButton)
+		Label(s.label).Role(ui.RoleButton).Focusable().FocusRing(false)
 	a.contextOn(r, s.menu)
+	if a.treeFocus != nil && a.treeFocus == s.item { // the arrow keys came here
+		r.Focus()
+		a.treeFocus = nil
+	}
+	if r.Focused() && s.item != nil && !(a.renaming == s.item) {
+		a.treeHeld = true
+		a.treeKeys(r, s.item)
+	}
 	if a.drag.settle { // the drop: the rows are where they were shown
 		r.Transition(rowStill)
 	} else {
 		r.Transition(rowMove)
 	}
+	pinHit := false
 	hover := r.Hovered() && !a.moving()
 	renaming := s.item != nil && a.renaming == s.item
 	a.placeRow(c, r, len(a.rows), s.item)
@@ -192,6 +211,9 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		}
 	case *Collection:
 		a.rows = append(a.rows, treeEntry{coll: x})
+		if !renaming {
+			a.collDrag(r, x)
+		}
 	}
 	switch {
 	case renaming:
@@ -218,19 +240,49 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		if s.strong {
 			tx.FontWeight(620)
 		}
+		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
+			c.Key("pin:" + s.key)
+			if s.pinned {
+				b := ui.Box(c).Width(22).Height(22).Radius(6).AlignItems(ui.Center).Justify(ui.Center).Label("Sabitlemeyi kaldır: " + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				if b.Hovered() {
+					b.Background(t.SurfacePressed)
+				}
+				b.Children(func() { ui.Icon(c, iconPinned).Width(15).Height(15).TextColor(ryugo.From(c).Colors.Accent) })
+				if b.Clicked() {
+					pinHit = true
+					a.later(s.pin)
+				}
+			} else if a.revealButton(c, iconPin, "Sabitle: "+s.name, hover) {
+				pinHit = true
+				a.later(s.pin)
+			}
+		}
 		if s.plus {
 			add = a.revealButton(c, iconPlus, "Ekle: "+s.name, hover)
 		}
 	})
 	clicked := r.Clicked()
+	if clicked {
+		a.treeNav = false // a click is not the keys: the page it opens takes the focus
+	}
 	if clicked && a.drag.dropped > 0 { // the press was a drag, not a click
 		clicked = false
 	}
-	return clicked && !chev && !add && !renaming, chev, add
+	if clicked && s.item != nil && a.cdrag.dropped == s.item {
+		clicked = false
+		a.cdrag.dropped = nil
+	}
+	if r.Hovered() == false && a.cdrag.dropped == s.item {
+		a.cdrag.dropped = nil
+	}
+	return clicked && !chev && !add && !renaming && !pinHit, chev, add
 }
 
 // startRename turns item's row into a field holding its name.
 func (a *app) startRename(item any, name string) {
+	if p, ok := item.(*Page); ok && p.Coll.Journal { // a day is titled by the journal's format
+		return
+	}
 	a.renaming, a.renameText, a.renameFocused = item, name, false
 }
 
@@ -279,6 +331,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	tint := collTint(c, coll)
 	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: collGlyph(coll), tint: &tint, name: coll.Name,
 		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: true, item: coll,
+		pin: func() { a.pinCollection(coll, !coll.Pinned) }, pinned: coll.Pinned,
 		menu: func() []menuItem { return a.collectionMenu(coll) }})
 	switch {
 	case add:
@@ -340,6 +393,10 @@ func (a *app) trashPage(p *Page) {
 
 // trashCollection moves c to the library's trash, and shows another one's first page.
 func (a *app) trashCollection(c *Collection) {
+	if c.Journal {
+		a.notice = "Günlük çöpe taşınamaz"
+		return
+	}
 	if a.page != nil && a.page.Coll == c {
 		a.flush()
 		a.page, a.doc = nil, nil
@@ -407,4 +464,266 @@ func (a *app) revealButton(c *ui.Context, glyph *ui.SVG, label string, shown boo
 	b.Opacity(b.AnimateTo("shown", map[bool]float32{true: 1, false: 0}[shown], fadeQuick))
 	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(t.TextMuted) })
 	return b.Clicked()
+}
+
+var iconCollapseAll = icon(`<path d="m7.5 11.5 4.5-4.5 4.5 4.5M7.5 17.5l4.5-4.5 4.5 4.5"/>`)
+
+// collapseAll folds every collection and page of the tree (not closing
+// anything: what is open stays open).
+func (a *app) collapseAll() {
+	var fold func(p *Page)
+	fold = func(p *Page) {
+		p.Open = false
+		for _, ch := range p.Children {
+			fold(ch)
+		}
+	}
+	for _, c := range a.lib.Collections {
+		c.Open = false
+		for _, p := range c.Pages {
+			fold(p)
+		}
+	}
+}
+
+var iconPinned = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">` +
+	`<path d="M12 16.5V21"/><path d="M9.2 10.3a2 2 0 0 1-1.1 1.8l-1.7.9a2 2 0 0 0-1.1 1.8v.2a1 1 0 0 0 1 1h11.4a1 1 0 0 0 1-1v-.2a2 2 0 0 0-1.1-1.8l-1.7-.9a2 2 0 0 1-1.1-1.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H9a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`))
+
+// ---- sorting collections by hand
+
+// collDragState is a collection row being dragged to another place.
+type collDragState struct {
+	coll    *Collection
+	moved   float32
+	active  bool
+	before  *Collection // it goes before this one; nil: last of its kind
+	dropped any         // the row just let go: the click that ends the drag is not one
+}
+
+// collDrag follows the press on a collection's row: dragged, the line shows
+// where it would go among those pinned as it is, or among the others; let go
+// it goes there.
+func (a *app) collDrag(r ui.Element, coll *Collection) {
+	cd := &a.cdrag
+	if a.collRects == nil {
+		a.collRects = map[*Collection]ui.Rect{}
+	}
+	a.collRects[coll] = r.LayoutBounds()
+	dx, dy, pressed := r.Dragged()
+	switch {
+	case pressed && a.drag.page == nil && (cd.coll == nil || cd.coll == coll):
+		if cd.coll != coll {
+			*cd = collDragState{coll: coll}
+		}
+		if cd.moved += abs32(dx) + abs32(dy); cd.moved > 6 {
+			cd.active = true
+		}
+		if cd.active {
+			_, py, _ := r.PointerPosition()
+			y := r.LayoutBounds().Y + py
+			cd.before = nil
+			for _, g := range a.lib.Collections {
+				if g == coll || g.Pinned != coll.Pinned {
+					continue
+				}
+				if rc, ok := a.collRects[g]; ok && y < rc.Y+rc.H/2 {
+					cd.before = g
+					break
+				}
+			}
+		}
+	case !pressed && cd.coll == coll:
+		if cd.active {
+			before := cd.before
+			a.later(func() { // not while the tree is being built from the list it changes
+				if err := a.lib.MoveCollectionBefore(coll, before); err != nil {
+					a.saveErr = err.Error()
+				}
+			})
+			cd.dropped = coll
+		}
+		cd.coll, cd.active, cd.moved, cd.before = nil, false, 0, nil
+	}
+}
+
+// collDragView draws the line where the collection dragged would go.
+func (a *app) collDragView(c *ui.Context) {
+	cd := &a.cdrag
+	if !cd.active || cd.coll == nil {
+		return
+	}
+	var y float32
+	var group []*Collection
+	for _, g := range a.lib.Collections {
+		if g.Pinned == cd.coll.Pinned && g != cd.coll {
+			group = append(group, g)
+		}
+	}
+	switch {
+	case cd.before != nil:
+		y = a.collRects[cd.before].Y - 2
+	case len(group) > 0:
+		last := a.collRects[group[len(group)-1]]
+		y = last.Y + last.H + 2
+		if group[len(group)-1].Open {
+			return // under its pages: no line
+		}
+	default:
+		return
+	}
+	cl := ryugo.From(c).Colors
+	ui.Overlay(c, func() {
+		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(sidebarW-28, 2).Radius(1).Background(cl.Accent)
+	})
+}
+
+// ---- the keys in the tree
+
+// treeKeys moves through the tree with the arrows, from the row focused: ↑ ↓
+// to the page or collection before or after, opening it; → opens a branch,
+// ← folds it, or goes up to what holds it.
+func (a *app) treeKeys(r ui.Element, item any) {
+	idx := -1
+	for i, e := range a.rowsLast {
+		if (e.page != nil && any(e.page) == item) || (e.coll != nil && any(e.coll) == item) {
+			idx = i
+		}
+	}
+	go_ := func(i int) {
+		if i < 0 || i >= len(a.rowsLast) {
+			return
+		}
+		e := a.rowsLast[i]
+		a.treeNav = true
+		if e.page != nil {
+			a.open(e.page)
+			a.treeFocus = any(e.page)
+		} else {
+			a.openCollection(e.coll)
+			a.treeFocus = any(e.coll)
+		}
+	}
+	switch {
+	case r.Shortcut(0, ui.KeyDown):
+		go_(idx + 1)
+	case r.Shortcut(0, ui.KeyUp):
+		go_(idx - 1)
+	case r.Shortcut(0, ui.KeyRight):
+		switch x := item.(type) {
+		case *Collection:
+			x.Open = true
+		case *Page:
+			x.Open = len(x.Children) > 0 || x.Open
+		}
+	case r.Shortcut(0, ui.KeyLeft):
+		switch x := item.(type) {
+		case *Collection:
+			x.Open = false
+		case *Page:
+			switch {
+			case x.Open && len(x.Children) > 0:
+				x.Open = false
+			case x.Parent != nil:
+				a.treeNav, a.treeFocus = true, any(x.Parent)
+				a.open(x.Parent)
+			default:
+				a.treeNav, a.treeFocus = true, any(x.Coll)
+				a.openCollection(x.Coll)
+			}
+		}
+	}
+}
+
+// ---- what the tree is like, kept
+
+// treeSig is a number for what is open in the tree, to see it changed.
+func (a *app) treeSig() uint64 {
+	var h uint64 = 14695981039346656037
+	mix := func(s string) {
+		for i := 0; i < len(s); i++ {
+			h = (h ^ uint64(s[i])) * 1099511628211
+		}
+		h = (h ^ 0xff) * 1099511628211
+	}
+	var walk func(ps []*Page)
+	walk = func(ps []*Page) {
+		for _, p := range ps {
+			if p.Open {
+				mix(p.Dir)
+			}
+			walk(p.Children)
+		}
+	}
+	for _, c := range a.lib.Collections {
+		if c.Open {
+			mix(c.Dir)
+		}
+		walk(c.Pages)
+	}
+	return h
+}
+
+// keepTree keeps what is open in the tree in the settings, when it changed.
+func (a *app) keepTree() {
+	if sig := a.treeSig(); sig != a.treeSigSeen {
+		first := a.treeSigSeen == 0
+		a.treeSigSeen = sig
+		if first && !a.settings.TreeSaved {
+			return // what the library starts with is not a choice
+		}
+		var open []string
+		var walk func(ps []*Page)
+		walk = func(ps []*Page) {
+			for _, p := range ps {
+				if p.Open {
+					open = append(open, p.Dir)
+				}
+				walk(p.Children)
+			}
+		}
+		for _, c := range a.lib.Collections {
+			if c.Open {
+				open = append(open, c.Dir)
+			}
+			walk(c.Pages)
+		}
+		a.settings.TreeOpen, a.settings.TreeSaved = open, true
+		a.saveSettings()
+	}
+}
+
+// applyTree opens what the settings say was open, and the sidebar as it was.
+func (a *app) applyTree() {
+	a.sidebarClosed = a.settings.SidebarClosed
+	if !a.settings.TreeSaved {
+		return
+	}
+	open := map[string]bool{}
+	for _, d := range a.settings.TreeOpen {
+		open[d] = true
+	}
+	var walk func(ps []*Page)
+	walk = func(ps []*Page) {
+		for _, p := range ps {
+			p.Open = open[p.Dir]
+			walk(p.Children)
+		}
+	}
+	for _, c := range a.lib.Collections {
+		c.Open = open[c.Dir]
+		walk(c.Pages)
+	}
+}
+
+// later has fn done once the view is built: what changes the list the tree is
+// made from is not done while it is being made from it.
+func (a *app) later(fn func()) { a.afterView = append(a.afterView, fn) }
+
+// runLater does what was left for after the view.
+func (a *app) runLater() {
+	fns := a.afterView
+	a.afterView = nil
+	for _, fn := range fns {
+		fn()
+	}
 }

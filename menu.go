@@ -77,6 +77,7 @@ func (a *app) menu() *mygo.Menu {
 			item("Hızlı geçiş ve komutlar…", "CmdOrCtrl+K", a.openPalette),
 			item("Sayfada bul…", "CmdOrCtrl+F", a.openFind),
 			mygo.Separator(),
+			item("Bugünün sayfası", "CmdOrCtrl+J", a.openToday),
 			item("Geri", "CmdOrCtrl+[", func() { a.step(-1) }),
 			item("İleri", "CmdOrCtrl+]", func() { a.step(1) }),
 		}},

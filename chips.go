@@ -303,6 +303,11 @@ func (a *app) dateEditView(c *ui.Context) {
 			Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
 		t.Shadows.ShadowPop.Apply(panel)
 		panel.Children(func() {
+			if ryugo.Button(c.Key("date-day"), "Günün sayfasını aç", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
+				d.open = false
+				a.openDay(d.cal)
+				return
+			}
 			if cal := ui.Calendar(c, &d.cal); cal.Changed() {
 				if i := a.chipPos(d.ch); i >= 0 {
 					nc := &chip{kind: "date", target: d.cal.Format("2006-01-02")}

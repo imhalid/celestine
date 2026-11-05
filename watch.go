@@ -155,6 +155,7 @@ func (a *app) takeOutside(p *Page) {
 // reloadLibrary reads the library again from disk, keeping what is open
 // and folded, and the documents of pages still there.
 func (a *app) reloadLibrary() {
+	a.linksStale()
 	fresh, err := OpenLibrary(a.lib.Root)
 	if err != nil {
 		a.saveErr = err.Error()

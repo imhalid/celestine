@@ -173,8 +173,17 @@ func (c *Collection) normalize() {
 			c.Views[i].Sort = "title"
 		}
 	}
+	// every collection has a calendar, by the day its pages were made
+	if !slices.ContainsFunc(c.Views, func(v View) bool { return v.Type == "calendar" }) {
+		c.Views = append(c.Views, View{ID: "calendar", Label: "Takvim", Type: "calendar", Sort: "created", DateField: "created"})
+	}
 	if !hasBoard && choice != "" {
 		c.Views = append(c.Views, View{ID: "board", Label: "Pano", Type: "board", Sort: "rank", GroupBy: choice})
+	}
+	for i := range c.Views {
+		if f, ok := strings.CutPrefix(c.Views[i].DateField, "prop:"); ok && c.Views[i].Type == "calendar" && (c.Prop(f) == nil || c.Prop(f).Type != PropDate) {
+			c.Views[i].DateField = "created"
+		}
 	}
 }
 

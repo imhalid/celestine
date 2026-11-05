@@ -15,7 +15,7 @@ import (
 // don't know is kept.
 func TestPropertiesOptIn(t *testing.T) {
 	lib, ps, one, _ := dragLibrary(t)
-	if len(one.Properties) != 0 || one.View().Type == "board" || len(one.Views) != 2 {
+	if len(one.Properties) != 0 || one.View().Type == "board" || len(one.Views) != 3 {
 		t.Fatalf("a new collection: %+v %+v", one.Properties, one.Views)
 	}
 	src, _ := os.ReadFile(ps["A"].file())
@@ -25,14 +25,14 @@ func TestPropertiesOptIn(t *testing.T) {
 	if _, err := one.AddProperty("Yazar", PropText, nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(one.Views) != 2 {
+	if len(one.Views) != 3 {
 		t.Fatal("a board without a choice")
 	}
 	pr, err := one.AddProperty("Durum", PropChoice, []string{"Yapılacak", " Sürüyor", "Bitti", "Bitti"})
 	if err != nil || !equal(pr.Options, []string{"Yapılacak", "Sürüyor", "Bitti"}) {
 		t.Fatalf("choice: %v %+v", err, pr)
 	}
-	if one.Views[2].Type != "board" || one.Views[2].GroupBy != pr.ID {
+	if one.Views[3].Type != "board" || one.Views[3].GroupBy != pr.ID {
 		t.Fatalf("no board of it: %+v", one.Views)
 	}
 	if _, err := one.AddProperty("durum", PropText, nil); err == nil {
@@ -73,7 +73,7 @@ func TestPropertiesOptIn(t *testing.T) {
 	if err := c.RemoveProperty("durum"); err != nil {
 		t.Fatal(err)
 	}
-	if len(c.Views) != 2 {
+	if len(c.Views) != 3 {
 		t.Fatalf("a board of nothing: %+v", c.Views)
 	}
 }
@@ -182,10 +182,10 @@ func TestPropertyOnPage(t *testing.T) {
 	}
 	tt.Advance(400 * time.Millisecond)
 	tt.Type("Durum")
-	if err := tt.Click("Seçenek listesi"); err != nil {
+	if err := tt.Click("Seçenek ekle"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
-	tt.Type("Yapılacak, Sürüyor, Bitti")
+	tt.Type("Yapılacak,Sürüyor,Bitti,")
 	if err := tt.Click("Ekle"); err != nil {
 		t.Fatal(err)
 	}

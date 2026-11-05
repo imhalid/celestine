@@ -80,6 +80,8 @@ type menuPanel struct {
 	field      func() // a field under the header, or nil
 	items      []menuItem
 	sel        int
+	selPtr     *int // the caller's choice, which a hovered row takes
+	hoverSeen  *int // the row last hovered, so a keyboard move is not undone by a pointer at rest
 	scroll     *ui.ScrollState
 	empty      string // what is said when there is nothing to list
 	under      func() // under the rows: a calendar
@@ -132,11 +134,19 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 					if it.danger {
 						text, muted = cl.Up, cl.Up.Alpha(0.8)
 					}
+					// one row is lit: the one the keys are on, or the one the pointer
+					// came to last
+					if row.Hovered() && m.hoverSeen != nil && *m.hoverSeen != i {
+						*m.hoverSeen = i
+						if m.selPtr != nil {
+							*m.selPtr = i
+						}
+						m.sel = i
+						c.Invalidate()
+					}
 					if i == m.sel {
 						row.LinearGradient(chosenFill(t))
 						text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
-					} else if row.Hovered() {
-						row.Background(cl.Fill)
 					}
 					row.Children(func() {
 						if it.glyph != nil {

@@ -21,6 +21,7 @@ type ctxMenu struct {
 	stack  [][]menuItem // the lists gone through; the last is shown
 	sel    int
 	seen   int
+	hseen  int // the row last hovered
 	scroll ui.ScrollState
 	fresh  bool // opened in this frame: the click that opened it is not one that closes it
 }
@@ -85,7 +86,7 @@ func (a *app) contextView(c *ui.Context) {
 		m.sel, m.seen, m.scroll = 0, -1, ui.ScrollState{}
 	}
 	ww, wh := c.Size()
-	mp := &menuPanel{key: "ctx", label: "Bağlam menüsü", pl: pl, items: items, sel: m.sel, scroll: &m.scroll, choose: choose, empty: "Boş"}
+	mp := &menuPanel{key: "ctx", label: "Bağlam menüsü", pl: pl, items: items, sel: m.sel, selPtr: &m.sel, hoverSeen: &m.hseen, scroll: &m.scroll, choose: choose, empty: "Boş"}
 	if len(m.stack) > 1 {
 		mp.head = func() { menuBack(c, t, "", back) }
 	}
@@ -121,7 +122,7 @@ func (a *app) contextView(c *ui.Context) {
 // a table, a board.
 func (a *app) pageMenu(p *Page, rename bool) []menuItem {
 	out := []menuItem{{title: "Aç", glyph: iconPage, run: func() { a.open(p) }}}
-	if rename {
+	if rename && !p.Coll.Journal {
 		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(p, p.Title) }})
 	}
 	if p.Coll.SubPages {
@@ -133,13 +134,19 @@ func (a *app) pageMenu(p *Page, rename bool) []menuItem {
 
 // collectionMenu is what a collection offers.
 func (a *app) collectionMenu(coll *Collection) []menuItem {
-	return []menuItem{
+	out := []menuItem{
 		{title: "Aç", glyph: iconStack, run: func() { a.openCollection(coll) }},
 		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
 		{title: "Yeni " + pageNoun(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
-		{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }},
+		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
+		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
+		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
 	}
+	if !coll.Journal { // the journal is not thrown away
+		out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})
+	}
+	return out
 }
 
 // trashMenu is what a page in the trash offers.
@@ -152,5 +159,21 @@ func (a *app) trashMenu(item *TrashItem) []menuItem {
 			}
 			a.loadTrash()
 		}},
+	}
+}
+
+var iconPin = icon(`<path d="M12 16.5V21"/><path d="M9.2 10.3a2 2 0 0 1-1.1 1.8l-1.7.9a2 2 0 0 0-1.1 1.8v.2a1 1 0 0 0 1 1h11.4a1 1 0 0 0 1-1v-.2a2 2 0 0 0-1.1-1.8l-1.7-.9a2 2 0 0 1-1.1-1.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H9a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>`)
+
+// pinCollection pins a collection to the top of the sidebar, or lets it go.
+func (a *app) pinCollection(c *Collection, pin bool) {
+	if err := a.lib.PinCollection(c, pin); err != nil {
+		a.saveErr = err.Error()
+	}
+}
+
+// moveCollection moves a collection up or down in the sidebar.
+func (a *app) moveCollection(c *Collection, delta int) {
+	if err := a.lib.MoveCollection(c, delta); err != nil {
+		a.saveErr = err.Error()
 	}
 }

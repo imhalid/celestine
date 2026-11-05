@@ -48,6 +48,17 @@ type Collection struct {
 	// Template is the Markdown a new page of it starts with.
 	Template string `json:"template,omitempty"`
 	SubPages bool   `json:"subPages"`
+	// Journal marks the collection of the days' pages (journal.go): every
+	// library has one, and it is not thrown away.
+	Journal bool `json:"journal,omitempty"`
+	// JournalFormat is how the journal's days are titled, as YYYY-MM-DD or
+	// D MMMM YYYY, dddd (journal.go); set in the journal's settings only.
+	JournalFormat string `json:"journalFormat,omitempty"`
+	creating      bool   // the journal is making today's page
+	// Pinned collections come first in the sidebar; Order places a
+	// collection among the ones pinned or not, as the user moved it (0: by name).
+	Pinned bool `json:"pinned,omitempty"`
+	Order  int  `json:"order,omitempty"`
 	// Views are the ways the collection's page shows its pages, the first of
 	// them by default; ActiveView is the one shown last.
 	Views []View `json:"views,omitempty"`
@@ -68,7 +79,7 @@ type Collection struct {
 type View struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
-	Type  string `json:"type"` // "list" | "table" | "board"
+	Type  string `json:"type"` // "list" | "table" | "board" | "calendar"
 	Sort  string `json:"sort"` // "title" | "created" | "modified" | "prop:<id>"
 	Desc  bool   `json:"desc,omitempty"`
 	// GroupBy is the choice property a board's columns are the options of.
@@ -82,6 +93,9 @@ type View struct {
 	NoExcerpt bool `json:"noExcerpt,omitempty"`
 	// Collapsed are a board's columns folded to a strip, by option ("" none).
 	Collapsed []string `json:"collapsed,omitempty"`
+	// DateField is what places a page on a calendar's day: "created" (the
+	// default), "modified", or "prop:<id>" of a date property.
+	DateField string `json:"dateField,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.
@@ -89,6 +103,7 @@ func defaultViews() []View {
 	return []View{
 		{ID: "list", Label: "Liste", Type: "list", Sort: "modified", Desc: true},
 		{ID: "table", Label: "Tablo", Type: "table", Sort: "title"},
+		{ID: "calendar", Label: "Takvim", Type: "calendar", Sort: "created", DateField: "created"},
 	}
 }
 
@@ -195,7 +210,7 @@ func OpenLibrary(root string) (*Library, error) {
 		}
 		l.Collections = append(l.Collections, c)
 	}
-	sort.SliceStable(l.Collections, func(i, j int) bool { return l.Collections[i].Name < l.Collections[j].Name })
+	sortCollections(l.Collections)
 	return l, nil
 }
 
@@ -271,6 +286,9 @@ func modTime(file string) time.Time {
 func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	if parent != nil && !c.SubPages {
 		return nil, errors.New("this collection has no sub-pages")
+	}
+	if c.Journal && !c.creating {
+		return nil, errors.New("günlüğe yalnız bugünün sayfası eklenir")
 	}
 	in := c.Dir
 	if parent != nil {
@@ -507,6 +525,9 @@ func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
 
 // TrashCollection moves collection c, its pages with it, to the trash.
 func (l *Library) TrashCollection(c *Collection) (*TrashItem, error) {
+	if c.Journal {
+		return nil, errors.New("günlük çöpe taşınamaz")
+	}
 	item, err := l.trash(c.Dir, TrashItem{Kind: "collection", Title: c.Name})
 	if err != nil {
 		return nil, err
@@ -575,7 +596,7 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 		c.Dir = to
 		c.Pages = readPages(to, c, nil)
 		l.Collections = append(l.Collections, c)
-		sort.SliceStable(l.Collections, func(i, j int) bool { return l.Collections[i].Name < l.Collections[j].Name })
+		sortCollections(l.Collections)
 		return c, nil, nil
 	}
 	// where it was: the collection or page whose folder held it
@@ -795,5 +816,89 @@ func renumber(ps []*Page) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// sortCollections puts collections in the sidebar's order: the pinned first,
+// those placed by hand (Order) before the others, then by name.
+func sortCollections(cs []*Collection) {
+	sort.SliceStable(cs, func(i, j int) bool {
+		a, b := cs[i], cs[j]
+		switch {
+		case a.Pinned != b.Pinned:
+			return a.Pinned
+		case a.Order > 0 && b.Order > 0 && a.Order != b.Order:
+			return a.Order < b.Order
+		case (a.Order > 0) != (b.Order > 0):
+			return a.Order > 0
+		}
+		return a.Name < b.Name
+	})
+}
+
+// PinCollection pins c, which then comes first in the sidebar, or lets it go.
+func (l *Library) PinCollection(c *Collection, pin bool) error {
+	if c.Pinned == pin {
+		return nil
+	}
+	c.Pinned, c.Order = pin, 0
+	sortCollections(l.Collections)
+	return c.save()
+}
+
+// MoveCollection moves c up (-1) or down (1) among the collections pinned
+// as it is, or among the others, and keeps the places.
+func (l *Library) MoveCollection(c *Collection, delta int) error {
+	sortCollections(l.Collections)
+	var group []*Collection
+	for _, x := range l.Collections {
+		if x.Pinned == c.Pinned {
+			group = append(group, x)
+		}
+	}
+	i := slices.Index(group, c)
+	j := i + delta
+	if i < 0 || j < 0 || j >= len(group) {
+		return nil
+	}
+	group[i], group[j] = group[j], group[i]
+	for k, x := range group {
+		if x.Order != k+1 {
+			x.Order = k + 1
+			if err := x.save(); err != nil {
+				return err
+			}
+		}
+	}
+	sortCollections(l.Collections)
+	return nil
+}
+
+// MoveCollectionBefore puts c before the collection before - of those pinned
+// as c is, or the others - or last of them when it is nil, and keeps the places.
+func (l *Library) MoveCollectionBefore(c, before *Collection) error {
+	sortCollections(l.Collections)
+	var group []*Collection
+	for _, x := range l.Collections {
+		if x.Pinned == c.Pinned && x != c {
+			group = append(group, x)
+		}
+	}
+	at := len(group)
+	if before != nil {
+		if i := slices.Index(group, before); i >= 0 {
+			at = i
+		}
+	}
+	group = slices.Insert(group, at, c)
+	for k, x := range group {
+		if x.Order != k+1 {
+			x.Order = k + 1
+			if err := x.save(); err != nil {
+				return err
+			}
+		}
+	}
+	sortCollections(l.Collections)
 	return nil
 }

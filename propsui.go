@@ -198,8 +198,13 @@ func (a *app) propDialog(c *ui.Context) {
 				})
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {
-				ryugo.Field(c, ryugo.FieldOptions{Label: "Seçenekler", Help: "Virgülle ayır; sırası panonun sütunları olur."}, func() {
-					ryugo.Input(c.Key("prop-options"), &e.options, ryugo.InputOptions{Label: "Seçenek listesi", Placeholder: "Yapılacak, Sürüyor, Bitti"})
+				ryugo.Field(c, ryugo.FieldOptions{Label: "Seçenekler", Help: "Sırası panonun sütunları olur."}, func() {
+					tags := cleanOptions(strings.Split(e.options, ","))
+					before := strings.Join(tags, ",")
+					ryugo.TagInput(c.Key("prop-options"), &tags, ryugo.TagInputOptions{Placeholder: "Seçenek yaz, ↵", Label: "Seçenek ekle"})
+					if now := strings.Join(tags, ","); now != before {
+						e.options = now
+					}
 				})
 			}
 			if e.err != "" {

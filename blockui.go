@@ -19,6 +19,7 @@ type gripState struct {
 	view     string // "turn" in the menu's list of kinds, "" the first
 	sel      int
 	seen     int
+	hseen    int // the row last hovered
 	scroll   ui.ScrollState
 	pressed  bool
 	moved    float32
@@ -354,7 +355,7 @@ func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 		g.menu = false
 		return
 	}
-	m := &menuPanel{key: "block", label: "Blok menüsü", pl: pl, items: items, sel: g.sel, scroll: &g.scroll, choose: choose, empty: "Boş"}
+	m := &menuPanel{key: "block", label: "Blok menüsü", pl: pl, items: items, sel: g.sel, selPtr: &g.sel, hoverSeen: &g.hseen, scroll: &g.scroll, choose: choose, empty: "Boş"}
 	if g.view != "" {
 		m.head = func() { menuBack(c, t, "Dönüştür", back) }
 	}

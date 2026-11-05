@@ -29,6 +29,7 @@ type slashMenu struct {
 	start  int    // where the sign is
 	sel    int
 	seen   int    // the choice the list was last scrolled to show
+	hseen  int    // the row last hovered
 	at     int    // the caret, last frame
 	view   string // the menu gone into: "format", "insert", "date", "link", "prop"; "" the first
 	field  string // what is typed in a menu's own field (date, link)
@@ -659,7 +660,7 @@ func (a *app) slashView(c *ui.Context) {
 		it.run()
 		s.open = it.nav
 	}
-	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, scroll: &s.scroll, choose: choose,
+	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, selPtr: &s.sel, hoverSeen: &s.hseen, scroll: &s.scroll, choose: choose,
 		empty: map[string]string{"link": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]}
 	if s.sign == "[[" {
 		m.empty = "Eşleşen sayfa yok"

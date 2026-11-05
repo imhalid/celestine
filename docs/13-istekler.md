@@ -46,6 +46,36 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 > kapanır), **MCP**. Hepsi kullanıcının ayar klasöründeki `settings.json`'da kalır ve anında uygulanır. Kısayol
 > ayarı ve tema dosyaları hâlâ yok.
 
+> **Durum (6 Kasım 2026, gece):** Sayfanın altında **geri bağlantılar** ("N sayfa bu sayfaya bağlanıyor", tıklanır; dizin
+> `backlinks.go`, dosyalardan okunur, hiçbir şey dosyaya yazılmaz). **Günlük** (`journal.go`): ⌘J ya da palet
+> "Bugünün sayfası" günün sayfasını açar, yoksa Günlük koleksiyonunda `2026-11-06` adıyla yapar; tarih çipinin
+> takviminde "Günün sayfasını aç" düğmesi var. Günlük her kitaplıkta kendiliğinden gelir (`collection.json`da `journal: true`), çöpe taşınamaz; adı değişse de aynı kalır. Şablonlar koleksiyon ayarlarında zaten vardı.
+
+> **Durum (6 Kasım 2026, gece):** Kenar çubuğunda **Hepsini kapat** düğmesi (+'nın solunda). **Günlük kuralları:** günlüğe
+> yalnız bugünün sayfası eklenir (⌘J, günlüğün düğmesi, "yeni sayfa" gibi her yol; kütüphane başkasını reddeder),
+> geçmiş düzenlenir ama eklenmez; günün başlığı günlüğün ayarındaki **biçimle** (`YYYY-MM-DD`, `D MMMM YYYY, dddd`…)
+> yazılır ve sayfada elle değişmez, biçimi değiştirmek bütün günleri yeniden adlandırır; **Rastgele gün** düğmesi ve
+> paleti. **Takvim görünümü** her koleksiyonda liste ve tablonun yanında (`calendarview.go`): ay, Pazartesi'den,
+> sayfalar oluşturulma / değiştirilme ya da bir tarih özelliğinin gününde; tarih özelliğine göre kurulu takvimde
+> güne `+` ile sayfa eklenir. Günlük takvimle açılır.
+
+> **Durum (6 Kasım 2026, gece):** Koleksiyon satırında üzerine gelince **sabitle** düğmesi (ve sağ tık menüsünde
+> Sabitle, Yukarı / Aşağı taşı); sabitlenenler kenar çubuğunda en üstte, sabitli satır küçük bir iğne taşır. Yer ve sabit
+> `collection.json`da (`pinned`, `order`). Sürükleyerek koleksiyon sıralamak henüz yok. Koleksiyon sayfasının
+> araç çubuğundaki düğmeler küçük boy.
+
+> **Durum (6 Kasım 2026, gece):** Takvimde günler sessiz: bir sayı ve sayfa başına bir nokta. Sayfası olan (ya da
+> sayfa eklenebilen) güne tıklayınca gün kendi hücresinden 2×3'lük bir karta büyür, öteki günler ondan uzaklaşıp
+> solar; kartta günün sayfaları ve ekleme düğmesi var; Esc, × ya da başka bir gün kapatır.
+
+> **Durum (7 Kasım 2026):** Kenar çubuğu: koleksiyon satırı sürüklenip sıralanır (sabitlenenler kendi arasında),
+> sabitli satırın iğnesi her zaman görünür ve onunla kalkar; açık/kapalı durum ve ağaçta nelerin açık olduğu
+> `settings.json`da hatırlanır; ↑ ↓ ağaçta sayfalar arasında gezer (→ açar, ← kapatır ya da üste çıkar). Koleksiyon
+> ayarları: çöp düğmesi Vazgeç/Kaydet ile aynı satırda, yerleşik özellikler soluk ve pasif satır, "Özellik ekle" altta
+> bir düğme (form tıklayınca açılır), seçenekler etiket girişi. Pano: her sütunun adından türeyen rengi var, sütun
+> adına tıklayınca o sütun geniş olur ve ötekiler yalnız başlık gösterir, boş "yok" sütunu kendiliğinden şerit,
+> fazla sütun yana kayar.
+
 ## Özellikler
 
 6. **Tarih özelliği takvimle seçilsin.** Tarih türünde değer bir takvimden (tarih seçici, Ryugo'da varsa onun

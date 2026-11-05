@@ -19,6 +19,7 @@ type palette struct {
 	open  bool
 	query string
 	sel   int
+	hseen int    // the row last hovered
 	was   string // the query of the last frame, to start from the top when it changes
 }
 
@@ -68,6 +69,8 @@ func (a *app) commands() []palItem {
 				a.newPage(c, nil)
 			}
 		}),
+		cmd("Bugünün sayfası", "⌘J", iconCalendar, a.openToday),
+		cmd("Rastgele gün", "", iconCalendar, a.openRandomDay),
 		cmd("Geri", "⌘[", iconBack, func() { a.step(-1) }),
 		cmd("İleri", "⌘]", iconChevron, func() { a.step(1) }),
 		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
@@ -277,11 +280,13 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 	row := ui.Row(c.Key(i)).Height(40).Padding(0, 10).Gap(10).Radius(t.R(ryugo.RadiusControl) - 4).AlignItems(ui.Center).
 		Label(it.title).Role(ui.RoleButton)
 	text, muted := cl.Text, cl.Muted
+	if row.Hovered() && a.pal.hseen != i { // one row lit: the pointer's, once it comes
+		a.pal.hseen, a.pal.sel = i, i
+		c.Invalidate()
+	}
 	if i == a.pal.sel {
 		row.LinearGradient(chosenFill(t))
 		text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
-	} else if row.Hovered() {
-		row.Background(cl.Fill)
 	}
 	row.Children(func() {
 		ui.Icon(c, it.glyph).Width(16).Height(16).TextColor(muted)

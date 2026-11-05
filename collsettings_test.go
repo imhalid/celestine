@@ -28,7 +28,7 @@ func TestCollSettings(t *testing.T) {
 	a.openCollSettings(coll, 1)
 	tt.Frame() // opened from outside a frame: ask for one
 	tt.Advance(1500 * time.Millisecond)
-	a.cs.newName, a.cs.newType, a.cs.newOptions = "Durum", 0, "Okunacak, Okundu"
+	a.cs.newName, a.cs.newType, a.cs.newTags = "Durum", 0, []string{"Okunacak", "Okundu"}
 	a.addDraftProp()
 	a.cs.draft.Template = "## Notlar\n"
 	a.cs.draft.PageNoun = "kitap"

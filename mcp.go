@@ -46,6 +46,10 @@ type Settings struct {
 	HideCaret bool `json:"hideCaret,omitempty"`
 	ShowWords bool `json:"showWords,omitempty"`
 	ShowChars bool `json:"showChars,omitempty"`
+	// the sidebar as it was left: shown or not, and what is open in its tree
+	SidebarClosed bool     `json:"sidebarClosed,omitempty"`
+	TreeSaved     bool     `json:"treeSaved,omitempty"`
+	TreeOpen      []string `json:"treeOpen,omitempty"`
 }
 
 // the settings, with what is not set taken as the default
@@ -296,6 +300,7 @@ func (a *app) writeBody(p *Page, body string) error {
 	if err := p.Save(body); err != nil {
 		return err
 	}
+	a.linksStale()
 	if doc := a.docs[p]; doc != nil {
 		doc.SetText(a.parsePage(p, body))
 		if p == a.page {

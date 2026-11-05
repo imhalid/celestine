@@ -27,8 +27,10 @@ type collSettings struct {
 	prop               string // the property being changed
 	view               string // the view being changed
 
-	newName, newOptions string
-	newType             int
+	newName string
+	newTags []string // the options of the property being added
+	adding  bool     // the form for a new property is open
+	newType int
 
 	code   string // the Code tab's JSON
 	closed bool   // what closing does is done: the panel only slides away
@@ -49,6 +51,8 @@ func (c *Collection) setConfig(data []byte) error {
 	}
 	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template
 	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
+	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
+	// c.Journal stays as it is: the code tab does not take it away
 	if c.Name == "" {
 		c.Name = "Adsız koleksiyon"
 	}
@@ -73,6 +77,7 @@ func (a *app) endCollSettings() {
 
 func (a *app) saveCollSettings() {
 	cs := &a.cs
+	oldFormat := cs.coll.JournalFormat
 	cs.coll.setConfig(cs.draft.configJSON())
 	if err := cs.coll.save(); err != nil {
 		cs.err = err.Error()
@@ -80,6 +85,9 @@ func (a *app) saveCollSettings() {
 	}
 	if a.coll == cs.coll {
 		a.collName = cs.coll.Name
+	}
+	if cs.coll.Journal && formatOrDefault(cs.coll.JournalFormat) != formatOrDefault(oldFormat) {
+		a.retitleJournal(cs.coll) // every day by the new format
 	}
 	cs.saved, cs.open = true, false
 }
@@ -95,6 +103,14 @@ func (a *app) collSettingsView(c *ui.Context) {
 	}
 	d := &cs.draft
 	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / Ayarlar", Width: 560, Fixed: true, Footer: func() {
+		if !cs.coll.Journal { // beside the buttons that close it, on the other side
+			if ryugo.Button(c.Key("cs-trash"), "Koleksiyonu çöpe taşı", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
+				coll := cs.coll
+				cs.open, cs.saved = false, true
+				a.trashCollection(coll)
+			}
+		}
+		ui.Spacer(c)
 		if ryugo.Button(c.Key("cs-cancel"), "Vazgeç", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			cs.open = false
 		}
@@ -199,14 +215,35 @@ func (a *app) csGeneral(c *ui.Context) {
 			}
 		})
 	})
-	ui.Box(c).Height(1).Background(cl.Hairline)
-	ui.Row(c).Children(func() { // as wide as its label
-		if ryugo.Button(c.Key("cs-trash"), "Koleksiyonu çöpe taşı", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
-			coll := cs.coll
-			cs.open, cs.saved = false, true
-			a.trashCollection(coll)
-		}
-	})
+	if cs.coll.Journal { // how the days are titled: here and nowhere else
+		ryugo.Field(c, ryugo.FieldOptions{Label: "Günlerin başlığı", Help: "Günlerin sayfaları bu biçimle adlandırılır; başlık sayfada yazılmaz, yalnız buradan değişir. YYYY yıl, MM ay, D gün, MMMM ay adı, dddd gün adı."}, func() {
+			ui.Column(c).Gap(8).Children(func() {
+				ui.Row(c).Wrap().Gap(6).Children(func() {
+					for _, f := range journalFormats {
+						f := f
+						on := formatOrDefault(d.JournalFormat) == f
+						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(8).Label("Biçim: " + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						switch {
+						case on:
+							b.Background(cl.Accent.Alpha(0.16)).Border(1.5, cl.Accent)
+						case b.Hovered():
+							b.Background(cl.Fill)
+						default:
+							b.Border(1, cl.Hairline)
+						}
+						b.Children(func() { ui.Text(c, formatDay(f, a.clock())).FontSize(13) })
+						if b.Clicked() {
+							d.JournalFormat = f
+						}
+					}
+				})
+				ryugo.Input(c.Key("cs-journal-format"), &d.JournalFormat, ryugo.InputOptions{Label: "Başlık biçimi", Placeholder: defaultFormat})
+				ui.Text(c, "Bugün: "+formatDay(d.JournalFormat, a.clock())).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			})
+		})
+		ui.Text(c, "Günlük her kitaplıkta durur: günlerin sayfaları burada tutulur. Çöpe taşınamaz.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+		return
+	}
 }
 
 // ---- Properties ----
@@ -218,12 +255,15 @@ func (a *app) csProperties(c *ui.Context) {
 	cs := &a.cs
 	d := &cs.draft
 	cl := ryugo.From(c).Colors
-	ui.Text(c, "Sayfalara yazar, tarih, durum gibi alanlar ekle. Sürükleyerek sırala; değiştirmek için birine tıkla.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
-	ui.Column(c).Gap(2).Children(func() {
+	// the built-in ones, as the ones added are, but passive: they are there
+	ui.Column(c).FillWidth().Gap(6).Children(func() {
 		for _, b := range builtins {
-			ui.Row(c).Height(30).Gap(10).Padding(0, 12).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(560).TextColor(cl.Text2)
-				ui.Text(c, "· "+b.kind+" · yerleşik").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			b := b
+			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(12).AlignItems(ui.Center).
+				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label("Yerleşik özellik: " + b.name).Children(func() {
+				ui.Icon(c, iconLock).Width(15).Height(15).TextColor(cl.Muted)
+				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
+				ui.Text(c, "· "+b.kind).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1)
 			})
 		}
 	})
@@ -251,6 +291,18 @@ func (a *app) csProperties(c *ui.Context) {
 	a.csAddProperty(c)
 }
 
+var iconLock = icon(`<rect x="5.5" y="10.5" width="13" height="9" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>`)
+
+// tagField is a field of tags for the options of a choice: each with its cross,
+// added with ↵ or a comma.
+func tagField(c *ui.Context, key string, tags *[]string, placeholder string) {
+	before := slices.Clone(*tags)
+	ryugo.TagInput(c.Key(key), tags, ryugo.TagInputOptions{Placeholder: placeholder, Size: ryugo.Sm, Label: "Seçenek ekle"})
+	if !slices.Equal(before, *tags) {
+		*tags = cleanOptions(*tags)
+	}
+}
+
 // csPropEditor changes a property of the draft.
 func (a *app) csPropEditor(c *ui.Context, p *Property) {
 	cs := &a.cs
@@ -259,11 +311,8 @@ func (a *app) csPropEditor(c *ui.Context, p *Property) {
 			ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: "Özelliğin adı", Size: ryugo.Sm})
 		})
 		if p.Type == PropChoice {
-			opts := strings.Join(p.Options, ", ")
-			ryugo.Field(c, ryugo.FieldOptions{Label: "Seçenekler", Help: "Virgülle ayır; sırası panonun sütunları olur."}, func() {
-				if ryugo.Input(c.Key("cs-prop-opts"), &opts, ryugo.InputOptions{Label: "Seçenek listesi", Size: ryugo.Sm}).Changed() {
-					p.Options = cleanOptions(strings.Split(opts, ","))
-				}
+			ryugo.Field(c, ryugo.FieldOptions{Label: "Seçenekler", Help: "Sırası panonun sütunları olur."}, func() {
+				tagField(c, "cs-prop-opts", &p.Options, "Seçenek yaz, ↵")
 			})
 		}
 		if ryugo.Button(c.Key("cs-prop-del"), "Özelliği sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
@@ -281,6 +330,14 @@ func (a *app) csAddProperty(c *ui.Context) {
 	cs := &a.cs
 	d := &cs.draft
 	cl := ryugo.From(c).Colors
+	if !cs.adding { // a button at the foot; the form opens when it is pressed
+		ui.Row(c).Children(func() {
+			if ryugo.Button(c.Key("cs-add-open"), "Özellik ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus}).Clicked() {
+				cs.adding = true
+			}
+		})
+		return
+	}
 	ui.Column(c).Gap(10).Padding(12).Radius(12).Border(1, cl.Hairline).Children(func() {
 		ui.Text(c, "Özellik ekle").FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
 		ryugo.Input(c.Key("cs-new-name"), &cs.newName, ryugo.InputOptions{Label: "Yeni özelliğin adı", Placeholder: "Ad yaz; başka koleksiyonlardakiler önerilir", Size: ryugo.Sm})
@@ -306,7 +363,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 						p.Options = slices.Clone(p.Options)
 						d.Properties = append(d.Properties, p)
 						d.normalize()
-						cs.newName = ""
+						cs.newName, cs.adding = "", false
 					}
 				}
 			})
@@ -317,11 +374,14 @@ func (a *app) csAddProperty(c *ui.Context) {
 		}
 		ryugo.Segmented(c.Key("cs-new-type"), &cs.newType, names, ryugo.SegmentedOptions{Label: "Yeni özelliğin türü", Fill: true, Size: ryugo.Sm})
 		if PropTypes[cs.newType].Type == PropChoice {
-			ryugo.Input(c.Key("cs-new-opts"), &cs.newOptions, ryugo.InputOptions{Label: "Yeni özelliğin seçenekleri", Placeholder: "Yapılacak, Sürüyor, Bitti", Size: ryugo.Sm})
+			tagField(c, "cs-new-opts", &cs.newTags, "Seçenek yaz, ↵: Yapılacak, Sürüyor, Bitti")
 		}
-		ui.Row(c).Children(func() { // as wide as its label
+		ui.Row(c).Gap(8).Children(func() { // as wide as their labels
 			if ryugo.Button(c.Key("cs-new-add"), "Ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Disabled: strings.TrimSpace(cs.newName) == ""}).Clicked() {
 				a.addDraftProp()
+			}
+			if ryugo.Button(c.Key("cs-new-cancel"), "Vazgeç", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				cs.adding, cs.newName, cs.newTags = false, "", nil
 			}
 		})
 	})
@@ -330,11 +390,11 @@ func (a *app) csAddProperty(c *ui.Context) {
 func (a *app) addDraftProp() {
 	cs := &a.cs
 	d := &cs.draft
-	if _, err := d.addProperty(cs.newName, PropTypes[cs.newType].Type, strings.Split(cs.newOptions, ",")); err != nil {
+	if _, err := d.addProperty(cs.newName, PropTypes[cs.newType].Type, cs.newTags); err != nil {
 		cs.err = err.Error()
 		return
 	}
-	cs.err, cs.newName, cs.newOptions = "", "", ""
+	cs.err, cs.newName, cs.newTags, cs.adding = "", "", nil, false
 }
 
 // sharedProp is a property of another collection.
@@ -373,7 +433,7 @@ func (a *app) sharedProps(name string) []sharedProp {
 
 // ---- Views ----
 
-var viewTypes = []struct{ Type, Name string }{{"list", "Liste"}, {"table", "Tablo"}, {"board", "Pano"}}
+var viewTypes = []struct{ Type, Name string }{{"list", "Liste"}, {"table", "Tablo"}, {"board", "Pano"}, {"calendar", "Takvim"}}
 
 func (a *app) csViews(c *ui.Context) {
 	cs := &a.cs
@@ -456,6 +516,21 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 					}
 				})
 			})
+		case "calendar":
+			ryugo.Field(c, ryugo.FieldOptions{Label: "Hangi güne konur", Help: "Sayfalar takvimde bu tarihin gününde görünür."}, func() {
+				opts := []ryugo.Option[string]{{Value: "created", Label: "Oluşturulma günü"}, {Value: "modified", Label: "Değiştirilme günü"}}
+				for _, p := range d.Properties {
+					if p.Type == PropDate {
+						opts = append(opts, ryugo.Option[string]{Value: "prop:" + p.ID, Label: p.Name})
+					}
+				}
+				f := v.DateField
+				if f == "" {
+					f = "created"
+				}
+				ryugo.Select(c.Key("cs-datefield"), &f, opts, ryugo.SelectOptions{Label: "Tarih", Size: ryugo.Sm})
+				v.DateField = f
+			})
 		case "board":
 			var opts []ryugo.Option[string]
 			for _, p := range d.Properties {
@@ -491,7 +566,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			})
 		}
 		ui.Row(c).Children(func() { // as wide as its label
-			if len(d.Views) > 1 && ryugo.Button(c.Key("cs-view-del"), "Görünümü sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+			if len(d.Views) > 1 && v.Type != "calendar" && ryugo.Button(c.Key("cs-view-del"), "Görünümü sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 				id := v.ID
 				d.Views = slices.DeleteFunc(d.Views, func(x View) bool { return x.ID == id })
 				cs.view = ""
