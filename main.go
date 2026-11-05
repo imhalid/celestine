@@ -129,6 +129,12 @@ type app struct {
 	hoverTag      string
 	picHits       []picHit // the pictures drawn this frame, and the last frame's (images.go)
 	picSeen       []picHit
+	tableHits     []tableHit // the cells of the tables drawn this frame, and the last frame's (tables.go)
+	tableSeen     []tableHit
+	tableKeep     int // the table the pointer is pressed in: it stays drawn as a table
+	cellEd        cellEdit
+	selPrevA      int // the selection before a pointer went down in the editor
+	selPrevC      int
 	lightbox      *picHit  // the picture shown large
 	ptags         []string // the open page's tags, for the side panel
 	ptagsVer      uint64
@@ -527,6 +533,7 @@ func (a *app) view(c *ui.Context) {
 	a.propDialog(c)
 	a.tagRenameView(c)
 	a.historyView(c)
+	a.cellEditView(c)
 	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
@@ -606,6 +613,13 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	a.edPressed = ed.Pressed()
+	if !a.edPressed { // a press on a table's cell moves the caret into it: where it was is kept to put it back
+		a.tableKeep = 0
+	} else if x, y, over := ed.PointerPosition(); over && a.tableKeep == 0 {
+		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
+			a.tableKeep = h.start + 1
+		}
+	}
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
@@ -613,6 +627,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	if x, y, over := ed.PointerPosition(); over {
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.hoverTag = key
+			ed.Cursor(ui.CursorPointer)
+		}
+		if a.tableCellAt(a.editorR.X+x, a.editorR.Y+y) != nil {
 			ed.Cursor(ui.CursorPointer)
 		}
 		if a.pictureAt(a.editorR.X+x, a.editorR.Y+y) != nil {
@@ -628,7 +645,10 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
-		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
+		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
+			a.doc.SetSelection(a.selPrevA, a.selPrevC)
+			a.openCell(h)
+		} else if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.openTag(key)
 		} else if pic := a.pictureAt(a.editorR.X+x, a.editorR.Y+y); pic != nil {
 			a.lightbox = pic
@@ -636,12 +656,16 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 			a.clickChip(a.editorR.X+x, a.editorR.Y+y)
 		}
 	}
+	if !a.edPressed { // where the caret is when the pointer is not down: the click's own move is not kept
+		a.selPrevA, a.selPrevC = a.doc.Selection()
+	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
 		a.editorR = r
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
 		a.drawTags(p, r)
+		a.drawTables(p, r)
 	})
 	a.backlinksView(c, p)
 }

@@ -66,3 +66,12 @@ kırılgan bir yöntem: MyGo'ya "tuşu önce bana sor" kancası eklenirse sadele
 3. Tablonun ve resmin ek olarak çizilmesi.
 4. Obsidian not kutusu.
 5. Sütunlar ve iç içe bloklar: yapmayalım. Kullanıcılar gerçekten isterse kendi blok modelimizi konuşuruz.
+
+## Gerçek tablo (Kasım 2026)
+
+Tablo yine ham bir bloktur (dosyada Markdown tablosu), ama caret içinde değilken bir tablo olarak çizilir: başlık bandı,
+satır ve sütun çizgileri, sütunlar en geniş hücre kadar, `:---:` / `---:` hizaları. Bir hücreye tıklamak onu yazılacak bir kutu
+yapar (caret metinde kalır): Enter yazar, Tab sonraki hücreye geçer (son hücrede yeni satır açar), ↑ ↓ alttaki ve üstteki hücreye,
+Esc vazgeçer. Kutunun altındaki düğmeler: alta satır ekle, sağa sütun ekle, satırı sil, sütunu sil, Markdown olarak düzenle.
+Caret tablonun satırlarına girince (ok tuşlarıyla, ya da Markdown düğmesiyle) satırlar Markdown olarak görünür ve öyle düzenlenir.
+`/` ▸ Ekle… ▸ Tablo yeni tabloyu çizili koyar, ilk hücresi yazılmaya hazırdır.

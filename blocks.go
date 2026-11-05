@@ -133,7 +133,7 @@ var rawTemplates = []rawTemplate{
 
 // insertRaw puts a raw block at start (the empty line the caret is on, or
 // under the line it is in), with an empty paragraph after it to write on.
-func (a *app) insertRaw(start int, r rawTemplate) {
+func (a *app) insertRaw(start int, r rawTemplate) (first int) {
 	t := a.doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	at, prefix := ps, ""
@@ -141,7 +141,7 @@ func (a *app) insertRaw(start int, r rawTemplate) {
 		at, prefix = pe, "\n"
 	}
 	body := strings.Join(r.lines, "\n")
-	first := at + utf8.RuneCountInString(prefix)
+	first = at + utf8.RuneCountInString(prefix)
 	a.doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(at, at, richtext.NewText(prefix+body+"\n"))
 		pos := first
@@ -168,6 +168,7 @@ func (a *app) insertRaw(start int, r rawTemplate) {
 		ed.Select(c, c)
 	})
 	a.doc.SetTypingAttributes(richtext.Attributes{})
+	return first
 }
 
 var calloutKind = regexp.MustCompile(`\[!(\w+)\]`)

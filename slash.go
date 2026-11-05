@@ -257,8 +257,14 @@ func (a *app) chooseRaw(r rawTemplate) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
-	a.insertRaw(start, r)
+	first := a.insertRaw(start, r)
 	s.open = false
+	if r.kind == "table" { // it shows as a table at once, its first cell open to be written in
+		if tb, ok := tableBlockAt(a.doc.Text(), first); ok {
+			a.doc.SetSelection(tb.end+1, tb.end+1)
+			a.cellEd = cellEdit{open: true, start: tb.start, line: 0, col: 0, text: tb.cellAt(0, 0), fresh: true}
+		}
+	}
 }
 
 // choiceItems are the values of the page's choices, for q.
