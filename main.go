@@ -389,7 +389,7 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		return
 	}
 	if c.Template != "" { // it starts as the collection says
-		if err := p.Save(c.Template); err != nil {
+		if err := p.Save(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
 			a.saveErr = err.Error()
 		}
 	}

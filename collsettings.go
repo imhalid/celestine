@@ -49,7 +49,7 @@ func (c *Collection) setConfig(data []byte) error {
 	if err := json.Unmarshal(data, &fresh); err != nil {
 		return err
 	}
-	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template
+	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
 	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
 	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
 	// c.Journal stays as it is: the code tab does not take it away
@@ -634,6 +634,7 @@ func (a *app) csPages(c *ui.Context) {
 	ryugo.Field(c, ryugo.FieldOptions{Label: "Yeni sayfa şablonu", Help: "Yeni bir sayfa bu Markdown ile başlar."}, func() {
 		ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: "Şablon", Placeholder: "## Notlar\n\n- [ ] ", Rows: 6, MaxRows: 14, Size: ryugo.Sm})
 	})
+	a.csTemplates(c)
 }
 
 func itoa(n int) string {

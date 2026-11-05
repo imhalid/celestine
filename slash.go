@@ -225,6 +225,7 @@ func (a *app) rawItems(q string) []menuItem {
 	if q == "" || match(q, "Resim") >= 0 {
 		out = append(out, menuItem{title: "Resim…", sub: "bir dosyadan", glyph: iconImage, group: "Ekle", run: a.chooseImage})
 	}
+	out = append(out, a.templateItems(q)...)
 	for _, r := range rawTemplates {
 		r := r
 		if q != "" && match(q, r.name) < 0 {

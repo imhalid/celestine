@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/egoist/mygo/ui"
 	ryugo "github.com/imhalid/ryu-go"
+	"slices"
 )
 
 // The context menu, the one for the whole app: a right click on a row of
@@ -142,6 +143,9 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
 		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
 		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
+	}
+	if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from its templates
+		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
 	}
 	if !coll.Journal { // the journal is not thrown away
 		out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})

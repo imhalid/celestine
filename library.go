@@ -48,7 +48,9 @@ type Collection struct {
 	PageNoun string `json:"pageNoun,omitempty"`
 	// Template is the Markdown a new page of it starts with.
 	Template string `json:"template,omitempty"`
-	SubPages bool   `json:"subPages"`
+	// Templates are more of them, each with a name (templates.go).
+	Templates []NamedTemplate `json:"templates,omitempty"`
+	SubPages  bool            `json:"subPages"`
 	// Journal marks the collection of the days' pages (journal.go): every
 	// library has one, and it is not thrown away.
 	Journal bool `json:"journal,omitempty"`

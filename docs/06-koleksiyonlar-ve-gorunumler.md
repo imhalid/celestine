@@ -77,3 +77,12 @@ yalnızca bir sütunda olabilir: "Allow multiple" açık bir alanla pano gruplan
 5. **Dinamik koleksiyon** = kaydedilmiş bir sorgu + görünümler. Arama motoru ([09](09-arama-gorevler-gunluk.md)) hazır
    olduğunda neredeyse bedava gelir.
 6. Her görünümde **elle sıralama** (Custom Order) kalıcı olsun; sürükle-bırak ile.
+
+## Şablonlar (Kasım 2026)
+
+Bir koleksiyonun şablonu hep vardı (yeni sayfa o Markdown'la başlar); artık adlı başka şablonları da olabilir: Koleksiyon
+ayarları ▸ Sayfalar ▸ "Başka şablonlar" (ad + metin, ekle/sil). Şablonlu sayfa üç yerden açılır: koleksiyon görünümünde
+"Yeni sayfa" düğmesinin yanındaki ok, kenar çubuğunda koleksiyonun menüsünde "Şablondan yeni…" ve komut paleti ("Şablondan
+yeni sayfa: ad"). `/` ▸ Ekle… ▸ "Şablon: ad" şablonu açık sayfaya, yazıldığı gibi koyar. Şablonda `{{başlık}}` sayfanın başlığı,
+`{{tarih}}` (ya da `{{bugün}}`) bugünün gün bağlantısı (`[[2026-11-05]]`, yani tarih hapı), `{{saat}}` saat olur. Dosyada
+`collection.json`'da `templates` listesidir; MCP ile yapılan sayfalar da varsayılan şablonla başlar.

@@ -536,7 +536,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					return err
 				}
 				if in.Markdown == "" && c.Template != "" {
-					in.Markdown = c.Template // as the collection starts its pages
+					in.Markdown = expandTemplate(c.Template, title, a.clock()) // as the collection starts its pages
 				}
 				if in.Markdown != "" {
 					if err := p.Save(bodyOf(in.Markdown)); err != nil {

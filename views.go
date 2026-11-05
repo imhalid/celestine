@@ -100,6 +100,12 @@ func (a *app) collectionView(c *ui.Context) {
 							if ryugo.Button(c, label, ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 								a.newPage(coll, nil)
 							}
+							if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from the other templates
+								if ryugo.Button(c.Key("tpl-menu"), "Şablondan yeni sayfa", ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+									ww, _ := c.Size()
+									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
+								}
+							}
 						})
 					})
 				})

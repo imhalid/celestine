@@ -46,6 +46,12 @@ func (a *app) commands() []palItem {
 	if c := a.currentColl(); c != nil {
 		out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
 		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
+		if !c.Journal {
+			for _, t := range c.allTemplates() {
+				t := t
+				out = append(out, cmd("Şablondan yeni "+pageNoun(c)+": "+t.Name, "", iconTemplate, func() { a.newPageFrom(c, nil, t.Body) }))
+			}
+		}
 	}
 	if p := a.page; p != nil && !a.noPage() {
 		if p.Coll.SubPages {
