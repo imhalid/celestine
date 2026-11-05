@@ -225,6 +225,9 @@ func (a *app) rawItems(q string) []menuItem {
 	if q == "" || match(q, "Resim") >= 0 {
 		out = append(out, menuItem{title: "Resim…", sub: "bir dosyadan", glyph: iconImage, group: "Ekle", run: a.chooseImage})
 	}
+	if q == "" || match(q, "Sayfa göm") >= 0 || match(q, "embed") >= 0 {
+		out = append(out, menuItem{title: "Sayfa göm…", sub: "başka bir sayfanın metni", glyph: iconPage, group: "Ekle", nav: true, run: func() { a.enterView("embed") }})
+	}
 	out = append(out, a.templateItems(q)...)
 	for _, r := range rawTemplates {
 		r := r
@@ -351,6 +354,18 @@ func (a *app) viewItems(view, q string) []menuItem {
 				}
 				a.insertChip(start, &chip{kind: "page", target: tq})
 			}})
+		}
+	case "embed":
+		n := 0
+		for _, it := range a.places() {
+			if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+				continue
+			}
+			if n++; n > 40 {
+				break
+			}
+			title := it.title
+			out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertEmbed(start, title) }})
 		}
 	case "prop":
 		out = a.choiceItems(q)
@@ -638,9 +653,9 @@ func menuRows(items []menuItem, extra float32) (tops, ends []float32, total floa
 }
 
 // hasField is whether the menu has a field at its top, for what is typed.
-func hasField(view string) bool { return view == "date" || view == "link" }
+func hasField(view string) bool { return view == "date" || view == "link" || view == "embed" }
 
-var viewTitle = map[string]string{"format": "Satırı biçimlendir", "insert": "Ekle", "date": "Tarih ya da saat", "link": "Bağlantı", "prop": "Özellik"}
+var viewTitle = map[string]string{"format": "Satırı biçimlendir", "insert": "Ekle", "date": "Tarih ya da saat", "link": "Bağlantı", "embed": "Sayfa göm", "prop": "Özellik"}
 
 // slashView is the menu under the caret.
 func (a *app) slashView(c *ui.Context) {
@@ -699,7 +714,7 @@ func (a *app) slashView(c *ui.Context) {
 		s.open = it.nav
 	}
 	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, selPtr: &s.sel, hoverSeen: &s.hseen, scroll: &s.scroll, choose: choose,
-		empty: map[string]string{"link": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]}
+		empty: map[string]string{"link": "Eşleşen sayfa yok", "embed": "Eşleşen sayfa yok", "date": "Eşleşen gün yok"}[s.view]}
 	if s.sign == "[[" {
 		m.empty = "Eşleşen sayfa yok"
 	}
@@ -744,7 +759,7 @@ func (a *app) slashView(c *ui.Context) {
 	if hasField(s.view) { // what is typed: a field of its own, the focus in it
 		m.field = func() {
 			ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
-			ph := map[string]string{"link": "Sayfa ara…", "date": "Yarın, 2026-11-10…"}[s.view]
+			ph := map[string]string{"link": "Sayfa ara…", "embed": "Gömülecek sayfa…", "date": "Yarın, 2026-11-10…"}[s.view]
 			in := ui.TextInputBase(c.Key("slash-in"), &s.field).Label(ph).Placeholder(ph).PlaceholderColor(cl.Muted).
 				FontSize(14).Grow(1).FocusRing(false).AutoFocus()
 			if in.Focused() {

@@ -30,6 +30,9 @@ type chip struct {
 
 // markdown is the chip in the file.
 func (ch *chip) markdown() string {
+	if ch.kind == "embed" {
+		return "![[" + ch.target + "]]"
+	}
 	if ch.alias != "" {
 		return "[[" + ch.target + "|" + ch.alias + "]]"
 	}
@@ -106,7 +109,7 @@ func (a *app) withChips(t richtext.Text) richtext.Text {
 }
 
 // parse reads a page's Markdown into the editor's text, its links as chips.
-func (a *app) parse(md string) richtext.Text { return a.withChips(parseBody(md)) }
+func (a *app) parse(md string) richtext.Text { return a.withChips(a.withEmbeds(parseBody(md))) }
 
 // withoutChips turns the chips in t back into the text of their links.
 func withoutChips(t richtext.Text) richtext.Text {
@@ -227,6 +230,12 @@ func (a *app) clickChip(x, y float32) bool {
 	if h := a.chipAt(x, y); h != nil {
 		if h.ch.kind == "fold" {
 			a.unfold(h.ch)
+			return true
+		}
+		if h.ch.kind == "embed" { // the page it shows
+			if p := a.pageTitled(h.ch.target); p != nil {
+				a.open(p)
+			}
 			return true
 		}
 		if h.ch.kind == "date" {

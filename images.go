@@ -168,12 +168,18 @@ func (a *app) addImage(name string, data []byte) error {
 	if strings.HasPrefix(alt, "resim-") || alt == "" || alt == "." {
 		alt = "resim"
 	}
-	att := a.pictureAttachment(p, alt, ref)
+	a.putBlock(a.pictureAttachment(p, alt, ref))
+	return nil
+}
+
+// putBlock puts an attachment in a paragraph of its own: in the empty line the
+// caret is on, or under the line it is in.
+func (a *app) putBlock(att *richtext.Attachment) {
 	t := a.doc.Text()
 	_, caret := a.doc.Selection()
 	ps, pe := t.ParagraphRange(min(caret, t.Len()))
 	prefix, at := "", ps
-	if pe > ps { // a line with text: the picture goes under it
+	if pe > ps { // a line with text: it goes under it
 		prefix, at = "\n", pe
 	}
 	last := pe >= t.Len()
@@ -190,7 +196,6 @@ func (a *app) addImage(name string, data []byte) error {
 		ed.Select(pos+2, pos+2)
 	})
 	a.doc.SetTypingAttributes(richtext.Attributes{})
-	return nil
 }
 
 // addImageFile reads the picture at file and adds it.

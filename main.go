@@ -202,10 +202,11 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	importNote    string           // what the last import said, in the settings
-	ctxCache      map[string][]seg // the lines that link to a page (backlinks.go)
-	bulk          bulkState        // pages being chosen in a collection, to be done to all (bulk.go)
-	statsOpen     bool             // the dialog of what is written (writing.go)
+	importNote    string              // what the last import said, in the settings
+	embedCache    map[string][]string // the first lines of the pages embedded (embed.go)
+	ctxCache      map[string][]seg    // the lines that link to a page (backlinks.go)
+	bulk          bulkState           // pages being chosen in a collection, to be done to all (bulk.go)
+	statsOpen     bool                // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)

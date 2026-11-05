@@ -109,3 +109,10 @@ küçük bir resim.
 
 Sayfanın altındaki "bu sayfaya bağlanıyor" listesi ve yan paneldeki "Bağlananlar", her sayfanın altında **bağlantının geçtiği satırı** da
 gösterir (Markdown işaretleri sadeleştirilmiş; bağlantı adı varsa vurgulu), neden bağlandığını söylemek için.
+
+## Sayfa gömme (Kasım 2026)
+
+Kendi satırında `![[Sayfa adı]]` yazmak o sayfanın metnini bir **kart** olarak gösterir: sayfanın adı, ilk satırları (başlık, madde,
+görev, kalın… çizilir), altı solar. Kart sayfa değişince kendiliğinden güncellenir; tıklamak o sayfayı açar. Dosyada yalnız o satır
+vardır (`![[Sayfa adı]]`), başka araçlar onu yazıldığı gibi görür. `/` ▸ Ekle… ▸ "Sayfa göm…" listeden seçtirir; adı olmayan bir sayfa
+"böyle bir sayfa yok" der. Satırın içinde (başka metinle) geçen `![[…]]` kart olmaz, bağlantı gibi çizilir.
