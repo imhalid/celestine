@@ -75,6 +75,7 @@ func (a *app) commands() []palItem {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
 		out = append(out, cmd("Sayfada bul", "⌘F", iconSearch, func() { a.openFind() }))
+		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))
 		out = append(out, cmd("Çöpe taşı: "+p.Title, "", iconTrash, func() { a.trashPage(p) }))
 	}
 	if c := a.coll; c != nil {

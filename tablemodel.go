@@ -49,8 +49,9 @@ type tableCol struct {
 }
 
 type tableModel struct {
-	cols []tableCol
-	rows [][]string
+	cols   []tableCol
+	rows   [][]string
+	Filter string // the words a row must hold to show (tablefn.go); blank, all show
 }
 
 // newTable is a table of ncols columns and nrows empty rows.
@@ -68,7 +69,7 @@ func newTable(ncols, nrows int) *tableModel {
 // clone is a copy to change: a table in the text is never changed, as an
 // undo brings back the one it had.
 func (m *tableModel) clone() *tableModel {
-	n := &tableModel{cols: append([]tableCol(nil), m.cols...)}
+	n := &tableModel{cols: append([]tableCol(nil), m.cols...), Filter: m.Filter}
 	for _, r := range m.rows {
 		n.rows = append(n.rows, append([]string(nil), r...))
 	}
@@ -241,27 +242,28 @@ func (m *tableModel) calc(c int) string {
 	if col.Calc == "" {
 		return ""
 	}
+	shown := m.visible() // the foot counts the rows that show
 	if col.Kind == kindCheck {
 		n := 0
-		for _, r := range m.rows {
-			if r[c] != "" {
+		for _, i := range shown {
+			if m.rows[i][c] != "" {
 				n++
 			}
 		}
-		return strconv.Itoa(n) + "/" + strconv.Itoa(len(m.rows))
+		return strconv.Itoa(n) + "/" + strconv.Itoa(len(shown))
 	}
 	if col.Calc == "count" {
 		n := 0
-		for _, r := range m.rows {
-			if strings.TrimSpace(r[c]) != "" {
+		for _, i := range shown {
+			if strings.TrimSpace(m.rows[i][c]) != "" {
 				n++
 			}
 		}
 		return strconv.Itoa(n)
 	}
 	var vals []float64
-	for _, r := range m.rows {
-		if v, ok := parseNumber(r[c]); ok {
+	for _, i := range shown {
+		if v, ok := parseNumber(m.rows[i][c]); ok {
 			vals = append(vals, v)
 		}
 	}

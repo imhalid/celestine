@@ -244,6 +244,7 @@ type app struct {
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
+	clipRead      func() string             // and to read
 	clipImage     func() []byte             // the clipboard's picture; the system's when nil
 	outlineOf     []heading                 // the page's headings, for the side panel
 	outlineVer    uint64
@@ -989,7 +990,7 @@ func (a *app) track(c *ui.Context) {
 	}
 	// pasted text with [[links]] in it: they are chips, as if typed (a link copied from
 	// the page's menu is such text)
-	if grew := n - a.length; grew > 1 && caret-a.caretAt == grew && a.chipsInPasted(caret-grew, caret) {
+	if grew := n - a.length; grew > 1 && caret-a.caretAt == grew && (a.tableInPasted(caret-grew, caret) || a.chipsInPasted(caret-grew, caret)) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)

@@ -6,6 +6,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
@@ -20,12 +21,13 @@ import (
 // brings back the one it had.
 
 const (
-	tableRowH  = 34  // a row
-	tableFootH = 30  // the foot, where a column says its sum
-	tablePadX  = 12  // room on each side of a cell's text
-	tableMinW  = 72  // a column is never narrower than this by itself
-	tableMaxW  = 360 // and never wider
-	tableGap   = 3   // room over and under the table
+	tableRowH    = 34  // a row
+	tableFootH   = 30  // the foot, where a column says its sum
+	tablePadX    = 12  // room on each side of a cell's text
+	tableMinW    = 72  // a column is never narrower than this by itself
+	tableMaxW    = 360 // and never wider
+	tableGap     = 3   // room over and under the table
+	tableFilterW = 180 // a table with a filter is at least this wide, for its strip
 )
 
 // splitCells reads a line of a Markdown table into its cells (for the tables
@@ -72,8 +74,11 @@ func (a *app) tableAttachment(ch *chip) *richtext.Attachment {
 
 // tableHeight is how tall the table is: its header, its rows and its foot.
 func tableHeight(m *tableModel) float32 {
-	h := float32(len(m.rows)+1)*tableRowH + 2
+	h := float32(len(m.visible())+1)*tableRowH + 2
 	if m.hasCalc() {
+		h += tableFootH
+	}
+	if m.Filter != "" { // the strip that says what the filter is
 		h += tableFootH
 	}
 	return h
@@ -133,6 +138,10 @@ func (a *app) tableWidths(m *tableModel) []float32 {
 	total := float32(0)
 	for _, w := range cw {
 		total += w
+	}
+	if m.Filter != "" && total < tableFilterW && len(cw) > 0 { // room for the strip under it
+		cw[len(cw)-1] += tableFilterW - total
+		total = tableFilterW
 	}
 	if limit := a.pageWidth(); total > limit && total > 0 {
 		for c := range cw {
@@ -284,11 +293,19 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(box, th.Border, rad(9))
 	inner := ui.Rect{X: box.X + 1, Y: box.Y + 1, W: box.W - 2, H: box.H - 2}
 	p.Fill(inner, a.pageBg, rad(8))
-	rowsH := float32(len(m.rows)+1) * tableRowH
+	vis := m.visible()
+	rowsH := float32(len(vis)+1) * tableRowH
+	footH := float32(0)
+	if m.hasCalc() {
+		footH = tableFootH
+	}
 	p.Clip(inner, rad(8), func() {
 		p.Fill(ui.Rect{X: inner.X, Y: inner.Y, W: inner.W, H: tableRowH}, th.Text.Alpha(0.055), 0)
 		if m.hasCalc() {
 			p.Fill(ui.Rect{X: inner.X, Y: inner.Y + rowsH, W: inner.W, H: tableFootH}, th.Text.Alpha(0.03), 0)
+		}
+		if m.Filter != "" {
+			p.Fill(ui.Rect{X: inner.X, Y: inner.Y + rowsH + footH, W: inner.W, H: tableFootH}, cl.Accent.Alpha(0.07), 0)
 		}
 	})
 	// the part of the table in view: a table of thousands of rows draws its rows in view
@@ -310,12 +327,16 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 		}
 		a.borderHits = append(a.borderHits, colBorder{ui.Rect{X: x - 4, Y: box.Y, W: 8, H: box.H}, ch, c, cw[c]})
 	}
-	for row := -1; row < len(m.rows); row++ {
-		top := inner.Y + float32(row+1)*tableRowH
+	for d := -1; d < len(vis); d++ {
+		row := -1
+		if d >= 0 {
+			row = vis[d]
+		}
+		top := inner.Y + float32(d+1)*tableRowH
 		if top+tableRowH < viewTop || top > viewBot {
 			continue
 		}
-		if row > 0 {
+		if d > 0 {
 			line(top-1, 0.6)
 		}
 		x := inner.X
@@ -341,6 +362,39 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 				spans = append([]ui.Span{{Text: strings.ToLower(calcNames[col.Calc]) + " ", Size: size * 0.8, Color: th.TextMuted}}, spans...)
 			}
 			a.placeText(p, cell, spans, col.Align, tableFootH)
+		}
+	}
+	if m.Filter != "" && inner.Y+rowsH+footH <= viewBot {
+		a.drawFilterStrip(p, ui.Rect{X: inner.X, Y: inner.Y + rowsH + footH, W: inner.W, H: tableFootH}, ch, len(vis), size, th, cl)
+	}
+}
+
+// drawFilterStrip is the line under a table that has a filter: the words, how
+// many rows show, and a cross that takes the filter away. It is a hit of its
+// own (row -2 opens the words to be written, -3 is the cross).
+func (a *app) drawFilterStrip(p *ui.Painter, strip ui.Rect, ch *chip, shown int, size float32, th *ui.Theme, cl ryugo.Colors) {
+	m := ch.tbl
+	p.Fill(ui.Rect{X: strip.X, Y: strip.Y - 1, W: strip.W, H: 1}, th.Border, 0)
+	words := strings.TrimSpace(m.Filter)
+	label := []ui.Span{{Text: "⌕  ", Size: size * 0.92, Color: cl.Accent}}
+	if words == "" {
+		label = append(label, ui.Span{Text: "Filtre…", Size: size * 0.86, Color: th.TextMuted})
+	} else {
+		label = append(label, ui.Span{Text: words, Size: size * 0.86, Weight: 560, Color: th.Text})
+	}
+	x := ui.Rect{X: strip.X + strip.W - 26, Y: strip.Y + (strip.H-22)/2, W: 22, H: 22}
+	if words != "" {
+		a.tableHits = append(a.tableHits, tableHit{x, ch, -3, 0})
+		p.RichText(x.X+6, x.Y+2, 22, ui.Span{Text: "✕", Size: 12, Color: th.TextMuted})
+	}
+	a.tableHits = append(a.tableHits, tableHit{strip, ch, -2, 0})
+	a.placeText(p, ui.Rect{X: strip.X, Y: strip.Y, W: strip.W - 26, H: strip.H}, label, 0, strip.H)
+	if words != "" {
+		count := []ui.Span{{Text: itoa(shown) + "/" + itoa(len(m.rows)) + " satır", Size: size * 0.8, Color: th.TextMuted}}
+		lw, _ := p.MeasureText(4000, label...)
+		cwid, _ := p.MeasureText(4000, count...)
+		if lw+cwid+2*tablePadX+30 <= strip.W { // the count only where the words leave room
+			a.placeText(p, ui.Rect{X: strip.X, Y: strip.Y, W: strip.W - 30, H: strip.H}, count, 2, strip.H)
 		}
 	}
 }
@@ -451,14 +505,17 @@ func (a *app) editTable(ch *chip, change func(m *tableModel)) *chip {
 
 // insertTable puts a new table at start (the empty line the caret is on, or
 // under the line it is in), with an empty paragraph after it to write on.
-func (a *app) insertTable(start int) *chip {
+func (a *app) insertTable(start int) *chip { return a.insertTableOf(start, newTable(3, 2)) }
+
+// insertTableOf puts the table m where insertTable would put a new one.
+func (a *app) insertTableOf(start int, m *tableModel) *chip {
 	t := a.doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	at, prefix := ps, ""
 	if pe > ps { // a line with text: the table goes under it
 		at, prefix = pe, "\n"
 	}
-	ch := a.tableChip(newTable(3, 2))
+	ch := a.tableChip(m)
 	first := at + utf8.RuneCountInString(prefix)
 	attrs := richtext.Attributes{Attachment: a.tableAttachment(ch)}
 	a.doc.Edit(func(ed *richtext.Edit) {
@@ -486,11 +543,24 @@ type cellEdit struct {
 
 // openCell opens the cell h to be written in.
 func (a *app) openCell(h *tableHit) {
-	a.cellEd = cellEdit{open: true, ch: h.ch, row: h.row, col: h.col, text: h.ch.tbl.cell(h.row, h.col), fresh: true}
+	a.cellEd = cellEdit{open: true, ch: h.ch, row: h.row, col: h.col, text: cellText(h.ch.tbl, h.row, h.col), fresh: true}
+}
+
+// cellText is what a cell is written as: row -2 is the filter's words.
+func cellText(m *tableModel, row, col int) string {
+	if row == -2 {
+		return strings.TrimSpace(m.Filter)
+	}
+	return m.cell(row, col)
 }
 
 // clickCell is a click on a cell: a check is ticked, the rest is opened.
 func (a *app) clickCell(h *tableHit) {
+	if h.row == -3 { // the cross of the filter
+		a.cellEd.open = false
+		a.editTable(h.ch, func(m *tableModel) { m.Filter = "" })
+		return
+	}
 	if h.row >= 0 && h.ch.tbl.cols[h.col].Kind == kindCheck {
 		a.cellEd.open = false
 		a.editTable(h.ch, func(m *tableModel) {
@@ -512,7 +582,11 @@ func (a *app) commitCell() {
 		return
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(ce.text, "\n", " "))
-	if text == ce.ch.tbl.cell(ce.row, ce.col) {
+	if text == cellText(ce.ch.tbl, ce.row, ce.col) {
+		return
+	}
+	if ce.row == -2 {
+		ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.Filter = text })
 		return
 	}
 	ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.setCell(ce.row, ce.col, text) })
@@ -524,22 +598,35 @@ func (a *app) stepCell(dr, dc int) {
 	ce := &a.cellEd
 	a.commitCell()
 	m := ce.ch.tbl
-	row, col := ce.row+dr, ce.col+dc
+	vis := m.visible() // a step goes through the rows that show
+	d := -1
+	for i, r := range vis {
+		if r == ce.row {
+			d = i
+		}
+	}
+	d, col := d+dr, ce.col+dc
 	for dc != 0 {
 		if col >= len(m.cols) {
-			col, row = 0, row+1
+			col, d = 0, d+1
 		} else if col < 0 {
-			col, row = len(m.cols)-1, row-1
+			col, d = len(m.cols)-1, d-1
 		}
-		if row < 0 || m.cols[col].Kind != kindCheck {
+		if d < 0 || m.cols[col].Kind != kindCheck {
 			break
 		}
 		col += dc
 	}
-	row = max(row, -1)
-	if row >= len(m.rows) {
+	d = max(d, -1)
+	if d >= len(vis) {
 		ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.addRow(len(m.rows) - 1) })
 		m = ce.ch.tbl
+		vis = m.visible()
+		d = len(vis) - 1
+	}
+	row := -1
+	if d >= 0 {
+		row = vis[d]
 	}
 	*ce = cellEdit{open: true, ch: ce.ch, row: row, col: col, text: m.cell(row, col), fresh: true}
 }
@@ -569,6 +656,9 @@ func (a *app) cellEditView(c *ui.Context) {
 	cl := t.Colors
 	r := hit.r
 	if c.Shortcut(0, ui.KeyEscape) {
+		if ce.row == -2 && !ce.ch.tbl.filtering() && ce.ch.tbl.Filter != "" { // a filter that was never written
+			a.editTable(ce.ch, func(m *tableModel) { m.Filter = "" })
+		}
 		ce.open = false
 		return
 	}
@@ -592,6 +682,7 @@ func (a *app) cellEditView(c *ui.Context) {
 			a.commitCell()
 			ce.open = false
 			return
+		case ce.row == -2: // the filter's words: only Enter and Esc
 		case in.Shortcut(0, ui.KeyTab):
 			a.stepCell(0, 1)
 			return
@@ -620,6 +711,9 @@ func (a *app) cellEditView(c *ui.Context) {
 				a.paintCaret(p, cr, cw, box, kick{wrote: wrote, edited: edited}, anchor != caret)
 			})
 		}
+		if ce.row == -2 {
+			return
+		}
 		col := ce.ch.tbl.cols[ce.col]
 		ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Gap(2).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline).
 			Children(func() {
@@ -636,7 +730,12 @@ func (a *app) cellEditView(c *ui.Context) {
 					b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(color) })
 					if b.Clicked() {
 						a.commitCell()
-						a.editTable(ce.ch, do)
+						if do == nil { // not a change: the table is copied as it is
+							a.copyText(ce.ch.tbl.csvText(','))
+							a.notice = "Tablo CSV olarak kopyalandı"
+						} else {
+							a.editTable(ce.ch, do)
+						}
 						ce.open = false
 					}
 				}
@@ -648,8 +747,85 @@ func (a *app) cellEditView(c *ui.Context) {
 				btn(iconKind, "Sütun türü: "+kindNames[col.Kind], false, func(m *tableModel) { m.setKind(ci, nextOf(tableKinds, m.cols[ci].Kind)) })
 				btn(iconAlign, "Hizalama", false, func(m *tableModel) { m.cols[ci].Align = (m.cols[ci].Align + 1) % 3 })
 				btn(iconCalc, "Alt satır: "+calcNames[col.Calc], false, func(m *tableModel) { m.cols[ci].Calc = m.cols[ci].nextCalc() })
+				sortLabel := "Bu sütuna göre sırala"
+				if ce.ch.tbl.sortedAsc(ci) {
+					sortLabel = "Bu sütuna göre sırala (azalan)"
+				}
+				btn(iconSort, sortLabel, false, func(m *tableModel) { m.toggleSort(ci) })
+				filterLabel := "Filtrele"
+				if ce.ch.tbl.Filter != "" {
+					filterLabel = "Filtreyi düzenle"
+				}
+				fb := ui.Box(c.Key("cell-filter")).Size(26, 26).Radius(rad(7)).Center().Label(filterLabel).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				ryugo.Tooltip(c, fb, filterLabel)
+				if fb.Hovered() {
+					fb.Background(cl.Fill)
+				}
+				fb.Children(func() { ui.Icon(c, iconFilter).Width(16).Height(16).TextColor(cl.Muted) })
+				if fb.Clicked() {
+					a.commitCell()
+					nc := a.editTable(ce.ch, func(m *tableModel) {
+						if m.Filter == "" {
+							m.Filter = " " // the strip shows, to be written in
+						}
+					})
+					a.cellEd = cellEdit{open: true, ch: nc, row: -2, text: strings.TrimSpace(nc.tbl.Filter), fresh: true}
+				}
+				btn(iconCopy, "CSV olarak kopyala", false, nil)
 			})
 	})
+}
+
+var iconCopy = icon(`<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>`)
+
+// tableInPasted turns text a spreadsheet copied (rows by lines, cells by tabs),
+// which has just come into the text from..to, into a table, the first row its
+// header. It reports whether it did.
+func (a *app) tableInPasted(from, to int) bool {
+	t := a.doc.Text()
+	if from < 0 || to > t.Len() || t.ParagraphStyleAt(from).CodeBlock {
+		return false
+	}
+	s := t.Slice(from, to).String()
+	if !tabular(s) || strings.Contains(s, string(richtext.ObjectReplacement)) {
+		return false
+	}
+	m := tableFromCSV(s)
+	if m == nil {
+		return false
+	}
+	ps, _ := t.ParagraphRange(from)
+	prefix := ""
+	if ps < from { // text before it in its line: the table starts a line of its own
+		prefix = "\n"
+	}
+	first := from + utf8.RuneCountInString(prefix)
+	ch := a.tableChip(m)
+	attrs := richtext.Attributes{Attachment: a.tableAttachment(ch)}
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(from, to, richtext.NewText(prefix+string(richtext.ObjectReplacement)+"\n"))
+		ed.ReplaceString(first, first+1, string(richtext.ObjectReplacement), attrs)
+		ed.FormatParagraphs(first, first+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
+		ed.Select(first+2, first+2)
+	})
+	a.doc.SetTypingAttributes(richtext.Attributes{})
+	return true
+}
+
+// pasteTable makes a table of the CSV (or tab-separated text) on the clipboard,
+// where the caret is.
+func (a *app) pasteTable() {
+	read := a.clipRead
+	if read == nil {
+		read = mygo.Clipboard.ReadText
+	}
+	m := tableFromCSV(read())
+	if m == nil {
+		a.notice = "Panodaki metin bir tablo değil (hücreler virgül, noktalı virgül ya da tab ile ayrılmalı)"
+		return
+	}
+	_, caret := a.doc.Selection()
+	a.insertTableOf(caret, m)
 }
 
 var (
@@ -660,6 +836,8 @@ var (
 	iconKind   = icon(`<path d="M5 18 10 6l5 12M6.8 14h6.4M18 9v9"/>`)
 	iconAlign  = icon(`<path d="M5 7h14M5 12h8M5 17h11"/>`)
 	iconCalc   = icon(`<path d="M17 6H7l5 6-5 6h10"/>`)
+	iconSort   = icon(`<path d="M8 5v14M5 16l3 3 3-3M16 19V5M13 8l3-3 3 3"/>`)
+	iconFilter = icon(`<path d="M4.5 6h15l-5.8 7v5l-3.4 1.5V13z"/>`)
 )
 
 // dragColumns follows the pointer over the borders of the tables: the cursor

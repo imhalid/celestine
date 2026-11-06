@@ -47,6 +47,7 @@ type bodyObj struct {
 	Ref    string     `json:"ref,omitempty"`
 	Cols   []tableCol `json:"cols,omitempty"` // a table's
 	Rows   [][]string `json:"rows,omitempty"`
+	Q      string     `json:"q,omitempty"` // a table's filter
 }
 
 // encodeBody writes the editor's text as the body: what is folded is put
@@ -91,7 +92,7 @@ func objOf(at *richtext.Attachment) *bodyObj {
 		case "page", "date", "embed":
 			return &bodyObj{K: d.kind, Target: d.target, Alias: d.alias}
 		case "table":
-			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows}
+			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
 		}
 		return nil
 	case *imageData:
@@ -144,7 +145,7 @@ func attachmentOf(o *bodyObj) *richtext.Attachment {
 		if len(o.Cols) == 0 {
 			return nil
 		}
-		m := &tableModel{cols: o.Cols, rows: o.Rows}
+		m := &tableModel{cols: o.Cols, rows: o.Rows, Filter: o.Q}
 		for i, r := range m.rows {
 			for len(r) < len(m.cols) {
 				r = append(r, "")
