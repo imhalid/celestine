@@ -60,6 +60,7 @@ type caretFrame struct {
 	r      ui.Rect
 	cw     float32
 	dark   bool
+	bg     ui.Color // the page's color, behind the caret
 	bounds ui.Rect
 	wrote  int
 	edited bool
@@ -116,9 +117,9 @@ type app struct {
 	erased   int // letters erased since the caret was drawn, which way (-1 Backspace, 1 Delete) and what they were (caretfx.go)
 	eraseDir int
 	gone     string
+	typed    string        // what was written since the caret was drawn
 	prevText richtext.Text // the text before the last edit, for what was erased
-	pacman   *pacman
-	comet    *comet
+	fx       []caretFX     // the carets of the presets, made as they are used (caretfx.go)
 	editAt   time.Time
 	dirty    bool
 	saveErr  string
@@ -273,7 +274,7 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, pacman: newPacman(), comet: newComet(), clock: time.Now}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
@@ -425,8 +426,7 @@ func (a *app) open(p *Page) {
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
 	a.jelly.placed, a.mizan.seen, a.mizan.glide = false, false, nil
-	a.pacman.reset()
-	a.comet.reset()
+	a.eachFX(func(c caretFX) { c.reset() })
 	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
 	a.linksStale()
 	a.links.built = time.Time{} // asked for at once for the page opened
@@ -513,7 +513,7 @@ func (a *app) view(c *ui.Context) {
 			a.togglePanel()
 		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.setCaret((a.caretKind + 1) % caretKinds)
+			a.setCaret((a.caretKind + 1) % caretCount())
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
 			a.step(-1)
@@ -993,6 +993,7 @@ func (a *app) track(c *ui.Context) {
 	switch grew := n - a.length; {
 	case grew > 0 && caret-a.caretAt == grew && grew <= 8:
 		a.wrote += grew
+		a.typed += strings.ReplaceAll(text.Slice(caret-grew, caret).String(), string(richtext.ObjectReplacement), "")
 	case grew < 0 && grew >= -48 && caret == a.caretAt+grew: // Backspace: what was behind the caret
 		a.eraseOf(a.prevText, caret, a.caretAt, -1)
 		a.edited = true
@@ -1055,8 +1056,7 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if cb.para == a.caretPara && cb.r.Y-cb.top == a.caretRel && top != a.caretTop {
 		a.jelly.shift(0, top-a.caretTop)
 		a.mizan.shift(top - a.caretTop)
-		a.pacman.shift(top - a.caretTop)
-		a.comet.shift(top - a.caretTop)
+		a.eachFX(func(c caretFX) { c.shift(top - a.caretTop) })
 	}
 	a.caretPara, a.caretRel, a.caretTop = cb.para, cb.r.Y-cb.top, top
 	cr := cb.r
@@ -1069,8 +1069,8 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
 	}
-	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone}
-	a.wrote, a.edited, a.erased, a.gone = 0, false, 0, ""
+	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed}
+	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
 	a.paintCaret(p, cr, cb.cw, r, k, false)
 }
 
@@ -1083,7 +1083,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
 		return
 	}
-	f := caretFrame{r: cr, cw: cw, dark: dark, bounds: bounds, wrote: k.wrote, edited: k.edited}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited}
 	// not clipped to the editor's box: at the start of a line the caret
 	// goes past its left edge
 	room := a.scrollR
@@ -1095,11 +1095,9 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		case caretMizan:
 			a.mizan.draw(p, f)
 			return
-		case caretPacman:
-			a.pacman.draw(p, f, k)
-			return
-		case caretComet:
-			a.comet.draw(p, f, k)
+		}
+		if i := int(a.caretKind) - int(caretFirstFX); i >= 0 && i < len(caretPresets) {
+			a.fxOf(i).draw(p, f, k)
 			return
 		}
 		col := ui.Hex("#59f939")

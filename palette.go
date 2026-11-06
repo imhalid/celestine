@@ -103,7 +103,7 @@ func (a *app) commands() []palItem {
 		cmd("Geri", "⌘[", iconBack, func() { a.step(-1) }),
 		cmd("İleri", "⌘]", iconChevron, func() { a.step(1) }),
 		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
-		cmd("Caret'i değiştir (Slime, Mizan, Pacman, Kuyruklu yıldız)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretKinds) }),
+		cmd("Caret'i değiştir (⇧⌘M)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretCount()) }),
 		cmd("Çöp", "", iconTrash, a.openTrash),
 		cmd("Ayarlar", "⌘,", iconSettings, func() { a.settingsOpen = true }),
 	)

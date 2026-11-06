@@ -247,12 +247,12 @@ func (a *app) settingsEditor(c *ui.Context) {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Pacman sarı, gözlü bir slime: silerken ağzı üçgen gibi açılır; Kuyruklu yıldız gittiği yere ışık bırakır. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir, ayarı yoktur. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Wrap().Children(func() {
-					for k := caretKind(0); k < caretKinds; k++ {
+					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
-						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretNames[k], caret == int(k), func() { caretMock(c, k) }) {
+						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), caret == int(k), func() { caretMock(c, k) }) {
 							caret = int(k)
 						}
 					}
@@ -311,29 +311,11 @@ func caretMock(c *ui.Context, kind caretKind) {
 	cl := ryugo.From(c).Colors
 	ui.Row(c).Width(112).Height(66).Background(cl.Well).Padding(0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Merhab").FontSize(15).FontWeight(560).TextColor(cl.Text)
-		switch kind {
-		case caretMizan:
+		switch i := int(kind) - int(caretFirstFX); {
+		case kind == caretMizan:
 			ui.Box(c).Width(2).Height(20).Radius(rad(1)).Background(cl.Accent)
-		case caretPacman:
-			ui.Box(c).Size(14, 24).Draw(func(p *ui.Painter, r ui.Rect) {
-				body, ink := ui.Hex("#ffd60a"), ui.Hex("#2a1d00")
-				x, y, w, h := r.X+2.5, r.Y+1.5, float32(9), float32(21)
-				p.Fill(ui.Rect{X: x, Y: y, W: w, H: h}, withAlpha(body, 0.9), rad(5))
-				p.Fill(ui.Rect{X: x + w*0.62 - 1.6, Y: y + h*0.3 - 1.6, W: 3.2, H: 3.2}, ink, 1.6)
-				tri := &ui.Path{}
-				tri.MoveTo(x+w/2, y+h*0.62).LineTo(x+w+1, y+h*0.62-3.5).LineTo(x+w+1, y+h*0.62+3.5).Close()
-				p.FillPath(tri, withAlpha(ink, 0.8))
-			})
-		case caretComet:
-			ui.Box(c).Size(30, 22).Draw(func(p *ui.Painter, r ui.Rect) {
-				a, b := ui.Hex("#22d3ee"), ui.Hex("#e879f9")
-				for i := 0; i < 9; i++ {
-					t := float64(i) / 9
-					w := float32(3 + 12*(1-t))
-					p.Fill(ui.Rect{X: r.X + float32(t*22), Y: r.Y + r.H/2 - w/2, W: 4, H: w}, withAlpha(mix(a, b, t), 0.55*(1-t)+0.1), 2)
-				}
-				p.Fill(ui.Rect{X: r.X + 24, Y: r.Y + 1, W: 3, H: r.H - 2}, mix(a, ui.RGBA(255, 255, 255, 1), 0.3), 1.5)
-			})
+		case i >= 0 && i < len(caretPresets):
+			ui.Box(c).Size(36, 24).Draw(func(p *ui.Painter, r ui.Rect) { caretPresets[i].mock(p, r, ryugo.Painting(p).Dark) })
 		default:
 			ui.Box(c).Width(9).Height(21).Radius(rad(5)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ui.Hex("#7cf75e"), To: ui.Hex("#2f9a1c")}).Border(1, ui.Hex("#59f939").Alpha(0.6))
 		}

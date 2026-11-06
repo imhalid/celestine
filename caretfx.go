@@ -23,13 +23,93 @@ type caretKind int
 const (
 	caretSlime caretKind = iota
 	caretMizan
-	caretPacman
-	caretComet
-	caretKinds
+	caretFirstFX // the presets of caretPresets follow: each a caret that is always as it is, with nothing to set
 )
 
-// caretNames are what the carets are called.
-var caretNames = [caretKinds]string{"Slime", "Mizan", "Pacman", "Kuyruklu yıldız"}
+// caretFX is a caret of the presets: told what happened each frame, it draws itself.
+type caretFX interface {
+	draw(p *ui.Painter, f caretFrame, k kick)
+	shift(dy float32) // the page scrolled: what it holds moves with it
+	reset()           // a page was opened: start clean
+}
+
+// caretPreset is a ready caret: its name, how to make one, and how it looks in the settings' tile.
+type caretPreset struct {
+	name string
+	make func() caretFX
+	mock func(p *ui.Painter, r ui.Rect, dark bool)
+}
+
+// caretPresets are the carets after the slime and the mizan.
+var caretPresets []caretPreset
+
+func init() {
+	caretPresets = []caretPreset{
+		{"Pacman", func() caretFX { return newPacman() }, pacmanMock},
+		{"Kuyruklu yıldız", func() caretFX { return newComet() }, cometMock},
+		{"Jöle (smear)", func() caretFX { return newSmear() }, smearMock},
+		{"Enerji", func() caretFX { return newEnergy(false) }, energyMock},
+		{"Aurora", func() caretFX { return newEnergy(true) }, auroraMock},
+		{"CRT", func() caretFX { return newCRT(false) }, crtMock},
+		{"Neon", func() caretFX { return newCRT(true) }, neonMock},
+		{"Back-man", func() caretFX { return newBackman() }, backmanMock},
+		{"Shredder", func() caretFX { return newShredder() }, shredderMock},
+		{"Portal", func() caretFX { return newPortal() }, portalMock},
+		{"Buharlaşma", func() caretFX { return newEvaporate() }, evaporateMock},
+		{"Harf pop", func() caretFX { return newLetterPop(false) }, letterPopMock},
+		{"Yükselen harfler", func() caretFX { return newLetterPop(true) }, riseMock},
+		{"Şimşek", func() caretFX { return newThunder() }, thunderMock},
+		{"Havai fişek", func() caretFX { return newFireworks() }, fireworkMock},
+		{"Örs kıvılcımı", func() caretFX { return newAnvil() }, anvilMock},
+		{"Daktilo", func() caretFX { return newTypewriter() }, typewriterMock},
+		{"Piksel izi", func() caretFX { return newPixelTrail() }, pixelTrailMock},
+		{"Yıldız tozu", func() caretFX { return newStardust() }, stardustMock},
+		{"Hız iblisi", func() caretFX { return newSpeedDemon() }, speedMock},
+		{"Ateş başı", func() caretFX { return newHotHead() }, hotHeadMock},
+		{"Meşale", func() caretFX { return newTorch() }, torchMock},
+	}
+}
+
+// caretCount is how many carets there are, the slime and the mizan with the presets.
+func caretCount() caretKind { return caretKind(int(caretFirstFX) + len(caretPresets)) }
+
+// caretName is what caret k is called.
+func caretName(k caretKind) string {
+	switch {
+	case k == caretSlime:
+		return "Slime"
+	case k == caretMizan:
+		return "Mizan"
+	case int(k)-int(caretFirstFX) < len(caretPresets):
+		return caretPresets[int(k)-int(caretFirstFX)].name
+	}
+	return ""
+}
+
+// fxOf is the caret of preset i, made the first time it is asked for.
+func (a *app) fxOf(i int) caretFX {
+	for len(a.fx) < len(caretPresets) {
+		a.fx = append(a.fx, caretPresets[len(a.fx)].make())
+	}
+	return a.fx[i]
+}
+
+// fxNamed is the caret of the preset called name, or nil.
+func (a *app) fxNamed(name string) caretFX {
+	for i, c := range caretPresets {
+		if c.name == name {
+			return a.fxOf(i)
+		}
+	}
+	return nil
+}
+
+// eachFX is fn for every caret of the presets made so far.
+func (a *app) eachFX(fn func(caretFX)) {
+	for _, c := range a.fx {
+		fn(c)
+	}
+}
 
 // kick is what happened to the text since the caret was last drawn.
 type kick struct {
@@ -38,6 +118,7 @@ type kick struct {
 	erased int    // letters taken away
 	dir    int    // -1: Backspace, took what was behind the caret; 1: Delete, what was ahead
 	gone   string // what was erased, as far as it is known
+	typed  string // what was written: the letters, a space, a "\n" for Enter
 }
 
 // eraseOf notes letters erased from prev, between from and to, going dir.
@@ -266,4 +347,26 @@ func (m *comet) draw(p *ui.Painter, f caretFrame, k kick) {
 	p.Fill(head, mix(a, ui.RGBA(255, 255, 255, 1), 0.35), 1.5)
 	m.sparkles.draw(p)
 	p.AnimationFrame()
+}
+
+// ---- tiles ----
+
+func pacmanMock(p *ui.Painter, r ui.Rect, dark bool) {
+	body, ink := ui.Hex("#ffd60a"), ui.Hex("#2a1d00")
+	x, y, w, h := r.X+r.W/2-4.5, r.Y+1.5, float32(9), float32(21)
+	p.Fill(ui.Rect{X: x, Y: y, W: w, H: h}, withAlpha(body, 0.9), rad(5))
+	p.Fill(ui.Rect{X: x + w*0.62 - 1.6, Y: y + h*0.3 - 1.6, W: 3.2, H: 3.2}, ink, 1.6)
+	tri := &ui.Path{}
+	tri.MoveTo(x+w/2, y+h*0.62).LineTo(x+w+1, y+h*0.62-3.5).LineTo(x+w+1, y+h*0.62+3.5).Close()
+	p.FillPath(tri, withAlpha(ink, 0.8))
+}
+
+func cometMock(p *ui.Painter, r ui.Rect, dark bool) {
+	a, b := ui.Hex("#22d3ee"), ui.Hex("#e879f9")
+	for i := 0; i < 9; i++ {
+		t := float64(i) / 9
+		w := float32(3 + 12*(1-t))
+		p.Fill(ui.Rect{X: r.X + float32(t*22), Y: r.Y + r.H/2 - w/2, W: 4, H: w}, withAlpha(mix(a, b, t), 0.55*(1-t)+0.1), 2)
+	}
+	p.Fill(ui.Rect{X: r.X + 24, Y: r.Y + 1, W: 3, H: r.H - 2}, mix(a, ui.RGBA(255, 255, 255, 1), 0.3), 1.5)
 }

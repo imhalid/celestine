@@ -113,7 +113,7 @@ func (a *app) loadSettings() {
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
-	a.caretKind = caretKind(a.settings.Caret % int(caretKinds))
+	a.caretKind = caretKind(a.settings.Caret % int(caretCount()))
 	if a.settings.Token == "" {
 		a.settings.Token = newToken()
 		a.saveSettings()
