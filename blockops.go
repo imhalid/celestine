@@ -27,10 +27,29 @@ func under(parent, p richtext.ParagraphStyle) bool {
 	return false
 }
 
+// blockHeadOf is the start of the first paragraph of the block the paragraph at start is in,
+// when that is a run of code or of a quotation: its lines are one block.
+func blockHeadOf(t richtext.Text, start int) int {
+	s, _ := t.ParagraphRange(min(start, t.Len()))
+	for s > 0 {
+		cur := t.ParagraphStyleAt(s)
+		if !cur.CodeBlock && !cur.Quote {
+			break
+		}
+		ps, _ := t.ParagraphRange(s - 1)
+		if prev := t.ParagraphStyleAt(ps); (prev.CodeBlock || prev.Quote) && under(prev, cur) {
+			s = ps
+			continue
+		}
+		break
+	}
+	return s
+}
+
 // blockRange is the block starting at the paragraph holding rune at: from
 // its start to the end of its last paragraph (without the newline after).
 func blockRange(t richtext.Text, at int) (int, int) {
-	s, e := t.ParagraphRange(at)
+	s, e := t.ParagraphRange(blockHeadOf(t, at))
 	st := t.ParagraphStyleAt(s)
 	for e < t.Len() {
 		ns, ne := t.ParagraphRange(e + 1)

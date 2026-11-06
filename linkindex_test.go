@@ -17,8 +17,8 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 	a, _ := c.NewPage(nil, "A")
 	b, _ := c.NewPage(nil, "B")
 	other, _ := c.NewPage(nil, "Other")
-	a.Save("bağlantı: [[B]] ve #etiket\n")
-	other.Save("- [ ] görev\n")
+	a.SaveText("bağlantı: [[B]] ve #etiket\n")
+	other.SaveText("- [ ] görev\n")
 	app := newApp(lib)
 	now := time.Now()
 	backlinks := func() int { return len(app.linksTo(b, now, true)) }
@@ -32,7 +32,7 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 	}
 	// A page written since is read again; one that was not is the same read
 	time.Sleep(2 * time.Millisecond)
-	if err := a.Save("sildim\n"); err != nil {
+	if err := a.SaveText("sildim\n"); err != nil {
 		t.Fatal(err)
 	}
 	app.linksStale()
@@ -43,7 +43,7 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 		t.Fatal("Other was read again, its file as it was")
 	}
 	time.Sleep(2 * time.Millisecond)
-	if err := a.Save("yine [[b]]\n"); err != nil {
+	if err := a.SaveText("yine [[b]]\n"); err != nil {
 		t.Fatal(err)
 	}
 	app.linksStale()
@@ -59,7 +59,7 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 		t.Fatal("the plain text was made again, the file as it was")
 	}
 	time.Sleep(2 * time.Millisecond)
-	a.Save("başka\n")
+	a.SaveText("başka\n")
 	if app.plainOf(a) == first || app.plainOf(a).plain != "başka" {
 		t.Fatalf("the plain text did not follow the write: %q", app.plainOf(a).plain)
 	}

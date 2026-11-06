@@ -37,9 +37,9 @@ func TestLibrarySearch(t *testing.T) {
 	a, tt := newTestApp(t, "bu sayfada çay demlemek anlatılır\n")
 	tt.SetSize(1100, 800)
 	b, _ := a.page.Coll.NewPage(nil, "Çay notları")
-	b.Save("sadece başlıkta çay var gibi\n")
+	b.SaveText("sadece başlıkta çay var gibi\n")
 	c, _ := a.page.Coll.NewPage(nil, "Kahve")
-	c.Save("kahve ve çay birlikte, ayrıca demlemek\n")
+	c.SaveText("kahve ve çay birlikte, ayrıca demlemek\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -105,9 +105,9 @@ func TestSearchFilters(t *testing.T) {
 	a, tt := newTestApp(t, "sıcak su ve çay\n")
 	other, _ := a.lib.NewCollection("Öteki")
 	x, _ := other.NewPage(nil, "Çay rehberi")
-	x.Save("su sıcak olmalı #çay\n")
+	x.SaveText("su sıcak olmalı #çay\n")
 	y, _ := a.page.Coll.NewPage(nil, "Üçüncü")
-	y.Save("çay ve #fikir\n")
+	y.SaveText("çay ve #fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()

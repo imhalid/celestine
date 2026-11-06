@@ -13,7 +13,7 @@ func TestPaletteGoes(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
 	tt.Key(ui.Cmd, ui.KeyK)
 	tt.Advance(300 * time.Millisecond)
-	if !a.pal.open || a.pal.cmds {
+	if !a.pal.open || a.palCmds() {
 		t.Fatalf("not open as the search: %v", tt.Texts())
 	}
 	tt.Type("yuzyil") // accents don't matter
@@ -42,10 +42,10 @@ func TestPaletteGoes(t *testing.T) {
 	tt.Advance(400 * time.Millisecond)
 	tt.Key(ui.Cmd, ui.KeyP)
 	tt.Advance(300 * time.Millisecond)
-	if !a.pal.open || !a.pal.cmds || !tt.HasText("Komutlar") {
-		t.Fatalf("not open as the commands: open=%v cmds=%v", a.pal.open, a.pal.cmds)
+	if !a.pal.open || !a.palCmds() || !tt.HasText("Komutlar") {
+		t.Fatalf("not open as the commands: open=%v cmds=%v", a.pal.open, a.palCmds())
 	}
-	for _, it := range a.paletteItems("yuzyil") {
+	for _, it := range a.paletteItems(">yuzyil") {
 		if it.to.kind != "" {
 			t.Fatalf("a place among the commands: %s", it.title)
 		}
@@ -63,6 +63,33 @@ func TestPaletteGoes(t *testing.T) {
 	tt.Advance(500 * time.Millisecond)
 	if a.pal.open {
 		t.Fatal("Esc did not close it")
+	}
+}
+
+// One palette: a ">" first in what is typed in ⌘K makes it the commands, and
+// taking it away makes it the pages again.
+func TestPaletteIsOneWithCommands(t *testing.T) {
+	a, tt, _ := viewsLibrary(t)
+	tt.Key(ui.Cmd, ui.KeyK)
+	tt.Advance(300 * time.Millisecond)
+	if a.palCmds() {
+		t.Fatal("⌘K starts as the commands")
+	}
+	tt.Type(">çöp")
+	tt.Frame()
+	if !a.palCmds() || a.palQuery() != "çöp" {
+		t.Fatalf("not the commands: %q", a.pal.query)
+	}
+	items := a.paletteItems(a.pal.query)
+	if len(items) == 0 || items[0].sub != "Komut" {
+		t.Fatalf("what the commands list: %+v", items)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(400 * time.Millisecond)
+	tt.Key(ui.Cmd, ui.KeyP)
+	tt.Advance(300 * time.Millisecond)
+	if a.pal.query != ">" || !tt.HasText("Komutlar") {
+		t.Fatalf("⌘P has no > in it: %q", a.pal.query)
 	}
 }
 
@@ -133,15 +160,15 @@ func TestAppTheme(t *testing.T) {
 	blue, plainBg := a.theme.Link, a.pageBg
 	a.openCommands()
 	tt.Frame()
-	tt.Type("renk teması dracula")
+	tt.Type("renk teması gece")
 	tt.Frame()
 	items := a.paletteItems(a.pal.query)
-	if len(items) == 0 || items[0].title != "Renk teması: Dracula" {
+	if len(items) == 0 || items[0].title != "Renk teması: Gece Yarısı" {
 		t.Fatalf("first: %+v", items)
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
-	if a.appTheme().name != "Dracula" || a.settings.AppTheme == 0 {
+	if a.appTheme().name != "Gece Yarısı" || a.settings.AppTheme == 0 {
 		t.Fatalf("theme %s", a.appTheme().name)
 	}
 	if green := a.theme.Link; green == blue {
@@ -155,7 +182,7 @@ func TestAppTheme(t *testing.T) {
 	tt.SetDark(true)
 	tt.Frame()
 	if luma(a.pageBg) >= luma(light) {
-		t.Fatalf("Dracula dark page %v is not darker than the light %v", a.pageBg, light)
+		t.Fatalf("Gece Yarısı dark page %v is not darker than the light %v", a.pageBg, light)
 	}
 	for i := range appThemes {
 		a.setAppTheme(i)
@@ -165,7 +192,7 @@ func TestAppTheme(t *testing.T) {
 		}
 	}
 	a.settingsOpen, a.settingsTab = true, 0
-	tt.Advance(300 * time.Millisecond)
+	tt.Advance(900 * time.Millisecond)
 	if !tt.HasText("Renk teması") {
 		t.Fatalf("no picker: %v", tt.Texts())
 	}

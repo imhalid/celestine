@@ -59,6 +59,28 @@ func (a *app) paraAtY(y float32) (richtext.ParagraphBox, bool) {
 	return richtext.ParagraphBox{}, false
 }
 
+// blockHead is the paragraph the block holding the paragraph at start begins at: a block of
+// code, or a quotation, is one block of many lines, and the grip of each line is that of the
+// first.
+func (a *app) blockHead(start int) int { return blockHeadOf(a.doc.Text(), start) }
+
+// gripAt puts the grip by the block of paragraph box b: where its first line is.
+func (a *app) gripAt(b richtext.ParagraphBox) {
+	g := &a.grip
+	head := a.blockHead(b.Start)
+	g.para, g.top, g.h = b.Start, b.Top, b.Height
+	if head == b.Start {
+		return
+	}
+	for _, hb := range a.boxes {
+		if hb.Start == head {
+			g.para, g.top, g.h = hb.Start, hb.Top, hb.Height
+			return
+		}
+	}
+	g.para = head // its first line is out of view: it follows when it is back
+}
+
 // trackGrip follows the pointer over the editor to put the grip by its paragraph.
 func (a *app) trackGrip(ed ui.Element) {
 	g := &a.grip
@@ -69,7 +91,7 @@ func (a *app) trackGrip(ed ui.Element) {
 	switch {
 	case over && x >= 0 && x < a.editorR.W+10:
 		if b, ok := a.paraAtY(y); ok {
-			g.para, g.top, g.h = b.Start, b.Top, b.Height
+			a.gripAt(b)
 			return
 		}
 	case x >= -40 && x < 0 && g.para >= 0 && y >= g.top-6 && y < g.top+g.h+6:
@@ -78,6 +100,23 @@ func (a *app) trackGrip(ed ui.Element) {
 	if !g.hover {
 		g.para = -1
 	}
+}
+
+// The grip is as tall as a line of text, and small.
+const (
+	gripW = 16
+	gripH = 20
+)
+
+// firstLineH is the height of the first line of the block at para: a line of
+// its text (a heading's is taller), or the block when it is lower - a table, a
+// picture - so that the grip is at its top.
+func (a *app) firstLineH(para int, h float32) float32 {
+	size := a.font.Size
+	if st := a.doc.Text().ParagraphStyleAt(min(para, a.doc.Text().Len())); st.Heading > 0 && a.theme != nil {
+		size *= a.theme.Headings[min(max(st.Heading, 1), 6)-1].Size
+	}
+	return min(h, size*a.font.LineHeight)
 }
 
 // gutterW is the strip of the page's margin left of the text, where the grip
@@ -110,7 +149,7 @@ func (a *app) gutterView(c *ui.Context) {
 		gut := ui.Box(c.Key("gutter")).Absolute().Left(x0).Top(top).Size(r.X-x0, bottom-top).Cursor(ui.CursorText)
 		if _, y, over := gut.PointerPosition(); over {
 			if b, ok := a.paraAtY(y + top - r.Y); ok {
-				g.para, g.top, g.h = b.Start, b.Top, b.Height
+				a.gripAt(b)
 				if gut.Clicked() {
 					a.doc.SetSelection(b.Start, b.Start)
 					a.refocus = true
@@ -133,10 +172,23 @@ func (a *app) gripView(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	r := a.editorR
-	// the first line of the paragraph: a heading's is taller
-	line := min(g.h, a.font.Size*a.font.LineHeight*1.6)
+	// where the paragraph is now: the page may have scrolled or been edited since the pointer was over it
+	found := false
+	for _, b := range a.boxes {
+		if b.Start == g.para {
+			g.top, g.h, found = b.Top, b.Height, true
+			break
+		}
+	}
+	if !found {
+		g.hover = false
+		return
+	}
+	// the first line of the block: the grip is as tall as a line of text and level with it, at the block's top
+	line := a.firstLineH(g.para, g.h)
+	gy := r.Y + g.top + max(0, (line-gripH)/2)
 	ui.Overlay(c, func() {
-		grip := ui.Box(c.Key("grip")).Absolute().Left(r.X-30).Top(r.Y+g.top+(line-24)/2).Size(22, 24).Radius(6).
+		grip := ui.Box(c.Key("grip")).Absolute().Left(r.X-gripW-8).Top(gy).Size(gripW, gripH).Radius(rad(5)).
 			AlignItems(ui.Center).Justify(ui.Center).Label("Blok tutamağı").Role(ui.RoleButton).Cursor(ui.CursorGrab)
 		g.hover = grip.Hovered()
 		if g.hover || g.menu {
@@ -144,15 +196,15 @@ func (a *app) gripView(c *ui.Context) {
 		}
 		grip.Children(func() { gripDots(c, cl.Muted) })
 		// a block with lines under it, or folded: a chevron to fold it, if there is room
-		if t := a.doc.Text(); r.X-52 >= a.pageR.X && g.para <= t.Len() && (blockHasKids(t, g.para) || foldOf(t, g.para) != nil) {
+		if t := a.doc.Text(); r.X-gripW*2-12 >= a.pageR.X && g.para <= t.Len() && (blockHasKids(t, g.para) || foldOf(t, g.para) != nil) {
 			folded := foldOf(t, g.para) != nil
-			ch := ui.Box(c.Key("fold-chevron")).Absolute().Left(r.X-52).Top(r.Y+g.top+(line-24)/2).Size(20, 24).Radius(6).
+			ch := ui.Box(c.Key("fold-chevron")).Absolute().Left(r.X-gripW*2-10).Top(gy).Size(gripW, gripH).Radius(rad(5)).
 				AlignItems(ui.Center).Justify(ui.Center).Label(map[bool]string{true: "Aç", false: "Katla"}[folded]).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if ch.Hovered() {
 				ch.Background(cl.Fill)
 			}
 			ch.Children(func() {
-				i := ui.Icon(c, iconFoldOpen).Width(16).Height(16).TextColor(cl.Muted)
+				i := ui.Icon(c, iconFoldOpen).Width(14).Height(14).TextColor(cl.Muted)
 				if folded {
 					i.Rotate(-90)
 				}
@@ -258,7 +310,7 @@ func (a *app) drawBlockDrop(p *ui.Painter, r ui.Rect) {
 	}
 	th := p.Theme()
 	y := r.Y + g.toY
-	p.Fill(ui.Rect{X: r.X, Y: y - 1, W: r.W, H: 2}, th.Accent, 1)
+	p.Fill(ui.Rect{X: r.X, Y: y - 1, W: r.W, H: 2}, th.Accent, rad(1))
 	p.StrokePath((&ui.Path{}).Circle(r.X-3, y, 3), 1.5, th.Accent)
 }
 
@@ -293,7 +345,7 @@ var iconGrip = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" v
 
 // gripDots are the grip's dots.
 func gripDots(c *ui.Context, color ui.Color) {
-	ui.Icon(c, iconGrip).Width(22).Height(22).TextColor(color)
+	ui.Icon(c, iconGrip).Width(16).Height(16).TextColor(color)
 }
 
 var (
@@ -322,7 +374,7 @@ func (a *app) blockItems() []menuItem {
 		fold = []menuItem{{title: "Katla", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
 	}
 	return append(fold, []menuItem{
-		{title: "Dönüştür…", glyph: iconFormat, nav: true, run: func() { g.view, g.sel, g.seen, g.scroll = "turn", 0, -1, ui.ScrollState{} }},
+		{title: "Dönüştür…", glyph: iconFormat, nav: true, run: func() { g.view, g.sel, g.seen, g.scroll = "turn", 1, -1, ui.ScrollState{} }},
 		{title: "Çoğalt", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
 		{title: "Yukarı taşı", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
 		{title: "Aşağı taşı", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
@@ -335,13 +387,13 @@ func (a *app) blockItems() []menuItem {
 func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 	g := &a.grip
 	t := ryugo.From(c)
+	back := func() { g.view, g.sel, g.seen, g.scroll = "", 0, -1, ui.ScrollState{} }
 	items := a.blockItems()
-	g.sel = max(0, min(g.sel, len(items)-1))
-	head := float32(0) // the first menu has no header
-	if g.view != "" {
-		head = menuTop + 1 + menuAfter
+	if g.view != "" { // a list gone into: ← Geri is its first line, as any other
+		items = append([]menuItem{{title: "Geri", glyph: iconBack, nav: true, back: true, run: back}}, items...)
 	}
-	pl := placeMenu(c, at.X, at.Y, at.Y+at.H, items, 0, head)
+	g.sel = max(0, min(g.sel, len(items)-1))
+	pl := placeMenu(c, at.X, at.Y, at.Y+at.H, items, 0, 0) // no header
 	keepInSight(g.sel, &g.seen, &g.scroll, pl)
 	choose := func(it menuItem) {
 		it.run()
@@ -349,16 +401,12 @@ func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 			g.menu = false
 		}
 	}
-	back := func() { g.view, g.sel, g.seen, g.scroll = "", 0, -1, ui.ScrollState{} }
 	ww, wh := c.Size()
 	if ui.Box(c.Key("block-away")).Absolute().Left(0).Top(0).Size(ww, wh).Clicked() {
 		g.menu = false
 		return
 	}
 	m := &menuPanel{key: "block", label: "Blok menüsü", pl: pl, items: items, sel: g.sel, selPtr: &g.sel, hoverSeen: &g.hseen, scroll: &g.scroll, choose: choose, empty: "Boş"}
-	if g.view != "" {
-		m.head = func() { menuBack(c, t, "Dönüştür", back) }
-	}
 	panel := a.drawMenu(c, t, m).Focusable().Focus()
 	switch {
 	case panel.Shortcut(0, ui.KeyEscape):
@@ -371,6 +419,8 @@ func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 		g.sel = min(g.sel+1, len(items)-1)
 	case panel.Shortcut(0, ui.KeyUp):
 		g.sel = max(g.sel-1, 0)
+	case g.view != "" && panel.Shortcut(0, ui.KeyLeft):
+		back()
 	case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
 		choose(items[g.sel])
 	}

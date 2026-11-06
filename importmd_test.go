@@ -62,7 +62,7 @@ func TestImportMarkdown(t *testing.T) {
 	if plan == nil {
 		t.Fatal("the front matter's title")
 	}
-	body, _ := plan.Body()
+	body, _ := plan.Text()
 	if !strings.Contains(body, "#fikir #iş/yeni") || !strings.Contains(body, "![sema](resim-") || !strings.Contains(body, "![alt](resim-") || !strings.Contains(body, "![](yok.png)") {
 		t.Fatalf("body:\n%s", body)
 	}

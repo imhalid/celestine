@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/richtext"
 )
 
 func TestSplitCells(t *testing.T) {
@@ -23,40 +21,89 @@ func TestSplitCells(t *testing.T) {
 			t.Errorf("%q: %q, want %q", in, got, want)
 		}
 	}
-	if got := joinCells([]string{"a|b", "", "c"}); got != "| a\\|b |  | c |" {
-		t.Errorf("join: %q", got)
+}
+
+func TestTableModelFile(t *testing.T) {
+	m := newTable(2, 2)
+	m.cols[0].Name = "Ad"
+	m.cols[1] = tableCol{Name: "Sayı", Kind: kindNumber, Align: 2, Calc: "sum"}
+	m.rows[0] = []string{"elma \"x\"", "3"}
+	m.rows[1] = []string{"armut", "12,5"}
+	back, ok := parseTable(m.text())
+	if !ok || back.text() != m.text() || back.rows[0][0] != "elma \"x\"" {
+		t.Fatalf("%q -> %+v %v", m.text(), back, ok)
+	}
+	if got := m.calc(1); got != "15.5" {
+		t.Fatalf("sum: %q", got)
+	}
+	m.cols[1].Calc = "avg"
+	if got := m.calc(1); got != "7.75" {
+		t.Fatalf("avg: %q", got)
+	}
+	if _, ok := parseTable("bu bir tablo değil"); ok {
+		t.Fatal("read a table out of nothing")
+	}
+}
+
+func TestTableModelEdits(t *testing.T) {
+	m := newTable(2, 2)
+	m.rows[0][0], m.rows[1][0] = "a", "b"
+	c := m.clone()
+	c.addRow(0)
+	c.addCol(0)
+	if len(m.rows) != 2 || len(m.cols) != 2 || len(c.rows) != 3 || len(c.cols) != 3 || c.rows[2][0] != "b" || c.rows[1][0] != "" {
+		t.Fatalf("clone shares: %+v / %+v", m, c)
+	}
+	c.delCol(0)
+	c.delCol(0)
+	c.delCol(0)
+	if len(c.cols) != 1 {
+		t.Fatalf("the last column went: %d", len(c.cols))
+	}
+	m.setKind(0, kindCheck)
+	if m.rows[0][0] != "1" || m.cols[0].Align != 1 {
+		t.Fatalf("check: %+v", m)
+	}
+	if got := m.cols[0].nextCalc(); got != "count" {
+		t.Fatalf("a check's calculations: %q", got)
+	}
+}
+
+func TestTableFromMarkdown(t *testing.T) {
+	m := tableFromMarkdown([]string{"| Ad | Sayı |", "| --- | ---: |", "| elma | 3 |", "| armut | 12 |"})
+	if m == nil || len(m.cols) != 2 || len(m.rows) != 2 || m.cols[1].Kind != kindNumber || m.cols[1].Align != 2 || m.cols[0].Kind != kindText {
+		t.Fatalf("%+v", m)
 	}
 }
 
 const tableMD = "önce\n\n| Ad | Sayı |\n| --- | ---: |\n| elma | 3 |\n| armut | 12 |\n\nsonra\n"
 
-// TestTableDrawn: a table the caret is not in is drawn as a table, each cell
-// a place to click; with the caret in it, it is the Markdown.
-func TestTableDrawn(t *testing.T) {
+// A Markdown table other tools wrote is read as a table of ours, and is
+// written as one: the fenced block, which reads back as it was.
+func TestTableRead(t *testing.T) {
 	a, tt := newTestApp(t, tableMD)
 	tt.SetSize(1000, 700)
-	a.doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
-	tt.Advance(200 * time.Millisecond)
-	tb, ok := tableBlockAt(a.doc.Text(), strings.Index(a.doc.Text().String(), "| Ad"))
-	if !ok || tb.ncols != 2 || len(tb.paras) != 4 || tb.aligns[1] != 2 {
-		t.Fatalf("table: %+v %v", tb, ok)
+	md := a.pageMarkdown(a.page, a.doc.Text())
+	if strings.Contains(md, "| elma |") || !strings.Contains(md, "```"+tableLang+"\n") || !strings.Contains(md, `["elma","3"]`) {
+		t.Fatalf("written: %q", md)
+	}
+	if !strings.Contains(a.doc.Text().String(), "önce") || strings.Contains(a.doc.Text().String(), "elma") {
+		t.Fatalf("the table is in the text: %q", a.doc.Text().String())
 	}
 	if len(a.tableSeen) != 6 { // the header and two rows, two cells each
 		t.Fatalf("cells: %d", len(a.tableSeen))
 	}
-	// the caret into it: Markdown, no cells
-	a.doc.SetSelection(tb.start+2, tb.start+2)
-	tt.Frame()
-	tt.Frame()
-	if len(a.tableSeen) != 0 {
-		t.Fatalf("drawn with the caret in it: %d", len(a.tableSeen))
+	a.save()
+	back := bodyMarkdown(a.parse(md))
+	if strings.TrimSpace(back) != strings.TrimSpace(md) {
+		t.Fatalf("not read back as it was:\n%q\n%q", md, back)
 	}
 }
 
 // TestTableCellEdit: a click on a cell opens it; Enter writes it; Tab goes on
-// and past the last cell adds a row; the buttons add and take away.
+// and past the last cell adds a row; the buttons add, take away and say what a column is.
 func TestTableCellEdit(t *testing.T) {
 	a, tt := newTestApp(t, tableMD)
 	tt.SetSize(1000, 700)
@@ -64,16 +111,22 @@ func TestTableCellEdit(t *testing.T) {
 	tt.Frame()
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	cell := func(line, col int) tableHit {
+	cell := func(row, col int) tableHit {
 		for _, h := range a.tableSeen {
-			if h.line == line && h.col == col {
+			if h.row == row && h.col == col {
 				return h
 			}
 		}
-		t.Fatalf("no cell %d,%d", line, col)
+		t.Fatalf("no cell %d,%d", row, col)
 		return tableHit{}
 	}
-	h := cell(2, 0)
+	model := func() *tableModel {
+		for _, h := range a.tableSeen {
+			return h.ch.tbl
+		}
+		return nil
+	}
+	h := cell(0, 0)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(200 * time.Millisecond)
 	if !a.cellEd.open || a.cellEd.text != "elma" {
@@ -86,71 +139,109 @@ func TestTableCellEdit(t *testing.T) {
 	tt.Type("kiraz")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "| kiraz | 3 |") || a.cellEd.open {
-		t.Fatalf("after Enter: %q open %v", md, a.cellEd.open)
+	tt.Frame()
+	if m := model(); m.cell(0, 0) != "kiraz" || a.cellEd.open {
+		t.Fatalf("after Enter: %q open %v", m.cell(0, 0), a.cellEd.open)
 	}
 	// Tab goes to the next cell, and writes this one
-	tt.Frame()
-	tt.Advance(100 * time.Millisecond)
-	h = cell(2, 1)
+	h = cell(0, 1)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(200 * time.Millisecond)
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("7")
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(200 * time.Millisecond)
-	if !a.cellEd.open || a.cellEd.line != 3 || a.cellEd.col != 0 || a.cellEd.text != "armut" {
+	if !a.cellEd.open || a.cellEd.row != 1 || a.cellEd.col != 0 || a.cellEd.text != "armut" {
 		t.Fatalf("after Tab: %+v", a.cellEd)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "| kiraz | 7 |") {
-		t.Fatalf("Tab did not write: %q", md)
+	if m := model(); m.cell(0, 1) != "7" {
+		t.Fatalf("Tab did not write: %+v", m.rows)
 	}
 	// Tab past the last cell: a new row
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(100 * time.Millisecond)
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(200 * time.Millisecond)
-	tb := a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
-	if len(tb.paras) != 5 || a.cellEd.line != 4 {
-		t.Fatalf("no new row: %d lines, editing %+v", len(tb.paras), a.cellEd)
+	if m := model(); len(m.rows) != 3 || a.cellEd.row != 2 {
+		t.Fatalf("no new row: %d rows, editing %+v", len(m.rows), a.cellEd)
 	}
 	// the buttons: a column, and then it is taken away; a row away
 	if err := tt.Click("Sağa sütun ekle"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(200 * time.Millisecond)
-	tb = a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
-	if tb.ncols != 3 {
-		t.Fatalf("columns %d", tb.ncols)
+	if m := model(); len(m.cols) != 3 {
+		t.Fatalf("columns %d", len(m.cols))
 	}
-	h = cell(0, 1) // the new column came after the first
+	h = cell(-1, 1)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(200 * time.Millisecond)
 	if err := tt.Click("Sütunu sil"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	tb = a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
-	if tb.ncols != 2 {
-		t.Fatalf("columns %d after delete", tb.ncols)
+	if m := model(); len(m.cols) != 2 {
+		t.Fatalf("columns %d after delete", len(m.cols))
 	}
-	h = cell(4, 0)
+	h = cell(2, 0)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(200 * time.Millisecond)
 	if err := tt.Click("Satırı sil"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	tb = a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
-	if len(tb.paras) != 4 {
-		t.Fatalf("lines %d after delete", len(tb.paras))
+	if m := model(); len(m.rows) != 2 {
+		t.Fatalf("rows %d after delete", len(m.rows))
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "| armut | 12 |") || !strings.Contains(md, "sonra") {
-		t.Fatalf("what is left: %q", md)
+	// the foot: a column that is a number sums
+	h = cell(0, 1)
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(200 * time.Millisecond)
+	if model().cols[1].Kind != kindNumber {
+		t.Fatalf("the column was read as %q", model().cols[1].Kind)
+	}
+	if err := tt.Click("Alt satır: Hesap yok"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(200 * time.Millisecond)
+	if m := model(); m.cols[1].Calc != "sum" || m.calc(1) != "19" {
+		t.Fatalf("foot: %q %q", m.cols[1].Calc, m.calc(1))
+	}
+	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, `"calc":"sum"`) || !strings.Contains(md, "sonra") {
+		t.Fatalf("what is written: %q", md)
+	}
+	// undo brings back the table as it was
+	a.doc.Undo()
+	tt.Frame()
+	if m := model(); m.cols[1].Calc != "" {
+		t.Fatalf("undo left the foot: %+v", m.cols)
 	}
 }
 
-// TestTableInserted: Ekle… ▸ Tablo makes a table shown as one, its first cell open.
+// A check is ticked by a click, with no cell to write in.
+func TestTableCheck(t *testing.T) {
+	a, tt := newTestApp(t, "```"+tableLang+"\n"+`[{"name":"Bitti","kind":"check","align":1},{"name":"İş"}]`+"\n"+`["","a"]`+"\n```\n")
+	tt.SetSize(1000, 700)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	var h tableHit
+	for _, c := range a.tableSeen {
+		if c.row == 0 && c.col == 0 {
+			h = c
+		}
+	}
+	if h.ch == nil {
+		t.Fatal("no cell")
+	}
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(200 * time.Millisecond)
+	if a.cellEd.open || !strings.Contains(a.pageMarkdown(a.page, a.doc.Text()), `["1","a"]`) {
+		t.Fatalf("not ticked: open %v, %q", a.cellEd.open, a.pageMarkdown(a.page, a.doc.Text()))
+	}
+}
+
+// TestTableInserted: Ekle… ▸ Tablo makes a table, its first cell open.
 func TestTableInserted(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.SetSize(1000, 700)
@@ -162,17 +253,17 @@ func TestTableInserted(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	if !a.cellEd.open || a.cellEd.line != 0 || a.cellEd.text != "Sütun 1" {
+	if !a.cellEd.open || a.cellEd.row != -1 || a.cellEd.text != "Sütun 1" {
 		t.Fatalf("cell: %+v", a.cellEd)
 	}
-	if len(a.tableSeen) == 0 {
-		t.Fatal("not drawn as a table")
+	if len(a.tableSeen) != 9 { // three columns, a header and two rows
+		t.Fatalf("cells drawn: %d", len(a.tableSeen))
 	}
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("Ad")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "| Ad | Sütun 2 | Sütun 3 |") {
+	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, `[{"name":"Ad"},{"name":"Sütun 2"}`) {
 		t.Fatalf("%q", md)
 	}
 }
@@ -196,8 +287,7 @@ func TestCellSpans(t *testing.T) {
 	}
 }
 
-// TestTableColumnDrag: a column border is dragged; let go, its width is the
-// dashes of the separator line, as any tool leaves them.
+// TestTableColumnDrag: a column border is dragged; let go, its width is the table's.
 func TestTableColumnDrag(t *testing.T) {
 	a, tt := newTestApp(t, tableMD)
 	tt.SetSize(1000, 700)
@@ -219,48 +309,15 @@ func TestTableColumnDrag(t *testing.T) {
 	}
 	tt.Release(x0+80, y0)
 	tt.Advance(200 * time.Millisecond)
-	md := a.pageMarkdown(a.page, a.doc.Text())
-	line := ""
-	for _, l := range strings.Split(md, "\n") {
-		if strings.Contains(l, "---") {
-			line = l
-		}
+	tt.Frame()
+	var w float32
+	for _, h := range a.tableSeen {
+		w = h.ch.tbl.cols[0].W
 	}
-	tb := a.freshTable(strings.Index(a.doc.Text().String(), "| Ad"))
-	if tb.colHint(0) < b.w+60 || a.colDrag.active {
-		t.Fatalf("the column is %v wide in the dashes, was %v: %q", tb.colHint(0), b.w, line)
+	if w < b.w+60 || a.colDrag.active {
+		t.Fatalf("the column is %v wide, was %v", w, b.w)
 	}
 	if an, ca := a.doc.Selection(); an != 0 || ca != 0 {
 		t.Fatalf("the caret moved: %d %d", an, ca)
-	}
-	if !strings.Contains(line, "---:") {
-		t.Fatalf("the alignment of the other column is lost: %q", line)
-	}
-}
-
-// tableAtCached reads a table as tableBlockAt does, once for each version.
-func TestTableAtCached(t *testing.T) {
-	var b strings.Builder
-	b.WriteString("| a | b |\n| --- | --- |\n")
-	for i := 0; i < 50; i++ {
-		fmt.Fprintf(&b, "| %d | x |\n", i)
-	}
-	a, tt := newTestApp(t, b.String())
-	tt.Frame()
-	pos := a.boxes[3].Start
-	want, ok := tableBlockAt(a.doc.Text(), pos)
-	if !ok {
-		t.Fatal("not a table")
-	}
-	got, ok := tableAtCached(a.doc, pos)
-	if !ok || got.start != want.start || got.end != want.end || len(got.cells) != len(want.cells) {
-		t.Fatalf("cached %+v, read %+v", got, want)
-	}
-	if again, _ := tableAtCached(a.doc, a.boxes[5].Start); len(again.cells) != len(want.cells) || tableMemo.hits[a.boxes[5].Start] == nil {
-		t.Fatal("another line of the table was read again")
-	}
-	a.doc.SetText(richtext.ParseMarkdown("yok artık tablo"))
-	if _, ok := tableAtCached(a.doc, 0); ok {
-		t.Fatal("a text that is no table, read as one")
 	}
 }

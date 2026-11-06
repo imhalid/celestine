@@ -20,8 +20,8 @@ const embedH = 200
 
 var embedLine = regexp.MustCompile(`(?m)^!\[\[([^\[\]|\n]+)\]\]$`)
 
-// withEmbeds makes the cards of the lines ![[Page]] of t that stand alone.
-func (a *app) withEmbeds(t richtext.Text) richtext.Text {
+// embedsIn makes the cards of the lines ![[Page]] of t that stand alone.
+func embedsIn(t richtext.Text) richtext.Text {
 	s := t.String()
 	if !strings.Contains(s, "![[") {
 		return t
@@ -35,7 +35,8 @@ func (a *app) withEmbeds(t richtext.Text) richtext.Text {
 			continue
 		}
 		attrs := t.AttributesAt(start)
-		attrs.Attachment = a.embedAttachment(&chip{kind: "embed", target: strings.TrimSpace(s[m[2]:m[3]])})
+		ch := &chip{kind: "embed", target: strings.TrimSpace(s[m[2]:m[3]])}
+		attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
 		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
 	}
 	return t
@@ -58,7 +59,7 @@ func (a *app) embedLines(p *Page) []string {
 		a.embedCache = map[string][]string{}
 	}
 	var out []string
-	if body, err := p.Body(); err == nil {
+	if body, err := p.Text(); err == nil {
 		inFence := false
 		for _, ln := range strings.Split(body, "\n") {
 			if fenceLine.MatchString(ln) {
@@ -94,9 +95,9 @@ func (a *app) drawEmbed(p *ui.Painter, r ui.Rect, ch *chip) {
 	a.chipHits = append(a.chipHits, chipHit{r, ch})
 	target := a.pageTitled(ch.target)
 	hover := a.hoverCh == ch
-	p.Fill(r, cl.WellBorder, 12)
-	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, map[bool]ui.Color{true: cl.Fill, false: cl.Well}[hover], 11)
-	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 10, W: 3, H: r.H - 20}, cl.Accent.Alpha(0.8), 1.5)
+	p.Fill(r, cl.WellBorder, rad(12))
+	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, map[bool]ui.Color{true: cl.Fill, false: cl.Well}[hover], rad(11))
+	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 10, W: 3, H: r.H - 20}, cl.Accent.Alpha(0.8), rad(1.5))
 	size := a.fontSize() * 0.92
 	head := ui.Span{Text: ch.target, Size: size, Weight: 680, Color: cl.Accent}
 	if target == nil {
@@ -114,7 +115,7 @@ func (a *app) drawEmbed(p *ui.Painter, r ui.Rect, ch *chip) {
 	}
 	y := r.Y + 10 + size*1.5 + 6
 	bottom := r.Y + r.H - 8
-	p.Clip(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, 11, func() {
+	p.Clip(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, rad(11), func() {
 		for _, ln := range a.embedLines(target) {
 			ln = strings.TrimSpace(ln)
 			bullet := ""

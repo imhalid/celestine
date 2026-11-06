@@ -127,11 +127,11 @@ func TestMenuInto(t *testing.T) {
 	if got := mdOf(a.doc); got != "Önce\n\n@" {
 		t.Fatalf("the text changed: %q", got)
 	}
-	n := len(a.menuItems(""))
+	n := len(a.menuItems("")) - 1 // without ← Geri, the first line
 	typeEach(tt, "zzzz")
 	tt.Frame()
-	if len(a.menuItems(a.slashQuery())) >= n && n > 0 {
-		t.Fatalf("typing did not narrow: %d", len(a.menuItems(a.slashQuery())))
+	if got := len(a.menuItems(a.slashQuery())) - 1; got >= n && n > 0 {
+		t.Fatalf("typing did not narrow: %d", got)
 	}
 	for range 4 {
 		tt.Key(0, ui.KeyBackspace)
@@ -248,7 +248,7 @@ func TestMenuField(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tt.Frame()
-	if got := len(a.menuItems("")); got != 2 {
+	if got := len(a.menuItems("")) - 1; got != 2 { // ← Geri is the first line
 		t.Fatalf("pages in the menu: %d", got)
 	}
 	typeEach(tt, "alf")
@@ -259,7 +259,7 @@ func TestMenuField(t *testing.T) {
 	if got := mdOf(a.doc); got != "Önce\n\n@" {
 		t.Fatalf("the text changed: %q", got)
 	}
-	if items := a.menuItems(a.slash.field); len(items) != 2 || items[0].title != "Alfa" {
+	if items := a.menuItems(a.slash.field); len(items) != 3 || items[1].title != "Alfa" { // ← Geri, Alfa, and a new page of that name
 		t.Fatalf("not narrowed: %v", lineTitles(items))
 	}
 	tt.Key(0, ui.KeyEnter)
@@ -368,5 +368,73 @@ func TestChipHover(t *testing.T) {
 	tt.Frame()
 	if !a.dateEdit.open {
 		t.Fatal("a date did not open its calendar")
+	}
+}
+
+// In a menu inside the / menu, ↑ from the first line reaches ← Geri, and ↵ goes back.
+func TestSlashMenuKeysReachBack(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	tt.SetSize(900, 600)
+	typeEach(tt, "/")
+	tt.Advance(200 * time.Millisecond)
+	a.enterView("insert")
+	tt.Advance(200 * time.Millisecond)
+	if a.slash.view != "insert" || a.slash.sel != 1 {
+		t.Fatalf("not in the menu, on its first line: view %q sel %d", a.slash.view, a.slash.sel)
+	}
+	if items := a.menuItems(""); len(items) < 2 || !items[0].back || items[0].title != "Geri" {
+		t.Fatalf("← Geri is not the first line: %+v", items)
+	}
+	tt.Key(0, ui.KeyUp)
+	tt.Advance(100 * time.Millisecond)
+	if a.slash.sel != 0 {
+		t.Fatalf("↑ did not reach the way back: sel %d", a.slash.sel)
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(200 * time.Millisecond)
+	if a.slash.view != "" || !a.slash.open {
+		t.Fatalf("↵ on ← Geri: view %q open %v", a.slash.view, a.slash.open)
+	}
+}
+
+// The context menu's inner list has the same way: ↑ to ← Geri and ↵, or ←.
+func TestContextMenuKeysReachBack(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(900, 600)
+	inner := []menuItem{{title: "İç bir", run: func() {}}, {title: "İç iki", run: func() {}}}
+	a.showContext(300, 200, []menuItem{a.into("Daha…", iconPlus, func() []menuItem { return inner })})
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	if err := tt.Click("Daha…"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(200 * time.Millisecond)
+	if len(a.ctx.stack) != 2 {
+		t.Fatalf("not in the inner list: %d", len(a.ctx.stack))
+	}
+	if !tt.HasText("Geri") || a.ctx.sel != 1 {
+		t.Fatalf("← Geri is not a line of the list, or the choice not after it: sel %d %v", a.ctx.sel, tt.Texts())
+	}
+	tt.Key(0, ui.KeyUp)
+	tt.Advance(100 * time.Millisecond)
+	if a.ctx.sel != 0 {
+		t.Fatalf("↑ did not reach the way back: %d", a.ctx.sel)
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(200 * time.Millisecond)
+	if len(a.ctx.stack) != 1 || !a.ctx.open {
+		t.Fatalf("↵ on ← Geri: stack %d open %v", len(a.ctx.stack), a.ctx.open)
+	}
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter) // into it again, and ← goes back
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	if len(a.ctx.stack) != 2 {
+		t.Fatalf("↵ did not go in: %d", len(a.ctx.stack))
+	}
+	tt.Key(0, ui.KeyLeft)
+	tt.Advance(200 * time.Millisecond)
+	if len(a.ctx.stack) != 1 {
+		t.Fatalf("← did not go back: %d", len(a.ctx.stack))
 	}
 }

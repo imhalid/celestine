@@ -51,7 +51,7 @@ func (a *app) statusExtras(c *ui.Context) {
 	}
 	p := a.page
 	if s.ShowToday {
-		b := ui.Row(c.Key("status-today")).Padding(1, 5).Radius(5).AlignItems(ui.Center).Label("Yazma istatistikleri").Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		b := ui.Row(c.Key("status-today")).Padding(1, 5).Radius(rad(5)).AlignItems(ui.Center).Label("Yazma istatistikleri").Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		if b.Hovered() {
 			b.Background(t.SurfaceHover)
 		}
@@ -72,7 +72,7 @@ func (a *app) statusExtras(c *ui.Context) {
 	}
 	if s.ShowLinks {
 		n := len(a.linksTo(p, a.clock(), false))
-		b := ui.Row(c.Key("status-links")).Padding(1, 5).Radius(5).AlignItems(ui.Center).Label("Geri bağlantılar: yan paneli aç").Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		b := ui.Row(c.Key("status-links")).Padding(1, 5).Radius(rad(5)).AlignItems(ui.Center).Label("Geri bağlantılar: yan paneli aç").Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		if b.Hovered() {
 			b.Background(t.SurfaceHover)
 		}

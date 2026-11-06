@@ -44,7 +44,6 @@ type Settings struct {
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
 	// the status bar: what is hidden, and what is shown besides
 	HideSaved bool `json:"hideSaved,omitempty"`
-	HideCaret bool `json:"hideCaret,omitempty"`
 	ShowWords bool `json:"showWords,omitempty"`
 	ShowChars bool `json:"showChars,omitempty"`
 	// more of the status bar, all off to begin with (statusbar.go)
@@ -61,6 +60,7 @@ type Settings struct {
 	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
 	ShowToday     bool           `json:"showToday,omitempty"`   // today's count in the status bar
 	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)
+	Corner        *int           `json:"corner,omitempty"`      // how round the corners are, in percent (radius.go)
 	QuickKey      string         `json:"quickKey,omitempty"`    // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`
 	TreeOpen      []string       `json:"treeOpen,omitempty"`
@@ -113,7 +113,7 @@ func (a *app) loadSettings() {
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
-	a.caretKind = caretKind(a.settings.Caret % 2)
+	a.caretKind = caretKind(a.settings.Caret % int(caretKinds))
 	if a.settings.Token == "" {
 		a.settings.Token = newToken()
 		a.saveSettings()
@@ -326,10 +326,11 @@ func bodyOf(md string) string {
 
 // writeBody gives page p the text body, on disk and in its document if it
 // is open: the window shows it at once. What was typed in it is saved first.
-func (a *app) writeBody(p *Page, body string) error {
+func (a *app) writeBody(p *Page, md string) error {
 	if p == a.page {
 		a.flush()
 	}
+	body := encodeBody(importMarkdown(md))
 	if err := p.Save(body); err != nil {
 		return err
 	}
@@ -339,7 +340,7 @@ func (a *app) writeBody(p *Page, body string) error {
 		if p == a.page {
 			_, caret := doc.Selection()
 			a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-			a.lastSave, a.dirty = a.pageMarkdown(p, doc.Text()), false
+			a.lastSave, a.lastWords, a.dirty = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText())), false
 		}
 	}
 	return nil
@@ -445,7 +446,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				if p == a.page {
 					a.flush() // what is typed, too
 				}
-				body, err := p.Body()
+				body, err := p.Text()
 				if err != nil {
 					return err
 				}
@@ -566,7 +567,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					in.Markdown = expandTemplate(c.Template, title, a.clock()) // as the collection starts its pages
 				}
 				if in.Markdown != "" {
-					if err := p.Save(bodyOf(in.Markdown)); err != nil {
+					if err := p.SaveText(bodyOf(in.Markdown)); err != nil {
 						return err
 					}
 				}
@@ -624,7 +625,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					if p == a.page {
 						a.flush()
 					}
-					body, err := p.Body()
+					body, err := p.Text()
 					if err != nil {
 						return err
 					}

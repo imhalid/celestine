@@ -94,7 +94,7 @@ func (a *app) allTasks(force bool) []taskItem {
 // openTask opens the page of task k with the caret in the task's line.
 func (a *app) openTask(k taskItem) {
 	a.open(k.page)
-	body, _ := k.page.Body()
+	body, _ := k.page.Text()
 	idx := 0
 	for _, t := range tasksOf(k.page, body) {
 		if t.line == k.line {
@@ -140,7 +140,7 @@ func (a *app) toggleTask(t taskItem) {
 	if p == a.page {
 		a.flush()
 	}
-	body, err := p.Body()
+	body, err := p.Text()
 	if err != nil {
 		a.saveErr = err.Error()
 		return
@@ -161,7 +161,7 @@ func (a *app) toggleTask(t taskItem) {
 	} else {
 		lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(lines[t.line], mark)
 	}
-	if err := p.Save(strings.Join(lines, "\n")); err != nil {
+	if err := p.SaveText(strings.Join(lines, "\n")); err != nil {
 		a.saveErr = err.Error()
 		return
 	}
@@ -306,7 +306,7 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 	p := r.task.page
 	folded := a.taskFolded[p]
 	c.Key("tgh:" + p.Dir)
-	head := ui.Row(c).FillWidth().Padding(2, 8, 2, 2).Gap(4).Radius(8).AlignItems(ui.Center).
+	head := ui.Row(c).FillWidth().Padding(2, 8, 2, 2).Gap(4).Radius(rad(8)).AlignItems(ui.Center).
 		Label("Sayfa: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	if gap {
 		head.Margin(14, 0, 0, 0) // the room between two pages' tasks
@@ -317,7 +317,7 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 	a.contextOn(head, func() []menuItem { return a.pageMenu(p, false) })
 	var fold ui.Element
 	head.Children(func() {
-		fold = ui.Box(c.Key("tgh-fold")).Size(26, 26).Shrink(0).Radius(7).Center().Cursor(ui.CursorPointer).
+		fold = ui.Box(c.Key("tgh-fold")).Size(26, 26).Shrink(0).Radius(rad(7)).Center().Cursor(ui.CursorPointer).
 			Label(map[bool]string{true: "Görevleri aç: ", false: "Görevleri kapat: "}[folded] + p.Title).Role(ui.RoleButton)
 		if fold.Hovered() {
 			fold.Background(cl.Fill)
@@ -343,7 +343,7 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 // taskRow is one task: its box, its words (a click goes to its line), its day.
 func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 	c.Key("tk:" + k.page.Dir + ":" + strconv.Itoa(k.line))
-	row := ui.Row(c).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(8).AlignItems(ui.Center)
+	row := ui.Row(c).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(rad(8)).AlignItems(ui.Center)
 	if row.Hovered() {
 		row.Background(cl.Fill.Alpha(0.5))
 	}
@@ -368,7 +368,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 				if !k.done && k.due.Before(startOfDay(a.clock())) {
 					dc = cl.Up
 				}
-				ui.Row(c.Key("due")).Padding(1, 7).Radius(6).Gap(4).AlignItems(ui.Center).Background(dc.Alpha(0.12)).Children(func() {
+				ui.Row(c.Key("due")).Padding(1, 7).Radius(rad(6)).Gap(4).AlignItems(ui.Center).Background(dc.Alpha(0.12)).Children(func() {
 					ui.Icon(c, iconCalendar).Width(12).Height(12).TextColor(dc)
 					ui.Text(c, shortDate(k.due)).FontSize(11.5).TextColor(dc).NoWrap()
 				})

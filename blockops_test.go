@@ -168,3 +168,38 @@ func TestFoldAndUnfold(t *testing.T) {
 		t.Fatalf("not back:\n%q", got)
 	}
 }
+
+// The lines of a block of code are one block: whichever line is asked about, it is the
+// whole of it, and its grip is the first line's.
+func TestCodeBlockIsOneBlock(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n\n```go\nbir\niki\nüç\n```\n\nSonra\n")
+	tt.SetSize(900, 600)
+	tt.Frame()
+	t0 := a.doc.Text()
+	first := at(a.doc, "bir")
+	mid := at(a.doc, "iki")
+	last := at(a.doc, "üç")
+	s0, e0 := blockRange(t0, first)
+	s1, e1 := blockRange(t0, mid)
+	s2, e2 := blockRange(t0, last)
+	if s0 != first || s1 != s0 || s2 != s0 || e0 != e1 || e1 != e2 {
+		t.Fatalf("lines of one block: %d-%d, %d-%d, %d-%d", s0, e0, s1, e1, s2, e2)
+	}
+	if got := t0.Slice(s0, e0).String(); got != "bir\niki\nüç" {
+		t.Fatalf("the block: %q", got)
+	}
+	// the grip of the middle line is the first's
+	for _, b := range a.boxes {
+		if b.Start == mid {
+			a.gripAt(b)
+		}
+	}
+	if a.grip.para != first {
+		t.Fatalf("the grip of a middle line is at %d, not the first line %d", a.grip.para, first)
+	}
+	// deleting from the middle takes the whole block
+	deleteBlock(a.doc, mid)
+	if got := mdOf(a.doc); got != "Önce\n\nSonra" {
+		t.Fatalf("after: %q", got)
+	}
+}

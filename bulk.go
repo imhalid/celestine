@@ -50,14 +50,10 @@ func (a *app) bulkMark(c *ui.Context, p *Page) {
 	if !a.bulk.on {
 		return
 	}
-	cl := ryugo.From(c).Colors
 	on := a.bulk.sel[p]
-	box := ui.Box(c.Key("mark")).Size(18, 18).Radius(5).Center().Shrink(0).Margin(0, 10, 0, 0)
-	if on {
-		box.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Accent, ui.Hex("#ffffff"), 0.18), To: cl.Accent})
-		box.Children(func() { ui.Icon(c, iconCheck).Width(13).Height(13).TextColor(cl.OnAccent) })
-	} else {
-		box.Border(1.5, cl.Muted.Alpha(0.6))
+	box := ryugo.Checkbox(c.Key("mark"), &on, "", ryugo.CheckOptions{}).Shrink(0).Margin(0, 10, 0, 0)
+	if box.Clicked() {
+		a.bulkToggle(p)
 	}
 }
 
@@ -78,7 +74,7 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 	}
 	cl := ryugo.From(c).Colors
 	chosen := a.bulkPages(pages)
-	ui.Row(c.Key("bulk-bar")).FillWidth().Gap(8).Padding(6, 10).Radius(12).AlignItems(ui.Center).Wrap().Background(cl.Accent.Alpha(0.1)).Border(1, cl.Accent.Alpha(0.3)).Children(func() {
+	ui.Row(c.Key("bulk-bar")).FillWidth().Gap(8).Padding(6, 10).Radius(rad(12)).AlignItems(ui.Center).Wrap().Background(cl.Accent.Alpha(0.1)).Border(1, cl.Accent.Alpha(0.3)).Children(func() {
 		msg := strconv.Itoa(len(chosen)) + " seçili"
 		if len(chosen) == 0 {
 			msg = "Satırlara tıklayarak seç"
@@ -138,18 +134,19 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 		if p == a.page {
 			a.flush()
 		}
-		body, err := p.Body()
+		text, err := p.Text()
 		if err != nil {
 			continue
 		}
 		have := false
-		for _, t := range tagsOf(body) {
+		for _, t := range tagsOf(text) {
 			have = have || tagKey(t) == tagKey(tag)
 		}
 		if have {
 			continue
 		}
-		if err := p.Save(strings.TrimRight(body, "\n") + "\n\n#" + tag + "\n"); err != nil {
+		body, _ := p.Body()
+		if err := p.Save(appendLine(body, "#"+tag)); err != nil {
 			a.saveErr = err.Error()
 			continue
 		}

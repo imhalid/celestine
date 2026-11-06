@@ -88,3 +88,26 @@ func (a *app) toggleFold(at int) {
 var iconFoldOpen = icon(`<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>`)
 
 var _ = ui.Rect{}
+
+// unfold puts back what every fold in t holds, as a page is kept with none.
+func unfold(t richtext.Text) richtext.Text {
+	for {
+		found := false
+		for i, r := range t.Runs(0, t.Len()) {
+			att := r.Attributes.Attachment
+			if att == nil {
+				continue
+			}
+			if ch, ok := att.Data.(*chip); ok && ch.kind == "fold" {
+				_, pe := t.ParagraphRange(i)
+				t = t.Replace(pe+1, pe+1, unfold(*ch.hidden))
+				t = t.Replace(i, i+1, richtext.Text{})
+				found = true
+				break
+			}
+		}
+		if !found {
+			return t
+		}
+	}
+}

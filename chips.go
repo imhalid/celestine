@@ -27,6 +27,9 @@ type chip struct {
 	// a fold's: what it hides, and how many lines (fold.go)
 	hidden *richtext.Text
 	lines  int
+	// a table's: what it is, and how wide its columns are (tables.go)
+	tbl *tableModel
+	tw  []float32
 }
 
 // markdown is the chip in the file.
@@ -104,8 +107,9 @@ func (a *app) attachment(ch *chip) *richtext.Attachment {
 
 var wikiInText = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]`)
 
-// withChips turns the [[links]] in t, outside code, into chips.
-func (a *app) withChips(t richtext.Text) richtext.Text {
+// chipsIn turns the [[links]] in t, outside code, into chips: attachments
+// that carry what they are and are not yet drawn (dress draws them).
+func chipsIn(t richtext.Text) richtext.Text {
 	s := t.String()
 	if !strings.Contains(s, "[[") {
 		return t
@@ -118,15 +122,64 @@ func (a *app) withChips(t richtext.Text) richtext.Text {
 		if t.ParagraphStyleAt(start).CodeBlock || t.AttributesAt(start).Code {
 			continue
 		}
+		ch := chipOf(s[m[2]:m[3]])
 		attrs := t.AttributesAt(start)
-		attrs.Attachment = a.attachment(chipOf(s[m[2]:m[3]]))
+		attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
 		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
 	}
 	return t
 }
 
-// parse reads a page's Markdown into the editor's text, its links as chips.
-func (a *app) parse(md string) richtext.Text { return a.withChips(a.withEmbeds(parseBody(md))) }
+// dress gives the objects of t, read from a page p's body (or its Markdown),
+// their drawing: chips, cards, tables and pictures, which carry only what they are.
+func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
+	type obj struct {
+		i     int
+		attrs richtext.Attributes
+	}
+	var todo []obj
+	for i, r := range t.Runs(0, t.Len()) {
+		if att := r.Attributes.Attachment; att != nil && att.Draw == nil {
+			todo = append(todo, obj{i, r.Attributes})
+		}
+	}
+	for k := len(todo) - 1; k >= 0; k-- {
+		o := todo[k]
+		var att *richtext.Attachment
+		switch d := o.attrs.Attachment.Data.(type) {
+		case *chip:
+			switch d.kind {
+			case "page", "date":
+				att = a.attachment(d)
+			case "embed":
+				att = a.embedAttachment(d)
+			case "table":
+				d.tw = a.tableWidths(d.tbl)
+				att = a.tableAttachment(d)
+			}
+		case nil:
+			if u := o.attrs.Attachment; u.URL != "" && p != nil {
+				att = a.pictureAttachment(p, u.Name, u.URL)
+			}
+		}
+		if att == nil {
+			continue
+		}
+		o.attrs.Attachment = att
+		t = t.ReplaceString(o.i, o.i+1, string(richtext.ObjectReplacement), o.attrs)
+	}
+	return t
+}
+
+// importMarkdown reads Markdown into text: what comes in from outside (a
+// file dropped or imported, what an agent writes, a template). It is not
+// how a page is kept.
+func importMarkdown(md string) richtext.Text {
+	return chipsIn(embedsIn(tablesIn(parseBody(md))))
+}
+
+// parse reads Markdown into the editor's text, drawn, for the open page.
+func (a *app) parse(md string) richtext.Text { return a.dress(a.page, importMarkdown(md)) }
 
 // withoutChips turns the chips in t back into the text of their links.
 func withoutChips(t richtext.Text) richtext.Text {
@@ -147,6 +200,10 @@ func withoutChips(t richtext.Text) richtext.Text {
 	}
 	for k := len(found) - 1; k >= 0; k-- {
 		f := found[k]
+		if f.ch.kind == "table" { // its fenced block, as the file has it
+			t = tableAsText(t, f.i, f.ch, f.a)
+			continue
+		}
 		if f.ch.kind == "fold" { // what was hidden comes back, under its line
 			_, pe := t.ParagraphRange(f.i)
 			t = t.Replace(pe+1, pe+1, withoutChips(*f.ch.hidden))
@@ -175,26 +232,26 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	hover := a.hoverCh == ch
 	switch {
 	case ch.kind == "fold":
-		p.Fill(r, cl.Fill, r.H/2)
+		p.Fill(r, cl.Fill, rad(r.H/2))
 		if hover {
-			p.Fill(r, cl.Text.Alpha(0.08), r.H/2)
+			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
 		}
 		text = cl.Muted
 	case ch.kind == "date":
-		p.Fill(r, cl.Fill, r.H/2)
+		p.Fill(r, cl.Fill, rad(r.H/2))
 		if hover {
-			p.Fill(r, cl.Text.Alpha(0.08), r.H/2)
+			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
 		}
 		text = cl.Text2
 	case a.pageTitled(ch.target) != nil:
-		p.Fill(r, cl.Accent.Alpha(0.12), r.H/2)
+		p.Fill(r, cl.Accent.Alpha(0.12), rad(r.H/2))
 		if hover {
-			p.Fill(r, cl.Accent.Alpha(0.16), r.H/2)
+			p.Fill(r, cl.Accent.Alpha(0.16), rad(r.H/2))
 		}
 	default:
 		p.Stroke(r, cl.Muted.Alpha(0.6), r.H/2, 1)
 		if hover {
-			p.Fill(r, cl.Muted.Alpha(0.14), r.H/2)
+			p.Fill(r, cl.Muted.Alpha(0.14), rad(r.H/2))
 		}
 		text = cl.Muted
 	}
@@ -293,7 +350,7 @@ func (a *app) chipPos(ch *chip) int {
 	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			// the text keeps its own copies of what an attachment carries: by value
-			if other, ok := att.Data.(*chip); ok && *other == *ch {
+			if other, ok := att.Data.(*chip); ok && sameChip(other, ch) {
 				return i
 			}
 		}
@@ -326,7 +383,7 @@ func (a *app) dateEditView(c *ui.Context) {
 			return
 		}
 		panel := ui.Column(c.Key("date-edit")).Absolute().Left(left).Top(top).Width(260).Padding(8).
-			Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
+			Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
 		t.Shadows.ShadowPop.Apply(panel)
 		panel.Children(func() {
 			if ryugo.Button(c.Key("date-day"), "Günün sayfasını aç", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
@@ -377,6 +434,42 @@ func (a *app) chipShortcut(text richtext.Text, caret int, typed bool) bool {
 	return true
 }
 
+// chipsInPasted turns the [[links]] in the text from..to, which has just come
+// in, into chips, outside code; the caret stays after what it was after. It
+// reports whether there was one.
+func (a *app) chipsInPasted(from, to int) bool {
+	t := a.doc.Text()
+	if from < 0 || to > t.Len() {
+		return false
+	}
+	s := t.Slice(from, to).String()
+	if !strings.Contains(s, "[[") {
+		return false
+	}
+	locs := wikiInText.FindAllStringSubmatchIndex(s, -1)
+	removed, done := 0, false
+	a.doc.Edit(func(ed *richtext.Edit) {
+		for i := len(locs) - 1; i >= 0; i-- {
+			m := locs[i]
+			start := from + utf8.RuneCountInString(s[:m[0]])
+			end := start + utf8.RuneCountInString(s[m[0]:m[1]])
+			if t.ParagraphStyleAt(start).CodeBlock || t.AttributesAt(start).Code {
+				continue
+			}
+			attrs := t.AttributesAt(start)
+			attrs.Attachment = a.attachment(chipOf(s[m[2]:m[3]]))
+			ed.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
+			removed += end - start - 1
+			done = true
+		}
+		ed.Select(to-removed, to-removed)
+	})
+	if done {
+		a.doc.SetTypingAttributes(richtext.Attributes{})
+	}
+	return done
+}
+
 var wikiOpen = regexp.MustCompile(`\[\[[^\[\]\n]*\]?$`)
 
 // overtype takes the "]" typed over the "]" the "[[" closed itself with: the
@@ -419,3 +512,14 @@ func (a *app) insertChip(start int, ch *chip) {
 
 // parseDay reads a day written 2026-11-05.
 func parseDay(s string) (time.Time, error) { return time.Parse("2006-01-02", s) }
+
+// sameChip reports whether two chips are the same, or the same's copy.
+func sameChip(a, b *chip) bool {
+	if a == b {
+		return true
+	}
+	if a.kind == "table" || b.kind == "table" {
+		return a.kind == b.kind && a.tbl == b.tbl
+	}
+	return a.kind == b.kind && a.target == b.target && a.alias == b.alias && a.hidden == b.hidden && a.lines == b.lines
+}

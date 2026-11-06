@@ -14,6 +14,11 @@ import (
 // the editor's focus, so the selection stays. A link asks for its address in
 // the bar itself.
 
+const (
+	selBtn = 24 // a button of the bar
+	selPad = 4  // its padding
+)
+
 type selBar struct {
 	link    bool   // asking for a link's address
 	url     string // what was typed
@@ -56,26 +61,25 @@ func (a *app) selectionBar(c *ui.Context) {
 	tth := ryugo.From(c)
 	cl := tth.Colors
 	f := a.doc.Formatting()
-	w := float32(5*32 + 12)
-	if b.link {
-		w = 300
-	}
+	w := float32(5*selBtn + 2*selPad + 4*2)
 	ww, _ := c.Size()
-	h := float32(40)
+	if b.link { // the field is as wide as the room: never past the window
+		w = min(280, ww-16)
+	}
+	h := float32(selBtn + 2*selPad)
 	left := max(8, min(x-8, ww-w-8))
 	top := y - h - 10
 	if top < a.scrollR.Y+a.barInset+4 {
 		top = y + cb.r.H + 10
 	}
 	ui.Overlay(c, func() {
-		bar := ui.Row(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Height(h).Padding(4).Gap(2).AlignItems(ui.Center).
+		bar := ui.Row(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Height(h).Padding(selPad).Gap(2).AlignItems(ui.Center).Clip().
 			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Biçim çubuğu").KeepFocus()
 		tth.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			if b.link {
-				ui.Icon(c, iconLink).Width(16).Height(16).TextColor(cl.Muted).Margin(0, 4, 0, 6)
-				in := ui.TextInputBase(c.Key("selbar-url"), &b.url).Label("Bağlantı adresi").Placeholder("Adres yapıştır, ↵").PlaceholderColor(cl.Muted).
-					FontSize(13.5).Grow(1).FocusRing(false).AutoFocus()
+				in := ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: "Bağlantı adresi", Placeholder: "Adres yapıştır, ↵", PrefixIcon: iconLink, Size: ryugo.Sm}).
+					Grow(1).MinWidth(0).AutoFocus()
 				switch {
 				case in.Shortcut(0, ui.KeyEscape):
 					b.link = false
@@ -89,7 +93,7 @@ func (a *app) selectionBar(c *ui.Context) {
 				return
 			}
 			btn := func(key string, glyph *ui.SVG, label string, on bool, fn func()) {
-				e := ui.Box(c.Key(key)).Size(32, 32).Radius(7).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).
+				e := ui.Box(c.Key(key)).Size(selBtn, selBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).
 					Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 100 * 1e6, Colors: true})
 				ryugo.Tooltip(c, e, label)
 				switch {
@@ -102,7 +106,7 @@ func (a *app) selectionBar(c *ui.Context) {
 				if on {
 					col = cl.Accent
 				}
-				e.Children(func() { ui.Icon(c, glyph).Width(17).Height(17).TextColor(col) })
+				e.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(col) })
 				if e.Clicked() {
 					fn()
 				}

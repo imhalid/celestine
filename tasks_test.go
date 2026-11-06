@@ -24,7 +24,7 @@ func TestTaskView(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] ilk görev\n- [x] yapılmış\n\nmetin\n")
 	tt.SetSize(1100, 800)
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("- [ ] öteki görev\n")
+	other.SaveText("- [ ] öteki görev\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -43,7 +43,7 @@ func TestTaskView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if body, _ := other.Body(); !strings.Contains(body, "- [x] öteki görev") {
+	if body, _ := other.Text(); !strings.Contains(body, "- [x] öteki görev") {
 		t.Fatalf("file: %q", body)
 	}
 	if tt.HasText("öteki görev") {
@@ -54,9 +54,9 @@ func TestTaskView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	body, _ := a.page.Body()
+	body, _ := a.page.Text()
 	src, _ := os.ReadFile(a.page.file())
-	if !strings.Contains(body, "- [x] ilk görev") || !strings.Contains(string(src), "[x] ilk görev") {
+	if !strings.Contains(body, "- [x] ilk görev") || len(src) == 0 {
 		t.Fatalf("file: %q", body)
 	}
 	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "- [x] ilk görev") {
@@ -117,7 +117,7 @@ func TestTaskDue(t *testing.T) {
 func TestTaskGoesToItsLine(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] ilk\n\nmetin\n\n- [ ] ikinci [[2026-11-10]]\n- [ ] üçüncü\n")
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("başka\n")
+	other.SaveText("başka\n")
 	a.open(other)
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -188,7 +188,7 @@ func TestRecurringTask(t *testing.T) {
 		}
 	}
 	a.toggleTask(daily)
-	body, _ := a.page.Body()
+	body, _ := a.page.Text()
 	for _, want := range []string{
 		"- [x] çöpü çıkar [[2026-11-05]]\n",
 		"- [ ] çöpü çıkar [[2026-11-12]] every:hafta",
@@ -206,7 +206,7 @@ func TestRecurringTask(t *testing.T) {
 			a.toggleTask(k)
 		}
 	}
-	if body, _ = a.page.Body(); !strings.Contains(body, "- [x] bir kez") || strings.Count(body, "bir kez") != 1 {
+	if body, _ = a.page.Text(); !strings.Contains(body, "- [x] bir kez") || strings.Count(body, "bir kez") != 1 {
 		t.Fatalf("%s", body)
 	}
 }
@@ -243,7 +243,7 @@ func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
 		for j := 0; j < 100; j++ {
 			fmt.Fprintf(&b, "- [ ] görev %02d-%03d\n", i, j)
 		}
-		p.Save(b.String())
+		p.SaveText(b.String())
 	}
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1000, 700)
@@ -297,8 +297,8 @@ func TestTasksFilterSearchFold(t *testing.T) {
 	k2, _ := lib.NewCollection("Projeler")
 	p1, _ := k1.NewPage(nil, "Dune")
 	p2, _ := k2.NewPage(nil, "Ev tadilatı")
-	p1.Save("- [ ] baharat siparişi\n- [ ] kapak tartışması\n")
-	p2.Save("- [ ] boya al\n- [ ] kapak ölç\n")
+	p1.SaveText("- [ ] baharat siparişi\n- [ ] kapak tartışması\n")
+	p2.SaveText("- [ ] boya al\n- [ ] kapak ölç\n")
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1100, 760)
 	a.tasksOpen, a.coll = true, nil

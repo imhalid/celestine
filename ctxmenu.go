@@ -56,7 +56,7 @@ func (a *app) contextOn(el ui.Element, menu func() []menuItem) {
 func (a *app) into(title string, glyph *ui.SVG, items func() []menuItem) menuItem {
 	return menuItem{title: title, glyph: glyph, nav: true, run: func() {
 		a.ctx.stack = append(a.ctx.stack, items())
-		a.ctx.sel, a.ctx.seen, a.ctx.scroll = 0, -1, ui.ScrollState{}
+		a.ctx.sel, a.ctx.seen, a.ctx.scroll = 1, -1, ui.ScrollState{} // the first line after ← Geri
 	}}
 }
 
@@ -67,13 +67,16 @@ func (a *app) contextView(c *ui.Context) {
 		return
 	}
 	t := ryugo.From(c)
-	items := m.stack[len(m.stack)-1]
-	m.sel = max(0, min(m.sel, len(items)-1))
-	head := float32(0)
-	if len(m.stack) > 1 {
-		head = menuTop + 1 + menuAfter
+	back := func() {
+		m.stack = m.stack[:len(m.stack)-1]
+		m.sel, m.seen, m.scroll = 1, -1, ui.ScrollState{}
 	}
-	pl := placeMenu(c, m.x, m.y, m.y, items, 0, head)
+	items := m.stack[len(m.stack)-1]
+	if len(m.stack) > 1 { // a list gone into: ← Geri is its first line, as any other
+		items = append([]menuItem{{title: "Geri", glyph: iconBack, nav: true, back: true, run: back}}, items...)
+	}
+	m.sel = max(0, min(m.sel, len(items)-1))
+	pl := placeMenu(c, m.x, m.y, m.y, items, 0, 0)
 	keepInSight(m.sel, &m.seen, &m.scroll, pl)
 	choose := func(it menuItem) {
 		m.open = false
@@ -82,15 +85,8 @@ func (a *app) contextView(c *ui.Context) {
 			m.open = true
 		}
 	}
-	back := func() {
-		m.stack = m.stack[:len(m.stack)-1]
-		m.sel, m.seen, m.scroll = 0, -1, ui.ScrollState{}
-	}
 	ww, wh := c.Size()
 	mp := &menuPanel{key: "ctx", label: "Bağlam menüsü", pl: pl, items: items, sel: m.sel, selPtr: &m.sel, hoverSeen: &m.hseen, scroll: &m.scroll, choose: choose, empty: "Boş"}
-	if len(m.stack) > 1 {
-		mp.head = func() { menuBack(c, t, "", back) }
-	}
 	ui.Overlay(c, func() {
 		away := ui.Box(c.Key("ctx-away")).Absolute().Left(0).Top(0).Size(ww, wh)
 		if m.fresh {
@@ -111,6 +107,8 @@ func (a *app) contextView(c *ui.Context) {
 			m.sel = min(m.sel+1, len(items)-1)
 		case panel.Shortcut(0, ui.KeyUp):
 			m.sel = max(m.sel-1, 0)
+		case len(m.stack) > 1 && panel.Shortcut(0, ui.KeyLeft):
+			back()
 		case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
 			choose(items[m.sel])
 		}

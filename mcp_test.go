@@ -98,7 +98,7 @@ func TestMCPTools(t *testing.T) {
 		t.Fatal("a value of a property that is not there")
 	}
 	call(t, cs, "read_page", map[string]any{"page": page.ID}, &read)
-	if read.Properties["Yazar"] != "Frank Herbert" || read.Title != "Dune (1965)" || read.Markdown != "# Notlar\n\n- çöl\n\n- baharat\n" {
+	if read.Properties["Yazar"] != "Frank Herbert" || read.Title != "Dune (1965)" || read.Markdown != "# Notlar\n\n- çöl\n- baharat\n" {
 		t.Fatalf("updated: %+v", read)
 	}
 	// a sub-page to the top of the collection, first
@@ -145,7 +145,7 @@ func TestMCPEditsOpenPage(t *testing.T) {
 		t.Fatalf("the window shows %q", got)
 	}
 	tt.Advance(2 * time.Second) // no save of the old text over it
-	if body, _ := a.page.Body(); body != "Ajan yazdı.\n\n---\n\nSon.\n" {
+	if body, _ := a.page.Text(); body != "Ajan yazdı.\n\n---\n\nSon.\n" {
 		t.Fatalf("on disk: %q", body)
 	}
 }
@@ -314,7 +314,7 @@ func TestMCPTagsTasksVersions(t *testing.T) {
 	// versions: written over after the quiet, then read and put back
 	p, _ := a.findPage(made.ID)
 	*now = now.Add(10 * time.Minute)
-	p.Save("# Haftalık\n\nbaşka bir metin\n")
+	p.SaveText("# Haftalık\n\nbaşka bir metin\n")
 	var vers []struct {
 		ID    int64
 		Label string
@@ -329,7 +329,7 @@ func TestMCPTagsTasksVersions(t *testing.T) {
 		t.Fatalf("version text: %q", rv.Markdown)
 	}
 	call(t, cs, "restore_version", map[string]any{"page": made.ID, "version": vers[0].ID}, nil)
-	if body, _ := p.Body(); !strings.Contains(body, "karar") {
+	if body, _ := p.Text(); !strings.Contains(body, "karar") {
 		t.Fatalf("restored: %q", body)
 	}
 	// search takes the filters

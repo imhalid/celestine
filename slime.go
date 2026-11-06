@@ -100,6 +100,12 @@ func (s *slime) step(now time.Time, dt, idle float64, w float64) {
 // ascent to descent, not the line's leading), cw wide, and asks for the next
 // frame: it never rests.
 func (s *slime) draw(p *ui.Painter, r ui.Rect, cw float32, col ui.Color, dark bool) {
+	s.drawWith(p, r, cw, col, dark, nil)
+}
+
+// drawWith is draw, and after the jelly is drawn deco is called with the box it fills
+// now: for a face.
+func (s *slime) drawWith(p *ui.Painter, r ui.Rect, cw float32, col ui.Color, dark bool, deco func(b ui.Rect)) {
 	now := p.Now()
 	if !s.placed {
 		s.prev, s.last, s.placed = r, now, true
@@ -147,6 +153,9 @@ func (s *slime) draw(p *ui.Painter, r ui.Rect, cw float32, col ui.Color, dark bo
 			a = 0.8
 		}
 		p.StrokePath(g, 1.4, ui.RGBA(255, 255, 255, a))
+	}
+	if deco != nil {
+		deco(path.Bounds())
 	}
 }
 

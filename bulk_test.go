@@ -39,12 +39,12 @@ func TestBulk(t *testing.T) {
 	// a tag
 	a.bulkAddTag(pages, "#okunacak")
 	for _, p := range pages {
-		if body, _ := p.Body(); !strings.Contains(body, "#okunacak") {
+		if body, _ := p.Text(); !strings.Contains(body, "#okunacak") {
 			t.Fatalf("%s: %q", p.Title, body)
 		}
 	}
 	a.bulkAddTag(pages, "okunacak") // again: not twice
-	if body, _ := pages[0].Body(); strings.Count(body, "#okunacak") != 1 {
+	if body, _ := pages[0].Text(); strings.Count(body, "#okunacak") != 1 {
 		t.Fatalf("twice: %q", body)
 	}
 	// a value of a choice

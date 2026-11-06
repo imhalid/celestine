@@ -299,7 +299,7 @@ func (a *app) well(c *ui.Context, tree ui.Element) {
 			return
 		}
 		box := ui.Rect{X: r.X + 8 + wx, Y: r.Y + wy + 3, W: r.W - 16 - wx, H: rowH - 6}
-		p.Fill(box, ryugo.Mix(cl.Well, cl.ColorAccent500, 0.06).Alpha(shown), 7)
+		p.Fill(box, ryugo.Mix(cl.Well, cl.ColorAccent500, 0.06).Alpha(shown), rad(7))
 		p.Stroke(box, ryugo.Mix(cl.WellBorder, cl.ColorAccent500, 0.45).Alpha(shown), 7, 1)
 	})
 }

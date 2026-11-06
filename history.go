@@ -116,10 +116,10 @@ func (s *Store) VersionData(name string, id int64) ([]byte, bool) {
 	return data, true
 }
 
-// blankBody reports whether a page file holds no text but its front matter.
+// blankBody reports whether a page file holds no text and no object.
 func blankBody(src []byte) bool {
-	_, body := splitFrontMatter(string(src))
-	return strings.TrimSpace(body) == ""
+	_, body := splitPage(src)
+	return blankText(body)
 }
 
 // historian is a ground that keeps versions of its pages.

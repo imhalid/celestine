@@ -133,7 +133,8 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page,
 	} else if fi, err := os.Stat(f); err == nil {
 		p.Created = fi.ModTime().Truncate(time.Second)
 	}
-	if err := p.Save(body); err != nil {
+	body, _ = splitTitle(body, title) // the title is the page's own
+	if err := p.SaveText(body); err != nil {
 		return nil, err
 	}
 	st.Pages++

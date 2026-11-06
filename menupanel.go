@@ -55,24 +55,6 @@ func chosenFill(t *ryugo.Tokens) ui.LinearGradient {
 		From: ryugo.Mix(cl.ColorAccent500, cl.ColorAccent600, 0.7), To: ryugo.Mix(cl.ColorAccent600, cl.ColorAccent700, 0.5)}
 }
 
-// menuBack is the header's way back: ← Geri, and the menu's title.
-func menuBack(c *ui.Context, t *ryugo.Tokens, title string, back func()) {
-	cl := t.Colors
-	b := ui.Row(c.Key("menu-back")).Gap(6).AlignItems(ui.Center).Padding(4, 6).Radius(6).Role(ui.RoleButton).Label("Geri").Cursor(ui.CursorPointer)
-	if b.Hovered() {
-		b.Background(cl.Fill)
-	}
-	b.Children(func() {
-		ui.Icon(c, iconBack).Width(14).Height(14).TextColor(cl.Muted)
-		ui.Text(c, "Geri").FontSize(13).TextColor(cl.Muted)
-	})
-	if b.Clicked() {
-		back()
-	}
-	ui.Box(c.Key("menu-gap")).Grow(1)
-	ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted)
-}
-
 // menuPanel is a menu to draw.
 type menuPanel struct {
 	key, label string
@@ -93,7 +75,7 @@ type menuPanel struct {
 func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element {
 	cl := t.Colors
 	panel := ui.Column(c.Key(m.key)).Absolute().Left(m.pl.left).Top(m.pl.top).Width(menuW).Padding(menuPad).
-		Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(m.label)
+		Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(m.label)
 	t.Shadows.ShadowPop.Apply(panel)
 	panel.Children(func() {
 		if m.head != nil { // a menu may have none
@@ -110,8 +92,14 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 			ui.Column(c).Gap(1).Children(func() {
 				if len(m.items) == 0 {
 					ui.Column(c.Key("empty")).Height(menuEmpty).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
-						ui.Icon(c, iconNone).Width(30).Height(30).TextColor(cl.Muted.Alpha(0.6))
-						ui.Text(c, m.empty).FontSize(13).TextColor(cl.Muted)
+						ui.Icon(c, iconNone).Width(24).Height(24).TextColor(cl.Muted.Alpha(0.6))
+						ui.Text(c, m.empty).FontSize(12).TextColor(cl.Muted)
+					})
+				}
+				if len(m.items) == 1 && m.items[0].back { // nothing but the way back: said under it
+					defer ui.Column(c.Key("empty2")).Height(menuEmpty).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
+						ui.Icon(c, iconNone).Width(24).Height(24).TextColor(cl.Muted.Alpha(0.6))
+						ui.Text(c, m.empty).FontSize(12).TextColor(cl.Muted)
 					})
 				}
 				group := ""
@@ -125,11 +113,11 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 								ui.Box(c).Height(1).Background(cl.Hairline)
 							})
 						default:
-							ui.Text(c.Key("g:"+group), group).FontSize(11.5).FontWeight(650).TextColor(cl.Muted).
-								Height(menuHead).Padding(8, 10, 0, 10)
+							ui.Text(c.Key("g:"+group), group).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).
+								Height(menuHead).Padding(7, 8, 0, 8)
 						}
 					}
-					row := ui.Row(c.Key(i)).Height(menuRowH(it)).Padding(0, 10).Gap(10).Radius(t.R(ryugo.RadiusControl) - 4).
+					row := ui.Row(c.Key(i)).Height(menuRowH(it)).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).
 						AlignItems(ui.Center).Label(it.title).Role(ui.RoleButton)
 					text, muted := cl.Text, cl.Muted
 					if it.danger {
@@ -151,23 +139,23 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 					}
 					row.Children(func() {
 						if it.dot != nil {
-							ui.Box(c).Width(15).Height(15).Shrink(0).Center().Children(func() {
-								ui.Box(c).Size(9, 9).Radius(3.5).Background(*it.dot).Border(1, cl.OnAccent.Alpha(map[bool]float32{true: 0.7, false: 0}[i == m.sel]))
+							ui.Box(c).Width(13).Height(13).Shrink(0).Center().Children(func() {
+								ui.Box(c).Size(8, 8).Radius(rad(3)).Background(*it.dot).Border(1, cl.OnAccent.Alpha(map[bool]float32{true: 0.7, false: 0}[i == m.sel]))
 							})
 						} else if it.glyph != nil {
-							ui.Icon(c, it.glyph).Width(15).Height(15).TextColor(muted)
+							ui.Icon(c, it.glyph).Width(13).Height(13).TextColor(muted)
 						}
 						ui.Column(c).Grow(1).Shrink(1).Children(func() {
-							ui.Text(c, it.title).FontSize(14).TextColor(text).MaxLines(1)
+							ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1)
 							if it.sub != "" {
-								ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1)
+								ui.Text(c, it.sub).FontSize(10.5).TextColor(muted).MaxLines(1)
 							}
 						})
 						if it.hint != "" {
-							ui.Text(c, it.hint).FontSize(12.5).TextColor(muted).MaxLines(1)
+							ui.Text(c, it.hint).FontSize(11.5).TextColor(muted).MaxLines(1)
 						}
-						if it.nav {
-							ui.Icon(c, iconChevron).Width(14).Height(14).TextColor(muted)
+						if it.nav && !it.back {
+							ui.Icon(c, iconChevron).Width(12).Height(12).TextColor(muted)
 						}
 					})
 					if row.Clicked() {

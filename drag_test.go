@@ -49,7 +49,7 @@ func TestMovePage(t *testing.T) {
 	if _, err := os.Stat(oldB1); !os.IsNotExist(err) {
 		t.Fatal("the old folder is still there")
 	}
-	if body, err := ps["B1"].Body(); err != nil || body != "" {
+	if body, err := ps["B1"].Text(); err != nil || body != "" {
 		t.Fatalf("B1 unreadable after the move: %v", err)
 	}
 	// Not under itself.

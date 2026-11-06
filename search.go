@@ -312,7 +312,7 @@ func (a *app) searchView(c *ui.Context) {
 			ui.Column(c).FillWidth().Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, h := range hits {
 					h := h
-					row := ui.Column(c.Key("sr:"+h.page.Dir)).FillWidth().Padding(8, 10).Gap(3).Radius(8).
+					row := ui.Column(c.Key("sr:"+h.page.Dir)).FillWidth().Padding(8, 10).Gap(3).Radius(rad(8)).
 						Label("Sonuç: " + h.page.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					if row.Hovered() {
 						row.Background(t.SurfaceHover)

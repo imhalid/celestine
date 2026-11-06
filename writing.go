@@ -21,12 +21,13 @@ const writingKeep = 400 // days kept
 // wordsOf counts the words of Markdown md as one reads them.
 func wordsOf(md string) int { return len(strings.Fields(plainText(md))) }
 
-// countWriting adds to today's count the words the save of md added to prev.
-func (a *app) countWriting(prev, md string) {
-	if prev == "" {
+// countWriting adds to today's count the words a save added to the prev the
+// page had before it (-1: not known).
+func (a *app) countWriting(prev, words int) {
+	if prev < 0 {
 		return
 	}
-	n := wordsOf(md) - wordsOf(prev)
+	n := words - prev
 	if n <= 0 {
 		return
 	}
@@ -120,7 +121,7 @@ func (a *app) writingView(c *ui.Context) {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			ui.Row(c).FillWidth().Gap(10).Children(func() {
 				stat := func(key, label, value string) {
-					ui.Column(c.Key(key)).Grow(1).Padding(12, 14).Gap(2).Radius(12).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+					ui.Column(c.Key(key)).Grow(1).Padding(12, 14).Gap(2).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						ui.Text(c, value).FontSize(22).FontWeight(700).TextColor(cl.Text)
 						ui.Text(c, label).FontSize(12).TextColor(cl.Muted)
 					})
@@ -139,9 +140,9 @@ func (a *app) writingView(c *ui.Context) {
 							ui.Text(c, "tamam").FontSize(12.5).FontWeight(650).TextColor(cl.Down)
 						}
 					})
-					bar := ui.Box(c.Key("goal-bar")).FillWidth().Height(8).Radius(4).Background(cl.Well)
+					bar := ui.Box(c.Key("goal-bar")).FillWidth().Height(8).Radius(rad(4)).Background(cl.Well)
 					bar.Draw(func(p *ui.Painter, r ui.Rect) {
-						p.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W * frac, H: r.H}, map[bool]ui.Color{true: cl.Down, false: cl.Accent}[s.today >= goal], 4)
+						p.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W * frac, H: r.H}, map[bool]ui.Color{true: cl.Down, false: cl.Accent}[s.today >= goal], rad(4))
 					})
 				})
 			}
@@ -192,7 +193,7 @@ func (a *app) writingChart(c *ui.Context, cl ryugo.Colors, s writingStats) {
 				col = cl.Fill
 				h = 3
 			}
-			p.Fill(ui.Rect{X: x, Y: r.Y + plot - h, W: w, H: h}, col, min(3, w/2))
+			p.Fill(ui.Rect{X: x, Y: r.Y + plot - h, W: w, H: h}, col, rad(min(3, w/2)))
 			if d := now.AddDate(0, 0, i-29); i%7 == 1 || i == 29 {
 				sp := ui.Span{Text: strconv.Itoa(d.Day()) + " " + months[d.Month()-1], Size: 11, Color: cl.Muted}
 				tw, _ := p.MeasureText(0, sp)

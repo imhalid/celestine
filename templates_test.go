@@ -38,7 +38,7 @@ func TestTemplates(t *testing.T) {
 	}
 	cmd.run()
 	tt.Advance(200 * time.Millisecond)
-	body, _ := a.page.Body()
+	body, _ := a.page.Text()
 	if !strings.Contains(body, "# Toplantı [[2026-") || !strings.Contains(body, "- [ ] karar") {
 		t.Fatalf("page from the template: %q", body)
 	}

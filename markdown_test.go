@@ -64,11 +64,11 @@ func TestMarkdownShown(t *testing.T) {
 
 // TestRawBlockEdited: a raw block edited in the editor is written as edited.
 func TestRawBlockEdited(t *testing.T) {
-	a, tt := newTestApp(t, "| a | b |\n|---|---|\n| 1 | 2 |\n")
-	tt.Type(" | 3 |") // at the end of its last row
+	a, tt := newTestApp(t, "> [!note] Not\n> Metin\n")
+	tt.Type(" daha") // at the end of its last line
 	tt.Frame()
 	a.save()
-	if body, _ := a.page.Body(); body != "| a | b |\n|---|---|\n| 1 | 2 | | 3 |\n" {
+	if body, _ := a.page.Text(); body != "> [!note] Not\n> Metin daha\n" {
 		t.Fatalf("written: %q", body)
 	}
 }

@@ -28,33 +28,16 @@ type propEdit struct {
 
 func (a *app) propsSection(c *ui.Context, p *Page) {
 	coll := p.Coll
-	t := c.Theme()
 	ui.Column(c).Gap(6).Padding(0, 0, 12, 0).Children(func() {
 		for i := range coll.Properties {
 			a.propRow(c, p, &coll.Properties[i])
 		}
-		ui.Row(c).Children(func() {
-			b := ui.Row(c.Key("add-prop")).Gap(6).Padding(4, 8, 4, 4).Radius(6).AlignItems(ui.Center).Label("Özellik ekle").Role(ui.RoleButton)
-			if b.Hovered() {
-				b.Background(t.SurfaceHover)
-			}
-			b.Children(func() {
-				ui.Icon(c, iconPlus).Width(14).Height(14).TextColor(t.TextMuted)
-				ui.Text(c, "Özellik ekle").FontSize(13).TextColor(t.TextMuted)
-			})
-			if b.Clicked() {
+		ui.Row(c).Gap(6).Children(func() {
+			if ryugo.Button(c.Key("add-prop"), "Özellik ekle", ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
 				a.prop = propEdit{open: true, coll: coll}
 			}
 			if a.coverKind(p) == coverKindNone { // a cover is one click away, beside it
-				cb := ui.Row(c.Key("add-cover")).Gap(6).Padding(4, 8, 4, 4).Radius(6).AlignItems(ui.Center).Label("Kapak resmi ekle").Role(ui.RoleButton)
-				if cb.Hovered() {
-					cb.Background(t.SurfaceHover)
-				}
-				cb.Children(func() {
-					ui.Icon(c, iconCover).Width(14).Height(14).TextColor(t.TextMuted)
-					ui.Text(c, "Kapak ekle").FontSize(13).TextColor(t.TextMuted)
-				})
-				if cb.Clicked() {
+				if ryugo.Button(c.Key("add-cover"), "Kapak resmi ekle", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
 					a.pickCover(p)
 				}
 			}
@@ -67,7 +50,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 	t := c.Theme()
 	key := p.Dir + "|" + pr.ID
 	ui.Row(c.Key("prop-row:" + key)).Gap(12).AlignItems(ui.Center).MinHeight(30).Children(func() {
-		name := ui.Row(c.Key("prop-name:"+pr.ID)).Width(120).Gap(6).Padding(4, 6).Radius(6).AlignItems(ui.Center).
+		name := ui.Row(c.Key("prop-name:"+pr.ID)).Width(120).Gap(6).Padding(4, 6).Radius(rad(6)).AlignItems(ui.Center).
 			Label("Özellik: " + pr.Name).Role(ui.RoleButton)
 		if name.Hovered() {
 			name.Background(t.SurfaceHover)

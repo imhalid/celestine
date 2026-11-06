@@ -35,7 +35,7 @@ func TestCaptureNote(t *testing.T) {
 	if _, err := a.captureNote(quickDay, "ikinci"); err != nil {
 		t.Fatal(err)
 	}
-	body, _ := today.Body()
+	body, _ := today.Text()
 	if body != "- ilk not\n- [ ] bir iş\n- ikinci\n" {
 		t.Fatalf("body %q", body)
 	}
@@ -69,7 +69,7 @@ func TestCaptureNote(t *testing.T) {
 		t.Fatalf("pages %d", len(c.Pages))
 	}
 	p := c.Pages[len(c.Pages)-1]
-	if b, _ := p.Body(); p.Title != "Toplantı fikri" || b != "# Toplantı fikri\nbirinci\nikinci\n" {
+	if b, _ := p.Text(); p.Title != "Toplantı fikri" || b != "birinci ikinci\n" {
 		t.Fatalf("%q %q", p.Title, b)
 	}
 }
@@ -95,7 +95,7 @@ func TestQuickPanel(t *testing.T) {
 		t.Fatalf("not added: %q", q.text)
 	}
 	today, _ := a.todayPage()
-	if b, _ := today.Body(); b != "- bir\n- iki\n" {
+	if b, _ := today.Text(); b != "- bir\n- iki\n" {
 		t.Fatalf("body %q", b)
 	}
 }

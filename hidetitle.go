@@ -6,10 +6,9 @@ import (
 	"github.com/egoist/mygo/ui/richtext"
 )
 
-// A page whose text starts with a heading that is its title shows the title
-// twice, over the text and in it. The heading in the text is not shown; it
-// is kept aside, and written back as it was ahead of the text when the page
-// is saved, so the file is never changed by it.
+// A page that comes in from outside (a Markdown file, an agent's text) may
+// start with a heading that is its title, which would show twice, over the
+// text and in it: that heading is taken off.
 
 // splitTitle takes the first heading of md off when it is the title: the
 // rest, and what was taken (the heading and the blank lines after it).
@@ -33,30 +32,5 @@ func splitTitle(md, title string) (rest, head string) {
 	return strings.Join(lines[j:], ""), strings.Join(lines[:j], "")
 }
 
-// parsePage reads the Markdown of page p into the editor's text, without
-// the heading that is its title.
-func (a *app) parsePage(p *Page, md string) richtext.Text {
-	rest, head := splitTitle(md, p.Title)
-	if a.heads == nil {
-		a.heads = map[*Page]string{}
-	}
-	if head == "" {
-		delete(a.heads, p)
-	} else {
-		a.heads[p] = head
-	}
-	return a.withImages(p, a.parse(rest))
-}
-
-// pageMarkdown writes the editor's text of page p as its Markdown, with the
-// heading that was kept aside ahead of it.
-func (a *app) pageMarkdown(p *Page, t richtext.Text) string {
-	body := bodyMarkdown(t)
-	if head := a.heads[p]; head != "" {
-		if strings.TrimSpace(body) == "" {
-			return strings.TrimRight(head, "\n") + "\n"
-		}
-		return head + body
-	}
-	return body
-}
+// parsePage reads the body of page p into the editor's text, its objects drawn.
+func (a *app) parsePage(p *Page, body string) richtext.Text { return a.dress(p, decodeBody(body)) }

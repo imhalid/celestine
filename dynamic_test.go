@@ -12,9 +12,9 @@ func TestDynamicCollection(t *testing.T) {
 	tt.SetSize(1100, 800)
 	other, _ := a.lib.NewCollection("Öteki")
 	x, _ := other.NewPage(nil, "İkinci")
-	x.Save("burada da #fikir var\n")
+	x.SaveText("burada da #fikir var\n")
 	y, _ := other.NewPage(nil, "Üçüncü")
-	y.Save("fikir değil\n")
+	y.SaveText("fikir değil\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -50,7 +50,7 @@ func TestDynamicCollection(t *testing.T) {
 		t.Fatal("not on disk")
 	}
 	// what the library has now: a page tagged is in
-	y.Save("şimdi #fikir\n")
+	y.SaveText("şimdi #fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	if got := a.filtered(c); len(got) != 3 {

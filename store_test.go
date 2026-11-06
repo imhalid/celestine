@@ -113,7 +113,7 @@ func TestLibraryInAFile(t *testing.T) {
 	c, _ := lib.NewCollection("Notlar")
 	a, _ := c.NewPage(nil, "Birinci")
 	b, _ := c.NewPage(nil, "İkinci")
-	a.Save("merhaba\n")
+	a.SaveText("merhaba\n")
 	if err := lib.MovePage(b, c, a, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestLibraryInAFile(t *testing.T) {
 			first = p
 		}
 	}
-	if body, _ := first.Body(); first == nil || body != "merhaba\n" || len(first.Children) != 1 || first.Children[0].Title != "İkinci" {
+	if body, _ := first.Text(); first == nil || body != "merhaba\n" || len(first.Children) != 1 || first.Children[0].Title != "İkinci" {
 		t.Fatalf("the page: %+v", first)
 	}
 }
@@ -191,7 +191,7 @@ func TestFolderIntoFile(t *testing.T) {
 	lib, _ := OpenLibrary(dir)
 	c, _ := lib.NewCollection("Eski")
 	p, _ := c.NewPage(nil, "Sayfa")
-	p.Save("içerik\n")
+	p.SaveText("içerik\n")
 	if !isLibraryFolder(dir) {
 		t.Fatal("not a library folder")
 	}
@@ -211,7 +211,7 @@ func TestFolderIntoFile(t *testing.T) {
 	if err := copyTree(st, storeRoot, osFS{}, out); err != nil {
 		t.Fatal(err)
 	}
-	src, err := os.ReadFile(filepath.Join(out, "eski", "sayfa", "index.md"))
+	src, err := os.ReadFile(filepath.Join(out, "eski", "sayfa", pageFileName))
 	if err != nil || !strings.Contains(string(src), "içerik") {
 		t.Fatalf("exported: %q %v", src, err)
 	}
@@ -227,7 +227,7 @@ func TestCopyTreeSkipsLinks(t *testing.T) {
 	}
 	for name, body := range map[string]string{
 		filepath.Join(src, "koleksiyon", collectionFile): `{"name":"K","subPages":true}`,
-		filepath.Join(page, "index.md"):                  "---\ntitle: S\n---\n\nmetin\n",
+		filepath.Join(page, pageFileName):                `{"meta":{"title":"S"},"body":[{"r":[{"t":"metin"}]}]}`,
 		filepath.Join(page, "gercek.txt"):                "dosya",
 	} {
 		if err := os.WriteFile(name, []byte(body), 0o644); err != nil {

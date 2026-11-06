@@ -19,7 +19,7 @@ func TestStatusExtras(t *testing.T) {
 	a, tt := newTestApp(t, "bir iki üç\n\nikinci paragraf\n")
 	tt.SetSize(1300, 700)
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("bak [[" + a.page.Title + "]]\n")
+	other.SaveText("bak [[" + a.page.Title + "]]\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()

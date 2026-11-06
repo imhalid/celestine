@@ -1,28 +1,28 @@
 # ryudit
 
-A block-based, WYSIWYG Markdown editor on [MyGo](https://github.com/egoist/mygo)'s native UI.
+A block-based, WYSIWYG editor with its own page format, on [MyGo](https://github.com/egoist/mygo)'s native UI.
 
 The editor is MyGo's own rich text editor (`ui/richtext`). The document is blocks — paragraphs, headings, lists, tasks, quotes, code — and the Markdown you type turns
 into structure as you type it: `# ` makes a heading and the `#` is gone, `**word**` makes the word bold and the stars
-are gone. Markdown is never seen in the editor; it is only the file format, so any other tool can open what you write.
+are gone. Markdown is never seen in the editor and is not how a page is kept: a page is a list of typed blocks (`body.go`), in a file of its own format. Markdown only comes in (an import, a file dropped, what an agent writes) and goes out (export, what an agent reads).
 
 ```bash
 go run . [library]      # default: ./kitaplik, made and seeded when missing; saved as you type
 ```
 
-The library is plain files, as [Locus](https://github.com/oneo-me/locus) keeps notes: a collection is a folder with a
-`collection.json`, a page a folder with its `index.md` (title and creation time in the front matter, the body in
-Markdown), a sub-page a page's folder inside another's. The sidebar lists collections and their pages as a tree: a
+The library is a tree of folders, as [Locus](https://github.com/oneo-me/locus) keeps notes: a collection is a folder with a
+`collection.json`, a page a folder with its `page.json` (what is known of the page - title, creation time, place, the
+values of its properties - and its body as blocks), a sub-page a page's folder inside another's. A library of the time of
+`index.md` files is made `page.json` files once, when it is opened. The sidebar lists collections and their pages as a tree: a
 collection's + makes a page in it, a page's + a page under it, ⌃N a page in the open one's collection.
 
-Files written elsewhere are safe here: what richtext doesn't know (a table, HTML, math, a footnote, an Obsidian
-callout) shows as a raw block and is written back as it was, code blocks keep their language, the front matter is
-YAML changed only where ryudit's own keys are (lists, comments and unknown keys stay), and the library folder is
-watched: a change made outside shows at once, and if the open page has unsaved edits both versions are kept.
+Blocks richtext has no kind for - a link to a page, a day, a page's card, a table, a picture - are typed objects in the
+body. Markdown that comes in with what richtext does not know (HTML, math, a footnote, an Obsidian callout) shows as a
+raw block. The library folder is watched: a page file changed outside shows at once, and if the open page has unsaved
+edits both versions are kept.
 
 A collection has no properties until one is added, as in Thymer: **+ Özellik ekle** under a page's title adds a choice,
-a text, a number, a date or a link to every page of its collection. Values are in the pages' front matter (front
-matter ryudit doesn't know is kept); the table shows each property as a column, and the first choice gives the
+a text, a number, a date or a link to every page of its collection. Values are in the pages' meta; the table shows each property as a column, and the first choice gives the
 collection a board of it.
 
 | Type | Becomes |
@@ -65,9 +65,12 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `main.go` | The window (its own title bar), the page (title and MyGo's rich text editor), autosave |
 | `sidebar.go` | The title bar and the sidebar: folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn |
 | `drag.go` | Dragging pages in the tree, as [Ryugo](https://github.com/imhalid/ryu-go)'s cards move: the row lifts, rows make room, the row it goes into glows, it glides into place |
+| `tables.go`, `tablemodel.go` | Tables: one object in the text, always a table (columns with a kind, alignment, width and a foot calculation); in the body a typed object. Markdown tables that come in are read as tables of ours |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
-| `markdown.go`, `frontmatter.go`, `watch.go` | Reading and writing Markdown and front matter without losing what other tools wrote; watching the folder |
+| `body.go`, `pagefile.go` | The page's own format: blocks and typed objects, and the page file (meta, then body); a legacy `index.md` made one |
+| `markdown.go`, `frontmatter.go` | Markdown at the edges only: reading it in, writing it out, and the plain text view the app searches (tags, tasks, links) |
+| `watch.go` | Watching the folder |
 | `collsettings.go`, `collicons.go` | A collection's settings (General, Properties, Views, Pages, Code; draft, preview, save), its icon and color |
 | `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
 | `chips.go` | Chips: page links and dates in the text, as richtext attachments; `[[…]]` in the file |

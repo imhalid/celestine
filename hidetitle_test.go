@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 func TestSplitTitle(t *testing.T) {
@@ -24,28 +24,6 @@ func TestSplitTitle(t *testing.T) {
 		if rest != c.rest || head != c.head {
 			t.Errorf("%q: rest %q head %q", c.md, rest, head)
 		}
-	}
-}
-
-// The heading that is the page's title is not shown in the text, and is
-// written back as it was.
-func TestTitleHeadingHidden(t *testing.T) {
-	a, tt := newTestApp(t, "# Sayfa\n\nMetin\n")
-	tt.Frame()
-	if got := mdOf(a.doc); got != "Metin" {
-		t.Fatalf("shown: %q", got)
-	}
-	tt.Key(ui.Cmd, ui.KeyDown)
-	typeEach(tt, "x")
-	tt.Advance(1500 * time.Millisecond)
-	tt.Frame()
-	a.flush()
-	data, err := os.ReadFile(filepath.Join(a.page.Dir, "index.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "# Sayfa\n\nMetinx") {
-		t.Fatalf("on disk: %q", data)
 	}
 }
 
@@ -94,7 +72,7 @@ func TestMoveItem(t *testing.T) {
 	}
 }
 
-func chipsIn(a *app) []string {
+func chipTargets(a *app) []string {
 	var out []string
 	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
@@ -140,7 +118,7 @@ func TestWikiMenu(t *testing.T) {
 	if got := mdOf(a.doc); got != "Önce [[Alfa]]" || a.slash.open {
 		t.Fatalf("not linked: %q open %v", got, a.slash.open)
 	}
-	if got := chipsIn(a); len(got) != 1 || got[0] != "Alfa" {
+	if got := chipTargets(a); len(got) != 1 || got[0] != "Alfa" {
 		t.Fatalf("chips %v", got)
 	}
 }
@@ -156,7 +134,7 @@ func TestWikiTypedClosing(t *testing.T) {
 	if got := mdOf(a.doc); got != "Önce [[Beta]]" {
 		t.Fatalf("written: %q", got)
 	}
-	if got := chipsIn(a); len(got) != 1 || got[0] != "Beta" {
+	if got := chipTargets(a); len(got) != 1 || got[0] != "Beta" {
 		t.Fatalf("chips %v", got)
 	}
 	if a.slash.open {
@@ -189,7 +167,7 @@ func TestSettingsTakeEffect(t *testing.T) {
 	if a.font.Size != 16.5 || a.font.LineHeight != 1.55 {
 		t.Fatalf("defaults: %+v", a.font)
 	}
-	a.settings.FontSize, a.settings.LineHeight, a.settings.ShowWords, a.settings.HideCaret = 19, 1.8, true, true
+	a.settings.FontSize, a.settings.LineHeight, a.settings.ShowWords = 19, 1.8, true
 	tt.Frame()
 	tt.Frame()
 	if a.font.Size != 19 || a.font.LineHeight != 1.8 {
@@ -209,8 +187,8 @@ func TestBacklinks(t *testing.T) {
 	c := a.page.Coll
 	b, _ := c.NewPage(nil, "Beta")
 	g, _ := c.NewPage(nil, "Gama")
-	b.Save("Bkz. [[Sayfa]] ve [[sayfa|takma ad]]\n")
-	g.Save("Başka bir şey [[Beta]]\n")
+	b.SaveText("Bkz. [[Sayfa]] ve [[sayfa|takma ad]]\n")
+	g.SaveText("Başka bir şey [[Beta]]\n")
 	a.open(b)
 	tt.Frame()
 	tt.Frame()
@@ -485,7 +463,7 @@ func TestCalendarDayList(t *testing.T) {
 	for _, n := range []string{"Bir", "İki", "Üç", "Dört", "Beş"} {
 		p, _ := coll.NewPage(nil, n)
 		p.Created = time.Date(2026, 11, 4, 9, 0, 0, 0, time.Local)
-		p.Save("")
+		p.SaveText("")
 	}
 	coll.SetView("calendar")
 	a.openCollection(coll)
@@ -691,5 +669,31 @@ func TestSettingsClose(t *testing.T) {
 	tt.Advance(600 * time.Millisecond)
 	if a.settingsOpen {
 		t.Fatal("the close button leaves it open")
+	}
+}
+
+// A link copied from the page's menu is "[[Page]]" as text; pasted, it is a
+// chip, as when it is typed.
+func TestPastedLinkBecomesChip(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	_, caret := a.doc.Selection()
+	paste := " [[Logical Replication & Write-Ahead]] ve [[Ikinci]] son"
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(caret, caret, richtext.NewText(paste))
+		ed.Select(caret+len([]rune(paste)), caret+len([]rune(paste)))
+	})
+	tt.Frame()
+	tt.Frame()
+	if got := chipTargets(a); len(got) != 2 || got[0] != "Logical Replication & Write-Ahead" || got[1] != "Ikinci" {
+		t.Fatalf("chips: %v in %q", got, a.doc.Text().String())
+	}
+	if got := mdOf(a.doc); got != "Önce [[Logical Replication & Write-Ahead]] ve [[Ikinci]] son" {
+		t.Fatalf("written: %q", got)
+	}
+	_, c := a.doc.Selection()
+	if c != a.doc.Text().Len() {
+		t.Fatalf("the caret is not at the end: %d of %d", c, a.doc.Text().Len())
 	}
 }

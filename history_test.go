@@ -37,39 +37,41 @@ func storeAt(t *testing.T) (*Store, *time.Time) {
 func TestStoreVersions(t *testing.T) {
 	st, now := storeAt(t)
 	st.Mkdir("/a")
-	write := func(s string) { st.WriteFile("/a/index.md", []byte("---\ntitle: A\n---\n\n"+s+"\n")) }
+	write := func(s string) {
+		st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown(s))))
+	}
 	write("bir") // nothing before it
 	write("iki") // keeps "bir"
 	write("üç")  // too soon
 	*now = now.Add(6 * time.Minute)
 	write("dört") // keeps "üç"
-	vs := st.Versions("/a/index.md")
+	vs := st.Versions("/a/" + pageFileName)
 	if len(vs) != 2 {
 		t.Fatalf("versions: %+v", vs)
 	}
-	if d, _ := st.VersionData("/a/index.md", vs[1].ID); !strings.Contains(string(d), "bir") {
+	if d, _ := st.VersionData("/a/"+pageFileName, vs[1].ID); !strings.Contains(string(d), "bir") {
 		t.Fatalf("the oldest: %q", d)
 	}
-	if d, _ := st.VersionData("/a/index.md", vs[0].ID); !strings.Contains(string(d), "üç") {
+	if d, _ := st.VersionData("/a/"+pageFileName, vs[0].ID); !strings.Contains(string(d), "üç") {
 		t.Fatalf("the latest: %q", d)
 	}
-	st.SnapshotNow("/a/index.md") // "dört", whatever was kept lately
-	if n := len(st.Versions("/a/index.md")); n != 3 {
+	st.SnapshotNow("/a/" + pageFileName) // "dört", whatever was kept lately
+	if n := len(st.Versions("/a/" + pageFileName)); n != 3 {
 		t.Fatalf("after SnapshotNow: %d", n)
 	}
-	st.SnapshotNow("/a/index.md") // the same: not again
-	if n := len(st.Versions("/a/index.md")); n != 3 {
+	st.SnapshotNow("/a/" + pageFileName) // the same: not again
+	if n := len(st.Versions("/a/" + pageFileName)); n != 3 {
 		t.Fatalf("twice: %d", n)
 	}
 	st.Mkdir("/b")
 	if err := st.Rename("/a", "/b/a"); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(st.Versions("/b/a/index.md")); n != 3 || len(st.Versions("/a/index.md")) != 0 {
+	if n := len(st.Versions("/b/a/" + pageFileName)); n != 3 || len(st.Versions("/a/"+pageFileName)) != 0 {
 		t.Fatalf("after the move: %d", n)
 	}
 	st.RemoveAll("/b/a")
-	if n := len(st.Versions("/b/a/index.md")); n != 0 {
+	if n := len(st.Versions("/b/a/" + pageFileName)); n != 0 {
 		t.Fatalf("after removal: %d", n)
 	}
 }
@@ -85,11 +87,11 @@ func TestVersionDialog(t *testing.T) {
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
 	p := a.page
-	p.Save("birinci metin\nortak satır\n")
+	p.SaveText("birinci metin\nortak satır\n")
 	*now = now.Add(10 * time.Minute)
-	p.Save("ikinci metin\nortak satır\nyeni satır\n")
+	p.SaveText("ikinci metin\nortak satır\nyeni satır\n")
 	*now = now.Add(10 * time.Minute)
-	p.Save("üçüncü metin\nortak satır\n")
+	p.SaveText("üçüncü metin\nortak satır\n")
 	a.takeOutside(p)
 	tt.Frame()
 
@@ -118,7 +120,7 @@ func TestVersionDialog(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	body, _ := p.Body()
+	body, _ := p.Text()
 	if !strings.Contains(body, "birinci metin") || a.vhist.open {
 		t.Fatalf("body %q, open %v", body, a.vhist.open)
 	}
@@ -155,15 +157,15 @@ func TestPairWords(t *testing.T) {
 func TestNamedVersion(t *testing.T) {
 	st, now := storeAt(t)
 	st.Mkdir("/a")
-	st.WriteFile("/a/index.md", []byte("---\ntitle: A\n---\n\nilk metin\n"))
-	if !st.SaveNamed("/a/index.md", "Yayına giden") {
+	st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("ilk metin"))))
+	if !st.SaveNamed("/a/"+pageFileName, "Yayına giden") {
 		t.Fatal("not kept")
 	}
 	for i := 0; i < historyKeep+20; i++ {
 		*now = now.Add(10 * time.Minute)
-		st.WriteFile("/a/index.md", []byte("---\ntitle: A\n---\n\nmetin "+strings.Repeat("x", i+1)+"\n"))
+		st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("metin "+strings.Repeat("x", i+1)))))
 	}
-	vs := st.Versions("/a/index.md")
+	vs := st.Versions("/a/" + pageFileName)
 	named := 0
 	for _, v := range vs {
 		if v.Label == "Yayına giden" {

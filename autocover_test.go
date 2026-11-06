@@ -84,7 +84,7 @@ func TestAutoCoverKinds(t *testing.T) {
 	}
 	a.removeCover(p)
 	src, _ := os.ReadFile(p.file())
-	if p.Cover != coverNone || !strings.Contains(string(src), "cover: none") || a.coverKind(p) != coverKindNone {
+	if p.Cover != coverNone || !strings.Contains(string(src), `"cover":"none"`) || a.coverKind(p) != coverKindNone {
 		t.Fatalf("removed: %q, kind %d\n%s", p.Cover, a.coverKind(p), src)
 	}
 	again, _ := OpenLibrary(a.lib.Root)

@@ -32,7 +32,7 @@ func TestEmbed(t *testing.T) {
 	a, tt := newTestApp(t, "önce\n\n![[Hedef Sayfa]]\n\nsonra ![[Hedef Sayfa]] aynı satırda\n")
 	tt.SetSize(1100, 800)
 	target, _ := a.page.Coll.NewPage(nil, "Hedef Sayfa")
-	target.Save("# Hedef Sayfa\n\nilk satır **kalın**\n\n- madde bir\n- [ ] görev\n")
+	target.SaveText("# Hedef Sayfa\n\nilk satır **kalın**\n\n- madde bir\n- [ ] görev\n")
 	a.docs = map[*Page]*richtext.Document{}
 	other := a.page
 	a.page = nil
@@ -76,7 +76,7 @@ func TestEmbedFromMenu(t *testing.T) {
 	a, tt := newTestApp(t, "satır\n\n")
 	tt.SetSize(1100, 800)
 	target, _ := a.page.Coll.NewPage(nil, "Gömülecek")
-	target.Save("içerik\n")
+	target.SaveText("içerik\n")
 	a.linksStale()
 	a.fresh, a.refocus = false, true
 	a.doc.SetSelection(0, 0)

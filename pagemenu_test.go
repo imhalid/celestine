@@ -14,7 +14,7 @@ func TestPageMoreMenu(t *testing.T) {
 	a, tt := newTestApp(t, "gövde\n")
 	p := a.page
 	sub, _ := p.Coll.NewPage(p, "Alt")
-	sub.Save("altın metni\n")
+	sub.SaveText("altın metni\n")
 	if err := a.addImage("foto.png", pngBytes(20, 20)); err != nil {
 		t.Fatal(err)
 	}
@@ -56,13 +56,13 @@ func TestPageMoreMenu(t *testing.T) {
 	if len(cp.Children) != 1 || cp.Children[0].Title != "Alt" || cp.Children[0].Parent != cp {
 		t.Fatalf("sub-pages: %+v", cp.Children)
 	}
-	if body, _ := cp.Children[0].Body(); body != "altın metni\n" {
+	if body, _ := cp.Children[0].Text(); body != "altın metni\n" {
 		t.Fatalf("sub-page text %q", body)
 	}
 	if imgs, _ := filepath.Glob(filepath.Join(cp.Dir, "resim-*.png")); len(imgs) != 1 {
 		t.Fatalf("pictures of the copy: %v", imgs)
 	}
-	if body, _ := cp.Body(); !strings.Contains(body, "gövde") {
+	if body, _ := cp.Text(); !strings.Contains(body, "gövde") {
 		t.Fatalf("copy's text %q", body)
 	}
 	// read back, it is still there

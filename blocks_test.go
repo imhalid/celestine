@@ -62,7 +62,7 @@ func TestDividerShortcut(t *testing.T) {
 		t.Fatalf("after ---: %q %+v", text.String(), st)
 	}
 	a.save()
-	if body, _ := a.page.Body(); body != "Üst\n\n---\n\nalt\n" {
+	if body, _ := a.page.Text(); body != "Üst\n\n---\n\nalt\n" {
 		t.Fatalf("on disk: %q", body)
 	}
 	// Typing into a divider makes it a paragraph again.
@@ -84,7 +84,7 @@ func TestCodeShortcut(t *testing.T) {
 		t.Fatalf("code: %q %+v", text.String(), st)
 	}
 	a.save()
-	if body, _ := a.page.Body(); !strings.Contains(body, "```\nx := 1\n```") {
+	if body, _ := a.page.Text(); !strings.Contains(body, "```\nx := 1\n```") {
 		t.Fatalf("on disk: %q", body)
 	}
 	tt.Key(ui.Cmd, ui.KeyZ)

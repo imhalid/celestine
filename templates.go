@@ -62,7 +62,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 		return
 	}
 	if tpl != "" {
-		if err := p.Save(expandTemplate(tpl, p.Title, a.clock())); err != nil {
+		if err := p.SaveText(expandTemplate(tpl, p.Title, a.clock())); err != nil {
 			a.saveErr = err.Error()
 		}
 	}
@@ -155,7 +155,7 @@ func (a *app) csTemplates(c *ui.Context) {
 	for i := range d.Templates {
 		i := i
 		t := &d.Templates[i]
-		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(12).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: "Şablonun adı", Placeholder: "Toplantı notu", Size: ryugo.Sm}).Grow(1)
 				if ryugo.Button(c.Key("cs-tpl-del"), "Şablonu sil", ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {

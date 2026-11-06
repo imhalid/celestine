@@ -100,7 +100,7 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 	}
 	th := ryugo.Painting(p).Colors
 	text := a.doc.Text()
-	a.tagHits = a.tagHits[:0]
+	a.tagHits, a.linkHits = a.tagHits[:0], a.linkHits[:0]
 	for _, b := range a.shown(r) {
 		s, e := text.ParagraphRange(b.Start)
 		if e <= s {
@@ -117,10 +117,16 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 			line += run.Text
 		}
 		spans := tagSpans(line, para.Style.CodeBlock)
-		if len(spans) == 0 {
+		links := linkSpans(para)
+		if len(spans) == 0 && len(links) == 0 {
 			continue
 		}
 		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		for _, lk := range links { // where the links are, to be clicked
+			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
+				a.linkHits = append(a.linkHits, linkHit{ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, lk.url})
+			}
+		}
 		for _, sp := range spans {
 			if text.AttributesAt(s + sp.from).Code {
 				continue
@@ -129,7 +135,7 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 			hot := key == a.hoverTag
 			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, sp.from), End: units(line, sp.to)}) {
 				box := ui.Rect{X: r.X + left + rc.X - 2, Y: r.Y + b.Top + rc.Y + 1, W: rc.W + 4, H: rc.H - 2}
-				p.Fill(box, th.Accent.Alpha(map[bool]float32{true: 0.26, false: 0.13}[hot]), 5)
+				p.Fill(box, th.Accent.Alpha(map[bool]float32{true: 0.26, false: 0.13}[hot]), rad(5))
 				a.tagHits = append(a.tagHits, tagHit{box, key})
 			}
 		}
@@ -214,7 +220,7 @@ func (a *app) tagView(c *ui.Context) {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, q := range pages {
 					q := q
-					row := ui.Row(c.Key("tp:"+q.Dir)).Padding(8, 10).Gap(10).Radius(8).AlignItems(ui.Center).
+					row := ui.Row(c.Key("tp:"+q.Dir)).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).
 						Label("Sayfa: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					if row.Hovered() {
 						row.Background(t.SurfaceHover)
@@ -242,7 +248,7 @@ func (a *app) tagView(c *ui.Context) {
 
 // tagPill is a tag as a small button: its name and how many pages have it.
 func (a *app) tagPill(c *ui.Context, cl ryugo.Colors, ti tagInfo, on bool) {
-	pill := ui.Row(c.Key("tag:"+ti.key)).Padding(3, 9).Gap(6).Radius(11).AlignItems(ui.Center).
+	pill := ui.Row(c.Key("tag:"+ti.key)).Padding(3, 9).Gap(6).Radius(rad(11)).AlignItems(ui.Center).
 		Label("Etiket: " + ti.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	hot := pill.AnimateTo("on", map[bool]float32{true: 1, false: 0}[on], fadeQuick)
 	if on || pill.Hovered() {
@@ -394,7 +400,7 @@ func (a *app) renameTag(key, newName string) (int, error) {
 	pages := append([]*Page{}, a.links.tags[key]...)
 	changed := 0
 	for _, p := range pages {
-		body, err := p.Body()
+		body, err := p.Text()
 		if err != nil {
 			return changed, err
 		}
@@ -402,7 +408,7 @@ func (a *app) renameTag(key, newName string) (int, error) {
 		if n == 0 {
 			continue
 		}
-		if err := p.Save(nb); err != nil {
+		if err := p.SaveText(nb); err != nil {
 			return changed, err
 		}
 		a.takeOutside(p)

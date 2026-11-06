@@ -72,7 +72,7 @@ func (a *app) pictureAttachment(p *Page, name, ref string) *richtext.Attachment 
 				w := min(iw, maxImageW)
 				att.Image, att.Width, att.Height = src, w, w*ih/iw
 				att.Draw = func(p *ui.Painter, r ui.Rect) { // its corners rounded
-					p.Clip(r, 10, func() { p.Image(src, r, ui.Contain) })
+					p.Clip(r, rad(10), func() { p.Image(src, r, ui.Contain) })
 					a.picHits = append(a.picHits, picHit{r, src, name})
 				}
 				return att
@@ -87,7 +87,7 @@ func (a *app) pictureAttachment(p *Page, name, ref string) *richtext.Attachment 
 	att.Width, att.Height = 240, 30
 	att.Draw = func(p *ui.Painter, r ui.Rect) {
 		th := p.Theme()
-		p.Fill(r, th.TextMuted.Alpha(0.12), 8)
+		p.Fill(r, th.TextMuted.Alpha(0.12), rad(8))
 		span := ui.Span{Text: "▫ " + label, Size: 12.5, Color: th.TextMuted}
 		_, h := p.MeasureText(r.W-16, span)
 		p.RichText(r.X+10, r.Y+max(0, (r.H-h)/2), r.W-16, span)
@@ -321,7 +321,7 @@ func (a *app) lightboxView(c *ui.Context) {
 		back := ui.Box(c.Key("lb-back")).Absolute().Left(0).Top(0).Size(ww, wh).Background(ui.Hex("#000000").Alpha(0.72)).Cursor(ui.CursorPointer).Label("Resmi kapat").Role(ui.RoleButton)
 		back.Opacity(back.AnimateTo("in", 1, fadeQuick))
 		ui.Box(c.Key("lb-img")).Absolute().Left((ww-w)/2).Top((wh-h)/2-14).Size(w, h).PassThrough().Draw(func(p *ui.Painter, r ui.Rect) {
-			p.Clip(r, 12, func() { p.Image(lb.src, r, ui.Contain) })
+			p.Clip(r, rad(12), func() { p.Image(lb.src, r, ui.Contain) })
 		})
 		if lb.name != "" {
 			ui.Text(c.Key("lb-name"), lb.name).Absolute().Left(0).Top((wh+h)/2 + 2).Width(ww).TextAlign(ui.Center).FontSize(13).TextColor(ui.Hex("#ffffff").Alpha(0.8)).PassThrough()

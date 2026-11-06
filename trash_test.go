@@ -13,7 +13,7 @@ import (
 // it is gone from the disk.
 func TestRestoreOnDisk(t *testing.T) {
 	lib, ps, one, two := dragLibrary(t)
-	ps["B1"].Save("bir\n")
+	ps["B1"].SaveText("bir\n")
 	item, err := lib.TrashPage(ps["B"])
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestRestoreOnDisk(t *testing.T) {
 	if len(p.Children) != 1 || p.Children[0].Coll != one {
 		t.Fatal("the sub-page did not come back with it")
 	}
-	if body, _ := p.Children[0].Body(); body != "bir\n" {
+	if body, _ := p.Children[0].Text(); body != "bir\n" {
 		t.Fatalf("its text: %q", body)
 	}
 	if _, err := os.Stat(filepath.Join(p.Dir, trashNote)); !os.IsNotExist(err) {

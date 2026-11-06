@@ -12,9 +12,9 @@ func TestWriting(t *testing.T) {
 	now := time.Date(2026, 11, 5, 14, 0, 0, 0, time.UTC) // a Thursday
 	a.clock = func() time.Time { return now }
 	tt.Frame()
-	a.lastSave = "bir iki\n"
-	a.countWriting("bir iki\n", "bir iki üç dört beş\n")
-	a.countWriting("bir iki üç dört beş\n", "bir\n") // deleting counts nothing
+	a.lastWords = 2
+	a.countWriting(2, 5)
+	a.countWriting(5, 1) // deleting counts nothing
 	if got := a.writtenOn(now); got != 3 {
 		t.Fatalf("today %d", got)
 	}

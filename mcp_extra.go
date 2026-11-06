@@ -188,7 +188,8 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if !ok {
 					return fmt.Errorf("no version %d of %s", in.Version, in.Page)
 				}
-				_, md = splitFrontMatter(string(data))
+				_, body := splitPage(data)
+				md = bodyText(body)
 				return nil
 			})
 			if err != nil {

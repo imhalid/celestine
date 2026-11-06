@@ -81,7 +81,7 @@ func (a *app) currentMarkdown(p *Page) string {
 	if p == a.page && a.doc != nil {
 		a.flush()
 	}
-	body, _ := p.Body()
+	body, _ := p.Text()
 	return body
 }
 
@@ -162,7 +162,7 @@ func (a *app) writeExport(p *Page, md, path string) error {
 	}
 	entries, _ := p.fs().ReadDir(p.Dir)
 	for _, e := range entries {
-		if e.IsDir() || e.Name() == "index.md" || !strings.Contains(md, e.Name()) {
+		if e.IsDir() || e.Name() == pageFileName || !strings.Contains(md, e.Name()) {
 			continue
 		}
 		data, err := p.fs().ReadFile(filepath.Join(p.Dir, e.Name()))
@@ -193,7 +193,7 @@ func safeFile(s string) string {
 // barButton is a small icon button for the status bar, as tall as its text.
 func (a *app) barButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(22).Height(18).Radius(5).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	b := ui.Box(c).Width(22).Height(18).Radius(rad(5)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	ryugo.Tooltip(c, b, label)
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)

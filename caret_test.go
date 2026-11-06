@@ -50,7 +50,7 @@ func testLibrary(t *testing.T, src string) *Library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Save(src); err != nil {
+	if err := p.SaveText(src); err != nil {
 		t.Fatal(err)
 	}
 	return lib
@@ -142,7 +142,7 @@ func TestSaveAndReload(t *testing.T) {
 	if a.dirty {
 		t.Fatalf("not saved (err %q)", a.saveErr)
 	}
-	body, err := a.page.Body()
+	body, err := a.page.Text()
 	if err != nil {
 		t.Fatal(err)
 	}

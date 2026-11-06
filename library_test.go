@@ -20,7 +20,7 @@ func TestLibraryOnDisk(t *testing.T) {
 	a, _ := c.NewPage(nil, "Çalışma: Ünite 1")
 	b, _ := c.NewPage(a, "Alt Sayfa")
 	twin, _ := c.NewPage(nil, "Çalışma: Ünite 1") // the same title: a folder of its own
-	if err := b.Save("- bir\n- iki\n"); err != nil {
+	if err := b.SaveText("- bir\n- iki\n"); err != nil {
 		t.Fatal(err)
 	}
 	if filepath.Base(c.Dir) != "okuma-listesi" || filepath.Base(a.Dir) != "calisma-unite-1" || filepath.Base(twin.Dir) != "calisma-unite-1-2" {
@@ -49,12 +49,12 @@ func TestLibraryOnDisk(t *testing.T) {
 	if sub.Title != "Alt Sayfa" || sub.Parent != pages[0] || sub.Depth() != 1 {
 		t.Fatalf("sub-page: %+v", sub)
 	}
-	if body, _ := sub.Body(); body != "- bir\n- iki\n" {
+	if body, _ := sub.Text(); body != "- bir\n- iki\n" {
 		t.Fatalf("body: %q", body)
 	}
-	src, _ := os.ReadFile(filepath.Join(a.Dir, "index.md"))
-	if !strings.HasPrefix(string(src), "---\ntitle: \"Yeni ad: \\\"tırnaklı\\\"\"\ncreated: ") {
-		t.Fatalf("front matter:\n%s", src)
+	src, _ := os.ReadFile(filepath.Join(a.Dir, pageFileName))
+	if m := pageMeta(src); m["title"] != "Yeni ad: \"tırnaklı\"" || m["created"] == "" {
+		t.Fatalf("meta:\n%s", src)
 	}
 	// A folder without a collection.json is not a collection.
 	os.Mkdir(filepath.Join(root, "baska"), 0o755)
@@ -74,7 +74,7 @@ func TestSidebarMakesSubPage(t *testing.T) {
 	if len(parent.Children) != 1 || a.page != parent.Children[0] || a.page.Title != "Adsız" {
 		t.Fatalf("sub-page: %+v, open %v", parent.Children, a.page)
 	}
-	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", "index.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", pageFileName)); err != nil {
 		t.Fatal(err)
 	}
 	// The new title is typed straight away, and saved.
@@ -98,7 +98,7 @@ func TestSwitchingPagesSaves(t *testing.T) {
 	other, _ := first.Coll.NewPage(nil, "İkinci")
 	a.open(other)
 	tt.Frame()
-	if body, _ := first.Body(); !strings.Contains(body, "!") {
+	if body, _ := first.Text(); !strings.Contains(body, "!") {
 		t.Fatalf("not saved on leaving: %q", body)
 	}
 	a.open(first) // its document, undo and all, is kept

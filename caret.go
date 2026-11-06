@@ -82,9 +82,20 @@ func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, 
 	c := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextDownstream})
 	full := c
 	mid := c.Y + c.H/2
+	// a line holding a block (a table, a card, a picture) is as tall as it: its caret is
+	// as tall as a letter, on the baseline, not as the block
+	tall := false
+	for _, r := range para.Runs {
+		if at := r.Attributes.Attachment; at != nil && at.Height > base.Size*2 {
+			tall = true
+		}
+	}
 	for _, ln := range l.Lines() {
 		if mid >= ln.Rect.Y && mid <= ln.Rect.Y+ln.Rect.H && ln.Ascent > 0 {
 			c.Y, c.H = ln.Baseline-ln.Ascent, ln.Ascent+ln.Descent
+			if tall {
+				c.Y, c.H = ln.Baseline-base.Size*0.95, base.Size*1.25
+			}
 			break
 		}
 	}
@@ -214,4 +225,32 @@ func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.P
 	l, left := layoutParagraph(p, w, base, th)
 	*m = paraMemo{doc, ver, start, w, base, th, p.Style, l, left}
 	return l, left
+}
+
+// inputCaret is where the caret is in a text input that shows text of one
+// size on one line, at (left, top) of a box height high, the text in the
+// middle of it: its place and the width of the letter after it. The input's
+// own caret is hidden (CaretWidth(0)); ours is drawn as the page's.
+func (a *app) inputCaret(text string, caret int, size float32, weight int, left, top, height float32) (ui.Rect, float32) {
+	l := ui.ShapeRichTextWith([]ui.Span{{Text: text, Size: size, Weight: weight}}, a.font, ui.TextShape{})
+	u := units(text, caret)
+	c := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextDownstream})
+	full := c
+	mid := c.Y + c.H/2
+	for _, ln := range l.Lines() {
+		if mid >= ln.Rect.Y && mid <= ln.Rect.Y+ln.Rect.H && ln.Ascent > 0 {
+			c.Y, c.H = ln.Baseline-ln.Ascent, ln.Ascent+ln.Descent
+			break
+		}
+	}
+	cw := c.H * 0.5
+	if next := l.NextBoundary(u); next > u {
+		if nc := l.CaretAt(ui.TextCaretPosition{Index: next}); nc.X > full.X && math.Abs(float64(nc.Y-full.Y)) < 0.5 {
+			cw = nc.X - full.X
+		}
+	}
+	_, lh := l.Size()
+	c.X += left
+	c.Y += top + max(0, (height-lh)/2)
+	return c, cw
 }

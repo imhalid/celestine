@@ -44,6 +44,7 @@ type menuItem struct {
 	title, hint, group string
 	sub                string // faint, under the title
 	nav                bool   // goes into a menu: the menu stays open
+	back               bool   // the first line of a menu that was gone into: ← Geri
 	danger             bool   // in red: deletes
 	glyph              *ui.SVG
 	dot                *ui.Color // a dot of this color where the glyph goes (a group's)
@@ -137,6 +138,23 @@ func kindByID(id string) (struct{ kind, name, md string }, bool) {
 	return struct{ kind, name, md string }{}, false
 }
 
+// slashBack is ← Geri, the first line of a menu that was gone into, as any other line.
+func (a *app) slashBack() menuItem {
+	s := &a.slash
+	return menuItem{title: "Geri", hint: viewTitle[s.view], glyph: iconBack, nav: true, back: true, run: func() {
+		a.doc.SetSelection(s.at, s.at)
+		a.enterView("")
+	}}
+}
+
+// slashFirst is the line the choice starts on: the first that is not the way back.
+func (a *app) slashFirst() int {
+	if a.slash.view != "" {
+		return 1
+	}
+	return 0
+}
+
 // enterView goes into one of the menus.
 func (a *app) enterView(v string) {
 	s := &a.slash
@@ -144,6 +162,7 @@ func (a *app) enterView(v string) {
 		a.refocus = true
 	}
 	s.view, s.sel, s.seen, s.scroll = v, 0, -1, ui.ScrollState{}
+	s.sel = a.slashFirst()
 	s.field, s.fseen, s.fin = "", "", false
 	s.cal = a.clock()
 }
@@ -159,7 +178,7 @@ func (a *app) menuItems(q string) []menuItem {
 	}
 	switch {
 	case s.view != "":
-		return a.viewItems(s.view, q)
+		return append([]menuItem{a.slashBack()}, a.viewItems(s.view, q)...)
 	case q != "":
 		return a.searchItems(q)
 	}
@@ -229,6 +248,9 @@ func (a *app) rawItems(q string) []menuItem {
 		out = append(out, menuItem{title: "Sayfa göm…", sub: "başka bir sayfanın metni", glyph: iconPage, group: "Ekle", nav: true, run: func() { a.enterView("embed") }})
 	}
 	out = append(out, a.templateItems(q)...)
+	if q == "" || match(q, "Tablo") >= 0 {
+		out = append(out, menuItem{title: "Tablo", sub: "satırlar ve sütunlar", glyph: iconTable, group: "Ekle", run: a.chooseTable})
+	}
 	for _, r := range rawTemplates {
 		r := r
 		if q != "" && match(q, r.name) < 0 {
@@ -261,14 +283,23 @@ func (a *app) chooseRaw(r rawTemplate) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
-	first := a.insertRaw(start, r)
+	a.insertRaw(start, r)
 	s.open = false
-	if r.kind == "table" { // it shows as a table at once, its first cell open to be written in
-		if tb, ok := tableBlockAt(a.doc.Text(), first); ok {
-			a.doc.SetSelection(tb.end+1, tb.end+1)
-			a.cellEd = cellEdit{open: true, start: tb.start, line: 0, col: 0, text: tb.cellAt(0, 0), fresh: true}
-		}
-	}
+}
+
+// chooseTable takes the "/…" away and puts a table in, its first cell open
+// to be written in.
+func (a *app) chooseTable() {
+	s := &a.slash
+	_, caret := a.doc.Selection()
+	start := s.start
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(start, max(caret, start), richtext.Text{})
+		ed.Select(start, start)
+	})
+	ch := a.insertTable(start)
+	s.open = false
+	a.cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: ch.tbl.cell(-1, 0), fresh: true}
 }
 
 // choiceItems are the values of the page's choices, for q.
@@ -557,6 +588,10 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		}
 		a.doc.SetSelection(s.at, s.at)
 		return false
+	case s.view != "" && !edited && caret < s.start+len(s.sign) && caret >= ps: // ← before the sign: a menu back
+		a.doc.SetSelection(s.at, s.at)
+		a.enterView("")
+		return false
 	case caret < s.start+len(s.sign) || caret > pe:
 		s.open = false
 	case s.sign == "#": // a tag: its letters, nothing else
@@ -603,18 +638,18 @@ func (a *app) chooseSlash(k struct{ kind, name, md string }) {
 // The menu's rows have fixed heights, so its height is known before it is
 // laid out, and it can be put above the caret when there is no room below.
 const (
-	menuRow   = 34
-	menuRow2  = 46 // a row with a second line
-	menuHead  = 26
-	menuSep   = 9
-	menuTop   = 32 // the header: the title, or ← Geri
-	menuIn    = 38 // the field of a menu
+	menuRow   = 26
+	menuRow2  = 36 // a row with a second line
+	menuHead  = 22
+	menuSep   = 7
+	menuTop   = 26 // the header: the title, or ← Geri
+	menuIn    = 30 // the field of a menu
 	menuCal   = 224
-	menuEmpty = 112 // the menu with nothing in it
-	menuPad   = 6
-	menuAfter = 4 // the room under a divider
-	menuW     = 300
-	menuGap   = 6
+	menuEmpty = 84 // the menu with nothing in it
+	menuPad   = 4
+	menuAfter = 3 // the room under a divider
+	menuW     = 236
+	menuGap   = 4
 )
 
 // rowH is the height of a row.
@@ -648,6 +683,8 @@ func menuRows(items []menuItem, extra float32) (tops, ends []float32, total floa
 	}
 	if len(items) == 0 {
 		total = menuEmpty
+	} else if len(items) == 1 && items[0].back { // only the way back: and what is said under it
+		total += menuEmpty
 	}
 	return tops, ends, total + extra
 }
@@ -704,7 +741,7 @@ func (a *app) slashView(c *ui.Context) {
 	}
 	pl := placeMenu(c, cr.X-4, cr.Y, cr.Y+cr.H, items, extra, head)
 	if s.fseen != s.field { // typed: the first of the list again
-		s.sel, s.seen, s.scroll.Y, s.fseen = 0, -1, 0, s.field
+		s.sel, s.seen, s.scroll.Y, s.fseen = a.slashFirst(), -1, 0, s.field
 	}
 	keepInSight(s.sel, &s.seen, &s.scroll, pl)
 	choose := func(it menuItem) {
@@ -727,14 +764,14 @@ func (a *app) slashView(c *ui.Context) {
 	m.head = func() {
 		if s.sign == "#" {
 			ui.Text(c, "Etiket").FontSize(12.5).TextColor(cl.Muted).Grow(1)
-			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, "#").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
 			return
 		}
 		if s.sign == "[[" {
 			ui.Text(c, "Sayfaya bağla").FontSize(12.5).TextColor(cl.Muted).Grow(1)
-			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, "[[ ]]").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
 			return
@@ -746,15 +783,12 @@ func (a *app) slashView(c *ui.Context) {
 			}
 			ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Text(c, "bu menü").FontSize(11.5).TextColor(cl.Muted)
-			ui.Box(c.Key("sign")).Padding(1, 7).Radius(5).Background(cl.Fill).Children(func() {
+			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, s.sign).FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
 			return
 		}
-		menuBack(c, t, viewTitle[s.view], func() {
-			a.doc.SetSelection(s.at, s.at)
-			a.enterView("")
-		})
+		ui.Text(c, viewTitle[s.view]).FontSize(12.5).TextColor(cl.Muted).Grow(1) // the way back is the first line
 	}
 	if hasField(s.view) { // what is typed: a field of its own, the focus in it
 		m.field = func() {
@@ -773,6 +807,9 @@ func (a *app) slashView(c *ui.Context) {
 				s.sel = min(s.sel+1, len(items)-1)
 			case in.Shortcut(0, ui.KeyUp):
 				s.sel = max(s.sel-1, 0)
+			case s.field == "" && in.Shortcut(0, ui.KeyBackspace): // nothing to delete: back
+				a.enterView("")
+				a.doc.SetSelection(s.at, s.at)
 			case in.Submitted() && len(items) > 0:
 				choose(items[max(0, min(s.sel, len(items)-1))])
 			}

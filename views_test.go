@@ -26,7 +26,7 @@ func viewsLibrary(t *testing.T) (*app, *ui.Tester, *Collection) {
 			t.Fatal(err)
 		}
 		p.Created = made
-		if err := p.Save(body); err != nil {
+		if err := p.SaveText(body); err != nil {
 			t.Fatal(err)
 		}
 		p.Modified = changed

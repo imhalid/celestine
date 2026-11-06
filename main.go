@@ -18,6 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -44,7 +45,7 @@ const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler
 - [ ] Kutuya tıkla
 - [x] Bitmiş bir görev
 
-> Her sayfa kitaplık klasöründe bir klasör ve içinde index.md: başka her araç okuyabilir.
+> Her sayfa kitaplık klasöründe bir klasör ve içinde page.json: uygulamanın kendi biçimi.
 
 ⌘⇧M caret'i değiştirir: Slime ya da Mizan.
 `
@@ -54,19 +55,24 @@ const (
 	pageTop   = 48
 )
 
-type caretKind int
-
-const (
-	caretSlime caretKind = iota
-	caretMizan
-)
-
 // caretFrame is what a caret is told each frame (see mizan.go).
 type caretFrame struct {
 	r      ui.Rect
 	cw     float32
 	dark   bool
 	bounds ui.Rect
+	wrote  int
+	edited bool
+}
+
+// titleCaretSpec is the caret in the page's title, as it was found: where it
+// is, how wide, and what was just written.
+type titleCaretSpec struct {
+	on     bool
+	r      ui.Rect
+	cw     float32
+	box    ui.Rect
+	sel    bool
 	wrote  int
 	edited bool
 }
@@ -102,16 +108,22 @@ type app struct {
 	mizan     *mizanCaret
 
 	// What changed since the last frame, for the caret and for saving.
-	version uint64
-	length  int
-	caretAt int
-	wrote   int
-	edited  bool
-	editAt  time.Time
-	dirty   bool
-	saveErr string
-	notice  string     // a toast to show
-	trashed *TrashItem // just thrown away: a toast offers it back
+	version  uint64
+	length   int
+	caretAt  int
+	wrote    int
+	edited   bool
+	erased   int // letters erased since the caret was drawn, which way (-1 Backspace, 1 Delete) and what they were (caretfx.go)
+	eraseDir int
+	gone     string
+	prevText richtext.Text // the text before the last edit, for what was erased
+	pacman   *pacman
+	comet    *comet
+	editAt   time.Time
+	dirty    bool
+	saveErr  string
+	notice   string     // a toast to show
+	trashed  *TrashItem // just thrown away: a toast offers it back
 
 	trashOpen     bool       // the trash is shown, instead of a page
 	quick         *quickNote // the panel for a note, over everything (quick.go)
@@ -133,6 +145,8 @@ type app struct {
 	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
 	tagHits       []tagHit       // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
+	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
+	linkSeen      []linkHit
 	hoverTag      string
 	coverHover    bool     // the pointer is in the cover band
 	picHits       []picHit // the pictures drawn this frame, and the last frame's (images.go)
@@ -143,9 +157,12 @@ type app struct {
 	borderSeen    []colBorder
 	hoverBorder   borderKey
 	colDrag       colDragState
-	colLive       map[int]colBorder // the column being dragged, by its table
-	tableKeep     int               // the table the pointer is pressed in: it stays drawn as a table
 	cellEd        cellEdit
+	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
+	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
+	titleCaret    titleCaretSpec     // where the caret in the title is, to draw it (the title is an input)
+	titleSeen     bool
+	titleLen      int
 	selPrevA      int // the selection before a pointer went down in the editor
 	selPrevC      int
 	lightbox      *picHit  // the picture shown large
@@ -156,11 +173,12 @@ type app struct {
 	boxes         []richtext.ParagraphBox
 	focused       bool
 	clock         func() time.Time
-	lastSave      string
+	lastSave      string                  // the body as last written
+	look          string                  // the light or dark and the color theme the window was last drawn in
+	lastWords     int                     // the words it had, or -1 when not known
 	style         richtext.ParagraphStyle // the caret paragraph's, last frame
 	refocus       bool                    // the editor takes the keyboard focus in the next frame
 	pageR         ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
-	heads         map[*Page]string        // the heading of each page that is its title, kept aside (hidetitle.go)
 	caretPara     int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
 	caretRel      float32
 	caretTop      float32
@@ -255,7 +273,7 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, pacman: newPacman(), comet: newComet(), clock: time.Now}
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
@@ -282,7 +300,7 @@ func seed(lib *Library) error {
 	if err != nil {
 		return err
 	}
-	return p.Save(welcome)
+	return p.SaveText(welcome)
 }
 
 // appIcon is the app's icon, for its window and its Dock (assets/).
@@ -354,7 +372,11 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16}, Content: ui.View(a.view)})
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16},
+			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)})
+		if ownWindowControls {
+			a.win = w
+		}
 		a.invalidate = w.Invalidate
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
@@ -395,13 +417,16 @@ func (a *app) open(p *Page) {
 	a.find.ver = 0 // another text to find in
 	_, caret := doc.Selection()
 	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-	a.dirty, a.saveErr, a.lastSave = false, "", ""
+	a.prevText = doc.Text()
+	a.dirty, a.saveErr, a.lastSave, a.lastWords = false, "", "", -1
 	a.boxes = nil
 	a.winScrolled, a.winTop, a.winFlip = false, 0, a.clock()
 	a.pageScroll = ui.ScrollState{}
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
 	a.jelly.placed, a.mizan.seen, a.mizan.glide = false, false, nil
+	a.pacman.reset()
+	a.comet.reset()
 	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
 	a.linksStale()
 	a.links.built = time.Time{} // asked for at once for the page opened
@@ -423,7 +448,7 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		return
 	}
 	if c.Template != "" { // it starts as the collection says
-		if err := p.Save(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
+		if err := p.SaveText(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
 			a.saveErr = err.Error()
 		}
 	}
@@ -444,9 +469,10 @@ func (a *app) view(c *ui.Context) {
 	a.frame = c.Invalidate
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
-	tok := ryugo.Root(c, ryugo.Options{Mode: mode}) // Ryugo's theme, its components' tokens, for the appearance
-	if a.appTheme().colors(tok.Dark).bg != "" {     // and in the app's theme: the same appearance, in its colors
-		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark)})
+	radiusScale = float32(a.cornerPercent()) / 100
+	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners()}) // Ryugo's theme, its components' tokens, for the appearance
+	if a.appTheme().colors(tok.Dark).bg != "" {                                                // and in the app's theme: the same appearance, in its colors
+		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners()})
 		a.skin(tok, c.Theme())
 	}
 	t := c.Theme()
@@ -466,6 +492,15 @@ func (a *app) view(c *ui.Context) {
 	}
 
 	a.pageBg = a.bg(c)
+	// A new look (light or dark, or another color theme) is a new tree: what was there
+	// would take each color over a moment of its own - the sidebar, the inputs, the
+	// boxes of a checkbox, each at its own pace - and the change would show in pieces.
+	look := strconv.FormatBool(tok.Dark) + ":" + strconv.Itoa(a.settings.AppTheme)
+	if a.look != "" && a.look != look {
+		a.refocus = true // the editor was rebuilt, and has the focus again
+	}
+	a.look = look
+	c.Key("look:" + look)
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
@@ -478,7 +513,7 @@ func (a *app) view(c *ui.Context) {
 			a.togglePanel()
 		}
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.setCaret((a.caretKind + 1) % 2)
+			a.setCaret((a.caretKind + 1) % caretKinds)
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
 			a.step(-1)
@@ -586,11 +621,12 @@ func (a *app) view(c *ui.Context) {
 			a.status(c)
 			a.keepTree()
 			if overBar {
-				a.titleBarOver(c)
+				a.topBar(c)
 			}
 		})
 		a.sidePanel(c)
 		a.sidebarButton(c)
+		a.windowControls(c)
 	})
 	a.collDragView(c)
 	a.caretView(c)
@@ -607,6 +643,9 @@ func (a *app) view(c *ui.Context) {
 	a.tagRenameView(c)
 	a.historyView(c)
 	a.writingView(c)
+	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
+		a.cellEd.open = false
+	}
 	a.cellEditView(c)
 	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
@@ -638,10 +677,10 @@ func (a *app) view(c *ui.Context) {
 // bg is the page's background: Ryugo's, but in the dark not its black -
 // its card's dark gray, a step below the sidebar.
 func (a *app) bg(c *ui.Context) ui.Color {
-	if t := ryugo.From(c); t.Dark {
+	if t := ryugo.From(c); t.Dark && a.appTheme().colors(true).bg == "" { // Ryugo's own dark: the page is its card
 		return t.Colors.Card
 	}
-	return c.Theme().Background
+	return c.Theme().Background // a theme's page is its own color
 }
 
 // pageView is the open page: its title, its properties and its text, one
@@ -716,16 +755,10 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	a.edPressed = ed.Pressed()
-	if !a.edPressed { // a press on a table's cell moves the caret into it: where it was is kept to put it back
-		a.tableKeep = 0
-	} else if x, y, over := ed.PointerPosition(); over && a.tableKeep == 0 {
-		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
-			a.tableKeep = h.start + 1
-		}
-	}
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
+	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
 	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
 	if x, y, over := ed.PointerPosition(); over {
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
@@ -733,6 +766,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 			ed.Cursor(ui.CursorPointer)
 		}
 		if a.tableCellAt(a.editorR.X+x, a.editorR.Y+y) != nil {
+			ed.Cursor(ui.CursorPointer)
+		}
+		if _, ok := a.linkAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			ed.Cursor(ui.CursorPointer)
 		}
 		if a.pictureAt(a.editorR.X+x, a.editorR.Y+y) != nil {
@@ -751,9 +787,11 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		x, y, _ := ed.PointerPosition()
 		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
 			a.doc.SetSelection(a.selPrevA, a.selPrevC)
-			a.openCell(h)
+			a.clickCell(h)
 		} else if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.openTag(key)
+		} else if url, ok := a.linkAt(a.editorR.X+x, a.editorR.Y+y); ok {
+			a.openLink(url)
 		} else if pic := a.pictureAt(a.editorR.X+x, a.editorR.Y+y); pic != nil {
 			a.lightbox = pic
 		} else {
@@ -769,7 +807,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
 		a.drawTags(p, r)
-		a.drawTables(p, r)
+		a.sealTables()
 	})
 	a.backlinksView(c, p)
 }
@@ -785,6 +823,9 @@ func (a *app) caretView(c *ui.Context) {
 	ui.Overlay(c, func() {
 		ui.Box(c.Key("caret-layer")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
 			a.drawCaret(p, a.editorR)
+			if tc := a.titleCaret; tc.on {
+				a.paintCaret(p, tc.r, tc.cw, tc.box, kick{wrote: tc.wrote, edited: tc.edited}, tc.sel)
+			}
 		})
 	})
 }
@@ -808,7 +849,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 		a.propsSection(c, p)
 		return
 	}
-	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink)
+	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).CaretWidth(0)
 	if a.fresh {
 		title.AutoFocus()
 		a.fresh = false
@@ -823,6 +864,20 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 		}
 	}
 	a.titleFocused = title.Focused()
+	a.titleCaret = titleCaretSpec{}
+	if b := title.LayoutBounds(); title.Focused() && b.W > 0 { // the caret is ours, as the page's
+		anchor, caret := title.TextAnchorCaret()
+		cr, cw := a.inputCaret(a.title, caret, 32, 720, b.X, b.Y+6, b.H-16)
+		n := utf8.RuneCountInString(a.title)
+		spec := titleCaretSpec{on: true, r: cr, cw: cw, box: b, sel: anchor != caret}
+		if a.titleSeen && n != a.titleLen {
+			spec.edited, spec.wrote = true, max(n-a.titleLen, 0)
+		}
+		a.titleSeen, a.titleLen = true, n
+		a.titleCaret = spec
+	} else if !title.Focused() {
+		a.titleSeen = false
+	}
 	a.coverGap(c, p)
 	// ↓ or ↵ in the title goes into the text
 	if title.Focused() && (title.Shortcut(0, ui.KeyDown) || title.Submitted()) {
@@ -926,9 +981,25 @@ func (a *app) track(c *ui.Context) {
 		n = text.Len()
 		a.length, a.caretAt = n, caret
 	}
-	if grew := n - a.length; grew > 0 && caret-a.caretAt == grew && grew <= 8 {
+	// pasted text with [[links]] in it: they are chips, as if typed (a link copied from
+	// the page's menu is such text)
+	if grew := n - a.length; grew > 1 && caret-a.caretAt == grew && a.chipsInPasted(caret-grew, caret) {
+		_, caret = a.doc.Selection()
+		text, v = a.doc.Text(), a.doc.Version()
+		style = text.ParagraphStyleAt(caret)
+		n = text.Len()
+		a.length, a.caretAt = n, caret
+	}
+	switch grew := n - a.length; {
+	case grew > 0 && caret-a.caretAt == grew && grew <= 8:
 		a.wrote += grew
-	} else {
+	case grew < 0 && grew >= -48 && caret == a.caretAt+grew: // Backspace: what was behind the caret
+		a.eraseOf(a.prevText, caret, a.caretAt, -1)
+		a.edited = true
+	case grew < 0 && grew >= -48 && caret == a.caretAt: // Delete: what was ahead
+		a.eraseOf(a.prevText, caret, caret-grew, 1)
+		a.edited = true
+	default:
 		a.edited = true
 	}
 	// A Markdown shortcut ("[] ", "# "…) just turned an empty paragraph into
@@ -939,6 +1010,7 @@ func (a *app) track(c *ui.Context) {
 		a.doc.SetTypingAttributes(richtext.Attributes{})
 	}
 	a.version, a.length, a.caretAt, a.style = v, n, caret, style
+	a.prevText = text
 	a.dirty, a.editAt, a.saveErr = true, a.clock(), ""
 }
 
@@ -983,6 +1055,8 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if cb.para == a.caretPara && cb.r.Y-cb.top == a.caretRel && top != a.caretTop {
 		a.jelly.shift(0, top-a.caretTop)
 		a.mizan.shift(top - a.caretTop)
+		a.pacman.shift(top - a.caretTop)
+		a.comet.shift(top - a.caretTop)
 	}
 	a.caretPara, a.caretRel, a.caretTop = cb.para, cb.r.Y-cb.top, top
 	cr := cb.r
@@ -990,30 +1064,49 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	cr.Y += r.Y
 	a.caretWin = cr
 	a.revealCaret(cr)
-	dark := p.Theme().Dark
 	anchor, caret := a.doc.Selection()
 	if anchor != caret { // over a selection, a plain caret: the jelly would hide what is selected
-		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, 1)
+		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
 	}
-	f := caretFrame{r: cr, cw: cb.cw, dark: dark, bounds: r, wrote: a.wrote, edited: a.edited}
-	a.wrote, a.edited = 0, false
+	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone}
+	a.wrote, a.edited, a.erased, a.gone = 0, false, 0, ""
+	a.paintCaret(p, cr, cb.cw, r, k, false)
+}
+
+// paintCaret draws the caret cr, in the editor's box bounds (or an input's):
+// the slime or the mizan, as chosen, or a plain bar over a selection. wrote
+// is how many letters were just written, edited whether the text was changed.
+func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, k kick, selecting bool) {
+	dark := p.Theme().Dark
+	if selecting {
+		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
+		return
+	}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bounds: bounds, wrote: k.wrote, edited: k.edited}
 	// not clipped to the editor's box: at the start of a line the caret
 	// goes past its left edge
 	room := a.scrollR
 	if room.H == 0 {
-		room = ui.Rect{X: r.X - 24, Y: r.Y - 12, W: r.W + 48, H: r.H + 24}
+		room = ui.Rect{X: bounds.X - 24, Y: bounds.Y - 12, W: bounds.W + 48, H: bounds.H + 24}
 	}
 	p.Clip(room, 0, func() {
-		if a.caretKind == caretMizan {
+		switch a.caretKind {
+		case caretMizan:
 			a.mizan.draw(p, f)
+			return
+		case caretPacman:
+			a.pacman.draw(p, f, k)
+			return
+		case caretComet:
+			a.comet.draw(p, f, k)
 			return
 		}
 		col := ui.Hex("#59f939")
 		if !dark {
 			col = ui.Hex("#2f9a1c")
 		}
-		a.jelly.draw(p, cr, cb.cw, col, dark)
+		a.jelly.draw(p, cr, cw, col, dark)
 	})
 }
 
@@ -1027,12 +1120,15 @@ func (a *app) status(c *ui.Context) {
 	case a.dirty:
 		state = "kaydediliyor…"
 	}
-	caret := map[caretKind]string{caretSlime: "Slime", caretMizan: "Mizan"}[a.caretKind]
 	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
-	ui.Row(c).Padding(3, 16).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+		if a.barButton(c, iconSettings, "Ayarlar") { // at the left end: the rest is pushed to the right
+			a.settingsOpen = true
+		}
+		ui.Box(c.Key("status-gap")).Grow(1)
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
-			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(6).AlignItems(ui.Center).
+			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
 				Label("MCP açık: ayarlar").Role(ui.RoleButton)
 			ryugo.Tooltip(c, m, "MCP sunucusu açık · "+a.mcpURL())
 			if m.Hovered() {
@@ -1065,9 +1161,7 @@ func (a *app) status(c *ui.Context) {
 				st.TextColor(ryugo.From(c).Colors.Up)
 			}
 		}
-		if !a.settings.HideCaret {
-			ui.Text(c, caret).FontSize(11.5).TextColor(t.TextMuted).Label("Caret: " + caret + " (⌘⇧M)")
-		}
+		a.themeButton(c)
 		a.pageButtons(c)
 	})
 }
@@ -1112,20 +1206,18 @@ func (a *app) autosave(c *ui.Context) {
 
 func (a *app) save() {
 	a.rollRecurring()
-	md := a.pageMarkdown(a.page, a.doc.Text())
-	if !strings.HasSuffix(md, "\n") {
-		md += "\n"
-	}
-	if md == a.lastSave {
+	body := encodeBody(a.doc.Text())
+	if body == a.lastSave {
 		a.dirty = false
 		return
 	}
-	if err := a.page.Save(md); err != nil {
+	if err := a.page.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return
 	}
-	a.countWriting(a.lastSave, md)
-	a.lastSave, a.dirty = md, false
+	words := len(strings.Fields(a.doc.Text().PlainText()))
+	a.countWriting(a.lastWords, words)
+	a.lastSave, a.lastWords, a.dirty = body, words, false
 	a.linksStale()
 }
 

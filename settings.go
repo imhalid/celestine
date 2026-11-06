@@ -76,13 +76,7 @@ func (a *app) settingsDialog(c *ui.Context) {
 		})
 		g := ui.Box(c.Key("set-grip")).Absolute().Top(0).Left(0).Right(0).Height(64)
 		grip(g)
-		x := ui.ButtonBase(c.Key("set-close")).Label("Kapat").Absolute().Top(14).Right(14).Size(30, 30).Center().Radius(15).Cursor(ui.CursorPointer)
-		col := cl.Muted
-		if x.Hovered() {
-			x.Background(cl.Fill)
-			col = cl.Text
-		}
-		x.TextColor(col).Children(func() { ui.Icon(c, iconClose).Width(16).Height(16) })
+		x := ryugo.Button(c.Key("set-close"), "Kapat", ryugo.ButtonOptions{Icon: iconClose, IconOnly: true, Size: ryugo.Sm}).Absolute().Top(14).Right(14)
 		if x.Clicked() {
 			closeIt()
 		}
@@ -99,7 +93,7 @@ func (a *app) settingsNav(c *ui.Context) {
 		ui.Text(c, "Ayarlar").FontSize(17).FontWeight(650).TextColor(cl.Text).Padding(22, 10, 14, 10)
 		for i, s := range settingsSections {
 			sel := a.settingsTab == i
-			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(9).AlignItems(ui.Center).
+			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
 				Label(s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
 			hov := e.AnimateTo("hov", b2f(e.Hovered() && !sel), fadeQuick)
@@ -124,7 +118,7 @@ func (a *app) settingsNav(c *ui.Context) {
 // settingGroup is a card of settings, a line between them.
 func settingGroup(c *ui.Context, key string, rows ...func()) {
 	cl := ryugo.From(c).Colors
-	ui.Column(c.Key(key)).FillWidth().Radius(16).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+	ui.Column(c.Key(key)).FillWidth().Radius(rad(16)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 		for i, r := range rows {
 			if i > 0 {
 				ui.Box(c.Key(key + "-d" + strconv.Itoa(i))).FillWidth().Height(1).Background(cl.Hairline)
@@ -154,7 +148,7 @@ func settingRow(c *ui.Context, title, help string, control func()) {
 func choiceTile(c *ui.Context, key, label string, on bool, preview func()) bool {
 	t := ryugo.From(c)
 	cl := t.Colors
-	e := ui.Column(c.Key(key)).Width(128).Gap(8).Padding(7, 7, 10, 7).Radius(16).AlignItems(ui.Center).
+	e := ui.Column(c.Key(key)).Width(128).Gap(8).Padding(7, 7, 10, 7).Radius(rad(16)).AlignItems(ui.Center).
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	lift := e.AnimateTo("lift", b2f(e.Hovered()), fadeQuick)
 	sel := e.AnimateTo("sel", b2f(on), selSpring)
@@ -167,7 +161,7 @@ func choiceTile(c *ui.Context, key, label string, on bool, preview func()) bool 
 	}
 	e.Translate(0, -2*lift)
 	e.Children(func() {
-		ui.Box(c).Width(112).Height(66).Radius(10).Clip().Children(preview)
+		ui.Box(c).Width(112).Height(66).Radius(rad(10)).Clip().Children(preview)
 		ui.Text(c, label).FontSize(13.5).FontWeight(int(540 + 120*sel)).TextColor(ryugo.Mix(cl.Text2, cl.Text, sel))
 	})
 	return e.Clicked()
@@ -182,10 +176,10 @@ func mock(c *ui.Context, dark bool, w float32) {
 	ui.Row(c).Width(w).Height(66).Background(bg).Clip().Children(func() {
 		ui.Box(c).Width(22).Height(66).Background(fg.Alpha(0.08)).Shrink(0)
 		ui.Column(c).Padding(12, 8).Gap(6).Children(func() {
-			ui.Box(c).Width(40).Height(6).Radius(3).Background(fg.Alpha(0.8))
-			ui.Box(c).Width(54).Height(4).Radius(2).Background(fg.Alpha(0.3))
-			ui.Box(c).Width(46).Height(4).Radius(2).Background(fg.Alpha(0.3))
-			ui.Box(c).Width(28).Height(8).Radius(4).Background(ryugo.From(c).Colors.Accent)
+			ui.Box(c).Width(40).Height(6).Radius(rad(3)).Background(fg.Alpha(0.8))
+			ui.Box(c).Width(54).Height(4).Radius(rad(2)).Background(fg.Alpha(0.3))
+			ui.Box(c).Width(46).Height(4).Radius(rad(2)).Background(fg.Alpha(0.3))
+			ui.Box(c).Width(28).Height(8).Radius(rad(4)).Background(ryugo.From(c).Colors.Accent)
 		})
 	})
 }
@@ -230,6 +224,19 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.PageWidth = w
 		a.saveSettings()
 	}
+	corner := float64(a.cornerPercent())
+	settingGroup(c, "set-corner", func() {
+		settingRow(c, "Köşeler", "Bütün köşeler tek bir ölçüden hesaplanır: 0 köşeli, 100 tasarımın kendisi, 200 iki kat yuvarlak.", func() {
+			ui.Box(c).Width(260).Children(func() {
+				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: "Köşe yuvarlaklığı", Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
+			})
+		})
+	})
+	if int(corner) != a.cornerPercent() {
+		v := int(corner)
+		a.settings.Corner = &v
+		a.saveSettings()
+	}
 }
 
 func (a *app) settingsEditor(c *ui.Context) {
@@ -240,14 +247,14 @@ func (a *app) settingsEditor(c *ui.Context) {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Pacman sarı, gözlü bir slime: silerken ağzı üçgen gibi açılır; Kuyruklu yıldız gittiği yere ışık bırakır. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
-				ui.Row(c).Gap(14).Children(func() {
-					if choiceTile(c, "tile-slime", "Slime", caret == 0, func() { caretMock(c, false) }) {
-						caret = 0
-					}
-					if choiceTile(c, "tile-mizan", "Mizan", caret == 1, func() { caretMock(c, true) }) {
-						caret = 1
+				ui.Row(c).Gap(14).Wrap().Children(func() {
+					for k := caretKind(0); k < caretKinds; k++ {
+						k := k
+						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretNames[k], caret == int(k), func() { caretMock(c, k) }) {
+							caret = int(k)
+						}
 					}
 				})
 			})
@@ -300,15 +307,36 @@ func (a *app) settingsEditor(c *ui.Context) {
 }
 
 // caretMock is a caret for a tile: Slime a green jelly, Mizan a line with the pace under it.
-func caretMock(c *ui.Context, mizan bool) {
+func caretMock(c *ui.Context, kind caretKind) {
 	cl := ryugo.From(c).Colors
 	ui.Row(c).Width(112).Height(66).Background(cl.Well).Padding(0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Merhab").FontSize(15).FontWeight(560).TextColor(cl.Text)
-		if mizan {
-			ui.Box(c).Width(2).Height(20).Radius(1).Background(cl.Accent)
-			return
+		switch kind {
+		case caretMizan:
+			ui.Box(c).Width(2).Height(20).Radius(rad(1)).Background(cl.Accent)
+		case caretPacman:
+			ui.Box(c).Size(14, 24).Draw(func(p *ui.Painter, r ui.Rect) {
+				body, ink := ui.Hex("#ffd60a"), ui.Hex("#2a1d00")
+				x, y, w, h := r.X+2.5, r.Y+1.5, float32(9), float32(21)
+				p.Fill(ui.Rect{X: x, Y: y, W: w, H: h}, withAlpha(body, 0.9), rad(5))
+				p.Fill(ui.Rect{X: x + w*0.62 - 1.6, Y: y + h*0.3 - 1.6, W: 3.2, H: 3.2}, ink, 1.6)
+				tri := &ui.Path{}
+				tri.MoveTo(x+w/2, y+h*0.62).LineTo(x+w+1, y+h*0.62-3.5).LineTo(x+w+1, y+h*0.62+3.5).Close()
+				p.FillPath(tri, withAlpha(ink, 0.8))
+			})
+		case caretComet:
+			ui.Box(c).Size(30, 22).Draw(func(p *ui.Painter, r ui.Rect) {
+				a, b := ui.Hex("#22d3ee"), ui.Hex("#e879f9")
+				for i := 0; i < 9; i++ {
+					t := float64(i) / 9
+					w := float32(3 + 12*(1-t))
+					p.Fill(ui.Rect{X: r.X + float32(t*22), Y: r.Y + r.H/2 - w/2, W: 4, H: w}, withAlpha(mix(a, b, t), 0.55*(1-t)+0.1), 2)
+				}
+				p.Fill(ui.Rect{X: r.X + 24, Y: r.Y + 1, W: 3, H: r.H - 2}, mix(a, ui.RGBA(255, 255, 255, 1), 0.3), 1.5)
+			})
+		default:
+			ui.Box(c).Width(9).Height(21).Radius(rad(5)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ui.Hex("#7cf75e"), To: ui.Hex("#2f9a1c")}).Border(1, ui.Hex("#59f939").Alpha(0.6))
 		}
-		ui.Box(c).Width(9).Height(21).Radius(5).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ui.Hex("#7cf75e"), To: ui.Hex("#2f9a1c")}).Border(1, ui.Hex("#59f939").Alpha(0.6))
 	})
 }
 
@@ -325,7 +353,6 @@ func (a *app) settingsStatus(c *ui.Context) {
 	}
 	settingGroup(c, "set-status",
 		toggle("set-saved", "Kaydetme durumu", "Kaydedildi, kaydediliyor…", &a.settings.HideSaved, true),
-		toggle("set-caretname", "Caret adı", "Slime ya da Mizan.", &a.settings.HideCaret, true),
 		toggle("set-words", "Kelime sayısı", "Açık sayfanın kelimeleri.", &a.settings.ShowWords, false),
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
 		toggle("set-today", "Bugün yazılan", "Bugün yazılan kelime sayısı; tıklayınca istatistikler açılır.", &a.settings.ShowToday, false),
@@ -348,7 +375,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(ryugo.From(c).R(ryugo.RadiusControl)-2).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})
@@ -420,7 +447,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(t.R(ryugo.RadiusControl)-2).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable()
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})

@@ -15,7 +15,7 @@ import (
 
 const (
 	sidebarW = 252
-	barH     = 46
+	barH     = 24
 	rowH     = 30
 	indentW  = 14
 )
@@ -56,21 +56,13 @@ func (a *app) branch(c *ui.Context) ui.Element {
 	return e
 }
 
-// titleBar is the bar across the top of the content: empty, as Thymer's,
-// it moves the window, as a title bar does. The sidebar's button is not in
-// it: it stays by the window's controls (sidebarButton).
-func (a *app) titleBar(c *ui.Context) {
-	tb := c.TitleBar()
-	ui.Row(c).Height(max(tb.Height, barH)).DragWindow()
-}
-
 // sidebarButton is the sidebar's button, in the same place whether the
 // sidebar is shown or not: right of the window's controls.
 func (a *app) sidebarButton(c *ui.Context) {
 	tb := c.TitleBar()
 	h := max(tb.Height, barH)
-	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - 26) / 2).Gap(2).Children(func() {
-		if a.iconButton(c, iconSidebar, "Kenar çubuğu (⌘\\)") {
+	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
+		if a.barIcon(c, iconSidebar, "Kenar çubuğu (⌘\\)") {
 			a.toggleSidebar()
 		}
 		// back and forward, faint when there is nowhere to go
@@ -80,7 +72,7 @@ func (a *app) sidebarButton(c *ui.Context) {
 			label string
 		}{{-1, iconBack, "Geri (⌘[)"}, {1, iconChevron, "İleri (⌘])"}} {
 			ui.Box(c.Key(d.label)).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(d.dir)]).Children(func() {
-				if a.iconButton(c, d.glyph, d.label) {
+				if a.barIcon(c, d.glyph, d.label) {
 					a.step(d.dir)
 				}
 			})
@@ -151,10 +143,10 @@ func (a *app) sidebar(c *ui.Context) float32 {
 						}
 					}
 				})
+				a.trashRow(c) // the tasks and the trash: the end of the list, not fixed under it
 				a.aim()
 				a.ghost(c)
 			})
-			a.trashRow(c)
 		})
 	})
 	return w
@@ -183,7 +175,7 @@ type rowSpec struct {
 func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
 	c.Key(s.key)
-	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(7).AlignItems(ui.Center).
+	r := ui.Row(c).Height(rowH).Padding(0, 6, 0, 4+float32(s.depth)*indentW).Gap(5).Radius(rad(7)).AlignItems(ui.Center).
 		Label(s.label).Role(ui.RoleButton).Focusable().FocusRing(false)
 	a.contextOn(r, s.menu)
 	if a.treeFocus != nil && a.treeFocus == s.item { // the arrow keys came here
@@ -219,7 +211,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	case renaming:
 		r.Background(a.pageBg).Border(1, t.Accent)
 	case s.selected:
-		r.Background(ryugo.Mix(t.Surface, ryugo.From(c).Colors.Accent, 0.14)) // a tint, not the loud selection color
+		r.Background(ryugo.Mix(t.Surface, ryugo.From(c).Colors.Accent, 0.24)) // a tint, not the loud selection color
 	case hover:
 		r.Background(t.SurfaceHover)
 	default:
@@ -243,7 +235,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
 			c.Key("pin:" + s.key)
 			if s.pinned {
-				b := ui.Box(c).Width(22).Height(22).Radius(6).AlignItems(ui.Center).Justify(ui.Center).Label("Sabitlemeyi kaldır: " + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label("Sabitlemeyi kaldır: " + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				if b.Hovered() {
 					b.Background(t.SurfacePressed)
 				}
@@ -289,7 +281,7 @@ func (a *app) startRename(item any, name string) {
 // renameField is the field of a row being renamed: Enter or leaving it
 // keeps the new name, Escape the old one.
 func (a *app) renameField(c *ui.Context) {
-	in := ui.TextInputBase(c, &a.renameText).Label("Yeni ad").FontSize(13.5).Grow(1).AutoFocus()
+	in := ryugo.Input(c, &a.renameText, ryugo.InputOptions{Label: "Yeni ad", Size: ryugo.Sm}).Grow(1).AutoFocus()
 	switch {
 	case in.Shortcut(0, ui.KeyEscape):
 		a.renaming = nil
@@ -422,7 +414,7 @@ func (a *app) trashCollection(c *Collection) {
 // its room when there is nothing below the row.
 func (a *app) chevron(c *ui.Context, has, open bool) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(16).Height(16).Radius(4).AlignItems(ui.Center).Justify(ui.Center)
+	b := ui.Box(c).Width(16).Height(16).Radius(rad(4)).AlignItems(ui.Center).Justify(ui.Center)
 	turn := float32(0)
 	if open {
 		turn = 90
@@ -442,7 +434,7 @@ func (a *app) chevron(c *ui.Context, has, open bool) bool {
 // iconButton is a small square button of an icon, named for assistive technology.
 func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(26).Height(26).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
+	b := ui.Box(c).Width(26).Height(26).Radius(rad(7)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
 	ryugo.Tooltip(c, b, label)
 	if b.Hovered() {
@@ -454,10 +446,28 @@ func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	return b.Clicked()
 }
 
+// barBtn is the size of a button in the top bar, which is as low as the status bar.
+const barBtn = 20
+
+// barIcon is an icon button of the top bar: small, as the bar is.
+func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
+	t := c.Theme()
+	b := ui.Box(c).Width(24).Height(barBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
+		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
+	ryugo.Tooltip(c, b, label)
+	if b.Hovered() {
+		b.Background(t.SurfaceHover)
+	} else {
+		b.Background(t.SurfaceHover.Alpha(0))
+	}
+	b.Children(func() { ui.Icon(c, glyph).Width(14).Height(14).TextColor(t.TextMuted) })
+	return b.Clicked()
+}
+
 // revealButton is an icon button that fades in while its row is hovered.
 func (a *app) revealButton(c *ui.Context, glyph *ui.SVG, label string, shown bool) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(22).Height(22).Radius(6).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton)
+	b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton)
 	if b.Hovered() {
 		b.Background(t.SurfacePressed)
 	}
@@ -573,7 +583,7 @@ func (a *app) collDragView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
-		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(sidebarW-28, 2).Radius(1).Background(cl.Accent)
+		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(sidebarW-28, 2).Radius(rad(1)).Background(cl.Accent)
 	})
 }
 
@@ -748,17 +758,4 @@ func (a *app) collapseBigLibrary() {
 	for _, c := range a.lib.Collections {
 		c.Open = a.page != nil && a.page.Coll == c
 	}
-}
-
-// titleBarOver is the title bar over a page that scrolls under it: it lies on
-// the top of the content, empty, and moves the window; the text goes up to the
-// edge of the window beneath it, not cut off below an empty band.
-func (a *app) titleBarOver(c *ui.Context) {
-	// only as high as the window's own title bar: it takes the pointer, to move the
-	// window, and with it the wheel, which the page below would scroll by
-	h := c.TitleBar().Height
-	if h <= 0 {
-		h = 28
-	}
-	ui.Row(c.Key("title-over")).Absolute().Left(0).Right(0).Top(0).Height(h).DragWindow()
 }

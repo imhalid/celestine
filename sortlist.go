@@ -55,7 +55,7 @@ func (a *app) sortList(c *ui.Context, key string, st *sortState, o sortOpts) {
 	ui.Column(c.Key(key)).FillWidth().Gap(6).Children(func() {
 		for i := 0; i < o.n; i++ {
 			if st.dragging && st.to == i && st.to != st.from && st.to != st.from+1 {
-				ui.Box(c.Key(key + "-drop")).FillWidth().Height(2).Radius(1).Background(cl.Accent)
+				ui.Box(c.Key(key + "-drop")).FillWidth().Height(2).Radius(rad(1)).Background(cl.Accent)
 			}
 			id := o.id(i)
 			sel := id == o.selected
@@ -63,19 +63,19 @@ func (a *app) sortList(c *ui.Context, key string, st *sortState, o sortOpts) {
 			if sel {
 				border, fill = cl.Accent, ryugo.Mix(cl.Card, cl.Accent, 0.07)
 			}
-			tile := ui.Column(c.Key(key+":"+id)).FillWidth().Radius(12).Background(fill).Border(1, border)
+			tile := ui.Column(c.Key(key+":"+id)).FillWidth().Radius(rad(12)).Background(fill).Border(1, border)
 			if st.dragging && st.from == i {
 				tile.Opacity(0.45)
 			}
 			tile.Children(func() {
-				row := ui.Row(c.Key(key+"-row:"+id)).FillWidth().Height(48).Padding(0, 12, 0, 6).Gap(8).Radius(11).
+				row := ui.Row(c.Key(key+"-row:"+id)).FillWidth().Height(48).Padding(0, 12, 0, 6).Gap(8).Radius(rad(11)).
 					AlignItems(ui.Center).Label(o.label(i)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				if row.Hovered() && !st.dragging && !sel {
 					row.Background(cl.Fill)
 				}
 				var grip ui.Element
 				row.Children(func() {
-					grip = ui.Box(c.Key(key+"-grip:"+id)).Size(24, 32).Radius(6).AlignItems(ui.Center).Justify(ui.Center).
+					grip = ui.Box(c.Key(key+"-grip:"+id)).Size(24, 32).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
 						Cursor(ui.CursorGrab).Label("Sırala: " + o.label(i))
 					if grip.Hovered() {
 						grip.Background(cl.Fill)
@@ -100,7 +100,7 @@ func (a *app) sortList(c *ui.Context, key string, st *sortState, o sortOpts) {
 			st.rects[i] = tile.LayoutBounds()
 		}
 		if st.dragging && st.to == o.n && st.to != st.from+1 {
-			ui.Box(c.Key(key + "-drop")).FillWidth().Height(2).Radius(1).Background(cl.Accent)
+			ui.Box(c.Key(key + "-drop")).FillWidth().Height(2).Radius(rad(1)).Background(cl.Accent)
 		}
 	})
 }

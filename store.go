@@ -159,7 +159,7 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	if data == nil {
 		data = []byte{}
 	}
-	if path.Base(n) == "index.md" {
+	if path.Base(n) == pageFileName {
 		s.snapshotBefore(n, data)
 	}
 	_, err = s.db.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 0, ?, ?)

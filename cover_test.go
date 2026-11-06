@@ -24,7 +24,7 @@ func TestCover(t *testing.T) {
 		t.Fatalf("cover %q", p.Cover)
 	}
 	src, _ := os.ReadFile(p.file())
-	if !strings.Contains(string(src), "cover: kapak-") {
+	if !strings.Contains(string(src), `"cover":"kapak-`) {
 		t.Fatalf("front matter:\n%s", src)
 	}
 	tt.Frame()
@@ -38,7 +38,7 @@ func TestCover(t *testing.T) {
 		t.Fatalf("read back %q", got)
 	}
 	// the body is still the body
-	if body, _ := p.Body(); body != "metin\n" {
+	if body, _ := p.Text(); body != "metin\n" {
 		t.Fatalf("body %q", body)
 	}
 	// changed: the old file goes
@@ -54,7 +54,7 @@ func TestCover(t *testing.T) {
 	cur := p.Cover
 	a.removeCover(p)
 	src, _ = os.ReadFile(p.file())
-	if p.Cover != coverNone || !strings.Contains(string(src), "cover: none") || strings.Contains(string(src), "kapak-") {
+	if p.Cover != coverNone || !strings.Contains(string(src), `"cover":"none"`) || strings.Contains(string(src), "kapak-") {
 		t.Fatalf("not away (the page says it wants none):\n%s", src)
 	}
 	if _, err := os.Stat(filepath.Join(p.Dir, cur)); err == nil {

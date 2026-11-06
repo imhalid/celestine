@@ -37,14 +37,14 @@ func TestWatchOwnWrites(t *testing.T) {
 func TestWatchTextChanged(t *testing.T) {
 	a, tt := newTestApp(t, "eski")
 	p := a.page
-	touchLater(t, p.file(), "---\ntitle: Yeni ad\n---\n\nDışarıdan yazıldı.\n")
+	touchLater(t, p.file(), string(joinPage(map[string]string{"title": "Yeni ad"}, encodeBody(importMarkdown("Dışarıdan yazıldı.\n")))))
 	a.checkDisk()
 	tt.Frame()
 	if got := a.doc.Text().String(); got != "Dışarıdan yazıldı." || p.Title != "Yeni ad" || a.title != "Yeni ad" {
 		t.Fatalf("text %q, title %q", got, p.Title)
 	}
 	tt.Advance(2 * time.Second) // nothing saved over it
-	if body, _ := p.Body(); body != "Dışarıdan yazıldı.\n" {
+	if body, _ := p.Text(); body != "Dışarıdan yazıldı.\n" {
 		t.Fatalf("on disk: %q", body)
 	}
 }
@@ -59,12 +59,12 @@ func TestWatchConflict(t *testing.T) {
 	if !a.dirty {
 		t.Fatal("nothing unsaved")
 	}
-	touchLater(t, p.file(), "---\ntitle: Sayfa\n---\n\nonların\n")
+	touchLater(t, p.file(), string(joinPage(map[string]string{"title": "Sayfa"}, encodeBody(importMarkdown("onların\n")))))
 	a.checkDisk()
-	if body, _ := p.Body(); body != "ortakbenim \n" && !strings.Contains(body, "benim") {
+	if body, _ := p.Text(); body != "ortakbenim \n" && !strings.Contains(body, "benim") {
 		t.Fatalf("ours lost: %q", body)
 	}
-	matches, _ := filepath.Glob(filepath.Join(p.Dir, "index (çakışma *).md"))
+	matches, _ := filepath.Glob(filepath.Join(p.Dir, "page (çakışma *).json"))
 	if len(matches) != 1 {
 		t.Fatalf("no conflict copy: %v", matches)
 	}
@@ -89,7 +89,7 @@ func TestWatchPagesCome(t *testing.T) {
 	coll := page.Coll
 	dir := filepath.Join(coll.Dir, "disaridan")
 	os.MkdirAll(dir, 0o755)
-	os.WriteFile(filepath.Join(dir, "index.md"), []byte("---\ntitle: Dışarıdan\n---\n\nmerhaba\n"), 0o644)
+	writePageFile(t, filepath.Join(dir, pageFileName), map[string]string{"title": "Dışarıdan"}, "merhaba")
 	a.checkDisk()
 	tt.Frame()
 	if !tt.HasText("Dışarıdan") {
@@ -115,7 +115,7 @@ func TestWatchOpenDeleted(t *testing.T) {
 	tt.Frame()
 	os.RemoveAll(p.Dir)
 	a.checkDisk()
-	if body, err := p.Body(); err != nil || !strings.Contains(body, "metin") {
+	if body, err := p.Text(); err != nil || !strings.Contains(body, "metin") {
 		t.Fatalf("not written back: %q %v", body, err)
 	}
 	a.checkDisk()

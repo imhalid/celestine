@@ -10,16 +10,16 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The two palettes, a field over the window: ⌘K searches the documents - go to a
+// The palette, a field over the window: ⌘K searches the documents - go to a
 // page, a collection or a tag by typing a few letters of it, or a word in a
-// page's text; empty, it lists the places last shown. ⌘P is for commands: it
-// lists what the app can do, and typed, those that match. Best first, accents
-// and case don't matter. ↑↓ move, ↵ goes, Esc closes.
+// page's text; empty, it lists the places last shown. A ">" first in it makes
+// it the commands: what the app can do, and typed after it, those that match.
+// ⌘P opens it so, with the ">" there. Best first, accents and case don't
+// matter. ↑↓ move, ↵ goes, Esc closes.
 
 type palette struct {
 	open  bool
-	cmds  bool // ⌘P: the commands; else ⌘K: the documents
-	query string
+	query string // a ">" first in it: the commands; else the documents
 	sel   int
 	hseen int    // the row last hovered
 	was   string // the query of the last frame, to start from the top when it changes
@@ -39,9 +39,17 @@ func (a *app) openPalette() {
 	a.pal = palette{open: true}
 }
 
-// openCommands opens the commands (⌘P).
+// openCommands opens the palette as the commands (⌘P): the ">" is in it.
 func (a *app) openCommands() {
-	a.pal = palette{open: true, cmds: true}
+	a.pal = palette{open: true, query: ">"}
+}
+
+// palCmds reports whether the palette is the commands: a ">" is first in it.
+func (a *app) palCmds() bool { return strings.HasPrefix(a.pal.query, ">") }
+
+// palQuery is what is looked for: the query, without the ">" of the commands.
+func (a *app) palQuery() string {
+	return strings.TrimSpace(strings.TrimPrefix(a.pal.query, ">"))
 }
 
 // commands are what the palette does, where the app is now.
@@ -95,7 +103,7 @@ func (a *app) commands() []palItem {
 		cmd("Geri", "⌘[", iconBack, func() { a.step(-1) }),
 		cmd("İleri", "⌘]", iconChevron, func() { a.step(1) }),
 		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
-		cmd("Caret'i değiştir (Slime / Mizan)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % 2) }),
+		cmd("Caret'i değiştir (Slime, Mizan, Pacman, Kuyruklu yıldız)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretKinds) }),
 		cmd("Çöp", "", iconTrash, a.openTrash),
 		cmd("Ayarlar", "⌘,", iconSettings, func() { a.settingsOpen = true }),
 	)
@@ -169,8 +177,8 @@ func (a *app) recent(n int) []palItem {
 
 // paletteItems are the lines for the query, best first.
 func (a *app) paletteItems(q string) []palItem {
-	if a.pal.cmds {
-		return a.commandItems(q)
+	if strings.HasPrefix(q, ">") {
+		return a.commandItems(strings.TrimSpace(q[1:]))
 	}
 	if strings.TrimSpace(q) == "" {
 		if r := a.recent(10); len(r) > 0 {
@@ -303,8 +311,8 @@ func (a *app) paletteView(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	ui.DialogBase(c.Key("palette"), &a.pal.open, func(backdrop, panel ui.Element) {
-		backdrop.Justify(ui.Start).Padding(90, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
-		panel.Width(580).MaxWidthPercent(100).Radius(t.R(ryugo.RadiusLg)).Background(cl.Card).
+		backdrop.Justify(ui.Start).Padding(70, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
+		panel.Width(480).MaxWidthPercent(100).Radius(rad(ryugo.RadiusPop)).Background(cl.Card).
 			Border(1, cl.Hairline).Clip().Label(a.palLabel())
 		t.Shadows.ShadowPop.Apply(panel)
 		items := a.paletteItems(a.pal.query)
@@ -313,11 +321,11 @@ func (a *app) paletteView(c *ui.Context) {
 		}
 		a.pal.sel = max(0, min(a.pal.sel, len(items)-1))
 		panel.Children(func() {
-			ui.Row(c).Padding(14, 16).Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, iconSearch).Width(18).Height(18).TextColor(cl.Muted)
+			ui.Row(c).Padding(9, 12).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
 				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.query).Label("Ara ya da komut").
-					Placeholder("Sayfaya git ya da bir komut yaz…").PlaceholderColor(cl.Muted).
-					FontSize(16).Grow(1).FocusRing(false).AutoFocus()
+					Placeholder("Sayfaya git… komutlar için > yaz").PlaceholderColor(cl.Muted).
+					FontSize(14).Grow(1).FocusRing(false).AutoFocus()
 				switch {
 				case in.Shortcut(0, ui.KeyDown):
 					a.pal.sel = min(a.pal.sel+1, len(items)-1)
@@ -328,22 +336,22 @@ func (a *app) paletteView(c *ui.Context) {
 				}
 			})
 			ui.Box(c).Height(1).Background(cl.Hairline)
-			ui.Scroll(c).MaxHeight(380).Children(func() {
-				ui.Column(c).Padding(6).Gap(1).Children(func() {
+			ui.Scroll(c).MaxHeight(300).Children(func() {
+				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
-						ui.Text(c, "Eşleşen bir şey yok.").FontSize(13.5).TextColor(cl.Muted).Padding(12, 10)
+						ui.Text(c, "Eşleşen bir şey yok.").FontSize(12).TextColor(cl.Muted).Padding(9, 8)
 						return
 					}
 					head := ""
 					for i, it := range items {
-						if a.pal.query == "" {
+						if a.palQuery() == "" {
 							h := "Son açılanlar"
-							if a.pal.cmds {
+							if a.palCmds() {
 								h = "Komutlar"
 							}
 							if h != head {
 								head = h
-								ui.Text(c.Key("head:"+h), h).FontSize(11.5).FontWeight(650).TextColor(cl.Muted).Padding(8, 10, 4, 10)
+								ui.Text(c.Key("head:"+h), h).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
 							}
 						}
 						a.paletteRow(c, i, it)
@@ -355,23 +363,16 @@ func (a *app) paletteView(c *ui.Context) {
 }
 
 func (a *app) palLabel() string {
-	if a.pal.cmds {
+	if a.palCmds() {
 		return "Komut ara"
 	}
 	return "Sayfa ara"
 }
 
-func (a *app) palHint() string {
-	if a.pal.cmds {
-		return "Bir komut yaz…"
-	}
-	return "Sayfaya git ya da metinde ara…"
-}
-
 func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 	t := ryugo.From(c)
 	cl := t.Colors
-	row := ui.Row(c.Key(i)).Height(40).Padding(0, 10).Gap(10).Radius(t.R(ryugo.RadiusControl) - 4).AlignItems(ui.Center).
+	row := ui.Row(c.Key(i)).Height(28).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).AlignItems(ui.Center).
 		Label(it.title).Role(ui.RoleButton)
 	text, muted := cl.Text, cl.Muted
 	if row.Hovered() && a.pal.hseen != i { // one row lit: the pointer's, once it comes
@@ -383,14 +384,14 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 		text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
 	}
 	row.Children(func() {
-		ui.Icon(c, it.glyph).Width(16).Height(16).TextColor(muted)
-		ui.Text(c, it.title).FontSize(14).TextColor(text).MaxLines(1).Shrink(1)
+		ui.Icon(c, it.glyph).Width(14).Height(14).TextColor(muted)
+		ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).Shrink(1)
 		if it.sub != "" && it.sub != "Komut" {
-			ui.Text(c, it.sub).FontSize(12.5).TextColor(muted).MaxLines(1).Shrink(1)
+			ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1).Shrink(1)
 		}
 		ui.Spacer(c)
 		if it.keys != "" {
-			ui.Text(c, it.keys).FontSize(12.5).TextColor(muted)
+			ui.Text(c, it.keys).FontSize(11.5).TextColor(muted)
 		}
 	})
 	if row.Clicked() {

@@ -26,7 +26,7 @@ func TestDropFiles(t *testing.T) {
 	if len(a.page.Coll.Pages) != before+1 || a.page.Title != "Haftalık toplantı" {
 		t.Fatalf("pages %d, open %q", len(a.page.Coll.Pages), a.page.Title)
 	}
-	if body, _ := a.page.Body(); !strings.Contains(body, "kararlar burada") || !strings.Contains(body, "#iş") {
+	if body, _ := a.page.Text(); !strings.Contains(body, "kararlar burada") || !strings.Contains(body, "#iş") {
 		t.Fatalf("body %q", body)
 	}
 	// a picture over the text goes in the text

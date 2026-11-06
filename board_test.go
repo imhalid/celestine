@@ -39,7 +39,7 @@ func TestPropertiesOptIn(t *testing.T) {
 		t.Fatal("two properties of one name")
 	}
 	// values
-	os.WriteFile(ps["A"].file(), []byte("---\ntitle: A\nkaynak: elle yazıldı\n---\n\nmetin\n"), 0o644)
+	writePageFile(t, ps["A"].file(), map[string]string{"title": "A", "kaynak": "elle yazıldı"}, "metin\n")
 	again, _ := OpenLibrary(lib.Root)
 	var c *Collection
 	for _, x := range again.Collections {
@@ -63,10 +63,10 @@ func TestPropertiesOptIn(t *testing.T) {
 		t.Fatal("a value not among the options")
 	}
 	src, _ = os.ReadFile(a.file())
-	if !strings.Contains(string(src), "yazar: Herbert\ndurum: Sürüyor\n") || !strings.Contains(string(src), "kaynak: elle yazıldı") {
+	if m := pageMeta(src); m["yazar"] != "Herbert" || m["durum"] != "Sürüyor" || m["kaynak"] != "elle yazıldı" {
 		t.Fatalf("on disk:\n%s", src)
 	}
-	if body, _ := a.Body(); body != "metin\n" {
+	if body, _ := a.Text(); body != "metin\n" {
 		t.Fatalf("the text: %q", body)
 	}
 	// taken away: no board, the values stay in the file
@@ -85,7 +85,7 @@ func TestStatusesMigrate(t *testing.T) {
 	dir := filepath.Join(root, "eski")
 	os.MkdirAll(filepath.Join(dir, "a"), 0o755)
 	os.WriteFile(filepath.Join(dir, collectionFile), []byte(`{"name":"Eski","subPages":true,"statuses":["Açık","Kapalı"],"views":[{"id":"list","label":"Liste","type":"list"},{"id":"board","label":"Pano","type":"board"}]}`), 0o644)
-	os.WriteFile(filepath.Join(dir, "a", "index.md"), []byte("---\ntitle: A\nstatus: Kapalı\n---\n"), 0o644)
+	writePageFile(t, filepath.Join(dir, "a", pageFileName), map[string]string{"title": "A", "status": "Kapalı"}, "")
 	lib, err := OpenLibrary(root)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +205,7 @@ func TestPropertyOnPage(t *testing.T) {
 	if a.page.Props["durum"] != "Bitti" {
 		t.Fatalf("value %q", a.page.Props["durum"])
 	}
-	if body, _ := a.page.Body(); body != "gövde\n" {
+	if body, _ := a.page.Text(); body != "gövde\n" {
 		t.Fatalf("the text after the value: %q", body)
 	}
 	// a text property, typed and left

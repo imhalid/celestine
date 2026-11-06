@@ -16,7 +16,7 @@ import (
 // a change from outside, and the app takes it:
 //   - a page's text changed: its document is read again, unless it has
 //     edits not yet saved - then both are kept, the outside version next
-//     to the page as "index (çakışma …).md", ours saved over it;
+//     to the page as "page (çakışma …).json", ours saved over it;
 //   - pages or collections came, went or moved, or a collection.json
 //     changed: the library is read again, the open page and folds kept;
 //   - the open page was deleted with edits not yet saved: it is written
@@ -65,7 +65,7 @@ func scanPages(fsys FS, dir string, into map[string]time.Time) {
 			continue
 		}
 		pdir := filepath.Join(dir, e.Name())
-		info, err := fsys.Stat(filepath.Join(pdir, "index.md"))
+		info, err := fsys.Stat(filepath.Join(pdir, pageFileName))
 		if err != nil {
 			continue
 		}
@@ -122,7 +122,7 @@ func (a *app) takeOutside(p *Page) {
 	if err != nil {
 		return
 	}
-	meta, body := splitFrontMatter(string(src))
+	meta, body := splitPage(src)
 	p.Modified = modTime(p.fs(), p.file())
 	if t := meta["title"]; t != "" {
 		p.Title = t
@@ -137,7 +137,7 @@ func (a *app) takeOutside(p *Page) {
 	}
 	if p == a.page && a.dirty {
 		// both kept: theirs next to the page, ours over it
-		name := "index (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").md"
+		name := "page (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").json"
 		if err := p.fs().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
 			a.saveErr = err.Error()
 			return
@@ -150,7 +150,7 @@ func (a *app) takeOutside(p *Page) {
 	if p == a.page {
 		_, caret := doc.Selection()
 		a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-		a.lastSave = a.pageMarkdown(p, doc.Text())
+		a.lastSave, a.lastWords = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText()))
 	}
 }
 

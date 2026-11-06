@@ -43,7 +43,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 			for _, q := range c.All() {
 				e := l.pages[q]
 				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) {
-					body, err := q.Body()
+					body, err := q.Text()
 					if err != nil {
 						continue
 					}
@@ -92,7 +92,7 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 		ui.Text(c, strconv.Itoa(len(links))+" sayfa bu sayfaya bağlanıyor").FontSize(12).FontWeight(650).TextColor(cl.Muted).Padding(0, 6, 4, 6)
 		for _, q := range links {
 			q := q
-			row := ui.Column(c.Key("bl:"+q.Dir)).FillWidth().Padding(6, 8).Gap(2).Radius(8).
+			row := ui.Column(c.Key("bl:"+q.Dir)).FillWidth().Padding(6, 8).Gap(2).Radius(rad(8)).
 				Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
@@ -128,7 +128,7 @@ func (a *app) linkContext(q, p *Page) []seg {
 		a.ctxCache = map[string][]seg{}
 	}
 	var out []seg
-	if body, err := q.Body(); err == nil {
+	if body, err := q.Text(); err == nil {
 		re := regexp.MustCompile(`(?i)\[\[\s*` + regexp.QuoteMeta(strings.TrimSpace(p.Title)) + `\s*(\|[^\]]*)?\]\]`)
 		for _, ln := range strings.Split(body, "\n") {
 			if m := re.FindString(ln); m != "" {
@@ -201,7 +201,7 @@ func (a *app) plainOf(p *Page) *plainIdx {
 		l.plain = map[*Page]*plainIdx{}
 	}
 	e := &plainIdx{mod: p.Modified}
-	if body, err := p.Body(); err == nil {
+	if body, err := p.Text(); err == nil {
 		e.plain = plainText(body)
 		e.folded = fold(e.plain)
 	}

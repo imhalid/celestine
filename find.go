@@ -138,7 +138,7 @@ func (a *app) findBar(c *ui.Context) {
 	a.findAll()
 	t := ryugo.From(c)
 	cl := t.Colors
-	ui.Column(c.Key("find-bar")).Gap(6).Padding(8).Radius(t.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).
+	ui.Column(c.Key("find-bar")).Gap(6).Padding(8).Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).
 		Margin(0, 0, 8, 0).Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], "Değiştir’i aç/kapat") {
@@ -235,7 +235,7 @@ func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
 				col = warn.Alpha(0.6)
 			}
 			for _, rc := range rects {
-				p.Fill(ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, col, 3)
+				p.Fill(ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, col, rad(3))
 			}
 		}
 	}

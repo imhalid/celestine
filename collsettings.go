@@ -183,7 +183,7 @@ func (a *app) csGeneral(c *ui.Context) {
 	ryugo.Field(c, ryugo.FieldOptions{Label: "İkon"}, func() {
 		ui.Row(c).Wrap().Gap(6).Children(func() {
 			for _, ic := range collIcons {
-				b := ui.Box(c.Key("cs-icon:"+ic.Name)).Size(34, 34).Radius(8).AlignItems(ui.Center).Justify(ui.Center).
+				b := ui.Box(c.Key("cs-icon:"+ic.Name)).Size(34, 34).Radius(rad(8)).AlignItems(ui.Center).Justify(ui.Center).
 					Label("İkon: " + map[bool]string{true: "yığın", false: ic.Name}[ic.Name == ""]).Role(ui.RoleButton)
 				switch {
 				case d.Icon == ic.Name:
@@ -228,7 +228,7 @@ func (a *app) csGeneral(c *ui.Context) {
 					for _, f := range journalFormats {
 						f := f
 						on := formatOrDefault(d.JournalFormat) == f
-						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(8).Label("Biçim: " + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(rad(8)).Label("Biçim: " + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case on:
 							b.Background(cl.Accent.Alpha(0.16)).Border(1.5, cl.Accent)
@@ -265,7 +265,7 @@ func (a *app) csProperties(c *ui.Context) {
 	ui.Column(c).FillWidth().Gap(6).Children(func() {
 		for _, b := range builtins {
 			b := b
-			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(12).AlignItems(ui.Center).
+			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(rad(12)).AlignItems(ui.Center).
 				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label("Yerleşik özellik: " + b.name).Children(func() {
 				ui.Icon(c, iconLock).Width(15).Height(15).TextColor(cl.Muted)
 				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
@@ -344,14 +344,14 @@ func (a *app) csAddProperty(c *ui.Context) {
 		})
 		return
 	}
-	ui.Column(c).Gap(10).Padding(12).Radius(12).Border(1, cl.Hairline).Children(func() {
+	ui.Column(c).Gap(10).Padding(12).Radius(rad(12)).Border(1, cl.Hairline).Children(func() {
 		ui.Text(c, "Özellik ekle").FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
 		ryugo.Input(c.Key("cs-new-name"), &cs.newName, ryugo.InputOptions{Label: "Yeni özelliğin adı", Placeholder: "Ad yaz; başka koleksiyonlardakiler önerilir", Size: ryugo.Sm})
 		// the properties of the other collections, as the name is typed
 		if sugg := a.sharedProps(cs.newName); len(sugg) > 0 {
 			ui.Column(c).Gap(2).Children(func() {
 				for _, sp := range sugg {
-					b := ui.Row(c.Key("cs-sugg:"+sp.from+":"+sp.p.ID)).Height(32).Gap(8).Padding(0, 10).Radius(8).AlignItems(ui.Center).
+					b := ui.Row(c.Key("cs-sugg:"+sp.from+":"+sp.p.ID)).Height(32).Gap(8).Padding(0, 10).Radius(rad(8)).AlignItems(ui.Center).
 						Label("Öneri: " + sp.p.Name).Role(ui.RoleButton)
 					if b.Hovered() {
 						b.Background(cl.Fill)

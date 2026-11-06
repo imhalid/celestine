@@ -43,7 +43,7 @@ func (a *app) restore(item *TrashItem) {
 }
 
 // trashRow is the trash's row at the foot of the sidebar, with how much is in it.
-func (a *app) trashRow(c *ui.Context) {
+func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they scroll with it
 	t := c.Theme()
 	if a.trashItems == nil {
 		a.loadTrash()
@@ -51,11 +51,11 @@ func (a *app) trashRow(c *ui.Context) {
 			a.trashItems = []*TrashItem{}
 		}
 	}
-	ui.Box(c).Height(1).Background(t.Border.Alpha(0.6)).Margin(0, 12)
+	ui.Box(c.Key("nav-divider")).Height(1).Background(t.Border.Alpha(0.6)).Margin(12, 12, 0, 12)
 	a.tasksRow(c)
 	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 		c.Key("trash-row")
-		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
+		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label("Çöp").Role(ui.RoleButton).Transition(rowMove)
 		switch {
 		case a.trashOpen:
@@ -76,9 +76,6 @@ func (a *app) trashRow(c *ui.Context) {
 			a.openTrash()
 		}
 		r.Grow(1)
-		if a.iconButton(c, iconSettings, "Ayarlar") {
-			a.settingsOpen = true
-		}
 	})
 }
 
@@ -107,7 +104,7 @@ func (a *app) trashView(c *ui.Context) {
 func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	t := c.Theme()
 	c.Key("trash:" + item.Dir)
-	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(8).AlignItems(ui.Center).Transition(rowEnter).Label("Çöpteki: " + item.Title)
+	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label("Çöpteki: " + item.Title)
 	a.contextOn(row, func() []menuItem { return a.trashMenu(item) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -159,7 +156,7 @@ func (a *app) tasksRow(c *ui.Context) {
 		}
 	}
 	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
-		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(7).AlignItems(ui.Center).
+		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label("Görevler").Role(ui.RoleButton).Transition(rowMove)
 		switch {
 		case a.tasksOpen:

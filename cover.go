@@ -157,7 +157,7 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(barH - 8).Gap(6)
+	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(barH + 6).Gap(6)
 	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover], fadeQuick))
 	row.Children(func() {
 		if ryugo.Button(c.Key("cover-change"), "Kapağı değiştir", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
@@ -184,7 +184,7 @@ func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
 	if src == nil {
 		return
 	}
-	box := ui.Box(c.Key("thumb:" + p.Dir)).Height(h).Radius(radius).Clip().Shrink(0)
+	box := ui.Box(c.Key("thumb:" + p.Dir)).Height(h).Radius(rad(radius)).Clip().Shrink(0)
 	if w > 0 {
 		box.Width(w)
 	} else {

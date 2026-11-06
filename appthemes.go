@@ -15,7 +15,10 @@ import (
 // mixed in the steps Ryugo's own grays are, so that every component keeps the
 // contrast it was made with.
 
-type skinColors struct{ bg, text, accent string } // hex
+// skinColors are the colors of a theme in one appearance (hex): the page, the text and the
+// accent, and, when the theme has them, the sidebar's color, the cards' (menus, dialogs,
+// the palette) and the lines'. What it leaves out is mixed from the page and the text.
+type skinColors struct{ bg, text, accent, side, card, line string }
 
 type appTheme struct {
 	name        string
@@ -24,15 +27,42 @@ type appTheme struct {
 
 var appThemes = []appTheme{
 	{name: "Varsayılan"},
-	{"Dracula", skinColors{"#f8f8f2", "#282a36", "#7c4dcc"}, skinColors{"#282a36", "#f8f8f2", "#bd93f9"}},
-	{"Nord", skinColors{"#eceff4", "#2e3440", "#5e81ac"}, skinColors{"#2e3440", "#e5e9f0", "#88c0d0"}},
-	{"Solarized", skinColors{"#fdf6e3", "#586e75", "#268bd2"}, skinColors{"#002b36", "#93a1a1", "#268bd2"}},
-	{"Gruvbox", skinColors{"#fbf1c7", "#3c3836", "#b57614"}, skinColors{"#282828", "#ebdbb2", "#d79921"}},
-	{"Rosé Pine", skinColors{"#faf4ed", "#575279", "#907aa9"}, skinColors{"#191724", "#e0def4", "#c4a7e7"}},
-	{"Tokyo Night", skinColors{"#e6e7ed", "#343b58", "#34548a"}, skinColors{"#1a1b26", "#c0caf5", "#7aa2f7"}},
-	{"Catppuccin", skinColors{"#eff1f5", "#4c4f69", "#8839ef"}, skinColors{"#1e1e2e", "#cdd6f4", "#cba6f7"}},
-	{"Sepya", skinColors{"#f4ecd8", "#433422", "#a0522d"}, skinColors{"#2b2118", "#e6d5b8", "#d08c4b"}},
-	{"Orman", skinColors{"#eef3ec", "#1f2d22", "#2f7d4f"}, skinColors{"#14201a", "#d7e6da", "#5fbf85"}},
+	{"Gece Yarısı",
+		skinColors{bg: "#eef2ff", text: "#141a33", accent: "#3b5bdb", side: "#dde4fb", card: "#fafbff", line: "#c7d0f0"},
+		skinColors{bg: "#0a0f1e", text: "#e8edff", accent: "#5b8cff", side: "#060a15", card: "#131a30", line: "#222c4a"}},
+	{"Obsidyen",
+		skinColors{bg: "#f6f3fb", text: "#1d1530", accent: "#7c3aed", side: "#e8e2f2", card: "#fdfcff", line: "#d6cdea"},
+		skinColors{bg: "#0c0a11", text: "#eee9f7", accent: "#a45cff", side: "#07060b", card: "#16131e", line: "#2b2538"}},
+	{"Kor",
+		skinColors{bg: "#fbf3ec", text: "#2b1a10", accent: "#d9480f", side: "#f0e1d3", card: "#fffaf5", line: "#e0cbb8"},
+		skinColors{bg: "#120e0c", text: "#f3e8de", accent: "#ff6a2b", side: "#0b0807", card: "#1e1714", line: "#35271f"}},
+	{"Derin Deniz",
+		skinColors{bg: "#e8f6f5", text: "#0c2a2c", accent: "#0b8f86", side: "#d3ebea", card: "#f6fcfc", line: "#b6dad8"},
+		skinColors{bg: "#061518", text: "#d7f3f1", accent: "#1fe0d0", side: "#030d0f", card: "#0e2a2e", line: "#1a4046"}},
+	{"Aurora",
+		skinColors{bg: "#eef8f1", text: "#0f2a1b", accent: "#1a9b57", side: "#dcefe2", card: "#f9fdfa", line: "#c0dccb"},
+		skinColors{bg: "#08120d", text: "#def6e8", accent: "#42e08a", side: "#040a07", card: "#10201a", line: "#1d3629"}},
+	{"Mürekkep",
+		skinColors{bg: "#f6f8fa", text: "#1f2328", accent: "#0969da", side: "#e8ecf1", card: "#ffffff", line: "#d0d7de"},
+		skinColors{bg: "#0b0e14", text: "#e6edf3", accent: "#58a6ff", side: "#06080c", card: "#141922", line: "#252d3a"}},
+	{"Kiraz",
+		skinColors{bg: "#fbf0f1", text: "#3a1f27", accent: "#c4284f", side: "#f1dcdf", card: "#fff8f9", line: "#e3c6cb"},
+		skinColors{bg: "#150a0e", text: "#f8e3ea", accent: "#ff4f7b", side: "#0e0509", card: "#23111a", line: "#3a1c28"}},
+	{"Kehribar",
+		skinColors{bg: "#fcf6e6", text: "#2e2410", accent: "#b8860b", side: "#f1e6c8", card: "#fffbf0", line: "#e3d4a8"},
+		skinColors{bg: "#130f08", text: "#f5e9d0", accent: "#f7b928", side: "#0c0905", card: "#201a0e", line: "#382d19"}},
+	{"Grafit",
+		skinColors{bg: "#f2f2f3", text: "#1c1c1f", accent: "#e8590c", side: "#e2e2e5", card: "#ffffff", line: "#cfcfd4"},
+		skinColors{bg: "#0e0e10", text: "#ededf0", accent: "#ff8a3d", side: "#080809", card: "#18181b", line: "#2b2b30"}},
+	{"Gruvbox",
+		skinColors{bg: "#fbf1c7", text: "#3c3836", accent: "#d65d0e", side: "#ebdbb2", card: "#fdf6d3", line: "#d5c4a1"},
+		skinColors{bg: "#1d2021", text: "#ebdbb2", accent: "#fabd2f", side: "#141617", card: "#282828", line: "#3c3836"}},
+	{"Sepya",
+		skinColors{bg: "#f4ecd8", text: "#3b2c1b", accent: "#a0431f", side: "#e8dcbe", card: "#fbf5e6", line: "#d4c5a0"},
+		skinColors{bg: "#1a130d", text: "#ecdcc0", accent: "#e0954a", side: "#120d08", card: "#271d14", line: "#3e3022"}},
+	{"Orman",
+		skinColors{bg: "#eef3ec", text: "#1b2b20", accent: "#1f8a4c", side: "#dce8d9", card: "#f9fcf7", line: "#c4d6c0"},
+		skinColors{bg: "#0a130e", text: "#d9e8dd", accent: "#4fd18b", side: "#060c09", card: "#13211a", line: "#22382c"}},
 }
 
 func (t appTheme) colors(dark bool) skinColors {
@@ -123,11 +153,35 @@ func (a *app) skin(t *ryugo.Tokens, th *ui.Theme) {
 		n.A = c.A
 		v.Field(i).Set(reflect.ValueOf(n))
 	}
+	// what the theme gives itself: the cards, the lines
+	put := func(name string, c ui.Color) {
+		if f := v.FieldByName(name); f.IsValid() {
+			c.A = f.Interface().(ui.Color).A
+			f.Set(reflect.ValueOf(c))
+		}
+	}
+	if p.card != "" {
+		card := ui.Hex(p.card)
+		put("Card", card)
+		put("Surface", card)
+		put("Surface2", ryugo.Mix(card, bg, 0.5))
+	}
+	if p.line != "" {
+		line := ui.Hex(p.line)
+		put("Hairline", line)
+		put("Border", line)
+		put("WellBorder", line)
+		put("ControlBorder", ryugo.Mix(line, tx, 0.14))
+	}
 	cl := t.Colors
+	side := cl.Well
+	if p.side != "" {
+		side = ui.Hex(p.side)
+	}
 	th.Background = cl.Bg
-	th.Surface = cl.Well
-	th.SurfaceHover = ryugo.Mix(cl.Well, cl.Text, 0.06)
-	th.SurfacePressed = ryugo.Mix(cl.Well, cl.Text, 0.1)
+	th.Surface = side
+	th.SurfaceHover = ryugo.Mix(side, cl.Text, 0.07)
+	th.SurfacePressed = ryugo.Mix(side, cl.Text, 0.12)
 	th.Border = cl.ControlBorder
 	th.Text = cl.Text
 	th.TextMuted = cl.Muted
@@ -169,18 +223,26 @@ func (a *app) appThemePicker(c *ui.Context) {
 // themeMock is a little window in the colors of p (Ryugo's own for an empty one).
 func themeMock(c *ui.Context, p skinColors, dark bool, own ryugo.Colors) {
 	bg, fg, ac := own.Bg, own.Text, own.Accent
+	side := fg.Alpha(0.08)
 	if p.bg != "" {
 		bg, fg, ac = ui.Hex(p.bg), ui.Hex(p.text), ui.Hex(p.accent)
+		side = fg.Alpha(0.08)
+		if p.side != "" {
+			side = ui.Hex(p.side)
+		}
 	} else if dark != ryugo.From(c).Dark {
 		bg, fg = ui.Hex("#f4f4f6"), ui.Hex("#1b1b1f")
+		side = fg.Alpha(0.08)
 	}
 	ui.Row(c).Width(112).Height(66).Background(bg).Clip().Children(func() {
-		ui.Box(c).Width(26).Height(66).Background(fg.Alpha(0.08)).Shrink(0)
+		ui.Box(c).Width(26).Height(66).Background(side).Shrink(0).Children(func() {
+			ui.Box(c).Width(14).Height(5).Radius(rad(2)).Background(ac).Margin(14, 0, 0, 6)
+		})
 		ui.Column(c).Padding(12, 9).Gap(6).Children(func() {
-			ui.Box(c).Width(44).Height(6).Radius(3).Background(fg.Alpha(0.85))
-			ui.Box(c).Width(58).Height(4).Radius(2).Background(fg.Alpha(0.35))
-			ui.Box(c).Width(48).Height(4).Radius(2).Background(fg.Alpha(0.35))
-			ui.Box(c).Width(30).Height(8).Radius(4).Background(ac)
+			ui.Box(c).Width(44).Height(6).Radius(rad(3)).Background(fg.Alpha(0.85))
+			ui.Box(c).Width(58).Height(4).Radius(rad(2)).Background(fg.Alpha(0.35))
+			ui.Box(c).Width(48).Height(4).Radius(rad(2)).Background(fg.Alpha(0.35))
+			ui.Box(c).Width(30).Height(8).Radius(rad(4)).Background(ac)
 		})
 	})
 }

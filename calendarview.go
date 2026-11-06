@@ -143,7 +143,7 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 	today := sameDay(d, now)
 	inMonth := d.Month() == month.Month()
 	canMake := a.canMakeOn(coll, field, d, now, list)
-	cell := ui.Column(c.Key("day:"+key)).Grow(1).Basis(0).MinWidth(0).Height(calRow).Padding(8).Gap(6).Radius(10).Border(1, cl.Hairline).
+	cell := ui.Column(c.Key("day:"+key)).Grow(1).Basis(0).MinWidth(0).Height(calRow).Padding(8).Gap(6).Radius(rad(10)).Border(1, cl.Hairline).
 		Label("Gün: " + key).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	switch {
 	case today:
@@ -183,7 +183,7 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 						break
 					}
 					// a small soft button: a gentle gradient of the accent and its hairline
-					ui.Box(c).Size(9, 9).Radius(3).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true,
+					ui.Box(c).Size(9, 9).Radius(rad(3)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true,
 						From: ryugo.Mix(cl.Card, cl.Accent, 0.42), To: ryugo.Mix(cl.Card, cl.Accent, 0.26)}).Border(1, cl.Accent.Alpha(0.5))
 				}
 			})
@@ -225,7 +225,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 	lerp := func(a, b float32) float32 { return a + (b-a)*prog }
 	r := ui.Rect{X: lerp(from.X, to.X), Y: lerp(from.Y, to.Y), W: lerp(from.W, to.W), H: lerp(from.H, to.H)}
 	ui.Overlay(c, func() {
-		card := ui.Box(c.Key("day-card")).Absolute().Left(r.X).Top(r.Y).Size(r.W, r.H).Radius(12).Clip().
+		card := ui.Box(c.Key("day-card")).Absolute().Left(r.X).Top(r.Y).Size(r.W, r.H).Radius(rad(12)).Clip().
 			Background(cl.Card).Border(1, cl.Hairline).Opacity(min(1, prog*2.4))
 		t.Shadows.ShadowPop.Apply(card)
 		card.Children(func() {
@@ -241,7 +241,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 					ui.Column(c).FillWidth().Gap(2).Children(func() {
 						for _, p := range list {
 							p := p
-							row := ui.Row(c.Key("dc:"+p.Dir)).FillWidth().Height(30).Padding(0, 8).Gap(8).Radius(7).AlignItems(ui.Center).
+							row := ui.Row(c.Key("dc:"+p.Dir)).FillWidth().Height(30).Padding(0, 8).Gap(8).Radius(rad(7)).AlignItems(ui.Center).
 								Label("Aç: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 							if row.Hovered() {
 								row.Background(cl.Fill)

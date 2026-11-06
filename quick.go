@@ -93,12 +93,12 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 	if p == a.page {
 		a.flush()
 	}
-	body, _ := p.Body()
+	body, _ := p.Text()
 	if strings.TrimSpace(body) != "" && !strings.HasSuffix(body, "\n") {
 		body += "\n"
 	}
 	body += strings.Join(noteLines(text), "\n") + "\n"
-	if err := p.Save(body); err != nil {
+	if err := p.SaveText(body); err != nil {
 		return "", err
 	}
 	a.takeOutside(p) // the page, if it is open, shows it
@@ -128,8 +128,9 @@ func (a *app) captureAsPage(text string) (string, error) {
 	rest := strings.TrimSpace(strings.Join(lines[1:], "\n"))
 	if title != strings.TrimSpace(lines[0]) { // cleaned or cut: the text stays whole
 		rest = strings.TrimSpace(text)
+		rest, _ = splitTitle(rest, title) // but not the heading that is the title
 	}
-	if err := p.Save(rest); err != nil {
+	if err := p.SaveText(rest); err != nil {
 		return "", err
 	}
 	a.linksStale()

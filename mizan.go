@@ -169,7 +169,7 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 		c := ui.Rect{X: r.X - 1, Y: r.Y, W: 3, H: r.H}
 		p.Shadow(c, 1.5, 0, 1, 2, 0, withAlpha(mizanBottom, 0.45*a))
 		p.FillGradient(c, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}}, 1.5)
-		p.Fill(ui.Rect{X: c.X + 0.5, Y: c.Y + 0.5, W: 2, H: 1}, ui.RGBA(255, 255, 255, float32(0.28*a)), 0.5)
+		p.Fill(ui.Rect{X: c.X + 0.5, Y: c.Y + 0.5, W: 2, H: 1}, ui.RGBA(255, 255, 255, float32(0.28*a)), rad(0.5))
 	}
 
 	// The Stat, while there is a pace and you have not stopped for long.
@@ -240,7 +240,7 @@ func (m *mizanCaret) stat(p *ui.Painter, f caretFrame, tk mizanTokens, show, dt 
 
 	box := ui.Rect{X: x, Y: y, W: W, H: H}
 	p.Shadow(box, H/2, 0, 6, 18, 0, withAlpha(tk.shadow, a))
-	p.Fill(box, withAlpha(tk.pop, a), H/2)
+	p.Fill(box, withAlpha(tk.pop, a), rad(H/2))
 	edge := pill(x+0.5, y+0.5, W-1, H-1)
 	p.StrokePathGradient(edge, 1, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(tk.edgeTop, a), At: 0}, {Color: withAlpha(tk.edgeBottom, a), At: 1}}})
 
@@ -272,7 +272,7 @@ func (m *mizanCaret) stat(p *ui.Painter, f caretFrame, tk mizanTokens, show, dt 
 		if f.dark {
 			bg = 0.16
 		}
-		p.Fill(ui.Rect{X: cx, Y: y + 5, W: badgeW, H: H - 10}, withAlpha(tone, bg*a), (H-10)/2)
+		p.Fill(ui.Rect{X: cx, Y: y + 5, W: badgeW, H: H - 10}, withAlpha(tone, bg*a), rad((H-10)/2))
 		p.RichText(cx+6, mid-badgeH/2, 0, withSpanAlpha(bdg, a))
 	}
 }

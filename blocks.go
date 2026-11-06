@@ -74,7 +74,7 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		if st.ID == hrID {
 			if s, e := text.ParagraphRange(b.Start); s == e {
 				y := r.Y + b.Top + b.Height/2
-				p.Fill(ui.Rect{X: r.X, Y: y - 0.5, W: r.W, H: 1}, th.Border, 0.5)
+				p.Fill(ui.Rect{X: r.X, Y: y - 0.5, W: r.W, H: 1}, th.Border, rad(0.5))
 			}
 			continue
 		}
@@ -124,7 +124,6 @@ var (
 )
 
 var rawTemplates = []rawTemplate{
-	{"table", "Tablo", "satırlar ve sütunlar", []string{"| Sütun 1 | Sütun 2 | Sütun 3 |", "| --- | --- | --- |", "|  |  |  |"}, 2, iconTable},
 	{"callout", "Not kutusu", "[!note]", []string{"> [!note] Not", "> Metni buraya yaz."}, 1, iconCallout},
 	{"callout", "Bilgi kutusu", "[!info]", []string{"> [!info] Bilgi", "> Metni buraya yaz."}, 1, iconCallout},
 	{"callout", "İpucu kutusu", "[!tip]", []string{"> [!tip] İpucu", "> Metni buraya yaz."}, 1, iconCallout},
@@ -160,11 +159,7 @@ func (a *app) insertRaw(start int, r rawTemplate) (first int) {
 		for i := 0; i < r.caret; i++ {
 			c += utf8.RuneCountInString(r.lines[i]) + 1
 		}
-		if r.kind == "table" {
-			c += 2 // into the first cell
-		} else {
-			c += utf8.RuneCountInString(r.lines[r.caret])
-		}
+		c += utf8.RuneCountInString(r.lines[r.caret])
 		ed.Select(c, c)
 	})
 	a.doc.SetTypingAttributes(richtext.Attributes{})

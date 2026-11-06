@@ -45,16 +45,7 @@ func (a *app) collectionView(c *ui.Context) {
 						// its icon and the capsule that opens its settings, as Thymer's
 						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 							ui.Icon(c, collGlyph(coll)).Width(20).Height(20).TextColor(collTint(c, coll))
-							b := ui.Row(c.Key("coll-settings-btn")).Gap(6).Padding(3, 10).Radius(999).AlignItems(ui.Center).
-								Background(ryugo.From(c).Colors.Fill).Label("Koleksiyon ayarları").Role(ui.RoleButton)
-							if b.Hovered() {
-								b.Background(ryugo.From(c).Colors.FillSelected)
-							}
-							b.Children(func() {
-								ui.Text(c, "Koleksiyon").FontSize(12).FontWeight(560).TextColor(t.TextMuted)
-								ui.Icon(c, iconSettings).Width(13).Height(13).TextColor(t.TextMuted)
-							})
-							if b.Clicked() {
+							if ryugo.Button(c.Key("coll-settings-btn"), "Koleksiyon ayarları", ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm}).Clicked() {
 								a.openCollSettings(coll, 0)
 							}
 						})
@@ -290,7 +281,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			}
 		}
 		c.Key("list:" + p.Dir)
-		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(8).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
@@ -635,13 +626,13 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 						// its head: a dot of its color, name, count, and a fold; the name is the focus
 						head := ui.Row(c).Gap(8).Padding(0, 4, 0, 6).AlignItems(ui.Center)
 						head.Children(func() {
-							name := ui.Row(c.Key("colname:"+s)).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(7).Grow(1).MinWidth(0).
+							name := ui.Row(c.Key("colname:"+s)).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(rad(7)).Grow(1).MinWidth(0).
 								Label("Odakla: " + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 							if name.Hovered() {
 								name.Background(cl.Fill)
 							}
 							name.Children(func() {
-								ui.Box(c).Size(8, 8).Radius(3).Background(tone)
+								ui.Box(c).Size(8, 8).Radius(rad(3)).Background(tone)
 								ui.Text(c, title).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text2).MaxLines(1).Shrink(1)
 								ui.Text(c, strconv.Itoa(len(col))).FontSize(12).TextColor(cl.Muted)
 							})
@@ -661,8 +652,8 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 							for _, p := range col {
 								p := p
 								card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
-									a.coverThumb(c, p, 0, 84, 8)                                           // its cover, across the top
-									ui.Box(c).FillWidth().Height(3).Radius(2).Background(tone.Alpha(0.75)) // its column's color
+									a.coverThumb(c, p, 0, 84, 8)                                                // its cover, across the top
+									ui.Box(c).FillWidth().Height(3).Radius(rad(2)).Background(tone.Alpha(0.75)) // its column's color
 									ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
 									if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && focus == id {
 										ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(map[bool]int{true: 3, false: 2}[focus == id])
@@ -740,7 +731,7 @@ func columnTone(c *ui.Context, name string) ui.Color {
 
 func (a *app) boardStrip(c *ui.Context, coll *Collection, v *View, s, title string, n int, id string) {
 	cl := ryugo.From(c).Colors
-	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(18).AlignItems(ui.Center).
+	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(rad(18)).AlignItems(ui.Center).
 		Background(cl.Well).Border(1, cl.WellBorder).Label("Aç: " + title).Role(ui.RoleButton).Shrink(0)
 	if b.Hovered() {
 		b.Background(cl.Fill)
@@ -773,7 +764,7 @@ func (a *app) foldColumn(coll *Collection, v *View, s string, fold bool) {
 // newPageRow is the last row of a view: a new page in the collection.
 func (a *app) newPageRow(c *ui.Context, coll *Collection) {
 	t := c.Theme()
-	row := ui.Row(c).Padding(10).Gap(8).Radius(8).AlignItems(ui.Center)
+	row := ui.Row(c).Padding(10).Gap(8).Radius(rad(8)).AlignItems(ui.Center)
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
 	}

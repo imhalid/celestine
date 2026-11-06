@@ -8,11 +8,10 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/egoist/mygo/ui/richtext"
 )
 
 // The library is a folder of plain files, laid out as Locus lays notes out,
@@ -234,11 +233,13 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 			continue
 		}
 		pdir := filepath.Join(dir, e.Name())
-		src, err := c.fs.ReadFile(filepath.Join(pdir, "index.md"))
+		src, err := c.fs.ReadFile(filepath.Join(pdir, pageFileName))
 		if err != nil {
-			continue
+			if src, err = migrateLegacyPage(c.fs, pdir); err != nil {
+				continue
+			}
 		}
-		meta, _ := splitFrontMatter(string(src))
+		meta := pageMeta(src)
 		p := &Page{Title: meta["title"], Dir: pdir, Coll: c, Parent: parent}
 		if p.Title == "" {
 			p.Title = e.Name()
@@ -250,7 +251,7 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 		} else if info, err := e.Info(); err == nil {
 			p.Created = info.ModTime()
 		}
-		if info, err := c.fs.Stat(filepath.Join(pdir, "index.md")); err == nil {
+		if info, err := c.fs.Stat(filepath.Join(pdir, pageFileName)); err == nil {
 			p.Modified = info.ModTime()
 		}
 		p.Children = readPages(pdir, c, p)
@@ -330,7 +331,7 @@ func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	return p, nil
 }
 
-func (p *Page) file() string { return filepath.Join(p.Dir, "index.md") }
+func (p *Page) file() string { return filepath.Join(p.Dir, pageFileName) }
 
 // fs is where the page's collection keeps its files.
 func (p *Page) fs() FS {
@@ -340,56 +341,59 @@ func (p *Page) fs() FS {
 	return osFS{}
 }
 
-// Body reads the page's Markdown, without its front matter.
+// Body reads the page's body, as the file keeps it (body.go).
 func (p *Page) Body() (string, error) {
 	src, err := p.fs().ReadFile(p.file())
 	if err != nil {
 		return "", err
 	}
-	_, body := splitFrontMatter(string(src))
+	_, body := splitPage(src)
 	return body, nil
 }
 
-// Save writes the page: its body, and its front matter as it is on disk
-// with our keys changed (frontmatter.go).
+// Text reads the page's text for what looks into it, as plain lines (see
+// bodyText): its tags, tasks and links, what to search for.
+func (p *Page) Text() (string, error) {
+	body, err := p.Body()
+	if err != nil {
+		return "", err
+	}
+	text := bodyText(body)
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	return text, nil
+}
+
+// SaveText writes the page with a body made of Markdown: what comes in from
+// outside (an import, an agent's text), as the body it makes.
+func (p *Page) SaveText(md string) error { return p.Save(encodeBody(importMarkdown(md))) }
+
+// Save writes the page: its body, and what is known of it.
 func (p *Page) Save(body string) error {
-	f := &front{}
-	if src, err := p.fs().ReadFile(p.file()); err == nil {
-		f, _ = readFront(string(src))
+	meta := map[string]string{}
+	for k, v := range p.Props {
+		if v != "" && !slices.Contains(reserved, k) {
+			meta[k] = v
+		}
 	}
-	f.set("title", p.Title)
+	meta["title"] = p.Title
 	if !p.Created.IsZero() {
-		f.set("created", p.Created.Format(time.RFC3339))
+		meta["created"] = p.Created.Format(time.RFC3339)
 	}
-	f.setInt("order", p.Order)
-	if p.Coll != nil {
-		for _, pr := range p.Coll.Properties {
-			if v := p.Props[pr.ID]; v != f.get(pr.ID) {
-				f.set(pr.ID, v)
-			}
-		}
+	if p.Order != 0 {
+		meta["order"] = strconv.Itoa(p.Order)
 	}
-	f.setInt("rank", p.Rank)
-	f.set("cover", p.Cover)
-	var sb strings.Builder
-	if fm := f.text(); fm != "" {
-		sb.WriteString("---\n" + fm)
-		if !strings.HasSuffix(fm, "\n") {
-			sb.WriteString("\n")
-		}
-		sb.WriteString("---\n\n")
+	if p.Rank != 0 {
+		meta["rank"] = strconv.Itoa(p.Rank)
 	}
-	sb.WriteString(strings.TrimLeft(body, "\n"))
-	if !strings.HasSuffix(body, "\n") {
-		sb.WriteString("\n")
+	if p.Cover != "" {
+		meta["cover"] = p.Cover
 	}
-	if err := p.fs().WriteFile(p.file(), []byte(sb.String())); err != nil {
+	if err := p.fs().WriteFile(p.file(), joinPage(meta, body)); err != nil {
 		return err
 	}
 	p.Modified = modTime(p.fs(), p.file())
-	if f.bad {
-		return errBadFront
-	}
 	return nil
 }
 
@@ -403,7 +407,7 @@ func (p *Page) Excerpt() string {
 	if err != nil {
 		return ""
 	}
-	text := strings.Join(strings.Fields(richtext.ParseMarkdown(body).PlainText()), " ")
+	text := strings.Join(strings.Fields(decodeBody(body).PlainText()), " ")
 	if r := []rune(text); len(r) > 180 {
 		text = strings.TrimSpace(string(r[:180])) + "…"
 	}
@@ -573,8 +577,8 @@ func (l *Library) Trash() []*TrashItem {
 				var c Collection
 				json.Unmarshal(data, &c)
 				item.Kind, item.Title = "collection", c.Name
-			} else if src, err := l.fs.ReadFile(filepath.Join(dir, "index.md")); err == nil {
-				if meta, _ := splitFrontMatter(string(src)); meta["title"] != "" {
+			} else if src, err := l.fs.ReadFile(filepath.Join(dir, pageFileName)); err == nil {
+				if meta := pageMeta(src); meta["title"] != "" {
 					item.Title = meta["title"]
 				}
 			}
@@ -652,11 +656,11 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	src, err := l.fs.ReadFile(filepath.Join(to, "index.md"))
+	src, err := l.fs.ReadFile(filepath.Join(to, pageFileName))
 	if err != nil {
 		return nil, nil, err
 	}
-	meta, body := splitFrontMatter(string(src))
+	meta, body := splitPage(src)
 	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent}
 	p.readMeta(meta)
 	if p.Title == "" {

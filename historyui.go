@@ -53,8 +53,9 @@ func (a *app) histOps() []diffOp {
 	if id := v.vers[v.sel].ID; id != v.opsFor {
 		h, _ := historyOf(v.page)
 		data, _ := h.VersionData(v.page.file(), id)
-		_, old := splitFrontMatter(string(data))
-		now, _ := v.page.Body()
+		_, oldBody := splitPage(data)
+		old := bodyText(oldBody)
+		now, _ := v.page.Text()
 		v.ops = diffLines(strings.Split(strings.TrimRight(old, "\n"), "\n"), strings.Split(strings.TrimRight(now, "\n"), "\n"))
 		pairWords(v.ops)
 		v.opsFor = id
@@ -80,7 +81,7 @@ func (a *app) putBackVersion() {
 		a.flush()
 	}
 	h.SnapshotNow(p.file())
-	_, body := splitFrontMatter(string(data))
+	_, body := splitPage(data)
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return
@@ -128,7 +129,7 @@ func (a *app) historyView(c *ui.Context) {
 				ui.Column(c).FillWidth().Gap(2).Padding(0, 4, 0, 0).Children(func() {
 					for i, ver := range v.vers {
 						i, ver := i, ver
-						row := ui.Column(c.Key("hv:"+strconv.FormatInt(ver.ID, 10))).FillWidth().Padding(7, 10).Radius(9).Gap(1).
+						row := ui.Column(c.Key("hv:"+strconv.FormatInt(ver.ID, 10))).FillWidth().Padding(7, 10).Radius(rad(9)).Gap(1).
 							Label("Sürüm: " + ver.At.Format("2 Jan 15:04")).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case i == v.sel:
@@ -207,7 +208,7 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []diffOp) {
 }
 
 func (a *app) diffRow(c *ui.Context, cl ryugo.Colors, i int, o diffOp) {
-	row := ui.Row(c.Key("dl"+strconv.Itoa(i))).FillWidth().Gap(8).Padding(2, 6).Radius(5).AlignItems(ui.Start)
+	row := ui.Row(c.Key("dl"+strconv.Itoa(i))).FillWidth().Gap(8).Padding(2, 6).Radius(rad(5)).AlignItems(ui.Start)
 	mark, col := " ", cl.Text2
 	switch o.kind {
 	case '+':

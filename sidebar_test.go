@@ -128,7 +128,7 @@ func TestTrashPage(t *testing.T) {
 	if len(bin) != 1 || !strings.HasSuffix(bin[0].Name(), "-cocuk") {
 		t.Fatalf("trash: %v", bin)
 	}
-	if _, err := os.Stat(filepath.Join(a.lib.Root, trashDir, bin[0].Name(), "torun", "index.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(a.lib.Root, trashDir, bin[0].Name(), "torun", pageFileName)); err != nil {
 		t.Fatal("the sub-page did not go with it: ", err)
 	}
 	again, _ := OpenLibrary(a.lib.Root)

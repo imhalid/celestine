@@ -33,7 +33,7 @@ func TestTagView(t *testing.T) {
 	a, tt := newTestApp(t, "bir #fikir burada\n")
 	tt.SetSize(1100, 800)
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("başka #Fikir ve #plan\n")
+	other.SaveText("başka #Fikir ve #plan\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -86,7 +86,7 @@ func TestTagMenu(t *testing.T) {
 	a, tt := newTestApp(t, "ilk\n")
 	tt.SetSize(1100, 800)
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("başka #fikir ve #plan\n")
+	other.SaveText("başka #fikir ve #plan\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -134,7 +134,7 @@ func TestTagMenu(t *testing.T) {
 func TestHashAtLineStart(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.Save("#fikir\n")
+	other.SaveText("#fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -162,9 +162,9 @@ func TestTagRename(t *testing.T) {
 	a, tt := newTestApp(t, "bir #fikir burada\n")
 	tt.SetSize(1100, 800)
 	b, _ := a.page.Coll.NewPage(nil, "İki")
-	b.Save("#Fikir ve #plan\n")
+	b.SaveText("#Fikir ve #plan\n")
 	c3, _ := a.page.Coll.NewPage(nil, "Üç")
-	c3.Save("#fikirler dokunulmaz\n")
+	c3.SaveText("#fikirler dokunulmaz\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
@@ -181,16 +181,16 @@ func TestTagRename(t *testing.T) {
 	if a.tagRen.open {
 		t.Fatalf("dialog stays: %q", a.tagRen.err)
 	}
-	if body, _ := a.page.Body(); !strings.Contains(body, "bir #tasarım burada") {
+	if body, _ := a.page.Text(); !strings.Contains(body, "bir #tasarım burada") {
 		t.Fatalf("open page file: %q", body)
 	}
 	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "#tasarım") {
 		t.Fatalf("open page text: %q", md)
 	}
-	if body, _ := b.Body(); !strings.Contains(body, "#tasarım ve #plan") {
+	if body, _ := b.Text(); !strings.Contains(body, "#tasarım ve #plan") {
 		t.Fatalf("the other: %q", body)
 	}
-	if body, _ := c3.Body(); !strings.Contains(body, "#fikirler") {
+	if body, _ := c3.Text(); !strings.Contains(body, "#fikirler") {
 		t.Fatalf("a longer tag changed: %q", body)
 	}
 	if a.tag != "tasarım" {
@@ -213,7 +213,7 @@ func TestLinkContext(t *testing.T) {
 	a, tt := newTestApp(t, "hedef sayfa\n")
 	tt.SetSize(1100, 800)
 	src, _ := a.page.Coll.NewPage(nil, "Kaynak")
-	src.Save("ilk satır\n\nBu cümlede [[Sayfa|hedefe]] bağlanıyor, **kalın** bir de.\n\nson\n")
+	src.SaveText("ilk satır\n\nBu cümlede [[Sayfa|hedefe]] bağlanıyor, **kalın** bir de.\n\nson\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()

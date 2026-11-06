@@ -135,7 +135,7 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 		}
 		for _, q := range links {
 			q := q
-			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(7).Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}
