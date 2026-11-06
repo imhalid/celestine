@@ -18,11 +18,21 @@ import (
 // matter. ↑↓ move, ↵ goes, Esc closes.
 
 type palette struct {
-	open  bool
-	query string // a ">" first in it: the commands; else the documents
-	sel   int
-	hseen int    // the row last hovered
-	was   string // the query of the last frame, to start from the top when it changes
+	open   bool
+	query  string // a ">" first in it: the commands; else the documents
+	sel    int
+	text   string   // what is in the field: the query without the sign of the mode
+	hseen  int      // the row last hovered
+	was    string   // the query of the last frame, to start from the top when it changes
+	hx, hy float32  // where the pointer was last seen over the rows, in the window: a row is chosen by the pointer only when it moves
+	snap   *palSnap // the settings as they were when it opened, while a command is shown as a preview
+	pvKey  string   // the command being previewed
+}
+
+// palSnap is what a preview changes, as it was: it goes back when the palette closes without choosing.
+type palSnap struct {
+	theme, appTheme int
+	caret           caretKind
 }
 
 // palItem is a line of the palette.
@@ -31,7 +41,8 @@ type palItem struct {
 	glyph            *ui.SVG
 	run              func()
 	score            int
-	to               place // where it goes, for a page or a collection
+	to               place  // where it goes, for a page or a collection
+	preview          func() // shows it without keeping it (a theme, a caret), while it is the one chosen
 }
 
 // openPalette opens the search of the documents (⌘K).
@@ -88,6 +99,7 @@ func (a *app) commands() []palItem {
 			}))
 		}
 	}
+	out = append(out, a.paneCommands(cmd)...)
 	out = append(out,
 		cmd("Görevler", "", iconTask, a.openTasks),
 		cmd("Yazma istatistikleri", "", iconPen, func() { a.statsOpen = true }),
@@ -106,16 +118,44 @@ func (a *app) commands() []palItem {
 		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
 		cmd("Caret'i değiştir (⇧⌘M)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretCount()) }),
 		cmd("Çöp", "", iconTrash, a.openTrash),
-		cmd("Ayarlar", "⌘,", iconSettings, func() { a.settingsOpen = true }),
+		cmd("Ayarlar", "⌘,", iconSettings, a.openSettings),
 	)
 	mcp := "MCP sunucusunu aç"
 	if a.settings.MCP {
 		mcp = "MCP sunucusunu kapat"
 	}
 	out = append(out, cmd(mcp, "", iconSettings, func() { a.setMCP(!a.settings.MCP) }))
+	// the look: light, dark or the system's, the colors, the caret - each shown as it is passed over
+	baseTheme, baseApp, baseCaret := a.settings.Theme, a.settings.AppTheme, a.caretKind // not what a preview shows
+	if s := a.pal.snap; s != nil {
+		baseTheme, baseApp, baseCaret = s.theme, s.appTheme, s.caret
+	}
+	check := func(on bool) string {
+		if on {
+			return "✓"
+		}
+		return ""
+	}
+	for i, name := range []string{"Sistem", "Açık", "Koyu"} {
+		i := i
+		it := cmd("Tema: "+name, check(baseTheme%3 == i), iconTheme, func() {
+			a.settings.Theme = i
+			a.saveSettings()
+		})
+		it.preview = func() { a.settings.Theme = i }
+		out = append(out, it)
+	}
 	for i, t := range appThemes {
 		i := i
-		out = append(out, cmd("Renk teması: "+t.name, "", iconTheme, func() { a.setAppTheme(i) }))
+		it := cmd("Renk teması: "+t.name, check(baseApp%len(appThemes) == i), iconTheme, func() { a.setAppTheme(i) })
+		it.preview = func() { a.settings.AppTheme = i }
+		out = append(out, it)
+	}
+	for k := caretKind(0); k < caretCount(); k++ {
+		k := k
+		it := cmd("Caret: "+caretName(k), check(baseCaret == k), iconEditing, func() { a.setCaret(k) })
+		it.preview = func() { a.caretKind = k }
+		out = append(out, it)
 	}
 	return out
 }
@@ -307,6 +347,7 @@ func match(q, s string) int {
 // paletteView shows the palette while it is open.
 func (a *app) paletteView(c *ui.Context) {
 	if !a.pal.open {
+		a.palRestore() // closed without choosing: what a preview changed goes back
 		return
 	}
 	t := ryugo.From(c)
@@ -318,15 +359,36 @@ func (a *app) paletteView(c *ui.Context) {
 		t.Shadows.ShadowPop.Apply(panel)
 		items := a.paletteItems(a.pal.query)
 		if a.pal.query != a.pal.was {
-			a.pal.sel, a.pal.was = 0, a.pal.query
+			a.pal.sel, a.pal.was, a.pal.hseen = 0, a.pal.query, -1
 		}
 		a.pal.sel = max(0, min(a.pal.sel, len(items)-1))
+		a.palPreview(items)
 		panel.Children(func() {
 			ui.Row(c).Padding(9, 12).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
-				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.query).Label("Ara ya da komut").
-					Placeholder("Sayfaya git… komutlar için > yaz").PlaceholderColor(cl.Muted).
+				// the mode is the sign at the left, not a letter in the field: ">" the commands, "@" the pages
+				sign := "@"
+				if a.palCmds() {
+					sign = ">"
+				}
+				a.pal.text = strings.TrimPrefix(a.pal.query, ">")
+				ui.Text(c, sign).FontSize(15).FontWeight(700).TextColor(cl.Accent).Width(15).TextAlign(ui.Center)
+				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.text).Label("Ara ya da komut").
+					Placeholder(map[bool]string{true: "Komut ara… sayfalar için @ yaz", false: "Sayfaya git… komutlar için > yaz"}[a.palCmds()]).PlaceholderColor(cl.Muted).
 					FontSize(14).Grow(1).FocusRing(false).AutoFocus()
+				if in.Changed() {
+					// a ">" written first: the commands; a "@": the pages
+					cmds := a.palCmds()
+					switch {
+					case strings.HasPrefix(a.pal.text, ">"):
+						cmds, a.pal.text = true, a.pal.text[1:]
+					case strings.HasPrefix(a.pal.text, "@"):
+						cmds, a.pal.text = false, a.pal.text[1:]
+					}
+					a.pal.query = a.pal.text
+					if cmds {
+						a.pal.query = ">" + a.pal.text
+					}
+				}
 				switch {
 				case in.Shortcut(0, ui.KeyDown):
 					a.pal.sel = min(a.pal.sel+1, len(items)-1)
@@ -376,9 +438,16 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 	row := ui.Row(c.Key(i)).Height(28).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).AlignItems(ui.Center).
 		Label(it.title).Role(ui.RoleButton)
 	text, muted := cl.Text, cl.Muted
-	if row.Hovered() && a.pal.hseen != i { // one row lit: the pointer's, once it comes
-		a.pal.hseen, a.pal.sel = i, i
-		c.Invalidate()
+	// one row lit: the pointer's, once it MOVES - a pointer left resting over the list lit whatever row
+	// the filter put under it, and Enter then ran that one, not the first
+	if x, y, over := row.PointerPosition(); over {
+		b := row.LayoutBounds()
+		moved := b.X+x != a.pal.hx || b.Y+y != a.pal.hy
+		a.pal.hx, a.pal.hy = b.X+x, b.Y+y
+		if moved && a.pal.hseen != i {
+			a.pal.hseen, a.pal.sel = i, i
+			c.Invalidate()
+		}
 	}
 	if i == a.pal.sel {
 		row.LinearGradient(chosenFill(t))
@@ -402,7 +471,40 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 
 func (a *app) runItem(it palItem) {
 	a.pal.open = false
+	a.palRestore() // the command sets what it sets, from where it was, and keeps it
 	if it.run != nil {
 		it.run()
 	}
+}
+
+// palPreview shows the chosen command if it can be shown (a theme, a caret): while the choice moves
+// from one to another, the app is in each. Another that cannot be shown puts it back.
+func (a *app) palPreview(items []palItem) {
+	key := ""
+	var show func()
+	if a.pal.sel >= 0 && a.pal.sel < len(items) && items[a.pal.sel].preview != nil {
+		key, show = items[a.pal.sel].title, items[a.pal.sel].preview
+	}
+	if key == a.pal.pvKey {
+		return
+	}
+	a.pal.pvKey = key
+	if show == nil {
+		a.palRestore()
+		return
+	}
+	if a.pal.snap == nil {
+		a.pal.snap = &palSnap{a.settings.Theme, a.settings.AppTheme, a.caretKind}
+	}
+	show()
+}
+
+// palRestore puts back what a preview changed.
+func (a *app) palRestore() {
+	s := a.pal.snap
+	if s == nil {
+		return
+	}
+	a.pal.snap, a.pal.pvKey = nil, ""
+	a.settings.Theme, a.settings.AppTheme, a.caretKind = s.theme, s.appTheme, s.caret
 }

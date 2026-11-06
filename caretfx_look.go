@@ -2,15 +2,15 @@ package main
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 )
 
 // Carets after Cursor-Smith (https://github.com/Sadsnake1/cursor-smith, MIT, see
-// NOTICE.md), each fixed as it ships, with nothing to set: the cursor's own look -
-// the smear, the energy beam and the aurora, the phosphor ghosts of the CRT and
-// the neon - drawn by this app's painter.
+// NOTICE.md), each fixed as it ships, with nothing to set: the phosphor ghosts of the CRT,
+// drawn by this app's painter, and the jelly that can be put on any caret.
 
 // cursorColor is the color of Cursor-Smith's box cursor, for the dark appearance and the light.
 func cursorColor(dark bool) ui.Color {
@@ -50,9 +50,11 @@ func glowAround(p *ui.Painter, r ui.Rect, col ui.Color, alpha float64) {
 	}
 }
 
-// ---- Smear ----
+// ---- Jelly ----
 
-// smear is Jell-O: the box stretches toward where it came from and snaps back, on a spring.
+// smear is the jelly: the box's two faces follow where the caret goes on springs, the leading one
+// quick and the trailing one slow, so the box stretches toward where it came from and snaps back.
+// body gives it, for whatever caret is chosen.
 type smear struct {
 	lx, ly, lvx, lvy float64 // the leading face
 	tx, ty           float64 // the trailing face
@@ -62,8 +64,6 @@ type smear struct {
 	last             time.Time
 }
 
-func newSmear() *smear { return &smear{} }
-
 func (s *smear) reset() { s.placed = false }
 
 func (s *smear) shift(dy float32) {
@@ -72,8 +72,9 @@ func (s *smear) shift(dy float32) {
 	s.pcy += float64(dy)
 }
 
-func (s *smear) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
+// faces moves the springs to now, and gives the four corners of the stretched box, and
+// whether it is at rest (then the box is the caret's own).
+func (s *smear) faces(now time.Time, f caretFrame) (c [4][2]float64, settled bool) {
 	dt := dtOf(now, s.last)
 	s.last = now
 	T := f.r
@@ -113,9 +114,7 @@ func (s *smear) draw(p *ui.Painter, f caretFrame, k kick) {
 			*q[0], *q[1] = tx+(*q[0]-tx)*capLen/d, ty+(*q[1]-ty)*capLen/d
 		}
 	}
-	col := cursorColor(f.dark)
 	offs := [4][2]float64{{0, 0}, {w, 0}, {w, h}, {0, h}}
-	var c [4][2]float64
 	maxLag := 0.0
 	var lag [4]float64
 	for i, o := range offs {
@@ -140,14 +139,11 @@ func (s *smear) draw(p *ui.Painter, f caretFrame, k kick) {
 	}
 	if maxLag < 0.5 && math.Hypot(s.lvx, s.lvy) < 8 { // settled: the plain box
 		s.lx, s.ly, s.tx, s.ty, s.lvx, s.lvy = tx, ty, tx, ty, 0, 0
-		box := ui.Rect{X: T.X, Y: T.Y, W: f32(w), H: T.H}
-		glowAround(p, box, col, 0.9)
-		p.Fill(box, withAlpha(col, 0.9), boxRadius(box.W, box.H))
-		return
+		return c, true
 	}
 	// the tail thins toward the line it travels
 	reach := clamp01((maxLag - 4) / 20)
-	for i, o := range offs {
+	for i := range offs {
 		offx, offy := c[i][0]-cx, c[i][1]-cy
 		along := offx*s.dx + offy*s.dy
 		px, py := offx-along*s.dx, offy-along*s.dy
@@ -157,19 +153,42 @@ func (s *smear) draw(p *ui.Painter, f caretFrame, k kick) {
 		}
 		c[i][0] -= px * k
 		c[i][1] -= py * k
-		_ = o
+	}
+	return c, false
+}
+
+// body is the caret's own body as the jelly makes it: the box stretched toward where it was, its
+// corners rounded; nil when it is at rest, and the caret is the plain box. The carets draw
+// their body with it (drawBody), so the jelly is the caret, not a layer under it.
+func (s *smear) body(p *ui.Painter, f caretFrame) *ui.Path {
+	c, settled := s.faces(p.Now(), f)
+	if settled {
+		return nil
+	}
+	p.AnimationFrame()
+	r := float64(boxRadius(max(f.cw, 6), f.r.H))
+	dist := func(a, b [2]float64) float64 { return math.Hypot(a[0]-b[0], a[1]-b[1]) }
+	toward := func(a, b [2]float64, d float64) (float32, float32) { // d from a toward b
+		l := dist(a, b)
+		if l == 0 {
+			return f32(a[0]), f32(a[1])
+		}
+		return f32(a[0] + (b[0]-a[0])*d/l), f32(a[1] + (b[1]-a[1])*d/l)
 	}
 	path := &ui.Path{}
-	path.MoveTo(f32(c[0][0]), f32(c[0][1]))
-	for i := 1; i < 4; i++ {
-		path.LineTo(f32(c[i][0]), f32(c[i][1]))
+	for i := 0; i < 4; i++ {
+		prev, cur, next := c[(i+3)%4], c[i], c[(i+1)%4]
+		d := math.Min(r, math.Min(dist(prev, cur), dist(cur, next))/2)
+		x0, y0 := toward(cur, prev, d)
+		x1, y1 := toward(cur, next, d)
+		if i == 0 {
+			path.MoveTo(x0, y0)
+		} else {
+			path.LineTo(x0, y0)
+		}
+		path.QuadTo(f32(cur[0]), f32(cur[1]), x1, y1)
 	}
-	path.Close()
-	for i, wd := range []float32{9, 6, 3.5} {
-		p.StrokePath(path, wd, withAlpha(col, []float64{0.04, 0.07, 0.1}[i]))
-	}
-	p.FillPath(path, withAlpha(col, 0.9))
-	p.AnimationFrame()
+	return path.Close()
 }
 
 func sgn(v float64) float64 {
@@ -182,86 +201,12 @@ func sgn(v float64) float64 {
 	return 0
 }
 
-// ---- Energy beam and Aurora ----
-
-// energy fills the box with a light that runs along it: a bright band and a dark one move up
-// through it, the colors drifting. The aurora does it with a ramp of colors, warped.
-type energy struct {
-	aurora bool
-	t0     time.Time
-}
-
-func newEnergy(aurora bool) *energy { return &energy{aurora: aurora} }
-
-func (e *energy) reset()        {}
-func (e *energy) shift(float32) {}
-
-var auroraRamp = []ui.Color{ui.Hex("#31edae"), ui.Hex("#4aa3ff"), ui.Hex("#c792ea"), ui.Hex("#f5a623")}
-
-// ramp samples the colors as a cycle.
-func ramp(pos float64) ui.Color {
-	n := float64(len(auroraRamp))
-	pos = pos - math.Floor(pos)
-	i := pos * n
-	a, b := auroraRamp[int(i)%len(auroraRamp)], auroraRamp[(int(i)+1)%len(auroraRamp)]
-	return mix(a, b, i-math.Floor(i))
-}
-
-func (e *energy) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
-	if e.t0.IsZero() {
-		e.t0 = now
-	}
-	t := now.Sub(e.t0).Seconds()
-	box := ui.Rect{X: f.r.X, Y: f.r.Y, W: f32(math.Max(float64(f.cw), 6)), H: f.r.H}
-	base := cursorColor(f.dark)
-	n := 8
-	if e.aurora {
-		n = 20
-	}
-	stops := make([]ui.GradientStop, 0, n+1)
-	for i := 0; i <= n; i++ {
-		pos := float64(i) / float64(n) // 0 at the bottom, 1 at the top
-		var col ui.Color
-		punch := 1.0
-		if e.aurora {
-			warp := math.Sin(pos*3.1+t*0.85)*0.26 + math.Sin(pos*5.7-t*0.55)*0.14 + math.Sin(pos*1.3+t*1.25)*0.20
-			near := ramp(pos - t*0.3 + warp)
-			far := ramp(pos*0.45 + t*0.17 + 0.37)
-			col = mix(near, far, (0.5+0.5*math.Sin(pos*2.3+t*0.7))*0.6)
-			punch = 0.45
-		} else {
-			col = base
-		}
-		pulse := 0.5 + 0.5*math.Sin((pos-t*0.6)*2*math.Pi)
-		r, g, b := float64(col.R), float64(col.G), float64(col.B)
-		if pulse > 0.5 {
-			k := (pulse - 0.5) * 2 * 0.55 * punch
-			r, g, b = r+(255-r)*k, g+(255-g)*k, b+(255-b)*k
-		} else {
-			k := (0.5 - pulse) * 2 * 0.45 * punch
-			r, g, b = r-r*k, g-g*k, b-b*k
-		}
-		if !e.aurora { // the hue drifts, a little, from one stop to the next
-			r += math.Sin(t*0.7+pos*6) * 14
-			g += math.Sin(t*0.7+pos*6+2.1) * 14
-			b += math.Sin(t*0.7+pos*6+4.2) * 14
-		}
-		stops = append(stops, ui.GradientStop{Color: ui.RGBA(uint8(clampf(r, 0, 255)), uint8(clampf(g, 0, 255)), uint8(clampf(b, 0, 255)), 0.9), At: float32(1 - pos)})
-	}
-	glowAround(p, box, base, 0.9)
-	p.FillPathGradient(rrect(box.X, box.Y, box.W, box.H, boxRadius(box.W, box.H)), ui.LinearGradient{Angle: 180, Oklab: true, Stops: stops})
-	p.AnimationFrame()
-}
-
 func clampf(v, lo, hi float64) float64 { return math.Max(lo, math.Min(hi, v)) }
 
-// ---- CRT: phosphor ghosts, glitch on jumps; neon ----
+// ---- CRT: phosphor ghosts, glitch on jumps and on Enter ----
 
-// crt leaves faded copies of the box where it was, and breaks it up on a jump. Neon makes the
-// ghosts glowing tubes, bridged across a jump.
+// crt leaves faded copies of the box where it was, and breaks it up on a jump, and on Enter.
 type crt struct {
-	neon   bool
 	ghosts []crtGhost
 	prev   ui.Rect
 	placed bool
@@ -280,7 +225,7 @@ type crtGhost struct {
 	at         time.Time
 }
 
-func newCRT(neon bool) *crt { return &crt{neon: neon} }
+func newCRT() *crt { return &crt{} }
 
 func (c *crt) reset() { c.ghosts, c.placed, c.glitch.on = nil, false, false }
 
@@ -315,23 +260,19 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 		dist := math.Hypot(float64(T.X-c.prev.X), float64(T.Y-c.prev.Y))
 		if dist > 0.5 {
 			c.ghosts = append(c.ghosts, crtGhost{float64(c.prev.X), float64(c.prev.Y), w, float64(c.prev.H), now})
-			if c.neon && dist >= crtJump && k.erased == 0 { // the leap, bridged
-				steps := int(math.Min(crtGhosts, dist/8))
-				for i := 1; i <= steps; i++ {
-					s := float64(i) / float64(steps+1)
-					c.ghosts = append(c.ghosts, crtGhost{float64(c.prev.X) + (float64(T.X)-float64(c.prev.X))*s, float64(c.prev.Y) + (float64(T.Y)-float64(c.prev.Y))*s, w, float64(c.prev.H), now.Add(time.Duration(s * 10 * float64(time.Millisecond)))})
-				}
-			}
-			if !c.neon && dist >= crtJump { // a jump: the box breaks up
+			if dist >= crtJump { // a jump: the box breaks up
 				c.glitch.on, c.glitch.at, c.glitch.dist, c.glitch.seed = true, now, dist, uint32(now.UnixNano()>>10)
 			}
 		}
 		c.prev = T
 	}
+	if strings.Contains(k.typed, "\n") { // Enter: the box breaks up, as on a jump
+		c.glitch.on, c.glitch.at, c.glitch.dist, c.glitch.seed = true, now, crtJump, uint32(now.UnixNano()>>10)
+	}
 	for len(c.ghosts) > crtGhosts*6 {
 		c.ghosts = c.ghosts[1:]
 	}
-	if len(c.ghosts) > crtGhosts && !c.neon {
+	if len(c.ghosts) > crtGhosts {
 		c.ghosts = c.ghosts[len(c.ghosts)-crtGhosts:]
 	}
 	col := cursorColor(f.dark)
@@ -344,19 +285,7 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 		out = append(out, g)
 		a := 1 - age
 		r := ui.Rect{X: f32(g.x), Y: f32(g.y), W: f32(g.w), H: f32(g.h)}
-		if c.neon {
-			halo := withAlpha(col, math.Min(1, 2*a)*0.5)
-			for _, k := range []float32{9, 5} {
-				p.Fill(ui.Rect{X: r.X - k, Y: r.Y - k, W: r.W + 2*k, H: r.H + 2*k}, withAlpha(halo, 0.08*float64(halo.A)/255*4), rad(4)+k)
-			}
-			p.Fill(r, withAlpha(mix(col, ui.RGBA(255, 255, 255, 1), 0.35), math.Min(1, a*1.3)), boxRadius(r.W, r.H))
-			if r.W >= 3 {
-				fw := max(1, r.W*0.34)
-				p.Fill(ui.Rect{X: r.X + (r.W-fw)/2, Y: r.Y, W: fw, H: r.H}, ui.RGBA(255, 255, 255, float32(math.Min(1, 1.6*a))), 1)
-			}
-		} else {
-			p.Fill(r, withAlpha(col, a*0.9), boxRadius(r.W, r.H))
-		}
+		p.Fill(r, withAlpha(col, a*0.9), boxRadius(r.W, r.H))
 	}
 	c.ghosts = out
 	if len(c.ghosts) > 0 || c.glitch.on {
@@ -373,8 +302,7 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 			return
 		}
 	}
-	glowAround(p, box, col, 0.9)
-	p.Fill(box, withAlpha(col, 0.9), boxRadius(box.W, box.H))
+	drawBody(p, f, box, col, 1, 0.9)
 }
 
 // drawGlitch is the box in slices that slip sideways, with red and blue fringes and a scanline.
@@ -415,44 +343,4 @@ func (c *crt) drawGlitch(p *ui.Painter, box ui.Rect, col ui.Color, pr float64, e
 		p.Fill(ui.Rect{X: f32(float64(box.X) - (lw-float64(box.W))/2), Y: f32(ly), W: f32(lw), H: float32(math.Max(1, 0.06*float64(box.H)))}, ui.RGBA(255, 255, 255, float32(0.55*env)), 0)
 	}
 	p.AnimationFrame()
-}
-
-// ---- tiles ----
-
-func smearMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	path := &ui.Path{}
-	path.MoveTo(r.X+4, r.Y+10).LineTo(r.X+22, r.Y+3).LineTo(r.X+31, r.Y+3).LineTo(r.X+13, r.Y+19).LineTo(r.X+4, r.Y+19).Close()
-	p.FillPath(path, withAlpha(col, 0.85))
-}
-
-func energyMock(p *ui.Painter, r ui.Rect, dark bool) {
-	x, y := r.X+r.W/2-5, r.Y+1
-	base := cursorColor(dark)
-	p.FillPathGradient(rrect(x, y, 10, r.H-2, 3), ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-		{Color: mix(base, ui.RGBA(255, 255, 255, 1), 0.55), At: 0}, {Color: base, At: 0.45}, {Color: mix(base, ui.RGBA(0, 0, 0, 1), 0.4), At: 1}}})
-}
-
-func auroraMock(p *ui.Painter, r ui.Rect, dark bool) {
-	x, y := r.X+r.W/2-5, r.Y+1
-	p.FillPathGradient(rrect(x, y, 10, r.H-2, 3), ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-		{Color: ui.Hex("#c792ea"), At: 0}, {Color: ui.Hex("#4aa3ff"), At: 0.35}, {Color: ui.Hex("#31edae"), At: 0.7}, {Color: ui.Hex("#f5a623"), At: 1}}})
-}
-
-func crtMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	for i := 0; i < 5; i++ {
-		p.Fill(ui.Rect{X: r.X + 2 + float32(i)*6, Y: r.Y + 2, W: 7, H: r.H - 4}, withAlpha(col, 0.14+0.16*float64(i)), 2)
-	}
-}
-
-func neonMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	for i := 0; i < 4; i++ {
-		x := r.X + 4 + float32(i)*7
-		a := 0.25 + 0.2*float64(i)
-		p.Fill(ui.Rect{X: x - 3, Y: r.Y, W: 13, H: r.H}, withAlpha(col, 0.07*a), 6)
-		p.Fill(ui.Rect{X: x, Y: r.Y + 3, W: 7, H: r.H - 6}, withAlpha(mix(col, ui.RGBA(255, 255, 255, 1), 0.35), a), 2)
-		p.Fill(ui.Rect{X: x + 2.4, Y: r.Y + 3, W: 2.4, H: r.H - 6}, ui.RGBA(255, 255, 255, float32(a)), 1)
-	}
 }

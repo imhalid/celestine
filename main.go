@@ -64,6 +64,9 @@ type caretFrame struct {
 	bounds ui.Rect
 	wrote  int
 	edited bool
+	jelly  *ui.Path   // the caret's body when the jelly stretches it; nil: the plain box
+	size   float32    // the size of the letters on the caret's line; 0: not known
+	style  caretStyle // the text under the caret
 }
 
 // titleCaretSpec is the caret in the page's title, as it was found: where it
@@ -79,15 +82,12 @@ type titleCaretSpec struct {
 }
 
 type app struct {
-	lib   *Library
-	page  *Page              // the page open
-	doc   *richtext.Document // its text
-	docs  map[*Page]*richtext.Document
-	title string // the title field's text
+	lib *Library
 
-	coll     *Collection // the collection whose page is shown, instead of a page
-	collName string      // its name field's text
-	search   string      // its search field's text
+	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
+	ps        paneSet // the panes of the window (panes.go)
+
+	docs map[*Page]*richtext.Document
 
 	sidebarClosed bool
 
@@ -99,7 +99,6 @@ type app struct {
 	renameText    string
 	renameFocused bool    // the field has had the focus: losing it keeps the name
 	sidebarShown  float32 // its width this frame, on the way to open or closed
-	fresh         bool    // the page was just made: its title takes the focus
 
 	theme *richtext.Theme // the editor's, resolved: what locate lays paragraphs out with
 	font  ui.Font
@@ -109,42 +108,22 @@ type app struct {
 	mizan     *mizanCaret
 
 	// What changed since the last frame, for the caret and for saving.
-	version  uint64
-	length   int
-	caretAt  int
-	wrote    int
-	edited   bool
-	erased   int // letters erased since the caret was drawn, which way (-1 Backspace, 1 Delete) and what they were (caretfx.go)
-	eraseDir int
-	gone     string
-	typed    string        // what was written since the caret was drawn
-	prevText richtext.Text // the text before the last edit, for what was erased
-	fx       []caretFX     // the carets of the presets, made as they are used (caretfx.go)
-	editAt   time.Time
-	dirty    bool
-	saveErr  string
-	notice   string     // a toast to show
-	trashed  *TrashItem // just thrown away: a toast offers it back
+	fx      []caretFX                // the carets of the presets, made as they are used (caretfx.go)
+	jellied smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
+	sleep   sleeper                  // the caret asleep after five seconds (caretextras.go)
+	demos   map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
+	winRect ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
+	saveErr string
+	notice  string     // a toast to show
+	trashed *TrashItem // just thrown away: a toast offers it back
 
-	trashOpen     bool       // the trash is shown, instead of a page
 	quick         *quickNote // the panel for a note, over everything (quick.go)
-	tasksOpen     bool       // the task view is shown (tasks.go)
-	searchOpen    bool       // the search over the whole library is shown (search.go)
-	searchQ       string
-	searchFocus   bool
-	quickKeyDraft string // the key being typed in the settings
+	quickKeyDraft string     // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename      // the dialog to rename a tag (tags.go)
-	vhist         histView       // the dialog of a page's versions (historyui.go)
-	noticePage    *Page          // the page the notice is about, to open from it
-	taskDue       int            // 0 any day, 1 today, 2 this week, 3 late
-	taskFilter    int            // 0 open, 1 done, 2 all
-	taskList      ui.ListState   // the list of tasks, a row for each in view (tasks.go)
-	taskQuery     string         // what is typed in the tasks' search
-	taskColl      string         // the collection the tasks are of (its Dir), "" all of them
-	taskFolded    map[*Page]bool // the pages whose tasks are folded away
-	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	tagHits       []tagHit       // the tags drawn this frame; a click is against the last's
+	tagRen        tagRename // the dialog to rename a tag (tags.go)
+	vhist         histView  // the dialog of a page's versions (historyui.go)
+	noticePage    *Page     // the page the notice is about, to open from it
+	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
 	linkSeen      []linkHit
@@ -157,38 +136,17 @@ type app struct {
 	borderHits    []colBorder // the borders between columns, drawn and seen
 	borderSeen    []colBorder
 	hoverBorder   borderKey
-	colDrag       colDragState
-	cellEd        cellEdit
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
-	titleCaret    titleCaretSpec     // where the caret in the title is, to draw it (the title is an input)
-	titleSeen     bool
-	titleLen      int
-	selPrevA      int // the selection before a pointer went down in the editor
-	selPrevC      int
-	lightbox      *picHit  // the picture shown large
-	ptags         []string // the open page's tags, for the side panel
+	lightbox      *picHit            // the picture shown large
+	ptags         []string           // the open page's tags, for the side panel
 	ptagsVer      uint64
 	ptagsDoc      *richtext.Document
 	trashItems    []*TrashItem // what is in it, read when it opens and changes
-	boxes         []richtext.ParagraphBox
-	focused       bool
 	clock         func() time.Time
-	lastSave      string                  // the body as last written
-	look          string                  // the light or dark and the color theme the window was last drawn in
-	lastWords     int                     // the words it had, or -1 when not known
-	style         richtext.ParagraphStyle // the caret paragraph's, last frame
-	refocus       bool                    // the editor takes the keyboard focus in the next frame
-	pageR         ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
-	caretPara     int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
-	caretRel      float32
-	caretTop      float32
-	sel           selBar          // the bar over a selection (selbar.go)
-	edPressed     bool            // the pointer is down in the editor
+	look          string          // the light or dark and the color theme the window was last drawn in
 	afterView     []func()        // what waits for the view to be built
-	boardFocus    string          // the board column asked for, wide
 	boardOpened   map[string]bool // empty columns the user opened
-	boardScroll   ui.ScrollState  // the board scrolled sideways: where its edges fade (edgeFades)
 	rowsLast      []treeEntry     // the tree's rows, last frame
 	treeFocus     any             // the row the arrow keys moved to, to take the focus
 	treeNav       bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
@@ -196,33 +154,12 @@ type app struct {
 	treeSigSeen   uint64
 	cdrag         collDragState
 	collRects     map[*Collection]ui.Rect
-	ctx           ctxMenu        // the context menu (ctxmenu.go)
-	pageScroll    ui.ScrollState // the page scrolled as a whole (pageView)
-	scrollR       ui.Rect        // its room in the window, last frame
-	barInset      float32        // the part of the top of the page the title bar lies over (the page scrolls under it)
-	topSpace      float32        // what the page leaves above its title, in its scroll
-	winScrolled   bool           // a huge page is scrolled in its window: its title and properties give way (trackWindow)
-	winTop        float32        // where its first paragraph is, scrolled to the top
-	winTrim       float32        // the room around the window of a huge page that the page does not have (it starts with a guess)
-	winFlip       time.Time      // when its title last went or came back
-	headH         float32        // the title's and properties' height, last frame
-	titleFocused  bool
-	edH           float32 // the editor's height, last frame
-	frame         func()  // asks for a frame that builds the view
-	revealWant    bool    // the caret moved: bring it into view
-	statsVer      uint64  // the version of the text the counts are of
-	statWords     int
-	statChars     int
-	settingsTab   int       // the settings' tab
+	ctx           ctxMenu   // the context menu (ctxmenu.go)
+	frame         func()    // asks for a frame that builds the view
 	links         linkIndex // who links to whom (backlinks.go)
 	linksH        float32   // the backlinks' height, last frame
-	calDay        time.Time // the day open on the calendar, and whether it is
-	calOpen       bool
-	calGrid       ui.Rect
-	calMonth      time.Time // the month the calendar view shows
 	hoverCh       *chip     // the chip the pointer is over
 	dateEdit      dateEdit  // the calendar a date chip opens
-	editorR       ui.Rect   // the editor's box, from its last frame
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.
@@ -235,7 +172,6 @@ type app struct {
 	importNote    string                // what the last import said, in the settings
 	embedCache    map[string][]string   // the first lines of the pages embedded (embed.go)
 	ctxCache      map[string][]seg      // the lines that link to a page (backlinks.go)
-	bulk          bulkState             // pages being chosen in a collection, to be done to all (bulk.go)
 	chipW         map[string]float32    // how wide the text of each chip is (chips.go)
 	autoCovers    map[uint64]*autoCover // the patterns made for the covers of the pages shown lately (autocover.go)
 	tables        map[string]*tableUI   // the state of each collection table, by collection and view (views.go)
@@ -250,9 +186,8 @@ type app struct {
 	outlineVer    uint64
 	outlineDoc    *richtext.Document
 	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
-	settingsOpen  bool
-	settingsDirty bool      // changed, not yet written (saveSettingsSoon)
-	settingsAt    time.Time // when
+	settingsDirty bool        // changed, not yet written (saveSettingsSoon)
+	settingsAt    time.Time   // when
 	mcpServer     *http.Server
 	mcpErr        string
 
@@ -265,10 +200,8 @@ type app struct {
 	chipHits    []chipHit          // the chips drawn this frame (chips.go)
 	chipSeen    []chipHit          // and last frame, for a click
 	slash       slashMenu          // the / menu (slash.go)
-	caretWin    ui.Rect            // the caret in the window, last drawn
 	grip        gripState          // the grip of the block under the pointer (blockui.go)
 	cs          collSettings       // a collection\'s settings (collsettings.go)
-	find        finder             // finding in the page (find.go)
 	hist        []place            // where the app went, and where it is in that (nav.go)
 	histAt      int
 	going       bool     // going back or forward: no new place in the history
@@ -278,6 +211,7 @@ type app struct {
 
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a.paneState = newPaneState()
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
@@ -376,7 +310,7 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: 16},
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (barH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)})
 		if ownWindowControls {
 			a.win = w
@@ -399,7 +333,7 @@ func main() {
 // open shows page p, saving the page that was open first.
 func (a *app) open(p *Page) {
 	defer a.visit()
-	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = nil, false, "", false, false
+	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = nil, false, "", false, false, false
 	if p == a.page {
 		return
 	}
@@ -425,11 +359,13 @@ func (a *app) open(p *Page) {
 	a.dirty, a.saveErr, a.lastSave, a.lastWords = false, "", "", -1
 	a.boxes = nil
 	a.winScrolled, a.winTop, a.winFlip = false, 0, a.clock()
-	a.pageScroll = ui.ScrollState{}
+	*a.pageScroll = ui.ScrollState{}
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
 	a.jelly.placed, a.mizan.seen, a.mizan.glide = false, false, nil
 	a.eachFX(func(c caretFX) { c.reset() })
+	a.jellied.reset()
+	a.sleep.wake()
 	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
 	a.linksStale()
 	a.links.built = time.Time{} // asked for at once for the page opened
@@ -526,7 +462,7 @@ func (a *app) view(c *ui.Context) {
 			a.step(1)
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyComma) {
-			a.settingsOpen = true
+			a.toggleSettings()
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyK) {
 			a.openPalette()
@@ -554,6 +490,10 @@ func (a *app) view(c *ui.Context) {
 			moveBlock(a.doc, 1)
 		}
 	}
+	// Esc leaves the settings, back to where they were opened from
+	if a.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+		a.closeSettings()
+	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
 	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && a.page != nil && a.doc != nil {
@@ -565,68 +505,10 @@ func (a *app) view(c *ui.Context) {
 	root.Children(func() {
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
-		ui.Column(c).Grow(1).Children(func() {
-			// a page and a collection scroll as a whole, from the top of the window, under the title bar
-			overBar := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil)
-			if !overBar {
-				a.titleBar(c)
-			}
-			// the page scrolls over the whole width, its bar at the window's edge:
-			// the margins are inside it
-			padX := float32(32)
-			if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && (a.coll != nil || a.page != nil) {
-				padX = 0
-			}
-			topPad := float32(pageTop - barH + 8)
-			if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
-				topPad = 0
-			}
-			a.barInset, a.topSpace = 0, 0
-			if overBar { // it scrolls from the top of the window, under the bar, and starts below it
-				a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
-				if a.coverKind(a.page) != coverKindNone && !a.noPage() { // a cover begins at the very top, behind the bar
-					a.topSpace = 0
-				}
-			}
-			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
-			defer func() { a.pageR = pageRow.LayoutBounds() }()
-			pageRow.Children(func() {
-				if a.trashOpen {
-					a.focused = false
-					a.trashView(c)
-					return
-				}
-				if a.tag != "" {
-					a.focused = false
-					a.tagView(c)
-					return
-				}
-				if a.tasksOpen {
-					a.focused = false
-					a.tasksView(c)
-					return
-				}
-				if a.searchOpen {
-					a.focused = false
-					a.searchView(c)
-					return
-				}
-				if a.coll != nil {
-					a.focused = false
-					a.collectionView(c)
-					return
-				}
-				if a.page == nil {
-					a.emptyState(c, iconPage, "Bir sayfa seç", "Soldaki ağaçtan bir sayfa aç, koleksiyon satırındaki + ile de yenisini yaz.", "", nil)
-					return
-				}
-				a.pageView(c, th)
-			})
+		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+			a.panesView(c, th)
 			a.status(c)
 			a.keepTree()
-			if overBar {
-				a.topBar(c)
-			}
 		})
 		a.sidePanel(c)
 		a.sidebarButton(c)
@@ -642,7 +524,6 @@ func (a *app) view(c *ui.Context) {
 	a.contextView(c)
 	a.paletteView(c)
 	a.collSettingsView(c)
-	a.settingsDialog(c)
 	a.propDialog(c)
 	a.tagRenameView(c)
 	a.historyView(c)
@@ -705,7 +586,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Children(func() { a.findBar(c) })
 			})
 		}
-		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(&a.pageScroll).Grow(1)
+		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(a.pageScroll).Grow(1)
 		sc.Children(func() {
 			if a.topSpace > 0 {
 				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace)
@@ -746,11 +627,11 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
-	}).FillWidth().Height(a.editorH(c))
+	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)
 	}
-	if !a.titleFocused && !a.fresh && !a.treeNav {
+	if !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() {
 		ed.AutoFocus()
 	}
 	if a.refocus {
@@ -758,6 +639,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.refocus = false
 	}
 	a.focused = ed.Focused()
+	a.tabKey(c)
 	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""
@@ -827,6 +709,7 @@ func (a *app) caretView(c *ui.Context) {
 		return
 	}
 	ww, wh := c.Size()
+	a.winRect = ui.Rect{W: ww, H: wh}
 	ui.Overlay(c, func() {
 		ui.Box(c.Key("caret-layer")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
 			a.drawCaret(p, a.editorR)
@@ -1076,7 +959,7 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
 	}
-	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed}
+	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed, style: a.styleAt(caret)}
 	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
 	a.paintCaret(p, cr, cb.cw, r, k, false)
 }
@@ -1090,14 +973,29 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
 		return
 	}
-	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style}
+	// the jelly, when it is on, is the shape of the caret's own body (the slime is jelly already)
+	if a.settings.Jelly && a.caretKind != caretSlime {
+		f.jelly = a.jellied.body(p, f)
+	}
+	// the torch lights the whole window, not just the text: what it darkens is the window
+	if i := int(a.caretKind) - int(caretFirstFX); i >= 0 && i < len(caretPresets) {
+		if t, ok := a.fxOf(i).(*torch); ok && a.winRect.W > 0 {
+			f.bounds = a.winRect
+			t.draw(p, f, k)
+			a.sleep.observe(p, f, k)
+			a.sleep.draw(p, f, a.caretTint(p))
+			return
+		}
+	}
 	// not clipped to the editor's box: at the start of a line the caret
 	// goes past its left edge
 	room := a.scrollR
 	if room.H == 0 {
 		room = ui.Rect{X: bounds.X - 24, Y: bounds.Y - 12, W: bounds.W + 48, H: bounds.H + 24}
 	}
-	p.Clip(room, 0, func() {
+	a.sleep.observe(p, f, k) // five seconds of rest, and it sleeps
+	body := func() {
 		switch a.caretKind {
 		case caretMizan:
 			a.mizan.draw(p, f)
@@ -1111,8 +1009,17 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		if !dark {
 			col = ui.Hex("#2f9a1c")
 		}
-		a.jelly.draw(p, cr, cw, col, dark)
+		styledDraw(p, f, boxOf(f), func() { a.jelly.draw(p, cr, cw, col, dark) })
+	}
+	p.Clip(room, 0, func() {
+		// asleep, it breathes
+		if tf, px, py, on := a.sleep.breathe(p.Now(), f); on {
+			p.Transform(tf, px, py, body)
+			return
+		}
+		body()
 	})
+	a.sleep.draw(p, f, a.caretTint(p)) // and the z's, out of it
 }
 
 // status is the line at the bottom: the file, whether it is saved, the caret.
@@ -1141,21 +1048,15 @@ func (a *app) status(c *ui.Context) {
 				ui.Text(c, "MCP").FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
 			})
 			if m.Clicked() {
-				a.settingsOpen, a.settingsTab = true, 3 // the MCP tab
+				a.openSettings()
+				a.settingsTab = 3 // the MCP tab
 			}
 		}
 		a.statusExtras(c)
-		// no file paths: what the settings ask for - the words, how it is saved, the caret
-		if a.settings.ShowWords || a.settings.ShowChars {
-			words, chars := a.docStats()
-			var parts []string
-			if a.settings.ShowWords {
-				parts = append(parts, strconv.Itoa(words)+" kelime")
-			}
-			if a.settings.ShowChars {
-				parts = append(parts, strconv.Itoa(chars)+" harf")
-			}
-			ui.Text(c, strings.Join(parts, " · ")).FontSize(11.5).TextColor(t.TextMuted)
+		// no file paths: what the settings ask for - the letters, how it is saved, the caret
+		if a.settings.ShowChars {
+			_, chars := a.docStats()
+			ui.Text(c, strconv.Itoa(chars)+" harf").FontSize(11.5).TextColor(t.TextMuted)
 		}
 		if !a.settings.HideSaved {
 			st := ui.Text(c, strings.ToUpper(state[:1])+state[1:]).FontSize(11.5).TextColor(t.TextMuted)

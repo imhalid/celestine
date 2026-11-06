@@ -12,6 +12,8 @@ type place struct {
 
 func (a *app) here() place {
 	switch {
+	case a.settingsOpen:
+		return place{kind: "settings"}
 	case a.trashOpen:
 		return place{kind: "trash"}
 	case a.searchOpen:
@@ -31,6 +33,7 @@ func (a *app) here() place {
 // visit notes the place now shown, unless it was reached by going back or
 // forward: what was ahead of it is forgotten.
 func (a *app) visit() {
+	a.noteVisit()
 	if a.going {
 		return
 	}
@@ -64,6 +67,11 @@ func (a *app) goTo(p place) bool {
 	defer func() { a.going = false }()
 	if p.kind == "trash" {
 		a.openTrash()
+		return true
+	}
+	if p.kind == "settings" {
+		a.settingsOpen = false
+		a.openSettings()
 		return true
 	}
 	if p.kind == "search" {

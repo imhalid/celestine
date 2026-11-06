@@ -143,9 +143,9 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 		} else {
 			busy = true
 			s := mizanSpring(u)
-			w := float32(3)
+			w := boxOf(f).W
 			h := lerpf(g.from.H, r.H, s)
-			x := lerpf(g.from.X, r.X, s) - w/2
+			x := lerpf(g.from.X, r.X, s)
 			y := lerpf(g.from.Y, r.Y, s)
 			a := 1.0
 			if u > 0.7 {
@@ -166,10 +166,17 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 			a = 0.55 + 0.45*(0.5+0.5*math.Cos(float64(idle-600*time.Millisecond)/float64(time.Second)*math.Pi*2/1.1))
 			busy = true
 		}
-		c := ui.Rect{X: r.X - 1, Y: r.Y, W: 3, H: r.H}
-		p.Shadow(c, 1.5, 0, 1, 2, 0, withAlpha(mizanBottom, 0.45*a))
-		p.FillGradient(c, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}}, 1.5)
-		p.Fill(ui.Rect{X: c.X + 0.5, Y: c.Y + 0.5, W: 2, H: 1}, ui.RGBA(255, 255, 255, float32(0.28*a)), rad(0.5))
+		c := boxOf(f) // a block, as the other carets are
+		rr := bracketRadius(c, f.style.bracket)
+		styledDraw(p, f, c, func() {
+			p.Shadow(c, rr, 0, 1, 3, 0, withAlpha(mizanBottom, 0.45*a))
+			if f.jelly != nil { // stretched by the jelly: this shape, in the same light
+				p.FillPathGradient(f.jelly, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}})
+			} else {
+				p.FillGradient(c, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}}, rr)
+			}
+			p.Fill(ui.Rect{X: c.X + 1, Y: c.Y + 1, W: max(c.W-2, 1), H: 1}, ui.RGBA(255, 255, 255, float32(0.28*a)), rad(0.5))
+		})
 	}
 
 	// The Stat, while there is a pace and you have not stopped for long.
@@ -240,6 +247,7 @@ func (m *mizanCaret) stat(p *ui.Painter, f caretFrame, tk mizanTokens, show, dt 
 
 	box := ui.Rect{X: x, Y: y, W: W, H: H}
 	p.Shadow(box, H/2, 0, 6, 18, 0, withAlpha(tk.shadow, a))
+	p.Fill(box, withAlpha(f.bg, a), rad(H/2)) // nothing of the text shows through
 	p.Fill(box, withAlpha(tk.pop, a), rad(H/2))
 	edge := pill(x+0.5, y+0.5, W-1, H-1)
 	p.StrokePathGradient(edge, 1, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(tk.edgeTop, a), At: 0}, {Color: withAlpha(tk.edgeBottom, a), At: 1}}})

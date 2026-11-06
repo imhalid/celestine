@@ -128,7 +128,7 @@ func paraText(p richtext.Paragraph) string {
 // openTasks shows the task view.
 func (a *app) openTasks() {
 	a.flush()
-	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen = true, "", nil, false, false
+	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.settingsOpen = true, "", nil, false, false, false
 	a.linksStale()
 	a.visit()
 }
@@ -234,7 +234,7 @@ func (a *app) tasksView(c *ui.Context) {
 		// their tasks in one list
 		rows := taskRows(shown, a.taskFolded)
 		a.taskList.Key = func(i int) any { return rows[i].key() }
-		ui.List(c.Key("tasks-list"), &a.taskList, len(rows), func(i int) {
+		ui.List(c.Key("tasks-list"), a.taskList, len(rows), func(i int) {
 			if r := rows[i]; r.head {
 				a.taskHead(c, cl, r, i > 0)
 			} else {

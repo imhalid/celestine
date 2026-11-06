@@ -181,6 +181,7 @@ func (a *app) reloadLibrary() {
 	if a.coll != nil {
 		collDir = a.coll.Dir
 	}
+	side := a.paneRefs()
 	*a.lib = *fresh
 	a.docs = map[*Page]*richtext.Document{}
 	a.page, a.coll = nil, nil
@@ -203,6 +204,7 @@ func (a *app) reloadLibrary() {
 			}
 		}
 	}
+	a.restorePanes(side)
 	// what was being done to what is gone is let go
 	a.drag = dragState{}
 	a.renaming = nil

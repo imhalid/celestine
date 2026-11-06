@@ -61,7 +61,8 @@ func (ch *chip) label() string {
 
 const (
 	chipSize = 14 // its text
-	chipH    = 21 // its height
+	chipH    = 21 // its height, as drawn
+	chipBox  = 10 // its box in the line: short of the letters' height, so a chip does not make the line taller
 	chipPad  = 9  // room on each side of its text
 	chipIcon = 14 // a date's calendar
 )
@@ -102,7 +103,7 @@ func (a *app) attachment(ch *chip) *richtext.Attachment {
 	if ch.kind == "date" {
 		w += chipIcon + 4
 	}
-	return &richtext.Attachment{Width: w, Height: chipH, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawChip(p, r, ch) }}
+	return &richtext.Attachment{Width: w, Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawChip(p, r, ch) }}
 }
 
 var wikiInText = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]`)
@@ -226,7 +227,9 @@ type chipHit struct {
 func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	t := ryugo.Painting(p)
 	cl := t.Colors
-	r = ui.Rect{X: r.X + 1, Y: r.Y, W: r.W - 2, H: r.H}
+	// the box in the line sits on the baseline and is short; the chip is drawn round the middle of the letters
+	mid := r.Y + r.H - 0.36*a.fontSize()
+	r = ui.Rect{X: r.X + 1, Y: mid - chipH/2, W: r.W - 2, H: chipH}
 	a.chipHits = append(a.chipHits, chipHit{r, ch})
 	text := cl.Accent
 	hover := a.hoverCh == ch

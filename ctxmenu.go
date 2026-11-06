@@ -120,7 +120,7 @@ func (a *app) contextView(c *ui.Context) {
 // pageMenu is what a page offers where it is listed: in the tree, a list,
 // a table, a board.
 func (a *app) pageMenu(p *Page, rename bool) []menuItem {
-	out := []menuItem{{title: "Aç", glyph: iconPage, run: func() { a.open(p) }}}
+	out := []menuItem{{title: "Aç", glyph: iconPage, run: func() { a.open(p) }}, {title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"page", p.Dir}) }}}
 	if rename && !p.Coll.Journal {
 		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(p, p.Title) }})
 	}
@@ -135,6 +135,7 @@ func (a *app) pageMenu(p *Page, rename bool) []menuItem {
 func (a *app) collectionMenu(coll *Collection) []menuItem {
 	out := []menuItem{
 		{title: "Aç", glyph: iconStack, run: func() { a.openCollection(coll) }},
+		{title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"coll", coll.Dir}) }},
 		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
 		{title: "Yeni " + pageNoun(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},

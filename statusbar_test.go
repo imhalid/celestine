@@ -1,55 +1,48 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestReadingText(t *testing.T) {
-	for words, want := range map[int]string{0: "1 dk'dan az okuma", 99: "1 dk'dan az okuma", 100: "1 dk okuma", 200: "1 dk okuma", 201: "2 dk okuma", 1000: "5 dk okuma"} {
-		if got := readingText(words); got != want {
-			t.Errorf("%d: %q, want %q", words, got, want)
-		}
-	}
-}
-
-// TestStatusExtras: what the settings turn on is in the status bar.
+// TestStatusExtras: what the settings turn on is in the status bar; what was taken away of it
+// (the path, the reading time, the selected letters, the words, the links, the last edit,
+// today's count) is not, whatever an old settings file says.
 func TestStatusExtras(t *testing.T) {
 	a, tt := newTestApp(t, "bir iki üç\n\nikinci paragraf\n")
 	tt.SetSize(1300, 700)
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
-	other.SaveText("bak [[" + a.page.Title + "]]\n")
-	a.linksStale()
-	a.links.built = time.Time{}
 	tt.Frame()
-	for _, w := range []string{"dk okuma", "geri bağlantı", "düzenlendi", "Satır 2", "harf seçili"} {
-		if tt.HasText(w) {
-			t.Fatalf("%q shown before it is asked for", w)
-		}
+	if tt.HasText("Satır 2") {
+		t.Fatalf("the caret's place is shown before it is asked for")
 	}
-	s := &a.settings
-	s.ShowReading, s.ShowPath, s.ShowSel, s.ShowPos, s.ShowEdited, s.ShowLinks = true, true, true, true, true, true
+	a.settings.ShowPos = true
 	a.doc.SetSelection(13, 13) // in the second paragraph
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	texts := strings.Join(tt.Texts(), "|")
-	for _, w := range []string{"1 dk'dan az okuma", "1 geri bağlantı", "düzenlendi", "Satır 2, sütun", a.page.Coll.Name + " › " + a.page.Title} {
-		if !strings.Contains(texts, w) {
-			t.Fatalf("no %q: %v", w, tt.Texts())
-		}
+	if texts := strings.Join(tt.Texts(), "|"); !strings.Contains(texts, "Satır 2, sütun") {
+		t.Fatalf("no caret place: %v", tt.Texts())
 	}
 	a.doc.SetSelection(0, 5)
 	tt.Frame()
 	tt.Advance(50 * time.Millisecond)
-	if !tt.HasText("5 harf seçili") {
-		t.Fatalf("selection: %v", tt.Texts())
+	for _, gone := range []string{"harf seçili", "dk okuma", "geri bağlantı", "düzenlendi", "kelime"} {
+		if strings.Contains(strings.Join(tt.Texts(), "|"), gone) {
+			t.Fatalf("%q is in the status bar: %v", gone, tt.Texts())
+		}
 	}
-	// a click on the links opens the panel
-	if err := tt.Click("Geri bağlantılar: yan paneli aç"); err != nil {
+}
+
+// An old settings file with the keys that were taken away opens without trouble.
+func TestOldStatusKeysIgnored(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	if err := json.Unmarshal([]byte(`{"showWords":true,"showPath":true,"showToday":true,"showLinks":true,"showEdited":true,"showSel":true,"showReading":true,"showPos":true}`), &a.settings); err != nil {
 		t.Fatal(err)
 	}
-	if !s.PanelOpen {
-		t.Fatal("panel not opened")
+	tt.SetSize(1000, 600)
+	tt.Frame()
+	if !a.settings.ShowPos {
+		t.Fatal("the kept setting was lost")
 	}
 }

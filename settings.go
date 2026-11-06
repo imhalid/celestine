@@ -10,11 +10,9 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The settings: a Ryugo dialog the gear at the foot of the sidebar opens, big,
-// with its sections listed on the left and the one chosen on the right, in
-// groups. Its title drags it about the window (Ryugo's dialogs do); the
-// section chosen glows in the list and the choices that have a look - the
-// theme, the caret - are tiles that lift as the pointer comes.
+// The settings: a screen of the window (⌘, opens it, and goes back), its sections listed at the left
+// and the one chosen at the right, in groups. The section chosen glows in the list and the choices
+// that have a look - the theme, the caret - are tiles that lift as the pointer comes.
 
 type settingsSection struct {
 	name, blurb string
@@ -53,57 +51,71 @@ func (a *app) keepSettings(c *ui.Context) {
 	a.saveSettings()
 }
 
-func (a *app) settingsDialog(c *ui.Context) {
-	_, wh := c.Size()
-	h := max(420, min(620, wh-110))
-	// no header across the top: the dialog is its two sides, edge to edge, and
-	// a strip over their tops, which the window drags by, with the close button
-	ryugo.Dialog(c.Key("settings"), &a.settingsOpen, ryugo.DialogOptions{Width: 960, Bare: func(grip func(ui.Element), closeIt func()) {
-		cl := ryugo.From(c).Colors
-		ui.Row(c).FillWidth().Height(h).AlignItems(ui.Stretch).Children(func() {
-			a.settingsNav(c)
-			ui.Box(c.Key("set-div")).Width(1).Background(cl.Hairline)
-			ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-				sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
-				ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(22, 26, 14, 28).Shrink(0).Transition(viewSwap).Children(func() {
-					ui.Text(c, sec.name).FontSize(22).FontWeight(700).TextColor(cl.Text)
-					ui.Text(c, sec.blurb).FontSize(ryugo.FsMd).TextColor(cl.Muted)
-				})
-				ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0).Children(func() {
-					ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(4, 26, 24, 28).Transition(viewSwap).Children(func() {
-						switch a.settingsTab {
-						case 0:
-							a.settingsAppearance(c)
-						case 1:
-							a.settingsEditor(c)
-						case 2:
-							a.settingsStatus(c)
-						case 3:
-							a.settingsMCP(c)
-						default:
-							a.settingsLibrary(c)
-						}
-					})
+// openSettings shows the settings, as a screen of the window like a collection or the trash: it is
+// in the history, so ⌘[ goes back to where it was opened from.
+func (a *app) openSettings() {
+	if a.settingsOpen {
+		return
+	}
+	a.flush()
+	a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, nil, "", false, false, false
+	a.visit()
+}
+
+// toggleSettings opens the settings, or, shown, goes back to where they were opened from.
+func (a *app) toggleSettings() {
+	if a.settingsOpen {
+		a.closeSettings()
+		return
+	}
+	a.openSettings()
+}
+
+// closeSettings goes back to the place before the settings, or, with none, to no page.
+func (a *app) closeSettings() {
+	if !a.step(-1) {
+		a.settingsOpen = false
+	}
+}
+
+// settingsScreen is the settings: the sections listed at the left and the one chosen at the right,
+// in groups. A setting changed is seen at once, as the window it is made in is the window.
+func (a *app) settingsScreen(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	ui.Row(c).Fill().MaxWidth(viewMax).Gap(20).AlignItems(ui.Stretch).Children(func() {
+		a.settingsNav(c)
+		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+			sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
+			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
+				ui.Text(c, sec.name).FontSize(32).FontWeight(720).TextColor(cl.Text)
+				ui.Text(c, sec.blurb).FontSize(ryugo.FsMd).TextColor(cl.Muted)
+			})
+			ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0).Children(func() {
+				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Transition(viewSwap).Children(func() {
+					switch a.settingsTab {
+					case 0:
+						a.settingsAppearance(c)
+					case 1:
+						a.settingsEditor(c)
+					case 2:
+						a.settingsStatus(c)
+					case 3:
+						a.settingsMCP(c)
+					default:
+						a.settingsLibrary(c)
+					}
 				})
 			})
 		})
-		g := ui.Box(c.Key("set-grip")).Absolute().Top(0).Left(0).Right(0).Height(64)
-		grip(g)
-		x := ryugo.Button(c.Key("set-close"), "Kapat", ryugo.ButtonOptions{Icon: iconClose, IconOnly: true, Size: ryugo.Sm}).Absolute().Top(14).Right(14)
-		if x.Clicked() {
-			closeIt()
-		}
-	}}, func() {})
+	})
 }
 
-// settingsNav is the list of sections, on a ground of its own: the one chosen
-// glows - the accent in a gentle gradient, as a button is - and the others
-// come up as the pointer does.
+// settingsNav is the list of sections: the one chosen glows - the accent in a gentle gradient, as a
+// button is - and the others come up as the pointer does.
 func (a *app) settingsNav(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
-	ui.Column(c.Key("set-nav")).Width(200).Padding(0, 10, 12, 10).Gap(2).Shrink(0).Background(ryugo.Mix(cl.Card, cl.Bg, 0.7)).Children(func() {
-		ui.Text(c, "Ayarlar").FontSize(17).FontWeight(650).TextColor(cl.Text).Padding(22, 10, 14, 10)
+	ui.Column(c.Key("set-nav")).Width(190).Padding(4, 0, 12, 0).Gap(2).Shrink(0).Children(func() {
 		for i, s := range settingsSections {
 			sel := a.settingsTab == i
 			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
@@ -260,17 +272,25 @@ func (a *app) settingsEditor(c *ui.Context) {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir, ayarı yoktur. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
-						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), caret == int(k), func() { caretMock(c, k) }) {
+						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), caret == int(k), func() { a.caretMock(c, k) }) {
 							caret = int(k)
 						}
 					}
 				})
 			})
+		},
+		func() {
+			on := a.settings.Jelly
+			settingRow(c, "Jöle efekti", "Her caret yolda uzar, yaylanarak yerine oturur. Slime zaten jöledir.", func() { ryugo.Switch(c.Key("set-jelly"), &on, ryugo.SwitchOptions{}).Label("Jöle efekti") })
+			if on != a.settings.Jelly {
+				a.settings.Jelly = on
+				a.saveSettings()
+			}
 		})
 	if caret != int(a.caretKind) {
 		a.setCaret(caretKind(caret))
@@ -319,22 +339,6 @@ func (a *app) settingsEditor(c *ui.Context) {
 	}
 }
 
-// caretMock is a caret for a tile: Slime a green jelly, Mizan a line with the pace under it.
-func caretMock(c *ui.Context, kind caretKind) {
-	cl := ryugo.From(c).Colors
-	ui.Row(c).Width(112).Height(66).Background(cl.Well).Padding(0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "Merhab").FontSize(15).FontWeight(560).TextColor(cl.Text)
-		switch i := int(kind) - int(caretFirstFX); {
-		case kind == caretMizan:
-			ui.Box(c).Width(2).Height(20).Radius(rad(1)).Background(cl.Accent)
-		case i >= 0 && i < len(caretPresets):
-			ui.Box(c).Size(36, 24).Draw(func(p *ui.Painter, r ui.Rect) { caretPresets[i].mock(p, r, ryugo.Painting(p).Dark) })
-		default:
-			ui.Box(c).Width(9).Height(21).Radius(rad(5)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ui.Hex("#7cf75e"), To: ui.Hex("#2f9a1c")}).Border(1, ui.Hex("#59f939").Alpha(0.6))
-		}
-	})
-}
-
 func (a *app) settingsStatus(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool, invert bool) func() {
 		return func() {
@@ -348,15 +352,8 @@ func (a *app) settingsStatus(c *ui.Context) {
 	}
 	settingGroup(c, "set-status",
 		toggle("set-saved", "Kaydetme durumu", "Kaydedildi, kaydediliyor…", &a.settings.HideSaved, true),
-		toggle("set-words", "Kelime sayısı", "Açık sayfanın kelimeleri.", &a.settings.ShowWords, false),
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
-		toggle("set-today", "Bugün yazılan", "Bugün yazılan kelime sayısı; tıklayınca istatistikler açılır.", &a.settings.ShowToday, false),
-		toggle("set-reading", "Okuma süresi", "Dakikada 200 kelime ile: \"3 dk okuma\".", &a.settings.ShowReading, false),
-		toggle("set-path", "Sayfa yolu", "Koleksiyon › üst sayfa › sayfa.", &a.settings.ShowPath, false),
-		toggle("set-sel", "Seçili harf sayısı", "Metin seçiliyken: \"42 harf seçili\".", &a.settings.ShowSel, false),
 		toggle("set-pos", "Satır ve sütun", "Caret'in paragrafı ve içindeki yeri.", &a.settings.ShowPos, false),
-		toggle("set-edited", "Son düzenleme", "\"3 dk önce düzenlendi\".", &a.settings.ShowEdited, false),
-		toggle("set-links", "Geri bağlantılar", "Bu sayfaya bağlanan sayfa sayısı; tıklayınca yan panel açılır.", &a.settings.ShowLinks, false),
 	)
 }
 
@@ -476,7 +473,7 @@ func (a *app) settingsQuick(c *ui.Context) {
 		a.quickKeyDraft = cur
 	}
 	settingGroup(c, "set-quick", func() {
-		settingRow(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
+		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: "Hızlı not tuşu", Size: ryugo.Sm}).Width(190)
 				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
@@ -494,5 +491,19 @@ func (a *app) settingsQuick(c *ui.Context) {
 		if a.quickKeyErr != "" {
 			ui.Text(c, a.quickKeyErr).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
 		}
+	})
+}
+
+// settingStack is a setting whose control is wide: the control under the words, not beside them.
+func settingStack(c *ui.Context, title, help string, control func()) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c).Gap(8).Children(func() {
+		ui.Column(c).Gap(3).Children(func() {
+			ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+			if help != "" {
+				ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			}
+		})
+		control()
 	})
 }

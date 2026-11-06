@@ -49,6 +49,7 @@ func TestSettingsKeptSoon(t *testing.T) {
 	}
 	defer st.Close()
 	a.settingsStore = st
+	a.clock = tt.Now // the settings screen keeps what is set a moment after it stops: by the window's clock
 	a.settingsOpen = true
 	tt.Frame()
 	a.settings.PageWidth = 800

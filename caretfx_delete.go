@@ -8,8 +8,7 @@ import (
 )
 
 // Cursor-Smith's deleting carets (MIT, see NOTICE.md), each as it ships and with nothing to
-// set: Back-man bites the letters you erase, the Shredder cuts them into ribbons, the Portal
-// lets them fall through a floor, and Evaporate lifts them away.
+// set: Back-man bites the letters you erase, and the Portal lets them fall through a floor.
 
 // goneLetters are the letters that were erased, as they stood: from the caret, to the right,
 // nearest to the caret first.
@@ -154,7 +153,7 @@ func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
 		b.key(p, f, k, tn)
 	}
 	if !b.has {
-		drawBoxCursor(p, box, col, 1)
+		styledDraw(p, f, box, func() { glassPath(p, restBody(f, box), col, f.dark) })
 		return
 	}
 	bt := bmBite(math.Max(0, tn-b.c0), b.t-b.c0, b.big)
@@ -184,7 +183,7 @@ func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
 	b.meal = out
 	if bt.done && math.Abs(b.bend) < 0.004 && math.Abs(b.v) < 0.05 && len(b.meal) == 0 {
 		b.has, b.shut = false, false
-		drawBoxCursor(p, box, col, 1)
+		styledDraw(p, f, box, func() { glassPath(p, restBody(f, box), col, f.dark) })
 		return
 	}
 	pts := b.outline(box, bt)
@@ -196,8 +195,7 @@ func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
 		mx, my := b.lastShape[3][0], b.lastShape[3][1]
 		glyphAt(p, m.ch, f32(m.cx+(mx-m.cx)*e), f32(m.cy+(my-m.cy)*e), m.size, text, false, 0, math.Max(0.05, 1-0.8*e))
 	}
-	glowAround(p, box, col, 0.5)
-	p.FillPath(pts, withAlpha(col, 0.9))
+	styledDraw(p, f, box, func() { glassPath(p, pts, col, f.dark) })
 	b.drawEye(p, f, box, bt)
 	p.AnimationFrame()
 }
@@ -334,176 +332,6 @@ func (b *backman) drawEye(p *ui.Painter, f caretFrame, box ui.Rect, bt bite) {
 	}
 }
 
-// ---- Shredder ----
-
-type shredLetter struct {
-	ch        string
-	x, w      float64
-	size      float32
-	t0        float64
-	rush      float64
-	rushed    bool
-	cut       float64
-	top, h    float64
-	seed      float64
-	joltStamp float64
-}
-
-type shredder struct {
-	base     time.Time
-	letters  []shredLetter
-	runT0    float64
-	lastKey  float64
-	active   bool
-	joltT    float64
-	joltAmp  float64
-	cut      float64
-	boxY, bH float64
-}
-
-func newShredder() *shredder { return &shredder{} }
-
-func (s *shredder) reset() { s.letters, s.active = nil, false }
-
-func (s *shredder) shift(dy float32) {
-	for i := range s.letters {
-		s.letters[i].top += float64(dy)
-	}
-	s.boxY += float64(dy)
-}
-
-const (
-	shFeed = 260.0
-	shFall = 420.0
-	shHold = 320.0
-	shJolt = 140.0
-)
-
-func (s *shredder) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
-	if s.base.IsZero() {
-		s.base = now
-	}
-	tn := ms(now.Sub(s.base))
-	box := boxOf(f)
-	col := cursorColor(f.dark)
-	if k.erased > 0 && k.gone != "" {
-		for i := range s.letters {
-			if tn-s.letters[i].t0 < shFeed && !s.letters[i].rushed {
-				s.letters[i].rush, s.letters[i].rushed = tn, true
-			}
-		}
-		if s.active && tn-s.lastKey < shHold {
-			s.lastKey = tn
-		} else {
-			s.active, s.runT0, s.lastKey = true, tn, tn
-		}
-		amp := 0.8
-		gl := goneLetters(p, f, k)
-		if len(gl) > 1 {
-			amp = 1.8
-		}
-		s.joltT, s.joltAmp = tn, amp
-		for _, l := range gl {
-			s.letters = append(s.letters, shredLetter{ch: l.ch, x: l.x, w: l.w, size: textSize(f), t0: tn, top: float64(f.r.Y), h: float64(f.r.H), seed: float64(len(l.ch))*0.37 + l.x*0.011 + tn*0.0001})
-		}
-		s.cut = float64(f.r.X)
-	}
-	if !s.active && len(s.letters) == 0 {
-		drawBoxCursor(p, box, col, 1)
-		return
-	}
-	first, last := tn-s.runT0, tn-s.lastKey
-	dash := math.Min(clamp01(first/40), 1)
-	if last >= shHold {
-		dash = 0
-	} else if last >= 230 {
-		dash = math.Min(dash, clamp01((shHold-last)/90))
-	}
-	if last >= shHold && len(s.letters) == 0 {
-		s.active = false
-		drawBoxCursor(p, box, col, 1)
-		return
-	}
-	// the letters are fed leftward through the cut, and cut into ribbons
-	text := p.Theme().Text
-	out := s.letters[:0]
-	for _, l := range s.letters {
-		age := tn - l.t0
-		if age >= shFeed+shFall {
-			continue
-		}
-		out = append(out, l)
-		s.drawLetter(p, l, tn, age, text)
-	}
-	s.letters = out
-	// the box as blades
-	n := int(math.Max(4, math.Min(8, math.Round(float64(box.H)/4))))
-	pitch := float64(box.H) / float64(n)
-	gap := pitch * 0.42 * dash
-	run := 0.0
-	if gap > 0 {
-		run = math.Mod(tn/1000*6*pitch, pitch)
-	}
-	jolt := 0.0
-	if since := tn - s.joltT; since >= 0 && since < shJolt {
-		jolt = s.joltAmp * math.Pow(1-since/shJolt, 2) * math.Sin(since*0.12)
-	}
-	for i := -1; i < n; i++ {
-		top := float64(i)*pitch + gap/2 + run
-		a, b := math.Max(0, top), math.Min(float64(box.H), top+pitch-gap)
-		if b-a <= 0.01 {
-			continue
-		}
-		dx := jolt
-		if (i+n)%2 == 0 {
-			dx = jolt * 0.6
-		}
-		p.Fill(ui.Rect{X: box.X + f32(dx), Y: box.Y + f32(a), W: box.W, H: f32(b - a)}, withAlpha(col, 0.9), 0)
-	}
-	p.AnimationFrame()
-}
-
-func (s *shredder) drawLetter(p *ui.Painter, l shredLetter, tn, age float64, text ui.Color) {
-	u := clamp01(age / shFeed)
-	if l.rushed {
-		u = math.Max(u, clamp01((tn-l.rush)/25))
-	}
-	e := smoothstep(u)
-	dx := -(l.x + l.w - s.cut + 1) * e
-	fall := math.Max(0, age-52) / 1000
-	dy := 0.5 * 12 * l.h * fall * fall
-	alpha := 1 - clamp01((age-shFeed)/shFall)
-	cx := l.x + l.w/2 + dx
-	cy := l.top + l.h/2
-	cut := s.cut
-	// the part not through the cut yet
-	p.Clip(ui.Rect{X: f32(cut), Y: f32(l.top - 4), W: 400, H: f32(l.h + 8)}, 0, func() {
-		glyphAt(p, l.ch, f32(cx), f32(cy), l.size, withAlpha(text, 1), false, 0, 1)
-	})
-	// five ribbons of what is through
-	const ribbons = 5
-	band := l.h / ribbons
-	for i := 0; i < ribbons; i++ {
-		k := math.Mod(math.Abs(math.Sin(float64(len(l.ch))*12.9898+float64(i)*78.233+l.x*0.37+l.t0*0.011)*43758.5453), 1)
-		grow := clamp01(fall / 0.12)
-		ph := 2 * math.Pi * k
-		w := 2 * math.Pi * 3 * (0.8 + 0.4*k) * fall
-		sway := 0.3 * l.w * grow * math.Sin(ph+0.6*w)
-		tilt := 0.4*grow*math.Sin(1.7*ph+w) - float64(i-2)*0.22*grow*0.6
-		flip := 1 - 0.67*grow*(0.5-0.5*math.Cos(2.3*ph+1.3*w))
-		dyi := dy * (1 + 0.25*(2*k-1))
-		mx, my := cut-l.w/2, l.top+(float64(i)+0.5)*band
-		t := ui.Rotation(f32(tilt)).Then(ui.Scaling(1, f32(math.Max(0.05, flip)))).Then(ui.Translation(f32(sway), f32(dyi)))
-		clip := ui.Rect{X: f32(cut - l.w - 6), Y: f32(l.top + float64(i)*band + 0.35), W: f32(l.w + 6), H: f32(band - 0.7)}
-		p.Transform(t, f32(mx), f32(my), func() {
-			p.Clip(clip, 0, func() {
-				glyphAt(p, l.ch, f32(cx), f32(cy), l.size, withAlpha(text, alpha), false, 0, 1)
-			})
-		})
-	}
-}
-
 // ---- Portal ----
 
 type portalLetter struct {
@@ -564,7 +392,7 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 		g.at = math.Max(g.at, tn+poFall)
 	}
 	if len(g.letters) == 0 && tn-g.at >= poHold {
-		drawBoxCursor(p, box, col, 1)
+		drawBody(p, f, box, col, 1, 0.9)
 		return
 	}
 	uh := math.Max(2, math.Min(4, 0.1*float64(box.H)))
@@ -602,8 +430,8 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 		p.Clip(above, 0, func() { glyphAt(p, l.ch, f32(x), f32(cy), l.size, text, false, 0, 1) })
 		band := 0.45 * poTall * l.half
 		tint := ui.Rect{X: f32(x - 40), Y: f32(floorTop - band), W: 80, H: f32(band)}
-		p.Clip(tint, 0, func() {
-			p.Fill(tint, withAlpha(col, 0.55), 0)
+		p.Clip(tint, 0, func() { // the letter itself, lit, where it goes through: not a block
+			glyphAt(p, l.ch, f32(x), f32(cy), l.size, withAlpha(col, 0.9), false, 0, 1)
 		})
 	}
 	g.letters = out
@@ -613,97 +441,4 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 		p.Fill(bar, ui.RGBA(255, 255, 255, float32(0.6*glow)), f32(uh/2))
 	}
 	p.AnimationFrame()
-}
-
-// ---- Evaporate ----
-
-type vapor struct {
-	ch           string
-	x, cy        float64
-	size         float32
-	h            float64
-	t0           float64
-	phase, drift float64
-	delay        float64
-}
-
-type evaporate struct {
-	base time.Time
-	list []vapor
-}
-
-func newEvaporate() *evaporate { return &evaporate{} }
-
-func (e *evaporate) reset() { e.list = nil }
-
-func (e *evaporate) shift(dy float32) {
-	for i := range e.list {
-		e.list[i].cy += float64(dy)
-	}
-}
-
-func (e *evaporate) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
-	if e.base.IsZero() {
-		e.base = now
-	}
-	tn := ms(now.Sub(e.base))
-	drawBoxCursor(p, boxOf(f), cursorColor(f.dark), 1)
-	if k.erased > 0 && k.gone != "" {
-		for i, l := range goneLetters(p, f, k) {
-			e.list = append(e.list, vapor{l.ch, l.x + l.w/2, float64(f.r.Y + f.r.H/2), textSize(f), float64(f.r.H), tn, rnd() * 2 * math.Pi, (rnd() - 0.5) * 0.5, float64(i) * 16})
-		}
-	}
-	text := p.Theme().Text
-	out := e.list[:0]
-	for _, v := range e.list {
-		t := (tn - v.t0 - v.delay) / 1100
-		if t >= 1 {
-			continue
-		}
-		out = append(out, v)
-		u := clamp01(t)
-		lift := 1 - (1-u)*(1-u)
-		dx := (math.Sin(v.phase+u*3.2)*0.16 + v.drift) * v.h * u
-		dy := -1.2 * v.h * lift
-		glyphAt(p, v.ch, f32(v.x+dx), f32(v.cy+dy), v.size, withAlpha(text, math.Pow(1-u, 1.3)), false, 0, 1+0.35*u)
-	}
-	e.list = out
-	if len(e.list) > 0 {
-		p.AnimationFrame()
-	}
-}
-
-// ---- tiles ----
-
-func backmanMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	x, y, w, h := r.X+r.W/2-6, r.Y+1.5, float32(12), r.H-3
-	pts := &ui.Path{}
-	pts.MoveTo(x, y).LineTo(x+w, y).LineTo(x+w, y+h*0.35).LineTo(x+w*0.3, y+h*0.5).LineTo(x+w, y+h*0.65).LineTo(x+w, y+h).LineTo(x, y+h).Close()
-	p.FillPath(pts, withAlpha(col, 0.9))
-	p.Fill(ui.Rect{X: x + w*0.55, Y: y + 1.5, W: 3.4, H: 3.4}, ui.Hex("#222222"), 0.5)
-}
-
-func shredderMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	for i := 0; i < 5; i++ {
-		p.Fill(ui.Rect{X: r.X + r.W/2 - 6 + float32(i%2)*1.5, Y: r.Y + 1 + float32(i)*4.2, W: 12, H: 3}, withAlpha(col, 0.9), 0)
-	}
-}
-
-func portalMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	p.Fill(ui.Rect{X: r.X + r.W/2 - 9, Y: r.Y + r.H - 5, W: 18, H: 3}, withAlpha(col, 0.95), 1.5)
-	for i := 0; i < 3; i++ {
-		p.Fill(ui.Rect{X: r.X + r.W/2 - 5 + float32(i)*4, Y: r.Y + 1 + float32(i)*3, W: 2.5, H: 5}, withAlpha(p.Theme().Text, 0.7-0.2*float64(i)), 0.5)
-	}
-}
-
-func evaporateMock(p *ui.Painter, r ui.Rect, dark bool) {
-	col := cursorColor(dark)
-	p.Fill(ui.Rect{X: r.X + r.W/2 - 4, Y: r.Y + r.H - 12, W: 8, H: 11}, withAlpha(col, 0.9), 2)
-	for i := 0; i < 4; i++ {
-		p.Fill(ui.Rect{X: r.X + r.W/2 - 6 + float32(i)*3.5, Y: r.Y + 7 - float32(i)*2, W: 2, H: 2}, withAlpha(p.Theme().Text, 0.7-0.15*float64(i)), 1)
-	}
 }

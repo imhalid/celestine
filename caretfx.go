@@ -32,11 +32,10 @@ type caretFX interface {
 	reset()           // a page was opened: start clean
 }
 
-// caretPreset is a ready caret: its name, how to make one, and how it looks in the settings' tile.
+// caretPreset is a ready caret: its name, and how to make one.
 type caretPreset struct {
 	name string
 	make func() caretFX
-	mock func(p *ui.Painter, r ui.Rect, dark bool)
 }
 
 // caretPresets are the carets after the slime and the mizan.
@@ -44,27 +43,11 @@ var caretPresets []caretPreset
 
 func init() {
 	caretPresets = []caretPreset{
-		{"Pacman", func() caretFX { return newPacman() }, pacmanMock},
-		{"Jöle (smear)", func() caretFX { return newSmear() }, smearMock},
-		{"Enerji", func() caretFX { return newEnergy(false) }, energyMock},
-		{"Aurora", func() caretFX { return newEnergy(true) }, auroraMock},
-		{"CRT", func() caretFX { return newCRT(false) }, crtMock},
-		{"Neon", func() caretFX { return newCRT(true) }, neonMock},
-		{"Back-man", func() caretFX { return newBackman() }, backmanMock},
-		{"Shredder", func() caretFX { return newShredder() }, shredderMock},
-		{"Portal", func() caretFX { return newPortal() }, portalMock},
-		{"Buharlaşma", func() caretFX { return newEvaporate() }, evaporateMock},
-		{"Harf pop", func() caretFX { return newLetterPop(false) }, letterPopMock},
-		{"Yükselen harfler", func() caretFX { return newLetterPop(true) }, riseMock},
-		{"Şimşek", func() caretFX { return newThunder() }, thunderMock},
-		{"Havai fişek", func() caretFX { return newFireworks() }, fireworkMock},
-		{"Örs kıvılcımı", func() caretFX { return newAnvil() }, anvilMock},
-		{"Daktilo", func() caretFX { return newTypewriter() }, typewriterMock},
-		{"Piksel izi", func() caretFX { return newPixelTrail() }, pixelTrailMock},
-		{"Yıldız tozu", func() caretFX { return newStardust() }, stardustMock},
-		{"Hız iblisi", func() caretFX { return newSpeedDemon() }, speedMock},
-		{"Ateş başı", func() caretFX { return newHotHead() }, hotHeadMock},
-		{"Meşale", func() caretFX { return newTorch() }, torchMock},
+		{"CRT", func() caretFX { return newCRT() }},
+		{"Back-man", func() caretFX { return newBackman() }},
+		{"Portal", func() caretFX { return newPortal() }},
+		{"Hız iblisi", func() caretFX { return newSpeedDemon() }},
+		{"Meşale", func() caretFX { return newTorch() }},
 	}
 }
 
@@ -111,12 +94,14 @@ func (a *app) eachFX(fn func(caretFX)) {
 
 // kick is what happened to the text since the caret was last drawn.
 type kick struct {
-	wrote  int    // letters written
-	edited bool   // the text changed in another way, too
-	erased int    // letters taken away
-	dir    int    // -1: Backspace, took what was behind the caret; 1: Delete, what was ahead
-	gone   string // what was erased, as far as it is known
-	typed  string // what was written: the letters, a space, a "\n" for Enter
+	wrote  int        // letters written
+	edited bool       // the text changed in another way, too
+	erased int        // letters taken away
+	dir    int        // -1: Backspace, took what was behind the caret; 1: Delete, what was ahead
+	gone   string     // what was erased, as far as it is known
+	typed  string     // what was written: the letters, a space, a "\n" for Enter
+	size   float32    // the size of the letters on the caret's line, when it is known
+	style  caretStyle // the text under the caret: struck through, in a bracket
 }
 
 // eraseOf notes letters erased from prev, between from and to, going dir.
@@ -197,85 +182,26 @@ func (s *sparks) draw(p *ui.Painter) {
 	}
 }
 
-// ---- Pacman ----
+// legacyCarets are the carets as they were numbered before some were taken away, the
+// number saved in the settings then: 0 and 1 the slime and the mizan, the rest from 2.
+var legacyCarets = []string{"Slime", "Mizan", "Pacman", "Jöle (smear)", "Enerji", "Aurora", "CRT", "Neon", "Back-man",
+	"Shredder", "Portal", "Buharlaşma", "Harf pop", "Yükselen harfler", "Şimşek", "Havai fişek", "Örs kıvılcımı",
+	"Daktilo", "Piksel izi", "Yıldız tozu", "Hız iblisi", "Ateş başı", "Meşale"}
 
-// pacman is the slime, yellow, with an eye. Erasing opens a triangle in its side - the
-// side it erases toward - which closes again.
-type pacman struct {
-	body *slime
-	open float64 // how open the mouth is, 0..1
-	hold float64 // seconds it stays open
-	dir  int     // -1 looks left (Backspace), 1 right
-	last time.Time
-}
-
-func newPacman() *pacman { return &pacman{body: newSlime(), dir: 1} }
-
-func (g *pacman) reset() { g.body.placed, g.open, g.hold, g.dir = false, 0, 0, 1 }
-
-func (g *pacman) shift(dy float32) { g.body.shift(0, dy) }
-
-func (g *pacman) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
-	dt := dtOf(now, g.last)
-	g.last = now
-	if k.erased > 0 {
-		g.dir = k.dir
-		if g.dir == 0 {
-			g.dir = -1
-		}
-		g.hold = 0.16 + 0.03*math.Min(float64(k.erased), 8)
-		g.open = math.Max(g.open, 0.35) // the mouth is there at once
+// savedCaret is the caret the settings keep: by its name, or, in settings of before the
+// name was kept, by its old number. A caret that is no more is the slime.
+func (a *app) savedCaret() caretKind {
+	name := a.settings.CaretName
+	if name == "" && a.settings.Caret > 0 && a.settings.Caret < len(legacyCarets) {
+		name = legacyCarets[a.settings.Caret]
 	}
-	if g.hold > 0 {
-		g.hold -= dt
-		g.open += (1 - g.open) * (1 - math.Exp(-dt*34))
-	} else {
-		g.open = math.Max(0, g.open-dt*5)
-		if g.open == 0 {
-			g.dir = 1
+	for k := caretKind(0); k < caretCount(); k++ {
+		if name == "" {
+			return caretKind(a.settings.Caret % int(caretCount()))
+		}
+		if caretName(k) == name {
+			return k
 		}
 	}
-	body := ui.Hex("#ffd60a")
-	if !f.dark {
-		body = ui.Hex("#eab308")
-	}
-	g.body.drawWith(p, f.r, f.cw, body, f.dark, func(b ui.Rect) { g.face(p, b) })
-}
-
-// face draws the eye, and the mouth when it is open, on the jelly's box b.
-func (g *pacman) face(p *ui.Painter, b ui.Rect) {
-	ink := ui.Hex("#2a1d00")
-	d := float32(g.dir)
-	cx := b.X + b.W/2
-	// the mouth: a triangle from the middle of the body to its side, opening with the erase
-	if g.open > 0.02 {
-		half := b.H * 0.2 * f32(g.open)
-		my := b.Y + b.H*0.62
-		edge := b.X + b.W
-		if d < 0 {
-			edge = b.X
-		}
-		tri := &ui.Path{}
-		tri.MoveTo(cx, my).LineTo(edge+d*1.5, my-half).LineTo(edge+d*1.5, my+half).Close()
-		p.FillPath(tri, withAlpha(ink, 0.8))
-	}
-	// the eye
-	r := float32(math.Max(1.5, math.Min(float64(b.W)*0.15, 2.6)))
-	ex := cx + d*b.W*0.17
-	ey := b.Y + b.H*0.3
-	p.Fill(ui.Rect{X: ex - r, Y: ey - r, W: 2 * r, H: 2 * r}, ink, r)
-	p.Fill(ui.Rect{X: ex - r*0.2, Y: ey - r*0.6, W: r * 0.7, H: r * 0.7}, ui.RGBA(255, 255, 255, 0.9), r*0.35)
-}
-
-// ---- tiles ----
-
-func pacmanMock(p *ui.Painter, r ui.Rect, dark bool) {
-	body, ink := ui.Hex("#ffd60a"), ui.Hex("#2a1d00")
-	x, y, w, h := r.X+r.W/2-4.5, r.Y+1.5, float32(9), float32(21)
-	p.Fill(ui.Rect{X: x, Y: y, W: w, H: h}, withAlpha(body, 0.9), rad(5))
-	p.Fill(ui.Rect{X: x + w*0.62 - 1.6, Y: y + h*0.3 - 1.6, W: 3.2, H: 3.2}, ink, 1.6)
-	tri := &ui.Path{}
-	tri.MoveTo(x+w/2, y+h*0.62).LineTo(x+w+1, y+h*0.62-3.5).LineTo(x+w+1, y+h*0.62+3.5).Close()
-	p.FillPath(tri, withAlpha(ink, 0.8))
+	return caretSlime
 }

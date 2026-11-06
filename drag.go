@@ -61,12 +61,14 @@ type dragState struct {
 	moved   float32
 	gen     int // pick-ups so far: each has its own copy
 
-	x, y float32 // the pointer, in the tree
-	over bool
-	grab ui.Point // where the pointer holds the row, from its top left
-	pos  ui.Point // the pointer, in window DIPs
-	w    float32  // the row's width
-	vx   float32  // the pointer's sideways speed, which the copy leans with
+	sideOn bool    // held over a pane's side: let go, it opens in that pane
+	side   int     // which
+	x, y   float32 // the pointer, in the tree
+	over   bool
+	grab   ui.Point // where the pointer holds the row, from its top left
+	pos    ui.Point // the pointer, in window DIPs
+	w      float32  // the row's width
+	vx     float32  // the pointer's sideways speed, which the copy leans with
 
 	from, n int // the dragged rows of the last frame: the first, and how many
 	target  *dropTarget
@@ -118,6 +120,13 @@ func (a *app) dragRow(c *ui.Context, r ui.Element, p *Page) {
 		d.pressed, d.moved = nil, 0
 	}
 	if mine && !pressed {
+		if d.sideOn { // let go over a pane's side: the page opens there, and nothing moves in the tree
+			side := d.side
+			d.page, d.pressed, d.target, d.sideOn = nil, nil, nil, false
+			d.dropped = 2
+			a.later(func() { a.openAtPane(side, place{"page", p.Dir}) })
+			return
+		}
 		// let go: the copy stays where it is until the page's row is laid out
 		d.land = ui.Point{X: d.pos.X - d.grab.X, Y: d.pos.Y - d.grab.Y}
 		d.pending, d.landing, d.destOK = d.target, p, false
@@ -207,6 +216,12 @@ func (a *app) placeRow(c *ui.Context, r ui.Element, i int, item any) {
 
 // aim works out where the dragged page would go, from the pointer.
 func (a *app) aim() {
+	a.aimTree()
+	a.aimSide()
+}
+
+// aimTree is where the page held would go in the tree.
+func (a *app) aimTree() {
 	d := &a.drag
 	d.target = nil
 	if d.page == nil {
@@ -316,6 +331,7 @@ func (a *app) ghost(c *ui.Context) {
 	if p == nil {
 		return
 	}
+	a.sideGlow(c)
 	t := ryugo.From(c)
 	cl := t.Colors
 	ui.Overlay(c, func() {

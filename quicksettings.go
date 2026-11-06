@@ -50,6 +50,10 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
+		{title: "Jöle efekti", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
+			a.settings.Jelly = !a.settings.Jelly
+			a.saveSettings()
+		}},
 		a.into("Köşeler", iconBar, func() []menuItem {
 			var out []menuItem
 			for _, v := range []int{0, 50, 100, 150, 200} {
@@ -62,6 +66,6 @@ func (a *app) quickSettings() []menuItem {
 			return out
 		}),
 		{title: "Kenar çubuğu", hint: "⌘\\", glyph: iconSidebar, run: a.toggleSidebar},
-		{title: "Tüm ayarlar…", hint: "⌘,", group: "~", glyph: iconSettings, run: func() { a.settingsOpen = true }},
+		{title: "Tüm ayarlar…", hint: "⌘,", group: "~", glyph: iconSettings, run: a.openSettings},
 	}
 }

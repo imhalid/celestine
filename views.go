@@ -21,7 +21,7 @@ const viewMax = 920
 // openCollection shows collection c's page, saving the page that was open.
 func (a *app) openCollection(c *Collection) {
 	a.flush()
-	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen = c, c.Name, "", false, "", false, false
+	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = c, c.Name, "", false, "", false, false, false
 	a.bulkClear()
 	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true
@@ -152,7 +152,7 @@ func (a *app) collectionView(c *ui.Context) {
 								case v.Type == "board":
 									a.boardView(c, coll, v, pages)
 								case v.Type == "table":
-									a.tableView(c, v, pages)
+									a.tableView(c, coll, v, pages)
 								default:
 									a.listView(c, v, pages)
 								}
@@ -471,13 +471,13 @@ func pageSortValue(col column, p *Page) any {
 // by hairlines, a column sorted by a click on its header, moved by dragging it
 // and resized by its edge, pages under it. A click on a row opens its page (or
 // chooses it, while rows are chosen), a right click is the page's menu.
-func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
+func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
-	tu := a.tableOf(a.coll, v)
-	a.takeSort(a.coll, v, tu)
+	tu := a.tableOf(coll, v)
+	a.takeSort(coll, v, tu)
 	var cols []ryugo.Column[*Page]
-	for i, col := range tableColumns(a.coll, v) {
+	for i, col := range tableColumns(coll, v) {
 		col, first := col, i == 0
 		id := col.field
 		if id == "" {
@@ -527,7 +527,7 @@ func (a *app) tableView(c *ui.Context, v *View, pages []*Page) {
 	if len(pages) > tablePageSize {
 		height += ryugo.PaginationHeight(c, ryugo.Md) + 10 // the pages under the table, and the gap
 	}
-	ryugo.Table(c.Key("table:"+a.coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
+	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: "Sayfalar", Height: height + 2,
 		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
 		Pin: true, // the title stays as the table is scrolled sideways
@@ -595,7 +595,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	cl := ryugo.From(c).Colors
 	focus := a.boardFocus
 	ui.Column(c.Key("board-wrap")).FillWidth().Children(func() { // the fades at its edges lie over the scroll
-		ui.ScrollHorizontal(c).TrackScroll(&a.boardScroll).Children(func() {
+		ui.ScrollHorizontal(c).TrackScroll(a.boardScroll).Children(func() {
 			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
 				for _, s := range append([]string{""}, pr.Options...) {
 					var col []*Page
@@ -676,7 +676,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 				}
 			})
 		})
-		a.edgeFades(c, &a.boardScroll)
+		a.edgeFades(c, a.boardScroll)
 	})
 }
 

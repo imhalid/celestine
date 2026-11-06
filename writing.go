@@ -13,8 +13,7 @@ import (
 // What is written, by the day: the words each save adds to the page (what is
 // deleted does not take them away) are counted into the day's, kept with the
 // settings. A dialog shows today, the week, the month, the best day, the
-// streak of days written, and the last thirty days as bars; the status bar
-// can have today's count.
+// streak of days written, and the last thirty days as bars.
 
 const writingKeep = 400 // days kept
 

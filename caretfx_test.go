@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -37,37 +38,6 @@ func TestCaretKindsDraw(t *testing.T) {
 	}
 }
 
-// Pacman opens its side to the way it erases, and closes it again.
-func TestPacmanOpensWhenErasing(t *testing.T) {
-	a, tt := newTestApp(t, "")
-	a.caretKind = caretFirstFX
-	pac := a.fxNamed("Pacman").(*pacman)
-	tt.SetSize(700, 420)
-	tt.Frame()
-	typeEach(tt, "merhaba")
-	tt.Advance(60 * time.Millisecond)
-	if pac.open != 0 {
-		t.Fatalf("open while writing: %v", pac.open)
-	}
-	tt.Key(0, ui.KeyBackspace)
-	tt.Frame()
-	if pac.open <= 0 || pac.dir != -1 {
-		t.Fatalf("Backspace: open %v dir %d", pac.open, pac.dir)
-	}
-	tt.Advance(1200 * time.Millisecond)
-	tt.Frame()
-	if pac.open != 0 || pac.dir != 1 {
-		t.Fatalf("the mouth did not close: open %v dir %d", pac.open, pac.dir)
-	}
-	a.doc.SetSelection(1, 1)
-	tt.Frame()
-	tt.Key(0, ui.KeyDelete)
-	tt.Frame()
-	if pac.open <= 0 || pac.dir != 1 {
-		t.Fatalf("Delete: open %v dir %d", pac.open, pac.dir)
-	}
-}
-
 // The settings show every caret as a tile.
 func TestCaretTiles(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
@@ -77,6 +47,78 @@ func TestCaretTiles(t *testing.T) {
 	for k := caretKind(0); k < caretCount(); k++ {
 		if !tt.HasText(caretName(k)) {
 			t.Fatalf("no tile for %s: %v", caretName(k), tt.Texts())
+		}
+	}
+}
+
+// Five seconds of rest, and the caret dozes: z's come out; a key and they are gone.
+func TestCaretSleeps(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	tt.SetSize(700, 420)
+	tt.Frame()
+	typeEach(tt, "merhaba")
+	tt.Advance(100 * time.Millisecond)
+	if len(a.sleep.zs) != 0 {
+		t.Fatalf("z's while writing: %d", len(a.sleep.zs))
+	}
+	tt.Advance(4 * time.Second)
+	if len(a.sleep.zs) != 0 {
+		t.Fatalf("z's before five seconds: %d", len(a.sleep.zs))
+	}
+	tt.Advance(2 * time.Second)
+	if len(a.sleep.zs) == 0 {
+		t.Fatal("no z's after the rest")
+	}
+	typeEach(tt, "x")
+	tt.Frame()
+	if len(a.sleep.zs) != 0 {
+		t.Fatalf("z's after a key: %d", len(a.sleep.zs))
+	}
+}
+
+// The jelly, on, stretches a caret that is not the slime; every caret still draws.
+func TestJellyOnEveryCaret(t *testing.T) {
+	for k := caretKind(0); k < caretCount(); k++ {
+		a, tt := newTestApp(t, "")
+		a.settings.Jelly = true
+		a.caretKind = k
+		tt.SetSize(700, 420)
+		tt.Frame()
+		typeEach(tt, "merhaba dünya")
+		tt.Key(0, ui.KeyEnter)
+		typeEach(tt, "bir iki")
+		tt.Advance(80 * time.Millisecond)
+	}
+}
+
+// The caret takes the look of the text it is in.
+func TestCaretStyleFollowsText(t *testing.T) {
+	a, tt := newTestApp(t, "(a **kalın** _eğik_ ~~çizili~~ [b {c")
+	tt.SetSize(700, 420)
+	tt.Frame()
+	for _, c := range []struct {
+		find    string
+		after   bool // the caret after it
+		strike  bool
+		bracket rune
+	}{
+		{"(a ", true, false, '('},
+		{"kalın", true, false, '('},
+		{"çizili", true, true, '('},
+		{"[b ", true, false, '['},
+		{"{c", true, false, '{'},
+	} {
+		s := a.doc.Text().String()
+		i := strings.Index(s, c.find)
+		if i < 0 {
+			t.Fatalf("no %q in %q", c.find, s)
+		}
+		at := len([]rune(s[:i])) + len([]rune(c.find))
+		a.doc.SetSelection(at, at)
+		tt.Frame()
+		st := a.styleAt(at)
+		if st.strike != c.strike || st.bracket != c.bracket {
+			t.Errorf("after %q: %+v", c.find, st)
 		}
 	}
 }

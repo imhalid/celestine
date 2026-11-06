@@ -39,26 +39,21 @@ type Settings struct {
 	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
 	AppTheme   int     `json:"appTheme,omitempty"`   // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
 	Caret      int     `json:"caret,omitempty"`      // 0 Slime, 1 Mizan
+	CaretName  string  `json:"caretName,omitempty"`  // the caret by name: its number moves as carets are taken away
+	Jelly      bool    `json:"jelly,omitempty"`      // the jelly, put on any caret but the slime
 	FontSize   float64 `json:"fontSize,omitempty"`   // the text's, 16.5
 	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
 	// the status bar: what is hidden, and what is shown besides
 	HideSaved bool `json:"hideSaved,omitempty"`
-	ShowWords bool `json:"showWords,omitempty"`
 	ShowChars bool `json:"showChars,omitempty"`
 	// more of the status bar, all off to begin with (statusbar.go)
-	ShowReading bool `json:"showReading,omitempty"`
-	ShowPath    bool `json:"showPath,omitempty"`
-	ShowSel     bool `json:"showSel,omitempty"`
-	ShowPos     bool `json:"showPos,omitempty"`
-	ShowEdited  bool `json:"showEdited,omitempty"`
-	ShowLinks   bool `json:"showLinks,omitempty"`
+	ShowPos bool `json:"showPos,omitempty"`
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool           `json:"sidebarClosed,omitempty"`
 	PanelOpen     bool           `json:"panelOpen,omitempty"`
 	Writing       map[string]int `json:"writing,omitempty"`     // the words written, by day (writing.go)
 	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
-	ShowToday     bool           `json:"showToday,omitempty"`   // today's count in the status bar
 	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)
 	Corner        *int           `json:"corner,omitempty"`      // how round the corners are, in percent (radius.go)
 	QuickKey      string         `json:"quickKey,omitempty"`    // the quick note's global key
@@ -91,7 +86,7 @@ func (a *app) pageWidth() float32 {
 // setCaret chooses the caret, and keeps the choice.
 func (a *app) setCaret(k caretKind) {
 	a.caretKind = k
-	a.settings.Caret = int(k)
+	a.settings.Caret, a.settings.CaretName = int(k), caretName(k)
 	a.saveSettings()
 }
 
@@ -113,7 +108,8 @@ func (a *app) loadSettings() {
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
-	a.caretKind = caretKind(a.settings.Caret % int(caretCount()))
+	a.caretKind = a.savedCaret()
+	a.settings.Caret, a.settings.CaretName = int(a.caretKind), caretName(a.caretKind)
 	if a.settings.Token == "" {
 		a.settings.Token = newToken()
 		a.saveSettings()

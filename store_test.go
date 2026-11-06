@@ -174,7 +174,7 @@ func TestStoreSettings(t *testing.T) {
 	a.settingsStore = st
 	a.loadSettings()
 	token := a.settings.Token
-	a.settings.Caret = 1
+	a.setCaret(caretMizan)
 	a.saveSettings()
 	b, _ := newTestApp(t, "x")
 	b.settingsStore = st
