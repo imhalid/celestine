@@ -40,6 +40,19 @@ var settingsSections = []settingsSection{
 // selSpring is the list's choice settling, and a tile picked.
 var selSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0.1}}
 
+// keepSettings writes what saveSettingsSoon left, once the settings have been
+// still a moment or the dialog is shut.
+func (a *app) keepSettings(c *ui.Context) {
+	if !a.settingsDirty {
+		return
+	}
+	if wait := 300*time.Millisecond - a.clock().Sub(a.settingsAt); wait > 0 && a.settingsOpen {
+		c.After(wait)
+		return
+	}
+	a.saveSettings()
+}
+
 func (a *app) settingsDialog(c *ui.Context) {
 	_, wh := c.Size()
 	h := max(420, min(620, wh-110))
@@ -222,7 +235,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	})
 	if int(w) != int(a.pageWidth()) {
 		a.settings.PageWidth = w
-		a.saveSettings()
+		a.saveSettingsSoon()
 	}
 	corner := float64(a.cornerPercent())
 	settingGroup(c, "set-corner", func() {
@@ -235,7 +248,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	if int(corner) != a.cornerPercent() {
 		v := int(corner)
 		a.settings.Corner = &v
-		a.saveSettings()
+		a.saveSettingsSoon()
 	}
 }
 
@@ -298,11 +311,11 @@ func (a *app) settingsEditor(c *ui.Context) {
 	a.settingsQuick(c)
 	if float32(fs) != a.fontSize() {
 		a.settings.FontSize = fs
-		a.saveSettings()
+		a.saveSettingsSoon()
 	}
 	if float32(lh) != a.lineHeight() {
 		a.settings.LineHeight = lh
-		a.saveSettings()
+		a.saveSettingsSoon()
 	}
 }
 

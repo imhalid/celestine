@@ -250,6 +250,8 @@ type app struct {
 	outlineDoc    *richtext.Document
 	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
 	settingsOpen  bool
+	settingsDirty bool      // changed, not yet written (saveSettingsSoon)
+	settingsAt    time.Time // when
 	mcpServer     *http.Server
 	mcpErr        string
 
@@ -467,12 +469,13 @@ func (a *app) view(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.frame = c.Invalidate
+	a.keepSettings(c)
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
 	radiusScale = float32(a.cornerPercent()) / 100
-	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners()}) // Ryugo's theme, its components' tokens, for the appearance
-	if a.appTheme().colors(tok.Dark).bg != "" {                                                // and in the app's theme: the same appearance, in its colors
-		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners()})
+	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
+	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
+		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
 		a.skin(tok, c.Theme())
 	}
 	t := c.Theme()
@@ -785,9 +788,12 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.dragColumns(ed)
 	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
+		sa, sc := a.doc.Selection()
+		selecting := sa != sc
 		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
 			a.doc.SetSelection(a.selPrevA, a.selPrevC)
 			a.clickCell(h)
+		} else if selecting { // the pointer selected text, it did not click what it ended on
 		} else if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.openTag(key)
 		} else if url, ok := a.linkAt(a.editorR.X+x, a.editorR.Y+y); ok {
@@ -1120,9 +1126,6 @@ func (a *app) status(c *ui.Context) {
 	}
 	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
-		if a.barButton(c, iconSettings, "Ayarlar") { // at the left end: the rest is pushed to the right
-			a.settingsOpen = true
-		}
 		ui.Box(c.Key("status-gap")).Grow(1)
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {

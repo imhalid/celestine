@@ -166,6 +166,7 @@ type Page struct {
 	Title    string
 	Created  time.Time
 	Modified time.Time         // when its file was last written
+	writes   int               // how many times it was written here: two writes in one tick of the file's clock are still two
 	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
 	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
 	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
@@ -178,6 +179,7 @@ type Page struct {
 
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
+	excerptAt int
 }
 
 const collectionFile = "collection.json"
@@ -394,13 +396,14 @@ func (p *Page) Save(body string) error {
 		return err
 	}
 	p.Modified = modTime(p.fs(), p.file())
+	p.writes++
 	return nil
 }
 
 // Excerpt is the start of the page's text, plain, on one line: what a list
 // shows under its title. It is read again only when the page changed.
 func (p *Page) Excerpt() string {
-	if p.excerptOf.Equal(p.Modified) && !p.Modified.IsZero() {
+	if p.excerptOf.Equal(p.Modified) && p.excerptAt == p.writes && !p.Modified.IsZero() {
 		return p.excerpt
 	}
 	body, err := p.Body()
@@ -411,7 +414,7 @@ func (p *Page) Excerpt() string {
 	if r := []rune(text); len(r) > 180 {
 		text = strings.TrimSpace(string(r[:180])) + "…"
 	}
-	p.excerpt, p.excerptOf = text, p.Modified
+	p.excerpt, p.excerptOf, p.excerptAt = text, p.Modified, p.writes
 	return text
 }
 

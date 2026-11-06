@@ -16,7 +16,6 @@ import (
 //
 //	Pacman        the slime's own body, in yellow, with an eye; when you erase, its side opens
 //	              a little, a triangle, to the way it erases: left for Backspace, right for Delete
-//	Kuyruklu      a comet: the caret leaves a tail of light where it has been
 
 type caretKind int
 
@@ -46,7 +45,6 @@ var caretPresets []caretPreset
 func init() {
 	caretPresets = []caretPreset{
 		{"Pacman", func() caretFX { return newPacman() }, pacmanMock},
-		{"Kuyruklu yıldız", func() caretFX { return newComet() }, cometMock},
 		{"Jöle (smear)", func() caretFX { return newSmear() }, smearMock},
 		{"Enerji", func() caretFX { return newEnergy(false) }, energyMock},
 		{"Aurora", func() caretFX { return newEnergy(true) }, auroraMock},
@@ -270,85 +268,6 @@ func (g *pacman) face(p *ui.Painter, b ui.Rect) {
 	p.Fill(ui.Rect{X: ex - r*0.2, Y: ey - r*0.6, W: r * 0.7, H: r * 0.7}, ui.RGBA(255, 255, 255, 0.9), r*0.35)
 }
 
-// ---- the comet ----
-
-type comet struct {
-	trail    []cometPt
-	last     time.Time
-	boost    float64 // 1 on a letter, falling: the head swells
-	prev     ui.Rect
-	placed   bool
-	sparkles sparks
-}
-
-type cometPt struct {
-	x, y float64
-	at   time.Time
-}
-
-func newComet() *comet { return &comet{} }
-
-func (m *comet) reset() { m.trail, m.placed = nil, false }
-
-func (m *comet) shift(dy float32) {
-	for i := range m.trail {
-		m.trail[i].y += float64(dy)
-	}
-	m.prev.Y += dy
-}
-
-const cometTail = 520 * time.Millisecond
-
-func (m *comet) draw(p *ui.Painter, f caretFrame, k kick) {
-	now := p.Now()
-	dt := dtOf(now, m.last)
-	m.last = now
-	r := f.r
-	hx, hy := float64(r.X), float64(r.Y)+float64(r.H)/2
-	if !m.placed {
-		m.trail, m.placed = nil, true
-	}
-	if n := len(m.trail); n == 0 || math.Hypot(m.trail[n-1].x-hx, m.trail[n-1].y-hy) > 0.5 {
-		m.trail = append(m.trail, cometPt{hx, hy, now})
-	} else {
-		m.trail[n-1].at = now // it rests: its tail shortens into it
-	}
-	for len(m.trail) > 1 && now.Sub(m.trail[0].at) > cometTail {
-		m.trail = m.trail[1:]
-	}
-	if k.wrote > 0 {
-		m.boost = 1
-		m.sparkles.burst(hx, hy, 2*k.wrote, p.Theme().Accent, 120)
-	}
-	m.boost = math.Max(0, m.boost-dt*5)
-	m.sparkles.step(dt)
-	m.prev = r
-
-	a, b := ui.Hex("#22d3ee"), ui.Hex("#e879f9") // cyan to magenta along the tail
-	// the tail: segments, fading and thinning with age
-	for i := 1; i < len(m.trail); i++ {
-		p0, p1 := m.trail[i-1], m.trail[i]
-		age := clamp01(float64(now.Sub(p1.at)) / float64(cometTail))
-		fade := 1 - age
-		col := mix(a, b, age)
-		seg := &ui.Path{}
-		seg.MoveTo(f32(p0.x), f32(p0.y)).LineTo(f32(p1.x), f32(p1.y))
-		seg.Cap(ui.RoundCap)
-		w := float32(float64(r.H) * (0.04 + 0.2*fade))
-		p.StrokePath(seg, w*2.4, withAlpha(col, 0.05*fade))
-		p.StrokePath(seg, w, withAlpha(col, 0.5*fade))
-	}
-	// the head: a bar with a glow
-	hw := float32(2.4 + 2.2*m.boost)
-	head := ui.Rect{X: f32(hx) - hw/2, Y: r.Y, W: hw, H: r.H}
-	for i, w := range []float32{12, 7, 3.5} {
-		p.Fill(ui.Rect{X: head.X - w/2, Y: head.Y - w/2, W: head.W + w, H: head.H + w}, withAlpha(a, []float64{0.05, 0.09, 0.16}[i]), 5)
-	}
-	p.Fill(head, mix(a, ui.RGBA(255, 255, 255, 1), 0.35), 1.5)
-	m.sparkles.draw(p)
-	p.AnimationFrame()
-}
-
 // ---- tiles ----
 
 func pacmanMock(p *ui.Painter, r ui.Rect, dark bool) {
@@ -359,14 +278,4 @@ func pacmanMock(p *ui.Painter, r ui.Rect, dark bool) {
 	tri := &ui.Path{}
 	tri.MoveTo(x+w/2, y+h*0.62).LineTo(x+w+1, y+h*0.62-3.5).LineTo(x+w+1, y+h*0.62+3.5).Close()
 	p.FillPath(tri, withAlpha(ink, 0.8))
-}
-
-func cometMock(p *ui.Painter, r ui.Rect, dark bool) {
-	a, b := ui.Hex("#22d3ee"), ui.Hex("#e879f9")
-	for i := 0; i < 9; i++ {
-		t := float64(i) / 9
-		w := float32(3 + 12*(1-t))
-		p.Fill(ui.Rect{X: r.X + float32(t*22), Y: r.Y + r.H/2 - w/2, W: 4, H: w}, withAlpha(mix(a, b, t), 0.55*(1-t)+0.1), 2)
-	}
-	p.Fill(ui.Rect{X: r.X + 24, Y: r.Y + 1, W: 3, H: r.H - 2}, mix(a, ui.RGBA(255, 255, 255, 1), 0.3), 1.5)
 }

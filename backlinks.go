@@ -42,7 +42,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
 				e := l.pages[q]
-				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) {
+				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) || e.writes != q.writes {
 					body, err := q.Text()
 					if err != nil {
 						continue
@@ -160,14 +160,15 @@ func contextSpans(segs []seg, size float32, muted, text, mark ui.Color) []ui.Spa
 // seconds of editing, and reading every page of a library of thousands each time
 // took seconds, on the thread that draws.
 type pageIdx struct {
-	mod   time.Time
-	tasks []taskItem
-	tags  []string
-	links []string
+	mod    time.Time
+	writes int
+	tasks  []taskItem
+	tags   []string
+	links  []string
 }
 
 func readPageIdx(q *Page, body string) *pageIdx {
-	e := &pageIdx{mod: q.Modified, tasks: tasksOf(q, body), tags: tagsOf(body)}
+	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body)}
 	if !strings.Contains(body, "[[") {
 		return e
 	}
@@ -186,6 +187,7 @@ func readPageIdx(q *Page, body string) *pageIdx {
 // plainIdx is the text of a page, plain, and folded as the search compares it.
 type plainIdx struct {
 	mod    time.Time
+	writes int
 	plain  string
 	folded string
 }
@@ -194,13 +196,13 @@ type plainIdx struct {
 // first time it is asked for, and again when the page was written.
 func (a *app) plainOf(p *Page) *plainIdx {
 	l := &a.links
-	if e := l.plain[p]; e != nil && !p.Modified.IsZero() && e.mod.Equal(p.Modified) {
+	if e := l.plain[p]; e != nil && !p.Modified.IsZero() && e.mod.Equal(p.Modified) && e.writes == p.writes {
 		return e
 	}
 	if l.plain == nil {
 		l.plain = map[*Page]*plainIdx{}
 	}
-	e := &plainIdx{mod: p.Modified}
+	e := &plainIdx{mod: p.Modified, writes: p.writes}
 	if body, err := p.Text(); err == nil {
 		e.plain = plainText(body)
 		e.folded = fold(e.plain)

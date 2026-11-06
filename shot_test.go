@@ -211,6 +211,8 @@ func TestSettingsShot(t *testing.T) {
 	a.settings.Port = 0
 	tt.SetSize(1180, 760)
 	tt.Click("Ayarlar")
+	tt.Advance(300 * time.Millisecond)
+	tt.Click("Tüm ayarlar…")
 	tt.Advance(500 * time.Millisecond)
 	tt.Click("MCP sunucusunu aç")
 	tt.Advance(time.Second)

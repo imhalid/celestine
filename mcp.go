@@ -124,6 +124,7 @@ func (a *app) loadSettings() {
 const settingsKey = "settings"
 
 func (a *app) saveSettings() {
+	a.settingsDirty = false
 	data, _ := json.MarshalIndent(a.settings, "", "  ")
 	if a.settingsStore != nil {
 		if err := a.settingsStore.SetMeta(settingsKey, data); err != nil {
@@ -138,6 +139,12 @@ func (a *app) saveSettings() {
 	if err := (osFS{}).WriteFile(a.settingsFile, data); err != nil {
 		a.saveErr = err.Error()
 	}
+}
+
+// saveSettingsSoon keeps the settings a moment from now: a slider moves them
+// at every frame, and a write to the file at each would hold the frames back.
+func (a *app) saveSettingsSoon() {
+	a.settingsDirty, a.settingsAt = true, a.clock()
 }
 
 func newToken() string {

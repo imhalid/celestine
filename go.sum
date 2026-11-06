@@ -24,6 +24,8 @@ github.com/imhalid/ryu-go v0.1.1-0.20261105201610-3aca28ac54bd h1:v59LwnzHulUhKt
 github.com/imhalid/ryu-go v0.1.1-0.20261105201610-3aca28ac54bd/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/imhalid/ryu-go v0.1.1-0.20261105204521-b2c31a7a6e46 h1:/nRYSP4e0QkWJlTT3m3g9p+nASG/fc2hK6QfQn7yGw0=
 github.com/imhalid/ryu-go v0.1.1-0.20261105204521-b2c31a7a6e46/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
+github.com/imhalid/ryu-go v0.1.1-0.20261106165010-5a62b9bf7feb h1:eDMrwbmITtr6tTbAAXW44pKZRB7Q9OICaoszzsXrBv8=
+github.com/imhalid/ryu-go v0.1.1-0.20261106165010-5a62b9bf7feb/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/mattn/go-isatty v0.0.24 h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
 github.com/mattn/go-isatty v0.0.24/go.mod h1:nMCL3Zebbrt45jsMDgnfIwz6ydEQApk5oEI3HqDio6A=
 github.com/modelcontextprotocol/go-sdk v1.8.0 h1:KIvahhYqwtbeniWVPs3TcXEA7b8jEtwfBpOTAI+Urx4=

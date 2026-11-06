@@ -184,9 +184,13 @@ func TestMCPHTTP(t *testing.T) {
 // TestSettingsDialog turns the server on from the settings and off again.
 func TestSettingsDialog(t *testing.T) {
 	a, tt := newTestApp(t, "")
-	a.settings.Port = 0 // not a port in use: any free one
-	if err := tt.Click("Ayarlar"); err != nil {
+	a.settings.Port = 0                         // not a port in use: any free one
+	if err := tt.Click("Ayarlar"); err != nil { // the gear: a short menu, the dialog at its end
 		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Tüm ayarlar…"); err != nil {
+		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(500 * time.Millisecond)
 	a.settingsTab = 3 // the MCP tab

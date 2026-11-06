@@ -6,7 +6,7 @@ import ryugo "github.com/imhalid/ryu-go"
 // one measure, which the settings set (Ayarlar ▸ Görünüm ▸ Köşeler): rad(px)
 // is the radius the design gives a corner of px, at the measure. 100% is the
 // design as it is, 0 is square, 200% twice as round. Ryugo's own components
-// (its buttons, switches, tooltips) take the nearest of the three steps it has.
+// (its buttons, switches, fields, badges) take the same measure: its CornerScale.
 
 const cornerDefault = 100 // percent
 
@@ -23,6 +23,10 @@ func (a *app) cornerPercent() int {
 	}
 	return max(0, min(*a.settings.Corner, 200))
 }
+
+// ryugoScale is the measure for Ryugo's components, which also rounds its pills (buttons,
+// switches) below 100%; a little over zero at the square end, as zero means unset to it.
+func (a *app) ryugoScale() float32 { return max(0.01, float32(a.cornerPercent())/100) }
 
 // ryugoCorners is the step of Ryugo's that is nearest the measure.
 func (a *app) ryugoCorners() ryugo.Corners {

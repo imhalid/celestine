@@ -68,7 +68,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `tables.go`, `tablemodel.go` | Tables: one object in the text, always a table (columns with a kind, alignment, width and a foot calculation); in the body a typed object. Markdown tables that come in are read as tables of ours |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
-| `caretfx*.go` | The carets: Slime and Mizan, and the presets (Pacman, Comet and the effects of [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith), see `NOTICE.md`): each a caret that is always as it is, with nothing to set |
+| `caretfx*.go` | The carets: Slime and Mizan, and the presets (Pacman and the effects of [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith), see `NOTICE.md`): each a caret that is always as it is, with nothing to set |
 | `body.go`, `pagefile.go` | The page's own format: blocks and typed objects, and the page file (meta, then body); a legacy `index.md` made one |
 | `markdown.go`, `frontmatter.go` | Markdown at the edges only: reading it in, writing it out, and the plain text view the app searches (tags, tasks, links) |
 | `watch.go` | Watching the folder |
@@ -78,6 +78,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
 | `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
+| `quicksettings.go` | The gear at the top left: a short menu of the settings used most, with the dialog of all of them at its end |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |
 | `slime.go`, `mizan.go` | The two carets |

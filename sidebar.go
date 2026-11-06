@@ -77,6 +77,10 @@ func (a *app) sidebarButton(c *ui.Context) {
 				}
 			})
 		}
+		// the settings: a short menu, with the dialog of all of them at its end
+		if a.barIcon(c, iconSettings, "Ayarlar") {
+			a.gearMenu(tb.Left+6+3*(24+2)-2, h-4)
+		}
 	})
 }
 
