@@ -279,7 +279,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		})
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
-		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen hareketsiz ve dither'lı bir desen kapak alır; hepsi birbirinden farklıdır. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen hareketsiz bir mozaik kapak alır: açık temada pastel, koyuda derin yumuşak renklerde, hepsi birbirinden farklı. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
 		})
 	})

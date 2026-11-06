@@ -8,14 +8,15 @@ import (
 )
 
 // A page's made cover is its own: the same page always gets the same one, other pages
-// get others, and every field and every dither turns up.
+// get others, and every way the tiles lie turns up.
 func TestAutoCoverSeeds(t *testing.T) {
 	lib, err := OpenLibrary(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	c, _ := lib.NewCollection("K")
-	fields, dithers := map[int]bool{}, map[int]bool{}
+	styles := map[int]bool{}
+	hues := map[int]bool{}
 	seen := map[uint64]bool{}
 	for i := 0; i < 60; i++ {
 		p, _ := c.NewPage(nil, "Sayfa")
@@ -25,14 +26,21 @@ func TestAutoCoverSeeds(t *testing.T) {
 			t.Fatalf("two pages have seed %v", s)
 		}
 		seen[s] = true
-		a, b := newAutoCover(s, 46), newAutoCover(s, 46)
-		if a.field != b.field || a.dither != b.dither || a.hue != b.hue {
+		a, b := newAutoCover(s, false), newAutoCover(s, false)
+		if a.style != b.style || a.hue != b.hue {
 			t.Fatal("a seed does not give the same cover")
 		}
-		fields[a.field], dithers[a.dither] = true, true
+		if d := newAutoCover(s, true); d.style != a.style || d.hue != a.hue {
+			t.Fatal("the light and the dark cover of a page are not the same pattern")
+		}
+		styles[a.style] = true
+		hues[int(a.hue/30)] = true
 	}
-	if len(fields) != fieldKinds || len(dithers) != ditherKinds {
-		t.Fatalf("fields %d of %d, dithers %d of %d in 60 pages", len(fields), fieldKinds, len(dithers), ditherKinds)
+	if len(styles) != mosaicKinds {
+		t.Fatalf("%d of %d styles in 60 pages: %v", len(styles), mosaicKinds, styles)
+	}
+	if len(hues) < 9 {
+		t.Fatalf("the hues are few: %d of 12 in 60 pages", len(hues))
 	}
 	p, _ := c.NewPage(nil, "Ad")
 	was := coverSeed(p)
@@ -42,25 +50,21 @@ func TestAutoCoverSeeds(t *testing.T) {
 	}
 }
 
-// Every field, in every dither, is drawn at any width.
+// Every style is drawn, light and dark, at any width - past the picture's too.
 func TestAutoCoverDraws(t *testing.T) {
-	for f := 0; f < fieldKinds; f++ {
-		for d := 0; d < ditherKinds; d++ {
-			a, tt := newTestApp(t, "metin\n")
-			a.autoCovers = map[uint64]*autoCover{coverSeed(a.page): newAutoCoverOf(uint64(f*131+d*17+5), f, d)}
-			for _, w := range []int{900, 420, 130} {
+	defer func() { styleOf = -1 }()
+	for style := 0; style < mosaicKinds; style++ {
+		styleOf = style
+		a, tt := newTestApp(t, "metin\n")
+		a.autoCovers = nil
+		for _, dark := range []bool{false, true} {
+			tt.SetDark(dark)
+			for _, w := range []int{900, 420, 130, 2600} {
 				tt.SetSize(w, 500)
 				tt.Frame()
 			}
 		}
 	}
-}
-
-// newAutoCoverOf is a cover of the seed in the given field and dither.
-func newAutoCoverOf(seed uint64, field, dither int) *autoCover {
-	fieldOf, ditherOf = field, dither
-	defer func() { fieldOf, ditherOf = -1, -1 }()
-	return newAutoCover(seed, 46)
 }
 
 // A page with no cover of its own is covered by the made one; "remove the cover" makes
@@ -69,13 +73,13 @@ func newAutoCoverOf(seed uint64, field, dither int) *autoCover {
 func TestAutoCoverKinds(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	p := a.page
-	if a.coverKind(p) != coverKindAuto || a.coverBandOf(p) != autoBandH {
+	if a.coverKind(p) != coverKindAuto || a.coverBandOf(p) != autoFullH {
 		t.Fatalf("a page with no cover: kind %d, band %v", a.coverKind(p), a.coverBandOf(p))
 	}
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	if a.topSpace != barH { // a cover starts under the bar
-		t.Fatalf("the page does not start under the bar for its cover: %v", a.topSpace)
+	if a.topSpace != 0 { // a cover begins at the very top of the window, behind the bar
+		t.Fatalf("the page does not start at the top for its cover: %v", a.topSpace)
 	}
 	a.removeCover(p)
 	src, _ := os.ReadFile(p.file())

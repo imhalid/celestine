@@ -537,6 +537,9 @@ func (a *app) view(c *ui.Context) {
 			a.barInset, a.topSpace = 0, 0
 			if overBar { // it scrolls from the top of the window, under the bar, and starts below it
 				a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
+				if a.coverKind(a.page) != coverKindNone && !a.noPage() { // a cover begins at the very top, behind the bar
+					a.topSpace = 0
+				}
 			}
 			pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 			defer func() { a.pageR = pageRow.LayoutBounds() }()
@@ -784,6 +787,9 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	if a.coverKind(p) != coverKindNone { // the title lies on the cover, as the band's bottom is dark
 		ui.Box(c.Key("cover-room")).FillWidth().Height(a.coverRoomOf(p))
 		ink = ui.Hex("#ffffff")
+		if a.coverKind(p) == coverKindAuto && !ryugo.From(c).Dark { // a pale mosaic: the text's own ink
+			ink = c.Theme().Text
+		}
 	}
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
