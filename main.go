@@ -442,8 +442,13 @@ func (a *app) view(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.frame = c.Invalidate
-	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0]                                                              // the last frame's, for a click now
-	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]}) // Ryugo's theme, its components' tokens
+	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
+	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
+	tok := ryugo.Root(c, ryugo.Options{Mode: mode}) // Ryugo's theme, its components' tokens, for the appearance
+	if a.appTheme().colors(tok.Dark).bg != "" {     // and in the app's theme: the same appearance, in its colors
+		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark)})
+		a.skin(tok, c.Theme())
+	}
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
@@ -484,8 +489,11 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyComma) {
 			a.settingsOpen = true
 		}
-		if c.Shortcut(ui.Cmd, ui.KeyK) || c.Shortcut(ui.Cmd, ui.KeyP) {
+		if c.Shortcut(ui.Cmd, ui.KeyK) {
 			a.openPalette()
+		}
+		if c.Shortcut(ui.Cmd, ui.KeyP) {
+			a.openCommands()
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyJ) {
 			a.openToday()

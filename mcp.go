@@ -37,6 +37,7 @@ type Settings struct {
 	Recent []string `json:"recent,omitempty"`
 	// Appearance and the editor; zero is the default.
 	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
+	AppTheme   int     `json:"appTheme,omitempty"`   // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
 	Caret      int     `json:"caret,omitempty"`      // 0 Slime, 1 Mizan
 	FontSize   float64 `json:"fontSize,omitempty"`   // the text's, 16.5
 	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55

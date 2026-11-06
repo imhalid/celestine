@@ -185,7 +185,7 @@ func mock(c *ui.Context, dark bool, w float32) {
 			ui.Box(c).Width(40).Height(6).Radius(3).Background(fg.Alpha(0.8))
 			ui.Box(c).Width(54).Height(4).Radius(2).Background(fg.Alpha(0.3))
 			ui.Box(c).Width(46).Height(4).Radius(2).Background(fg.Alpha(0.3))
-			ui.Box(c).Width(28).Height(8).Radius(4).Background(ui.Hex("#2f7ef7"))
+			ui.Box(c).Width(28).Height(8).Radius(4).Background(ryugo.From(c).Colors.Accent)
 		})
 	})
 }
@@ -217,6 +217,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.Theme = theme
 		a.saveSettings()
 	}
+	settingGroup(c, "set-accent", func() { a.appThemePicker(c) })
 	w := float64(a.pageWidth())
 	settingGroup(c, "set-width", func() {
 		settingRow(c, "Sayfa genişliği", "Metin sütununun genişliği.", func() {

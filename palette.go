@@ -10,14 +10,15 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The command palette (⌘K): a field over the window to go anywhere and do
-// anything by typing a few letters of it. Empty, it lists the places last
-// shown and the commands; typed, the pages, collections and commands that
-// match, best first - accents and case don't matter. ↑↓ move, ↵ goes,
-// Esc closes.
+// The two palettes, a field over the window: ⌘K searches the documents - go to a
+// page, a collection or a tag by typing a few letters of it, or a word in a
+// page's text; empty, it lists the places last shown. ⌘P is for commands: it
+// lists what the app can do, and typed, those that match. Best first, accents
+// and case don't matter. ↑↓ move, ↵ goes, Esc closes.
 
 type palette struct {
 	open  bool
+	cmds  bool // ⌘P: the commands; else ⌘K: the documents
 	query string
 	sel   int
 	hseen int    // the row last hovered
@@ -33,8 +34,14 @@ type palItem struct {
 	to               place // where it goes, for a page or a collection
 }
 
+// openPalette opens the search of the documents (⌘K).
 func (a *app) openPalette() {
 	a.pal = palette{open: true}
+}
+
+// openCommands opens the commands (⌘P).
+func (a *app) openCommands() {
+	a.pal = palette{open: true, cmds: true}
 }
 
 // commands are what the palette does, where the app is now.
@@ -97,6 +104,10 @@ func (a *app) commands() []palItem {
 		mcp = "MCP sunucusunu kapat"
 	}
 	out = append(out, cmd(mcp, "", iconSettings, func() { a.setMCP(!a.settings.MCP) }))
+	for i, t := range appThemes {
+		i := i
+		out = append(out, cmd("Renk teması: "+t.name, "", iconTheme, func() { a.setAppTheme(i) }))
+	}
 	return out
 }
 
@@ -158,11 +169,18 @@ func (a *app) recent(n int) []palItem {
 
 // paletteItems are the lines for the query, best first.
 func (a *app) paletteItems(q string) []palItem {
+	if a.pal.cmds {
+		return a.commandItems(q)
+	}
 	if strings.TrimSpace(q) == "" {
-		return append(a.recent(6), a.commands()...)
+		if r := a.recent(10); len(r) > 0 {
+			return r
+		}
+		all := a.places()
+		return all[:min(10, len(all))]
 	}
 	var out []palItem
-	for _, it := range append(a.places(), a.commands()...) {
+	for _, it := range a.places() {
 		s := match(q, it.title)
 		if s2 := match(q, it.title+" "+it.sub); s < 0 && s2 >= 0 {
 			s = s2 / 2 // in where it is, not in its name: less
@@ -204,6 +222,28 @@ func (a *app) paletteItems(q string) []palItem {
 		query := strings.TrimSpace(q)
 		out = append(out, palItem{title: "Kitaplıkta ara: " + query, sub: "Komut", keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
 	}
+	return out
+}
+
+// commandItems are the commands for the query, best first; all of them for none.
+func (a *app) commandItems(q string) []palItem {
+	all := a.commands()
+	if strings.TrimSpace(q) == "" {
+		return all
+	}
+	var out []palItem
+	for _, it := range all {
+		if s := match(q, it.title); s >= 0 {
+			it.score = s
+			out = append(out, it)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].score != out[j].score {
+			return out[i].score > out[j].score
+		}
+		return utf8.RuneCountInString(out[i].title) < utf8.RuneCountInString(out[j].title)
+	})
 	return out
 }
 
@@ -265,7 +305,7 @@ func (a *app) paletteView(c *ui.Context) {
 	ui.DialogBase(c.Key("palette"), &a.pal.open, func(backdrop, panel ui.Element) {
 		backdrop.Justify(ui.Start).Padding(90, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
 		panel.Width(580).MaxWidthPercent(100).Radius(t.R(ryugo.RadiusLg)).Background(cl.Card).
-			Border(1, cl.Hairline).Clip().Label("Komut paleti")
+			Border(1, cl.Hairline).Clip().Label(a.palLabel())
 		t.Shadows.ShadowPop.Apply(panel)
 		items := a.paletteItems(a.pal.query)
 		if a.pal.query != a.pal.was {
@@ -298,7 +338,7 @@ func (a *app) paletteView(c *ui.Context) {
 					for i, it := range items {
 						if a.pal.query == "" {
 							h := "Son açılanlar"
-							if it.sub == "Komut" {
+							if a.pal.cmds {
 								h = "Komutlar"
 							}
 							if h != head {
@@ -312,6 +352,20 @@ func (a *app) paletteView(c *ui.Context) {
 			})
 		})
 	})
+}
+
+func (a *app) palLabel() string {
+	if a.pal.cmds {
+		return "Komut ara"
+	}
+	return "Sayfa ara"
+}
+
+func (a *app) palHint() string {
+	if a.pal.cmds {
+		return "Bir komut yaz…"
+	}
+	return "Sayfaya git ya da metinde ara…"
 }
 
 func (a *app) paletteRow(c *ui.Context, i int, it palItem) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -16,7 +17,7 @@ func TestAutoCoverSeeds(t *testing.T) {
 	}
 	c, _ := lib.NewCollection("K")
 	styles := map[int]bool{}
-	hues := map[int]bool{}
+	themes := map[int]bool{}
 	seen := map[uint64]bool{}
 	for i := 0; i < 60; i++ {
 		p, _ := c.NewPage(nil, "Sayfa")
@@ -26,21 +27,21 @@ func TestAutoCoverSeeds(t *testing.T) {
 			t.Fatalf("two pages have seed %v", s)
 		}
 		seen[s] = true
-		a, b := newAutoCover(s, false), newAutoCover(s, false)
-		if a.style != b.style || a.hue != b.hue {
+		a, b := newAutoCover(s, false, nil), newAutoCover(s, false, nil)
+		if a.style != b.style || a.hue != b.hue || a.theme != b.theme {
 			t.Fatal("a seed does not give the same cover")
 		}
-		if d := newAutoCover(s, true); d.style != a.style || d.hue != a.hue {
+		if d := newAutoCover(s, true, nil); d.style != a.style || d.hue != a.hue || d.theme != a.theme {
 			t.Fatal("the light and the dark cover of a page are not the same pattern")
 		}
 		styles[a.style] = true
-		hues[int(a.hue/30)] = true
+		themes[a.theme] = true
 	}
 	if len(styles) != mosaicKinds {
 		t.Fatalf("%d of %d styles in 60 pages: %v", len(styles), mosaicKinds, styles)
 	}
-	if len(hues) < 9 {
-		t.Fatalf("the hues are few: %d of 12 in 60 pages", len(hues))
+	if len(themes) != len(coverThemes) {
+		t.Fatalf("%d of %d themes in 60 pages", len(themes), len(coverThemes))
 	}
 	p, _ := c.NewPage(nil, "Ad")
 	was := coverSeed(p)
@@ -114,5 +115,21 @@ func TestAutoCoverKinds(t *testing.T) {
 	a.settings.NoAutoCover = true
 	if a.coverKind(p) != coverKindNone {
 		t.Fatal("the setting off still gives a made cover")
+	}
+}
+
+// The seed picks a page's theme, its two hues moved a little by the seed; the picks differ
+// from page to page and cover the themes.
+func TestAutoCoverThemes(t *testing.T) {
+	picked := map[int]bool{}
+	for seed := uint64(1); seed < 80; seed++ {
+		ac := newAutoCover(seed*104729, true, nil)
+		picked[ac.theme] = true
+		if d := math.Abs(ac.hue - coverThemes[ac.theme].h1); d > 9.01 {
+			t.Fatalf("%s: a page's hue is %v from the theme's", coverThemes[ac.theme].name, d)
+		}
+	}
+	if len(picked) < len(coverThemes)-1 {
+		t.Fatalf("the seed picks %d of %d themes in 80 pages", len(picked), len(coverThemes))
 	}
 }

@@ -115,6 +115,7 @@ func (s *splitmix) f() float64 { return float64(s.next()>>11) / (1 << 53) }
 // autoCover is the mosaic of a page: how it lies, and its pixels.
 type autoCover struct {
 	style int
+	theme int // the index of its theme, of coverThemes
 	hue   float64
 	img   *ui.Bitmap
 }
@@ -138,21 +139,47 @@ var styleOf = -1
 
 // mosaicPalette is the two colors the field runs between, in the light theme (pale) or the
 // dark (deep), and the color that shows between tiles.
-func mosaicPalette(h1, h2 float64, dark bool) (a, b, gap [3]float64) {
+func mosaicPalette(h1, h2, sat float64, dark bool) (a, b, gap [3]float64) {
+	s := func(v float64) float64 { return math.Min(v*sat, 1) } // a theme is more or less saturated
 	if dark {
 		// bright at one end, deep at the other, and clear in between: a jewel, not mud
-		return rgbOf(coverTone(h1, 0.50, 0.56)), rgbOf(coverTone(h2, 0.17, 0.52)), rgbOf(coverTone(h2, 0.08, 0.45))
+		return rgbOf(coverTone(h1, 0.46, s(0.38))), rgbOf(coverTone(h2, 0.17, s(0.36))), rgbOf(coverTone(h2, 0.09, s(0.30)))
 	}
 	// near white at one end, a clear color at the other
-	return rgbOf(coverTone(h1, 0.945, 0.72)), rgbOf(coverTone(h2, 0.70, 0.64)), rgbOf(coverTone(h1, 0.99, 0.5))
+	return rgbOf(coverTone(h1, 0.955, s(0.55))), rgbOf(coverTone(h2, 0.79, s(0.46))), rgbOf(coverTone(h1, 0.99, s(0.4)))
+}
+
+// A cover theme is a pair of hues the mosaic runs between (the near-white or bright end,
+// and the clear or deep one) and how saturated it is: a family of colors that go together.
+// The seed picks one for a page.
+type coverTheme struct {
+	name   string
+	h1, h2 float64 // hue, of 360, at the two ends
+	sat    float64 // 1 is as the palette says
+}
+
+var coverThemes = []coverTheme{
+	{"Okyanus", 212, 232, 1.0},
+	{"Deniz", 183, 203, 1.0},
+	{"Orman", 140, 112, 0.95},
+	{"Nane", 165, 148, 0.95},
+	{"Gün batımı", 28, 342, 1.0},
+	{"Gül", 346, 322, 1.0},
+	{"Lavanta", 262, 286, 1.0},
+	{"Şeftali", 14, 36, 1.0},
+	{"Kum", 44, 28, 0.6},
+	{"Taş", 214, 224, 0.28},
+	{"Gece", 238, 266, 1.0},
 }
 
 func rgbOf(c color.RGBA) [3]float64 { return [3]float64{float64(c.R), float64(c.G), float64(c.B)} }
 
-// newAutoCover makes the mosaic of seed for a light or a dark page.
-func newAutoCover(seed uint64, dark bool) *autoCover {
+// newAutoCover makes the mosaic of seed for a light or a dark page; the seed picks its
+// theme, unless th is given (the app's theme, whose accent the covers then go with).
+func newAutoCover(seed uint64, dark bool, th *coverTheme) *autoCover {
 	rng := splitmix(seed)
-	ac := &autoCover{style: int(rng.next() % mosaicKinds), hue: rng.f() * 360}
+	ac := &autoCover{style: int(rng.next() % mosaicKinds)}
+	pick := int(rng.f() * float64(len(coverThemes)))
 	if styleOf >= 0 {
 		ac.style = styleOf
 	}
@@ -160,14 +187,13 @@ func newAutoCover(seed uint64, dark bool) *autoCover {
 	for i := range k {
 		k[i] = rng.f()
 	}
-	// two hues near each other, either way round: soft, never a clash
-	h1 := ac.hue
-	sign := 1.0
-	if k[0] < 0.5 {
-		sign = -1
+	// the theme's two hues, each moved a little by the seed, so that two pages of a theme differ
+	if th == nil {
+		th = &coverThemes[pick]
 	}
-	h2 := h1 + sign*(24+46*k[1])
-	cA, cB, gapC := mosaicPalette(h1, h2, dark)
+	h1, h2 := th.h1+(k[0]-0.5)*18, th.h2+(k[1]-0.5)*18
+	ac.theme, ac.hue = pick, h1
+	cA, cB, gapC := mosaicPalette(h1, h2, th.sat, dark)
 
 	// the field: a slow wave across, a little cloud, and a lean from top to bottom
 	theta := k[2] * math.Pi
@@ -325,13 +351,13 @@ func (a *app) autoCoverOf(p *Page, dark bool) *autoCover {
 	if a.autoCovers == nil || len(a.autoCovers) > 8 {
 		a.autoCovers = map[uint64]*autoCover{}
 	}
-	key := coverSeed(p)
+	key := coverSeed(p) ^ uint64(a.settings.AppTheme%len(appThemes))<<50
 	if dark {
 		key ^= 1 << 63
 	}
 	ac := a.autoCovers[key]
 	if ac == nil {
-		ac = newAutoCover(coverSeed(p), dark)
+		ac = newAutoCover(coverSeed(p), dark, a.appTheme().coverTheme(dark))
 		a.autoCovers[key] = ac
 	}
 	return ac
