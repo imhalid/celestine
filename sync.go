@@ -356,17 +356,46 @@ func (e *encRemote) loadIndex() error {
 	return json.Unmarshal(plain, &e.idx)
 }
 
+// saveIndex puts the index back, merged with what the remote holds now: another device may have added
+// names since this one read it, and an index written from the old copy would drop them (their files would
+// then not be seen, and their owner would take them for deleted). Names are only ever added, so a union
+// loses nothing; if the index changes again while it is being put, it is read and merged once more.
 func (e *encRemote) saveIndex() error {
-	plain, _ := json.Marshal(e.idx)
-	list, err := e.inner.List()
-	if err != nil {
-		return err
+	for try := 0; try < 8; try++ {
+		prev := ""
+		list, err := e.inner.List()
+		if err != nil {
+			return err
+		}
+		if ent, ok := list[indexFile]; ok && !ent.Deleted {
+			raw, err := e.inner.Get(indexFile)
+			if err != nil {
+				return err
+			}
+			plain, err := e.open(raw)
+			if err != nil {
+				return err
+			}
+			theirs := map[string]string{}
+			if err := json.Unmarshal(plain, &theirs); err != nil {
+				return err
+			}
+			for op, p := range theirs {
+				e.idx[op] = p
+			}
+			prev = hashOf(raw) // the hash of the bytes: that of a folder's file and of the Worker's
+		}
+		plain, _ := json.Marshal(e.idx)
+		switch err := e.inner.Put(indexFile, e.seal(plain), prev); {
+		case err == nil:
+			return nil
+		case errors.Is(err, ErrConflict):
+			continue
+		default:
+			return err
+		}
 	}
-	prev := list[indexFile].Hash
-	if list[indexFile].Deleted {
-		prev = ""
-	}
-	return e.inner.Put(indexFile, e.seal(plain), prev)
+	return ErrConflict
 }
 
 func (e *encRemote) List() (map[string]RemoteEntry, error) {
@@ -403,6 +432,9 @@ func (e *encRemote) Put(name string, data []byte, prev string) error {
 	}
 	if err := e.inner.Put(e.opaque(name), e.seal(data), prev); err != nil {
 		return err
+	}
+	if e.idx[e.opaque(name)] == name {
+		return nil // the index had it when it was read, and names are never taken out
 	}
 	e.idx[e.opaque(name)] = name
 	return e.saveIndex()

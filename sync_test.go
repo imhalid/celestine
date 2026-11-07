@@ -527,3 +527,39 @@ func TestSyncSettingsPage(t *testing.T) {
 		}
 	}
 }
+
+// Two devices that open the sealed remote before either has put anything, then each put a file: the
+// index must hold both, or the file of the one is no longer seen (and its owner would take it for deleted).
+func TestSyncEncryptedIndexRace(t *testing.T) {
+	inner := dirRemote{t.TempDir()}
+	open := func() *encRemote {
+		e, err := openEnc(inner, "parola")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	ea, eb := open(), open()
+	if _, err := ea.List(); err != nil { // both read the index (empty) first
+		t.Fatal(err)
+	}
+	if _, err := eb.List(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ea.Put("a/x.json", []byte("x"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := eb.Put("b/y.json", []byte("y"), ""); err != nil {
+		t.Fatal(err)
+	}
+	list, err := open().List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := list["a/x.json"]; !ok {
+		t.Fatalf("the first device's file fell out of the index: %v", list)
+	}
+	if _, ok := list["b/y.json"]; !ok {
+		t.Fatalf("the second device's file fell out of the index: %v", list)
+	}
+}
