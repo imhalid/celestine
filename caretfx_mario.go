@@ -9,7 +9,7 @@ import (
 
 // ---- Mario: the box in his colors, with an eye ----
 
-// The box is red on top, his cap, and blue below, his overalls, with an eye that looks the
+// The box is red on top, his cap, melting into blue below, his overalls, with an eye that looks the
 // way the caret last went. At a space he hops a little, and a coin springs out over his head
 // and spins up and away.
 
@@ -85,7 +85,7 @@ func (m *mario) draw(p *ui.Painter, f caretFrame, k kick) {
 	}
 }
 
-// drawBody is the box, or the jelly's shape of it, see-through like the slime, red above and blue below,
+// drawBody is the box, or the jelly's shape of it, see-through like the slime, red above melting into blue below,
 // with its halo and the eye. In the air it is the plain box: the jelly's shape stays on the line.
 func (m *mario) drawBody(p *ui.Painter, f caretFrame, box ui.Rect, air bool) {
 	cap, overalls := marioColors(f.dark)
@@ -93,8 +93,6 @@ func (m *mario) drawBody(p *ui.Painter, f caretFrame, box ui.Rect, air bool) {
 	if !air && f.jelly != nil {
 		path = f.jelly
 	}
-	b := path.Bounds()
-	split := box.Y + box.H*0.45
 	styledDraw(p, f, box, func() {
 		if air || f.jelly == nil {
 			glowAround(p, box, cap, 0.9)
@@ -103,20 +101,19 @@ func (m *mario) drawBody(p *ui.Painter, f caretFrame, box ui.Rect, air bool) {
 				p.StrokePath(path, w, withAlpha(cap, 0.9*[]float64{0.035, 0.06, 0.09}[i]))
 			}
 		}
-		// each half as the slime is: see-through, lit from above, with a rim
-		half := func(r ui.Rect, col ui.Color) {
-			p.Clip(r, 0, func() {
-				top := mix(col, ui.RGBA(255, 255, 255, 1), 0.45)
-				p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-					{Color: withAlpha(top, 0.62), At: 0},
-					{Color: withAlpha(col, 0.38), At: 0.55},
-					{Color: withAlpha(col, 0.5), At: 1},
-				}})
-				p.StrokePath(path, 1.25, withAlpha(col, 0.95))
-			})
-		}
-		half(ui.Rect{X: b.X - 2, Y: b.Y - 2, W: b.W + 4, H: split - b.Y + 2}, cap)
-		half(ui.Rect{X: b.X - 2, Y: split, W: b.W + 4, H: b.Y + b.H - split + 2}, overalls)
+		// see-through as the slime is, lit from above, the cap's red melting into the overalls' blue through
+		// the middle (in Oklab, so the blend between them is not a muddy grey), with a rim that blends the same way
+		top := mix(cap, ui.RGBA(255, 255, 255, 1), 0.45)
+		p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+			{Color: withAlpha(top, 0.62), At: 0},
+			{Color: withAlpha(cap, 0.42), At: 0.3},
+			{Color: withAlpha(overalls, 0.4), At: 0.7},
+			{Color: withAlpha(overalls, 0.5), At: 1},
+		}})
+		p.StrokePathGradient(path, 1.25, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+			{Color: withAlpha(cap, 0.95), At: 0.3},
+			{Color: withAlpha(overalls, 0.95), At: 0.7},
+		}})
 		// a gloss down its upper left side
 		a := float32(0.55)
 		if !f.dark {
