@@ -92,7 +92,7 @@ func TestAccountLive(t *testing.T) {
 		}
 		return nil
 	}
-	if err := post("/api/waitlist", "", map[string]string{"email": email}, nil); err != nil {
+	if err := post("/api/admin/waitlist", admin, map[string]string{"email": email}, nil); err != nil { // (the public form has a bot check)
 		t.Fatal(err)
 	}
 	// the administrator finds the one that was just written, and approves it

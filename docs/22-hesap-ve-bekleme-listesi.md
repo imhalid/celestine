@@ -79,3 +79,23 @@ iptal edilen cihaz 401, kota aşımı 413, hesap silince dosyalar gider.
 ## Sıra
 1. Karar (aşağıdaki **?**'ler) → 2. D1 şeması + `/register` `/login` + jeton çözümü (`/files` yeni yoldan) + Go istemci + uygulama ekranı
 (kod elle üretilir) → 3. bekleme listesi sayfası + `/admin` → 4. e-posta → 5. cihaz yönetimi, şifre değiştirme, hesap silme, kota → 6. `TOKENS`'ı kaldırma.
+
+## Durum (2026-11-07)
+
+Kararlar: sıfır bilgi, **Resend** ile e-posta, adres `ryudit.halid.dev`, yönetici `ADMIN_TOKEN` sırrı.
+
+**Canlı ve denendi** (`https://ryudit.halid.dev`, aynı Worker `ryudit-sync`; D1 `ryudit`, R2 `ryudit-sync`, Turnstile `ryudit-waitlist`):
+bekleme listesi sayfası (`/`, Turnstile'lı), yönetici (`/admin`, onayla/reddet/yeni kod/hesap askıya al-sil/kayıt), kod üretimi (`RYU-XXXXXX`,
+karması saklanır, 14 gün, tek kullanım, deneme sınırı), kayıt, giriş, cihazlar, şifre değiştirme, hesap silme (R2 dosyaları dahil), kota (200 MB),
+istemci (`account.go`, Ayarlar ▸ Senkron). `TestAccountLive` canlı Worker'a karşı geçti (`RYUDIT_SYNC_URL`, `RYUDIT_ADMIN_TOKEN`).
+
+**Yapılmadı:**
+- **Resend yok.** `RESEND_API_KEY` ve doğrulanmış gönderen adresi (`MAIL_FROM`) verilmedikçe onaylayınca kod e-postayla gitmez; `/admin`'de bir kez görünür,
+  elle iletilir. Eklemek: Resend'de `halid.dev` doğrulanır, anahtar secrets dosyasına yazılıp `deploy.sh` çalıştırılır.
+- **Şifre sıfırlama yok** (sıfır bilgi: şifre unutulursa veri ancak kurtarma anahtarıyla döner; kurtarma anahtarıyla yeni şifre koymak yazılmadı).
+- Yönetici sayfasında elle kişi ekleme düğmesi yok (`POST /api/admin/waitlist` var), bekleme listesi dışa aktarma yok.
+- Uygulamada Hesap ekranı elle/gözle denenmedi (yalnız arayüz testi); kurtarma anahtarı kayıt sonrası Senkron ayarlarında gösteriliyor.
+- Eski `TOKENS` sırrı (testler, `halit`/`test` jetonları) duruyor; hiçbir şeye ihtiyaç kalmayınca kaldırılacak.
+- KVKK/gizlilik metni sayfada tek cümle; ayrı sayfa ve silme/dışa aktarma süreci yazılmadı.
+
+**İşletme:** `cloudflare/sync/deploy.sh` (`RYUDIT_SYNC_SECRETS=… ./deploy.sh` sırlar değişince, `./deploy.sh` yalnız kod). Sırlar depoda değil.

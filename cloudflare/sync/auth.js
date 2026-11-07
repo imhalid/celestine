@@ -282,6 +282,13 @@ async function admin(request, env, path, method, body, bearer, url) {
     ).bind(...(st ? [st] : [])).all();
     return json(rows.results);
   }
+  // the administrator can put someone on the list himself (no bot check: it is the administrator)
+  if (path === "/api/admin/waitlist" && method === "POST") {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!validEmail(email)) return fail(400, "e-posta geçersiz");
+    await env.DB.prepare("INSERT OR IGNORE INTO waitlist(email,name,created_at) VALUES(?,?,?)").bind(email, String(body.name || "").trim().slice(0, 80), now()).run();
+    return json({ ok: true });
+  }
   let m = path.match(/^\/api\/admin\/waitlist\/(\d+)\/(approve|resend|reject)$/);
   if (m && method === "POST") {
     const id = Number(m[1]);
