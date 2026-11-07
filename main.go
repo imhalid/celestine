@@ -68,9 +68,10 @@ type caretFrame struct {
 	bounds ui.Rect
 	wrote  int
 	edited bool
-	jelly  *ui.Path   // the caret's body when the jelly stretches it; nil: the plain box
-	size   float32    // the size of the letters on the caret's line; 0: not known
-	style  caretStyle // the text under the caret
+	jelly  *ui.Path                // the caret's body when the jelly stretches it; nil: the plain box
+	size   float32                 // the size of the letters on the caret's line; 0: not known
+	style  caretStyle              // the text under the caret
+	near   func(n int) []nearGlyph // the letters of its line within n of it; nil where there are none (a field, a demo)
 }
 
 // titleCaretSpec is the caret in the page's title, as it was found: where it
@@ -91,10 +92,11 @@ type app struct {
 	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
 	ps        paneSet // the panes of the window (panes.go)
 
-	bars     map[string]*funBar // the scroll bars of the scroll areas, by name (funbar.go)
-	titles   titleIdx           // the pages by their titles, for the chips (chips.go)
-	census   census             // the sidebar's tree, counted once a frame (sidebar.go)
-	frameSeq uint64             // the frames built, counted
+	bars     map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
+	titles   titleIdx                // the pages by their titles, for the chips (chips.go)
+	nearFn   func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	census   census                  // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq uint64                  // the frames built, counted
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
 	drawerOpen bool  // on a phone, the sidebar is open over the page
@@ -1152,7 +1154,10 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	}
 	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed, style: a.styleAt(caret)}
 	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
+	doc, boxes, font, th := a.doc, a.boxes, a.font, a.theme
+	a.nearFn = func(n int) []nearGlyph { return nearLetters(doc, boxes, r.X, r.Y, r.W, font, th, n) }
 	a.paintCaret(p, cr, cb.cw, r, k, false)
+	a.nearFn = nil
 }
 
 // paintCaret draws the caret cr, in the editor's box bounds (or an input's):
@@ -1164,7 +1169,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
 		return
 	}
-	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style, near: a.nearFn}
 	// the jelly, when it is on, is the shape of the caret's own body (the slime is jelly already)
 	if a.settings.Jelly && a.caretKind != caretSlime {
 		f.jelly = a.jellied.body(p, f)

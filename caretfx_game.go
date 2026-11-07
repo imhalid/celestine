@@ -189,17 +189,24 @@ func (g *tetris) draw(p *ui.Painter, f caretFrame, k kick) {
 
 type snakePt struct{ x, y float64 }
 
+// snake is a snake whose head is the caret: its body lies just under the line, whole, thinning to its tail,
+// and slithers - a wave runs down it, quicker as it goes - with dark diamonds down its back and a glint along
+// it. It grows as it writes and draws itself in as it rests; an erase makes it rear back and hiss.
 type snake struct {
 	fxBase
-	trail  []snakePt // where the head has been, the newest last
-	segs   float64   // how long it is, in segments
+	trail  []snakePt // where the head has been, the newest last, a point every step
+	segs   float64   // how long it is, in steps
 	tongue float64   // when it last flicked its tongue
+	phase  float64   // of the wave down its body
 	left   bool
+	hiss   float64 // when it last reared back
 }
 
-func newSnake() *snake { return &snake{segs: 2, tongue: -1e9} }
+const snakeMax = 140 // steps, at most
 
-func (g *snake) reset() { g.trail, g.have, g.segs = nil, false, 2 }
+func newSnake() *snake { return &snake{segs: 8, tongue: -1e9, hiss: -1e9} }
+
+func (g *snake) reset() { g.trail, g.have, g.segs = nil, false, 8 }
 
 func (g *snake) shift(dy float32) {
 	for i := range g.trail {
@@ -209,78 +216,113 @@ func (g *snake) shift(dy float32) {
 }
 
 func (g *snake) draw(p *ui.Painter, f caretFrame, k kick) {
-	tn, dt, moved, _ := g.step(p, f, k)
+	tn, dt, moved, dist := g.step(p, f, k)
 	box := boxOf(f)
 	h := float64(box.H)
-	gap := h * 0.24 // between two segments: less than one's width, so they touch
-	// the body slithers just under the line, not over the letters; the head is the caret
-	cx, cy := float64(box.X+box.W/2), float64(box.Y+box.H)+h*0.14
-	if moved && g.have && len(g.trail) > 0 {
-		g.left = cx < g.trail[len(g.trail)-1].x
-	}
-	// the path the head went along, a point every so often
+	step := h * 0.09 // between two points of the body
+	// the body lies just under the line, not over the letters; the head is the caret, over its neck
+	cx, cy := float64(box.X+box.W/2), float64(box.Y+box.H)+h*0.2
 	if n := len(g.trail); n == 0 {
 		g.trail = append(g.trail, snakePt{cx, cy})
-	} else if last := g.trail[n-1]; math.Hypot(cx-last.x, cy-last.y) > gap/3 {
-		// the caret moves a letter at a time: the path between is filled in, so the body stays whole
+	} else if last := g.trail[n-1]; math.Hypot(cx-last.x, cy-last.y) >= step {
+		// the caret moves a letter at a time: the way between is filled in, so the body stays whole
 		d := math.Hypot(cx-last.x, cy-last.y)
-		steps := int(math.Min(60, d/(gap/3)))
+		if moved {
+			g.left = cx < last.x
+		}
+		steps := int(math.Min(120, d/step))
 		for i := 1; i <= steps; i++ {
 			t := float64(i) / float64(steps)
 			g.trail = append(g.trail, snakePt{last.x + (cx-last.x)*t, last.y + (cy-last.y)*t})
 		}
 	}
-	g.segs = math.Min(26, g.segs+float64(k.wrote)*0.6)
+	g.segs = math.Min(snakeMax, g.segs+float64(k.wrote)*2.2)
 	if k.erased > 0 {
-		g.segs = math.Max(1, g.segs-float64(k.erased))
-		g.tongue = tn
+		g.segs = math.Max(6, g.segs-float64(k.erased)*4)
+		g.tongue, g.hiss = tn, tn
 	}
-	if g.idle(tn) > 1.2 { // resting, it draws its tail in
-		g.segs = math.Max(1, g.segs-dt*6)
-	}
-	keep := int(g.segs*3) + 4
-	if len(g.trail) > keep {
-		g.trail = g.trail[len(g.trail)-keep:]
-	}
-	// the body: segments along the trail, from the tail, thinning toward it
-	green, dark := ui.Hex("#4ade80"), ui.Hex("#15803d")
-	n := int(g.segs)
-	for i := n; i >= 1; i-- {
-		at := len(g.trail) - 1 - i*3
-		if at < 0 {
-			continue
+	if g.idle(tn) > 1.5 { // resting, it draws its tail in, and now and then tastes the air
+		g.segs = math.Max(6, g.segs-dt*14)
+		if tn-g.tongue > 2600 {
+			g.tongue = tn
 		}
+	}
+	if len(g.trail) > snakeMax+10 {
+		g.trail = g.trail[len(g.trail)-snakeMax-10:]
+	}
+	// the wave runs down it as it goes, slowly as it rests
+	g.phase += dt * (2.2 + math.Min(10, dist/dt/60))
+	green, dark, belly := ui.Hex("#22c55e"), ui.Hex("#14532d"), ui.Hex("#bbf7d0")
+	if f.dark {
+		green, dark = ui.Hex("#4ade80"), ui.Hex("#166534")
+	}
+	n := min(int(g.segs), len(g.trail)-1)
+	head := len(g.trail) - 1
+	type seg struct{ x, y, r, t float64 }
+	body := make([]seg, 0, n+1)
+	for i := n; i >= 0; i-- { // from the tail to the head
+		at := head - i
 		pt := g.trail[at]
-		r := h * 0.16 * (1 - 0.45*float64(i)/math.Max(1, float64(n)))
-		col := green
-		if i%2 == 0 {
-			col = mix(green, dark, 0.35)
+		// across the way it lies: from its neighbours
+		a, b := g.trail[max(0, at-2)], g.trail[min(head, at+2)]
+		dx, dy := b.x-a.x, b.y-a.y
+		l := math.Max(0.001, math.Hypot(dx, dy))
+		nx, ny := -dy/l, dx/l
+		t := 1 - float64(i)/math.Max(1, float64(n))            // 0 at the tail, 1 at the head
+		amp := h * 0.07 * math.Sin(math.Min(1, t*1.4)*math.Pi) // still at its head and its tip
+		w := math.Sin(g.phase-float64(i)*0.32) * amp
+		r := h * 0.15 * (0.25 + 0.75*math.Sqrt(t))
+		body = append(body, seg{pt.x + nx*w, pt.y + ny*w, r, t})
+	}
+	// the neck: from the head (the caret's foot) down to where the body begins
+	if len(body) > 0 {
+		end := body[len(body)-1]
+		rear := 0.0
+		if hk := (tn - g.hiss) / 380; hk < 1 { // rearing back
+			rear = math.Sin(hk*math.Pi) * h * 0.12
 		}
-		p.Fill(ui.Rect{X: f32(pt.x - r), Y: f32(pt.y - r), W: f32(2 * r), H: f32(2 * r)}, withAlpha(col, 0.85), f32(r))
+		hx, hy := cx, float64(box.Y+box.H)-h*0.1-rear
+		for j := 1; j <= 4; j++ {
+			t := float64(j) / 5
+			body = append(body, seg{end.x + (hx-end.x)*t, end.y + (hy-end.y)*t, end.r, 1})
+		}
+	}
+	for _, sg := range body { // its back: dark at the tail, its own green toward the head
+		col := mix(dark, green, 0.35+0.65*sg.t)
+		p.Fill(ui.Rect{X: f32(sg.x - sg.r), Y: f32(sg.y - sg.r), W: f32(2 * sg.r), H: f32(2 * sg.r)}, withAlpha(col, 0.92), f32(sg.r))
+	}
+	for i, sg := range body { // diamonds down its back, and a glint along it
+		if i%7 == 3 && sg.t < 0.97 {
+			d := sg.r * 0.55
+			dm := &ui.Path{}
+			dm.MoveTo(f32(sg.x), f32(sg.y-d)).LineTo(f32(sg.x+d), f32(sg.y)).LineTo(f32(sg.x), f32(sg.y+d)).LineTo(f32(sg.x-d), f32(sg.y)).Close()
+			p.FillPath(dm, withAlpha(dark, 0.85))
+		}
+		gr := sg.r * 0.32
+		p.Fill(ui.Rect{X: f32(sg.x - gr), Y: f32(sg.y - sg.r*0.55 - gr), W: f32(2 * gr), H: f32(2 * gr)}, withAlpha(belly, 0.35), f32(gr))
 	}
 	glassBody(p, f, box, green, 1, 0.9)
-	// the head's eyes, toward where it goes, and its tongue when it erases
+	// the head's eyes, toward where it goes, and its tongue when it tastes the air or hisses
 	d := float32(1)
 	if g.left {
 		d = -1
 	}
 	er := max(1.2, box.W*0.13)
-	for _, oy := range []float32{0.28, 0.52} {
+	for _, oy := range []float32{0.28, 0.5} {
 		ex, ey := box.X+box.W/2+d*box.W*0.18, box.Y+box.H*oy
 		p.Fill(ui.Rect{X: ex - er, Y: ey - er, W: 2 * er, H: 2 * er}, ui.RGBA(255, 255, 255, 1), er)
-		p.Fill(ui.Rect{X: ex - er*0.5 + d*er*0.3, Y: ey - er*0.5, W: er, H: er}, ui.Hex("#052e16"), er/2)
+		p.Fill(ui.Rect{X: ex - er*0.5 + d*er*0.3, Y: ey - er*0.8, W: er, H: er * 1.6}, ui.Hex("#052e16"), er/2) // a slit
 	}
-	if tk := (tn - g.tongue) / 260; tk < 1 {
-		l := float32(math.Sin(tk*math.Pi)) * box.W * 1.2
+	if tk := (tn - g.tongue) / 320; tk < 1 {
+		l := float32(math.Sin(tk*math.Pi)) * box.W * 1.3
 		x0 := box.X + box.W/2 + d*box.W/2
 		y0 := box.Y + box.H*0.72
+		fork := float32(2 + 1.5*math.Sin(tn/40))
 		t := &ui.Path{}
-		t.MoveTo(x0, y0).LineTo(x0+d*l, y0).MoveTo(x0+d*l, y0).LineTo(x0+d*(l+3), y0-2).MoveTo(x0+d*l, y0).LineTo(x0+d*(l+3), y0+2)
+		t.MoveTo(x0, y0).LineTo(x0+d*l, y0).MoveTo(x0+d*l, y0).LineTo(x0+d*(l+3), y0-fork).MoveTo(x0+d*l, y0).LineTo(x0+d*(l+3), y0+fork)
 		p.StrokePath(t, 1.2, ui.Hex("#e11d48"))
 	}
-	if n > 1 || tn-g.tongue < 260 {
-		p.AnimationFrame()
-	}
+	p.AnimationFrame() // it slithers, always
 }
 
 // ---- Kedi ----

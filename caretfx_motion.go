@@ -11,7 +11,8 @@ import (
 //	Yay              the box on a spring after the caret: a coil between them, a bounce past where it goes
 //	Kuyruklu yıldız  a bright head with a tail that grows with the speed of writing and moving, shedding sparkles
 //	Mıknatıs         iron filings round the caret: drawn in and lined up as it writes, pushed away as it erases,
-//	                 loose when it rests (the letters themselves are the text's: they are not moved)
+//	                 loose when it rests; as its pull builds up it draws the letters beside it in, and at full
+//	                 strength it crackles with bolts
 
 // ---- Yay ----
 
@@ -150,11 +151,27 @@ type filing struct {
 	ang, r, rot, base float64 // where it is round the caret, how it lies, and its own rest
 }
 
+// arc is a bolt of the magnet at full strength: where it goes, and its zigzag, made again as it flickers.
+type arc struct {
+	tx, ty float64
+	pts    [][2]float64
+	until  float64 // ms: when it is drawn anew
+	gone   float64 // ms: when it goes
+}
+
 type magnet struct {
 	fxBase
-	fil  []filing
-	pull float64 // + drawn in, - pushed out
+	fil    []filing
+	pull   float64 // + drawn in, - pushed out: it builds up as writing goes on, and dies down as it rests
+	arcs   []arc
+	sparks motes
 }
+
+const (
+	magnetLetters = 6    // the letters either side of the caret it can pull
+	magnetGrip    = 0.25 // the strength from which it pulls letters
+	magnetBolts   = 0.62 // and from which it crackles
+)
 
 func newMagnet() *magnet {
 	m := &magnet{}
@@ -165,16 +182,16 @@ func newMagnet() *magnet {
 	return m
 }
 
-func (g *magnet) reset() { g.have = false }
+func (g *magnet) reset() { g.have, g.arcs, g.sparks = false, nil, nil }
 
-func (g *magnet) shift(dy float32) { g.prev.Y += dy }
+func (g *magnet) shift(dy float32) { g.prev.Y += dy; g.sparks.shift(dy) }
 
 func (g *magnet) draw(p *ui.Painter, f caretFrame, k kick) {
 	tn, dt, _, _ := g.step(p, f, k)
 	box := boxOf(f)
 	h := float64(box.H)
 	if k.wrote > 0 {
-		g.pull = math.Min(1, g.pull+0.25*float64(k.wrote))
+		g.pull = math.Min(1, g.pull+0.12*float64(k.wrote))
 	}
 	if k.erased > 0 {
 		g.pull = math.Max(-1, g.pull-0.5*float64(k.erased))
@@ -184,6 +201,32 @@ func (g *magnet) draw(p *ui.Painter, f caretFrame, k kick) {
 	grey := ui.Hex("#71717a")
 	if f.dark {
 		grey = ui.Hex("#a1a1aa")
+	}
+	// the letters near it, pulled toward it the harder it pulls: each is covered where it stands and drawn
+	// where the pull has it, leaning in
+	var targets [][2]float64
+	if grip := (g.pull - magnetGrip) / (1 - magnetGrip); grip > 0 && f.near != nil {
+		text := p.Theme().Text
+		for _, gl := range f.near(magnetLetters) {
+			off := math.Abs(float64(gl.off))
+			if gl.off >= 0 {
+				off += 1 // the caret is before the letter at 0
+			}
+			gx, gy := float64(gl.r.X+gl.r.W/2), float64(gl.r.Y+gl.r.H/2)
+			dx, dy := cx-gx, cy-gy
+			d := math.Max(1, math.Hypot(dx, dy))
+			reach := grip * h * 0.4 / (1 + 0.5*(off-1)) // the nearer, the further it comes, never into the caret
+			reach = math.Min(reach, d*0.45)
+			jit := 0.0
+			if g.pull > magnetBolts { // at full strength it trembles
+				jit = (rnd() - 0.5) * h * 0.06
+			}
+			nx, ny := gx+dx/d*reach+jit, gy+dy/d*reach+jit
+			lean := math.Copysign(math.Min(18, grip*14/off), dx) // degrees, toward the caret
+			p.Fill(ui.Rect{X: gl.r.X - 0.5, Y: gl.r.Y - 0.5, W: gl.r.W + 1, H: gl.r.H + 1}, f.bg, 0)
+			glyphAt(p, gl.ch, f32(nx), f32(ny), gl.size, text, false, lean*math.Pi/180, 1+0.08*grip/off)
+			targets = append(targets, [2]float64{nx, ny})
+		}
 	}
 	for i := range g.fil {
 		fl := &g.fil[i]
@@ -202,6 +245,66 @@ func (g *magnet) draw(p *ui.Painter, f caretFrame, k kick) {
 		ln.MoveTo(f32(x-dx), f32(y-dy)).LineTo(f32(x+dx), f32(y+dy))
 		p.StrokePath(ln, 1.3, withAlpha(grey, 0.45+0.45*align))
 	}
+	// at full strength it crackles: bolts that flicker out to the letters it holds and the air round it
+	if bolt := (g.pull - magnetBolts) / (1 - magnetBolts); bolt > 0 {
+		want := 1 + int(bolt*4)
+		for len(g.arcs) < want {
+			var t [2]float64
+			if len(targets) > 0 && rnd() < 0.6 {
+				t = targets[int(rnd()*float64(len(targets)))%len(targets)]
+			} else {
+				a := rnd() * 2 * math.Pi
+				r := h * (1.4 + rnd()*1.6)
+				t = [2]float64{cx + math.Cos(a)*r, cy + math.Sin(a)*r*0.7}
+			}
+			g.arcs = append(g.arcs, arc{tx: t[0], ty: t[1], gone: tn + 120 + rnd()*260})
+		}
+	}
+	blue, white := ui.Hex("#60a5fa"), ui.Hex("#eff6ff")
+	if !f.dark {
+		blue, white = ui.Hex("#2563eb"), ui.Hex("#93c5fd")
+	}
+	out := g.arcs[:0]
+	for _, a := range g.arcs {
+		if tn > a.gone || g.pull < magnetBolts {
+			continue
+		}
+		if tn > a.until { // the zigzag anew: a flicker
+			a.until = tn + 35 + rnd()*40
+			a.pts = a.pts[:0]
+			const steps = 7
+			dx, dy := a.tx-cx, a.ty-cy
+			l := math.Max(1, math.Hypot(dx, dy))
+			nx, ny := -dy/l, dx/l
+			for i := 0; i <= steps; i++ {
+				t := float64(i) / steps
+				j := 0.0
+				if i > 0 && i < steps {
+					j = (rnd() - 0.5) * l * 0.35 * math.Sin(t*math.Pi)
+				}
+				a.pts = append(a.pts, [2]float64{cx + dx*t + nx*j, cy + dy*t + ny*j})
+			}
+			if rnd() < 0.5 { // a spark where it strikes
+				g.sparks = append(g.sparks, mote{x: a.tx, y: a.ty, vx: (rnd() - 0.5) * 120, vy: (rnd() - 0.5) * 120, t0: tn, life: 260, size: 1.2 + rnd(), col: white})
+			}
+		}
+		bolt := &ui.Path{}
+		for i, pt := range a.pts {
+			if i == 0 {
+				bolt.MoveTo(f32(pt[0]), f32(pt[1]))
+			} else {
+				bolt.LineTo(f32(pt[0]), f32(pt[1]))
+			}
+		}
+		p.StrokePath(bolt, 4, withAlpha(blue, 0.18)) // its glow, and its core
+		p.StrokePath(bolt, 1.2, withAlpha(white, 0.95))
+		out = append(out, a)
+	}
+	g.arcs = out
+	g.sparks.stepDraw(p, tn, dt, func(m *mote, age float64) {
+		s := f32(m.size * (1 - age))
+		p.Fill(ui.Rect{X: f32(m.x) - s, Y: f32(m.y) - s, W: 2 * s, H: 2 * s}, withAlpha(m.col, 1-age), s)
+	})
 	// the magnet: red melting into blue, a faint field round it as it pulls
 	if g.pull > 0.05 {
 		for _, s := range []float64{1.2, 1.8} {
@@ -209,10 +312,14 @@ func (g *magnet) draw(p *ui.Painter, f caretFrame, k kick) {
 			p.Fill(ui.Rect{X: f32(cx - r), Y: f32(cy - r*0.7), W: f32(2 * r), H: f32(1.4 * r)}, withAlpha(ui.Hex("#ef4444"), 0.04*g.pull), f32(r))
 		}
 	}
-	glowAround(p, box, ui.Hex("#ef4444"), 0.5)
+	glow := 0.5
+	if g.pull > magnetBolts {
+		glow = 0.5 + 1.5*(g.pull-magnetBolts)/(1-magnetBolts)
+	}
+	glowAround(p, box, ui.Hex("#ef4444"), glow)
 	glassFill(p, shapeBody(box, f.style.bracket), ui.Hex("#ef4444"), ui.Hex("#3b82f6"), f.dark, 1) // glass: red melting into blue
 	glassGloss(p, box, f.dark, 1)
-	if math.Abs(g.pull) > 0.01 {
+	if math.Abs(g.pull) > 0.01 || len(g.arcs) > 0 || len(g.sparks) > 0 {
 		p.AnimationFrame()
 	}
 }

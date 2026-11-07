@@ -254,3 +254,70 @@ func (a *app) inputCaret(text string, caret int, size float32, weight int, left,
 	c.Y += top + max(0, (height-lh)/2)
 	return c, cw
 }
+
+// nearGlyph is a letter on the caret's line, where it is in the window, for a caret that moves letters (the
+// magnet): the letter and its box, and how far it is from the caret, in letters (- before it, + after).
+type nearGlyph struct {
+	ch   string
+	r    ui.Rect
+	off  int
+	size float32
+}
+
+// nearLetters are the letters of the caret's line within n of it, either side, as laid out in an editor whose
+// box is at (x, y) and w wide. Spaces and objects (a chip, a table) are not letters.
+func nearLetters(doc *richtext.Document, boxes []richtext.ParagraphBox, x, y, w float32, base ui.Font, th *richtext.Theme, n int) []nearGlyph {
+	_, caret := doc.Selection()
+	text := doc.Text()
+	var box richtext.ParagraphBox
+	found := false
+	for i, b := range boxes {
+		if b.Start <= caret && (i+1 == len(boxes) || caret < boxes[i+1].Start) {
+			box, found = b, true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	start, end := text.ParagraphRange(box.Start)
+	if caret > end || end-start > maxCaretParagraph {
+		return nil
+	}
+	var para richtext.Paragraph
+	for _, p := range text.Slice(start, end).Paragraphs() {
+		para = p
+		break
+	}
+	para.Style = text.ParagraphStyleAt(start)
+	l, left := longMemo.layout(doc, start, end-start, para, w, base, th)
+	var line string
+	for _, r := range para.Runs {
+		line += r.Text
+	}
+	runes := []rune(line)
+	at := func(i int) ui.Rect {
+		return l.CaretAt(ui.TextCaretPosition{Index: units(line, i), Affinity: ui.TextDownstream})
+	}
+	home := at(caret - start)
+	var out []nearGlyph
+	for i := max(0, caret-start-n); i < min(len(runes), caret-start+n); i++ {
+		r := runes[i]
+		if r == ' ' || r == '\t' || r == richtext.ObjectReplacement || r == '\n' {
+			continue
+		}
+		c0, c1 := at(i), at(i+1)
+		if math.Abs(float64(c0.Y-home.Y)) > 0.5 || c1.X <= c0.X { // on another line, or not laid out in a row
+			continue
+		}
+		gy, gh := c0.Y, c0.H
+		for _, ln := range l.Lines() {
+			if mid := c0.Y + c0.H/2; mid >= ln.Rect.Y && mid <= ln.Rect.Y+ln.Rect.H && ln.Ascent > 0 {
+				gy, gh = ln.Baseline-ln.Ascent, ln.Ascent+ln.Descent
+				break
+			}
+		}
+		out = append(out, nearGlyph{ch: string(r), r: ui.Rect{X: x + left + c0.X, Y: y + box.Top + gy, W: c1.X - c0.X, H: gh}, off: i - (caret - start), size: gh / 1.25})
+	}
+	return out
+}
