@@ -598,7 +598,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	cl := ryugo.From(c).Colors
 	focus := a.boardFocus
 	ui.Column(c.Key("board-wrap")).FillWidth().Children(func() { // the fades at its edges lie over the scroll
-		ui.ScrollHorizontal(c).TrackScroll(a.boardScroll).Children(func() {
+		a.scrolledSideways(c, "board:"+coll.Dir+"|"+v.ID, a.boardScroll, ui.ScrollHorizontal(c), func() {
 			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
 				for _, s := range append([]string{""}, pr.Options...) {
 					var col []*Page

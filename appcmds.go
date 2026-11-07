@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // The app's commands, in one list: the menu bar is made from it (menu.go), the window takes their keys
@@ -254,39 +252,4 @@ func (a *app) menuBarItems(group string) []*mygo.MenuItem {
 		}})
 	}
 	return out
-}
-
-// ---- through MCP ----
-
-type runCmdArgs struct {
-	Command string `json:"command" jsonschema:"the command's title, as list_commands gives it"`
-}
-
-// addCommandTools gives an agent the palette's commands: to list, and to run, as the user would from ⌘P.
-func (a *app) addCommandTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
-	mcp.AddTool(s, &mcp.Tool{Name: "list_commands", Description: "Lists the commands of the app's command palette (⌘P), for what is open now: each title, its key if it has one, and why it cannot run now if it cannot. The settings are commands too.", Annotations: ro},
-		func(ctx context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, any, error) {
-			type cmdInfo struct {
-				Title string `json:"title"`
-				Keys  string `json:"keys,omitempty"`
-				Off   string `json:"off,omitempty"`
-			}
-			var out []cmdInfo
-			a.do(func() error {
-				for _, it := range a.commands() {
-					out = append(out, cmdInfo{it.title, it.keys, it.off})
-				}
-				return nil
-			})
-			return result(out)
-		})
-	mcp.AddTool(s, &mcp.Tool{Name: "run_command", Description: "Runs a command of the app's command palette by its title (list_commands gives them), as the user would from ⌘P; the user sees it happen in their window."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in runCmdArgs) (*mcp.CallToolResult, any, error) {
-			ran := false
-			a.do(func() error { ran = a.runCommand(in.Command); return nil })
-			if !ran {
-				return nil, nil, errString("no such command, or it cannot run now: " + in.Command)
-			}
-			return result(map[string]any{"ran": in.Command})
-		})
 }

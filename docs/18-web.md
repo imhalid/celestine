@@ -43,6 +43,11 @@ ikincisi önbellekten.
 - `scripts/web.sh` çalışma alanında (`go.work`) `-mod=mod` yüzünden derlemiyordu: düzeltildi.
 - Denenmeyen: "Uygulamayı yükle" düğmesi (uygulama içi tarayıcı göstermiyor), Safari/Firefox.
 
+## 7 Kasım, akşam
+
+- wasm 33,0 → **28,5 MB** (brotli ≈5,3 MB): MCP sunucusu web derlemesinde yok (docs/17). Ayarlardaki MCP anahtarı web'de açılmadığını söyler.
+- Panonun yatay kaydırması da uygulamanın kendi çubuğunu kullanıyor.
+
 ## Tahmini kalan iş
 
 PWA'nın gerçek tarayıcıda denenmesi ve düzeltilmesi 1 gün, tarayıcı testleri (Chrome, Safari, Firefox; IME, pano, dokunmatik) 2 gün, klavye harf tuşlarının eşlemesi 1 gün.

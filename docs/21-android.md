@@ -32,6 +32,12 @@
 - APK temiz derlemede **35,8 MB**; artımlı hata ayıklama derlemesi eski wasm'ların yerini boş bırakıp 69 MB'a çıkabiliyor (`./gradlew clean`).
 - Hâlâ yok: dokunmatik uyarlama (dar ekranda kenar çubuğu yer kaplıyor), gerçek telefon denemesi.
 
+## 7 Kasım, akşam: gerçek telefonda
+
+- **Samsung Galaxy S21 (SM-G991B)**, USB ile: APK kuruldu ve açıldı; sayfa, üst çubuk ve durum çubuğu doğru yerde (sistem çubukları dolgu olarak),
+  hata kaydı yok. Telefonun ekranı sonradan kilitlendiği için dokunarak yazma ve açılış süresi telefonda ölçülmedi (emülatörde yazma denenmişti).
+- APK **31,0 MB** (MCP web derlemesinden çıktı). wasm APK içinde sıkıştırılırsa 11,4 MB olur; açılışa etkisi ölçülmeden açılmadı (docs/17).
+
 ## Yollar (araştırma)
 
 | Yol | İş | Artı | Eksi |

@@ -101,6 +101,7 @@ var enMore = map[string]string{
 	"Katla / aç": "Fold / unfold", "Sayfa ara": "Find a page", "Komutlar (⇧⌘P)": "Commands (⇧⌘P)",
 	"Bölmeyi ayrı pencereye al": "Move the pane to a window of its own", "Burada ayrı pencere açılamıyor": "No window of its own can be opened here",
 	"Bu bölme zaten ayrı bir pencerede": "This pane is in a window of its own already",
+	"Tarayıcıda MCP sunucusu açılamaz":  "A browser cannot run the MCP server",
 	"Burada hızlı not paneli yok":       "There is no quick note panel here",
 	"Açık sayfa yok":                    "No page is open", "Tek bölme var": "There is one pane", "Kaydırma çubuğu": "Scroll bar",
 	// themes, editor

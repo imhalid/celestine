@@ -52,8 +52,9 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
   istatistik, ara, etiket, görev, çöp, palet, menü, geçmiş, yan panel…): MyGo'nunki kapalı (`Scrollbars(false)`), çubuk alanın üstüne çizilir, alanın
   sağ kenarındaki görünmez bir şerit fareyi alır. Tasarım caret'lerle aynı aile, jöle: dururken ince ve soluk, bir süre sonra kaybolur; kaydırınca
   vurgu rengine yanar ve hızla orantılı olarak geldiği yöne uzar, durunca yaylanıp toplanır; üzerine gelince genişler, iki tutma noktası çıkar;
-  sürüklerken yanında yüzde balonu (%42). İzde bir tıklama oraya atlar. **Köşe ayarına uyar** (köşe 0'da kare). Yatay kaydırmalar (pano, kenara
-  taşan tablo) ve Dock'un içi hâlâ MyGo'nun ince çubuğu. Test görüntüyle bakıldı (kaydırma, dinlenme, üzerine gelme, sürükleme).
+  sürüklerken yanında yüzde balonu (%42). İzde bir tıklama oraya atlar. **Köşe ayarına uyar** (köşe 0'da kare). **Yatay (7 Kasım, akşam):** panonun
+  yatay kaydırması da aynı çubuğu kullanıyor, alt kenarında, yüzde balonu üstünde. Koleksiyonun tablo görünümü (Ryugo'nun `Table`'ı) hâlâ MyGo'nun
+  çubuğu: kaydırma durumu Ryugo'nun içinde ve dışarı açık değil, değiştirmek Ryugo'ya bir seçenek eklemeyi ve onu yayımlamayı gerektiriyor. Test görüntüyle bakıldı (kaydırma, dinlenme, üzerine gelme, sürükleme).
 - **Önceki not:** MyGo kaydırma çubuğunu tema üzerinden boyatıyor (`Theme.Scrollbar`, `ScrollbarWidth`); uygulamanın her çubuğu, editörünki de,
   tek yerden (`main.go`) aynı görünüşte: 7 pt, temanın soluk rengi. **Yapılamayan:** MyGo ucu her zaman hap şeklinde çiziyor
   (`scrollThumbFill`, yarıçap = genişlik/2); köşe ayarı çubuğa ulaşmıyor. Bunun için 18 kaydırma yerinin hepsini `Scrollbars(false)` ile kapatıp
