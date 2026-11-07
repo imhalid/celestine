@@ -17,7 +17,7 @@ import (
 //
 // It is a landscape: mountains, a lake under them, the sea, a forest, dunes and their
 // pyramids, mesas, a city, hills, windmills, a lighthouse, a snowy village, a volcano, a field,
-// islands, a neon horizon - in the light of an hour the seed picks too: dawn, morning, noon,
+// islands, a neon horizon, a beach seen from above - in the light of an hour the seed picks too: dawn, morning, noon,
 // a golden afternoon or dusk in the light theme; twilight, night or a moonlit night in the
 // dark, the moon in its phase of today. The picture is a print of two DIPs to a pixel,
 // ordered-dithered, as an old game's; over it, now and then, what lives in it moves, slowly
@@ -58,6 +58,26 @@ const (
 	sceneField
 	sceneIslands
 	sceneNeon
+	sceneBeach
+	sceneTerraces // the rest are in autocover_scenes.go
+	sceneRiver
+	sceneTulips
+	sceneZen
+	sceneIce
+	sceneReef
+	sceneHarbor
+	sceneCamp
+	sceneRail
+	sceneAutumn
+	sceneUnderwater
+	sceneSakura
+	sceneRain
+	sceneStorm
+	sceneBalloons
+	sceneAurora
+	sceneViaduct
+	sceneSpace
+	sceneMoonSea
 	sceneKinds
 )
 
@@ -407,9 +427,21 @@ type autoCover struct {
 	mills     [][3]float64 // a windmill's hub, and the length of its blades
 	millInk   rgb
 	smoke     [2]float64
+	shore     []float64 // the beach's: where the dry sand meets the water, a column's
+	sand      rgb       // the wet sand the waves run up
+	shallow   rgb
 	fireflies bool
 	shooting  bool
 	seed      uint64
+
+	season    int       // of the day it is made: 0 spring, 1 summer, 2 autumn, 3 winter
+	green     bool      // it has green in it, that the season turns
+	noSky     bool      // seen from above, or under water: no sky, no clouds, no stars
+	noWeather bool      // no snow, leaves or petals of the season
+	ownSky    bool      // its scene paints its own sky, and its own stars
+	leaves    bool      // autumn's leaves fall
+	petals    bool      // spring's petals drift
+	life      coverLife // what moves in the scenes of autocover_scenes.go
 }
 
 type coverCloud struct {
@@ -434,7 +466,8 @@ func newAutoCover(seed uint64, dark bool, th *coverTheme) *autoCover {
 // drawAutoCover is newAutoCover's landscape, and its picture.
 func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.RGBA) {
 	rng := splitmix(seed)
-	ac := &autoCover{scene: int(rng.next() % sceneKinds), dark: dark, seed: seed}
+	ac := &autoCover{scene: sceneOfSeed(seed), dark: dark, seed: seed, season: seasonOf(coverNow())}
+	rng.next()
 	if sceneOf >= 0 {
 		ac.scene = sceneOf
 	}
@@ -472,7 +505,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 	}
 	shine := 1.0 // how bright the light on the water is: the moon's by its phase
 	if l.night {
-		ph := moonPhase(time.Now())
+		ph := moonPhase(coverNow())
 		shine = 0.15 + 0.85*(1-math.Cos(ph*2*math.Pi))/2
 		for i := 0; i < 70; i++ {
 			s := coverStar{x: rng.f() * picW, y: rng.f() * picHz * 0.85, b: rng.in(0.3, 1), ph: rng.f() * 6.28}
@@ -488,7 +521,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 
 	haze := l.low
 	ground := func(base rgb, depth float64) rgb { // the land at depth (0 far, 1 near), in this light
-		c := base.mul(l.lit)
+		c := ac.seasonal(base).mul(l.lit)
 		if l.night {
 			c = c.mix(hexRGB("#0b1230"), 0.55)
 		}
@@ -547,7 +580,10 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 		ac.glint = true
 	}
 
+	k := &kit{cv: cv, rng: &rng, l: &l, ac: ac, ns: ns, sx: sx, sy: sy, shine: shine, ground: ground, ridge: ridge, sea: sea, reflect: reflect, water: &waterLine}
 	switch ac.scene {
+	default:
+		k.draw(ac.scene)
 	case sceneMountains:
 		rock := hexRGB("#6e7d9e")
 		for i := 0; i < 4; i++ {
@@ -863,6 +899,89 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 			}
 		}
 		ac.birds = !l.night
+	case sceneBeach:
+		// seen from above, from the land at the top to the sea at the foot: grass and trees,
+		// dry sand, the wet sand the waves run up, and the water, shallow and clear, then deep
+		ac.noSky = true
+		lit := rgb{255, 255, 255}.mix(l.lit, 0.35) // seen from above, the hour's light only tints it
+		in := func(hex string) rgb {
+			c := ac.seasonal(hexRGB(hex)).mul(lit)
+			if l.night {
+				c = c.mul(rgb{120, 135, 175}) // moonlight: darker, and blue
+			}
+			return c
+		}
+		dry, wet := in("#efe4d2"), in("#d9cbb6")
+		shallow, deep := in("#8fd6cf"), in("#1f8580")
+		grass, leaf := in("#6d9a45"), in("#5f9a40")
+		shade := in("#bfae98")
+		ac.sand, ac.shallow = wet, shallow
+		ac.shore = make([]float64, picW)
+		for x := range ac.shore {
+			fx := float64(x)
+			ac.shore[x] = 49 + 3*math.Sin(fx*0.011+1) + 4*fbm(ns+140, fx*0.02, 3)
+		}
+		for x := 0; x < picW; x++ {
+			sh := ac.shore[x]
+			for y := 0; y < picH; y++ {
+				fy := float64(y)
+				var c rgb
+				switch {
+				case fy < sh-7:
+					c = dry
+				case fy < sh:
+					c = dry.mix(wet, smooth(sh-7, sh-4, fy))
+				default: // the water deepens as it goes out
+					k := clamp01((fy - sh) / 46)
+					c = shallow.mix(deep, k*k*0.9+k*0.1)
+					// light on the bottom: a net of bright lines, as the sun through ripples
+					n := valueNoise(ns+150, float64(x)*0.09, fy*0.16) + 0.5*valueNoise(ns+151, float64(x)*0.21, fy*0.33)
+					if math.Abs(n-0.75) < 0.035 {
+						c = c.mix(hexRGB("#ffffff"), 0.22*(1-k*0.6))
+					}
+				}
+				cv.set(x, y, c, 1)
+			}
+		}
+		// the land: grass along the top, its edge ragged, and trees on the sand under it
+		edge := func(x float64) float64 { return 9 + 7*fbm(ns+160, x*0.03, 3) }
+		for x := 0; x < picW; x++ {
+			e := edge(float64(x))
+			for y := 0; y < int(e)+2; y++ {
+				cv.set(x, y+2, shade, 0.35) // its shadow on the sand
+			}
+			for y := 0; y < int(e); y++ {
+				cv.set(x, y, grass.mix(hexRGB("#3f6e2c"), 0.25*valueNoise(ns+161, float64(x)*0.3, float64(y)*0.3)), 1)
+			}
+		}
+		tree := func(cx, cy, r float64, palm bool) {
+			cv.disc(cx+r*0.5, cy+r*0.45, r, shade, 0.55) // its shadow, down and to the right
+			if palm {                                    // fronds from the middle, a star
+				for a := 0.0; a < 6.28; a += 6.28 / 7 {
+					for t := 0.0; t < r*1.2; t += 0.5 {
+						w := 1.0 - t/(r*1.4)
+						px, py := cx+math.Cos(a)*t, cy+math.Sin(a)*t
+						cv.disc(px, py, w, leaf.mix(hexRGB("#2f5a24"), 0.2), 1)
+					}
+				}
+				cv.disc(cx, cy, 1, hexRGB("#7a5a3a").mix(leaf, 0.3), 1)
+				return
+			}
+			cv.disc(cx, cy, r, leaf.mix(hexRGB("#2c5420"), 0.45), 1) // a round crown: dark at its rim,
+			cv.disc(cx-r*0.15, cy-r*0.15, r*0.78, leaf, 1)
+			cv.disc(cx-r*0.35, cy-r*0.35, r*0.38, leaf.mix(hexRGB("#c8e68a"), 0.35), 1) // lit from the top left
+		}
+		for x := rng.in(0, 6); x < picW; x += rng.in(7, 18) {
+			e := edge(x)
+			if rng.f() < 0.6 {
+				tree(x, e+rng.in(-2, 2), rng.in(5, 8.5), false)
+			}
+			if rng.f() < 0.45 { // a few out on the sand, smaller, palms among them
+				tree(x+rng.in(-4, 4), e+rng.in(8, 18), rng.in(3, 5), rng.f() < 0.5)
+			}
+		}
+		ac.birds = !l.night
+		ac.fireflies = false
 	case sceneNeon:
 		// the sun striped as it sets behind a grid; mountains in outline
 		const sr = 28
@@ -916,9 +1035,27 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 		}
 	}
 
+	if ac.green && !ac.noWeather { // the season's weather, where there is green for it
+		switch ac.season {
+		case 0:
+			ac.petals = true
+		case 2:
+			ac.leaves = true
+		case 3:
+			ac.snow = true
+		}
+	}
+	if ac.noSky {
+		ac.stars, ac.shooting = nil, false
+	}
+
 	// the stars that twinkle are those the land does not hide
 	seen := ac.stars[:0]
 	for _, st := range ac.stars {
+		if ac.ownSky {
+			seen = append(seen, st)
+			continue
+		}
 		if c, want := cv.get(int(st.x)+1, int(st.y)), skyAt[int(st.y)]; math.Abs(c[0]-want[0])+math.Abs(c[1]-want[1])+math.Abs(c[2]-want[2]) < 60 {
 			seen = append(seen, st)
 		}
@@ -930,7 +1067,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 	if l.night {
 		n = 1 + int(rng.next()%2)
 	}
-	if ac.scene == sceneNeon {
+	if ac.scene == sceneNeon || ac.noSky || ac.ownSky { // a neon night, a scene from above or with its own sky: no clouds
 		n = 0
 	}
 	for i := 0; i < n; i++ {
@@ -1077,6 +1214,7 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32), flip bool) {
 	const s = autoPx
 	white := rgb{255, 255, 255}
+	ac.paintScene(pt, t, at, flip)
 	for _, c := range ac.clouds { // clouds drift, and come round again
 		x, y := at(math.Mod(c.x+t*c.speed, picW+c.w)-c.w, c.y)
 		w := f32(c.w * s)
@@ -1183,6 +1321,56 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 				c = rgb{70, 66, 76}
 			}
 			pt.Fill(ui.Rect{X: x - r, Y: y - r, W: 2 * r, H: 2 * r}, c.ui(0.5*(1-k)), r)
+		}
+	}
+	if ac.shore != nil { // the waves run up the sand and draw back, their foam ahead of them
+		const col = 2 // pixels a column
+		foam := rgb{255, 255, 255}
+		for x := 0; x < picW; x += col {
+			sh := ac.shore[x]
+			// how far up it runs here now: a slow swell, a little ahead along the beach
+			up := 3 + 3*math.Sin(t*0.9-float64(x)*0.012) + 1.2*math.Sin(t*1.7+float64(x)*0.05)
+			front := math.Round(sh - up)
+			px, py := at(float64(x), front)
+			if flip {
+				px -= col * s
+			}
+			h := f32((sh - front) * s)
+			if h > 0 {
+				pt.Fill(ui.Rect{X: px, Y: py, W: col * s, H: h}, ac.shallow.ui(0.72), 0) // the water over the sand
+			}
+			pt.Fill(ui.Rect{X: px, Y: py - s, W: col * s, H: 2 * s}, foam.ui(0.92), 0) // its edge, foam
+			// lace behind it, that breaks up and joins
+			lace := valueNoise(ac.seed^0x1ace, float64(x)*0.15, t*0.4)
+			if lace > 0.45 {
+				pt.Fill(ui.Rect{X: px, Y: py + 2*s, W: col * s, H: s}, foam.ui(0.6), 0)
+			}
+			if lace < 0.3 {
+				pt.Fill(ui.Rect{X: px, Y: py + 4*s, W: col * s, H: s}, foam.ui(0.4), 0)
+			}
+			// the swell itself, a line of light a little out, coming in
+			k := math.Mod(t*0.25+float64(x)*0.0005, 1)
+			_, wy := at(float64(x), sh+4+(1-k)*14)
+			pt.Fill(ui.Rect{X: px, Y: wy, W: col * s, H: s}, foam.ui(0.28*math.Sin(k*math.Pi)), 0)
+		}
+		r := splitmix(ac.seed ^ 0xf15)
+		ink := rgb{18, 70, 72}.ui(0.55)
+		for i := 0; i < 14; i++ { // fish, a few on their own and a shoal, slowly along
+			fx, fy, v := r.f()*picW, r.in(66, 92), r.in(1.5, 4)
+			if i >= 8 { // the shoal
+				fx, fy, v = 400+float64(i%3)*5, 74+float64(i/3)*3, 3
+			}
+			x := math.Mod(fx+t*v, picW+20) - 10
+			y := fy + math.Sin(t*0.6+float64(i))*1.5
+			hx, hy := at(x, y)
+			tx, _ := at(x-2, y)
+			pt.Fill(ui.Rect{X: min(hx, tx), Y: hy, W: 3 * s, H: s}, ink, 0)
+			wag := float32(0)
+			if math.Sin(t*5+float64(i)) > 0 {
+				wag = s
+			}
+			tail, _ := at(x-3, y)
+			pt.Fill(ui.Rect{X: tail, Y: hy - s/2 + wag - s/2, W: s, H: s}, ink, 0)
 		}
 	}
 	if ac.fireflies { // fireflies wander low, and blink

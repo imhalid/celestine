@@ -407,7 +407,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		})
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
-		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen bir manzara alır: dağlar, göl, deniz, orman, çöl, şehir, yel değirmenleri, fener, karlı köy… Açık temada gündüzün bir saati, koyuda gece ve bugünün ayı; bulutlar, yıldızlar, kuşlar yavaşça kıpırdar. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen bir manzara alır: dağlar, göl, sahil, orman, şehir, Japon bahçesi, mercan resifi, balonlar, kuzey ışıkları, uzay… Açık temada gündüzün bir saati, koyuda gece ve bugünün ayı; mevsim de bugünün. Bulutlar, kuşlar, trenler, balıklar yavaşça kıpırdar. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
 		})
 	})

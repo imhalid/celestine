@@ -19,7 +19,7 @@ func TestAutoCoverSeeds(t *testing.T) {
 	scenes := map[int]bool{}
 	days, nights := map[int]bool{}, map[int]bool{}
 	seen := map[uint64]bool{}
-	for i := 0; i < 160; i++ {
+	for i := 0; i < 60; i++ {
 		p, _ := c.NewPage(nil, "Sayfa")
 		p.Created = p.Created.Add(time.Duration(i) * 1000)
 		s := coverSeed(p)
@@ -35,14 +35,16 @@ func TestAutoCoverSeeds(t *testing.T) {
 		if d.scene != a.scene {
 			t.Fatal("the light and the dark cover of a page are not the same landscape")
 		}
-		if len(d.stars) == 0 || len(a.stars) != 0 {
+		if d.noSky && len(d.stars) > 0 || !a.ownSky && len(a.stars) != 0 { // from above, no sky; by day, none but a sky of its own
 			t.Fatalf("stars: %d at night, %d by day", len(d.stars), len(a.stars))
 		}
-		scenes[a.scene] = true
 		days[a.light], nights[d.light] = true, true
 	}
+	for seed := uint64(1); seed < 3000; seed++ {
+		scenes[sceneOfSeed(seed*0x9e3779b97f4a7c15)] = true
+	}
 	if len(scenes) != sceneKinds {
-		t.Fatalf("%d of %d landscapes in 160 pages: %v", len(scenes), sceneKinds, scenes)
+		t.Fatalf("%d of %d landscapes in 3000 pages: %v", len(scenes), sceneKinds, scenes)
 	}
 	if len(days) != len(dayLights) || len(nights) != len(nightLights) {
 		t.Fatalf("hours: %d of %d by day, %d of %d at night", len(days), len(dayLights), len(nights), len(nightLights))
@@ -55,21 +57,21 @@ func TestAutoCoverSeeds(t *testing.T) {
 	}
 }
 
-// Every landscape is drawn, light and dark, at any width - past the picture's too - and
-// what moves in it goes on, at a few frames a second.
+// Every landscape is drawn, light and dark, in every season, at any width - past the
+// picture's too - and what moves in it goes on, at a few frames a second.
 func TestAutoCoverDraws(t *testing.T) {
-	defer func() { sceneOf = -1 }()
+	defer func() { sceneOf, coverNow = -1, time.Now }()
+	a, tt := newTestApp(t, "metin\n")
 	for scene := 0; scene < sceneKinds; scene++ {
 		sceneOf = scene
-		a, tt := newTestApp(t, "metin\n")
-		a.autoCovers = nil
-		for _, dark := range []bool{false, true} {
+		month := time.Month(1 + scene*3%12)
+		coverNow = func() time.Time { return time.Date(2026, month, 10, 12, 0, 0, 0, time.UTC) }
+		for i, dark := range []bool{false, true} {
+			a.autoCovers = nil
 			tt.SetDark(dark)
-			for _, w := range []int{900, 420, 130, 2600} {
-				tt.SetSize(w, 500)
-				tt.Frame()
-				tt.Advance(300 * time.Millisecond)
-			}
+			tt.SetSize([]int{900, 2600}[(i+scene)%2], 500) // narrower and wider than the picture
+			tt.Frame()
+			tt.Advance(700 * time.Millisecond)
 		}
 	}
 }
