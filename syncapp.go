@@ -273,6 +273,9 @@ func (a *app) settingsSync(c *ui.Context) {
 		ui.Text(c, T("Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.")).FontSize(13).TextColor(cl.Muted).Wrap()
 		return
 	}
+	if s.SyncMode == "server" {
+		a.accountSection(c)
+	}
 	dir, url, token := s.SyncDir, s.SyncURL, s.SyncToken
 	field := func(key, label string, v *string, secret bool) func() {
 		return func() {
@@ -287,40 +290,46 @@ func (a *app) settingsSync(c *ui.Context) {
 	if s.SyncMode == "dir" {
 		rows = append(rows, field("sync-dir", "Klasör", &dir, false))
 	} else {
-		rows = append(rows, field("sync-url", "Sunucu adresi (https://…)", &url, false), field("sync-token", "Bu cihazın jetonu", &token, true))
+		if s.AccountUser == "" {
+			rows = append(rows, field("sync-url", "Sunucu adresi (https://…) — hesapsız, jetonla", &url, false), field("sync-token", "Bu cihazın jetonu", &token, true))
+		}
 	}
-	settingGroup(c, "set-sync-where", rows...)
+	if len(rows) > 0 {
+		settingGroup(c, "set-sync-where", rows...)
+	}
 	if dir != s.SyncDir || url != s.SyncURL || token != s.SyncToken {
 		s.SyncDir, s.SyncURL, s.SyncToken = dir, url, token
 		a.saveSettingsSoon()
 	}
 	// encryption
 	enc := s.SyncKey != ""
-	settingGroup(c, "set-sync-enc",
-		func() {
-			settingRow(c, "Uçtan uca şifreleme", "Dosyalar bu bilgisayarda şifrelenir, adları da gizlenir: sunucu ya da klasör yalnız anlamsız bloklar görür. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
-				on := enc
-				ryugo.Switch(c.Key("sync-enc"), &on, ryugo.SwitchOptions{}).Label(T("Uçtan uca şifreleme"))
-				if on != enc && !on {
-					s.SyncKey = ""
-					a.saveSettings()
-				} else if on != enc {
-					a.sy.hasKey = true
+	if s.AccountUser == "" { // with an account the key is the account's: nothing to type
+		settingGroup(c, "set-sync-enc",
+			func() {
+				settingRow(c, "Uçtan uca şifreleme", "Dosyalar bu bilgisayarda şifrelenir, adları da gizlenir: sunucu ya da klasör yalnız anlamsız bloklar görür. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
+					on := enc
+					ryugo.Switch(c.Key("sync-enc"), &on, ryugo.SwitchOptions{}).Label(T("Uçtan uca şifreleme"))
+					if on != enc && !on {
+						s.SyncKey = ""
+						a.saveSettings()
+					} else if on != enc {
+						a.sy.hasKey = true
+					}
+				})
+			},
+			func() {
+				if !(enc || a.sy.hasKey) {
+					ui.Text(c, T("Kapalı: dosyalar olduğu gibi gider.")).FontSize(12.5).TextColor(cl.Muted)
+					return
 				}
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"})
+					if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						a.setSyncPassphrase(a.sy.pass)
+					}
+				})
 			})
-		},
-		func() {
-			if !(enc || a.sy.hasKey) {
-				ui.Text(c, T("Kapalı: dosyalar olduğu gibi gider.")).FontSize(12.5).TextColor(cl.Muted)
-				return
-			}
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"})
-				if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.setSyncPassphrase(a.sy.pass)
-				}
-			})
-		})
+	}
 	if a.sy.recovery != "" {
 		settingGroup(c, "set-sync-recovery", func() {
 			settingRow(c, "Kurtarma anahtarı: bir yere yaz", a.sy.recovery, func() {

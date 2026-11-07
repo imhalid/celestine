@@ -1,0 +1,239 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestAcctKeys(t *testing.T) {
+	a1, k1, err := acctKeys("Ali", "gizli parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2, k2, _ := acctKeys(" ali ", "gizli parola")
+	if a1 != a2 || !bytes.Equal(k1, k2) {
+		t.Fatal("the name's case and spaces changed the keys")
+	}
+	a3, k3, _ := acctKeys("ali", "başka parola")
+	if a1 == a3 || bytes.Equal(k1, k3) {
+		t.Fatal("two passwords gave the same keys")
+	}
+	if len(a1) != 64 || strings.Trim(a1, "0123456789abcdef") != "" {
+		t.Fatalf("auth is not 64 hex: %q", a1)
+	}
+	if bytes.Equal(k1, mustHex(t, a1)) {
+		t.Fatal("the key that seals the data key is the proof sent to the server")
+	}
+	data := bytes.Repeat([]byte{7}, 32)
+	w, err := wrapDataKey(k1, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := unwrapDataKey(k1, w); err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("unwrap: %v", err)
+	}
+	if _, err := unwrapDataKey(k3, w); err == nil {
+		t.Fatal("a wrong key opened the sealed data key")
+	}
+	if !validWrappedShape(w) {
+		t.Fatalf("a sealed key of %d characters is outside what the server takes", len(w))
+	}
+}
+
+func mustHex(t *testing.T, s string) []byte {
+	t.Helper()
+	var b []byte
+	if _, err := fmt.Sscanf(s, "%x", &b); err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// the server takes 20..400 characters of base64
+func validWrappedShape(s string) bool { return len(s) >= 20 && len(s) <= 400 }
+
+// The whole life of an account against a real Worker (wrangler dev, or the live one), left out unless asked for:
+//
+//	RYUDIT_SYNC_URL=http://localhost:8799 RYUDIT_ADMIN_TOKEN=… go test -run TestAccountLive -v
+func TestAccountLive(t *testing.T) {
+	base, admin := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_ADMIN_TOKEN")
+	if base == "" || admin == "" {
+		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
+	}
+	allowHTTP = strings.HasPrefix(base, "http://")
+	defer func() { allowHTTP = false }()
+	cl := newAcctClient(base)
+	stamp := fmt.Sprint(time.Now().UnixNano())
+	email, user := "deneme-"+stamp+"@example.com", "deneme"+stamp[len(stamp)-8:]
+
+	post := func(path, bearer string, in, out any) error {
+		b, _ := json.Marshal(in)
+		req, _ := http.NewRequest("POST", base+path, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		if bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode/100 != 2 {
+			return fmt.Errorf("%s: %d", path, resp.StatusCode)
+		}
+		if out != nil {
+			return json.NewDecoder(resp.Body).Decode(out)
+		}
+		return nil
+	}
+	if err := post("/api/waitlist", "", map[string]string{"email": email}, nil); err != nil {
+		t.Fatal(err)
+	}
+	// the administrator finds the one that was just written, and approves it
+	req, _ := http.NewRequest("GET", base+"/api/admin/waitlist?status=pending", nil)
+	req.Header.Set("Authorization", "Bearer "+admin)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("admin list: %v %v", err, resp)
+	}
+	var list []struct {
+		ID    int    `json:"id"`
+		Email string `json:"email"`
+	}
+	json.NewDecoder(resp.Body).Decode(&list)
+	resp.Body.Close()
+	id := 0
+	for _, w := range list {
+		if w.Email == email {
+			id = w.ID
+		}
+	}
+	if id == 0 {
+		t.Fatal("the signup is not on the waitlist")
+	}
+	var approved struct {
+		Code string `json:"code"`
+	}
+	if err := post(fmt.Sprintf("/api/admin/waitlist/%d/approve", id), admin, struct{}{}, &approved); err != nil || !strings.HasPrefix(approved.Code, "RYU-") || len(approved.Code) != 10 {
+		t.Fatalf("approve: %v %+v", err, approved)
+	}
+
+	if _, _, err := cl.Register(user, "parola-1234", "RYU-ZZZZZZ"); err == nil {
+		t.Fatal("a wrong code opened an account")
+	}
+	tokA, keyA, err := cl.Register(user, "parola-1234", strings.ToLower(approved.Code))
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if _, _, err := cl.Register(user+"x", "parola-1234", approved.Code); err == nil {
+		t.Fatal("an invite code was used twice")
+	}
+	// a second computer: the same key comes back, opened with the password
+	tokB, keyB, err := cl.Login(user, "parola-1234")
+	if err != nil || !bytes.Equal(keyA, keyB) {
+		t.Fatalf("login: %v, same key: %v", err, bytes.Equal(keyA, keyB))
+	}
+	if _, _, err := cl.Login(user, "yanlış"); err == nil {
+		t.Fatal("a wrong password signed in")
+	}
+
+	// sealed files go from one computer to the other, through the account's prefix
+	a, b := newDevice(t), newDevice(t)
+	a.write("Not/Gizli/page.json", "hesap ile şifreli")
+	mk := func(tok string, key []byte) Remote {
+		e, err := newEncRemote(newHTTPRemote(base, tok), key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	if r := a.sync(mk(tokA, keyA)); r.Pushed != 1 {
+		t.Fatalf("push: %+v", r)
+	}
+	if r := b.sync(mk(tokB, keyB)); r.Pulled != 1 || b.read("Not/Gizli/page.json") != "hesap ile şifreli" {
+		t.Fatalf("pull: %+v", r)
+	}
+	me, err := cl.Me(tokA)
+	if err != nil || me.Username != user || me.Bytes == 0 || len(me.Devices) != 2 {
+		t.Fatalf("me: %v %+v", err, me)
+	}
+
+	// changing the password: the data key stays, the other computer is signed out, the old password is no good
+	if err := cl.ChangePassword(tokA, user, "yanlış", "yeni-parola-1", keyA); err == nil {
+		t.Fatal("the password changed with a wrong old one")
+	}
+	if err := cl.ChangePassword(tokA, user, "parola-1234", "yeni-parola-1", keyA); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cl.Me(tokB); err == nil {
+		t.Fatal("the other computer stayed signed in")
+	}
+	if _, _, err := cl.Login(user, "parola-1234"); err == nil {
+		t.Fatal("the old password still signs in")
+	}
+	tokC, keyC, err := cl.Login(user, "yeni-parola-1")
+	if err != nil || !bytes.Equal(keyA, keyC) {
+		t.Fatalf("new password: %v, same key: %v", err, bytes.Equal(keyA, keyC))
+	}
+	// removing a device, then deleting the account takes the files with it
+	me, _ = cl.Me(tokC)
+	for _, d := range me.Devices {
+		if !d.Current && d.Name != "" && len(me.Devices) > 1 {
+			if err := cl.RemoveDevice(tokC, d.ID); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
+	}
+	if err := cl.DeleteAccount(tokC, user, "yanlış"); err == nil {
+		t.Fatal("the account was deleted with a wrong password")
+	}
+	if err := cl.DeleteAccount(tokC, user, "yeni-parola-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := cl.Login(user, "yeni-parola-1"); err == nil {
+		t.Fatal("a deleted account signed in")
+	}
+	if _, err := newHTTPRemote(base, tokC).List(); err == nil {
+		t.Fatal("a deleted account's token listed files")
+	}
+}
+
+// The sync settings, with the server chosen: no account yet, the form is there; with one, the account is.
+func TestAccountSettingsPage(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settings.SyncMode = "server"
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	for _, want := range []string{"Giriş yap", "Hesap aç", "Kullanıcı adı", "Şifre"} {
+		if !tt.HasText(want) {
+			t.Errorf("signed out: no %q: %v", want, tt.Texts())
+		}
+	}
+	a.ac.mode = "register"
+	tt.Frame()
+	if !tt.HasText("Davet kodu") {
+		t.Errorf("register: no invite code field: %v", tt.Texts())
+	}
+
+	a.settings.AccountUser, a.settings.SyncToken, a.ac.meAt = "ali", "tok", time.Now() // no call to a server
+	a.ac.me = &AcctMe{Username: "ali", Bytes: 5 << 20, Quota: 200 << 20, Devices: []DeviceInfo{{ID: "aaaaaaaaaaaa", Name: "MacBook", Seen: 1, Current: true}, {ID: "bbbbbbbbbbbb", Name: "Telefon", Seen: 1}}}
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	for _, want := range []string{"Hesap: ali", "Çıkış yap", "Şifreyi değiştir", "Hesabı sil", "MacBook", "Telefon"} {
+		if !tt.HasText(want) {
+			t.Errorf("signed in: no %q: %v", want, tt.Texts())
+		}
+	}
+	if tt.HasText("Bu cihazın jetonu") || tt.HasText("Uçtan uca şifreleme") {
+		t.Error("the token and passphrase rows show with an account")
+	}
+}
