@@ -72,6 +72,7 @@ type caretFrame struct {
 	size   float32                 // the size of the letters on the caret's line; 0: not known
 	style  caretStyle              // the text under the caret
 	near   func(n int) []nearGlyph // the letters of its line within n of it; nil where there are none (a field, a demo)
+	words  caretText               // the text round it: the word just written, its paragraph's words, where a word is; nil as near
 }
 
 // titleCaretSpec is the caret in the page's title, as it was found: where it
@@ -95,6 +96,8 @@ type app struct {
 	bars     map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
 	titles   titleIdx                // the pages by their titles, for the chips (chips.go)
 	nearFn   func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	wordsFn  caretText               // and the words round it
+	caretTry caretTry                // the caret's playground in the settings (caretplay.go)
 	census   census                  // the sidebar's tree, counted once a frame (sidebar.go)
 	frameSeq uint64                  // the frames built, counted
 
@@ -1156,8 +1159,9 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
 	doc, boxes, font, th := a.doc, a.boxes, a.font, a.theme
 	a.nearFn = func(n int) []nearGlyph { return nearLetters(doc, boxes, r.X, r.Y, r.W, font, th, n) }
+	a.wordsFn = &caretWords{doc: doc, boxes: boxes, x: r.X, y: r.Y, w: r.W, font: font, th: th}
 	a.paintCaret(p, cr, cb.cw, r, k, false)
-	a.nearFn = nil
+	a.nearFn, a.wordsFn = nil, nil
 }
 
 // paintCaret draws the caret cr, in the editor's box bounds (or an input's):
@@ -1169,7 +1173,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
 		return
 	}
-	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style, near: a.nearFn}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style, near: a.nearFn, words: a.wordsFn}
 	// the jelly, when it is on, is the shape of the caret's own body (the slime is jelly already)
 	if a.settings.Jelly && a.caretKind != caretSlime {
 		f.jelly = a.jellied.body(p, f)

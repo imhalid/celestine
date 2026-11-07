@@ -360,6 +360,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
+				a.caretPlayground(c) // over the tiles: a tile chosen is tried here at once, as it is in the text
 				ui.Row(c).Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
@@ -406,7 +407,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		})
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
-		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen hareketsiz bir mozaik kapak alır: açık temada pastel, koyuda derin yumuşak renklerde, hepsi birbirinden farklı. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen bir manzara alır: dağlar, göl, deniz, orman, çöl, şehir, yel değirmenleri, fener, karlı köy… Açık temada gündüzün bir saati, koyuda gece ve bugünün ayı; bulutlar, yıldızlar, kuşlar yavaşça kıpırdar. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
 		})
 	})

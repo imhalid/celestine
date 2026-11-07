@@ -75,6 +75,33 @@ func init() {
 		// cute (caretfx_cute.go)
 		{"Kawaii", func() caretFX { return newKawaii() }},
 		{"UwU", func() caretFX { return newUwu() }},
+		// the words (caretfx_repeat.go)
+		{"Tekrar", func() caretFX { return newRepeats() }},
+		// moving the letters (caretfx_letters.go)
+		{"Dalga", func() caretFX { return newWave() }},
+		{"Rüzgâr", func() caretFX { return newWind() }},
+		{"Yerçekimi", func() caretFX { return newGravity() }},
+		{"Domino", func() caretFX { return newDomino() }},
+		{"Jöle satır", func() caretFX { return newJellyLine() }},
+		{"Kar küresi", func() caretFX { return newSnowGlobe() }},
+		// light (caretfx_light.go)
+		{"Spot ışığı", func() caretFX { return newSpotlight() }},
+		{"Neon tabela", func() caretFX { return newNeon() }},
+		{"Kuzey ışıkları", func() caretFX { return newAurora() }},
+		{"Gökkuşağı izi", func() caretFX { return newRainbowTrail() }},
+		// more games (caretfx_arcade.go)
+		{"Hayalet", func() caretFX { return newGhost() }},
+		{"Space Invaders", func() caretFX { return newInvaders() }},
+		{"Balık", func() caretFX { return newFish() }},
+		{"Arı", func() caretFX { return newBee() }},
+		{"Robot", func() caretFX { return newRobot() }},
+		// rhythm and time (caretfx_rhythm.go)
+		{"Ekolayzır", func() caretFX { return newEqualizer() }},
+		{"Metronom", func() caretFX { return newMetronome() }},
+		{"Davul", func() caretFX { return newDrum() }},
+		{"Kum saati", func() caretFX { return newHourglass() }},
+		{"Kelime sayacı", func() caretFX { return newWordBadge() }},
+		{"Yazım ısısı", func() caretFX { return newWritingHeat() }},
 	}
 }
 

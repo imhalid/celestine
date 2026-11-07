@@ -9,17 +9,17 @@ import (
 )
 
 // A page's made cover is its own: the same page always gets the same one, other pages
-// get others, and every way the tiles lie turns up.
+// get others, and every landscape and every hour turns up.
 func TestAutoCoverSeeds(t *testing.T) {
 	lib, err := OpenLibrary(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	c, _ := lib.NewCollection("K")
-	styles := map[int]bool{}
-	themes := map[int]bool{}
+	scenes := map[int]bool{}
+	days, nights := map[int]bool{}, map[int]bool{}
 	seen := map[uint64]bool{}
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 160; i++ {
 		p, _ := c.NewPage(nil, "Sayfa")
 		p.Created = p.Created.Add(time.Duration(i) * 1000)
 		s := coverSeed(p)
@@ -28,20 +28,24 @@ func TestAutoCoverSeeds(t *testing.T) {
 		}
 		seen[s] = true
 		a, b := newAutoCover(s, false, nil), newAutoCover(s, false, nil)
-		if a.style != b.style || a.hue != b.hue || a.theme != b.theme {
+		if a.scene != b.scene || a.light != b.light || len(a.clouds) != len(b.clouds) {
 			t.Fatal("a seed does not give the same cover")
 		}
-		if d := newAutoCover(s, true, nil); d.style != a.style || d.hue != a.hue || d.theme != a.theme {
-			t.Fatal("the light and the dark cover of a page are not the same pattern")
+		d := newAutoCover(s, true, nil)
+		if d.scene != a.scene {
+			t.Fatal("the light and the dark cover of a page are not the same landscape")
 		}
-		styles[a.style] = true
-		themes[a.theme] = true
+		if len(d.stars) == 0 || len(a.stars) != 0 {
+			t.Fatalf("stars: %d at night, %d by day", len(d.stars), len(a.stars))
+		}
+		scenes[a.scene] = true
+		days[a.light], nights[d.light] = true, true
 	}
-	if len(styles) != mosaicKinds {
-		t.Fatalf("%d of %d styles in 60 pages: %v", len(styles), mosaicKinds, styles)
+	if len(scenes) != sceneKinds {
+		t.Fatalf("%d of %d landscapes in 160 pages: %v", len(scenes), sceneKinds, scenes)
 	}
-	if len(themes) != len(coverThemes) {
-		t.Fatalf("%d of %d themes in 60 pages", len(themes), len(coverThemes))
+	if len(days) != len(dayLights) || len(nights) != len(nightLights) {
+		t.Fatalf("hours: %d of %d by day, %d of %d at night", len(days), len(dayLights), len(nights), len(nightLights))
 	}
 	p, _ := c.NewPage(nil, "Ad")
 	was := coverSeed(p)
@@ -51,11 +55,12 @@ func TestAutoCoverSeeds(t *testing.T) {
 	}
 }
 
-// Every style is drawn, light and dark, at any width - past the picture's too.
+// Every landscape is drawn, light and dark, at any width - past the picture's too - and
+// what moves in it goes on, at a few frames a second.
 func TestAutoCoverDraws(t *testing.T) {
-	defer func() { styleOf = -1 }()
-	for style := 0; style < mosaicKinds; style++ {
-		styleOf = style
+	defer func() { sceneOf = -1 }()
+	for scene := 0; scene < sceneKinds; scene++ {
+		sceneOf = scene
 		a, tt := newTestApp(t, "metin\n")
 		a.autoCovers = nil
 		for _, dark := range []bool{false, true} {
@@ -63,8 +68,20 @@ func TestAutoCoverDraws(t *testing.T) {
 			for _, w := range []int{900, 420, 130, 2600} {
 				tt.SetSize(w, 500)
 				tt.Frame()
+				tt.Advance(300 * time.Millisecond)
 			}
 		}
+	}
+}
+
+// The moon's phase is today's: new on a known new moon, full half a month on.
+func TestMoonPhase(t *testing.T) {
+	newMoon := time.Date(2024, 1, 11, 11, 57, 0, 0, time.UTC)
+	if ph := moonPhase(newMoon); ph > 0.01 && ph < 0.99 {
+		t.Fatalf("a new moon's phase: %v", ph)
+	}
+	if ph := moonPhase(newMoon.Add(354 * time.Hour)); math.Abs(ph-0.5) > 0.02 {
+		t.Fatalf("a full moon's phase: %v", ph)
 	}
 }
 
@@ -115,21 +132,5 @@ func TestAutoCoverKinds(t *testing.T) {
 	a.settings.NoAutoCover = true
 	if a.coverKind(p) != coverKindNone {
 		t.Fatal("the setting off still gives a made cover")
-	}
-}
-
-// The seed picks a page's theme, its two hues moved a little by the seed; the picks differ
-// from page to page and cover the themes.
-func TestAutoCoverThemes(t *testing.T) {
-	picked := map[int]bool{}
-	for seed := uint64(1); seed < 80; seed++ {
-		ac := newAutoCover(seed*104729, true, nil)
-		picked[ac.theme] = true
-		if d := math.Abs(ac.hue - coverThemes[ac.theme].h1); d > 9.01 {
-			t.Fatalf("%s: a page's hue is %v from the theme's", coverThemes[ac.theme].name, d)
-		}
-	}
-	if len(picked) < len(coverThemes)-1 {
-		t.Fatalf("the seed picks %d of %d themes in 80 pages", len(picked), len(coverThemes))
 	}
 }

@@ -103,8 +103,10 @@ var enMore = map[string]string{
 	"Bu bölme zaten ayrı bir pencerede": "This pane is in a window of its own already",
 	"Tarayıcıda MCP sunucusu açılamaz":  "A browser cannot run the MCP server",
 	"Çekmeceyi kapat":                   "Close the drawer", "Menü": "Menu", "Telefonda yok": "Not on a phone",
-	"Burada hızlı not paneli yok": "There is no quick note panel here",
-	"Açık sayfa yok":              "No page is open", "Tek bölme var": "There is one pane", "Kaydırma çubuğu": "Scroll bar",
+	"Burada dene": "Try it here", "Careti dene": "Try the caret",
+	"Boşluk, Enter, silme ve hızlı yazma, her caret kendi tepkisini verir.": "A space, Enter, erasing and quick writing: each caret answers in its own way.",
+	"Burada hızlı not paneli yok":                                           "There is no quick note panel here",
+	"Açık sayfa yok":                                                        "No page is open", "Tek bölme var": "There is one pane", "Kaydırma çubuğu": "Scroll bar",
 	// themes, editor
 	"Renk teması": "Color theme",
 	"Bütün arayüzün rengi: sayfa, kenar çubuğu, alanlar, çizgiler ve vurgu. ": "The color of the whole interface: page, sidebar, fields, lines and accent. ",

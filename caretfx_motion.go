@@ -224,7 +224,7 @@ func (g *magnet) draw(p *ui.Painter, f caretFrame, k kick) {
 			nx, ny := gx+dx/d*reach+jit, gy+dy/d*reach+jit
 			lean := math.Copysign(math.Min(18, grip*14/off), dx) // degrees, toward the caret
 			p.Fill(ui.Rect{X: gl.r.X - 0.5, Y: gl.r.Y - 0.5, W: gl.r.W + 1, H: gl.r.H + 1}, f.bg, 0)
-			glyphAt(p, gl.ch, f32(nx), f32(ny), gl.size, text, false, lean*math.Pi/180, 1+0.08*grip/off)
+			glyphAt(p, gl.ch, f32(nx), f32(ny), gl.size, text, false, lean, 1+0.08*grip/off) // glyphAt turns by degrees
 			targets = append(targets, [2]float64{nx, ny})
 		}
 	}
