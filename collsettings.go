@@ -139,7 +139,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 			case 3:
 				a.csPages(c)
 			case 4:
-				ui.Text(c, "Koleksiyonun collection.json dosyası. Değiştirince başka sekmeye geçmek ya da Kaydet uygular.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, T("Koleksiyonun collection.json dosyası. Değiştirince başka sekmeye geçmek ya da Kaydet uygular.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				ryugo.Textarea(c.Key("cs-code"), &cs.code, ryugo.TextareaOptions{Label: "collection.json", Rows: 14, MaxRows: 24, Size: ryugo.Sm}).Font(ryugo.FontMono)
 				if ryugo.Button(c.Key("cs-code-apply"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.applyCode()
@@ -228,7 +228,7 @@ func (a *app) csGeneral(c *ui.Context) {
 					for _, f := range journalFormats {
 						f := f
 						on := formatOrDefault(d.JournalFormat) == f
-						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(rad(8)).Label("Biçim: " + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(rad(8)).Label(T("Biçim: ") + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case on:
 							b.Background(cl.Accent.Alpha(0.16)).Border(1.5, cl.Accent)
@@ -244,10 +244,10 @@ func (a *app) csGeneral(c *ui.Context) {
 					}
 				})
 				ryugo.Input(c.Key("cs-journal-format"), &d.JournalFormat, ryugo.InputOptions{Label: "Başlık biçimi", Placeholder: defaultFormat})
-				ui.Text(c, "Bugün: "+formatDay(d.JournalFormat, a.clock())).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, T("Bugün: ")+formatDay(d.JournalFormat, a.clock())).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			})
 		})
-		ui.Text(c, "Günlük her kitaplıkta durur: günlerin sayfaları burada tutulur. Çöpe taşınamaz.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+		ui.Text(c, T("Günlük her kitaplıkta durur: günlerin sayfaları burada tutulur. Çöpe taşınamaz.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 		return
 	}
 }
@@ -266,7 +266,7 @@ func (a *app) csProperties(c *ui.Context) {
 		for _, b := range builtins {
 			b := b
 			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(rad(12)).AlignItems(ui.Center).
-				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label("Yerleşik özellik: " + b.name).Children(func() {
+				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label(T("Yerleşik özellik: ") + b.name).Children(func() {
 				ui.Icon(c, iconLock).Width(15).Height(15).TextColor(cl.Muted)
 				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
 				ui.Text(c, "· "+b.kind).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1)
@@ -345,7 +345,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 		return
 	}
 	ui.Column(c).Gap(10).Padding(12).Radius(rad(12)).Border(1, cl.Hairline).Children(func() {
-		ui.Text(c, "Özellik ekle").FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
+		ui.Text(c, T("Özellik ekle")).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
 		ryugo.Input(c.Key("cs-new-name"), &cs.newName, ryugo.InputOptions{Label: "Yeni özelliğin adı", Placeholder: "Ad yaz; başka koleksiyonlardakiler önerilir", Size: ryugo.Sm})
 		// the properties of the other collections, as the name is typed
 		if sugg := a.sharedProps(cs.newName); len(sugg) > 0 {
@@ -445,7 +445,7 @@ func (a *app) csViews(c *ui.Context) {
 	cs := &a.cs
 	d := &cs.draft
 	cl := ryugo.From(c).Colors
-	ui.Text(c, "Sayfaları liste, tablo ya da pano olarak göster; neyin görüneceğini her görünümde seç. Sürükleyerek sırala.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+	ui.Text(c, T("Sayfaları liste, tablo ya da pano olarak göster; neyin görüneceğini her görünümde seç. Sürükleyerek sırala.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 	a.sortList(c, "cs-views", &cs.viewList, sortOpts{
 		n:        len(d.Views),
 		id:       func(i int) string { return d.Views[i].ID },
@@ -467,7 +467,7 @@ func (a *app) csViews(c *ui.Context) {
 	hasChoice := slices.ContainsFunc(d.Properties, func(p Property) bool { return p.Type == PropChoice })
 	ui.Row(c).Children(func() { a.csAddView(c, d, hasChoice) }) // as wide as its label
 	if !hasChoice {
-		ui.Text(c, "Pano için bir Seçim özelliği gerekir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+		ui.Text(c, T("Pano için bir Seçim özelliği gerekir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 	}
 }
 

@@ -253,12 +253,12 @@ func (a *app) settingsText(c *ui.Context) {
 	settingGroup(c, "set-save",
 		func() {
 			settingRow(c, "Otomatik kayıt", "Kapalıyken sayfa ⌘S ile kaydedilir; sayfa değişirken ve uygulama kapanırken yazılan yine kaydedilir, hiçbir şey kaybolmaz.", func() {
-				ryugo.Switch(c.Key("set-autosave"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kayıt")
+				ryugo.Switch(c.Key("set-autosave"), &auto, ryugo.SwitchOptions{}).Label(T("Otomatik kayıt"))
 			})
 		},
 		func() {
 			if !auto {
-				ui.Text(c, "Kayıt elle: kaydedilmemiş sayfada durum çubuğu “kaydedilmedi” der.").FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted)
+				ui.Text(c, T("Kayıt elle: kaydedilmemiş sayfada durum çubuğu “kaydedilmedi” der.")).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted)
 				return
 			}
 			settingRow(c, "Kayıt gecikmesi", "Son yazıdan bu kadar sonra kaydedilir.", func() {
@@ -330,7 +330,7 @@ func (a *app) settingsText(c *ui.Context) {
 		},
 		func() {
 			settingRow(c, "Daktilo kaydırması", "Yazdığın satır pencerenin ortasında kalır, sayfa altından kayar.", func() {
-				ryugo.Switch(c.Key("set-typewriter"), &typewriter, ryugo.SwitchOptions{}).Label("Daktilo kaydırması")
+				ryugo.Switch(c.Key("set-typewriter"), &typewriter, ryugo.SwitchOptions{}).Label(T("Daktilo kaydırması"))
 			})
 		},
 		func() {
@@ -353,7 +353,7 @@ func (a *app) settingsText(c *ui.Context) {
 			})
 		},
 		func() {
-			settingRow(c, "Odak halkasını her zaman göster", "Klavyeyle seçilen satır, normal kipte olmasan da çerçevelenir.", func() { ryugo.Switch(c.Key("set-ring"), &ring, ryugo.SwitchOptions{}).Label("Odak halkası") })
+			settingRow(c, "Odak halkasını her zaman göster", "Klavyeyle seçilen satır, normal kipte olmasan da çerçevelenir.", func() { ryugo.Switch(c.Key("set-ring"), &ring, ryugo.SwitchOptions{}).Label(T("Odak halkası")) })
 		},
 		func() {
 			settingRow(c, "Hafif mod", "Seçili caret ne olursa olsun efektsiz, düz bir çizgi çizilir.", func() { ryugo.Switch(c.Key("set-lite"), &lite, ryugo.SwitchOptions{}).Label("Hafif mod") })

@@ -363,7 +363,7 @@ func (a *app) restoreFrom(b Backup) {
 		a.notice = "Geri yüklenemedi: " + err.Error()
 		return
 	}
-	a.notice = "Yeniden başlatınca " + b.At.Format("2 Jan 15:04") + " yedeği geri yüklenecek; şimdiki dosya yanında saklanır."
+	a.notice = Tf("Yeniden başlatınca %s yedeği geri yüklenecek; şimdiki dosya yanında saklanır.", b.At.Format("2 Jan 15:04"))
 }
 
 // exportZip writes the library as Markdown files and zips them, next to its file.
@@ -392,7 +392,7 @@ func (a *app) settingsBackup(c *ui.Context) {
 	settingGroup(c, "set-backup",
 		func() {
 			settingRow(c, "Günlük yedek", "Her gün ilk açılışta kitaplığın sıkıştırılmış bir kopyası alınır; son 7 gün ve 4 hafta kalır. İçe aktarma, geri yükleme ve güncellemeden önce de bir tane alınır.", func() {
-				ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label("Günlük yedek")
+				ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label(T("Günlük yedek"))
 			})
 		},
 		func() {

@@ -76,7 +76,7 @@ func (a *app) sortList(c *ui.Context, key string, st *sortState, o sortOpts) {
 				var grip ui.Element
 				row.Children(func() {
 					grip = ui.Box(c.Key(key+"-grip:"+id)).Size(24, 32).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
-						Cursor(ui.CursorGrab).Label("Sırala: " + o.label(i))
+						Cursor(ui.CursorGrab).Label(T("Sırala: ") + o.label(i))
 					if grip.Hovered() {
 						grip.Background(cl.Fill)
 					}

@@ -143,7 +143,7 @@ func (a *app) commands() []palItem {
 			}
 		}),
 		cmd("Ayar dosyası oku…", "", iconExport, a.pickSettingsFile),
-		cmd("Hepsini varsayılana döndür", "", iconSettings, func() { a.notice = strconv.Itoa(a.resetAll()) + " ayar varsayılana döndü" }),
+		cmd("Hepsini varsayılana döndür", "", iconSettings, func() { a.notice = Tf("%d ayar varsayılana döndü", a.resetAll()) }),
 		cmd("Son kayıttan önceki hâle dön", "", iconBack, a.revertToBeforeSave),
 		cmd("Şimdi eşitle", "", iconSync, func() {
 			if a.settings.SyncMode == "" {
@@ -237,7 +237,7 @@ func (a *app) commands() []palItem {
 		k := k
 		it := cmd("Yazı tipi hazırı: "+k, "", iconSettings, func() {
 			if !a.fontPreset(k) {
-				a.notice = "Bu bilgisayarda “" + k + "” için uygun bir yazı tipi bulunamadı."
+				a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
 			}
 		})
 		it.alias = "font preset serif sans mono ayar"
@@ -631,7 +631,7 @@ func (a *app) paletteView(c *ui.Context) {
 			ui.Scroll(c).MaxHeight(300).Children(func() {
 				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
-						ui.Text(c, "Eşleşen bir şey yok.").FontSize(12).TextColor(cl.Muted).Padding(9, 8)
+						ui.Text(c, T("Eşleşen bir şey yok.")).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
 						return
 					}
 					head := ""

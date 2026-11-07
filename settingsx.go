@@ -281,7 +281,7 @@ func (a *app) pickSettingsFile() {
 			if err != nil {
 				a.notice = "Olmadı: " + err.Error()
 			} else {
-				a.notice = strconv.Itoa(n) + " ayar içe aktarıldı"
+				a.notice = Tf("%d ayar içe aktarıldı", n)
 			}
 			return nil
 		})
@@ -339,7 +339,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 		}
 		if ryugo.Button(c.Key("reset-all"), T("Hepsini varsayılana döndür")+" ("+strconv.Itoa(len(ch))+")", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			n := a.resetAll()
-			a.notice = strconv.Itoa(n) + " ayar varsayılana döndü"
+			a.notice = Tf("%d ayar varsayılana döndü", n)
 		}
 		var rows []func()
 		for _, d := range ch {

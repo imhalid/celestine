@@ -50,7 +50,7 @@ açık sorular (1–10) için bu turda varsayılanla ilerlendi; cevap gelirse y�
 | N1 | yapıldı | çökme günlüğü, "son oturum çöktü" iletişim kutusu, kare panik kurtarma | — |
 | N2 | yapıldı | günlük/öncesi/elle yedek, budama, geri yükleme, zip dışa aktarma | — |
 | N3 | yapıldı | `kbd` test yardımcısı ve senaryolar | — |
-| N4 | yapıldı (ana yüzeyler) | dil ayarı ve sistem dili, `T()`, her ayar satırının başlığı ve açıklaması, ayar adları, menüler, palet, komutlar, istatistik, yardım, tur (hepsi testle denetlenir: eksik çeviri testi bozar) | ayarların dışındaki iç iletiler, sürücü hataları ve tek tek diyalog metinleri Türkçe kalır; menü dil değişince yeniden başlatmada |
+| N4 | yapıldı | bildirimler (toast), araç ipuçları ve etiketler dahil; `TestEnglishCoversMessages` `T`/`Tf` ile yazılan her metnin İngilizcesini denetler; dil ayarı ve sistem dili, `T()`, her ayar satırının başlığı ve açıklaması, ayar adları, menüler, palet, komutlar, istatistik, yardım, tur (hepsi testle denetlenir: eksik çeviri testi bozar) | `T()` ile sarılmamış tek tük metin Türkçe kalabilir (testle yakalanmaz); sürücü hataları işletim sisteminin kendi metni; menü dil değişince yeniden başlatmada |
 | N5 | yapıldı | `?` kısayol sayfası, ilk açılış turu, boş durumlarda ipucu | — |
 | N6 | yapıldı | `perf_test.go`: 10 bin sayfa ölçümü ve bütçe testi | bulunan sorunların (ağaç sanallaştırma, bellek) giderilmesi |
 | O | yapıldı | (önceki tur) bölünmüş görünüm | — |

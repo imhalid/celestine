@@ -15,7 +15,7 @@ import (
 // topBar draws the bar over a page or a collection, which scroll under it.
 func (a *app) topBar(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	bar := ui.Column(c.Key("top-bar")).Absolute().Left(0).Right(0).Top(0).Height(barH).Label("Üst çubuk").IgnoreInput(true).Background(a.pageBg)
+	bar := ui.Column(c.Key("top-bar")).Absolute().Left(0).Right(0).Top(0).Height(barH).Label(T("Üst çubuk")).IgnoreInput(true).Background(a.pageBg)
 	bar.Children(func() {
 		ui.Box(c).Grow(1)
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
@@ -33,7 +33,7 @@ func (a *app) topBar(c *ui.Context) {
 // layout, as high as the bar, with its line.
 func (a *app) titleBar(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	ui.Column(c.Key("top-bar")).Height(max(c.TitleBar().Height, barH)).Label("Üst çubuk").DragWindow().Children(func() {
+	ui.Column(c.Key("top-bar")).Height(max(c.TitleBar().Height, barH)).Label(T("Üst çubuk")).DragWindow().Children(func() {
 		ui.Box(c).Grow(1)
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
 	})

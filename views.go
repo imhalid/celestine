@@ -51,7 +51,7 @@ func (a *app) collectionView(c *ui.Context) {
 							}
 						})
 						c.Key("coll-name:" + coll.Dir)
-						name := ui.TextInputBase(c, &a.collName).Label("Koleksiyon adı").FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
+						name := ui.TextInputBase(c, &a.collName).Label(T("Koleksiyon adı")).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 						if name.Changed() {
 							n := strings.TrimSpace(a.collName)
 							if n == "" {
@@ -282,7 +282,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			}
 		}
 		c.Key("list:" + p.Dir)
-		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label("Aç: " + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 		if row.Hovered() {
 			row.Background(t.SurfaceHover)
@@ -736,7 +736,7 @@ func columnTone(c *ui.Context, name string) ui.Color {
 func (a *app) boardStrip(c *ui.Context, coll *Collection, v *View, s, title string, n int, id string) {
 	cl := ryugo.From(c).Colors
 	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(rad(18)).AlignItems(ui.Center).
-		Background(cl.Well).Border(1, cl.WellBorder).Label("Aç: " + title).Role(ui.RoleButton).Shrink(0)
+		Background(cl.Well).Border(1, cl.WellBorder).Label(T("Aç: ") + title).Role(ui.RoleButton).Shrink(0)
 	if b.Hovered() {
 		b.Background(cl.Fill)
 	}

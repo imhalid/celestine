@@ -188,7 +188,7 @@ func (a *app) bulkMove(pages []*Page, to *Collection) {
 	}
 	a.linksStale()
 	a.bulkClear()
-	a.notice = strconv.Itoa(n) + " sayfa “" + to.Name + "” koleksiyonuna taşındı"
+	a.notice = Tf("%d sayfa “%s” koleksiyonuna taşındı", n, to.Name)
 }
 
 // bulkChoices are the values of the collection's choices, as lines to give
@@ -228,5 +228,5 @@ func (a *app) bulkTrash(pages []*Page) {
 	}
 	a.linksStale()
 	a.bulkClear()
-	a.notice = strconv.Itoa(n) + " sayfa çöpe taşındı"
+	a.notice = Tf("%d sayfa çöpe taşındı", n)
 }

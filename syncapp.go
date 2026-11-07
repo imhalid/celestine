@@ -270,7 +270,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		a.saveSettings()
 	}
 	if s.SyncMode == "" {
-		ui.Text(c, "Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.").FontSize(13).TextColor(cl.Muted).Wrap()
+		ui.Text(c, T("Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.")).FontSize(13).TextColor(cl.Muted).Wrap()
 		return
 	}
 	dir, url, token := s.SyncDir, s.SyncURL, s.SyncToken
@@ -300,7 +300,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		func() {
 			settingRow(c, "Uçtan uca şifreleme", "Dosyalar bu bilgisayarda şifrelenir, adları da gizlenir: sunucu ya da klasör yalnız anlamsız bloklar görür. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
 				on := enc
-				ryugo.Switch(c.Key("sync-enc"), &on, ryugo.SwitchOptions{}).Label("Uçtan uca şifreleme")
+				ryugo.Switch(c.Key("sync-enc"), &on, ryugo.SwitchOptions{}).Label(T("Uçtan uca şifreleme"))
 				if on != enc && !on {
 					s.SyncKey = ""
 					a.saveSettings()
@@ -311,7 +311,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		},
 		func() {
 			if !(enc || a.sy.hasKey) {
-				ui.Text(c, "Kapalı: dosyalar olduğu gibi gider.").FontSize(12.5).TextColor(cl.Muted)
+				ui.Text(c, T("Kapalı: dosyalar olduğu gibi gider.")).FontSize(12.5).TextColor(cl.Muted)
 				return
 			}
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -341,7 +341,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		rows2 = append(rows2, func() {
 			now := on
 			settingRow(c, co.Name, "", func() {
-				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label("Eşitle: " + co.Name)
+				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label(T("Eşitle: ") + co.Name)
 			})
 			if now != on {
 				var out []string
@@ -359,7 +359,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		})
 	}
 	if len(rows2) > 0 {
-		ui.Text(c, "Hangi koleksiyonlar eşitlensin").FontSize(13).FontWeight(620).TextColor(cl.Muted)
+		ui.Text(c, T("Hangi koleksiyonlar eşitlensin")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		settingGroup(c, "set-sync-colls", rows2...)
 	}
 	// state
@@ -378,7 +378,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		})
 	})
 	if files := a.conflictFiles(); len(files) > 0 {
-		ui.Text(c, "Çakışmalar: iki cihazda da değişen dosyalar; ikisi de saklandı").FontSize(13).FontWeight(620).TextColor(cl.Warn)
+		ui.Text(c, T("Çakışmalar: iki cihazda da değişen dosyalar; ikisi de saklandı")).FontSize(13).FontWeight(620).TextColor(cl.Warn)
 		var rows3 []func()
 		for _, f := range files {
 			f := f

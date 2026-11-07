@@ -249,7 +249,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Tema").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, "Sistemin görünümünü izler ya da hep açık ya da koyu olur.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, T("Sistemin görünümünü izler ya da hep açık ya da koyu olur.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Children(func() {
 					if choiceTile(c, "tile-sys", "Sistem", theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
@@ -321,7 +321,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, "Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.").FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, T("Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
@@ -335,7 +335,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		},
 		func() {
 			on := a.settings.Jelly
-			settingRow(c, "Jöle efekti", "Her caret yolda uzar, yaylanarak yerine oturur. Slime zaten jöledir.", func() { ryugo.Switch(c.Key("set-jelly"), &on, ryugo.SwitchOptions{}).Label("Jöle efekti") })
+			settingRow(c, "Jöle efekti", "Her caret yolda uzar, yaylanarak yerine oturur. Slime zaten jöledir.", func() { ryugo.Switch(c.Key("set-jelly"), &on, ryugo.SwitchOptions{}).Label(T("Jöle efekti")) })
 			if on != a.settings.Jelly {
 				a.settings.Jelly = on
 				a.saveSettings()
@@ -362,8 +362,8 @@ func (a *app) settingsEditor(c *ui.Context) {
 		},
 		func() { // how it reads, as it is set
 			ui.Column(c).Gap(6).Children(func() {
-				ui.Text(c, "Önizleme").FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Muted)
-				ui.Text(c, "Bir fikir, bir sayfa. Yazdıkça çizgiler kendiliğinden biçime girer: başlık, liste, görev. Satırın aralığı ve harflerin boyu böyle okunur.").
+				ui.Text(c, T("Önizleme")).FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Muted)
+				ui.Text(c, T("Bir fikir, bir sayfa. Yazdıkça çizgiler kendiliğinden biçime girer: başlık, liste, görev. Satırın aralığı ve harflerin boyu böyle okunur.")).
 					FontSize(float32(fs)).LineHeight(float32(lh)).TextColor(cl.Text)
 			})
 		})
@@ -380,7 +380,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
 		settingRow(c, "Jöle sarsıntısı", "Bir ajan (MCP) sayfaya içerik eklerken pencere, eklenen kadar, jöle gibi sağa sola sallanır ve zıplar. Pencerenin yeri değiştirilemiyorsa (tam ekran, Wayland) içindeki görünüm sallanır.", func() {
-			ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label("Jöle sarsıntısı")
+			ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label(T("Jöle sarsıntısı"))
 		})
 	})
 	if shake != !a.settings.NoWobble {
@@ -492,14 +492,14 @@ func (a *app) settingsMCP(c *ui.Context) {
 	on := a.settings.MCP
 	settingGroup(c, "set-mcp", func() {
 		settingRow(c, "MCP sunucusu", "Açıkken ajanlar (Claude Code ya da başka bir MCP istemcisi) bu kitaplığa bağlanır: koleksiyon ve sayfa oluşturur, okur, düzenler, taşır. Yaptıkları pencerede anında görünür.", func() {
-			ryugo.Switch(c.Key("mcp-switch"), &on, ryugo.SwitchOptions{}).Label("MCP sunucusunu aç")
+			ryugo.Switch(c.Key("mcp-switch"), &on, ryugo.SwitchOptions{}).Label(T("MCP sunucusunu aç"))
 		})
 	})
 	if on != a.settings.MCP {
 		a.setMCP(on)
 	}
 	if a.mcpErr != "" {
-		ui.Text(c, "Açılamadı: "+a.mcpErr).FontSize(ryugo.FsSm).TextColor(cl.Up)
+		ui.Text(c, T("Açılamadı: ")+a.mcpErr).FontSize(ryugo.FsSm).TextColor(cl.Up)
 	}
 	if !a.settings.MCP {
 		return

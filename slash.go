@@ -770,7 +770,7 @@ func (a *app) slashView(c *ui.Context) {
 			return
 		}
 		if s.sign == "[[" {
-			ui.Text(c, "Sayfaya bağla").FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Text(c, T("Sayfaya bağla")).FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, "[[ ]]").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
@@ -782,7 +782,7 @@ func (a *app) slashView(c *ui.Context) {
 				title = "Sonuçlar"
 			}
 			ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
-			ui.Text(c, "bu menü").FontSize(11.5).TextColor(cl.Muted)
+			ui.Text(c, T("bu menü")).FontSize(11.5).TextColor(cl.Muted)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, s.sign).FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})

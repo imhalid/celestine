@@ -30,6 +30,6 @@ func (a *app) statusExtras(c *ui.Context) {
 	if a.settings.ShowPos {
 		_, caret := a.doc.Selection()
 		line, col := caretPos(a.doc.Text(), caret)
-		ui.Text(c, "Satır "+strconv.Itoa(line)+", sütun "+strconv.Itoa(col)).FontSize(11.5).TextColor(c.Theme().TextMuted).MaxLines(1)
+		ui.Text(c, T("Satır ")+strconv.Itoa(line)+T(", sütun ")+strconv.Itoa(col)).FontSize(11.5).TextColor(c.Theme().TextMuted).MaxLines(1)
 	}
 }

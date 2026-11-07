@@ -442,7 +442,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 					a.applyTagRename()
 				}
 			})
-			ui.Text(c, "Var olan bir etiketin adını yazarsan ikisi birleşir. Sayfalardaki #etiket yazıları değişir.").FontSize(12.5).TextColor(cl.Muted).Wrap()
+			ui.Text(c, T("Var olan bir etiketin adını yazarsan ikisi birleşir. Sayfalardaki #etiket yazıları değişir.")).FontSize(12.5).TextColor(cl.Muted).Wrap()
 			if r.err != "" {
 				ui.Text(c, r.err).FontSize(12.5).TextColor(cl.Up).Wrap()
 			}
@@ -458,7 +458,7 @@ func (a *app) applyTagRename() {
 		return
 	}
 	r.open, r.err = false, ""
-	a.notice = strconv.Itoa(n) + " sayfada etiket değişti"
+	a.notice = Tf("%d sayfada etiket değişti", n)
 	if a.tag == r.key {
 		a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(r.name), "#")))
 	}

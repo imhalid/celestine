@@ -318,7 +318,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 					return
 				}
 				q := a.fonts.query[ri]
-				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label("Yazı tipi ara").Placeholder("Yazı tipi ara…").PlaceholderColor(cl.Muted).
+				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label(T("Yazı tipi ara")).Placeholder(T("Yazı tipi ara…")).PlaceholderColor(cl.Muted).
 					FontSize(13).Padding(7, 10).Radius(rad(8)).Background(cl.Card).Border(1, cl.Hairline).FocusRing(false)
 				if in.Changed() {
 					a.fonts.query[ri] = q
@@ -328,7 +328,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				ui.Scroll(c.Key("fontlist" + strconv.Itoa(ri))).MaxHeight(260).Children(func() {
 					ui.Column(c).FillWidth().Gap(1).Children(func() {
 						if !ready {
-							ui.Text(c, "Yazı tipleri taranıyor…").FontSize(12).TextColor(cl.Muted).Padding(8)
+							ui.Text(c, T("Yazı tipleri taranıyor…")).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 						if cur != "" {
 							a.fontRow(c, r, "", "Varsayılan", hover[:], false)
@@ -340,7 +340,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 							ui.Text(c, "… "+strconv.Itoa(more)+" yazı tipi daha: aramayla bul").FontSize(11.5).TextColor(cl.Muted).Padding(6, 8)
 						}
 						if ready && len(rows) == 0 {
-							ui.Text(c, "Eşleşen yazı tipi yok.").FontSize(12).TextColor(cl.Muted).Padding(8)
+							ui.Text(c, T("Eşleşen yazı tipi yok.")).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 					})
 				})
@@ -359,7 +359,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 						b := ui.Row(c.Key("fpreset"+k)).Padding(6, 14).Radius(rad(8)).Background(cl.Fill).Label(k).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						b.Children(func() { ui.Text(c, k).FontSize(13).TextColor(cl.Text) })
 						if b.Clicked() && !a.fontPreset(k) {
-							a.notice = "Bu bilgisayarda “" + k + "” için uygun bir yazı tipi bulunamadı."
+							a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
 						}
 					}
 				})
@@ -370,11 +370,11 @@ func (a *app) settingsFonts(c *ui.Context) {
 	weight := float64(a.fontWeight())
 	settingGroup(c, "set-font-detail",
 		func() {
-			settingRow(c, "Ligatürler", "fi, fl gibi harf çiftleri tek harf olarak çizilir. Kod yazarken kapatmak işe yarar.", func() { ryugo.Switch(c.Key("set-liga"), &lig, ryugo.SwitchOptions{}).Label("Ligatürler") })
+			settingRow(c, "Ligatürler", "fi, fl gibi harf çiftleri tek harf olarak çizilir. Kod yazarken kapatmak işe yarar.", func() { ryugo.Switch(c.Key("set-liga"), &lig, ryugo.SwitchOptions{}).Label(T("Ligatürler")) })
 		},
 		func() {
 			settingRow(c, "Aynı genişlikte rakamlar", "Rakamların hepsi aynı genişliktedir: sütunlar ve tablolar hizalı durur.", func() {
-				ryugo.Switch(c.Key("set-tnum"), &tab, ryugo.SwitchOptions{}).Label("Aynı genişlikte rakamlar")
+				ryugo.Switch(c.Key("set-tnum"), &tab, ryugo.SwitchOptions{}).Label(T("Aynı genişlikte rakamlar"))
 			})
 		},
 		func() {

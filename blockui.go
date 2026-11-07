@@ -189,7 +189,7 @@ func (a *app) gripView(c *ui.Context) {
 	gy := r.Y + g.top + max(0, (line-gripH)/2)
 	ui.Overlay(c, func() {
 		grip := ui.Box(c.Key("grip")).Absolute().Left(r.X-gripW-8).Top(gy).Size(gripW, gripH).Radius(rad(5)).
-			AlignItems(ui.Center).Justify(ui.Center).Label("Blok tutamağı").Role(ui.RoleButton).Cursor(ui.CursorGrab)
+			AlignItems(ui.Center).Justify(ui.Center).Label(T("Blok tutamağı")).Role(ui.RoleButton).Cursor(ui.CursorGrab)
 		g.hover = grip.Hovered()
 		if g.hover || g.menu {
 			grip.Background(cl.Fill)
@@ -332,7 +332,7 @@ func (a *app) blockGhost(c *ui.Context) {
 		gripDots(c, cl.Muted)
 		ui.Text(c, first).FontSize(14).TextColor(cl.Text).MaxLines(1)
 		if g.from[1] > e {
-			ui.Text(c, "+ altındakiler").FontSize(12).TextColor(cl.Muted)
+			ui.Text(c, T("+ altındakiler")).FontSize(12).TextColor(cl.Muted)
 		}
 	})
 }

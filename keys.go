@@ -161,7 +161,7 @@ func (a *app) runMacro(name string) int {
 	n := 0
 	for _, t := range a.settings.Macros[name] {
 		if !a.runCommand(strings.TrimSpace(t)) {
-			a.notice = "Makro “" + name + "”: “" + t + "” komutu bulunamadı"
+			a.notice = Tf("Makro “%s”: “%s” komutu bulunamadı", name, t)
 			break
 		}
 		n++
@@ -207,7 +207,7 @@ func (a *app) boundKeys(c *ui.Context) {
 		mods, key, _, ok := parseAccel(norm)
 		if ok && c.Shortcut(mods, key) {
 			if !a.runCommand(cmd) {
-				a.notice = "“" + cmd + "” komutu bulunamadı: " + norm
+				a.notice = Tf("“%s” komutu bulunamadı: %s", cmd, norm)
 			}
 			return
 		}

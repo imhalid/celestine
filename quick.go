@@ -159,7 +159,7 @@ func (q *quickNote) view(c *ui.Context) {
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 			ryugo.Segmented(c.Key("quick-mode"), &q.mode, []string{"Günlüğe", "Yeni sayfa"}, ryugo.SegmentedOptions{Label: "Nereye", Size: ryugo.Sm})
 			ui.Text(c, q.where()).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(1)
-			ui.Text(c, "Hızlı not").FontSize(12.5).FontWeight(620).TextColor(cl.Muted)
+			ui.Text(c, T("Hızlı not")).FontSize(12.5).FontWeight(620).TextColor(cl.Muted)
 		})
 		ph := "Günlüğe bir not… [] ile görev, her satır bir madde"
 		if q.mode == quickPage {

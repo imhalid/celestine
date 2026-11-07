@@ -192,7 +192,7 @@ func (a *app) tasksView(c *ui.Context) {
 		a.taskColl = "" // that collection has no tasks now
 	}
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, "Görevler").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
+		ui.Text(c, T("Görevler")).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
 		ui.Text(c, strconv.Itoa(open)+" açık, "+strconv.Itoa(done)+" tamamlandı  ·  sayfalardaki - [ ] satırları").
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
@@ -350,12 +350,12 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 	}
 	row.Children(func() {
 		on := k.done
-		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label("Görev: " + k.text)
+		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(T("Görev: ") + k.text)
 		col, st := cl.Text, false
 		if k.done {
 			col, st = cl.Muted, true
 		}
-		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label("Satıra git: " + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label(T("Satıra git: ") + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		body.Children(func() {
 			tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
 			if st {

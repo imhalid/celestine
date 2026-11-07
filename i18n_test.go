@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -160,5 +161,30 @@ func TestEnglishCoversTitles(t *testing.T) {
 		if _, ok := enText[d.name]; !ok {
 			t.Errorf("setting %q has no English", d.name)
 		}
+	}
+}
+
+// Every message written through T or Tf has its English: a new one without it fails here, not on a user's screen.
+func TestEnglishCoversMessages(t *testing.T) {
+	srcs, _ := filepath.Glob("*.go")
+	re := regexp.MustCompile(`\bTf?\(("(?:[^"\\]|\\.)*")`)
+	var missing []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			s, err := strconv.Unquote(m[1])
+			if err != nil || !regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`).MatchString(s) {
+				continue
+			}
+			if _, ok := enText[s]; !ok {
+				missing = append(missing, s)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("no English for: %q", missing)
 	}
 }

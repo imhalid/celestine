@@ -111,7 +111,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			// The room of the window's controls: it moves the window too.
 			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
 			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "KOLEKSİYONLAR").FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+				ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
 				if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
 					a.collapseAll()
 				}
@@ -239,7 +239,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
 			c.Key("pin:" + s.key)
 			if s.pinned {
-				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label("Sabitlemeyi kaldır: " + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(T("Sabitlemeyi kaldır: ") + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				if b.Hovered() {
 					b.Background(t.SurfacePressed)
 				}

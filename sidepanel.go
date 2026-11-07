@@ -100,7 +100,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 		panelTitle(c, cl, "İÇİNDEKİLER")
 		hs := a.outline()
 		if len(hs) == 0 {
-			ui.Text(c, "Sayfada başlık yok. # ile başlık yaz.").FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			ui.Text(c, T("Sayfada başlık yok. # ile başlık yaz.")).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
 			return
 		}
 		least := 6
@@ -110,7 +110,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 		for i, h := range hs {
 			h := h
 			row := ui.Row(c.Key("ol:"+strconv.Itoa(i))).FillWidth().Height(28).Padding(0, 6, 0, 6+float32(h.level-least)*12).AlignItems(ui.Center).
-				Radius(7).Label("Başlık: " + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Radius(7).Label(T("Başlık: ") + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}
@@ -130,12 +130,12 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 	ui.Column(c.Key("panel-links")).FillWidth().Gap(1).Children(func() {
 		panelTitle(c, cl, "BAĞLANANLAR")
 		if len(links) == 0 {
-			ui.Text(c, "Bu sayfaya bağlanan yok. [[ ile bağlantı kur.").FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			ui.Text(c, T("Bu sayfaya bağlanan yok. [[ ile bağlantı kur.")).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
 			return
 		}
 		for _, q := range links {
 			q := q
-			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label(T("Bağlantı: ") + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}

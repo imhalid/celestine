@@ -33,7 +33,7 @@ func (a *app) restore(item *TrashItem) {
 	}
 	a.loadTrash()
 	if a.trashOpen {
-		a.notice = "“" + item.Title + "” geri yüklendi"
+		a.notice = Tf("“%s” geri yüklendi", item.Title)
 		return
 	}
 	if p != nil {
@@ -68,7 +68,7 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 		}
 		r.Children(func() {
 			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, "Çöp").FontSize(13.5).Grow(1)
+			ui.Text(c, T("Çöp")).FontSize(13.5).Grow(1)
 			if n := len(a.trashItems); n > 0 {
 				ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
 			}
@@ -86,8 +86,8 @@ func (a *app) trashView(c *ui.Context) {
 	t := c.Theme()
 	now := a.clock()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, "Çöp").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		ui.Text(c, "Atılan sayfalar ve koleksiyonlar burada durur; geri yüklenince eski yerlerine dönerler.").
+		ui.Text(c, T("Çöp")).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
+		ui.Text(c, T("Atılan sayfalar ve koleksiyonlar burada durur; geri yüklenince eski yerlerine dönerler.")).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 8, 0)
 		if len(a.trashItems) == 0 {
 			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
@@ -106,7 +106,7 @@ func (a *app) trashView(c *ui.Context) {
 func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	t := c.Theme()
 	c.Key("trash:" + item.Dir)
-	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label("Çöpteki: " + item.Title)
+	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label(T("Çöpteki: ") + item.Title)
 	a.contextOn(row, func() []menuItem { return a.trashMenu(item) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -171,7 +171,7 @@ func (a *app) tasksRow(c *ui.Context) {
 		}
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, "Görevler").FontSize(13.5).Grow(1)
+			ui.Text(c, T("Görevler")).FontSize(13.5).Grow(1)
 			switch {
 			case late > 0:
 				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(late+today), ryugo.ToneUp)

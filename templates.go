@@ -149,8 +149,8 @@ func (a *app) templateItems(q string) []menuItem {
 func (a *app) csTemplates(c *ui.Context) {
 	d := &a.cs.draft
 	cl := ryugo.From(c).Colors
-	ui.Text(c, "Başka şablonlar").FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text)
-	ui.Text(c, "Her biri adıyla seçilir: “Yeni sayfa” düğmesinin yanındaki oktan, paletten ve / menüsünden. {{başlık}}, {{tarih}}, {{saat}} kullanılabilir.").FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
+	ui.Text(c, T("Başka şablonlar")).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text)
+	ui.Text(c, T("Her biri adıyla seçilir: “Yeni sayfa” düğmesinin yanındaki oktan, paletten ve / menüsünden. {{başlık}}, {{tarih}}, {{saat}} kullanılabilir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
 	drop := -1
 	for i := range d.Templates {
 		i := i

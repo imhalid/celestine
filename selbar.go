@@ -74,7 +74,7 @@ func (a *app) selectionBar(c *ui.Context) {
 	}
 	ui.Overlay(c, func() {
 		bar := ui.Row(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Height(h).Padding(selPad).Gap(2).AlignItems(ui.Center).Clip().
-			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Biçim çubuğu").KeepFocus()
+			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(T("Biçim çubuğu")).KeepFocus()
 		tth.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			if b.link {

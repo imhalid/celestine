@@ -717,13 +717,13 @@ func (a *app) viewFrame(c *ui.Context) {
 		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
 			c.ToastAction(T(a.notice), T("Aç"), func() { a.open(pg) })
 		} else {
-			c.Toast(a.notice)
+			c.Toast(T(a.notice))
 		}
 		a.notice, a.noticePage, a.noticeUndo = "", nil, nil
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil
-		c.ToastAction("“"+item.Title+"” çöpe taşındı", "Geri al", func() { a.restore(item) })
+		c.ToastAction(Tf("“%s” çöpe taşındı", item.Title), T("Geri al"), func() { a.restore(item) })
 		a.loadTrash()
 	}
 	if a.doc != nil && a.coll == nil {
@@ -909,13 +909,13 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label("Başlık").Selectable().TextColor(ink)
+		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().TextColor(ink)
 		a.titleFocused = false
 		a.coverGap(c, p)
 		a.propsSection(c, p)
 		return
 	}
-	title := ui.TextInputBase(c, &a.title).Label("Başlık").FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).CaretWidth(0)
+	title := ui.TextInputBase(c, &a.title).Label(T("Başlık")).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).CaretWidth(0)
 	if a.fresh {
 		title.AutoFocus()
 		a.fresh = false
@@ -1214,7 +1214,7 @@ func (a *app) status(c *ui.Context) {
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
 				Label("MCP açık: ayarlar").Role(ui.RoleButton)
-			ryugo.Tooltip(c, m, "MCP sunucusu açık · "+a.mcpURL())
+			ryugo.Tooltip(c, m, T("MCP sunucusu açık · ")+a.mcpURL())
 			if m.Hovered() {
 				m.Background(t.SurfaceHover)
 			}

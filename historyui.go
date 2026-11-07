@@ -88,7 +88,7 @@ func (a *app) putBackVersion() {
 	}
 	a.takeOutside(p)
 	a.linksStale()
-	a.notice = "“" + p.Title + "” " + v.vers[v.sel].At.Format("2 Jan 15:04") + " sürümüne döndü"
+	a.notice = Tf("“%s” %s sürümüne döndü", p.Title, v.vers[v.sel].At.Format("2 Jan 15:04"))
 	v.open = false
 }
 
@@ -120,7 +120,7 @@ func (a *app) historyView(c *ui.Context) {
 		if len(v.vers) == 0 {
 			ui.Column(c).FillWidth().Height(200).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
 				ui.Icon(c, iconHistory).Width(34).Height(34).TextColor(cl.Muted.Alpha(0.6))
-				ui.Text(c, "Bu sayfanın kopyası yok").TextColor(cl.Muted)
+				ui.Text(c, T("Bu sayfanın kopyası yok")).TextColor(cl.Muted)
 			})
 			return
 		}
@@ -175,7 +175,7 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []diffOp) {
 		}
 	}
 	if adds+dels == 0 {
-		ui.Text(c, "Bu sürüm sayfanın şimdiki halinin aynısı.").FontSize(13).TextColor(cl.Muted).Padding(8, 4)
+		ui.Text(c, T("Bu sürüm sayfanın şimdiki halinin aynısı.")).FontSize(13).TextColor(cl.Muted).Padding(8, 4)
 		return
 	}
 	ui.Text(c, strconv.Itoa(adds)+" satır geri gelir, "+strconv.Itoa(dels)+" satır gider").FontSize(12).FontWeight(600).TextColor(cl.Muted).Padding(0, 4, 6, 4)

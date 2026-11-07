@@ -218,7 +218,7 @@ func (a *app) kbKeys(c *ui.Context) {
 				return
 			}
 		}
-		a.notice = "Space " + string(r) + ": böyle bir kısayol yok"
+		a.notice = Tf("Space %s: böyle bir kısayol yok", string(r))
 		return
 	}
 	if k.pending != "" {
@@ -240,12 +240,12 @@ func (a *app) kbKeys(c *ui.Context) {
 				k.marks = map[rune]place{}
 			}
 			k.marks[r] = a.here()
-			a.notice = "İşaret " + string(r) + " konuldu"
+			a.notice = Tf("İşaret %s konuldu", string(r))
 		case p == "'":
 			if pl, ok := k.marks[r]; ok {
 				a.goTo(pl)
 			} else {
-				a.notice = "İşaret " + string(r) + " yok"
+				a.notice = Tf("İşaret %s yok", string(r))
 			}
 		}
 		return

@@ -103,7 +103,7 @@ func (a *app) checkDisk() {
 		if _, ok := disk.pages[p.Dir]; !ok && a.dirty {
 			if err := a.lib.fs.MkdirAll(p.Dir); err == nil {
 				a.save()
-				a.notice = "“" + p.Title + "” dışarıda silinmişti; yazdıkların kaybolmasın diye geri yazıldı."
+				a.notice = Tf("“%s” dışarıda silinmişti; yazdıkların kaybolmasın diye geri yazıldı.", p.Title)
 				return // the next look sees it back
 			}
 		}
@@ -143,7 +143,7 @@ func (a *app) takeOutside(p *Page) {
 			return
 		}
 		a.save()
-		a.notice = "“" + p.Title + "” dışarıda da değişti: senin yazdıkların kaydedildi, öteki sürüm yanına “" + name + "” olarak kondu."
+		a.notice = Tf("“%s” dışarıda da değişti: senin yazdıkların kaydedildi, öteki sürüm yanına “%s” olarak kondu.", p.Title, name)
 		return
 	}
 	doc.SetText(a.parsePage(p, body))

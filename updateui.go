@@ -59,19 +59,19 @@ func (a *app) updateView(c *ui.Context) {
 	ryugo.Dialog(c.Key("update"), &open, ryugo.DialogOptions{Title: title, Width: 560}, func() {
 		ui.Column(c).FillWidth().Gap(12).Children(func() {
 			if a.updRel != nil && !a.updNotes {
-				ui.Text(c, "Şimdiki sürüm: "+version+" · "+map[bool]string{true: a.updRel.Date, false: ""}[a.updRel.Date != ""]).FontSize(12.5).TextColor(cl.Muted)
+				ui.Text(c, T("Şimdiki sürüm: ")+version+" · "+map[bool]string{true: a.updRel.Date, false: ""}[a.updRel.Date != ""]).FontSize(12.5).TextColor(cl.Muted)
 			}
 			if strings.TrimSpace(notes) != "" {
 				ui.Scroll(c.Key("upd-notes")).MaxHeight(240).Children(func() {
 					ui.Text(c, plainText(notes)).FontSize(13).TextColor(cl.Text2).Wrap().Selectable()
 				})
 			} else {
-				ui.Text(c, "Sürüm notu yok.").FontSize(13).TextColor(cl.Muted)
+				ui.Text(c, T("Sürüm notu yok.")).FontSize(13).TextColor(cl.Muted)
 			}
 			if a.updErr != "" {
 				ui.Text(c, a.updErr).FontSize(12.5).TextColor(cl.Up).Wrap()
 			}
-			ui.Text(c, "Kitaplığına dokunulmaz, güncellemeden önce yedeği alınır; açılışta düşerse önceki sürüme dönülür.").FontSize(12).TextColor(cl.Muted).Wrap()
+			ui.Text(c, T("Kitaplığına dokunulmaz, güncellemeden önce yedeği alınır; açılışta düşerse önceki sürüme dönülür.")).FontSize(12).TextColor(cl.Muted).Wrap()
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 				switch {
 				case a.updNotes:
@@ -135,7 +135,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	settingGroup(c, "set-update",
 		func() {
 			settingRow(c, "Yeni sürümü denetle", "Yalnız bu sürümün numarası sorulur: kitaplığından hiçbir şey gönderilmez. Kapalıyken uygulama ağa hiç çıkmaz (çevrimdışı mod).", func() {
-				ryugo.Switch(c.Key("set-upd-on"), &check, ryugo.SwitchOptions{}).Label("Yeni sürümü denetle")
+				ryugo.Switch(c.Key("set-upd-on"), &check, ryugo.SwitchOptions{}).Label(T("Yeni sürümü denetle"))
 			})
 		},
 		func() {
@@ -154,10 +154,14 @@ func (a *app) settingsUpdate(c *ui.Context) {
 			settingRow(c, "Sessiz mod", "Yeni sürüm iletişim kutusuyla çıkmaz, yalnız burada görünür.", func() { ryugo.Switch(c.Key("set-upd-quiet"), &quiet, ryugo.SwitchOptions{}).Label("Sessiz mod") })
 		},
 		func() {
-			settingRow(c, "Deneme sürümleri", "Kararlı sürümlere ek olarak beta sürümleri de bildirilir.", func() { ryugo.Switch(c.Key("set-upd-beta"), &beta, ryugo.SwitchOptions{}).Label("Deneme sürümleri") })
+			settingRow(c, "Deneme sürümleri", "Kararlı sürümlere ek olarak beta sürümleri de bildirilir.", func() {
+				ryugo.Switch(c.Key("set-upd-beta"), &beta, ryugo.SwitchOptions{}).Label(T("Deneme sürümleri"))
+			})
 		},
 		func() {
-			settingRow(c, "Kendiliğinden indir ve kur", "Bulunan sürüm sorulmadan indirilir, imzası doğrulanır ve yerine konur; açmak için yeniden başlatman istenir.", func() { ryugo.Switch(c.Key("set-upd-auto"), &auto, ryugo.SwitchOptions{}).Label("Kendiliğinden kur") })
+			settingRow(c, "Kendiliğinden indir ve kur", "Bulunan sürüm sorulmadan indirilir, imzası doğrulanır ve yerine konur; açmak için yeniden başlatman istenir.", func() {
+				ryugo.Switch(c.Key("set-upd-auto"), &auto, ryugo.SwitchOptions{}).Label(T("Kendiliğinden kur"))
+			})
 		},
 		func() {
 			settingRow(c, "Güncelleme adresi", map[bool]string{true: url, false: "Ayarlanmamış: bu sürüm bir adres olmadan derlenmiş."}[url != ""], func() {})

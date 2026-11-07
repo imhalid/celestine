@@ -97,5 +97,5 @@ func (a *app) revertToBeforeSave() {
 	}
 	a.takeOutside(p)
 	a.linksStale()
-	a.notice = "“" + p.Title + "” son kayıttan önceki hâline döndü"
+	a.notice = Tf("“%s” son kayıttan önceki hâline döndü", p.Title)
 }

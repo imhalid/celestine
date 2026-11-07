@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -50,6 +51,9 @@ func T(s string) string {
 	}
 	return s
 }
+
+// Tf is T for a sentence with values in it: the format is translated, then filled.
+func Tf(format string, a ...any) string { return fmt.Sprintf(T(format), a...) }
 
 // langName is the language's name, in itself.
 func langName(l string) string {

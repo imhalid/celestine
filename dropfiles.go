@@ -2,7 +2,6 @@ package main
 
 import (
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -44,7 +43,7 @@ func (a *app) dropFile(f string, overText bool) {
 		}
 		a.linksStale()
 		a.open(p)
-		a.notice = "“" + p.Title + "” sayfası “" + c.Name + "” koleksiyonuna eklendi" + map[bool]string{true: " (" + strconv.Itoa(st.Pictures) + " resim)", false: ""}[st.Pictures > 0]
+		a.notice = Tf("“%s” sayfası “%s” koleksiyonuna eklendi", p.Title, c.Name) + map[bool]string{true: Tf(" (%d resim)", st.Pictures), false: ""}[st.Pictures > 0]
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
 		switch {
 		case overText && a.page != nil && a.doc != nil && !a.noPage():
