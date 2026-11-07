@@ -12,7 +12,7 @@ if [ -f go.work ]; then
 else
 	GOFLAGS=-mod=mod go run github.com/egoist/mygo/cmd/mygo build -platform web
 fi
-cp web/manifest.webmanifest web/sw.js web/icon-256.png web/icon-512.png dist/web/
+cp web/manifest.webmanifest web/sw.js web/touch.js web/icon-256.png web/icon-512.png dist/web/
 WASM=$(ls dist/web/*.wasm | head -1 | xargs basename)
 # the page says it is an app, and registers the worker; the cache is named for the wasm, so a new build is a new cache
 python3 - "$WASM" <<'PY'
@@ -22,6 +22,10 @@ p='dist/web/index.html'
 s=open(p).read()
 if 'manifest.webmanifest' not in s:
     s=s.replace('</head>','<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-256.png"><meta name="theme-color" content="#17171a">\n</head>',1)
+    # touch: a finger scrolls, a tap clicks, a long press is a right click (web/touch.js); before the app, so it is first
+    s=s.replace('<script src="wasm_exec.js"></script>','<script src="touch.js"></script>\n    <script src="wasm_exec.js"></script>',1)
+    # a phone does not zoom the page: the app is laid out for its width
+    s=s.replace('content="width=device-width, initial-scale=1"','content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"',1)
     s=s.replace('</body>','<script>if("serviceWorker"in navigator&&location.protocol!=="file:"){navigator.serviceWorker.register("sw.js?v='+w+'").catch(function(){})}</script>\n</body>',1)
     open(p,'w').write(s)
 PY

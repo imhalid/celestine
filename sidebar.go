@@ -15,9 +15,11 @@ import (
 
 const (
 	barH    = 24
-	rowH    = 30
 	indentW = 14
 )
+
+// rowH is a row of the tree: taller on a phone, for a finger (updatePhone).
+var rowH float32 = 30
 
 var (
 	// springSheet is the sidebar folding and unfolding: no bounce, a width.
@@ -101,22 +103,43 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	}
 	sb := ui.Column(c).Background(t.Surface).Clip()
 	var w float32
-	if a.edge.sidebar { // dragged: it is where the pointer is, not on its way there
+	switch {
+	case phone: // a drawer over the page: it slides in, as wide as it is (mobile.go)
+		full = a.drawerWidth()
+		in := float32(0)
+		if a.drawerOpen {
+			in = 1
+		}
+		k := sb.AnimateTo("in", in, springSheet)
+		sb.Absolute().Left(0).Top(0).Bottom(0).Width(full).Translate(-full*(1-k), 0).Shadow(0, 0, 24, 0, ui.RGBA(0, 0, 0, 0.3*k))
+		w = full * k
+	case a.edge.sidebar: // dragged: it is where the pointer is, not on its way there
 		w = sb.Jump("width", target)
-	} else {
+		sb.Width(w)
+	default:
 		w = sb.AnimateTo("width", target, springSheet)
+		sb.Width(w)
 	}
-	sb.Width(w)
-	if w < 0.5 && a.sidebarClosed {
+	if w < 0.5 && a.sidebarClosed && !phone {
 		sb.Hidden(true)
 	}
 	sb.Children(func() {
-		if !a.sidebarClosed { // over the content, which is built first
+		if !a.sidebarClosed && !phone { // over the content, which is built first
 			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar)
 		}
 		ui.Column(c).Width(full).Grow(1).Children(func() {
-			// The room of the window's controls: it moves the window too.
-			ui.Box(c).Height(a.headerHeight(c)).DragWindow()
+			// The room of the window's controls: it moves the window too. On a phone, the drawer's head:
+			// the app's name, and a cross that closes it.
+			if phone {
+				ui.Row(c.Key("drawer-head")).FillWidth().Height(a.headerHeight(c)).Padding(0, 8, 0, 18).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "ryudit").FontSize(17).FontWeight(720).TextColor(t.Text).Grow(1)
+					if a.iconButton(c, iconClose, T("Çekmeceyi kapat")) {
+						a.drawerOpen = false
+					}
+				})
+			} else {
+				ui.Box(c).Height(a.headerHeight(c)).DragWindow()
+			}
 			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
 				if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
@@ -534,9 +557,11 @@ func (a *app) chevron(c *ui.Context, has, open bool) bool {
 // iconButton is a small square button of an icon, named for assistive technology.
 func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(26).Height(26).Radius(rad(7)).AlignItems(ui.Center).Justify(ui.Center).
+	b := ui.Box(c).Width(touchSize(26)).Height(touchSize(26)).Radius(rad(7)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
-	ryugo.Tooltip(c, b, label)
+	if !phone { // a finger has no hover to show a tooltip with
+		ryugo.Tooltip(c, b, label)
+	}
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)
 	} else {

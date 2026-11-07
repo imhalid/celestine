@@ -93,6 +93,10 @@ type app struct {
 
 	bars     map[string]*funBar // the scroll bars of the scroll areas, by name (funbar.go)
 	titles   titleIdx           // the pages by their titles, for the chips (chips.go)
+
+	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
+	drawerOpen bool  // on a phone, the sidebar is open over the page
+	drawerFrom place // what was shown when the drawer was looked at last: something else opened closes it
 	census   census             // the sidebar's tree, counted once a frame (sidebar.go)
 	frameSeq uint64             // the frames built, counted
 
@@ -596,6 +600,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frame = c.Invalidate
 	a.frameSeq++
+	a.updatePhone(c)
 	a.keepSettings(c)
 	a.statTick()
 	a.syncTick(c)
@@ -645,8 +650,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	root.Children(func() {
 		a.kbAnchor(c)
-		shown := a.sidebar(c)
-		a.sidebarShown = shown
+		if !phone { // on a phone the sidebar is a drawer over everything, built last (mobile.go)
+			a.sidebarShown = a.sidebar(c)
+		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
 			a.header(c)
 			a.panesView(c, th)
@@ -655,8 +661,12 @@ func (a *app) viewFrame(c *ui.Context) {
 			}
 			a.keepTree()
 		})
-		a.sidePanel(c)
-		a.sidebarButton(c)
+		if phone {
+			a.drawer(c)
+		} else {
+			a.sidePanel(c)
+			a.sidebarButton(c)
+		}
 	})
 	a.collDragView(c)
 	if !a.activeElsewhere() { // the pane in use is in a window of its own, which draws these (panewin.go)
@@ -760,7 +770,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			a.paintCover(c, p, wrap)
 			wrap.Children(func() {
 				a.coverButtons(c, p)
-				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
+				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
 				})
 			})

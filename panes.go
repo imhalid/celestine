@@ -226,6 +226,10 @@ func (a *app) openAtPane(i int, pl place) {
 
 // openInSide shows place pl in the next pane: the second, made if there is not one yet.
 func (a *app) openInSide(pl place) {
+	if phone { // one pane: it opens here
+		a.goTo(pl)
+		return
+	}
 	n := a.paneCount()
 	if n == 1 {
 		a.openAtPane(1, pl)
@@ -343,7 +347,11 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	}
 	a.syncPanes()
 	a.keepPanes()
-	if a.ps.layout == nil {
+	if phone { // one pane: the one in use, the whole window (mobile.go)
+		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+			a.withPane(a.ps.active, func() { a.paneColumn(c, th, a.ps.active, 1, false) })
+		})
+	} else if a.ps.layout == nil {
 		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
 		})
@@ -392,11 +400,14 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 	col.Children(func() {
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
-		padX := float32(32)
+		padX := pageMargin()
 		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
 			padX = 0
 		}
 		topPad := float32(pageTop - barH + 8)
+		if phone { // a phone's screen starts near its header
+			topPad = 12
+		}
 		if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
 			topPad = 0
 		}
@@ -584,6 +595,9 @@ func (a *app) closeThisPane() { a.closePane(a.ps.active) }
 // paneCommands are the palette's commands of the panes.
 func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func()) palItem) []palItem {
 	// the screen in use, the panes in turn and closing one are the app's commands (appcmds.go)
+	if phone {
+		return nil
+	}
 	return []palItem{
 		cmd("Yan bölmede aç: Ayarlar", "", iconSettings, func() { a.openInSide(place{kind: "settings"}) }),
 		cmd("Yan bölmede aç: Görevler", "", iconTask, func() { a.openInSide(place{kind: "tasks"}) }),

@@ -102,11 +102,16 @@ func (a *app) closeSettings() {
 func (a *app) settingsScreen(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ui.Row(c).Fill().MaxWidth(viewMax).Gap(20).AlignItems(ui.Stretch).Children(func() {
-		a.settingsNav(c)
+		if !phone { // on a phone the sections are a row of chips over the section (settingsChips)
+			a.settingsNav(c)
+		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
+			if phone {
+				a.settingsChips(c)
+			}
 			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
-				ui.Text(c, T(sec.name)).FontSize(32).FontWeight(720).TextColor(cl.Text)
+				ui.Text(c, T(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
 				ui.Text(c, T(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
@@ -135,6 +140,32 @@ func (a *app) settingsScreen(c *ui.Context) {
 					}
 				})
 			})
+		})
+	})
+}
+
+// settingsChips are the sections on a phone: a row of chips that scrolls sideways, the one chosen lit.
+func (a *app) settingsChips(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	a.scrolledSideways(c, "set-chips", nil, ui.ScrollHorizontal(c.Key("set-chips")).FillWidth().Shrink(0), func() {
+		ui.Row(c).Gap(6).Padding(0, 0, 12, 0).Children(func() {
+			for i, s := range settingsSections {
+				i, sel := i, a.settingsTab == i
+				e := ui.Row(c.Key("schip:"+s.name)).Height(36).Padding(0, 14).Gap(7).Radius(rad(18)).AlignItems(ui.Center).Shrink(0).
+					Label(s.name).Role(ui.RoleButton).Border(1, cl.Hairline)
+				if sel {
+					e.Background(ryugo.Mix(cl.Card, cl.Accent, 0.22)).Border(1, cl.Accent.Alpha(0.5))
+				} else {
+					e.Background(cl.Card)
+				}
+				e.Children(func() {
+					ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(map[bool]ui.Color{true: cl.Accent, false: cl.Muted}[sel])
+					ui.Text(c, T(s.name)).FontSize(13.5).FontWeight(map[bool]int{true: 650, false: 540}[sel]).TextColor(cl.Text)
+				})
+				if e.Clicked() {
+					a.settingsTab = i
+				}
+			}
 		})
 	})
 }
@@ -187,6 +218,18 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 func settingRow(c *ui.Context, title, help string, control func()) {
 	title, help = T(title), T(help)
 	cl := ryugo.From(c).Colors
+	if phone { // its control under its name: a phone has no room beside it
+		ui.Column(c).FillWidth().Gap(10).Children(func() {
+			ui.Column(c).FillWidth().Gap(3).Children(func() {
+				ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+				if help != "" {
+					ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				}
+			})
+			control()
+		})
+		return
+	}
 	ui.Row(c).Gap(20).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
@@ -251,7 +294,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 					ui.Text(c, "Tema").FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Sistemin görünümünü izler ya da hep açık ya da koyu olur.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
-				ui.Row(c).Gap(14).Children(func() {
+				ui.Row(c).Gap(14).Wrap().Children(func() {
 					if choiceTile(c, "tile-sys", "Sistem", theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
 						theme = 0
 					}

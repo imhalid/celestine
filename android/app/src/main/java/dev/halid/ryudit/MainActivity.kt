@@ -3,6 +3,9 @@ package dev.halid.ryudit
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -41,7 +44,15 @@ class MainActivity : Activity() {
             cacheMode = WebSettings.LOAD_DEFAULT
             allowFileAccess = false
         }
-        web.webChromeClient = WebChromeClient()
+        // a debug build: the page can be inspected from a computer (chrome://inspect), and what it writes to
+        // the console is in logcat, under "ryudit"
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(m: ConsoleMessage): Boolean {
+                Log.d("ryudit", m.message())
+                return true
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val url = request.url

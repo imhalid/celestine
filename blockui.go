@@ -129,7 +129,7 @@ const gutterW = 32
 // click puts the caret at the start of that paragraph.
 func (a *app) gutterView(c *ui.Context) {
 	g := &a.grip
-	if a.doc == nil || a.noPage() || a.editorR.W == 0 || g.dragging || g.menu || g.pressed || a.modal() {
+	if phone || a.doc == nil || a.noPage() || a.editorR.W == 0 || g.dragging || g.menu || g.pressed || a.modal() { // a finger has no pointer to show it under
 		return
 	}
 	r := a.editorR
@@ -165,7 +165,7 @@ func (a *app) gutterView(c *ui.Context) {
 // gripView is the grip and its menu, over the window.
 func (a *app) gripView(c *ui.Context) {
 	g := &a.grip
-	if a.doc == nil || a.noPage() || g.para < 0 || g.para > a.doc.Text().Len() {
+	if phone || a.doc == nil || a.noPage() || g.para < 0 || g.para > a.doc.Text().Len() {
 		g.hover = false
 		return
 	}

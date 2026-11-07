@@ -48,6 +48,11 @@ ikincisi önbellekten.
 - wasm 33,0 → **28,5 MB** (brotli ≈5,3 MB): MCP sunucusu web derlemesinde yok (docs/17). Ayarlardaki MCP anahtarı web'de açılmadığını söyler.
 - Panonun yatay kaydırması da uygulamanın kendi çubuğunu kullanıyor.
 
+## 7 Kasım, gece: dokunma ve telefon
+
+Dar bir tarayıcı penceresi (telefon) artık telefon düzeninde açılır ve parmakla kaydırılır: ayrıntı docs/21 ("telefona göre tasarım").
+`web/touch.js` her web derlemesinde sayfaya eklenir ve servis çalışanı onu da önbelleğe alır.
+
 ## Tahmini kalan iş
 
 PWA'nın gerçek tarayıcıda denenmesi ve düzeltilmesi 1 gün, tarayıcı testleri (Chrome, Safari, Firefox; IME, pano, dokunmatik) 2 gün, klavye harf tuşlarının eşlemesi 1 gün.

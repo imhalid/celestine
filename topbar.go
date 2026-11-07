@@ -16,7 +16,12 @@ import (
 const headerH = 38
 
 // headerHeight is the header's height: the window's title bar, at least headerH.
-func (a *app) headerHeight(c *ui.Context) float32 { return max(c.TitleBar().Height, headerH) }
+func (a *app) headerHeight(c *ui.Context) float32 {
+	if phone { // a finger's buttons
+		return max(c.TitleBar().Height, 50)
+	}
+	return max(c.TitleBar().Height, headerH)
+}
 
 // header draws the header.
 func (a *app) header(c *ui.Context) {
@@ -25,6 +30,10 @@ func (a *app) header(c *ui.Context) {
 	h := a.headerHeight(c)
 	ui.Column(c.Key("header")).FillWidth().Height(h).Label(T("Üst çubuk")).Background(a.pageBg).Children(func() {
 		ui.Row(c).FillWidth().Grow(1).AlignItems(ui.Center).Padding(0, 8, 0, 14).Gap(6).DragWindow().Children(func() {
+			if phone {
+				a.phoneHeader(c)
+				return
+			}
 			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
 				ui.Box(c).Width(c.TitleBar().Left + sidebarButtonsW)
 			}

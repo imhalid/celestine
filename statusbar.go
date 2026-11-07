@@ -66,7 +66,7 @@ func (a *app) hints() []hint {
 func (a *app) statusHints(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	row := ui.Row(c.Key("status-hints")).Grow(1).MinWidth(0).Gap(12).AlignItems(ui.Center).Clip()
-	if a.settings.HideHints {
+	if a.settings.HideHints || phone { // a phone has no keys to press
 		row.Height(0)
 		return
 	}

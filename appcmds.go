@@ -69,17 +69,19 @@ func appCommands() []appCmd {
 		{title: "Kaydet", accel: "cmd+s", menu: "file", glyph: iconExport, run: (*app).saveNow},
 
 		{title: "Kenar çubuğunu aç/kapat", accel: "cmd+\\", menu: "view", glyph: iconSidebar, run: (*app).toggleSidebar},
-		{title: "Yan paneli aç/kapat", accel: "cmd+shift+\\", menu: "view", glyph: iconPanel, run: (*app).togglePanel},
+		{title: "Yan paneli aç/kapat", accel: "cmd+shift+\\", menu: "view", glyph: iconPanel, run: (*app).togglePanel, off: phoneOff},
 		{title: "Caret'i değiştir", accel: "cmd+shift+m", menu: "view", glyph: iconPage, run: func(a *app) { a.setCaret((a.caretKind + 1) % caretCount()) }},
 		{title: "Yazıyı büyüt", accel: "cmd+=", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(1) }},
 		{title: "Yazıyı küçült", accel: "cmd+-", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(-1) }},
 		{title: "Yazı boyutunu sıfırla", accel: "cmd+0", menu: "view", glyph: iconEditing, run: (*app).resetFont},
-		{title: "Yan bölmede aç: bu ekran", accel: "alt+cmd+enter", menu: "view", sep: true, glyph: iconPanel, run: (*app).openHereInSide},
-		{title: "Yeni bölme: bu ekran", menu: "view", glyph: iconPanel, run: (*app).newPaneHere},
+		{title: "Yan bölmede aç: bu ekran", accel: "alt+cmd+enter", menu: "view", sep: true, glyph: iconPanel, run: (*app).openHereInSide, off: phoneOff},
+		{title: "Yeni bölme: bu ekran", menu: "view", glyph: iconPanel, run: (*app).newPaneHere, off: phoneOff},
 		{title: "Bölmeler arası geç", accel: "alt+cmd+right", menu: "view", glyph: iconPanel, run: (*app).nextPane, off: onePaneOff},
 		{title: "Bölmeyi kapat", accel: "alt+cmd+w", menu: "view", glyph: iconClose, run: (*app).closeThisPane, off: onePaneOff},
 		{title: "Bölmeyi ayrı pencereye al", menu: "view", glyph: iconPanel, run: (*app).tearOffPane, off: func(a *app) string {
 			switch {
+			case phone:
+				return T("Telefonda yok")
 			case a.dockHost == nil:
 				return T("Burada ayrı pencere açılamıyor")
 			case a.activeElsewhere():
