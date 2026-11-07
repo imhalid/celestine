@@ -122,3 +122,58 @@ func restBody(f caretFrame, box ui.Rect) *ui.Path {
 	}
 	return shapeBody(box, f.style.bracket)
 }
+
+// glassBody is drawBody as the slime is drawn: the same shape (the box, its bracket's, or the jelly's), but
+// see-through, lit from above (lighter at the top, the color deepening down it), with a rim of the color and a
+// gloss down its upper left side. The carets of the later sets are glass (caretfx_game.go and on).
+func glassBody(p *ui.Painter, f caretFrame, box ui.Rect, col ui.Color, alpha, glow float64) {
+	styledDraw(p, f, box, func() {
+		path := restBody(f, box)
+		if f.jelly == nil {
+			glowAround(p, box, col, glow*0.8)
+		} else {
+			for i, w := range []float32{9, 6, 3.5} {
+				p.StrokePath(path, w, withAlpha(col, glow*[]float64{0.035, 0.06, 0.09}[i]))
+			}
+		}
+		glassFill(p, path, col, col, f.dark, alpha)
+		glassGloss(p, box, f.dark, alpha)
+	})
+}
+
+// glassFill fills path as glass: top's color above melting into bottom's below (the same for one color), lit
+// from above, with a rim that melts the same way.
+func glassFill(p *ui.Painter, path *ui.Path, top, bottom ui.Color, dark bool, alpha float64) {
+	light := mix(top, ui.RGBA(255, 255, 255, 1), 0.45)
+	p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+		{Color: withAlpha(light, 0.62*alpha), At: 0},
+		{Color: withAlpha(top, 0.4*alpha), At: 0.4},
+		{Color: withAlpha(bottom, 0.42*alpha), At: 0.65},
+		{Color: withAlpha(bottom, 0.52*alpha), At: 1},
+	}})
+	p.StrokePathGradient(path, 1.25, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+		{Color: withAlpha(top, 0.95*alpha), At: 0.3},
+		{Color: withAlpha(bottom, 0.95*alpha), At: 0.7},
+	}})
+}
+
+// glassGloss is the glint down a glass body's upper left side.
+func glassGloss(p *ui.Painter, box ui.Rect, dark bool, alpha float64) {
+	a := 0.55
+	if !dark {
+		a = 0.8
+	}
+	gx := box.X + max(1.6, box.W*0.22)
+	gloss := &ui.Path{}
+	gloss.MoveTo(gx, box.Y+box.H*0.14).LineTo(gx, box.Y+box.H*0.36)
+	p.StrokePath(gloss, 1.4, ui.RGBA(255, 255, 255, float32(a*alpha)))
+}
+
+// faceInk is what a glass caret's face is drawn in: dark on a light page, where the glass is light; light on a
+// dark page, where the dark shows through the glass and a dark face would not be seen.
+func faceInk(dark bool, light ui.Color) ui.Color {
+	if dark {
+		return ui.Hex("#fafaf9")
+	}
+	return light
+}

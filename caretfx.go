@@ -50,6 +50,31 @@ func init() {
 		{"Hız iblisi", func() caretFX { return newSpeedDemon() }},
 		{"Meşale", func() caretFX { return newTorch() }},
 		{"Mario", func() caretFX { return newMario() }},
+		// games and creatures (caretfx_game.go)
+		{"Tetris", func() caretFX { return newTetris() }},
+		{"Yılan", func() caretFX { return newSnake() }},
+		{"Kedi", func() caretFX { return newCat() }},
+		{"Tamagotchi", func() caretFX { return newPet() }},
+		// nature (caretfx_nature.go)
+		{"Bitki", func() caretFX { return newPlant() }},
+		{"Ateş böceği", func() caretFX { return newFireflies() }},
+		{"Yağmur damlası", func() caretFX { return newRaindrop() }},
+		{"Mevsim", func() caretFX { return newSeason() }},
+		// ink and paper (caretfx_ink.go)
+		{"Dolma kalem", func() caretFX { return newPen() }},
+		{"Daktilo", func() caretFX { return newTypewriter() }},
+		{"Mühür", func() caretFX { return newStamp() }},
+		// motion (caretfx_motion.go)
+		{"Yay", func() caretFX { return newSpring() }},
+		{"Kuyruklu yıldız", func() caretFX { return newComet() }},
+		{"Mıknatıs", func() caretFX { return newMagnet() }},
+		// the writing itself (caretfx_mood.go)
+		{"Duygu yüzü", func() caretFX { return newMoodFace() }},
+		{"Akış", func() caretFX { return newFlow() }},
+		{"Noktalama", func() caretFX { return newPunct() }},
+		// cute (caretfx_cute.go)
+		{"Kawaii", func() caretFX { return newKawaii() }},
+		{"UwU", func() caretFX { return newUwu() }},
 	}
 }
 
