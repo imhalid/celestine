@@ -94,26 +94,6 @@ func pix(p *ui.Painter, x, y, cell float64, size float32, col ui.Color) {
 	p.Fill(ui.Rect{X: f32(gx), Y: f32(gy), W: size, H: size}, col, 0)
 }
 
-// drawBody draws the caret's body in col: the plain box with its halo, or, when the jelly has
-// stretched it (f.jelly), that shape, with the same halo.
-func drawBody(p *ui.Painter, f caretFrame, box ui.Rect, col ui.Color, alpha, glow float64) {
-	styledDraw(p, f, box, func() {
-		if f.jelly == nil {
-			glowAround(p, box, col, glow)
-			if f.style.bracket == '{' {
-				p.FillPath(shapeBody(box, '{'), withAlpha(col, 0.9*alpha))
-				return
-			}
-			p.Fill(box, withAlpha(col, 0.9*alpha), bracketRadius(box, f.style.bracket))
-			return
-		}
-		for i, w := range []float32{9, 6, 3.5} {
-			p.StrokePath(f.jelly, w, withAlpha(col, glow*[]float64{0.035, 0.06, 0.09}[i]))
-		}
-		p.FillPath(f.jelly, withAlpha(col, 0.9*alpha))
-	})
-}
-
 // restBody is the shape of a caret's body when it is not doing anything of its own: the box, or
 // the jelly's shape of it.
 func restBody(f caretFrame, box ui.Rect) *ui.Path {
@@ -123,9 +103,9 @@ func restBody(f caretFrame, box ui.Rect) *ui.Path {
 	return shapeBody(box, f.style.bracket)
 }
 
-// glassBody is drawBody as the slime is drawn: the same shape (the box, its bracket's, or the jelly's), but
+// glassBody draws a caret's body in col as the slime is drawn: its shape (the box, its bracket's, or the jelly's), but
 // see-through, lit from above (lighter at the top, the color deepening down it), with a rim of the color and a
-// gloss down its upper left side. The carets of the later sets are glass (caretfx_game.go and on).
+// gloss down its upper left side. Every caret's body is glass, as the slime's is.
 func glassBody(p *ui.Painter, f caretFrame, box ui.Rect, col ui.Color, alpha, glow float64) {
 	styledDraw(p, f, box, func() {
 		path := restBody(f, box)

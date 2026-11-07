@@ -153,13 +153,13 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 			}
 			ring := pill(x-3, y-2, w+6, h+4)
 			p.StrokePath(ring, 4, withAlpha(mizanTop, 0.26*a))
-			p.FillPathGradient(pill(x, y, w, h), ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}})
+			glassFill(p, pill(x, y, w, h), mizanTop, mizanBottom, f.dark, a) // glass, as the caret is
 		}
 	}
 
-	// The caret: a matte raised control, as button.css draws .btn.solid - lit
-	// from above, a sheen along its top, a contact shadow in its own color. It
-	// stays solid while you write and breathes slowly when you stop.
+	// The caret: glass, as the slime is - see-through, lit from above, its top's
+	// color melting into its bottom's, a rim and a glint. It stays as it is while
+	// you write and breathes slowly when you stop.
 	if m.glide == nil {
 		a := 1.0
 		if idle > 600*time.Millisecond {
@@ -167,15 +167,10 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 			busy = true
 		}
 		c := boxOf(f) // a block, as the other carets are
-		rr := bracketRadius(c, f.style.bracket)
 		styledDraw(p, f, c, func() {
-			p.Shadow(c, rr, 0, 1, 3, 0, withAlpha(mizanBottom, 0.45*a))
-			if f.jelly != nil { // stretched by the jelly: this shape, in the same light
-				p.FillPathGradient(f.jelly, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}})
-			} else {
-				p.FillGradient(c, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(mizanTop, a), At: 0}, {Color: withAlpha(mizanBottom, a), At: 1}}}, rr)
-			}
-			p.Fill(ui.Rect{X: c.X + 1, Y: c.Y + 1, W: max(c.W-2, 1), H: 1}, ui.RGBA(255, 255, 255, float32(0.28*a)), rad(0.5))
+			glowAround(p, c, mizanTop, 0.7*a)
+			glassFill(p, restBody(f, c), mizanTop, mizanBottom, f.dark, a) // the jelly's shape, when it stretches it
+			glassGloss(p, c, f.dark, a)
 		})
 	}
 

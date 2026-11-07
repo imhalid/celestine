@@ -104,7 +104,7 @@ func (g *speedDemon) draw(p *ui.Painter, f caretFrame, k kick) {
 	g.sparks = out
 	col := heatColor(g.heat)
 	glow := 0.9 * (1 + 1.6*g.heat)
-	drawBody(p, f, box, col, 1, glow)
+	glassBody(p, f, box, col, 1, glow)
 	if g.heat > 0 || len(g.sparks) > 0 {
 		p.AnimationFrame()
 	}
@@ -154,7 +154,7 @@ func (g *torch) draw(p *ui.Painter, f caretFrame, k kick) {
 		p.FillRadialGradient(b, ui.RadialGradient{Center: cen, Radius: R * 0.6, Stops: []ui.GradientStop{
 			{Color: withAlpha(warm, 0.04), At: 0}, {Color: withAlpha(warm, 0.012), At: 0.45}, {Color: withAlpha(warm, 0), At: 0.75}}}, 0)
 	}
-	drawBody(p, f, box, cursorColor(f.dark), 1, 0.9)
+	glassBody(p, f, box, cursorColor(f.dark), 1, 0.9)
 	if math.Hypot(tx-g.x, ty-g.y) > 0.25 {
 		p.AnimationFrame()
 	}
