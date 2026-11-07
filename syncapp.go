@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,10 +27,15 @@ type syncUI struct {
 	result   string
 	err      string
 	conflict int
-	tried    time.Time
-	pass     string // the passphrase being typed
-	recovery string // the recovery key just made, to be written down
-	hasKey   bool
+	// the conflict files as last looked for, and when; zero: look again (conflictFiles)
+	conflicts      []string
+	conflictsAt    time.Time
+	conflictsBusy  bool
+	conflictsAgain bool
+	tried          time.Time
+	pass           string // the passphrase being typed
+	recovery       string // the recovery key just made, to be written down
+	hasKey         bool
 }
 
 // syncRemote makes the remote the settings describe.
@@ -123,10 +129,7 @@ func (a *app) syncNow() {
 				if len(res.Errors) > 0 {
 					a.sy.err = res.Errors[0]
 				}
-				a.sy.conflict = len(a.conflictFiles())
-				if a.sy.conflict > 0 {
-					a.sy.status = "çakışma: " + strconv.Itoa(a.sy.conflict)
-				}
+				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
 				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
 					a.checkDisk()
 					a.reloadLibrary()
@@ -153,24 +156,60 @@ func (a *app) syncTick(c *ui.Context) {
 	c.After(30 * time.Second)
 }
 
-// conflictFiles are the files that a conflict left: "… (çakışma …)…".
+// conflictFiles are the files that a conflict left: "… (çakışma …)…", as last looked for. The sync settings ask
+// at every frame, and going through a big library takes a good part of a second (it took 650 ms a frame, reading
+// every file): so they are looked for away from the window, by name only, the first time and after a pass or a resolve.
 func (a *app) conflictFiles() []string {
+	if a.sy.conflictsAt.IsZero() {
+		a.lookForConflicts()
+	}
+	return a.sy.conflicts
+}
+
+// lookForConflicts goes through the library's file names in the background; the window gets the list when it is done.
+func (a *app) lookForConflicts() {
 	st := a.store()
 	if st == nil {
-		return nil
+		return
 	}
-	files, err := localFiles(st, storeRoot, nil)
-	if err != nil {
-		return nil
+	if a.sy.conflictsBusy { // what it finds may be from before: it looks again when done
+		a.sy.conflictsAgain = true
+		return
 	}
-	var out []string
-	for n := range files {
-		if strings.Contains(path.Base(n), " (çakışma ") {
-			out = append(out, n)
+	a.sy.conflictsBusy = true
+	go func() {
+		defer a.guard()
+		var found []string
+		var walk func(dir, rel string)
+		walk = func(dir, rel string) {
+			ents, err := st.ReadDir(dir)
+			if err != nil {
+				return
+			}
+			for _, e := range ents {
+				name := e.Name()
+				if e.IsDir() {
+					walk(filepath.Join(dir, name), path.Join(rel, name))
+				} else if strings.Contains(name, " (çakışma ") && !strings.HasSuffix(name, ".tmp~") {
+					found = append(found, path.Join(rel, name))
+				}
+			}
 		}
-	}
-	sortStrings(out)
-	return out
+		walk(storeRoot, "")
+		sortStrings(found)
+		a.do(func() error {
+			a.sy.conflicts, a.sy.conflictsAt, a.sy.conflictsBusy = found, time.Now(), false
+			a.sy.conflict = len(found)
+			if a.sy.conflict > 0 && !a.sy.busy && a.sy.err == "" {
+				a.sy.status = "çakışma: " + strconv.Itoa(a.sy.conflict)
+			}
+			if a.sy.conflictsAgain {
+				a.sy.conflictsAgain = false
+				a.lookForConflicts()
+			}
+			return nil
+		})
+	}()
 }
 
 func sortStrings(s []string) {
@@ -216,7 +255,15 @@ func (a *app) resolveConflict(name string, use bool) error {
 	}
 	a.checkDisk()
 	a.reloadLibrary()
-	a.sy.conflict = len(a.conflictFiles())
+	// the copy is gone from the list at once; the library is looked through again in the background
+	var left []string
+	for _, f := range a.sy.conflicts {
+		if f != name {
+			left = append(left, f)
+		}
+	}
+	a.sy.conflicts, a.sy.conflict = left, len(left)
+	a.lookForConflicts()
 	return nil
 }
 

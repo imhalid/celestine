@@ -414,7 +414,7 @@ func waitSync(t *testing.T, a *app) {
 	t.Helper()
 	for i := 0; i < 500; i++ {
 		a.mu.Lock()
-		busy := a.sy.busy
+		busy := a.sy.busy || a.sy.conflictsBusy // the conflicts are looked for after the pass
 		a.mu.Unlock()
 		if !busy {
 			return
