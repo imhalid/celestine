@@ -45,5 +45,5 @@ Koleksiyon başına eşitle aç/kapa (kapalıysa hiçbir şeyi yukarı çıkmaz,
 - **Sunucuda sürüm geçmişi, günlük anlık görüntü, paylaşım, Wi-Fi sınırı, ağ hızı ayarı, ek boyut sınırı.**
 - **Gerçek zamanlı eşitleme**: aralıklı (öntanımlı 5 dk) ve elle; değişiklik anında gitmez.
 - **Metin birleştirme** (3 yollu): çakışma kopyası var, otomatik birleştirme yok.
-- **Canlı Cloudflare denemesi**: Worker yazıldı, protokol istemci tarafı sahte bir sunucuyla test edildi; Worker'ın kendisi dağıtılıp denenmedi.
+- **Canlı Cloudflare denemesi**: Worker yerelde (`wrangler dev`, R2 benzetimi) gerçek istemciyle denendi (`sync_worker_test.go`: gönder/al/güncelle/çakışma/şifreli; CORS eklendi); Cloudflare'da da denendi (2026-11-07): `https://ryudit-sync.imhalid.workers.dev`, R2 bucket `ryudit-sync`, dağıtım `cloudflare/sync/deploy.sh` (`cf deploy --prebuilt`; wrangler girişli değil). Jetonlar `TOKENS` sırrında, depoda değil. Uygulamada Ayarlar ▸ Senkron ile elle deneme kaldı.
 - Eşitleme yalnız tek dosyalı (SQLite) kitaplıkta çalışır.

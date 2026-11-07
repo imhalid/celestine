@@ -14,3 +14,8 @@
 /kitaplik.db
 /kitaplik-md-*/
 /dist/
+
+# Cloudflare workers: installed tools and local secrets
+node_modules/
+.dev.vars
+.wrangler/

@@ -6,4 +6,5 @@ compatibility_date = "2026-01-01"
 binding = "SYNC"
 bucket_name = "ryudit-sync"
 
-# wrangler secret put TOKENS   →   {"<device token>": "<account>", …}
+# Used by `wrangler dev` (TOKENS from .dev.vars). The live Worker is deployed by deploy.sh, which sets the
+# TOKENS secret: {"<device token>": "<account>", …}

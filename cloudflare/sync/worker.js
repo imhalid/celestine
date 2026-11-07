@@ -15,8 +15,26 @@ async function sha256(buf) {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+// The web build (a browser) speaks to this server too, so every answer says who may read it. The token
+// is what protects the files, not the origin: "*" is safe because no cookie is ever used.
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, PUT, DELETE, OPTIONS",
+  "access-control-allow-headers": "authorization, if-match, content-type",
+  "access-control-max-age": "86400",
+};
 export default {
   async fetch(request, env) {
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+    const res = await handle(request, env);
+    const out = new Response(res.body, res);
+    for (const [k, v] of Object.entries(CORS)) out.headers.set(k, v);
+    return out;
+  },
+};
+
+async function handle(request, env) {
+  {
     const auth = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
     const account = JSON.parse(env.TOKENS || "{}")[auth];
     if (!auth || !account) return new Response("no", { status: 401 });
@@ -65,5 +83,5 @@ export default {
       return new Response("ok");
     }
     return new Response("no", { status: 405 });
-  },
-};
+  }
+}
