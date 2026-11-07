@@ -16,13 +16,13 @@ import (
 // a cover of its own, and the same each time. Nothing is stored and nothing is a file.
 //
 // It is a landscape: mountains, a lake under them, the sea, a forest, dunes and their
-// pyramids, mesas, a city, hills, windmills, a lighthouse, a snowy village, a volcano, a field,
-// islands, a neon horizon, a beach seen from above - in the light of an hour the seed picks too: dawn, morning, noon,
+// pyramids, a lighthouse, islands, a beach seen from above (and in autocover_scenes.go a river,
+// space and a sea under the moon) - in the light of an hour the seed picks too: dawn, morning, noon,
 // a golden afternoon or dusk in the light theme; twilight, night or a moonlit night in the
 // dark, the moon in its phase of today. The picture is a print of two DIPs to a pixel,
 // ordered-dithered, as an old game's; over it, now and then, what lives in it moves, slowly
-// and few frames a second: clouds drift, stars twinkle, birds pass, snow falls, the windmills
-// turn, the lighthouse sweeps, smoke leaves the volcano, fireflies wander, the sea glints.
+// and few frames a second: clouds drift, stars twinkle, birds pass, snow falls, the
+// lighthouse sweeps, fireflies wander, the sea glints.
 
 const (
 	coverNone = "none" // cover: none in the front matter - no cover, not the made one either
@@ -47,35 +47,11 @@ const (
 	sceneLake
 	sceneSea
 	sceneForest
-	sceneHills
 	sceneDesert
-	sceneMesas
-	sceneCity
-	sceneWindmills
 	sceneLighthouse
-	sceneSnow
-	sceneVolcano
-	sceneField
 	sceneIslands
-	sceneNeon
 	sceneBeach
-	sceneTerraces // the rest are in autocover_scenes.go
-	sceneRiver
-	sceneTulips
-	sceneZen
-	sceneIce
-	sceneReef
-	sceneHarbor
-	sceneCamp
-	sceneRail
-	sceneAutumn
-	sceneUnderwater
-	sceneSakura
-	sceneRain
-	sceneStorm
-	sceneBalloons
-	sceneAurora
-	sceneViaduct
+	sceneRiver // the rest are in autocover_scenes.go
 	sceneSpace
 	sceneMoonSea
 	sceneKinds
@@ -424,9 +400,6 @@ type autoCover struct {
 	glint     bool         // the sea glints where the light lies on it
 	glints    [][2]float64 // where
 	beam      [2]float64
-	mills     [][3]float64 // a windmill's hub, and the length of its blades
-	millInk   rgb
-	smoke     [2]float64
 	shore     []float64 // the beach's: where the dry sand meets the water, a column's
 	sand      rgb       // the wet sand the waves run up
 	shallow   rgb
@@ -477,14 +450,6 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 	}
 	ac.light = int(rng.next() % uint64(len(lights)))
 	l := lights[ac.light]
-	if ac.scene == sceneNeon { // the neon horizon is at its best late
-		if dark {
-			ac.light = 0
-		} else {
-			ac.light = 4
-		}
-		l = lights[ac.light]
-	}
 	var tint rgb
 	tintA := 0.0
 	if th != nil {
@@ -580,7 +545,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 		ac.glint = true
 	}
 
-	k := &kit{cv: cv, rng: &rng, l: &l, ac: ac, ns: ns, sx: sx, sy: sy, shine: shine, ground: ground, ridge: ridge, sea: sea, reflect: reflect, water: &waterLine}
+	k := &kit{cv: cv, rng: &rng, l: &l, ac: ac, ns: ns, sx: sx, ridge: ridge, sea: sea, water: &waterLine}
 	switch ac.scene {
 	default:
 		k.draw(ac.scene)
@@ -642,35 +607,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 		}
 		ac.fireflies = l.night
 		ac.birds = !l.night
-	case sceneHills:
-		greens := []string{"#9cc47a", "#7fb064", "#5e9750"}
-		for i := 0; i < 3; i++ {
-			d := 0.45 + 0.27*float64(i)
-			top := ridge(picHz+float64(i)*8, 14-float64(i)*3, 0.004+0.002*float64(i), 3, false, uint64(i)+40)
-			c := ground(hexRGB(greens[i]), d)
-			cv.land(top, c, c.mix(hexRGB("#2f5a34"), 0.3))
-			if i == 1 { // round trees on the middle hill
-				for x := rng.in(0, 30); x < picW; x += rng.in(18, 60) {
-					t := top(x)
-					cv.rect(x-0.5, t-3, x+0.5, t+1, ground(hexRGB("#5a4030"), d), 1)
-					cv.disc(x, t-5, rng.in(2.5, 4), ground(hexRGB("#3f7a42"), d+0.1), 1)
-				}
-			}
-			if i == 2 { // a house, its roof red
-				hx := rng.in(0.32, 0.68) * picW
-				t := top(hx)
-				cv.rect(hx-5, t-6, hx+5, t+1, ground(hexRGB("#f2ead8"), 1), 1)
-				cv.tri(hx, t-5, 13, 6, ground(hexRGB("#b5463b"), 1))
-				win := hexRGB("#4a5a70")
-				if l.night {
-					win = hexRGB("#ffd27a")
-				}
-				cv.rect(hx-3, t-4, hx-1, t-2, win, 1)
-				cv.rect(hx+1, t-4, hx+3, t-2, win, 1)
-			}
-		}
-		ac.birds = !l.night
-		ac.fireflies = l.night
+
 	case sceneDesert:
 		sand := []string{"#e9c78f", "#dcae6c", "#c9924f"}
 		for p := 0; p < 3; p++ { // pyramids far off
@@ -689,77 +626,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 			c := ground(hexRGB(sand[i]), d)
 			cv.land(top, c.mix(l.sun, 0.15), c.mix(hexRGB("#8a5a33"), 0.25))
 		}
-	case sceneMesas:
-		red := []string{"#c9785a", "#b35e43", "#93452f"}
-		for i := 0; i < 3; i++ {
-			d := 0.4 + 0.3*float64(i)
-			k := uint64(i) + 60
-			top := func(x float64) float64 { // flat tops and steep sides: noise stepped
-				n := fbm(ns+k, x*(0.006+0.003*float64(i)), 3)
-				h := smooth(0.48, 0.56, n)
-				return picHz + float64(i)*7 - h*(24-6*float64(i)) - n*3
-			}
-			c := ground(hexRGB(red[i]), d)
-			cv.land(top, c, c.mix(hexRGB("#5a2a1c"), 0.3))
-			for x := 0; x < picW; x++ { // a band of paler rock along the mesa
-				t := top(float64(x))
-				cv.rect(float64(x), t+3, float64(x+1), t+4, c.mix(hexRGB("#f1c9a0"), 0.3), 0.6)
-			}
-		}
-		cv.land(ridge(picHz+22, 2, 0.01, 2, false, 69), ground(hexRGB("#d9a46e"), 1), ground(hexRGB("#a8703f"), 1))
-	case sceneCity:
-		for i := 0; i < 2; i++ {
-			d := 0.45 + 0.4*float64(i)
-			c := ground(hexRGB("#4d5872"), d)
-			for x := rng.in(-10, 0); x < picW; {
-				w := rng.in(6, 16)
-				h := rng.in(8, 26) - float64(i)*5
-				if rng.f() < 0.08 {
-					h += 12 // a tower
-				}
-				top := picHz + 6 + float64(i)*6 - h
-				cv.rect(x, top, x+w, picH, c, 1)
-				if rng.f() < 0.25 {
-					cv.rect(x+w/2-0.5, top-5, x+w/2+0.5, top, c, 1) // an aerial
-				}
-				for wy := top + 2; wy < picHz+10; wy += 3 { // windows
-					for wx := x + 1.5; wx < x+w-1; wx += 2.5 {
-						switch {
-						case l.night && rng.f() < 0.35:
-							cv.set(int(wx), int(wy), hexRGB("#ffd27a"), 0.9)
-						case !l.night:
-							cv.set(int(wx), int(wy), c.mix(l.top, 0.35), 0.7)
-						}
-					}
-				}
-				x += w + rng.in(0, 3)
-			}
-		}
-		ac.birds = !l.night
-	case sceneWindmills:
-		top := ridge(picHz+6, 10, 0.004, 3, false, 70)
-		cv.land(ridge(picHz, 8, 0.008, 3, false, 71), ground(hexRGB("#8fb56f"), 0.55), ground(hexRGB("#8fb56f"), 0.6))
-		cv.land(top, ground(hexRGB("#b9c96a"), 0.95), ground(hexRGB("#7f9a4a"), 1))
-		for x := 0; x < picW; x++ { // furrows
-			t := top(float64(x))
-			for y := int(t) + 3; y < picH; y += 3 {
-				cv.set(x, y, ground(hexRGB("#6f8a3e"), 1), 0.35)
-			}
-		}
-		ink := ground(hexRGB("#f1ece2"), 0.95)
-		for m := 0; m < 3; m++ {
-			x := (0.28 + 0.44*(float64(m)+0.5+rng.in(-0.2, 0.2))/3) * picW
-			t := top(x)
-			h := rng.in(24, 32)
-			for y := int(t - h); y < int(t+1); y++ { // the tower, wider at its foot
-				k := (float64(y) - (t - h)) / h
-				cv.rect(x-1-k*2, float64(y), x+1+k*2, float64(y+1), ink, 1)
-			}
-			cv.rect(x-1, t-3, x+1, t+1, ground(hexRGB("#6b4a36"), 1), 1)
-			ac.mills = append(ac.mills, [3]float64{x, t - h, h * 0.75})
-		}
-		ac.millInk = ink
-		ac.birds = !l.night
+
 	case sceneLighthouse:
 		waterLine = picHz + 2
 		sea()
@@ -793,79 +660,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 			ac.beam = [2]float64{lx, lamp + 1}
 		}
 		ac.birds = !l.night
-	case sceneSnow:
-		for i := 0; i < 3; i++ {
-			d := 0.45 + 0.27*float64(i)
-			top := ridge(picHz+float64(i)*8, 16-float64(i)*4, 0.004+0.002*float64(i), 3, false, uint64(i)+90)
-			snow := ground(hexRGB("#eef3fa"), d)
-			cv.land(top, snow, snow.mix(hexRGB("#a9bcd8"), 0.4))
-			pineC := ground(hexRGB("#2d5340"), d)
-			for x := rng.in(0, 20); x < picW; x += rng.in(6, 30) {
-				t := top(x)
-				h := rng.in(8, 14) + float64(i)*3
-				cv.pine(x, t+1, h, pineC)
-				cv.tri(x, t+1-h*0.75, h*0.22, h*0.25, snow) // snow on its tip
-			}
-			if i == 2 { // a cabin, its window lit
-				hx := rng.in(0.3, 0.7) * picW
-				t := top(hx)
-				cv.rect(hx-6, t-6, hx+6, t+1, ground(hexRGB("#7a4a32"), 1), 1)
-				cv.tri(hx, t-5, 15, 7, snow)
-				cv.rect(hx-2, t-4, hx+1, t-1, hexRGB("#ffcf6e"), 1)
-				cv.glow(hx-0.5, t-2.5, 6, hexRGB("#ffcf6e"), 0.3)
-				cv.rect(hx+3, t-12, hx+5, t-7, ground(hexRGB("#5a3a2a"), 1), 1) // the chimney
-			}
-		}
-		ac.snow = true
-	case sceneVolcano:
-		vx := rng.in(0.35, 0.65) * picW
-		cone := func(x float64) float64 {
-			d := math.Abs(x-vx) / 90
-			h := 50 * math.Pow(math.Max(0, 1-d), 1.6)  // a cone, its sides curving out at the foot
-			h = math.Min(h, 40) - 3*smooth(0.07, 0, d) // its top cut off, a crater in it
-			return picHz + 2 - h - fbm(ns+100, x*0.05, 3)*3
-		}
-		cv.land(ridge(picHz+2, 10, 0.006, 4, false, 101), ground(hexRGB("#6b6a7a"), 0.45), ground(hexRGB("#6b6a7a"), 0.5))
-		cv.land(cone, ground(hexRGB("#5c4a4a"), 0.85), ground(hexRGB("#3a2e30"), 1))
-		top := cone(vx)
-		if l.night || l.sunLow { // lava's glow at the crater, and a vein down the side
-			cv.glow(vx, top, 22, hexRGB("#ff6a2a"), 0.6)
-			x := vx
-			for y := top; y < picHz; y++ {
-				x += math.Sin(y*0.5) * 0.6
-				cv.set(int(x), int(y), hexRGB("#ff7a33"), 0.85)
-			}
-		}
-		cv.land(ridge(picHz+16, 3, 0.01, 2, false, 102), ground(hexRGB("#4b5a3f"), 1), ground(hexRGB("#2f3a2a"), 1))
-		ac.smoke = [2]float64{vx, top}
-	case sceneField:
-		lav := rng.f() < 0.5
-		rowC, gapC := hexRGB("#9a7fd1"), hexRGB("#6f8f52")
-		if !lav {
-			rowC, gapC = hexRGB("#e7c063"), hexRGB("#c79a45")
-		}
-		cv.land(ridge(picHz, 6, 0.006, 3, false, 110), ground(hexRGB("#7fa466"), 0.5), ground(hexRGB("#7fa466"), 0.55))
-		vp := rng.in(0.38, 0.62) * picW // the rows run to a point on the horizon
-		for y := int(picHz) + 2; y < picH; y++ {
-			k := float64(y-int(picHz)) / float64(picH-int(picHz))
-			for x := 0; x < picW; x++ {
-				u := (float64(x) - vp) / (1 + k*60)
-				on := math.Mod(math.Abs(u)+0.25, 1) < 0.55
-				c := gapC
-				if on {
-					c = rowC
-				}
-				cv.set(x, y, ground(c, 0.7+0.3*k), 1)
-			}
-		}
-		cv.rect(0, picHz+1, picW, picHz+3, ground(gapC, 0.6), 1)
-		tx := rng.in(0.3, 0.7) * picW // a lone tree
-		cv.rect(tx-1, picHz-10, tx+1, picHz+3, ground(hexRGB("#4a3426"), 0.9), 1)
-		cv.disc(tx, picHz-14, 8, ground(hexRGB("#3e6e3a"), 0.9), 1)
-		cv.disc(tx-5, picHz-11, 5, ground(hexRGB("#3e6e3a"), 0.9), 1)
-		cv.disc(tx+5, picHz-11, 5, ground(hexRGB("#3e6e3a"), 0.9), 1)
-		ac.birds = !l.night
-		ac.fireflies = l.night
+
 	case sceneIslands:
 		waterLine = picHz
 		sea()
@@ -982,46 +777,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 		}
 		ac.birds = !l.night
 		ac.fireflies = false
-	case sceneNeon:
-		// the sun striped as it sets behind a grid; mountains in outline
-		const sr = 28
-		sy = picHz - 12
-		for y := int(sy - sr); y < int(sy+sr); y++ {
-			c := hexRGB("#ffe27a").mix(hexRGB("#ff4fa3"), clamp01((float64(y)-(sy-sr))/(2*sr)))
-			if y > int(sy-8) && (y-int(sy))%4 == 0 { // its stripes
-				continue
-			}
-			for x := int(sx - sr - 1); x < int(sx+sr+1); x++ {
-				d := math.Hypot(float64(x)+0.5-sx, float64(y)+0.5-sy)
-				cv.set(x, y, c, clamp01(sr-d+0.5))
-			}
-		}
-		cv.glow(sx, sy, 70, hexRGB("#ff7ab8"), 0.35)
-		pink := hexRGB("#ff4fa3")
-		top := ridge(picHz, 18, 0.008, 4, true, 130)
-		cv.land(top, ground(hexRGB("#2a1648"), 0.9), ground(hexRGB("#1a0f30"), 1))
-		for x := 0; x < picW; x++ {
-			cv.set(x, int(top(float64(x))), pink, 0.8)
-		}
-		floor := hexRGB("#1b0c33")
-		if !dark {
-			floor = hexRGB("#3a2266")
-		}
-		cv.rect(0, picHz, picW, picH, floor, 1)
-		for y := int(picHz); y < picH; y++ { // the grid: lines across, closer far off
-			k := float64(y-int(picHz)) / float64(picH-int(picHz))
-			if math.Mod(math.Sqrt(k)*12, 1) < 0.18 {
-				cv.rect(0, float64(y), picW, float64(y+1), pink, 0.75)
-			}
-		}
-		vp := sx
-		for i := -60; i <= 60; i++ { // and lines toward the sun's point
-			for y := int(picHz); y < picH; y++ {
-				k := float64(y-int(picHz)) / float64(picH-int(picHz))
-				cv.set(int(vp+float64(i)*(4+k*40)), y, pink, 0.6)
-			}
-		}
-		cv.rect(0, picHz, picW, picHz+1, hexRGB("#ffd1ec"), 0.9)
+
 	}
 
 	if ac.glint { // where the light lies on the water, and nothing stands on it
@@ -1067,7 +823,7 @@ func drawAutoCover(seed uint64, dark bool, th *coverTheme) (*autoCover, *image.R
 	if l.night {
 		n = 1 + int(rng.next()%2)
 	}
-	if ac.scene == sceneNeon || ac.noSky || ac.ownSky { // a neon night, a scene from above or with its own sky: no clouds
+	if ac.noSky || ac.ownSky { // a scene from above or with its own sky: no clouds
 		n = 0
 	}
 	for i := 0; i < n; i++ {
@@ -1283,19 +1039,6 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 			pt.Fill(ui.Rect{X: x, Y: y, W: s * 2, H: s}, white.ui(0.75), 0)
 		}
 	}
-	if len(ac.mills) > 0 { // the windmills turn
-		for i, m := range ac.mills {
-			hx, hy := at(m[0], m[1])
-			a0 := t*0.9 + float64(i)*1.3
-			for b := 0; b < 4; b++ {
-				a := a0 + float64(b)*math.Pi/2
-				path := &ui.Path{}
-				path.MoveTo(hx, hy).LineTo(hx+f32(math.Cos(a)*m[2]*s), hy+f32(math.Sin(a)*m[2]*s))
-				pt.StrokePath(path, s, ac.millInk.ui(1))
-			}
-			pt.Fill(ui.Rect{X: hx - s, Y: hy - s, W: 2 * s, H: 2 * s}, ac.millInk.mix(rgb{60, 50, 40}, 0.5).ui(1), s)
-		}
-	}
 	if ac.beam != [2]float64{} { // the lighthouse sweeps the sea
 		lx, ly := at(ac.beam[0], ac.beam[1])
 		a := math.Sin(t*0.6) * 1.2
@@ -1309,18 +1052,6 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 			pt.FillPathGradient(path, ui.LinearGradient{Angle: 90, Stops: []ui.GradientStop{
 				{Color: rgb{255, 241, 176}.ui(0.38 * math.Abs(math.Cos(d))), At: 0}, {Color: rgb{255, 241, 176}.ui(0), At: 1},
 			}})
-		}
-	}
-	if ac.smoke != [2]float64{} { // smoke leaves the volcano, and goes
-		for i := 0; i < 7; i++ {
-			k := math.Mod(t/9+float64(i)/7, 1)
-			x, y := at(ac.smoke[0]+k*30+math.Sin(k*6+float64(i))*3, ac.smoke[1]-2-k*34)
-			r := f32((2 + k*7) * s)
-			c := rgb{120, 116, 120}
-			if ac.dark {
-				c = rgb{70, 66, 76}
-			}
-			pt.Fill(ui.Rect{X: x - r, Y: y - r, W: 2 * r, H: 2 * r}, c.ui(0.5*(1-k)), r)
 		}
 	}
 	if ac.shore != nil { // the waves run up the sand and draw back, their foam ahead of them
