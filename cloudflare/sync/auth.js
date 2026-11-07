@@ -165,10 +165,11 @@ export async function handleApi(request, env, url) {
 
   // the waitlist: always the same answer, so that the list cannot be read out of it
   if (path === "/api/waitlist" && method === "POST") {
-    if (!(await allow(env, "wl:" + where, 5, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    // (in English: the page that asks is in English)
+    if (!(await allow(env, "wl:" + where, 5, 3600))) return fail(429, "Too many attempts. Try again later.");
     const email = String(body.email || "").trim().toLowerCase();
-    if (!validEmail(email)) return fail(400, "e-posta geçersiz");
-    if (!(await turnstileOK(env, body.turnstile, where))) return fail(400, "doğrulama başarısız, sayfayı yenile");
+    if (!validEmail(email)) return fail(400, "That email address isn't valid.");
+    if (!(await turnstileOK(env, body.turnstile, where))) return fail(400, "Verification failed. Reload the page.");
     const name = String(body.name || "").trim().slice(0, 80);
     const r = await env.DB.prepare("INSERT OR IGNORE INTO waitlist(email,name,created_at) VALUES(?,?,?)").bind(email, name, now()).run();
     if (r.meta.changes === 1 && env.ADMIN_EMAIL) await sendMail(env, env.ADMIN_EMAIL, "Ryudit bekleme listesi: yeni kayıt", `${email}${name ? " (" + name + ")" : ""}`);

@@ -50,7 +50,7 @@ small{display:block;margin-top:2rem;color:var(--mut);font-size:.8rem}
 export function waitlistPage(env) {
   const n = nonce();
   const site = env.TURNSTILE_SITEKEY || "";
-  const contact = env.CONTACT_EMAIL ? ` Silinmesini istersen ${esc(env.CONTACT_EMAIL)} adresine yaz.` : "";
+  const contact = env.CONTACT_EMAIL ? ` To have it deleted, write to ${esc(env.CONTACT_EMAIL)}.` : "";
   return page(landingHTML(n, site, contact, esc), n, site ? "https://challenges.cloudflare.com" : "");
 }
 

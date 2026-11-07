@@ -14,6 +14,7 @@ set -e
 D1_ID=2cc8a6d7-c7a1-4ddf-9d50-76a91cdc7296
 DOMAIN=ryudit.halid.dev
 here=$(cd "$(dirname "$0")" && pwd)
+(cd "$here" && npm run --silent build)
 (cd "$here" && cf d1 migrations apply "$D1_ID")
 out=$(mktemp -d)
 w=$out/.cloudflare/output/v0/workers/default

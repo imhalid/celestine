@@ -23,3 +23,6 @@ node_modules/
 # a local checkout of Ryugo beside this one, while a change there is not yet released
 /go.work
 /go.work.sum
+
+# the entry screen, built from cloudflare/sync/landing by `npm run build`
+cloudflare/sync/landing.gen.js
