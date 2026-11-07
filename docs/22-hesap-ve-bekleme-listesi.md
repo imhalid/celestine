@@ -90,8 +90,7 @@ karması saklanır, 14 gün, tek kullanım, deneme sınırı), kayıt, giriş, c
 istemci (`account.go`, Ayarlar ▸ Senkron). `TestAccountLive` canlı Worker'a karşı geçti (`RYUDIT_SYNC_URL`, `RYUDIT_ADMIN_TOKEN`).
 
 **Yapılmadı:**
-- **Resend yok.** `RESEND_API_KEY` ve doğrulanmış gönderen adresi (`MAIL_FROM`) verilmedikçe onaylayınca kod e-postayla gitmez; `/admin`'de bir kez görünür,
-  elle iletilir. Eklemek: Resend'de `halid.dev` doğrulanır, anahtar secrets dosyasına yazılıp `deploy.sh` çalıştırılır.
+- **E-posta (Resend) açık:** doğrulanmış alan adı `resend.halid.dev`, gönderen `Ryudit <davet@resend.halid.dev>` (`MAIL_FROM`); onaylayınca kod gider (canlıda denendi). Kod yine de `/admin`'de bir kez görünür. Not: DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var (apex denemesinden kalma olabilir), zararsız ama silinebilir.
 - **Şifre sıfırlama yok** (sıfır bilgi: şifre unutulursa veri ancak kurtarma anahtarıyla döner; kurtarma anahtarıyla yeni şifre koymak yazılmadı).
 - Yönetici sayfasında elle kişi ekleme düğmesi yok (`POST /api/admin/waitlist` var), bekleme listesi dışa aktarma yok.
 - Uygulamada Hesap ekranı elle/gözle denenmedi (yalnız arayüz testi); kurtarma anahtarı kayıt sonrası Senkron ayarlarında gösteriliyor.
