@@ -570,6 +570,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		})
 
 	a.addExtraTools(s, ro)
+	a.addCommandTools(s, ro)
 
 	mcp.AddTool(s, &mcp.Tool{Name: "create_collection", Description: "Makes a collection."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in newCollArgs) (*mcp.CallToolResult, any, error) {

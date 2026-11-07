@@ -43,7 +43,23 @@
 Varsayılan test 1 500 sayfayla çalışır (1,3 sn) ve bütçeyi (açılış 1,5 sn, ilk kare 3 sn, arama 2 sn, palet 0,6 sn, bellek 200 MB / 1000 sayfa)
 bin sayfa başına ölçekler: iki-üç kat yavaşlayan bir regresyonu yakalar, yavaş makineyi yakalamaz.
 
-**Bulgular:** (1) ilk kare 10 bin sayfada 3,7 sn: kenar çubuğu ağacı ve sayfa listeleri sanal değil; gerçek GPU'da bu daha düşük
+**7 Kasım, öğlen: giderildi.** Aynı test, aynı makine:
+
+| 10 000 sayfa | önce | sonra |
+|---|---|---|
+| ilk kare | 4,1 sn | **0,53 sn** |
+| bellek | +424 MB | **+15 MB** |
+| bir tuş ve karesi (başsız, yazılım çizici) | ölçülmüyordu; ağaç her karede 2 000+ satır kuruyordu (kare ≈1,5 sn) | **≈45 ms**, 1 500 sayfadakiyle aynı (≈40 ms) |
+
+Ne yapıldı: (1) kenar çubuğu ağacı **sanal**: satırlar tek yükseklikte olduğundan bir satırın yeri listedeki sırasıdır; görünenin iki ekran üstü ve altı
+dışındaki satırlar kurulmaz, her ardışık öbek için onların yüksekliğinde bir boşluk kurulur. Satır listesi (`a.rows`: oklar ve sürükleme için) yine
+eksiksiz. 200 satırdan kısa ağaç, sürükleme, yeniden adlandırılan ya da odak verilecek satır olduğu gibi kurulur. (2) Geri bağlantı dizini ilk açılışta
+bütün dosyaları ilk karede okuyordu: artık kare başına 6 ms okur, kaldığı yerden sürer, bitince dizini bir kerede kurar. (3) Metindeki her
+`[[bağlantı]]` çipi her karede bütün sayfalarda başlık arıyordu: başlıklar bir önbellekte, sayfa eklenince/adlanınca/taşınınca/silinince
+(`pagesGen`) yeniden kurulur. (4) Ağacın satır sayısı ve açık dalların imzası kare başına tek yürüyüşte sayılır. Testte yeni ölçü: bir tuş vuruşu
+(bütçe 60 ms, kitaplıkla ölçeklenmez) ve `BenchmarkKeyBigLibrary`. Gerçek GPU'da ölçülmedi.
+
+**Önceki bulgular:** (1) ilk kare 10 bin sayfada 3,7 sn: kenar çubuğu ağacı ve sayfa listeleri sanal değil; gerçek GPU'da bu daha düşük
 olabilir ama ölçülmedi. (2) 42 KB/sayfa bellek çok: sayfa nesneleri, dizinler (bağlantı, düz metin, görev) ve yazı düzeni önbellekleri.
 Yapılacak: ağaç satırlarını sanallaştırmak, düz metin dizinini sayfa açılana kadar bellekte tutmamak. İkisi de ölçüyle başlar (yukarıdaki
 test) ama yapılmadı.

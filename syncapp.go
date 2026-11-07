@@ -308,7 +308,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	if a.sy.recovery != "" {
 		settingGroup(c, "set-sync-recovery", func() {
 			settingRow(c, "Kurtarma anahtarı: bir yere yaz", a.sy.recovery, func() {
-				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: "Kopyala: kurtarma anahtarı"})
+				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
 			})
 		})
 	}

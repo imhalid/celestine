@@ -36,7 +36,7 @@ func (a *app) collectionView(c *ui.Context) {
 	// the whole page scrolls - its icon and name, its toolbar and its view - over
 	// the window's width, its bar at the edge, as a page of text does
 	ui.Column(c).Fill().Children(func() { // as tall as the room: the scroll in it has a height to scroll in
-		ui.Scroll(c.Key("coll-scroll:" + coll.Dir)).Grow(1).Children(func() {
+		a.scrolled(c, "coll-scroll:"+coll.Dir, nil, ui.Scroll(c.Key("coll-scroll:"+coll.Dir)).Grow(1), func() {
 			if a.topSpace > 0 { // below the title bar, which lies over the top
 				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace)
 			}
@@ -115,7 +115,7 @@ func (a *app) collectionView(c *ui.Context) {
 								a.newPage(coll, nil)
 							}
 							if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from the other templates
-								if ryugo.Button(c.Key("tpl-menu"), "Şablondan yeni sayfa", ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+								if ryugo.Button(c.Key("tpl-menu"), T("Şablondan yeni sayfa"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 									ww, _ := c.Size()
 									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
 								}

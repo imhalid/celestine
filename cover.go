@@ -164,13 +164,13 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(barH + 6).Gap(6)
+	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(10).Gap(6)
 	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover && !a.coverAway], fadeQuick))
 	row.Children(func() {
-		if ryugo.Button(c.Key("cover-change"), "Kapağı değiştir", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("cover-change"), T("Kapağı değiştir"), ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
 			a.pickCover(p)
 		}
-		if ryugo.Button(c.Key("cover-remove"), "Kapağı kaldır", ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("cover-remove"), T("Kapağı kaldır"), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			a.removeCover(p)
 		}
 	})

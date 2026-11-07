@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
+	"github.com/imhalid/ryu-go/dockwin"
 )
 
 const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
@@ -88,6 +90,15 @@ type app struct {
 
 	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
 	ps        paneSet // the panes of the window (panes.go)
+
+	bars     map[string]*funBar // the scroll bars of the scroll areas, by name (funbar.go)
+	titles   titleIdx           // the pages by their titles, for the chips (chips.go)
+	census   census             // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq uint64             // the frames built, counted
+
+	treeVirtual       bool          // the sidebar's tree builds only the rows near what it shows (sidebar.go)
+	treeTop, treeView float32       // where the tree is scrolled, and how tall its view is, last frame
+	dockHost          *dockwin.Host // the windows of the panes torn off (panewin.go)
 
 	docs map[*Page]*richtext.Document
 
@@ -392,6 +403,9 @@ func main() {
 	}
 	time.AfterFunc(20*time.Second, func() { updateProved(updateMark()) }) // twenty seconds in, it has proved itself
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                         // what is written and not saved goes to its file before the app goes
+		if a.quick != nil {
+			a.quick.leaving = true
+		}
 		a.mu.Lock()
 		a.flush()
 		a.endSession()
@@ -409,16 +423,23 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (barH - 14) / 2},
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)})
 		if ownWindowControls {
 			a.win = w
 		}
 		a.invalidate = w.Invalidate
 		a.mover = w
+		if runtime.GOOS != "js" { // a browser has one window: the panes stay in it
+			a.newDockHost(w)
+			a.dockHost.Sync() // the windows of the panes, as they were left
+		}
+		w.OnClosed(mygo.App.Quit)      // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
-		a.quick = newQuick(a)
+		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
+			a.quick = newQuick(a)
+		}
 		go func() { // the day's backup, a moment after the start, when the window is up
 			defer a.guard()
 			time.Sleep(4 * time.Second)
@@ -435,6 +456,43 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// frameTheme gives the window of the frame the app's look: Ryugo's tokens, in the app's color theme, its
+// typeface, and the text's theme. Every window of the app has it, the torn-off panes' too (dockwin.go).
+func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
+	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
+	radiusScale = float32(a.cornerPercent()) / 100
+	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
+	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
+		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
+		a.skin(tok, c.Theme())
+	}
+	t := c.Theme()
+	// the typeface of the window, from the first one that is installed: put in before anything reads the theme,
+	// and given to the root again (SetTheme copies the font into it), or the first frame is drawn in Ryugo's own
+	// font and the next in this one, and the whole window moves
+	if f := a.appFont(); t.Font != f {
+		t.Font = f
+		c.SetTheme(t)
+	}
+	// the scroll areas have the app's own bar (funbar.go); what MyGo still paints (a table that scrolls
+	// sideways, the board, the Dock) is slim, in the muted color of the theme
+	t.Scrollbar, t.ScrollbarWidth = tok.Colors.Muted.Alpha(0.45), 7
+	th := richtext.DefaultTheme(t)
+	th.Caret = invisible // ours is drawn over it
+	th.ParagraphSpacing = a.paraGap()
+	th.FirstLineIndent = a.firstIndent()
+	// A heading's room above stays under half its line: the editor moves ↑ by
+	// the height of the line the caret is on, and from a heading that must
+	// land in the paragraph above, not in the heading's own room.
+	for i := range th.Headings {
+		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
+	}
+	a.theme = th
+	th.CodeFont = a.monoFont()
+	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
+	return tok, th
 }
 
 // open shows page p, saving the page that was open first.
@@ -537,6 +595,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		panic(a.testPanic)
 	}
 	a.frame = c.Invalidate
+	a.frameSeq++
 	a.keepSettings(c)
 	a.statTick()
 	a.syncTick(c)
@@ -546,31 +605,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	sleepAfter = a.caretSleep()
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
-	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
-	radiusScale = float32(a.cornerPercent()) / 100
-	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
-	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
-		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
-		a.skin(tok, c.Theme())
-	}
-	t := c.Theme()
-	// every scroll bar of the app, the editor's too, is of one look: slimmer than the system's, in the muted
-	// color of the theme (MyGo paints a thumb as a pill, so the corner setting does not reach it)
-	t.Scrollbar, t.ScrollbarWidth = tok.Colors.Muted.Alpha(0.45), 7
-	th := richtext.DefaultTheme(t)
-	th.Caret = invisible // ours is drawn over it
-	th.ParagraphSpacing = a.paraGap()
-	th.FirstLineIndent = a.firstIndent()
-	// A heading's room above stays under half its line: the editor moves ↑ by
-	// the height of the line the caret is on, and from a heading that must
-	// land in the paragraph above, not in the heading's own room.
-	for i := range th.Headings {
-		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
-	}
-	a.theme = th
-	t.Font = a.appFont() // the typeface of the window, from the first one that is installed
-	th.CodeFont = a.monoFont()
-	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
+	tok, th := a.frameTheme(c)
 	if a.doc != nil {
 		a.track(c)
 	}
@@ -591,61 +626,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.dropFile(f, false)
 	}
 	if !a.menuBar { // in the app, the menu bar has these (menu.go)
-		if c.Shortcut(ui.Cmd, ui.KeyBackslash) {
-			a.toggleSidebar()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash) {
-			a.togglePanel()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.setCaret((a.caretKind + 1) % caretCount())
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
-			a.step(-1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyBracketRight) {
-			a.step(1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyComma) {
-			a.toggleSettings()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyS) {
-			a.saveNow()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyEqual) {
-			a.stepFont(1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyMinus) {
-			a.stepFont(-1)
-		}
-		if c.Shortcut(ui.Cmd, ui.Key0) {
-			a.resetFont()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyK) {
-			a.openPalette()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyP) || c.Shortcut(ui.Cmd|ui.Shift, ui.KeyP) {
-			a.openCommands()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyJ) {
-			a.openToday()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyF) {
-			a.openFind()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF) {
-			a.openSearch(a.searchQ)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeySlash) && a.doc != nil && a.page != nil {
-			_, caret := a.doc.Selection()
-			a.toggleFold(caret)
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyUp) && a.doc != nil {
-			moveBlock(a.doc, -1)
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyDown) && a.doc != nil {
-			moveBlock(a.doc, 1)
-		}
+		a.appKeys(c)
 	}
 	// Esc leaves the settings, back to where they were opened from
 	if a.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
@@ -666,7 +647,8 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.kbAnchor(c)
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
+			a.header(c)
 			a.panesView(c, th)
 			if !a.settings.HideStatus {
 				a.status(c)
@@ -675,15 +657,11 @@ func (a *app) viewFrame(c *ui.Context) {
 		})
 		a.sidePanel(c)
 		a.sidebarButton(c)
-		a.windowControls(c)
 	})
 	a.collDragView(c)
-	a.caretView(c)
-	a.selectionBar(c)
-	a.gutterView(c)
-	a.gripView(c)
-	a.slashView(c)
-	a.dateEditView(c)
+	if !a.activeElsewhere() { // the pane in use is in a window of its own, which draws these (panewin.go)
+		a.textOverlays(c)
+	}
 	a.contextView(c)
 	a.paletteView(c)
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
@@ -715,7 +693,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
 	}
-	a.cellEditView(c)
 	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
@@ -764,8 +741,8 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	// the page is as wide as the window and scrolls in it, the bar at its edge;
 	// the text is a column in the middle, with margins either side
 	ui.Column(c).Fill().Children(func() {
-		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(a.pageScroll).Grow(1)
-		sc.Children(func() {
+		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).Grow(1)
+		a.scrolled(c, "page-scroll:"+p.Dir, a.pageScroll, sc, func() {
 			if a.topSpace > 0 {
 				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace)
 			}
@@ -809,7 +786,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
-		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
+		Placeholder: T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)
@@ -823,6 +800,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	a.tabKey(c)
+	a.tableKeys(c)
 	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""

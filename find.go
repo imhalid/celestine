@@ -183,14 +183,14 @@ func (a *app) findBar(c *ui.Context) {
 		})
 		if f.replace {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 32).Children(func() {
-				in := ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: "Şununla değiştir", Placeholder: "Şununla değiştir", Size: ryugo.Sm})
+				in := ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: T("Şununla değiştir"), Placeholder: T("Şununla değiştir"), Size: ryugo.Sm})
 				if in.Submitted() {
 					a.replaceMatch(false)
 				}
-				if ryugo.Button(c.Key("replace-one"), "Değiştir", ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
+				if ryugo.Button(c.Key("replace-one"), T("Değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
 					a.replaceMatch(false)
 				}
-				if ryugo.Button(c.Key("replace-all"), "Tümünü değiştir", ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
+				if ryugo.Button(c.Key("replace-all"), T("Tümünü değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
 					a.replaceMatch(true)
 				}
 			})

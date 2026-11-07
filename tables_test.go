@@ -321,3 +321,74 @@ func TestTableColumnDrag(t *testing.T) {
 		t.Fatalf("the caret moved: %d %d", an, ca)
 	}
 }
+
+// The keyboard goes through a table and out of it: ↓ from the line above opens the header's first
+// cell, ← and → at the edges of a cell's text go to the cell beside it, ↓ past the last row and ↑
+// over the header go back to the text, under and above the table; ↑ from the line under it opens
+// its last row.
+func TestTableArrowKeys(t *testing.T) {
+	a, tt := newTestApp(t, tableMD)
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	var ch *chip
+	for _, h := range a.tableSeen {
+		ch = h.ch
+	}
+	pos := a.tablePos(ch)
+	if pos < 0 {
+		t.Fatal("no table in the text")
+	}
+	a.doc.SetSelection(pos, pos)
+	tt.Frame()
+	tt.Key(0, ui.KeyDown)
+	tt.Advance(200 * time.Millisecond)
+	at := func(row, col int, text, when string) {
+		t.Helper()
+		if !a.cellEd.open || a.cellEd.row != row || a.cellEd.col != col || a.cellEd.text != text {
+			t.Fatalf("%s: %+v, want %d,%d %q", when, a.cellEd, row, col, text)
+		}
+	}
+	at(-1, 0, "Ad", "↓ into the table")
+	tt.Key(0, ui.KeyEnd)
+	tt.Key(0, ui.KeyRight)
+	tt.Advance(100 * time.Millisecond)
+	at(-1, 1, "Sayı", "→ at the end of the text")
+	tt.Key(0, ui.KeyHome)
+	tt.Key(0, ui.KeyLeft)
+	tt.Advance(100 * time.Millisecond)
+	at(-1, 0, "Ad", "← at the start of the text")
+	tt.Key(0, ui.KeyRight) // in the middle of the text: the caret moves, not the cell
+	tt.Advance(100 * time.Millisecond)
+	at(-1, 0, "Ad", "→ inside the text")
+	tt.Key(0, ui.KeyDown)
+	tt.Key(0, ui.KeyDown)
+	tt.Advance(100 * time.Millisecond)
+	at(1, 0, "armut", "↓ ↓")
+	tt.Key(0, ui.KeyDown)
+	tt.Advance(200 * time.Millisecond)
+	if a.cellEd.open {
+		t.Fatalf("↓ past the last row stayed in the table: %+v", a.cellEd)
+	}
+	if an, ca := a.doc.Selection(); an != pos+1 || ca != pos+1 {
+		t.Fatalf("out of the table the caret is at %d,%d, not after it (%d)", an, ca, pos+1)
+	}
+	if n := len(ch.tbl.rows); n != 2 {
+		t.Fatalf("↓ added a row: %d", n)
+	}
+	tt.Key(0, ui.KeyUp)
+	tt.Advance(200 * time.Millisecond)
+	at(1, 0, "armut", "↑ from under the table")
+	tt.Key(0, ui.KeyUp)
+	tt.Key(0, ui.KeyUp)
+	tt.Key(0, ui.KeyUp)
+	tt.Advance(200 * time.Millisecond)
+	if a.cellEd.open {
+		t.Fatalf("↑ over the header stayed in the table: %+v", a.cellEd)
+	}
+	if an, ca := a.doc.Selection(); an != pos || ca != pos {
+		t.Fatalf("out of the top the caret is at %d,%d, not before the table (%d)", an, ca, pos)
+	}
+}

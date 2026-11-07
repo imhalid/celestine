@@ -62,7 +62,7 @@ func (a *app) helpView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	ryugo.Dialog(c.Key("help"), &a.kb.help, ryugo.DialogOptions{Title: "Kısayollar", Width: 680}, func() {
-		ui.Scroll(c.Key("help-scroll")).MaxHeight(520).Children(func() {
+		a.scrolled(c, "help-scroll", nil, ui.Scroll(c.Key("help-scroll")).MaxHeight(520), func() {
 			ui.Column(c).FillWidth().Gap(14).Padding(0, 6, 0, 0).Children(func() {
 				for gi, g := range a.helpGroups() {
 					ui.Column(c.Key("hg" + itoa(gi))).FillWidth().Gap(4).Children(func() {

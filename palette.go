@@ -114,7 +114,6 @@ func (a *app) commands() []palItem {
 		if p.Coll.SubPages {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
-		out = append(out, cmd("Sayfada bul", "⌘F", iconSearch, func() { a.openFind() }))
 		out = append(out, cmd("Geri al", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
 		out = append(out, cmd("Yinele", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
 		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))
@@ -181,22 +180,9 @@ func (a *app) commands() []palItem {
 		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
 		cmd("İstatistikler", "", iconStats, a.openStats),
 		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
-		cmd("Kitaplıkta ara", "⇧⌘F", iconSearch, func() { a.openSearch(a.searchQ) }),
-		cmd("Hızlı not", a.quickKeys(), iconPlus, a.showQuick),
-		cmd("Yeni koleksiyon", "⇧⌘N", iconStack, func() {
-			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
-				a.newPage(c, nil)
-			}
-		}),
-		cmd("Bugünün sayfası", "⌘J", iconCalendar, a.openToday),
 		cmd("Rastgele gün", "", iconCalendar, a.openRandomDay),
-		cmd("Geri", "⌘[", iconBack, func() { a.step(-1) }),
-		cmd("İleri", "⌘]", iconChevron, func() { a.step(1) }),
-		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
-		cmd("Caret'i değiştir (⇧⌘M)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretCount()) }),
-		cmd("Çöp", "", iconTrash, a.openTrash),
-		cmd("Ayarlar", "⌘,", iconSettings, a.openSettings),
 	)
+	out = append(out, a.appPalette()...) // the app's commands, as the menu bar has them (appcmds.go)
 	// the settings, each a command; a theme or a caret is shown as it is passed over, and a ✓ is by the
 	// one in use - not what a preview shows
 	if sn := a.pal.snap; sn != nil {
@@ -701,7 +687,7 @@ func (a *app) paletteView(c *ui.Context) {
 				}
 			})
 			ui.Box(c).Height(1).Background(cl.Hairline)
-			ui.Scroll(c).MaxHeight(300).Children(func() {
+			a.scrolled(c, "palette:704", nil, ui.Scroll(c).MaxHeight(300), func() {
 				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
 						ui.Text(c, T("Eşleşen bir şey yok.")).FontSize(12).TextColor(cl.Muted).Padding(9, 8)

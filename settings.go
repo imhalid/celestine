@@ -110,7 +110,7 @@ func (a *app) settingsScreen(c *ui.Context) {
 				ui.Text(c, T(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
-			ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0).Children(func() {
+			a.scrolled(c, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
 				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Transition(viewSwap).Children(func() {
 					if a.settingsExtra(c) {
 						return
@@ -516,7 +516,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 		copyRow("Claude Code'a eklemek için", a.mcpCommand(), "copy-cmd"),
 		func() {
 			settingRow(c, "Anahtar", "Yalnız bu bilgisayardan, anahtarla bağlanılır.", func() {
-				if ryugo.Button(c.Key("new-token"), "Anahtarı yenile", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("new-token"), T("Anahtarı yenile"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.settings.Token = newToken()
 					a.saveSettings()
 				}
@@ -539,7 +539,7 @@ func (a *app) settingsQuick(c *ui.Context) {
 	settingGroup(c, "set-quick", func() {
 		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: "Hızlı not tuşu", Size: ryugo.Sm}).Width(190)
+				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}).Width(190)
 				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if apply && a.quick != nil {
 					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {

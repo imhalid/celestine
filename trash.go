@@ -93,7 +93,7 @@ func (a *app) trashView(c *ui.Context) {
 			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
 			return
 		}
-		ui.Scroll(c).Grow(1).Children(func() {
+		a.scrolled(c, "trash:96", nil, ui.Scroll(c).Grow(1), func() {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, item := range a.trashItems {
 					a.trashItemRow(c, item, now)
@@ -134,7 +134,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 		if ryugo.Button(c.Key("restore:"+item.Dir), "Geri yükle", ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
 		}
-		if ryugo.Button(c.Key("delete:"+item.Dir), "Kalıcı olarak sil: "+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("delete:"+item.Dir), T("Kalıcı olarak sil: ")+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			if err := a.lib.DeleteForever(item); err != nil {
 				a.saveErr = err.Error()
 			}

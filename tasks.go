@@ -198,11 +198,11 @@ func (a *app) tasksView(c *ui.Context) {
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
 			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{"Açık", "Tamamlanan", "Hepsi"}, ryugo.SegmentedOptions{Label: "Görevler", Size: ryugo.Sm})
 			if a.taskFilter == 0 { // the open ones by their day
-				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hepsi", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: "Gün", Size: ryugo.Sm})
+				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hepsi", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: T("Gün"), Size: ryugo.Sm})
 			}
 			ui.Spacer(c)
 			if len(colls) > 1 {
-				opts := []ryugo.Option[string]{{Value: "", Label: "Tüm koleksiyonlar"}}
+				opts := []ryugo.Option[string]{{Value: "", Label: T("Tüm koleksiyonlar")}}
 				for _, co := range a.lib.Collections {
 					if colls[co] > 0 {
 						opts = append(opts, ryugo.Option[string]{Value: co.Dir, Label: co.Name + "  ·  " + strconv.Itoa(colls[co])})
@@ -212,7 +212,7 @@ func (a *app) tasksView(c *ui.Context) {
 					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: "Koleksiyon", Size: ryugo.Sm})
 				})
 			}
-			ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: "Görevlerde ara", Placeholder: "Görevlerde ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(176)
+			ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: T("Görevlerde ara"), Placeholder: T("Görevlerde ara…"), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(176)
 		})
 		q := fold(strings.TrimSpace(a.taskQuery))
 		now := a.clock()
@@ -247,7 +247,7 @@ func (a *app) tasksView(c *ui.Context) {
 
 // noTasks says there are no tasks to show: none at all, or none with the filters.
 func (a *app) noTasks(c *ui.Context, none bool) {
-	o := ryugo.EmptyStateOptions{Icon: iconTask, Title: "Bu süzgece uyan görev yok", Description: "Süzgeci gevşetince burada görünürler."}
+	o := ryugo.EmptyStateOptions{Icon: iconTask, Title: T("Bu süzgece uyan görev yok"), Description: T("Süzgeci gevşetince burada görünürler.")}
 	switch {
 	case none:
 		o.Title, o.Description = "Henüz görev yok", "Bir sayfada [] yazınca görev olur; burada hepsi, sayfalarına göre durur."
@@ -258,7 +258,7 @@ func (a *app) noTasks(c *ui.Context, none bool) {
 	}
 	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0) {
 		o.Action = func() {
-			if ryugo.Button(c.Key("task-clear-filters"), "Süzgeçleri temizle", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("task-clear-filters"), T("Süzgeçleri temizle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 				a.taskColl, a.taskQuery, a.taskDue = "", "", 0
 			}
 		}

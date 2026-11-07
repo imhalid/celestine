@@ -34,6 +34,7 @@ type quickNote struct {
 	input    ui.Handle
 	shortcut string
 	said     string // what happened to the last note, shown in the panel
+	leaving  bool   // the app is quitting: the panel closes, as every window does
 
 	focusWanted bool // the text takes the focus when the panel is shown
 }
@@ -237,8 +238,12 @@ func newQuick(a *app) *quickNote {
 		DisableResize: true,
 		Content:       ui.View(q.view),
 	})
-	// put away, not closed: it shows again as it was, a draft kept
+	// put away, not closed: it shows again as it was, a draft kept; but when the app quits
+	// it closes, or the quit stops at it and the app stays on with no window
 	q.panel.OnClose(func(e *mygo.CloseEvent) {
+		if q.leaving {
+			return
+		}
 		e.PreventDefault()
 		q.panel.Hide()
 	})

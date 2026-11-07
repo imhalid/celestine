@@ -103,7 +103,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 				d, _ = time.Parse("2006-01-02", v)
 			}
 			was := d
-			ryugo.DatePicker(c.Key("prop-val:"+key), &d, ryugo.DatePickerOptions{Label: pr.Name, Placeholder: "Tarih seç", Size: ryugo.Sm,
+			ryugo.DatePicker(c.Key("prop-val:"+key), &d, ryugo.DatePickerOptions{Label: pr.Name, Placeholder: T("Tarih seç"), Size: ryugo.Sm,
 				Format: func(t time.Time) string { return shortDate(t) }}).Width(propValW)
 			if !d.Equal(was) && !d.IsZero() {
 				a.setValue(p, pr.ID, d.Format("2006-01-02"))
@@ -113,7 +113,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 		case PropNumber: // a number input with its buttons; none until one is added
 			raw := p.Props[pr.ID]
 			if raw == "" {
-				if ryugo.Button(c.Key("prop-num-add:"+key), "Sayı ekle", ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm, Variant: ryugo.Soft}).Width(propValW).Clicked() {
+				if ryugo.Button(c.Key("prop-num-add:"+key), T("Sayı ekle"), ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm, Variant: ryugo.Soft}).Width(propValW).Clicked() {
 					a.setValue(p, pr.ID, "0")
 				}
 				a.propSlot(c, key, false, "", nil)
@@ -179,7 +179,7 @@ func (a *app) propDialog(c *ui.Context) {
 		title = "Özelliği düzenle"
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
-		if e.id != "" && ryugo.Button(c.Key("prop-delete"), "Özelliği sil", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if e.id != "" && ryugo.Button(c.Key("prop-delete"), T("Özelliği sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			if err := e.coll.RemoveProperty(e.id); err != nil {
 				e.err = err.Error()
 				return
@@ -198,26 +198,26 @@ func (a *app) propDialog(c *ui.Context) {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(14).Children(func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
-				in := ryugo.Input(c.Key("prop-name-in"), &e.name, ryugo.InputOptions{Label: "Özelliğin adı", Placeholder: "Durum, Yazar, Bitiş…"})
+				in := ryugo.Input(c.Key("prop-name-in"), &e.name, ryugo.InputOptions{Label: T("Özelliğin adı"), Placeholder: T("Durum, Yazar, Bitiş…")})
 				in.AutoFocus()
 				if in.Submitted() {
 					a.saveProp()
 				}
 			})
 			if e.id == "" {
-				ryugo.Field(c, ryugo.FieldOptions{Label: "Tür"}, func() {
+				ryugo.Field(c, ryugo.FieldOptions{Label: T("Tür")}, func() {
 					var names []string
 					for _, t := range PropTypes {
 						names = append(names, t.Name)
 					}
-					ryugo.Segmented(c.Key("prop-type"), &e.typ, names, ryugo.SegmentedOptions{Label: "Tür", Fill: true})
+					ryugo.Segmented(c.Key("prop-type"), &e.typ, names, ryugo.SegmentedOptions{Label: T("Tür"), Fill: true})
 				})
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {
-				ryugo.Field(c, ryugo.FieldOptions{Label: "Seçenekler", Help: "Sırası panonun sütunları olur."}, func() {
+				ryugo.Field(c, ryugo.FieldOptions{Label: T("Seçenekler"), Help: "Sırası panonun sütunları olur."}, func() {
 					tags := cleanOptions(strings.Split(e.options, ","))
 					before := strings.Join(tags, ",")
-					ryugo.TagInput(c.Key("prop-options"), &tags, ryugo.TagInputOptions{Placeholder: "Seçenek yaz, ↵", Label: "Seçenek ekle"})
+					ryugo.TagInput(c.Key("prop-options"), &tags, ryugo.TagInputOptions{Placeholder: T("Seçenek yaz, ↵"), Label: T("Seçenek ekle")})
 					if now := strings.Join(tags, ","); now != before {
 						e.options = now
 					}

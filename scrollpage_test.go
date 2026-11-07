@@ -153,31 +153,29 @@ func TestManyLinesPageIsAWindow(t *testing.T) {
 	}
 }
 
-// The page scrolls from the top of the window, under the title bar, which lies
-// over it: the text is not cut off below an empty band, and the wheel works
-// over the bar too; at the top the title stands where it did.
-func TestPageScrollsUnderTheTitleBar(t *testing.T) {
+// The header is a region of its own: the page scrolls below it, never under it, and starts as far
+// below it as it did; a collection too, and the views with a head of their own leave no room above it.
+func TestPageScrollsBelowTheHeader(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
-	a.settings.NoAutoCover = true // a page with no cover: its title lies where it did (a made cover starts under the bar)
+	a.settings.NoAutoCover = true // a page with no cover: its title lies where it did
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
-	if a.scrollR.Y != 0 || a.barInset != barH {
-		t.Fatalf("the page scrolls from y=%v under a bar of %v, not from the top", a.scrollR.Y, a.barInset)
+	if a.scrollR.Y != headerH || a.barInset != 0 {
+		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header", a.scrollR.Y, a.barInset)
 	}
-	if a.topSpace != pageTop+8 {
-		t.Fatalf("the page starts %v below the top, where it did: %v", a.topSpace, pageTop+8)
+	if a.topSpace != pageTop-barH+8 {
+		t.Fatalf("the page starts %v below the header, not %v", a.topSpace, pageTop-barH+8)
 	}
-	tt.Wheel(a.editorR.X+100, 40, 0, 300) // over the top of the page, below the strip that moves the window
+	tt.Wheel(a.editorR.X+100, headerH+10, 0, 300) // just below the header
 	tt.Advance(300 * time.Millisecond)
 	if a.pageScroll.Y < 100 {
 		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
 	}
-	// a collection scrolls under it too; a view with a head of its own keeps its bar above it
 	a.coll = a.lib.Collections[0]
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if a.barInset != barH || a.topSpace != pageTop+8 {
-		t.Fatalf("a collection scrolls from y=%v, starting %v below: want %v and %v", a.barInset, a.topSpace, barH, pageTop+8)
+	if a.barInset != 0 || a.topSpace != pageTop-barH+8 {
+		t.Fatalf("a collection: bar %v, starting %v below", a.barInset, a.topSpace)
 	}
 	a.tasksOpen = true
 	tt.Frame()

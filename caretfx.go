@@ -14,6 +14,7 @@ import (
 // happened since the last frame (a kick: letters written, letters erased and
 // which way, whether the text changed) and draws itself where the caret is.
 //
+//	Mario         the box red above and blue below, with an eye; at a space it hops, a coin springs over it
 //	Pacman        the slime's own body, in yellow, with an eye; when you erase, its side opens
 //	              a little, a triangle, to the way it erases: left for Backspace, right for Delete
 
@@ -48,6 +49,7 @@ func init() {
 		{"Portal", func() caretFX { return newPortal() }},
 		{"Hız iblisi", func() caretFX { return newSpeedDemon() }},
 		{"Meşale", func() caretFX { return newTorch() }},
+		{"Mario", func() caretFX { return newMario() }},
 	}
 }
 

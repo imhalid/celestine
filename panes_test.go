@@ -319,3 +319,40 @@ func TestPanesComeBack(t *testing.T) {
 		t.Fatalf("still kept with one pane: %s", a.settings.Panes)
 	}
 }
+
+// A pane goes into a window of its own: out of the main window's tree, into a window of the layout,
+// with what it showed; the main window keeps a pane, and the overlays of the text are not drawn in it
+// while the pane in use is elsewhere.
+func TestTearOffPane(t *testing.T) {
+	a, tt := newTestApp(t, "merhaba\n")
+	tt.SetSize(1000, 700)
+	tt.Advance(200 * time.Millisecond)
+	page := a.page
+	a.mu.Lock()
+	a.tearOffPane()
+	a.mu.Unlock()
+	tt.Advance(300 * time.Millisecond)
+	l := a.ps.layout
+	if l == nil || len(l.Windows) != 2 {
+		t.Fatalf("no window of its own: %+v", l)
+	}
+	if a.paneCount() != 2 {
+		t.Fatalf("%d panes", a.paneCount())
+	}
+	if !a.activeElsewhere() {
+		t.Fatalf("the pane in use is in %q", a.paneWindow(a.ps.active))
+	}
+	if a.paneWindow(1-a.ps.active) != "main" {
+		t.Fatal("the main window has no pane")
+	}
+	if a.page != page {
+		t.Fatalf("the pane torn off shows %v, not the page", a.page)
+	}
+	// once more does nothing: it is in its own window already
+	a.mu.Lock()
+	a.tearOffPane()
+	a.mu.Unlock()
+	if len(a.ps.layout.Windows) != 2 {
+		t.Fatalf("torn off twice: %d windows", len(a.ps.layout.Windows))
+	}
+}

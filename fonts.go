@@ -319,7 +319,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				}
 				rows, more := a.fontRows(r)
 				ready := a.fonts.ready
-				ui.Scroll(c.Key("fontlist" + strconv.Itoa(ri))).MaxHeight(260).Children(func() {
+				a.scrolled(c, "fontlist"+strconv.Itoa(ri), nil, ui.Scroll(c.Key("fontlist"+strconv.Itoa(ri))).MaxHeight(260), func() {
 					ui.Column(c).FillWidth().Gap(1).Children(func() {
 						if !ready {
 							ui.Text(c, T("Yazı tipleri taranıyor…")).FontSize(12).TextColor(cl.Muted).Padding(8)

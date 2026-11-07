@@ -42,12 +42,19 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
 - **Beklenen:** Pencerenin en sağ kenarında.
 - **Yapıldı:** Kaydırma alanı pencere genişliğinde, içerik sütunu (`viewMax`) onun içinde ortalı. Çubuk artık alanın en sağında.
   **Yalnız istatistik sayfasında**: koleksiyon, ara, etiket, görev, çöp ekranları hâlâ içerik sütununun içinde kaydırıyor.
+  **7 Kasım, öğlen:** çubuğu uygulamanın kendisi çiziyor (madde 5): her kaydırma alanının en sağ kenarında.
 
 ### 5. Özel (custom) kaydırma çubuğu, uygulamanın tamamında
 - **İstek:** Yapılabiliyorsa uygulama genelinde tek bir özel kaydırma çubuğu: aynı görünüm, tema ve köşe ayarına uyar.
 - **Not:** Önce MyGo'nun kaydırma çubuğunu özelleştirmeye izin verip vermediğine bakılır; vermiyorsa Ryugo'da bir bileşen var mı, ona bakılır.
   Yapılamıyorsa bunun nedeni buraya yazılır.
-- **Kısmen yapıldı:** MyGo kaydırma çubuğunu tema üzerinden boyatıyor (`Theme.Scrollbar`, `ScrollbarWidth`); uygulamanın her çubuğu, editörünki de,
+- **Yapıldı (7 Kasım, öğlen):** uygulamanın kendi çubuğu (`funbar.go`), bütün dikey kaydırma alanlarında (sayfa, kenar çubuğu, koleksiyon, ayarlar,
+  istatistik, ara, etiket, görev, çöp, palet, menü, geçmiş, yan panel…): MyGo'nunki kapalı (`Scrollbars(false)`), çubuk alanın üstüne çizilir, alanın
+  sağ kenarındaki görünmez bir şerit fareyi alır. Tasarım caret'lerle aynı aile, jöle: dururken ince ve soluk, bir süre sonra kaybolur; kaydırınca
+  vurgu rengine yanar ve hızla orantılı olarak geldiği yöne uzar, durunca yaylanıp toplanır; üzerine gelince genişler, iki tutma noktası çıkar;
+  sürüklerken yanında yüzde balonu (%42). İzde bir tıklama oraya atlar. **Köşe ayarına uyar** (köşe 0'da kare). Yatay kaydırmalar (pano, kenara
+  taşan tablo) ve Dock'un içi hâlâ MyGo'nun ince çubuğu. Test görüntüyle bakıldı (kaydırma, dinlenme, üzerine gelme, sürükleme).
+- **Önceki not:** MyGo kaydırma çubuğunu tema üzerinden boyatıyor (`Theme.Scrollbar`, `ScrollbarWidth`); uygulamanın her çubuğu, editörünki de,
   tek yerden (`main.go`) aynı görünüşte: 7 pt, temanın soluk rengi. **Yapılamayan:** MyGo ucu her zaman hap şeklinde çiziyor
   (`scrollThumbFill`, yarıçap = genişlik/2); köşe ayarı çubuğa ulaşmıyor. Bunun için 18 kaydırma yerinin hepsini `Scrollbars(false)` ile kapatıp
   kendi çubuğumuzu çizmek gerekir ya da MyGo'ya bir seçenek eklenir.
@@ -65,7 +72,7 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
 - **Beklenen:** Köşe ayarına uyar, 0 iken köşeli.
 - **Yapıldı, Ryugo'da:** `Slider`ın topuzu `Radius(k/2)` ile sabit yuvarlaktı; `t.Pill(k)` yapıldı (`ryu-go/controls.go`). **Bu değişiklik Ryugo
   deposunda (`../ryu-go`), commitlenmedi ve yayınlanmadı**: ryudit şimdilik yerel `go.work` ile onu kullanıyor (commitlenmez). Ryugo yayınlanıp
-  `go.mod` yükseltilmeden bu madde başka bir makinede görünmez.
+  `go.mod` yükseltilmeden bu madde başka bir makinede görünmez. **Güncel:** Ryugo `61e84bf` commitlendi, `go.mod` onu kullanıyor.
 
 ## Ryugo bileşenleri
 
@@ -81,7 +88,14 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
 ### 9. Sekmeli açınca sağ üstteki düğmeler kayıyor
 - **Belirti:** Sekmeler açıkken sağ üstteki düğmeler yerinden oynuyor.
 - **Beklenen:** Düğmeler sekme sayısından bağımsız aynı yerde durur.
-- **Kısmen:** Ne zaman ve hangi düğmelerin kaydığı tam anlaşılmadı; koleksiyon araç çubuğunda düğmeler görünüm değişince yerinde kalıyor (ölçüldü).
+- **Yapıldı (7 Kasım, öğlen), neden bulundu:** üst çubuk üç ayrı yoldan çiziliyordu: tek bölmede sayfanın üstüne binen saydam bir katman (24 pt),
+  ayarlar gibi ekranlarda bir satır, birden çok bölmede Dock'un üstünde başka yükseklikte bir satır; pencere düğmeleri ise kökte mutlak konumluydu.
+  Sekme (bölme) açılınca çubuğun yüksekliği ve yeri değiştiği için düğmelerin bir kısmı çubuğun dışında, bir kısmı içinde kalıyordu. Artık pencere
+  **dört ayrı bölge**: solda kenar çubuğu; sağda üstte **üst çubuk** (`topbar.go`, kendi satırı, 38 pt ya da pencerenin başlık çubuğu kadar), ortada
+  metin ve panel, altta durum çubuğu. Üst çubuk her durumda aynı yerde: bölme sayısı, sayfa ya da ayarlar fark etmez; sayfa altından kaymaz, kapak
+  onun altında başlar. Kullanımdaki bölmenin adını, yan panel düğmesini ve pencere düğmelerini satırın içinde taşır; kenar çubuğu kapalıyken
+  onun düğmelerine yer bırakır. `TestPageScrollsBelowTheHeader`; tek/iki bölme ve ayarlar görüntüyle karşılaştırıldı.
+- **Önceki not:** Ne zaman ve hangi düğmelerin kaydığı tam anlaşılmadı; koleksiyon araç çubuğunda düğmeler görünüm değişince yerinde kalıyor (ölçüldü).
   Bulunan tek kayma nedeni: iki bölmede her bölmenin sağ üstüne mutlak konumlu "Bölmeyi kapat" düğmesi biniyordu. Bölmeler Dock'a geçince o düğme
   kalktı (kapatma sekmenin üstünde). Başka bir kayma görürsen hangi ekranda olduğunu söyle.
 
@@ -100,9 +114,12 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
   üst üste konur, kapatılır, ⌘Z gibi geri alınır. "Yeni bölme: bu ekran" komutu ve menü maddesi eklendi; sayfa sürüklenip bir bölmenin üstüne bırakılınca o
   bölmede açılır. Tek bölme eskisi gibi tam pencere. Ryugo'ya `Layout.AddPane/RemovePane/PaneIDs/FindPane` eklendi (`ryu-go/dock_api.go`):
   **commitlenmedi, yayınlanmadı** (madde 7 ile aynı). `TestManyPanes`. **Bölme düzeni kaydediliyor** (`Settings.Panes`: Dock'un ağacı, her bölmenin gösterdiği yer, kullanımdaki bölme); pencere açılırken aynen
-  geri geliyor, tek bölmeye dönünce kayıt siliniyor (`TestPanesComeBack`). **Yapılmadı:** bölmeyi ayrı pencereye sürükleme: Dock'un `Host`'u
-  (`ryu-go/dockwin`) verilmedi; gerçek pencerelerde denenmeden eklenmez (Dock'un kendi belgesi de "gerçek pencerede denenmedi" diyor, Wayland'de
-  ayrı kural var). Dock başlığındaki "Bölme" menüsü tek türlü.
+  geri geliyor, tek bölmeye dönünce kayıt siliniyor (`TestPanesComeBack`). **Ayrı pencere (7 Kasım, öğlen):** Dock'a `dockwin` sunucusu verildi
+  (`panewin.go`): bir sekme pencereden dışarı sürüklenince kendi penceresine kopar, kapatılan pencere bölmelerini ana pencereye geri verir, yerleri
+  düzenle birlikte saklanır. Wayland pencerelerin yerini söylemediği için orada fareyle koparma çalışmaz; her yerde çalışan bir komut eklendi:
+  **"Bölmeyi ayrı pencereye al"** (Görünüm menüsü, palet). Her pencere düzenin kendi alanlarını kurar; caret ve metin menüleri kullanımdaki bölmenin
+  penceresinde çizilir. **Gerçek pencerede denendi** (Linux/Wayland): komutla ikinci pencere açıldı, ikisi de doğru içeriği gösterdi, uygulama temiz
+  kapandı. `TestTearOffPane`. Web'de (tek pencere) yok. Dock başlığındaki "Bölme" menüsü tek türlü.
 
 ## Sonradan bildirilenler (aynı gün)
 
@@ -141,6 +158,20 @@ Sıra, kullanıcıyı en çok engelleyenden en az engelleyene doğrudur.
 
 ### 18. Sağ panel yüzen küçük bir panel olsun (docs/16 açık soru 3'ün cevabı)
 - **Yapıldı:** Yan panel yüzen bir kart (`sidepanel.go`), metinden yer almıyor; ayrıntı docs/16'da.
+
+## 7 Kasım, öğlen: yeni bildirilenler
+
+### 19. Özel yazı tipi açılıştan sonra geliyor, düzen kayıyor
+- **Yapıldı (neden bulundu):** Ryugo'nun teması her karede kökü kendi varsayılan fontuyla kuruyor (`SetTheme`, fontu köke kopyalar); uygulamanın
+  fontu ondan sonra temaya yazılıyordu. İlk karede başlık ve kenar çubuğu Ryugo'nun fontuyla, sonrakilerde seçilen fontla çiziliyordu. Font artık
+  temaya her şeyden önce yazılıp köke yeniden veriliyor (`frameTheme`). **Gerçek pencerede doğrulandı:** açılışta 40 ms arayla 25 kare yakalandı;
+  önce ikinci karede başlık/kenar çubuğu yazı tipi değişiyordu, düzeltmeden sonra kareler arasında düzen farkı yok.
+
+### 20. Pencere kapanınca uygulama arka planda açık kalıyor
+- **Yapıldı (neden bulundu):** gizli hızlı not paneli (`quick.go`) kapatılmak istendiğinde kendini gizleyip kapanmayı iptal ediyordu. Uygulama çıkarken
+  bütün pencereleri kapatır; panel reddedince çıkış her seferinde yarıda kalıyor, süreç penceresiz yaşıyordu (SIGTERM/SIGINT de aynı yoldan geçtiği
+  için onlar da işe yaramıyordu). Panel artık çıkışta kapanıyor; ana pencere kapanınca uygulama çıkıyor. **Gerçek süreçle denendi:** SIGTERM'le
+  1 sn içinde temiz çıkıyor (önceden kalıcı olarak asılı kalıyordu; yığın dökümüyle bulundu).
 
 ## Önerilen sıra
 

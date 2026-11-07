@@ -21,6 +21,17 @@
 - Dokunmatik uyarlama (kısayol çubuğu, çekmece kenar çubuğu, uzun basma menüleri), sesle yazma, kamera, bildirimden hızlı not, pil dostu kuyruk: yapılmadı.
 - Yerel (Kotlin/Compose) uygulama (yol 2) ve MyGo'yu Android'e taşımak (yol 3): yapılmadı; web sarmalayıcı yetersiz kalırsa.
 
+## 7 Kasım, öğlen: emülatörde çalıştı
+
+- Emülatör `-gpu host` ile açıldı (önceki çökme `swiftshader_indirect` ile oluyordu; emülatör 37.1.11). `scripts/android.sh install`: APK kuruldu ve açıldı.
+- Denenen: açılış, kenar çubuğu ve sayfa, dokunarak imleç koyma, **ekran klavyesiyle yazma** (Gboard; “APKYAZI” sayfaya geçti), “Kaydedildi”,
+  uygulamayı zorla kapatıp açınca yazı yerinde (WebView'ın IndexedDB'si).
+- **Bulunan ve düzeltilen hata:** Android 15+ uygulamayı kenardan kenara çizdiği için sayfa durum çubuğunun ve gezinme çubuğunun altına giriyordu
+  (saat kenar çubuğu düğmelerinin üstündeydi). `MainActivity` sistem çubuklarının, kesik ekranın ve **ekran klavyesinin** boşluğunu WebView'ı tutan
+  görünümün dolgusu yapıyor: sayfa durum çubuğunun altında başlar, klavye açıkken onun üstünde biter.
+- APK temiz derlemede **35,8 MB**; artımlı hata ayıklama derlemesi eski wasm'ların yerini boş bırakıp 69 MB'a çıkabiliyor (`./gradlew clean`).
+- Hâlâ yok: dokunmatik uyarlama (dar ekranda kenar çubuğu yer kaplıyor), gerçek telefon denemesi.
+
 ## Yollar (araştırma)
 
 | Yol | İş | Artı | Eksi |

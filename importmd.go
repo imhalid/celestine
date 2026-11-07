@@ -236,7 +236,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 // pickImportFolder asks for a folder in a dialog and imports it.
 func (a *app) pickImportFolder() {
 	go func() {
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: "İçe aktarılacak Markdown klasörü", Directory: true})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak Markdown klasörü"), Directory: true})
 		if err != nil || len(paths) == 0 {
 			return
 		}
@@ -262,7 +262,7 @@ func (a *app) settingsImport(c *ui.Context) {
 		note = "Obsidian kasası ya da .md dosyaları olan bir klasör: alt klasörleri koleksiyon, dosyaları sayfa olur. Klasöre dokunulmaz."
 	}
 	settingRow(c, "Markdown klasörü içe aktar", note, func() {
-		if ryugo.Button(c.Key("import-md"), "Klasör seç…", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("import-md"), T("Klasör seç…"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.pickImportFolder()
 		}
 	})

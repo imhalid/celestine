@@ -31,6 +31,18 @@ ikincisi önbellekten.
   `dist/web`'e konur, `index.html` bunlara bağlanır. Manifest geçerli ve sw.js sözdizimi doğru; **servis çalışanı bu ortamdaki uygulama içi tarayıcıda
   kaydolmadı** (tarayıcı kayıt isteğini reddetti), o yüzden çevrimdışı açılış ve "kur" düğmesi gerçek bir tarayıcıda denenmedi.
 
+## 7 Kasım, öğlen: gerçek tarayıcıda deneme
+
+- Servis çalışanı **kaydoldu ve sayfayı yönetti** (uygulama içi Chromium). Sunucu durdurulunca sayfa (200, 2,8 KB), wasm (34,6 MB) ve `wasm_exec.js`
+  önbellekten geldi: çevrimdışı açılış çalışıyor. Yazı (“WEBYAZI”) IndexedDB'ye kaydedildi, yenileyince yerindeydi; yeni kaydırma çubuğu ve üst çubuk web'de de çalışıyor.
+- **Bulunan ve düzeltilen hata:** `sw.js` sayfayı da önce önbellekten veriyordu; sayfa wasm'ın adını taşıdığından yeni bir derleme hiç alınmazdı. Artık
+  sayfa önce ağdan (yoksa önbellekten), adı derlemeye bağlı dosyalar önce önbellekten. Program (sayfa, betik, wasm, manifest, simgeler) çalışan
+  kurulurken önbelleğe alınır.
+- Web'de olmayanlar artık çizilmiyor: pencere düğmeleri (sekme pencerenin kendisi), hızlı not paneli (tarayıcının genel tuşu yok, paneli sekmenin
+  başlığını "Hızlı not" yapıyordu), bölmeyi ayrı pencereye alma.
+- `scripts/web.sh` çalışma alanında (`go.work`) `-mod=mod` yüzünden derlemiyordu: düzeltildi.
+- Denenmeyen: "Uygulamayı yükle" düğmesi (uygulama içi tarayıcı göstermiyor), Safari/Firefox.
+
 ## Tahmini kalan iş
 
 PWA'nın gerçek tarayıcıda denenmesi ve düzeltilmesi 1 gün, tarayıcı testleri (Chrome, Safari, Firefox; IME, pano, dokunmatik) 2 gün, klavye harf tuşlarının eşlemesi 1 gün.

@@ -5,36 +5,44 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The top bar: a bar across the top of the content, as Thymer's header is,
-// with a thin line under it. It moves the window; the sidebar's buttons are
-// at its left end and the window's controls at its right, over it. Over a
-// page it lies on the page, which scrolls under it, as a bar of the page's
-// own color, matte: a cover starts under it, and the wheel passes through it;
-// in the other views it is a row of the layout.
+// The header: a region of the window of its own, as the sidebar, the content and the status bar
+// are. It is a row across the top of the content, above every pane, as high as the window's own
+// title bar and never less than headerH, with a thin line under it. Nothing scrolls under it and
+// nothing moves it: one pane or many, a page or the settings, it is the same row in the same place.
+// It moves the window; it says what the pane in use shows, and holds the panel's button and the
+// window's controls, in the row, not over it. When the sidebar is folded, its buttons (which sit
+// over the sidebar's top) lie at the header's left end, and the header leaves them their room.
 
-// topBar draws the bar over a page or a collection, which scroll under it.
-func (a *app) topBar(c *ui.Context) {
+const headerH = 38
+
+// headerHeight is the header's height: the window's title bar, at least headerH.
+func (a *app) headerHeight(c *ui.Context) float32 { return max(c.TitleBar().Height, headerH) }
+
+// header draws the header.
+func (a *app) header(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	bar := ui.Column(c.Key("top-bar")).Absolute().Left(0).Right(0).Top(0).Height(barH).Label(T("Üst çubuk")).IgnoreInput(true).Background(a.pageBg)
-	bar.Children(func() {
-		ui.Box(c).Grow(1)
+	t := c.Theme()
+	h := a.headerHeight(c)
+	ui.Column(c.Key("header")).FillWidth().Height(h).Label(T("Üst çubuk")).Background(a.pageBg).Children(func() {
+		ui.Row(c).FillWidth().Grow(1).AlignItems(ui.Center).Padding(0, 8, 0, 14).Gap(6).DragWindow().Children(func() {
+			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
+				ui.Box(c).Width(c.TitleBar().Left + sidebarButtonsW)
+			}
+			if title := a.headerTitle(); title != "" {
+				ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).MinWidth(0)
+			} else {
+				ui.Box(c).Grow(1)
+			}
+			if a.page != nil && !a.noPage() {
+				if a.iconButton(c, iconPanel, T("Yan panel")+" (⇧⌘\\)") {
+					a.togglePanel()
+				}
+			}
+			a.windowControls(c)
+		})
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
 	})
-	// only as high as the window's own title bar does it take the pointer, to move the
-	// window, and with it the wheel, which the page below would scroll by
-	h := c.TitleBar().Height
-	if h <= 0 {
-		h = 28
-	}
-	ui.Row(c.Key("top-drag")).Absolute().Left(0).Right(0).Top(0).Height(h).DragWindow()
 }
 
-// titleBar is the bar in the views that do not scroll under it: a row of the
-// layout, as high as the bar, with its line.
-func (a *app) titleBar(c *ui.Context) {
-	cl := ryugo.From(c).Colors
-	ui.Column(c.Key("top-bar")).Height(max(c.TitleBar().Height, barH)).Label(T("Üst çubuk")).DragWindow().Children(func() {
-		ui.Box(c).Grow(1)
-		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
-	})
-}
+// headerTitle is what the pane in use shows, as its tab says it.
+func (a *app) headerTitle() string { return a.paneTitle() }

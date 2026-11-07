@@ -73,7 +73,7 @@ func (a *app) sidePanel(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	p := a.page
-	top := float32(barH + 10)
+	top := a.headerHeight(c) + 10
 	maxH := float32(560)
 	if a.winRect.H > 0 {
 		maxH = max(220, a.winRect.H-top-44) // the status bar stays clear
@@ -92,7 +92,7 @@ func (a *app) sidePanel(c *ui.Context) {
 			}
 		})
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
-		ui.Scroll(c.Key("panel-scroll")).FillWidth().MaxHeight(maxH - 36).Children(func() {
+		a.scrolled(c, "panel-scroll", nil, ui.Scroll(c.Key("panel-scroll")).FillWidth().MaxHeight(maxH-36), func() {
 			ui.Column(c).FillWidth().Padding(10, 14, 18, 14).Gap(18).Children(func() {
 				a.panelOutline(c, cl)
 				a.panelTags(c, cl)

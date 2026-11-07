@@ -201,7 +201,7 @@ func (a *app) tagView(c *ui.Context) {
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
 			ui.Text(c, "#"+name).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0).Grow(1).MaxLines(1)
-			if ryugo.Button(c.Key("tag-rename-open"), "Yeniden adlandır", ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("tag-rename-open"), T("Yeniden adlandır"), ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
 				a.tagRen = tagRename{open: true, key: a.tag, name: name}
 			}
 		})
@@ -217,7 +217,7 @@ func (a *app) tagView(c *ui.Context) {
 				}
 			})
 		}
-		ui.Scroll(c).Grow(1).Children(func() {
+		a.scrolled(c, "tags:220", nil, ui.Scroll(c).Grow(1), func() {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, q := range pages {
 					q := q
@@ -427,7 +427,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 	if !r.open {
 		return
 	}
-	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: "Etiketi yeniden adlandır", Width: 420, Footer: func() {
+	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: T("Etiketi yeniden adlandır"), Width: 420, Footer: func() {
 		ui.Spacer(c)
 		if ryugo.Button(c.Key("tag-rename-ok"), "Kaydet", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.applyTagRename()
@@ -436,7 +436,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(10).Children(func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: "Yeni ad"}, func() {
-				in := ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: "Etiketin yeni adı", Placeholder: "fikir", PrefixIcon: iconTag})
+				in := ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: T("Etiketin yeni adı"), Placeholder: "fikir", PrefixIcon: iconTag})
 				in.AutoFocus()
 				if in.Submitted() {
 					a.applyTagRename()

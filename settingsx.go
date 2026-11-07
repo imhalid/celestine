@@ -272,7 +272,7 @@ func (a *app) settingsFileOut() string {
 func (a *app) pickSettingsFile() {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: "İçe aktarılacak ayar dosyası"})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak ayar dosyası")})
 		if err != nil || len(paths) == 0 {
 			return
 		}

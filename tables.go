@@ -539,6 +539,10 @@ type cellEdit struct {
 	fresh    bool
 	seen     bool // the caret has been drawn: lastLen is the letters it had
 	lastLen  int
+	anchor   int // the input's selection, as this frame saw it, in runes
+	caret    int
+	side     int  // ← (-1) or → (1) was pressed at the edge of the text: the cell beside is next
+	atStart  bool // the caret starts at the start of the text, not at its end (it came with ←)
 }
 
 // openCell opens the cell h to be written in.
@@ -631,6 +635,63 @@ func (a *app) stepCell(dr, dc int) {
 	*ce = cellEdit{open: true, ch: ce.ch, row: row, col: col, text: m.cell(row, col), fresh: true}
 }
 
+// lastShownRow reports whether the cell being written is in the last row that shows.
+func (a *app) lastShownRow() bool {
+	vis := a.cellEd.ch.tbl.visible()
+	return len(vis) > 0 && a.cellEd.row == vis[len(vis)-1] || len(vis) == 0 && a.cellEd.row == -1
+}
+
+// leaveTable writes the cell and goes back to the text, the caret before the table (dir -1) or after it.
+func (a *app) leaveTable(dir int) {
+	a.commitCell()
+	pos := a.tablePos(a.cellEd.ch)
+	a.closeCell()
+	if pos < 0 {
+		return
+	}
+	if dir > 0 {
+		pos++
+	}
+	a.doc.SetSelection(pos, pos)
+}
+
+// tableAt is the table whose object is at position i of the text, or nil.
+func (a *app) tableAt(i int) *chip {
+	text := a.doc.Text()
+	if i < 0 || i >= text.Len() {
+		return nil
+	}
+	if at := text.AttributesAt(i).Attachment; at != nil {
+		if ch, ok := at.Data.(*chip); ok && ch.tbl != nil {
+			return ch
+		}
+	}
+	return nil
+}
+
+// tableKeys takes the keyboard from the text into a table: ↓ with the caret just before the table opens
+// the first cell of its header, ↑ with the caret just after it the first cell of its last row.
+func (a *app) tableKeys(c *ui.Context) {
+	if !a.focused || a.doc == nil || a.page == nil || a.cellEd.open || a.slash.open {
+		return
+	}
+	anchor, caret := a.doc.Selection()
+	if anchor != caret {
+		return
+	}
+	if ch := a.tableAt(caret); ch != nil && c.Shortcut(0, ui.KeyDown) {
+		a.cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: cellText(ch.tbl, -1, 0), fresh: true}
+		return
+	}
+	if ch := a.tableAt(caret - 1); ch != nil && c.Shortcut(0, ui.KeyUp) {
+		row := -1
+		if vis := ch.tbl.visible(); len(vis) > 0 {
+			row = vis[len(vis)-1]
+		}
+		a.cellEd = cellEdit{open: true, ch: ch, row: row, col: 0, text: cellText(ch.tbl, row, 0), fresh: true}
+	}
+}
+
 // closeCell shuts the cell's box and gives the keyboard back to the text, where
 // ⌘Z and ⇧⌘Z undo and redo what was done to the table, as to any text.
 func (a *app) closeCell() {
@@ -679,6 +740,9 @@ func (a *app) cellEditView(c *ui.Context) {
 		if ce.fresh {
 			in.AutoFocus()
 			in.Focus()
+			if ce.atStart {
+				in.SetTextSelection(0, 0)
+			}
 			ce.fresh = false
 		}
 		if in.Focused() {
@@ -697,12 +761,51 @@ func (a *app) cellEditView(c *ui.Context) {
 			a.stepCell(0, -1)
 			return
 		case in.Shortcut(0, ui.KeyDown):
-			a.stepCell(1, 0)
+			if a.lastShownRow() { // past the last row: out of the table, under it
+				a.leaveTable(1)
+			} else {
+				a.stepCell(1, 0)
+			}
 			return
 		case in.Shortcut(0, ui.KeyUp):
-			a.stepCell(-1, 0)
+			if ce.row == -1 { // over the header: out of the table, above it
+				a.leaveTable(-1)
+			} else {
+				a.stepCell(-1, 0)
+			}
 			return
 		}
+		// ← at the start of the cell's text and → at its end go on to the cell beside it, as a spreadsheet's
+		// do. The input moves its caret with the arrows itself, so they are taken before it does
+		// (OnTextKey, between frames, where the caret is the one this frame saw), and stepped on here.
+		switch side := ce.side; {
+		case side < 0 && (ce.row != -1 || ce.col > 0):
+			a.stepCell(0, -1)
+			a.cellEd.atStart = true // the caret at the far edge the way it goes: another ← goes on
+			return
+		case side > 0 && !(a.lastShownRow() && ce.col == len(ce.ch.tbl.cols)-1): // the last cell: no row is added
+			a.stepCell(0, 1)
+			return
+		}
+		ce.side = 0
+		ce.anchor, ce.caret = in.TextAnchorCaret()
+		in.OnTextKey(func(k ui.TextKey) bool {
+			if k.Mods != 0 || ce.anchor != ce.caret || !ce.open {
+				return false
+			}
+			switch {
+			case k.Key == ui.KeyLeft && ce.caret == 0:
+				ce.side = -1
+			case k.Key == ui.KeyRight && ce.caret == utf8.RuneCountInString(k.Text()):
+				ce.side = 1
+			default:
+				return false
+			}
+			if a.frame != nil { // another frame, to step on
+				a.frame()
+			}
+			return true
+		})
 		// the caret is ours, the slime or the mizan, as the page's
 		if in.Focused() {
 			anchor, caret := in.TextAnchorCaret()

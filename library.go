@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 )
@@ -231,7 +232,14 @@ func OpenLibraryIn(fsys FS, root string) (*Library, error) {
 }
 
 // readPages reads the pages in dir: each subfolder holding an index.md.
+// pagesGen counts the changes to the pages of the libraries: one made, renamed, moved, thrown away or
+// brought back, or read from disk. What is kept of them (the titles of chips.go) is made again when it moves.
+var pagesGen atomic.Uint64
+
+func pagesChanged() { pagesGen.Add(1) }
+
 func readPages(dir string, c *Collection, parent *Page) []*Page {
+	defer pagesChanged()
 	entries, _ := c.fs.ReadDir(dir)
 	var out []*Page
 	for _, e := range entries {
@@ -269,6 +277,7 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 
 // NewCollection makes a collection named name.
 func (l *Library) NewCollection(name string) (*Collection, error) {
+	defer pagesChanged()
 	dir, err := uniqueDir(l.fs, l.Root, slug(name))
 	if err != nil {
 		return nil, err
@@ -302,6 +311,7 @@ func modTime(fsys FS, file string) time.Time {
 // NewPage makes a page in c, under parent when it is not nil (a sub-page),
 // with an empty body.
 func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
+	defer pagesChanged()
 	if parent != nil && !c.SubPages {
 		return nil, errors.New("this collection has no sub-pages")
 	}
@@ -424,6 +434,7 @@ func (p *Page) Excerpt() string {
 
 // SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
+	defer pagesChanged()
 	body, err := p.Body()
 	if err != nil {
 		return err
@@ -532,6 +543,7 @@ func (l *Library) trash(dir string, item TrashItem) (*TrashItem, error) {
 
 // TrashPage moves page p, its sub-pages with it, to the trash.
 func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
+	defer pagesChanged()
 	where := p.Coll.Name
 	if crumb := parents(p); crumb != "" {
 		where += " › " + crumb
@@ -550,6 +562,7 @@ func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
 
 // TrashCollection moves collection c, its pages with it, to the trash.
 func (l *Library) TrashCollection(c *Collection) (*TrashItem, error) {
+	defer pagesChanged()
 	if c.Journal {
 		return nil, errors.New("günlük çöpe taşınamaz")
 	}
@@ -601,6 +614,7 @@ func (l *Library) Trash() []*TrashItem {
 // page under the page or in the collection it was in - if that is gone,
 // the top of its collection, else of the first one. It returns what came back.
 func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
+	defer pagesChanged()
 	if item.Kind == "collection" {
 		name := filepath.Base(item.From)
 		if name == "." || name == "" {
@@ -765,6 +779,7 @@ func (p *Page) Contains(q *Page) bool {
 // is written. A page cannot go under itself, nor under a page of a
 // collection without sub-pages.
 func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) error {
+	defer pagesChanged()
 	if parent != nil && p.Contains(parent) {
 		return errors.New("a page cannot go under itself")
 	}

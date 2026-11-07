@@ -343,7 +343,6 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	}
 	a.syncPanes()
 	a.keepPanes()
-	n := a.paneCount()
 	if a.ps.layout == nil {
 		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
@@ -355,15 +354,7 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 				a.withPane(i, func() { p.Title = a.paneTitle() })
 			}
 		}
-		kinds := []ryugo.DockKind{{Kind: "pane", Title: T("Bölme"), Icon: iconPanel, Build: func(c *ui.Context, p *ryugo.Pane) {
-			if i := a.ps.index(p.ID); i >= 0 {
-				a.withPane(i, func() { a.paneColumn(c, th, i, n, true) })
-			}
-		}}}
-		ui.Column(c).Grow(1).Children(func() {
-			a.titleBar(c) // the window's own bar, over every area: they are not under it
-			ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: kinds, MinSize: 240}).Grow(1)
-		})
+		ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host()}).Grow(1)
 	}
 	if a.ps.settle > 0 {
 		a.ps.settle--
@@ -399,11 +390,6 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 		a.ps.focus = false
 	}
 	col.Children(func() {
-		// a page and a collection scroll as a whole, from the top of the window, under the title bar
-		overBar := !docked && !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil)
-		if !overBar && !docked {
-			a.titleBar(c)
-		}
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
 		padX := float32(32)
@@ -414,12 +400,11 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 		if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
 			topPad = 0
 		}
+		// a page and a collection scroll as a whole, from under the header, with their room above the title in
+		// the scroll: a cover begins right under the header
 		a.barInset, a.topSpace = 0, 0
-		if overBar { // it scrolls from the top of the window, under the bar, and starts below it
-			a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
-			if a.coverKind(a.page) != coverKindNone && !a.noPage() { // a cover begins at the very top, behind the bar
-				a.topSpace = 0
-			}
+		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
+			a.topSpace, topPad = topPad, 0
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 		defer func() { a.pageR = pageRow.LayoutBounds() }()
@@ -465,9 +450,6 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 			}
 			a.pageView(c, th)
 		})
-		if overBar {
-			a.topBar(c)
-		}
 	})
 	if a.ps.rects == nil {
 		a.ps.rects = map[string]ui.Rect{}
@@ -601,20 +583,12 @@ func (a *app) closeThisPane() { a.closePane(a.ps.active) }
 
 // paneCommands are the palette's commands of the panes.
 func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func()) palItem) []palItem {
-	out := []palItem{
-		cmd("Yan bölmede aç: bu ekran", "⌥⌘↵", iconPanel, a.openHereInSide),
-		cmd("Yeni bölme: bu ekran", "", iconPanel, a.newPaneHere),
+	// the screen in use, the panes in turn and closing one are the app's commands (appcmds.go)
+	return []palItem{
 		cmd("Yan bölmede aç: Ayarlar", "", iconSettings, func() { a.openInSide(place{kind: "settings"}) }),
 		cmd("Yan bölmede aç: Görevler", "", iconTask, func() { a.openInSide(place{kind: "tasks"}) }),
 		cmd("Yan bölmede aç: Çöp", "", iconTrash, func() { a.openInSide(place{kind: "trash"}) }),
 	}
-	if a.paneCount() > 1 {
-		out = append(out,
-			cmd("Bölmeler arası geç", "⌥⌘→", iconPanel, a.nextPane),
-			cmd("Bölmeyi kapat", "⌥⌘W", iconClose, a.closeThisPane),
-		)
-	}
-	return out
 }
 
 // paneRef is what a pane that is not in use shows, by where it is, to be found again when the

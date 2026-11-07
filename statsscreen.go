@@ -124,7 +124,7 @@ func (a *app) statsView(c *ui.Context) {
 				}
 			})
 		})
-		ui.Scroll(c.Key("stats-scroll")).FillWidth().Grow(1).MinHeight(0).Children(func() {
+		a.scrolled(c, "stats-scroll", nil, ui.Scroll(c.Key("stats-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
 			ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
 				ui.Column(c.Key("stats-body")).FillWidth().MaxWidth(viewMax).Gap(12).Padding(0, 4, 40, 0).Children(func() {
 					if a.statCacheAt.IsZero() && !a.statLoading { // the screen first, then the figures: opening is never the wait
@@ -180,7 +180,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, T("Günlük hedef (kelime)")).FontSize(13).TextColor(cl.Muted).Grow(1)
 		g := float64(goal)
-		ryugo.NumberInput(c.Key("write-goal"), &g, ryugo.NumberInputOptions{Label: "Günlük hedef", Size: ryugo.Sm, Step: 50}).Width(130)
+		ryugo.NumberInput(c.Key("write-goal"), &g, ryugo.NumberInputOptions{Label: T("Günlük hedef"), Size: ryugo.Sm, Step: 50}).Width(130)
 		if int(g) != a.settings.WriteGoal {
 			a.settings.WriteGoal = max(int(g), 0)
 			a.saveSettings()

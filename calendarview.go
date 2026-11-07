@@ -87,7 +87,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 			if a.iconButton(c, iconBack, "Önceki ay") {
 				a.calMonth, a.calOpen = month.AddDate(0, -1, 0), false
 			}
-			if ryugo.Button(c.Key("cal-today"), "Bugün", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("cal-today"), T("Bugün"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 				a.calMonth, a.calOpen = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), false
 			}
 			if a.iconButton(c, iconChevron, "Sonraki ay") {
@@ -247,7 +247,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 						a.calOpen = false
 					}
 				})
-				ui.Scroll(c).Grow(1).Children(func() {
+				a.scrolled(c, "calendarview:250", nil, ui.Scroll(c).Grow(1), func() {
 					ui.Column(c).FillWidth().Gap(2).Children(func() {
 						for _, p := range list {
 							p := p
