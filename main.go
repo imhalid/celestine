@@ -93,12 +93,12 @@ type app struct {
 
 	bars     map[string]*funBar // the scroll bars of the scroll areas, by name (funbar.go)
 	titles   titleIdx           // the pages by their titles, for the chips (chips.go)
+	census   census             // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq uint64             // the frames built, counted
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
 	drawerOpen bool  // on a phone, the sidebar is open over the page
 	drawerFrom place // what was shown when the drawer was looked at last: something else opened closes it
-	census   census             // the sidebar's tree, counted once a frame (sidebar.go)
-	frameSeq uint64             // the frames built, counted
 
 	treeVirtual       bool          // the sidebar's tree builds only the rows near what it shows (sidebar.go)
 	treeTop, treeView float32       // where the tree is scrolled, and how tall its view is, last frame
