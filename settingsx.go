@@ -463,3 +463,18 @@ func (a *app) settingsProfiles(c *ui.Context) {
 		})
 	})
 }
+
+// choiceBar is Ryugo's segmented control for a choice among a few: the id chosen is put in *cur.
+func choiceBar(c *ui.Context, key, label string, ids, names []string, cur *string) {
+	sel := 0
+	for i, id := range ids {
+		if id == *cur {
+			sel = i
+		}
+	}
+	was := sel
+	ryugo.Segmented(c.Key(key), &sel, names, ryugo.SegmentedOptions{Label: label})
+	if sel != was {
+		*cur = ids[sel]
+	}
+}

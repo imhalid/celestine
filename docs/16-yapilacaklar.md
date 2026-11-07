@@ -718,26 +718,26 @@ Editörün yazım denetimi dilinden ayrı bir ayar (açık soru 1'e bağlı).
 
 ---
 
-## Açık sorular (cevap bekleyenler)
+## Açık sorular (cevaplandı, 7 Kasım)
 
-1. **"Uygulama dili ve editör dili … fontlardan"** (F): font demek istediğini varsaydım (uygulama yazı tipi ve
-   editör yazı tipi, sistem fontlarından). **Arayüz dili** (Türkçe/İngilizce seçimi) ayrıca isteniyor mu?
-2. **Durum çubuğunda neler kalacak** (A): kaydetme durumu, satır/sütun (`ShowPos`), harf sayısı (`ShowChars`),
-   "kaydedildi" gizleme (`HideSaved`) listede yoktu; **kalıyor** saydım. Bunların da gitmesi istenirse söyle.
-3. **Geri bağlantılar** (A): durum çubuğundaki düğme ve ayar silinecek; yan paneldeki "Geri bağlantılar" bölümü ve
-   bağlantı dizini (`backlinks.go`) **kalıyor** saydım. Tamamı mı silinsin?
-4. **"Length size"** (D): satır yüksekliği mi, satır uzunluğu (sayfa genişliği) mi? İkisi zaten ayarda var;
-   yenisi isteniyorsa neyi kastettiğini yaz.
-5. **Vim kipi** (G): tam Vim (normal/ekle/görsel kipler, komutlar) mi, yalnız `hjkl` ile gezinme ve kısayollar mı?
-6. **⌘, düğmesi:** mesajda "⌘, ile sidebar açılıp kapanıyor" yazıyor; kodda ⌘\ kenar çubuğu, ⌘, ayarlar. Senin
-   bilgisayarında ⌘, kenar çubuğunu mu açıyor? (Menü çubuğu ve pencere kısayolları çakışıyor olabilir.)
-7. **Senkron altyapısı** (L): Cloudflare mı, kullanıcının kendi klasörü mü, ikisi mi? Uçtan uca şifreleme şart mı?
-8. **Güncelleme** (K): Apple Developer hesabı ve Windows imzası olacak mı (imzasız otomatik kurulum macOS/Windows'ta
-   engellenir)? Sürüm deposu herkese açık olabilir mi?
-9. **Split view** (O): sürükle-bırak yalnız sayfalar için mi, koleksiyon/ayarlar/çöp de bölmeye bırakılabilsin mi?
-   Aşama 2'de (editörsüz ekranlar sağda) ayarlar sağda açılabilir; bu sıra uygun mu, yoksa önce sayfa bölmesi mi?
-10. **Ayarlar ekranı** (C): panel yerine tam ekran yaptım. Dar bir yan sayfa olarak da seçenek kalsın mı (split view
-    gelince sağ bölmede açılabilecek, o yüzden ayrıca yapmadım)?
+Cevaplar kullanıcıdan geldi; her birinin altında ne yapıldığı ya da ne kaldığı yazılı.
+
+1. **Uygulama dili ve editör dili … fontlardan** (F). *Cevap: çözüldü.* Font olarak yapıldı; arayüz dili (Türkçe/İngilizce) ayrıca var (N4).
+2. **Durum çubuğunda neler kalacak** (A). *Cevap: çözüldü.* Kaydetme durumu, satır/sütun, harf sayısı kalıyor; üstüne duruma göre kısayol ipuçları geldi (docs/22 madde 17).
+3. **Geri bağlantılar** (A). *Cevap: "yan paneldeki ayarlar panel yerine küçük bir floating panel olsun"; sorulunca: sağ panel yüzen olsun.* Yapıldı: sağdaki
+   yan panel (içindekiler, etiketler, geri bağlantılar, bilgi) artık yerleşimin bir sütunu değil, sayfanın üstünde yüzen küçük bir kart
+   (`sidepanel.go`): başlık çubuğunun altında, sağda, içeriği kadar uzun, sağdan süzülerek gelir, kapatma düğmesi vardır, sol kenarından genişliği
+   sürüklenir; metinden yer almaz. ⇧⌘\ ve ayar eskisi gibi açıp kapatır.
+4. **"Length size"** (D). *Cevap: çözüldü.*
+5. **Vim kipi** (G). *Cevap: tam Vim kipi değil; her aksiyonun kendi kısayolu olsun.* Böyle: palet komutlarının her birine kendi tuşu verilebiliyor
+   (Ayarlar ▸ Kısayollar, `keys.go`), normal kipte tek harfli komutlar var (`kb.go`), Vim hareketleri isteğe bağlı kalıyor; tam Vim kipi yapılmayacak.
+6. **⌘, düğmesi.** *Cevap: bilmiyorum.* Kodda ⌘\ kenar çubuğu, ⌘, ayarlar kaldı; çakışma görülürse söylenecek.
+7. **Senkron altyapısı** (L). *Cevap: Cloudflare düşünülüyor, ama ikisi de (klasör ve sunucu) olmalı; şifreleme şart.* İkisi de var. **Şifreleme artık şart:**
+   parola yazılmadan eşitleme başlamıyor (`syncRemote` anahtarsız uzak vermiyor; ayarlardaki "kapat" anahtarı kalktı). `TestSyncNeedsEncryption`.
+8. **Güncelleme** (K). *Cevap: şimdilik yalnız kendisi için.* Apple/Windows imzası ve herkese açık depo gerekmiyor; kendi bilgisayarında, kendi sunucundan güncelleme
+   yeter. İmza işleri ertelendi.
+9. **Split view** (O). *Cevap: çözülüyor.* Bölmeler Ryugo'nun Dock'uyla yapıldı (docs/22 madde 11).
+10. **Ayarlar ekranı** (C). *Cevap: çözüldü.*
 
 ---
 

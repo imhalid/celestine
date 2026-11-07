@@ -315,17 +315,7 @@ func (a *app) settingsText(c *ui.Context) {
 	settingGroup(c, "set-focus",
 		func() {
 			settingRow(c, "Odak modu", "Satır ya da paragraf: caret'in bulunduğu kalır, sayfanın geri kalanı silikleşir.", func() {
-				ui.Row(c).Gap(8).Children(func() {
-					for _, m := range []struct{ id, name string }{{"", "Kapalı"}, {"line", "Satır"}, {"paragraph", "Paragraf"}} {
-						m := m
-						b := ui.Row(c.Key("focus:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: ryugo.From(c).Colors.Accent.Alpha(0.2), false: ryugo.From(c).Colors.Fill}[focus == m.id]).
-							Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-						b.Children(func() { ui.Text(c, T(m.name)).FontSize(13).TextColor(ryugo.From(c).Colors.Text) })
-						if b.Clicked() {
-							focus = m.id
-						}
-					}
-				})
+				choiceBar(c, "set-focus-bar", T("Odak modu"), []string{"", "line", "paragraph"}, []string{T("Kapalı"), T("Satır"), T("Paragraf")}, &focus)
 			})
 		},
 		func() {

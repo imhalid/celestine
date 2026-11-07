@@ -49,6 +49,8 @@ type settingDef struct {
 
 // settingsApart are the fields of Settings that are not settings to change by a command, and why.
 var settingsApart = map[string]string{
+	"sidebarWidth": "dragged at the sidebar's edge",
+	"panelWidth":   "dragged at the side panel's edge",
 	"port":         "the MCP server's port: typed in its own settings",
 	"token":        "the MCP server's secret",
 	"recent":       "what the / menu was used for",
@@ -205,6 +207,7 @@ func settingDefs() []settingDef {
 		simple("Sekmeleri göster", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),
 		simple("Paragraf sonlarını göster", "pilcrow satır sonu eol", "showBreaks", func(s *Settings) *bool { return &s.ShowBreaks }, false),
 		simple("Kod bloklarında boşlukları göster", "kod code whitespace", "markCode", func(s *Settings) *bool { return &s.MarkCode }, false),
+		simple("Kısayol ipuçları", "keys shortcuts hints status kısayol ipucu", "hideHints", func(s *Settings) *bool { return &s.HideHints }, true),
 		simple("Durum çubuğunu gizle", "odak modu focus hide statusbar", "hideStatus", func(s *Settings) *bool { return &s.HideStatus }, false),
 		simple("Durum çubuğunda kaydetme durumu", "kaydedildi status", "hideSaved", func(s *Settings) *bool { return &s.HideSaved }, true),
 		simple("Durum çubuğunda harf sayısı", "karakter chars", "showChars", func(s *Settings) *bool { return &s.ShowChars }, false),
@@ -381,8 +384,7 @@ func fontChoice(name, alias, field string, role fontRole) settingDef {
 				}
 				seen[n] = true
 				out = append(out, settingChoice{name: n, current: cur == n,
-					set:     func(a *app) { a.setFont(role, n) },
-					preview: func(a *app) { a.fonts.prev[role] = n }})
+					set: func(a *app) { a.setFont(role, n) }})
 			}
 		}
 		return out
@@ -422,8 +424,7 @@ func (a *app) fontNameItems(q string) []palItem {
 				f := f
 				was := *a.settings.fontField(role)
 				out = append(out, palItem{title: d.name + " → " + f.Name, sub: "Ayar", glyph: iconSettings, score: 900 + match(want, f.Name),
-					run:     a.undoable(d.name+": "+f.Name, func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) }),
-					preview: func() { a.fonts.prev[role] = f.Name }})
+					run: a.undoable(d.name+": "+f.Name, func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) })})
 				if len(out) >= 8 {
 					return out
 				}

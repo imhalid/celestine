@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -94,6 +95,7 @@ func (a *app) showMatch() {
 	if f.cur < len(f.matches) {
 		m := f.matches[f.cur]
 		a.doc.SetSelection(m[0], m[1])
+		a.revealWant = true
 	}
 }
 
@@ -129,7 +131,7 @@ func (a *app) replaceMatch(all bool) {
 	}
 }
 
-// findBar is the bar over the title.
+// findBar is the bar that drops from the top right of the page, over it: the page under it stays where it is.
 func (a *app) findBar(c *ui.Context) {
 	f := &a.find
 	if !f.open {
@@ -138,8 +140,14 @@ func (a *app) findBar(c *ui.Context) {
 	a.findAll()
 	t := ryugo.From(c)
 	cl := t.Colors
-	ui.Column(c.Key("find-bar")).Gap(6).Padding(8).Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).
-		Margin(0, 0, 8, 0).Children(func() {
+	w := float32(440)
+	if a.pageR.W > 0 {
+		w = min(w, a.pageR.W-32)
+	}
+	bar := ui.Column(c.Key("find-bar")).Absolute().Top(a.barInset+8).Right(18).Width(w).Gap(6).Padding(8).
+		Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline)
+	bar.Transition(findDrop) // it comes down from above, in a breath, and goes up again
+	bar.Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], "Değiştir’i aç/kapat") {
 				f.replace = !f.replace
@@ -188,6 +196,13 @@ func (a *app) findBar(c *ui.Context) {
 			})
 		}
 	})
+}
+
+// findDrop is the find bar's coming and going: down from above, up and out.
+var findDrop = ui.ElementTransition{
+	Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond}},
+	Enter:     &ui.Motion{Opacity: 0, Y: -18},
+	Exit:      &ui.Motion{Opacity: 0, Y: -18},
 }
 
 func (a *app) closeFind() {

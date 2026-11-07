@@ -296,19 +296,13 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	settingGroup(c, "set-lang", func() {
 		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
-			ui.Row(c).Gap(8).Children(func() {
-				for _, l := range []string{"", "tr", "en"} {
-					l := l
-					b := ui.Row(c.Key("lang:"+l)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[a.settings.Lang == l]).
-						Label(langName(l)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-					b.Children(func() { ui.Text(c, langName(l)).FontSize(13).TextColor(cl.Text) })
-					if b.Clicked() {
-						a.settings.Lang = l
-						setLang(l)
-						a.saveSettings()
-					}
-				}
-			})
+			lang := a.settings.Lang
+			choiceBar(c, "set-lang-bar", T("Dil"), []string{"", "tr", "en"}, []string{langName(""), langName("tr"), langName("en")}, &lang)
+			if lang != a.settings.Lang {
+				a.settings.Lang = lang
+				setLang(lang)
+				a.saveSettings()
+			}
 		})
 	})
 }
@@ -415,6 +409,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
 		toggle("set-hidebar", "Durum çubuğunu gizle", "Altta hiçbir şey çizilmez: odak modu. Yazı tipi ve tema düğmeleri ⌘P'den yine ulaşılır.", &a.settings.HideStatus, false),
 		toggle("set-pos", "Satır ve sütun", "Caret'in paragrafı ve içindeki yeri.", &a.settings.ShowPos, false),
+		toggle("set-hints", "Kısayol ipuçları", "Altta, şu an kullanılabilecek tuşlar yazılır.", &a.settings.HideHints, true),
 	)
 }
 

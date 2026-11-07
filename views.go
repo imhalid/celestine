@@ -71,7 +71,7 @@ func (a *app) collectionView(c *ui.Context) {
 							ui.Text(c, coll.Description).FontSize(14).TextColor(t.TextMuted).Margin(-4, 0, 4, 0)
 						}
 						// The toolbar: the views, then the search and a new page.
-						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Wrap().Children(func() { // wraps on a small window instead of squeezing the search
 							// The views: Ryugo's segmented control, its pill sliding to the one chosen.
 							sel := 0
 							labels := make([]string, len(coll.Views))
@@ -89,7 +89,7 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							ui.Spacer(c)
-							ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(220)
+							ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), "Rastgele gün", ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()

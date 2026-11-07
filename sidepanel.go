@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -10,11 +11,9 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The side panel, at the window's right while a page is open: its outline,
-// the pages that link to it, and what there is to know of it. It slides in as
-// the sidebar does, and stays as it was left.
-
-const panelW = 280
+// The side panel, floating at the window's right while a page is open: its outline,
+// the pages that link to it, and what there is to know of it. A small card over the page, not a
+// column of the layout; it comes in from the right and stays as it was left.
 
 var (
 	iconPanel   = icon(`<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M14.5 4.5v15"/>`)
@@ -58,33 +57,47 @@ func (a *app) gotoPos(at int) {
 	a.revealWant, a.refocus = true, true
 }
 
-// sidePanel is the panel, as wide as it is shown.
+// panelFloat is the panel's coming and going: in from the right, out the same way.
+var panelFloat = ui.ElementTransition{
+	Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 320 * time.Millisecond}},
+	Enter:     &ui.Motion{Opacity: 0, X: 18},
+	Exit:      &ui.Motion{Opacity: 0, X: 18},
+}
+
+// sidePanel is the panel: a small card that floats over the page at its right, under the title bar,
+// as tall as what it holds up to the window's height. It takes no room from the text.
 func (a *app) sidePanel(c *ui.Context) {
-	open := a.settings.PanelOpen && a.page != nil && !a.noPage()
-	t := c.Theme()
-	cl := ryugo.From(c).Colors
-	box := ui.Column(c.Key("side-panel")).Background(t.Surface).Clip()
-	w := box.AnimateTo("width", map[bool]float32{true: panelW, false: 0}[open], springSheet)
-	box.Width(w)
-	if w < 0.5 && !open {
-		box.Hidden(true)
+	if !(a.settings.PanelOpen && a.page != nil && !a.noPage()) {
 		return
 	}
-	if a.page == nil {
-		return
-	}
+	t := ryugo.From(c)
+	cl := t.Colors
 	p := a.page
-	tb := c.TitleBar()
-	box.Children(func() {
-		ui.Column(c).Width(panelW).Grow(1).Children(func() {
-			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
-			ui.Scroll(c.Key("panel-scroll")).Grow(1).Children(func() {
-				ui.Column(c).FillWidth().Padding(2, 14, 20, 14).Gap(18).Children(func() {
-					a.panelOutline(c, cl)
-					a.panelTags(c, cl)
-					a.panelLinks(c, cl, p)
-					a.panelInfo(c, cl, p)
-				})
+	top := float32(barH + 10)
+	maxH := float32(560)
+	if a.winRect.H > 0 {
+		maxH = max(220, a.winRect.H-top-44) // the status bar stays clear
+	}
+	full := a.panelWidth()
+	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Radius(rad(ryugo.RadiusControl+4)).
+		Background(cl.Card).Border(1, cl.Hairline).Clip().Label(T("Yan panel"))
+	t.Shadows.ShadowPop.Apply(card)
+	card.Transition(panelFloat)
+	card.Children(func() {
+		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel) // over the content
+		ui.Row(c).FillWidth().Height(34).Padding(0, 8, 0, 14).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, T("Bu sayfa")).FontSize(11).FontWeight(650).TextColor(cl.Muted).Grow(1)
+			if a.iconButton(c, iconClose, "Paneli kapat") {
+				a.togglePanel()
+			}
+		})
+		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
+		ui.Scroll(c.Key("panel-scroll")).FillWidth().MaxHeight(maxH - 36).Children(func() {
+			ui.Column(c).FillWidth().Padding(10, 14, 18, 14).Gap(18).Children(func() {
+				a.panelOutline(c, cl)
+				a.panelTags(c, cl)
+				a.panelLinks(c, cl, p)
+				a.panelInfo(c, cl, p)
 			})
 		})
 	})

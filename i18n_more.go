@@ -188,8 +188,19 @@ var enMore = map[string]string{
 	// update
 	"Şimdiki sürüm: ": "Current version: ",
 	"Kitaplığına dokunulmaz, güncellemeden önce yedeği alınır; açılışta düşerse önceki sürüme dönülür.": "Your library is not touched, a backup is taken before updating; if it crashes on opening, the previous version comes back.",
-	"Deneme sürümleri":  "Beta versions",
+	"Deneme sürümleri": "Beta versions",
+	// the keys written in the status bar, and the setting of them
+	"Kısayol ipuçları": "Shortcut hints", "Altta, şu an kullanılabilecek tuşlar yazılır.": "The keys that can be used now are written at the bottom.",
+	"seç": "choose", "aç": "open", "kapat": "close", "komutlar": "commands", "etiketler": "tags", "satıra git": "go to a line",
+	"sonraki": "next", "önceki": "previous", "ekle": "insert", "harf etiketleri": "letter labels", "yaz": "write", "gez": "move",
+	"tüm kısayollar": "all shortcuts", "ayar ara": "search settings", "geri": "back", "sayfa ara": "find a page", "yeni sayfa": "new page",
+	"kenar çubuğu": "sidebar", "sayfada bul": "find in page", "blok ekle": "add a block", "bağlantı": "link", "normal kip": "normal mode",
 	"Kendiliğinden kur": "Install by itself",
+	"Hesaplanıyor…":     "Calculating…",
+	"Bölme":             "Pane", "Yeni bölme: bu ekran": "New pane: this screen", "Yeni bölme (bu sayfa)": "New pane (this page)", "Adsız": "Untitled", "Boş": "Empty",
+	"Şart: dosyalar bu bilgisayarda şifrelenir, adları da gizlenir; sunucu ya da klasör yalnız anlamsız bloklar görür. Parola olmadan eşitleme başlamaz. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.": "Required: files are encrypted on this computer and their names hidden; the server or folder sees only meaningless blocks. Nothing syncs without a passphrase. If you lose the passphrase and the recovery key, the data cannot be recovered.",
+	"Yan panel": "Side panel", "Bu sayfa": "This page", "Paneli kapat": "Close the panel",
+	"Klasör": "Folder", "Parola yazılmadı: eşitleme çalışmaz.": "No passphrase yet: sync does not run.", "Şifreleme açık.": "Encryption is on.",
 }
 
 func init() {

@@ -29,7 +29,7 @@ type linkIndex struct {
 }
 
 // linksStale says the pages changed since the index was made.
-func (a *app) linksStale() { a.links.stale = true }
+func (a *app) linksStale() { a.links.stale, a.px.dirty = true, true }
 
 // linksTo are the pages that link to p, the title first.
 func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
@@ -165,10 +165,14 @@ type pageIdx struct {
 	tasks  []taskItem
 	tags   []string
 	links  []string
+	words  int  // what the statistics count, read once with the rest of the page
+	empty  bool // nothing but whitespace and marks
 }
 
 func readPageIdx(q *Page, body string) *pageIdx {
-	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body)}
+	plain := plainText(body)
+	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body),
+		words: len(strings.Fields(plain)), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
 		return e
 	}

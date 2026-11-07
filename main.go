@@ -134,6 +134,11 @@ type app struct {
 	tourOff     bool               // the tour is put off for this session
 	statCache   libStats           // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
+	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
+	px          placeIdx            // the palette's places, folded once (palette.go)
+	edge        edgeDrag            // the sidebar or the side panel being dragged wider or narrower
+	coverAway   bool                // the cover of a huge page scrolled in its window is not drawn (pageView)
+	statLoading bool                // the first frame of the stats screen is drawn before the figures are read
 	setClock    func(time.Duration) // a test moves the clock
 	statReset   bool                // the reset asked once: the next click does it
 	usage       *usageData          // what is used, by the day (stats.go)
@@ -264,7 +269,7 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex()}
 	a.paneState = newPaneState()
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
@@ -276,6 +281,7 @@ func newApp(lib *Library) *app {
 			break
 		}
 	}
+	a.restorePaneLayout()
 	return a
 }
 
@@ -535,6 +541,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.statTick()
 	a.syncTick(c)
 	a.kbBegin()
+	if !a.sx.warm(a, sxBudget) { // the pages are taken into the search index a little a frame, as the window opens
+		c.Invalidate()
+	}
 	sleepAfter = a.caretSleep()
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
@@ -545,6 +554,9 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.skin(tok, c.Theme())
 	}
 	t := c.Theme()
+	// every scroll bar of the app, the editor's too, is of one look: slimmer than the system's, in the muted
+	// color of the theme (MyGo paints a thumb as a pill, so the corner setting does not reach it)
+	t.Scrollbar, t.ScrollbarWidth = tok.Colors.Muted.Alpha(0.45), 7
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
 	th.ParagraphSpacing = a.paraGap()
@@ -752,14 +764,6 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	// the page is as wide as the window and scrolls in it, the bar at its edge;
 	// the text is a column in the middle, with margins either side
 	ui.Column(c).Fill().Children(func() {
-		if a.find.open {
-			if a.barInset > 0 { // the bar lies over the top: the find bar is below it
-				ui.Box(c.Key("find-top")).FillWidth().Height(a.barInset)
-			}
-			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
-				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Children(func() { a.findBar(c) })
-			})
-		}
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(a.pageScroll).Grow(1)
 		sc.Children(func() {
 			if a.topSpace > 0 {
@@ -767,7 +771,11 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
-			if _, y, over := wrap.PointerPosition(); over && a.coverKind(p) != coverKindNone {
+			// a huge page scrolls in its window, not as a whole: once the text is scrolled the title is gone
+			// (pageBody), and the cover goes with it, or it would stay at the top over the lines
+			// (it is only not drawn: the tree stays as it was, or the window state would flip each frame)
+			a.coverAway = a.winScrolled && hugePage(a.doc.Text())
+			if _, y, over := wrap.PointerPosition(); over && !a.coverAway && a.coverKind(p) != coverKindNone {
 				a.coverHover = y < a.coverBandOf(p)
 			} else {
 				a.coverHover = false
@@ -781,6 +789,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			})
 		})
 		a.scrollR = sc.LayoutBounds()
+		a.findBar(c) // over the page, at its top right: nothing under it moves
 	})
 }
 
@@ -1016,8 +1025,12 @@ func (a *app) track(c *ui.Context) {
 		a.caretAt, a.style = caret, style
 		return
 	}
-	a.revealWant = true
 	n := text.Len()
+	// an edit that moves nothing - a box ticked, a mark changed - does not take the page to the caret:
+	// the caret may be far from what was clicked
+	if caret != a.caretAt || n != a.length {
+		a.revealWant = true
+	}
 	// the / menu (slash.go)
 	if a.trackSlash(text, caret, true, n-a.length == 1 && caret-a.caretAt == 1) {
 		_, caret = a.doc.Selection()
@@ -1115,6 +1128,15 @@ func (a *app) revealCaret(cr ui.Rect) {
 
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if !a.focused {
+		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same
+		if a.revealWant && a.find.open {
+			if cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme); ok {
+				cr := cb.r
+				cr.X += r.X
+				cr.Y += r.Y
+				a.revealCaret(cr)
+			}
+		}
 		return
 	}
 	cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme)
@@ -1209,7 +1231,7 @@ func (a *app) status(c *ui.Context) {
 	state := a.savedText()
 	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
-		ui.Box(c.Key("status-gap")).Grow(1)
+		a.statusHints(c)
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).

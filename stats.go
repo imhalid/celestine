@@ -499,7 +499,7 @@ var dayKey = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 // libraryStats reads the library: the counts, the biggest pages, and what needs tidying.
 func (a *app) libraryStats() libStats {
 	var s libStats
-	a.linksStale()
+	a.linksStale() // the index keeps what each page said and reads again only a page that changed, so this is cheap
 	a.linksTo(a.page, a.clock(), true)
 	titles := map[string][]*Page{}
 	sizes := map[string]int{}
@@ -518,17 +518,12 @@ func (a *app) libraryStats() libStats {
 				}
 			}
 			e := a.links.pages[p]
-			body, err := p.Text()
-			if err != nil {
-				continue
-			}
-			n := wordsOf(body)
-			s.Words += n
-			sizes[p.Title+" · "+c.Name] = n
-			if strings.TrimSpace(plainText(body)) == "" {
-				s.Empty = append(s.Empty, p)
-			}
 			if e != nil {
+				s.Words += e.words
+				sizes[p.Title+" · "+c.Name] = e.words
+				if e.empty {
+					s.Empty = append(s.Empty, p)
+				}
 				s.Tasks += len(e.tasks)
 				s.Links += len(e.links)
 				if len(e.links) == 0 && len(a.links.into[key]) == 0 && !c.Journal {

@@ -44,7 +44,6 @@ type fontState struct {
 	fam     []ui.FontFamily
 	ready   bool
 	query   [3]string // the search of each list
-	prev    [3]string // the family passed over: shown, not kept
 	open    [3]bool   // the list is open
 }
 
@@ -96,11 +95,9 @@ func (s *Settings) fontField(r fontRole) *string {
 	return &s.FontApp
 }
 
-// fontChosen is the family of the role: the one passed over, or the one set.
+// fontChosen is the family of the role: the one set. A list shows each family in its own letters;
+// nothing on the page changes until one is chosen (a page that changed under the pointer moved the whole layout).
 func (a *app) fontChosen(r fontRole) string {
-	if p := a.fonts.prev[r]; p != "" {
-		return p
-	}
 	return *a.settings.fontField(r)
 }
 
@@ -146,7 +143,6 @@ func (a *app) fontWeight() int {
 // setFont keeps the family of a role, and the lists of those used last: the family goes first.
 func (a *app) setFont(r fontRole, name string) {
 	*a.settings.fontField(r) = name
-	a.fonts.prev[r] = ""
 	if name != "" {
 		l := []string{name}
 		for _, t := range a.settings.FontLast {
@@ -281,8 +277,6 @@ func (a *app) fontRows(r fontRole) (rows []string, more int) {
 // settingsFonts is the settings' page of the typefaces.
 func (a *app) settingsFonts(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	a.fonts.prev = [3]string{} // set again below by what is passed over
-	hover := [3]string{}
 	for ri := range fontRoles {
 		r := fontRole(ri)
 		role := fontRoles[ri]
@@ -331,10 +325,10 @@ func (a *app) settingsFonts(c *ui.Context) {
 							ui.Text(c, T("Yazı tipleri taranıyor…")).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 						if cur != "" {
-							a.fontRow(c, r, "", "Varsayılan", hover[:], false)
+							a.fontRow(c, r, "", "Varsayılan", false)
 						}
 						for _, n := range rows {
-							a.fontRow(c, r, n, n, hover[:], n == cur)
+							a.fontRow(c, r, n, n, n == cur)
 						}
 						if more > 0 {
 							ui.Text(c, "… "+strconv.Itoa(more)+" yazı tipi daha: aramayla bul").FontSize(11.5).TextColor(cl.Muted).Padding(6, 8)
@@ -347,8 +341,6 @@ func (a *app) settingsFonts(c *ui.Context) {
 			})
 		})
 	}
-	// what is passed over is shown on the page, and goes back when the pointer leaves
-	a.fonts.prev = hover
 	// the shape of the letters
 	settingGroup(c, "set-font-presets",
 		func() {
@@ -356,9 +348,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				ui.Row(c).Gap(8).Children(func() {
 					for _, k := range []string{"Okuma", "Yazı", "Kod"} {
 						k := k
-						b := ui.Row(c.Key("fpreset"+k)).Padding(6, 14).Radius(rad(8)).Background(cl.Fill).Label(k).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-						b.Children(func() { ui.Text(c, k).FontSize(13).TextColor(cl.Text) })
-						if b.Clicked() && !a.fontPreset(k) {
+						if ryugo.Button(c.Key("fpreset"+k), k, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
 							a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
 						}
 					}
@@ -398,8 +388,8 @@ func (a *app) settingsFonts(c *ui.Context) {
 	}
 }
 
-// fontRow is a family of a list, in its own letters; the pointer passing over it shows it on the page.
-func (a *app) fontRow(c *ui.Context, r fontRole, name, label string, hover []string, on bool) {
+// fontRow is a family of a list, in its own letters; a click chooses it.
+func (a *app) fontRow(c *ui.Context, r fontRole, name, label string, on bool) {
 	cl := ryugo.From(c).Colors
 	e := ui.Row(c.Key("frow"+strconv.Itoa(int(r))+":"+name)).FillWidth().Height(32).Padding(0, 10).Gap(8).Radius(rad(7)).AlignItems(ui.Center).
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
@@ -407,9 +397,6 @@ func (a *app) fontRow(c *ui.Context, r fontRole, name, label string, hover []str
 		e.Background(cl.Accent.Alpha(0.16))
 	} else if e.Hovered() {
 		e.Background(cl.Fill)
-	}
-	if e.Hovered() && name != "" {
-		hover[r] = name
 	}
 	e.Children(func() {
 		f := ryugo.FontSans

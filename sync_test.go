@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -405,6 +406,7 @@ func syncApp(t *testing.T, remoteDir string) *app {
 	a.settingsStore = st
 	a.backupDir = filepath.Join(t.TempDir(), "b")
 	a.settings.SyncMode, a.settings.SyncDir = "dir", remoteDir
+	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)) // encryption is not a choice
 	return a
 }
 
@@ -525,5 +527,19 @@ func TestSyncSettingsPage(t *testing.T) {
 		if !tt.HasText(want) {
 			t.Errorf("no %q: %v", want, tt.Texts())
 		}
+	}
+}
+
+// Sync never goes unencrypted: with no passphrase there is no remote at all.
+func TestSyncNeedsEncryption(t *testing.T) {
+	a := syncApp(t, t.TempDir())
+	a.settings.SyncKey = ""
+	if r, err := a.syncRemote(); err == nil || r != nil {
+		t.Fatalf("a remote without a key: %v %v", r, err)
+	}
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.err == "" {
+		t.Fatal("no error said")
 	}
 }

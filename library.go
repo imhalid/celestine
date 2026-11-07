@@ -177,6 +177,10 @@ type Page struct {
 	Children []*Page
 	Open     bool // shown expanded in the sidebar
 
+	sxID  int          // its place in the search index, when sxOf is the index
+	sxOf  *searchIndex // the index it is in (searchindex.go)
+	sxGen int
+
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
 	excerptAt int

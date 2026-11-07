@@ -59,6 +59,7 @@ func (a *app) menu() *mygo.Menu {
 			item("Yazı boyutu: varsayılan", "CmdOrCtrl+0", a.resetFont),
 			mygo.Separator(),
 			item("Yan bölmede aç (bu sayfa)", "CmdOrCtrl+Alt+Enter", a.openHereInSide),
+			item("Yeni bölme (bu sayfa)", "", a.newPaneHere),
 			item("Bölmeler arası geç", "CmdOrCtrl+Alt+Right", a.nextPane),
 			item("Bölmeyi kapat", "CmdOrCtrl+Alt+W", a.closeThisPane),
 			mygo.Separator(),

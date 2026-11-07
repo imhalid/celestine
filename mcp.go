@@ -85,6 +85,8 @@ type Settings struct {
 	AlwaysRing    bool                      `json:"alwaysRing,omitempty"`    // the row the keys are on is ringed, in the normal mode or not (kb.go)
 	LineChars     int                       `json:"lineChars,omitempty"`     // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
 	HideStatus    bool                      `json:"hideStatus,omitempty"`    // the status bar is not shown at all
+	Panes         string                    `json:"panes,omitempty"`         // the panes of the window: the Dock's tree and what each shows (panes.go)
+	HideHints     bool                      `json:"hideHints,omitempty"`     // the keys to use are not written at the left of the status bar
 	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
 	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
 	TourDone      bool                      `json:"tourDone,omitempty"`      // the first-run tour was shown or skipped (help.go)
@@ -107,6 +109,8 @@ type Settings struct {
 	// the sidebar as it was left: shown or not, and what is open in its tree
 	SidebarClosed bool           `json:"sidebarClosed,omitempty"`
 	PanelOpen     bool           `json:"panelOpen,omitempty"`
+	SidebarWidth  int            `json:"sidebarWidth,omitempty"` // dragged at its edge; 0 is the design's own
+	PanelWidth    int            `json:"panelWidth,omitempty"`
 	Writing       map[string]int `json:"writing,omitempty"`     // the words written, by day (writing.go)
 	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
 	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)

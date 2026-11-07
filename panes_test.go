@@ -200,3 +200,122 @@ func TestPanesSurviveReload(t *testing.T) {
 		t.Fatalf("the other pane lost its page: %+v", other.page)
 	}
 }
+
+// More than two panes: Ryugo's Dock lays them out, each shows its page, and a pane closed (here by the
+// app, there by the user in the Dock) is gone from both.
+func TestManyPanes(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1600, 900)
+	tt.Frame()
+	first := a.page
+	var titles []string
+	for _, name := range []string{"İkinci", "Üçüncü", "Dördüncü"} {
+		p, err := first.Coll.NewPage(nil, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SaveText(name + "\n")
+		titles = append(titles, name)
+		a.openAtPane(a.paneCount(), place{"page", p.Dir})
+		tt.Advance(300 * time.Millisecond)
+	}
+	if a.paneCount() != 4 || len(a.ps.ids) != 4 || len(a.ps.layout.PaneIDs()) != 4 {
+		t.Fatalf("panes %d, ids %d, in the Dock %d", a.paneCount(), len(a.ps.ids), len(a.ps.layout.PaneIDs()))
+	}
+	for _, name := range titles {
+		if !tt.HasText(name) {
+			t.Errorf("%q is not shown in %v", name, tt.Texts())
+		}
+	}
+	// every pane has a place of its own
+	seen := map[ui.Rect]bool{}
+	for _, id := range a.ps.ids {
+		r := a.ps.rects[id]
+		if r.W < 100 || r.H < 100 || seen[r] {
+			t.Fatalf("pane %s at %v", id, r)
+		}
+		seen[r] = true
+	}
+	// a page held over the third pane would open in it
+	r := a.ps.rects[a.ps.ids[2]]
+	a.drag.pos = ui.Point{X: r.X + r.W/2, Y: r.Y + r.H/2}
+	if z := a.sideZone(); z != 2 {
+		t.Fatalf("zone %d, want 2", z)
+	}
+	// the user closes a tab in the Dock: the pane goes from the app too
+	gone := a.ps.ids[1]
+	a.ps.layout.RemovePane(gone)
+	tt.Frame()
+	tt.Frame()
+	if a.paneCount() != 3 || a.ps.index(gone) >= 0 {
+		t.Fatalf("after the Dock closed one: %d panes, %v", a.paneCount(), a.ps.ids)
+	}
+	// the app closes the pane in use; the one after it takes the use
+	a.closePane(a.ps.active)
+	tt.Frame()
+	if a.paneCount() != 2 || a.ps.layout == nil || len(a.ps.layout.PaneIDs()) != 2 {
+		t.Fatalf("after closing: %d panes", a.paneCount())
+	}
+	a.closePane(a.ps.active)
+	tt.Frame()
+	if a.paneCount() != 1 || a.ps.layout != nil {
+		t.Fatalf("with one left the Dock goes: %d panes, layout %v", a.paneCount(), a.ps.layout)
+	}
+	if a.page == nil {
+		t.Fatal("the pane left shows nothing")
+	}
+}
+
+// The panes are kept in the settings and come back as they were: how many, in what arrangement, each showing
+// what it showed, and the one in use.
+func TestPanesComeBack(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1600, 900)
+	tt.Frame()
+	first := a.page
+	var pages []*Page
+	for _, name := range []string{"İkinci", "Üçüncü"} {
+		p, _ := first.Coll.NewPage(nil, name)
+		p.SaveText(name + "\n")
+		pages = append(pages, p)
+		a.openAtPane(a.paneCount(), place{"page", p.Dir})
+		tt.Advance(300 * time.Millisecond)
+	}
+	a.openAtPane(0, place{"coll", first.Coll.Dir}) // the first pane shows the collection
+	tt.Advance(300 * time.Millisecond)
+	a.usePane(1)
+	tt.Advance(300 * time.Millisecond)
+	a.keepPanes()
+	if a.settings.Panes == "" {
+		t.Fatal("nothing kept")
+	}
+	// a window opened again from the same settings and library
+	b := newApp(a.lib)
+	b.settings.Panes = a.settings.Panes
+	b.ps = paneSet{}
+	b.paneState = newPaneState()
+	b.restorePaneLayout()
+	if b.paneCount() != 3 || len(b.ps.layout.PaneIDs()) != 3 {
+		t.Fatalf("panes: %d", b.paneCount())
+	}
+	if b.ps.active != 1 {
+		t.Fatalf("pane in use: %d", b.ps.active)
+	}
+	if b.ps.states[0].coll == nil || b.ps.states[0].coll.Dir != first.Coll.Dir {
+		t.Fatalf("the first pane does not show the collection: %+v", b.ps.states[0].coll)
+	}
+	if b.page == nil || b.page.Dir != pages[0].Dir {
+		t.Fatalf("the pane in use shows %v", b.here())
+	}
+	if b.ps.states[2].page == nil || b.ps.states[2].page.Dir != pages[1].Dir {
+		t.Fatalf("the third pane shows %v", b.ps.states[2].page)
+	}
+	// one pane again clears it
+	a.closePane(0)
+	a.closePane(0)
+	tt.Frame()
+	a.keepPanes()
+	if a.settings.Panes != "" {
+		t.Fatalf("still kept with one pane: %s", a.settings.Panes)
+	}
+}

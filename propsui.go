@@ -26,9 +26,30 @@ type propEdit struct {
 	err     string
 }
 
+// A property's row is a grid: the names in one column, every value in the next, of one width and one
+// height whatever its kind, and the button to clear it in a slot of its own at the end, so that
+// a page with several properties lines up instead of ragged widths and heights.
+const (
+	propNameW = 132
+	propValW  = 260
+	propSlotW = 28
+	propRowH  = 34
+	// Ryugo's input is as wide as it is asked, and its padding more: measured 22
+	propInputPad = 22
+)
+
+// propSlot is the room at the end of a row: the clear button of a value that has one, else the same room.
+func (a *app) propSlot(c *ui.Context, key string, on bool, label string, clear func()) {
+	ui.Box(c.Key("prop-slot:" + key)).Width(propSlotW).Height(propSlotW).Center().Children(func() {
+		if on && a.iconButton(c, iconClose, label) {
+			clear()
+		}
+	})
+}
+
 func (a *app) propsSection(c *ui.Context, p *Page) {
 	coll := p.Coll
-	ui.Column(c).Gap(6).Padding(0, 0, 12, 0).Children(func() {
+	ui.Column(c).Gap(4).Padding(0, 0, 12, 0).Children(func() {
 		for i := range coll.Properties {
 			a.propRow(c, p, &coll.Properties[i])
 		}
@@ -49,8 +70,8 @@ func (a *app) propsSection(c *ui.Context, p *Page) {
 func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 	t := c.Theme()
 	key := p.Dir + "|" + pr.ID
-	ui.Row(c.Key("prop-row:" + key)).Gap(12).AlignItems(ui.Center).MinHeight(30).Children(func() {
-		name := ui.Row(c.Key("prop-name:"+pr.ID)).Width(120).Gap(6).Padding(4, 6).Radius(rad(6)).AlignItems(ui.Center).
+	ui.Row(c.Key("prop-row:" + key)).Gap(12).AlignItems(ui.Center).Height(propRowH).Children(func() {
+		name := ui.Row(c.Key("prop-name:"+pr.ID)).Width(propNameW).Shrink(0).Gap(6).Padding(4, 6).Radius(rad(6)).AlignItems(ui.Center).
 			Label("Özellik: " + pr.Name).Role(ui.RoleButton)
 		if name.Hovered() {
 			name.Background(t.SurfaceHover)
@@ -68,10 +89,11 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			for _, o := range pr.Options {
 				opts = append(opts, ryugo.Option[string]{Value: o, Label: o})
 			}
-			ryugo.Select(c.Key("prop-val:"+key), &v, opts, ryugo.SelectOptions{Label: pr.Name, Size: ryugo.Sm}).Width(200)
+			ryugo.Select(c.Key("prop-val:"+key), &v, opts, ryugo.SelectOptions{Label: pr.Name, Size: ryugo.Sm}).Width(propValW)
 			if v != p.Value(pr) {
 				a.setValue(p, pr.ID, v)
 			}
+			a.propSlot(c, key, false, "", nil)
 			return
 		}
 		switch pr.Type {
@@ -82,31 +104,28 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			}
 			was := d
 			ryugo.DatePicker(c.Key("prop-val:"+key), &d, ryugo.DatePickerOptions{Label: pr.Name, Placeholder: "Tarih seç", Size: ryugo.Sm,
-				Format: func(t time.Time) string { return shortDate(t) }}).Width(200)
+				Format: func(t time.Time) string { return shortDate(t) }}).Width(propValW)
 			if !d.Equal(was) && !d.IsZero() {
 				a.setValue(p, pr.ID, d.Format("2006-01-02"))
 			}
-			if !was.IsZero() && a.iconButton(c, iconClose, "Temizle: "+pr.Name) {
-				a.setValue(p, pr.ID, "")
-			}
+			a.propSlot(c, key, !was.IsZero(), "Temizle: "+pr.Name, func() { a.setValue(p, pr.ID, "") })
 			return
 		case PropNumber: // a number input with its buttons; none until one is added
 			raw := p.Props[pr.ID]
 			if raw == "" {
-				if ryugo.Button(c.Key("prop-num-add:"+key), "Sayı ekle", ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("prop-num-add:"+key), "Sayı ekle", ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm, Variant: ryugo.Soft}).Width(propValW).Clicked() {
 					a.setValue(p, pr.ID, "0")
 				}
+				a.propSlot(c, key, false, "", nil)
 				return
 			}
 			f, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 			was := f
-			ryugo.NumberInput(c.Key("prop-val:"+key), &f, ryugo.NumberInputOptions{Label: pr.Name, Size: ryugo.Sm, Step: 1}).Width(160)
+			ryugo.NumberInput(c.Key("prop-val:"+key), &f, ryugo.NumberInputOptions{Label: pr.Name, Size: ryugo.Sm, Step: 1}).Width(propValW)
 			if f != was {
 				a.setValue(p, pr.ID, strconv.FormatFloat(f, 'f', -1, 64))
 			}
-			if a.iconButton(c, iconClose, "Temizle: "+pr.Name) {
-				a.setValue(p, pr.ID, "")
-			}
+			a.propSlot(c, key, true, "Temizle: "+pr.Name, func() { a.setValue(p, pr.ID, "") })
 			return
 		}
 		buf := a.propBuf[key]
@@ -118,7 +137,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			*buf = p.Props[pr.ID]
 		}
 		place := map[string]string{PropText: "Boş", PropNumber: "Sayı", PropDate: "2026-11-04", PropURL: "https://"}[pr.Type]
-		in := ryugo.Input(c.Key("prop-val:"+key), buf, ryugo.InputOptions{Label: pr.Name + " değeri", Placeholder: place, Size: ryugo.Sm, Invalid: a.propErr == key}).Width(260)
+		in := ryugo.Input(c.Key("prop-val:"+key), buf, ryugo.InputOptions{Label: pr.Name + " değeri", Placeholder: place, Size: ryugo.Sm, Invalid: a.propErr == key}).Width(propValW - propInputPad)
 		switch {
 		case in.Submitted():
 			a.commitValue(p, pr.ID, key, *buf)
@@ -128,6 +147,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			a.propEditing = ""
 			a.commitValue(p, pr.ID, key, *buf)
 		}
+		a.propSlot(c, key, false, "", nil)
 	})
 }
 

@@ -14,10 +14,9 @@ import (
 // spring, sizes and places without a bounce past where they are going.
 
 const (
-	sidebarW = 252
-	barH     = 24
-	rowH     = 30
-	indentW  = 14
+	barH    = 24
+	rowH    = 30
+	indentW = 14
 )
 
 var (
@@ -95,19 +94,28 @@ func (a *app) toggleSidebar() {
 // nothing; its content keeps its width and slides out under the clip.
 func (a *app) sidebar(c *ui.Context) float32 {
 	t := c.Theme()
-	target := float32(sidebarW)
+	full := a.sidebarWidth()
+	target := full
 	if a.sidebarClosed {
 		target = 0
 	}
 	sb := ui.Column(c).Background(t.Surface).Clip()
-	w := sb.AnimateTo("width", target, springSheet)
+	var w float32
+	if a.edge.sidebar { // dragged: it is where the pointer is, not on its way there
+		w = sb.Jump("width", target)
+	} else {
+		w = sb.AnimateTo("width", target, springSheet)
+	}
 	sb.Width(w)
 	if w < 0.5 && a.sidebarClosed {
 		sb.Hidden(true)
 	}
 	tb := c.TitleBar()
 	sb.Children(func() {
-		ui.Column(c).Width(sidebarW).Grow(1).Children(func() {
+		if !a.sidebarClosed { // over the content, which is built first
+			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar)
+		}
+		ui.Column(c).Width(full).Grow(1).Children(func() {
 			// The room of the window's controls: it moves the window too.
 			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
 			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
@@ -594,7 +602,7 @@ func (a *app) collDragView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
-		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(sidebarW-28, 2).Radius(rad(1)).Background(cl.Accent)
+		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(a.sidebarWidth()-28, 2).Radius(rad(1)).Background(cl.Accent)
 	})
 }
 

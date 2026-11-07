@@ -246,9 +246,9 @@ func (m *mizanCaret) stat(p *ui.Painter, f caretFrame, tk mizanTokens, show, dt 
 	a := show
 
 	box := ui.Rect{X: x, Y: y, W: W, H: H}
-	p.Shadow(box, H/2, 0, 6, 18, 0, withAlpha(tk.shadow, a))
-	p.Fill(box, withAlpha(f.bg, a), rad(H/2)) // nothing of the text shows through
-	p.Fill(box, withAlpha(tk.pop, a), rad(H/2))
+	p.Shadow(box, min(rad(H/2), H/2), 0, 6, 18, 0, withAlpha(tk.shadow, a))
+	p.Fill(box, withAlpha(f.bg, a), min(rad(H/2), H/2)) // nothing of the text shows through
+	p.Fill(box, withAlpha(tk.pop, a), min(rad(H/2), H/2))
 	edge := pill(x+0.5, y+0.5, W-1, H-1)
 	p.StrokePathGradient(edge, 1, ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: withAlpha(tk.edgeTop, a), At: 0}, {Color: withAlpha(tk.edgeBottom, a), At: 1}}})
 
@@ -322,9 +322,11 @@ func (m *mizanCaret) spark(p *ui.Painter, x, y, w, h float32, tk mizanTokens, a 
 	p.FillPath((&ui.Path{}).Circle(lx, ly, 2.2), withAlpha(mizanTop, a))
 }
 
-// pill is a rounded rectangle whose ends are half circles.
+// pill is a rounded rectangle whose ends are half circles, as round as the corners of the app say:
+// square at 0, never more than half circles.
 func pill(x, y, w, h float32) *ui.Path {
-	r := min(w, h) / 2
+	half := min(w, h) / 2
+	r := min(rad(half), half)
 	const k = 0.5523 // a quarter circle as a cubic
 	pt := &ui.Path{}
 	pt.MoveTo(x+r, y).LineTo(x+w-r, y)

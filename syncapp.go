@@ -49,14 +49,15 @@ func (a *app) syncRemote() (Remote, error) {
 	default:
 		return nil, errors.New("senkron kapalı")
 	}
-	if a.settings.SyncKey != "" {
-		key, err := base64.StdEncoding.DecodeString(a.settings.SyncKey)
-		if err != nil {
-			return nil, errors.New("şifreleme anahtarı bozuk")
-		}
-		return newEncRemote(r, key)
+	// end-to-end encryption is not a choice: nothing leaves this computer before a passphrase has made the key
+	if a.settings.SyncKey == "" {
+		return nil, errors.New("önce bir parola yaz: eşitleme şifresiz çalışmaz")
 	}
-	return r, nil
+	key, err := base64.StdEncoding.DecodeString(a.settings.SyncKey)
+	if err != nil {
+		return nil, errors.New("şifreleme anahtarı bozuk")
+	}
+	return newEncRemote(r, key)
 }
 
 func (a *app) syncEvery() time.Duration {
@@ -250,17 +251,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	mode := s.SyncMode
 	modeRow := func() {
 		settingRow(c, "Nereye", "Bir klasör (iCloud, Dropbox, Syncthing bırakınca onu taşır) ya da kendi sunucun (cloudflare/sync/worker.js).", func() {
-			ui.Row(c).Gap(8).Children(func() {
-				for _, m := range []struct{ id, name string }{{"", "Kapalı"}, {"dir", "Klasör"}, {"server", "Sunucu"}} {
-					m := m
-					b := ui.Row(c.Key("sync-mode:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[mode == m.id]).
-						Label(m.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-					b.Children(func() { ui.Text(c, m.name).FontSize(13).TextColor(cl.Text) })
-					if b.Clicked() {
-						mode = m.id
-					}
-				}
-			})
+			choiceBar(c, "set-sync-bar", T("Nereye"), []string{"", "dir", "server"}, []string{T("Kapalı"), T("Klasör"), T("Sunucu")}, &mode)
 		})
 	}
 	settingGroup(c, "set-sync", modeRow)
@@ -294,32 +285,25 @@ func (a *app) settingsSync(c *ui.Context) {
 		s.SyncDir, s.SyncURL, s.SyncToken = dir, url, token
 		a.saveSettingsSoon()
 	}
-	// encryption
+	// encryption: always on; it needs a passphrase before anything is sent
 	enc := s.SyncKey != ""
 	settingGroup(c, "set-sync-enc",
 		func() {
-			settingRow(c, "Uçtan uca şifreleme", "Dosyalar bu bilgisayarda şifrelenir, adları da gizlenir: sunucu ya da klasör yalnız anlamsız bloklar görür. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
-				on := enc
-				ryugo.Switch(c.Key("sync-enc"), &on, ryugo.SwitchOptions{}).Label(T("Uçtan uca şifreleme"))
-				if on != enc && !on {
-					s.SyncKey = ""
-					a.saveSettings()
-				} else if on != enc {
-					a.sy.hasKey = true
-				}
+			settingRow(c, "Uçtan uca şifreleme", "Şart: dosyalar bu bilgisayarda şifrelenir, adları da gizlenir; sunucu ya da klasör yalnız anlamsız bloklar görür. Parola olmadan eşitleme başlamaz. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"})
+					if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						a.setSyncPassphrase(a.sy.pass)
+					}
+				})
 			})
 		},
 		func() {
-			if !(enc || a.sy.hasKey) {
-				ui.Text(c, T("Kapalı: dosyalar olduğu gibi gider.")).FontSize(12.5).TextColor(cl.Muted)
+			if !enc {
+				ui.Text(c, T("Parola yazılmadı: eşitleme çalışmaz.")).FontSize(12.5).TextColor(cl.Warn)
 				return
 			}
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"})
-				if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.setSyncPassphrase(a.sy.pass)
-				}
-			})
+			ui.Text(c, T("Şifreleme açık.")).FontSize(12.5).TextColor(cl.Muted)
 		})
 	if a.sy.recovery != "" {
 		settingGroup(c, "set-sync-recovery", func() {

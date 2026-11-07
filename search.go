@@ -187,6 +187,18 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 	}
 	a.linksTo(nil, a.clock(), force)
 	marks := pq.marks()
+	if a.sx != nil && a.sx.ready { // the index: the pages that may have it, then the snippets of the few shown
+		first := ""
+		if len(marks) > 0 {
+			first = marks[0]
+		}
+		hits := a.sx.query(a, pq, limit)
+		out := make([]searchHit, 0, len(hits))
+		for _, h := range hits {
+			out = append(out, searchHit{page: h.d.page, score: h.score, snip: snippet(a.plainOf(h.d.page).plain, marks), at: first})
+		}
+		return out
+	}
 	var out []searchHit
 	for _, c := range a.lib.Collections {
 		cname := fold(c.Name)

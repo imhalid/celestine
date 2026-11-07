@@ -197,3 +197,39 @@ func TestAppTheme(t *testing.T) {
 		t.Fatalf("no picker: %v", tt.Texts())
 	}
 }
+
+// The arrows go down the list, and the list follows: the chosen row is always in the window of 300 points.
+func TestPaletteScrollsWithTheArrows(t *testing.T) {
+	a, tt, _ := viewsLibrary(t)
+	tt.Key(ui.Cmd, ui.KeyP)
+	tt.Advance(300 * time.Millisecond)
+	items := a.paletteItems(a.pal.query)
+	if len(items) < 25 {
+		t.Skipf("only %d commands", len(items))
+	}
+	first, ok := tt.Find(items[0].title)
+	if !ok {
+		t.Fatalf("no first row: %v", tt.Texts())
+	}
+	for i := 1; i <= 24; i++ {
+		tt.Key(0, ui.KeyDown)
+		tt.Frame()
+		tt.Frame()
+		r, ok := tt.Find(items[a.pal.sel].title)
+		if !ok {
+			t.Fatalf("row %d is not drawn", a.pal.sel)
+		}
+		if r.Y < first.Y-4 || r.Y+r.H > first.Y+300+4 {
+			t.Fatalf("row %d at y=%.0f is out of the window [%.0f, %.0f]", a.pal.sel, r.Y, first.Y, first.Y+300)
+		}
+	}
+	// and back up
+	for i := 0; i < 24; i++ {
+		tt.Key(0, ui.KeyUp)
+		tt.Frame()
+		tt.Frame()
+	}
+	if r, ok := tt.Find(items[0].title); !ok || r.Y < first.Y-30 {
+		t.Fatalf("the first row did not come back: %v", r)
+	}
+}
