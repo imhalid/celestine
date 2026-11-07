@@ -45,10 +45,11 @@ func TestWriting(t *testing.T) {
 	if got := a.writtenOn(now); got != 3 {
 		t.Fatalf("by a save: %d", got)
 	}
-	// the dialog
-	a.statsOpen = true
+	// the page of figures
+	a.openStats()
+	tt.Frame()
 	tt.Advance(600 * time.Millisecond)
-	if !tt.HasText("Yazma istatistikleri") || !tt.HasText("gün üst üste") {
-		t.Fatalf("dialog: %v", tt.Texts())
+	if !tt.HasText("İstatistikler") || !tt.HasText("gün üst üste") {
+		t.Fatalf("page: %v", tt.Texts())
 	}
 }

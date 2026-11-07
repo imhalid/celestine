@@ -14,6 +14,8 @@ func (a *app) here() place {
 	switch {
 	case a.settingsOpen:
 		return place{kind: "settings"}
+	case a.statsScreen:
+		return place{kind: "stats"}
 	case a.trashOpen:
 		return place{kind: "trash"}
 	case a.searchOpen:
@@ -67,6 +69,11 @@ func (a *app) goTo(p place) bool {
 	defer func() { a.going = false }()
 	if p.kind == "trash" {
 		a.openTrash()
+		return true
+	}
+	if p.kind == "stats" {
+		a.statsScreen = false
+		a.openStats()
 		return true
 	}
 	if p.kind == "settings" {

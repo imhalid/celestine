@@ -258,8 +258,12 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 // openSearch shows the search, with q asked.
 func (a *app) openSearch(q string) {
 	a.flush()
+	if strings.TrimSpace(q) != "" {
+		a.noteSearch()
+	}
 	a.searchOpen, a.searchQ, a.searchFocus = true, q, true
 	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.settingsOpen = "", nil, false, false, false
+	a.statsScreen = false
 	a.linksStale()
 	a.visit()
 }
@@ -340,6 +344,7 @@ func (a *app) searchView(c *ui.Context) {
 							ui.RichText(c, spans...).Padding(0, 0, 0, 24).MaxLines(2)
 						}
 					})
+					a.kbMark(row, "s:"+h.page.Dir, true, func() { a.openFound(h) })
 					if row.Clicked() {
 						a.openFound(h)
 					}

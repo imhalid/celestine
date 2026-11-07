@@ -30,8 +30,10 @@ func glassPath(p *ui.Painter, path *ui.Path, col ui.Color, dark bool) {
 	p.StrokePath(path, 1.25, withAlpha(col, 0.95))
 }
 
+// sleepAfter is how long the caret is at rest before it dozes: the setting's (focus.go).
+var sleepAfter = 5 * time.Second
+
 const (
-	sleepAfter  = 5 * time.Second         // at rest this long, the caret dozes
 	sleepZLife  = 3800 * time.Millisecond // how long a z lives
 	sleepZGap   = 1600 * time.Millisecond // from one z to the next
 	sleepFor    = 90 * time.Second        // it sleeps this long in sight, then lies still

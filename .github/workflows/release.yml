@@ -1,0 +1,51 @@
+# A tag v1.2.3 makes a release: the five builds, a signed manifest, and the files put on Cloudflare R2,
+# from where the app's update check reads them (cloudflare/update/worker.js).
+#
+# Secrets: RELEASE_KEY (the secret key of `go run ./scripts/release keygen`), UPDATE_PUBLIC_KEY (its public
+# half, which goes into the program), UPDATE_URL (the Worker's address, https://…/update.json), and for R2:
+# CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: test
+        run: go test -timeout 20m ./...
+      - name: build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          LDX="-X main.updateURL=${{ secrets.UPDATE_URL }} -X main.updateKey=${{ secrets.UPDATE_PUBLIC_KEY }}"
+          for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64; do
+            os=${t%/*}; arch=${t#*/}; ext=""; [ "$os" = windows ] && ext=".exe"
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false \
+              -ldflags="-s -w -X main.version=$VERSION $LDX" -o dist/ryudit-$os-$arch$ext .
+          done
+          ls -l dist
+      - name: manifest
+        run: |
+          echo "${{ secrets.RELEASE_KEY }}" > release.key
+          git log -1 --format=%B > notes.md
+          go run ./scripts/release manifest -version ${{ github.ref_name }} -base "https://${{ vars.DOWNLOAD_HOST }}/${{ github.ref_name }}" \
+            -notes notes.md -key release.key dist/ryudit-* > dist/update.json
+          rm release.key
+      - name: upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          EP="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          for f in dist/ryudit-*; do aws s3 cp "$f" "s3://ryudit-releases/${{ github.ref_name }}/$(basename $f)" --endpoint-url "$EP"; done
+          aws s3 cp dist/update.json s3://ryudit-releases/update.json --endpoint-url "$EP" --content-type application/json
+      - name: github release
+        uses: softprops/action-gh-release@v2
+        with: { files: "dist/ryudit-*" }

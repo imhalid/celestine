@@ -34,6 +34,7 @@ func (a *app) countWriting(prev, words int) {
 		a.settings.Writing = map[string]int{}
 	}
 	a.settings.Writing[a.clock().Format("2006-01-02")] += n
+	a.noteWords(a.page, n)
 	if len(a.settings.Writing) > writingKeep {
 		days := a.writingDays()
 		for _, d := range days[:len(days)-writingKeep] {
@@ -108,60 +109,6 @@ func (a *app) stats() writingStats {
 }
 
 var iconPen = icon(`<path d="M14.5 5.5 18.5 9.5 9 19H5v-4z"/><path d="m12.5 7.5 4 4M4 21h16"/>`)
-
-// writingView is the dialog.
-func (a *app) writingView(c *ui.Context) {
-	if !a.statsOpen {
-		return
-	}
-	cl := ryugo.From(c).Colors
-	s := a.stats()
-	ryugo.Dialog(c.Key("writing"), &a.statsOpen, ryugo.DialogOptions{Title: "Yazma istatistikleri", Width: 640}, func() {
-		ui.Column(c).FillWidth().Gap(16).Children(func() {
-			ui.Row(c).FillWidth().Gap(10).Children(func() {
-				stat := func(key, label, value string) {
-					ui.Column(c.Key(key)).Grow(1).Padding(12, 14).Gap(2).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						ui.Text(c, value).FontSize(22).FontWeight(700).TextColor(cl.Text)
-						ui.Text(c, label).FontSize(12).TextColor(cl.Muted)
-					})
-				}
-				stat("st-today", "bugün", strconv.Itoa(s.today))
-				stat("st-week", "bu hafta", strconv.Itoa(s.week))
-				stat("st-month", "bu ay", strconv.Itoa(s.month))
-				stat("st-streak", "gün üst üste", strconv.Itoa(s.streak))
-			})
-			if goal := a.settings.WriteGoal; goal > 0 { // today against the goal
-				frac := float32(min(s.today, goal)) / float32(goal)
-				ui.Column(c.Key("goal")).FillWidth().Gap(5).Children(func() {
-					ui.Row(c).Children(func() {
-						ui.Text(c, "Günlük hedef: "+strconv.Itoa(s.today)+" / "+strconv.Itoa(goal)+" kelime").FontSize(13).TextColor(cl.Text2).Grow(1)
-						if s.today >= goal {
-							ui.Text(c, "tamam").FontSize(12.5).FontWeight(650).TextColor(cl.Down)
-						}
-					})
-					bar := ui.Box(c.Key("goal-bar")).FillWidth().Height(8).Radius(rad(4)).Background(cl.Well)
-					bar.Draw(func(p *ui.Painter, r ui.Rect) {
-						p.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W * frac, H: r.H}, map[bool]ui.Color{true: cl.Down, false: cl.Accent}[s.today >= goal], rad(4))
-					})
-				})
-			}
-			a.writingChart(c, cl, s)
-			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "En iyi gün: "+strconv.Itoa(s.best)+" kelime"+map[bool]string{true: " (" + s.bestDay + ")", false: ""}[s.best > 0]+"  ·  toplam "+strconv.Itoa(s.total)).
-					FontSize(12.5).TextColor(cl.Muted).Grow(1)
-				ui.Text(c, "Günlük hedef").FontSize(12.5).TextColor(cl.Muted)
-				goal := float64(a.settings.WriteGoal)
-				ryugo.NumberInput(c.Key("write-goal"), &goal, ryugo.NumberInputOptions{Label: "Günlük hedef", Size: ryugo.Sm, Step: 50}).Width(130)
-				if int(goal) != a.settings.WriteGoal {
-					a.settings.WriteGoal = max(int(goal), 0)
-					a.saveSettings()
-				}
-			})
-			ui.Text(c, "Sayılan, her kayıtta sayfaya eklenen kelimelerdir; silinenler düşmez. Hedef 0 ise yalnız bir kelime yazmak günü sayar.").
-				FontSize(12).TextColor(cl.Muted).Wrap()
-		})
-	})
-}
 
 // writingChart draws the last thirty days as bars.
 func (a *app) writingChart(c *ui.Context, cl ryugo.Colors, s writingStats) {

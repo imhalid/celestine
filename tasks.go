@@ -129,6 +129,7 @@ func paraText(p richtext.Paragraph) string {
 func (a *app) openTasks() {
 	a.flush()
 	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.settingsOpen = true, "", nil, false, false, false
+	a.statsScreen = false
 	a.linksStale()
 	a.visit()
 }
@@ -374,6 +375,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 				})
 			}
 		})
+		a.kbMark(body, "k:"+k.page.Dir+":"+itoa(k.line), true, func() { a.openTask(k) })
 		if body.Clicked() {
 			a.openTask(k)
 		}

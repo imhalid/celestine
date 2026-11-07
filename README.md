@@ -66,6 +66,19 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `sidebar.go` | The title bar and the sidebar: folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn |
 | `drag.go` | Dragging pages in the tree, as [Ryugo](https://github.com/imhalid/ryu-go)'s cards move: the row lifts, rows make room, the row it goes into glows, it glides into place |
 | `tables.go`, `tablemodel.go` | Tables: one object in the text, always a table (columns with a kind, alignment, width and a foot calculation); in the body a typed object. Markdown tables that come in are read as tables of ours |
+| `tablefn.go` | What a table does with its rows: sort by a column, a filter the page keeps, CSV in and out (and tab-separated text pasted from a spreadsheet) |
+| `wobble.go` | The jelly: the window itself shakes from side to side and hops when an agent (MCP) adds to a page (what is drawn in it, where the window cannot be moved); the settings can turn it off |
+| `editing.go` | How the text is set and kept: paragraph spacing, first-line indent, autosave on/off and its delay, ⌘S, ⌘= ⌘− ⌘0, and the white space drawn over the text |
+| `cmdreg.go` | The settings as one list the palette reads: every setting is a command (toggle, number, choice), commands with a value ("yazı boyutu 18"), and the test that holds `Settings` and the commands together |
+| `fonts.go` | The typefaces: app, editor and code, from the families installed, each in its own letters, shown on the page as they are passed over, with presets, stars and a fallback |
+| `crash.go` | The crash log: a panic in a frame, a goroutine or the program is written to the config folder; the next start tells of a session that ended badly |
+| `backup.go` | Backups of the library's file (daily, before an import or an update, by hand), pruning, restore at the next start, zip export |
+| `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |
+| `kb.go`, `vim.go`, `help.go` | The keyboard's normal mode (Esc), rows chosen with j k, letters on everything that can be pressed (f), the leader (Space), marks, the command line (:), Vim's motions as a setting, the page of shortcuts and the first-run tour |
+| `update.go`, `updateui.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start; `scripts/release`, `cloudflare/update`, `.github/workflows/release.yml` |
+| `sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption; `cloudflare/sync` |
+| `i18n.go` | The language: Turkish as written, English from a dictionary for the main surfaces |
+| `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
 | `caretfx*.go` | The carets: Slime and Mizan, and the presets (Pacman and the effects of [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith), see `NOTICE.md`): each a caret that is always as it is, with nothing to set |

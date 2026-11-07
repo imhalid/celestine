@@ -22,6 +22,7 @@ const viewMax = 920
 func (a *app) openCollection(c *Collection) {
 	a.flush()
 	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = c, c.Name, "", false, "", false, false, false
+	a.statsScreen = false
 	a.bulkClear()
 	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true
@@ -312,6 +313,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 				a.coverThumb(c, p, 72, 52, 8)
 			}
 		})
+		a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
 		if a.bulkRowClicked(p, row.Clicked()) {
 			// chosen, not opened
 		} else if row.Clicked() {
@@ -548,6 +550,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		},
 		Row: func(row ui.Element, p *Page) {
 			a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
+			a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) }) // the keys move over the rows of the table, too
 		},
 	})
 	if a.bulk.on { // what was chosen in the table, by its boxes
@@ -663,6 +666,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 									}
 								}).Label("Kart: " + p.Title)
 								a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
+								a.kbMark(card, "b:"+p.Dir, true, func() { a.open(p) })
 								if card.Clicked() {
 									a.open(p)
 								}

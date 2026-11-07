@@ -24,15 +24,33 @@ var (
 	iconEditing = icon(`<path d="M5 6.5h14M5 11h9M5 15.5h12M5 20h6"/>`)
 	iconBar     = icon(`<rect x="4" y="15" width="16" height="4.5" rx="1.8"/><path d="M7.5 17.2h3M14 17.2h2.5"/><path d="M4 8.5h16M4 5h10" opacity=".55"/>`)
 	iconPlug    = icon(`<path d="M9 4v5M15 4v5M6.5 9h11v2.5a5.5 5.5 0 0 1-11 0zM12 17v3.5"/>`)
+	iconSync    = icon(`<path d="M5 9a7 7 0 0 1 12-3l2 2M19 15a7 7 0 0 1-12 3l-2-2M19 4v4h-4M5 20v-4h4"/>`)
+	iconUpdate  = icon(`<path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/>`)
+	iconFont    = icon(`<path d="M5 19 11 5h2l6 14M7.5 14h9"/>`)
 	iconLibrary = icon(`<path d="M4.5 7.5a1.5 1.5 0 0 1 1.5-1.5h4l1.8 2H18a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z"/>`)
+)
+
+// the tabs of the settings, by their place in settingsSections
+const (
+	tabAppearance = iota
+	tabEditor
+	tabFonts
+	tabStatus
+	tabMCP
+	tabLibrary
+	tabSync
+	tabUpdate
 )
 
 var settingsSections = []settingsSection{
 	{"Görünüm", "Tema ve sayfanın genişliği", iconTheme},
 	{"Editör", "Yazı, satır aralığı ve caret", iconEditing},
+	{"Yazı tipi", "Uygulamanın, metnin ve kodun yazı tipleri", iconFont},
 	{"Durum çubuğu", "Altta neyin görüneceği", iconBar},
 	{"MCP", "Ajanların kitaplığa bağlanması", iconPlug},
 	{"Kitaplık", "Dosyalar ve nerede durdukları", iconLibrary},
+	{"Senkron", "Başka bilgisayarlarla eşitleme, şifreleme", iconSync},
+	{"Güncelleme", "Yeni sürümler ve sürüm notları", iconUpdate},
 }
 
 // selSpring is the list's choice settling, and a tile picked.
@@ -59,6 +77,7 @@ func (a *app) openSettings() {
 	}
 	a.flush()
 	a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, nil, "", false, false, false
+	a.statsScreen = false
 	a.visit()
 }
 
@@ -87,20 +106,30 @@ func (a *app) settingsScreen(c *ui.Context) {
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
 			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
-				ui.Text(c, sec.name).FontSize(32).FontWeight(720).TextColor(cl.Text)
-				ui.Text(c, sec.blurb).FontSize(ryugo.FsMd).TextColor(cl.Muted)
+				ui.Text(c, T(sec.name)).FontSize(32).FontWeight(720).TextColor(cl.Text)
+				ui.Text(c, T(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
+			a.settingsTop(c)
 			ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0).Children(func() {
 				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Transition(viewSwap).Children(func() {
+					if a.settingsExtra(c) {
+						return
+					}
 					switch a.settingsTab {
 					case 0:
 						a.settingsAppearance(c)
 					case 1:
 						a.settingsEditor(c)
-					case 2:
+					case tabFonts:
+						a.settingsFonts(c)
+					case tabStatus:
 						a.settingsStatus(c)
-					case 3:
+					case tabMCP:
 						a.settingsMCP(c)
+					case tabSync:
+						a.settingsSync(c)
+					case tabUpdate:
+						a.settingsUpdate(c)
 					default:
 						a.settingsLibrary(c)
 					}
@@ -129,9 +158,10 @@ func (a *app) settingsNav(c *ui.Context) {
 				e.Background(cl.Fill.Alpha(hov))
 			}
 			e.Translate(2*on, 0)
+			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsTab = i })
 			e.Children(func() {
 				ui.Icon(c, s.glyph).Width(16).Height(16).TextColor(ryugo.Mix(cl.Muted, cl.Accent, on))
-				ui.Text(c, s.name).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
+				ui.Text(c, T(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
 			})
 			if e.Clicked() {
 				a.settingsTab = i
@@ -155,6 +185,7 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 
 // settingRow is a setting: what it is, and its control.
 func settingRow(c *ui.Context, title, help string, control func()) {
+	title, help = T(title), T(help)
 	cl := ryugo.From(c).Colors
 	ui.Row(c).Gap(20).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
@@ -171,6 +202,7 @@ func settingRow(c *ui.Context, title, help string, control func()) {
 // button is; it lifts as the pointer comes, and the chosen one is ringed in
 // the accent. It reports a click.
 func choiceTile(c *ui.Context, key, label string, on bool, preview func()) bool {
+	label = T(label)
 	t := ryugo.From(c)
 	cl := t.Colors
 	e := ui.Column(c.Key(key)).Width(128).Gap(8).Padding(7, 7, 10, 7).Radius(rad(16)).AlignItems(ui.Center).
@@ -262,6 +294,23 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.Corner = &v
 		a.saveSettingsSoon()
 	}
+	settingGroup(c, "set-lang", func() {
+		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
+			ui.Row(c).Gap(8).Children(func() {
+				for _, l := range []string{"", "tr", "en"} {
+					l := l
+					b := ui.Row(c.Key("lang:"+l)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[a.settings.Lang == l]).
+						Label(langName(l)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+					b.Children(func() { ui.Text(c, langName(l)).FontSize(13).TextColor(cl.Text) })
+					if b.Clicked() {
+						a.settings.Lang = l
+						setLang(l)
+						a.saveSettings()
+					}
+				}
+			})
+		})
+	})
 }
 
 func (a *app) settingsEditor(c *ui.Context) {
@@ -328,6 +377,17 @@ func (a *app) settingsEditor(c *ui.Context) {
 		a.settings.NoAutoCover = !auto
 		a.saveSettings()
 	}
+	shake := !a.settings.NoWobble
+	settingGroup(c, "set-wobble", func() {
+		settingRow(c, "Jöle sarsıntısı", "Bir ajan (MCP) sayfaya içerik eklerken pencere, eklenen kadar, jöle gibi sağa sola sallanır ve zıplar. Pencerenin yeri değiştirilemiyorsa (tam ekran, Wayland) içindeki görünüm sallanır.", func() {
+			ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label("Jöle sarsıntısı")
+		})
+	})
+	if shake != !a.settings.NoWobble {
+		a.settings.NoWobble = !shake
+		a.saveSettings()
+	}
+	a.settingsText(c)
 	a.settingsQuick(c)
 	if float32(fs) != a.fontSize() {
 		a.settings.FontSize = fs
@@ -353,6 +413,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 	settingGroup(c, "set-status",
 		toggle("set-saved", "Kaydetme durumu", "Kaydedildi, kaydediliyor…", &a.settings.HideSaved, true),
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
+		toggle("set-hidebar", "Durum çubuğunu gizle", "Altta hiçbir şey çizilmez: odak modu. Yazı tipi ve tema düğmeleri ⌘P'den yine ulaşılır.", &a.settings.HideStatus, false),
 		toggle("set-pos", "Satır ve sütun", "Caret'in paragrafı ve içindeki yeri.", &a.settings.ShowPos, false),
 	)
 }
@@ -402,7 +463,15 @@ func (a *app) settingsLibrary(c *ui.Context) {
 					a.exportNote = a.exportLibrary(store)
 				}
 			})
+		},
+		func() {
+			settingRow(c, "Markdown olarak zip", "Aynısı tek bir .zip dosyası: başka bir bilgisayara taşımak ya da arşivlemek için.", func() {
+				if ryugo.Button(c.Key("export-zip"), "Zip yaz", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.exportNote = a.exportZip(store)
+				}
+			})
 		})
+	a.settingsBackup(c)
 }
 
 // exportLibrary writes the library as a folder of Markdown files next to

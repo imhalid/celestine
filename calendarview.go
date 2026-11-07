@@ -189,6 +189,16 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 			})
 		}
 	})
+	a.kbMark(cell, "d:"+d.Format("2006-01-02"), true, func() {
+		switch {
+		case !a.calDay.IsZero() && a.calOpen && sameDay(a.calDay, d):
+			a.calOpen = false
+		case len(list) > 0 || canMake:
+			a.calDay, a.calOpen = d, true
+		default:
+			a.calOpen = false
+		}
+	})
 	if cell.Clicked() {
 		switch {
 		case !a.calDay.IsZero() && a.calOpen && sameDay(a.calDay, d):
@@ -251,6 +261,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 								ui.Icon(c, iconPage).Width(14).Height(14).TextColor(cl.Muted)
 								ui.Text(c, p.Title).FontSize(13).MaxLines(1)
 							})
+							a.kbMark(row, "c:"+p.Dir, true, func() { a.calOpen = false; a.open(p) })
 							if row.Clicked() {
 								a.calOpen = false
 								a.open(p)

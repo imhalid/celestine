@@ -163,6 +163,10 @@ func (a *app) panelInfo(c *ui.Context, cl ryugo.Colors, p *Page) {
 		{"Değiştirildi", ago(p.Modified, a.clock())},
 		{"Kelime", strconv.Itoa(words)},
 		{"Harf", strconv.Itoa(chars)},
+		{"Okuma süresi", readingTime(words)},
+	}
+	if n := len(a.linksTo(p, a.clock(), false)); n > 0 {
+		rows = append(rows, [2]string{"Geri bağlantı", strconv.Itoa(n)})
 	}
 	if n := len(p.Children); n > 0 {
 		rows = append(rows, [2]string{"Alt sayfa", strconv.Itoa(n)})
@@ -182,4 +186,15 @@ func (a *app) panelInfo(c *ui.Context, cl ryugo.Colors, p *Page) {
 			})
 		}
 	})
+}
+
+// readingTime is how long the words take to read, at 200 a minute.
+func readingTime(words int) string {
+	if words == 0 {
+		return ""
+	}
+	if m := (words + 199) / 200; m > 1 {
+		return strconv.Itoa(m) + " dk"
+	}
+	return "1 dk'dan az"
 }

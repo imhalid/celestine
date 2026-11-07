@@ -12,7 +12,7 @@ func (a *app) menu() *mygo.Menu {
 		return func(*mygo.MenuItem, *mygo.Window) { a.do(func() error { fn(); return nil }) }
 	}
 	item := func(label, acc string, fn func()) *mygo.MenuItem {
-		return &mygo.MenuItem{Label: label, Accelerator: acc, Click: run(fn)}
+		return &mygo.MenuItem{Label: T(label), Accelerator: acc, Click: run(fn)}
 	}
 	newPage := func() {
 		switch {
@@ -34,7 +34,7 @@ func (a *app) menu() *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleQuit},
 		}},
-		{Label: "Dosya", Submenu: []*mygo.MenuItem{
+		{Label: T("Dosya"), Submenu: []*mygo.MenuItem{
 			item("Yeni sayfa", "CmdOrCtrl+N", newPage),
 			item("Yeni koleksiyon", "CmdOrCtrl+Shift+N", func() {
 				if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
@@ -45,14 +45,18 @@ func (a *app) menu() *mygo.Menu {
 			}),
 			mygo.Separator(),
 			item("Çöp", "", a.openTrash),
+			item("Kaydet", "CmdOrCtrl+S", a.saveNow),
 			mygo.Separator(),
 			{Role: mygo.RoleClose},
 		}},
 		{Role: mygo.RoleEditMenu},
-		{Label: "Görünüm", Submenu: []*mygo.MenuItem{
+		{Label: T("Görünüm"), Submenu: []*mygo.MenuItem{
 			item("Kenar çubuğu", "CmdOrCtrl+\\", a.toggleSidebar),
 			item("Yan panel", "CmdOrCtrl+Shift+\\", a.togglePanel),
 			item("Caret'i değiştir", "CmdOrCtrl+Shift+M", func() { a.setCaret((a.caretKind + 1) % caretCount()) }),
+			item("Yazıyı büyüt", "CmdOrCtrl+=", func() { a.stepFont(1) }),
+			item("Yazıyı küçült", "CmdOrCtrl+-", func() { a.stepFont(-1) }),
+			item("Yazı boyutu: varsayılan", "CmdOrCtrl+0", a.resetFont),
 			mygo.Separator(),
 			item("Yan bölmede aç (bu sayfa)", "CmdOrCtrl+Alt+Enter", a.openHereInSide),
 			item("Bölmeler arası geç", "CmdOrCtrl+Alt+Right", a.nextPane),
@@ -60,7 +64,7 @@ func (a *app) menu() *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 		}},
-		{Label: "Blok", Submenu: []*mygo.MenuItem{
+		{Label: T("Blok"), Submenu: []*mygo.MenuItem{
 			item("Yukarı taşı", "CmdOrCtrl+Shift+Up", func() {
 				if a.doc != nil {
 					moveBlock(a.doc, -1)
@@ -78,9 +82,10 @@ func (a *app) menu() *mygo.Menu {
 				}
 			}),
 		}},
-		{Label: "Git", Submenu: []*mygo.MenuItem{
+		{Label: T("Git"), Submenu: []*mygo.MenuItem{
 			item("Sayfa ara…", "CmdOrCtrl+K", a.openPalette),
 			item("Komutlar…", "CmdOrCtrl+P", a.openCommands),
+			item("Komutlar… (⇧⌘P)", "CmdOrCtrl+Shift+P", a.openCommands),
 			item("Sayfada bul…", "CmdOrCtrl+F", a.openFind),
 			item("Kitaplıkta ara…", "CmdOrCtrl+Shift+F", func() { a.openSearch(a.searchQ) }),
 			mygo.Separator(),

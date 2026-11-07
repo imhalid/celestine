@@ -12,7 +12,9 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,14 +110,60 @@ type app struct {
 	mizan     *mizanCaret
 
 	// What changed since the last frame, for the caret and for saving.
-	fx      []caretFX                // the carets of the presets, made as they are used (caretfx.go)
-	jellied smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
-	sleep   sleeper                  // the caret asleep after five seconds (caretextras.go)
-	demos   map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
-	winRect ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
-	saveErr string
-	notice  string     // a toast to show
-	trashed *TrashItem // just thrown away: a toast offers it back
+	updKey      string      // a test's key for releases
+	updBusy     atomic.Bool // a check or a download goes on
+	updErr      string      // what the last check said, when it failed
+	updState    string      // "indiriliyor…", "hazır"
+	updRel      *Release    // the newer version found
+	updAuto     bool        // a check found a release and the settings say to put it in place
+	updNotes    bool        // the dialog shows the notes of the version installed, not a new one
+	updOpen     bool        // the dialog of it
+	keyCmd      string      // the command and the key being typed for a shortcut of one's own
+	keyAccel    string
+	macroName   string
+	macroList   string
+	setSearch   string             // the search of the settings
+	setMode     string             // the settings' special page: "changed", "profiles", "file"
+	profName    string             // the name being typed for a profile
+	charW       map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
+	sy          syncUI             // the state of synchronization (syncapp.go)
+	vimReg      richtext.Text      // what dd and yy took, for p
+	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
+	winW, winH  float32            // the window's size, last frame
+	tourAt      int                // the step of the tour
+	tourOff     bool               // the tour is put off for this session
+	statCache   libStats           // the library's figures, read at most every ten seconds
+	statCacheAt time.Time
+	setClock    func(time.Duration) // a test moves the clock
+	statReset   bool                // the reset asked once: the next click does it
+	usage       *usageData          // what is used, by the day (stats.go)
+	usageDirty  bool
+	usageSaved  time.Time
+	activeAt    time.Time // the last thing done: a minute after it, the time is not counted
+	activeFrac  time.Duration
+	statLast    time.Time
+	statVer     uint64
+	sess        session // the writing session that goes on
+	sessLast    time.Time
+	backupDir   string // where the backups go, when not the config folder's (a test's)
+	backupBusy  atomic.Bool
+	crashDir    string // where the logs go, when not the config folder's (a test's)
+	crashMsg    string // the panic last written, and when: the same one is not written over and over
+	crashAt     time.Time
+	crashPath   string                   // its log
+	crashText   string                   // what it said
+	testPanic   string                   // a test sets it to have a frame panic
+	crashOpen   bool                     // the dialog of a crash is shown
+	crashPrev   string                   // the last session ended badly: its log, or ""
+	fonts       fontState                // the typefaces installed, and the lists of them (fonts.go)
+	fx          []caretFX                // the carets of the presets, made as they are used (caretfx.go)
+	jellied     smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
+	sleep       sleeper                  // the caret asleep after five seconds (caretextras.go)
+	demos       map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
+	winRect     ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
+	saveErr     string
+	notice      string     // a toast to show
+	trashed     *TrashItem // just thrown away: a toast offers it back
 
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings
@@ -123,6 +171,7 @@ type app struct {
 	tagRen        tagRename // the dialog to rename a tag (tags.go)
 	vhist         histView  // the dialog of a page's versions (historyui.go)
 	noticePage    *Page     // the page the notice is about, to open from it
+	noticeUndo    func()    // takes back what the notice says was done: the notice has a Geri al
 	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
@@ -175,7 +224,6 @@ type app struct {
 	chipW         map[string]float32    // how wide the text of each chip is (chips.go)
 	autoCovers    map[uint64]*autoCover // the patterns made for the covers of the pages shown lately (autocover.go)
 	tables        map[string]*tableUI   // the state of each collection table, by collection and view (views.go)
-	statsOpen     bool                  // the dialog of what is written (writing.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
@@ -187,7 +235,13 @@ type app struct {
 	outlineDoc    *richtext.Document
 	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
 	settingsDirty bool        // changed, not yet written (saveSettingsSoon)
+	wob           wobble      // the jelly's shake, when an agent writes (wobble.go)
+	wobMu         sync.Mutex  // guards it: the window's goroutine reads it too
+	mover         windowMover // the window, to shake it
+	winBusy       atomic.Bool // a goroutine is moving the window
+	winShaking    atomic.Bool // and the window does move: the view keeps still
 	settingsAt    time.Time   // when
+	savedAt       time.Time   // the last save of the page, shown in the status bar
 	mcpServer     *http.Server
 	mcpErr        string
 
@@ -256,6 +310,7 @@ func main() {
 		store *Store
 		err   error
 	)
+	restoreNote := ""
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -268,14 +323,19 @@ func main() {
 		if arg != "" {
 			file, _ = filepath.Abs(arg)
 		}
+		restored, rerr := applyRestore(backupDir(), file, time.Now()) // a backup chosen before the last quit is put in place first
+		if rerr != nil {
+			restored = "Geri yükleme olmadı: " + rerr.Error()
+		}
+		restoreNote = restored
 		_, existed := os.Stat(file)
 		if store, err = OpenStore(file); err == nil {
 			if existed != nil {
 				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
 					if isLibraryFolder(old) {
-						store.db.Exec(`PRAGMA synchronous = OFF`) // a copy of what is still there: no wait for each file
+						store.fast(true) // a copy of what is still there: no wait for each file
 						err = copyTree(osFS{}, old, store, storeRoot)
-						store.db.Exec(`PRAGMA synchronous = FULL`)
+						store.fast(false)
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -293,6 +353,7 @@ func main() {
 		log.Fatal(err)
 	}
 	a := newApp(lib)
+	a.notice = restoreNote
 	if _, err := a.journal(); err != nil { // every library has its journal
 		log.Fatal(err)
 	}
@@ -305,7 +366,39 @@ func main() {
 	if a.settingsFile != "" || a.settingsStore != nil {
 		a.loadSettings()
 		a.applyTree()
+		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
+	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
+	if unclean {
+		a.crashPrev, a.crashOpen = prevLog, true
+		if prevLog == "" {
+			a.crashText = "Son oturum bir hata günlüğü bırakmadan kapandı (uygulama zorla kapatılmış ya da bilgisayar kapanmış olabilir)."
+		} else if b, err := os.ReadFile(prevLog); err == nil {
+			a.crashText, a.crashPath = string(b), prevLog
+		}
+	}
+	if note := rollbackIfBroken(updateMark(), unclean); note != "" { // a new version that did not start: the old one is back
+		if exe, err := os.Executable(); err == nil {
+			exec.Command(exe, os.Args[1:]...).Start()
+		}
+		log.Println(note)
+		os.Exit(0)
+	}
+	time.AfterFunc(20*time.Second, func() { updateProved(updateMark()) }) // twenty seconds in, it has proved itself
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                         // what is written and not saved goes to its file before the app goes
+		a.mu.Lock()
+		a.flush()
+		a.endSession()
+		a.saveUsage()
+		a.mu.Unlock()
+		markClean(crashDir())
+	})
+	defer func() { // a panic of the program itself is written, too, and then goes on
+		if r := recover(); r != nil {
+			crashLog(crashDir(), r, debug.Stack(), time.Now())
+			panic(r)
+		}
+	}()
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
@@ -316,11 +409,19 @@ func main() {
 			a.win = w
 		}
 		a.invalidate = w.Invalidate
+		a.mover = w
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
 		a.quick = newQuick(a)
-		go a.watch()
-		go a.watchClipboard()
+		go func() { // the day's backup, a moment after the start, when the window is up
+			defer a.guard()
+			time.Sleep(4 * time.Second)
+			a.do(func() error { a.backupDaily(); return nil })
+			time.Sleep(4 * time.Second)
+			a.do(func() error { a.checkUpdate(false); return nil })
+		}()
+		go func() { defer a.guard(); a.watch() }()
+		go func() { defer a.guard(); a.watchClipboard() }()
 		if a.settings.MCP {
 			a.setMCP(true)
 		}
@@ -334,10 +435,12 @@ func main() {
 func (a *app) open(p *Page) {
 	defer a.visit()
 	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = nil, false, "", false, false, false
+	a.statsScreen = false
 	if p == a.page {
 		return
 	}
 	a.flush()
+	a.noteOpened(p)
 	doc := a.docs[p]
 	if doc == nil {
 		body, err := p.Body()
@@ -386,6 +489,7 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		a.saveErr = err.Error()
 		return
 	}
+	a.noteCreated()
 	if c.Template != "" { // it starts as the collection says
 		if err := p.SaveText(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
 			a.saveErr = err.Error()
@@ -402,11 +506,36 @@ func (a *app) flush() {
 	}
 }
 
+// view is a frame of the window. A panic in it is written to the crash log, and the window shows what
+// it was, with a way on, instead of the app falling.
 func (a *app) view(c *ui.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			stack := debug.Stack()
+			a.mu.Lock() // the frame's own lock was let go as it unwound
+			a.noteCrash(r, stack)
+			a.mu.Unlock()
+			func() {
+				defer func() { recover() }() // the tree may be half made: if this fails too, the next frame tries again
+				a.crashFallback(c)
+			}()
+		}
+	}()
+	a.viewFrame(c)
+}
+
+func (a *app) viewFrame(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.testPanic != "" {
+		panic(a.testPanic)
+	}
 	a.frame = c.Invalidate
 	a.keepSettings(c)
+	a.statTick()
+	a.syncTick(c)
+	a.kbBegin()
+	sleepAfter = a.caretSleep()
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
 	radiusScale = float32(a.cornerPercent()) / 100
@@ -418,7 +547,8 @@ func (a *app) view(c *ui.Context) {
 	t := c.Theme()
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
-	th.ParagraphSpacing = 0.55
+	th.ParagraphSpacing = a.paraGap()
+	th.FirstLineIndent = a.firstIndent()
 	// A heading's room above stays under half its line: the editor moves ↑ by
 	// the height of the line the caret is on, and from a heading that must
 	// land in the paragraph above, not in the heading's own room.
@@ -426,7 +556,9 @@ func (a *app) view(c *ui.Context) {
 		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
 	}
 	a.theme = th
-	a.font = ui.Font{Family: t.Font, Size: a.fontSize(), LineHeight: a.lineHeight()}
+	t.Font = a.appFont() // the typeface of the window, from the first one that is installed
+	th.CodeFont = a.monoFont()
+	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
 	if a.doc != nil {
 		a.track(c)
 	}
@@ -442,6 +574,7 @@ func (a *app) view(c *ui.Context) {
 	a.look = look
 	c.Key("look:" + look)
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+	a.shake(c, root)
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
 	}
@@ -464,10 +597,22 @@ func (a *app) view(c *ui.Context) {
 		if c.Shortcut(ui.Cmd, ui.KeyComma) {
 			a.toggleSettings()
 		}
+		if c.Shortcut(ui.Cmd, ui.KeyS) {
+			a.saveNow()
+		}
+		if c.Shortcut(ui.Cmd, ui.KeyEqual) {
+			a.stepFont(1)
+		}
+		if c.Shortcut(ui.Cmd, ui.KeyMinus) {
+			a.stepFont(-1)
+		}
+		if c.Shortcut(ui.Cmd, ui.Key0) {
+			a.resetFont()
+		}
 		if c.Shortcut(ui.Cmd, ui.KeyK) {
 			a.openPalette()
 		}
-		if c.Shortcut(ui.Cmd, ui.KeyP) {
+		if c.Shortcut(ui.Cmd, ui.KeyP) || c.Shortcut(ui.Cmd|ui.Shift, ui.KeyP) {
 			a.openCommands()
 		}
 		if c.Shortcut(ui.Cmd, ui.KeyJ) {
@@ -494,6 +639,9 @@ func (a *app) view(c *ui.Context) {
 	if a.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeSettings()
 	}
+	if a.statsScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+		a.closeStats()
+	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
 	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && a.page != nil && a.doc != nil {
@@ -503,11 +651,14 @@ func (a *app) view(c *ui.Context) {
 		a.newPage(a.page.Coll, nil)
 	}
 	root.Children(func() {
+		a.kbAnchor(c)
 		shown := a.sidebar(c)
 		a.sidebarShown = shown
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			a.panesView(c, th)
-			a.status(c)
+			if !a.settings.HideStatus {
+				a.status(c)
+			}
 			a.keepTree()
 		})
 		a.sidePanel(c)
@@ -523,11 +674,32 @@ func (a *app) view(c *ui.Context) {
 	a.dateEditView(c)
 	a.contextView(c)
 	a.paletteView(c)
+	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
+		// Esc, in the text or on a screen that has nothing to close: the keys are commands. The settings
+		// and the figures have their own Esc, which goes back.
+		if !a.settingsOpen && !a.statsScreen && c.Shortcut(0, ui.KeyEscape) {
+			a.kbEnter()
+		}
+	}
+	if c.Shortcut(ui.Cmd, ui.Key1) { // the regions: the tree, the side panel, the text
+		a.focusTree()
+	}
+	if c.Shortcut(ui.Cmd, ui.Key2) && !a.settings.PanelOpen {
+		a.togglePanel()
+	}
+	if c.Shortcut(ui.Cmd, ui.Key3) {
+		a.kbLeave()
+	}
+	a.kbKeys(c)
+	a.boundKeys(c)
+	a.kbView(c)
+	a.tourView(c)
+	a.updateView(c)
 	a.collSettingsView(c)
 	a.propDialog(c)
 	a.tagRenameView(c)
 	a.historyView(c)
-	a.writingView(c)
+	a.crashView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
 	}
@@ -540,12 +712,14 @@ func (a *app) view(c *ui.Context) {
 	a.runLater()
 	ryugo.Toaster(c)
 	if a.notice != "" {
-		if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
-			c.ToastAction(a.notice, "Aç", func() { a.open(pg) })
+		if undo := a.noticeUndo; undo != nil { // a setting changed: it is one click from taken back
+			c.ToastAction(T(a.notice), T("Geri al"), undo)
+		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
+			c.ToastAction(T(a.notice), T("Aç"), func() { a.open(pg) })
 		} else {
 			c.Toast(a.notice)
 		}
-		a.notice, a.noticePage = "", nil
+		a.notice, a.noticePage, a.noticeUndo = "", nil, nil
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil
@@ -631,7 +805,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	if window {
 		ed.Transition(windowEditor)
 	}
-	if !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() {
+	if !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() && !a.kb.normal {
 		ed.AutoFocus()
 	}
 	if a.refocus {
@@ -695,6 +869,8 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
+		a.drawWhite(p, r)
+		a.drawFocusVeil(p, r)
 		a.drawTags(p, r)
 		a.sealTables()
 	})
@@ -916,6 +1092,11 @@ func (a *app) revealCaret(cr ui.Rect) {
 	vp := a.scrollR
 	var d float32
 	switch {
+	case a.settings.Typewriter: // the line stays in the middle
+		d = cr.Y + cr.H/2 - (vp.Y + vp.H/2)
+		if d > -2 && d < 2 {
+			d = 0
+		}
 	case cr.Y < vp.Y+room:
 		d = cr.Y - (vp.Y + room)
 	case cr.Y+cr.H > vp.Y+vp.H-room:
@@ -955,7 +1136,7 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.caretWin = cr
 	a.revealCaret(cr)
 	anchor, caret := a.doc.Selection()
-	if anchor != caret { // over a selection, a plain caret: the jelly would hide what is selected
+	if anchor != caret || a.settings.NoCaretFX { // over a selection, or with the effects off, a plain caret: the jelly would hide what is selected
 		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
 	}
@@ -1025,13 +1206,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 // status is the line at the bottom: the file, whether it is saved, the caret.
 func (a *app) status(c *ui.Context) {
 	t := c.Theme()
-	state := "kaydedildi"
-	switch {
-	case a.saveErr != "":
-		state = "kaydedilemedi: " + a.saveErr
-	case a.dirty:
-		state = "kaydediliyor…"
-	}
+	state := a.savedText()
 	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
 		ui.Box(c.Key("status-gap")).Grow(1)
@@ -1049,9 +1224,10 @@ func (a *app) status(c *ui.Context) {
 			})
 			if m.Clicked() {
 				a.openSettings()
-				a.settingsTab = 3 // the MCP tab
+				a.settingsTab = tabMCP
 			}
 		}
+		a.syncBadge(c)
 		a.statusExtras(c)
 		// no file paths: what the settings ask for - the letters, how it is saved, the caret
 		if a.settings.ShowChars {
@@ -1097,10 +1273,10 @@ func (a *app) pulseDot(c *ui.Context) {
 
 // autosave writes the file a moment after the last edit.
 func (a *app) autosave(c *ui.Context) {
-	if !a.dirty || a.page == nil || a.saveErr != "" {
+	if !a.dirty || a.page == nil || a.saveErr != "" || a.settings.NoAutoSave {
 		return
 	}
-	if wait := 700*time.Millisecond - a.clock().Sub(a.editAt); wait > 0 {
+	if wait := a.saveAfter() - a.clock().Sub(a.editAt); wait > 0 {
 		c.After(wait)
 		return
 	}
@@ -1121,6 +1297,7 @@ func (a *app) save() {
 	words := len(strings.Fields(a.doc.Text().PlainText()))
 	a.countWriting(a.lastWords, words)
 	a.lastSave, a.lastWords, a.dirty = body, words, false
+	a.savedAt = a.clock()
 	a.linksStale()
 }
 

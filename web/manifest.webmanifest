@@ -1,0 +1,14 @@
+{
+  "name": "ryudit",
+  "short_name": "ryudit",
+  "description": "Notes, pages and collections: native-feeling writing in the browser",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#17171a",
+  "theme_color": "#17171a",
+  "icons": [
+    { "src": "icon-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

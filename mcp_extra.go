@@ -135,6 +135,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					if k.page == p && k.line == in.Line {
 						if k.done != in.Done {
 							a.toggleTask(k)
+							a.jiggle(40)
 						}
 						return nil
 					}
@@ -217,6 +218,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					}
 				}
 				a.putBackVersion()
+				a.jiggle(400)
 				return nil
 			})
 			if err != nil {

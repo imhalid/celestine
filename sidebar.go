@@ -257,6 +257,12 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 			add = a.revealButton(c, iconPlus, "Ekle: "+s.name, hover)
 		}
 	})
+	switch x := s.item.(type) { // the keys' letters can press it
+	case *Page:
+		a.kbMark(r, "tree:"+x.Dir, false, func() { a.open(x) })
+	case *Collection:
+		a.kbMark(r, "tree:"+x.Dir, false, func() { a.openCollection(x) })
+	}
 	clicked := r.Clicked()
 	if clicked {
 		a.treeNav = false // a click is not the keys: the page it opens takes the focus
@@ -364,6 +370,7 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 // trashPage moves p to the library's trash; when it, or a page under it, is
 // open, the page above it opens, or the collection.
 func (a *app) trashPage(p *Page) {
+	a.noteDeleted()
 	open := false
 	for q := a.page; q != nil; q = q.Parent {
 		open = open || q == p

@@ -17,5 +17,10 @@ func (a *app) emptyState(c *ui.Context, icon *ui.SVG, title, desc, action string
 			}
 		}
 	}
-	ui.Column(c.Key("empty-state")).FillWidth().Children(func() { ryugo.EmptyState(c, o) })
+	o.Title, o.Description = T(o.Title), T(o.Description)
+	ui.Column(c.Key("empty-state")).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+		ryugo.EmptyState(c, o)
+		// a hint that teaches: the one key that leads to all the others
+		ui.Text(c.Key("empty-hint"), T("⌘P komutlar · ⌘K sayfa ara · ? kısayollar (Esc ile normal kip)")).FontSize(12).TextColor(ryugo.From(c).Colors.Muted)
+	})
 }

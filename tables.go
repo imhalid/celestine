@@ -631,6 +631,13 @@ func (a *app) stepCell(dr, dc int) {
 	*ce = cellEdit{open: true, ch: ce.ch, row: row, col: col, text: m.cell(row, col), fresh: true}
 }
 
+// closeCell shuts the cell's box and gives the keyboard back to the text, where
+// ⌘Z and ⇧⌘Z undo and redo what was done to the table, as to any text.
+func (a *app) closeCell() {
+	a.cellEd.open = false
+	a.refocus = true
+}
+
 // cellEditView is the box a cell is written in, over the cell, and under it
 // the buttons for rows and columns, and for what the column is.
 func (a *app) cellEditView(c *ui.Context) {
@@ -659,7 +666,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		if ce.row == -2 && !ce.ch.tbl.filtering() && ce.ch.tbl.Filter != "" { // a filter that was never written
 			a.editTable(ce.ch, func(m *tableModel) { m.Filter = "" })
 		}
-		ce.open = false
+		a.closeCell()
 		return
 	}
 	// the box grows with its text, as a spreadsheet's does: the text never scrolls in it
@@ -680,7 +687,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		switch {
 		case in.Submitted():
 			a.commitCell()
-			ce.open = false
+			a.closeCell()
 			return
 		case ce.row == -2: // the filter's words: only Enter and Esc
 		case in.Shortcut(0, ui.KeyTab):
@@ -736,7 +743,7 @@ func (a *app) cellEditView(c *ui.Context) {
 						} else {
 							a.editTable(ce.ch, do)
 						}
-						ce.open = false
+						a.closeCell()
 					}
 				}
 				row, ci := ce.row, ce.col
@@ -772,9 +779,29 @@ func (a *app) cellEditView(c *ui.Context) {
 					a.cellEd = cellEdit{open: true, ch: nc, row: -2, text: strings.TrimSpace(nc.tbl.Filter), fresh: true}
 				}
 				btn(iconCopy, "CSV olarak kopyala", false, nil)
+				// undo and redo, faint when there is nothing to go back or forward to
+				history := func(glyph *ui.SVG, label string, can bool, run func()) {
+					b := ui.Box(c.Key(label)).Size(26, 26).Radius(rad(7)).Center().Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).
+						Opacity(map[bool]float32{true: 1, false: 0.35}[can])
+					ryugo.Tooltip(c, b, label)
+					if b.Hovered() && can {
+						b.Background(cl.Fill)
+					}
+					b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(cl.Muted) })
+					if b.Clicked() && can {
+						a.commitCell()
+						run()
+						a.closeCell()
+					}
+				}
+				history(iconUndo, "Geri al (⌘Z)", a.doc.CanUndo(), a.doc.Undo)
+				history(iconRedo, "Yinele (⇧⌘Z)", a.doc.CanRedo(), a.doc.Redo)
 			})
 	})
 }
+
+var iconUndo = icon(`<path d="M9 7 4.5 11.5 9 16"/><path d="M5 11.5h8.5a5 5 0 0 1 0 10H11"/>`)
+var iconRedo = icon(`<path d="m15 7 4.5 4.5L15 16"/><path d="M19 11.5h-8.5a5 5 0 0 0 0 10H13"/>`)
 
 var iconCopy = icon(`<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>`)
 

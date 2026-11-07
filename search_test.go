@@ -58,7 +58,7 @@ func TestLibrarySearch(t *testing.T) {
 	// the palette has them after the names
 	found := false
 	for _, it := range a.paletteItems("demlemek") {
-		found = found || strings.HasPrefix(it.sub, "Metinde")
+		found = found || (it.group == "Metinde" && len(it.snip) > 0)
 	}
 	if !found {
 		t.Fatal("not in the palette")

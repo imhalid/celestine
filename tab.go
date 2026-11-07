@@ -31,9 +31,12 @@ func (a *app) tabKey(c *ui.Context) {
 	case tab && (several || list):
 		a.doc.Indent(1)
 	case tab:
-		a.doc.InsertText("\t")
+		a.doc.InsertText(a.tabText())
 	case several || list:
 		a.doc.Indent(-1)
+	case anchor == caret && caret >= len(a.tabText()) && a.tabText() != "\t" && text.Slice(caret-len(a.tabText()), caret).String() == a.tabText():
+		a.doc.SetSelection(caret-len(a.tabText()), caret)
+		a.doc.InsertText("")
 	case anchor == caret && caret > 0 && text.Slice(caret-1, caret).String() == "\t":
 		a.doc.SetSelection(caret-1, caret)
 		a.doc.InsertText("")

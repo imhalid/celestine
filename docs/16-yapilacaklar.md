@@ -27,6 +27,34 @@ ve bağımlılıklara göre verildi.
 | 13 | L | Senkronizasyon (Cloudflare dahil değerlendirme) | O | 5 | — |
 | 14 | M | Android uygulaması: araştırma ve deneme | D | 5 | J, L |
 
+## Durum özeti (7 Kasım, gece 3) — ne yapıldı, ne yapılmadı
+
+Hedef "bütün maddeler ve bütün öneriler" idi. Aşağıdaki liste dürüst bir defter: **yapıldı** (testli), **kısmen**, **yapılmadı** (neden). Belirsiz kalan
+açık sorular (1–10) için bu turda varsayılanla ilerlendi; cevap gelirse yön değişebilir.
+
+| # | Durum | Yapılanlar | Yapılmayanlar ve nedeni |
+|---|---|---|---|
+| A | yapıldı | 7 gösterge ve kodu silindi; durum çubuğunu gizleme; yan panel "Bilgi"de kelime, harf, okuma süresi, geri bağlantı | — |
+| B | yapıldı | tema önizlemesi, ✓, geri al bildirimi, argümanlı komutlar, son kullanılanlar, takma adlar, ⌘⇧P, modlar `> @ # : / ! ?`, sessiz hata yok, bağlam öne çıkarma (sayfa, koleksiyon, seçili metnin biçim komutları) | — |
+| C | yapıldı | ayarlar ekran oldu; ayar araması (Türkçe harf duyarsız, İngilizce takma adlar), "Değiştirilenler" ve varsayılana dön (tek tek, topluca), profiller (Yazar, Kod, Sıkı, Okuma ve kendi kaydettiklerin), ayarları dosyaya yaz / dosyadan oku (gizli bilgiler yazılmaz ve okunmaz), her sonuçta komut adı | — |
+| D | yapıldı | yazı boyutu ⌘= ⌘− ⌘0, paragraf aralığı, ilk satır girintisi, Tab uzunluğu, satır uzunluğu (en çok N karakterlik sütun), otomatik kayıt (aç/kapa, gecikme, ⌘S, "kaydedildi 14:32", çıkışta ve sayfa değişirken kayıt), boşluk/sekme/¶/kırılmaz boşluk/artık boşluk gösterimi (kod bloğunda ayrı), odak modu (satır, paragraf), daktilo kaydırması, caret uykusu, hafif mod, "son kayıttan önceki hâle dön", ayar ön-kümeleri (profiller), Vim hareketleri | harf ve kelime aralığı (imleç konumu düzenleyici düzeniyle hizalı kalmaz), yazım denetimi (işletim sistemi sözlüğüne MyGo'dan yol yok), sağdan sola yazı, imleç yanıp sönme hızı, boşlukların yalnız seçimde gösterilmesi; "length size" cevapsız (açık soru 4), ama satır uzunluğu (karakter olarak sütun sınırı) yapıldı |
+| E | yapıldı | ayar listesi tek kayıt (`cmdreg.go`), her ayar bir komut (testle denetlenir), önizleme, geri al, argüman, son komutlar, kendi kısayolların (çakışma denetimiyle), makrolar | menü ve MCP araç listesinin de aynı kayıttan üretilmesi (menü ayrı yazılı, MCP araçları ayrı) |
+| F | yapıldı | sistem fontlarından uygulama/editör/kod yazı tipi, kendi harfleriyle liste, canlı önizleme, arama, favori, son kullanılan, ön-kümeler, yedek zinciri, ligatür, aynı genişlik rakam, kalınlık, arka planda tarama | Türkçe karakter eksikliği uyarısı ve sahte italik uyarısı (MyGo font dosyasını okutmuyor), optik boyut |
+| G | yapıldı (çekirdek) | normal kip (Esc/i), j k ve sayı öneki, gg G, Enter/l/h, `f` harf etiketleri, Space leader, işaretler, `.` tekrar, ⌃O/Tab ile yer listesi, `gf`, `:` komut satırı, `?` kısayol sayfası, ⌘1/⌘2/⌘3, Vim hareketleri (ayar), liste/tablo/pano/takvim/arama/etiket/çöp/görev satırlarında klavye, sürüklemenin komut karşılıkları (sayfayı yukarı/aşağı/başka koleksiyona taşı, koleksiyonu taşı), kısayol değiştirme, sistem kısayoluyla çakışma reddi, odak halkası ayarı, N3 test altyapısı ve fare olmadan kabul senaryosu | tablo hücrelerinin ve ayar kontrollerinin (←→) klavyeyle gezilmesi (hücre düzenleme Tab/Enter ile zaten var), VoiceOver etiketlerinin denetimi, web'de normal kipin açılması |
+| H | yapıldı | istatistik ekranı: yazım, saat×gün ve yıllık ısı haritası, oturumlar ve hız, hedef ve seri, kullanım süresi ve sayaçlar, koleksiyon/etiket/sayfa dağılımı, sayfa başına süre, komut ve sayfa listeleri, kullanılmayan özellikler, kitaplık sağlığı, CSV/JSON, haftalık özet, sıfırla, tek anahtar | — |
+| I | ölçüldü | `scripts/build.sh`, bayraklar, bütçe, rapor (`17-boyut-ve-performans.md`) | bağımlılık sadeleştirme, tembel varlıklar, iki kip, fark güncellemesi: kazanç az ya da özellik riski, gerekçesi raporda |
+| J | yapıldı (deneme) | wasm derlendi ve tarayıcıda çalıştı: açıldı, yazıldı, IndexedDB'ye kaydedildi, yenilenince kaldı; PWA dosyaları (manifest, servis çalışanı, simgeler); Esc ile normal kip açılıyor (`store_js.go`, `scripts/web.sh`, `web/`, `18-web.md`) | servis çalışanının gerçek tarayıcıda denenmesi (bu ortamdaki tarayıcı kaydı reddetti), OPFS/klasör erişimi, Safari/Firefox testleri, web'de harf tuşlarıyla klavye komutlarının doğrulanması |
+| K | yapıldı, canlı denenmedi | manifest, imza, indirme, yerine koyma, geri dönüş, notlar, kanal, atla/ertele, çevrimdışı mod, Cloudflare Worker, release iş akışı (`19-guncelleme.md`) | üç işletim sisteminde gerçek güncelleme, fark güncellemesi, Apple/Windows imzası (açık soru 8) |
+| L | yapıldı (ilk sürüm) | dosya düzeyinde üç yollu eşitleme, çakışma kopyası, silme, klasör ve sunucu uzağı, uçtan uca şifreleme, kurtarma anahtarı, seçmeli koleksiyon, rozet, çakışma çözümü, Worker (`20-senkron.md`) | cihaz yönetimi/QR, sunucuda geçmiş ve yedek, paylaşım, gerçek zamanlı, metin birleştirme, Worker'ın canlı denemesi |
+| M | yapıldı (derlendi), çalıştırılamadı | `android/` WebView sarmalayıcısı, `scripts/android.sh`, 34,7 MB'lık APK derlendi (`21-android.md`) | APK'nın çalıştırılması: bu makinedeki emülatör QEMU'su SIGSEGV ile düşüyor (3 deneme); gerçek cihazda denenmeli. Dokunmatik uyarlama ve Android'e özgü özellikler yok |
+| N1 | yapıldı | çökme günlüğü, "son oturum çöktü" iletişim kutusu, kare panik kurtarma | — |
+| N2 | yapıldı | günlük/öncesi/elle yedek, budama, geri yükleme, zip dışa aktarma | — |
+| N3 | yapıldı | `kbd` test yardımcısı ve senaryolar | — |
+| N4 | yapıldı (ana yüzeyler) | dil ayarı ve sistem dili, `T()`, her ayar satırının başlığı ve açıklaması, ayar adları, menüler, palet, komutlar, istatistik, yardım, tur (hepsi testle denetlenir: eksik çeviri testi bozar) | ayarların dışındaki iç iletiler, sürücü hataları ve tek tek diyalog metinleri Türkçe kalır; menü dil değişince yeniden başlatmada |
+| N5 | yapıldı | `?` kısayol sayfası, ilk açılış turu, boş durumlarda ipucu | — |
+| N6 | yapıldı | `perf_test.go`: 10 bin sayfa ölçümü ve bütçe testi | bulunan sorunların (ağaç sanallaştırma, bellek) giderilmesi |
+| O | yapıldı | (önceki tur) bölünmüş görünüm | — |
+
 Neden bu sıra:
 
 - **A ve B önce**: ikisi küçük, görünür, biri açık hata. C ve G'nin önünü açıyorlar.

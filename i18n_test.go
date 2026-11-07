@@ -1,0 +1,164 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+)
+
+func withLang(t *testing.T, l string) {
+	old := lang
+	lang = l
+	t.Cleanup(func() { lang = old })
+}
+
+// Turkish is what is written; English is what the dictionary has, and what it has not is Turkish, not a hole.
+func TestEnglishLoses(t *testing.T) {
+	for k, v := range enText {
+		if strings.TrimSpace(v) == "" {
+			t.Errorf("%q has an empty English", k)
+		}
+	}
+	withLang(t, "tr")
+	if T("Ayarlar") != "Ayarlar" {
+		t.Fatal("Turkish changed")
+	}
+	withLang(t, "en")
+	for tr, en := range map[string]string{"Ayarlar": "Settings", "Çöpe taşı: Sayfa": "Move to trash: Sayfa", "Hiç çevrilmemiş cümle": "Hiç çevrilmemiş cümle", "Tema": "Theme"} {
+		if got := T(tr); got != en {
+			t.Errorf("T(%q) = %q, want %q", tr, got, en)
+		}
+	}
+}
+
+func TestLangFromSystem(t *testing.T) {
+	old := lang
+	defer func() { lang = old }()
+	for _, v := range []string{"LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"} {
+		t.Setenv(v, "")
+	}
+	t.Setenv("LANG", "tr_TR.UTF-8")
+	setLang("")
+	if lang != "tr" {
+		t.Fatalf("tr: %s", lang)
+	}
+	t.Setenv("LANG", "en_US.UTF-8")
+	setLang("")
+	if lang != "en" {
+		t.Fatalf("en: %s", lang)
+	}
+	setLang("tr") // a choice beats the system's
+	if lang != "tr" {
+		t.Fatal("choice lost")
+	}
+}
+
+// With English on, the settings, the palette and the statistics speak it; the language is a setting and a command.
+func TestEnglishUI(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	withLang(t, "en")
+	a.openSettings()
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	for _, want := range []string{"Appearance", "Editor", "Typeface", "Status bar", "Library", "Sync", "Updates", "Theme"} {
+		if !tt.HasText(want) {
+			t.Errorf("no %q: %v", want, tt.Texts())
+		}
+	}
+	titles := map[string]bool{}
+	for _, it := range a.commands() {
+		titles[it.title] = true
+	}
+	for _, want := range []string{"New collection", "Tasks", "Trash", "Back up now", "Autosave: off", "Theme: Dark"} {
+		if !titles[want] {
+			t.Errorf("no command %q", want)
+		}
+	}
+	a.statsScreen, a.settingsOpen = true, false
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText("Statistics") || !tt.HasText("Library health") {
+		t.Fatalf("stats in English: %v", tt.Texts())
+	}
+	withLang(t, "tr")
+	runCmd(t, a, ">dil", "Dil: English")
+	if a.settings.Lang != "en" {
+		t.Fatal("the command did not set it")
+	}
+	lang = "en"
+	runCmd(t, a, ">language", "Language: Türkçe")
+	if a.settings.Lang != "tr" || lang != "tr" {
+		t.Fatal("back to Turkish failed")
+	}
+}
+
+// The tour shows once a real library has settings, and not again after it is closed.
+func TestTour(t *testing.T) {
+	withLang(t, "tr")
+	a, tt := newTestApp(t, "x\n")
+	a.settingsFile = t.TempDir() + "/s.json"
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText("Yaz") || !tt.HasText("Bir daha gösterme") {
+		t.Fatalf("no tour: %v", tt.Texts())
+	}
+	tt.Click("İleri")
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText("Her şey ⌘P'de") {
+		t.Fatalf("not the next step: %v", tt.Texts())
+	}
+	tt.Click("Bir daha gösterme")
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	if tt.HasText("Bir daha gösterme") || !a.settings.TourDone {
+		t.Fatal("the tour did not close")
+	}
+}
+
+// Every title of a row of the settings and every heading of the statistics has its English: a row that is
+// added with no translation fails here, so that the English window does not fill with Turkish.
+func TestEnglishCoversTitles(t *testing.T) {
+	srcs, _ := filepath.Glob("*.go")
+	re := regexp.MustCompile(`(?:settingRow|statHead)\(c, "([^"]+)"`)
+	var missing []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			if _, ok := enText[m[1]]; !ok && !strings.HasSuffix(m[1], ": ") {
+				missing = append(missing, m[1])
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("no English for: %q", missing)
+	}
+	// and the lines under them, that are written whole
+	helpRe := regexp.MustCompile(`settingRow\(c, "(?:[^"\\]|\\.)+", "((?:[^"\\]|\\.)+)"`)
+	var noHelp []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || f == "i18n.go" {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, m := range helpRe.FindAllStringSubmatch(string(b), -1) {
+			if _, ok := enText[m[1]]; !ok {
+				noHelp = append(noHelp, m[1])
+			}
+		}
+	}
+	if len(noHelp) > 0 {
+		t.Fatalf("no English for the help lines: %q", noHelp)
+	}
+	// every setting of the list has its name translated
+	for _, d := range settingDefs() {
+		if _, ok := enText[d.name]; !ok {
+			t.Errorf("setting %q has no English", d.name)
+		}
+	}
+}

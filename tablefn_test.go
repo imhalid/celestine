@@ -242,3 +242,70 @@ func TestTablePaste(t *testing.T) {
 		t.Fatal("not told")
 	}
 }
+
+// A change to a table is undone with ⌘Z and done again with ⇧⌘Z, as text is:
+// the keyboard goes back to the text when the cell is shut; the cell's bar has the
+// two as buttons too.
+func TestTableUndo(t *testing.T) {
+	a, tt := newTestApp(t, tableMD)
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	first := func() string {
+		for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+			if at := r.Attributes.Attachment; at != nil {
+				if ch, ok := at.Data.(*chip); ok && ch.tbl != nil {
+					return ch.tbl.cell(0, 0)
+				}
+			}
+		}
+		return "?"
+	}
+	open := func(row, col int) {
+		for _, h := range a.tableSeen {
+			if h.row == row && h.col == col {
+				tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+				tt.Advance(200 * time.Millisecond)
+				return
+			}
+		}
+		t.Fatalf("no cell %d,%d", row, col)
+	}
+	open(0, 0)
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("kiraz")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if first() != "kiraz" {
+		t.Fatalf("not written: %q", first())
+	}
+	tt.Key(ui.Cmd, ui.KeyZ)
+	tt.Advance(300 * time.Millisecond)
+	if first() != "elma" {
+		t.Fatalf("⌘Z: %q", first())
+	}
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyZ)
+	tt.Advance(300 * time.Millisecond)
+	if first() != "kiraz" {
+		t.Fatalf("⇧⌘Z: %q", first())
+	}
+	// the buttons, from an open cell
+	open(1, 0)
+	if err := tt.Click("Geri al (⌘Z)"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(300 * time.Millisecond)
+	if first() != "elma" || a.cellEd.open {
+		t.Fatalf("the button: %q open %v", first(), a.cellEd.open)
+	}
+	open(1, 0)
+	if err := tt.Click("Yinele (⇧⌘Z)"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if first() != "kiraz" {
+		t.Fatalf("redo button: %q", first())
+	}
+}

@@ -90,6 +90,7 @@ type paneState struct {
 	editorR      ui.Rect   // the editor's box, from its last frame
 	bulk         bulkState // pages being chosen in a collection, to be done to all (bulk.go)
 	settingsOpen bool
+	statsScreen  bool    // the page of figures is shown, instead of a page (statsscreen.go)
 	caretWin     ui.Rect // the caret in the window, last drawn
 	find         finder  // finding in the page (find.go)
 }
@@ -241,14 +242,14 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int) {
 	}
 	col.Children(func() {
 		// a page and a collection scroll as a whole, from the top of the window, under the title bar
-		overBar := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && (a.coll != nil || a.page != nil)
+		overBar := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil)
 		if !overBar {
 			a.titleBar(c)
 		}
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
 		padX := float32(32)
-		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && (a.coll != nil || a.page != nil) {
+		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
 			padX = 0
 		}
 		topPad := float32(pageTop - barH + 8)
@@ -268,6 +269,11 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int) {
 			if a.settingsOpen {
 				a.focused = false
 				a.settingsScreen(c)
+				return
+			}
+			if a.statsScreen {
+				a.focused = false
+				a.statsView(c)
 				return
 			}
 			if a.trashOpen {

@@ -651,7 +651,7 @@ func TestSettingsScreen(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if a.settingsTab != 3 {
+	if a.settingsTab != tabMCP {
 		t.Fatalf("tab %d", a.settingsTab)
 	}
 	// Esc goes back to the page

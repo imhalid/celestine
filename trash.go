@@ -19,6 +19,7 @@ func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
 func (a *app) openTrash() {
 	a.flush()
 	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = true, nil, "", false, false, false
+	a.statsScreen = false
 	a.loadTrash()
 	a.visit()
 }
@@ -72,6 +73,7 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 				ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
 			}
 		})
+		a.kbMark(r, "nav:trash", false, a.openTrash)
 		if r.Clicked() {
 			a.openTrash()
 		}
@@ -111,6 +113,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	} else {
 		row.Background(t.SurfaceHover.Alpha(0))
 	}
+	a.kbMark(row, "x:"+item.Dir, true, func() { a.restore(item) })
 	row.Children(func() {
 		glyph := iconPage
 		if item.Kind == "collection" {
@@ -176,6 +179,7 @@ func (a *app) tasksRow(c *ui.Context) {
 				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(today), ryugo.ToneWarn)
 			}
 		})
+		a.kbMark(r, "nav:tasks", false, a.openTasks)
 		if r.Clicked() {
 			a.openTasks()
 		}

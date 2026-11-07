@@ -242,6 +242,7 @@ func (a *app) pickImportFolder() {
 		}
 		a.do(func() error {
 			a.flush()
+			a.backupBefore("içe aktarma")
 			st, err := a.importMarkdown(paths[0])
 			if err != nil {
 				a.notice = "Olmadı: " + err.Error()

@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -43,6 +44,11 @@ type palItem struct {
 	score            int
 	to               place  // where it goes, for a page or a collection
 	preview          func() // shows it without keeping it (a theme, a caret), while it is the one chosen
+	group            string // a heading over it, when the lines are of kinds
+	boost            int    // added to its score when the screen it is for is shown: page, collection, selection
+	alias            string // other words it is found by, in the other language too
+	off              string // why it cannot be run now: it is dim, and says so when it is chosen
+	snip             []seg  // a page's words around what was asked, which are marked: a line of two
 }
 
 // openPalette opens the search of the documents (⌘K).
@@ -60,15 +66,25 @@ func (a *app) palCmds() bool { return strings.HasPrefix(a.pal.query, ">") }
 
 // palQuery is what is looked for: the query, without the ">" of the commands.
 func (a *app) palQuery() string {
-	return strings.TrimSpace(strings.TrimPrefix(a.pal.query, ">"))
+	if palModeOf(a.pal.query) != '@' {
+		return strings.TrimSpace(a.pal.query[1:])
+	}
+	return strings.TrimSpace(a.pal.query)
 }
 
 // commands are what the palette does, where the app is now.
 func (a *app) commands() []palItem {
 	cmd := func(title, keys string, glyph *ui.SVG, run func()) palItem {
-		return palItem{title: title, sub: "Komut", keys: keys, glyph: glyph, run: run}
+		return palItem{title: T(title), sub: "Komut", keys: keys, glyph: glyph, run: run}
 	}
 	var out []palItem
+	ctxFrom := 0
+	mark := func() { // what was added since is for what is shown: it comes before the rest
+		for i := ctxFrom; i < len(out); i++ {
+			out[i].boost = 15
+		}
+		ctxFrom = len(out)
+	}
 	if c := a.currentColl(); c != nil {
 		if !c.Dynamic() {
 			out = append(out, cmd("Yeni "+pageNoun(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
@@ -81,14 +97,28 @@ func (a *app) commands() []palItem {
 			}
 		}
 	}
+	mark()
 	if p := a.page; p != nil && !a.noPage() {
+		if sa, sc := a.doc.Selection(); sa != sc { // text is selected: its formats
+			for _, f := range []struct {
+				name string
+				do   func()
+			}{{"Seçimi kalın yap", a.doc.ToggleBold}, {"Seçimi italik yap", a.doc.ToggleItalic}, {"Seçimin altını çiz", a.doc.ToggleUnderline},
+				{"Seçimin üstünü çiz", a.doc.ToggleStrikethrough}, {"Seçimi kod yap", a.doc.ToggleCode}} {
+				f := f
+				out = append(out, cmd(f.name, "", iconEditing, func() { f.do(); a.refocus = true }))
+			}
+		}
 		if p.Coll.SubPages {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
 		out = append(out, cmd("Sayfada bul", "⌘F", iconSearch, func() { a.openFind() }))
+		out = append(out, cmd("Geri al", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
+		out = append(out, cmd("Yinele", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
 		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))
 		out = append(out, cmd("Çöpe taşı: "+p.Title, "", iconTrash, func() { a.trashPage(p) }))
 	}
+	mark()
 	if c := a.coll; c != nil {
 		for i := range c.Views {
 			v := c.Views[i]
@@ -99,10 +129,55 @@ func (a *app) commands() []palItem {
 			}))
 		}
 	}
+	out = append(out, a.moveCommands(cmd)...)
+	mark()
 	out = append(out, a.paneCommands(cmd)...)
 	out = append(out,
 		cmd("Görevler", "", iconTask, a.openTasks),
-		cmd("Yazma istatistikleri", "", iconPen, func() { a.statsOpen = true }),
+		cmd("Ayarları dosyaya yaz", "", iconExport, func() {
+			p := a.settingsFileOut()
+			if err := a.exportSettingsTo(p); err != nil {
+				a.notice = "Olmadı: " + err.Error()
+			} else {
+				a.notice = "Yazıldı: " + p
+			}
+		}),
+		cmd("Ayar dosyası oku…", "", iconExport, a.pickSettingsFile),
+		cmd("Hepsini varsayılana döndür", "", iconSettings, func() { a.notice = strconv.Itoa(a.resetAll()) + " ayar varsayılana döndü" }),
+		cmd("Son kayıttan önceki hâle dön", "", iconBack, a.revertToBeforeSave),
+		cmd("Şimdi eşitle", "", iconSync, func() {
+			if a.settings.SyncMode == "" {
+				a.notice = "Senkron kapalı (Ayarlar ▸ Senkron)."
+				return
+			}
+			a.syncNow()
+		}),
+		cmd("Yeni sürümü denetle", "", iconUpdate, func() { a.checkUpdate(true) }),
+		cmd("Bu sürümde neler yeni", "", iconUpdate, func() {
+			a.updNotes, a.updOpen = true, true
+			if a.settings.UpdateNotes == "" {
+				a.settings.UpdateNotes = "Bu sürümün notu yok: sürüm " + version + "."
+			}
+		}),
+		cmd("Kısayollar ve yardım", "?", iconSearch, func() { a.kb.help = true }),
+		cmd("Klavye kipine geç (Esc)", "", iconSearch, a.kbEnter),
+		cmd("Şimdi yedekle", "", iconExport, func() { a.backupNow("elle", false) }),
+		cmd("Markdown olarak dışa aktar (klasör)", "", iconExport, func() {
+			if st := a.store(); st != nil {
+				a.notice = a.exportLibrary(st)
+			} else {
+				a.notice = "Bu kitaplık zaten düz dosyalardan oluşuyor."
+			}
+		}),
+		cmd("Markdown olarak dışa aktar (zip)", "", iconExport, func() {
+			if st := a.store(); st != nil {
+				a.notice = a.exportZip(st)
+			} else {
+				a.notice = "Bu kitaplık zaten düz dosyalardan oluşuyor."
+			}
+		}),
+		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
+		cmd("İstatistikler", "", iconStats, a.openStats),
 		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
 		cmd("Kitaplıkta ara", "⇧⌘F", iconSearch, func() { a.openSearch(a.searchQ) }),
 		cmd("Hızlı not", a.quickKeys(), iconPlus, a.showQuick),
@@ -120,42 +195,58 @@ func (a *app) commands() []palItem {
 		cmd("Çöp", "", iconTrash, a.openTrash),
 		cmd("Ayarlar", "⌘,", iconSettings, a.openSettings),
 	)
-	mcp := "MCP sunucusunu aç"
-	if a.settings.MCP {
-		mcp = "MCP sunucusunu kapat"
+	// the settings, each a command; a theme or a caret is shown as it is passed over, and a ✓ is by the
+	// one in use - not what a preview shows
+	if sn := a.pal.snap; sn != nil {
+		now := palSnap{a.settings.Theme, a.settings.AppTheme, a.caretKind}
+		a.settings.Theme, a.settings.AppTheme, a.caretKind = sn.theme, sn.appTheme, sn.caret
+		defer func() { a.settings.Theme, a.settings.AppTheme, a.caretKind = now.theme, now.appTheme, now.caret }()
 	}
-	out = append(out, cmd(mcp, "", iconSettings, func() { a.setMCP(!a.settings.MCP) }))
-	// the look: light, dark or the system's, the colors, the caret - each shown as it is passed over
-	baseTheme, baseApp, baseCaret := a.settings.Theme, a.settings.AppTheme, a.caretKind // not what a preview shows
-	if s := a.pal.snap; s != nil {
-		baseTheme, baseApp, baseCaret = s.theme, s.appTheme, s.caret
-	}
-	check := func(on bool) string {
-		if on {
-			return "✓"
+	out = append(out, a.settingCmds(cmd)...)
+	for i, b := range backups(a.backupDirOf()) { // a backup to go back to, the newest first
+		if i >= 10 {
+			break
 		}
-		return ""
-	}
-	for i, name := range []string{"Sistem", "Açık", "Koyu"} {
-		i := i
-		it := cmd("Tema: "+name, check(baseTheme%3 == i), iconTheme, func() {
-			a.settings.Theme = i
-			a.saveSettings()
-		})
-		it.preview = func() { a.settings.Theme = i }
+		b := b
+		what := "günlük"
+		if b.Label != "" {
+			what = b.Label
+		}
+		it := cmd("Yedekten geri yükle: "+b.At.Format("2 Jan 15:04")+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
+		it.alias = "restore backup yedek"
 		out = append(out, it)
 	}
-	for i, t := range appThemes {
-		i := i
-		it := cmd("Renk teması: "+t.name, check(baseApp%len(appThemes) == i), iconTheme, func() { a.setAppTheme(i) })
-		it.preview = func() { a.settings.AppTheme = i }
+	var macroNames []string
+	for n := range a.settings.Macros {
+		macroNames = append(macroNames, n)
+	}
+	sort.Strings(macroNames)
+	for _, n := range macroNames {
+		n := n
+		it := cmd("Makro: "+n, "", iconSettings, func() { a.runMacro(n) })
+		it.alias = "macro"
 		out = append(out, it)
 	}
-	for k := caretKind(0); k < caretCount(); k++ {
+	for _, n := range a.profileNames() {
+		n := n
+		it := cmd("Profil: "+n, "", iconSettings, func() { a.applyProfile(n) })
+		it.alias = "profile görünüm ayar paketi"
+		out = append(out, it)
+	}
+	for _, k := range []string{"Okuma", "Yazı", "Kod"} {
 		k := k
-		it := cmd("Caret: "+caretName(k), check(baseCaret == k), iconEditing, func() { a.setCaret(k) })
-		it.preview = func() { a.caretKind = k }
+		it := cmd("Yazı tipi hazırı: "+k, "", iconSettings, func() {
+			if !a.fontPreset(k) {
+				a.notice = "Bu bilgisayarda “" + k + "” için uygun bir yazı tipi bulunamadı."
+			}
+		})
+		it.alias = "font preset serif sans mono ayar"
 		out = append(out, it)
+	}
+	for i := range out { // a key of one's own shows where the command's key is
+		if k := a.settings.Keys[out[i].title]; k != "" && out[i].keys == "" {
+			out[i].keys = k
+		}
 	}
 	return out
 }
@@ -218,8 +309,11 @@ func (a *app) recent(n int) []palItem {
 
 // paletteItems are the lines for the query, best first.
 func (a *app) paletteItems(q string) []palItem {
-	if strings.HasPrefix(q, ">") {
+	switch palModeOf(q) {
+	case '>':
 		return a.commandItems(strings.TrimSpace(q[1:]))
+	case '#', ':', '/', '!', '?':
+		return a.modeItems(palModeOf(q), strings.TrimSpace(q[1:]))
 	}
 	if strings.TrimSpace(q) == "" {
 		if r := a.recent(10); len(r) > 0 {
@@ -230,6 +324,7 @@ func (a *app) paletteItems(q string) []palItem {
 	}
 	var out []palItem
 	for _, it := range a.places() {
+		it.group = "Sayfalar"
 		s := match(q, it.title)
 		if s2 := match(q, it.title+" "+it.sub); s < 0 && s2 >= 0 {
 			s = s2 / 2 // in where it is, not in its name: less
@@ -250,40 +345,75 @@ func (a *app) paletteItems(q string) []palItem {
 		out = out[:40]
 	}
 	// what is in the pages' text, after what is in their names
-	if len([]rune(strings.TrimSpace(q))) >= 3 {
+	if len([]rune(strings.TrimSpace(q))) >= 2 {
 		have := map[string]bool{}
 		for _, it := range out {
 			if it.to.kind == "page" {
 				have[it.to.dir] = true
 			}
 		}
-		for _, h := range a.searchPages(q, 8, false) {
+		for _, h := range a.searchPages(q, 10, false) {
 			if have[h.page.Dir] {
 				continue
 			}
 			h := h
-			var sb strings.Builder
-			for _, sg := range h.snip {
-				sb.WriteString(sg.text)
+			sub := h.page.Coll.Name
+			if crumb := parents(h.page); crumb != "" {
+				sub += " › " + crumb
 			}
-			out = append(out, palItem{title: h.page.Title, sub: "Metinde · " + sb.String(), glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
+			out = append(out, palItem{title: h.page.Title, sub: sub, group: "Metinde", snip: h.snip, glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
 		}
 		query := strings.TrimSpace(q)
-		out = append(out, palItem{title: "Kitaplıkta ara: " + query, sub: "Komut", keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
+		out = append(out, palItem{title: "Kitaplıkta ara: " + query, sub: "Komut", group: "Daha fazlası", keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
 	}
 	return out
 }
 
-// commandItems are the commands for the query, best first; all of them for none.
+// commandItems are the commands for the query, best first; for none, those used last and then all of them.
 func (a *app) commandItems(q string) []palItem {
 	all := a.commands()
-	if strings.TrimSpace(q) == "" {
-		return all
+	recent := a.settings.RecentCmds
+	rank := func(title string) int { // the more lately used, the more it counts
+		for i, t := range recent {
+			if t == title {
+				return len(recent) - i
+			}
+		}
+		return 0
 	}
-	var out []palItem
+	if strings.TrimSpace(q) == "" {
+		var out []palItem
+		seen := map[string]bool{}
+		for _, t := range recent {
+			for _, it := range all {
+				if it.title == t && !seen[t] {
+					seen[t] = true
+					it.group = "Son kullanılanlar"
+					out = append(out, it)
+				}
+			}
+		}
+		for _, it := range all {
+			if !seen[it.title] {
+				if len(out) > 0 {
+					it.group = "Komutlar"
+				}
+				out = append(out, it)
+			}
+		}
+		return out
+	}
+	out := append(a.argItems(q), a.fontNameItems(q)...)
 	for _, it := range all {
-		if s := match(q, it.title); s >= 0 {
-			it.score = s
+		s := match(q, it.title)
+		if s2 := match(q, it.title+" "+it.alias); s < 0 && s2 >= 0 {
+			s = s2 / 2 // by another name: less
+		}
+		if s >= 0 {
+			it.score = s + rank(it.title)*6 + it.boost
+			if fold(it.title) == fold(strings.TrimSpace(q)) { // the very name asked for comes first
+				it.score += 300
+			}
 			out = append(out, it)
 		}
 	}
@@ -294,6 +424,106 @@ func (a *app) commandItems(q string) []palItem {
 		return utf8.RuneCountInString(out[i].title) < utf8.RuneCountInString(out[j].title)
 	})
 	return out
+}
+
+// palModes are the signs a palette starts with: what each looks for.
+var palModes = []struct {
+	sign byte
+	name string
+	help string
+}{
+	{'@', "Sayfalar", "sayfa, koleksiyon ve metinde ara (öntanımlı)"},
+	{'>', "Komutlar", "uygulamanın yapabildiği her şey ve bütün ayarlar"},
+	{'#', "Etiketler", "bir etiketin sayfalarına git"},
+	{':', "Satıra git", "açık sayfada paragraf numarasına git"},
+	{'/', "Sayfada ara", "açık sayfada bul"},
+	{'!', "Son komutlar", "en son çalıştırdıkların"},
+	{'?', "Yardım", "bu liste"},
+}
+
+// palModeOf is the sign of the mode a query is in: '@' for none written.
+func palModeOf(q string) byte {
+	if q != "" && strings.IndexByte(">#:/!?", q[0]) >= 0 {
+		return q[0]
+	}
+	return '@'
+}
+
+// modeItems are the lines of the modes after the commands and the pages: tags, a line to go to, a word in
+// the page, the commands used last, and the help.
+func (a *app) modeItems(mode byte, q string) []palItem {
+	var out []palItem
+	switch mode {
+	case '#':
+		for _, ti := range a.allTags() {
+			if q != "" && match(q, ti.name) < 0 {
+				continue
+			}
+			key := ti.key
+			out = append(out, palItem{title: "#" + ti.name, sub: "Etiket · " + strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, score: match(q, ti.name), to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
+		}
+		sort.SliceStable(out, func(i, j int) bool { return out[i].score > out[j].score })
+		if len(out) == 0 {
+			out = append(out, palItem{title: "Etiket yok", sub: "Sayfalara #etiket yazınca burada çıkar", glyph: iconTag, off: "Henüz böyle bir etiket yok."})
+		}
+	case ':':
+		return a.colonItems(q)
+	case '/':
+		if a.page == nil || a.doc == nil || a.noPage() {
+			out = append(out, palItem{title: "Sayfada ara", sub: "Bir sayfa açık değil", glyph: iconSearch, off: "Aramak için bir sayfa aç."})
+		} else {
+			out = append(out, palItem{title: "Sayfada ara: " + q, sub: "⌘F", glyph: iconSearch, run: func() {
+				a.openFind()
+				a.find.query, a.find.ver = q, 0
+			}})
+		}
+	case '!':
+		all := a.commands()
+		for _, t := range a.settings.RecentCmds {
+			for _, it := range all {
+				if it.title == t && (q == "" || match(q, it.title) >= 0) {
+					out = append(out, it)
+				}
+			}
+		}
+		if len(out) == 0 {
+			out = append(out, palItem{title: "Henüz komut çalıştırmadın", glyph: iconSettings, off: "Çalıştırdığın komutlar burada sıralanır."})
+		}
+	case '?':
+		for _, m := range palModes {
+			m := m
+			out = append(out, palItem{title: string(m.sign) + "  " + m.name, sub: m.help, glyph: iconSearch, keys: string(m.sign), run: func() {
+				a.pal = palette{open: true}
+				if m.sign != '@' {
+					a.pal.query = string(m.sign)
+				}
+			}})
+		}
+	}
+	return out
+}
+
+// countParagraphs is how many paragraphs the text has.
+func countParagraphs(t richtext.Text) int {
+	n := 0
+	for range t.Paragraphs() {
+		n++
+	}
+	return max(n, 1)
+}
+
+// goToParagraph puts the caret at the start of paragraph n (from 1) and shows it.
+func (a *app) goToParagraph(n int) {
+	i := 0
+	for at := range a.doc.Text().Paragraphs() {
+		i++
+		if i == n {
+			a.doc.SetSelection(at, at)
+			break
+		}
+	}
+	a.refocus = true
+	a.revealWant = true
 }
 
 // fold is s for matching: lower case, Turkish letters as their ASCII.
@@ -365,28 +595,27 @@ func (a *app) paletteView(c *ui.Context) {
 		a.palPreview(items)
 		panel.Children(func() {
 			ui.Row(c).Padding(9, 12).Gap(8).AlignItems(ui.Center).Children(func() {
-				// the mode is the sign at the left, not a letter in the field: ">" the commands, "@" the pages
-				sign := "@"
-				if a.palCmds() {
-					sign = ">"
+				// the mode is the sign at the left, not a letter in the field: ">" the commands, "@" the pages,
+				// "#" the tags, ":" a line, "/" a word in the page, "!" the last commands, "?" help
+				mode := palModeOf(a.pal.query)
+				sign := string(mode)
+				a.pal.text = a.pal.query
+				if mode != '@' {
+					a.pal.text = a.pal.query[1:]
 				}
-				a.pal.text = strings.TrimPrefix(a.pal.query, ">")
 				ui.Text(c, sign).FontSize(15).FontWeight(700).TextColor(cl.Accent).Width(15).TextAlign(ui.Center)
 				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.text).Label("Ara ya da komut").
-					Placeholder(map[bool]string{true: "Komut ara… sayfalar için @ yaz", false: "Sayfaya git… komutlar için > yaz"}[a.palCmds()]).PlaceholderColor(cl.Muted).
+					Placeholder(palPlaceholder(mode)).PlaceholderColor(cl.Muted).
 					FontSize(14).Grow(1).FocusRing(false).AutoFocus()
 				if in.Changed() {
-					// a ">" written first: the commands; a "@": the pages
-					cmds := a.palCmds()
-					switch {
-					case strings.HasPrefix(a.pal.text, ">"):
-						cmds, a.pal.text = true, a.pal.text[1:]
-					case strings.HasPrefix(a.pal.text, "@"):
-						cmds, a.pal.text = false, a.pal.text[1:]
+					// a sign written first sets the mode, and is not left in the field
+					m := mode
+					if t := a.pal.text; t != "" && strings.IndexByte(">@#:/!?", t[0]) >= 0 {
+						m, a.pal.text = t[0], t[1:]
 					}
 					a.pal.query = a.pal.text
-					if cmds {
-						a.pal.query = ">" + a.pal.text
+					if m != '@' {
+						a.pal.query = string(m) + a.pal.text
 					}
 				}
 				switch {
@@ -407,15 +636,16 @@ func (a *app) paletteView(c *ui.Context) {
 					}
 					head := ""
 					for i, it := range items {
-						if a.palQuery() == "" {
-							h := "Son açılanlar"
+						h := it.group
+						if h == "" && a.palQuery() == "" {
+							h = "Son açılanlar"
 							if a.palCmds() {
 								h = "Komutlar"
 							}
-							if h != head {
-								head = h
-								ui.Text(c.Key("head:"+h), h).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
-							}
+						}
+						if h != "" && h != head {
+							head = h
+							ui.Text(c.Key("head:"+h), h).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
 						}
 						a.paletteRow(c, i, it)
 					}
@@ -426,18 +656,45 @@ func (a *app) paletteView(c *ui.Context) {
 }
 
 func (a *app) palLabel() string {
-	if a.palCmds() {
-		return "Komut ara"
+	for _, m := range palModes {
+		if m.sign == palModeOf(a.pal.query) {
+			return T(m.name)
+		}
 	}
 	return "Sayfa ara"
+}
+
+func palPlaceholder(mode byte) string {
+	switch mode {
+	case '>':
+		return "Komut ya da ayar… (yazı boyutu 18) · ? yardım"
+	case '#':
+		return "Etiket ara…"
+	case ':':
+		return "Paragraf numarası…"
+	case '/':
+		return "Bu sayfada ara…"
+	case '!':
+		return "Son komutlar…"
+	case '?':
+		return "Bir kip seç…"
+	}
+	return "Sayfaya git… > komut · # etiket · : satır · / bul · ? yardım"
 }
 
 func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 	t := ryugo.From(c)
 	cl := t.Colors
-	row := ui.Row(c.Key(i)).Height(28).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).AlignItems(ui.Center).
+	height := float32(28)
+	if len(it.snip) > 0 {
+		height = 44
+	}
+	row := ui.Row(c.Key(i)).Height(height).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).AlignItems(ui.Center).
 		Label(it.title).Role(ui.RoleButton)
 	text, muted := cl.Text, cl.Muted
+	if it.off != "" { // not to be run now: dim
+		text, muted = cl.Muted, cl.Muted.Alpha(0.7)
+	}
 	// one row lit: the pointer's, once it MOVES - a pointer left resting over the list lit whatever row
 	// the filter put under it, and Enter then ran that one, not the first
 	if x, y, over := row.PointerPosition(); over {
@@ -455,8 +712,29 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 	}
 	row.Children(func() {
 		ui.Icon(c, it.glyph).Width(14).Height(14).TextColor(muted)
-		ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).Shrink(1)
-		if it.sub != "" && it.sub != "Komut" {
+		if len(it.snip) > 0 { // the page, and the words around what was asked, marked
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, it.title).FontSize(12.5).FontWeight(600).TextColor(text).MaxLines(1).Shrink(1)
+					ui.Text(c, it.sub).FontSize(11).TextColor(muted).MaxLines(1).Shrink(2)
+				})
+				var spans []ui.Span
+				for _, sg := range it.snip {
+					sp := ui.Span{Text: sg.text, Size: 11.5, Color: muted}
+					if sg.hit {
+						sp.Weight, sp.Color = 700, text
+						if i != a.pal.sel {
+							sp.Background, sp.Radius = cl.Accent.Alpha(0.2), 3
+						}
+					}
+					spans = append(spans, sp)
+				}
+				ui.RichText(c, spans...).MaxLines(1)
+			})
+		} else {
+			ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).Shrink(1)
+		}
+		if len(it.snip) == 0 && it.sub != "" && it.sub != "Komut" {
 			ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1).Shrink(1)
 		}
 		ui.Spacer(c)
@@ -470,11 +748,31 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 }
 
 func (a *app) runItem(it palItem) {
+	if it.off != "" { // it cannot be run now: the palette stays, and says why
+		a.notice = it.off
+		return
+	}
 	a.pal.open = false
 	a.palRestore() // the command sets what it sets, from where it was, and keeps it
 	if it.run != nil {
+		if it.sub == "Komut" || it.sub == "Ayar" { // a command: remembered, so that it comes first next time
+			a.rememberCmd(it.title)
+			a.noteCommand(it.title)
+		}
 		it.run()
 	}
+}
+
+// rememberCmd puts the command first among those used last, at most twelve.
+func (a *app) rememberCmd(title string) {
+	r := []string{title}
+	for _, t := range a.settings.RecentCmds {
+		if t != title && len(r) < 12 {
+			r = append(r, t)
+		}
+	}
+	a.settings.RecentCmds = r
+	a.saveSettingsSoon()
 }
 
 // palPreview shows the chosen command if it can be shown (a theme, a caret): while the choice moves
@@ -505,6 +803,7 @@ func (a *app) palRestore() {
 	if s == nil {
 		return
 	}
+	a.fonts.prev = [3]string{}
 	a.pal.snap, a.pal.pvKey = nil, ""
 	a.settings.Theme, a.settings.AppTheme, a.caretKind = s.theme, s.appTheme, s.caret
 }

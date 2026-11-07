@@ -35,6 +35,8 @@ type Settings struct {
 	Token string `json:"token"`
 	// Recent are the kinds of line the / menu was used for last, newest first.
 	Recent []string `json:"recent,omitempty"`
+	// RecentCmds are the commands of the palette used last, newest first (palette.go).
+	RecentCmds []string `json:"recentCmds,omitempty"`
 	// Appearance and the editor; zero is the default.
 	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
 	AppTheme   int     `json:"appTheme,omitempty"`   // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
@@ -44,6 +46,59 @@ type Settings struct {
 	FontSize   float64 `json:"fontSize,omitempty"`   // the text's, 16.5
 	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
+	// how the text is set and kept (editing.go)
+	ParaGap       *float64                  `json:"paraGap,omitempty"`       // the room between paragraphs, in ems: 0.55 when not set
+	Indent        float64                   `json:"indent,omitempty"`        // the first line's indent, in ems
+	NoAutoSave    bool                      `json:"noAutoSave,omitempty"`    // the page is saved by ⌘S, not by itself
+	SaveAfter     float64                   `json:"saveAfter,omitempty"`     // seconds of stillness before it saves by itself: 0.7 when not set
+	ShowSpaces    bool                      `json:"showSpaces,omitempty"`    // white space shown over the text: spaces
+	ShowTabs      bool                      `json:"showTabs,omitempty"`      // tabs
+	ShowBreaks    bool                      `json:"showBreaks,omitempty"`    // and where a paragraph ends
+	MarkCode      bool                      `json:"markCode,omitempty"`      // in blocks of code, too
+	UpdateURL     string                    `json:"updateUrl,omitempty"`     // the manifest of releases, when not the program's (update.go)
+	UpdateOff     bool                      `json:"updateOff,omitempty"`     // no asking for a new version at all: nothing leaves the computer
+	UpdateQuiet   bool                      `json:"updateQuiet,omitempty"`   // a new version is shown in the settings only, not in a dialog
+	UpdateAuto    bool                      `json:"updateAuto,omitempty"`    // a new version is downloaded and put in place when it is found
+	UpdateChannel string                    `json:"updateChannel,omitempty"` // "beta" for trial versions too
+	UpdateHours   int                       `json:"updateHours,omitempty"`   // hours between two checks: 24 when not set
+	UpdateAt      int64                     `json:"updateAt,omitempty"`      // when it last asked, unix seconds
+	UpdateSnooze  int64                     `json:"updateSnooze,omitempty"`  // not before this: "remind me in three days"
+	UpdateSkip    string                    `json:"updateSkip,omitempty"`    // the version that was said no to
+	UpdateNotes   string                    `json:"updateNotes,omitempty"`   // the notes of the version that was put in place
+	UpdateFor     string                    `json:"updateFor,omitempty"`     // and its number
+	UpdateSeen    string                    `json:"updateSeen,omitempty"`    // the version whose notes were shown
+	SyncMode      string                    `json:"syncMode,omitempty"`      // "" off, "dir" a folder, "server" a server of one's own (sync.go)
+	SyncDir       string                    `json:"syncDir,omitempty"`       // the folder, for "dir"
+	SyncURL       string                    `json:"syncUrl,omitempty"`       // the server's address
+	SyncToken     string                    `json:"syncToken,omitempty"`     // this device's token
+	SyncKey       string                    `json:"syncKey,omitempty"`       // the key of end-to-end encryption, base64: "" when it is off
+	SyncOff       []string                  `json:"syncOff,omitempty"`       // collections (their folders) that stay here
+	SyncMinutes   int                       `json:"syncMinutes,omitempty"`   // minutes between two syncs: 5 when not set
+	Profiles      map[string]map[string]any `json:"profiles,omitempty"`      // looks and ways of writing saved under a name (settingsx.go)
+	Focus         string                    `json:"focus,omitempty"`         // "line" or "paragraph": the rest of the page is veiled (focus.go)
+	Typewriter    bool                      `json:"typewriter,omitempty"`    // the caret's line stays in the middle of the window
+	TabSpaces     int                       `json:"tabSpaces,omitempty"`     // a Tab writes this many spaces; 0 a tab
+	SleepSecs     float64                   `json:"sleepSecs,omitempty"`     // seconds at rest before the caret dozes: 5 when not set
+	NoCaretFX     bool                      `json:"noCaretFx,omitempty"`     // a plain caret, whatever caret is chosen: light mode
+	Keys          map[string]string         `json:"keys,omitempty"`          // a command (its title) to a key of its own (keys.go)
+	Macros        map[string][]string       `json:"macros,omitempty"`        // a name to the commands it runs one after another
+	AlwaysRing    bool                      `json:"alwaysRing,omitempty"`    // the row the keys are on is ringed, in the normal mode or not (kb.go)
+	LineChars     int                       `json:"lineChars,omitempty"`     // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
+	HideStatus    bool                      `json:"hideStatus,omitempty"`    // the status bar is not shown at all
+	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
+	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
+	TourDone      bool                      `json:"tourDone,omitempty"`      // the first-run tour was shown or skipped (help.go)
+	NoStats       bool                      `json:"noStats,omitempty"`       // no figures of writing and use are kept (stats.go)
+	NoBackup      bool                      `json:"noBackup,omitempty"`      // no backup of the library by itself once a day (backup.go)
+	// the typefaces (fonts.go): by family; "" is the default
+	FontApp     string   `json:"fontApp,omitempty"`
+	FontEditor  string   `json:"fontEditor,omitempty"`
+	FontMono    string   `json:"fontMono,omitempty"`
+	FontFavs    []string `json:"fontFavs,omitempty"`    // the families starred
+	FontLast    []string `json:"fontLast,omitempty"`    // and those used last
+	NoLigatures bool     `json:"noLigatures,omitempty"` // no ligatures in the text
+	TabularNums bool     `json:"tabularNums,omitempty"` // digits of one width
+	FontWeight  int      `json:"fontWeight,omitempty"`  // the text's weight: 400 when not set
 	// the status bar: what is hidden, and what is shown besides
 	HideSaved bool `json:"hideSaved,omitempty"`
 	ShowChars bool `json:"showChars,omitempty"`
@@ -55,6 +110,7 @@ type Settings struct {
 	Writing       map[string]int `json:"writing,omitempty"`     // the words written, by day (writing.go)
 	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
 	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)
+	NoWobble      bool           `json:"noWobble,omitempty"`    // the window does not shake when an agent writes (wobble.go)
 	Corner        *int           `json:"corner,omitempty"`      // how round the corners are, in percent (radius.go)
 	QuickKey      string         `json:"quickKey,omitempty"`    // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`
@@ -77,10 +133,16 @@ func (a *app) lineHeight() float32 {
 }
 
 func (a *app) pageWidth() float32 {
+	w := float32(columnMax)
 	if s := a.settings.PageWidth; s >= 480 && s <= 1200 {
-		return float32(s)
+		w = float32(s)
 	}
-	return columnMax
+	if n := a.settings.LineChars; n >= 20 && n <= 200 { // a line of n characters, at most
+		if cw := a.charsWidth(n); cw > 0 && cw < w {
+			return cw
+		}
+	}
+	return w
 }
 
 // setCaret chooses the caret, and keeps the choice.
@@ -337,6 +399,7 @@ func (a *app) writeBody(p *Page, md string) error {
 	if err := p.Save(body); err != nil {
 		return err
 	}
+	a.jiggle(len(md))
 	a.linksStale()
 	if doc := a.docs[p]; doc != nil {
 		doc.SetText(a.parsePage(p, body))
@@ -573,6 +636,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					if err := p.SaveText(bodyOf(in.Markdown)); err != nil {
 						return err
 					}
+					a.jiggle(len(in.Markdown))
 				}
 				if err := a.setValues(p, in.Properties); err != nil {
 					return err

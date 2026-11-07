@@ -146,13 +146,14 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 func (a *app) openTag(key string) {
 	a.flush()
 	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.searchOpen, a.settingsOpen = key, nil, false, false, false, false
+	a.statsScreen = false
 	a.visit()
 }
 
 // noPage reports that something other than a page is shown: a collection,
 // the trash, a tag.
 func (a *app) noPage() bool {
-	return a.coll != nil || a.trashOpen || a.tag != "" || a.tasksOpen || a.searchOpen || a.settingsOpen
+	return a.coll != nil || a.trashOpen || a.tag != "" || a.tasksOpen || a.searchOpen || a.settingsOpen || a.statsScreen
 }
 
 // tagList is every tag of the library, the most used first.
@@ -237,6 +238,7 @@ func (a *app) tagView(c *ui.Context) {
 							ui.Text(c, where+"  ·  "+ago(q.Modified, now)).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 						})
 					})
+					a.kbMark(row, "t:"+q.Dir, true, func() { a.open(q) })
 					if row.Clicked() {
 						a.open(q)
 					}
