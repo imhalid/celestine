@@ -14,6 +14,7 @@ import (
 // happened since the last frame (a kick: letters written, letters erased and
 // which way, whether the text changed) and draws itself where the caret is.
 //
+//	Mario         the box red above and blue below, with an eye; at a space it hops, a coin springs over it
 //	Pacman        the slime's own body, in yellow, with an eye; when you erase, its side opens
 //	              a little, a triangle, to the way it erases: left for Backspace, right for Delete
 
@@ -48,6 +49,59 @@ func init() {
 		{"Portal", func() caretFX { return newPortal() }},
 		{"Hız iblisi", func() caretFX { return newSpeedDemon() }},
 		{"Meşale", func() caretFX { return newTorch() }},
+		{"Mario", func() caretFX { return newMario() }},
+		// games and creatures (caretfx_game.go)
+		{"Tetris", func() caretFX { return newTetris() }},
+		{"Yılan", func() caretFX { return newSnake() }},
+		{"Kedi", func() caretFX { return newCat() }},
+		{"Tamagotchi", func() caretFX { return newPet() }},
+		// nature (caretfx_nature.go)
+		{"Bitki", func() caretFX { return newPlant() }},
+		{"Ateş böceği", func() caretFX { return newFireflies() }},
+		{"Yağmur damlası", func() caretFX { return newRaindrop() }},
+		{"Mevsim", func() caretFX { return newSeason() }},
+		// ink and paper (caretfx_ink.go)
+		{"Dolma kalem", func() caretFX { return newPen() }},
+		{"Daktilo", func() caretFX { return newTypewriter() }},
+		{"Mühür", func() caretFX { return newStamp() }},
+		// motion (caretfx_motion.go)
+		{"Yay", func() caretFX { return newSpring() }},
+		{"Kuyruklu yıldız", func() caretFX { return newComet() }},
+		{"Mıknatıs", func() caretFX { return newMagnet() }},
+		// the writing itself (caretfx_mood.go)
+		{"Duygu yüzü", func() caretFX { return newMoodFace() }},
+		{"Akış", func() caretFX { return newFlow() }},
+		{"Noktalama", func() caretFX { return newPunct() }},
+		// cute (caretfx_cute.go)
+		{"Kawaii", func() caretFX { return newKawaii() }},
+		{"UwU", func() caretFX { return newUwu() }},
+		// the words (caretfx_repeat.go)
+		{"Tekrar", func() caretFX { return newRepeats() }},
+		// moving the letters (caretfx_letters.go)
+		{"Dalga", func() caretFX { return newWave() }},
+		{"Rüzgâr", func() caretFX { return newWind() }},
+		{"Yerçekimi", func() caretFX { return newGravity() }},
+		{"Domino", func() caretFX { return newDomino() }},
+		{"Jöle satır", func() caretFX { return newJellyLine() }},
+		{"Kar küresi", func() caretFX { return newSnowGlobe() }},
+		// light (caretfx_light.go)
+		{"Spot ışığı", func() caretFX { return newSpotlight() }},
+		{"Neon tabela", func() caretFX { return newNeon() }},
+		{"Kuzey ışıkları", func() caretFX { return newAurora() }},
+		{"Gökkuşağı izi", func() caretFX { return newRainbowTrail() }},
+		// more games (caretfx_arcade.go)
+		{"Hayalet", func() caretFX { return newGhost() }},
+		{"Space Invaders", func() caretFX { return newInvaders() }},
+		{"Balık", func() caretFX { return newFish() }},
+		{"Arı", func() caretFX { return newBee() }},
+		{"Robot", func() caretFX { return newRobot() }},
+		// rhythm and time (caretfx_rhythm.go)
+		{"Ekolayzır", func() caretFX { return newEqualizer() }},
+		{"Metronom", func() caretFX { return newMetronome() }},
+		{"Davul", func() caretFX { return newDrum() }},
+		{"Kum saati", func() caretFX { return newHourglass() }},
+		{"Kelime sayacı", func() caretFX { return newWordBadge() }},
+		{"Yazım ısısı", func() caretFX { return newWritingHeat() }},
 	}
 }
 

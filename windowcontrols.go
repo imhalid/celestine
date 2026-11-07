@@ -15,12 +15,9 @@ import (
 // close going red under the pointer.
 
 // ownWindowControls reports whether the app draws the window's controls.
-var ownWindowControls = runtime.GOOS != "darwin"
+var ownWindowControls = runtime.GOOS != "darwin" && runtime.GOOS != "js" // in a browser the tab is the window: it has none
 
-const (
-	windowControlsW = 3*26 + 2*2 + 12 // the room they take at the right end
-	windowControlH  = 20
-)
+const windowControlH = 20
 
 var (
 	iconMinimize = icon(`<path d="M5.5 12h13"/>`)
@@ -28,14 +25,14 @@ var (
 	iconWinClose = icon(`<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>`)
 )
 
-// windowControls draws the three buttons, over everything, at the top right.
+// windowControls draws the three buttons, at the header's right end, in its row.
 func (a *app) windowControls(c *ui.Context) {
 	if a.win == nil {
 		return
 	}
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
-	ui.Row(c.Key("window-controls")).Absolute().Right(6).Top((barH - windowControlH) / 2).Gap(2).Children(func() {
+	ui.Row(c.Key("window-controls")).Gap(2).Children(func() {
 		btn := func(glyph *ui.SVG, label string, danger bool, do func()) {
 			b := ui.Box(c.Key(label)).Width(26).Height(windowControlH).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
 				Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})

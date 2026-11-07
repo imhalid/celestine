@@ -3,6 +3,9 @@
 Her aşama kendi başına çalışan, denenebilir bir uygulama bırakır. Bir aşama bitmeden sonrakine geçilmez. Kararlar
 [00](00-OKU-BENI.md)'da: eklenti yok, yalnız tema dışarıdan; caret'ler Go'da; MCP uygulamanın içinde.
 
+> **Durum (7 Kasım 2026, öğlen):** bu belge 4–5 Kasım'da kaldı; buradaki maddelerin çoğu sonraki turlarda yapıldı. Güncel durumun defteri
+> [16 — Yapılacaklar](16-yapilacaklar.md) (her maddenin yapıldı/kısmen/yapılmadı satırı) ve [22 — Acil sorunlar](22-acil-sorunlar.md)'dır.
+
 ## Güncel durum (4 Kasım 2026)
 
 Aşağıdaki ilk aşamalar başka bir yoldan yapıldı: editör MyGo'nun `ui/richtext`'i (blok = paragraf), veri düz klasörler

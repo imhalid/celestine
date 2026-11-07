@@ -159,7 +159,7 @@ func (s *smear) faces(now time.Time, f caretFrame) (c [4][2]float64, settled boo
 
 // body is the caret's own body as the jelly makes it: the box stretched toward where it was, its
 // corners rounded; nil when it is at rest, and the caret is the plain box. The carets draw
-// their body with it (drawBody), so the jelly is the caret, not a layer under it.
+// their body with it (glassBody), so the jelly is the caret, not a layer under it.
 func (s *smear) body(p *ui.Painter, f caretFrame) *ui.Path {
 	c, settled := s.faces(p.Now(), f)
 	if settled {
@@ -266,8 +266,11 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 		}
 		c.prev = T
 	}
-	if strings.Contains(k.typed, "\n") { // Enter: the box breaks up, as on a jump
+	switch { // Enter breaks the box up as a jump does; a space, a little less
+	case strings.Contains(k.typed, "\n"):
 		c.glitch.on, c.glitch.at, c.glitch.dist, c.glitch.seed = true, now, crtJump, uint32(now.UnixNano()>>10)
+	case strings.Contains(k.typed, " "):
+		c.glitch.on, c.glitch.at, c.glitch.dist, c.glitch.seed = true, now, crtJump*0.5, uint32(now.UnixNano()>>10)
 	}
 	for len(c.ghosts) > crtGhosts*6 {
 		c.ghosts = c.ghosts[1:]
@@ -285,7 +288,7 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 		out = append(out, g)
 		a := 1 - age
 		r := ui.Rect{X: f32(g.x), Y: f32(g.y), W: f32(g.w), H: f32(g.h)}
-		p.Fill(r, withAlpha(col, a*0.9), boxRadius(r.W, r.H))
+		glassFill(p, rrect(r.X, r.Y, r.W, r.H, boxRadius(r.W, r.H)), col, col, f.dark, a*0.8) // a ghost of glass
 	}
 	c.ghosts = out
 	if len(c.ghosts) > 0 || c.glitch.on {
@@ -302,7 +305,7 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 			return
 		}
 	}
-	drawBody(p, f, box, col, 1, 0.9)
+	glassBody(p, f, box, col, 1, 0.9)
 }
 
 // drawGlitch is the box in slices that slip sideways, with red and blue fringes and a scanline.

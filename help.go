@@ -62,7 +62,7 @@ func (a *app) helpView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	ryugo.Dialog(c.Key("help"), &a.kb.help, ryugo.DialogOptions{Title: "Kısayollar", Width: 680}, func() {
-		ui.Scroll(c.Key("help-scroll")).MaxHeight(520).Children(func() {
+		a.scrolled(c, "help-scroll", nil, ui.Scroll(c.Key("help-scroll")).MaxHeight(520), func() {
 			ui.Column(c).FillWidth().Gap(14).Padding(0, 6, 0, 0).Children(func() {
 				for gi, g := range a.helpGroups() {
 					ui.Column(c.Key("hg" + itoa(gi))).FillWidth().Gap(4).Children(func() {
@@ -98,7 +98,13 @@ func (a *app) tourView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	step := min(a.tourAt, len(tourSteps)-1)
 	ui.Overlay(c, func() {
-		ui.Column(c.Key("tour")).Absolute().Right(20).Bottom(46).Width(340).Padding(16, 18).Gap(8).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline).Children(func() {
+		card := ui.Column(c.Key("tour")).Absolute()
+		if phone { // as wide as the screen, over the bottom
+			card.Left(12).Right(12).Bottom(20)
+		} else {
+			card.Right(20).Bottom(46).Width(340)
+		}
+		card.Padding(16, 18).Gap(8).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline).Children(func() {
 			ui.Text(c, itoa(step+1)+" / "+itoa(len(tourSteps))).FontSize(11.5).TextColor(cl.Muted)
 			ui.Text(c, T(tourSteps[step].title)).FontSize(16).FontWeight(700).TextColor(cl.Text)
 			ui.Text(c, tourSteps[step].body).FontSize(13).TextColor(cl.Text2).Wrap()

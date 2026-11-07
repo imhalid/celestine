@@ -102,15 +102,20 @@ func (a *app) closeSettings() {
 func (a *app) settingsScreen(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ui.Row(c).Fill().MaxWidth(viewMax).Gap(20).AlignItems(ui.Stretch).Children(func() {
-		a.settingsNav(c)
+		if !phone { // on a phone the sections are a row of chips over the section (settingsChips)
+			a.settingsNav(c)
+		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
+			if phone {
+				a.settingsChips(c)
+			}
 			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
-				ui.Text(c, T(sec.name)).FontSize(32).FontWeight(720).TextColor(cl.Text)
+				ui.Text(c, T(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
 				ui.Text(c, T(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
-			ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0).Children(func() {
+			a.scrolled(c, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
 				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Transition(viewSwap).Children(func() {
 					if a.settingsExtra(c) {
 						return
@@ -135,6 +140,32 @@ func (a *app) settingsScreen(c *ui.Context) {
 					}
 				})
 			})
+		})
+	})
+}
+
+// settingsChips are the sections on a phone: a row of chips that scrolls sideways, the one chosen lit.
+func (a *app) settingsChips(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	a.scrolledSideways(c, "set-chips", nil, ui.ScrollHorizontal(c.Key("set-chips")).FillWidth().Shrink(0), func() {
+		ui.Row(c).Gap(6).Padding(0, 0, 12, 0).Children(func() {
+			for i, s := range settingsSections {
+				i, sel := i, a.settingsTab == i
+				e := ui.Row(c.Key("schip:"+s.name)).Height(36).Padding(0, 14).Gap(7).Radius(rad(18)).AlignItems(ui.Center).Shrink(0).
+					Label(s.name).Role(ui.RoleButton).Border(1, cl.Hairline)
+				if sel {
+					e.Background(ryugo.Mix(cl.Card, cl.Accent, 0.22)).Border(1, cl.Accent.Alpha(0.5))
+				} else {
+					e.Background(cl.Card)
+				}
+				e.Children(func() {
+					ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(map[bool]ui.Color{true: cl.Accent, false: cl.Muted}[sel])
+					ui.Text(c, T(s.name)).FontSize(13.5).FontWeight(map[bool]int{true: 650, false: 540}[sel]).TextColor(cl.Text)
+				})
+				if e.Clicked() {
+					a.settingsTab = i
+				}
+			}
 		})
 	})
 }
@@ -187,6 +218,18 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 func settingRow(c *ui.Context, title, help string, control func()) {
 	title, help = T(title), T(help)
 	cl := ryugo.From(c).Colors
+	if phone { // its control under its name: a phone has no room beside it
+		ui.Column(c).FillWidth().Gap(10).Children(func() {
+			ui.Column(c).FillWidth().Gap(3).Children(func() {
+				ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+				if help != "" {
+					ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				}
+			})
+			control()
+		})
+		return
+	}
 	ui.Row(c).Gap(20).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
@@ -251,7 +294,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 					ui.Text(c, "Tema").FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Sistemin görünümünü izler ya da hep açık ya da koyu olur.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
-				ui.Row(c).Gap(14).Children(func() {
+				ui.Row(c).Gap(14).Wrap().Children(func() {
 					if choiceTile(c, "tile-sys", "Sistem", theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
 						theme = 0
 					}
@@ -296,19 +339,13 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	settingGroup(c, "set-lang", func() {
 		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
-			ui.Row(c).Gap(8).Children(func() {
-				for _, l := range []string{"", "tr", "en"} {
-					l := l
-					b := ui.Row(c.Key("lang:"+l)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[a.settings.Lang == l]).
-						Label(langName(l)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-					b.Children(func() { ui.Text(c, langName(l)).FontSize(13).TextColor(cl.Text) })
-					if b.Clicked() {
-						a.settings.Lang = l
-						setLang(l)
-						a.saveSettings()
-					}
-				}
-			})
+			lang := a.settings.Lang
+			choiceBar(c, "set-lang-bar", T("Dil"), []string{"", "tr", "en"}, []string{langName(""), langName("tr"), langName("en")}, &lang)
+			if lang != a.settings.Lang {
+				a.settings.Lang = lang
+				setLang(lang)
+				a.saveSettings()
+			}
 		})
 	})
 }
@@ -323,6 +360,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
+				a.caretPlayground(c) // over the tiles: a tile chosen is tried here at once, as it is in the text
 				ui.Row(c).Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
@@ -369,7 +407,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		})
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
-		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen hareketsiz bir mozaik kapak alır: açık temada pastel, koyuda derin yumuşak renklerde, hepsi birbirinden farklı. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen bir manzara alır: dağlar, göl, sahil, orman, şehir, Japon bahçesi, mercan resifi, balonlar, kuzey ışıkları, uzay… Açık temada gündüzün bir saati, koyuda gece ve bugünün ayı; mevsim de bugünün. Bulutlar, kuşlar, trenler, balıklar yavaşça kıpırdar. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
 		})
 	})
@@ -415,6 +453,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
 		toggle("set-hidebar", "Durum çubuğunu gizle", "Altta hiçbir şey çizilmez: odak modu. Yazı tipi ve tema düğmeleri ⌘P'den yine ulaşılır.", &a.settings.HideStatus, false),
 		toggle("set-pos", "Satır ve sütun", "Caret'in paragrafı ve içindeki yeri.", &a.settings.ShowPos, false),
+		toggle("set-hints", "Kısayol ipuçları", "Altta, şu an kullanılabilecek tuşlar yazılır.", &a.settings.HideHints, true),
 	)
 }
 
@@ -521,7 +560,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 		copyRow("Claude Code'a eklemek için", a.mcpCommand(), "copy-cmd"),
 		func() {
 			settingRow(c, "Anahtar", "Yalnız bu bilgisayardan, anahtarla bağlanılır.", func() {
-				if ryugo.Button(c.Key("new-token"), "Anahtarı yenile", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("new-token"), T("Anahtarı yenile"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.settings.Token = newToken()
 					a.saveSettings()
 				}
@@ -544,7 +583,7 @@ func (a *app) settingsQuick(c *ui.Context) {
 	settingGroup(c, "set-quick", func() {
 		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: "Hızlı not tuşu", Size: ryugo.Sm}).Width(190)
+				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}).Width(190)
 				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if apply && a.quick != nil {
 					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {

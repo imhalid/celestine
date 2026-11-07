@@ -126,6 +126,7 @@ func (a *app) takeOutside(p *Page) {
 	p.Modified = modTime(p.fs(), p.file())
 	if t := meta["title"]; t != "" {
 		p.Title = t
+		pagesChanged()
 		if p == a.page && !a.dirty {
 			a.title = t
 		}

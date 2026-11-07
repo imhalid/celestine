@@ -2,6 +2,8 @@ package main
 
 import (
 	"math"
+	"strings"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -253,4 +255,180 @@ func (a *app) inputCaret(text string, caret int, size float32, weight int, left,
 	c.X += left
 	c.Y += top + max(0, (height-lh)/2)
 	return c, cw
+}
+
+// nearGlyph is a letter on the caret's line, where it is in the window, for a caret that moves letters (the
+// magnet): the letter and its box, and how far it is from the caret, in letters (- before it, + after).
+type nearGlyph struct {
+	ch   string
+	r    ui.Rect
+	off  int
+	size float32
+}
+
+// nearLetters are the letters of the caret's line within n of it, either side, as laid out in an editor whose
+// box is at (x, y) and w wide. Spaces and objects (a chip, a table) are not letters.
+func nearLetters(doc *richtext.Document, boxes []richtext.ParagraphBox, x, y, w float32, base ui.Font, th *richtext.Theme, n int) []nearGlyph {
+	_, caret := doc.Selection()
+	text := doc.Text()
+	var box richtext.ParagraphBox
+	found := false
+	for i, b := range boxes {
+		if b.Start <= caret && (i+1 == len(boxes) || caret < boxes[i+1].Start) {
+			box, found = b, true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	start, end := text.ParagraphRange(box.Start)
+	if caret > end || end-start > maxCaretParagraph {
+		return nil
+	}
+	var para richtext.Paragraph
+	for _, p := range text.Slice(start, end).Paragraphs() {
+		para = p
+		break
+	}
+	para.Style = text.ParagraphStyleAt(start)
+	l, left := longMemo.layout(doc, start, end-start, para, w, base, th)
+	var line string
+	for _, r := range para.Runs {
+		line += r.Text
+	}
+	runes := []rune(line)
+	at := func(i int) ui.Rect {
+		return l.CaretAt(ui.TextCaretPosition{Index: units(line, i), Affinity: ui.TextDownstream})
+	}
+	home := at(caret - start)
+	var out []nearGlyph
+	for i := max(0, caret-start-n); i < min(len(runes), caret-start+n); i++ {
+		r := runes[i]
+		if r == ' ' || r == '\t' || r == richtext.ObjectReplacement || r == '\n' {
+			continue
+		}
+		c0, c1 := at(i), at(i+1)
+		if math.Abs(float64(c0.Y-home.Y)) > 0.5 || c1.X <= c0.X { // on another line, or not laid out in a row
+			continue
+		}
+		gy, gh := c0.Y, c0.H
+		for _, ln := range l.Lines() {
+			if mid := c0.Y + c0.H/2; mid >= ln.Rect.Y && mid <= ln.Rect.Y+ln.Rect.H && ln.Ascent > 0 {
+				gy, gh = ln.Baseline-ln.Ascent, ln.Ascent+ln.Descent
+				break
+			}
+		}
+		out = append(out, nearGlyph{ch: string(r), r: ui.Rect{X: x + left + c0.X, Y: y + box.Top + gy, W: c1.X - c0.X, H: gh}, off: i - (caret - start), size: gh / 1.25})
+	}
+	return out
+}
+
+// caretText is what a caret may ask of the text round it, while it is painted: the word just written, how
+// many words its paragraph has, and where a word is in the text and how many times. The page's text has it
+// (caretWords), and the field the settings try a caret in (caretplay.go).
+type caretText interface {
+	last() string
+	paraWords() int
+	find(word string) (rects []ui.Rect, total int)
+}
+
+// caretWords is what a caret may ask of the page's text round it, while it is painted: the word just written, how
+// many words its paragraph has, and where a word is in the text (the repeats caret, the word count caret).
+type caretWords struct {
+	doc     *richtext.Document
+	boxes   []richtext.ParagraphBox
+	x, y, w float32
+	font    ui.Font
+	th      *richtext.Theme
+}
+
+// isWordRune reports whether r is part of a word: a letter or a digit.
+func isWordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
+
+// last is the word before the caret: the one just written, past the space or mark after it.
+func (c *caretWords) last() string {
+	_, caret := c.doc.Selection()
+	text := c.doc.Text()
+	from := max(0, caret-64)
+	runes := []rune(text.Slice(from, caret).String())
+	i := len(runes)
+	for i > 0 && !isWordRune(runes[i-1]) {
+		i--
+	}
+	j := i
+	for j > 0 && isWordRune(runes[j-1]) {
+		j--
+	}
+	return string(runes[j:i])
+}
+
+// paraWords is how many words the caret's paragraph has.
+func (c *caretWords) paraWords() int {
+	_, caret := c.doc.Selection()
+	text := c.doc.Text()
+	s, e := text.ParagraphRange(caret)
+	if e-s > maxCaretParagraph {
+		return 0
+	}
+	return len(strings.Fields(text.Slice(s, e).PlainText()))
+}
+
+// wordAt reports the starts of word, a whole word, folded, in runes.
+func wordAt(runes, word []rune) []int {
+	var out []int
+	for i := 0; i+len(word) <= len(runes); i++ {
+		if (i > 0 && isWordRune(runes[i-1])) || (i+len(word) < len(runes) && isWordRune(runes[i+len(word)])) {
+			continue
+		}
+		match := true
+		for k, r := range word {
+			if runes[i+k] != r {
+				match = false
+				break
+			}
+		}
+		if match {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+// find is where word is, as a whole word in any case: its boxes in the paragraphs in view, in the window, and how
+// many times it is in the whole text.
+func (c *caretWords) find(word string) (rects []ui.Rect, total int) {
+	w := foldRunes(word)
+	if len(w) == 0 {
+		return nil, 0
+	}
+	text := c.doc.Text()
+	total = len(wordAt(foldRunes(text.PlainText()), w))
+	for _, b := range c.boxes {
+		s, e := text.ParagraphRange(b.Start)
+		if e-s > maxCaretParagraph {
+			continue
+		}
+		var para richtext.Paragraph
+		for _, p := range text.Slice(s, e).Paragraphs() {
+			para = p
+			break
+		}
+		var line string
+		for _, r := range para.Runs {
+			line += r.Text
+		}
+		hits := wordAt(foldRunes(line), w)
+		if len(hits) == 0 {
+			continue
+		}
+		para.Style = text.ParagraphStyleAt(s)
+		l, left := longMemo.layout(c.doc, s, e-s, para, c.w, c.font, c.th)
+		for _, at := range hits {
+			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, at), End: units(line, at+len(w))}) {
+				rects = append(rects, ui.Rect{X: c.x + left + rc.X, Y: c.y + b.Top + rc.Y, W: rc.W, H: rc.H})
+			}
+		}
+	}
+	return rects, total
 }

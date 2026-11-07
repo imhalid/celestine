@@ -20,3 +20,6 @@ node_modules/
 .dev.vars
 .wrangler/
 
+# a local checkout of Ryugo beside this one, while a change there is not yet released
+/go.work
+/go.work.sum

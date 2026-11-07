@@ -14,11 +14,12 @@ import (
 // spring, sizes and places without a bounce past where they are going.
 
 const (
-	sidebarW = 252
-	barH     = 24
-	rowH     = 30
-	indentW  = 14
+	barH    = 24
+	indentW = 14
 )
+
+// rowH is a row of the tree: taller on a phone, for a finger (updatePhone).
+var rowH float32 = 30
 
 var (
 	// springSheet is the sidebar folding and unfolding: no bounce, a width.
@@ -60,7 +61,7 @@ func (a *app) branch(c *ui.Context) ui.Element {
 // sidebar is shown or not: right of the window's controls.
 func (a *app) sidebarButton(c *ui.Context) {
 	tb := c.TitleBar()
-	h := max(tb.Height, barH)
+	h := a.headerHeight(c) // in a line with the header, as high as it
 	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
 		if a.barIcon(c, iconSidebar, "Kenar çubuğu (⌘\\)") {
 			a.toggleSidebar()
@@ -95,21 +96,50 @@ func (a *app) toggleSidebar() {
 // nothing; its content keeps its width and slides out under the clip.
 func (a *app) sidebar(c *ui.Context) float32 {
 	t := c.Theme()
-	target := float32(sidebarW)
+	full := a.sidebarWidth()
+	target := full
 	if a.sidebarClosed {
 		target = 0
 	}
 	sb := ui.Column(c).Background(t.Surface).Clip()
-	w := sb.AnimateTo("width", target, springSheet)
-	sb.Width(w)
-	if w < 0.5 && a.sidebarClosed {
+	var w float32
+	switch {
+	case phone: // a drawer over the page: it slides in, as wide as it is (mobile.go)
+		full = a.drawerWidth()
+		in := float32(0)
+		if a.drawerOpen {
+			in = 1
+		}
+		k := sb.AnimateTo("in", in, springSheet)
+		sb.Absolute().Left(0).Top(0).Bottom(0).Width(full).Translate(-full*(1-k), 0).Shadow(0, 0, 24, 0, ui.RGBA(0, 0, 0, 0.3*k))
+		w = full * k
+	case a.edge.sidebar: // dragged: it is where the pointer is, not on its way there
+		w = sb.Jump("width", target)
+		sb.Width(w)
+	default:
+		w = sb.AnimateTo("width", target, springSheet)
+		sb.Width(w)
+	}
+	if w < 0.5 && a.sidebarClosed && !phone {
 		sb.Hidden(true)
 	}
-	tb := c.TitleBar()
 	sb.Children(func() {
-		ui.Column(c).Width(sidebarW).Grow(1).Children(func() {
-			// The room of the window's controls: it moves the window too.
-			ui.Box(c).Height(max(tb.Height, barH)).DragWindow()
+		if !a.sidebarClosed && !phone { // over the content, which is built first
+			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar)
+		}
+		ui.Column(c).Width(full).Grow(1).Children(func() {
+			// The room of the window's controls: it moves the window too. On a phone, the drawer's head:
+			// the app's name, and a cross that closes it.
+			if phone {
+				ui.Row(c.Key("drawer-head")).FillWidth().Height(a.headerHeight(c)).Padding(0, 8, 0, 18).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "ryudit").FontSize(17).FontWeight(720).TextColor(t.Text).Grow(1)
+					if a.iconButton(c, iconClose, T("Çekmeceyi kapat")) {
+						a.drawerOpen = false
+					}
+				})
+			} else {
+				ui.Box(c).Height(a.headerHeight(c)).DragWindow()
+			}
 			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
 				if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
@@ -123,7 +153,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					}
 				}
 			})
-			ui.Scroll(c).Grow(1).Children(func() {
+			a.scrolled(c, "sidebar:133", nil, ui.Scroll(c).Grow(1), func() {
 				if a.drag.dropped > 0 {
 					a.drag.dropped--
 				}
@@ -132,6 +162,10 @@ func (a *app) sidebar(c *ui.Context) float32 {
 				a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
 				a.drag.x -= 8 // the rows start inside the padding
 				a.well(c, tree)
+				a.treeVirtual = a.treeCensus().rows >= treeVirtualFrom && !a.moving()
+				if b := a.bars[a.ps.key(a.ps.cur)+"/sidebar:133"]; b != nil { // where the tree is scrolled, last frame
+					a.treeTop, a.treeView = b.st.Y, b.view
+				}
 				a.rowsLast = append(a.rowsLast[:0], a.rows...)
 				a.rows = a.rows[:0]
 				tree.Children(func() {
@@ -139,11 +173,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 						a.collectionRow(c, coll)
 						c.Key("coll-kids:" + coll.Dir)
 						if coll.Open && len(coll.Pages) > 0 {
-							a.branch(c).Children(func() {
-								for _, p := range coll.Pages {
-									a.pageRow(c, p)
-								}
-							})
+							a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
 						}
 					}
 				})
@@ -359,12 +389,94 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 	}
 	c.Key("kids:" + p.Dir)
 	if p.Open && len(p.Children) > 0 {
-		a.branch(c).Children(func() {
-			for _, ch := range p.Children {
-				a.pageRow(c, ch)
-			}
-		})
+		a.branch(c).Children(func() { a.pageRows(c, p.Children) })
 	}
+}
+
+// The tree is virtual: a row far from what the sidebar shows is not built, a gap as tall as the rows
+// it stands for is, one for each run of them. The rows are of one height (rowH), so where a row is
+// is its place in the list; the list (a.rows) still has every row, for the arrow keys and the drag.
+// A small tree, a drag, a row being renamed or given the focus are built as they are.
+
+const (
+	treeVirtualFrom = 200 // rows: a tree this long is virtual
+	treeMargin      = 2.0 // the views of room built above and below what shows
+)
+
+// pageRows builds the rows of pages, and their open children's, and gaps for those far from view.
+func (a *app) pageRows(c *ui.Context, pages []*Page) {
+	gap, gapKey := 0, ""
+	flush := func() {
+		if gap > 0 {
+			ui.Box(c.Key("gap:" + gapKey)).FillWidth().Height(float32(gap) * rowH)
+			gap = 0
+		}
+	}
+	for _, p := range pages {
+		n := openRows(p)
+		if a.treeVirtual && a.rowsAway(len(a.rows), n) && !a.mustBuild(p) {
+			if gap == 0 {
+				gapKey = p.Dir
+			}
+			a.noteRows(p)
+			gap += n
+			continue
+		}
+		flush()
+		a.pageRow(c, p)
+	}
+	flush()
+}
+
+// openRows is how many rows p and its open children take.
+func openRows(p *Page) int {
+	n := 1
+	if p.Open {
+		for _, ch := range p.Children {
+			n += openRows(ch)
+		}
+	}
+	return n
+}
+
+// noteRows puts p and its open children in the list of rows, without building them.
+func (a *app) noteRows(p *Page) {
+	a.rows = append(a.rows, treeEntry{page: p})
+	if p.Open {
+		for _, ch := range p.Children {
+			a.noteRows(ch)
+		}
+	}
+}
+
+// rowsAway reports whether the n rows from the i-th are all far from what the sidebar shows.
+func (a *app) rowsAway(i, n int) bool {
+	top, view := a.treeTop, a.treeView
+	if view <= 0 {
+		view = 1200
+	}
+	from, to := float32(i)*rowH, float32(i+n)*rowH
+	return to < top-treeMargin*view || from > top+view+treeMargin*view
+}
+
+// mustBuild reports whether the rows of p are built wherever they are: it, or a page under it, is being
+// renamed or is to have the focus.
+func (a *app) mustBuild(p *Page) bool {
+	var has func(q *Page) bool
+	has = func(q *Page) bool {
+		if a.renaming == any(q) || a.treeFocus == any(q) {
+			return true
+		}
+		if q.Open {
+			for _, ch := range q.Children {
+				if has(ch) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return has(p)
 }
 
 // trashPage moves p to the library's trash; when it, or a page under it, is
@@ -445,9 +557,11 @@ func (a *app) chevron(c *ui.Context, has, open bool) bool {
 // iconButton is a small square button of an icon, named for assistive technology.
 func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(26).Height(26).Radius(rad(7)).AlignItems(ui.Center).Justify(ui.Center).
+	b := ui.Box(c).Width(touchSize(26)).Height(touchSize(26)).Radius(rad(7)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
-	ryugo.Tooltip(c, b, label)
+	if !phone { // a finger has no hover to show a tooltip with
+		ryugo.Tooltip(c, b, label)
+	}
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)
 	} else {
@@ -459,6 +573,9 @@ func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 
 // barBtn is the size of a button in the top bar, which is as low as the status bar.
 const barBtn = 20
+
+// sidebarButtonsW is the room of the sidebar's buttons: four of them, and their gaps and margin.
+const sidebarButtonsW = 4*(24+2) + 6
 
 // barIcon is an icon button of the top bar: small, as the bar is.
 func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
@@ -594,7 +711,7 @@ func (a *app) collDragView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
-		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(sidebarW-28, 2).Radius(rad(1)).Background(cl.Accent)
+		ui.Box(c.Key("coll-drop")).Absolute().Left(14).Top(y).Size(a.sidebarWidth()-28, 2).Radius(rad(1)).Background(cl.Accent)
 	})
 }
 
@@ -658,7 +775,21 @@ func (a *app) treeKeys(r ui.Element, item any) {
 // ---- what the tree is like, kept
 
 // treeSig is a number for what is open in the tree, to see it changed.
-func (a *app) treeSig() uint64 {
+func (a *app) treeSig() uint64 { return a.treeCensus().sig }
+
+// census is what one walk through the tree finds, once a frame: how many rows it has (the collections and
+// their open pages) and a signature of what is open in it.
+type census struct {
+	rows  int
+	sig   uint64
+	frame uint64
+}
+
+// treeCensus is the tree's census, this frame.
+func (a *app) treeCensus() census {
+	if a.census.frame == a.frameSeq && a.frameSeq != 0 {
+		return a.census
+	}
 	var h uint64 = 14695981039346656037
 	mix := func(s string) {
 		for i := 0; i < len(s); i++ {
@@ -666,22 +797,28 @@ func (a *app) treeSig() uint64 {
 		}
 		h = (h ^ 0xff) * 1099511628211
 	}
-	var walk func(ps []*Page)
-	walk = func(ps []*Page) {
+	rows := 0
+	var walk func(ps []*Page, shown bool)
+	walk = func(ps []*Page, shown bool) {
 		for _, p := range ps {
+			if shown {
+				rows++
+			}
 			if p.Open {
 				mix(p.Dir)
 			}
-			walk(p.Children)
+			walk(p.Children, shown && p.Open)
 		}
 	}
 	for _, c := range a.lib.Collections {
+		rows++
 		if c.Open {
 			mix(c.Dir)
 		}
-		walk(c.Pages)
+		walk(c.Pages, c.Open)
 	}
-	return h
+	a.census = census{rows: rows, sig: h, frame: a.frameSeq}
+	return a.census
 }
 
 // keepTree keeps what is open in the tree in the settings, when it changed.

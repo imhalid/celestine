@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -109,6 +111,45 @@ type paneSet struct {
 	want   int  // a pane to take the use at the end of the frame; -1 none
 	settle int  // frames after a change of use in which the focus still being in the old pane is not a request for it back
 	focus  bool // the pane just put in use has no text of its own: it takes the keyboard
+
+	// With two panes or more, Ryugo's Dock lays them out: areas that split and resize and hold tabs. ids
+	// say which pane is which (they stay when the others come and go), layout is the Dock's tree.
+	ids    []string
+	next   int
+	layout *ryugo.Layout
+	rects  map[string]ui.Rect // where each pane was drawn, for the zone a page held would go into
+}
+
+// newID is a name for a pane that has none.
+func (s *paneSet) newID() string {
+	s.next++
+	return "p" + strconv.Itoa(s.next)
+}
+
+// ensureIDs gives every pane an ID.
+func (s *paneSet) ensureIDs() {
+	for len(s.ids) < len(s.states) {
+		s.ids = append(s.ids, s.newID())
+	}
+	s.ids = s.ids[:len(s.states)]
+}
+
+// index is the place of pane id in the list, -1 when there is none.
+func (s *paneSet) index(id string) int {
+	for i, x := range s.ids {
+		if x == id {
+			return i
+		}
+	}
+	return -1
+}
+
+// key names pane i for the elements built in it.
+func (s *paneSet) key(i int) string {
+	if i >= 0 && i < len(s.ids) {
+		return s.ids[i]
+	}
+	return strconv.Itoa(i)
 }
 
 // paneCount is how many panes there are.
@@ -148,14 +189,30 @@ func (a *app) usePane(i int) {
 	}
 }
 
-// openAtPane shows place pl in pane i, making a second pane of the window if i is 1 and there is only
-// one, and puts that pane in use.
+// addPane makes a pane beside the one in use, at the end of the list, and says where it is.
+func (a *app) addPane() int {
+	if len(a.ps.states) == 0 {
+		a.ps.states = []paneState{{}}
+	}
+	a.ps.ensureIDs()
+	a.ps.states = append(a.ps.states, newPaneState())
+	id := a.ps.newID()
+	a.ps.ids = append(a.ps.ids, id)
+	if a.ps.layout == nil {
+		a.ps.layout = ryugo.NewLayout(ryugo.DockArea(&ryugo.Pane{ID: a.ps.ids[0], Kind: "pane"}))
+	}
+	a.ps.layout.AddPane(a.ps.ids[a.ps.active], ryugo.DockRow, &ryugo.Pane{ID: id, Kind: "pane"})
+	return len(a.ps.states) - 1
+}
+
+// openAtPane shows place pl in pane i, making a new pane of the window if i is the number of panes (one
+// past the last), and puts that pane in use.
 func (a *app) openAtPane(i int, pl place) {
 	if len(a.ps.states) == 0 { // only the one, not yet in the list
 		a.ps.states = []paneState{{}}
 	}
-	if i == 1 && len(a.ps.states) == 1 {
-		a.ps.states = append(a.ps.states, newPaneState())
+	if i == len(a.ps.states) { // one past the last: a new pane
+		i = a.addPane()
 	}
 	if i < 0 || i >= len(a.ps.states) {
 		return
@@ -167,47 +224,146 @@ func (a *app) openAtPane(i int, pl place) {
 	}
 }
 
-// openInSide shows place pl in the other pane: the second, made if there is not one yet.
+// openInSide shows place pl in the next pane: the second, made if there is not one yet.
 func (a *app) openInSide(pl place) {
-	a.openAtPane(1-a.ps.active, pl)
+	if phone { // one pane: it opens here
+		a.goTo(pl)
+		return
+	}
+	n := a.paneCount()
+	if n == 1 {
+		a.openAtPane(1, pl)
+		return
+	}
+	a.openAtPane((a.ps.active+1)%n, pl)
 }
 
-// closePane takes pane i away; the other is left, and in use.
+// closePane takes pane i away; the next one is in use, if it was.
 func (a *app) closePane(i int) {
 	if len(a.ps.states) < 2 || i < 0 || i >= len(a.ps.states) {
 		return
 	}
 	a.flush()
-	a.ps.states[a.ps.active] = a.paneState
-	keep := a.ps.active
-	if keep == i {
-		keep = 1 - i
+	a.ps.ensureIDs()
+	if a.ps.layout != nil {
+		a.ps.layout.RemovePane(a.ps.ids[i])
 	}
-	a.ps.states = []paneState{a.ps.states[keep]}
-	a.ps.active, a.ps.cur, a.ps.want = 0, 0, -1
-	a.paneState = a.ps.states[0]
-	a.refocus = true
+	a.dropPane(i)
+}
+
+// dropPane forgets pane i: the pane in use goes to a neighbor if it was that one.
+func (a *app) dropPane(i int) {
+	a.ps.states[a.ps.active] = a.paneState
+	active := a.ps.active
+	switch {
+	case i < active:
+		active--
+	case i == active:
+		active = min(i, len(a.ps.states)-2)
+		a.refocus = true
+	}
+	a.ps.states = append(a.ps.states[:i:i], a.ps.states[i+1:]...)
+	a.ps.ids = append(a.ps.ids[:i:i], a.ps.ids[i+1:]...)
+	if len(a.ps.states) < 2 {
+		a.ps.layout = nil
+	}
+	a.ps.active, a.ps.cur, a.ps.want = active, active, -1
+	a.paneState = a.ps.states[active]
 	if a.frame != nil {
 		a.frame()
 	}
 }
 
-// panesView builds the panes side by side, each in its own state, and gives the use to the one
-// the user went to.
+// syncPanes brings the panes in step with the Dock's tree: a tab the user closed there is a pane gone,
+// a pane an Undo brought back is an empty pane again; with one left, the Dock goes.
+func (a *app) syncPanes() {
+	l := a.ps.layout
+	if l == nil {
+		return
+	}
+	a.ps.ensureIDs()
+	have := map[string]bool{}
+	for _, id := range l.PaneIDs() {
+		have[id] = true
+	}
+	if len(have) == 0 { // the last tab was closed: the pane in use stays
+		have[a.ps.ids[a.ps.active]] = true
+	}
+	for i := len(a.ps.ids) - 1; i >= 0 && len(a.ps.states) > 1; i-- {
+		if !have[a.ps.ids[i]] {
+			a.flush()
+			a.dropPane(i)
+		}
+	}
+	if a.ps.layout == nil {
+		return
+	}
+	for _, id := range l.PaneIDs() { // a pane the Dock has and the app has not
+		if a.ps.index(id) < 0 {
+			a.ps.states = append(a.ps.states, newPaneState())
+			a.ps.ids = append(a.ps.ids, id)
+			if pl := a.here(); pl.kind != "" { // split by the user: two views of what the pane in use shows
+				a.withPane(len(a.ps.states)-1, func() { a.goTo(pl) })
+			}
+		}
+	}
+	if len(a.ps.states) < 2 {
+		a.ps.layout = nil
+	}
+}
+
+// paneTitle is what pane in use shows, in a word: the tab of its area.
+func (a *app) paneTitle() string {
+	switch {
+	case a.settingsOpen:
+		return T("Ayarlar")
+	case a.statsScreen:
+		return T("İstatistikler")
+	case a.trashOpen:
+		return T("Çöp")
+	case a.tag != "":
+		return "#" + a.tag
+	case a.tasksOpen:
+		return T("Görevler")
+	case a.searchOpen:
+		return T("Ara")
+	case a.coll != nil:
+		return a.coll.Name
+	case a.page != nil && !a.noPage():
+		if a.page.Title != "" {
+			return a.page.Title
+		}
+		return T("Adsız")
+	}
+	return T("Boş")
+}
+
+// panesView builds the panes, each in its own state, and gives the use to the one the user went to.
+// One pane fills the window; two or more are Ryugo's Dock: areas the user splits, resizes, stacks as
+// tabs and closes.
 func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
-	n := a.paneCount()
 	if len(a.ps.states) == 0 {
 		a.ps.states = []paneState{{}}
 	}
-	ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
-		for i := 0; i < n; i++ {
-			if i > 0 {
-				ui.Box(c.Key("pane-divider")).Width(1).Background(ryugo.From(c).Colors.Hairline)
+	a.syncPanes()
+	a.keepPanes()
+	if phone { // one pane: the one in use, the whole window (mobile.go)
+		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+			a.withPane(a.ps.active, func() { a.paneColumn(c, th, a.ps.active, 1, false) })
+		})
+	} else if a.ps.layout == nil {
+		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
+		})
+	} else {
+		a.ps.ensureIDs()
+		for i, id := range a.ps.ids { // the tab of each area says what its pane shows
+			if p := a.ps.layout.FindPane(id); p != nil {
+				a.withPane(i, func() { p.Title = a.paneTitle() })
 			}
-			i := i
-			a.withPane(i, func() { a.paneColumn(c, th, i, n) })
 		}
-	})
+		ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host()}).Grow(1)
+	}
 	if a.ps.settle > 0 {
 		a.ps.settle--
 		c.Invalidate() // another frame, for the focus to arrive
@@ -226,9 +382,10 @@ func (a *app) noteVisit() {
 }
 
 // paneColumn is pane i of n: its title bar, its screen - a page, a collection, the settings, the
-// trash, the tasks, a search, a tag - and the bar over it.
-func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int) {
-	col := ui.Column(c.Key("pane:" + strconv.Itoa(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false)
+// trash, the tasks, a search, a tag - and the bar over it. In the Dock (docked) the window's bar is
+// above the areas and each area has its own header, so the pane has neither.
+func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked bool) {
+	col := ui.Column(c.Key("pane:" + a.ps.key(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false)
 	// what is drawn later, after the view is built, is drawn with this pane's state in the app: it is
 	// swapped in as the pane starts to be drawn, and out as it is done
 	col.Draw(func(*ui.Painter, ui.Rect) { a.paintIn(i) })
@@ -241,27 +398,24 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int) {
 		a.ps.focus = false
 	}
 	col.Children(func() {
-		// a page and a collection scroll as a whole, from the top of the window, under the title bar
-		overBar := !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil)
-		if !overBar {
-			a.titleBar(c)
-		}
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
-		padX := float32(32)
+		padX := pageMargin()
 		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
 			padX = 0
 		}
 		topPad := float32(pageTop - barH + 8)
+		if phone { // a phone's screen starts near its header
+			topPad = 12
+		}
 		if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
 			topPad = 0
 		}
+		// a page and a collection scroll as a whole, from under the header, with their room above the title in
+		// the scroll: a cover begins right under the header
 		a.barInset, a.topSpace = 0, 0
-		if overBar { // it scrolls from the top of the window, under the bar, and starts below it
-			a.barInset, a.topSpace, topPad = barH, barH+topPad, 0
-			if a.coverKind(a.page) != coverKindNone && !a.noPage() { // a cover begins at the very top, behind the bar
-				a.topSpace = 0
-			}
+		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
+			a.topSpace, topPad = topPad, 0
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 		defer func() { a.pageR = pageRow.LayoutBounds() }()
@@ -307,15 +461,11 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int) {
 			}
 			a.pageView(c, th)
 		})
-		if overBar {
-			a.topBar(c)
-		}
-		if n > 1 { // a pane can be closed when there are two
-			if ryugo.Button(c.Key("pane-close"), "Bölmeyi kapat", ryugo.ButtonOptions{Icon: iconClose, IconOnly: true, Size: ryugo.Sm}).Absolute().Top(4).Right(10).Clicked() {
-				a.afterView = append(a.afterView, func() { a.closePane(i) })
-			}
-		}
 	})
+	if a.ps.rects == nil {
+		a.ps.rects = map[string]ui.Rect{}
+	}
+	a.ps.rects[a.ps.key(i)] = col.LayoutBounds()
 	if i != a.ps.active && a.ps.settle == 0 && col.FocusWithin() { // the user went into it
 		a.ps.want = i
 	}
@@ -340,9 +490,22 @@ func (a *app) paintOut(i int) {
 	a.ps.cur = a.ps.active
 }
 
+// paneAtPoint is the pane drawn under p, -1 when none is.
+func (a *app) paneAtPoint(p ui.Point) int {
+	for i, id := range a.ps.ids {
+		if r, ok := a.ps.rects[id]; ok && p.X >= r.X && p.X < r.X+r.W && p.Y >= r.Y && p.Y < r.Y+r.H {
+			return i
+		}
+	}
+	return -1
+}
+
 // sideZone is the pane a page held over the window's content would go into, or -1: with one pane,
-// the right part of the content is a second pane; with two, each half is its pane.
+// the right part of the content is a second pane; with more, the pane the page is over.
 func (a *app) sideZone() int {
+	if a.paneCount() > 1 {
+		return a.paneAtPoint(a.drag.pos)
+	}
 	left, right := a.sidebarShown, a.winRect.W
 	if right <= left+80 {
 		return -1
@@ -351,16 +514,10 @@ func (a *app) sideZone() int {
 	if frac < 0 {
 		return -1
 	}
-	if a.paneCount() == 1 {
-		if frac > 0.62 {
-			return 1
-		}
-		return -1
+	if frac > 0.62 {
+		return 1
 	}
-	if frac < 0.5 {
-		return 0
-	}
-	return 1
+	return -1
 }
 
 // aimSide notes where the page held is over a pane's side: let go there, the page opens in that pane.
@@ -379,15 +536,13 @@ func (a *app) aimSide() {
 func (a *app) sideZoneRect(z int) ui.Rect {
 	left, right := a.sidebarShown, a.winRect.W
 	h := a.winRect.H
-	if a.paneCount() == 1 {
-		x := left + 0.62*(right-left)
-		return ui.Rect{X: x, Y: 0, W: right - x, H: h}
+	if a.paneCount() > 1 && z >= 0 && z < len(a.ps.ids) {
+		if r, ok := a.ps.rects[a.ps.ids[z]]; ok {
+			return ui.Rect{X: r.X, Y: r.Y - 30, W: r.W, H: r.H + 30} // the glow starts 30 under the top
+		}
 	}
-	mid := left + (right-left)/2
-	if z == 0 {
-		return ui.Rect{X: left, Y: 0, W: mid - left, H: h}
-	}
-	return ui.Rect{X: mid, Y: 0, W: right - mid, H: h}
+	x := left + 0.62*(right-left)
+	return ui.Rect{X: x, Y: 0, W: right - x, H: h}
 }
 
 // sideGlow is the glow over the pane a page held would go into.
@@ -419,10 +574,18 @@ func (a *app) openHereInSide() {
 	}
 }
 
-// nextPane goes to the other pane.
+// newPaneHere makes one more pane beside the one in use, showing what it shows: the Dock splits it
+// further, and the panes stay as many as the user makes.
+func (a *app) newPaneHere() {
+	if pl := a.here(); pl.kind != "" {
+		a.openAtPane(a.paneCount(), pl)
+	}
+}
+
+// nextPane goes to the next pane, from the last to the first.
 func (a *app) nextPane() {
-	if a.paneCount() > 1 {
-		a.usePane(1 - a.ps.active)
+	if n := a.paneCount(); n > 1 {
+		a.usePane((a.ps.active + 1) % n)
 	}
 }
 
@@ -431,19 +594,15 @@ func (a *app) closeThisPane() { a.closePane(a.ps.active) }
 
 // paneCommands are the palette's commands of the panes.
 func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func()) palItem) []palItem {
-	out := []palItem{
-		cmd("Yan bölmede aç: bu ekran", "⌥⌘↵", iconPanel, a.openHereInSide),
+	// the screen in use, the panes in turn and closing one are the app's commands (appcmds.go)
+	if phone {
+		return nil
+	}
+	return []palItem{
 		cmd("Yan bölmede aç: Ayarlar", "", iconSettings, func() { a.openInSide(place{kind: "settings"}) }),
 		cmd("Yan bölmede aç: Görevler", "", iconTask, func() { a.openInSide(place{kind: "tasks"}) }),
 		cmd("Yan bölmede aç: Çöp", "", iconTrash, func() { a.openInSide(place{kind: "trash"}) }),
 	}
-	if a.paneCount() > 1 {
-		out = append(out,
-			cmd("Bölmeler arası geç", "⌥⌘→", iconPanel, a.nextPane),
-			cmd("Bölmeyi kapat", "⌥⌘W", iconClose, a.closeThisPane),
-		)
-	}
-	return out
 }
 
 // paneRef is what a pane that is not in use shows, by where it is, to be found again when the
@@ -487,6 +646,83 @@ func (a *app) restorePanes(refs map[int]paneRef) {
 					st.page, st.doc = p, a.docs[p]
 				}
 			}
+		}
+	}
+}
+
+// paneSave is the panes as they are kept in the settings: the Dock's tree, what each pane shows, and the one in use.
+type paneSave struct {
+	Layout json.RawMessage      `json:"layout"`
+	Places map[string][2]string `json:"places"` // a pane's ID to the kind and the place of what it shows
+	Active string               `json:"active"`
+}
+
+// panesSnapshot is the panes in the form they are kept in: "" with one pane.
+func (a *app) panesSnapshot() string {
+	if a.ps.layout == nil || len(a.ps.states) < 2 {
+		return ""
+	}
+	a.ps.ensureIDs()
+	raw, err := a.ps.layout.MarshalJSON()
+	if err != nil {
+		return ""
+	}
+	save := paneSave{Layout: raw, Places: map[string][2]string{}, Active: a.ps.ids[a.ps.active]}
+	for i, id := range a.ps.ids {
+		a.withPane(i, func() {
+			pl := a.here()
+			save.Places[id] = [2]string{pl.kind, pl.dir}
+		})
+	}
+	b, err := json.Marshal(save)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// keepPanes writes the panes in the settings when they changed, and clears them when there is one pane again.
+func (a *app) keepPanes() {
+	if snap := a.panesSnapshot(); snap != a.settings.Panes {
+		a.settings.Panes = snap
+		a.saveSettingsSoon()
+	}
+}
+
+// restorePaneLayout opens the panes kept in the settings, each at what it showed: the window opens as it was closed.
+// What is no more (a page deleted) leaves its pane empty; a layout that cannot be read is left alone.
+func (a *app) restorePaneLayout() {
+	if a.settings.Panes == "" {
+		return
+	}
+	var save paneSave
+	if json.Unmarshal([]byte(a.settings.Panes), &save) != nil {
+		return
+	}
+	l, err := ryugo.ParseLayout(save.Layout)
+	if err != nil {
+		return
+	}
+	ids := l.PaneIDs()
+	if len(ids) < 2 || len(ids) > 12 {
+		return
+	}
+	a.ps.states = make([]paneState, len(ids))
+	for i := range a.ps.states {
+		a.ps.states[i] = newPaneState()
+	}
+	a.ps.ids, a.ps.layout = ids, l
+	for _, id := range ids { // new IDs go on from the highest
+		if n, err := strconv.Atoi(strings.TrimPrefix(id, "p")); err == nil {
+			a.ps.next = max(a.ps.next, n)
+		}
+	}
+	active := max(a.ps.index(save.Active), 0)
+	a.ps.active, a.ps.cur, a.ps.want = active, active, -1
+	a.paneState = a.ps.states[active]
+	for i, id := range ids {
+		if pl, ok := save.Places[id]; ok && pl[0] != "" {
+			a.withPane(i, func() { a.goTo(place{pl[0], pl[1]}) })
 		}
 	}
 }

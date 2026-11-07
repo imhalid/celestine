@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ type palette struct {
 	sel    int
 	text   string   // what is in the field: the query without the sign of the mode
 	hseen  int      // the row last hovered
+	reveal bool     // the arrows (or a new query) moved the chosen row: the list scrolls to show it
 	was    string   // the query of the last frame, to start from the top when it changes
 	hx, hy float32  // where the pointer was last seen over the rows, in the window: a row is chosen by the pointer only when it moves
 	snap   *palSnap // the settings as they were when it opened, while a command is shown as a preview
@@ -112,7 +114,6 @@ func (a *app) commands() []palItem {
 		if p.Coll.SubPages {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
-		out = append(out, cmd("Sayfada bul", "⌘F", iconSearch, func() { a.openFind() }))
 		out = append(out, cmd("Geri al", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
 		out = append(out, cmd("Yinele", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
 		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))
@@ -179,22 +180,9 @@ func (a *app) commands() []palItem {
 		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
 		cmd("İstatistikler", "", iconStats, a.openStats),
 		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
-		cmd("Kitaplıkta ara", "⇧⌘F", iconSearch, func() { a.openSearch(a.searchQ) }),
-		cmd("Hızlı not", a.quickKeys(), iconPlus, a.showQuick),
-		cmd("Yeni koleksiyon", "⇧⌘N", iconStack, func() {
-			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
-				a.newPage(c, nil)
-			}
-		}),
-		cmd("Bugünün sayfası", "⌘J", iconCalendar, a.openToday),
 		cmd("Rastgele gün", "", iconCalendar, a.openRandomDay),
-		cmd("Geri", "⌘[", iconBack, func() { a.step(-1) }),
-		cmd("İleri", "⌘]", iconChevron, func() { a.step(1) }),
-		cmd("Kenar çubuğunu aç/kapat", "⌘\\", iconSidebar, a.toggleSidebar),
-		cmd("Caret'i değiştir (⇧⌘M)", "⇧⌘M", iconPage, func() { a.setCaret((a.caretKind + 1) % caretCount()) }),
-		cmd("Çöp", "", iconTrash, a.openTrash),
-		cmd("Ayarlar", "⌘,", iconSettings, a.openSettings),
 	)
+	out = append(out, a.appPalette()...) // the app's commands, as the menu bar has them (appcmds.go)
 	// the settings, each a command; a theme or a caret is shown as it is passed over, and a ✓ is by the
 	// one in use - not what a preview shows
 	if sn := a.pal.snap; sn != nil {
@@ -308,6 +296,87 @@ func (a *app) recent(n int) []palItem {
 }
 
 // paletteItems are the lines for the query, best first.
+// placeIdx is the places of the palette, with what a match needs of them already folded, kept until the
+// library changes or the palette is opened again: a keystroke does not make a thousand items and fold
+// a thousand titles.
+type placeIdx struct {
+	items  []palItem
+	ftitle []string // folded title
+	fboth  []string // folded title and where it is
+	mask   []uint64 // letterMask of fboth
+	dirty  bool
+	ready  bool
+	rank   []placeRank
+}
+
+type placeRank struct {
+	score, runes, at int32
+}
+
+// placeIndex is the places in the form a match goes through quickly.
+func (a *app) placeIndex() *placeIdx {
+	px := &a.px
+	if px.ready && !px.dirty {
+		return px
+	}
+	items := a.places()
+	px.items = items
+	px.ftitle, px.fboth, px.mask = make([]string, len(items)), make([]string, len(items)), make([]uint64, len(items))
+	for i, it := range items {
+		px.ftitle[i] = fold(it.title)
+		px.fboth[i] = fold(it.title + " " + it.sub)
+		px.mask[i] = letterMask(px.fboth[i])
+	}
+	px.ready, px.dirty = true, false
+	return px
+}
+
+// placeMatches are the places that match q, the best first, at most max: the same scores as match, from
+// the folded titles, the places that lack a letter of q never looked at.
+func (a *app) placeMatches(q string, max int) []palItem {
+	px := a.placeIndex()
+	fq := fold(strings.TrimSpace(q))
+	words := strings.Fields(fq)
+	qr := []rune(strings.ReplaceAll(fq, " ", ""))
+	qm := letterMask(fq)
+	rank := px.rank[:0]
+	for i := range px.items {
+		if qm&^px.mask[i] != 0 {
+			continue
+		}
+		s := matchFolded(fq, words, qr, px.ftitle[i])
+		if s < 0 {
+			if s2 := matchFolded(fq, words, qr, px.fboth[i]); s2 >= 0 {
+				s = s2 / 2 // in where it is, not in its name: less
+			}
+		}
+		if s < 0 {
+			continue
+		}
+		rank = append(rank, placeRank{int32(s), int32(utf8.RuneCountInString(px.items[i].title)), int32(i)})
+	}
+	px.rank = rank
+	slices.SortFunc(rank, func(p, q placeRank) int {
+		switch {
+		case p.score != q.score:
+			return int(q.score - p.score)
+		case p.runes != q.runes:
+			return int(p.runes - q.runes)
+		}
+		return int(p.at - q.at)
+	})
+	if len(rank) > max {
+		rank = rank[:max]
+	}
+	out := make([]palItem, len(rank))
+	for i, r := range rank {
+		out[i] = px.items[r.at]
+		out[i].group = "Sayfalar"
+		out[i].score = int(r.score)
+	}
+	return out
+}
+
 func (a *app) paletteItems(q string) []palItem {
 	switch palModeOf(q) {
 	case '>':
@@ -322,28 +391,7 @@ func (a *app) paletteItems(q string) []palItem {
 		all := a.places()
 		return all[:min(10, len(all))]
 	}
-	var out []palItem
-	for _, it := range a.places() {
-		it.group = "Sayfalar"
-		s := match(q, it.title)
-		if s2 := match(q, it.title+" "+it.sub); s < 0 && s2 >= 0 {
-			s = s2 / 2 // in where it is, not in its name: less
-		}
-		if s < 0 {
-			continue
-		}
-		it.score = s
-		out = append(out, it)
-	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].score != out[j].score {
-			return out[i].score > out[j].score
-		}
-		return utf8.RuneCountInString(out[i].title) < utf8.RuneCountInString(out[j].title)
-	})
-	if len(out) > 40 {
-		out = out[:40]
-	}
+	out := a.placeMatches(q, 40)
 	// what is in the pages' text, after what is in their names
 	if len([]rune(strings.TrimSpace(q))) >= 2 {
 		have := map[string]bool{}
@@ -533,13 +581,22 @@ func fold(s string) string { return turkishFold.Replace(strings.ToLower(turkishF
 // start and at the start of words better; the letters of q in order, worse;
 // -1 for no match.
 func match(q, s string) int {
-	q, s = fold(strings.TrimSpace(q)), fold(s)
+	q = fold(strings.TrimSpace(q))
+	if q == "" {
+		return 0
+	}
+	return matchFolded(q, strings.Fields(q), []rune(strings.ReplaceAll(q, " ", "")), fold(s))
+}
+
+// matchFolded is match for a q that was folded and taken apart once (its words, its letters without
+// spaces) and an s that is folded already, so that the same q goes through many s.
+func matchFolded(q string, words []string, qr []rune, s string) int {
 	if q == "" {
 		return 0
 	}
 	score := 0
 	all := true
-	for _, w := range strings.Fields(q) {
+	for _, w := range words {
 		i := strings.Index(s, w)
 		if i < 0 {
 			all = false
@@ -558,8 +615,9 @@ func match(q, s string) int {
 	}
 	// the letters in order, as "ypl" in "yapılacaklar"
 	j, gaps, last := 0, 0, -1
-	qr := []rune(strings.ReplaceAll(q, " ", ""))
-	for i, r := range []rune(s) {
+	i := -1
+	for _, r := range s {
+		i++
 		if j < len(qr) && r == qr[j] {
 			if last >= 0 {
 				gaps += i - last - 1
@@ -577,7 +635,8 @@ func match(q, s string) int {
 // paletteView shows the palette while it is open.
 func (a *app) paletteView(c *ui.Context) {
 	if !a.pal.open {
-		a.palRestore() // closed without choosing: what a preview changed goes back
+		a.px.dirty = true // the places are made again when it opens
+		a.palRestore()    // closed without choosing: what a preview changed goes back
 		return
 	}
 	t := ryugo.From(c)
@@ -589,7 +648,7 @@ func (a *app) paletteView(c *ui.Context) {
 		t.Shadows.ShadowPop.Apply(panel)
 		items := a.paletteItems(a.pal.query)
 		if a.pal.query != a.pal.was {
-			a.pal.sel, a.pal.was, a.pal.hseen = 0, a.pal.query, -1
+			a.pal.sel, a.pal.was, a.pal.hseen, a.pal.reveal = 0, a.pal.query, -1, true
 		}
 		a.pal.sel = max(0, min(a.pal.sel, len(items)-1))
 		a.palPreview(items)
@@ -620,15 +679,15 @@ func (a *app) paletteView(c *ui.Context) {
 				}
 				switch {
 				case in.Shortcut(0, ui.KeyDown):
-					a.pal.sel = min(a.pal.sel+1, len(items)-1)
+					a.pal.sel, a.pal.reveal = min(a.pal.sel+1, len(items)-1), true
 				case in.Shortcut(0, ui.KeyUp):
-					a.pal.sel = max(a.pal.sel-1, 0)
+					a.pal.sel, a.pal.reveal = max(a.pal.sel-1, 0), true
 				case in.Submitted() && len(items) > 0:
 					a.runItem(items[a.pal.sel])
 				}
 			})
 			ui.Box(c).Height(1).Background(cl.Hairline)
-			ui.Scroll(c).MaxHeight(300).Children(func() {
+			a.scrolled(c, "palette:704", nil, ui.Scroll(c).MaxHeight(300), func() {
 				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
 						ui.Text(c, T("Eşleşen bir şey yok.")).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
@@ -707,6 +766,10 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 		}
 	}
 	if i == a.pal.sel {
+		if a.pal.reveal {
+			row.ScrollIntoView()
+			a.pal.reveal = false
+		}
 		row.LinearGradient(chosenFill(t))
 		text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
 	}
@@ -803,7 +866,6 @@ func (a *app) palRestore() {
 	if s == nil {
 		return
 	}
-	a.fonts.prev = [3]string{}
 	a.pal.snap, a.pal.pvKey = nil, ""
 	a.settings.Theme, a.settings.AppTheme, a.caretKind = s.theme, s.appTheme, s.caret
 }

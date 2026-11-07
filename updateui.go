@@ -62,7 +62,7 @@ func (a *app) updateView(c *ui.Context) {
 				ui.Text(c, T("Şimdiki sürüm: ")+version+" · "+map[bool]string{true: a.updRel.Date, false: ""}[a.updRel.Date != ""]).FontSize(12.5).TextColor(cl.Muted)
 			}
 			if strings.TrimSpace(notes) != "" {
-				ui.Scroll(c.Key("upd-notes")).MaxHeight(240).Children(func() {
+				a.scrolled(c, "upd-notes", nil, ui.Scroll(c.Key("upd-notes")).MaxHeight(240), func() {
 					ui.Text(c, plainText(notes)).FontSize(13).TextColor(cl.Text2).Wrap().Selectable()
 				})
 			} else {
@@ -144,7 +144,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 					if ryugo.Button(c.Key("upd-check"), "Şimdi denetle", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.checkUpdate(true)
 					}
-					if a.updRel != nil && ryugo.Button(c.Key("upd-show"), "Yeni sürümü göster", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+					if a.updRel != nil && ryugo.Button(c.Key("upd-show"), T("Yeni sürümü göster"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.updNotes, a.updOpen = false, true
 					}
 				})

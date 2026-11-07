@@ -106,10 +106,21 @@ func TestPerfBudget(t *testing.T) {
 	t0 = time.Now()
 	ls := a.libraryStats()
 	health := time.Since(t0)
+	// a key in the text, and the frame it makes: what typing costs, however big the library
+	for i := 0; i < 5; i++ { // the index and the tree settle first
+		tt.Advance(50 * time.Millisecond)
+	}
+	const keys = 20
+	t0 = time.Now()
+	for i := 0; i < keys; i++ {
+		tt.Type("x")
+		tt.Frame()
+	}
+	key := time.Since(t0) / keys
 
-	t.Logf("%d pages: open %v, first frame %v, search %v, index %v, palette %v, library figures %v, memory +%.0f MB",
+	t.Logf("%d pages: open %v, first frame %v, search %v, index %v, palette %v, library figures %v, a key %v, memory +%.0f MB",
 		n, open.Round(time.Millisecond), first.Round(time.Millisecond), find.Round(time.Millisecond), index.Round(time.Millisecond),
-		pal.Round(time.Millisecond), health.Round(time.Millisecond), mem)
+		pal.Round(time.Millisecond), health.Round(time.Millisecond), key.Round(100*time.Microsecond), mem)
 	_ = ls
 
 	// budgets, per thousand pages; generous, so that a slow machine does not fail them and a real
@@ -125,6 +136,9 @@ func TestPerfBudget(t *testing.T) {
 	check("the link index", index, 2*time.Second)
 	check("a palette query", pal, 600*time.Millisecond)
 	check("the library figures", health, 4*time.Second)
+	if key > 60*time.Millisecond { // not scaled: a key costs the same in any library (in the headless, software painter)
+		t.Errorf("a key in the text took %v: over the budget of 60ms", key)
+	}
 	if limit := 200 * max(scale, 1); mem > limit {
 		t.Errorf("the library holds %.0f MB: over the budget of %.0f MB", mem, limit)
 	}
@@ -145,5 +159,24 @@ func BenchmarkPaletteBigLibrary(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.paletteItems("sayfa 12")
+	}
+}
+
+// BenchmarkKeyBigLibrary is a key in the text of a big library, and its frame.
+func BenchmarkKeyBigLibrary(b *testing.B) {
+	st, _ := bigLibrary(b, perfPages())
+	lib, err := OpenLibraryIn(st, storeRoot)
+	if err != nil {
+		b.Fatal(err)
+	}
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1100, 800)
+	for i := 0; i < 200; i++ { // the indexes are read in, a little a frame
+		tt.Advance(20 * time.Millisecond)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tt.Type("x")
+		tt.Frame()
 	}
 }

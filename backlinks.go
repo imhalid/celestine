@@ -26,14 +26,22 @@ type linkIndex struct {
 	plain    map[*Page]*plainIdx // the text of a page, plain, for the search (search.go), made when asked for
 	built    time.Time
 	stale    bool
+	warm     []*Page // the pages being read the first time, over a few frames (warmLinks), and how far it is
+	warmAt   int
 }
 
 // linksStale says the pages changed since the index was made.
-func (a *app) linksStale() { a.links.stale = true }
+func (a *app) linksStale() { a.links.stale, a.px.dirty = true, true }
 
 // linksTo are the pages that link to p, the title first.
 func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	l := &a.links
+	if l.into == nil && !force && !a.warmLinks(linksWarmBudget) { // the first time, the files are read over a few frames
+		if a.frame != nil {
+			a.frame()
+		}
+		return nil
+	}
 	if l.into == nil || (l.stale && (force || now.Sub(l.built) > 4*time.Second)) {
 		l.into, l.tags, l.tagNames, l.tasks = map[string][]*Page{}, map[string][]*Page{}, map[string]string{}, nil
 		l.stale, l.built = false, now
@@ -75,6 +83,39 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 		}
 	}
 	return out
+}
+
+// linksWarmBudget is how long a frame reads the pages' files for the index, the first time.
+const linksWarmBudget = 6 * time.Millisecond
+
+// warmLinks reads what the index needs of the pages that are not read yet, for at most budget, and
+// reports whether all are read: then the index is made from what was read, at once. A big library
+// opens without waiting for every file (a window of ten thousand pages read them all in its first frame).
+func (a *app) warmLinks(budget time.Duration) bool {
+	l := &a.links
+	if l.pages == nil {
+		l.pages = map[*Page]*pageIdx{}
+	}
+	if l.warm == nil { // the pages to go through, taken once: each frame goes on from where the last stopped
+		for _, c := range a.lib.Collections {
+			l.warm = append(l.warm, c.All()...)
+		}
+	}
+	start := time.Now()
+	for ; l.warmAt < len(l.warm); l.warmAt++ {
+		q := l.warm[l.warmAt]
+		if e := l.pages[q]; e != nil && !q.Modified.IsZero() && e.mod.Equal(q.Modified) && e.writes == q.writes {
+			continue
+		}
+		if time.Since(start) > budget {
+			return false
+		}
+		if body, err := q.Text(); err == nil {
+			l.pages[q] = readPageIdx(q, body)
+		}
+	}
+	l.warm, l.warmAt = nil, 0
+	return true
 }
 
 // backlinksView is the section under the text: who links here.
@@ -165,10 +206,14 @@ type pageIdx struct {
 	tasks  []taskItem
 	tags   []string
 	links  []string
+	words  int  // what the statistics count, read once with the rest of the page
+	empty  bool // nothing but whitespace and marks
 }
 
 func readPageIdx(q *Page, body string) *pageIdx {
-	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body)}
+	plain := plainText(body)
+	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body),
+		words: len(strings.Fields(plain)), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
 		return e
 	}

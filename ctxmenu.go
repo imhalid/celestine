@@ -29,6 +29,15 @@ type ctxMenu struct {
 
 // showContext opens the menu at x, y in the window.
 func (a *app) showContext(x, y float32, items []menuItem) {
+	if phone { // a phone has one pane: what opens beside is not offered
+		kept := items[:0:0]
+		for _, it := range items {
+			if it.title != "Yan bölmede aç" {
+				kept = append(kept, it)
+			}
+		}
+		items = kept
+	}
 	a.ctx = ctxMenu{open: true, x: x, y: y, stack: [][]menuItem{items}, seen: -1, fresh: true}
 }
 

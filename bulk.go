@@ -80,7 +80,7 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 			msg = "Satırlara tıklayarak seç"
 		}
 		ui.Text(c, msg).FontSize(13).FontWeight(650).TextColor(cl.Text).Padding(0, 6)
-		if ryugo.Button(c.Key("bulk-all"), "Hepsini seç", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("bulk-all"), T("Hepsini seç"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			for _, p := range pages {
 				if a.bulk.sel == nil {
 					a.bulk.sel = map[*Page]bool{}
@@ -103,17 +103,17 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 		} else if ryugo.Button(c.Key("bulk-tagb"), "Etiket ekle", ryugo.ButtonOptions{Icon: iconTag, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			a.bulk.tagging, a.bulk.focus = true, true
 		}
-		if ryugo.Button(c.Key("bulk-move"), "Taşı…", ryugo.ButtonOptions{Icon: iconMoveDown, Size: ryugo.Sm, Disabled: off}).Clicked() {
+		if ryugo.Button(c.Key("bulk-move"), T("Taşı…"), ryugo.ButtonOptions{Icon: iconMoveDown, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			ww, _ := c.Size()
 			a.showContext(ww-420, 230, a.bulkMoveMenu(chosen))
 		}
 		if choices := a.bulkChoices(coll, chosen); len(choices) > 0 {
-			if ryugo.Button(c.Key("bulk-prop"), "Özellik ata…", ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm, Disabled: off}).Clicked() {
+			if ryugo.Button(c.Key("bulk-prop"), T("Özellik ata…"), ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm, Disabled: off}).Clicked() {
 				ww, _ := c.Size()
 				a.showContext(ww-360, 230, choices)
 			}
 		}
-		if ryugo.Button(c.Key("bulk-trash"), "Çöpe at", ryugo.ButtonOptions{Icon: iconTrash, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Disabled: off}).Clicked() {
+		if ryugo.Button(c.Key("bulk-trash"), T("Çöpe at"), ryugo.ButtonOptions{Icon: iconTrash, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			a.bulkTrash(chosen)
 		}
 		if ryugo.Button(c.Key("bulk-done"), "Bitir", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {

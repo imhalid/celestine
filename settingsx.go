@@ -215,7 +215,7 @@ func (a *app) deleteProfile(name string) {
 // ---- the settings as a file ----
 
 // secretKeys are never exported nor imported: they belong to this computer.
-var secretKeys = []string{"token", "port", "mcp", "syncToken", "syncKey", "syncDir", "syncUrl", "syncMode", "writing", "recentCmds", "recent", "treeOpen", "treeSaved",
+var secretKeys = []string{"token", "port", "mcp", "syncToken", "syncKey", "accountUser", "syncDir", "syncUrl", "syncMode", "writing", "recentCmds", "recent", "treeOpen", "treeSaved",
 	"updateAt", "updateSnooze", "updateSkip", "updateNotes", "updateFor", "updateSeen", "tourDone", "quickKey", "sidebarClosed", "panelOpen"}
 
 // exportSettingsTo writes the portable settings as JSON.
@@ -272,7 +272,7 @@ func (a *app) settingsFileOut() string {
 func (a *app) pickSettingsFile() {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: "İçe aktarılacak ayar dosyası"})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak ayar dosyası")})
 		if err != nil || len(paths) == 0 {
 			return
 		}
@@ -293,13 +293,18 @@ func (a *app) pickSettingsFile() {
 // settingsTop is the bar over a section: the search, the list of changed settings, the profiles.
 func (a *app) settingsTop(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	ui.Row(c.Key("set-top")).FillWidth().Gap(8).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
+	search := func() {
 		q := a.setSearch
 		in := ui.TextInputBase(c.Key("set-search"), &q).Label("Ayarlarda ara").Placeholder(T("Ayarlarda ara…")).PlaceholderColor(cl.Muted).
 			FontSize(13).Padding(7, 11).Radius(rad(9)).Background(cl.Card).Border(1, cl.Hairline).Grow(1).FocusRing(false)
+		if phone {
+			in.FillWidth().Padding(10, 12)
+		}
 		if in.Changed() {
 			a.setSearch = q
 		}
+	}
+	modes := func() {
 		for _, m := range []struct{ id, name string }{{"changed", "Değiştirilenler"}, {"profiles", "Profiller"}, {"keys", "Kısayollar"}, {"file", "Dosya"}} {
 			m := m
 			on := a.setMode == m.id
@@ -311,6 +316,17 @@ func (a *app) settingsTop(c *ui.Context) {
 				a.setSearch = ""
 			}
 		}
+	}
+	if phone { // the search on a line of its own, the pages under it
+		ui.Column(c.Key("set-top")).FillWidth().Gap(8).Padding(0, 0, 10, 0).Children(func() {
+			search()
+			ui.Row(c).Gap(6).Wrap().Children(modes)
+		})
+		return
+	}
+	ui.Row(c.Key("set-top")).FillWidth().Gap(8).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
+		search()
+		modes()
 	})
 }
 
@@ -462,4 +478,19 @@ func (a *app) settingsProfiles(c *ui.Context) {
 			})
 		})
 	})
+}
+
+// choiceBar is Ryugo's segmented control for a choice among a few: the id chosen is put in *cur.
+func choiceBar(c *ui.Context, key, label string, ids, names []string, cur *string) {
+	sel := 0
+	for i, id := range ids {
+		if id == *cur {
+			sel = i
+		}
+	}
+	was := sel
+	ryugo.Segmented(c.Key(key), &sel, names, ryugo.SegmentedOptions{Label: label})
+	if sel != was {
+		*cur = ids[sel]
+	}
 }

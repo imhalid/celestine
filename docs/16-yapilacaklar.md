@@ -27,6 +27,13 @@ ve bağımlılıklara göre verildi.
 | 13 | L | Senkronizasyon (Cloudflare dahil değerlendirme) | O | 5 | — |
 | 14 | M | Android uygulaması: araştırma ve deneme | D | 5 | J, L |
 
+## 7 Kasım, öğlen
+
+Bu turun işleri: kendi kaydırma çubuğu, dört bölgeli pencere ve üst çubuktaki kayma (docs/22 madde 4, 5, 9), bölmeyi ayrı pencereye alma
+(madde 11), tablo hücrelerinde oklar (G), menü ve MCP'nin ortak komut listesi (E), performans (N6), çeviri (N4), özel yazı tipinin açılıştaki kayması
+(docs/22 madde 19), kapanmayan uygulama (madde 20), web ve APK'nın gerçek ortamda denenmesi (J, M). Editör ayarları (D) ve yazı tipindeki Türkçe karakter
+uyarısı (F) kullanıcının isteğiyle olduğu gibi bırakıldı. Ayrıntı aşağıdaki tabloda ve docs/22'de.
+
 ## Durum özeti (7 Kasım, gece 3) — ne yapıldı, ne yapılmadı
 
 Hedef "bütün maddeler ve bütün öneriler" idi. Aşağıdaki liste dürüst bir defter: **yapıldı** (testli), **kısmen**, **yapılmadı** (neden). Belirsiz kalan
@@ -38,21 +45,21 @@ açık sorular (1–10) için bu turda varsayılanla ilerlendi; cevap gelirse y�
 | B | yapıldı | tema önizlemesi, ✓, geri al bildirimi, argümanlı komutlar, son kullanılanlar, takma adlar, ⌘⇧P, modlar `> @ # : / ! ?`, sessiz hata yok, bağlam öne çıkarma (sayfa, koleksiyon, seçili metnin biçim komutları) | — |
 | C | yapıldı | ayarlar ekran oldu; ayar araması (Türkçe harf duyarsız, İngilizce takma adlar), "Değiştirilenler" ve varsayılana dön (tek tek, topluca), profiller (Yazar, Kod, Sıkı, Okuma ve kendi kaydettiklerin), ayarları dosyaya yaz / dosyadan oku (gizli bilgiler yazılmaz ve okunmaz), her sonuçta komut adı | — |
 | D | yapıldı | yazı boyutu ⌘= ⌘− ⌘0, paragraf aralığı, ilk satır girintisi, Tab uzunluğu, satır uzunluğu (en çok N karakterlik sütun), otomatik kayıt (aç/kapa, gecikme, ⌘S, "kaydedildi 14:32", çıkışta ve sayfa değişirken kayıt), boşluk/sekme/¶/kırılmaz boşluk/artık boşluk gösterimi (kod bloğunda ayrı), odak modu (satır, paragraf), daktilo kaydırması, caret uykusu, hafif mod, "son kayıttan önceki hâle dön", ayar ön-kümeleri (profiller), Vim hareketleri | harf ve kelime aralığı (imleç konumu düzenleyici düzeniyle hizalı kalmaz), yazım denetimi (işletim sistemi sözlüğüne MyGo'dan yol yok), sağdan sola yazı, imleç yanıp sönme hızı, boşlukların yalnız seçimde gösterilmesi; "length size" cevapsız (açık soru 4), ama satır uzunluğu (karakter olarak sütun sınırı) yapıldı |
-| E | yapıldı | ayar listesi tek kayıt (`cmdreg.go`), her ayar bir komut (testle denetlenir), önizleme, geri al, argüman, son komutlar, kendi kısayolların (çakışma denetimiyle), makrolar | menü ve MCP araç listesinin de aynı kayıttan üretilmesi (menü ayrı yazılı, MCP araçları ayrı) |
+| E | yapıldı | ayar listesi tek kayıt (`cmdreg.go`), her ayar bir komut (testle denetlenir), önizleme, geri al, argüman, son komutlar, kendi kısayolların (çakışma denetimiyle), makrolar | — **7 Kasım, öğlen: yapıldı.** Uygulamanın komutları tek listede (`appcmds.go`): menü çubuğu, menü çubuğu yokken pencerenin kısayolları, paletteki satırları ve kendi kısayolunun alamayacağı tuşlar ondan üretilir; MCP `list_commands` ve `run_command` ile paletin bütün listesini (ayarlar dahil) görür ve çalıştırır. `TestAppCommandsAreOneList`, `TestAppCommandsInEnglish` |
 | F | yapıldı | sistem fontlarından uygulama/editör/kod yazı tipi, kendi harfleriyle liste, canlı önizleme, arama, favori, son kullanılan, ön-kümeler, yedek zinciri, ligatür, aynı genişlik rakam, kalınlık, arka planda tarama | Türkçe karakter eksikliği uyarısı ve sahte italik uyarısı (MyGo font dosyasını okutmuyor), optik boyut |
-| G | yapıldı (çekirdek) | normal kip (Esc/i), j k ve sayı öneki, gg G, Enter/l/h, `f` harf etiketleri, Space leader, işaretler, `.` tekrar, ⌃O/Tab ile yer listesi, `gf`, `:` komut satırı, `?` kısayol sayfası, ⌘1/⌘2/⌘3, Vim hareketleri (ayar), liste/tablo/pano/takvim/arama/etiket/çöp/görev satırlarında klavye, sürüklemenin komut karşılıkları (sayfayı yukarı/aşağı/başka koleksiyona taşı, koleksiyonu taşı), kısayol değiştirme, sistem kısayoluyla çakışma reddi, odak halkası ayarı, N3 test altyapısı ve fare olmadan kabul senaryosu | tablo hücrelerinin ve ayar kontrollerinin (←→) klavyeyle gezilmesi (hücre düzenleme Tab/Enter ile zaten var), VoiceOver etiketlerinin denetimi, web'de normal kipin açılması |
+| G | yapıldı (çekirdek) | normal kip (Esc/i), j k ve sayı öneki, gg G, Enter/l/h, `f` harf etiketleri, Space leader, işaretler, `.` tekrar, ⌃O/Tab ile yer listesi, `gf`, `:` komut satırı, `?` kısayol sayfası, ⌘1/⌘2/⌘3, Vim hareketleri (ayar), liste/tablo/pano/takvim/arama/etiket/çöp/görev satırlarında klavye, sürüklemenin komut karşılıkları (sayfayı yukarı/aşağı/başka koleksiyona taşı, koleksiyonu taşı), kısayol değiştirme, sistem kısayoluyla çakışma reddi, odak halkası ayarı, N3 test altyapısı ve fare olmadan kabul senaryosu | ayar kontrollerinin (←→) klavyeyle gezilmesi, VoiceOver etiketlerinin denetimi, web'de normal kipin açılması. **Tablo hücreleri (7 Kasım, öğlen): yapıldı:** metinden ↓ (tablonun hemen önündeyken) başlığın ilk hücresini, ↑ (hemen arkasındayken) son satırı açar; hücrede metnin başında ← ve sonunda → yandaki hücreye geçer (imleç gidiş yönündeki uca konur, basılı tutunca hücre hücre gider), ↓ son satırdan ve ↑ başlıktan tablonun altına/üstüne, metne çıkar (satır eklemez; Tab eklemeye devam eder). `TestTableArrowKeys` |
 | H | yapıldı | istatistik ekranı: yazım, saat×gün ve yıllık ısı haritası, oturumlar ve hız, hedef ve seri, kullanım süresi ve sayaçlar, koleksiyon/etiket/sayfa dağılımı, sayfa başına süre, komut ve sayfa listeleri, kullanılmayan özellikler, kitaplık sağlığı, CSV/JSON, haftalık özet, sıfırla, tek anahtar | — |
 | I | ölçüldü | `scripts/build.sh`, bayraklar, bütçe, rapor (`17-boyut-ve-performans.md`) | bağımlılık sadeleştirme, tembel varlıklar, iki kip, fark güncellemesi: kazanç az ya da özellik riski, gerekçesi raporda |
-| J | yapıldı (deneme) | wasm derlendi ve tarayıcıda çalıştı: açıldı, yazıldı, IndexedDB'ye kaydedildi, yenilenince kaldı; PWA dosyaları (manifest, servis çalışanı, simgeler); Esc ile normal kip açılıyor (`store_js.go`, `scripts/web.sh`, `web/`, `18-web.md`) | servis çalışanının gerçek tarayıcıda denenmesi (bu ortamdaki tarayıcı kaydı reddetti), OPFS/klasör erişimi, Safari/Firefox testleri, web'de harf tuşlarıyla klavye komutlarının doğrulanması |
+| J | yapıldı (deneme) | wasm derlendi ve tarayıcıda çalıştı: açıldı, yazıldı, IndexedDB'ye kaydedildi, yenilenince kaldı; PWA dosyaları (manifest, servis çalışanı, simgeler); Esc ile normal kip açılıyor (`store_js.go`, `scripts/web.sh`, `web/`, `18-web.md`) | OPFS/klasör erişimi, Safari/Firefox testleri, web'de harf tuşlarıyla klavye komutlarının doğrulanması. **7 Kasım, öğlen:** servis çalışanı tarayıcıda kaydoldu ve sayfayı yönetti; sunucu kapalıyken sayfa, wasm ve betik önbellekten geldi (çevrimdışı açılış). Bulunan hata düzeltildi: sayfa da önbellekten veriliyordu, yeni bir derleme hiç alınmazdı; sayfa artık önce ağdan. Program kurulumda önbelleğe alınıyor (manifest, simgeler dahil). Web'de pencere düğmeleri, hızlı not paneli ve ayrı pencere yok |
 | K | yapıldı, canlı denenmedi | manifest, imza, indirme, yerine koyma, geri dönüş, notlar, kanal, atla/ertele, çevrimdışı mod, Cloudflare Worker, release iş akışı (`19-guncelleme.md`) | üç işletim sisteminde gerçek güncelleme, fark güncellemesi, Apple/Windows imzası (açık soru 8) |
 | L | yapıldı (ilk sürüm) | dosya düzeyinde üç yollu eşitleme, çakışma kopyası, silme, klasör ve sunucu uzağı, uçtan uca şifreleme, kurtarma anahtarı, seçmeli koleksiyon, rozet, çakışma çözümü, Worker (`20-senkron.md`) | cihaz yönetimi/QR, sunucuda geçmiş ve yedek, paylaşım, gerçek zamanlı, metin birleştirme, Worker'ın canlı denemesi |
-| M | yapıldı (derlendi), çalıştırılamadı | `android/` WebView sarmalayıcısı, `scripts/android.sh`, 34,7 MB'lık APK derlendi (`21-android.md`) | APK'nın çalıştırılması: bu makinedeki emülatör QEMU'su SIGSEGV ile düşüyor (3 deneme); gerçek cihazda denenmeli. Dokunmatik uyarlama ve Android'e özgü özellikler yok |
+| M | yapıldı (derlendi), çalıştırılamadı | `android/` WebView sarmalayıcısı, `scripts/android.sh`, 34,7 MB'lık APK derlendi (`21-android.md`) | Dokunmatik uyarlama ve Android'e özgü özellikler yok. **7 Kasım, öğlen: APK emülatörde çalıştı** (`-gpu host`; swiftshader çöküyordu): açılış, dokunarak ve ekran klavyesiyle yazma, kaydetme, yeniden açınca yerinde. Bulunan hata düzeltildi: içerik Android'in durum ve gezinme çubuklarının altına giriyordu (kenardan kenara çizim); boşluklar artık dolgu, ekran klavyesi açıkken sayfa onun üstünde biter. Temiz APK 35,8 MB |
 | N1 | yapıldı | çökme günlüğü, "son oturum çöktü" iletişim kutusu, kare panik kurtarma | — |
 | N2 | yapıldı | günlük/öncesi/elle yedek, budama, geri yükleme, zip dışa aktarma | — |
 | N3 | yapıldı | `kbd` test yardımcısı ve senaryolar | — |
-| N4 | yapıldı | bildirimler (toast), araç ipuçları ve etiketler dahil; `TestEnglishCoversMessages` `T`/`Tf` ile yazılan her metnin İngilizcesini denetler; dil ayarı ve sistem dili, `T()`, her ayar satırının başlığı ve açıklaması, ayar adları, menüler, palet, komutlar, istatistik, yardım, tur (hepsi testle denetlenir: eksik çeviri testi bozar) | `T()` ile sarılmamış tek tük metin Türkçe kalabilir (testle yakalanmaz); sürücü hataları işletim sisteminin kendi metni; menü dil değişince yeniden başlatmada |
+| N4 | yapıldı | **7 Kasım, öğlen:** `T()` ile sarılmadan ekrana giden 89 metin (düğme ve alan etiketleri, yer tutucular, boş ekranlar, bildirimler) çevrildi; `TestEnglishCoversScreen` artık bunları da denetler. Önceden: bildirimler (toast), araç ipuçları ve etiketler dahil; `TestEnglishCoversMessages` `T`/`Tf` ile yazılan her metnin İngilizcesini denetler; dil ayarı ve sistem dili, `T()`, her ayar satırının başlığı ve açıklaması, ayar adları, menüler, palet, komutlar, istatistik, yardım, tur (hepsi testle denetlenir: eksik çeviri testi bozar) | `T()` ile sarılmamış tek tük metin Türkçe kalabilir (testle yakalanmaz); sürücü hataları işletim sisteminin kendi metni; menü dil değişince yeniden başlatmada |
 | N5 | yapıldı | `?` kısayol sayfası, ilk açılış turu, boş durumlarda ipucu | — |
-| N6 | yapıldı | `perf_test.go`: 10 bin sayfa ölçümü ve bütçe testi | bulunan sorunların (ağaç sanallaştırma, bellek) giderilmesi |
+| N6 | yapıldı | `perf_test.go`: 10 bin sayfa ölçümü ve bütçe testi. **7 Kasım, öğlen: sorunlar giderildi:** kenar çubuğu ağacı sanal (görünenin iki ekran yakınındaki satırlar kurulur), geri bağlantı dizini ilk açılışta karelere yayılır, `[[bağlantı]]` çiplerinin başlık araması önbellekli, ağaç kare başına bir kez sayılır. 10 bin sayfada ilk kare 4,1 sn → 0,53 sn, bellek +424 MB → +15 MB; bir tuş vuruşu bütçede (`a key`, ≤60 ms başsız çizimle) ve kitaplıkla büyümüyor (docs/17) | gerçek GPU'da ölçüm |
 | O | yapıldı | (önceki tur) bölünmüş görünüm | — |
 
 Neden bu sıra:
@@ -718,26 +725,26 @@ Editörün yazım denetimi dilinden ayrı bir ayar (açık soru 1'e bağlı).
 
 ---
 
-## Açık sorular (cevap bekleyenler)
+## Açık sorular (cevaplandı, 7 Kasım)
 
-1. **"Uygulama dili ve editör dili … fontlardan"** (F): font demek istediğini varsaydım (uygulama yazı tipi ve
-   editör yazı tipi, sistem fontlarından). **Arayüz dili** (Türkçe/İngilizce seçimi) ayrıca isteniyor mu?
-2. **Durum çubuğunda neler kalacak** (A): kaydetme durumu, satır/sütun (`ShowPos`), harf sayısı (`ShowChars`),
-   "kaydedildi" gizleme (`HideSaved`) listede yoktu; **kalıyor** saydım. Bunların da gitmesi istenirse söyle.
-3. **Geri bağlantılar** (A): durum çubuğundaki düğme ve ayar silinecek; yan paneldeki "Geri bağlantılar" bölümü ve
-   bağlantı dizini (`backlinks.go`) **kalıyor** saydım. Tamamı mı silinsin?
-4. **"Length size"** (D): satır yüksekliği mi, satır uzunluğu (sayfa genişliği) mi? İkisi zaten ayarda var;
-   yenisi isteniyorsa neyi kastettiğini yaz.
-5. **Vim kipi** (G): tam Vim (normal/ekle/görsel kipler, komutlar) mi, yalnız `hjkl` ile gezinme ve kısayollar mı?
-6. **⌘, düğmesi:** mesajda "⌘, ile sidebar açılıp kapanıyor" yazıyor; kodda ⌘\ kenar çubuğu, ⌘, ayarlar. Senin
-   bilgisayarında ⌘, kenar çubuğunu mu açıyor? (Menü çubuğu ve pencere kısayolları çakışıyor olabilir.)
-7. **Senkron altyapısı** (L): Cloudflare mı, kullanıcının kendi klasörü mü, ikisi mi? Uçtan uca şifreleme şart mı?
-8. **Güncelleme** (K): Apple Developer hesabı ve Windows imzası olacak mı (imzasız otomatik kurulum macOS/Windows'ta
-   engellenir)? Sürüm deposu herkese açık olabilir mi?
-9. **Split view** (O): sürükle-bırak yalnız sayfalar için mi, koleksiyon/ayarlar/çöp de bölmeye bırakılabilsin mi?
-   Aşama 2'de (editörsüz ekranlar sağda) ayarlar sağda açılabilir; bu sıra uygun mu, yoksa önce sayfa bölmesi mi?
-10. **Ayarlar ekranı** (C): panel yerine tam ekran yaptım. Dar bir yan sayfa olarak da seçenek kalsın mı (split view
-    gelince sağ bölmede açılabilecek, o yüzden ayrıca yapmadım)?
+Cevaplar kullanıcıdan geldi; her birinin altında ne yapıldığı ya da ne kaldığı yazılı.
+
+1. **Uygulama dili ve editör dili … fontlardan** (F). *Cevap: çözüldü.* Font olarak yapıldı; arayüz dili (Türkçe/İngilizce) ayrıca var (N4).
+2. **Durum çubuğunda neler kalacak** (A). *Cevap: çözüldü.* Kaydetme durumu, satır/sütun, harf sayısı kalıyor; üstüne duruma göre kısayol ipuçları geldi (docs/22 madde 17).
+3. **Geri bağlantılar** (A). *Cevap: "yan paneldeki ayarlar panel yerine küçük bir floating panel olsun"; sorulunca: sağ panel yüzen olsun.* Yapıldı: sağdaki
+   yan panel (içindekiler, etiketler, geri bağlantılar, bilgi) artık yerleşimin bir sütunu değil, sayfanın üstünde yüzen küçük bir kart
+   (`sidepanel.go`): başlık çubuğunun altında, sağda, içeriği kadar uzun, sağdan süzülerek gelir, kapatma düğmesi vardır, sol kenarından genişliği
+   sürüklenir; metinden yer almaz. ⇧⌘\ ve ayar eskisi gibi açıp kapatır.
+4. **"Length size"** (D). *Cevap: çözüldü.*
+5. **Vim kipi** (G). *Cevap: tam Vim kipi değil; her aksiyonun kendi kısayolu olsun.* Böyle: palet komutlarının her birine kendi tuşu verilebiliyor
+   (Ayarlar ▸ Kısayollar, `keys.go`), normal kipte tek harfli komutlar var (`kb.go`), Vim hareketleri isteğe bağlı kalıyor; tam Vim kipi yapılmayacak.
+6. **⌘, düğmesi.** *Cevap: bilmiyorum.* Kodda ⌘\ kenar çubuğu, ⌘, ayarlar kaldı; çakışma görülürse söylenecek.
+7. **Senkron altyapısı** (L). *Cevap: Cloudflare düşünülüyor, ama ikisi de (klasör ve sunucu) olmalı; şifreleme şart.* İkisi de var. **Şifreleme artık şart:**
+   parola yazılmadan eşitleme başlamıyor (`syncRemote` anahtarsız uzak vermiyor; ayarlardaki "kapat" anahtarı kalktı). `TestSyncNeedsEncryption`.
+8. **Güncelleme** (K). *Cevap: şimdilik yalnız kendisi için.* Apple/Windows imzası ve herkese açık depo gerekmiyor; kendi bilgisayarında, kendi sunucundan güncelleme
+   yeter. İmza işleri ertelendi.
+9. **Split view** (O). *Cevap: çözülüyor.* Bölmeler Ryugo'nun Dock'uyla yapıldı (docs/22 madde 11).
+10. **Ayarlar ekranı** (C). *Cevap: çözüldü.*
 
 ---
 

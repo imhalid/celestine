@@ -4,6 +4,9 @@ Uygulamayı kullanırken çıkanlar. Hepsi yapılacak; burada yalnız kayıt alt
 örnek olarak verildi: aynısını değil, aynı rahatlığı istiyoruz. Her maddenin sonunda hangi aşamaya
 ([11](11-yol-haritasi.md)) girdiği yazıyor.
 
+> **Durum (7 Kasım 2026, öğlen):** bu belge 4–5 Kasım'da kaldı; buradaki maddelerin çoğu sonraki turlarda yapıldı. Güncel durumun defteri
+> [16 — Yapılacaklar](16-yapilacaklar.md) (her maddenin yapıldı/kısmen/yapılmadı satırı) ve [22 — Acil sorunlar](22-acil-sorunlar.md)'dır.
+
 ## Hatalar ve küçük düzeltmeler
 
 > **Durum (5 Kasım 2026):** 1–5, 8, 10, 11, 13, 14 ve 22 yapıldı (koleksiyon ayarları; filtre ve sütun genişliği henüz yok); ayrıca geri/ileri (⌘[ ⌘]) ve menü çubuğu

@@ -23,6 +23,7 @@ func (a *app) openStats() {
 	a.statsScreen, a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, false, nil, "", false, false, false
 	a.statCache = libStats{}
 	a.statCacheAt = time.Time{}
+	a.statLoading = false
 	a.visit()
 }
 
@@ -104,31 +105,42 @@ func (a *app) statsView(c *ui.Context) {
 	s := a.stats()
 	now := startOfDay(a.clock())
 	weekFrom := now.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
-	ui.Column(c).Fill().MaxWidth(viewMax).Gap(12).Children(func() {
-		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Padding(2, 0, 0, 0).Children(func() {
-			ui.Column(c).Grow(1).Gap(4).Children(func() {
-				ui.Text(c, T("İstatistikler")).FontSize(32).FontWeight(720).TextColor(cl.Text)
-				ui.Text(c, T("Yazım ve kullanım. Hepsi bu bilgisayarda kalır, hiçbir yere gönderilmez.")).FontSize(ryugo.FsMd).TextColor(cl.Muted)
-			})
-			on := !a.settings.NoStats
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "Topla").FontSize(13).TextColor(cl.Muted)
-				ryugo.Switch(c.Key("stats-on"), &on, ryugo.SwitchOptions{}).Label(T("İstatistik toplama"))
-			})
-			if on != !a.settings.NoStats {
-				a.settings.NoStats = !on
-				a.saveSettings()
-			}
-		})
-		ui.Scroll(c.Key("stats-scroll")).Grow(1).MinHeight(0).Children(func() {
-			ui.Column(c.Key("stats-body")).FillWidth().Gap(12).Padding(0, 4, 40, 0).Children(func() {
-				if a.settings.NoStats {
-					ui.Text(c, T("İstatistik toplama kapalı: yeni bir şey sayılmıyor. Aşağıdakiler önceden toplananlardır.")).FontSize(13).TextColor(cl.Warn)
+	// the scroll bar is the window's: the page is as wide as the area, its column is centered inside it
+	ui.Column(c).Fill().Gap(12).Children(func() {
+		ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
+			ui.Row(c).FillWidth().MaxWidth(viewMax).Gap(12).AlignItems(ui.Center).Padding(2, 0, 0, 0).Children(func() {
+				ui.Column(c).Grow(1).Gap(4).Children(func() {
+					ui.Text(c, T("İstatistikler")).FontSize(32).FontWeight(720).TextColor(cl.Text)
+					ui.Text(c, T("Yazım ve kullanım. Hepsi bu bilgisayarda kalır, hiçbir yere gönderilmez.")).FontSize(ryugo.FsMd).TextColor(cl.Muted)
+				})
+				on := !a.settings.NoStats
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Topla").FontSize(13).TextColor(cl.Muted)
+					ryugo.Switch(c.Key("stats-on"), &on, ryugo.SwitchOptions{}).Label(T("İstatistik toplama"))
+				})
+				if on != !a.settings.NoStats {
+					a.settings.NoStats = !on
+					a.saveSettings()
 				}
-				a.statsWriting(c, cl, s, weekFrom, now)
-				a.statsUse(c, cl, now, weekFrom)
-				a.statsLibrary(c, cl)
-				a.statsData(c, cl)
+			})
+		})
+		a.scrolled(c, "stats-scroll", nil, ui.Scroll(c.Key("stats-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
+			ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
+				ui.Column(c.Key("stats-body")).FillWidth().MaxWidth(viewMax).Gap(12).Padding(0, 4, 40, 0).Children(func() {
+					if a.statCacheAt.IsZero() && !a.statLoading { // the screen first, then the figures: opening is never the wait
+						a.statLoading = true
+						ui.Text(c, T("Hesaplanıyor…")).FontSize(13).TextColor(cl.Muted)
+						c.Invalidate()
+						return
+					}
+					if a.settings.NoStats {
+						ui.Text(c, T("İstatistik toplama kapalı: yeni bir şey sayılmıyor. Aşağıdakiler önceden toplananlardır.")).FontSize(13).TextColor(cl.Warn)
+					}
+					a.statsWriting(c, cl, s, weekFrom, now)
+					a.statsUse(c, cl, now, weekFrom)
+					a.statsLibrary(c, cl)
+					a.statsData(c, cl)
+				})
 			})
 		})
 	})
@@ -168,7 +180,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, T("Günlük hedef (kelime)")).FontSize(13).TextColor(cl.Muted).Grow(1)
 		g := float64(goal)
-		ryugo.NumberInput(c.Key("write-goal"), &g, ryugo.NumberInputOptions{Label: "Günlük hedef", Size: ryugo.Sm, Step: 50}).Width(130)
+		ryugo.NumberInput(c.Key("write-goal"), &g, ryugo.NumberInputOptions{Label: T("Günlük hedef"), Size: ryugo.Sm, Step: 50}).Width(130)
 		if int(g) != a.settings.WriteGoal {
 			a.settings.WriteGoal = max(int(g), 0)
 			a.saveSettings()

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
+	"github.com/imhalid/ryu-go/dockwin"
 )
 
 const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
@@ -66,9 +68,11 @@ type caretFrame struct {
 	bounds ui.Rect
 	wrote  int
 	edited bool
-	jelly  *ui.Path   // the caret's body when the jelly stretches it; nil: the plain box
-	size   float32    // the size of the letters on the caret's line; 0: not known
-	style  caretStyle // the text under the caret
+	jelly  *ui.Path                // the caret's body when the jelly stretches it; nil: the plain box
+	size   float32                 // the size of the letters on the caret's line; 0: not known
+	style  caretStyle              // the text under the caret
+	near   func(n int) []nearGlyph // the letters of its line within n of it; nil where there are none (a field, a demo)
+	words  caretText               // the text round it: the word just written, its paragraph's words, where a word is; nil as near
 }
 
 // titleCaretSpec is the caret in the page's title, as it was found: where it
@@ -88,6 +92,22 @@ type app struct {
 
 	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
 	ps        paneSet // the panes of the window (panes.go)
+
+	bars     map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
+	titles   titleIdx                // the pages by their titles, for the chips (chips.go)
+	nearFn   func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	wordsFn  caretText               // and the words round it
+	caretTry caretTry                // the caret's playground in the settings (caretplay.go)
+	census   census                  // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq uint64                  // the frames built, counted
+
+	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
+	drawerOpen bool  // on a phone, the sidebar is open over the page
+	drawerFrom place // what was shown when the drawer was looked at last: something else opened closes it
+
+	treeVirtual       bool          // the sidebar's tree builds only the rows near what it shows (sidebar.go)
+	treeTop, treeView float32       // where the tree is scrolled, and how tall its view is, last frame
+	dockHost          *dockwin.Host // the windows of the panes torn off (panewin.go)
 
 	docs map[*Page]*richtext.Document
 
@@ -135,6 +155,11 @@ type app struct {
 	tourOff     bool               // the tour is put off for this session
 	statCache   libStats           // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
+	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
+	px          placeIdx            // the palette's places, folded once (palette.go)
+	edge        edgeDrag            // the sidebar or the side panel being dragged wider or narrower
+	coverAway   bool                // the cover of a huge page scrolled in its window is not drawn (pageView)
+	statLoading bool                // the first frame of the stats screen is drawn before the figures are read
 	setClock    func(time.Duration) // a test moves the clock
 	statReset   bool                // the reset asked once: the next click does it
 	usage       *usageData          // what is used, by the day (stats.go)
@@ -265,7 +290,7 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex()}
 	a.paneState = newPaneState()
 	a.histAt, a.grip.para = -1, -1
 	a.loadSettings()
@@ -277,6 +302,7 @@ func newApp(lib *Library) *app {
 			break
 		}
 	}
+	a.restorePaneLayout()
 	return a
 }
 
@@ -387,6 +413,9 @@ func main() {
 	}
 	time.AfterFunc(20*time.Second, func() { updateProved(updateMark()) }) // twenty seconds in, it has proved itself
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                         // what is written and not saved goes to its file before the app goes
+		if a.quick != nil {
+			a.quick.leaving = true
+		}
 		a.mu.Lock()
 		a.flush()
 		a.endSession()
@@ -404,16 +433,23 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (barH - 14) / 2},
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)})
 		if ownWindowControls {
 			a.win = w
 		}
 		a.invalidate = w.Invalidate
 		a.mover = w
+		if runtime.GOOS != "js" { // a browser has one window: the panes stay in it
+			a.newDockHost(w)
+			a.dockHost.Sync() // the windows of the panes, as they were left
+		}
+		w.OnClosed(mygo.App.Quit)      // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
-		a.quick = newQuick(a)
+		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
+			a.quick = newQuick(a)
+		}
 		go func() { // the day's backup, a moment after the start, when the window is up
 			defer a.guard()
 			time.Sleep(4 * time.Second)
@@ -430,6 +466,43 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// frameTheme gives the window of the frame the app's look: Ryugo's tokens, in the app's color theme, its
+// typeface, and the text's theme. Every window of the app has it, the torn-off panes' too (dockwin.go).
+func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
+	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
+	radiusScale = float32(a.cornerPercent()) / 100
+	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
+	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
+		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
+		a.skin(tok, c.Theme())
+	}
+	t := c.Theme()
+	// the typeface of the window, from the first one that is installed: put in before anything reads the theme,
+	// and given to the root again (SetTheme copies the font into it), or the first frame is drawn in Ryugo's own
+	// font and the next in this one, and the whole window moves
+	if f := a.appFont(); t.Font != f {
+		t.Font = f
+		c.SetTheme(t)
+	}
+	// the scroll areas have the app's own bar (funbar.go); what MyGo still paints (a table that scrolls
+	// sideways, the board, the Dock) is slim, in the muted color of the theme
+	t.Scrollbar, t.ScrollbarWidth = tok.Colors.Muted.Alpha(0.45), 7
+	th := richtext.DefaultTheme(t)
+	th.Caret = invisible // ours is drawn over it
+	th.ParagraphSpacing = a.paraGap()
+	th.FirstLineIndent = a.firstIndent()
+	// A heading's room above stays under half its line: the editor moves ↑ by
+	// the height of the line the caret is on, and from a heading that must
+	// land in the paragraph above, not in the heading's own room.
+	for i := range th.Headings {
+		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
+	}
+	a.theme = th
+	th.CodeFont = a.monoFont()
+	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
+	return tok, th
 }
 
 // open shows page p, saving the page that was open first.
@@ -532,34 +605,18 @@ func (a *app) viewFrame(c *ui.Context) {
 		panic(a.testPanic)
 	}
 	a.frame = c.Invalidate
+	a.frameSeq++
+	a.updatePhone(c)
 	a.keepSettings(c)
 	a.statTick()
 	a.syncTick(c)
 	a.kbBegin()
+	if !a.sx.warm(a, sxBudget) { // the pages are taken into the search index a little a frame, as the window opens
+		c.Invalidate()
+	}
 	sleepAfter = a.caretSleep()
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
-	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
-	radiusScale = float32(a.cornerPercent()) / 100
-	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
-	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
-		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
-		a.skin(tok, c.Theme())
-	}
-	t := c.Theme()
-	th := richtext.DefaultTheme(t)
-	th.Caret = invisible // ours is drawn over it
-	th.ParagraphSpacing = a.paraGap()
-	th.FirstLineIndent = a.firstIndent()
-	// A heading's room above stays under half its line: the editor moves ↑ by
-	// the height of the line the caret is on, and from a heading that must
-	// land in the paragraph above, not in the heading's own room.
-	for i := range th.Headings {
-		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
-	}
-	a.theme = th
-	t.Font = a.appFont() // the typeface of the window, from the first one that is installed
-	th.CodeFont = a.monoFont()
-	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
+	tok, th := a.frameTheme(c)
 	if a.doc != nil {
 		a.track(c)
 	}
@@ -580,61 +637,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.dropFile(f, false)
 	}
 	if !a.menuBar { // in the app, the menu bar has these (menu.go)
-		if c.Shortcut(ui.Cmd, ui.KeyBackslash) {
-			a.toggleSidebar()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash) {
-			a.togglePanel()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyM) {
-			a.setCaret((a.caretKind + 1) % caretCount())
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyBracketLeft) {
-			a.step(-1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyBracketRight) {
-			a.step(1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyComma) {
-			a.toggleSettings()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyS) {
-			a.saveNow()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyEqual) {
-			a.stepFont(1)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyMinus) {
-			a.stepFont(-1)
-		}
-		if c.Shortcut(ui.Cmd, ui.Key0) {
-			a.resetFont()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyK) {
-			a.openPalette()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyP) || c.Shortcut(ui.Cmd|ui.Shift, ui.KeyP) {
-			a.openCommands()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyJ) {
-			a.openToday()
-		}
-		if c.Shortcut(ui.Cmd, ui.KeyF) {
-			a.openFind()
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF) {
-			a.openSearch(a.searchQ)
-		}
-		if c.Shortcut(ui.Cmd, ui.KeySlash) && a.doc != nil && a.page != nil {
-			_, caret := a.doc.Selection()
-			a.toggleFold(caret)
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyUp) && a.doc != nil {
-			moveBlock(a.doc, -1)
-		}
-		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyDown) && a.doc != nil {
-			moveBlock(a.doc, 1)
-		}
+		a.appKeys(c)
 	}
 	// Esc leaves the settings, back to where they were opened from
 	if a.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
@@ -653,26 +656,28 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	root.Children(func() {
 		a.kbAnchor(c)
-		shown := a.sidebar(c)
-		a.sidebarShown = shown
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+		if !phone { // on a phone the sidebar is a drawer over everything, built last (mobile.go)
+			a.sidebarShown = a.sidebar(c)
+		}
+		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
+			a.header(c)
 			a.panesView(c, th)
 			if !a.settings.HideStatus {
 				a.status(c)
 			}
 			a.keepTree()
 		})
-		a.sidePanel(c)
-		a.sidebarButton(c)
-		a.windowControls(c)
+		if phone {
+			a.drawer(c)
+		} else {
+			a.sidePanel(c)
+			a.sidebarButton(c)
+		}
 	})
 	a.collDragView(c)
-	a.caretView(c)
-	a.selectionBar(c)
-	a.gutterView(c)
-	a.gripView(c)
-	a.slashView(c)
-	a.dateEditView(c)
+	if !a.activeElsewhere() { // the pane in use is in a window of its own, which draws these (panewin.go)
+		a.textOverlays(c)
+	}
 	a.contextView(c)
 	a.paletteView(c)
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
@@ -704,7 +709,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
 	}
-	a.cellEditView(c)
 	a.lightboxView(c)
 	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
@@ -753,22 +757,18 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 	// the page is as wide as the window and scrolls in it, the bar at its edge;
 	// the text is a column in the middle, with margins either side
 	ui.Column(c).Fill().Children(func() {
-		if a.find.open {
-			if a.barInset > 0 { // the bar lies over the top: the find bar is below it
-				ui.Box(c.Key("find-top")).FillWidth().Height(a.barInset)
-			}
-			ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
-				ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Children(func() { a.findBar(c) })
-			})
-		}
-		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).TrackScroll(a.pageScroll).Grow(1)
-		sc.Children(func() {
+		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).Grow(1)
+		a.scrolled(c, "page-scroll:"+p.Dir, a.pageScroll, sc, func() {
 			if a.topSpace > 0 {
 				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace)
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
-			if _, y, over := wrap.PointerPosition(); over && a.coverKind(p) != coverKindNone {
+			// a huge page scrolls in its window, not as a whole: once the text is scrolled the title is gone
+			// (pageBody), and the cover goes with it, or it would stay at the top over the lines
+			// (it is only not drawn: the tree stays as it was, or the window state would flip each frame)
+			a.coverAway = a.winScrolled && hugePage(a.doc.Text())
+			if _, y, over := wrap.PointerPosition(); over && !a.coverAway && a.coverKind(p) != coverKindNone {
 				a.coverHover = y < a.coverBandOf(p)
 			} else {
 				a.coverHover = false
@@ -776,12 +776,13 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			a.paintCover(c, p, wrap)
 			wrap.Children(func() {
 				a.coverButtons(c, p)
-				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
+				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
 				})
 			})
 		})
 		a.scrollR = sc.LayoutBounds()
+		a.findBar(c) // over the page, at its top right: nothing under it moves
 	})
 }
 
@@ -801,7 +802,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	c.Key("body:" + p.Dir)
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
-		Placeholder: "Yaz…  # başlık · - liste · [] görev · > alıntı",
+		Placeholder: T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)
@@ -815,6 +816,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	a.focused = ed.Focused()
 	a.tabKey(c)
+	a.tableKeys(c)
 	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
 	a.hoverCh, a.hoverTag = nil, ""
@@ -1017,8 +1019,12 @@ func (a *app) track(c *ui.Context) {
 		a.caretAt, a.style = caret, style
 		return
 	}
-	a.revealWant = true
 	n := text.Len()
+	// an edit that moves nothing - a box ticked, a mark changed - does not take the page to the caret:
+	// the caret may be far from what was clicked
+	if caret != a.caretAt || n != a.length {
+		a.revealWant = true
+	}
 	// the / menu (slash.go)
 	if a.trackSlash(text, caret, true, n-a.length == 1 && caret-a.caretAt == 1) {
 		_, caret = a.doc.Selection()
@@ -1116,6 +1122,15 @@ func (a *app) revealCaret(cr ui.Rect) {
 
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if !a.focused {
+		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same
+		if a.revealWant && a.find.open {
+			if cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme); ok {
+				cr := cb.r
+				cr.X += r.X
+				cr.Y += r.Y
+				a.revealCaret(cr)
+			}
+		}
 		return
 	}
 	cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme)
@@ -1143,7 +1158,11 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	}
 	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed, style: a.styleAt(caret)}
 	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
+	doc, boxes, font, th := a.doc, a.boxes, a.font, a.theme
+	a.nearFn = func(n int) []nearGlyph { return nearLetters(doc, boxes, r.X, r.Y, r.W, font, th, n) }
+	a.wordsFn = &caretWords{doc: doc, boxes: boxes, x: r.X, y: r.Y, w: r.W, font: font, th: th}
 	a.paintCaret(p, cr, cb.cw, r, k, false)
+	a.nearFn, a.wordsFn = nil, nil
 }
 
 // paintCaret draws the caret cr, in the editor's box bounds (or an input's):
@@ -1155,7 +1174,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
 		return
 	}
-	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style}
+	f := caretFrame{r: cr, cw: cw, dark: dark, bg: a.pageBg, bounds: bounds, wrote: k.wrote, edited: k.edited, style: k.style, near: a.nearFn, words: a.wordsFn}
 	// the jelly, when it is on, is the shape of the caret's own body (the slime is jelly already)
 	if a.settings.Jelly && a.caretKind != caretSlime {
 		f.jelly = a.jellied.body(p, f)
@@ -1210,7 +1229,7 @@ func (a *app) status(c *ui.Context) {
 	state := a.savedText()
 	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
-		ui.Box(c.Key("status-gap")).Grow(1)
+		a.statusHints(c)
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).

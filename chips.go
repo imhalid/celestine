@@ -274,19 +274,47 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 // collection first, or nil.
 func (a *app) pageTitled(title string) *Page {
 	var found *Page
-	for _, c := range a.lib.Collections {
-		for _, p := range c.All() {
-			if strings.EqualFold(p.Title, title) {
-				if a.page != nil && p.Coll == a.page.Coll {
-					return p
-				}
-				if found == nil {
-					found = p
-				}
-			}
+	for _, p := range a.titleIndex()[strings.ToLower(title)] {
+		if !strings.EqualFold(p.Title, title) {
+			continue
+		}
+		if a.page != nil && p.Coll == a.page.Coll {
+			return p
+		}
+		if found == nil {
+			found = p
 		}
 	}
 	return found
+}
+
+// titleIdx is the pages by their titles, lower case, for the chips of [[links]] that each frame draws: a
+// lookup is not a walk through the library. It is made again when a page was made, renamed, moved, thrown
+// away or brought back, or the library read again (pagesGen).
+type titleIdx struct {
+	by  map[string][]*Page
+	gen uint64
+	lib *Library
+}
+
+// titleIndex is the pages by their titles, as they are now.
+func (a *app) titleIndex() map[string][]*Page {
+	ti := &a.titles
+	if gen := pagesGen.Load(); ti.by == nil || ti.gen != gen || ti.lib != a.lib {
+		ti.gen, ti.lib, ti.by = gen, a.lib, map[string][]*Page{}
+		var add func(ps []*Page)
+		add = func(ps []*Page) {
+			for _, p := range ps {
+				k := strings.ToLower(p.Title)
+				ti.by[k] = append(ti.by[k], p)
+				add(p.Children)
+			}
+		}
+		for _, c := range a.lib.Collections {
+			add(c.Pages)
+		}
+	}
+	return ti.by
 }
 
 // chipAt is the chip drawn at x, y in the window, or nil.
@@ -389,7 +417,7 @@ func (a *app) dateEditView(c *ui.Context) {
 			Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
 		t.Shadows.ShadowPop.Apply(panel)
 		panel.Children(func() {
-			if ryugo.Button(c.Key("date-day"), "Günün sayfasını aç", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
+			if ryugo.Button(c.Key("date-day"), T("Günün sayfasını aç"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
 				d.open = false
 				a.openDay(d.cal)
 				return

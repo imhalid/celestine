@@ -100,20 +100,20 @@ func (a *app) historyView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	now := a.clock()
-	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: "Sürüm geçmişi: " + v.page.Title, Width: 940, Footer: func() {
+	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: T("Sürüm geçmişi: ") + v.page.Title, Width: 940, Footer: func() {
 		hint := "Sayfanın bir süre önceki halleri; her 5 dakikada bir yeni kopya tutulur."
 		if len(v.vers) == 0 {
 			hint = "Henüz kopya yok: sayfa değiştikçe burada birikir."
 		}
 		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			in := ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: "Sürümün adı", Placeholder: "Şu hâli adla sakla…", Size: ryugo.Sm}).Width(190)
+			in := ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}).Width(190)
 			keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
 			if keep {
 				a.saveNamedVersion()
 			}
 		})
-		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), "Bu sürüme dön", ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), T("Bu sürüme dön"), ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.putBackVersion()
 		}
 	}}, func() {
@@ -125,7 +125,7 @@ func (a *app) historyView(c *ui.Context) {
 			return
 		}
 		ui.Row(c).FillWidth().Height(420).Gap(14).AlignItems(ui.Stretch).Children(func() {
-			ui.Scroll(c.Key("hist-list")).TrackScroll(&v.list).Width(230).Shrink(0).Children(func() {
+			a.scrolled(c, "hist-list", &v.list, ui.Scroll(c.Key("hist-list")).Width(230).Shrink(0), func() {
 				ui.Column(c).FillWidth().Gap(2).Padding(0, 4, 0, 0).Children(func() {
 					for i, ver := range v.vers {
 						i, ver := i, ver
@@ -153,7 +153,7 @@ func (a *app) historyView(c *ui.Context) {
 			})
 			ui.Box(c).Width(1).Background(cl.Hairline)
 			ops := a.histOps()
-			ui.Scroll(c.Key("hist-text")).TrackScroll(&v.text).Grow(1).MinWidth(0).Children(func() {
+			a.scrolled(c, "hist-text", &v.text, ui.Scroll(c.Key("hist-text")).Grow(1).MinWidth(0), func() {
 				ui.Column(c).FillWidth().Gap(1).Padding(0, 8, 8, 4).Children(func() { a.diffRows(c, cl, ops) })
 			})
 		})

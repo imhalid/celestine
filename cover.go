@@ -132,12 +132,19 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 	case coverKindAuto:
 		ac := a.autoCoverOf(p, ryugo.From(c).Dark)
 		fade := a.bg(c) // its foot goes into the page
-		wrap.Draw(func(pt *ui.Painter, r ui.Rect) { ac.paint(pt, ui.Rect{X: r.X, Y: r.Y, W: r.W, H: autoFullH}, fade) })
+		wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
+			if !a.coverAway {
+				ac.paint(pt, ui.Rect{X: r.X, Y: r.Y, W: r.W, H: autoFullH}, fade)
+			}
+		})
 		return
 	}
 	cl := ryugo.From(c).Colors
 	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
 	wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
+		if a.coverAway {
+			return
+		}
 		band := ui.Rect{X: r.X, Y: r.Y, W: r.W, H: coverBandH + barH}
 		if src == nil {
 			pt.Fill(band, cl.Well, 0)
@@ -157,13 +164,13 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(barH + 6).Gap(6)
-	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover], fadeQuick))
+	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(10).Gap(6)
+	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover && !a.coverAway], fadeQuick))
 	row.Children(func() {
-		if ryugo.Button(c.Key("cover-change"), "Kapağı değiştir", ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("cover-change"), T("Kapağı değiştir"), ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
 			a.pickCover(p)
 		}
-		if ryugo.Button(c.Key("cover-remove"), "Kapağı kaldır", ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("cover-remove"), T("Kapağı kaldır"), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			a.removeCover(p)
 		}
 	})

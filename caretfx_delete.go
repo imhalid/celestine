@@ -392,7 +392,7 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 		g.at = math.Max(g.at, tn+poFall)
 	}
 	if len(g.letters) == 0 && tn-g.at >= poHold {
-		drawBody(p, f, box, col, 1, 0.9)
+		glassBody(p, f, box, col, 1, 0.9)
 		return
 	}
 	uh := math.Max(2, math.Min(4, 0.1*float64(box.H)))

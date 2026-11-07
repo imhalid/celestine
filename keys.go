@@ -69,21 +69,22 @@ func parseAccel(s string) (ui.Modifiers, ui.Key, string, bool) {
 	return mods, key, strings.Join(norm, "+") + "+" + k, true
 }
 
-// reservedAccels are keys that the app or the system has; a command is refused them.
+// reservedAccels are keys the editor or the system has; the keys of the app's own commands are in their
+// list (appAccels). A command of one's own is refused both.
 var reservedAccels = map[string]string{
-	"cmd+p": "komut paleti", "cmd+k": "sayfa ara", "cmd+shift+p": "komut paleti", "cmd+,": "ayarlar", "cmd+s": "kaydet", "cmd+f": "sayfada bul",
-	"cmd+shift+f": "kitaplıkta ara", "cmd+j": "bugünün sayfası", "cmd+\\": "kenar çubuğu", "cmd+shift+\\": "yan panel", "cmd+[": "geri", "cmd+]": "ileri",
-	"cmd+=": "yazıyı büyüt", "cmd+-": "yazıyı küçült", "cmd+0": "yazı boyutu", "cmd+1": "kenar çubuğuna odaklan", "cmd+2": "yan panel", "cmd+3": "metne odaklan",
-	"cmd+shift+m": "caret'i değiştir", "cmd+n": "yeni sayfa", "cmd+shift+n": "yeni koleksiyon", "cmd+b": "kalın", "cmd+i": "italik", "cmd+u": "altı çizili",
-	"cmd+z": "geri al", "cmd+shift+z": "yinele", "cmd+x": "kes", "cmd+c": "kopyala", "cmd+v": "yapıştır", "cmd+a": "tümünü seç", "cmd+/": "katla",
-	"cmd+d": "bloğu çoğalt", "cmd+shift+up": "bloğu yukarı taşı", "cmd+shift+down": "bloğu aşağı taşı", "alt+cmd+enter": "yan bölmede aç",
-	"alt+cmd+right": "bölmeler arası geç", "alt+cmd+w": "bölmeyi kapat", "ctrl+n": "yeni sayfa", "cmd+q": "sistem: çık", "cmd+w": "sistem: pencereyi kapat",
-	"cmd+h": "sistem: gizle", "cmd+space": "sistem: arama", "cmd+tab": "sistem: uygulama değiştir", "cmd+m": "sistem: küçült", "cmd+t": "tarayıcı: yeni sekme",
+	"cmd+1": "kenar çubuğuna odaklan", "cmd+2": "yan panel", "cmd+3": "metne odaklan", "ctrl+n": "yeni sayfa",
+	"cmd+b": "kalın", "cmd+i": "italik", "cmd+u": "altı çizili", "cmd+z": "geri al", "cmd+shift+z": "yinele",
+	"cmd+x": "kes", "cmd+c": "kopyala", "cmd+v": "yapıştır", "cmd+a": "tümünü seç",
+	"cmd+q": "sistem: çık", "cmd+w": "sistem: pencereyi kapat", "cmd+h": "sistem: gizle", "cmd+space": "sistem: arama",
+	"cmd+tab": "sistem: uygulama değiştir", "cmd+m": "sistem: küçült", "cmd+t": "tarayıcı: yeni sekme",
 	"cmd+l": "tarayıcı: adres çubuğu", "cmd+r": "tarayıcı: yenile",
 }
 
 // accelConflict says what a key is already for, or "" when it is free (also from the other commands).
 func (a *app) accelConflict(norm, forCmd string) string {
+	if r, ok := appAccels()[norm]; ok { // the app's commands
+		return r
+	}
 	if r, ok := reservedAccels[norm]; ok {
 		return r
 	}
@@ -241,7 +242,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 		settingRow(c, "Komuta kısayol ver", "Komutun adını ve tuşu yaz: örn. “Şimdi yedekle” ve cmd+shift+y. Uygulamanın ve sistemin tuşları verilmez.", func() {
 			ui.Column(c).Gap(6).Children(func() {
 				ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: T("Komut adı")})
-				ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: "Tuş", Size: ryugo.Sm, Placeholder: "cmd+shift+y"})
+				ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: T("Tuş"), Size: ryugo.Sm, Placeholder: "cmd+shift+y"})
 				if ryugo.Button(c.Key("key-set"), T("Ata"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.bindKey(a.keyCmd, a.keyAccel); err != nil {
 						a.notice = err.Error()
@@ -282,7 +283,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 		settingRow(c, "Makro yaz", "Bir ad ve + ile ayrılmış komutlar: örn. “Günlük görev” için “Bugünün sayfası + Görevler”. ⌘P'de “Makro: ad” olarak çıkar.", func() {
 			ui.Column(c).Gap(6).Children(func() {
 				ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: T("Makro adı")})
-				ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: "Bugünün sayfası + Görevler"})
+				ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: T("Bugünün sayfası + Görevler")})
 				if ryugo.Button(c.Key("macro-save"), T("Kaydet"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.saveMacro(a.macroName, a.macroList); err != nil {
 						a.notice = err.Error()

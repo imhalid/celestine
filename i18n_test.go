@@ -188,3 +188,45 @@ func TestEnglishCoversMessages(t *testing.T) {
 		t.Fatalf("no English for: %q", missing)
 	}
 }
+
+// What the window says outside T - a button's or a field's label, a placeholder, a line of text, a
+// toast, an empty screen - has its English too: written through T, or translated where it is shown
+// (a toast and an empty screen are), it must be in the dictionary.
+func TestEnglishCoversScreen(t *testing.T) {
+	srcs, _ := filepath.Glob("*.go")
+	lit := `("(?:[^"\\]|\\.)*")`
+	pats := []*regexp.Regexp{
+		regexp.MustCompile(`ui\.Text\(c[^,]*, ` + lit), regexp.MustCompile(`\.Label\(` + lit), regexp.MustCompile(`a\.notice = ` + lit),
+		regexp.MustCompile(`ryugo\.Button\(c[^,]*, ` + lit), regexp.MustCompile(`Label: ` + lit), regexp.MustCompile(`Placeholder: ` + lit),
+		regexp.MustCompile(`emptyState\(c, [a-zA-Z]+, ` + lit + `, ` + lit), regexp.MustCompile(`Tooltip\(c, [a-zA-Z.]+, ` + lit),
+	}
+	turkish := regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`)
+	var missing []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") || strings.HasPrefix(f, "mcp") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "//") {
+				continue
+			}
+			for _, re := range pats {
+				for _, m := range re.FindAllStringSubmatch(line, -1) {
+					for _, g := range m[1:] {
+						s, err := strconv.Unquote(g)
+						if err != nil || !turkish.MatchString(s) {
+							continue
+						}
+						if _, ok := enText[s]; !ok && enText[strings.TrimSuffix(s, ": ")] == "" {
+							missing = append(missing, f+": "+s)
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("no English for %d: %q", len(missing), missing)
+	}
+}

@@ -350,3 +350,27 @@ func TestTasksFilterSearchFold(t *testing.T) {
 		t.Fatalf("Dune's tasks did not unfold: %v", tt.Texts())
 	}
 }
+
+// A box ticked in the text leaves the page where it is: the caret may be far away (here at the end),
+// and an edit that moves nothing does not take the page to it.
+func TestTickingABoxKeepsThePage(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < 40; i++ {
+		fmt.Fprintf(&b, "Satır %d\n\n", i)
+	}
+	b.WriteString("- [ ] bir\n- [ ] iki\n- [ ] üç\n")
+	a, tt := newTestApp(t, b.String())
+	tt.SetSize(1200, 700)
+	tt.Advance(400 * time.Millisecond)
+	a.pageScroll.Y = 0
+	tt.Advance(200 * time.Millisecond)
+	at := strings.Index(a.doc.Text().String(), "iki")
+	a.doc.ToggleChecked(at)
+	tt.Advance(600 * time.Millisecond)
+	if a.pageScroll.Y != 0 {
+		t.Fatalf("the page went to %v", a.pageScroll.Y)
+	}
+	if !strings.Contains(a.doc.Text().String(), "iki") {
+		t.Fatal("the task is gone")
+	}
+}

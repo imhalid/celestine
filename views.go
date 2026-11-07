@@ -36,7 +36,7 @@ func (a *app) collectionView(c *ui.Context) {
 	// the whole page scrolls - its icon and name, its toolbar and its view - over
 	// the window's width, its bar at the edge, as a page of text does
 	ui.Column(c).Fill().Children(func() { // as tall as the room: the scroll in it has a height to scroll in
-		ui.Scroll(c.Key("coll-scroll:" + coll.Dir)).Grow(1).Children(func() {
+		a.scrolled(c, "coll-scroll:"+coll.Dir, nil, ui.Scroll(c.Key("coll-scroll:"+coll.Dir)).Grow(1), func() {
 			if a.topSpace > 0 { // below the title bar, which lies over the top
 				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace)
 			}
@@ -71,7 +71,7 @@ func (a *app) collectionView(c *ui.Context) {
 							ui.Text(c, coll.Description).FontSize(14).TextColor(t.TextMuted).Margin(-4, 0, 4, 0)
 						}
 						// The toolbar: the views, then the search and a new page.
-						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Wrap().Children(func() { // wraps on a small window instead of squeezing the search
 							// The views: Ryugo's segmented control, its pill sliding to the one chosen.
 							sel := 0
 							labels := make([]string, len(coll.Views))
@@ -89,7 +89,7 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							ui.Spacer(c)
-							ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(220)
+							ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), "Rastgele gün", ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()
@@ -115,7 +115,7 @@ func (a *app) collectionView(c *ui.Context) {
 								a.newPage(coll, nil)
 							}
 							if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from the other templates
-								if ryugo.Button(c.Key("tpl-menu"), "Şablondan yeni sayfa", ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+								if ryugo.Button(c.Key("tpl-menu"), T("Şablondan yeni sayfa"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 									ww, _ := c.Size()
 									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
 								}
@@ -598,7 +598,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	cl := ryugo.From(c).Colors
 	focus := a.boardFocus
 	ui.Column(c.Key("board-wrap")).FillWidth().Children(func() { // the fades at its edges lie over the scroll
-		ui.ScrollHorizontal(c).TrackScroll(a.boardScroll).Children(func() {
+		a.scrolledSideways(c, "board:"+coll.Dir+"|"+v.ID, a.boardScroll, ui.ScrollHorizontal(c), func() {
 			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
 				for _, s := range append([]string{""}, pr.Options...) {
 					var col []*Page

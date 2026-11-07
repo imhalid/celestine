@@ -23,7 +23,7 @@ func (a *app) pageButtons(c *ui.Context) {
 		return
 	}
 	ui.Row(c.Key("page-buttons")).Gap(2).Children(func() {
-		if a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") {
+		if !phone && a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") { // a phone has no side panel
 			a.togglePanel()
 		}
 		if a.barButton(c, iconMore, "Sayfa menüsü") {

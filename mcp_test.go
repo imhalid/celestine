@@ -55,7 +55,7 @@ func TestMCPTools(t *testing.T) {
 
 	var tools *mcp.ListToolsResult
 	tools, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 16 {
+	if err != nil || len(tools.Tools) != 18 {
 		t.Fatalf("tools: %v %d", err, len(tools.Tools))
 	}
 	var made struct{ ID string }
