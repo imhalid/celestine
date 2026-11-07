@@ -10,8 +10,6 @@ import (
 //
 //	Duygu yüzü  a face that takes the word just written: a smile for "harika", a frown for "üzgün", wide eyes
 //	            at "!", a raised brow at "?", a blush when it erases; it blinks while it waits
-//	Akış        writing on without erasing, it starts to glow and to turn through colors; an erase, or a long
-//	            rest, breaks the flow and it dims
 //	Noktalama   each mark its own: "." a bump, "," a little tail, "!" a burst, "?" a question over it, ":" two dots
 
 // ---- Duygu yüzü ----
@@ -159,66 +157,6 @@ func (g *moodFace) draw(p *ui.Painter, f caretFrame, k kick) {
 		}
 	}
 	p.AnimationFrame() // it blinks
-}
-
-// ---- Akış ----
-
-type flow struct {
-	fxBase
-	start float64 // when the flow began; < 0: none
-	level float64 // how deep it is: 0..1, on its way
-	broke float64 // when it was broken
-	motes motes
-	hue   float64
-}
-
-func newFlow() *flow { return &flow{start: -1, broke: -1e9} }
-
-func (g *flow) reset() { g.start, g.level, g.motes, g.have = -1, 0, nil, false }
-
-func (g *flow) shift(dy float32) { g.motes.shift(dy); g.prev.Y += dy }
-
-func (g *flow) draw(p *ui.Painter, f caretFrame, k kick) {
-	tn, dt, _, _ := g.step(p, f, k)
-	box := boxOf(f)
-	h := float64(box.H)
-	if k.erased > 0 || g.idle(tn) > 3.5 { // broken
-		if g.start >= 0 && g.level > 0.15 {
-			g.broke = tn
-		}
-		g.start = -1
-	}
-	if k.wrote > 0 && g.start < 0 {
-		g.start = tn
-	}
-	want := 0.0
-	if g.start >= 0 {
-		want = clamp01((tn - g.start) / 60000) // a minute without erasing: the whole of it
-	}
-	rate := 0.6
-	if want < g.level {
-		rate = 3
-	}
-	g.level += (want - g.level) * math.Min(1, dt*rate)
-	g.hue += dt * (20 + 160*g.level)
-	base := ui.Hex("#94a3b8")
-	col := mix(base, hsl(g.hue, 0.85, 0.6), smoothstep(g.level*2))
-	glow := 0.6 + 2.4*g.level
-	if bk := (tn - g.broke) / 400; bk < 1 { // the break: a dim flash
-		col = mix(col, ui.Hex("#475569"), 1-bk)
-	}
-	if g.level > 0.45 && rnd() < g.level*0.6 { // deep in it, motes rise
-		g.motes = append(g.motes, mote{x: float64(box.X) + rnd()*float64(box.W), y: float64(box.Y) + h*0.3, vx: (rnd() - 0.5) * 10, vy: -25 - rnd()*25, t0: tn, life: 900, size: 1 + rnd()*1.6,
-			col: hsl(g.hue+rnd()*60, 0.9, 0.7)})
-	}
-	g.motes.stepDraw(p, tn, dt, func(m *mote, age float64) {
-		s := f32(m.size)
-		p.Fill(ui.Rect{X: f32(m.x) - s, Y: f32(m.y) - s, W: 2 * s, H: 2 * s}, withAlpha(m.col, 1-age), s)
-	})
-	glassBody(p, f, box, col, 1, glow)
-	if g.level > 0.005 || len(g.motes) > 0 || tn-g.broke < 400 || g.start >= 0 {
-		p.AnimationFrame()
-	}
 }
 
 // ---- Noktalama ----
