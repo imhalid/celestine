@@ -20,5 +20,3 @@ node_modules/
 .dev.vars
 .wrangler/
 
-# generated demo pages
-cloudflare/demos/dist/
