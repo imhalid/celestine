@@ -224,15 +224,26 @@ if(reduce){word.textContent=full;}else{let i=0;word.textContent="";const tick=()
 // ---- the picture
 const gl=cvs.getContext("webgl2",{alpha:false,antialias:false,powerPreference:"high-performance"});
 if(!gl){root.classList.add("nogl");cvs.remove();return;}
-const hasUI=!location.search.includes("nohtml")&&("layoutSubtree" in cvs)&&("onpaint" in cvs)&&typeof gl.texElementSubImage2D==="function";
-if(hasUI){cvs.setAttribute("layoutsubtree","");cvs.append(ui);ui.classList.add("in-canvas");}else root.classList.add("nofx");
+// HTML-in-canvas has had two spellings: <canvas layoutsubtree> and the draft's <canvas content="drawable"> with a drawable attribute
+// on the element. Both are set; the browser takes the one it knows. Then it is checked that a picture of the page really arrives,
+// and if it does not, the page is put back over the canvas (see below).
+const caps={chrome:(navigator.userAgent.match(/Chrome\\/([\\d.]+)/)||[])[1]||"",onpaint:"onpaint" in cvs,layoutSubtree:"layoutSubtree" in cvs,content:"content" in cvs,tex:typeof gl.texElementSubImage2D==="function",geom:typeof cvs.updateElementGeometry==="function",uploads:0,status:"",error:""};
+let hasUI=!location.search.includes("nohtml")&&caps.onpaint&&caps.tex;
+const uiHome=ui.parentNode,uiNext=ui.nextSibling;
+function revertUI(why){
+  if(!hasUI)return;hasUI=false;caps.status="fallback: "+why;
+  cvs.removeAttribute("layoutsubtree");cvs.removeAttribute("content");ui.removeAttribute("drawable");cvs.onpaint=null;
+  ui.classList.remove("in-canvas");uiHome.insertBefore(ui,uiNext&&uiNext.parentNode===uiHome?uiNext:null);root.classList.add("nofx");
+}
+if(hasUI){cvs.setAttribute("layoutsubtree","");cvs.setAttribute("content","drawable");ui.setAttribute("drawable","");cvs.append(ui);ui.classList.add("in-canvas");caps.status="trying";}
+else{root.classList.add("nofx");caps.status="fallback: not supported";}
 
 const sh=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;};
 const prog=(frag)=>{const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,VERT));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,frag));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
   const loc={};p.u=(n)=>loc[n]??(loc[n]=gl.getUniformLocation(p,n));return p;};
 let pAur,pScene,pBright,pBlur,pFinal;
 try{pAur=prog(FRAG_AURORA);pScene=prog(FRAG_SCENE);pBright=prog(FRAG_BRIGHT);pBlur=prog(FRAG_BLUR);pFinal=prog(FRAG_FINAL);}
-catch(e){console.error(e);root.classList.remove("nofx");root.classList.add("nogl");if(hasUI){document.body.append(ui);ui.classList.remove("in-canvas");}cvs.remove();return;}
+catch(e){console.error(e);caps.error=String(e.message||e).slice(0,200);revertUI("shader");root.classList.remove("nofx");root.classList.add("nogl");cvs.remove();return;}
 gl.bindVertexArray(gl.createVertexArray());
 
 const tex=(w,h,filter=gl.LINEAR)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
@@ -276,9 +287,11 @@ function fixGeometry(){
 function uploadUI(){
   if(!hasUI||!uiTex)return;
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,uiTex);
-  try{gl.texElementSubImage2D(gl.TEXTURE_2D,0,0,0,ui,{width:W,height:H});}catch(e){}
+  try{gl.texElementSubImage2D(gl.TEXTURE_2D,0,0,0,ui,{width:W,height:H});}
+  catch(e1){try{gl.texElementSubImage2D(gl.TEXTURE_2D,0,0,0,ui);}catch(e2){caps.error="upload: "+(e2.message||e2);caps.fails=(caps.fails||0)+1;if(caps.fails>3&&!caps.uploads)revertUI("upload failed");return;}}
+  caps.uploads++;if(caps.status==="trying")caps.status="html-in-canvas";
 }
-if(hasUI){cvs.onpaint=()=>{uploadUI();fixGeometry();if(reduce)draw(performance.now());};}
+if(hasUI){cvs.onpaint=()=>{uploadUI();fixGeometry();if(reduce)draw(performance.now());};setTimeout(()=>{if(hasUI&&!caps.uploads)revertUI("no picture of the page arrived");},2500);}
 
 // ---- the carets
 const kinds=[{w:15,h:30},{w:11,h:32},{w:14,h:28}];
@@ -317,7 +330,7 @@ function draw(now){
   bind(0,aur.t);bind(1,atlas);bind(2,hasUI?uiTex:atlas);
   gl.uniform1i(pScene.u("uAur"),0);gl.uniform1i(pScene.u("uAtlas"),1);gl.uniform1i(pScene.u("uUI"),2);
   gl.uniform2f(pScene.u("uRes"),W,H);gl.uniform2f(pScene.u("uCell"),8*scale,15*scale);gl.uniform1f(pScene.u("uN"),RAMP.length);
-  gl.uniform1f(pScene.u("uT"),T);gl.uniform1f(pScene.u("uHasUI"),hasUI?1:0);gl.uniform1f(pScene.u("uScale"),scale);
+  gl.uniform1f(pScene.u("uT"),T);gl.uniform1f(pScene.u("uHasUI"),hasUI&&caps.uploads?1:0);gl.uniform1f(pScene.u("uScale"),scale);
   gl.uniform2f(pScene.u("uKeepC"),(kr.left+kr.width/2)*scale,(kr.top+kr.height/2)*scale);gl.uniform2f(pScene.u("uKeepH"),kr.width/2*scale,kr.height/2*scale);
   gl.uniform4fv(pScene.u("uC"),uC);gl.uniform4fv(pScene.u("uB"),uB);quad();
   // bloom: bright parts, small and smaller, blurred
@@ -358,6 +371,10 @@ function loop(now){
     const st=(window.__fx??={frames:0});st.frames++;st.q=quality;st.w=W;st.h=H;st.gpu=gpuMs;
   }else{gpuBegin();draw(now);gpuEnd();}
   requestAnimationFrame(loop);
+}
+if(location.search.includes("debug")){
+  const d=document.createElement("pre");d.style.cssText="position:fixed;left:8px;bottom:8px;z-index:99999;max-width:min(520px,92vw);margin:0;padding:8px 10px;border-radius:6px;background:rgba(0,0,0,.78);color:#9fffc4;font:11px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap;pointer-events:none";document.body.append(d);
+  setInterval(()=>{d.textContent=["chrome "+caps.chrome,"onpaint "+caps.onpaint+" · layoutSubtree "+caps.layoutSubtree+" · content "+caps.content,"texElementSubImage2D "+caps.tex+" · updateElementGeometry "+caps.geom,"status: "+caps.status+" · uploads "+caps.uploads,"canvas "+W+"x"+H+" (x"+scale.toFixed(2)+")",caps.error?"error: "+caps.error:""].filter(Boolean).join("\\n");},500);
 }
 size();
 new ResizeObserver(()=>{size();if(reduce)draw(performance.now());}).observe(document.documentElement);
