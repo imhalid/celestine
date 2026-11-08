@@ -33,20 +33,25 @@ func (a *app) loginDue() bool {
 func (a *app) loginView(c *ui.Context) {
 	if !a.login.open && a.loginDue() && !a.modal() {
 		a.login.open, a.login.seen = true, true
-		a.ac.mode, a.ac.err = "login", ""
+		a.ac.mode, a.ac.err = "invite", "" // a first run is most likely one with an invite in the mail
 	}
 	if !a.login.open {
 		return
 	}
 	cl := ryugo.From(c).Colors
 	ryugo.Dialog(c.Key("login"), &a.login.open, ryugo.DialogOptions{Title: T("Ryudit'e hoş geldin"), Width: 430, Footer: func() {
+		if a.ac.mode == "recovery" { // the account is made: there is no going on without one
+			return
+		}
 		ui.Text(c, T("Hesap yalnız eşitleme içindir; sonra Profil'den de açılır.")).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
 		if ryugo.Button(c.Key("login-skip"), T("Hesapsız devam et"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.login.open = false
 		}
 	}}, func() {
 		ui.Column(c).FillWidth().Gap(12).Children(func() {
-			ui.Text(c, T("Giriş yaparsan kitaplığın şifrelenerek başka bilgisayarlarında da durur. Hesapsız kullanırsan her şey yalnız bu bilgisayarda kalır.")).FontSize(13).TextColor(cl.Text2).Wrap()
+			if a.ac.mode != "recovery" {
+				ui.Text(c, T("Giriş yaparsan kitaplığın şifrelenerek başka bilgisayarlarında da durur. Hesapsız kullanırsan her şey yalnız bu bilgisayarda kalır.")).FontSize(13).TextColor(cl.Text2).Wrap()
+			}
 			a.acctForm(c)
 		})
 	})

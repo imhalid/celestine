@@ -7,6 +7,8 @@ const DAY = 86400;
 export const DEFAULT_QUOTA = 200 * 1024 * 1024;
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0 O 1 I L
 const CODE_DAYS = 14;
+const BAD_INVITE = "e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş";
+const TAKEN_EMAIL = "bu e-postayla açılmış bir hesap var: giriş yap";
 
 const now = () => Math.floor(Date.now() / 1000);
 const json = (o, status = 200) => Response.json(o, { status });
@@ -113,8 +115,9 @@ async function sendMail(env, to, subject, text) {
 }
 function inviteMail(code, base) {
   return (
-    `Merhaba,\n\nRyudit bekleme listesinden seni onayladık. Davet kodun:\n\n    ${code}\n\n` +
-    `Uygulamayı aç, "Hesap aç" ekranına kullanıcı adı, şifre ve bu kodu yaz. Kod ${CODE_DAYS} gün geçerli ve bir kez kullanılır.\n\n` +
+    `Merhaba,\n\nRyudit bekleme listesinden seni onayladık. Erişim kodun:\n\n    ${code}\n\n` +
+    `Uygulamayı aç, "Davetle hesap aç" ekranına bu e-posta adresini ve kodu yaz, sonra şifreni belirle. ` +
+    `Kod yalnız bu e-posta adresiyle, ${CODE_DAYS} gün içinde ve bir kez kullanılır.\n\n` +
     `Şifren sunucuya gönderilmez; unutursan verini kimse geri getiremez, kurtarma anahtarını sakla.\n\n— Ryudit\n${base}\n`
   );
 }
@@ -184,10 +187,31 @@ export async function handleApi(request, env, url) {
     return json({ ok: true });
   }
 
+  // An invite, before the password is asked for: the code is good, it is this address's, and the address has no account yet. Nothing
+  // is spent; the tries count as a registration's do, and a wrong address and a wrong code are the same answer.
+  if (path === "/api/invite" && method === "POST") {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!validEmail(email)) return fail(400, "e-posta adresi geçersiz");
+    if (!(await allow(env, "code:" + where, 10, 3600)) || (await full(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    const inv = await env.DB.prepare(
+      "SELECT i.code_hash FROM invites i JOIN waitlist w ON w.id=i.waitlist_id WHERE i.code_hash=? AND w.email=? AND i.used_at IS NULL AND i.expires_at>?",
+    ).bind(await codeHash(body.code), email, now()).first();
+    if (!inv) {
+      await allow(env, "code:all", 200, 3600);
+      return fail(400, BAD_INVITE);
+    }
+    if (await env.DB.prepare("SELECT id FROM users WHERE username=?").bind(email).first()) return fail(409, TAKEN_EMAIL);
+    return json({ ok: true });
+  }
+
+  // An account is opened with the address the invite was sent to, which is its name from then on (an older app sends a username
+  // instead, and its code is taken from any address).
   if (path === "/api/register" && method === "POST") {
     if (!(await allow(env, "reg:" + where, 20, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
-    const username = String(body.username || "").trim().toLowerCase();
-    if (!validUser(username)) return fail(400, "kullanıcı adı 3-32 karakter: harf, rakam, . _ -");
+    const email = body.email === undefined ? null : String(body.email).trim().toLowerCase();
+    if (email !== null && !validEmail(email)) return fail(400, "e-posta adresi geçersiz");
+    const username = email ?? String(body.username || "").trim().toLowerCase();
+    if (email === null && !validUser(username)) return fail(400, "kullanıcı adı 3-32 karakter: harf, rakam, . _ -");
     if (!validAuth(body.auth) || !validWrapped(body.wrapped)) return fail(400, "bad request");
     const code = normalizeCode(body.code);
     // the code is short, what protects it is that it can only be tried a few times: ten an hour from one address, and
@@ -195,10 +219,14 @@ export async function handleApi(request, env, url) {
     if (!(await allow(env, "code:" + where, 10, 3600)) || (await full(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     const ch = await codeHash(code);
     const t = now();
-    const claim = await env.DB.prepare("UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>?").bind(t, ch, t).run();
+    const claim = email === null
+      ? await env.DB.prepare("UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>?").bind(t, ch, t).run()
+      : await env.DB.prepare(
+        "UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>? AND waitlist_id IN (SELECT id FROM waitlist WHERE email=?)",
+      ).bind(t, ch, t, email).run();
     if (claim.meta.changes !== 1) {
       await allow(env, "code:all", 200, 3600);
-      return fail(400, "davet kodu geçersiz ya da süresi dolmuş");
+      return fail(400, email === null ? "davet kodu geçersiz ya da süresi dolmuş" : BAD_INVITE);
     }
     const salt = randomHex(16);
     try {
@@ -211,7 +239,7 @@ export async function handleApi(request, env, url) {
       return json({ token, username });
     } catch (e) {
       await env.DB.prepare("UPDATE invites SET used_at=NULL WHERE code_hash=?").bind(ch).run(); // the code is not spent on a taken name
-      if (String(e).includes("UNIQUE")) return fail(409, "bu kullanıcı adı alınmış");
+      if (String(e).includes("UNIQUE")) return fail(409, email === null ? "bu kullanıcı adı alınmış" : TAKEN_EMAIL);
       throw e;
     }
   }
@@ -223,7 +251,7 @@ export async function handleApi(request, env, url) {
     const u = await env.DB.prepare("SELECT id,salt,auth_hash,wrapped_key,status FROM users WHERE username=?").bind(username).first();
     // a name that is not there costs the same work, and gets the same answer
     const ok = same(await authHash(u?.salt || "x", body.auth), u?.auth_hash || "0".repeat(64));
-    if (!u || !ok) return fail(401, "kullanıcı adı ya da şifre yanlış");
+    if (!u || !ok) return fail(401, "e-posta ya da şifre yanlış");
     if (u.status !== "active") return fail(403, "hesap askıya alınmış");
     const token = await newDevice(env, u.id, body.device);
     return json({ token, username, wrapped: u.wrapped_key });
@@ -238,7 +266,7 @@ export async function handleApi(request, env, url) {
     if (!validRecovery(body.recovery) || !validAuth(body.newAuth) || !validWrapped(body.newWrapped)) return fail(400, "bad request");
     const u = await env.DB.prepare("SELECT id,status,recovery_hash FROM users WHERE username=?").bind(username).first();
     const ok = same(await recoveryHash(body.recovery), u?.recovery_hash || "0".repeat(64));
-    if (!u || !u.recovery_hash || !ok) return fail(401, "kullanıcı adı ya da kurtarma anahtarı yanlış");
+    if (!u || !u.recovery_hash || !ok) return fail(401, "e-posta ya da kurtarma anahtarı yanlış");
     if (u.status !== "active") return fail(403, "hesap askıya alınmış");
     const salt = randomHex(16);
     await env.DB.batch([

@@ -103,6 +103,16 @@ istemci (`account.go`, Ayarlar ▸ Senkron). `TestAccountLive` canlı Worker'a k
   Hesap yönetimi Ayarlar'dan Profil'e taşındı; Ayarlar'da yalnız "Hesap: ad" satırı ve Profil/Çıkış düğmeleri kaldı.
 - Sunucu sürüm geçmişi: bkz. [20](20-senkron.md).
 
+**8 Kasım 2026, e-posta ve erişim koduyla hesap (yerelde `wrangler dev` ile denendi, canlıya gönderilmedi):**
+- Hesabın adı artık davetin gittiği **e-posta**. Uygulamada ilk açılış penceresi **Davetle hesap aç** ile başlar: e-posta + erişim kodu → **Devam**
+  (`POST /api/invite`: kod bu adrese ait mi, kullanılmamış ve süresi geçmemiş mi, adresin hesabı var mı; kodu harcamaz, deneme sınırı kayıtla ortak,
+  yanlış adres ile yanlış kod aynı cevap) → şifre + şifre tekrar → **Hesabı aç** (`/api/register` `email` ile: kod yalnız onaylanan adresle harcanır) →
+  **kurtarma anahtarı** bir kez gösterilir, "Sakladım, devam" ile kapanır. Giriş e-posta + şifreyle. Davet e-postası bu akışı anlatır.
+- Anahtar türetmenin tuzu artık e-posta (eskiden kullanıcı adı): e-posta değiştirmek ileride anahtarı yeniden mühürlemeyi gerektirir.
+- Eski hesaplar (kullanıcı adlı) aynı alandan kullanıcı adıyla girmeye devam eder; eski uygulama sürümleri `username` ile kayıt olabilir (kod o zaman
+  adrese bağlı değildir).
+- `TestInviteSteps` (sahte sunucuyla pencere akışı), `TestAccountLive` ve `TestAccountRecoveryAndVersionsLive` (yerel Worker'a karşı, adres bağı dahil) geçti.
+
 **Yapılmadı:**
 - **E-posta (Resend) açık:** doğrulanmış alan adı `resend.halid.dev`, gönderen `Ryudit <davet@resend.halid.dev>` (`MAIL_FROM`); onaylayınca kod gider (canlıda denendi). Kod yine de `/admin`'de bir kez görünür. Not: DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var (apex denemesinden kalma olabilir), zararsız ama silinebilir.
 - Bekleme listesi dışa aktarma yok.

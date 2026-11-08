@@ -1,9 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 // The first time a real library is opened (it has settings of its own) the dialog of getting in shows; closing it is "no account for now",
@@ -14,7 +19,7 @@ func TestLoginDialogFirstRun(t *testing.T) {
 	a.settingsFile = t.TempDir() + "/s.json"
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Ryudit'e hoş geldin", "Hesapsız devam et", "Giriş yap", "Hesap aç", "Şifremi unuttum"} {
+	for _, want := range []string{"Ryudit'e hoş geldin", "Hesapsız devam et", "Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu"} {
 		if !tt.HasText(want) {
 			t.Fatalf("no %q on the dialog: %v", want, tt.Texts())
 		}
@@ -71,12 +76,97 @@ func TestAcctFormChecks(t *testing.T) {
 			t.Errorf("%s %q: error %q, busy %v; want %q", mode, user, a.ac.err, a.ac.busy, want)
 		}
 	}
-	check("login", "", "x", "", "", "", "Kullanıcı adı gerekli.")
-	check("login", "ali", "", "", "", "", "Kullanıcı adı ve şifre gerekli.")
-	check("register", "ali", "kısa", "RYU-AAAAAA", "", "", "Şifre en az 8 karakter olsun.")
-	check("register", "ali", "uzun-parola", " ", "", "", "Davet kodu gerekli.")
-	check("reset", "ali", "", "", "", "yeni-parola", "Kurtarma anahtarı gerekli.")
-	check("reset", "ali", "", "", "AAAA-BBBB", "kısa", "Yeni şifre en az 8 karakter olsun.")
+	check("login", "", "x", "", "", "", "E-posta gerekli.")
+	check("login", "ali@ornek.com", "", "", "", "", "E-posta ve şifre gerekli.")
+	check("invite", "ali", "", "RYU-AAAAAA", "", "", "E-posta adresi geçersiz.")
+	check("invite", "ali@ornek.com", "", " ", "", "", "Erişim kodu gerekli.")
+	check("password", "ali@ornek.com", "kısa", "RYU-AAAAAA", "", "", "Şifre en az 8 karakter olsun.")
+	check("reset", "ali@ornek.com", "", "", "", "yeni-parola", "Kurtarma anahtarı gerekli.")
+	check("reset", "ali@ornek.com", "", "", "AAAA-BBBB", "kısa", "Yeni şifre en az 8 karakter olsun.")
+	a.ac = acctUI{mode: "password", user: "ali@ornek.com", pass: "uzun-parola", pass2: "uzun-parolA", code: "RYU-AAAAAA"}
+	a.acctSubmit()
+	if a.ac.err != "Şifreler aynı değil." || a.ac.busy {
+		t.Errorf("two passwords: %q", a.ac.err)
+	}
+}
+
+// An invite opens the account in steps: the address and the code, checked by the server and not spent, then the password, then the
+// recovery key, which the dialog shows before anything else and leaves only when one says it is kept.
+func TestInviteSteps(t *testing.T) {
+	withLang(t, "tr")
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var in map[string]string
+		json.NewDecoder(r.Body).Decode(&in)
+		got = append(got, r.URL.Path+" "+in["email"])
+		switch r.URL.Path {
+		case "/api/invite":
+			if in["code"] != "RYU-AAAAAA" {
+				w.WriteHeader(400)
+				w.Write([]byte(`{"error":"e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş"}`))
+				return
+			}
+			w.Write([]byte(`{"ok":true}`))
+		case "/api/register":
+			if in["code"] != "RYU-AAAAAA" || in["username"] != "" || len(in["auth"]) != 64 {
+				w.WriteHeader(400)
+				return
+			}
+			w.Write([]byte(`{"token":"t1"}`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	library.AllowHTTP = true
+	defer func() { library.AllowHTTP = false }()
+	a, tt := newTestApp(t, "x\n")
+	a.settingsFile = t.TempDir() + "/s.json"
+	a.settings.SyncURL = srv.URL
+	tt.Frame()
+	if a.ac.mode != "invite" || !tt.HasText("Erişim kodu") {
+		t.Fatalf("the first run does not start with the invite: %q %v", a.ac.mode, tt.Texts())
+	}
+	wait := func() {
+		t.Helper()
+		for i := 0; i < 200 && a.ac.busy; i++ {
+			time.Sleep(10 * time.Millisecond)
+			tt.Frame()
+		}
+		tt.Frame()
+	}
+	a.ac.user, a.ac.code = "Ali@Ornek.com ", "RYU-BBBBBB"
+	a.acctSubmit()
+	wait()
+	if a.ac.mode != "invite" || !strings.Contains(a.ac.err, "erişim kodu yanlış") {
+		t.Fatalf("a wrong code went on: %q %q", a.ac.mode, a.ac.err)
+	}
+	a.ac.code = "ryu-aaaaaa"
+	a.ac.code = "RYU-AAAAAA"
+	a.acctSubmit()
+	wait()
+	if a.ac.mode != "password" || !tt.HasText("Şifre (tekrar)") {
+		t.Fatalf("no password step: %q %q %v", a.ac.mode, a.ac.err, tt.Texts())
+	}
+	a.ac.pass, a.ac.pass2 = "uzun-parola", "uzun-parola"
+	a.acctSubmit()
+	wait()
+	if a.ac.mode != "recovery" || !a.login.open || a.sy.recovery == "" || !tt.HasText(a.sy.recovery) || tt.HasText("Hesapsız devam et") {
+		t.Fatalf("the recovery key is not shown: %q %q %v", a.ac.mode, a.ac.err, tt.Texts())
+	}
+	if a.settings.AccountUser != "ali@ornek.com" || a.settings.SyncToken != "t1" {
+		t.Fatalf("account %q token %q", a.settings.AccountUser, a.settings.SyncToken)
+	}
+	tt.Click("Sakladım, devam")
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	if a.login.open {
+		t.Fatal("the dialog stays after the key is kept")
+	}
+	want := []string{"/api/invite ali@ornek.com", "/api/invite ali@ornek.com", "/api/register ali@ornek.com"}
+	if len(got) < 3 || strings.Join(got[:3], ",") != strings.Join(want, ",") {
+		t.Fatalf("calls %v", got)
+	}
 }
 
 // The profile: a screen like the settings, in the history, left with Esc; signed out it is the form, signed in it is the account.
@@ -89,7 +179,7 @@ func TestProfileScreen(t *testing.T) {
 	if !a.profileScreen || a.paneTitle() != "Profil" || a.here().kind != "profile" {
 		t.Fatalf("the profile is not shown: screen %v, title %q, place %v", a.profileScreen, a.paneTitle(), a.here())
 	}
-	for _, want := range []string{"Profil", "Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.", "Giriş yap", "Hesap aç", "Kullanıcı adı"} {
+	for _, want := range []string{"Profil", "Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.", "Giriş yap", "Davetle hesap aç", "E-posta"} {
 		if !tt.HasText(want) {
 			t.Errorf("signed out: no %q: %v", want, tt.Texts())
 		}

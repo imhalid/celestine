@@ -23,8 +23,9 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The account (cloudflare/sync/auth.js, docs/22-hesap-ve-bekleme-listesi.md): a name, a password and, once, an
-// invite code from the waitlist. The password does not leave this computer. From it, and the name, two things are
+// The account (cloudflare/sync/auth.js, docs/22-hesap-ve-bekleme-listesi.md): an email address, a password and, once, the
+// access code the waitlist sent to that address (an account of before has a username where the address is). The
+// password does not leave this computer. From it, and the address, two things are
 // made here: "auth" (what the server takes as proof of who one is) and a key that seals the data key. The data
 // key is made at random when the account is opened; the server keeps it sealed and cannot open it. It is the key
 // of end-to-end encryption (sync.go): whoever has the password has it on any computer, and whoever has the server
@@ -173,9 +174,17 @@ func deviceName() string {
 	return "cihaz"
 }
 
-// Register opens an account with an invite code. It makes the data key; the token is this computer's.
-func (c *acctClient) Register(username, password, code string) (token string, key []byte, err error) {
-	auth, kek, err := acctKeys(username, password)
+// CheckInvite asks whether code is the access code sent to email, unused, and the address has no account yet; it spends nothing.
+func (c *acctClient) CheckInvite(email, code string) error {
+	return c.call("POST", "/api/invite", "", map[string]string{"email": acctName(email), "code": code}, nil)
+}
+
+// acctName is an address or a username as the server and the keys take it.
+func acctName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+
+// Register opens an account for email with the access code sent to it. It makes the data key; the token is this computer's.
+func (c *acctClient) Register(email, password, code string) (token string, key []byte, err error) {
+	auth, kek, err := acctKeys(email, password)
 	if err != nil {
 		return "", nil, err
 	}
@@ -191,7 +200,7 @@ func (c *acctClient) Register(username, password, code string) (token string, ke
 		Token string `json:"token"`
 	}
 	err = c.call("POST", "/api/register", "", map[string]string{
-		"username": strings.ToLower(strings.TrimSpace(username)), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key),
+		"email": acctName(email), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key),
 	}, &out)
 	if err != nil {
 		return "", nil, err
@@ -292,9 +301,10 @@ func (c *acctClient) DeleteAccount(token, username, password string) error {
 // ---- the app's side ----
 
 type acctUI struct {
-	mode     string // "login" or "register"
-	user     string
+	mode     string // "invite" (the address and the code), "password" (then the password), "recovery" (the key, once), "login", "reset"
+	user     string // the address (or an older account's username)
 	pass     string
+	pass2    string // the password again, when it is set
 	code     string
 	newPass  string
 	delPass  string
@@ -329,6 +339,10 @@ func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 		a.sy.recovery = RecoveryKey(key)
 	}
 	a.ac = acctUI{mode: "login"}
+	if fresh { // the recovery key is shown before anything else: it is the only way back to the data
+		a.ac.mode = "recovery"
+		a.login.open = true
+	}
 	a.saveSettings()
 	a.sy.tried = time.Time{}
 	a.notice = "Hesap hazır."
@@ -399,8 +413,10 @@ func humanBytes(n int64) string {
 	}
 }
 
-// acctForm is the form of getting in: signing in, opening an account, and, for one who forgot the password, setting a new one with the
-// recovery key. The screen of signing in (profile.go), the profile of one not signed in and the sync settings all show it.
+// acctForm is the form of getting in. One with an invite opens the account in steps: the address and the access code that was sent
+// to it (checked, not spent), then the password, then the recovery key, shown once. One with an account signs in with the address and
+// the password; one who forgot the password sets a new one with the recovery key. The screen of signing in (profile.go), the profile
+// of one not signed in and the sync settings all show it.
 func (a *app) acctForm(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	if a.ac.mode == "" {
@@ -419,11 +435,17 @@ func (a *app) acctForm(c *ui.Context) {
 		})
 	}
 	secret := func(o *ryugo.InputOptions) { o.Password = true }
+	note := func(s string) { ui.Text(c, T(s)).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap() }
 	mode := a.ac.mode
+	if mode == "recovery" {
+		a.acctRecoveryStep(c)
+		return
+	}
 	ui.Column(c).Gap(10).FillWidth().Children(func() {
-		if mode != "reset" {
+		switch mode {
+		case "invite", "login":
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				for _, m := range []struct{ id, name string }{{"login", "Giriş yap"}, {"register", "Hesap aç"}} {
+				for _, m := range []struct{ id, name string }{{"invite", "Davetle hesap aç"}, {"login", "Giriş yap"}} {
 					m := m
 					b := ui.Row(c.Key("acct-mode:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[mode == m.id]).
 						Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
@@ -433,26 +455,33 @@ func (a *app) acctForm(c *ui.Context) {
 					}
 				}
 			})
-		} else {
-			ui.Text(c, T("Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
-		}
-		field("acct-user", "Kullanıcı adı", &a.ac.user)
-		switch mode {
+		case "password":
+			note(Tf("Davet doğrulandı: %s. Şimdi şifreni belirle.", acctName(a.ac.user)))
 		case "reset":
+			note("Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.")
+		}
+		switch mode {
+		case "invite":
+			note("Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.")
+			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = "ad@ornek.com" })
+			field("acct-code", "Erişim kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
+		case "password":
+			field("acct-pass", "Şifre", &a.ac.pass, secret)
+			field("acct-pass2", "Şifre (tekrar)", &a.ac.pass2, secret)
+			note("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")
+		case "reset":
+			field("acct-user", "E-posta", &a.ac.user)
 			field("acct-rec", "Kurtarma anahtarı", &a.ac.recKey, func(o *ryugo.InputOptions) { o.Placeholder = "XXXX-XXXX-…" })
 			field("acct-pw-new", "Yeni şifre", &a.ac.newPass, secret)
 		default:
+			field("acct-user", "E-posta", &a.ac.user)
 			field("acct-pass", "Şifre", &a.ac.pass, secret)
-		}
-		if mode == "register" {
-			field("acct-code", "Davet kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
-			ui.Text(c, T("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
 		}
 		if a.ac.err != "" {
 			ui.Text(c, T(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
 		}
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
-			label := map[string]string{"login": "Giriş yap", "register": "Hesabı aç", "reset": "Şifreyi yenile"}[mode]
+			label := map[string]string{"invite": "Devam", "password": "Hesabı aç", "login": "Giriş yap", "reset": "Şifreyi yenile"}[mode]
 			if a.ac.busy {
 				label = "…"
 			}
@@ -464,9 +493,13 @@ func (a *app) acctForm(c *ui.Context) {
 				if btn("acct-forgot", T("Şifremi unuttum"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					a.ac.mode, a.ac.err = "reset", ""
 				}
-			case "register":
-				if btn("acct-wait", T("Davet kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+			case "invite":
+				if btn("acct-wait", T("Kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					c.OpenURL(a.acctServer())
+				}
+			case "password":
+				if btn("acct-back", T("Geri"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+					a.ac.mode, a.ac.err, a.ac.pass, a.ac.pass2 = "invite", "", "", ""
 				}
 			case "reset":
 				if btn("acct-back", T("Giriş yap"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
@@ -477,28 +510,53 @@ func (a *app) acctForm(c *ui.Context) {
 	})
 }
 
+// acctRecoveryStep is the last step of opening an account: the recovery key, which is the only way back to the data without the
+// password. The form goes on only when one says it is kept.
+func (a *app) acctRecoveryStep(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c).Gap(10).FillWidth().Children(func() {
+		ui.Text(c, T("Hesabın açıldı. Bu kurtarma anahtarını bir yere yaz ya da kopyala: şifreni unutursan verine yalnız onunla ulaşırsın. Bir daha ancak Profil'den görünür.")).FontSize(13).TextColor(cl.Text2).Wrap()
+		ui.Text(c, a.sy.recovery).FontSize(15).FontWeight(600).TextColor(cl.Text).Selectable().Wrap()
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ryugo.CopyButton(c.Key("copy-recovery-step"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
+			if ryugo.Button(c.Key("acct-kept"), T("Sakladım, devam"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
+				a.ac.mode = "login"
+				a.login.open = false
+			}
+		})
+	})
+}
+
 // acctSubmit does what the form asks, in the mode it is in.
 func (a *app) acctSubmit() {
-	user, pass, code, rec, nw, mode := strings.TrimSpace(a.ac.user), a.ac.pass, a.ac.code, a.ac.recKey, a.ac.newPass, a.ac.mode
+	user, pass, code, rec, nw, mode := strings.TrimSpace(a.ac.user), a.ac.pass, strings.TrimSpace(a.ac.code), a.ac.recKey, a.ac.newPass, a.ac.mode
 	var token string
 	var key []byte
 	switch {
 	case user == "":
-		a.ac.err = "Kullanıcı adı gerekli."
+		a.ac.err = "E-posta gerekli."
+	case mode == "invite" && !strings.Contains(user, "@"):
+		a.ac.err = "E-posta adresi geçersiz."
+	case mode == "invite" && code == "":
+		a.ac.err = "Erişim kodu gerekli."
+	case mode == "invite":
+		a.acctRun(func(cl *acctClient) error { return cl.CheckInvite(user, code) }, func() {
+			a.ac.mode, a.ac.err, a.ac.pass, a.ac.pass2 = "password", "", "", ""
+		})
+	case mode == "password" && len(pass) < 8:
+		a.ac.err = "Şifre en az 8 karakter olsun."
+	case mode == "password" && pass != a.ac.pass2:
+		a.ac.err = "Şifreler aynı değil."
 	case mode == "reset" && strings.TrimSpace(rec) == "":
 		a.ac.err = "Kurtarma anahtarı gerekli."
 	case mode == "reset" && len(nw) < 8:
 		a.ac.err = "Yeni şifre en az 8 karakter olsun."
-	case mode != "reset" && pass == "":
-		a.ac.err = "Kullanıcı adı ve şifre gerekli."
-	case mode == "register" && strings.TrimSpace(code) == "":
-		a.ac.err = "Davet kodu gerekli."
-	case mode == "register" && len(pass) < 8:
-		a.ac.err = "Şifre en az 8 karakter olsun."
+	case mode == "login" && pass == "":
+		a.ac.err = "E-posta ve şifre gerekli."
 	default:
 		a.acctRun(func(cl *acctClient) (err error) {
 			switch mode {
-			case "register":
+			case "password":
 				token, key, err = cl.Register(user, pass, code)
 			case "reset":
 				token, key, err = cl.Recover(user, rec, nw)
@@ -506,7 +564,7 @@ func (a *app) acctSubmit() {
 				token, key, err = cl.Login(user, pass)
 			}
 			return
-		}, func() { a.acctDone(strings.ToLower(user), token, key, mode == "register") })
+		}, func() { a.acctDone(acctName(user), token, key, mode == "password") })
 	}
 }
 
@@ -645,8 +703,20 @@ func init() {
 		"bu cihaz": "this computer", "Çıkar": "Remove", "Hesabı sil": "Delete account", "Sil…": "Delete…", "Şifreni yaz": "Type your password",
 		"Hesabı kalıcı olarak sil": "Delete the account for good", "Hesap silindi.": "The account was deleted.",
 		"Hesap ve sunucudaki tüm dosyalar silinir; bu bilgisayardaki kitaplık kalır. Geri alınamaz.": "The account and every file on the server are deleted; the library on this computer stays. This cannot be undone.",
-		"Oturum kapanmış: yeniden giriş yap.":                                                        "Signed out: sign in again.",
-		"Şifreleme anahtarı bu bilgisayarda yok: çıkış yapıp yeniden gir.":                           "The encryption key is not on this computer: sign out and in again.",
+		"Davetle hesap aç": "Open an account with an invite", "E-posta": "Email", "Erişim kodu": "Access code", "Devam": "Continue", "Geri": "Back",
+		"Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.": "If you were approved from the waitlist, an access code came to your email.",
+		"Davet doğrulandı: %s. Şimdi şifreni belirle.":                       "Invite confirmed: %s. Now set your password.", "Şifre (tekrar)": "Password (again)",
+		"Kodum yok: bekleme listesine yazıl": "No code: join the waitlist", "E-posta gerekli.": "An email address is needed.",
+		"E-posta adresi geçersiz.": "That email address isn't valid.", "Erişim kodu gerekli.": "An access code is needed.",
+		"Şifreler aynı değil.": "The passwords are not the same.", "E-posta ve şifre gerekli.": "An email address and a password are needed.",
+		"Sakladım, devam": "I kept it, continue",
+		"Hesabın açıldı. Bu kurtarma anahtarını bir yere yaz ya da kopyala: şifreni unutursan verine yalnız onunla ulaşırsın. Bir daha ancak Profil'den görünür.": "Your account is open. Write this recovery key down or copy it: if you forget your password it is the only way to your data. After this only the profile shows it.",
+		"e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş": "The email or the access code is wrong, or the code has expired.",
+		"bu e-postayla açılmış bir hesap var: giriş yap":              "There is already an account with this email: sign in.",
+		"e-posta ya da şifre yanlış":                                  "Wrong email or password.", "e-posta ya da kurtarma anahtarı yanlış": "Wrong email or recovery key.",
+		"e-posta adresi geçersiz": "That email address isn't valid.", "çok fazla deneme, sonra tekrar dene": "Too many tries; try again later.",
+		"Oturum kapanmış: yeniden giriş yap.":                              "Signed out: sign in again.",
+		"Şifreleme anahtarı bu bilgisayarda yok: çıkış yapıp yeniden gir.": "The encryption key is not on this computer: sign out and in again.",
 	} {
 		if _, ok := enText[tr]; !ok {
 			enText[tr] = en

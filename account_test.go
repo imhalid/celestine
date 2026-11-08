@@ -72,7 +72,8 @@ func TestAccountLive(t *testing.T) {
 	defer func() { library.AllowHTTP = false }()
 	cl := newAcctClient(base)
 	stamp := fmt.Sprint(time.Now().UnixNano())
-	email, user := "deneme-"+stamp+"@example.com", "deneme"+stamp[len(stamp)-8:]
+	email := "deneme-" + stamp + "@example.com"
+	user := email // the account is the address the invite went to
 
 	post := func(path, bearer string, in, out any) error {
 		b, _ := json.Marshal(in)
@@ -126,15 +127,33 @@ func TestAccountLive(t *testing.T) {
 		t.Fatalf("approve: %v %+v", err, approved)
 	}
 
-	if _, _, err := cl.Register(user, "parola-1234", "RYU-ZZZZZZ"); err == nil {
+	// the code is checked with the address before the password is asked for, and only with that address; checking spends nothing
+	if err := cl.CheckInvite(email, "RYU-ZZZZZZ"); err == nil {
+		t.Fatal("a wrong code was taken")
+	}
+	if err := cl.CheckInvite("baska-"+email, approved.Code); err == nil {
+		t.Fatal("the code was taken with another address")
+	}
+	for range 2 {
+		if err := cl.CheckInvite(strings.ToUpper(email), strings.ToLower(approved.Code)); err != nil {
+			t.Fatalf("check invite: %v", err)
+		}
+	}
+	if _, _, err := cl.Register(email, "parola-1234", "RYU-ZZZZZZ"); err == nil {
 		t.Fatal("a wrong code opened an account")
 	}
-	tokA, keyA, err := cl.Register(user, "parola-1234", strings.ToLower(approved.Code))
+	if _, _, err := cl.Register("baska-"+email, "parola-1234", approved.Code); err == nil {
+		t.Fatal("the code opened an account for another address")
+	}
+	tokA, keyA, err := cl.Register(email, "parola-1234", strings.ToLower(approved.Code))
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	if _, _, err := cl.Register(user+"x", "parola-1234", approved.Code); err == nil {
+	if _, _, err := cl.Register(email, "parola-1234", approved.Code); err == nil {
 		t.Fatal("an invite code was used twice")
+	}
+	if err := cl.CheckInvite(email, approved.Code); err == nil {
+		t.Fatal("a spent code is still taken")
 	}
 	// a second computer: the same key comes back, opened with the password
 	tokB, keyB, err := cl.Login(user, "parola-1234")
@@ -215,15 +234,15 @@ func TestAccountSettingsPage(t *testing.T) {
 	a.settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Giriş yap", "Hesap aç", "Kullanıcı adı", "Şifre"} {
+	for _, want := range []string{"Giriş yap", "Davetle hesap aç", "E-posta", "Şifre"} {
 		if !tt.HasText(want) {
 			t.Errorf("signed out: no %q: %v", want, tt.Texts())
 		}
 	}
-	a.ac.mode = "register"
+	a.ac.mode = "invite"
 	tt.Frame()
-	if !tt.HasText("Davet kodu") {
-		t.Errorf("register: no invite code field: %v", tt.Texts())
+	if !tt.HasText("Erişim kodu") {
+		t.Errorf("invite: no access code field: %v", tt.Texts())
 	}
 
 	a.settings.AccountUser, a.settings.SyncToken, a.ac.meAt = "ali", "tok", time.Now() // no call to a server
@@ -255,7 +274,8 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 	defer func() { library.AllowHTTP = false }()
 	cl := newAcctClient(base)
 	stamp := fmt.Sprint(time.Now().UnixNano())
-	email, user := "kurtar-"+stamp+"@example.com", "kurtar"+stamp[len(stamp)-8:]
+	email := "kurtar-" + stamp + "@example.com"
+	user := email
 	call := func(method, path, bearer string, in, out any) (int, error) {
 		b, _ := json.Marshal(in)
 		req, _ := http.NewRequest(method, base+path, bytes.NewReader(b))
