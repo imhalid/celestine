@@ -458,10 +458,26 @@ func main() {
 			opts.Hidden, opts.DisableShadow = true, true
 			a.wel.clear = true
 		}
+		fadeIn := !a.wel.clear && runtime.GOOS != "js" // a browser's tab is there already
+		if fadeIn {
+			opts.Hidden = true
+		}
 		w := mygo.NewWindow(opts)
 		a.wel.win = w
 		if a.wel.clear {
 			a.openStage()
+		}
+		if fadeIn { // shown once its first frame is drawn, and faded in: no blank window, no flash of the system's ground
+			var once sync.Once
+			show := func() {
+				once.Do(func() {
+					w.SetOpacity(0)
+					w.Show()
+					a.fadeWindow(w, 0, 1, 0, 0.22)
+				})
+			}
+			w.OnReadyToShow(show)
+			time.AfterFunc(1500*time.Millisecond, show) // a platform that never says the frame is drawn still gets its window
 		}
 		if ownWindowControls {
 			a.win = w
