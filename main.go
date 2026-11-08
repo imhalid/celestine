@@ -152,8 +152,10 @@ type app struct {
 	vimReg      richtext.Text      // what dd and yy took, for p
 	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
 	winW, winH  float32            // the window's size, last frame
+	login       loginState         // the dialog of getting in (profile.go)
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
+	wel         welcomeState       // the first opening (welcome.go)
 	statCache   libStats           // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
 	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
@@ -409,6 +411,7 @@ func main() {
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
+	a.wel.on = a.wantWelcome()                              // the first opening, if it is one
 	a.purgeTrash()                                          // what has been in the trash trashDays is deleted for good
 	a.prewarm()                                             // the pages' text, read away from the window
 	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
@@ -448,9 +451,15 @@ func main() {
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
-		w := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
+		opts := mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
-			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)})
+			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
+		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: clear glass, the desktop seen through (welcome.go)
+			opts.Transparent, opts.Vibrancy = true, mygo.VibrancyGlass
+			a.wel.clear = true
+		}
+		w := mygo.NewWindow(opts)
+		a.wel.win = w
 		if ownWindowControls {
 			a.win = w
 		}
@@ -525,7 +534,7 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 func (a *app) open(p *Page) {
 	defer a.visit()
 	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = nil, false, "", false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	if p == a.page {
 		return
 	}
@@ -683,7 +692,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.look = look
 	c.Key("look:" + look)
+	a.welcomeBackdrop(c) // the first opening's circles, under the app
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
@@ -697,6 +708,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	if a.statsScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeStats()
+	}
+	if a.profileScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+		a.closeProfile()
 	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
@@ -735,7 +749,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
 		// Esc, in the text or on a screen that has nothing to close: the keys are commands. The settings
 		// and the figures have their own Esc, which goes back.
-		if !a.settingsOpen && !a.statsScreen && c.Shortcut(0, ui.KeyEscape) {
+		if !a.settingsOpen && !a.statsScreen && !a.profileScreen && c.Shortcut(0, ui.KeyEscape) {
 			a.kbEnter()
 		}
 	}
@@ -751,6 +765,8 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.kbKeys(c)
 	a.boundKeys(c)
 	a.kbView(c)
+	a.loginView(c)
+	a.welcomeView(c)
 	a.tourView(c)
 	a.updateView(c)
 	a.collSettingsView(c)

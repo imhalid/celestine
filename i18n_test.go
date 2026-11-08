@@ -101,6 +101,7 @@ func TestTour(t *testing.T) {
 	withLang(t, "tr")
 	a, tt := newTestApp(t, "x\n")
 	a.settingsFile = t.TempDir() + "/s.json"
+	a.settings.AccountAsked = true // the dialog of getting in comes before the tour (TestLoginDialogFirstRun)
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText("Yaz") || !tt.HasText("Bir daha gösterme") {

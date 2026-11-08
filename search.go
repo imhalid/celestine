@@ -275,7 +275,7 @@ func (a *app) openSearch(q string) {
 	}
 	a.searchOpen, a.searchQ, a.searchFocus = true, q, true
 	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.settingsOpen = "", nil, false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	a.linksStale()
 	a.visit()
 }

@@ -66,6 +66,7 @@ type Settings struct {
 	SyncToken     string                    `json:"syncToken,omitempty"`     // this device's token
 	SyncKey       string                    `json:"syncKey,omitempty"`       // the key of end-to-end encryption, base64: "" when it is off
 	AccountUser   string                    `json:"accountUser,omitempty"`   // the account this computer is signed in to (account.go)
+	AccountAsked  bool                      `json:"accountAsked,omitempty"`  // the sign-in screen has been shown and answered, once (profile.go)
 	SyncOff       []string                  `json:"syncOff,omitempty"`       // collections (their folders) that stay here
 	SyncMinutes   int                       `json:"syncMinutes,omitempty"`   // minutes between two syncs: 5 when not set
 	Profiles      map[string]map[string]any `json:"profiles,omitempty"`      // looks and ways of writing saved under a name (settingsx.go)
@@ -84,6 +85,7 @@ type Settings struct {
 	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
 	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
 	TourDone      bool                      `json:"tourDone,omitempty"`      // the first-run tour was shown or skipped (help.go)
+	WelcomeDone   bool                      `json:"welcomeDone,omitempty"`   // the first opening was seen (welcome.go)
 	NoStats       bool                      `json:"noStats,omitempty"`       // no figures of writing and use are kept (stats.go)
 	NoBackup      bool                      `json:"noBackup,omitempty"`      // no backup of the library by itself once a day (backup.go)
 	// the typefaces (fonts.go): by family; "" is the default

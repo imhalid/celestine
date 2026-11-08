@@ -107,6 +107,16 @@ function showCode(email,j){
   box.append(btn("Kodu kopyala",async()=>{await navigator.clipboard.writeText(j.code);},true));
   b.append(box);
 }
+// A person put on the list by hand: an e-mail and a name; "Ekle ve onayla" makes the code at once (shown once, as with Onayla).
+function addForm(){
+  const f=el("div",{className:"banner"}),mail=el("input",{type:"email",placeholder:"e-posta",autocomplete:"off"}),name=el("input",{type:"text",placeholder:"ad (isteğe bağlı)",autocomplete:"off"});
+  mail.setAttribute("aria-label","e-posta");name.setAttribute("aria-label","ad");
+  const r=el("div",{className:"row"});
+  r.append(mail,name,btn("Ekle",async()=>{if(!mail.value.trim())throw new Error("e-posta yaz");await api("waitlist","POST",{email:mail.value.trim(),name:name.value.trim()});}),
+    btn("Ekle ve onayla",async()=>{if(!mail.value.trim())throw new Error("e-posta yaz");const e=mail.value.trim();
+      const w=await api("waitlist","POST",{email:e,name:name.value.trim()});showCode(e,await api("waitlist/"+w.id+"/approve","POST"));},true));
+  f.append(r);return f;
+}
 async function load(){
   $("msg").textContent="";const v=$("view");v.replaceChildren();
   const tabs=$("tabs");tabs.replaceChildren();
@@ -121,6 +131,7 @@ async function load(){
       const a=await api("audit");v.append(table(["Zaman","İşlem"],a.map((x)=>[date(x.at),x.what])));
     }else{
       const w=await api("waitlist?status="+tab);
+      if(tab==="pending")v.append(addForm());
       if(!w.length)v.append(el("p",{textContent:"Kimse yok."}));
       else v.append(table(["E-posta","Ad","Yazıldı","Durum",""],w.map((x)=>[x.email,x.name,date(x.created_at),
         x.status==="approved"?(x.used_at?"hesap açtı":x.invite_until?"kod "+date(x.invite_until)+" tarihine kadar":"kodun süresi doldu"):x.status==="pending"?"bekliyor":"reddedildi",

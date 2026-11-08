@@ -49,6 +49,14 @@ func acctKeys(username, password string) (auth string, kek []byte, err error) {
 	return hex.EncodeToString(part("auth")), part("kek"), nil
 }
 
+// recoveryAuth is what the recovery key proves to the server (/api/recover): made from the data key, so that it is the same wherever the key is,
+// and one way, so that the server, holding only its hash, cannot make the key from it.
+func recoveryAuth(key []byte) string {
+	m := hmac.New(sha256.New, key)
+	m.Write([]byte("ryudit/recovery-auth"))
+	return hex.EncodeToString(m.Sum(nil))
+}
+
 func wrapDataKey(kek, key []byte) (string, error) {
 	blk, err := aes.NewCipher(kek)
 	if err != nil {
@@ -183,7 +191,7 @@ func (c *acctClient) Register(username, password, code string) (token string, ke
 		Token string `json:"token"`
 	}
 	err = c.call("POST", "/api/register", "", map[string]string{
-		"username": strings.ToLower(strings.TrimSpace(username)), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(),
+		"username": strings.ToLower(strings.TrimSpace(username)), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key),
 	}, &out)
 	if err != nil {
 		return "", nil, err
@@ -207,7 +215,39 @@ func (c *acctClient) Login(username, password string) (token string, key []byte,
 		return "", nil, err
 	}
 	key, err = unwrapDataKey(kek, out.Wrapped)
+	if err == nil {
+		// an account made before the recovery key could be used has none on the server: it is put there now, with the proof of the password.
+		// The server takes it once; a failure here is not one of the sign-in.
+		c.call("POST", "/api/recovery", out.Token, map[string]string{"auth": auth, "recovery": recoveryAuth(key)}, nil)
+	}
 	return out.Token, key, err
+}
+
+// Recover is for a forgotten password: the recovery key (the words that were shown when the account was made) says who one is, and a new
+// password is set; the data key stays, so what is on the server is still readable. Every other computer is signed out.
+func (c *acctClient) Recover(username, recovery, newPassword string) (token string, key []byte, err error) {
+	key, err = keyFromRecovery(recovery)
+	if err != nil {
+		return "", nil, err
+	}
+	newAuth, newKek, err := acctKeys(username, newPassword)
+	if err != nil {
+		return "", nil, err
+	}
+	wrapped, err := wrapDataKey(newKek, key)
+	if err != nil {
+		return "", nil, err
+	}
+	var out struct {
+		Token string `json:"token"`
+	}
+	err = c.call("POST", "/api/recover", "", map[string]string{
+		"username": strings.ToLower(strings.TrimSpace(username)), "recovery": recoveryAuth(key), "newAuth": newAuth, "newWrapped": wrapped, "device": deviceName(),
+	}, &out)
+	if err != nil {
+		return "", nil, err
+	}
+	return out.Token, key, nil
 }
 
 func (c *acctClient) Me(token string) (AcctMe, error) {
@@ -264,7 +304,11 @@ type acctUI struct {
 	me       *AcctMe
 	meAt     time.Time
 	meBusy   bool
-	showPass bool // the password change is open
+	showPass bool   // the password change is open
+	recKey   string // the recovery key being typed, to set a new password
+	showRec  bool   // the profile shows the recovery key
+	probe    string // what the last try of the connection found
+	probing  bool
 }
 
 func (a *app) acctServer() string {
@@ -278,6 +322,7 @@ func (a *app) acctServer() string {
 func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	s := &a.settings
 	s.AccountUser, s.SyncMode, s.SyncURL, s.SyncToken = user, "server", a.acctServer(), token
+	s.AccountAsked, a.login.open = true, false
 	s.SyncKey = base64.StdEncoding.EncodeToString(key)
 	a.sy.hasKey = true
 	if fresh {
@@ -354,13 +399,121 @@ func humanBytes(n int64) string {
 	}
 }
 
-// accountSection is the part of the sync settings where one signs in, opens an account, and looks after it.
-func (a *app) accountSection(c *ui.Context) {
+// acctForm is the form of getting in: signing in, opening an account, and, for one who forgot the password, setting a new one with the
+// recovery key. The screen of signing in (profile.go), the profile of one not signed in and the sync settings all show it.
+func (a *app) acctForm(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	s := &a.settings
 	if a.ac.mode == "" {
 		a.ac.mode = "login"
 	}
+	btn := func(key, label string, opts ryugo.ButtonOptions) bool {
+		return ryugo.Button(c.Key(key), label, opts).Clicked()
+	}
+	field := func(key, label string, v *string, opts ...func(*ryugo.InputOptions)) {
+		ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
+			o := ryugo.InputOptions{Label: T(label), Size: ryugo.Sm}
+			for _, f := range opts {
+				f(&o)
+			}
+			a.fieldMenu(ryugo.Input(c.Key(key), v, o), v, fieldOpts{oneLine: true, secret: o.Password})
+		})
+	}
+	secret := func(o *ryugo.InputOptions) { o.Password = true }
+	mode := a.ac.mode
+	ui.Column(c).Gap(10).FillWidth().Children(func() {
+		if mode != "reset" {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				for _, m := range []struct{ id, name string }{{"login", "Giriş yap"}, {"register", "Hesap aç"}} {
+					m := m
+					b := ui.Row(c.Key("acct-mode:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[mode == m.id]).
+						Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+					b.Children(func() { ui.Text(c, T(m.name)).FontSize(13).TextColor(cl.Text) })
+					if b.Clicked() {
+						a.ac.mode, a.ac.err = m.id, ""
+					}
+				}
+			})
+		} else {
+			ui.Text(c, T("Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
+		}
+		field("acct-user", "Kullanıcı adı", &a.ac.user)
+		switch mode {
+		case "reset":
+			field("acct-rec", "Kurtarma anahtarı", &a.ac.recKey, func(o *ryugo.InputOptions) { o.Placeholder = "XXXX-XXXX-…" })
+			field("acct-pw-new", "Yeni şifre", &a.ac.newPass, secret)
+		default:
+			field("acct-pass", "Şifre", &a.ac.pass, secret)
+		}
+		if mode == "register" {
+			field("acct-code", "Davet kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
+			ui.Text(c, T("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
+		}
+		if a.ac.err != "" {
+			ui.Text(c, T(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
+		}
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
+			label := map[string]string{"login": "Giriş yap", "register": "Hesabı aç", "reset": "Şifreyi yenile"}[mode]
+			if a.ac.busy {
+				label = "…"
+			}
+			if btn("acct-go", T(label), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}) && !a.ac.busy {
+				a.acctSubmit()
+			}
+			switch mode {
+			case "login":
+				if btn("acct-forgot", T("Şifremi unuttum"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+					a.ac.mode, a.ac.err = "reset", ""
+				}
+			case "register":
+				if btn("acct-wait", T("Davet kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+					c.OpenURL(a.acctServer())
+				}
+			case "reset":
+				if btn("acct-back", T("Giriş yap"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+					a.ac.mode, a.ac.err = "login", ""
+				}
+			}
+		})
+	})
+}
+
+// acctSubmit does what the form asks, in the mode it is in.
+func (a *app) acctSubmit() {
+	user, pass, code, rec, nw, mode := strings.TrimSpace(a.ac.user), a.ac.pass, a.ac.code, a.ac.recKey, a.ac.newPass, a.ac.mode
+	var token string
+	var key []byte
+	switch {
+	case user == "":
+		a.ac.err = "Kullanıcı adı gerekli."
+	case mode == "reset" && strings.TrimSpace(rec) == "":
+		a.ac.err = "Kurtarma anahtarı gerekli."
+	case mode == "reset" && len(nw) < 8:
+		a.ac.err = "Yeni şifre en az 8 karakter olsun."
+	case mode != "reset" && pass == "":
+		a.ac.err = "Kullanıcı adı ve şifre gerekli."
+	case mode == "register" && strings.TrimSpace(code) == "":
+		a.ac.err = "Davet kodu gerekli."
+	case mode == "register" && len(pass) < 8:
+		a.ac.err = "Şifre en az 8 karakter olsun."
+	default:
+		a.acctRun(func(cl *acctClient) (err error) {
+			switch mode {
+			case "register":
+				token, key, err = cl.Register(user, pass, code)
+			case "reset":
+				token, key, err = cl.Recover(user, rec, nw)
+			default:
+				token, key, err = cl.Login(user, pass)
+			}
+			return
+		}, func() { a.acctDone(strings.ToLower(user), token, key, mode == "register") })
+	}
+}
+
+// acctManage is what one signed in does with the account: the password, the computers signed in, deleting it.
+func (a *app) acctManage(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	s := &a.settings
 	btn := func(key, label string, opts ryugo.ButtonOptions) bool {
 		return ryugo.Button(c.Key(key), label, opts).Clicked()
 	}
@@ -369,84 +522,7 @@ func (a *app) accountSection(c *ui.Context) {
 			ui.Text(c, T(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
 		}
 	}
-	if s.AccountUser == "" || s.SyncToken == "" {
-		settingGroup(c, "set-acct-in",
-			func() {
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					for _, m := range []struct{ id, name string }{{"login", "Giriş yap"}, {"register", "Hesap aç"}} {
-						m := m
-						b := ui.Row(c.Key("acct-mode:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[a.ac.mode == m.id]).
-							Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-						b.Children(func() { ui.Text(c, T(m.name)).FontSize(13).TextColor(cl.Text) })
-						if b.Clicked() {
-							a.ac.mode, a.ac.err = m.id, ""
-						}
-					}
-				})
-			},
-			func() {
-				ui.Column(c).Gap(10).FillWidth().Children(func() {
-					ryugo.Field(c, ryugo.FieldOptions{Label: T("Kullanıcı adı")}, func() {
-						a.fieldMenu(ryugo.Input(c.Key("acct-user"), &a.ac.user, ryugo.InputOptions{Label: T("Kullanıcı adı"), Size: ryugo.Sm}), &a.ac.user, fieldOpts{oneLine: true})
-					})
-					ryugo.Field(c, ryugo.FieldOptions{Label: T("Şifre")}, func() {
-						a.fieldMenu(ryugo.Input(c.Key("acct-pass"), &a.ac.pass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true}), &a.ac.pass, fieldOpts{oneLine: true, secret: true})
-					})
-					if a.ac.mode == "register" {
-						ryugo.Field(c, ryugo.FieldOptions{Label: T("Davet kodu")}, func() {
-							a.fieldMenu(ryugo.Input(c.Key("acct-code"), &a.ac.code, ryugo.InputOptions{Label: T("Davet kodu"), Size: ryugo.Sm, Placeholder: "RYU-XXXXXX"}), &a.ac.code, fieldOpts{oneLine: true})
-						})
-						ui.Text(c, T("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
-					}
-					errLine()
-					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						label := map[string]string{"login": "Giriş yap", "register": "Hesabı aç"}[a.ac.mode]
-						if a.ac.busy {
-							label = "…"
-						}
-						if btn("acct-go", T(label), ryugo.ButtonOptions{Size: ryugo.Sm}) && !a.ac.busy {
-							user, pass, code, mode := strings.TrimSpace(a.ac.user), a.ac.pass, a.ac.code, a.ac.mode
-							switch {
-							case user == "" || pass == "":
-								a.ac.err = "Kullanıcı adı ve şifre gerekli."
-							case mode == "register" && strings.TrimSpace(code) == "":
-								a.ac.err = "Davet kodu gerekli."
-							default:
-								var token string
-								var key []byte
-								a.acctRun(func(cl *acctClient) (err error) {
-									if mode == "register" {
-										token, key, err = cl.Register(user, pass, code)
-									} else {
-										token, key, err = cl.Login(user, pass)
-									}
-									return
-								}, func() { a.acctDone(strings.ToLower(user), token, key, mode == "register") })
-							}
-						}
-						if a.ac.mode == "register" && btn("acct-wait", T("Davet kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
-							c.OpenURL(a.acctServer())
-						}
-					})
-				})
-			})
-		return
-	}
-	a.acctRefresh()
 	settingGroup(c, "set-acct-me",
-		func() {
-			help := ""
-			if a.ac.me != nil {
-				help = humanBytes(a.ac.me.Bytes) + " / " + humanBytes(a.ac.me.Quota)
-			}
-			settingRow(c, T("Hesap: ")+s.AccountUser, help, func() {
-				if btn("acct-out", T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm}) {
-					cl, token := newAcctClient(a.acctServer()), s.SyncToken
-					go func() { defer a.guard(); cl.Logout(token) }()
-					a.acctForget()
-				}
-			})
-		},
 		func() {
 			settingRow(c, "Şifreyi değiştir", "Diğer bilgisayarlarda yeniden giriş yapman gerekir. Verin aynı anahtarla kalır.", func() {
 				if btn("acct-pw-open", map[bool]string{true: T("Vazgeç"), false: T("Değiştir")}[a.ac.showPass], ryugo.ButtonOptions{Size: ryugo.Sm}) {
@@ -520,6 +596,40 @@ func (a *app) accountSection(c *ui.Context) {
 				errLine()
 			}
 		})
+}
+
+// acctSignOut tells the server and forgets the account here.
+func (a *app) acctSignOut() {
+	cl, token := newAcctClient(a.acctServer()), a.settings.SyncToken
+	go func() { defer a.guard(); cl.Logout(token) }()
+	a.acctForget()
+}
+
+// accountSection is the part of the sync settings for the account: the form when there is none; when there is, who it is and the way
+// to the profile (profile.go), where it is looked after.
+func (a *app) accountSection(c *ui.Context) {
+	s := &a.settings
+	if s.AccountUser == "" || s.SyncToken == "" {
+		settingGroup(c, "set-acct-in", func() { a.acctForm(c) })
+		return
+	}
+	a.acctRefresh()
+	settingGroup(c, "set-acct-me0", func() {
+		help := ""
+		if a.ac.me != nil {
+			help = humanBytes(a.ac.me.Bytes) + " / " + humanBytes(a.ac.me.Quota)
+		}
+		settingRow(c, T("Hesap: ")+s.AccountUser, help, func() {
+			ui.Row(c).Gap(8).Children(func() {
+				if ryugo.Button(c.Key("acct-profile"), T("Profil"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.openProfile()
+				}
+				if ryugo.Button(c.Key("acct-out"), T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.acctSignOut()
+				}
+			})
+		})
+	})
 }
 
 func init() {

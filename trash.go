@@ -32,7 +32,7 @@ func trashDaysLeft(item *TrashItem, now time.Time) int {
 func (a *app) openTrash() {
 	a.flush()
 	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = true, nil, "", false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	a.purgeTrash()
 	a.loadTrash()
 	a.visit()

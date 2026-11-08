@@ -251,6 +251,62 @@ func (h *httpRemote) Delete(name, prev string) error {
 	return err
 }
 
+// A RemoteVersion is an earlier state of a file that the server kept (cloudflare/sync/worker.js, VERSIONS): when what it holds was
+// written, in milliseconds, and its size.
+type RemoteVersion struct {
+	At   int64 `json:"at"`
+	Size int   `json:"size"`
+}
+
+// versioned is a remote that keeps earlier states of its files.
+type versioned interface {
+	Versions(name string) ([]RemoteVersion, error)
+	VersionData(name string, at int64) ([]byte, error)
+}
+
+var errNoVersions = errors.New("bu eşitleme yeri sürüm geçmişi tutmuyor")
+
+func (h *httpRemote) versionURL(name string, at int64) string {
+	u := h.base + "/versions/" + (&url.URL{Path: name}).EscapedPath()
+	if at > 0 {
+		u += "?at=" + fmt.Sprintf("%013d", at)
+	}
+	return u
+}
+
+func (h *httpRemote) getVersion(u string) ([]byte, error) {
+	if err := httpsOnly(h.base); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+h.token)
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("sunucu %d döndü", resp.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+}
+
+func (h *httpRemote) Versions(name string) ([]RemoteVersion, error) {
+	b, err := h.getVersion(h.versionURL(name, 0))
+	if err != nil {
+		return nil, err
+	}
+	var out []RemoteVersion
+	return out, json.Unmarshal(b, &out)
+}
+
+func (h *httpRemote) VersionData(name string, at int64) ([]byte, error) {
+	return h.getVersion(h.versionURL(name, at))
+}
+
 // ---- end-to-end encryption ----
 
 // encRemote wraps a remote: each file is sealed with AES-256-GCM under a key from the passphrase, and
@@ -442,6 +498,27 @@ func (e *encRemote) List() (map[string]RemoteEntry, error) {
 		}
 	}
 	return out, nil
+}
+
+// Versions are those of the file the path names, asked of the remote by the name it has there; what comes back is opened here.
+func (e *encRemote) Versions(path string) ([]RemoteVersion, error) {
+	v, ok := e.inner.(versioned)
+	if !ok {
+		return nil, errNoVersions
+	}
+	return v.Versions(e.opaque(path))
+}
+
+func (e *encRemote) VersionData(path string, at int64) ([]byte, error) {
+	v, ok := e.inner.(versioned)
+	if !ok {
+		return nil, errNoVersions
+	}
+	b, err := v.VersionData(e.opaque(path), at)
+	if err != nil {
+		return nil, err
+	}
+	return e.open(b)
 }
 
 func (e *encRemote) Get(name string) ([]byte, error) {

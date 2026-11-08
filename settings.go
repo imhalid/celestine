@@ -77,7 +77,7 @@ func (a *app) openSettings() {
 	}
 	a.flush()
 	a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, nil, "", false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	a.visit()
 }
 

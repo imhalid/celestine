@@ -182,6 +182,7 @@ func (a *app) commands() []palItem {
 		}),
 		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
 		cmd("İstatistikler", "", iconStats, a.openStats),
+		cmd("Hesap profili", "", iconUser, a.openProfile),
 		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
 		cmd("Rastgele gün", "", iconCalendar, a.openRandomDay),
 	)

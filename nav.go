@@ -16,6 +16,8 @@ func (a *app) here() place {
 		return place{kind: "settings"}
 	case a.statsScreen:
 		return place{kind: "stats"}
+	case a.profileScreen:
+		return place{kind: "profile"}
 	case a.trashOpen:
 		return place{kind: "trash"}
 	case a.searchOpen:
@@ -74,6 +76,11 @@ func (a *app) goTo(p place) bool {
 	if p.kind == "stats" {
 		a.statsScreen = false
 		a.openStats()
+		return true
+	}
+	if p.kind == "profile" {
+		a.profileScreen = false
+		a.openProfile()
 		return true
 	}
 	if p.kind == "settings" {

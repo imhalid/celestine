@@ -23,7 +23,7 @@ const viewMax = 920
 func (a *app) openCollection(c *Collection) {
 	a.flush()
 	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = c, c.Name, "", false, "", false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	a.bulkClear()
 	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true

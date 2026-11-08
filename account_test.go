@@ -228,12 +228,150 @@ func TestAccountSettingsPage(t *testing.T) {
 	a.ac.me = &AcctMe{Username: "ali", Bytes: 5 << 20, Quota: 200 << 20, Devices: []DeviceInfo{{ID: "aaaaaaaaaaaa", Name: "MacBook", Seen: 1, Current: true}, {ID: "bbbbbbbbbbbb", Name: "Telefon", Seen: 1}}}
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Hesap: ali", "Çıkış yap", "Şifreyi değiştir", "Hesabı sil", "MacBook", "Telefon"} {
+	for _, want := range []string{"Hesap: ali", "Çıkış yap", "Profil", "Bağlantıyı dene"} { // the rest of the account is in the profile
 		if !tt.HasText(want) {
 			t.Errorf("signed in: no %q: %v", want, tt.Texts())
 		}
 	}
+	for _, not := range []string{"Şifreyi değiştir", "Hesabı sil", "MacBook"} {
+		if tt.HasText(not) {
+			t.Errorf("signed in: %q is in the settings, it belongs to the profile", not)
+		}
+	}
 	if tt.HasText("Bu cihazın jetonu") || tt.HasText("Uçtan uca şifreleme") {
 		t.Error("the token and passphrase rows show with an account")
+	}
+}
+
+// A forgotten password, and the versions the server keeps, against a real Worker (see TestAccountLive for how to run it).
+func TestAccountRecoveryAndVersionsLive(t *testing.T) {
+	base, admin := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_ADMIN_TOKEN")
+	if base == "" || admin == "" {
+		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
+	}
+	allowHTTP = strings.HasPrefix(base, "http://")
+	defer func() { allowHTTP = false }()
+	cl := newAcctClient(base)
+	stamp := fmt.Sprint(time.Now().UnixNano())
+	email, user := "kurtar-"+stamp+"@example.com", "kurtar"+stamp[len(stamp)-8:]
+	call := func(method, path, bearer string, in, out any) (int, error) {
+		b, _ := json.Marshal(in)
+		req, _ := http.NewRequest(method, base+path, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		if bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
+		if out != nil && resp.StatusCode/100 == 2 {
+			return resp.StatusCode, json.NewDecoder(resp.Body).Decode(out)
+		}
+		return resp.StatusCode, nil
+	}
+	// the administrator puts someone on the list by hand, and approves: the id comes back, the code once
+	var added struct {
+		ID int `json:"id"`
+	}
+	if code, err := call("POST", "/api/admin/waitlist", admin, map[string]string{"email": email, "name": "Deneme"}, &added); err != nil || code != 200 || added.ID == 0 {
+		t.Fatalf("add by hand: %d %v %+v", code, err, added)
+	}
+	if code, _ := call("POST", "/api/admin/waitlist", "yanlış", map[string]string{"email": email}, nil); code != 401 {
+		t.Fatalf("a wrong admin key added someone: %d", code)
+	}
+	var approved struct {
+		Code string `json:"code"`
+	}
+	if code, err := call("POST", fmt.Sprintf("/api/admin/waitlist/%d/approve", added.ID), admin, struct{}{}, &approved); err != nil || code != 200 || approved.Code == "" {
+		t.Fatalf("approve: %d %v", code, err)
+	}
+	tokA, keyA, err := cl.Register(user, "ilk-parola-1", approved.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// the server keeps earlier versions of a file, sealed: the second write keeps the first, a third at once adds none
+	enc, err := newEncRemote(newHTTPRemote(base, tokA), keyA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const name = "Not/Sayfa/page.json"
+	put := func(text string) {
+		t.Helper()
+		prev := ""
+		if l, err := enc.List(); err == nil {
+			prev = l[name].Hash
+		}
+		if err := enc.Put(name, []byte(text), prev); err != nil {
+			t.Fatal(err)
+		}
+		enc.Flush()
+	}
+	put("bir")
+	if v, err := enc.Versions(name); err != nil || len(v) != 0 {
+		t.Fatalf("versions of a file written once: %v %v", v, err)
+	}
+	put("iki")
+	put("üç")
+	vers, err := enc.Versions(name)
+	if err != nil || len(vers) != 1 {
+		t.Fatalf("versions after three writes: %v %v", vers, err)
+	}
+	if b, err := enc.VersionData(name, vers[0].At); err != nil || string(b) != "bir" {
+		t.Fatalf("the kept version: %q %v", b, err)
+	}
+	me, _ := cl.Me(tokA)
+	if me.Bytes == 0 {
+		t.Fatal("no bytes are counted")
+	}
+	// another account sees none of it, and a name with a dot-dot is refused
+	if _, err := newHTTPRemote(base, "yok").Versions("x"); err == nil {
+		t.Fatal("a token that is not one listed versions")
+	}
+	if code, _ := call("GET", "/versions/..%2Fu1%2Fx", tokA, nil, nil); code != 400 && code != 404 {
+		t.Fatalf("a path out of the account's: %d", code)
+	}
+
+	// the password is forgotten: the recovery key sets a new one, the data key and so the files stay, every computer is signed out
+	if _, _, err := cl.Recover(user, "AAAA-AAAA", "yeni-parola-2"); err == nil {
+		t.Fatal("a recovery key that is not one recovered")
+	}
+	wrong := recoveryKey(bytes.Repeat([]byte{9}, 32))
+	if _, _, err := cl.Recover(user, wrong, "yeni-parola-2"); err == nil {
+		t.Fatal("a wrong recovery key recovered")
+	}
+	if _, _, err := cl.Recover("yok"+user, recoveryKey(keyA), "yeni-parola-2"); err == nil {
+		t.Fatal("a name that is not there recovered")
+	}
+	tokR, keyR, err := cl.Recover(user, strings.ToLower(recoveryKey(keyA)), "yeni-parola-2")
+	if err != nil || !bytes.Equal(keyR, keyA) {
+		t.Fatalf("recover: %v, same key: %v", err, bytes.Equal(keyR, keyA))
+	}
+	if _, err := cl.Me(tokA); err == nil {
+		t.Fatal("the computer that was signed in stayed so after a recovery")
+	}
+	if _, _, err := cl.Login(user, "ilk-parola-1"); err == nil {
+		t.Fatal("the forgotten password still signs in")
+	}
+	tokN, keyN, err := cl.Login(user, "yeni-parola-2")
+	if err != nil || !bytes.Equal(keyN, keyA) {
+		t.Fatalf("login with the new password: %v", err)
+	}
+	// and what was written before is read with the same key
+	again, _ := newEncRemote(newHTTPRemote(base, tokN), keyN)
+	if b, err := again.Get(name); err != nil || string(b) != "üç" {
+		t.Fatalf("a file after the recovery: %q %v", b, err)
+	}
+	if v, err := again.Versions(name); err != nil || len(v) != 1 {
+		t.Fatalf("versions after the recovery: %v %v", v, err)
+	}
+	// deleting the account takes the versions too
+	if err := cl.DeleteAccount(tokR, user, "yeni-parola-2"); err != nil { // the token the recovery gave is a computer like any
+		t.Fatal(err)
+	}
+	if _, err := newHTTPRemote(base, tokN).Versions(name); err == nil {
+		t.Fatal("a deleted account's token listed versions")
 	}
 }

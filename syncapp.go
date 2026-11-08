@@ -445,10 +445,22 @@ func (a *app) settingsSync(c *ui.Context) {
 	}
 	settingGroup(c, "set-sync-state", func() {
 		settingRow(c, "Durum: "+status, a.sy.result, func() {
-			if ryugo.Button(c.Key("sync-now"), "Şimdi eşitle", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
-				a.syncNow()
-			}
+			ui.Row(c).Gap(8).Children(func() {
+				if ryugo.Button(c.Key("sync-now"), "Şimdi eşitle", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+					a.syncNow()
+				}
+				if ryugo.Button(c.Key("sync-probe"), T("Bağlantıyı dene"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.syncProbe()
+				}
+			})
 		})
+		if a.ac.probe != "" || a.ac.probing {
+			msg := a.ac.probe
+			if a.ac.probing {
+				msg = T("Deneniyor…")
+			}
+			ui.Text(c, msg).FontSize(13).TextColor(cl.Muted).Wrap()
+		}
 	})
 	if a.sy.held > 0 {
 		settingGroup(c, "set-sync-held", func() {

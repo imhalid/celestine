@@ -56,6 +56,9 @@ func (a *app) pageMoreMenu(p *Page) []menuItem {
 	if !p.Coll.Journal {
 		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
 	}
+	if a.settings.SyncMode == "server" && a.settings.SyncToken != "" && !p.Coll.Journal {
+		out = append(out, menuItem{title: "Sunucudaki sürümler…", glyph: iconHistory, run: func() { a.openServerHistory(p) }})
+	}
 	out = append(out,
 		menuItem{title: "Bağlantıyı kopyala", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
 		menuItem{title: "Markdown'u kopyala", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }},

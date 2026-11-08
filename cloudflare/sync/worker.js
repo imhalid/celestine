@@ -23,6 +23,14 @@ import { waitlistPage, adminPage } from "./pages.js";
 
 const MAX_BYTES = 50 * 1024 * 1024; // a file larger than this is refused (413)
 const TOMB_DAYS = 180;
+// The earlier versions of a file: when a file is written over (or deleted), what it was is kept under "v<account>/<name>@<when>",
+// at most one in VERSION_GAP ms, VERSIONS of them for a file, VERSION_DAYS days, and only of a file up to VERSION_MAX bytes (a page,
+// not a picture). They count in the account's quota like the files. They are sealed bytes as the files are: the server cannot read them.
+const VERSIONS = 10;
+const VERSION_GAP = 10 * 60 * 1000;
+const VERSION_DAYS = 30;
+const VERSION_MAX = 1024 * 1024;
+const vkey = (id, name, at) => `v${id}/${name}@${String(at).padStart(13, "0")}`;
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
@@ -56,6 +64,22 @@ export default {
       cursor = page.truncated ? page.cursor : undefined;
     } while (cursor);
     console.log(`tombstones deleted: ${gone}`);
+    // the versions older than VERSION_DAYS; what they weighed goes back to their owners' quota
+    const oldV = Date.now() - VERSION_DAYS * 864e5;
+    const refund = new Map();
+    cursor = undefined;
+    do {
+      const page = await env.SYNC.list({ prefix: "v", cursor });
+      const old = page.objects.filter((o) => o.uploaded.getTime() < oldV);
+      if (old.length) await env.SYNC.delete(old.map((o) => o.key));
+      for (const o of old) {
+        const id = o.key.match(/^v(\d+)\//)?.[1];
+        if (id) refund.set(id, (refund.get(id) || 0) + o.size);
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    for (const [id, n] of refund) await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(n, Number(id)).run();
+    console.log(`versions deleted for ${refund.size} accounts`);
   },
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -77,8 +101,57 @@ async function handle(request, env) {
   if (request.method === "GET" && url.pathname === "/") return waitlistPage(env);
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
+  if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (!/^\/files(\/|$)/.test(url.pathname)) return new Response("not found", { status: 404 });
   return files(request, env, url);
+}
+
+// Puts what the file is, before it is written over, among its versions (see VERSIONS). It never fails the write: a version that cannot be kept
+// (the quota is full, the file is big, the last one is recent) is only not kept.
+async function keepVersion(env, user, name, head, key) {
+  if (!user || name.startsWith("_") || head.size === 0 || head.size > VERSION_MAX) return; // _index and _salt are not pages
+  const prefix = `v${user.id}/${name}@`;
+  const mine = (await env.SYNC.list({ prefix })).objects.filter((o) => o.key.length === prefix.length + 13 && /^\d{13}$/.test(o.key.slice(prefix.length)));
+  mine.sort((a, b) => (a.key < b.key ? -1 : 1));
+  const at = head.uploaded.getTime(); // when what is being kept was written
+  const last = mine.length ? Number(mine[mine.length - 1].key.slice(prefix.length)) : 0;
+  if (last && at - last < Number(env.VERSION_GAP_MS ?? VERSION_GAP)) return; // (the variable is for trying it: a test cannot wait ten minutes)
+  if (mine.some((o) => o.key === vkey(user.id, name, at))) return;
+  const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(head.size, user.id).run();
+  if (r.meta.changes !== 1) return;
+  const old = await env.SYNC.get(key);
+  if (!old) {
+    await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(head.size, user.id).run();
+    return;
+  }
+  await env.SYNC.put(vkey(user.id, name, at), old.body);
+  const extra = mine.slice(0, Math.max(0, mine.length + 1 - VERSIONS));
+  if (extra.length) {
+    await env.SYNC.delete(extra.map((o) => o.key));
+    await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(extra.reduce((n, o) => n + o.size, 0), user.id).run();
+  }
+}
+
+// GET /versions/<name>: the versions kept of a file, newest first ([{at, size}]); with ?at=<when>, the bytes of one.
+async function versions(request, env, url) {
+  if (request.method !== "GET") return new Response("no", { status: 405 });
+  const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const user = await userOfToken(env, token);
+  if (!user) return new Response("no", { status: 401 });
+  const name = decodeURIComponent(url.pathname.slice("/versions/".length));
+  if (!name || name.split("/").includes("..") || name.startsWith("/") || name.includes("@")) return new Response("bad name", { status: 400 });
+  const at = url.searchParams.get("at");
+  if (at !== null) {
+    if (!/^\d{13}$/.test(at)) return new Response("bad request", { status: 400 });
+    const o = await env.SYNC.get(vkey(user.id, name, at));
+    return o ? new Response(o.body) : new Response("not found", { status: 404 });
+  }
+  const prefix = `v${user.id}/${name}@`;
+  const list = (await env.SYNC.list({ prefix })).objects
+    .filter((o) => o.key.length === prefix.length + 13 && /^\d{13}$/.test(o.key.slice(prefix.length)))
+    .map((o) => ({ at: Number(o.key.slice(prefix.length)), size: o.size }));
+  list.sort((a, b) => b.at - a.at);
+  return Response.json(list);
 }
 
 async function files(request, env, url) {
@@ -143,6 +216,7 @@ async function files(request, env, url) {
       const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(delta, user.id).run();
       if (r.meta.changes !== 1) return new Response("quota", { status: 413 });
     }
+    if (head && !dead(head)) await keepVersion(env, user, name, head, key);
     let o;
     try {
       o = await bucket.put(key, body, { onlyIf: only, customMetadata: { hash: await sha256(body) } });
@@ -158,6 +232,7 @@ async function files(request, env, url) {
     return new Response("ok");
   }
   if (!head || dead(head)) return new Response("ok"); // already gone
+  await keepVersion(env, user, name, head, key);
   const o = await bucket.put(key, new Uint8Array(0), { onlyIf: only, customMetadata: { tomb: "1" } });
   if (!o) return new Response("stale", { status: 412 });
   await bytes(-oldSize);

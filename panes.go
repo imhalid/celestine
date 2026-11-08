@@ -17,84 +17,85 @@ import (
 // a.page or a.doc is of the pane in use. A pane that is not in use has its paneState put aside
 // (panes); to build it, it is swapped in, built, and swapped out again.
 type paneState struct {
-	page         *Page              // the page open
-	doc          *richtext.Document // its text
-	title        string             // the title field's text
-	coll         *Collection        // the collection whose page is shown, instead of a page
-	collName     string             // its name field's text
-	search       string             // its search field's text
-	fresh        bool               // the page was just made: its title takes the focus
-	version      uint64
-	length       int
-	caretAt      int
-	wrote        int
-	edited       bool
-	erased       int // letters erased since the caret was drawn, which way (-1 Backspace, 1 Delete) and what they were (caretfx.go)
-	eraseDir     int
-	gone         string
-	typed        string        // what was written since the caret was drawn
-	prevText     richtext.Text // the text before the last edit, for what was erased
-	editAt       time.Time
-	dirty        bool
-	trashOpen    bool // the trash is shown, instead of a page
-	tasksOpen    bool // the task view is shown (tasks.go)
-	searchOpen   bool // the search over the whole library is shown (search.go)
-	searchQ      string
-	searchFocus  bool
-	taskDue      int            // 0 any day, 1 today, 2 this week, 3 late
-	taskFilter   int            // 0 open, 1 done, 2 all
-	taskList     *ui.ListState  // the list of tasks, a row for each in view (tasks.go)
-	taskQuery    string         // what is typed in the tasks' search
-	taskColl     string         // the collection the tasks are of (its Dir), "" all of them
-	taskFolded   map[*Page]bool // the pages whose tasks are folded away
-	tag          string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
-	colDrag      colDragState
-	cellEd       cellEdit
-	titleCaret   titleCaretSpec // where the caret in the title is, to draw it (the title is an input)
-	titleSeen    bool
-	titleLen     int
-	selPrevA     int // the selection before a pointer went down in the editor
-	selPrevC     int
-	boxes        []richtext.ParagraphBox
-	focused      bool
-	lastSave     string                  // the body as last written
-	lastWords    int                     // the words it had, or -1 when not known
-	style        richtext.ParagraphStyle // the caret paragraph's, last frame
-	refocus      bool                    // the editor takes the keyboard focus in the next frame
-	pageR        ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
-	caretPara    int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
-	caretRel     float32
-	caretTop     float32
-	sel          selBar          // the bar over a selection (selbar.go)
-	edPressed    bool            // the pointer is down in the editor
-	boardFocus   string          // the board column asked for, wide
-	boardScroll  *ui.ScrollState // the board scrolled sideways: where its edges fade (edgeFades)
-	pageScroll   *ui.ScrollState // the page scrolled as a whole (pageView)
-	scrollR      ui.Rect         // its room in the window, last frame
-	barInset     float32         // the part of the top of the page the title bar lies over (the page scrolls under it)
-	topSpace     float32         // what the page leaves above its title, in its scroll
-	winScrolled  bool            // a huge page is scrolled in its window: its title and properties give way (trackWindow)
-	winTop       float32         // where its first paragraph is, scrolled to the top
-	winTrim      float32         // the room around the window of a huge page that the page does not have (it starts with a guess)
-	winFlip      time.Time       // when its title last went or came back
-	headH        float32         // the title's and properties' height, last frame
-	titleFocused bool
-	edH          float32 // the editor's height, last frame
-	revealWant   bool    // the caret moved: bring it into view
-	statsVer     uint64  // the version of the text the counts are of
-	statWords    int
-	statChars    int
-	settingsTab  int       // the settings' tab
-	calDay       time.Time // the day open on the calendar, and whether it is
-	calOpen      bool
-	calGrid      ui.Rect
-	calMonth     time.Time // the month the calendar view shows
-	editorR      ui.Rect   // the editor's box, from its last frame
-	bulk         bulkState // pages being chosen in a collection, to be done to all (bulk.go)
-	settingsOpen bool
-	statsScreen  bool    // the page of figures is shown, instead of a page (statsscreen.go)
-	caretWin     ui.Rect // the caret in the window, last drawn
-	find         finder  // finding in the page (find.go)
+	page          *Page              // the page open
+	doc           *richtext.Document // its text
+	title         string             // the title field's text
+	coll          *Collection        // the collection whose page is shown, instead of a page
+	collName      string             // its name field's text
+	search        string             // its search field's text
+	fresh         bool               // the page was just made: its title takes the focus
+	version       uint64
+	length        int
+	caretAt       int
+	wrote         int
+	edited        bool
+	erased        int // letters erased since the caret was drawn, which way (-1 Backspace, 1 Delete) and what they were (caretfx.go)
+	eraseDir      int
+	gone          string
+	typed         string        // what was written since the caret was drawn
+	prevText      richtext.Text // the text before the last edit, for what was erased
+	editAt        time.Time
+	dirty         bool
+	trashOpen     bool // the trash is shown, instead of a page
+	tasksOpen     bool // the task view is shown (tasks.go)
+	searchOpen    bool // the search over the whole library is shown (search.go)
+	searchQ       string
+	searchFocus   bool
+	taskDue       int            // 0 any day, 1 today, 2 this week, 3 late
+	taskFilter    int            // 0 open, 1 done, 2 all
+	taskList      *ui.ListState  // the list of tasks, a row for each in view (tasks.go)
+	taskQuery     string         // what is typed in the tasks' search
+	taskColl      string         // the collection the tasks are of (its Dir), "" all of them
+	taskFolded    map[*Page]bool // the pages whose tasks are folded away
+	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	colDrag       colDragState
+	cellEd        cellEdit
+	titleCaret    titleCaretSpec // where the caret in the title is, to draw it (the title is an input)
+	titleSeen     bool
+	titleLen      int
+	selPrevA      int // the selection before a pointer went down in the editor
+	selPrevC      int
+	boxes         []richtext.ParagraphBox
+	focused       bool
+	lastSave      string                  // the body as last written
+	lastWords     int                     // the words it had, or -1 when not known
+	style         richtext.ParagraphStyle // the caret paragraph's, last frame
+	refocus       bool                    // the editor takes the keyboard focus in the next frame
+	pageR         ui.Rect                 // the area the page is in, last frame: the editor reaches its left edge
+	caretPara     int                     // where the caret was, last frame: its paragraph, its place in it, the paragraph's top
+	caretRel      float32
+	caretTop      float32
+	sel           selBar          // the bar over a selection (selbar.go)
+	edPressed     bool            // the pointer is down in the editor
+	boardFocus    string          // the board column asked for, wide
+	boardScroll   *ui.ScrollState // the board scrolled sideways: where its edges fade (edgeFades)
+	pageScroll    *ui.ScrollState // the page scrolled as a whole (pageView)
+	scrollR       ui.Rect         // its room in the window, last frame
+	barInset      float32         // the part of the top of the page the title bar lies over (the page scrolls under it)
+	topSpace      float32         // what the page leaves above its title, in its scroll
+	winScrolled   bool            // a huge page is scrolled in its window: its title and properties give way (trackWindow)
+	winTop        float32         // where its first paragraph is, scrolled to the top
+	winTrim       float32         // the room around the window of a huge page that the page does not have (it starts with a guess)
+	winFlip       time.Time       // when its title last went or came back
+	headH         float32         // the title's and properties' height, last frame
+	titleFocused  bool
+	edH           float32 // the editor's height, last frame
+	revealWant    bool    // the caret moved: bring it into view
+	statsVer      uint64  // the version of the text the counts are of
+	statWords     int
+	statChars     int
+	settingsTab   int       // the settings' tab
+	calDay        time.Time // the day open on the calendar, and whether it is
+	calOpen       bool
+	calGrid       ui.Rect
+	calMonth      time.Time // the month the calendar view shows
+	editorR       ui.Rect   // the editor's box, from its last frame
+	bulk          bulkState // pages being chosen in a collection, to be done to all (bulk.go)
+	settingsOpen  bool
+	statsScreen   bool    // the page of figures is shown, instead of a page (statsscreen.go)
+	profileScreen bool    // the profile is shown, instead of a page (profile.go)
+	caretWin      ui.Rect // the caret in the window, last drawn
+	find          finder  // finding in the page (find.go)
 }
 
 // newPaneState is a pane with nothing in it: its scrolls and lists are its own.
@@ -320,6 +321,8 @@ func (a *app) paneTitle() string {
 		return T("Ayarlar")
 	case a.statsScreen:
 		return T("İstatistikler")
+	case a.profileScreen:
+		return T("Profil")
 	case a.trashOpen:
 		return T("Çöp")
 	case a.tag != "":
@@ -407,7 +410,7 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
 		padX := pageMargin()
-		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
+		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && !a.profileScreen && (a.coll != nil || a.page != nil) {
 			padX = 0
 		}
 		topPad := float32(pageTop - barH + 8)
@@ -420,7 +423,7 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 		// a page and a collection scroll as a whole, from under the header, with their room above the title in
 		// the scroll: a cover begins right under the header
 		a.barInset, a.topSpace = 0, 0
-		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && (a.coll != nil || a.page != nil) {
+		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && !a.profileScreen && (a.coll != nil || a.page != nil) {
 			a.topSpace, topPad = topPad, 0
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
@@ -434,6 +437,11 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 			if a.statsScreen {
 				a.focused = false
 				a.statsView(c)
+				return
+			}
+			if a.profileScreen {
+				a.focused = false
+				a.profileView(c)
 				return
 			}
 			if a.trashOpen {

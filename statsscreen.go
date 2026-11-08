@@ -20,7 +20,7 @@ func (a *app) openStats() {
 		return
 	}
 	a.flush()
-	a.statsScreen, a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, false, nil, "", false, false, false
+	a.statsScreen, a.profileScreen, a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, false, false, nil, "", false, false, false
 	a.statCache = libStats{}
 	a.statCacheAt = time.Time{}
 	a.statLoading = false

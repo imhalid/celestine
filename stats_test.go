@@ -16,6 +16,7 @@ func statsApp(t *testing.T, src string) (*app, *ui.Tester) {
 	clock := time.Date(2026, 11, 7, 10, 0, 0, 0, time.Local)
 	a.clock = func() time.Time { return clock }
 	a.settingsFile = filepath.Join(t.TempDir(), "ryudit", "settings.json")
+	a.settings.AccountAsked = true // the dialog of getting in is not what these look at
 	a.setClock = func(d time.Duration) { clock = clock.Add(d) }
 	return a, tt
 }

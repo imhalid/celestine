@@ -47,6 +47,7 @@ func appCommands() []appCmd {
 	caret := func(a *app) int { _, c := a.doc.Selection(); return c }
 	return []appCmd{
 		{title: "Ayarlar", accel: "cmd+,", menu: "app", dots: true, glyph: iconSettings, run: (*app).toggleSettings},
+		{title: "Karşılama ekranını göster", glyph: iconSearch, run: (*app).welcomeAgain},
 
 		{title: "Yeni sayfa", accel: "cmd+n", menu: "file", noPal: true, glyph: iconPlus, run: func(a *app) {
 			switch {

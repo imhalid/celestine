@@ -89,11 +89,26 @@ bekleme listesi sayfası (`/`, Turnstile'lı), yönetici (`/admin`, onayla/redde
 karması saklanır, 14 gün, tek kullanım, deneme sınırı), kayıt, giriş, cihazlar, şifre değiştirme, hesap silme (R2 dosyaları dahil), kota (200 MB),
 istemci (`account.go`, Ayarlar ▸ Senkron). `TestAccountLive` canlı Worker'a karşı geçti (`RYUDIT_SYNC_URL`, `RYUDIT_ADMIN_TOKEN`).
 
+**8 Kasım 2026'da eklendi (yerelde `wrangler dev` ile denendi, canlıya gönderilmedi):**
+- **Şifre sıfırlama (kurtarma anahtarıyla).** Hesap açılırken uygulama kurtarma anahtarından (veri anahtarı) tek yönlü bir değer türetir
+  (`recoveryAuth` = HMAC(anahtar, "ryudit/recovery-auth")); sunucu yalnız onun karmasını saklar (`users.recovery_hash`, `migrations/0002`), anahtarı
+  üretemez. Giriş ekranında **Şifremi unuttum**: kullanıcı adı + kurtarma anahtarı + yeni şifre → `POST /api/recover`; veri anahtarı aynı kalır, yeni şifre onu
+  yeniden mühürler, sunucudaki dosyalar okunur kalır, bütün cihazlar çıkarılır, bu bilgisayar yeni jeton alır. Saatte IP başına 10, kullanıcı başına 5 deneme;
+  yanlış kullanıcı ile yanlış anahtar aynı hatayı verir. **Eski hesaplar** (kurtarma karması yok) bir sonraki girişlerinde kendiliğinden kaydeder
+  (`POST /api/recovery`, şifre kanıtıyla, yalnız boşsa); o zamana kadar sıfırlanamazlar (`NULL` olanlarda `/api/recover` reddeder, yerelde denendi).
+- **Yönetici sayfasında elle kişi ekleme:** Bekleyenler sekmesinde e-posta + ad, **Ekle** ya da **Ekle ve onayla** (kod bir kez gösterilir). `POST /api/admin/waitlist` artık `id` döndürür ve kayda yazar.
+- **Giriş ekranı ve Profil ekranı** (`profile.go`): ilk açılışta (kitaplığın ayarları varsa) bir giriş penceresi (Giriş yap / Hesap aç / Şifremi unuttum /
+  **Hesapsız devam et**); bir kez cevaplanınca bir daha çıkmaz. **Profil** (⌘P ▸ "Hesap profili", Ayarlar ▸ Senkron ▸ Profil) tam ekran: kullanıcı, sunucu, kota çubuğu,
+  eşitleme durumu + **Şimdi eşitle** + **Bağlantıyı dene**, kurtarma anahtarını göster, şifre değiştir, cihazlar, hesabı sil, çıkış. Giriş yapılmamışsa aynı form.
+  Hesap yönetimi Ayarlar'dan Profil'e taşındı; Ayarlar'da yalnız "Hesap: ad" satırı ve Profil/Çıkış düğmeleri kaldı.
+- Sunucu sürüm geçmişi: bkz. [20](20-senkron.md).
+
 **Yapılmadı:**
 - **E-posta (Resend) açık:** doğrulanmış alan adı `resend.halid.dev`, gönderen `Ryudit <davet@resend.halid.dev>` (`MAIL_FROM`); onaylayınca kod gider (canlıda denendi). Kod yine de `/admin`'de bir kez görünür. Not: DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var (apex denemesinden kalma olabilir), zararsız ama silinebilir.
-- **Şifre sıfırlama yok** (sıfır bilgi: şifre unutulursa veri ancak kurtarma anahtarıyla döner; kurtarma anahtarıyla yeni şifre koymak yazılmadı).
-- Yönetici sayfasında elle kişi ekleme düğmesi yok (`POST /api/admin/waitlist` var), bekleme listesi dışa aktarma yok.
-- Uygulamada Hesap ekranı elle/gözle denenmedi (yalnız arayüz testi); kurtarma anahtarı kayıt sonrası Senkron ayarlarında gösteriliyor.
+- Bekleme listesi dışa aktarma yok.
+- Profil ve giriş ekranına başsız çizimle (PNG) gözle bakıldı, gerçek pencerede değil; ayrıca canlı sunucuya karşı uygulama içinden uçtan uca denenmedi; sunucu tarafı yerelde denendi.
+- **Worker canlıya gönderilmedi:** `./deploy.sh` migration'ı (`0002_recovery.sql`) uygular, ama o zamana kadar sunucuda şifre sıfırlama ve sürüm geçmişi yok; uygulama
+  eski sunucuya karşı çalışır (kayıt `recovery` alanını yok sayılır, Sunucudaki sürümler 404 verir).
 - Eski `TOKENS` sırrı (testler, `halit`/`test` jetonları) duruyor; hiçbir şeye ihtiyaç kalmayınca kaldırılacak.
 - KVKK/gizlilik metni sayfada tek cümle; ayrı sayfa ve silme/dışa aktarma süreci yazılmadı.
 

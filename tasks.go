@@ -132,7 +132,7 @@ func paraText(p richtext.Paragraph) string {
 func (a *app) openTasks() {
 	a.flush()
 	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.settingsOpen = true, "", nil, false, false, false
-	a.statsScreen = false
+	a.statsScreen, a.profileScreen = false, false
 	a.linksStale()
 	a.visit()
 }

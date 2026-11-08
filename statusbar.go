@@ -51,7 +51,7 @@ func (a *app) hints() []hint {
 		return []hint{{"f", "harf etiketleri"}, {"i", "yaz"}, {"j k", "gez"}, {"Space", "komutlar"}, {"?", "tüm kısayollar"}}
 	case a.settingsOpen:
 		return []hint{{"/", "ayar ara"}, {"Esc", "geri"}}
-	case a.statsScreen, a.trashOpen, a.tasksOpen, a.searchOpen, a.tag != "":
+	case a.statsScreen, a.profileScreen, a.trashOpen, a.tasksOpen, a.searchOpen, a.tag != "":
 		return []hint{{"Esc", "geri"}, {"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}}
 	case a.coll != nil:
 		return []hint{{"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}, {"⌘N", "yeni sayfa"}, {"⌘\\", "kenar çubuğu"}}

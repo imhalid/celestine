@@ -196,6 +196,8 @@ func (a *app) kbKeys(c *ui.Context) {
 			k.typed = ""
 		case a.statsScreen:
 			a.closeStats()
+		case a.profileScreen:
+			a.closeProfile()
 		case a.settingsOpen:
 			a.closeSettings()
 		default:

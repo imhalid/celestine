@@ -21,8 +21,10 @@ type histView struct {
 	vers   []Version
 	sel    int
 	ops    []diffOp
-	opsFor int64  // the version the ops are of
-	label  string // the name being typed for a copy to keep
+	opsFor int64     // the version the ops are of
+	label  string    // the name being typed for a copy to keep
+	src    historian // the versions are these (the server's, brought here), not the page's own
+	server bool      // they are the server's: nothing is kept by name, and putting one back is the same
 	list   ui.ScrollState
 	text   ui.ScrollState
 }
@@ -31,6 +33,14 @@ type histView struct {
 func historyOf(p *Page) (historian, bool) {
 	h, ok := p.fs().(historian)
 	return h, ok
+}
+
+// hist is where the versions shown are kept.
+func (v *histView) hist() (historian, bool) {
+	if v.src != nil {
+		return v.src, true
+	}
+	return historyOf(v.page)
 }
 
 // openHistory shows the versions of p.
@@ -51,7 +61,7 @@ func (a *app) histOps() []diffOp {
 		return nil
 	}
 	if id := v.vers[v.sel].ID; id != v.opsFor {
-		h, _ := historyOf(v.page)
+		h, _ := v.hist()
 		data, _ := h.VersionData(v.page.file(), id)
 		_, oldBody := splitPage(data)
 		old := bodyText(oldBody)
@@ -72,7 +82,7 @@ func (a *app) putBackVersion() {
 		return
 	}
 	p := v.page
-	h, _ := historyOf(p)
+	h, _ := v.hist()
 	data, ok := h.VersionData(p.file(), v.vers[v.sel].ID)
 	if !ok {
 		return
@@ -80,7 +90,9 @@ func (a *app) putBackVersion() {
 	if p == a.page {
 		a.flush()
 	}
-	h.SnapshotNow(p.file())
+	if lh, ok := historyOf(p); ok {
+		lh.SnapshotNow(p.file())
+	}
 	_, body := splitPage(data)
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
@@ -100,19 +112,24 @@ func (a *app) historyView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	now := a.clock()
-	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: T("Sürüm geçmişi: ") + v.page.Title, Width: 940, Footer: func() {
+	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: T(map[bool]string{true: "Sunucudaki sürümler: ", false: "Sürüm geçmişi: "}[v.server]) + v.page.Title, Width: 940, Footer: func() {
 		hint := "Sayfanın bir süre önceki halleri; her 5 dakikada bir yeni kopya tutulur."
 		if len(v.vers) == 0 {
 			hint = "Henüz kopya yok: sayfa değiştikçe burada birikir."
 		}
+		if v.server {
+			hint = "Sunucunun tuttuğu eski haller: en çok 10, 30 gün; bir hâle dönünce bu bilgisayardaki sayfa o olur ve eşitlenir."
+		}
 		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			in := a.fieldMenu(ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}), &v.label, fieldOpts{oneLine: true}).Width(190)
-			keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
-			if keep {
-				a.saveNamedVersion()
-			}
-		})
+		if !v.server {
+			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+				in := a.fieldMenu(ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}), &v.label, fieldOpts{oneLine: true}).Width(190)
+				keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
+				if keep {
+					a.saveNamedVersion()
+				}
+			})
+		}
 		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), T("Bu sürüme dön"), ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.putBackVersion()
 		}

@@ -43,6 +43,8 @@ export function normalizeCode(c) {
 const codeHash = (c) => sha256hex("ryudit-invite:" + normalizeCode(c));
 const authHash = (salt, auth) => sha256hex(salt + ":" + auth);
 const validAuth = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+const validRecovery = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+const recoveryHash = (r) => sha256hex("ryudit-recovery:" + r);
 const validWrapped = (s) => typeof s === "string" && /^[A-Za-z0-9+/=_-]{20,400}$/.test(s);
 const validEmail = (s) => typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const validUser = (s) => typeof s === "string" && /^[a-z0-9][a-z0-9_.-]{2,31}$/.test(s);
@@ -132,13 +134,14 @@ async function turnstileOK(env, token, remoteip) {
 // ---- deleting an account's files ----
 
 export async function deleteAccountFiles(env, userId) {
-  const prefix = `u${userId}/`;
-  let cursor;
-  do {
-    const page = await env.SYNC.list({ prefix, cursor });
-    if (page.objects.length) await env.SYNC.delete(page.objects.map((o) => o.key));
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
+  for (const prefix of [`u${userId}/`, `v${userId}/`]) { // the files, and the earlier versions of them
+    let cursor;
+    do {
+      const page = await env.SYNC.list({ prefix, cursor });
+      if (page.objects.length) await env.SYNC.delete(page.objects.map((o) => o.key));
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+  }
 }
 async function deleteUser(env, userId) {
   await deleteAccountFiles(env, userId);
@@ -199,8 +202,9 @@ export async function handleApi(request, env, url) {
     }
     const salt = randomHex(16);
     try {
-      const u = await env.DB.prepare("INSERT INTO users(username,salt,auth_hash,wrapped_key,quota,created_at) VALUES(?,?,?,?,?,?)")
-        .bind(username, salt, await authHash(salt, body.auth), body.wrapped, DEFAULT_QUOTA, t).run();
+      const rec = validRecovery(body.recovery) ? await recoveryHash(body.recovery) : null;
+      const u = await env.DB.prepare("INSERT INTO users(username,salt,auth_hash,wrapped_key,quota,created_at,recovery_hash) VALUES(?,?,?,?,?,?,?)")
+        .bind(username, salt, await authHash(salt, body.auth), body.wrapped, DEFAULT_QUOTA, t, rec).run();
       await env.DB.prepare("UPDATE invites SET used_by=? WHERE code_hash=?").bind(u.meta.last_row_id, ch).run();
       const token = await newDevice(env, u.meta.last_row_id, body.device);
       await audit(env, `register ${username}`);
@@ -225,6 +229,27 @@ export async function handleApi(request, env, url) {
     return json({ token, username, wrapped: u.wrapped_key });
   }
 
+  // A forgotten password: the recovery key (the data key in words) proves who one is. The app makes from it a value of its own
+  // (the server has only the hash of that value, and cannot make the key from it), and the password is set anew, the data key
+  // staying the same, so that what is on the server stays readable. Every computer is signed out but this one.
+  if (path === "/api/recover" && method === "POST") {
+    const username = String(body.username || "").trim().toLowerCase();
+    if (!(await allow(env, "rec:" + where, 10, 3600)) || !(await allow(env, "recu:" + username, 5, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    if (!validRecovery(body.recovery) || !validAuth(body.newAuth) || !validWrapped(body.newWrapped)) return fail(400, "bad request");
+    const u = await env.DB.prepare("SELECT id,status,recovery_hash FROM users WHERE username=?").bind(username).first();
+    const ok = same(await recoveryHash(body.recovery), u?.recovery_hash || "0".repeat(64));
+    if (!u || !u.recovery_hash || !ok) return fail(401, "kullanıcı adı ya da kurtarma anahtarı yanlış");
+    if (u.status !== "active") return fail(403, "hesap askıya alınmış");
+    const salt = randomHex(16);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET salt=?,auth_hash=?,wrapped_key=? WHERE id=?").bind(salt, await authHash(salt, body.newAuth), body.newWrapped, u.id),
+      env.DB.prepare("DELETE FROM devices WHERE user_id=?").bind(u.id),
+    ]);
+    const token = await newDevice(env, u.id, body.device);
+    await audit(env, `recover ${username}`);
+    return json({ token, username });
+  }
+
   // from here on: a device's token
   const me = await userOfToken(env, bearer);
   if (!me) return fail(401, "oturum yok");
@@ -238,6 +263,16 @@ export async function handleApi(request, env, url) {
   }
   if (path === "/api/logout" && method === "POST") {
     await env.DB.prepare("DELETE FROM devices WHERE token_hash=?").bind(me.device).run();
+    return json({ ok: true });
+  }
+  // an account made before the recovery key could be used has none yet: the app sets it at a sign-in, with the password's proof. It is
+  // set once; it is not changed by whoever has only a token.
+  if (path === "/api/recovery" && method === "POST") {
+    if (!(await allow(env, "pw:" + me.id, 10, 900))) return fail(429, "çok fazla deneme");
+    if (!validAuth(body.auth) || !validRecovery(body.recovery)) return fail(400, "bad request");
+    const u = await env.DB.prepare("SELECT salt,auth_hash FROM users WHERE id=?").bind(me.id).first();
+    if (!same(await authHash(u.salt, body.auth), u.auth_hash)) return fail(401, "şifre yanlış");
+    await env.DB.prepare("UPDATE users SET recovery_hash=? WHERE id=? AND recovery_hash IS NULL").bind(await recoveryHash(body.recovery), me.id).run();
     return json({ ok: true });
   }
   if (path.startsWith("/api/devices/") && method === "DELETE") {
@@ -297,7 +332,9 @@ async function admin(request, env, path, method, body, bearer, url) {
     const email = String(body.email || "").trim().toLowerCase();
     if (!validEmail(email)) return fail(400, "e-posta geçersiz");
     await env.DB.prepare("INSERT OR IGNORE INTO waitlist(email,name,created_at) VALUES(?,?,?)").bind(email, String(body.name || "").trim().slice(0, 80), now()).run();
-    return json({ ok: true });
+    const w = await env.DB.prepare("SELECT id,status FROM waitlist WHERE email=?").bind(email).first();
+    await audit(env, `add ${email}`);
+    return json({ ok: true, id: w.id, status: w.status });
   }
   let m = path.match(/^\/api\/admin\/waitlist\/(\d+)\/(approve|resend|reject)$/);
   if (m && method === "POST") {
