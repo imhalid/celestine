@@ -406,6 +406,7 @@ func main() {
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
+	a.purgeTrash()                                          // what has been in the trash trashDays is deleted for good
 	a.prewarm()                                             // the pages' text, read away from the window
 	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
 	if unclean {

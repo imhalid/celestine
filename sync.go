@@ -629,6 +629,7 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 	sort.Strings(order)
 	abs := func(n string) string { return filepath.Join(root, filepath.FromSlash(n)) }
 	fail := func(n string, err error) { res.Errors = append(res.Errors, n+": "+err.Error()) }
+	var gone []string // what the remote has no more: the files to take away from here
 	// files the remote has no entry for at all (no tombstone), that are here as at the last pass: they
 	// would be deleted here. A few is a deletion elsewhere whose tombstone is gone; a tenth of the library
 	// is a remote that lost its list.
@@ -691,12 +692,7 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 					res.Held++
 					continue
 				}
-				if err := fsys.Remove(abs(n)); err != nil && !os.IsNotExist(err) {
-					fail(n, err)
-					continue
-				}
-				res.Removed++
-				delete(st.Files, n)
+				gone = append(gone, n) // taken away after the pass, when what came down is here: to the trash
 				continue
 			}
 			b, err := r.Get(n)
@@ -747,6 +743,28 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 			}
 			res.Pulled++
 			st.Files[n] = fileSync{Local: hashOf(b), Remote: rh}
+		}
+	}
+	if len(gone) > 0 {
+		// what is in the trash, by its bytes: a page thrown away on the other device came down there
+		kept := map[string]bool{}
+		for n, h := range local {
+			if strings.HasPrefix(n, trashDir+"/") {
+				kept[h] = true
+			}
+		}
+		for n, f := range st.Files {
+			if strings.HasPrefix(n, trashDir+"/") && f.Local != "" {
+				kept[f.Local] = true
+			}
+		}
+		removed, failed := syncTrash(fsys, root, gone, local, kept, now)
+		for _, n := range removed {
+			res.Removed++
+			delete(st.Files, n)
+		}
+		for n, err := range failed {
+			fail(n, err)
 		}
 	}
 	return res, pushed, nil

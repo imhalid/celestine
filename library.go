@@ -726,6 +726,17 @@ func (l *Library) putBack(item *TrashItem, in, name string) (string, error) {
 	return to, nil
 }
 
+// PurgeTrash deletes for good what has been in the trash more than trashDays, and says how many items.
+func (l *Library) PurgeTrash(now time.Time) int {
+	n := 0
+	for _, item := range l.Trash() {
+		if !item.Trashed.IsZero() && now.Sub(item.Trashed) > trashDays*24*time.Hour && l.DeleteForever(item) == nil {
+			n++
+		}
+	}
+	return n
+}
+
 // DeleteForever deletes item from the trash, from the disk.
 func (l *Library) DeleteForever(item *TrashItem) error {
 	bin := filepath.Join(l.Root, trashDir)

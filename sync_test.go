@@ -762,3 +762,82 @@ func TestSyncMassRemovalNotHeldWhenDeletedThere(t *testing.T) {
 		t.Fatalf("few: removed %d held %d", res.Removed, res.Held)
 	}
 }
+
+// What a sync takes away from here goes to the trash, as a page thrown away would, and is there to be put back.
+func TestSyncRemovalGoesToTrash(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/selam/page.json", `{"meta":{"title":"Selam"},"body":[]}`)
+	a.write("notlar/selam/resim.png", "png")
+	a.write("notlar/kalan/page.json", `{"meta":{"title":"Kalan"},"body":[]}`)
+	a.sync(dirRemote{remoteDir})
+	b.sync(dirRemote{remoteDir})
+	os.RemoveAll(filepath.Join(b.root, "notlar", "selam")) // deleted on the other device, by hand
+	b.sync(dirRemote{remoteDir})
+	if res := a.sync(dirRemote{remoteDir}); res.Removed != 2 {
+		t.Fatalf("removed %d", res.Removed)
+	}
+	if a.read("notlar/selam/page.json") != "<yok>" || a.read("notlar/kalan/page.json") == "<yok>" {
+		t.Fatal("the wrong files went")
+	}
+	lib := &Library{Root: a.root, fs: osFS{}}
+	items := lib.Trash()
+	if len(items) != 1 || items[0].Title != "Selam" || items[0].Kind != "page" || items[0].From != filepath.FromSlash("notlar/selam") {
+		t.Fatalf("trash: %+v", items)
+	}
+	if b, err := os.ReadFile(filepath.Join(items[0].Dir, "resim.png")); err != nil || string(b) != "png" {
+		t.Fatalf("the picture is not kept: %v", err)
+	}
+	if a.read(".cop/"+filepath.Base(items[0].Dir)+"/page.json") == "<yok>" {
+		t.Fatal("the page is not in the trash")
+	}
+}
+
+// A page thrown away on the other device comes down into the trash as it was moved: what is taken away from
+// its old place is the same bytes, and is not put in the trash a second time.
+func TestSyncRemovalNotKeptTwice(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/selam/page.json", `{"meta":{"title":"Selam"},"body":[]}`)
+	a.sync(dirRemote{remoteDir})
+	b.sync(dirRemote{remoteDir})
+	lib := &Library{Root: b.root, fs: osFS{}}
+	if err := os.MkdirAll(filepath.Join(b.root, ".cop"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.trash(filepath.Join(b.root, "notlar", "selam"), TrashItem{Kind: "page", Title: "Selam"}); err != nil {
+		t.Fatal(err)
+	}
+	b.sync(dirRemote{remoteDir})
+	a.sync(dirRemote{remoteDir})
+	if a.read("notlar/selam/page.json") != "<yok>" {
+		t.Fatal("it was not taken away")
+	}
+	if n := len((&Library{Root: a.root, fs: osFS{}}).Trash()); n != 1 {
+		t.Fatalf("the trash has %d items, want the one that came down", n)
+	}
+}
+
+// What has been in the trash more than trashDays is deleted for good; what is younger stays.
+func TestPurgeTrash(t *testing.T) {
+	root := t.TempDir()
+	lib := &Library{Root: root, fs: osFS{}}
+	now := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
+	for name, age := range map[string]int{"eski": 31, "yeni": 29} {
+		dir := filepath.Join(root, ".cop", name)
+		os.MkdirAll(dir, 0o755)
+		os.WriteFile(filepath.Join(dir, "page.json"), []byte(`{"meta":{},"body":[]}`), 0o644)
+		data, _ := json.Marshal(TrashItem{Kind: "page", Title: name, Trashed: now.AddDate(0, 0, -age)})
+		os.WriteFile(filepath.Join(dir, trashNote), data, 0o644)
+	}
+	if n := lib.PurgeTrash(now); n != 1 {
+		t.Fatalf("purged %d", n)
+	}
+	items := lib.Trash()
+	if len(items) != 1 || items[0].Title != "yeni" {
+		t.Fatalf("left: %+v", items)
+	}
+	if d := trashDaysLeft(items[0], now); d != 1 {
+		t.Fatalf("days left %d", d)
+	}
+}

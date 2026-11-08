@@ -293,8 +293,9 @@ var enMore = map[string]string{
 	"Başka şablonlar": "Other templates",
 	"Her biri adıyla seçilir: “Yeni sayfa” düğmesinin yanındaki oktan, paletten ve / menüsünden. {{başlık}}, {{tarih}}, {{saat}} kullanılabilir.": "Each is chosen by its name: from the arrow beside the “New page” button, from the palette and from the / menu. {{başlık}}, {{tarih}} and {{saat}} can be used.",
 	"Çöp": "Trash",
-	"Atılan sayfalar ve koleksiyonlar burada durur; geri yüklenince eski yerlerine dönerler.": "Thrown-away pages and collections stay here; when restored they go back to where they were.",
-	"Çöpteki: ": "In the trash: ",
+	"Atılan sayfalar ve koleksiyonlar 30 gün burada durur; geri yüklenince eski yerlerine dönerler, sonra kalıcı olarak silinirler.": "Thrown-away pages and collections stay here for 30 days; when restored they go back to where they were, then they are deleted for good.",
+	"%d gün sonra silinir": "deleted in %d days",
+	"Çöpteki: ":            "In the trash: ",
 	// update
 	"Şimdiki sürüm: ": "Current version: ",
 	"Kitaplığına dokunulmaz, güncellemeden önce yedeği alınır; açılışta düşerse önceki sürüme dönülür.": "Your library is not touched, a backup is taken before updating; if it crashes on opening, the previous version comes back.",

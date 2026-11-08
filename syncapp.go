@@ -145,6 +145,7 @@ func (a *app) syncNow() {
 				if a.sy.held = res.Held; res.Held > 0 && a.sy.err == "" {
 					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
 				}
+				a.purgeTrash()                  // what came down may be a trash that has run out
 				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
 				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
 					a.checkDisk()

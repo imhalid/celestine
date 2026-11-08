@@ -15,11 +15,25 @@ import (
 // loadTrash reads what is in the trash.
 func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
 
+// purgeTrash deletes what has been in the trash for trashDays: at the start, after a sync, when the trash is opened.
+func (a *app) purgeTrash() {
+	if a.lib.PurgeTrash(a.clock()) > 0 && a.trashItems != nil {
+		a.loadTrash()
+	}
+}
+
+// trashDaysLeft is the whole days an item has left in the trash.
+func trashDaysLeft(item *TrashItem, now time.Time) int {
+	left := item.Trashed.Add(trashDays * 24 * time.Hour).Sub(now)
+	return max(0, int((left+24*time.Hour-1)/(24*time.Hour)))
+}
+
 // openTrash shows the trash instead of a page.
 func (a *app) openTrash() {
 	a.flush()
 	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = true, nil, "", false, false, false
 	a.statsScreen = false
+	a.purgeTrash()
 	a.loadTrash()
 	a.visit()
 }
@@ -87,7 +101,7 @@ func (a *app) trashView(c *ui.Context) {
 	now := a.clock()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, T("Çöp")).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		ui.Text(c, T("Atılan sayfalar ve koleksiyonlar burada durur; geri yüklenince eski yerlerine dönerler.")).
+		ui.Text(c, T("Atılan sayfalar ve koleksiyonlar 30 gün burada durur; geri yüklenince eski yerlerine dönerler, sonra kalıcı olarak silinirler.")).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 8, 0)
 		if len(a.trashItems) == 0 {
 			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
@@ -129,7 +143,11 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 					from = "Sayfa"
 				}
 			}
-			ui.Text(c, from+"  ·  "+ago(item.Trashed, now)+" atıldı").FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
+			note := from + "  ·  " + ago(item.Trashed, now) + " atıldı"
+			if !item.Trashed.IsZero() {
+				note += "  ·  " + Tf("%d gün sonra silinir", trashDaysLeft(item, now))
+			}
+			ui.Text(c, note).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		})
 		if ryugo.Button(c.Key("restore:"+item.Dir), "Geri yükle", ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
