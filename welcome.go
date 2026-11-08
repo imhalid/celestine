@@ -463,7 +463,8 @@ func init() {
 		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "İki ton": "Two tones", "Renkli": "Colorful", "Gece": "Night",
 		"Halka": "Ring", "Perde": "Curtain", "Çözülme": "Dissolve", "Çizgiler": "Lines",
 		"Bulut": "Clouds", "Sistem": "System",
-		"Yarım ton": "Halftone", "Siyah beyaz": "Monochrome", "Cam dalgası": "Glass ripple", "Renk kayması": "Chromatic aberration",
+		"Buz": "Ice", "Kristal": "Crystal", "Prizma": "Prism", "Kuzey": "Aurora", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
+		"Spektrum": "Spectrum",
 		"Yazıların altında, masaüstünün üstünde ne olacağı.": "What is under the words, over the desktop.",
 		"Başla'dan sonra uygulamanın penceresi nasıl gelir.": "How the app's window comes after Start.",
 	} {

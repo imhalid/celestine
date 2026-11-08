@@ -59,6 +59,9 @@ func (o welcomeOpening) progress(t float64) float64 {
 // easeIn starts slowly and speeds up, as a thing let go does.
 func easeIn(t float64) float64 { return math.Pow(t, 2.2) }
 
+// iceEase is even in time: the ice keeps its own pace, the cracks first and the shards after.
+func iceEase(t float64) float64 { return t }
+
 var welcomeGrounds = []welcomeGround{
 	{"", "İki ton", groundShader(meshLayer(`
 func tint(i int) vec3 {
@@ -119,6 +122,9 @@ func tint(i int) vec3 {
 }
 `)), false},
 	{"cizgiler", "Çizgiler", groundShader(linesLayer), true},
+	{"kristal", "Kristal", groundShader(crystalLayer), true},
+	{"prizma", "Prizma", groundShader(prismLayer), true},
+	{"kuzey", "Kuzey", groundShader(auroraLayer), true},
 	{"ascii", "ASCII", groundShader(asciiLayer), true},
 	{"bulut", "Bulut", groundShader(cloudLayer), true},
 	{"sistem", "Sistem", groundShader(orbitLayer), true},
@@ -130,11 +136,11 @@ var welcomeOpenings = []welcomeOpening{
 	{id: "cozulme", name: "Çözülme", sh: shader.MustCompile(dissolveOpening + ringShared), maxOffset: 0},
 	{id: "cizgiler", name: "Çizgiler", sh: shader.MustCompile(linesOpening + ringShared), maxOffset: 0},
 	{id: "namedrop", name: "NameDrop", sh: shader.MustCompile(namedropOpening + ringShared), dur: 3.2, ease: easeIn},
-	{id: "yarimton", name: "Yarım ton", sh: shader.MustCompile(halftoneOpening + ringShared), maxOffset: 0},
-	{id: "siyahbeyaz", name: "Siyah beyaz", sh: shader.MustCompile(monoOpening + ringShared), maxOffset: 0},
-	{id: "cam", name: "Cam dalgası", sh: shader.MustCompile(rippleOpening + ringShared), maxOffset: 24},
-	{id: "renkkaymasi", name: "Renk kayması", sh: shader.MustCompile(aberrationOpening + ringShared), maxOffset: 48},
-	{id: "crt", name: "CRT", sh: shader.MustCompile(crtOpening + ringShared), maxOffset: 0},
+	{id: "buz", name: "Buz", sh: shader.MustCompile(iceOpening + voroShader + ringShared), dur: 3.0, ease: iceEase},
+	{id: "patlama", name: "Patlama", sh: shader.MustCompile(burstOpening + voroShader + ringShared), dur: 2.6, ease: iceEase, maxOffset: 40},
+	{id: "ufuk", name: "Ufuk", sh: shader.MustCompile(horizonOpening + fbmShader + ringShared), dur: 2.8},
+	{id: "cam", name: "Cam", sh: shader.MustCompile(glassOpening + ringShared), dur: 2.6, maxOffset: 14},
+	{id: "spektrum", name: "Spektrum", sh: shader.MustCompile(spectrumOpening + ringShared), dur: 2.4, maxOffset: 24},
 }
 
 // welcomeGroundLook is the ground chosen in the settings, or the first. RYUDIT_WELCOME_GROUND chooses one for a run
@@ -312,54 +318,60 @@ func fbm(p vec2) float {
 }
 `
 
-// asciiLayer is a field of letters on a dark ground: a slow flow of noise, each cell of it the letter whose weight is
-// its light (5x5 bitmaps in a number, after movAX13h), in green going to blue across the screen. The cells come on
-// one by one, in no order, as Mesh grows; the middle, where the words are, is quiet.
+// asciiLayer is a grid of small lit signs, as a wall of LEDs: a few soft masses of light drift over it, violet going to
+// blue and cyan, and each cell shows the sign of its light, from a faint plus to a box, a cross, a box of dots and,
+// where it is brightest, a cell lit white; a glow lies under the lit ones. The cells come on one by one, in no
+// order, as Mesh grows; the middle, where the words are, is quiet.
 const asciiLayer = fbmShader + `
-func glyph(n float, p vec2) float {
-	p = floor(p*vec2(4, -4) + 2.5)
-	if p.x < 0 || p.x > 4 || p.y < 0 || p.y > 4 {
-		return 0
+func blob(p vec2, c vec2, r float) float {
+	d := distance(p, c) / r
+	return exp(-d * d)
+}
+
+// cellSign is the sign of light l at q (-1..1 in the cell)
+func cellSign(l float, q vec2) float {
+	b := max(abs(q.x), abs(q.y))
+	box := step(0.52, b) * step(b, 0.74)
+	if l < 0.16 {
+		return step(abs(q.x), 0.1) * step(abs(q.y), 0.1) // a point
 	}
-	return mod(floor(n/exp2(p.x+5*p.y)), 2)
+	if l < 0.34 {
+		return max(step(abs(q.x), 0.1)*step(abs(q.y), 0.5), step(abs(q.y), 0.1)*step(abs(q.x), 0.5)) // +
+	}
+	if l < 0.52 {
+		return max(box, step(abs(q.y), 0.1)*step(abs(q.x), 0.6)) // a box with a bar
+	}
+	if l < 0.70 {
+		return step(abs(abs(q.x)-abs(q.y)), 0.17) * step(b, 0.66) // x
+	}
+	if l < 0.86 {
+		dots := step(length(abs(q)-vec2(0.24)), 0.15)
+		return max(box, dots) // a box of four dots
+	}
+	return step(b, 0.72) // lit
 }
 
 func layer(p vec2, e float) vec4 {
-	cell := 0.017
+	cell := 0.016
 	at := (floor(p/cell) + 0.5) * cell
-	f := fbm(at*2.4+vec2(Time*0.045, -Time*0.03)) * 1.5 - 0.42
-	f += 0.18 * sin(length(at)*11 - Time*0.7) // a slow wave out from the middle
-	l := clamp(f, 0, 1) * mix(0.30, 1.0, smoothstep(0.16, 0.55, length(at)))
-	on := smoothstep(0.0, 0.08, Mesh*1.1-hash(at*97.0)) // each cell in its own time
-	n := 0.0
-	if l > 0.08 {
-		n = 4096 // .
-	}
-	if l > 0.2 {
-		n = 65600 // :
-	}
-	if l > 0.32 {
-		n = 332772 // *
-	}
-	if l > 0.44 {
-		n = 15255086 // o
-	}
-	if l > 0.56 {
-		n = 23385164 // &
-	}
-	if l > 0.68 {
-		n = 15252014 // 8
-	}
-	if l > 0.8 {
-		n = 13199452 // @
-	}
-	if l > 0.9 {
-		n = 11512810 // #
-	}
-	g := glyph(n, mod(p/(cell*0.5), 2)-1) * on
-	tint := mix(vec3(0.36, 0.95, 0.62), vec3(0.45, 0.66, 1.0), clamp(at.x*0.7+0.5, 0, 1))
-	col := tint * (0.45 + 0.75*l) * g * (1 - smoothstep(0.95, 1.5, e))
-	return vec4(col, g) + vec4(0, 0, 0, mix(0.93, 0.78, smoothstep(0.2, 1.3, e)))*(1-g)
+	q := (p - at) / (cell * 0.5)
+	t := Time
+	w := at + 0.08*vec2(fbm(at*3+vec2(t*0.05, 0)), fbm(at*3+vec2(0, t*0.04)))-0.04
+	m := blob(w, vec2(-0.42+0.10*sin(t*0.13), -0.05+0.08*cos(t*0.11)), 0.30)
+	m += blob(w, vec2(0.38+0.12*cos(t*0.09), 0.10*sin(t*0.12)), 0.34)
+	m += 0.8 * blob(w, vec2(0.05*sin(t*0.07), 0.36+0.06*cos(t*0.1)), 0.24)
+	l := clamp(m*1.05, 0, 1) * mix(0.25, 1.0, smoothstep(0.16, 0.5, length(at)))
+	on := smoothstep(0.0, 0.08, Mesh*1.1-hash(at*97.0))
+	g := cellSign(l, q) * on
+	hue := clamp(at.x*0.9+0.5+0.15*(fbm(at*2+vec2(t*0.03, 1))-0.5), 0, 1)
+	tint := mix(mix(vec3(0.62, 0.45, 1.0), vec3(0.30, 0.42, 1.0), smoothstep(0.0, 0.5, hue)), vec3(0.25, 0.95, 0.95), smoothstep(0.5, 1.0, hue))
+	lit := mix(tint*(0.30+1.0*l), vec3(1.0), smoothstep(0.78, 1.0, l)*0.85)
+	dim := vec3(0.30, 0.36, 0.48) * 0.35 // the cells with little light: grey-blue
+	col := mix(dim, lit, smoothstep(0.1, 0.3, l)) * g
+	col += tint * l * l * 0.28 * on // the glow under the lit ones
+	col *= 1 - smoothstep(0.95, 1.5, e)
+	a := max(max(col.r, col.g), col.b)
+	return vec4(col, min(a, 1)) + vec4(0, 0, 0, mix(0.93, 0.80, smoothstep(0.2, 1.3, e)))*(1-min(a, 1))
 }
 `
 
@@ -407,6 +419,389 @@ func layer(p vec2, e float) vec4 {
 	col = min(col, vec3(1)) * (1 - smoothstep(1.0, 1.6, e))
 	g := max(max(col.r, col.g), col.b)
 	return vec4(col, g) + vec4(0, 0, 0, mix(0.94, 0.80, smoothstep(0.2, 1.3, e)))*(1-g)
+}
+`
+
+// voroShader is the cells of ice: for p in cells, the point of the nearest cell (in cells) and how far p is from
+// the edge between it and the next.
+const voroShader = `
+func hash2(p vec2) vec2 {
+	return vec2(hash(p), hash(p+vec2(19.19, 7.31)))
+}
+
+func voro(p vec2) vec3 {
+	n := floor(p)
+	f := fract(p)
+	mg := vec2(0)
+	mr := vec2(0)
+	md := 8.0
+	for j := 0; j < 3; j++ {
+		for i := 0; i < 3; i++ {
+			g := vec2(float(i-1), float(j-1))
+			r := g + hash2(n+g) - f
+			d := dot(r, r)
+			if d < md {
+				md, mr, mg = d, r, g
+			}
+		}
+	}
+	md = 8.0
+	for j := 0; j < 5; j++ {
+		for i := 0; i < 5; i++ {
+			g := mg + vec2(float(i-2), float(j-2))
+			r := g + hash2(n+g) - f
+			if dot(mr-r, mr-r) > 0.00001 {
+				md = min(md, dot(0.5*(mr+r), normalize(r-mr)))
+			}
+		}
+	}
+	return vec3(n+mg+hash2(n+mg), max(md, 0))
+}
+`
+
+// crystalLayer is the ground for the ice, after light through crystal: deep blue and violet, and ribbons of light
+// that bend out from a bright heart, each white where it is brightest, split into its colors at its edges as light
+// through a prism is, and wrapped in a softer glow of itself; a faint frost of crystals toward the edges.
+const crystalLayer = voroShader + `
+// ribbon is ribbon k at angle a and distance r, and its glow, for the color turned by off
+func ribbon(a float, r float, k float, t float, off float) vec2 {
+	target := k*0.628 + 0.62*sin(r*2.1+t*0.17+k*1.7) + 0.24*sin(r*4.7-t*0.23+k*0.8)
+	x := a - target + off*(0.3+r)
+	d := abs(atan2(sin(x), cos(x))) // the angle between, -π..π: mod is not the same for a negative number on every GPU
+	w := 0.0035 + r*0.0055
+	fade := smoothstep(0.03, 0.30, r) * (1 - smoothstep(0.9, 1.8, r)) * (0.55 + 0.45*sin(k*2.3+t*0.4))
+	return vec2(w/(d+w*0.5), (w*7)/(d+w*7)) * fade
+}
+
+func layer(p vec2, e float) vec4 {
+	r := length(p)
+	a := atan2(p.y, p.x)
+	sharp := vec3(0)
+	glow := vec3(0)
+	for i := 0; i < 10; i++ {
+		k := float(i)
+		rr := ribbon(a, r, k, Time, -0.020)
+		gg := ribbon(a, r, k, Time, 0.0)
+		bb := ribbon(a, r, k, Time, 0.020)
+		sharp += vec3(rr.x, gg.x, bb.x)
+		glow += vec3(rr.y, gg.y, bb.y)
+	}
+	heart := exp(-r*9) * 1.4
+	hdr := sharp*vec3(0.30, 0.27, 0.36) + glow*vec3(0.05, 0.05, 0.10) + vec3(0.8, 0.85, 1.0)*heart
+	light := vec3(1) - exp(-hdr) // soft at its brightest
+	light *= mix(0.45, 1.0, smoothstep(0.06, 0.35, r)) // the words keep the heart
+	v := voro(p * 7)
+	frost := exp(-max(v.z, 0)*30) * smoothstep(0.6, 1.4, e) * 0.08 // on a GPU the edge can come out a hair below 0
+	lobe := vec3(0.10, 0.12, 0.35)*exp(-length(p-vec2(-0.5, 0.3))*2.2) + vec3(0.22, 0.10, 0.30)*exp(-length(p-vec2(0.55, -0.35))*2.4)
+	ground := vec3(0.025, 0.025, 0.07) + lobe*0.8
+	col := ground + light + vec3(0.6, 0.7, 1.0)*frost
+	al := mix(0.96, 0.88, smoothstep(0.3, 1.4, e))
+	return vec4(col*al, al)
+}
+`
+
+// prismLayer is a burst of light through a prism: beams out from a dark heart, each of its own breadth and tint,
+// turning slowly, some one way and some the other, breathing, wider as they go out, and split into red, green and
+// blue more the farther out they are; a blue haze about them.
+const prismLayer = `
+func beam(a float, r float, k float, t float) float {
+	dirn := step(0.5, hash(vec2(k, 8.1)))*2 - 1
+	ak := 6.28318*hash(vec2(k, 1.7)) + t*(0.025+0.035*hash(vec2(k, 3.3)))*dirn
+	x := a - ak
+	da := atan2(sin(x), cos(x))
+	w := (0.025 + 0.09*hash(vec2(k, 5.9))) * (1 + r*0.7)
+	b := (0.45 + 0.9*hash(vec2(k, 2.4))) * (0.7 + 0.3*sin(t*0.55+k*2.1))
+	return b * exp(-(da*da)/(w*w))
+}
+
+func layer(p vec2, e float) vec4 {
+	r := length(p)
+	a := atan2(p.y, p.x)
+	split := 0.035 * r
+	col := vec3(0)
+	for i := 0; i < 18; i++ {
+		k := float(i)
+		tint := mix(vec3(0.55, 0.70, 1.0), vec3(1.0, 0.82, 0.55), hash(vec2(k, 6.6))*hash(vec2(k, 7.7)))
+		col += tint * vec3(beam(a+split, r, k, Time), beam(a, r, k, Time), beam(a-split, r, k, Time))
+	}
+	reach := smoothstep(0.04, 0.24, r) * exp(-r*1.5) * 2.0 // dark at the heart, bright about it, fading out
+	haze := vec3(0.18, 0.25, 0.60) * exp(-r*2.0) * 0.5 * smoothstep(0.02, 0.2, r)
+	light := vec3(1) - exp(-(col*reach + haze))
+	light *= 1 - smoothstep(1.0, 1.7, e)
+	ground := vec3(0.02, 0.02, 0.05)
+	al := mix(0.96, 0.88, smoothstep(0.3, 1.4, e))
+	return vec4((ground+light)*al, al)
+}
+`
+
+// auroraLayer is a curtain of light hanging from an arch above the words: columns of light that shift slowly, each
+// falling its own length and spreading as it falls, bright and touched with pink along the arch and blue below; a
+// few stars in a deep night.
+const auroraLayer = fbmShader + `
+func layer(p vec2, e float) vec4 {
+	x := p.x
+	top := -0.46 + 0.36*x*x/0.36 // the arch
+	below := p.y - top
+	u := x / (1 + max(below, 0)*0.9) // the columns spread as they fall
+	cols := pow(fbm(vec2(u*30, Time*0.06)), 2.2) * 2.6
+	fine := noise(vec2(u*150, Time*0.25)) * 0.35
+	drop := 0.14 + 0.22*noise(vec2(u*8, Time*0.05+3))
+	fall := smoothstep(-0.004, 0.004, below) * exp(-max(below, 0)/drop)
+	rim := exp(-abs(below)/0.010) * 0.8
+	width := 1 - smoothstep(0.40, 0.66, abs(x))
+	amount := ((cols+fine)*fall + rim*(cols+0.2)) * width
+	pink := noise(vec2(u*10, 1.3+Time*0.03)) * exp(-max(below, 0)/0.05)
+	tint := mix(vec3(0.30, 0.46, 1.0), vec3(1.0, 0.48, 0.72), pink*0.8)
+	light := vec3(1) - exp(-tint*amount*1.4)
+	light *= mix(0.55, 1.0, smoothstep(-0.05, -0.20, p.y)) // the words, below the arch, keep their ground
+	st := hash(floor(p * 260))
+	star := step(0.9975, st) * (0.5 + 0.5*sin(Time*1.5+st*50)) * (1 - fall)
+	ground := mix(vec3(0.015, 0.02, 0.05), vec3(0.03, 0.04, 0.10), smoothstep(0.6, -0.4, p.y))
+	col := ground + light + vec3(0.8, 0.85, 1.0)*star*0.7
+	al := mix(0.96, 0.88, smoothstep(0.3, 1.4, e))
+	return vec4(col*al, al)
+}
+`
+
+// iceOpening: the window is behind ice, which forms over it, pale and frosted. It is struck in the middle: a flash,
+// cracks running out straight from there, and between them the ice breaking into pieces, small where it was
+// struck and larger outward, their edges lit violet and white and split into colors. Then the pieces go, from the
+// middle outward, each flaring as it slips away, and the window is under them, clear.
+const iceOpening = `package main
+
+var Prog float
+var Size vec2
+
+func LayerEffect(pos vec2) vec4 {
+	mid := Size * 0.5
+	far := length(mid)
+	rel := pos - mid
+	d := length(rel)
+	// the pieces: cells that grow with the distance from the blow
+	scale := 34 + d*0.30
+	v := voro(rel / scale)
+	at := mid + v.xy*scale
+	edge := max(v.z, 0) * scale
+	h := hash(v.xy)
+	dc := distance(at, mid) / far
+	dir := normalize(at - mid + vec2(0.001, 0))
+
+	formed := smoothstep(0.0, 0.14, Prog)
+	front := (Prog - 0.10) * 2.4 // how far the cracks have run, 1 at the corners
+	cracked := smoothstep(dc-0.02, dc+0.05, front)
+	tb := 0.44 + dc*0.32 + h*0.10
+	gone := smoothstep(tb, tb+0.18, Prog)
+
+	// the straight cracks out from the blow, which run first
+	straight := 0.0
+	for i := 0; i < 11; i++ {
+		fi := float(i)
+		an := 6.28318*(fi+0.5*hash(vec2(fi, 2.2)))/11
+		u := vec2(cos(an), sin(an))
+		along := dot(rel, u)
+		across := abs(dot(rel, vec2(-u.y, u.x)) + 14*sin(along/80+fi))
+		reach := smoothstep(along-60, along, (Prog-0.06)*3.0*far)
+		straight += step(0, along) * exp(-across/0.8) * reach * exp(-along/(far*0.7))
+	}
+	straight = min(straight, 1) * (1 - smoothstep(0.5, 0.85, Prog)) * 0.8
+
+	clean := layerSample(pos)
+	// the ice: the window through it, pale and frosted, each piece bent a little and lit at its rim; a piece that
+	// goes slips outward and shrinks
+	sc := 1 - gone*0.22
+	src := at + (pos-at)/sc - dir*gone*gone*(40+60*h) + dir*h*4
+	seen := layerSample(clamp(src, vec2(0), Size))
+	lum := dot(seen.rgb, vec3(0.299, 0.587, 0.114))
+	frost := noise(pos/7)*0.07 + noise(pos/29)*0.10
+	ice := mix(seen.rgb*0.5, vec3(0.74, 0.84, 1.0)*(0.42+lum*0.7), 0.62) + vec3(frost)
+	ice += vec3(0.70, 0.80, 1.0) * exp(-edge/10) * 0.30 * cracked // the light in a piece's edge
+	// the cracks: violet, white at their hearts, split into colors; they take the place of what is under them, so that
+	// they show on a pale window as on a dark one
+	rimR, rimG, rimB := exp(-edge/2.6), exp(-edge/1.8), exp(-edge/2.2)
+	rimAmt := max(max(rimR, rimG), rimB)
+	rimCol := mix(vec3(rimR*0.95, rimG*0.55, rimB*1.0)/max(rimAmt, 0.001), vec3(1), exp(-edge/0.7))
+	crack := cracked * (1 - gone)
+	flare := gone * (1 - gone) * 4 // a piece is bright as it goes
+	blow := exp(-d/150) * smoothstep(0.04, 0.12, Prog) * (1 - smoothstep(0.12, 0.45, Prog)) // the flash of the blow
+	piece := (1 - gone) * formed
+	col := clean.rgb*(1-piece) + ice*piece*clean.a
+	col = mix(col, rimCol*vec3(0.85, 0.75, 1.0), rimAmt*crack*0.9*formed)
+	col += (vec3(0.80, 0.70, 1.0)*flare*0.30 + vec3(0.88, 0.82, 1.0)*straight) * formed
+	col += vec3(0.90, 0.85, 1.0) * blow * 1.4
+	a := max(clean.a*formed, min(max(max(col.r, col.g), col.b), 1)*formed)
+	return vec4(col, a)
+}
+`
+
+// burstOpening, after a crystal blown apart: a flash of violet and pink in the middle, cracks thick with light running
+// out from it, streaks of speed out on every side, the window split into its colors, the more the nearer the blow,
+// and the pieces flung outward, fast, until it is whole and still.
+const burstOpening = `package main
+
+var Prog float
+var Size vec2
+
+func LayerEffect(pos vec2) vec4 {
+	mid := Size * 0.5
+	far := length(mid)
+	rel := pos - mid
+	d := length(rel)
+	ang := atan2(rel.y, rel.x)
+	dirp := rel / max(d, 1)
+
+	scale := 26 + d*0.26
+	v := voro(rel / scale)
+	at := mid + v.xy*scale
+	edge := max(v.z, 0) * scale
+	h := hash(v.xy)
+	dc := distance(at, mid) / far
+	dir := normalize(at - mid + vec2(0.001, 0))
+
+	front := Prog * 3.2
+	cracked := smoothstep(dc-0.02, dc+0.06, front)
+	fly := 1 - smoothstep(0.0, 0.75, Prog) // the pieces are out, and come home
+	fly = fly * fly
+	push := dir * fly * (90 + 160*h) * cracked
+	split := (1 - smoothstep(0.1, 0.9, Prog)) * 26 * exp(-d/(far*0.8))
+	src := pos - push
+	r := layerSample(clamp(src+dirp*split, vec2(0), Size))
+	g := layerSample(clamp(src, vec2(0), Size))
+	b := layerSample(clamp(src-dirp*split, vec2(0), Size))
+	col := vec4(r.r, g.g, b.b, max(max(r.a, g.a), b.a))
+	col *= smoothstep(0.0, 0.18, Prog)
+
+	life := 1 - smoothstep(0.20, 0.62, Prog)
+	core := exp(-edge/1.1)
+	halo := exp(-edge/(5.0-3.0*Prog))
+	crack := cracked * life
+	lightC := (vec3(1.0, 0.95, 1.0)*core*1.2 + vec3(0.75, 0.40, 1.0)*halo*0.9) * crack
+	// streaks of speed, out from the middle
+	sector := floor(ang * 48 / 6.28318)
+	sh := hash(vec2(sector, 4.4))
+	run := fract(sh - Prog*1.6)
+	streak := step(0.72, sh) * exp(-abs(fract(ang*48/6.28318)-0.5)*14) * smoothstep(0.0, 0.2, run) * (1 - smoothstep(0.2, 0.5, run))
+	streak *= smoothstep(far*0.15, far*0.5, d) * life
+	sc := vec3(streak) * mix(vec3(1.0, 0.5, 0.9), vec3(0.5, 0.7, 1.0), sh)
+	flash := exp(-d/(170+300*Prog)) * smoothstep(0.0, 0.06, Prog) * (1 - smoothstep(0.06, 0.5, Prog))
+	light := lightC + sc*1.1 + vec3(0.95, 0.70, 1.0)*flash*1.8
+	col.rgb += light
+	col.a = max(col.a, min(max(max(light.r, light.g), light.b), 1))
+	return col
+}
+`
+
+// horizonOpening, after a seam of light: a line of white light across the middle, flames of colored light rising
+// and falling from it, which opens up and down, the window in the opening, its edges white-hot and split into
+// colors, until the light has gone.
+const horizonOpening = `package main
+
+var Prog float
+var Size vec2
+var Time float
+
+func LayerEffect(pos vec2) vec4 {
+	mid := Size * 0.5
+	y := (pos.y - mid.y) / mid.y
+	x := (pos.x - mid.x) / mid.x
+	open := smoothstep(0.18, 0.88, Prog) * 1.12
+	dy := abs(y) - open
+	inside := 1 - smoothstep(-0.015, 0.0, dy)
+	clean := layerSample(pos)
+	life := smoothstep(0.0, 0.10, Prog) * (1 - smoothstep(0.72, 1.0, Prog))
+	band := 0.014 + 0.045*smoothstep(0.0, 0.25, Prog)*(1-open*0.6)
+	// the edge of the opening: white-hot, red outside it and blue inside
+	gr := exp(-abs(dy-0.010)/band)
+	gg := exp(-abs(dy)/band)
+	gb := exp(-abs(dy+0.010)/band)
+	// the flames: thin bright ridges of noise drawn out from the edge, outward only
+	q := vec2(x*2.2, max(dy, 0)*5.0 - Time*0.8)
+	n := fbm(q + vec2(0, fbm(q*1.6)))
+	ridge := pow(1-abs(n*2-1), 12.0) * exp(-max(dy, 0)/0.16) * smoothstep(-0.01, 0.01, dy)
+	hue := fbm(vec2(x*1.3+Time*0.1, 2.0))
+	flame := mix(vec3(0.30, 0.60, 1.0), vec3(1.0, 0.55, 0.30), smoothstep(0.35, 0.65, hue)) * ridge * 1.2
+	hot := vec3(gr, gg, gb) * (1.5 - open*0.5) * exp(-x*x*0.8) * mix(0.35, 1.0, step(0, dy)) // softer on the window's side
+	light := (hot + flame) * life
+	light = vec3(1) - exp(-light*1.5)
+	col := clean*inside*smoothstep(0.1, 0.3, Prog)
+	col.rgb += light
+	col.a = max(col.a, min(max(max(light.r, light.g), light.b), 1))
+	return col
+}
+`
+
+// glassOpening, after a letter in glass: the window comes first as glass in relief, each edge of what is in it raised,
+// lit from above, a highlight on it, its rims split into colors, the window seen bent through it; and the glass
+// clears into the window.
+const glassOpening = `package main
+
+var Prog float
+var Size vec2
+
+func lum(p vec2) float {
+	c := layerSample(p)
+	return dot(c.rgb, vec3(0.299, 0.587, 0.114)) + (1-c.a)*0.0
+}
+
+func LayerEffect(pos vec2) vec4 {
+	s := 2.5
+	gx := lum(pos+vec2(s, 0)) - lum(pos-vec2(s, 0))
+	gy := lum(pos+vec2(0, s)) - lum(pos-vec2(0, s))
+	n := normalize(vec3(-gx*5, -gy*5, 1))
+	glassy := 1 - smoothstep(0.45, 1.0, Prog)
+	clean := layerSample(pos + n.xy*10*glassy)
+	ld := normalize(vec3(-0.45, -0.65, 0.6))
+	diff := clamp(dot(n, ld)*0.5+0.5, 0, 1)
+	spec := pow(max(dot(reflect(-ld, n), vec3(0, 0, 1)), 0), 28)
+	g := vec2(gx, gy)
+	gl := length(g)
+	gdir := g / max(gl, 0.0001)
+	e0 := clamp(gl*4, 0, 1)
+	er := clamp(length(vec2(lum(pos+gdir*2+vec2(s, 0))-lum(pos+gdir*2-vec2(s, 0)), lum(pos+gdir*2+vec2(0, s))-lum(pos+gdir*2-vec2(0, s))))*4, 0, 1)
+	eb := clamp(length(vec2(lum(pos-gdir*2+vec2(s, 0))-lum(pos-gdir*2-vec2(s, 0)), lum(pos-gdir*2+vec2(0, s))-lum(pos-gdir*2-vec2(0, s))))*4, 0, 1)
+	relief := smoothstep(0.0, 0.35, gl*4) // the glass shows where there is an edge to raise; the flat is the window's own
+	shade := (diff - 0.5) * 0.55 * relief
+	rims := vec3(er*1.0, e0*0.80, eb*1.15)
+	glass := clean.rgb*0.92 + vec3(0.55, 0.65, 1.0)*0.05 + vec3(shade) + rims*0.85 + vec3(spec)*1.2*relief
+	out := mix(clean.rgb, glass, glassy)
+	a := clean.a * smoothstep(0.0, 0.3, Prog)
+	return vec4(out*a, a)
+}
+`
+
+// spectrumOpening: a ring opens out of the middle, its edge spread into a spectrum, strongest on its left and right
+// as light through a lens is, a fainter one behind it; the window is inside it, bent a little where the ring passes.
+const spectrumOpening = `package main
+
+var Prog float
+var Size vec2
+
+func band(x float, at float) float {
+	t := (x - at) / 0.11
+	return exp(-t * t)
+}
+
+func LayerEffect(pos vec2) vec4 {
+	mid := Size * 0.5
+	rel := pos - mid
+	d := length(rel)
+	dir := rel / max(d, 1)
+	far := length(mid)
+	R := Prog * (far + 260)
+	w := 110.0
+	x := (d - (R - w*0.5)) / w
+	lens := abs(rel.x) / max(d, 1)
+	amp := (0.12 + 0.88*lens*lens) * (1 - smoothstep(0.65, 1.0, Prog))
+	bend := (band(x, -0.05) - band(x, 0.25)) * 18 * amp
+	clean := layerSample(pos - dir*bend)
+	inner := 1 - smoothstep(R-w, R-w*0.35, d)
+	spec := vec3(band(x, 0.13), band(x, 0.0), band(x, -0.13))*0.75 + vec3(band(x, 0.0))*0.35
+	echo := vec3(band(x+0.9, 0.10), band(x+0.9, 0.0), band(x+0.9, -0.10)) * 0.22
+	light := (spec + echo) * amp
+	light = vec3(1) - exp(-light*1.4)
+	col := clean * inner
+	col.rgb += light
+	col.a = max(col.a, min(max(max(light.r, light.g), light.b), 1))
+	return col
 }
 `
 
@@ -513,180 +908,55 @@ func LayerEffect(pos vec2) vec4 {
 }
 `
 
-// namedropOpening is after iOS's NameDrop (github.com/MartinRGB/iOS17_Namedrop_R3F): the window springs out of the
-// top of the screen from a third of its size, a wave runs down from there, bending what it passes and blowing its
-// light out, and streaks of light burst from the same point.
+// namedropOpening is after iOS's NameDrop (github.com/MartinRGB/iOS17_Namedrop_R3F): the window comes out of
+// its own middle, soft and a little small, and settles on a spring as it sharpens; a wave runs out from the middle,
+// bending what it passes and blowing its light out, a glow is there for a moment, and thin streaks of light burst
+// out on every side.
 const namedropOpening = `package main
 
 var Prog float
 var Size vec2
 
 func LayerEffect(pos vec2) vec4 {
-	anchor := vec2(Size.x*0.5, 0)
-	// the size: from 0.3, on a spring, settling exactly at 1
-	sp := 1 - 0.7*exp(-5.0*Prog)*cos(7.5*Prog)
-	sc := mix(sp, 1, smoothstep(0.8, 1.0, Prog))
-	uv := anchor + (pos-anchor)/sc
-	uv.y -= (1 - smoothstep(0.0, 0.55, Prog)) * Size.y * 0.06
-	// the wave: from the anchor, faster as it goes
-	d := distance(uv, anchor)
-	far := length(Size)
-	r := Prog * Prog * far * 1.15
-	diff := (d - r) / 140
+	mid := Size * 0.5
+	// the size: from 0.86, on a spring, settling exactly at 1
+	sp := 1 - 0.14*exp(-4.5*Prog)*cos(8*Prog)
+	sc := mix(sp, 1, smoothstep(0.82, 1.0, Prog))
+	uv := mid + (pos-mid)/sc
+	// the wave: from the middle, faster as it goes
+	d := distance(uv, mid)
+	far := length(mid)
+	r := Prog * Prog * far * 1.35
+	diff := (d - r) / 120
 	band := 1 - smoothstep(0.0, 1.0, abs(diff))
 	life := 1 - smoothstep(0.55, 1.0, Prog)
-	dir := (uv - anchor) / max(d, 1)
-	uv += dir * diff * band * 26 * life
+	dir := (uv - mid) / max(d, 1)
+	uv += dir * diff * band * 22 * life
+	// soft at first: a few samples round the place, closer as it sharpens
+	soft := (1 - smoothstep(0.0, 0.6, Prog)) * 7
 	col := vec4(0)
 	if uv.x >= 0 && uv.y >= 0 && uv.x <= Size.x && uv.y <= Size.y {
-		col = layerSample(uv)
+		col = layerSample(uv)*0.4 + (layerSample(uv+vec2(soft, 0))+layerSample(uv-vec2(soft, 0))+layerSample(uv+vec2(0, soft))+layerSample(uv-vec2(0, soft)))*0.15
 	}
-	col.rgb += col.rgb * band * 1.4 * life
-	// the streaks: thin lines of light running out from the anchor
+	col *= smoothstep(0.0, 0.35, Prog)
+	col.rgb += col.rgb * band * 1.3 * life
+	// the streaks: thin lines of light running out from the middle on every side
 	glow := 0.0
-	for i := 0; i < 36; i++ {
+	for i := 0; i < 40; i++ {
 		fi := float(i)
-		a := 0.15 + 2.84*hash(vec2(fi, 3.1))
+		a := 6.28318 * hash(vec2(fi, 3.1))
 		v := vec2(cos(a), sin(a))
-		t := clamp((Prog-0.08*hash(vec2(fi, 9.7)))/0.55, 0, 1)
-		head := t * (220 + 520*hash(vec2(fi, 1.3)))
-		along := dot(pos-anchor, v)
-		across := abs(dot(pos-anchor, vec2(-v.y, v.x)))
-		inLine := smoothstep(head-70, head, along) * (1 - smoothstep(head, head+4, along))
-		glow += inLine * (1 - smoothstep(0.6, 1.6, across)) * (1 - t)
+		t := clamp((Prog-0.10-0.10*hash(vec2(fi, 9.7)))/0.55, 0, 1)
+		head := t * (180 + far*0.9*hash(vec2(fi, 1.3)))
+		along := dot(pos-mid, v)
+		across := abs(dot(pos-mid, vec2(-v.y, v.x)))
+		inLine := smoothstep(head-90, head, along) * (1 - smoothstep(head, head+4, along))
+		glow += inLine * (1 - smoothstep(0.5, 1.5, across)) * (1 - t) * step(0.001, t)
 	}
-	top := exp(-distance(pos, anchor)/180) * (1 - smoothstep(0.2, 0.9, Prog))
-	light := vec3(0.80, 0.88, 1.0) * min(glow*1.2+top*0.9, 1)
+	flash := exp(-distance(pos, mid)/220) * smoothstep(0.0, 0.18, Prog) * (1 - smoothstep(0.18, 0.7, Prog))
+	light := vec3(0.82, 0.88, 1.0) * min(glow*1.1+flash*0.8, 1)
 	col.rgb += light
 	col.a = max(col.a, max(max(light.r, light.g), light.b))
-	return col
-}
-`
-
-// halftoneOpening: the window comes as a print of light dots on a dark sheet, on a slanted grid, each as big as
-// its light is, the grid growing finer, until the dots run together into the window.
-const halftoneOpening = `package main
-
-var Prog float
-var Size vec2
-
-func LayerEffect(pos vec2) vec4 {
-	cell := mix(26.0, 4.0, smoothstep(0.0, 0.8, Prog))
-	c := 0.7071
-	rot := vec2(c*pos.x-c*pos.y, c*pos.x+c*pos.y)
-	at := (floor(rot/cell) + 0.5) * cell
-	mid := vec2(c*at.x+c*at.y, -c*at.x+c*at.y)
-	s := layerSample(mid)
-	l := dot(s.rgb, vec3(0.299, 0.587, 0.114)) / max(s.a, 0.001)
-	r := cell * 0.5 * sqrt(clamp(l*1.3+0.12, 0, 1.4)) * smoothstep(0.0, 0.3, Prog)
-	dot := 1 - smoothstep(r-0.8, r+0.8, distance(rot, at))
-	ink := min(s.rgb/max(s.a, 0.001)*1.5+0.08, vec3(1)) // light dots on a dark sheet, the window's shape
-	dots := vec4(mix(vec3(0.03, 0.03, 0.04), ink, dot), 1) * s.a * 0.94 * smoothstep(0.0, 0.25, Prog)
-	return mix(dots, layerSample(pos), smoothstep(0.6, 1.0, Prog))
-}
-`
-
-// monoOpening: the window comes in gray and hard, and its colors flood in from the button outward.
-const monoOpening = `package main
-
-var Prog float
-var Size vec2
-var Origin vec2
-
-func LayerEffect(pos vec2) vec4 {
-	s := layerSample(pos)
-	l := dot(s.rgb, vec3(0.299, 0.587, 0.114))
-	hard := clamp((l/max(s.a, 0.001)-0.5)*1.35+0.5, 0, 1) * s.a
-	gray := vec4(vec3(hard), s.a)
-	r := smoothstep(0.35, 1.0, Prog) * (length(Size) + 200)
-	flood := 1 - smoothstep(r-160, r, distance(pos, Origin))
-	return mix(gray, s, flood) * smoothstep(0.0, 0.3, Prog)
-}
-`
-
-// rippleOpening: the window comes out of the button as a disc of water, rings running over it and bending it,
-// calming as it fills the screen.
-const rippleOpening = `package main
-
-var Prog float
-var Size vec2
-var Origin vec2
-var Time float
-
-func LayerEffect(pos vec2) vec4 {
-	rel := pos - Origin
-	d := length(rel)
-	dir := rel / max(d, 1)
-	r := Prog * (length(Size) + 160)
-	m := 1 - smoothstep(r-70, r, d)
-	calm := 1 - smoothstep(0.4, 1.0, Prog)
-	wave := sin(d*0.055-Time*9) * exp(-max(r-d, 0)/260)
-	off := dir * wave * 16 * calm
-	col := layerSample(pos-off) * m
-	shine := max(wave, 0) * calm * m * 0.22
-	col.rgb += vec3(shine)
-	return col
-}
-`
-
-// aberrationOpening: the window fades in pulled apart into red, green and blue, a little too big, and they come
-// together as it settles.
-const aberrationOpening = `package main
-
-var Prog float
-var Size vec2
-
-func LayerEffect(pos vec2) vec4 {
-	mid := Size * 0.5
-	k := (1 - Prog) * (1 - Prog)
-	zoom := 1 + 0.05*k
-	p := mid + (pos-mid)/zoom
-	off := (p - mid) / max(length(mid), 1) * 44 * k
-	r := layerSample(p - off)
-	g := layerSample(p)
-	b := layerSample(p + off)
-	a := max(max(r.a, g.a), b.a)
-	return vec4(r.r, g.g, b.b, a) * smoothstep(0.0, 0.45, Prog)
-}
-`
-
-// crtOpening: an old screen comes on: a line of light across the middle, which opens to the picture, curved, with
-// its lines and its three colors, flickering a little, until it is the window.
-const crtOpening = `package main
-
-var Prog float
-var Size vec2
-var Time float
-
-func LayerEffect(pos vec2) vec4 {
-	mid := Size * 0.5
-	sx := smoothstep(0.0, 0.2, Prog)
-	sy := max(smoothstep(0.16, 0.48, Prog), 0.004)
-	q := pos - mid
-	q = vec2(q.x/max(sx, 0.001), q.y/sy)
-	tube := 1 - smoothstep(0.5, 1.0, Prog)
-	uv := q / mid
-	uv *= 1 + 0.10*tube*dot(uv, uv)
-	if abs(uv.x) > 1 || abs(uv.y) > 1 {
-		return vec4(0)
-	}
-	col := layerSample(mid + uv*mid)
-	line := (1 - smoothstep(0.16, 0.42, Prog)) * sx
-	col = vec4(mix(col.rgb, vec3(col.a)*vec3(0.85, 0.92, 1.0), line*0.85), max(col.a, line))
-	scan := 1 - tube*0.32*(0.5+0.5*sin(pos.y*2.2))
-	cx := mod(floor(pos.x), 3)
-	mask := vec3(1)
-	if cx == 0 {
-		mask = vec3(1, 0.78, 0.78)
-	}
-	if cx == 1 {
-		mask = vec3(0.78, 1, 0.78)
-	}
-	if cx == 2 {
-		mask = vec3(0.78, 0.78, 1)
-	}
-	flick := 1 + tube*0.05*sin(Time*58)
-	col.rgb *= scan * mix(vec3(1), mask, tube) * flick
 	return col
 }
 `

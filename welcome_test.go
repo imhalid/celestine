@@ -88,8 +88,8 @@ func TestWelcomeLooks(t *testing.T) {
 		tt.Advance(300 * time.Millisecond)
 	}
 	pick(welcomeGrounds[0].name, "Gece")
-	pick(welcomeOpenings[0].name, "Siyah beyaz")
-	if a.settings.WelcomeGround != "gece" || a.welcomeGroundLook().name != "Gece" || a.welcomeOpeningLook().name != "Siyah beyaz" {
+	pick(welcomeOpenings[0].name, "Buz")
+	if a.settings.WelcomeGround != "gece" || a.welcomeGroundLook().name != "Gece" || a.welcomeOpeningLook().name != "Buz" {
 		t.Fatalf("chosen: %q %q", a.settings.WelcomeGround, a.settings.WelcomeOpen)
 	}
 	a.settings.WelcomeGround, a.settings.WelcomeOpen = "yok", "yok"
