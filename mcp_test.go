@@ -257,7 +257,7 @@ func TestMCPInStatusBar(t *testing.T) {
 // versions of a page, and do with them.
 func TestMCPTagsTasksVersions(t *testing.T) {
 	st, now := storeAt(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	seed(lib)
 	a := newApp(lib)
 	a.clock = func() time.Time { return *now }
@@ -265,8 +265,8 @@ func TestMCPTagsTasksVersions(t *testing.T) {
 	tt.Advance(50 * time.Millisecond)
 	cs := agent(t, a)
 	c := lib.Collections[0]
-	c.Templates = []NamedTemplate{{"Toplantı", "# {{başlık}}\n\n- [ ] karar [[2026-11-04]]\n"}}
-	c.save()
+	c.Templates = []NamedTemplate{{Name: "Toplantı", Body: "# {{başlık}}\n\n- [ ] karar [[2026-11-04]]\n"}}
+	c.Save()
 	var made struct{ ID string }
 	call(t, cs, "create_page", map[string]any{"collection": c.Name, "title": "Haftalık", "template": "toplantı"}, &made)
 	call(t, cs, "update_page", map[string]any{"page": made.ID, "append": "Bir #fikir ve bir görev:\n\n- [ ] başka iş"}, nil)

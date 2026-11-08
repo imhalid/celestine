@@ -96,7 +96,7 @@ func (a *app) commands() []palItem {
 		}
 		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
 		if !c.Journal {
-			for _, t := range c.allTemplates() {
+			for _, t := range c.AllTemplates() {
 				t := t
 				out = append(out, cmd("Şablondan yeni "+pageNoun(c)+": "+t.Name, "", iconTemplate, func() { a.newPageFrom(c, nil, t.Body) }))
 			}
@@ -265,7 +265,7 @@ func (a *app) places() []palItem {
 		for _, p := range c.All() {
 			p := p
 			sub := c.Name
-			if crumb := parents(p); crumb != "" {
+			if crumb := Parents(p); crumb != "" {
 				sub += " › " + crumb
 			}
 			out = append(out, palItem{title: p.Title, sub: sub, glyph: iconPage, to: place{"page", p.Dir}, run: func() { a.goTo(place{"page", p.Dir}) }})
@@ -410,7 +410,7 @@ func (a *app) paletteItems(q string) []palItem {
 			}
 			h := h
 			sub := h.page.Coll.Name
-			if crumb := parents(h.page); crumb != "" {
+			if crumb := Parents(h.page); crumb != "" {
 				sub += " › " + crumb
 			}
 			out = append(out, palItem{title: h.page.Title, sub: sub, group: "Metinde", snip: h.snip, glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
@@ -577,7 +577,7 @@ func (a *app) goToParagraph(n int) {
 }
 
 // fold is s for matching: lower case, Turkish letters as their ASCII.
-func fold(s string) string { return turkishFold.Replace(strings.ToLower(turkishFold.Replace(s))) }
+func fold(s string) string { return TurkishFold.Replace(strings.ToLower(TurkishFold.Replace(s))) }
 
 // match scores how well q matches s: the words of q all in s, nearer the
 // start and at the start of words better; the letters of q in order, worse;

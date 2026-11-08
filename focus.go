@@ -80,17 +80,17 @@ func (a *app) revertToBeforeSave() {
 		return
 	}
 	a.flush()
-	vers := h.Versions(p.file())
+	vers := h.Versions(p.File())
 	if len(vers) == 0 {
 		a.notice = "Bu sayfanın önceki bir sürümü yok."
 		return
 	}
-	data, ok := h.VersionData(p.file(), vers[0].ID)
+	data, ok := h.VersionData(p.File(), vers[0].ID)
 	if !ok {
 		return
 	}
-	h.SnapshotNow(p.file())
-	_, body := splitPage(data)
+	h.SnapshotNow(p.File())
+	_, body := SplitPage(data)
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return

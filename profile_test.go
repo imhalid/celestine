@@ -110,7 +110,7 @@ func TestProfileScreen(t *testing.T) {
 		t.Error("signed in, and it says it is not")
 	}
 	// the recovery key is not shown until it is asked for
-	rec := recoveryKey(make([]byte, 32))
+	rec := RecoveryKey(make([]byte, 32))
 	if tt.HasText(rec) {
 		t.Fatal("the recovery key is on the screen unasked")
 	}

@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"strings"
@@ -13,8 +13,8 @@ import (
 // historyEvery is how far apart the copies of a page are, at the least.
 var historyEvery = 5 * time.Minute
 
-// historyKeep is how many copies of a page are kept, the oldest going first.
-const historyKeep = 100
+// HistoryKeep is how many copies of a page are kept, the oldest going first.
+const HistoryKeep = 100
 
 // Version is a copy of a page.
 type Version struct {
@@ -26,12 +26,12 @@ type Version struct {
 
 // blankBody reports whether a page file holds no text and no object.
 func blankBody(src []byte) bool {
-	_, body := splitPage(src)
+	_, body := SplitPage(src)
 	return blankText(body)
 }
 
-// historian is a ground that keeps versions of its pages.
-type historian interface {
+// Historian is a ground that keeps versions of its pages.
+type Historian interface {
 	Versions(name string) []Version
 	VersionData(name string, id int64) ([]byte, bool)
 	SnapshotNow(name string)
@@ -40,27 +40,27 @@ type historian interface {
 
 // ---- the difference between a version and the present ----
 
-// diffOp is a line of a difference: both have it, only the version has it
+// DiffOp is a line of a difference: both have it, only the version has it
 // (it comes back), or only the present (it goes).
-type diffOp struct {
-	kind  byte // '=', '+', '-'
-	text  string
-	words []diffOp // set where a line that comes back and one that goes are of a pair: the words of this line, those that differ marked
+type DiffOp struct {
+	Kind  byte // '=', '+', '-'
+	Text  string
+	Words []DiffOp // set where a line that comes back and one that goes are of a pair: the words of this line, those that differ marked
 }
 
-// pairWords sets, for the lines that go and come back side by side, which of
+// PairWords sets, for the lines that go and come back side by side, which of
 // their words are what differs: the first line that comes back with the first
 // that goes, and so on.
-func pairWords(ops []diffOp) {
+func PairWords(ops []DiffOp) {
 	for i := 0; i < len(ops); {
-		if ops[i].kind == '=' {
+		if ops[i].Kind == '=' {
 			i++
 			continue
 		}
 		j := i
 		var adds, dels []int
-		for j < len(ops) && ops[j].kind != '=' {
-			if ops[j].kind == '+' {
+		for j < len(ops) && ops[j].Kind != '=' {
+			if ops[j].Kind == '+' {
 				adds = append(adds, j)
 			} else {
 				dels = append(dels, j)
@@ -69,10 +69,10 @@ func pairWords(ops []diffOp) {
 		}
 		for k := 0; k < len(adds) && k < len(dels); k++ {
 			a, d := adds[k], dels[k]
-			w := diffLines(strings.Fields(ops[a].text), strings.Fields(ops[d].text))
-			var mine, theirs []diffOp
+			w := DiffLines(strings.Fields(ops[a].Text), strings.Fields(ops[d].Text))
+			var mine, theirs []DiffOp
 			for _, o := range w {
-				switch o.kind {
+				switch o.Kind {
 				case '=':
 					mine, theirs = append(mine, o), append(theirs, o)
 				case '+':
@@ -81,16 +81,16 @@ func pairWords(ops []diffOp) {
 					theirs = append(theirs, o)
 				}
 			}
-			ops[a].words, ops[d].words = mine, theirs
+			ops[a].Words, ops[d].Words = mine, theirs
 		}
 		i = j
 	}
 }
 
-// diffLines sets the lines of the version against those of the present: the
+// DiffLines sets the lines of the version against those of the present: the
 // longest run they share, the rest marked. Long texts are compared by their
 // first lines only.
-func diffLines(version, now []string) []diffOp {
+func DiffLines(version, now []string) []DiffOp {
 	const cap = 1500
 	if len(version) > cap {
 		version = version[:cap]
@@ -112,27 +112,27 @@ func diffLines(version, now []string) []diffOp {
 			}
 		}
 	}
-	var out []diffOp
+	var out []DiffOp
 	i, j := 0, 0
 	for i < n && j < m {
 		switch {
 		case version[i] == now[j]:
-			out = append(out, diffOp{kind: '=', text: version[i]})
+			out = append(out, DiffOp{Kind: '=', Text: version[i]})
 			i++
 			j++
 		case lcs[i+1][j] >= lcs[i][j+1]:
-			out = append(out, diffOp{kind: '+', text: version[i]})
+			out = append(out, DiffOp{Kind: '+', Text: version[i]})
 			i++
 		default:
-			out = append(out, diffOp{kind: '-', text: now[j]})
+			out = append(out, DiffOp{Kind: '-', Text: now[j]})
 			j++
 		}
 	}
 	for ; i < n; i++ {
-		out = append(out, diffOp{kind: '+', text: version[i]})
+		out = append(out, DiffOp{Kind: '+', Text: version[i]})
 	}
 	for ; j < m; j++ {
-		out = append(out, diffOp{kind: '-', text: now[j]})
+		out = append(out, DiffOp{Kind: '-', Text: now[j]})
 	}
 	return out
 }

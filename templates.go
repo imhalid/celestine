@@ -16,12 +16,6 @@ import (
 // as it is written. In a template, {{başlık}} is the page's title, {{tarih}}
 // (or {{bugün}}) today as a day link, {{saat}} the time.
 
-// NamedTemplate is a template of a collection.
-type NamedTemplate struct {
-	Name string `json:"name"`
-	Body string `json:"body"`
-}
-
 // expandTemplate fills in what a template says of the page and the day.
 func expandTemplate(body, title string, now time.Time) string {
 	return strings.NewReplacer(
@@ -29,20 +23,6 @@ func expandTemplate(body, title string, now time.Time) string {
 		"{{tarih}}", "[["+now.Format("2006-01-02")+"]]", "{{bugün}}", "[["+now.Format("2006-01-02")+"]]", "{{bugun}}", "[["+now.Format("2006-01-02")+"]]",
 		"{{saat}}", now.Format("15:04"),
 	).Replace(body)
-}
-
-// templatesOf are the templates a collection offers, the first one first.
-func (c *Collection) allTemplates() []NamedTemplate {
-	var out []NamedTemplate
-	if strings.TrimSpace(c.Template) != "" {
-		out = append(out, NamedTemplate{"Varsayılan", c.Template})
-	}
-	for _, t := range c.Templates {
-		if strings.TrimSpace(t.Name) != "" {
-			out = append(out, t)
-		}
-	}
-	return out
 }
 
 // newPageFrom makes a page in c with the template's text, and opens it, its
@@ -74,7 +54,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 func (a *app) templateMenu(c *Collection, parent *Page) []menuItem {
 	var out []menuItem
 	out = append(out, menuItem{title: "Boş sayfa", glyph: iconPage, run: func() { a.newPageFrom(c, parent, "") }})
-	for _, t := range c.allTemplates() {
+	for _, t := range c.AllTemplates() {
 		t := t
 		out = append(out, menuItem{title: t.Name, sub: firstLine(t.Body), glyph: iconTemplate, run: func() { a.newPageFrom(c, parent, t.Body) }})
 	}
@@ -134,7 +114,7 @@ func (a *app) templateItems(q string) []menuItem {
 		return nil
 	}
 	var out []menuItem
-	for _, t := range a.page.Coll.allTemplates() {
+	for _, t := range a.page.Coll.AllTemplates() {
 		t := t
 		if q != "" && match(q, "Şablon "+t.Name) < 0 {
 			continue

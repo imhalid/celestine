@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"bytes"
@@ -53,33 +53,33 @@ type Remote interface {
 	Delete(name, prev string) error
 }
 
-func hashOf(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func HashOf(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 
 // ---- a folder as a remote ----
 
-type dirRemote struct{ root string }
+type DirRemote struct{ Root string }
 
-func (d dirRemote) file(name string) string { return filepath.Join(d.root, filepath.FromSlash(name)) }
+func (d DirRemote) file(name string) string { return filepath.Join(d.Root, filepath.FromSlash(name)) }
 
 // errUnsafeName is a name that would leave the folder it is joined to.
 var errUnsafeName = errors.New("senkron: güvenli olmayan dosya adı")
 
 // path is the file of name in the folder, or an error when the name leaves it.
-func (d dirRemote) path(name string) (string, error) {
-	p, ok := safeSubpath(d.root, name)
+func (d DirRemote) path(name string) (string, error) {
+	p, ok := SafeSubpath(d.Root, name)
 	if !ok {
 		return "", errUnsafeName
 	}
 	return p, nil
 }
 
-func (d dirRemote) List() (map[string]RemoteEntry, error) {
+func (d DirRemote) List() (map[string]RemoteEntry, error) {
 	out := map[string]RemoteEntry{}
-	err := filepath.WalkDir(d.root, func(p string, e fs.DirEntry, err error) error {
+	err := filepath.WalkDir(d.Root, func(p string, e fs.DirEntry, err error) error {
 		if err != nil || e.IsDir() {
 			return err
 		}
-		rel, _ := filepath.Rel(d.root, p)
+		rel, _ := filepath.Rel(d.Root, p)
 		rel = filepath.ToSlash(rel)
 		b, err := os.ReadFile(p)
 		if err != nil {
@@ -90,7 +90,7 @@ func (d dirRemote) List() (map[string]RemoteEntry, error) {
 			return nil
 		}
 		if _, dead := out[rel]; !dead {
-			out[rel] = RemoteEntry{Hash: hashOf(b)}
+			out[rel] = RemoteEntry{Hash: HashOf(b)}
 		}
 		return nil
 	})
@@ -99,7 +99,7 @@ func (d dirRemote) List() (map[string]RemoteEntry, error) {
 		if e.Deleted {
 			if _, err := os.Stat(d.file(name)); err == nil {
 				b, _ := os.ReadFile(d.file(name))
-				out[name] = RemoteEntry{Hash: hashOf(b)}
+				out[name] = RemoteEntry{Hash: HashOf(b)}
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func (d dirRemote) List() (map[string]RemoteEntry, error) {
 
 const tombSuffix = ".deleted~"
 
-func (d dirRemote) current(name string) (string, error) {
+func (d DirRemote) current(name string) (string, error) {
 	p, err := d.path(name)
 	if err != nil {
 		return "", err
@@ -123,10 +123,10 @@ func (d dirRemote) current(name string) (string, error) {
 		}
 		return "", err
 	}
-	return hashOf(b), nil
+	return HashOf(b), nil
 }
 
-func (d dirRemote) Get(name string) ([]byte, error) {
+func (d DirRemote) Get(name string) ([]byte, error) {
 	p, err := d.path(name)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (d dirRemote) Get(name string) ([]byte, error) {
 	return os.ReadFile(p)
 }
 
-func (d dirRemote) Put(name string, data []byte, prev string) error {
+func (d DirRemote) Put(name string, data []byte, prev string) error {
 	if cur, err := d.current(name); err != nil {
 		return err
 	} else if cur != prev {
@@ -152,7 +152,7 @@ func (d dirRemote) Put(name string, data []byte, prev string) error {
 	return os.Rename(tmp, p)
 }
 
-func (d dirRemote) Delete(name, prev string) error {
+func (d DirRemote) Delete(name, prev string) error {
 	if cur, err := d.current(name); err != nil {
 		return err
 	} else if cur != prev {
@@ -181,12 +181,12 @@ type httpRemote struct {
 	client      *http.Client
 }
 
-func newHTTPRemote(base, token string) *httpRemote {
+func NewHTTPRemote(base, token string) *httpRemote {
 	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Timeout: 60 * time.Second}}
 }
 
 func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.Response, error) {
-	if err := httpsOnly(h.base); err != nil {
+	if err := HTTPSOnly(h.base); err != nil {
 		return nil, err
 	}
 	u := h.base + "/files"
@@ -275,7 +275,7 @@ func (h *httpRemote) versionURL(name string, at int64) string {
 }
 
 func (h *httpRemote) getVersion(u string) ([]byte, error) {
-	if err := httpsOnly(h.base); err != nil {
+	if err := HTTPSOnly(h.base); err != nil {
 		return nil, err
 	}
 	req, err := http.NewRequest("GET", u, nil)
@@ -309,13 +309,13 @@ func (h *httpRemote) VersionData(name string, at int64) ([]byte, error) {
 
 // ---- end-to-end encryption ----
 
-// encRemote wraps a remote: each file is sealed with AES-256-GCM under a key from the passphrase, and
+// EncRemote wraps a remote: each file is sealed with AES-256-GCM under a key from the passphrase, and
 // is stored under a name that is an HMAC of its path: the other side sees the count and the sizes of
 // the files, and nothing else. A small sealed index, "_index", maps the names back to paths. Lose the
 // passphrase and the recovery key, and the data is gone: that is what it is for.
-type encRemote struct {
+type EncRemote struct {
 	inner  Remote
-	key    []byte
+	Key    []byte
 	gcm    cipher.AEAD
 	idx    map[string]string // opaque name → path
 	loaded bool
@@ -328,15 +328,15 @@ type encRemote struct {
 // pass comes in steps of it.
 const indexEvery = 200
 
-const saltFile = "_salt"
+const SaltFile = "_salt"
 
-// deriveKey makes the key from a passphrase and the salt that is kept on the remote (made when there is none).
-func deriveKey(pass string, salt []byte) ([]byte, error) {
+// DeriveKey makes the key from a passphrase and the salt that is kept on the remote (made when there is none).
+func DeriveKey(pass string, salt []byte) ([]byte, error) {
 	return pbkdf2.Key(sha256.New, pass, salt, 200_000, 32)
 }
 
-// recoveryKey is the key as words to write down: base32, in groups.
-func recoveryKey(key []byte) string {
+// RecoveryKey is the key as words to write down: base32, in groups.
+func RecoveryKey(key []byte) string {
 	s := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(key)
 	var parts []string
 	for i := 0; i < len(s); i += 4 {
@@ -345,8 +345,8 @@ func recoveryKey(key []byte) string {
 	return strings.Join(parts, "-")
 }
 
-// keyFromRecovery reads what recoveryKey wrote.
-func keyFromRecovery(s string) ([]byte, error) {
+// KeyFromRecovery reads what recoveryKey wrote.
+func KeyFromRecovery(s string) ([]byte, error) {
 	s = strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(s, "-", ""), " ", ""))
 	b, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
 	if err != nil || len(b) != 32 {
@@ -355,7 +355,7 @@ func keyFromRecovery(s string) ([]byte, error) {
 	return b, nil
 }
 
-func newEncRemote(inner Remote, key []byte) (*encRemote, error) {
+func NewEncRemote(inner Remote, key []byte) (*EncRemote, error) {
 	blk, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -364,40 +364,40 @@ func newEncRemote(inner Remote, key []byte) (*encRemote, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &encRemote{inner: inner, key: key, gcm: g, idx: map[string]string{}}, nil
+	return &EncRemote{inner: inner, Key: key, gcm: g, idx: map[string]string{}}, nil
 }
 
-// openEnc opens the remote with a passphrase: the salt is read from it, or made and put there.
-func openEnc(inner Remote, pass string) (*encRemote, error) {
-	salt, err := inner.Get(saltFile)
+// OpenEnc opens the remote with a passphrase: the salt is read from it, or made and put there.
+func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
+	salt, err := inner.Get(SaltFile)
 	if err != nil {
 		list, lerr := inner.List()
 		if lerr != nil {
 			return nil, lerr
 		}
-		if e, ok := list[saltFile]; ok && !e.Deleted {
+		if e, ok := list[SaltFile]; ok && !e.Deleted {
 			return nil, err
 		}
 		salt = make([]byte, 16)
 		rand.Read(salt)
-		if err := inner.Put(saltFile, salt, ""); err != nil {
+		if err := inner.Put(SaltFile, salt, ""); err != nil {
 			return nil, err
 		}
 	}
-	key, err := deriveKey(pass, salt)
+	key, err := DeriveKey(pass, salt)
 	if err != nil {
 		return nil, err
 	}
-	return newEncRemote(inner, key)
+	return NewEncRemote(inner, key)
 }
 
-func (e *encRemote) seal(b []byte) []byte {
+func (e *EncRemote) seal(b []byte) []byte {
 	nonce := make([]byte, e.gcm.NonceSize())
 	rand.Read(nonce)
 	return e.gcm.Seal(nonce, nonce, b, nil)
 }
 
-func (e *encRemote) open(b []byte) ([]byte, error) {
+func (e *EncRemote) open(b []byte) ([]byte, error) {
 	n := e.gcm.NonceSize()
 	if len(b) < n {
 		return nil, errors.New("şifreli dosya kısa")
@@ -409,25 +409,25 @@ func (e *encRemote) open(b []byte) ([]byte, error) {
 	return out, nil
 }
 
-func (e *encRemote) opaque(p string) string {
-	m := hmac.New(sha256.New, e.key)
+func (e *EncRemote) opaque(p string) string {
+	m := hmac.New(sha256.New, e.Key)
 	m.Write([]byte(p))
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-const indexFile = "_index"
+const IndexFile = "_index"
 
-func (e *encRemote) loadIndex() error {
+func (e *EncRemote) loadIndex() error {
 	if e.loaded {
 		return nil
 	}
-	b, err := e.inner.Get(indexFile)
+	b, err := e.inner.Get(IndexFile)
 	if err != nil {
 		list, lerr := e.inner.List()
 		if lerr != nil {
 			return lerr
 		}
-		if ent, ok := list[indexFile]; ok && !ent.Deleted {
+		if ent, ok := list[IndexFile]; ok && !ent.Deleted {
 			return err
 		}
 		e.loaded = true
@@ -445,15 +445,15 @@ func (e *encRemote) loadIndex() error {
 // names since this one read it, and an index written from the old copy would drop them (their files would
 // then not be seen, and their owner would take them for deleted). Names are only ever added, so a union
 // loses nothing; if the index changes again while it is being put, it is read and merged once more.
-func (e *encRemote) saveIndex() error {
+func (e *EncRemote) saveIndex() error {
 	for try := 0; try < 8; try++ {
 		prev := ""
 		list, err := e.inner.List()
 		if err != nil {
 			return err
 		}
-		if ent, ok := list[indexFile]; ok && !ent.Deleted {
-			raw, err := e.inner.Get(indexFile)
+		if ent, ok := list[IndexFile]; ok && !ent.Deleted {
+			raw, err := e.inner.Get(IndexFile)
 			if err != nil {
 				return err
 			}
@@ -468,10 +468,10 @@ func (e *encRemote) saveIndex() error {
 			for op, p := range theirs {
 				e.idx[op] = p
 			}
-			prev = hashOf(raw) // the hash of the bytes: that of a folder's file and of the Worker's
+			prev = HashOf(raw) // the hash of the bytes: that of a folder's file and of the Worker's
 		}
 		plain, _ := json.Marshal(e.idx)
-		switch err := e.inner.Put(indexFile, e.seal(plain), prev); {
+		switch err := e.inner.Put(IndexFile, e.seal(plain), prev); {
 		case err == nil:
 			return nil
 		case errors.Is(err, ErrConflict):
@@ -483,7 +483,7 @@ func (e *encRemote) saveIndex() error {
 	return ErrConflict
 }
 
-func (e *encRemote) List() (map[string]RemoteEntry, error) {
+func (e *EncRemote) List() (map[string]RemoteEntry, error) {
 	if err := e.loadIndex(); err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func (e *encRemote) List() (map[string]RemoteEntry, error) {
 }
 
 // Versions are those of the file the path names, asked of the remote by the name it has there; what comes back is opened here.
-func (e *encRemote) Versions(path string) ([]RemoteVersion, error) {
+func (e *EncRemote) Versions(path string) ([]RemoteVersion, error) {
 	v, ok := e.inner.(versioned)
 	if !ok {
 		return nil, errNoVersions
@@ -509,7 +509,7 @@ func (e *encRemote) Versions(path string) ([]RemoteVersion, error) {
 	return v.Versions(e.opaque(path))
 }
 
-func (e *encRemote) VersionData(path string, at int64) ([]byte, error) {
+func (e *EncRemote) VersionData(path string, at int64) ([]byte, error) {
 	v, ok := e.inner.(versioned)
 	if !ok {
 		return nil, errNoVersions
@@ -521,7 +521,7 @@ func (e *encRemote) VersionData(path string, at int64) ([]byte, error) {
 	return e.open(b)
 }
 
-func (e *encRemote) Get(name string) ([]byte, error) {
+func (e *EncRemote) Get(name string) ([]byte, error) {
 	if err := e.loadIndex(); err != nil {
 		return nil, err
 	}
@@ -532,7 +532,7 @@ func (e *encRemote) Get(name string) ([]byte, error) {
 	return e.open(b)
 }
 
-func (e *encRemote) Put(name string, data []byte, prev string) error {
+func (e *EncRemote) Put(name string, data []byte, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
@@ -560,7 +560,7 @@ func (e *encRemote) Put(name string, data []byte, prev string) error {
 }
 
 // Flush puts the index, if names were added to it since it was last put.
-func (e *encRemote) Flush() error {
+func (e *EncRemote) Flush() error {
 	if e.pending == 0 {
 		return nil
 	}
@@ -571,7 +571,7 @@ func (e *encRemote) Flush() error {
 	return nil
 }
 
-func (e *encRemote) Delete(name, prev string) error {
+func (e *EncRemote) Delete(name, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
@@ -580,8 +580,8 @@ func (e *encRemote) Delete(name, prev string) error {
 
 // ---- the engine ----
 
-// syncState is what was true at the last sync: for each file, its hash here and the remote's hash then.
-type syncState struct {
+// SyncState is what was true at the last sync: for each file, its hash here and the remote's hash then.
+type SyncState struct {
 	Files map[string]fileSync `json:"files"`
 	// AllowRemovals lets this one pass delete here what the remote does not have, past massRemovals (the
 	// user said so); it is never kept.
@@ -638,7 +638,7 @@ type fileSeen struct {
 // localFiles lists the files of the tree under root, by path relative to it, with their hashes; the top
 // folders in skip are left out. A file seen as st saw it at the last sync has the hash it had then, and is not
 // read: a library of thousands was read whole, and hashed, every pass. seen is what is seen now.
-func localFiles(fsys FS, root string, skip map[string]bool, st *syncState) (map[string]string, map[string]fileSeen, error) {
+func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[string]string, map[string]fileSeen, error) {
 	out := map[string]string{}
 	seen := map[string]fileSeen{}
 	var walk func(dir, rel string) error
@@ -653,7 +653,7 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *syncState) (map[
 			if rel == "" && skip[name] {
 				continue
 			}
-			if strings.HasSuffix(name, ".tmp~") || name == settingsKey {
+			if strings.HasSuffix(name, ".tmp~") || name == SettingsKey {
 				continue
 			}
 			if e.IsDir() {
@@ -673,7 +673,7 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *syncState) (map[
 			if err != nil {
 				return err
 			}
-			out[r] = hashOf(b)
+			out[r] = HashOf(b)
 		}
 		return nil
 	}
@@ -688,7 +688,7 @@ func conflictName(name string, at time.Time) string {
 // SyncOnce makes one pass: it puts the library under root (in fsys) and the remote in agreement. What
 // the remote keeps back to write at the end (the sealed index's names, encRemote) is written then, an
 // error or not.
-func SyncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]bool, now time.Time) (SyncResult, error) {
+func SyncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]bool, now time.Time) (SyncResult, error) {
 	res, pushed, err := syncOnce(fsys, root, r, st, skip, now)
 	if f, ok := r.(interface{ Flush() error }); ok {
 		if ferr := f.Flush(); ferr != nil {
@@ -715,7 +715,7 @@ func SyncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 	return res, err
 }
 
-func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]bool, now time.Time) (res SyncResult, pushed []string, err error) {
+func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]bool, now time.Time) (res SyncResult, pushed []string, err error) {
 	if st.Files == nil {
 		st.Files = map[string]fileSync{}
 	}
@@ -728,13 +728,13 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 		return res, pushed, err
 	}
 	for n := range remote { // a name that leaves the folder is a remote's to write over, or to delete, what is outside the library
-		if !safeName(n) {
+		if !SafeName(n) {
 			delete(remote, n)
 			res.Errors = append(res.Errors, n+": "+errUnsafeName.Error())
 		}
 	}
 	for n := range st.Files {
-		if !safeName(n) {
+		if !SafeName(n) {
 			delete(st.Files, n)
 		}
 	}
@@ -837,7 +837,7 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 				continue
 			}
 			res.Pulled++
-			st.Files[n] = fileSync{Local: hashOf(b), Remote: rh}
+			st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
 		default: // both changed
 			if lh != "" && rh != "" && lh == localHashOf(r, n, rh, lh) {
 				st.Files[n] = fileSync{Local: lh, Remote: rh} // the same bytes on both sides
@@ -870,19 +870,19 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 				continue
 			}
 			res.Pulled++
-			st.Files[n] = fileSync{Local: hashOf(b), Remote: rh}
+			st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
 		}
 	}
 	if len(gone) > 0 {
 		// what is in the trash, by its bytes: a page thrown away on the other device came down there
 		kept := map[string]bool{}
 		for n, h := range local {
-			if strings.HasPrefix(n, trashDir+"/") {
+			if strings.HasPrefix(n, TrashDir+"/") {
 				kept[h] = true
 			}
 		}
 		for n, f := range st.Files {
-			if strings.HasPrefix(n, trashDir+"/") && f.Local != "" {
+			if strings.HasPrefix(n, TrashDir+"/") && f.Local != "" {
 				kept[f.Local] = true
 			}
 		}
@@ -907,19 +907,19 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 // localHashOf is the hash of the remote's bytes, for comparing with ours when the remote's own hash is
 // of something else (a sealed file's): the bytes are fetched and hashed.
 func localHashOf(r Remote, name, remoteHash, _ string) string {
-	if _, ok := r.(*encRemote); !ok {
+	if _, ok := r.(*EncRemote); !ok {
 		return remoteHash
 	}
 	b, err := r.Get(name)
 	if err != nil {
 		return ""
 	}
-	return hashOf(b)
+	return HashOf(b)
 }
 
 // sentBefore reports whether the remote holds name already with these very bytes, though its index
 // does not name it: a pass whose index was not written sent it, and sending it again is done.
-func (e *encRemote) sentBefore(name string, data []byte) bool {
+func (e *EncRemote) sentBefore(name string, data []byte) bool {
 	if e.idx[e.opaque(name)] == name {
 		return false
 	}
@@ -938,5 +938,22 @@ func localIs(fsys FS, p, lh string) bool {
 	if lh == "" {
 		return errors.Is(err, fs.ErrNotExist)
 	}
-	return err == nil && hashOf(b) == lh
+	return err == nil && HashOf(b) == lh
 }
+
+// AllowHTTP lets a manifest or a file come over plain HTTP: only a test does.
+var AllowHTTP = false
+
+func HTTPSOnly(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "https" && !(AllowHTTP && u.Scheme == "http") {
+		return errors.New("yalnız HTTPS adresinden güncellenir: " + raw)
+	}
+	return nil
+}
+
+// SettingsKey is what the settings are kept under in a library's file.
+const SettingsKey = "settings"

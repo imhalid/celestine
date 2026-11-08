@@ -26,7 +26,7 @@ const watchEvery = 1500 * time.Millisecond
 
 // watch checks the disk every watchEvery, for as long as the app runs.
 func (a *app) watch() {
-	if _, ok := a.lib.fs.(*Store); ok {
+	if _, ok := a.lib.FS.(*Store); ok {
 		return // nothing else reads or writes a library's file: no one to wait for
 	}
 	for range time.Tick(watchEvery) {
@@ -48,7 +48,7 @@ func scanLibrary(fsys FS, root string) diskState {
 			continue
 		}
 		dir := filepath.Join(root, e.Name())
-		info, err := fsys.Stat(filepath.Join(dir, collectionFile))
+		info, err := fsys.Stat(filepath.Join(dir, CollectionFile))
 		if err != nil {
 			continue
 		}
@@ -65,7 +65,7 @@ func scanPages(fsys FS, dir string, into map[string]time.Time) {
 			continue
 		}
 		pdir := filepath.Join(dir, e.Name())
-		info, err := fsys.Stat(filepath.Join(pdir, pageFileName))
+		info, err := fsys.Stat(filepath.Join(pdir, PageFileName))
 		if err != nil {
 			continue
 		}
@@ -76,12 +76,12 @@ func scanPages(fsys FS, dir string, into map[string]time.Time) {
 
 // checkDisk takes the changes made to the library from outside.
 func (a *app) checkDisk() {
-	disk := scanLibrary(a.lib.fs, a.lib.Root)
+	disk := scanLibrary(a.lib.FS, a.lib.Root)
 	reload := len(disk.colls) != len(a.lib.Collections)
 	pages := 0
 	var changed []*Page
 	for _, c := range a.lib.Collections {
-		if t, ok := disk.colls[c.Dir]; !ok || !t.Equal(c.seen) {
+		if t, ok := disk.colls[c.Dir]; !ok || !t.Equal(c.Seen) {
 			reload = true
 		}
 		for _, p := range c.All() {
@@ -101,7 +101,7 @@ func (a *app) checkDisk() {
 	// the open page first: what is typed in it is never lost
 	if p := a.page; p != nil {
 		if _, ok := disk.pages[p.Dir]; !ok && a.dirty {
-			if err := a.lib.fs.MkdirAll(p.Dir); err == nil {
+			if err := a.lib.FS.MkdirAll(p.Dir); err == nil {
 				a.save()
 				a.notice = Tf("“%s” dışarıda silinmişti; yazdıkların kaybolmasın diye geri yazıldı.", p.Title)
 				return // the next look sees it back
@@ -118,20 +118,20 @@ func (a *app) checkDisk() {
 
 // takeOutside takes the text of page p as it is on disk now.
 func (a *app) takeOutside(p *Page) {
-	src, err := p.fs().ReadFile(p.file())
+	src, err := p.FS().ReadFile(p.File())
 	if err != nil {
 		return
 	}
-	meta, body := splitPage(src)
-	p.Modified = modTime(p.fs(), p.file())
+	meta, body := SplitPage(src)
+	p.Modified = ModTime(p.FS(), p.File())
 	if t := meta["title"]; t != "" {
 		p.Title = t
-		pagesChanged()
+		PagesChanged()
 		if p == a.page && !a.dirty {
 			a.title = t
 		}
 	}
-	p.readMeta(meta)
+	p.ReadMeta(meta)
 	doc := a.docs[p]
 	if doc == nil {
 		return
@@ -139,7 +139,7 @@ func (a *app) takeOutside(p *Page) {
 	if p == a.page && a.dirty {
 		// both kept: theirs next to the page, ours over it
 		name := "page (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").json"
-		if err := p.fs().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
+		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
 			a.saveErr = err.Error()
 			return
 		}
@@ -159,7 +159,7 @@ func (a *app) takeOutside(p *Page) {
 // and folded, and the documents of pages still there.
 func (a *app) reloadLibrary() {
 	a.linksStale()
-	fresh, err := OpenLibraryIn(a.lib.fs, a.lib.Root)
+	fresh, err := OpenLibraryIn(a.lib.FS, a.lib.Root)
 	if err != nil {
 		a.saveErr = err.Error()
 		return

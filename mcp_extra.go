@@ -168,7 +168,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if !ok {
 					return errors.New("this library keeps no versions")
 				}
-				for _, v := range h.Versions(p.file()) {
+				for _, v := range h.Versions(p.File()) {
 					out = append(out, version{v.ID, v.At, v.Size, v.Label})
 				}
 				return nil
@@ -187,11 +187,11 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if err != nil {
 					return err
 				}
-				data, ok := h.VersionData(p.file(), in.Version)
+				data, ok := h.VersionData(p.File(), in.Version)
 				if !ok {
 					return fmt.Errorf("no version %d of %s", in.Version, in.Page)
 				}
-				_, body := splitPage(data)
+				_, body := SplitPage(data)
 				md = bodyText(body)
 				return nil
 			})
@@ -208,12 +208,12 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if err != nil {
 					return err
 				}
-				if _, ok := h.VersionData(p.file(), in.Version); !ok {
+				if _, ok := h.VersionData(p.File(), in.Version); !ok {
 					return fmt.Errorf("no version %d of %s", in.Version, in.Page)
 				}
 				a.flush()
 				v := &a.vhist
-				*v = histView{page: p, vers: h.Versions(p.file())}
+				*v = histView{page: p, vers: h.Versions(p.File())}
 				for i, ver := range v.vers {
 					if ver.ID == in.Version {
 						v.sel = i
@@ -231,7 +231,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 }
 
 // versionOf is the page of id and where its versions are kept.
-func (a *app) versionOf(id string) (*Page, historian, error) {
+func (a *app) versionOf(id string) (*Page, Historian, error) {
 	p, err := a.findPage(id)
 	if err != nil {
 		return nil, nil, err

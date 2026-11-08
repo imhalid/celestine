@@ -95,12 +95,12 @@ func (x *searchIndex) set(k uint16, id int) {
 
 // take puts page p, of collection c, in the index, or again when it was written since; epoch says it is still there.
 func (x *searchIndex) take(a *app, c *Collection, p *Page) {
-	id, ok := p.sxID, p.sxOf == x && p.sxGen == x.gen // the page knows its place: no lookup
+	id, ok := p.SxID, p.SxOf == x && p.SxGen == x.gen // the page knows its place: no lookup
 	var d *sxDoc
 	if ok {
 		d = x.docs[id]
 		d.epoch = x.epoch
-		if d.mod == p.Modified.UnixNano() && d.writes == p.writes && d.title == p.Title && d.coll == c {
+		if d.mod == p.Modified.UnixNano() && d.writes == p.Writes && d.title == p.Title && d.coll == c {
 			return
 		}
 		x.put(id, d.ftitle, false)
@@ -109,10 +109,10 @@ func (x *searchIndex) take(a *app, c *Collection, p *Page) {
 		id = len(x.docs)
 		d = &sxDoc{page: p, alive: true, epoch: x.epoch}
 		x.docs = append(x.docs, d)
-		p.sxID, p.sxOf, p.sxGen = id, x, x.gen
+		p.SxID, p.SxOf, p.SxGen = id, x, x.gen
 	}
 	d.coll, d.title, d.fcoll = c, p.Title, fold(c.Name)
-	d.mod, d.writes = p.Modified.UnixNano(), p.writes
+	d.mod, d.writes = p.Modified.UnixNano(), p.Writes
 	d.ftitle, d.ftext = fold(p.Title), a.plainOf(p).folded
 	clear(x.seen[:])
 	x.put(id, d.ftitle, true)
@@ -127,7 +127,7 @@ func (x *searchIndex) sweep() {
 		}
 		x.put(id, d.ftitle, false)
 		x.put(id, d.ftext, false)
-		d.page.sxOf = nil
+		d.page.SxOf = nil
 		x.docs[id] = nil
 		x.dead++
 	}

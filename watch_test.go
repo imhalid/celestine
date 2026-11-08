@@ -37,7 +37,7 @@ func TestWatchOwnWrites(t *testing.T) {
 func TestWatchTextChanged(t *testing.T) {
 	a, tt := newTestApp(t, "eski")
 	p := a.page
-	touchLater(t, p.file(), string(joinPage(map[string]string{"title": "Yeni ad"}, encodeBody(importMarkdown("Dışarıdan yazıldı.\n")))))
+	touchLater(t, p.File(), string(JoinPage(map[string]string{"title": "Yeni ad"}, encodeBody(importMarkdown("Dışarıdan yazıldı.\n")))))
 	a.checkDisk()
 	tt.Frame()
 	if got := a.doc.Text().String(); got != "Dışarıdan yazıldı." || p.Title != "Yeni ad" || a.title != "Yeni ad" {
@@ -59,7 +59,7 @@ func TestWatchConflict(t *testing.T) {
 	if !a.dirty {
 		t.Fatal("nothing unsaved")
 	}
-	touchLater(t, p.file(), string(joinPage(map[string]string{"title": "Sayfa"}, encodeBody(importMarkdown("onların\n")))))
+	touchLater(t, p.File(), string(JoinPage(map[string]string{"title": "Sayfa"}, encodeBody(importMarkdown("onların\n")))))
 	a.checkDisk()
 	if body, _ := p.Text(); body != "ortakbenim \n" && !strings.Contains(body, "benim") {
 		t.Fatalf("ours lost: %q", body)
@@ -89,7 +89,7 @@ func TestWatchPagesCome(t *testing.T) {
 	coll := page.Coll
 	dir := filepath.Join(coll.Dir, "disaridan")
 	os.MkdirAll(dir, 0o755)
-	writePageFile(t, filepath.Join(dir, pageFileName), map[string]string{"title": "Dışarıdan"}, "merhaba")
+	writePageFile(t, filepath.Join(dir, PageFileName), map[string]string{"title": "Dışarıdan"}, "merhaba")
 	a.checkDisk()
 	tt.Frame()
 	if !tt.HasText("Dışarıdan") {

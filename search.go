@@ -339,7 +339,7 @@ func (a *app) searchView(c *ui.Context) {
 							ui.Icon(c, iconPage).Width(16).Height(16).TextColor(cl.Muted)
 							ui.Text(c, h.page.Title).FontSize(15).FontWeight(620).MaxLines(1).Shrink(1)
 							where := h.page.Coll.Name
-							if crumb := parents(h.page); crumb != "" {
+							if crumb := Parents(h.page); crumb != "" {
 								where += " › " + crumb
 							}
 							ui.Text(c, where).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)

@@ -93,7 +93,7 @@ func dayOf(p *Page) time.Time {
 }
 
 // dayTitle is the title of a page of day d in collection c.
-func (c *Collection) dayTitle(d time.Time) string { return formatDay(c.JournalFormat, d) }
+func dayTitle(c *Collection, d time.Time) string { return formatDay(c.JournalFormat, d) }
 
 // journal is the journal's collection, made if the library has none: the one
 // marked so, or, in a library from before, the one called Günlük.
@@ -106,7 +106,7 @@ func (a *app) journal() (*Collection, error) {
 	for _, c := range a.lib.Collections {
 		if strings.EqualFold(c.Name, journalName) {
 			c.Journal, c.SubPages = true, false
-			return c, c.save()
+			return c, c.Save()
 		}
 	}
 	c, err := a.lib.NewCollection(journalName)
@@ -120,7 +120,7 @@ func (a *app) journal() (*Collection, error) {
 		{ID: "table", Label: "Tablo", Type: "table", Sort: "created", Desc: true},
 	}
 	c.ActiveView = "calendar"
-	if err := c.save(); err != nil {
+	if err := c.Save(); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -174,9 +174,9 @@ func (a *app) openDay(d time.Time) {
 // makeDay makes the page of day d, which is today: its title is the
 // journal's format, and the day it is for the day it is made, by the app's clock.
 func (a *app) makeDay(c *Collection, d time.Time) (*Page, error) {
-	c.creating = true
-	p, err := c.NewPage(nil, c.dayTitle(d))
-	c.creating = false
+	c.Creating = true
+	p, err := c.NewPage(nil, dayTitle(c, d))
+	c.Creating = false
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func (a *app) openRandomDay() {
 // retitleJournal gives every day's page the title the format says.
 func (a *app) retitleJournal(c *Collection) {
 	for _, p := range c.All() {
-		if title := c.dayTitle(dayOf(p)); title != p.Title {
+		if title := dayTitle(c, dayOf(p)); title != p.Title {
 			if err := p.SetTitle(title); err != nil {
 				a.saveErr = err.Error()
 			}

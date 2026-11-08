@@ -24,8 +24,8 @@ func fsLibraries(t *testing.T) map[string]struct {
 		fs   FS
 		root string
 	}{
-		"disk":  {osFS{}, t.TempDir()},
-		"store": {st, storeRoot},
+		"disk":  {OSFS{}, t.TempDir()},
+		"store": {st, StoreRoot},
 	}
 }
 
@@ -106,7 +106,7 @@ func TestLibraryInAFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib, err := OpenLibraryIn(st, storeRoot)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestLibraryInAFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	again, err := OpenLibraryIn(st, storeRoot)
+	again, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestFolderIntoFile(t *testing.T) {
 	c, _ := lib.NewCollection("Eski")
 	p, _ := c.NewPage(nil, "Sayfa")
 	p.SaveText("içerik\n")
-	if !isLibraryFolder(dir) {
+	if !IsLibraryFolder(dir) {
 		t.Fatal("not a library folder")
 	}
 	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
@@ -200,18 +200,18 @@ func TestFolderIntoFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	if err := copyTree(osFS{}, dir, st, storeRoot); err != nil {
+	if err := CopyTree(OSFS{}, dir, st, StoreRoot); err != nil {
 		t.Fatal(err)
 	}
-	in, err := OpenLibraryIn(st, storeRoot)
+	in, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil || len(in.Collections) != 1 || len(in.Collections[0].Pages) != 1 {
 		t.Fatalf("in the file: %v %+v", err, in.Collections)
 	}
 	out := filepath.Join(t.TempDir(), "md")
-	if err := copyTree(st, storeRoot, osFS{}, out); err != nil {
+	if err := CopyTree(st, StoreRoot, OSFS{}, out); err != nil {
 		t.Fatal(err)
 	}
-	src, err := os.ReadFile(filepath.Join(out, "eski", "sayfa", pageFileName))
+	src, err := os.ReadFile(filepath.Join(out, "eski", "sayfa", PageFileName))
 	if err != nil || !strings.Contains(string(src), "içerik") {
 		t.Fatalf("exported: %q %v", src, err)
 	}
@@ -226,8 +226,8 @@ func TestCopyTreeSkipsLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, body := range map[string]string{
-		filepath.Join(src, "koleksiyon", collectionFile): `{"name":"K","subPages":true}`,
-		filepath.Join(page, pageFileName):                `{"meta":{"title":"S"},"body":[{"r":[{"t":"metin"}]}]}`,
+		filepath.Join(src, "koleksiyon", CollectionFile): `{"name":"K","subPages":true}`,
+		filepath.Join(page, PageFileName):                `{"meta":{"title":"S"},"body":[{"r":[{"t":"metin"}]}]}`,
 		filepath.Join(page, "gercek.txt"):                "dosya",
 	} {
 		if err := os.WriteFile(name, []byte(body), 0o644); err != nil {
@@ -249,14 +249,14 @@ func TestCopyTreeSkipsLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	if err := copyTree(osFS{}, src, st, storeRoot); err != nil {
+	if err := CopyTree(OSFS{}, src, st, StoreRoot); err != nil {
 		t.Fatal(err)
 	}
-	if b, err := st.ReadFile(filepath.Join(storeRoot, "koleksiyon", "sayfa", "dosyaya")); err != nil || string(b) != "dosya" {
+	if b, err := st.ReadFile(filepath.Join(StoreRoot, "koleksiyon", "sayfa", "dosyaya")); err != nil || string(b) != "dosya" {
 		t.Fatalf("a link to a file is the file: %q %v", b, err)
 	}
 	for _, gone := range []string{"dongu", "yukari", "yok"} {
-		if _, err := st.Stat(filepath.Join(storeRoot, "koleksiyon", "sayfa", gone)); err == nil {
+		if _, err := st.Stat(filepath.Join(StoreRoot, "koleksiyon", "sayfa", gone)); err == nil {
 			t.Errorf("%s was copied", gone)
 		}
 	}

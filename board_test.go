@@ -18,7 +18,7 @@ func TestPropertiesOptIn(t *testing.T) {
 	if len(one.Properties) != 0 || one.View().Type == "board" || len(one.Views) != 3 {
 		t.Fatalf("a new collection: %+v %+v", one.Properties, one.Views)
 	}
-	src, _ := os.ReadFile(ps["A"].file())
+	src, _ := os.ReadFile(ps["A"].File())
 	if strings.Contains(string(src), "status") {
 		t.Fatalf("a value nobody asked for:\n%s", src)
 	}
@@ -39,7 +39,7 @@ func TestPropertiesOptIn(t *testing.T) {
 		t.Fatal("two properties of one name")
 	}
 	// values
-	writePageFile(t, ps["A"].file(), map[string]string{"title": "A", "kaynak": "elle yazıldı"}, "metin\n")
+	writePageFile(t, ps["A"].File(), map[string]string{"title": "A", "kaynak": "elle yazıldı"}, "metin\n")
 	again, _ := OpenLibrary(lib.Root)
 	var c *Collection
 	for _, x := range again.Collections {
@@ -62,8 +62,8 @@ func TestPropertiesOptIn(t *testing.T) {
 	if err := a.SetValue("durum", "Yok böyle"); err == nil {
 		t.Fatal("a value not among the options")
 	}
-	src, _ = os.ReadFile(a.file())
-	if m := pageMeta(src); m["yazar"] != "Herbert" || m["durum"] != "Sürüyor" || m["kaynak"] != "elle yazıldı" {
+	src, _ = os.ReadFile(a.File())
+	if m := PageMeta(src); m["yazar"] != "Herbert" || m["durum"] != "Sürüyor" || m["kaynak"] != "elle yazıldı" {
 		t.Fatalf("on disk:\n%s", src)
 	}
 	if body, _ := a.Text(); body != "metin\n" {
@@ -84,8 +84,8 @@ func TestStatusesMigrate(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "eski")
 	os.MkdirAll(filepath.Join(dir, "a"), 0o755)
-	os.WriteFile(filepath.Join(dir, collectionFile), []byte(`{"name":"Eski","subPages":true,"statuses":["Açık","Kapalı"],"views":[{"id":"list","label":"Liste","type":"list"},{"id":"board","label":"Pano","type":"board"}]}`), 0o644)
-	writePageFile(t, filepath.Join(dir, "a", pageFileName), map[string]string{"title": "A", "status": "Kapalı"}, "")
+	os.WriteFile(filepath.Join(dir, CollectionFile), []byte(`{"name":"Eski","subPages":true,"statuses":["Açık","Kapalı"],"views":[{"id":"list","label":"Liste","type":"list"},{"id":"board","label":"Pano","type":"board"}]}`), 0o644)
+	writePageFile(t, filepath.Join(dir, "a", PageFileName), map[string]string{"title": "A", "status": "Kapalı"}, "")
 	lib, err := OpenLibrary(root)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestStatusesMigrate(t *testing.T) {
 	if c.Pages[0].Value(pr) != "Kapalı" || c.Views[1].GroupBy != "status" {
 		t.Fatalf("value %q, views %+v", c.Pages[0].Value(pr), c.Views)
 	}
-	data, _ := os.ReadFile(filepath.Join(dir, collectionFile))
+	data, _ := os.ReadFile(filepath.Join(dir, CollectionFile))
 	if strings.Contains(string(data), "statuses") {
 		t.Fatalf("not written back: %s", data)
 	}

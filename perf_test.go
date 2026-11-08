@@ -31,8 +31,8 @@ func bigLibrary(tb testing.TB, n int) (*Store, *Library) {
 		tb.Fatal(err)
 	}
 	tb.Cleanup(func() { st.Close() })
-	st.db.Exec(`PRAGMA synchronous = OFF`)
-	lib, err := OpenLibraryIn(st, storeRoot)
+	st.DB.Exec(`PRAGMA synchronous = OFF`)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestPerfBudget(t *testing.T) {
 	base := heapMB()
 
 	t0 := time.Now()
-	lib, err := OpenLibraryIn(st, storeRoot)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	open := time.Since(t0)
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +165,7 @@ func BenchmarkPaletteBigLibrary(b *testing.B) {
 // BenchmarkKeyBigLibrary is a key in the text of a big library, and its frame.
 func BenchmarkKeyBigLibrary(b *testing.B) {
 	st, _ := bigLibrary(b, perfPages())
-	lib, err := OpenLibraryIn(st, storeRoot)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		b.Fatal(err)
 	}

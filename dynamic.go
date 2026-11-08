@@ -13,9 +13,6 @@ import (
 // made from the search ("Koleksiyon olarak kaydet"), its query is changed in
 // its settings, and what it shows is always what the library has now.
 
-// Dynamic reports whether the collection is a saved search.
-func (c *Collection) Dynamic() bool { return strings.TrimSpace(c.Query) != "" }
-
 // saveSearch makes a collection of the search q, and opens it.
 func (a *app) saveSearch(q string) {
 	q = strings.TrimSpace(q)
@@ -32,7 +29,7 @@ func (a *app) saveSearch(q string) {
 		return
 	}
 	c.Query, c.SubPages, c.Icon = q, false, "search"
-	if err := c.save(); err != nil {
+	if err := c.Save(); err != nil {
 		a.saveErr = err.Error()
 	}
 	a.openCollection(c)

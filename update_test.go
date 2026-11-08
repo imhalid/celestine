@@ -17,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 func TestVersionOrder(t *testing.T) {
@@ -67,8 +69,8 @@ func TestSignatures(t *testing.T) {
 // releaseServer serves a manifest and a file; mut can change the manifest.
 func releaseServer(t *testing.T, priv ed25519.PrivateKey, ver string, file []byte, mut func(*Release)) (*httptest.Server, *Release) {
 	t.Helper()
-	allowHTTP = true
-	t.Cleanup(func() { allowHTTP = false })
+	library.AllowHTTP = true
+	t.Cleanup(func() { library.AllowHTTP = false })
 	sum := sha256.Sum256(file)
 	sha := hex.EncodeToString(sum[:])
 	mux := http.NewServeMux()
@@ -126,7 +128,7 @@ func TestFetchRelease(t *testing.T) {
 	if _, err := fetchRelease(ctx, junk.URL, "v1.0.0", "", ""); err == nil {
 		t.Fatal("html taken as a manifest")
 	}
-	allowHTTP = false
+	library.AllowHTTP = false
 	if _, err := fetchRelease(ctx, srv.URL+"/update.json", "v1.0.0", "", ""); err == nil {
 		t.Fatal("plain HTTP accepted")
 	}
@@ -134,8 +136,8 @@ func TestFetchRelease(t *testing.T) {
 
 func TestFetchSendsOnlyTheVersion(t *testing.T) {
 	var got http.Header
-	allowHTTP = true
-	defer func() { allowHTTP = false }()
+	library.AllowHTTP = true
+	defer func() { library.AllowHTTP = false }()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.Header.Clone()
 		w.Write([]byte(`{"version":"v1.0.0","assets":{}}`))

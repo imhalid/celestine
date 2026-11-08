@@ -152,7 +152,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
 		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
 	}
-	if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from its templates
+	if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from its templates
 		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
 	}
 	if !coll.Journal { // the journal is not thrown away

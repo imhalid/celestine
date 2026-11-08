@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"encoding/json"
@@ -15,8 +15,8 @@ import (
 // another device already comes here in the trash, moved: what it was is then the same bytes as a file in the
 // trash, and is not kept twice.
 
-// trashDays is how long what is in the trash stays, before it is deleted for good.
-const trashDays = 30
+// TrashDays is how long what is in the trash stays, before it is deleted for good.
+const TrashDays = 30
 
 // syncTrash puts the files of gone, which a pass was about to delete, into the trash: a folder of it for
 // each folder they were in, with a note of where it was, as Library.trash makes. A file that is the same
@@ -28,12 +28,12 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 		item TrashItem
 	}
 	abs := func(n string) string { return filepath.Join(root, filepath.FromSlash(n)) }
-	bin := filepath.Join(root, trashDir)
+	bin := filepath.Join(root, TrashDir)
 	folders := map[string]*folder{}
 	failed = map[string]error{}
 	for _, n := range gone {
 		dir := path.Dir(n)
-		if dir == "." || strings.HasPrefix(n, trashDir+"/") { // no folder to keep it in, or it is the trash
+		if dir == "." || strings.HasPrefix(n, TrashDir+"/") { // no folder to keep it in, or it is the trash
 			if err := removeFile(fsys, abs(n)); err != nil {
 				failed[n] = err
 				continue
@@ -61,7 +61,7 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 			failed[n] = err
 			continue
 		}
-		if h := hash[n]; h != "" && hashOf(b) != h { // written since the pass looked: it is not taken away, the next pass sees it changed here
+		if h := hash[n]; h != "" && HashOf(b) != h { // written since the pass looked: it is not taken away, the next pass sees it changed here
 			continue
 		}
 		f := folders[dir]
@@ -70,7 +70,7 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 				failed[n] = err
 				continue
 			}
-			to, err := uniqueDir(fsys, bin, now.Format("20060102-150405")+"-sync-"+path.Base(dir))
+			to, err := UniqueDir(fsys, bin, now.Format("20060102-150405")+"-sync-"+path.Base(dir))
 			if err != nil {
 				failed[n] = err
 				continue
@@ -90,11 +90,11 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 			continue
 		}
 		switch path.Base(n) {
-		case pageFileName:
-			if t := pageMeta(b)["title"]; t != "" && f.item.Kind == "page" {
+		case PageFileName:
+			if t := PageMeta(b)["title"]; t != "" && f.item.Kind == "page" {
 				f.item.Title = t
 			}
-		case collectionFile:
+		case CollectionFile:
 			var c Collection
 			if json.Unmarshal(b, &c) == nil && c.Name != "" && f.item.Kind == "collection" {
 				f.item.Title = c.Name
@@ -109,11 +109,11 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 	for _, f := range folders { // the notes, when the folders are full: their titles are known now
 		data, _ := json.MarshalIndent(f.item, "", "  ")
 		// not written: the files are in the trash without a note, and Trash() reads them as pages from nowhere
-		fsys.WriteFile(filepath.Join(f.to, trashNote), data)
+		fsys.WriteFile(filepath.Join(f.to, TrashNote), data)
 	}
 	// the folders they were in, if nothing is left in them: an empty one keeps its name from a page made there later
 	for _, n := range removed {
-		for dir := path.Dir(n); dir != "." && dir != "/" && dir != trashDir; dir = path.Dir(dir) {
+		for dir := path.Dir(n); dir != "." && dir != "/" && dir != TrashDir; dir = path.Dir(dir) {
 			ents, err := fsys.ReadDir(abs(dir))
 			if err != nil || len(ents) > 0 || fsys.Remove(abs(dir)) != nil {
 				break

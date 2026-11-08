@@ -127,7 +127,7 @@ type AcctMe struct {
 }
 
 func (c *acctClient) call(method, path, token string, in, out any) error {
-	if err := httpsOnly(c.base); err != nil {
+	if err := HTTPSOnly(c.base); err != nil {
 		return err
 	}
 	var body io.Reader
@@ -226,7 +226,7 @@ func (c *acctClient) Login(username, password string) (token string, key []byte,
 // Recover is for a forgotten password: the recovery key (the words that were shown when the account was made) says who one is, and a new
 // password is set; the data key stays, so what is on the server is still readable. Every other computer is signed out.
 func (c *acctClient) Recover(username, recovery, newPassword string) (token string, key []byte, err error) {
-	key, err = keyFromRecovery(recovery)
+	key, err = KeyFromRecovery(recovery)
 	if err != nil {
 		return "", nil, err
 	}
@@ -326,7 +326,7 @@ func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	s.SyncKey = base64.StdEncoding.EncodeToString(key)
 	a.sy.hasKey = true
 	if fresh {
-		a.sy.recovery = recoveryKey(key)
+		a.sy.recovery = RecoveryKey(key)
 	}
 	a.ac = acctUI{mode: "login"}
 	a.saveSettings()

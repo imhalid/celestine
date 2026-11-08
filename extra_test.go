@@ -250,13 +250,13 @@ func TestFocusVeilAndTabs(t *testing.T) {
 
 func TestRevertToBeforeSave(t *testing.T) {
 	st := testStore(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	a := newApp(lib)
 	p := lib.Collections[0].All()[0]
 	a.open(p)
 	p.SaveText("ilk metin\n")
 	h, _ := historyOf(p)
-	h.SnapshotNow(p.file())
+	h.SnapshotNow(p.File())
 	p.SaveText("ikinci metin\n")
 	a.revertToBeforeSave()
 	got, _ := p.Text()

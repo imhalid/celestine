@@ -120,7 +120,7 @@ func TestTableViewSortsAndRemembers(t *testing.T) {
 		t.Fatalf("second click: %+v", v)
 	}
 	// The choice is in collection.json.
-	data, _ := os.ReadFile(filepath.Join(coll.Dir, collectionFile))
+	data, _ := os.ReadFile(filepath.Join(coll.Dir, CollectionFile))
 	var saved Collection
 	json.Unmarshal(data, &saved)
 	if saved.ActiveView != "table" || saved.Views[1].Sort != "created" || !saved.Views[1].Desc {

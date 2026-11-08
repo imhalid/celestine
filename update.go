@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,23 +139,9 @@ func (a *app) updateURLOf() string {
 	return updateURL
 }
 
-// allowHTTP lets a manifest or a file come over plain HTTP: only a test does.
-var allowHTTP = false
-
-func httpsOnly(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return err
-	}
-	if u.Scheme != "https" && !(allowHTTP && u.Scheme == "http") {
-		return errors.New("yalnız HTTPS adresinden güncellenir: " + raw)
-	}
-	return nil
-}
-
 // fetchRelease reads the manifest at u and gives the release for this system, newer than current - or nil.
 func fetchRelease(ctx context.Context, u, current, channel string, skip string) (*Release, error) {
-	if err := httpsOnly(u); err != nil {
+	if err := HTTPSOnly(u); err != nil {
 		return nil, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
@@ -254,7 +239,7 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	if !ok {
 		return "", as, errors.New("bu sistem için dosya yok")
 	}
-	if err := httpsOnly(as.URL); err != nil {
+	if err := HTTPSOnly(as.URL); err != nil {
 		return "", as, err
 	}
 	if as.SHA256 == "" || as.Sig == "" {

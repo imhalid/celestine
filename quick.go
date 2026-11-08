@@ -129,7 +129,7 @@ func (a *app) captureAsPage(text string) (string, error) {
 	rest := strings.TrimSpace(strings.Join(lines[1:], "\n"))
 	if title != strings.TrimSpace(lines[0]) { // cleaned or cut: the text stays whole
 		rest = strings.TrimSpace(text)
-		rest, _ = splitTitle(rest, title) // but not the heading that is the title
+		rest, _ = SplitTitle(rest, title) // but not the heading that is the title
 	}
 	if err := p.SaveText(rest); err != nil {
 		return "", err

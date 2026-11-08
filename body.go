@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 // A page's body is its own format, not Markdown: a list of paragraphs, each
@@ -174,3 +176,16 @@ func appendLine(body, line string) string {
 	b, _ := json.Marshal(paras)
 	return string(b)
 }
+
+// editorFormat is the editor's format, which the library reads its bodies in (internal/library/bodyformat.go).
+type editorFormat struct{}
+
+func (editorFormat) Markdown(body string) string   { return bodyText(body) }
+func (editorFormat) Plain(body string) string      { return decodeBody(body).PlainText() }
+func (editorFormat) FromMarkdown(md string) string { return encodeBody(importMarkdown(md)) }
+
+func (editorFormat) Blank(body string) bool {
+	return strings.TrimSpace(strings.ReplaceAll(decodeBody(body).String(), "\n", "")) == ""
+}
+
+func init() { library.Format = editorFormat{} }

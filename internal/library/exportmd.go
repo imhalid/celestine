@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"fmt"
@@ -15,9 +15,9 @@ import (
 // name beside it, and the pictures of a page beside it. What "Markdown klasörü içe aktar" reads, and what
 // Obsidian or any editor opens. (The library's own folder form, page.json, is what backups keep.)
 
-// exportMarkdown writes the library's collections under dir, which is made.
-func (l *Library) exportMarkdown(dir string) error {
-	osf := osFS{}
+// ExportMarkdown writes the library's collections under dir, which is made.
+func (l *Library) ExportMarkdown(dir string) error {
+	osf := OSFS{}
 	if err := osf.MkdirAll(dir); err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func (l *Library) exportMarkdown(dir string) error {
 		if c.Dynamic() { // a search: its pages are found, not kept
 			continue
 		}
-		folder := filepath.Join(dir, uniqueName(taken, fileSafe(c.Name)))
+		folder := filepath.Join(dir, uniqueName(taken, FileSafe(c.Name)))
 		if err := osf.MkdirAll(folder); err != nil {
 			return err
 		}
@@ -41,18 +41,18 @@ func (l *Library) exportMarkdown(dir string) error {
 func exportPages(dst FS, pages []*Page, folder string) error {
 	taken := map[string]bool{}
 	for _, p := range pages {
-		name := uniqueName(taken, fileSafe(p.Title))
+		name := uniqueName(taken, FileSafe(p.Title))
 		body, err := p.Text()
 		if err != nil {
 			return fmt.Errorf("%s: %w", p.Title, err)
 		}
 		// the pictures of the page, beside its file: the text names them by their file name
-		ents, _ := p.fs().ReadDir(p.Dir)
+		ents, _ := p.FS().ReadDir(p.Dir)
 		for _, e := range ents {
-			if e.IsDir() || e.Name() == pageFileName || e.Name() == legacyPageFile || strings.HasPrefix(e.Name(), "page (") || strings.HasPrefix(e.Name(), ".") {
+			if e.IsDir() || e.Name() == PageFileName || e.Name() == LegacyPageFile || strings.HasPrefix(e.Name(), "page (") || strings.HasPrefix(e.Name(), ".") {
 				continue
 			}
-			data, err := p.fs().ReadFile(filepath.Join(p.Dir, e.Name()))
+			data, err := p.FS().ReadFile(filepath.Join(p.Dir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -123,9 +123,9 @@ func quoteStyle(v string) yaml.Style {
 	return 0
 }
 
-// fileSafe is a title as a file or folder name: what a file system or a link refuses is a dash, and it is not
+// FileSafe is a title as a file or folder name: what a file system or a link refuses is a dash, and it is not
 // empty, nor made of dots, nor long.
-func fileSafe(s string) string {
+func FileSafe(s string) string {
 	s = strings.Map(func(r rune) rune {
 		if r < 32 || strings.ContainsRune(`/\:*?"<>|`, r) {
 			return '-'

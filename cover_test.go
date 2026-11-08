@@ -23,7 +23,7 @@ func TestCover(t *testing.T) {
 	if !strings.HasPrefix(p.Cover, "kapak-") {
 		t.Fatalf("cover %q", p.Cover)
 	}
-	src, _ := os.ReadFile(p.file())
+	src, _ := os.ReadFile(p.File())
 	if !strings.Contains(string(src), `"cover":"kapak-`) {
 		t.Fatalf("front matter:\n%s", src)
 	}
@@ -53,8 +53,8 @@ func TestCover(t *testing.T) {
 	// and taken away
 	cur := p.Cover
 	a.removeCover(p)
-	src, _ = os.ReadFile(p.file())
-	if p.Cover != coverNone || !strings.Contains(string(src), `"cover":"none"`) || strings.Contains(string(src), "kapak-") {
+	src, _ = os.ReadFile(p.File())
+	if p.Cover != CoverNone || !strings.Contains(string(src), `"cover":"none"`) || strings.Contains(string(src), "kapak-") {
 		t.Fatalf("not away (the page says it wants none):\n%s", src)
 	}
 	if _, err := os.Stat(filepath.Join(p.Dir, cur)); err == nil {
@@ -111,7 +111,7 @@ func TestCoverOnCards(t *testing.T) {
 func TestCorruptPageIsLeftAlone(t *testing.T) {
 	a, _ := newTestApp(t, "x")
 	p := a.page
-	if err := p.fs().WriteFile(p.file(), []byte(`{"meta": bozuk`)); err != nil {
+	if err := p.FS().WriteFile(p.File(), []byte(`{"meta": bozuk`)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := p.Body(); err == nil {
@@ -122,10 +122,10 @@ func TestCorruptPageIsLeftAlone(t *testing.T) {
 	if a.saveErr == "" || p.Cover != "kapak.png" {
 		t.Fatalf("saveErr %q cover %q", a.saveErr, p.Cover)
 	}
-	if b, _ := p.fs().ReadFile(p.file()); string(b) != `{"meta": bozuk` {
+	if b, _ := p.FS().ReadFile(p.File()); string(b) != `{"meta": bozuk` {
 		t.Fatalf("the file was written over: %q", b)
 	}
-	if _, body, err := splitPageChecked(nil); err != nil || body != "[]" {
+	if _, body, err := SplitPageChecked(nil); err != nil || body != "[]" {
 		t.Fatalf("an empty file is an empty page: %q %v", body, err)
 	}
 }

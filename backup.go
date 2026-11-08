@@ -290,7 +290,7 @@ func zipDir(src, dst string) error {
 
 // store is the library's file, or nil for a library of plain files.
 func (a *app) store() *Store {
-	s, _ := a.lib.fs.(*Store)
+	s, _ := a.lib.FS.(*Store)
 	return s
 }
 
@@ -370,7 +370,7 @@ func (a *app) restoreFrom(b Backup) {
 func (a *app) exportZip(store *Store) string {
 	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
 	a.flush()
-	if err := a.lib.exportMarkdown(dir); err != nil {
+	if err := a.lib.ExportMarkdown(dir); err != nil {
 		os.RemoveAll(dir)
 		return "Olmadı: " + err.Error()
 	}

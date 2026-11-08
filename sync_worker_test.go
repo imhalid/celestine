@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 // A test against the real Worker (cloudflare/sync/worker.js), left out unless it is asked for:
@@ -17,9 +19,9 @@ func TestWorkerLive(t *testing.T) {
 	if url == "" || token == "" {
 		t.Skip("RYUDIT_SYNC_URL and RYUDIT_SYNC_TOKEN are not set")
 	}
-	allowHTTP = strings.HasPrefix(url, "http://") // a Worker on this machine (wrangler dev) is plain HTTP
-	defer func() { allowHTTP = false }()
-	remote := func() Remote { return newHTTPRemote(url, token) }
+	library.AllowHTTP = strings.HasPrefix(url, "http://") // a Worker on this machine (wrangler dev) is plain HTTP
+	defer func() { library.AllowHTTP = false }()
+	remote := func() Remote { return NewHTTPRemote(url, token) }
 
 	// plain: a file goes up, comes down on another device, is changed, is deleted
 	a, b := newDevice(t), newDevice(t)
@@ -50,7 +52,7 @@ func TestWorkerLive(t *testing.T) {
 
 	// sealed: the Worker holds nothing readable
 	enc := func() Remote {
-		e, err := openEnc(remote(), "parola")
+		e, err := OpenEnc(remote(), "parola")
 		if err != nil {
 			t.Fatal(err)
 		}

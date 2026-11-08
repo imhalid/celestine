@@ -44,7 +44,7 @@ func TestCollSettings(t *testing.T) {
 	if coll.Prop("durum") == nil || coll.Template != "## Notlar\n" || !tt.HasText("Okuduklarım") || !tt.HasText("Yeni kitap") {
 		t.Fatalf("saved: %+v %v", coll.Properties, tt.Texts())
 	}
-	data, _ := os.ReadFile(coll.Dir + "/" + collectionFile)
+	data, _ := os.ReadFile(coll.Dir + "/" + CollectionFile)
 	for _, want := range []string{`"pageNoun": "kitap"`, `"template": "## Notlar\n"`, `"name": "Durum"`, `"type": "board"`} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("not on disk: %s", want)

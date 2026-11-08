@@ -108,21 +108,21 @@ func TestSafeName(t *testing.T) {
 		"notlar/a/page.json": true, "a": true, "a..b/c": true, ".cop/x/page.json": true,
 		"": false, "../x": false, "a/../../x": false, "/etc/passwd": false, `..\x`: false, "a/b/..": false, "a\x00b": false,
 	} {
-		if safeName(n) != ok {
+		if SafeName(n) != ok {
 			t.Errorf("safeName(%q) = %v", n, !ok)
 		}
 	}
-	if _, ok := safeSubpath("/kok", "../x"); ok {
+	if _, ok := SafeSubpath("/kok", "../x"); ok {
 		t.Error("a path out of the root")
 	}
-	if !within("/kok", "/kok/a/b") || within("/kok", "/kok/../x") || within("/kok", "/kokos") {
+	if !Within("/kok", "/kok/a/b") || Within("/kok", "/kok/../x") || Within("/kok", "/kokos") {
 		t.Error("within")
 	}
 }
 
 // A note in the trash that says its page came from outside the library is not followed.
 func TestRestoreUnsafeNote(t *testing.T) {
-	lib := &Library{Root: t.TempDir(), fs: osFS{}}
+	lib := &Library{Root: t.TempDir(), FS: OSFS{}}
 	for _, from := range []string{"../../x", "/etc/x", "notlar/../../x"} {
 		if _, _, err := lib.Restore(&TrashItem{Kind: "page", Title: "x", From: from, Dir: t.TempDir()}); err == nil {
 			t.Errorf("restored from %q", from)
@@ -142,7 +142,7 @@ func TestExportMarkdownRoundTrip(t *testing.T) {
 	if err := p.SaveText("# Başlık\n\nmetin ![resim](foto.png)\n\n#etiket\n"); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.fs().WriteFile(filepath.Join(p.Dir, "foto.png"), pngBytes(8, 8)); err != nil {
+	if err := p.FS().WriteFile(filepath.Join(p.Dir, "foto.png"), pngBytes(8, 8)); err != nil {
 		t.Fatal(err)
 	}
 	sub, err := c.NewPage(p, "Alt sayfa")
@@ -151,10 +151,10 @@ func TestExportMarkdownRoundTrip(t *testing.T) {
 	}
 	sub.SaveText("alt metin\n")
 	dir := filepath.Join(t.TempDir(), "md")
-	if err := a.lib.exportMarkdown(dir); err != nil {
+	if err := a.lib.ExportMarkdown(dir); err != nil {
 		t.Fatal(err)
 	}
-	folder := filepath.Join(dir, fileSafe(c.Name))
+	folder := filepath.Join(dir, FileSafe(c.Name))
 	md, err := os.ReadFile(filepath.Join(folder, "Dune- bölüm-bir.md"))
 	if err != nil {
 		t.Fatalf("the page is not a .md: %v", err)

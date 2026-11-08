@@ -218,7 +218,7 @@ func (a *app) profileRecovery(c *ui.Context, cl ryugo.Colors) {
 			}
 		})
 		if a.ac.showRec {
-			rec := recoveryKey(key)
+			rec := RecoveryKey(key)
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Padding(8, 0, 0, 0).Children(func() {
 				ui.Text(c, rec).FontSize(13.5).FontWeight(600).TextColor(cl.Text).Wrap().Grow(1)
 				ryugo.CopyButton(c.Key("copy-recovery-prof"), rec, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
@@ -284,13 +284,13 @@ const serverVersionsShown = 10
 // openServerHistory brings the versions of p that the server holds, and shows them in the history dialog.
 func (a *app) openServerHistory(p *Page) {
 	remote, err := a.syncRemote()
-	enc, ok := remote.(*encRemote)
+	enc, ok := remote.(*EncRemote)
 	if err != nil || !ok || a.settings.SyncMode != "server" {
 		a.notice = "Sunucudaki sürümler için sunucu hesabıyla eşitlemek gerekir"
 		return
 	}
 	a.flush()
-	name := strings.TrimPrefix(filepath.ToSlash(p.file()), storeRoot)
+	name := strings.TrimPrefix(filepath.ToSlash(p.File()), StoreRoot)
 	a.notice = "Sunucudaki sürümler getiriliyor…"
 	go func() {
 		defer a.guard()

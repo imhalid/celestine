@@ -21,8 +21,8 @@ func TestTemplates(t *testing.T) {
 	tt.SetSize(1100, 800)
 	c := a.page.Coll
 	c.Template = "## Varsayılan {{başlık}}\n"
-	c.Templates = []NamedTemplate{{"Toplantı", "# Toplantı {{tarih}}\n\n- [ ] karar\n"}, {"", "silinir"}}
-	if got := c.allTemplates(); len(got) != 2 || got[0].Name != "Varsayılan" || got[1].Name != "Toplantı" {
+	c.Templates = []NamedTemplate{{Name: "Toplantı", Body: "# Toplantı {{tarih}}\n\n- [ ] karar\n"}, {Name: "", Body: "silinir"}}
+	if got := c.AllTemplates(); len(got) != 2 || got[0].Name != "Varsayılan" || got[1].Name != "Toplantı" {
 		t.Fatalf("%+v", got)
 	}
 	// the palette
@@ -70,7 +70,7 @@ func TestTemplateSettings(t *testing.T) {
 		t.Fatalf("%+v", a.cs.draft.Templates)
 	}
 	a.cs.draft.Templates[0].Body = "## kayıtlı"
-	if err := c.setConfig(a.cs.draft.configJSON()); err != nil {
+	if err := c.SetConfig(a.cs.draft.ConfigJSON()); err != nil {
 		t.Fatal(err)
 	}
 	if len(c.Templates) != 1 || c.Templates[0].Body != "## kayıtlı" {

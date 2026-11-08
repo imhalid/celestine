@@ -111,7 +111,7 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page,
 	if err != nil {
 		return nil, err
 	}
-	meta, body := splitFrontMatter(string(data))
+	meta, body := SplitFrontMatter(string(data))
 	title := strings.TrimSpace(meta["title"])
 	if title == "" {
 		if m := h1Line.FindStringSubmatch(body); m != nil {
@@ -134,7 +134,7 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page,
 	} else if fi, err := os.Stat(f); err == nil {
 		p.Created = fi.ModTime().Truncate(time.Second)
 	}
-	body, _ = splitTitle(body, title) // the title is the page's own
+	body, _ = SplitTitle(body, title) // the title is the page's own
 	if err := p.SaveText(body); err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 		}
 		src := ""
 		for _, cand := range []string{filepath.Join(dir, ref), filepath.Join(root, ref)} {
-			if !within(root, cand) { // ../../ out of the vault: what is not in it is not its picture
+			if !Within(root, cand) { // ../../ out of the vault: what is not in it is not its picture
 				continue
 			}
 			if fi, err := os.Stat(cand); err == nil && !fi.IsDir() {
@@ -218,7 +218,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 			return ""
 		}
 		name := fmt.Sprintf("resim-%s-%d%s", a.clock().Format("20060102-150405"), len(copied)+1, imageExt(data))
-		if err := p.fs().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
+		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
 			return ""
 		}
 		copied[ref] = name

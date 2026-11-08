@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"io/fs"
@@ -29,20 +29,20 @@ type FS interface {
 	Stat(name string) (fs.FileInfo, error)
 }
 
-// osFS is the disk.
-type osFS struct{}
+// OSFS is the disk.
+type OSFS struct{}
 
-func (osFS) ReadFile(n string) ([]byte, error)       { return os.ReadFile(n) }
-func (osFS) ReadDir(n string) ([]fs.DirEntry, error) { return os.ReadDir(n) }
-func (osFS) Mkdir(n string) error                    { return os.Mkdir(n, 0o755) }
-func (osFS) MkdirAll(n string) error                 { return os.MkdirAll(n, 0o755) }
-func (osFS) Rename(a, b string) error                { return os.Rename(a, b) }
-func (osFS) Remove(n string) error                   { return os.Remove(n) }
-func (osFS) RemoveAll(n string) error                { return os.RemoveAll(n) }
-func (osFS) Stat(n string) (fs.FileInfo, error)      { return os.Stat(n) }
+func (OSFS) ReadFile(n string) ([]byte, error)       { return os.ReadFile(n) }
+func (OSFS) ReadDir(n string) ([]fs.DirEntry, error) { return os.ReadDir(n) }
+func (OSFS) Mkdir(n string) error                    { return os.Mkdir(n, 0o755) }
+func (OSFS) MkdirAll(n string) error                 { return os.MkdirAll(n, 0o755) }
+func (OSFS) Rename(a, b string) error                { return os.Rename(a, b) }
+func (OSFS) Remove(n string) error                   { return os.Remove(n) }
+func (OSFS) RemoveAll(n string) error                { return os.RemoveAll(n) }
+func (OSFS) Stat(n string) (fs.FileInfo, error)      { return os.Stat(n) }
 
 // WriteFile goes through a temporary file, so a crash never leaves half of it.
-func (osFS) WriteFile(name string, data []byte) error {
+func (OSFS) WriteFile(name string, data []byte) error {
 	tmp := name + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
@@ -50,8 +50,8 @@ func (osFS) WriteFile(name string, data []byte) error {
 	return os.Rename(tmp, name)
 }
 
-// writeFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
-func writeFilePrivate(name string, data []byte) error {
+// WriteFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
+func WriteFilePrivate(name string, data []byte) error {
 	tmp := name + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
@@ -60,10 +60,10 @@ func writeFilePrivate(name string, data []byte) error {
 	return os.Rename(tmp, name)
 }
 
-// storeRoot is the root of a store's tree.
-const storeRoot = "/"
+// StoreRoot is the root of a store's tree.
+const StoreRoot = "/"
 
-func clean(name string) string {
+func Clean(name string) string {
 	n := path.Clean("/" + filepath.ToSlash(name))
 	return n
 }
@@ -92,12 +92,12 @@ func (i info) Sys() any                   { return nil }
 func (i info) Type() fs.FileMode          { return i.Mode().Type() }
 func (i info) Info() (fs.FileInfo, error) { return i, nil }
 
-// copyTree copies the folder srcRoot of src, all that is under it, to dstRoot
+// CopyTree copies the folder srcRoot of src, all that is under it, to dstRoot
 // of dst: a folder library into a file (the first time), and back (an export).
 // A link to a file is copied as the file; a link to a folder (it may point
 // back up the tree), a link to nothing and what is neither file nor folder are
 // left, so that one odd entry never stops a whole copy.
-func copyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
+func CopyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
 	if err := dst.MkdirAll(dstRoot); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func copyTree(src FS, srcRoot string, dst FS, dstRoot string) error {
 		from, to := filepath.Join(srcRoot, e.Name()), filepath.Join(dstRoot, e.Name())
 		switch {
 		case e.IsDir():
-			if err := copyTree(src, from, dst, to); err != nil {
+			if err := CopyTree(src, from, dst, to); err != nil {
 				return err
 			}
 		case strings.HasSuffix(e.Name(), ".tmp"):
@@ -136,16 +136,16 @@ func linksToFile(fsys FS, path string, e fs.DirEntry) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-// isLibraryFolder reports whether dir holds a library: a folder with a
+// IsLibraryFolder reports whether dir holds a library: a folder with a
 // collection in it.
-func isLibraryFolder(dir string) bool {
+func IsLibraryFolder(dir string) bool {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return false
 	}
 	for _, e := range entries {
 		if e.IsDir() {
-			if _, err := os.Stat(filepath.Join(dir, e.Name(), collectionFile)); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, e.Name(), CollectionFile)); err == nil {
 				return true
 			}
 		}
@@ -153,9 +153,9 @@ func isLibraryFolder(dir string) bool {
 	return false
 }
 
-// libraryFile is where the library is kept when none is named: a file next
+// LibraryFile is where the library is kept when none is named: a file next
 // to the program, so that the two move together.
-func libraryFile() string {
+func LibraryFile() string {
 	dir := "."
 	if exe, err := os.Executable(); err == nil {
 		dir = filepath.Dir(exe)

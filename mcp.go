@@ -155,7 +155,7 @@ func (a *app) setCaret(k caretKind) {
 // loadSettings reads the settings, making a token the first time.
 func (a *app) loadSettings() {
 	if a.settingsStore != nil { // kept in the library's file, with the token
-		if data := a.settingsStore.Meta(settingsKey); data != nil {
+		if data := a.settingsStore.Meta(SettingsKey); data != nil {
 			json.Unmarshal(data, &a.settings)
 		} else if a.settingsFile != "" { // the settings of before the file: taken in once
 			if data, err := os.ReadFile(a.settingsFile); err == nil {
@@ -178,14 +178,11 @@ func (a *app) loadSettings() {
 	}
 }
 
-// settingsKey is what the settings are kept under in a library's file.
-const settingsKey = "settings"
-
 func (a *app) saveSettings() {
 	a.settingsDirty = false
 	data, _ := json.MarshalIndent(a.settings, "", "  ")
 	if a.settingsStore != nil {
-		if err := a.settingsStore.SetMeta(settingsKey, data); err != nil {
+		if err := a.settingsStore.SetMeta(SettingsKey, data); err != nil {
 			a.saveErr = err.Error()
 		}
 		return
@@ -194,7 +191,7 @@ func (a *app) saveSettings() {
 		return
 	}
 	os.MkdirAll(filepath.Dir(a.settingsFile), 0o700)
-	if err := writeFilePrivate(a.settingsFile, data); err != nil {
+	if err := WriteFilePrivate(a.settingsFile, data); err != nil {
 		a.saveErr = err.Error()
 	}
 }
@@ -324,7 +321,7 @@ func (a *app) setValues(p *Page, vs map[string]string) error {
 
 // bodyOf is what an agent gives as a page's text: Markdown, without front matter.
 func bodyOf(md string) string {
-	if _, body := splitFrontMatter(md); strings.HasPrefix(md, "---\n") {
+	if _, body := SplitFrontMatter(md); strings.HasPrefix(md, "---\n") {
 		md = body
 	}
 	md = strings.TrimLeft(md, "\n")

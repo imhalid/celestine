@@ -50,7 +50,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 		for _, c := range a.lib.Collections {
 			for _, q := range c.All() {
 				e := l.pages[q]
-				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) || e.writes != q.writes {
+				if e == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) || e.writes != q.Writes {
 					body, err := q.Text()
 					if err != nil {
 						continue
@@ -104,7 +104,7 @@ func (a *app) warmLinks(budget time.Duration) bool {
 	start := time.Now()
 	for ; l.warmAt < len(l.warm); l.warmAt++ {
 		q := l.warm[l.warmAt]
-		if e := l.pages[q]; e != nil && !q.Modified.IsZero() && e.mod.Equal(q.Modified) && e.writes == q.writes {
+		if e := l.pages[q]; e != nil && !q.Modified.IsZero() && e.mod.Equal(q.Modified) && e.writes == q.Writes {
 			continue
 		}
 		if time.Since(start) > budget {
@@ -217,7 +217,7 @@ func readPageIdx(q *Page, body string) *pageIdx {
 
 // readPageIdxPlain is readPageIdx, and the page's plain text it was read from.
 func readPageIdxPlain(q *Page, body string) (*pageIdx, string) {
-	return readPageIdxAt(q, q.Modified, q.writes, body)
+	return readPageIdxAt(q, q.Modified, q.Writes, body)
 }
 
 // readPageIdxAt is readPageIdxPlain for a page as it was when mod and writes were read: a goroutine that reads
@@ -253,13 +253,13 @@ type plainIdx struct {
 // first time it is asked for, and again when the page was written.
 func (a *app) plainOf(p *Page) *plainIdx {
 	l := &a.links
-	if e := l.plain[p]; e != nil && !p.Modified.IsZero() && e.mod.Equal(p.Modified) && e.writes == p.writes {
+	if e := l.plain[p]; e != nil && !p.Modified.IsZero() && e.mod.Equal(p.Modified) && e.writes == p.Writes {
 		return e
 	}
 	if l.plain == nil {
 		l.plain = map[*Page]*plainIdx{}
 	}
-	e := &plainIdx{mod: p.Modified, writes: p.writes}
+	e := &plainIdx{mod: p.Modified, writes: p.Writes}
 	if body, err := p.Text(); err == nil {
 		e.plain = plainText(body)
 		e.folded = fold(e.plain)

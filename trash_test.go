@@ -35,7 +35,7 @@ func TestRestoreOnDisk(t *testing.T) {
 	if body, _ := p.Children[0].Text(); body != "bir\n" {
 		t.Fatalf("its text: %q", body)
 	}
-	if _, err := os.Stat(filepath.Join(p.Dir, trashNote)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(p.Dir, TrashNote)); !os.IsNotExist(err) {
 		t.Fatal("the note came back too")
 	}
 	if len(lib.Trash()) != 0 {

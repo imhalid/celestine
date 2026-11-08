@@ -15,7 +15,7 @@ func testStore(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	lib, err := OpenLibraryIn(st, storeRoot)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestBackupSnapshotOpens(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st2.Close()
-	lib, err := OpenLibraryIn(st2, storeRoot)
+	lib, err := OpenLibraryIn(st2, StoreRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestBackupRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	// the library changes after the backup
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	lib.Collections[0].All()[0].SaveText("sonradan yazılan\n")
 	file := st.File
 	st.Close()
@@ -192,7 +192,7 @@ func TestBackupRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st2.Close()
-	lib2, _ := OpenLibraryIn(st2, storeRoot)
+	lib2, _ := OpenLibraryIn(st2, StoreRoot)
 	body, _ := lib2.Collections[0].All()[0].Body()
 	if !strings.Contains(body, "yedeklenecek") || strings.Contains(body, "sonradan") {
 		t.Fatalf("not the backup's: %q", body)
@@ -206,7 +206,7 @@ func TestBackupRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st3.Close()
-	lib3, _ := OpenLibraryIn(st3, storeRoot)
+	lib3, _ := OpenLibraryIn(st3, StoreRoot)
 	if b, _ := lib3.Collections[0].All()[0].Body(); !strings.Contains(b, "sonradan") {
 		t.Fatalf("the kept file is not the old library: %q", b)
 	}
@@ -227,7 +227,7 @@ func TestBackupRestore(t *testing.T) {
 // The app: a backup by hand, the daily one once, one before an import, and the notice that says so.
 func TestAppBackup(t *testing.T) {
 	st := testStore(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	a := newApp(lib)
 	a.backupDir = filepath.Join(t.TempDir(), "b")
 	a.backupBefore("içe aktarma")
@@ -274,7 +274,7 @@ func TestAppBackup(t *testing.T) {
 
 func TestExportZip(t *testing.T) {
 	st := testStore(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	a := newApp(lib)
 	msg := a.exportZip(st)
 	if !strings.HasPrefix(msg, "Yazıldı: ") {

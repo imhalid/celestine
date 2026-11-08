@@ -24,7 +24,7 @@ func (a *app) purgeTrash() {
 
 // trashDaysLeft is the whole days an item has left in the trash.
 func trashDaysLeft(item *TrashItem, now time.Time) int {
-	left := item.Trashed.Add(trashDays * 24 * time.Hour).Sub(now)
+	left := item.Trashed.Add(TrashDays * 24 * time.Hour).Sub(now)
 	return max(0, int((left+24*time.Hour-1)/(24*time.Hour)))
 }
 

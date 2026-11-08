@@ -360,7 +360,7 @@ func main() {
 		root, _ := filepath.Abs(arg)
 		lib, err = OpenLibrary(root)
 	} else {
-		file := libraryFile()
+		file := LibraryFile()
 		if arg != "" {
 			file, _ = filepath.Abs(arg)
 		}
@@ -373,10 +373,10 @@ func main() {
 		if store, err = OpenStore(file); err == nil {
 			if existed != nil {
 				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
-					if isLibraryFolder(old) {
-						store.fast(true) // a copy of what is still there: no wait for each file
-						err = copyTree(osFS{}, old, store, storeRoot)
-						store.fast(false)
+					if IsLibraryFolder(old) {
+						store.Fast(true) // a copy of what is still there: no wait for each file
+						err = CopyTree(OSFS{}, old, store, StoreRoot)
+						store.Fast(false)
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -384,9 +384,9 @@ func main() {
 					}
 				}
 			}
-			store.snapshot() // the table read at once: not a query a folder and a page
-			lib, err = OpenLibraryIn(store, storeRoot)
-			store.endSnapshot()
+			store.BeginSnapshot() // the table read at once: not a query a folder and a page
+			lib, err = OpenLibraryIn(store, StoreRoot)
+			store.EndSnapshot()
 		}
 	}
 	if err != nil {

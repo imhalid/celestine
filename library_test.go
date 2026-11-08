@@ -52,8 +52,8 @@ func TestLibraryOnDisk(t *testing.T) {
 	if body, _ := sub.Text(); body != "- bir\n- iki\n" {
 		t.Fatalf("body: %q", body)
 	}
-	src, _ := os.ReadFile(filepath.Join(a.Dir, pageFileName))
-	if m := pageMeta(src); m["title"] != "Yeni ad: \"tırnaklı\"" || m["created"] == "" {
+	src, _ := os.ReadFile(filepath.Join(a.Dir, PageFileName))
+	if m := PageMeta(src); m["title"] != "Yeni ad: \"tırnaklı\"" || m["created"] == "" {
 		t.Fatalf("meta:\n%s", src)
 	}
 	// A folder without a collection.json is not a collection.
@@ -74,7 +74,7 @@ func TestSidebarMakesSubPage(t *testing.T) {
 	if len(parent.Children) != 1 || a.page != parent.Children[0] || a.page.Title != "Adsız" {
 		t.Fatalf("sub-page: %+v, open %v", parent.Children, a.page)
 	}
-	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", pageFileName)); err != nil {
+	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", PageFileName)); err != nil {
 		t.Fatal(err)
 	}
 	// The new title is typed straight away, and saved.

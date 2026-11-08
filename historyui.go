@@ -20,23 +20,23 @@ type histView struct {
 	page   *Page
 	vers   []Version
 	sel    int
-	ops    []diffOp
+	ops    []DiffOp
 	opsFor int64     // the version the ops are of
 	label  string    // the name being typed for a copy to keep
-	src    historian // the versions are these (the server's, brought here), not the page's own
+	src    Historian // the versions are these (the server's, brought here), not the page's own
 	server bool      // they are the server's: nothing is kept by name, and putting one back is the same
 	list   ui.ScrollState
 	text   ui.ScrollState
 }
 
 // historyOf is where the page's versions are kept, if its library keeps any.
-func historyOf(p *Page) (historian, bool) {
-	h, ok := p.fs().(historian)
+func historyOf(p *Page) (Historian, bool) {
+	h, ok := p.FS().(Historian)
 	return h, ok
 }
 
 // hist is where the versions shown are kept.
-func (v *histView) hist() (historian, bool) {
+func (v *histView) hist() (Historian, bool) {
 	if v.src != nil {
 		return v.src, true
 	}
@@ -51,23 +51,23 @@ func (a *app) openHistory(p *Page) {
 		return
 	}
 	a.flush()
-	a.vhist = histView{open: true, page: p, vers: h.Versions(p.file()), opsFor: -1}
+	a.vhist = histView{open: true, page: p, vers: h.Versions(p.File()), opsFor: -1}
 }
 
 // histOps is the difference of the chosen version from the page now.
-func (a *app) histOps() []diffOp {
+func (a *app) histOps() []DiffOp {
 	v := &a.vhist
 	if v.sel >= len(v.vers) {
 		return nil
 	}
 	if id := v.vers[v.sel].ID; id != v.opsFor {
 		h, _ := v.hist()
-		data, _ := h.VersionData(v.page.file(), id)
-		_, oldBody := splitPage(data)
+		data, _ := h.VersionData(v.page.File(), id)
+		_, oldBody := SplitPage(data)
 		old := bodyText(oldBody)
 		now, _ := v.page.Text()
-		v.ops = diffLines(strings.Split(strings.TrimRight(old, "\n"), "\n"), strings.Split(strings.TrimRight(now, "\n"), "\n"))
-		pairWords(v.ops)
+		v.ops = DiffLines(strings.Split(strings.TrimRight(old, "\n"), "\n"), strings.Split(strings.TrimRight(now, "\n"), "\n"))
+		PairWords(v.ops)
 		v.opsFor = id
 		v.text = ui.ScrollState{}
 	}
@@ -83,7 +83,7 @@ func (a *app) putBackVersion() {
 	}
 	p := v.page
 	h, _ := v.hist()
-	data, ok := h.VersionData(p.file(), v.vers[v.sel].ID)
+	data, ok := h.VersionData(p.File(), v.vers[v.sel].ID)
 	if !ok {
 		return
 	}
@@ -91,9 +91,9 @@ func (a *app) putBackVersion() {
 		a.flush()
 	}
 	if lh, ok := historyOf(p); ok {
-		lh.SnapshotNow(p.file())
+		lh.SnapshotNow(p.File())
 	}
-	_, body := splitPage(data)
+	_, body := SplitPage(data)
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return
@@ -179,10 +179,10 @@ func (a *app) historyView(c *ui.Context) {
 
 // diffRows draws the lines of a difference: a long run of lines both have
 // is cut to the few at its edges.
-func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []diffOp) {
+func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []DiffOp) {
 	same, adds, dels := 0, 0, 0
 	for _, o := range ops {
-		switch o.kind {
+		switch o.Kind {
 		case '=':
 			same++
 		case '+':
@@ -198,9 +198,9 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []diffOp) {
 	ui.Text(c, strconv.Itoa(adds)+" satır geri gelir, "+strconv.Itoa(dels)+" satır gider").FontSize(12).FontWeight(600).TextColor(cl.Muted).Padding(0, 4, 6, 4)
 	const edge = 2
 	for i := 0; i < len(ops); {
-		if ops[i].kind == '=' {
+		if ops[i].Kind == '=' {
 			j := i
-			for j < len(ops) && ops[j].kind == '=' {
+			for j < len(ops) && ops[j].Kind == '=' {
 				j++
 			}
 			if j-i > 2*edge+2 {
@@ -224,10 +224,10 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []diffOp) {
 	}
 }
 
-func (a *app) diffRow(c *ui.Context, cl ryugo.Colors, i int, o diffOp) {
+func (a *app) diffRow(c *ui.Context, cl ryugo.Colors, i int, o DiffOp) {
 	row := ui.Row(c.Key("dl"+strconv.Itoa(i))).FillWidth().Gap(8).Padding(2, 6).Radius(rad(5)).AlignItems(ui.Start)
 	mark, col := " ", cl.Text2
-	switch o.kind {
+	switch o.Kind {
 	case '+':
 		mark, col = "+", cl.Down
 		row.Background(cl.Down.Alpha(0.13))
@@ -237,28 +237,28 @@ func (a *app) diffRow(c *ui.Context, cl ryugo.Colors, i int, o diffOp) {
 	}
 	row.Children(func() {
 		ui.Text(c, mark).FontSize(13).FontWeight(700).TextColor(col).Width(10).Shrink(0)
-		text := o.text
+		text := o.Text
 		if strings.TrimSpace(text) == "" {
 			text = " "
 		}
-		if len(o.words) > 0 { // the words that differ marked within the line
+		if len(o.Words) > 0 { // the words that differ marked within the line
 			var spans []ui.Span
-			for k, w := range o.words {
-				sp := ui.Span{Text: w.text, Size: 13, Color: cl.Text}
+			for k, w := range o.Words {
+				sp := ui.Span{Text: w.Text, Size: 13, Color: cl.Text}
 				if k > 0 {
 					spans = append(spans, ui.Span{Text: " ", Size: 13})
 				}
-				if w.kind != '=' {
+				if w.Kind != '=' {
 					sp.Weight, sp.Background, sp.Radius = 700, col.Alpha(0.28), 3
-					sp.Strikethrough = o.kind == '-'
+					sp.Strikethrough = o.Kind == '-'
 				}
 				spans = append(spans, sp)
 			}
 			ui.RichText(c, spans...).Grow(1).MinWidth(0)
 			return
 		}
-		t := ui.Text(c, text).FontSize(13).TextColor(map[bool]ui.Color{true: cl.Muted, false: cl.Text}[o.kind == '=']).Grow(1).MinWidth(0).Wrap()
-		if o.kind == '-' {
+		t := ui.Text(c, text).FontSize(13).TextColor(map[bool]ui.Color{true: cl.Muted, false: cl.Text}[o.Kind == '=']).Grow(1).MinWidth(0).Wrap()
+		if o.Kind == '-' {
 			t.Strikethrough()
 		}
 	})
@@ -286,7 +286,7 @@ func (a *app) saveNamedVersion() {
 	if v.page == a.page {
 		a.flush()
 	}
-	if h.SaveNamed(v.page.file(), name) {
-		v.vers, v.sel, v.opsFor, v.label = h.Versions(v.page.file()), 0, -1, ""
+	if h.SaveNamed(v.page.File(), name) {
+		v.vers, v.sel, v.opsFor, v.label = h.Versions(v.page.File()), 0, -1, ""
 	}
 }

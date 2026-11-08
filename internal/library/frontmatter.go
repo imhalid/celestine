@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"strings"
@@ -122,8 +122,8 @@ func (f *front) keys() []string {
 	return out
 }
 
-// splitFrontMatter is src's front matter as text values, and its body.
-func splitFrontMatter(src string) (map[string]string, string) {
+// SplitFrontMatter is src's front matter as text values, and its body.
+func SplitFrontMatter(src string) (map[string]string, string) {
 	f, body := readFront(src)
 	meta := map[string]string{}
 	for _, k := range f.keys() {

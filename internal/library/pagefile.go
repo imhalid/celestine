@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"bytes"
@@ -17,23 +17,23 @@ import (
 //
 // Meta comes first, so that a list of pages reads only that of each.
 
-const pageFileName = "page.json"
+const PageFileName = "page.json"
 
 type pageDoc struct {
 	Meta map[string]string `json:"meta"`
 	Body json.RawMessage   `json:"body"`
 }
 
-// splitPage reads a page file into its meta and its body, which is the
+// SplitPage reads a page file into its meta and its body, which is the
 // body's JSON as it is. A file that cannot be read has none of either.
-func splitPage(src []byte) (map[string]string, string) {
-	meta, body, _ := splitPageChecked(src)
+func SplitPage(src []byte) (map[string]string, string) {
+	meta, body, _ := SplitPageChecked(src)
 	return meta, body
 }
 
-// splitPageChecked is splitPage that says when the file is not a page: what writes a page back must not
+// SplitPageChecked is splitPage that says when the file is not a page: what writes a page back must not
 // take the empty body it is given then for the page's own, and write it over a file that can be mended.
-func splitPageChecked(src []byte) (map[string]string, string, error) {
+func SplitPageChecked(src []byte) (map[string]string, string, error) {
 	var d pageDoc
 	if len(bytes.TrimSpace(src)) == 0 { // nothing yet: an empty page
 		return map[string]string{}, "[]", nil
@@ -51,8 +51,8 @@ func splitPageChecked(src []byte) (map[string]string, string, error) {
 	return d.Meta, body, nil
 }
 
-// pageMeta reads only the meta of a page file: not the body after it.
-func pageMeta(src []byte) map[string]string {
+// PageMeta reads only the meta of a page file: not the body after it.
+func PageMeta(src []byte) map[string]string {
 	dec := json.NewDecoder(bytes.NewReader(src))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return map[string]string{}
@@ -77,8 +77,8 @@ func pageMeta(src []byte) map[string]string {
 	return map[string]string{}
 }
 
-// joinPage writes a page file.
-func joinPage(meta map[string]string, body string) []byte {
+// JoinPage writes a page file.
+func JoinPage(meta map[string]string, body string) []byte {
 	if strings.TrimSpace(body) == "" {
 		body = "[]"
 	}
@@ -88,27 +88,48 @@ func joinPage(meta map[string]string, body string) []byte {
 
 // blankText reports whether a body holds no text and no object.
 func blankText(body string) bool {
-	t := decodeBody(body)
-	return strings.TrimSpace(strings.ReplaceAll(t.String(), "\n", "")) == ""
+	return Format.Blank(body)
 }
 
-// legacyPageFile is where a page was kept when it was Markdown with front matter.
-const legacyPageFile = "index.md"
+// LegacyPageFile is where a page was kept when it was Markdown with front matter.
+const LegacyPageFile = "index.md"
 
 // migrateLegacyPage makes the page file of a page folder that has its
 // Markdown file of the time before, once: the file is taken away when the
 // new one is written. It returns the page file.
 func migrateLegacyPage(fsys FS, pdir string) ([]byte, error) {
-	old, err := fsys.ReadFile(filepath.Join(pdir, legacyPageFile))
+	old, err := fsys.ReadFile(filepath.Join(pdir, LegacyPageFile))
 	if err != nil {
 		return nil, err
 	}
-	meta, md := splitFrontMatter(string(old))
-	rest, _ := splitTitle(md, meta["title"])
-	src := joinPage(meta, encodeBody(importMarkdown(rest)))
-	if err := fsys.WriteFile(filepath.Join(pdir, pageFileName), src); err != nil {
+	meta, md := SplitFrontMatter(string(old))
+	rest, _ := SplitTitle(md, meta["title"])
+	src := JoinPage(meta, Format.FromMarkdown(rest))
+	if err := fsys.WriteFile(filepath.Join(pdir, PageFileName), src); err != nil {
 		return nil, err
 	}
-	fsys.Remove(filepath.Join(pdir, legacyPageFile))
+	fsys.Remove(filepath.Join(pdir, LegacyPageFile))
 	return src, nil
+}
+
+// SplitTitle takes the first heading of md off when it is the title: the
+// rest, and what was taken (the heading and the blank lines after it).
+func SplitTitle(md, title string) (rest, head string) {
+	lines := strings.SplitAfter(md, "\n")
+	i := 0
+	for i < len(lines) && strings.TrimSpace(lines[i]) == "" {
+		i++
+	}
+	if i >= len(lines) {
+		return md, ""
+	}
+	line := strings.TrimSpace(lines[i])
+	if !strings.HasPrefix(line, "# ") || !strings.EqualFold(strings.TrimSpace(strings.TrimRight(line[2:], "# ")), strings.TrimSpace(title)) {
+		return md, ""
+	}
+	j := i + 1
+	for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+		j++
+	}
+	return strings.Join(lines[j:], ""), strings.Join(lines[:j], "")
 }

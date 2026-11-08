@@ -475,7 +475,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			})
 		}
 	}
-	store, inFile := a.lib.fs.(*Store)
+	store, inFile := a.lib.FS.(*Store)
 	if !inFile {
 		settingGroup(c, "set-lib",
 			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
@@ -518,7 +518,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 func (a *app) exportLibrary(store *Store) string {
 	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
 	a.flush()
-	if err := a.lib.exportMarkdown(dir); err != nil {
+	if err := a.lib.ExportMarkdown(dir); err != nil {
 		return "Olmadı: " + err.Error()
 	}
 	return "Yazıldı: " + dir

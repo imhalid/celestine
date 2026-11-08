@@ -120,7 +120,7 @@ func (a *app) collectionView(c *ui.Context) {
 							if ryugo.Button(c, label, ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 								a.newPage(coll, nil)
 							}
-							if !coll.Journal && len(coll.allTemplates()) > 0 { // pages from the other templates
+							if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from the other templates
 								if ryugo.Button(c.Key("tpl-menu"), T("Şablondan yeni sayfa"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 									ww, _ := c.Size()
 									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
@@ -314,7 +314,7 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 				}
 			})
-			if p.imageCover() {
+			if p.ImageCover() {
 				ui.Box(c.Key("thumb-gap")).Width(12).Height(1).Shrink(0)
 				a.coverThumb(c, p, 72, 52, 8)
 			}
@@ -364,7 +364,7 @@ type column struct {
 func tableColumns(coll *Collection, v *View) []column {
 	cols := []column{{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
 	byKey := map[string]column{
-		"parent":   {label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return parents(p) }},
+		"parent":   {label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return Parents(p) }},
 		"created":  {label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
 		"modified": {label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
 	}
@@ -439,7 +439,7 @@ func (a *app) takeSort(coll *Collection, v *View, tu *tableUI) {
 		} else {
 			v.Sort, v.Desc = "title", false // sorted by nothing: by title
 		}
-		if err := coll.save(); err != nil {
+		if err := coll.Save(); err != nil {
 			a.saveErr = err.Error()
 		}
 		tu.st.Sort = viewSortKeys(v)
@@ -766,7 +766,7 @@ func (a *app) foldColumn(coll *Collection, v *View, s string, fold bool) {
 	if fold {
 		v.Collapsed = append(v.Collapsed, s)
 	}
-	if err := coll.save(); err != nil {
+	if err := coll.Save(); err != nil {
 		a.saveErr = err.Error()
 	}
 }
@@ -784,15 +784,6 @@ func (a *app) newPageRow(c *ui.Context, coll *Collection) {
 	if row.Clicked() {
 		a.newPage(coll, nil)
 	}
-}
-
-// parents is the titles of the pages above p, for a sub-page in a flat view.
-func parents(p *Page) string {
-	var parts []string
-	for q := p.Parent; q != nil; q = q.Parent {
-		parts = append([]string{q.Title}, parts...)
-	}
-	return strings.Join(parts, " › ")
 }
 
 // ---- time, in Turkish ----

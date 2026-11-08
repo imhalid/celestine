@@ -35,7 +35,7 @@ func (a *app) prewarm() {
 	var jobs []prewarmJob
 	for _, c := range a.lib.Collections {
 		for _, p := range c.All() {
-			jobs = append(jobs, prewarmJob{p, p.fs(), p.file(), p.Modified, p.writes})
+			jobs = append(jobs, prewarmJob{p, p.FS(), p.File(), p.Modified, p.Writes})
 		}
 	}
 	if len(jobs) == 0 {
@@ -49,7 +49,7 @@ func (a *app) prewarm() {
 		bulk := map[FS]map[string][]byte{}
 		for _, j := range jobs {
 			if st, ok := j.fs.(*Store); ok && bulk[j.fs] == nil {
-				if m, err := st.ReadNamed(pageFileName); err == nil {
+				if m, err := st.ReadNamed(PageFileName); err == nil {
 					bulk[j.fs] = m
 				}
 			}
@@ -63,15 +63,15 @@ func (a *app) prewarm() {
 				defer wg.Done()
 				defer a.guard()
 				for j := range in {
-					src, ok := bulk[j.fs][clean(j.name)]
+					src, ok := bulk[j.fs][Clean(j.name)]
 					if !ok {
 						var err error
 						if src, err = j.fs.ReadFile(j.name); err != nil {
 							continue
 						}
 					}
-					_, body := splitPage(src)
-					e, plain := readPageIdxAt(j.p, j.mod, j.writes, textOfBody(body))
+					_, body := SplitPage(src)
+					e, plain := readPageIdxAt(j.p, j.mod, j.writes, TextOfBody(body))
 					out <- prewarmRead{j, e, &plainIdx{mod: j.mod, writes: j.writes, plain: plain, folded: fold(plain)}}
 				}
 			}()
@@ -111,7 +111,7 @@ func (a *app) takePrewarm(got []prewarmRead) {
 			l.plain = map[*Page]*plainIdx{}
 		}
 		for _, r := range got {
-			if !r.j.p.Modified.Equal(r.j.mod) || r.j.p.writes != r.j.writes {
+			if !r.j.p.Modified.Equal(r.j.mod) || r.j.p.Writes != r.j.writes {
 				continue
 			}
 			if l.pages[r.j.p] == nil {

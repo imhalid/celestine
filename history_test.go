@@ -10,10 +10,10 @@ import (
 )
 
 func TestDiffLines(t *testing.T) {
-	ops := diffLines([]string{"a", "b", "c"}, []string{"a", "x", "c", "d"})
+	ops := DiffLines([]string{"a", "b", "c"}, []string{"a", "x", "c", "d"})
 	var got []string
 	for _, o := range ops {
-		got = append(got, string(o.kind)+o.text)
+		got = append(got, string(o.Kind)+o.Text)
 	}
 	if !equal(got, []string{"=a", "+b", "-x", "=c", "-d"}) {
 		t.Fatalf("%q", got)
@@ -28,7 +28,7 @@ func storeAt(t *testing.T) (*Store, *time.Time) {
 	}
 	t.Cleanup(func() { st.Close() })
 	now := time.Date(2026, 11, 5, 10, 0, 0, 0, time.UTC)
-	st.now = func() time.Time { return now }
+	st.Now = func() time.Time { return now }
 	return st, &now
 }
 
@@ -38,40 +38,40 @@ func TestStoreVersions(t *testing.T) {
 	st, now := storeAt(t)
 	st.Mkdir("/a")
 	write := func(s string) {
-		st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown(s))))
+		st.WriteFile("/a/"+PageFileName, JoinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown(s))))
 	}
 	write("bir") // nothing before it
 	write("iki") // keeps "bir"
 	write("üç")  // too soon
 	*now = now.Add(6 * time.Minute)
 	write("dört") // keeps "üç"
-	vs := st.Versions("/a/" + pageFileName)
+	vs := st.Versions("/a/" + PageFileName)
 	if len(vs) != 2 {
 		t.Fatalf("versions: %+v", vs)
 	}
-	if d, _ := st.VersionData("/a/"+pageFileName, vs[1].ID); !strings.Contains(string(d), "bir") {
+	if d, _ := st.VersionData("/a/"+PageFileName, vs[1].ID); !strings.Contains(string(d), "bir") {
 		t.Fatalf("the oldest: %q", d)
 	}
-	if d, _ := st.VersionData("/a/"+pageFileName, vs[0].ID); !strings.Contains(string(d), "üç") {
+	if d, _ := st.VersionData("/a/"+PageFileName, vs[0].ID); !strings.Contains(string(d), "üç") {
 		t.Fatalf("the latest: %q", d)
 	}
-	st.SnapshotNow("/a/" + pageFileName) // "dört", whatever was kept lately
-	if n := len(st.Versions("/a/" + pageFileName)); n != 3 {
+	st.SnapshotNow("/a/" + PageFileName) // "dört", whatever was kept lately
+	if n := len(st.Versions("/a/" + PageFileName)); n != 3 {
 		t.Fatalf("after SnapshotNow: %d", n)
 	}
-	st.SnapshotNow("/a/" + pageFileName) // the same: not again
-	if n := len(st.Versions("/a/" + pageFileName)); n != 3 {
+	st.SnapshotNow("/a/" + PageFileName) // the same: not again
+	if n := len(st.Versions("/a/" + PageFileName)); n != 3 {
 		t.Fatalf("twice: %d", n)
 	}
 	st.Mkdir("/b")
 	if err := st.Rename("/a", "/b/a"); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(st.Versions("/b/a/" + pageFileName)); n != 3 || len(st.Versions("/a/"+pageFileName)) != 0 {
+	if n := len(st.Versions("/b/a/" + PageFileName)); n != 3 || len(st.Versions("/a/"+PageFileName)) != 0 {
 		t.Fatalf("after the move: %d", n)
 	}
 	st.RemoveAll("/b/a")
-	if n := len(st.Versions("/b/a/" + pageFileName)); n != 0 {
+	if n := len(st.Versions("/b/a/" + PageFileName)); n != 0 {
 		t.Fatalf("after removal: %d", n)
 	}
 }
@@ -80,7 +80,7 @@ func TestStoreVersions(t *testing.T) {
 // page, and put back - the page as it was, the text of before kept as a copy.
 func TestVersionDialog(t *testing.T) {
 	st, now := storeAt(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	seed(lib)
 	a := newApp(lib)
 	a.clock = func() time.Time { return *now }
@@ -111,7 +111,7 @@ func TestVersionDialog(t *testing.T) {
 	}
 	// the one that says "birinci"
 	for i, v := range a.vhist.vers {
-		if d, _ := st.VersionData(p.file(), v.ID); strings.Contains(string(d), "birinci metin") {
+		if d, _ := st.VersionData(p.File(), v.ID); strings.Contains(string(d), "birinci metin") {
 			a.vhist.sel = i
 		}
 	}
@@ -127,22 +127,22 @@ func TestVersionDialog(t *testing.T) {
 	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "birinci metin") {
 		t.Fatalf("the editor: %q", md)
 	}
-	last := st.Versions(p.file())[0]
-	if d, _ := st.VersionData(p.file(), last.ID); !strings.Contains(string(d), "üçüncü metin") {
+	last := st.Versions(p.File())[0]
+	if d, _ := st.VersionData(p.File(), last.ID); !strings.Contains(string(d), "üçüncü metin") {
 		t.Fatalf("the text before the return is not kept: %q", d)
 	}
 }
 
 func TestPairWords(t *testing.T) {
-	ops := diffLines([]string{"bir iki üç dört"}, []string{"bir iki beş dört"})
-	pairWords(ops)
-	if len(ops) != 2 || ops[0].kind != '+' || ops[1].kind != '-' {
+	ops := DiffLines([]string{"bir iki üç dört"}, []string{"bir iki beş dört"})
+	PairWords(ops)
+	if len(ops) != 2 || ops[0].Kind != '+' || ops[1].Kind != '-' {
 		t.Fatalf("%+v", ops)
 	}
-	marked := func(o diffOp) (out []string) {
-		for _, w := range o.words {
-			if w.kind != '=' {
-				out = append(out, w.text)
+	marked := func(o DiffOp) (out []string) {
+		for _, w := range o.Words {
+			if w.Kind != '=' {
+				out = append(out, w.Text)
 			}
 		}
 		return
@@ -157,22 +157,22 @@ func TestPairWords(t *testing.T) {
 func TestNamedVersion(t *testing.T) {
 	st, now := storeAt(t)
 	st.Mkdir("/a")
-	st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("ilk metin"))))
-	if !st.SaveNamed("/a/"+pageFileName, "Yayına giden") {
+	st.WriteFile("/a/"+PageFileName, JoinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("ilk metin"))))
+	if !st.SaveNamed("/a/"+PageFileName, "Yayına giden") {
 		t.Fatal("not kept")
 	}
-	for i := 0; i < historyKeep+20; i++ {
+	for i := 0; i < HistoryKeep+20; i++ {
 		*now = now.Add(10 * time.Minute)
-		st.WriteFile("/a/"+pageFileName, joinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("metin "+strings.Repeat("x", i+1)))))
+		st.WriteFile("/a/"+PageFileName, JoinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("metin "+strings.Repeat("x", i+1)))))
 	}
-	vs := st.Versions("/a/" + pageFileName)
+	vs := st.Versions("/a/" + PageFileName)
 	named := 0
 	for _, v := range vs {
 		if v.Label == "Yayına giden" {
 			named++
 		}
 	}
-	if named != 1 || len(vs) != historyKeep+1 {
+	if named != 1 || len(vs) != HistoryKeep+1 {
 		t.Fatalf("named %d, copies %d", named, len(vs))
 	}
 }
@@ -180,7 +180,7 @@ func TestNamedVersion(t *testing.T) {
 // TestVersionDialogName: the dialog's field keeps the page as it is under a name.
 func TestVersionDialogName(t *testing.T) {
 	st, now := storeAt(t)
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	seed(lib)
 	a := newApp(lib)
 	a.clock = func() time.Time { return *now }

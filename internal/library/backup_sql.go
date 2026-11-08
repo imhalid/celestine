@@ -1,6 +1,6 @@
 //go:build !js
 
-package main
+package library
 
 import (
 	"database/sql"

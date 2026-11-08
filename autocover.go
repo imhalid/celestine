@@ -25,8 +25,6 @@ import (
 // lighthouse sweeps, fireflies wander, the sea glints.
 
 const (
-	coverNone = "none" // cover: none in the front matter - no cover, not the made one either
-
 	autoW     = 2240 // the picture's width, in DIPs: more than a window is wide
 	autoBandH = 184  // the band's height: the room, the title, the foot
 	autoRoom  = 100  // above the title, in the band
@@ -57,9 +55,6 @@ const (
 	sceneKinds
 )
 
-// imageCover reports whether the page has a picture of its own as its cover.
-func (p *Page) imageCover() bool { return p.Cover != "" && p.Cover != coverNone }
-
 // the kinds of cover a page shows
 const (
 	coverKindNone = iota
@@ -73,9 +68,9 @@ func (a *app) coverKind(p *Page) int {
 	switch {
 	case p == nil:
 		return coverKindNone
-	case p.imageCover():
+	case p.ImageCover():
 		return coverKindImage
-	case p.Cover == coverNone || a.settings.NoAutoCover:
+	case p.Cover == CoverNone || a.settings.NoAutoCover:
 		return coverKindNone
 	}
 	return coverKindAuto

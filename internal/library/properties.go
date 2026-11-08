@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"errors"
@@ -74,15 +74,15 @@ func (c *Collection) PropNamed(name string) *Property {
 // AddProperty adds a property to the collection's pages. The first choice
 // gives the collection a board of it.
 func (c *Collection) AddProperty(name, typ string, options []string) (*Property, error) {
-	p, err := c.addProperty(name, typ, options)
+	p, err := c.AddPropertyDraft(name, typ, options)
 	if err != nil {
 		return nil, err
 	}
-	return p, c.save()
+	return p, c.Save()
 }
 
-// addProperty adds the property without writing the collection: to a draft.
-func (c *Collection) addProperty(name, typ string, options []string) (*Property, error) {
+// AddPropertyDraft adds the property without writing the collection: to a draft.
+func (c *Collection) AddPropertyDraft(name, typ string, options []string) (*Property, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("a property needs a name")
@@ -93,15 +93,15 @@ func (c *Collection) addProperty(name, typ string, options []string) (*Property,
 	if c.PropNamed(name) != nil {
 		return nil, fmt.Errorf("%s already has %q", c.Name, name)
 	}
-	id := slug(name)
+	id := Slug(name)
 	if id == "" {
 		id = "ozellik"
 	}
 	for base, n := id, 2; c.Prop(id) != nil || slices.Contains(reserved, id); n++ {
 		id = base + "-" + strconv.Itoa(n)
 	}
-	c.Properties = append(c.Properties, Property{ID: id, Name: name, Type: typ, Options: cleanOptions(options)})
-	c.normalize()
+	c.Properties = append(c.Properties, Property{ID: id, Name: name, Type: typ, Options: CleanOptions(options)})
+	c.Normalize()
 	return c.Prop(id), nil
 }
 
@@ -119,20 +119,20 @@ func (c *Collection) EditProperty(id, name string, options []string) error {
 		p.Name = name
 	}
 	if p.Type == PropChoice && options != nil {
-		p.Options = cleanOptions(options)
+		p.Options = CleanOptions(options)
 	}
-	return c.save()
+	return c.Save()
 }
 
 // RemoveProperty takes property id away from the collection; its values
 // stay in the pages' files, unused.
 func (c *Collection) RemoveProperty(id string) error {
 	c.Properties = slices.DeleteFunc(c.Properties, func(p Property) bool { return p.ID == id })
-	c.normalize()
-	return c.save()
+	c.Normalize()
+	return c.Save()
 }
 
-func cleanOptions(options []string) []string {
+func CleanOptions(options []string) []string {
 	var out []string
 	for _, o := range options {
 		if o = strings.TrimSpace(o); o != "" && !slices.Contains(out, o) {
@@ -142,9 +142,9 @@ func cleanOptions(options []string) []string {
 	return out
 }
 
-// normalize keeps the views fitting the properties: a board for the first
+// Normalize keeps the views fitting the properties: a board for the first
 // choice, none without one.
-func (c *Collection) normalize() {
+func (c *Collection) Normalize() {
 	if len(c.Views) == 0 {
 		c.Views = defaultViews()
 	}
@@ -219,7 +219,7 @@ func (c *Collection) migrate() bool {
 	}
 	before := len(c.Views)
 	hadBoard := slices.ContainsFunc(c.Views, func(v View) bool { return v.Type == "board" })
-	c.normalize()
+	c.Normalize()
 	if len(c.Views) != before || hadBoard != slices.ContainsFunc(c.Views, func(v View) bool { return v.Type == "board" }) {
 		changed = true
 	}
@@ -228,8 +228,8 @@ func (c *Collection) migrate() bool {
 
 // ---- values ----
 
-// readMeta takes a page's values from its front matter.
-func (p *Page) readMeta(meta map[string]string) {
+// ReadMeta takes a page's values from its front matter.
+func (p *Page) ReadMeta(meta map[string]string) {
 	fmt.Sscan(meta["rank"], &p.Rank)
 	p.Cover = meta["cover"]
 	p.Props = map[string]string{}

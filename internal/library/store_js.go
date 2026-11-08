@@ -1,6 +1,6 @@
 //go:build js
 
-package main
+package library
 
 import (
 	"encoding/base64"
@@ -36,7 +36,7 @@ type Store struct {
 	meta  map[string]string // base64
 	hold  int
 	dirty bool
-	now   func() time.Time
+	Now   func() time.Time
 }
 
 func storage() js.Value {
@@ -167,8 +167,8 @@ func (s *Store) flushLocked() {
 	}
 }
 
-// fast holds the writes to the browser's storage while a copy goes on, and writes them once after.
-func (s *Store) fast(on bool) {
+// Fast holds the writes to the browser's storage while a copy goes on, and writes them once after.
+func (s *Store) Fast(on bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if on {
@@ -206,7 +206,7 @@ func (s *Store) Snapshot(dst string) error {
 }
 
 func (s *Store) get(name string) (*jnode, error) {
-	n, ok := s.node[clean(name)]
+	n, ok := s.node[Clean(name)]
 	if !ok {
 		return nil, pathErr("open", name, fs.ErrNotExist)
 	}
@@ -230,7 +230,7 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 func (s *Store) WriteFile(name string, data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	n := clean(name)
+	n := Clean(name)
 	p, ok := s.node[path.Dir(n)]
 	if !ok {
 		return pathErr("write", name, fs.ErrNotExist)
@@ -247,7 +247,7 @@ func (s *Store) WriteFile(name string, data []byte) error {
 }
 
 func (s *Store) mkdir(name string) error {
-	n := clean(name)
+	n := Clean(name)
 	if _, ok := s.node[n]; ok {
 		return pathErr("mkdir", name, fs.ErrExist)
 	}
@@ -272,7 +272,7 @@ func (s *Store) MkdirAll(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var chain []string
-	for p := clean(name); p != "/"; p = path.Dir(p) {
+	for p := Clean(name); p != "/"; p = path.Dir(p) {
 		chain = append(chain, p)
 	}
 	for i := len(chain) - 1; i >= 0; i-- {
@@ -305,7 +305,7 @@ func (s *Store) under(dir string) []string {
 func (s *Store) Rename(oldName, newName string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	from, to := clean(oldName), clean(newName)
+	from, to := Clean(oldName), Clean(newName)
 	if _, ok := s.node[from]; !ok {
 		return pathErr("rename", oldName, fs.ErrNotExist)
 	}
@@ -332,7 +332,7 @@ func (s *Store) Rename(oldName, newName string) error {
 func (s *Store) Remove(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	n := clean(name)
+	n := Clean(name)
 	cur, ok := s.node[n]
 	if !ok {
 		return pathErr("remove", name, fs.ErrNotExist)
@@ -351,7 +351,7 @@ func (s *Store) Remove(name string) error {
 func (s *Store) RemoveAll(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	n := clean(name)
+	n := Clean(name)
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))
 	}
@@ -365,7 +365,7 @@ func (s *Store) RemoveAll(name string) error {
 func (s *Store) Stat(name string) (fs.FileInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	n := clean(name)
+	n := Clean(name)
 	cur, ok := s.node[n]
 	if !ok {
 		return nil, pathErr("stat", name, fs.ErrNotExist)
@@ -376,7 +376,7 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	n := clean(name)
+	n := Clean(name)
 	if cur, ok := s.node[n]; !ok || !cur.Dir {
 		return nil, pathErr("readdir", name, fs.ErrNotExist)
 	}
@@ -390,10 +390,10 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 	return out, nil
 }
 
-// snapshot and endSnapshot are the file Store's way to read the table at once while the library opens; the
+// BeginSnapshot and EndSnapshot are the file Store's way to read the table at once while the library opens; the
 // browser's library is all in memory already.
-func (s *Store) snapshot()    {}
-func (s *Store) endSnapshot() {}
+func (s *Store) BeginSnapshot() {}
+func (s *Store) EndSnapshot()   {}
 
 // ReadNamed reads every file whose name ends in "/"+base, by its path (as the file Store does).
 func (s *Store) ReadNamed(base string) (map[string][]byte, error) {

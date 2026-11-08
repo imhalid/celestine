@@ -1,6 +1,6 @@
 //go:build !js
 
-package main
+package library
 
 import (
 	"database/sql"
@@ -20,10 +20,10 @@ import (
 // Store is a library in one SQLite file: a table of nodes, folders and files
 // by path, and a table of small things kept by name (the settings).
 type Store struct {
-	db   *sql.DB
+	DB   *sql.DB
 	File string
-	now  func() time.Time          // the clock of the history; the system's when nil
-	snap atomic.Pointer[storeSnap] // the table read at once, while the library opens
+	Now  func() time.Time          // the clock of the history; the system's when nil
+	Snap atomic.Pointer[storeSnap] // the table read at once, while the library opens
 }
 
 // OpenStore opens the library file at file, making it when there is none.
@@ -53,34 +53,34 @@ func OpenStore(file string) (*Store, error) {
 	}
 	os.Chmod(file, 0o600)                                                     // the file holds the settings, and in them the keys and tokens: for its owner alone
 	db.Exec(`ALTER TABLE versions ADD COLUMN label TEXT NOT NULL DEFAULT ''`) // a file from before names: the column is added (an error when it is there)
-	s := &Store{db: db, File: file}
-	if _, err := db.Exec(`INSERT OR IGNORE INTO nodes (path, parent, dir, data, mtime) VALUES (?, '', 1, NULL, ?)`, storeRoot, time.Now().UnixNano()); err != nil {
+	s := &Store{DB: db, File: file}
+	if _, err := db.Exec(`INSERT OR IGNORE INTO nodes (path, parent, dir, data, mtime) VALUES (?, '', 1, NULL, ?)`, StoreRoot, time.Now().UnixNano()); err != nil {
 		db.Close()
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error { return s.DB.Close() }
 
 // Meta is the small thing kept under key, nil when there is none.
 func (s *Store) Meta(key string) []byte {
 	var v []byte
-	if s.db.QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&v) != nil {
+	if s.DB.QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&v) != nil {
 		return nil
 	}
 	return v
 }
 
 func (s *Store) SetMeta(key string, value []byte) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	_, err := s.db.Exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	_, err := s.DB.Exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
 }
 
 func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err error) {
-	if sn := s.snap.Load(); sn != nil {
-		n, ok := sn.nodes[clean(name)]
+	if sn := s.Snap.Load(); sn != nil {
+		n, ok := sn.nodes[Clean(name)]
 		if !ok {
 			return false, nil, time.Time{}, pathErr("open", name, fs.ErrNotExist)
 		}
@@ -88,7 +88,7 @@ func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err e
 	}
 	var ns int64
 	var d int
-	err = s.db.QueryRow(`SELECT dir, data, mtime FROM nodes WHERE path = ?`, clean(name)).Scan(&d, &data, &ns)
+	err = s.DB.QueryRow(`SELECT dir, data, mtime FROM nodes WHERE path = ?`, Clean(name)).Scan(&d, &data, &ns)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil, time.Time{}, pathErr("open", name, fs.ErrNotExist)
 	}
@@ -107,8 +107,8 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 }
 
 func (s *Store) WriteFile(name string, data []byte) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	n := clean(name)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	n := Clean(name)
 	pdir, _, _, err := s.node(path.Dir(n))
 	if err != nil {
 		return pathErr("write", name, fs.ErrNotExist)
@@ -122,35 +122,35 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	if data == nil {
 		data = []byte{}
 	}
-	if path.Base(n) == pageFileName {
+	if path.Base(n) == PageFileName {
 		s.snapshotBefore(n, data)
 	}
-	_, err = s.db.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 0, ?, ?)
+	_, err = s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 0, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET data = excluded.data, mtime = excluded.mtime`, n, path.Dir(n), data, time.Now().UnixNano())
 	return err
 }
 
 func (s *Store) Mkdir(name string) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	n := clean(name)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	n := Clean(name)
 	if _, _, _, err := s.node(n); err == nil {
 		return pathErr("mkdir", name, fs.ErrExist)
 	}
 	if d, _, _, err := s.node(path.Dir(n)); err != nil || !d {
 		return pathErr("mkdir", name, fs.ErrNotExist)
 	}
-	_, err := s.db.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 1, NULL, ?)`, n, path.Dir(n), time.Now().UnixNano())
+	_, err := s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 1, NULL, ?)`, n, path.Dir(n), time.Now().UnixNano())
 	return err
 }
 
 func (s *Store) MkdirAll(name string) error {
-	if sn := s.snap.Load(); sn != nil {
-		if n, ok := sn.nodes[clean(name)]; ok && n.dir {
+	if sn := s.Snap.Load(); sn != nil {
+		if n, ok := sn.nodes[Clean(name)]; ok && n.dir {
 			return nil // there: nothing is written
 		}
 	}
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	n := clean(name)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	n := Clean(name)
 	var chain []string
 	for p := n; p != "/"; p = path.Dir(p) {
 		chain = append(chain, p)
@@ -172,7 +172,7 @@ func (s *Store) MkdirAll(name string) error {
 
 // below is the paths under dir, deepest first.
 func (s *Store) below(dir string) ([]string, error) {
-	rows, err := s.db.Query(`SELECT path FROM nodes WHERE path = ?1 OR substr(path, 1, length(?1) + 1) = ?1 || '/'`, dir)
+	rows, err := s.DB.Query(`SELECT path FROM nodes WHERE path = ?1 OR substr(path, 1, length(?1) + 1) = ?1 || '/'`, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +190,8 @@ func (s *Store) below(dir string) ([]string, error) {
 }
 
 func (s *Store) Rename(oldName, newName string) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	from, to := clean(oldName), clean(newName)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	from, to := Clean(oldName), Clean(newName)
 	if _, _, _, err := s.node(from); err != nil {
 		return pathErr("rename", oldName, fs.ErrNotExist)
 	}
@@ -211,7 +211,7 @@ func (s *Store) Rename(oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.Begin()
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -229,8 +229,8 @@ func (s *Store) Rename(oldName, newName string) error {
 }
 
 func (s *Store) Remove(name string) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	n := clean(name)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	n := Clean(name)
 	d, _, _, err := s.node(n)
 	if err != nil {
 		return pathErr("remove", name, fs.ErrNotExist)
@@ -240,18 +240,18 @@ func (s *Store) Remove(name string) error {
 	}
 	if d {
 		var kids int
-		s.db.QueryRow(`SELECT count(*) FROM nodes WHERE parent = ?`, n).Scan(&kids)
+		s.DB.QueryRow(`SELECT count(*) FROM nodes WHERE parent = ?`, n).Scan(&kids)
 		if kids > 0 {
 			return pathErr("remove", name, errors.New("directory not empty"))
 		}
 	}
-	_, err = s.db.Exec(`DELETE FROM nodes WHERE path = ?`, n)
+	_, err = s.DB.Exec(`DELETE FROM nodes WHERE path = ?`, n)
 	return err
 }
 
 func (s *Store) RemoveAll(name string) error {
-	s.snap.Store(nil) // a write: what was read at once is no more what is there
-	n := clean(name)
+	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	n := Clean(name)
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))
 	}
@@ -259,7 +259,7 @@ func (s *Store) RemoveAll(name string) error {
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.Begin()
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -276,8 +276,8 @@ func (s *Store) RemoveAll(name string) error {
 }
 
 func (s *Store) Stat(name string) (fs.FileInfo, error) {
-	n := clean(name)
-	if sn := s.snap.Load(); sn != nil {
+	n := Clean(name)
+	if sn := s.Snap.Load(); sn != nil {
 		x, ok := sn.nodes[n]
 		if !ok {
 			return nil, pathErr("stat", name, fs.ErrNotExist)
@@ -286,7 +286,7 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 	}
 	var ns, size int64
 	var d int
-	err := s.db.QueryRow(`SELECT dir, length(data), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns)
+	err := s.DB.QueryRow(`SELECT dir, length(data), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns)
 	if err != nil {
 		return nil, pathErr("stat", name, fs.ErrNotExist)
 	}
@@ -294,11 +294,11 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 }
 
 func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
-	n := clean(name)
+	n := Clean(name)
 	if d, _, _, err := s.node(n); err != nil || !d {
 		return nil, pathErr("readdir", name, fs.ErrNotExist)
 	}
-	if sn := s.snap.Load(); sn != nil {
+	if sn := s.Snap.Load(); sn != nil {
 		var out []fs.DirEntry
 		for _, p := range sn.kids[n] {
 			x := sn.nodes[p]
@@ -306,7 +306,7 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 		}
 		return out, nil
 	}
-	rows, err := s.db.Query(`SELECT path, dir, coalesce(length(data), 0), mtime FROM nodes WHERE parent = ? ORDER BY path`, n)
+	rows, err := s.DB.Query(`SELECT path, dir, coalesce(length(data), 0), mtime FROM nodes WHERE parent = ? ORDER BY path`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -324,19 +324,19 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 	return out, rows.Err()
 }
 
-// fast turns the wait for each write to the disk off, for a copy of what is still there, and on again.
-func (s *Store) fast(on bool) {
+// Fast turns the wait for each write to the disk off, for a copy of what is still there, and on again.
+func (s *Store) Fast(on bool) {
 	if on {
-		s.db.Exec(`PRAGMA synchronous = OFF`)
+		s.DB.Exec(`PRAGMA synchronous = OFF`)
 	} else {
-		s.db.Exec(`PRAGMA synchronous = FULL`)
+		s.DB.Exec(`PRAGMA synchronous = FULL`)
 	}
 }
 
 // ReadNamed reads, in one pass over the table, every file whose name ends in "/"+base: by its name.
 // Opening a library of thousands of pages reads them all at once, not a query each.
 func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
-	rows, err := s.db.Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
+	rows, err := s.DB.Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
 	if err != nil {
 		return nil, err
 	}
@@ -366,9 +366,9 @@ type snapNode struct {
 	mtime time.Time
 }
 
-// snapshot reads the table, for what reads it next to be answered from it, until endSnapshot or a write.
-func (s *Store) snapshot() {
-	rows, err := s.db.Query(`SELECT path, parent, dir, data, mtime FROM nodes ORDER BY path`)
+// BeginSnapshot reads the table, for what reads it next to be answered from it, until endSnapshot or a write.
+func (s *Store) BeginSnapshot() {
+	rows, err := s.DB.Query(`SELECT path, parent, dir, data, mtime FROM nodes ORDER BY path`)
 	if err != nil {
 		return
 	}
@@ -388,8 +388,8 @@ func (s *Store) snapshot() {
 		}
 	}
 	if rows.Err() == nil {
-		s.snap.Store(sn)
+		s.Snap.Store(sn)
 	}
 }
 
-func (s *Store) endSnapshot() { s.snap.Store(nil) }
+func (s *Store) EndSnapshot() { s.Snap.Store(nil) }

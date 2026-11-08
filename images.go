@@ -110,7 +110,7 @@ func (a *app) loadImage(p *Page, file string) ui.ImageSource {
 		return nil
 	}
 	var src ui.ImageSource
-	if data, err := p.fs().ReadFile(file); err == nil {
+	if data, err := p.FS().ReadFile(file); err == nil {
 		src, _ = ui.DecodeImage(data)
 	}
 	if src == nil {
@@ -172,12 +172,12 @@ func (a *app) addImage(name string, data []byte) error {
 	stem := "resim-" + a.clock().Format("20060102-150405")
 	ref := stem + ext
 	for i := 2; ; i++ {
-		if _, err := p.fs().Stat(filepath.Join(p.Dir, ref)); err != nil {
+		if _, err := p.FS().Stat(filepath.Join(p.Dir, ref)); err != nil {
 			break
 		}
 		ref = fmt.Sprintf("%s-%d%s", stem, i, ext)
 	}
-	if err := p.fs().WriteFile(filepath.Join(p.Dir, ref), data); err != nil {
+	if err := p.FS().WriteFile(filepath.Join(p.Dir, ref), data); err != nil {
 		return err
 	}
 	alt := strings.TrimSuffix(path.Base(filepath.ToSlash(name)), path.Ext(name))
@@ -286,13 +286,13 @@ var ourPicture = regexp.MustCompile(`^resim-\d{8}-\d{6}(-\d+)?\.(png|jpg|gif|web
 // run, when there is no undo to bring a line back; a picture one put there by
 // hand, under another name, is left alone.
 func (a *app) sweepPictures(p *Page, body string) {
-	entries, err := p.fs().ReadDir(p.Dir)
+	entries, err := p.FS().ReadDir(p.Dir)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
 		if !e.IsDir() && ourPicture.MatchString(e.Name()) && !strings.Contains(body, e.Name()) {
-			p.fs().Remove(filepath.Join(p.Dir, e.Name()))
+			p.FS().Remove(filepath.Join(p.Dir, e.Name()))
 		}
 	}
 }

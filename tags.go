@@ -232,7 +232,7 @@ func (a *app) tagView(c *ui.Context) {
 						ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 							ui.Text(c, q.Title).FontSize(15).FontWeight(600).MaxLines(1)
 							where := q.Coll.Name
-							if crumb := parents(q); crumb != "" {
+							if crumb := Parents(q); crumb != "" {
 								where += " › " + crumb
 							}
 							ui.Text(c, where+"  ·  "+ago(q.Modified, now)).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)

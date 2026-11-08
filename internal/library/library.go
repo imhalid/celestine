@@ -1,4 +1,4 @@
-package main
+package library
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ import (
 // This file knows nothing of the UI: the app and, later, MCP use it alike.
 
 type Library struct {
-	fs          FS
+	FS          FS
 	Root        string
 	Collections []*Collection
 }
@@ -60,8 +60,8 @@ type Collection struct {
 	// JournalFormat is how the journal's days are titled, as YYYY-MM-DD or
 	// D MMMM YYYY, dddd (journal.go); set in the journal's settings only.
 	JournalFormat string `json:"journalFormat,omitempty"`
-	creating      bool   // the journal is making today's page
-	fs            FS     `json:"-"`
+	Creating      bool   // the journal is making today's page
+	FS            FS     `json:"-"`
 	// Pinned collections come first in the sidebar; Order places a
 	// collection among the ones pinned or not, as the user moved it (0: by name).
 	Pinned bool `json:"pinned,omitempty"`
@@ -78,7 +78,7 @@ type Collection struct {
 	Dir        string    `json:"-"`
 	Pages      []*Page   `json:"-"` // top-level pages, oldest first
 	Open       bool      `json:"-"` // shown expanded in the sidebar
-	seen       time.Time // when its collection.json was last read or written here (watch.go)
+	Seen       time.Time // when its collection.json was last read or written here (watch.go)
 }
 
 // View is a way of showing a collection's pages: a list grouped by date or a
@@ -130,7 +130,7 @@ func (c *Collection) View() *View {
 // SetView shows view id and keeps the choice.
 func (c *Collection) SetView(id string) error {
 	c.ActiveView = id
-	return c.save()
+	return c.Save()
 }
 
 // SetSort sorts view v by field, the other way round when it already is.
@@ -140,13 +140,13 @@ func (c *Collection) SetSort(v *View, field string) error {
 	} else {
 		v.Sort, v.Desc = field, field != "title"
 	}
-	return c.save()
+	return c.Save()
 }
 
 // Rename names the collection; its folder keeps its name.
 func (c *Collection) Rename(name string) error {
 	c.Name = name
-	return c.save()
+	return c.Save()
 }
 
 // All is every page of the collection, sub-pages after their parent.
@@ -167,7 +167,7 @@ type Page struct {
 	Title    string
 	Created  time.Time
 	Modified time.Time         // when its file was last written
-	writes   int               // how many times it was written here: two writes in one tick of the file's clock are still two
+	Writes   int               // how many times it was written here: two writes in one tick of the file's clock are still two
 	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
 	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
 	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
@@ -178,26 +178,26 @@ type Page struct {
 	Children []*Page
 	Open     bool // shown expanded in the sidebar
 
-	sxID  int          // its place in the search index, when sxOf is the index
-	sxOf  *searchIndex // the index it is in (searchindex.go)
-	sxGen int
+	SxID  int // its place in the search index, when sxOf is the index
+	SxOf  any // the index it is in (searchindex.go): the library does not know it
+	SxGen int
 
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
 	excerptAt int
 }
 
-const collectionFile = "collection.json"
+const CollectionFile = "collection.json"
 
 // OpenLibrary reads the library at root, making the folder when there is none.
-func OpenLibrary(root string) (*Library, error) { return OpenLibraryIn(osFS{}, root) }
+func OpenLibrary(root string) (*Library, error) { return OpenLibraryIn(OSFS{}, root) }
 
 // OpenLibraryIn reads the library at root of fsys, making it when there is none.
 func OpenLibraryIn(fsys FS, root string) (*Library, error) {
 	if err := fsys.MkdirAll(root); err != nil {
 		return nil, err
 	}
-	l := &Library{Root: root, fs: fsys}
+	l := &Library{Root: root, FS: fsys}
 	entries, err := fsys.ReadDir(root)
 	if err != nil {
 		return nil, err
@@ -207,68 +207,68 @@ func OpenLibraryIn(fsys FS, root string) (*Library, error) {
 			continue
 		}
 		dir := filepath.Join(root, e.Name())
-		data, err := fsys.ReadFile(filepath.Join(dir, collectionFile))
+		data, err := fsys.ReadFile(filepath.Join(dir, CollectionFile))
 		if err != nil {
 			continue // a folder that is not a collection
 		}
-		c := &Collection{SubPages: true, Open: true, fs: fsys}
+		c := &Collection{SubPages: true, Open: true, FS: fsys}
 		if err := json.Unmarshal(data, c); err != nil {
-			return nil, fmt.Errorf("%s: %w", filepath.Join(dir, collectionFile), err)
+			return nil, fmt.Errorf("%s: %w", filepath.Join(dir, CollectionFile), err)
 		}
 		if c.Name == "" {
 			c.Name = e.Name()
 		}
-		c.Dir, c.seen = dir, modTime(fsys, filepath.Join(dir, collectionFile))
-		c.Pages = readPages(dir, c, nil)
+		c.Dir, c.Seen = dir, ModTime(fsys, filepath.Join(dir, CollectionFile))
+		c.Pages = ReadPages(dir, c, nil)
 		if c.migrate() {
-			if err := c.save(); err != nil {
+			if err := c.Save(); err != nil {
 				return nil, err
 			}
 		}
 		l.Collections = append(l.Collections, c)
 	}
-	sortCollections(l.Collections)
+	SortCollections(l.Collections)
 	return l, nil
 }
 
 // readPages reads the pages in dir: each subfolder holding an index.md.
-// pagesGen counts the changes to the pages of the libraries: one made, renamed, moved, thrown away or
+// PagesGen counts the changes to the pages of the libraries: one made, renamed, moved, thrown away or
 // brought back, or read from disk. What is kept of them (the titles of chips.go) is made again when it moves.
-var pagesGen atomic.Uint64
+var PagesGen atomic.Uint64
 
-func pagesChanged() { pagesGen.Add(1) }
+func PagesChanged() { PagesGen.Add(1) }
 
-func readPages(dir string, c *Collection, parent *Page) []*Page {
-	defer pagesChanged()
-	entries, _ := c.fs.ReadDir(dir)
+func ReadPages(dir string, c *Collection, parent *Page) []*Page {
+	defer PagesChanged()
+	entries, _ := c.FS.ReadDir(dir)
 	var out []*Page
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		pdir := filepath.Join(dir, e.Name())
-		src, err := c.fs.ReadFile(filepath.Join(pdir, pageFileName))
+		src, err := c.FS.ReadFile(filepath.Join(pdir, PageFileName))
 		if err != nil {
-			if src, err = migrateLegacyPage(c.fs, pdir); err != nil {
+			if src, err = migrateLegacyPage(c.FS, pdir); err != nil {
 				continue
 			}
 		}
-		meta := pageMeta(src)
+		meta := PageMeta(src)
 		p := &Page{Title: meta["title"], Dir: pdir, Coll: c, Parent: parent}
 		if p.Title == "" {
 			p.Title = e.Name()
 		}
 		fmt.Sscan(meta["order"], &p.Order)
-		p.readMeta(meta)
+		p.ReadMeta(meta)
 		if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
 			p.Created = t
 		} else if info, err := e.Info(); err == nil {
 			p.Created = info.ModTime()
 		}
-		if info, err := c.fs.Stat(filepath.Join(pdir, pageFileName)); err == nil {
+		if info, err := c.FS.Stat(filepath.Join(pdir, PageFileName)); err == nil {
 			p.Modified = info.ModTime()
 		}
-		p.Children = readPages(pdir, c, p)
+		p.Children = ReadPages(pdir, c, p)
 		out = append(out, p)
 	}
 	sortSiblings(out)
@@ -277,31 +277,31 @@ func readPages(dir string, c *Collection, parent *Page) []*Page {
 
 // NewCollection makes a collection named name.
 func (l *Library) NewCollection(name string) (*Collection, error) {
-	defer pagesChanged()
-	dir, err := uniqueDir(l.fs, l.Root, slug(name))
+	defer PagesChanged()
+	dir, err := UniqueDir(l.FS, l.Root, Slug(name))
 	if err != nil {
 		return nil, err
 	}
-	c := &Collection{Name: name, SubPages: true, Dir: dir, Open: true, fs: l.fs}
-	if err := c.save(); err != nil {
+	c := &Collection{Name: name, SubPages: true, Dir: dir, Open: true, FS: l.FS}
+	if err := c.Save(); err != nil {
 		return nil, err
 	}
 	l.Collections = append(l.Collections, c)
 	return c, nil
 }
 
-func (c *Collection) save() error {
+func (c *Collection) Save() error {
 	data, _ := json.MarshalIndent(c, "", "  ")
-	file := filepath.Join(c.Dir, collectionFile)
-	if err := c.fs.WriteFile(file, append(data, '\n')); err != nil {
+	file := filepath.Join(c.Dir, CollectionFile)
+	if err := c.FS.WriteFile(file, append(data, '\n')); err != nil {
 		return err
 	}
-	c.seen = modTime(c.fs, file)
+	c.Seen = ModTime(c.FS, file)
 	return nil
 }
 
-// modTime is when file was last written; now if it can't be read.
-func modTime(fsys FS, file string) time.Time {
+// ModTime is when file was last written; now if it can't be read.
+func ModTime(fsys FS, file string) time.Time {
 	if info, err := fsys.Stat(file); err == nil {
 		return info.ModTime()
 	}
@@ -311,21 +311,21 @@ func modTime(fsys FS, file string) time.Time {
 // NewPage makes a page in c, under parent when it is not nil (a sub-page),
 // with an empty body.
 func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
-	defer pagesChanged()
+	defer PagesChanged()
 	if parent != nil && !c.SubPages {
 		return nil, errors.New("this collection has no sub-pages")
 	}
 	if c.Dynamic() {
 		return nil, errors.New("arama koleksiyonuna sayfa eklenmez: sayfalarını sorgusu bulur")
 	}
-	if c.Journal && !c.creating {
+	if c.Journal && !c.Creating {
 		return nil, errors.New("günlüğe yalnız bugünün sayfası eklenir")
 	}
 	in := c.Dir
 	if parent != nil {
 		in = parent.Dir
 	}
-	dir, err := uniqueDir(c.fs, in, slug(title))
+	dir, err := UniqueDir(c.FS, in, Slug(title))
 	if err != nil {
 		return nil, err
 	}
@@ -347,23 +347,23 @@ func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	return p, nil
 }
 
-func (p *Page) file() string { return filepath.Join(p.Dir, pageFileName) }
+func (p *Page) File() string { return filepath.Join(p.Dir, PageFileName) }
 
-// fs is where the page's collection keeps its files.
-func (p *Page) fs() FS {
-	if p.Coll != nil && p.Coll.fs != nil {
-		return p.Coll.fs
+// FS is where the page's collection keeps its files.
+func (p *Page) FS() FS {
+	if p.Coll != nil && p.Coll.FS != nil {
+		return p.Coll.FS
 	}
-	return osFS{}
+	return OSFS{}
 }
 
 // Body reads the page's body, as the file keeps it (body.go).
 func (p *Page) Body() (string, error) {
-	src, err := p.fs().ReadFile(p.file())
+	src, err := p.FS().ReadFile(p.File())
 	if err != nil {
 		return "", err
 	}
-	_, body, err := splitPageChecked(src)
+	_, body, err := SplitPageChecked(src)
 	return body, err
 }
 
@@ -374,12 +374,12 @@ func (p *Page) Text() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return textOfBody(body), nil
+	return TextOfBody(body), nil
 }
 
-// textOfBody is Text of a body read.
-func textOfBody(body string) string {
-	text := bodyText(body)
+// TextOfBody is Text of a body read.
+func TextOfBody(body string) string {
+	text := Format.Markdown(body)
 	if text != "" && !strings.HasSuffix(text, "\n") {
 		text += "\n"
 	}
@@ -388,7 +388,7 @@ func textOfBody(body string) string {
 
 // SaveText writes the page with a body made of Markdown: what comes in from
 // outside (an import, an agent's text), as the body it makes.
-func (p *Page) SaveText(md string) error { return p.Save(encodeBody(importMarkdown(md))) }
+func (p *Page) SaveText(md string) error { return p.Save(Format.FromMarkdown(md)) }
 
 // Save writes the page: its body, and what is known of it.
 func (p *Page) Save(body string) error {
@@ -411,35 +411,35 @@ func (p *Page) Save(body string) error {
 	if p.Cover != "" {
 		meta["cover"] = p.Cover
 	}
-	if err := p.fs().WriteFile(p.file(), joinPage(meta, body)); err != nil {
+	if err := p.FS().WriteFile(p.File(), JoinPage(meta, body)); err != nil {
 		return err
 	}
-	p.Modified = modTime(p.fs(), p.file())
-	p.writes++
+	p.Modified = ModTime(p.FS(), p.File())
+	p.Writes++
 	return nil
 }
 
 // Excerpt is the start of the page's text, plain, on one line: what a list
 // shows under its title. It is read again only when the page changed.
 func (p *Page) Excerpt() string {
-	if p.excerptOf.Equal(p.Modified) && p.excerptAt == p.writes && !p.Modified.IsZero() {
+	if p.excerptOf.Equal(p.Modified) && p.excerptAt == p.Writes && !p.Modified.IsZero() {
 		return p.excerpt
 	}
 	body, err := p.Body()
 	if err != nil {
 		return ""
 	}
-	text := strings.Join(strings.Fields(decodeBody(body).PlainText()), " ")
+	text := strings.Join(strings.Fields(Format.Plain(body)), " ")
 	if r := []rune(text); len(r) > 180 {
 		text = strings.TrimSpace(string(r[:180])) + "…"
 	}
-	p.excerpt, p.excerptOf, p.excerptAt = text, p.Modified, p.writes
+	p.excerpt, p.excerptOf, p.excerptAt = text, p.Modified, p.Writes
 	return text
 }
 
 // SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
-	defer pagesChanged()
+	defer PagesChanged()
 	body, err := p.Body()
 	if err != nil {
 		return err
@@ -457,12 +457,12 @@ func (p *Page) Depth() int {
 	return d
 }
 
-var turkishFold = strings.NewReplacer("ç", "c", "ğ", "g", "ı", "i", "ö", "o", "ş", "s", "ü", "u", "Ç", "c", "Ğ", "g", "İ", "i", "Ö", "o", "Ş", "s", "Ü", "u")
+var TurkishFold = strings.NewReplacer("ç", "c", "ğ", "g", "ı", "i", "ö", "o", "ş", "s", "ü", "u", "Ç", "c", "Ğ", "g", "İ", "i", "Ö", "o", "Ş", "s", "Ü", "u")
 
-// slug makes a folder name from a title: lower case, ASCII where the letter
+// Slug makes a folder name from a title: lower case, ASCII where the letter
 // has an obvious one, words joined by hyphens.
-func slug(title string) string {
-	s := turkishFold.Replace(strings.ToLower(title))
+func Slug(title string) string {
+	s := TurkishFold.Replace(strings.ToLower(title))
 	var sb strings.Builder
 	dash := false
 	for _, r := range s {
@@ -485,8 +485,8 @@ func slug(title string) string {
 	return out
 }
 
-// uniqueDir makes a new folder in parent named name, or name-2, name-3…
-func uniqueDir(fsys FS, parent, name string) (string, error) {
+// UniqueDir makes a new folder in parent named name, or name-2, name-3…
+func UniqueDir(fsys FS, parent, name string) (string, error) {
 	for i := 1; ; i++ {
 		n := name
 		if i > 1 {
@@ -503,13 +503,13 @@ func uniqueDir(fsys FS, parent, name string) (string, error) {
 	}
 }
 
-// trashDir is where pages and collections go when they are thrown away: a
+// TrashDir is where pages and collections go when they are thrown away: a
 // folder of the library, so nothing is lost and they can be put back by hand.
-const trashDir = ".cop"
+const TrashDir = ".cop"
 
-// trashNote is the file a thrown-away folder keeps in it: what it was and
+// TrashNote is the file a thrown-away folder keeps in it: what it was and
 // where it was, to put it back there.
-const trashNote = ".trashed.json"
+const TrashNote = ".trashed.json"
 
 // TrashItem is a page or a collection in the trash.
 type TrashItem struct {
@@ -521,26 +521,26 @@ type TrashItem struct {
 	Dir     string    `json:"-"` // its folder in the trash
 }
 
-// trash moves dir into the library's trash, under a name that keeps when it
+// MoveToTrash moves dir into the library's MoveToTrash, under a name that keeps when it
 // went and what it was, with a note of where it was.
-func (l *Library) trash(dir string, item TrashItem) (*TrashItem, error) {
-	bin := filepath.Join(l.Root, trashDir)
-	if err := l.fs.MkdirAll(bin); err != nil {
+func (l *Library) MoveToTrash(dir string, item TrashItem) (*TrashItem, error) {
+	bin := filepath.Join(l.Root, TrashDir)
+	if err := l.FS.MkdirAll(bin); err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	to, err := uniqueDir(l.fs, bin, now.Format("20060102-150405")+"-"+filepath.Base(dir))
+	to, err := UniqueDir(l.FS, bin, now.Format("20060102-150405")+"-"+filepath.Base(dir))
 	if err != nil {
 		return nil, err
 	}
-	l.fs.Remove(to) // uniqueDir made it; the rename takes its place
-	if err := l.fs.Rename(dir, to); err != nil {
+	l.FS.Remove(to) // uniqueDir made it; the rename takes its place
+	if err := l.FS.Rename(dir, to); err != nil {
 		return nil, err
 	}
 	item.From, _ = filepath.Rel(l.Root, dir)
 	item.Trashed, item.Dir = now.Truncate(time.Second), to
 	data, _ := json.MarshalIndent(item, "", "  ")
-	if err := l.fs.WriteFile(filepath.Join(to, trashNote), data); err != nil {
+	if err := l.FS.WriteFile(filepath.Join(to, TrashNote), data); err != nil {
 		return nil, err
 	}
 	return &item, nil
@@ -548,12 +548,12 @@ func (l *Library) trash(dir string, item TrashItem) (*TrashItem, error) {
 
 // TrashPage moves page p, its sub-pages with it, to the trash.
 func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
-	defer pagesChanged()
+	defer PagesChanged()
 	where := p.Coll.Name
-	if crumb := parents(p); crumb != "" {
+	if crumb := Parents(p); crumb != "" {
 		where += " › " + crumb
 	}
-	item, err := l.trash(p.Dir, TrashItem{Kind: "page", Title: p.Title, Where: where})
+	item, err := l.MoveToTrash(p.Dir, TrashItem{Kind: "page", Title: p.Title, Where: where})
 	if err != nil {
 		return nil, err
 	}
@@ -567,11 +567,11 @@ func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
 
 // TrashCollection moves collection c, its pages with it, to the trash.
 func (l *Library) TrashCollection(c *Collection) (*TrashItem, error) {
-	defer pagesChanged()
+	defer PagesChanged()
 	if c.Journal {
 		return nil, errors.New("günlük çöpe taşınamaz")
 	}
-	item, err := l.trash(c.Dir, TrashItem{Kind: "collection", Title: c.Name})
+	item, err := l.MoveToTrash(c.Dir, TrashItem{Kind: "collection", Title: c.Name})
 	if err != nil {
 		return nil, err
 	}
@@ -583,8 +583,8 @@ func (l *Library) TrashCollection(c *Collection) (*TrashItem, error) {
 // there by hand, without a note, is a page from nowhere: put back, it goes
 // to the first collection.
 func (l *Library) Trash() []*TrashItem {
-	bin := filepath.Join(l.Root, trashDir)
-	entries, _ := l.fs.ReadDir(bin)
+	bin := filepath.Join(l.Root, TrashDir)
+	entries, _ := l.FS.ReadDir(bin)
 	var out []*TrashItem
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -592,18 +592,18 @@ func (l *Library) Trash() []*TrashItem {
 		}
 		dir := filepath.Join(bin, e.Name())
 		item := &TrashItem{Kind: "page", Title: e.Name()}
-		if data, err := l.fs.ReadFile(filepath.Join(dir, trashNote)); err == nil {
+		if data, err := l.FS.ReadFile(filepath.Join(dir, TrashNote)); err == nil {
 			json.Unmarshal(data, item)
 		} else {
 			if info, err := e.Info(); err == nil {
 				item.Trashed = info.ModTime()
 			}
-			if data, err := l.fs.ReadFile(filepath.Join(dir, collectionFile)); err == nil {
+			if data, err := l.FS.ReadFile(filepath.Join(dir, CollectionFile)); err == nil {
 				var c Collection
 				json.Unmarshal(data, &c)
 				item.Kind, item.Title = "collection", c.Name
-			} else if src, err := l.fs.ReadFile(filepath.Join(dir, pageFileName)); err == nil {
-				if meta := pageMeta(src); meta["title"] != "" {
+			} else if src, err := l.FS.ReadFile(filepath.Join(dir, PageFileName)); err == nil {
+				if meta := PageMeta(src); meta["title"] != "" {
 					item.Title = meta["title"]
 				}
 			}
@@ -619,31 +619,31 @@ func (l *Library) Trash() []*TrashItem {
 // page under the page or in the collection it was in - if that is gone,
 // the top of its collection, else of the first one. It returns what came back.
 func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
-	defer pagesChanged()
-	if item.From != "" && !safeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
+	defer PagesChanged()
+	if item.From != "" && !SafeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
 		return nil, nil, errors.New("çöp notundaki yol güvenli değil: " + item.From)
 	}
 	if item.Kind == "collection" {
 		name := filepath.Base(item.From)
 		if name == "." || name == "" {
-			name = slug(item.Title)
+			name = Slug(item.Title)
 		}
 		to, err := l.putBack(item, l.Root, name)
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := l.fs.ReadFile(filepath.Join(to, collectionFile))
+		data, err := l.FS.ReadFile(filepath.Join(to, CollectionFile))
 		if err != nil {
 			return nil, nil, err
 		}
-		c := &Collection{SubPages: true, Open: true, fs: l.fs}
+		c := &Collection{SubPages: true, Open: true, FS: l.FS}
 		if err := json.Unmarshal(data, c); err != nil {
 			return nil, nil, err
 		}
 		c.Dir = to
-		c.Pages = readPages(to, c, nil)
+		c.Pages = ReadPages(to, c, nil)
 		l.Collections = append(l.Collections, c)
-		sortCollections(l.Collections)
+		SortCollections(l.Collections)
 		return c, nil, nil
 	}
 	// where it was: the collection or page whose folder held it
@@ -685,20 +685,20 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	src, err := l.fs.ReadFile(filepath.Join(to, pageFileName))
+	src, err := l.FS.ReadFile(filepath.Join(to, PageFileName))
 	if err != nil {
 		return nil, nil, err
 	}
-	meta, body := splitPage(src)
+	meta, body := SplitPage(src)
 	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent}
-	p.readMeta(meta)
+	p.ReadMeta(meta)
 	if p.Title == "" {
 		p.Title = item.Title
 	}
 	if t, err := time.Parse(time.RFC3339, meta["created"]); err == nil {
 		p.Created = t
 	}
-	p.Children = readPages(to, coll, p)
+	p.Children = ReadPages(to, coll, p)
 	p.Order = lastOrder(*siblings) + 1 // at the end of where it goes
 	if err := p.Save(body); err != nil {
 		return nil, nil, err
@@ -717,15 +717,15 @@ func (l *Library) putBack(item *TrashItem, in, name string) (string, error) {
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) { // a name from a note in the trash: not a path out of the folder
 		name = "geri"
 	}
-	to, err := uniqueDir(l.fs, in, name)
+	to, err := UniqueDir(l.FS, in, name)
 	if err != nil {
 		return "", err
 	}
-	l.fs.Remove(to)
-	if err := l.fs.Rename(item.Dir, to); err != nil {
+	l.FS.Remove(to)
+	if err := l.FS.Rename(item.Dir, to); err != nil {
 		return "", err
 	}
-	l.fs.Remove(filepath.Join(to, trashNote))
+	l.FS.Remove(filepath.Join(to, TrashNote))
 	return to, nil
 }
 
@@ -733,7 +733,7 @@ func (l *Library) putBack(item *TrashItem, in, name string) (string, error) {
 func (l *Library) PurgeTrash(now time.Time) int {
 	n := 0
 	for _, item := range l.Trash() {
-		if !item.Trashed.IsZero() && now.Sub(item.Trashed) > trashDays*24*time.Hour && l.DeleteForever(item) == nil {
+		if !item.Trashed.IsZero() && now.Sub(item.Trashed) > TrashDays*24*time.Hour && l.DeleteForever(item) == nil {
 			n++
 		}
 	}
@@ -742,11 +742,11 @@ func (l *Library) PurgeTrash(now time.Time) int {
 
 // DeleteForever deletes item from the trash, from the disk.
 func (l *Library) DeleteForever(item *TrashItem) error {
-	bin := filepath.Join(l.Root, trashDir)
+	bin := filepath.Join(l.Root, TrashDir)
 	if filepath.Dir(item.Dir) != bin { // only what is in the trash
 		return errors.New("not in the trash")
 	}
-	return l.fs.RemoveAll(item.Dir)
+	return l.FS.RemoveAll(item.Dir)
 }
 
 func without(ps []*Page, p *Page) []*Page {
@@ -798,7 +798,7 @@ func (p *Page) Contains(q *Page) bool {
 // is written. A page cannot go under itself, nor under a page of a
 // collection without sub-pages.
 func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) error {
-	defer pagesChanged()
+	defer PagesChanged()
 	if parent != nil && p.Contains(parent) {
 		return errors.New("a page cannot go under itself")
 	}
@@ -821,10 +821,10 @@ func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) erro
 	}
 	index = max(0, min(index, len(*to)))
 	if filepath.Dir(p.Dir) != container {
-		dir, err := uniqueDir(l.fs, container, filepath.Base(p.Dir))
+		dir, err := UniqueDir(l.FS, container, filepath.Base(p.Dir))
 		if err == nil {
-			l.fs.Remove(dir) // made only to find a free name; the rename takes its place
-			err = l.fs.Rename(p.Dir, dir)
+			l.FS.Remove(dir) // made only to find a free name; the rename takes its place
+			err = l.FS.Rename(p.Dir, dir)
 		}
 		if err != nil {
 			*from = slices.Insert(*from, at, p) // as it was
@@ -835,11 +835,11 @@ func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) erro
 	p.Parent = parent
 	p.setColl(c)
 	*to = slices.Insert(*to, index, p)
-	if err := renumber(*to); err != nil {
+	if err := Renumber(*to); err != nil {
 		return err
 	}
 	if from != to {
-		return renumber(*from)
+		return Renumber(*from)
 	}
 	return nil
 }
@@ -860,8 +860,8 @@ func (p *Page) setColl(c *Collection) {
 	}
 }
 
-// renumber writes the order of siblings, as they stand, into the pages whose order changed.
-func renumber(ps []*Page) error {
+// Renumber writes the order of siblings, as they stand, into the pages whose order changed.
+func Renumber(ps []*Page) error {
 	for i, p := range ps {
 		if p.Order == i+1 {
 			continue
@@ -878,9 +878,9 @@ func renumber(ps []*Page) error {
 	return nil
 }
 
-// sortCollections puts collections in the sidebar's order: the pinned first,
+// SortCollections puts collections in the sidebar's order: the pinned first,
 // those placed by hand (Order) before the others, then by name.
-func sortCollections(cs []*Collection) {
+func SortCollections(cs []*Collection) {
 	sort.SliceStable(cs, func(i, j int) bool {
 		a, b := cs[i], cs[j]
 		switch {
@@ -901,14 +901,14 @@ func (l *Library) PinCollection(c *Collection, pin bool) error {
 		return nil
 	}
 	c.Pinned, c.Order = pin, 0
-	sortCollections(l.Collections)
-	return c.save()
+	SortCollections(l.Collections)
+	return c.Save()
 }
 
 // MoveCollection moves c up (-1) or down (1) among the collections pinned
 // as it is, or among the others, and keeps the places.
 func (l *Library) MoveCollection(c *Collection, delta int) error {
-	sortCollections(l.Collections)
+	SortCollections(l.Collections)
 	var group []*Collection
 	for _, x := range l.Collections {
 		if x.Pinned == c.Pinned {
@@ -924,19 +924,19 @@ func (l *Library) MoveCollection(c *Collection, delta int) error {
 	for k, x := range group {
 		if x.Order != k+1 {
 			x.Order = k + 1
-			if err := x.save(); err != nil {
+			if err := x.Save(); err != nil {
 				return err
 			}
 		}
 	}
-	sortCollections(l.Collections)
+	SortCollections(l.Collections)
 	return nil
 }
 
 // MoveCollectionBefore puts c before the collection before - of those pinned
 // as c is, or the others - or last of them when it is nil, and keeps the places.
 func (l *Library) MoveCollectionBefore(c, before *Collection) error {
-	sortCollections(l.Collections)
+	SortCollections(l.Collections)
 	var group []*Collection
 	for _, x := range l.Collections {
 		if x.Pinned == c.Pinned && x != c {
@@ -953,11 +953,74 @@ func (l *Library) MoveCollectionBefore(c, before *Collection) error {
 	for k, x := range group {
 		if x.Order != k+1 {
 			x.Order = k + 1
-			if err := x.save(); err != nil {
+			if err := x.Save(); err != nil {
 				return err
 			}
 		}
 	}
-	sortCollections(l.Collections)
+	SortCollections(l.Collections)
 	return nil
 }
+
+// Dynamic reports whether the collection is a search: its pages are what its query finds.
+func (c *Collection) Dynamic() bool { return strings.TrimSpace(c.Query) != "" }
+
+// Parents is the titles of the pages above p, for a sub-page in a flat view.
+func Parents(p *Page) string {
+	var parts []string
+	for q := p.Parent; q != nil; q = q.Parent {
+		parts = append([]string{q.Title}, parts...)
+	}
+	return strings.Join(parts, " › ")
+}
+
+// NamedTemplate is a template of a collection.
+type NamedTemplate struct {
+	Name string `json:"name"`
+	Body string `json:"body"`
+}
+
+// configFields are the fields of a collection's collection.json, without
+// the folder and pages.
+func (c *Collection) ConfigJSON() []byte {
+	data, _ := json.MarshalIndent(c, "", "  ")
+	return data
+}
+
+// SetConfig gives c the configuration in data, every field of it.
+func (c *Collection) SetConfig(data []byte) error {
+	var fresh Collection
+	if err := json.Unmarshal(data, &fresh); err != nil {
+		return err
+	}
+	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
+	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
+	c.Query = fresh.Query
+	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
+	// c.Journal stays as it is: the code tab does not take it away
+	if c.Name == "" {
+		c.Name = "Adsız koleksiyon"
+	}
+	c.Normalize()
+	return nil
+}
+
+// templatesOf are the templates a collection offers, the first one first.
+func (c *Collection) AllTemplates() []NamedTemplate {
+	var out []NamedTemplate
+	if strings.TrimSpace(c.Template) != "" {
+		out = append(out, NamedTemplate{Name: "Varsayılan", Body: c.Template})
+	}
+	for _, t := range c.Templates {
+		if strings.TrimSpace(t.Name) != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// ImageCover reports whether the page has a picture of its own as its cover.
+func (p *Page) ImageCover() bool { return p.Cover != "" && p.Cover != CoverNone }
+
+// CoverNone is the cover "none" in a page's file: no cover, not the made one either (autocover.go).
+const CoverNone = "none"

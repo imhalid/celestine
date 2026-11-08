@@ -46,7 +46,7 @@ func TestStoreSnapshotOpensTheSame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib, err := OpenLibraryIn(st, storeRoot)
+	lib, err := OpenLibraryIn(st, StoreRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,13 +54,13 @@ func TestStoreSnapshotOpensTheSame(t *testing.T) {
 	p, _ := c.NewPage(nil, "Dune")
 	p.SaveText("Baharat\n")
 	c.NewPage(p, "Alt")
-	plain, _ := OpenLibraryIn(st, storeRoot)
-	st.snapshot()
-	snap, err := OpenLibraryIn(st, storeRoot)
-	if st.snap.Load() == nil {
+	plain, _ := OpenLibraryIn(st, StoreRoot)
+	st.BeginSnapshot()
+	snap, err := OpenLibraryIn(st, StoreRoot)
+	if st.Snap.Load() == nil {
 		t.Fatal("the open wrote: the snapshot went")
 	}
-	st.endSnapshot()
+	st.EndSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -300,7 +300,7 @@ type titleIdx struct {
 // titleIndex is the pages by their titles, as they are now.
 func (a *app) titleIndex() map[string][]*Page {
 	ti := &a.titles
-	if gen := pagesGen.Load(); ti.by == nil || ti.gen != gen || ti.lib != a.lib {
+	if gen := PagesGen.Load(); ti.by == nil || ti.gen != gen || ti.lib != a.lib {
 		ti.gen, ti.lib, ti.by = gen, a.lib, map[string][]*Page{}
 		var add func(ps []*Page)
 		add = func(ps []*Page) {

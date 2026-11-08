@@ -360,7 +360,7 @@ func (a *app) propDialog(c *ui.Context) {
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {
 				ryugo.Field(c, ryugo.FieldOptions{Label: T("Seçenekler"), Help: "Sırası panonun sütunları olur."}, func() {
-					tags := cleanOptions(strings.Split(e.options, ","))
+					tags := CleanOptions(strings.Split(e.options, ","))
 					before := strings.Join(tags, ",")
 					a.tagsField(c, "prop-options", &tags, T("Seçenek yaz, ↵"), T("Seçenek ekle"))
 					if now := strings.Join(tags, ","); now != before {

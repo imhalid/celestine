@@ -55,11 +55,11 @@ func TestSettingsKeptSoon(t *testing.T) {
 	a.settings.PageWidth = 800
 	a.saveSettingsSoon()
 	tt.Frame()
-	if st.Meta(settingsKey) != nil {
+	if st.Meta(SettingsKey) != nil {
 		t.Fatal("written at once")
 	}
 	tt.Advance(600 * time.Millisecond)
-	if st.Meta(settingsKey) == nil {
+	if st.Meta(SettingsKey) == nil {
 		t.Fatal("never written")
 	}
 }

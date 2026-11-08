@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"slices"
 	"strings"
 
@@ -36,35 +35,10 @@ type collSettings struct {
 	closed bool   // what closing does is done: the panel only slides away
 }
 
-// configFields are the fields of a collection's collection.json, without
-// the folder and pages.
-func (c *Collection) configJSON() []byte {
-	data, _ := json.MarshalIndent(c, "", "  ")
-	return data
-}
-
-// setConfig gives c the configuration in data, every field of it.
-func (c *Collection) setConfig(data []byte) error {
-	var fresh Collection
-	if err := json.Unmarshal(data, &fresh); err != nil {
-		return err
-	}
-	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
-	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
-	c.Query = fresh.Query
-	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
-	// c.Journal stays as it is: the code tab does not take it away
-	if c.Name == "" {
-		c.Name = "Adsız koleksiyon"
-	}
-	c.normalize()
-	return nil
-}
-
 func (a *app) openCollSettings(c *Collection, tab int) {
 	cs := &a.cs
-	*cs = collSettings{open: true, coll: c, tab: tab, orig: c.configJSON()}
-	cs.draft.setConfig(cs.orig)
+	*cs = collSettings{open: true, coll: c, tab: tab, orig: c.ConfigJSON()}
+	cs.draft.SetConfig(cs.orig)
 	cs.draft.Dir = c.Dir
 	cs.code = string(cs.orig)
 }
@@ -79,8 +53,8 @@ func (a *app) endCollSettings() {
 func (a *app) saveCollSettings() {
 	cs := &a.cs
 	oldFormat := cs.coll.JournalFormat
-	cs.coll.setConfig(cs.draft.configJSON())
-	if err := cs.coll.save(); err != nil {
+	cs.coll.SetConfig(cs.draft.ConfigJSON())
+	if err := cs.coll.Save(); err != nil {
 		cs.err = err.Error()
 		return
 	}
@@ -123,7 +97,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 		was := cs.tab
 		ryugo.Tabs(c.Key("cs-tabs"), &cs.tab, []ryugo.Tab{{Label: "Genel"}, {Label: T("Özellikler")}, {Label: T("Görünümler")}, {Label: "Sayfalar"}, {Label: "Kod"}}, ryugo.TabsOptions{Label: "Koleksiyon ayarları"})
 		if cs.tab == 4 && was != 4 {
-			cs.code = string(d.configJSON())
+			cs.code = string(d.ConfigJSON())
 		}
 		if was == 4 && cs.tab != 4 {
 			a.applyCode()
@@ -155,7 +129,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 // applyCode takes the Code tab's JSON into the draft.
 func (a *app) applyCode() {
 	cs := &a.cs
-	if err := cs.draft.setConfig([]byte(cs.code)); err != nil {
+	if err := cs.draft.SetConfig([]byte(cs.code)); err != nil {
 		cs.err = "JSON okunamadı: " + err.Error()
 		return
 	}
@@ -305,7 +279,7 @@ func (a *app) tagField(c *ui.Context, key string, tags *[]string, placeholder st
 	before := slices.Clone(*tags)
 	a.tagsField(c, key, tags, placeholder, T("Seçenek ekle"))
 	if !slices.Equal(before, *tags) {
-		*tags = cleanOptions(*tags)
+		*tags = CleanOptions(*tags)
 	}
 }
 
@@ -324,7 +298,7 @@ func (a *app) csPropEditor(c *ui.Context, p *Property) {
 		if ryugo.Button(c.Key("cs-prop-del"), T("Özelliği sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			id := p.ID
 			cs.draft.Properties = slices.DeleteFunc(cs.draft.Properties, func(q Property) bool { return q.ID == id })
-			cs.draft.normalize()
+			cs.draft.Normalize()
 			cs.prop = ""
 		}
 	})
@@ -364,11 +338,11 @@ func (a *app) csAddProperty(c *ui.Context) {
 					if b.Clicked() {
 						p := sp.p
 						if d.Prop(p.ID) != nil {
-							p.ID = slug(p.Name) + "-2"
+							p.ID = Slug(p.Name) + "-2"
 						}
 						p.Options = slices.Clone(p.Options)
 						d.Properties = append(d.Properties, p)
-						d.normalize()
+						d.Normalize()
 						cs.newName, cs.adding = "", false
 					}
 				}
@@ -396,7 +370,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 func (a *app) addDraftProp() {
 	cs := &a.cs
 	d := &cs.draft
-	if _, err := d.addProperty(cs.newName, PropTypes[cs.newType].Type, cs.newTags); err != nil {
+	if _, err := d.AddPropertyDraft(cs.newName, PropTypes[cs.newType].Type, cs.newTags); err != nil {
 		cs.err = err.Error()
 		return
 	}

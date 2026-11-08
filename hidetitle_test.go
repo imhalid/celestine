@@ -20,7 +20,7 @@ func TestSplitTitle(t *testing.T) {
 		{"## Sayfa\n", "Sayfa", "## Sayfa\n", ""},
 		{"", "Sayfa", "", ""},
 	} {
-		rest, head := splitTitle(c.md, c.title)
+		rest, head := SplitTitle(c.md, c.title)
 		if rest != c.rest || head != c.head {
 			t.Errorf("%q: rest %q head %q", c.md, rest, head)
 		}
@@ -427,7 +427,7 @@ func TestPinAndMoveCollections(t *testing.T) {
 		}
 		return nil
 	}
-	sortCollections(a.lib.Collections)
+	SortCollections(a.lib.Collections)
 	if got := names(); got != "Alfa,Beta,Gama,Test" {
 		t.Fatalf("by name: %s", got)
 	}
@@ -544,7 +544,7 @@ func TestPinSortAndKeepSidebar(t *testing.T) {
 	for _, n := range []string{"Beta", "Gama"} {
 		a.lib.NewCollection(n)
 	}
-	sortCollections(a.lib.Collections)
+	SortCollections(a.lib.Collections)
 	byName := func(n string) *Collection {
 		for _, c := range a.lib.Collections {
 			if c.Name == n {

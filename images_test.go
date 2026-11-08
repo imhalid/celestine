@@ -126,7 +126,7 @@ func TestImageInFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	lib, _ := OpenLibraryIn(st, storeRoot)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
 	seed(lib)
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 900, 900)
@@ -227,7 +227,7 @@ func TestImageComesLater(t *testing.T) {
 	if a.loadImage(a.page, file) != nil {
 		t.Fatal("a picture that is not there")
 	}
-	if err := a.page.fs().WriteFile(file, pngBytes(8, 8)); err != nil {
+	if err := a.page.FS().WriteFile(file, pngBytes(8, 8)); err != nil {
 		t.Fatal(err)
 	}
 	if a.loadImage(a.page, file) != nil {

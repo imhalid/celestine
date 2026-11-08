@@ -228,7 +228,7 @@ func (a *app) exportSettingsTo(path string) error {
 	}
 	out, _ := json.MarshalIndent(all, "", "  ")
 	os.MkdirAll(filepath.Dir(path), 0o755)
-	return writeFilePrivate(path, out) // no key in it, but the user's own settings
+	return WriteFilePrivate(path, out) // no key in it, but the user's own settings
 }
 
 // importSettingsFrom reads settings from a file written by exportSettingsTo: what it holds is set, secrets are not touched.

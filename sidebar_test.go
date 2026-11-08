@@ -124,11 +124,11 @@ func TestTrashPage(t *testing.T) {
 	if _, err := os.Stat(child.Dir); !os.IsNotExist(err) {
 		t.Fatal("the folder is still in place")
 	}
-	bin, _ := os.ReadDir(filepath.Join(a.lib.Root, trashDir))
+	bin, _ := os.ReadDir(filepath.Join(a.lib.Root, TrashDir))
 	if len(bin) != 1 || !strings.HasSuffix(bin[0].Name(), "-cocuk") {
 		t.Fatalf("trash: %v", bin)
 	}
-	if _, err := os.Stat(filepath.Join(a.lib.Root, trashDir, bin[0].Name(), "torun", pageFileName)); err != nil {
+	if _, err := os.Stat(filepath.Join(a.lib.Root, TrashDir, bin[0].Name(), "torun", PageFileName)); err != nil {
 		t.Fatal("the sub-page did not go with it: ", err)
 	}
 	again, _ := OpenLibrary(a.lib.Root)

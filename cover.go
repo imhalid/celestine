@@ -31,7 +31,7 @@ func (a *app) setCover(p *Page, data []byte) error {
 		a.flush()
 	}
 	name := "kapak-" + a.clock().Format("20060102-150405") + ext
-	if err := p.fs().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
+	if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
 		return err
 	}
 	old := p.Cover
@@ -39,28 +39,28 @@ func (a *app) setCover(p *Page, data []byte) error {
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old // the page file cannot be read: it is not written over, and the picture is not kept
-		p.fs().Remove(filepath.Join(p.Dir, name))
+		p.FS().Remove(filepath.Join(p.Dir, name))
 		return err
 	}
 	if err := p.Save(body); err != nil {
 		return err
 	}
-	if old != "" && old != coverNone && old != name {
-		p.fs().Remove(filepath.Join(p.Dir, old))
+	if old != "" && old != CoverNone && old != name {
+		p.FS().Remove(filepath.Join(p.Dir, old))
 	}
 	return nil
 }
 
 // removeCover takes the cover away, its file with it, and says the page wants none: not the made one either.
 func (a *app) removeCover(p *Page) {
-	if p.Cover == coverNone {
+	if p.Cover == CoverNone {
 		return
 	}
 	if p == a.page {
 		a.flush()
 	}
 	old := p.Cover
-	p.Cover = coverNone // no cover, the made one either: the page said so
+	p.Cover = CoverNone // no cover, the made one either: the page said so
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old
@@ -71,8 +71,8 @@ func (a *app) removeCover(p *Page) {
 		a.saveErr = err.Error()
 		return
 	}
-	if old != "" && old != coverNone {
-		p.fs().Remove(filepath.Join(p.Dir, old))
+	if old != "" && old != CoverNone {
+		p.FS().Remove(filepath.Join(p.Dir, old))
 	}
 }
 
@@ -201,7 +201,7 @@ func readFile(name string) ([]byte, error) { return os.ReadFile(name) }
 // coverThumb is the cover of p as a small picture, cropped to w by h, or
 // nothing when the page has none (or the file is gone).
 func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
-	if !p.imageCover() {
+	if !p.ImageCover() {
 		return
 	}
 	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))

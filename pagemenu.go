@@ -43,14 +43,14 @@ func (a *app) pageMoreMenu(p *Page) []menuItem {
 		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
 	}
 	coverTitle := "Kapak resmi ekle…"
-	if p.imageCover() {
+	if p.ImageCover() {
 		coverTitle = "Kapak resmini değiştir…"
 	}
 	out = append(out, menuItem{title: coverTitle, glyph: iconCover, run: func() { a.pickCover(p) }})
 	if a.coverKind(p) != coverKindNone {
 		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
 	}
-	if p.Cover == coverNone && !a.settings.NoAutoCover {
+	if p.Cover == CoverNone && !a.settings.NoAutoCover {
 		out = append(out, menuItem{title: "Otomatik kapağı geri getir", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
 	}
 	if !p.Coll.Journal {
@@ -94,11 +94,11 @@ func (a *app) duplicatePage(p *Page) {
 	if p == a.page {
 		a.flush()
 	}
-	fsys := p.fs()
+	fsys := p.FS()
 	container := filepath.Dir(p.Dir)
-	dir, err := uniqueDir(fsys, container, filepath.Base(p.Dir)+"-kopya")
+	dir, err := UniqueDir(fsys, container, filepath.Base(p.Dir)+"-kopya")
 	if err == nil {
-		err = copyTree(fsys, p.Dir, fsys, dir)
+		err = CopyTree(fsys, p.Dir, fsys, dir)
 	}
 	if err != nil {
 		a.saveErr = err.Error()
@@ -109,7 +109,7 @@ func (a *app) duplicatePage(p *Page) {
 		cp.Props[k] = v
 	}
 	body, _ := cp.Body() // the copy's, as it came
-	cp.Children = readPages(dir, p.Coll, cp)
+	cp.Children = ReadPages(dir, p.Coll, cp)
 	for _, ch := range cp.Children {
 		ch.Parent = cp
 	}
@@ -127,7 +127,7 @@ func (a *app) duplicatePage(p *Page) {
 	if err := cp.Save(body); err != nil {
 		a.saveErr = err.Error()
 	}
-	if err := renumber(*siblings); err != nil {
+	if err := Renumber(*siblings); err != nil {
 		a.saveErr = err.Error()
 	}
 	a.open(cp)
@@ -164,12 +164,12 @@ func (a *app) writeExport(p *Page, md, path string) error {
 	if err := os.WriteFile(path, []byte(md), 0o644); err != nil {
 		return err
 	}
-	entries, _ := p.fs().ReadDir(p.Dir)
+	entries, _ := p.FS().ReadDir(p.Dir)
 	for _, e := range entries {
-		if e.IsDir() || e.Name() == pageFileName || !strings.Contains(md, e.Name()) {
+		if e.IsDir() || e.Name() == PageFileName || !strings.Contains(md, e.Name()) {
 			continue
 		}
-		data, err := p.fs().ReadFile(filepath.Join(p.Dir, e.Name()))
+		data, err := p.FS().ReadFile(filepath.Join(p.Dir, e.Name()))
 		if err != nil {
 			return err
 		}

@@ -50,12 +50,12 @@ func (a *app) syncRemote() (Remote, error) {
 		if strings.TrimSpace(a.settings.SyncDir) == "" {
 			return nil, errors.New("klasör seçilmemiş")
 		}
-		r = dirRemote{a.settings.SyncDir}
+		r = DirRemote{Root: a.settings.SyncDir}
 	case "server":
 		if a.settings.SyncURL == "" || a.settings.SyncToken == "" {
 			return nil, errors.New("sunucu adresi ya da jeton yok")
 		}
-		r = newHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
+		r = NewHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
 	default:
 		return nil, errors.New("senkron kapalı")
 	}
@@ -67,7 +67,7 @@ func (a *app) syncRemote() (Remote, error) {
 	if err != nil {
 		return nil, errors.New("şifreleme anahtarı bozuk")
 	}
-	return newEncRemote(r, key)
+	return NewEncRemote(r, key)
 }
 
 func (a *app) syncEvery() time.Duration {
@@ -77,8 +77,8 @@ func (a *app) syncEvery() time.Duration {
 	return 5 * time.Minute
 }
 
-func (a *app) loadSyncState() *syncState {
-	st := &syncState{}
+func (a *app) loadSyncState() *SyncState {
+	st := &SyncState{}
 	if a.settingsStore != nil {
 		if b := a.settingsStore.Meta(syncStateKey); b != nil {
 			json.Unmarshal(b, st)
@@ -87,7 +87,7 @@ func (a *app) loadSyncState() *syncState {
 	return st
 }
 
-func (a *app) saveSyncState(st *syncState) {
+func (a *app) saveSyncState(st *SyncState) {
 	if a.settingsStore != nil {
 		b, _ := json.Marshal(st)
 		a.settingsStore.SetMeta(syncStateKey, b)
@@ -129,7 +129,7 @@ func (a *app) syncNow() {
 				pruneBackups(backupDir, time.Now())
 			}
 		}
-		res, err := SyncOnce(st, storeRoot, remote, state, skip, time.Now())
+		res, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now())
 		a.do(func() error {
 			a.sy.busy = false
 			a.saveSyncState(state)
@@ -212,7 +212,7 @@ func (a *app) lookForConflicts() {
 				}
 			}
 		}
-		walk(storeRoot, "")
+		walk(StoreRoot, "")
 		sortStrings(found)
 		a.do(func() error {
 			a.sy.conflicts, a.sy.conflictsAt, a.sy.conflictsBusy = found, time.Now(), false
@@ -253,7 +253,7 @@ func (a *app) resolveConflict(name string, use bool) error {
 	if st == nil {
 		return errors.New("tek dosyalı kitaplık değil")
 	}
-	abs := storeRoot + "/" + name
+	abs := StoreRoot + "/" + name
 	if use {
 		b, err := st.ReadFile(abs)
 		if err != nil {
@@ -263,7 +263,7 @@ func (a *app) resolveConflict(name string, use bool) error {
 		if main == "" {
 			return errors.New("asıl dosya bulunamadı")
 		}
-		if err := st.WriteFile(storeRoot+"/"+main, b); err != nil {
+		if err := st.WriteFile(StoreRoot+"/"+main, b); err != nil {
 			return err
 		}
 	}
@@ -509,20 +509,20 @@ func (a *app) setSyncPassphrase(pass string) {
 	var inner Remote
 	switch a.settings.SyncMode {
 	case "dir":
-		inner = dirRemote{a.settings.SyncDir}
+		inner = DirRemote{Root: a.settings.SyncDir}
 	case "server":
-		inner = newHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
+		inner = NewHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
 	default:
 		a.notice = "Önce nereye eşitleneceğini seç."
 		return
 	}
-	e, err := openEnc(inner, pass)
+	e, err := OpenEnc(inner, pass)
 	if err != nil {
 		a.notice = "Olmadı: " + err.Error()
 		return
 	}
-	a.settings.SyncKey = base64.StdEncoding.EncodeToString(e.key)
-	a.sy.recovery, a.sy.pass, a.sy.hasKey = recoveryKey(e.key), "", true
+	a.settings.SyncKey = base64.StdEncoding.EncodeToString(e.Key)
+	a.sy.recovery, a.sy.pass, a.sy.hasKey = RecoveryKey(e.Key), "", true
 	a.saveSettings()
 	a.notice = "Şifreleme açık: kurtarma anahtarını bir yere yaz."
 }

@@ -140,7 +140,7 @@ func (a *app) newMCPServer() *mcp.Server {
 			a.do(func() error {
 				for _, c := range a.lib.Collections {
 					ci := collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Properties: c.Properties, SubPages: c.SubPages, Query: c.Query}
-					for _, t := range c.allTemplates() {
+					for _, t := range c.AllTemplates() {
 						ci.Templates = append(ci.Templates, t.Name)
 					}
 					out = append(out, ci)
@@ -287,7 +287,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				}
 				if in.Markdown == "" && in.Template != "" {
 					found := false
-					for _, t := range c.allTemplates() {
+					for _, t := range c.AllTemplates() {
 						if strings.EqualFold(t.Name, strings.TrimSpace(in.Template)) {
 							in.Markdown, found = expandTemplate(t.Body, title, a.clock()), true
 						}

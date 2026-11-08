@@ -1,0 +1,134 @@
+package main
+
+// The library - its collections, pages, files, history and sync - is its own package (internal/library),
+// which knows nothing of the window. These are its names as the app has always used them, unqualified; new
+// code may as well write library.Page.
+
+import "github.com/imhalid/ryudit/internal/library"
+
+type BodyFormat = library.BodyFormat
+
+var Clean = library.Clean
+var CleanOptions = library.CleanOptions
+
+type Collection = library.Collection
+
+const CollectionFile = library.CollectionFile
+
+var CopyTree = library.CopyTree
+
+const CoverNone = library.CoverNone
+
+var DeriveKey = library.DeriveKey
+var DiffLines = library.DiffLines
+
+type DiffOp = library.DiffOp
+type DirRemote = library.DirRemote
+type EncRemote = library.EncRemote
+type FS = library.FS
+
+var FileSafe = library.FileSafe
+var HTTPSOnly = library.HTTPSOnly
+var HashOf = library.HashOf
+
+type Historian = library.Historian
+
+const HistoryKeep = library.HistoryKeep
+const IndexFile = library.IndexFile
+
+var IsLibraryFolder = library.IsLibraryFolder
+var JoinPage = library.JoinPage
+var KeyFromRecovery = library.KeyFromRecovery
+
+const LegacyPageFile = library.LegacyPageFile
+
+type Library = library.Library
+
+var LibraryFile = library.LibraryFile
+var ModTime = library.ModTime
+
+type NamedTemplate = library.NamedTemplate
+
+var NewEncRemote = library.NewEncRemote
+var NewHTTPRemote = library.NewHTTPRemote
+
+type OSFS = library.OSFS
+
+var OpenEnc = library.OpenEnc
+var OpenLibrary = library.OpenLibrary
+var OpenLibraryIn = library.OpenLibraryIn
+var OpenStore = library.OpenStore
+
+type Page = library.Page
+
+const PageFileName = library.PageFileName
+
+var PageMeta = library.PageMeta
+var PagesChanged = library.PagesChanged
+var PairWords = library.PairWords
+var Parents = library.Parents
+
+const PropChoice = library.PropChoice
+const PropDate = library.PropDate
+const PropNumber = library.PropNumber
+const PropText = library.PropText
+
+var PropTypeName = library.PropTypeName
+
+const PropURL = library.PropURL
+
+type Property = library.Property
+
+var ReadPages = library.ReadPages
+var RecoveryKey = library.RecoveryKey
+
+type Remote = library.Remote
+type RemoteEntry = library.RemoteEntry
+type RemoteVersion = library.RemoteVersion
+
+var Renumber = library.Renumber
+var SafeName = library.SafeName
+var SafeSubpath = library.SafeSubpath
+
+const SaltFile = library.SaltFile
+const SettingsKey = library.SettingsKey
+
+var Slug = library.Slug
+var SortCollections = library.SortCollections
+var SplitFrontMatter = library.SplitFrontMatter
+var SplitPage = library.SplitPage
+var SplitPageChecked = library.SplitPageChecked
+var SplitTitle = library.SplitTitle
+
+type Store = library.Store
+
+const StoreRoot = library.StoreRoot
+
+var SyncOnce = library.SyncOnce
+
+type SyncResult = library.SyncResult
+type SyncState = library.SyncState
+
+var TextOfBody = library.TextOfBody
+
+const TrashDays = library.TrashDays
+const TrashDir = library.TrashDir
+
+type TrashItem = library.TrashItem
+
+const TrashNote = library.TrashNote
+
+var UniqueDir = library.UniqueDir
+
+type Version = library.Version
+type View = library.View
+
+var Within = library.Within
+var WriteFilePrivate = library.WriteFilePrivate
+
+// The library's variables that the app reads: its counter itself, and the others, which do not change.
+var (
+	PagesGen    = &library.PagesGen
+	PropTypes   = library.PropTypes
+	TurkishFold = library.TurkishFold
+)

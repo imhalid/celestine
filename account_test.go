@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 func TestAcctKeys(t *testing.T) {
@@ -66,8 +68,8 @@ func TestAccountLive(t *testing.T) {
 	if base == "" || admin == "" {
 		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
 	}
-	allowHTTP = strings.HasPrefix(base, "http://")
-	defer func() { allowHTTP = false }()
+	library.AllowHTTP = strings.HasPrefix(base, "http://")
+	defer func() { library.AllowHTTP = false }()
 	cl := newAcctClient(base)
 	stamp := fmt.Sprint(time.Now().UnixNano())
 	email, user := "deneme-"+stamp+"@example.com", "deneme"+stamp[len(stamp)-8:]
@@ -147,7 +149,7 @@ func TestAccountLive(t *testing.T) {
 	a, b := newDevice(t), newDevice(t)
 	a.write("Not/Gizli/page.json", "hesap ile şifreli")
 	mk := func(tok string, key []byte) Remote {
-		e, err := newEncRemote(newHTTPRemote(base, tok), key)
+		e, err := NewEncRemote(NewHTTPRemote(base, tok), key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -200,7 +202,7 @@ func TestAccountLive(t *testing.T) {
 	if _, _, err := cl.Login(user, "yeni-parola-1"); err == nil {
 		t.Fatal("a deleted account signed in")
 	}
-	if _, err := newHTTPRemote(base, tokC).List(); err == nil {
+	if _, err := NewHTTPRemote(base, tokC).List(); err == nil {
 		t.Fatal("a deleted account's token listed files")
 	}
 }
@@ -249,8 +251,8 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 	if base == "" || admin == "" {
 		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
 	}
-	allowHTTP = strings.HasPrefix(base, "http://")
-	defer func() { allowHTTP = false }()
+	library.AllowHTTP = strings.HasPrefix(base, "http://")
+	defer func() { library.AllowHTTP = false }()
 	cl := newAcctClient(base)
 	stamp := fmt.Sprint(time.Now().UnixNano())
 	email, user := "kurtar-"+stamp+"@example.com", "kurtar"+stamp[len(stamp)-8:]
@@ -293,7 +295,7 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 	}
 
 	// the server keeps earlier versions of a file, sealed: the second write keeps the first, a third at once adds none
-	enc, err := newEncRemote(newHTTPRemote(base, tokA), keyA)
+	enc, err := NewEncRemote(NewHTTPRemote(base, tokA), keyA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +329,7 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 		t.Fatal("no bytes are counted")
 	}
 	// another account sees none of it, and a name with a dot-dot is refused
-	if _, err := newHTTPRemote(base, "yok").Versions("x"); err == nil {
+	if _, err := NewHTTPRemote(base, "yok").Versions("x"); err == nil {
 		t.Fatal("a token that is not one listed versions")
 	}
 	if code, _ := call("GET", "/versions/..%2Fu1%2Fx", tokA, nil, nil); code != 400 && code != 404 {
@@ -338,14 +340,14 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 	if _, _, err := cl.Recover(user, "AAAA-AAAA", "yeni-parola-2"); err == nil {
 		t.Fatal("a recovery key that is not one recovered")
 	}
-	wrong := recoveryKey(bytes.Repeat([]byte{9}, 32))
+	wrong := RecoveryKey(bytes.Repeat([]byte{9}, 32))
 	if _, _, err := cl.Recover(user, wrong, "yeni-parola-2"); err == nil {
 		t.Fatal("a wrong recovery key recovered")
 	}
-	if _, _, err := cl.Recover("yok"+user, recoveryKey(keyA), "yeni-parola-2"); err == nil {
+	if _, _, err := cl.Recover("yok"+user, RecoveryKey(keyA), "yeni-parola-2"); err == nil {
 		t.Fatal("a name that is not there recovered")
 	}
-	tokR, keyR, err := cl.Recover(user, strings.ToLower(recoveryKey(keyA)), "yeni-parola-2")
+	tokR, keyR, err := cl.Recover(user, strings.ToLower(RecoveryKey(keyA)), "yeni-parola-2")
 	if err != nil || !bytes.Equal(keyR, keyA) {
 		t.Fatalf("recover: %v, same key: %v", err, bytes.Equal(keyR, keyA))
 	}
@@ -360,7 +362,7 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 		t.Fatalf("login with the new password: %v", err)
 	}
 	// and what was written before is read with the same key
-	again, _ := newEncRemote(newHTTPRemote(base, tokN), keyN)
+	again, _ := NewEncRemote(NewHTTPRemote(base, tokN), keyN)
 	if b, err := again.Get(name); err != nil || string(b) != "üç" {
 		t.Fatalf("a file after the recovery: %q %v", b, err)
 	}
@@ -371,7 +373,7 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 	if err := cl.DeleteAccount(tokR, user, "yeni-parola-2"); err != nil { // the token the recovery gave is a computer like any
 		t.Fatal(err)
 	}
-	if _, err := newHTTPRemote(base, tokN).Versions(name); err == nil {
+	if _, err := NewHTTPRemote(base, tokN).Versions(name); err == nil {
 		t.Fatal("a deleted account's token listed versions")
 	}
 }

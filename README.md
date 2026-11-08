@@ -60,7 +60,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 
 | Path | What |
 | --- | --- |
-| `library.go` | The library on disk: collections, their views, pages, sub-pages, front matter; no UI |
+| `internal/library/` | The library, a package of its own that knows nothing of the window: collections, their views, pages, sub-pages, the page file, front matter, properties, the store in one file (`store_sql.go`, `store_js.go`), versions, the trash, sync, the Markdown export. `core_alias.go` gives its names to the app unqualified; its tests run alone in a second or two (`go test ./internal/library/`) |
 | `views.go` | A collection's page: its views (a list grouped by date, a sortable table, a board of statuses on Ryugo's drag and drop), search, a new page |
 | `main.go` | The window (its own title bar), the page (title and MyGo's rich text editor), autosave |
 | `sidebar.go` | The title bar and the sidebar: folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn |
@@ -76,17 +76,17 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |
 | `kb.go`, `vim.go`, `help.go` | The keyboard's normal mode (Esc), rows chosen with j k, letters on everything that can be pressed (f), the leader (Space), marks, the command line (:), Vim's motions as a setting, the page of shortcuts and the first-run tour |
 | `update.go`, `updateui.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start; `scripts/release`, `cloudflare/update`, `.github/workflows/release.yml` |
-| `sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption; `cloudflare/sync` |
+| `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption; `cloudflare/sync` |
 | `i18n.go` | The language: Turkish as written, English from a dictionary for the main surfaces |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
 | `caretfx*.go` | The carets: Slime and Mizan, and the presets (Pacman and the effects of [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith), see `NOTICE.md`): each a caret that is always as it is, with nothing to set |
-| `body.go`, `pagefile.go` | The page's own format: blocks and typed objects, and the page file (meta, then body); a legacy `index.md` made one |
-| `markdown.go`, `frontmatter.go` | Markdown at the edges only: reading it in, writing it out, and the plain text view the app searches (tags, tasks, links) |
+| `body.go`, `internal/library/pagefile.go` | The page's own format: blocks and typed objects (the editor's, given to the library as its `BodyFormat`), and the page file (meta, then body); a legacy `index.md` made one |
+| `markdown.go`, `internal/library/frontmatter.go` | Markdown at the edges only: reading it in, writing it out, and the plain text view the app searches (tags, tasks, links) |
 | `watch.go` | Watching the folder |
 | `collsettings.go`, `collicons.go` | A collection's settings (General, Properties, Views, Pages, Code; draft, preview, save), its icon and color |
-| `properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
+| `internal/library/properties.go`, `propsui.go` | Properties: the schema, the values, the page's properties section and the dialog adding one |
 | `chips.go` | Chips: page links and dates in the text, as richtext attachments; `[[…]]` in the file |
 | `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |

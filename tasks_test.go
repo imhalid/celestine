@@ -55,7 +55,7 @@ func TestTaskView(t *testing.T) {
 	}
 	tt.Advance(300 * time.Millisecond)
 	body, _ := a.page.Text()
-	src, _ := os.ReadFile(a.page.file())
+	src, _ := os.ReadFile(a.page.File())
 	if !strings.Contains(body, "- [x] ilk görev") || len(src) == 0 {
 		t.Fatalf("file: %q", body)
 	}

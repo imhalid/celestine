@@ -17,7 +17,7 @@ func writePageFile(t testing.TB, path string, meta map[string]string, md string)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, joinPage(meta, encodeBody(importMarkdown(md))), 0o644); err != nil {
+	if err := os.WriteFile(path, JoinPage(meta, encodeBody(importMarkdown(md))), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

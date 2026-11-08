@@ -102,12 +102,12 @@ func TestAutoCoverKinds(t *testing.T) {
 		t.Fatalf("the page does not start at the top for its cover: %v", a.topSpace)
 	}
 	a.removeCover(p)
-	src, _ := os.ReadFile(p.file())
-	if p.Cover != coverNone || !strings.Contains(string(src), `"cover":"none"`) || a.coverKind(p) != coverKindNone {
+	src, _ := os.ReadFile(p.File())
+	if p.Cover != CoverNone || !strings.Contains(string(src), `"cover":"none"`) || a.coverKind(p) != coverKindNone {
 		t.Fatalf("removed: %q, kind %d\n%s", p.Cover, a.coverKind(p), src)
 	}
 	again, _ := OpenLibrary(a.lib.Root)
-	if got := again.Collections[0].Pages[0]; got.Cover != coverNone || a.coverKind(got) != coverKindNone {
+	if got := again.Collections[0].Pages[0]; got.Cover != CoverNone || a.coverKind(got) != coverKindNone {
 		t.Fatalf("read again: %q", got.Cover)
 	}
 	var titles []string
@@ -118,7 +118,7 @@ func TestAutoCoverKinds(t *testing.T) {
 		t.Fatalf("menu of a page with none: %v", titles)
 	}
 	a.restoreAutoCover(p)
-	src, _ = os.ReadFile(p.file())
+	src, _ = os.ReadFile(p.File())
 	if p.Cover != "" || strings.Contains(string(src), "cover") || a.coverKind(p) != coverKindAuto {
 		t.Fatalf("brought back: %q\n%s", p.Cover, src)
 	}
@@ -126,7 +126,7 @@ func TestAutoCoverKinds(t *testing.T) {
 	if err := a.setCover(p, pngBytes(300, 100)); err != nil {
 		t.Fatal(err)
 	}
-	if a.coverKind(p) != coverKindImage || !p.imageCover() {
+	if a.coverKind(p) != coverKindImage || !p.ImageCover() {
 		t.Fatalf("a picture: kind %d", a.coverKind(p))
 	}
 	a.removeCover(p)
