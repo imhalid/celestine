@@ -53,10 +53,15 @@ const ip = (req) => req.headers.get("cf-connecting-ip") || "unknown";
 export async function allow(env, key, limit, windowSec) {
   const win = Math.floor(now() / windowSec);
   const k = `${key}:${windowSec}`;
-  await env.DB.prepare("INSERT INTO hits(key,win,n) VALUES(?,?,1) ON CONFLICT(key,win) DO UPDATE SET n=n+1").bind(k, win).run();
-  const r = await env.DB.prepare("SELECT n FROM hits WHERE key=? AND win=?").bind(k, win).first();
+  // one statement: the count and the read of it are one step, and two requests at once do not both read the same number
+  const r = await env.DB.prepare("INSERT INTO hits(key,win,n) VALUES(?,?,1) ON CONFLICT(key,win) DO UPDATE SET n=n+1 RETURNING n").bind(k, win).first();
   if (Math.random() < 0.02) await env.DB.prepare("DELETE FROM hits WHERE win < ?").bind(Math.floor(now() / windowSec) - 2).run();
   return (r?.n || 0) <= limit;
+}
+// true when the counter of key has reached the limit in this window: it reads, and counts nothing.
+export async function full(env, key, limit, windowSec) {
+  const r = await env.DB.prepare("SELECT n FROM hits WHERE key=? AND win=?").bind(`${key}:${windowSec}`, Math.floor(now() / windowSec)).first();
+  return (r?.n || 0) >= limit;
 }
 const audit = (env, what) => env.DB.prepare("INSERT INTO audit(at,what) VALUES(?,?)").bind(now(), what).run();
 
@@ -182,12 +187,16 @@ export async function handleApi(request, env, url) {
     if (!validUser(username)) return fail(400, "kullanıcı adı 3-32 karakter: harf, rakam, . _ -");
     if (!validAuth(body.auth) || !validWrapped(body.wrapped)) return fail(400, "bad request");
     const code = normalizeCode(body.code);
-    // wrong codes are counted apart and fewer: the code is short, what protects it is that it can only be tried a few times
-    if (!(await allow(env, "code:" + where, 10, 3600)) || !(await allow(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    // the code is short, what protects it is that it can only be tried a few times: ten an hour from one address, and
+    // 200 wrong ones an hour from all. Only a wrong code counts in the second: a right one, a real signup, never uses it up.
+    if (!(await allow(env, "code:" + where, 10, 3600)) || (await full(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     const ch = await codeHash(code);
     const t = now();
     const claim = await env.DB.prepare("UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>?").bind(t, ch, t).run();
-    if (claim.meta.changes !== 1) return fail(400, "davet kodu geçersiz ya da süresi dolmuş");
+    if (claim.meta.changes !== 1) {
+      await allow(env, "code:all", 200, 3600);
+      return fail(400, "davet kodu geçersiz ya da süresi dolmuş");
+    }
     const salt = randomHex(16);
     try {
       const u = await env.DB.prepare("INSERT INTO users(username,salt,auth_hash,wrapped_key,quota,created_at) VALUES(?,?,?,?,?,?)")

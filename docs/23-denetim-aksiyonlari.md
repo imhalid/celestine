@@ -8,6 +8,16 @@ Durum etiketleri:
 - **YANLIŞ**: kodda öyle bir sorun yok.
 - **DOĞRULANMADI**: makul görünüyor, ama kodu okumak yetmedi; önce yeniden üretmek gerek.
 
+## Durum (2026-11-08, sonra)
+
+Yapıldı, testli: A1 (+ yetim nesne, toplu silme sigortası, senkron silmeleri 30 gün Çöp'te), A2, A3, A4 (gerçekti: bölme etkinleşince `resyncDoc`), B1, B2 (gerçekti: senkron, geçişte yazılan dosyanın üzerine yazmıyor), B3, B4 (`where()` çizimde bir şey oluşturmuyor, kilit altında okuyor), B5 (kilitler), C1 (MCP komut izin listesi), C2, C3 (`safeName`, `safeSubpath`, `within`), C4 (Worker: kota rezervasyonu, tek sorgulu `allow()`, mezar taşı toplu silme, yalnız yanlış kodlar global sayaçta), C5 (`0o600`), D1 (gerçek Markdown dışa aktarma, `exportmd.go`), D2, D3, D4 (en çok 40 belge metni, `touchDoc`), E3 (içe aktarma ve senkron hash önbelleği).
+
+Gerçek çıkmadı, kod değişmedi: A5 (`checkDisk` zaten güncelliyor; `TestResolveConflictUpdatesOpenPage` bekçi olarak kaldı), E1 (arama sorgusu karede 0,2-0,5 ms), E2 (`ReadNamed` 8000 sayfada 7 ms, 60 MB resimle bile).
+
+Bilerek yapılmadı: F1 (paket bölme); `time.Tick` (süreç ömrü boyunca çalışan döngüler, etkisi yok); `store_js.go` IndexedDB'yi dosya başına anahtara bölmek (WASM yapısı HEAD'de derlenmiyordu, `snapshot`/`endSnapshot`/`ReadNamed` eklenip derlenir hale getirildi, bölme çalıştırılıp denenemediği için yapılmadı); Worker'ın cron tetikleyicisi `wrangler.toml`'da, `deploy.sh`'ın ürettiği yapılandırmada yok (liste isteği artık süresi dolmuş 1000 mezar taşını tek çağrıyla siliyor, yani canlıda bir şey eksilmedi).
+
+Worker değişiklikleri canlıya DEPLOY EDİLMEDİ: yerel `wrangler dev` ile denendi (kota yarışı: altı eşzamanlı yazıdan yalnız biri geçti).
+
 ---
 
 ## 1. Önce yapılacaklar (P0: veri kaybı)

@@ -126,6 +126,16 @@ func (a *app) journal() (*Collection, error) {
 	return c, nil
 }
 
+// journalColl is the journal's collection if the library has one, and makes none: what is drawn each frame asks it.
+func (a *app) journalColl() *Collection {
+	for _, c := range a.lib.Collections {
+		if c.Journal || strings.EqualFold(c.Name, journalName) {
+			return c
+		}
+	}
+	return nil
+}
+
 // journalPage is the page of day d, or nil.
 func (a *app) journalPage(c *Collection, d time.Time) *Page {
 	for _, p := range c.All() {

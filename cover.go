@@ -36,7 +36,12 @@ func (a *app) setCover(p *Page, data []byte) error {
 	}
 	old := p.Cover
 	p.Cover = name
-	body, _ := p.Body()
+	body, err := p.Body()
+	if err != nil {
+		p.Cover = old // the page file cannot be read: it is not written over, and the picture is not kept
+		p.fs().Remove(filepath.Join(p.Dir, name))
+		return err
+	}
 	if err := p.Save(body); err != nil {
 		return err
 	}
@@ -56,7 +61,12 @@ func (a *app) removeCover(p *Page) {
 	}
 	old := p.Cover
 	p.Cover = coverNone // no cover, the made one either: the page said so
-	body, _ := p.Body()
+	body, err := p.Body()
+	if err != nil {
+		p.Cover = old
+		a.saveErr = err.Error()
+		return
+	}
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return
@@ -71,8 +81,14 @@ func (a *app) restoreAutoCover(p *Page) {
 	if p == a.page {
 		a.flush()
 	}
+	old := p.Cover
 	p.Cover = ""
-	body, _ := p.Body()
+	body, err := p.Body()
+	if err != nil {
+		p.Cover = old
+		a.saveErr = err.Error()
+		return
+	}
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 	}

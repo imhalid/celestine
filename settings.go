@@ -513,13 +513,12 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	a.settingsBackup(c)
 }
 
-// exportLibrary writes the library as a folder of Markdown files next to
-// its file - the folder library of plain files, which ryudit opens as it is
-// given on the command line - and says where it went.
+// exportLibrary writes the library as a folder of Markdown files next to its file (exportmd.go), and says where
+// it went.
 func (a *app) exportLibrary(store *Store) string {
 	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
 	a.flush()
-	if err := copyTree(store, storeRoot, osFS{}, dir); err != nil {
+	if err := a.lib.exportMarkdown(dir); err != nil {
 		return "Olmadı: " + err.Error()
 	}
 	return "Yazıldı: " + dir

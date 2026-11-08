@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,7 +253,9 @@ type app struct {
 	tables        map[string]*tableUI   // the state of each collection table, by collection and view (views.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
+	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
+	imageMiss     map[string]time.Time      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
 	clipRead      func() string             // and to read
 	carry         dockCarry                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
@@ -528,19 +531,7 @@ func (a *app) open(p *Page) {
 	}
 	a.flush()
 	a.noteOpened(p)
-	doc := a.docs[p]
-	if doc == nil {
-		body, err := p.Body()
-		if err != nil {
-			a.saveErr = err.Error()
-		}
-		a.sweepPictures(p, body)
-		doc = richtext.NewDocument(a.parsePage(p, body))
-		if hugePage(doc.Text()) {
-			doc.SetSelection(0, 0) // a document begins with its caret at the end: a huge page opens at its top
-		}
-		a.docs[p] = doc
-	}
+	doc := a.docFor(p)
 	a.page, a.doc, a.title = p, doc, p.Title
 	a.find.ver = 0 // another text to find in
 	_, caret := doc.Selection()
@@ -559,6 +550,53 @@ func (a *app) open(p *Page) {
 	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
 	a.linksStale()
 	a.links.built = time.Time{} // asked for at once for the page opened
+}
+
+// docFor is the text of page p, read from its file the first time and kept: a page shown in two panes is the one text.
+func (a *app) docFor(p *Page) *richtext.Document {
+	doc := a.docs[p]
+	if doc == nil {
+		body, err := p.Body()
+		if err != nil {
+			a.saveErr = err.Error()
+		}
+		a.sweepPictures(p, body)
+		doc = richtext.NewDocument(a.parsePage(p, body))
+		if hugePage(doc.Text()) {
+			doc.SetSelection(0, 0) // a document begins with its caret at the end: a huge page opens at its top
+		}
+		a.docs[p] = doc
+	}
+	a.touchDoc(p)
+	return doc
+}
+
+// maxDocs is how many pages' texts are kept: a text in the editor is some twenty times the size of its page, and a
+// session that goes through hundreds of pages kept them all. The pages shown, in any pane, are never let go.
+const maxDocs = 40
+
+// touchDoc notes that page p's text was used, and lets go of the longest unused ones past maxDocs. A page
+// written is saved when it is left (open), so what is let go is on disk; it is read again when it is opened.
+func (a *app) touchDoc(p *Page) {
+	if i := slices.Index(a.docUse, p); i >= 0 {
+		a.docUse = slices.Delete(a.docUse, i, i+1)
+	}
+	a.docUse = append(a.docUse, p)
+	if len(a.docs) <= maxDocs {
+		return
+	}
+	shown := map[*Page]bool{p: true, a.page: true}
+	for _, st := range a.ps.states {
+		shown[st.page] = true
+	}
+	for i := 0; len(a.docs) > maxDocs && i < len(a.docUse); {
+		if q := a.docUse[i]; shown[q] {
+			i++
+		} else {
+			delete(a.docs, q)
+			a.docUse = slices.Delete(a.docUse, i, i+1)
+		}
+	}
 }
 
 // newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
@@ -591,6 +629,7 @@ func (a *app) flush() {
 	if a.page != nil && a.dirty {
 		a.save()
 	}
+	a.flushPanes()
 }
 
 // view is a frame of the window. A panic in it is written to the crash log, and the window shows what

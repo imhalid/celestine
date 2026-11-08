@@ -191,8 +191,8 @@ func (a *app) saveSettings() {
 	if a.settingsFile == "" {
 		return
 	}
-	os.MkdirAll(filepath.Dir(a.settingsFile), 0o755)
-	if err := (osFS{}).WriteFile(a.settingsFile, data); err != nil {
+	os.MkdirAll(filepath.Dir(a.settingsFile), 0o700)
+	if err := writeFilePrivate(a.settingsFile, data); err != nil {
 		a.saveErr = err.Error()
 	}
 }
@@ -219,9 +219,11 @@ func (a *app) mcpCommand() string {
 
 // do runs fn on the library, holding the app's lock, and asks for a frame.
 func (a *app) do(fn func() error) error {
-	a.mu.Lock()
-	err := fn()
-	a.mu.Unlock()
+	err := func() error {
+		a.mu.Lock()
+		defer a.mu.Unlock() // a panic in fn lets go too: the goroutine that recovers it may need the lock (guard)
+		return fn()
+	}()
 	if a.invalidate != nil {
 		a.invalidate()
 	}

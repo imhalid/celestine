@@ -389,3 +389,26 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
 	return out, nil
 }
+
+// snapshot and endSnapshot are the file Store's way to read the table at once while the library opens; the
+// browser's library is all in memory already.
+func (s *Store) snapshot()    {}
+func (s *Store) endSnapshot() {}
+
+// ReadNamed reads every file whose name ends in "/"+base, by its path (as the file Store does).
+func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string][]byte{}
+	for p, n := range s.node {
+		if n.Dir || !strings.HasSuffix(p, "/"+base) {
+			continue
+		}
+		b, err := base64.StdEncoding.DecodeString(n.Data)
+		if err != nil {
+			return nil, err
+		}
+		out[p] = b
+	}
+	return out, nil
+}

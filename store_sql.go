@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -50,6 +51,7 @@ func OpenStore(file string) (*Store, error) {
 			return nil, err
 		}
 	}
+	os.Chmod(file, 0o600)                                                     // the file holds the settings, and in them the keys and tokens: for its owner alone
 	db.Exec(`ALTER TABLE versions ADD COLUMN label TEXT NOT NULL DEFAULT ''`) // a file from before names: the column is added (an error when it is there)
 	s := &Store{db: db, File: file}
 	if _, err := db.Exec(`INSERT OR IGNORE INTO nodes (path, parent, dir, data, mtime) VALUES (?, '', 1, NULL, ?)`, storeRoot, time.Now().UnixNano()); err != nil {

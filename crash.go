@@ -99,7 +99,10 @@ func markClean(dir string) {
 // without that goroutine.
 func (a *app) guard() {
 	if r := recover(); r != nil {
-		a.noteCrash(r, debug.Stack())
+		stack := debug.Stack()
+		a.mu.Lock() // the fields it sets are the window's, read in its frames
+		a.noteCrash(r, stack)
+		a.mu.Unlock()
 	}
 }
 

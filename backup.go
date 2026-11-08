@@ -370,7 +370,8 @@ func (a *app) restoreFrom(b Backup) {
 func (a *app) exportZip(store *Store) string {
 	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
 	a.flush()
-	if err := copyTree(store, storeRoot, osFS{}, dir); err != nil {
+	if err := a.lib.exportMarkdown(dir); err != nil {
+		os.RemoveAll(dir)
 		return "Olmadı: " + err.Error()
 	}
 	zipPath := dir + ".zip"

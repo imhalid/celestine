@@ -344,3 +344,36 @@ func TestMCPTagsTasksVersions(t *testing.T) {
 		t.Fatalf("search: %+v", hits)
 	}
 }
+
+// An agent runs the commands that move about and change the view, not those that restore a backup, put the
+// settings back, or ask for a file; and a near title does not run another command.
+func TestMCPCommandsAllowed(t *testing.T) {
+	a, _ := newTestApp(t, "ilk metin")
+	for _, c := range []struct {
+		title string
+		ok    bool
+	}{
+		{"Yazıyı büyüt", true}, {"Ayarlar", true}, {"Çöpe taşı: Sayfa", true}, {"Şimdi eşitle", true},
+		{"Hepsini varsayılana döndür", false}, {"Ayar dosyası oku…", false}, {"Markdown klasörü içe aktar…", false},
+		{"Senkron: sunucu", false}, {"Güncelleme kanalı: Deneme (beta)", false}, {"MCP sunucusu: aç", false},
+	} {
+		var found *palItem
+		for _, it := range a.commands() {
+			if it.title == c.title {
+				it := it
+				found = &it
+			}
+		}
+		if found == nil {
+			t.Fatalf("no command %q", c.title)
+		}
+		if got := mcpMayRun(*found); got != c.ok {
+			t.Errorf("%q: allowed %v, want %v", c.title, got, c.ok)
+		}
+	}
+	for _, it := range a.commands() {
+		if strings.HasPrefix(it.title, "Yedekten geri yükle") && mcpMayRun(it) {
+			t.Errorf("%q is allowed", it.title)
+		}
+	}
+}

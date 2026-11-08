@@ -217,8 +217,14 @@ func readPageIdx(q *Page, body string) *pageIdx {
 
 // readPageIdxPlain is readPageIdx, and the page's plain text it was read from.
 func readPageIdxPlain(q *Page, body string) (*pageIdx, string) {
+	return readPageIdxAt(q, q.Modified, q.writes, body)
+}
+
+// readPageIdxAt is readPageIdxPlain for a page as it was when mod and writes were read: a goroutine that reads
+// pages away from the window is given them, and does not read the page's own fields, which the window writes.
+func readPageIdxAt(q *Page, mod time.Time, writes int, body string) (*pageIdx, string) {
 	plain := plainText(body)
-	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body),
+	e := &pageIdx{mod: mod, writes: writes, tasks: tasksOf(q, body), tags: tagsOf(body),
 		words: len(strings.Fields(plain)), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
 		return e, plain

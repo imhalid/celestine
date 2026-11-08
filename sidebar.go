@@ -483,10 +483,8 @@ func (a *app) mustBuild(p *Page) bool {
 // open, the page above it opens, or the collection.
 func (a *app) trashPage(p *Page) {
 	a.noteDeleted()
-	open := false
-	for q := a.page; q != nil; q = q.Parent {
-		open = open || q == p
-	}
+	open := pageUnder(a.page, p)
+	a.flushPanes()
 	if open {
 		a.flush()
 	}
@@ -496,6 +494,7 @@ func (a *app) trashPage(p *Page) {
 		return
 	}
 	a.trashed = item
+	a.dropFromPanes(func(q *Page) bool { return pageUnder(q, p) }, func(*Collection) bool { return false })
 	if open {
 		a.page, a.doc = nil, nil
 		if p.Parent != nil {
@@ -504,6 +503,16 @@ func (a *app) trashPage(p *Page) {
 			a.openCollection(p.Coll)
 		}
 	}
+}
+
+// pageUnder says whether q is p, or a page below it.
+func pageUnder(q, p *Page) bool {
+	for ; q != nil; q = q.Parent {
+		if q == p {
+			return true
+		}
+	}
+	return false
 }
 
 // trashCollection moves c to the library's trash, and shows another one's first page.
@@ -522,6 +531,7 @@ func (a *app) trashCollection(c *Collection) {
 		return
 	}
 	a.trashed = item
+	a.dropFromPanes(func(*Page) bool { return false }, func(x *Collection) bool { return x == c })
 	if a.coll == c {
 		a.coll = nil
 	}

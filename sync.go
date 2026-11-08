@@ -61,6 +61,18 @@ type dirRemote struct{ root string }
 
 func (d dirRemote) file(name string) string { return filepath.Join(d.root, filepath.FromSlash(name)) }
 
+// errUnsafeName is a name that would leave the folder it is joined to.
+var errUnsafeName = errors.New("senkron: güvenli olmayan dosya adı")
+
+// path is the file of name in the folder, or an error when the name leaves it.
+func (d dirRemote) path(name string) (string, error) {
+	p, ok := safeSubpath(d.root, name)
+	if !ok {
+		return "", errUnsafeName
+	}
+	return p, nil
+}
+
 func (d dirRemote) List() (map[string]RemoteEntry, error) {
 	out := map[string]RemoteEntry{}
 	err := filepath.WalkDir(d.root, func(p string, e fs.DirEntry, err error) error {
@@ -100,7 +112,11 @@ func (d dirRemote) List() (map[string]RemoteEntry, error) {
 const tombSuffix = ".deleted~"
 
 func (d dirRemote) current(name string) (string, error) {
-	b, err := os.ReadFile(d.file(name))
+	p, err := d.path(name)
+	if err != nil {
+		return "", err
+	}
+	b, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
@@ -110,7 +126,13 @@ func (d dirRemote) current(name string) (string, error) {
 	return hashOf(b), nil
 }
 
-func (d dirRemote) Get(name string) ([]byte, error) { return os.ReadFile(d.file(name)) }
+func (d dirRemote) Get(name string) ([]byte, error) {
+	p, err := d.path(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(p)
+}
 
 func (d dirRemote) Put(name string, data []byte, prev string) error {
 	if cur, err := d.current(name); err != nil {
@@ -118,7 +140,7 @@ func (d dirRemote) Put(name string, data []byte, prev string) error {
 	} else if cur != prev {
 		return ErrConflict
 	}
-	p := d.file(name)
+	p, _ := d.path(name) // current has said it is safe
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
@@ -136,7 +158,7 @@ func (d dirRemote) Delete(name, prev string) error {
 	} else if cur != prev {
 		return ErrConflict
 	}
-	p := d.file(name)
+	p, _ := d.path(name)
 	os.Remove(p)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
@@ -487,6 +509,8 @@ type syncState struct {
 	// AllowRemovals lets this one pass delete here what the remote does not have, past massRemovals (the
 	// user said so); it is never kept.
 	AllowRemovals bool `json:"-"`
+	// Seen is each file as it was seen when its hash here was what the last sync had (localFiles).
+	Seen map[string]fileSeen `json:"seen,omitempty"`
 }
 
 // massRemovals is how many files, and a tenth of the library, a pass may delete here for being gone from
@@ -527,10 +551,19 @@ func (r SyncResult) String() string {
 	return s
 }
 
+// fileSeen is a file as it was seen at the last sync: its size and when it was written. What is seen the same
+// is the same bytes, and its hash is not made again.
+type fileSeen struct {
+	Size int64 `json:"s"`
+	Mod  int64 `json:"m"`
+}
+
 // localFiles lists the files of the tree under root, by path relative to it, with their hashes; the top
-// folders in skip are left out.
-func localFiles(fsys FS, root string, skip map[string]bool) (map[string]string, error) {
+// folders in skip are left out. A file seen as st saw it at the last sync has the hash it had then, and is not
+// read: a library of thousands was read whole, and hashed, every pass. seen is what is seen now.
+func localFiles(fsys FS, root string, skip map[string]bool, st *syncState) (map[string]string, map[string]fileSeen, error) {
 	out := map[string]string{}
+	seen := map[string]fileSeen{}
 	var walk func(dir, rel string) error
 	walk = func(dir, rel string) error {
 		ents, err := fsys.ReadDir(dir)
@@ -552,6 +585,13 @@ func localFiles(fsys FS, root string, skip map[string]bool) (map[string]string, 
 				}
 				continue
 			}
+			if fi, err := e.Info(); err == nil {
+				seen[r] = fileSeen{fi.Size(), fi.ModTime().UnixNano()}
+				if f, ok := st.Files[r]; ok && f.Local != "" && st.Seen[r] == seen[r] {
+					out[r] = f.Local
+					continue
+				}
+			}
 			b, err := fsys.ReadFile(filepath.Join(dir, name))
 			if err != nil {
 				return err
@@ -560,7 +600,7 @@ func localFiles(fsys FS, root string, skip map[string]bool) (map[string]string, 
 		}
 		return nil
 	}
-	return out, walk(root, "")
+	return out, seen, walk(root, "")
 }
 
 func conflictName(name string, at time.Time) string {
@@ -602,13 +642,24 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 	if st.Files == nil {
 		st.Files = map[string]fileSync{}
 	}
-	local, err := localFiles(fsys, root, skip)
+	local, seen, err := localFiles(fsys, root, skip, st)
 	if err != nil {
 		return res, pushed, err
 	}
 	remote, err := r.List()
 	if err != nil {
 		return res, pushed, err
+	}
+	for n := range remote { // a name that leaves the folder is a remote's to write over, or to delete, what is outside the library
+		if !safeName(n) {
+			delete(remote, n)
+			res.Errors = append(res.Errors, n+": "+errUnsafeName.Error())
+		}
+	}
+	for n := range st.Files {
+		if !safeName(n) {
+			delete(st.Files, n)
+		}
 	}
 	names := map[string]bool{}
 	for n := range local {
@@ -646,9 +697,6 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 		hold = gone >= massRemovals && gone*10 >= len(local)
 	}
 	for _, n := range order {
-		if strings.Contains(n, "(çakışma ") && false {
-			continue
-		}
 		lh := local[n] // "" when it is not here
 		re, rok := remote[n]
 		rh := ""
@@ -698,6 +746,9 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 			b, err := r.Get(n)
 			if err != nil {
 				fail(n, err)
+				continue
+			}
+			if !localIs(fsys, abs(n), lh) { // written here since the pass looked: what is typed is not written over, the next pass sees both changed
 				continue
 			}
 			if err := fsys.MkdirAll(filepath.Dir(abs(n))); err != nil {
@@ -767,6 +818,12 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 			fail(n, err)
 		}
 	}
+	st.Seen = map[string]fileSeen{} // a file is kept as seen only when what the sync knows of it is what is there
+	for n, s := range seen {
+		if f, ok := st.Files[n]; ok && f.Local != "" && f.Local == local[n] {
+			st.Seen[n] = s
+		}
+	}
 	return res, pushed, nil
 }
 
@@ -795,4 +852,14 @@ func (e *encRemote) sentBefore(name string, data []byte) bool {
 	}
 	plain, err := e.open(raw)
 	return err == nil && bytes.Equal(plain, data)
+}
+
+// localIs says whether the file at p is still what a pass saw of it: the bytes of hash lh, or no file when lh
+// is "". A pass runs while the window goes on, and a page saved after the pass looked is not written over.
+func localIs(fsys FS, p, lh string) bool {
+	b, err := fsys.ReadFile(p)
+	if lh == "" {
+		return errors.Is(err, fs.ErrNotExist)
+	}
+	return err == nil && hashOf(b) == lh
 }

@@ -71,8 +71,7 @@ func (a *app) prewarm() {
 						}
 					}
 					_, body := splitPage(src)
-					e, plain := readPageIdxPlain(j.p, textOfBody(body))
-					e.mod, e.writes = j.mod, j.writes
+					e, plain := readPageIdxAt(j.p, j.mod, j.writes, textOfBody(body))
 					out <- prewarmRead{j, e, &plainIdx{mod: j.mod, writes: j.writes, plain: plain, folded: fold(plain)}}
 				}
 			}()

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -439,4 +442,88 @@ func TestDragIntoDockAndBack(t *testing.T) {
 		t.Fatalf("panes %d, Dock %v", a.paneCount(), a.ps.layout != nil)
 	}
 	_ = second
+}
+
+// A page thrown away while another pane shows it: that pane shows its collection, not a page that is gone
+// (written to, it would make its folder again).
+func TestTrashedPageLeavesOtherPane(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1400, 800)
+	tt.Frame()
+	first := a.page
+	second, err := first.Coll.NewPage(nil, "İkinci")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.SaveText("Öteki\n")
+	a.openInSide(place{"page", second.Dir}) // pane 1 in use, showing second
+	tt.Advance(300 * time.Millisecond)
+	a.usePane(0)
+	tt.Advance(300 * time.Millisecond)
+	a.trashPage(second)
+	if st := a.ps.states[1]; st.page != nil || st.doc != nil || st.coll != first.Coll {
+		t.Fatalf("the other pane still shows it: page %v coll %v", st.page, st.coll)
+	}
+	tt.Advance(300 * time.Millisecond) // drawn with no page in it: no failure
+	if _, err := os.Stat(second.Dir); !os.IsNotExist(err) {
+		t.Fatalf("the folder of the page is there again: %v", err)
+	}
+}
+
+// The same page in two panes, written in one: in the other, when it is used, the text is not a paste.
+func TestSamePageOtherPaneResync(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1400, 800)
+	tt.Frame()
+	p := a.page
+	a.openInSide(place{"page", p.Dir})
+	tt.Advance(300 * time.Millisecond)
+	a.usePane(0)
+	tt.Advance(300 * time.Millisecond)
+	if err := a.writeBody(p, "Yeni metin"); err != nil { // as an agent does, the other pane not in use
+		t.Fatal(err)
+	}
+	a.usePane(1)
+	if v := a.doc.Version(); a.version != v || a.length != a.doc.Text().Len() {
+		t.Fatalf("pane 1 not up with the text: version %d/%d length %d/%d", a.version, v, a.length, a.doc.Text().Len())
+	}
+	a.usePane(0)
+	if v := a.doc.Version(); a.version != v {
+		t.Fatalf("pane 0 not up with the text: version %d/%d", a.version, v)
+	}
+}
+
+// The texts of the pages opened are kept, up to a number: a session through hundreds of pages does not hold them
+// all, and what was let go is read again from its file, written as it was left.
+func TestDocsAreBounded(t *testing.T) {
+	a, _ := newTestApp(t, "ilk\n")
+	c := a.lib.Collections[0]
+	var pages []*Page
+	for i := 0; i < maxDocs+30; i++ {
+		p, err := c.NewPage(nil, fmt.Sprintf("S%d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SaveText(fmt.Sprintf("metin %d\n", i))
+		pages = append(pages, p)
+	}
+	a.open(pages[0])
+	a.doc.SetText(importMarkdown("değişti\n")) // written in, and left: saved as it goes
+	a.dirty = true
+	for _, p := range pages[1:] {
+		a.open(p)
+	}
+	if len(a.docs) > maxDocs {
+		t.Fatalf("%d texts kept, at most %d", len(a.docs), maxDocs)
+	}
+	if a.docs[a.page] == nil || a.docs[pages[len(pages)-1]] == nil {
+		t.Fatal("the page shown has no text")
+	}
+	if a.docs[pages[0]] != nil {
+		t.Fatal("the longest unused is kept")
+	}
+	a.open(pages[0]) // read again from its file
+	if got := a.doc.Text().String(); !strings.Contains(got, "değişti") {
+		t.Fatalf("what was written is lost: %q", got)
+	}
 }

@@ -182,6 +182,7 @@ func (a *app) usePane(i int) {
 	a.ps.states[a.ps.active] = a.paneState
 	a.ps.active, a.ps.cur = i, i
 	a.paneState = a.ps.states[i]
+	a.resyncDoc()
 	a.refocus = true // its text takes the keyboard
 	a.ps.settle, a.ps.focus = 4, true
 	if a.frame != nil {
@@ -581,7 +582,7 @@ func (a *app) restorePanes(refs map[int]paneRef) {
 			}
 			for _, p := range c.All() {
 				if r.page != "" && p.Dir == r.page {
-					st.page, st.doc = p, a.docs[p]
+					st.page, st.doc = p, a.docFor(p) // a page whose text was never read has none yet: drawn so, it would fail
 				}
 			}
 		}
@@ -661,6 +662,55 @@ func (a *app) restorePaneLayout() {
 	for i, id := range ids {
 		if pl, ok := save.Places[id]; ok && pl[0] != "" {
 			a.withPane(i, func() { a.goTo(place{pl[0], pl[1]}) })
+		}
+	}
+}
+
+// resyncDoc takes the pane in use up with its text, if the text was written while the pane was not in
+// use (the same page in another pane, an agent, a sync): track would read the difference as a paste and
+// make of it what a paste is made of.
+func (a *app) resyncDoc() {
+	if a.doc == nil || a.page == nil || a.doc.Version() == a.version {
+		return
+	}
+	_, caret := a.doc.Selection()
+	a.version, a.length, a.caretAt = a.doc.Version(), a.doc.Text().Len(), caret
+	a.prevText = a.doc.Text()
+	a.lastSave, a.lastWords, a.dirty = encodeBody(a.doc.Text()), -1, false
+	a.statsVer = 0
+}
+
+// dropFromPanes takes what was thrown away out of the panes that are not in use: each shows the collection
+// of its page instead (the pane in use is the caller's). page and coll say what is gone.
+func (a *app) dropFromPanes(page func(*Page) bool, coll func(*Collection) bool) {
+	for i := range a.ps.states {
+		if i == a.ps.active {
+			continue
+		}
+		st := &a.ps.states[i]
+		if st.page != nil && (page(st.page) || coll(st.page.Coll)) {
+			c := st.page.Coll
+			st.page, st.doc, st.title, st.dirty = nil, nil, "", false
+			if !coll(c) {
+				st.coll = c
+			}
+		}
+		if st.coll != nil && coll(st.coll) {
+			st.coll = nil
+		}
+	}
+}
+
+// flushPanes saves the pages written in the panes that are not in use: one is dirty only when it was left
+// so, but what is not saved is lost when the window closes.
+func (a *app) flushPanes() {
+	for i := range a.ps.states {
+		if i != a.ps.active && a.ps.states[i].dirty && a.ps.states[i].page != nil {
+			a.withPane(i, func() {
+				if a.page != nil && a.doc != nil && a.dirty {
+					a.save()
+				}
+			})
 		}
 	}
 }

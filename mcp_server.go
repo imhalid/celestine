@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,7 +59,11 @@ func (a *app) mcpHandler() http.Handler {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+a.settings.Token {
+		var token string
+		a.mu.Lock()
+		token = a.settings.Token
+		a.mu.Unlock()
+		if token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -471,7 +476,9 @@ func (a *app) addCommandTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			var out []cmdInfo
 			a.do(func() error {
 				for _, it := range a.commands() {
-					out = append(out, cmdInfo{it.title, it.keys, it.off})
+					if mcpMayRun(it) {
+						out = append(out, cmdInfo{it.title, it.keys, it.off})
+					}
 				}
 				return nil
 			})
@@ -480,10 +487,40 @@ func (a *app) addCommandTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 	mcp.AddTool(s, &mcp.Tool{Name: "run_command", Description: "Runs a command of the app's command palette by its title (list_commands gives them), as the user would from ⌘P; the user sees it happen in their window."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in runCmdArgs) (*mcp.CallToolResult, any, error) {
 			ran := false
-			a.do(func() error { ran = a.runCommand(in.Command); return nil })
+			a.do(func() error {
+				if it := a.commandByTitle(in.Command); it != nil && it.run != nil && mcpMayRun(*it) { // what it found, not what was named: a near title is another command
+					it.run()
+					ran = true
+				}
+				return nil
+			})
 			if !ran {
 				return nil, nil, errString("no such command, or it cannot run now: " + in.Command)
 			}
 			return result(map[string]any{"ran": in.Command})
 		})
+}
+
+// mcpCommandCats are the groups of commands an agent may run: moving about, the view, the text, a page,
+// a collection, the panes. The groups left out change where the library is kept, what it is sent to, how
+// the app updates, or ask for a file (Dosyalar ve senkron, Uygulama): they are the user's.
+var mcpCommandCats = map[string]bool{"Sayfa": true, "Koleksiyon": true, "Bölmeler": true, "Git": true, "Yazı": true, "Görünüm": true}
+
+// mcpCommandsAlso are commands of the groups left out that an agent may run too: they only do what their
+// title says, and cannot be turned to anything else.
+var mcpCommandsAlso = []string{"Şimdi eşitle", "Şimdi yedekle", "Kısayollar ve yardım", "Bu sürümde neler yeni", "Yeni sürümü denetle"}
+
+// mcpMayRun says whether an agent may run the command it. A page thrown away can be put back from the
+// trash; a restore of a backup, the settings put back to their start, a file chosen in a dialog, the place
+// sync goes to, are not for an agent.
+func mcpMayRun(it palItem) bool {
+	if mcpCommandCats[it.cat] {
+		return true
+	}
+	for _, t := range mcpCommandsAlso {
+		if it.title == T(t) {
+			return true
+		}
+	}
+	return false
 }

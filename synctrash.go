@@ -42,6 +42,9 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 			continue
 		}
 		if kept[hash[n]] { // it is in the trash already, moved there from the other device
+			if !localIs(fsys, abs(n), hash[n]) { // written since the pass looked
+				continue
+			}
 			if err := removeFile(fsys, abs(n)); err != nil {
 				failed[n] = err
 				continue
@@ -56,6 +59,9 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 				continue
 			}
 			failed[n] = err
+			continue
+		}
+		if h := hash[n]; h != "" && hashOf(b) != h { // written since the pass looked: it is not taken away, the next pass sees it changed here
 			continue
 		}
 		f := folders[dir]
@@ -104,6 +110,15 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 		data, _ := json.MarshalIndent(f.item, "", "  ")
 		// not written: the files are in the trash without a note, and Trash() reads them as pages from nowhere
 		fsys.WriteFile(filepath.Join(f.to, trashNote), data)
+	}
+	// the folders they were in, if nothing is left in them: an empty one keeps its name from a page made there later
+	for _, n := range removed {
+		for dir := path.Dir(n); dir != "." && dir != "/" && dir != trashDir; dir = path.Dir(dir) {
+			ents, err := fsys.ReadDir(abs(dir))
+			if err != nil || len(ents) > 0 || fsys.Remove(abs(dir)) != nil {
+				break
+			}
+		}
 	}
 	return removed, failed
 }

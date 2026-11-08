@@ -186,6 +186,7 @@ func (a *app) reloadLibrary() {
 	*a.lib = *fresh
 	a.docs = map[*Page]*richtext.Document{}
 	a.page, a.coll = nil, nil
+	a.docUse = nil // the pages are new ones: what is kept is listed again below
 	for _, c := range a.lib.Collections {
 		if o, ok := open[c.Dir]; ok {
 			c.Open = o
@@ -199,6 +200,7 @@ func (a *app) reloadLibrary() {
 			}
 			if d := docs[p.Dir]; d != nil {
 				a.docs[p] = d
+				a.docUse = append(a.docUse, p)
 			}
 			if p.Dir == pageDir {
 				a.page = p

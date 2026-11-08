@@ -363,8 +363,8 @@ func (p *Page) Body() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, body := splitPage(src)
-	return body, nil
+	_, body, err := splitPageChecked(src)
+	return body, err
 }
 
 // Text reads the page's text for what looks into it, as plain lines (see
@@ -620,6 +620,9 @@ func (l *Library) Trash() []*TrashItem {
 // the top of its collection, else of the first one. It returns what came back.
 func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	defer pagesChanged()
+	if item.From != "" && !safeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
+		return nil, nil, errors.New("çöp notundaki yol güvenli değil: " + item.From)
+	}
 	if item.Kind == "collection" {
 		name := filepath.Base(item.From)
 		if name == "." || name == "" {
@@ -711,7 +714,7 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 // putBack moves item's folder into folder in, named name (or a free name
 // like it), without its note.
 func (l *Library) putBack(item *TrashItem, in, name string) (string, error) {
-	if name == "" || name == "." {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) { // a name from a note in the trash: not a path out of the folder
 		name = "geri"
 	}
 	to, err := uniqueDir(l.fs, in, name)

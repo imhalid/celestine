@@ -95,16 +95,32 @@ func (a *app) pictureAttachment(p *Page, name, ref string) *richtext.Attachment 
 	return att
 }
 
+// imageRetry is how long a picture that could not be read is left alone: one that a sync brings later is
+// then there, without the app being started again.
+const imageRetry = 3 * time.Second
+
 // loadImage reads and decodes the picture in file; pictures do not change, so
-// it is kept once read.
+// it is kept once read. One that cannot be read or decoded is not kept: it is tried again after imageRetry.
 func (a *app) loadImage(p *Page, file string) ui.ImageSource {
-	if src, ok := a.images[file]; ok {
+	if src, ok := a.images[file]; ok && src != nil {
 		return src
+	}
+	now := a.clock()
+	if at, ok := a.imageMiss[file]; ok && now.Sub(at) < imageRetry {
+		return nil
 	}
 	var src ui.ImageSource
 	if data, err := p.fs().ReadFile(file); err == nil {
 		src, _ = ui.DecodeImage(data)
 	}
+	if src == nil {
+		if a.imageMiss == nil {
+			a.imageMiss = map[string]time.Time{}
+		}
+		a.imageMiss[file] = now
+		return nil
+	}
+	delete(a.imageMiss, file)
 	if a.images == nil {
 		a.images = map[string]ui.ImageSource{}
 	}

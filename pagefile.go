@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 )
@@ -26,9 +27,19 @@ type pageDoc struct {
 // splitPage reads a page file into its meta and its body, which is the
 // body's JSON as it is. A file that cannot be read has none of either.
 func splitPage(src []byte) (map[string]string, string) {
+	meta, body, _ := splitPageChecked(src)
+	return meta, body
+}
+
+// splitPageChecked is splitPage that says when the file is not a page: what writes a page back must not
+// take the empty body it is given then for the page's own, and write it over a file that can be mended.
+func splitPageChecked(src []byte) (map[string]string, string, error) {
 	var d pageDoc
-	if json.Unmarshal(src, &d) != nil {
-		return map[string]string{}, "[]"
+	if len(bytes.TrimSpace(src)) == 0 { // nothing yet: an empty page
+		return map[string]string{}, "[]", nil
+	}
+	if err := json.Unmarshal(src, &d); err != nil {
+		return map[string]string{}, "[]", errors.New("sayfa dosyası bozuk: " + err.Error())
 	}
 	if d.Meta == nil {
 		d.Meta = map[string]string{}
@@ -37,7 +48,7 @@ func splitPage(src []byte) (map[string]string, string) {
 	if body == "" || body == "null" {
 		body = "[]"
 	}
-	return d.Meta, body
+	return d.Meta, body, nil
 }
 
 // pageMeta reads only the meta of a page file: not the body after it.

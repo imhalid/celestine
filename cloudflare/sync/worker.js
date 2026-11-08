@@ -42,6 +42,21 @@ function legacyAccount(env, token) {
 const dead = (o) => o?.customMetadata?.tomb === "1";
 
 export default {
+  // The daily pass: the tombstones older than TOMB_DAYS are deleted, in the thousand at a time that R2 deletes. They were
+  // deleted while listing, which a long list of them made slow, and took the subrequests of the request.
+  async scheduled(event, env) {
+    const old = Date.now() - TOMB_DAYS * 864e5;
+    let cursor;
+    let gone = 0;
+    do {
+      const page = await env.SYNC.list({ cursor, include: ["customMetadata"] });
+      const keys = page.objects.filter((o) => dead(o) && o.uploaded.getTime() < old).map((o) => o.key);
+      if (keys.length) await env.SYNC.delete(keys);
+      gone += keys.length;
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    console.log(`tombstones deleted: ${gone}`);
+  },
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     let res;
@@ -84,18 +99,22 @@ async function files(request, env, url) {
   if (!name) {
     const out = {};
     const old = Date.now() - TOMB_DAYS * 864e5;
+    const expired = [];
     let cursor;
     do {
       const page = await bucket.list({ prefix, cursor, include: ["customMetadata"] });
       for (const o of page.objects) {
         const n = o.key.slice(prefix.length);
         if (dead(o)) {
-          if (o.uploaded.getTime() < old) await bucket.delete(o.key);
-          else out[n] = { deleted: true };
+          if (o.uploaded.getTime() >= old) out[n] = { deleted: true };
+          else expired.push(o.key); // left out of the list, and deleted below
         } else out[n] = { hash: o.customMetadata?.hash || "" };
       }
       cursor = page.truncated ? page.cursor : undefined;
     } while (cursor);
+    // the expired tombstones go in one call, at most a thousand (R2's limit for it): not one request each, which a long list of
+    // them made slow and over the limit of subrequests. The rest go with the next listing, and the daily pass (scheduled).
+    if (expired.length) await bucket.delete(expired.slice(0, 1000));
     return Response.json(out);
   }
   const key = prefix + name;
@@ -117,10 +136,25 @@ async function files(request, env, url) {
   if (request.method === "PUT") {
     const body = await request.arrayBuffer();
     if (body.byteLength > MAX_BYTES) return new Response("too large", { status: 413 });
-    if (user && user.bytes - oldSize + body.byteLength > user.quota) return new Response("quota", { status: 413 });
-    const o = await bucket.put(key, body, { onlyIf: only, customMetadata: { hash: await sha256(body) } });
-    if (!o) return new Response("stale", { status: 412 });
-    await bytes(body.byteLength - oldSize);
+    const delta = body.byteLength - oldSize;
+    // what the write adds is taken from the quota first, in one statement that checks it, so two writes at once cannot both
+    // pass; it is given back if the write does not happen
+    if (user && delta > 0) {
+      const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(delta, user.id).run();
+      if (r.meta.changes !== 1) return new Response("quota", { status: 413 });
+    }
+    let o;
+    try {
+      o = await bucket.put(key, body, { onlyIf: only, customMetadata: { hash: await sha256(body) } });
+    } catch (e) {
+      if (delta > 0) await bytes(-delta);
+      throw e;
+    }
+    if (!o) {
+      if (delta > 0) await bytes(-delta);
+      return new Response("stale", { status: 412 });
+    }
+    if (delta < 0) await bytes(delta);
     return new Response("ok");
   }
   if (!head || dead(head)) return new Response("ok"); // already gone

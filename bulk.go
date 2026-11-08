@@ -145,7 +145,11 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 		if have {
 			continue
 		}
-		body, _ := p.Body()
+		body, err := p.Body()
+		if err != nil {
+			a.saveErr = err.Error()
+			continue
+		}
 		if err := p.Save(appendLine(body, "#"+tag)); err != nil {
 			a.saveErr = err.Error()
 			continue
@@ -216,12 +220,13 @@ func (a *app) bulkChoices(coll *Collection, pages []*Page) []menuItem {
 
 // bulkTrash moves the pages to the trash.
 func (a *app) bulkTrash(pages []*Page) {
+	a.flush() // what is written is saved before the pages go: not after, into a folder that is not there
 	n := 0
 	for _, p := range pages {
 		if _, err := a.lib.TrashPage(p); err == nil {
 			n++
-			if p == a.page {
-				a.flush()
+			a.dropFromPanes(func(q *Page) bool { return pageUnder(q, p) }, func(*Collection) bool { return false })
+			if pageUnder(a.page, p) {
 				a.page, a.doc = nil, nil
 			}
 		}

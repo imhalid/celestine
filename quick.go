@@ -142,7 +142,12 @@ func (a *app) captureAsPage(text string) (string, error) {
 // view is the panel.
 func (q *quickNote) view(c *ui.Context) {
 	a := q.a
-	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]})
+	// what the app holds that a frame reads, taken under its lock: this window is drawn beside the main one, and a note
+	// added from it (submit) takes the lock itself, so it is not held for the frame
+	a.mu.Lock()
+	theme, where := a.settings.Theme, q.where()
+	a.mu.Unlock()
+	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[theme%3]})
 	t := ryugo.From(c)
 	cl := t.Colors
 	if c.Vibrancy() {
@@ -159,7 +164,7 @@ func (q *quickNote) view(c *ui.Context) {
 	ui.Column(c).Fill().Padding(16).Gap(12).Children(func() {
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 			ryugo.Segmented(c.Key("quick-mode"), &q.mode, []string{"Günlüğe", "Yeni sayfa"}, ryugo.SegmentedOptions{Label: "Nereye", Size: ryugo.Sm})
-			ui.Text(c, q.where()).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(1)
+			ui.Text(c, where).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(1)
 			ui.Text(c, T("Hızlı not")).FontSize(12.5).FontWeight(620).TextColor(cl.Muted)
 		})
 		ph := "Günlüğe bir not… [] ile görev, her satır bir madde"
@@ -192,7 +197,7 @@ func (q *quickNote) where() string {
 		}
 		return ""
 	}
-	if c, err := q.a.journal(); err == nil {
+	if c := q.a.journalColl(); c != nil {
 		return "→ " + c.Name + ", bugün"
 	}
 	return ""

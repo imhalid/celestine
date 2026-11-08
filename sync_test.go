@@ -780,6 +780,9 @@ func TestSyncRemovalGoesToTrash(t *testing.T) {
 	if a.read("notlar/selam/page.json") != "<yok>" || a.read("notlar/kalan/page.json") == "<yok>" {
 		t.Fatal("the wrong files went")
 	}
+	if _, err := os.Stat(filepath.Join(a.root, "notlar", "selam")); !os.IsNotExist(err) {
+		t.Fatalf("the empty folder is left: %v", err)
+	}
 	lib := &Library{Root: a.root, fs: osFS{}}
 	items := lib.Trash()
 	if len(items) != 1 || items[0].Title != "Selam" || items[0].Kind != "page" || items[0].From != filepath.FromSlash("notlar/selam") {
@@ -839,5 +842,201 @@ func TestPurgeTrash(t *testing.T) {
 	}
 	if d := trashDaysLeft(items[0], now); d != 1 {
 		t.Fatalf("days left %d", d)
+	}
+}
+
+// A remote that names a file out of the library (../) gets nothing written or deleted there: the name is
+// left out and told.
+func TestSyncUnsafeNameFromRemote(t *testing.T) {
+	remoteDir := t.TempDir()
+	root := t.TempDir()
+	outside := filepath.Join(filepath.Dir(root), "disari-"+filepath.Base(root))
+	os.WriteFile(outside, []byte("dokunma"), 0o644)
+	defer os.Remove(outside)
+	a := &device{t: t, root: root}
+	a.write("notlar/a/page.json", "a")
+	rem := &fakeNames{Remote: dirRemote{remoteDir}, extra: map[string]RemoteEntry{"../disari-" + filepath.Base(root): {Hash: "x"}}}
+	res, err := SyncOnce(osFS{}, root, rem, &a.st, map[string]bool{}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(outside); string(b) != "dokunma" {
+		t.Fatalf("the file outside was written: %q", b)
+	}
+	if len(res.Errors) != 1 || !strings.Contains(res.Errors[0], "güvenli olmayan") {
+		t.Fatalf("errors: %v", res.Errors)
+	}
+	// and it was never asked for
+	if rem.got != 0 {
+		t.Fatalf("Get called %d times for it", rem.got)
+	}
+}
+
+// fakeNames is a remote that lists a name more than it has.
+type fakeNames struct {
+	Remote
+	extra map[string]RemoteEntry
+	got   int
+}
+
+func (f *fakeNames) List() (map[string]RemoteEntry, error) {
+	l, err := f.Remote.List()
+	for n, e := range f.extra {
+		l[n] = e
+	}
+	return l, err
+}
+
+func (f *fakeNames) Get(name string) ([]byte, error) {
+	if _, ok := f.extra[name]; ok {
+		f.got++
+	}
+	return f.Remote.Get(name)
+}
+
+// countFS counts the files read.
+type countFS struct {
+	FS
+	reads int
+}
+
+func (c *countFS) ReadFile(n string) ([]byte, error) { c.reads++; return c.FS.ReadFile(n) }
+
+// A file seen as it was at the last sync is not read and hashed again: a pass over a library that did not change
+// reads nothing; one that changed, only what changed, even when it is the same size.
+func TestSyncDoesNotReadWhatDidNotChange(t *testing.T) {
+	remoteDir := t.TempDir()
+	a := newDevice(t)
+	for i := 0; i < 20; i++ {
+		a.write(fmt.Sprintf("notlar/s%02d/page.json", i), "aaa")
+	}
+	a.sync(dirRemote{remoteDir})
+	cf := &countFS{FS: osFS{}}
+	res, err := SyncOnce(cf, a.root, dirRemote{remoteDir}, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 {
+		t.Fatal(err, res.Errors)
+	}
+	if cf.reads != 0 {
+		t.Fatalf("a pass with nothing changed read %d files", cf.reads)
+	}
+	// one is written again, the same size, and its time is not the same
+	a.write("notlar/s07/page.json", "bbb")
+	later := time.Now().Add(3 * time.Second)
+	os.Chtimes(filepath.Join(a.root, "notlar", "s07", "page.json"), later, later)
+	cf.reads = 0
+	res, err = SyncOnce(cf, a.root, dirRemote{remoteDir}, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 || res.Pushed != 1 {
+		t.Fatalf("%v %+v", err, res)
+	}
+	if cf.reads > 2 { // the one that changed: read to be hashed, and to be sent
+		t.Fatalf("read %d files for one that changed", cf.reads)
+	}
+	b := newDevice(t)
+	if b.sync(dirRemote{remoteDir}); b.read("notlar/s07/page.json") != "bbb" {
+		t.Fatal("the change did not arrive")
+	}
+}
+
+// A conflict chosen while the page is open in the editor: the editor shows the choice, and what is written
+// next does not put the other text back over it.
+func TestResolveConflictUpdatesOpenPage(t *testing.T) {
+	dir := t.TempDir()
+	a, b := syncApp(t, dir), syncApp(t, dir)
+	c, _ := a.lib.NewCollection("Ortak")
+	p, _ := c.NewPage(nil, "Merhaba")
+	p.SaveText("birinci metin\n")
+	a.syncNow()
+	waitSync(t, a)
+	b.syncNow()
+	waitSync(t, b)
+	pa := a.lib.Collections[0].All()[0]
+	var pb *Page
+	for _, cc := range b.lib.Collections {
+		for _, pp := range cc.All() {
+			pb = pp
+		}
+	}
+	pa.SaveText("A'nın metni\n")
+	pb.SaveText("B'nin metni\n")
+	a.sy.tried = time.Time{}
+	a.syncNow()
+	waitSync(t, a)
+	b.syncNow()
+	waitSync(t, b)
+	files := b.conflictFiles()
+	if len(files) != 1 {
+		t.Fatalf("%v", files)
+	}
+	for _, cc := range b.lib.Collections {
+		for _, pp := range cc.All() {
+			pb = pp
+		}
+	}
+	b.open(pb) // the page is in the editor: the remote's text, which stayed
+	if !strings.Contains(b.doc.Text().String(), "A'nın metni") {
+		t.Fatalf("the editor has %q", b.doc.Text().String())
+	}
+	if err := b.resolveConflict(files[0], true); err != nil {
+		t.Fatal(err)
+	}
+	if b.doc == nil || !strings.Contains(b.doc.Text().String(), "B'nin metni") {
+		t.Fatalf("the editor does not show the choice: %v", b.doc)
+	}
+	b.flush()
+	disk, _ := b.page.Text()
+	if !strings.Contains(disk, "B'nin metni") {
+		t.Fatalf("what is saved after the choice is %q", disk)
+	}
+}
+
+// onGet runs a function when the remote is asked for a file: the window going on while a pass runs.
+type onGet struct {
+	Remote
+	fn func(name string)
+}
+
+func (g *onGet) Get(name string) ([]byte, error) {
+	if g.fn != nil {
+		g.fn(name)
+	}
+	return g.Remote.Get(name)
+}
+
+// A page saved while a pass is bringing the remote's version down is not written over: the next pass finds
+// both changed, and keeps both.
+func TestSyncDoesNotOverwriteWhatIsSavedMidPass(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/s/page.json", "ilk")
+	a.sync(dirRemote{remoteDir})
+	b.sync(dirRemote{remoteDir})
+	b.write("notlar/s/page.json", "b'nin")
+	b.sync(dirRemote{remoteDir})
+	hook := &onGet{Remote: dirRemote{remoteDir}}
+	hook.fn = func(string) { a.write("notlar/s/page.json", "yazılırken") } // the user saves as it comes down
+	res, err := SyncOnce(osFS{}, a.root, hook, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 {
+		t.Fatal(err, res.Errors)
+	}
+	if a.read("notlar/s/page.json") != "yazılırken" || res.Pulled != 0 {
+		t.Fatalf("written over: %q %+v", a.read("notlar/s/page.json"), res)
+	}
+	hook.fn = nil
+	res = a.sync(dirRemote{remoteDir})
+	if len(res.Conflicts) != 1 {
+		t.Fatalf("the next pass: %+v", res)
+	}
+	if a.read("notlar/s/page.json") != "b'nin" {
+		t.Fatalf("the remote's did not stay: %q", a.read("notlar/s/page.json"))
+	}
+	found := false
+	filepath.WalkDir(a.root, func(p string, d os.DirEntry, err error) error {
+		if b, _ := os.ReadFile(p); err == nil && !d.IsDir() && string(b) == "yazılırken" {
+			found = true
+		}
+		return nil
+	})
+	if !found {
+		t.Fatal("what the user wrote is lost")
 	}
 }

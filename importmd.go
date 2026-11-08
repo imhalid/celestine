@@ -33,6 +33,7 @@ var (
 // importStats is what an import made.
 type importStats struct {
 	Collections, Pages, Pictures int
+	byName                       map[string]string // the files of the vault by their name, read once: a picture is looked for in it, not by walking the vault again
 }
 
 func (s importStats) String() string {
@@ -187,19 +188,27 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 		}
 		src := ""
 		for _, cand := range []string{filepath.Join(dir, ref), filepath.Join(root, ref)} {
+			if !within(root, cand) { // ../../ out of the vault: what is not in it is not its picture
+				continue
+			}
 			if fi, err := os.Stat(cand); err == nil && !fi.IsDir() {
 				src = cand
 				break
 			}
 		}
 		if src == "" { // an Obsidian embed names the file only: it is anywhere in the vault
-			base := filepath.Base(ref)
-			filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-				if err == nil && src == "" && !d.IsDir() && d.Name() == base {
-					src = path
-				}
-				return nil
-			})
+			if st.byName == nil {
+				st.byName = map[string]string{}
+				filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+					if err == nil && !d.IsDir() {
+						if _, ok := st.byName[d.Name()]; !ok { // the first, as the walk finds them
+							st.byName[d.Name()] = path
+						}
+					}
+					return nil
+				})
+			}
+			src = st.byName[filepath.Base(ref)]
 		}
 		if src == "" {
 			return ""

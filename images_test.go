@@ -216,3 +216,57 @@ func TestPictureLightbox(t *testing.T) {
 		t.Fatal("a click leaves it")
 	}
 }
+
+// A picture that cannot be read yet (a sync has not brought it) is not kept as missing: it is tried again
+// after a moment, and shows when it is there.
+func TestImageComesLater(t *testing.T) {
+	a, _ := newTestApp(t, "x")
+	now := time.Date(2026, 11, 8, 10, 0, 0, 0, time.UTC)
+	a.clock = func() time.Time { return now }
+	file := filepath.Join(a.page.Dir, "sonra.png")
+	if a.loadImage(a.page, file) != nil {
+		t.Fatal("a picture that is not there")
+	}
+	if err := a.page.fs().WriteFile(file, pngBytes(8, 8)); err != nil {
+		t.Fatal(err)
+	}
+	if a.loadImage(a.page, file) != nil {
+		t.Fatal("tried again at once, every frame")
+	}
+	now = now.Add(imageRetry + time.Second)
+	if a.loadImage(a.page, file) == nil {
+		t.Fatal("the picture that came is not read")
+	}
+}
+
+// The settings are written for their owner alone.
+func TestSettingsPrivate(t *testing.T) {
+	a, _ := newTestApp(t, "x")
+	dir := t.TempDir()
+	a.settingsFile = filepath.Join(dir, "ryudit", "settings.json")
+	a.settings.SyncKey = "gizli"
+	a.saveSettings()
+	fi, err := os.Stat(a.settingsFile)
+	if err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("settings file: %v %v", err, fi)
+	}
+	out := filepath.Join(dir, "disari.json")
+	if err := a.exportSettingsTo(out); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(out)
+	if strings.Contains(string(b), "gizli") || strings.Contains(string(b), a.settings.Token) {
+		t.Fatal("a secret is in the export")
+	}
+	if fi, _ := os.Stat(out); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("export mode %v", fi.Mode())
+	}
+	s, err := OpenStore(filepath.Join(dir, "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if fi, _ := os.Stat(filepath.Join(dir, "k.db")); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("library file mode %v", fi.Mode())
+	}
+}

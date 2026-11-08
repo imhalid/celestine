@@ -50,6 +50,16 @@ func (osFS) WriteFile(name string, data []byte) error {
 	return os.Rename(tmp, name)
 }
 
+// writeFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
+func writeFilePrivate(name string, data []byte) error {
+	tmp := name + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	os.Chmod(tmp, 0o600) // a leftover from before was made with more
+	return os.Rename(tmp, name)
+}
+
 // storeRoot is the root of a store's tree.
 const storeRoot = "/"
 

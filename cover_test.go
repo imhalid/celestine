@@ -106,3 +106,26 @@ func TestCoverOnCards(t *testing.T) {
 		}
 	}
 }
+
+// A page file that is not JSON is not written over by what only wants to change the cover: it is told, and left.
+func TestCorruptPageIsLeftAlone(t *testing.T) {
+	a, _ := newTestApp(t, "x")
+	p := a.page
+	if err := p.fs().WriteFile(p.file(), []byte(`{"meta": bozuk`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Body(); err == nil {
+		t.Fatal("no error for a page file that is not JSON")
+	}
+	p.Cover = "kapak.png"
+	a.removeCover(p)
+	if a.saveErr == "" || p.Cover != "kapak.png" {
+		t.Fatalf("saveErr %q cover %q", a.saveErr, p.Cover)
+	}
+	if b, _ := p.fs().ReadFile(p.file()); string(b) != `{"meta": bozuk` {
+		t.Fatalf("the file was written over: %q", b)
+	}
+	if _, body, err := splitPageChecked(nil); err != nil || body != "[]" {
+		t.Fatalf("an empty file is an empty page: %q %v", body, err)
+	}
+}
