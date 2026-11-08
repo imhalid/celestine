@@ -437,7 +437,17 @@ func (e *encRemote) Put(name string, data []byte, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
-	if err := e.inner.Put(e.opaque(name), e.seal(data), prev); err != nil && !e.sentBefore(name, data) {
+	err := e.inner.Put(e.opaque(name), e.seal(data), prev)
+	if errors.Is(err, ErrConflict) && prev == "" && e.idx[e.opaque(name)] != name {
+		// an object a pass left there, its name never put in the index: it is ours, and what is in it may
+		// be older than what is sent now. It is written over, by its hash as the remote has it now.
+		if list, lerr := e.inner.List(); lerr == nil {
+			if ent, ok := list[e.opaque(name)]; ok && !ent.Deleted {
+				err = e.inner.Put(e.opaque(name), e.seal(data), ent.Hash)
+			}
+		}
+	}
+	if err != nil && !e.sentBefore(name, data) {
 		return err
 	}
 	if e.idx[e.opaque(name)] == name {
@@ -474,7 +484,15 @@ func (e *encRemote) Delete(name, prev string) error {
 // syncState is what was true at the last sync: for each file, its hash here and the remote's hash then.
 type syncState struct {
 	Files map[string]fileSync `json:"files"`
+	// AllowRemovals lets this one pass delete here what the remote does not have, past massRemovals (the
+	// user said so); it is never kept.
+	AllowRemovals bool `json:"-"`
 }
+
+// massRemovals is how many files, and a tenth of the library, a pass may delete here for being gone from
+// the remote with no tombstone, before it holds them back and says so: a remote that lost its index, or
+// a folder not mounted, looks like that, and a deletion is not what it means.
+const massRemovals = 20
 
 type fileSync struct {
 	Local  string `json:"l"` // hash of the file here at the last sync ("" if it was not there)
@@ -484,12 +502,13 @@ type fileSync struct {
 // SyncResult says what a sync did.
 type SyncResult struct {
 	Pushed, Pulled, Deleted, Removed int      // files sent up, brought down, deleted there, deleted here
+	Held                             int      // files not deleted here, though the remote has none: too many at once (massRemovals)
 	Conflicts                        []string // the files that changed on both sides: ours is kept beside
 	Errors                           []string
 }
 
 func (r SyncResult) String() string {
-	if r.Pushed+r.Pulled+r.Deleted+r.Removed+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
+	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
 		return "Eşit: değişiklik yok"
 	}
 	s := fmt.Sprintf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
@@ -501,6 +520,9 @@ func (r SyncResult) String() string {
 	}
 	if len(r.Errors) > 0 {
 		s += fmt.Sprintf(", %d hata", len(r.Errors))
+	}
+	if r.Held > 0 {
+		s += fmt.Sprintf(", %d silme bekliyor", r.Held)
 	}
 	return s
 }
@@ -607,6 +629,21 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 	sort.Strings(order)
 	abs := func(n string) string { return filepath.Join(root, filepath.FromSlash(n)) }
 	fail := func(n string, err error) { res.Errors = append(res.Errors, n+": "+err.Error()) }
+	// files the remote has no entry for at all (no tombstone), that are here as at the last pass: they
+	// would be deleted here. A few is a deletion elsewhere whose tombstone is gone; a tenth of the library
+	// is a remote that lost its list.
+	hold := false
+	if !st.AllowRemovals {
+		gone := 0
+		for _, n := range order {
+			if _, rok := remote[n]; !rok {
+				if lh := local[n]; lh != "" && lh == st.Files[n].Local && st.Files[n].Remote != "" {
+					gone++
+				}
+			}
+		}
+		hold = gone >= massRemovals && gone*10 >= len(local)
+	}
 	for _, n := range order {
 		if strings.Contains(n, "(çakışma ") && false {
 			continue
@@ -650,6 +687,10 @@ func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 			pushed = append(pushed, n)
 		case !localChanged && remoteChanged: // theirs: down
 			if rh == "" {
+				if _, there := remote[n]; hold && !there {
+					res.Held++
+					continue
+				}
 				if err := fsys.Remove(abs(n)); err != nil && !os.IsNotExist(err) {
 					fail(n, err)
 					continue

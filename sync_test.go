@@ -671,3 +671,94 @@ func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 		t.Fatal("the other device did not get it")
 	}
 }
+
+// The same, and the file is written again before the next pass: what is left on the remote by the pass
+// that failed is older than it, and is written over, not met as a conflict for ever.
+func TestSyncIndexFailureThenEdited(t *testing.T) {
+	a := newDevice(t)
+	a.write("notlar/bir/page.json", "bir")
+	inner := &indexFails{Remote: dirRemote{t.TempDir()}}
+	e, err := openEnc(inner, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner.fail = true
+	if _, err := SyncOnce(osFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err == nil {
+		t.Fatal("no error for an index not written")
+	}
+	a.write("notlar/bir/page.json", "bir, ve daha")
+	inner.fail = false
+	e2, err := openEnc(inner, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := a.sync(e2)
+	if len(res.Errors) != 0 || res.Pushed != 1 || res.Removed != 0 || a.read("notlar/bir/page.json") != "bir, ve daha" {
+		t.Fatalf("after: %q, %+v", a.read("notlar/bir/page.json"), res)
+	}
+	b := newDevice(t)
+	e3, _ := openEnc(inner, "parola")
+	if b.sync(e3); b.read("notlar/bir/page.json") != "bir, ve daha" {
+		t.Fatalf("the other device got %q", b.read("notlar/bir/page.json"))
+	}
+}
+
+// A remote that lost many files with no tombstone (its list gone, a folder not mounted) is not a deletion
+// there: the pass holds them back and counts them, and deletes them here only when told to.
+func TestSyncHoldsMassRemoval(t *testing.T) {
+	remoteDir := t.TempDir()
+	a := newDevice(t)
+	const n = 40
+	for i := 0; i < n; i++ {
+		a.write(fmt.Sprintf("notlar/s%02d/page.json", i), "x")
+	}
+	a.sync(dirRemote{remoteDir})
+	for i := 0; i < 30; i++ { // gone from the remote, nothing left in its place
+		os.RemoveAll(filepath.Join(remoteDir, "notlar", fmt.Sprintf("s%02d", i)))
+	}
+	res := a.sync(dirRemote{remoteDir})
+	if res.Held != 30 || res.Removed != 0 {
+		t.Fatalf("held %d removed %d", res.Held, res.Removed)
+	}
+	for i := 0; i < n; i++ {
+		if a.read(fmt.Sprintf("notlar/s%02d/page.json", i)) != "x" {
+			t.Fatalf("s%02d was deleted", i)
+		}
+	}
+	if res = a.sync(dirRemote{remoteDir}); res.Held != 30 { // held again: nothing was decided
+		t.Fatalf("second pass held %d", res.Held)
+	}
+	a.st.AllowRemovals = true
+	if res = a.sync(dirRemote{remoteDir}); res.Removed != 30 || res.Held != 0 {
+		t.Fatalf("allowed: removed %d held %d", res.Removed, res.Held)
+	}
+	if a.read("notlar/s05/page.json") != "<yok>" || a.read("notlar/s35/page.json") != "x" {
+		t.Fatal("the wrong files went")
+	}
+}
+
+// Few files gone, or many with their tombstones (another device deleted them), are deletions as ever.
+func TestSyncMassRemovalNotHeldWhenDeletedThere(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	const n = 60
+	for i := 0; i < n; i++ {
+		a.write(fmt.Sprintf("notlar/s%02d/page.json", i), "x")
+	}
+	a.sync(dirRemote{remoteDir})
+	b.sync(dirRemote{remoteDir})
+	for i := 0; i < 40; i++ {
+		name := fmt.Sprintf("notlar/s%02d/page.json", i)
+		os.Remove(filepath.Join(b.root, filepath.FromSlash(name)))
+	}
+	b.sync(dirRemote{remoteDir}) // deleted there, with tombstones
+	if res := a.sync(dirRemote{remoteDir}); res.Removed != 40 || res.Held != 0 {
+		t.Fatalf("removed %d held %d", res.Removed, res.Held)
+	}
+	for i := 40; i < 45; i++ { // a few gone with no tombstone: below the line
+		os.RemoveAll(filepath.Join(remoteDir, "notlar", fmt.Sprintf("s%02d", i)))
+	}
+	if res := a.sync(dirRemote{remoteDir}); res.Removed != 5 || res.Held != 0 {
+		t.Fatalf("few: removed %d held %d", res.Removed, res.Held)
+	}
+}

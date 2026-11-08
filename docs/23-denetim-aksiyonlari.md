@@ -12,7 +12,8 @@ Durum etiketleri:
 
 ## 1. Önce yapılacaklar (P0: veri kaybı)
 
-### A1. E2EE senkronda `_index` yazılamazsa yerel dosyaların silinmesi — DOĞRU
+### A1. E2EE senkronda `_index` yazılamazsa yerel dosyaların silinmesi — DOĞRU, YAPILDI
+- Durum (2026-11-08): `Flush` sırası ve başarısızlıkta "gönderildi" kaydının unutulması `dc50230`'da; yetim nesnenin üzerine yazma (`encRemote.Put`) ve toplu silme sigortası (`massRemovals`: tombstone'suz ≥20 dosya ve kitaplığın %10'u silinmez, ayarlarda "Silmeleri uygula" düğmesi) sonradan eklendi. Testler: `TestSyncIndexFailureKeepsLocalFiles`, `TestSyncIndexFailureThenEdited`, `TestSyncHoldsMassRemoval`, `TestSyncMassRemovalNotHeldWhenDeletedThere`. Aşağıdaki açıklama özgün bulgudur.
 - Yer: `sync.go` `syncOnce` (defer bloğu), `SyncOnce`, `encRemote.List/Put/Flush`; `syncapp.go` `syncNow`.
 - Doğrulama: `encRemote.List()` yalnızca bellekteki `e.idx`'te olan adları döndürür. `Put` adı `e.idx`'e ekler ama `_index`'i yalnızca her 200 yeni adda bir ve `SyncOnce` sonunda yazar. `syncOnce`'ın `defer`'i `Flush`'tan **önce** çalışıp `st.Files[n].Remote` değerini yazar. `Flush` ağ hatasıyla düşerse `syncNow` yine de `saveSyncState` çağırır. Sonraki turda sunucu `_index`'inde ad yoktur: `rh == ""`, `base.Remote != ""`, yerel değişmemiş → `fsys.Remove`. Yani kullanıcının yerel dosyası "uzakta silindi" sanılıp silinir.
 - Aynı yol, 200'lük ara `Flush` başarısız olursa da açılır.

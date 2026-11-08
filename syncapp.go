@@ -38,6 +38,8 @@ type syncUI struct {
 	pass           string // the passphrase being typed
 	recovery       string // the recovery key just made, to be written down
 	hasKey         bool
+	held           int  // files the last pass did not delete here, the remote having none of them (massRemovals)
+	allow          bool // the user said to delete them: the next pass does
 }
 
 // syncRemote makes the remote the settings describe.
@@ -119,6 +121,7 @@ func (a *app) syncNow() {
 		skip[d] = true
 	}
 	state := a.loadSyncState()
+	state.AllowRemovals, a.sy.allow = a.sy.allow, false
 	go func() {
 		defer a.guard()
 		if backupDir != "" {
@@ -138,6 +141,9 @@ func (a *app) syncNow() {
 				a.sy.status = "Eşit " + a.sy.at.Format("15:04")
 				if len(res.Errors) > 0 {
 					a.sy.err = res.Errors[0]
+				}
+				if a.sy.held = res.Held; res.Held > 0 && a.sy.err == "" {
+					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
 				}
 				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
 				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
@@ -443,6 +449,17 @@ func (a *app) settingsSync(c *ui.Context) {
 			}
 		})
 	})
+	if a.sy.held > 0 {
+		settingGroup(c, "set-sync-held", func() {
+			settingRow(c, Tf("%d dosya uzakta yok; bu bilgisayarda duruyor", a.sy.held),
+				"Sunucu ya da klasör listesini kaybetmiş olabilir. Başka bir cihazda gerçekten sildiysen uygula; emin değilsen bekle.", func() {
+					if ryugo.Button(c.Key("sync-allow"), "Silmeleri uygula", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft}).Clicked() {
+						a.sy.allow = true
+						a.syncNow()
+					}
+				})
+		})
+	}
 	if files := a.conflictFiles(); len(files) > 0 {
 		ui.Text(c, T("Çakışmalar: iki cihazda da değişen dosyalar; ikisi de saklandı")).FontSize(13).FontWeight(620).TextColor(cl.Warn)
 		var rows3 []func()
