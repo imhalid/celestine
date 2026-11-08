@@ -245,6 +245,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 // pickImportFolder asks for a folder in a dialog and imports it.
 func (a *app) pickImportFolder() {
 	go func() {
+		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak Markdown klasörü"), Directory: true})
 		if err != nil || len(paths) == 0 {
 			return

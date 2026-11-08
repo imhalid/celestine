@@ -139,6 +139,7 @@ func (a *app) exportPage(p *Page) {
 	md := a.currentMarkdown(p)
 	title := p.Title
 	go func() {
+		defer a.guard()
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
 			Title:       "Dışa aktar",
 			DefaultPath: safeFile(title) + ".md",

@@ -130,7 +130,7 @@ type app struct {
 	jelly     *slime
 	mizan     *mizanCaret
 
-	// What changed since the last frame, for the caret and for saving.
+	// Updates (update.go), shortcuts and macros of one's own, and the settings' search.
 	updKey      string      // a test's key for releases
 	updBusy     atomic.Bool // a check or a download goes on
 	updErr      string      // what the last check said, when it failed

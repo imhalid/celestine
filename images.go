@@ -229,6 +229,7 @@ func (a *app) addImageFile(file string) {
 // for the answer off the window's thread.
 func (a *app) pickImage() {
 	go func() {
+		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Title:   "Resim seç",
 			Filters: []mygo.FileFilter{{Name: "Resimler", Extensions: []string{"png", "jpg", "jpeg", "gif", "webp", "svg"}}},

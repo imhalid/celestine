@@ -97,6 +97,7 @@ func (a *app) restoreAutoCover(p *Page) {
 // pickCover asks for the cover in a dialog.
 func (a *app) pickCover(p *Page) {
 	go func() {
+		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Title:   "Kapak resmi seç",
 			Filters: []mygo.FileFilter{{Name: "Resimler", Extensions: []string{"png", "jpg", "jpeg", "gif", "webp", "svg"}}},

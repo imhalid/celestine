@@ -56,6 +56,7 @@ func (a *app) families() []ui.FontFamily {
 		f.started = true
 		inv := a.invalidate
 		go func() {
+			defer a.guard()
 			fam := ui.FontFamilies()
 			f.mu.Lock()
 			f.fam, f.ready = fam, true

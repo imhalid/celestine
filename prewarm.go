@@ -77,6 +77,7 @@ func (a *app) prewarm() {
 			}()
 		}
 		go func() {
+			defer a.guard()
 			for _, j := range jobs {
 				in <- j
 			}
