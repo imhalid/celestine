@@ -78,7 +78,8 @@ func tint(i int) vec3 {
 }
 
 var welcomeOpenings = []welcomeOpening{
-	{id: "", name: "Halka", sh: shader.MustCompile(ringOpening + ringShared), maxOffset: 28, ring: true},
+	{id: "", name: "Halka", sh: shader.MustCompile(ringOpening + fbmShader + ringShared), maxOffset: 40, ring: true, dur: 2.3, ease: easeOut}, // fast off, settling slowly (caretfx_nature.go)
+	{id: "portal", name: "Portal", sh: shader.MustCompile(portalOpening + ringShared), dur: 2.9},
 }
 
 // welcomeGroundLook is the ground chosen in the settings, or the first. RYUDIT_WELCOME_GROUND chooses one for a run
@@ -124,9 +125,12 @@ func noise(p vec2) float {
 	return mix(mix(hash(i), hash(i+vec2(1, 0)), u.x), mix(hash(i+vec2(0, 1)), hash(i+vec2(1, 1)), u.x), u.y)
 }
 
-// ringEdge is how far from the origin the edge is at pos: not a circle, it breathes, most in the middle.
-func ringEdge(pos vec2, radius float, prog float) float {
-	wob := (noise(pos/46+vec2(prog*2.4, 0))*0.65 + noise(pos/19)*0.12 - 0.38) * 100 * sin(prog*3.14159)
+// ringEdge is how far from the origin the edge is at pos: not a circle but a soft blob that breathes, most in the
+// middle of the opening. It is made from the direction alone (a point going round a circle in the noise), so the edge
+// is smooth, with no seam where the angle goes round.
+func ringEdge(pos vec2, origin vec2, radius float, prog float) float {
+	dir := normalize(pos - origin + vec2(0.0001, 0))
+	wob := (noise(dir*1.3+vec2(prog*1.8, 3.1))*0.75 + noise(dir*3.1+vec2(7.3, prog*2.6))*0.25 - 0.5) * 70 * sin(prog*3.14159)
 	return radius + wob
 }
 `
@@ -171,8 +175,8 @@ func Fragment(dst vec4, pos vec2) vec4 {
 	out.rgb += vec3(g) * out.a
 	if Open > 0.5 { // the app has the inside of the ring
 		d := distance(pos, Origin)
-		edge := ringEdge(pos, Radius, Prog)
-		out *= smoothstep(edge-90, edge, d)
+		edge := ringEdge(pos, Origin, Radius, Prog)
+		out *= smoothstep(edge-40, edge, d)
 	}
 	return out * Fade
 }
@@ -281,38 +285,154 @@ func layer(p vec2, e float, pos vec2) vec4 {
 }
 `
 
-// ringOpening: the app's own pixels, kept inside a ring that grows from the button, with a rim of light on it,
-// bent a little where it passes. Outside the ring the window is clear.
+// portalOpening is after the sorcerers' portals in Doctor Strange: a line of fire is drawn across the middle, out from
+// it to both sides, a bright head at each end, crackling and throwing sparks; then it parts, one edge going up and the
+// other down, the window between them, both edges still burning and throwing sparks away from it, which arc and fall.
+const portalOpening = `package main
+
+var Prog float
+var Size vec2
+var Time float
+
+func ember(d float, w float) float {
+	t := d / w
+	return exp(-t * t)
+}
+
+// sparks is the light of the sparks thrown off the edge at height e, away from the window (dirn -1 up, 1 down):
+// in three layers of cells along it, each cell a spark that is born on the edge, flies, arcs down and dies, and is
+// born again; only where the line has been drawn (reach, out from midx)
+func sparks(pos vec2, e float, dirn float, t float, reach float, midx float) float {
+	c := 0.0
+	for k := 0; k < 3; k++ {
+		fk := float(k)
+		cw := 22.0 + fk*9
+		cx := floor(pos.x / cw)
+		for j := 0; j < 3; j++ {
+			id := cx + float(j-1)
+			h1 := hash(vec2(id, fk*7.1+dirn))
+			h2 := hash(vec2(id, fk*3.3+11+dirn))
+			h3 := hash(vec2(id, fk*5.9+23+dirn))
+			life := 0.45 + 0.4*h2
+			age := fract(t/life+h1) * life
+			x0 := (id + h3) * cw
+			v := vec2((h2-0.5)*260, dirn*(110+260*h1))
+			p := vec2(x0, e) + v*age + vec2(0, 420)*age*age*0.5
+			vel := v + vec2(0, 420)*age
+			tail := p - vel*0.035
+			pa := pos - tail
+			ba := p - tail
+			hh := clamp(dot(pa, ba)/max(dot(ba, ba), 0.001), 0, 1)
+			dd := length(pa - ba*hh)
+			fade := 1 - age/life
+			on := 1 - smoothstep(reach-10, reach, abs(x0-midx))
+			c += exp(-dd*dd/1.2) * fade * fade * on * (0.6 + 0.8*h3)
+		}
+	}
+	return c
+}
+
+func LayerEffect(pos vec2) vec4 {
+	mid := Size * 0.5
+	draw := smoothstep(0.0, 0.26, Prog) // the line is drawn out from the middle
+	reach := draw * (Size.x*0.5 + 40)
+	open := smoothstep(0.26, 0.95, Prog) // then it parts
+	h := open * open * (Size.y*0.5 + 80)
+	top := mid.y - h
+	bot := mid.y + h
+	live := 1 - smoothstep(0.82, 1.0, Prog)
+	inside := smoothstep(top, top+2, pos.y) * (1 - smoothstep(bot-2, bot, pos.y))
+	col := layerSample(pos) * inside
+
+	mx := 1 - smoothstep(reach-30, reach, abs(pos.x-mid.x))
+	flick := 0.65 + 0.35*noise(vec2(pos.x/9, Time*14)) + 0.25*noise(vec2(pos.x/31, Time*5))
+	thick := 1.6 + 1.6*noise(vec2(pos.x/18, Time*6))
+	rimT := ember(pos.y-top, thick)*1.2 + ember(pos.y-top, 10)*0.45 + ember(pos.y-top, 34)*0.18
+	rimB := ember(pos.y-bot, thick)*1.2 + ember(pos.y-bot, 10)*0.45 + ember(pos.y-bot, 34)*0.18
+	rim := (rimT + rimB) * flick * mx
+	sp := sparks(pos, top, -1, Time, reach, mid.x) + sparks(pos, bot, 1, Time, reach, mid.x)
+	ends := exp(-length(pos-vec2(mid.x+reach, mid.y))/14) + exp(-length(pos-vec2(mid.x-reach, mid.y))/14)
+	heat := rim + sp*0.9 + ends*2.0*(1-open)
+	fire := vec3(1.0, 0.94, 0.70)*smoothstep(0.9, 2.2, heat) + vec3(1.0, 0.55, 0.12)*min(heat, 1.5)*0.75 + vec3(0.9, 0.25, 0.04)*min(heat, 1)*0.25
+	light := vec3(1) - exp(-fire*1.4*live*smoothstep(0.0, 0.03, Prog))
+	out := col
+	out.rgb += light
+	a := max(out.a, min(max(max(light.r, light.g), light.b), 1))
+	return vec4(out.rgb, a)
+}
+`
+
+// ringOpening: the app's window opens out of the button, but not as a circle. Its edge is noise bent by noise, so
+// that it reaches out in fingers and curls back on itself, and what is near it turns a little round the button as it
+// goes, so that the curls wind; it flows all the while. A light runs along that edge, its colors spread, in a softer
+// glow, with a trail of smoke behind it; a small light where Başla was, at the start; the window just behind the
+// edge bent and split as through a lens; a shadow just outside. All of it dies away as it passes the corners.
 const ringOpening = `package main
 
 var Origin vec2
 var Radius float
 var Prog float
+var Time float
+
+func line(d float, at float, w float) float {
+	t := (d - at) / w
+	return exp(-t * t)
+}
+
+// curled is the distance from the button that the edge is measured on: the place turned round the button near the
+// edge, then pushed by noise that is itself pushed by noise
+func curled(p vec2, r float, life float, t float) float {
+	l := length(p)
+	near := exp(-((l-r)/260)*((l-r)/260))
+	tw := 1.1 * near * life * (0.6 + 0.4*sin(atan2(p.y, p.x)*3+t*0.7)) // the twist, more in some places than others
+	c := cos(tw)
+	s := sin(tw)
+	p = vec2(c*p.x-s*p.y, s*p.x+c*p.y)
+	q := p / 170
+	w1 := vec2(fbm(q+vec2(0, t*0.35)), fbm(q+vec2(5.2, 1.3)-t*0.25)) - 0.5
+	w2 := vec2(fbm(q*2.1+w1*2.6+vec2(1.7, 9.2)), fbm(q*2.1+w1*2.6+vec2(8.3, 2.8))) - 0.5
+	w3 := vec2(noise(q*6+w2*4+vec2(t*0.5, 0)), noise(q*6+w2*4+vec2(3.3, -t*0.5))) - 0.5 // the fine tongues
+	warp := (w1 + w2*0.8 + w3*0.35) * 210 * life * (0.35 + 0.65*near)
+	return length(p + warp)
+}
 
 func LayerEffect(pos vec2) vec4 {
 	rel := pos - Origin
-	d := length(rel)
-	dir := rel / max(d, 0.001)
-	// the edge is not a circle: it breathes, most in the middle of the opening
-	edge := ringEdge(pos, Radius, Prog)
-	width := 90.0
-	m := 1 - smoothstep(edge-width, edge, d)
-	// the rim: bright, narrow, and just behind the edge
-	rimAt := (d - (edge - width*0.42)) / (width * 0.30)
-	rim := exp(-rimAt * rimAt)
-	// where the ring passes, the app is seen through it, bent and split in colors
-	lens := smoothstep(edge-width*1.7, edge-width*0.5, d) * (1 - smoothstep(edge-width*0.5, edge+8, d))
-	off := dir * lens * 20 * (1 - Prog*0.6)
-	c0 := layerSample(pos - off*0.75)
-	c1 := layerSample(pos - off)
-	c2 := layerSample(pos - off*1.25)
-	col := vec4(c0.r, c1.g, c2.b, c1.a) * m
+	d0 := length(rel)
+	dir := rel / max(d0, 0.001)
+	live := 1 - smoothstep(0.6, 1.0, Prog)
+	curl := sin(min(Prog*1.3, 1)*3.14159*0.5+0.6) * live // strongest early, gone at the end
+	d := curled(rel, Radius, curl, Time)
+	edge := Radius
+	inside := 1 - smoothstep(edge-28, edge, d)
+
+	// the lens: just behind the edge the window bulges and splits into its colors
+	x := clamp((edge-d)/150, 0, 1)
+	bulge := (1 - x) * (1 - x) * live
+	off := dir * bulge * 22
+	split := dir * bulge * 6
+	r := layerSample(pos - off - split)
+	g := layerSample(pos - off)
+	b := layerSample(pos - off + split)
+	col := vec4(r.r, g.g, b.b, g.a) * inside
+	col.rgb += col.rgb * bulge * 0.22
+
+	// the light along the curled edge, its colors spread, in a glow, and a trail of smoke behind it
+	at := edge - 10
+	rim := vec3(line(d, at+2.4, 3.0), line(d, at, 2.8), line(d, at-2.4, 3.0))
 	ang := atan2(dir.y, dir.x)
-	hue := mix(vec3(1.0, 0.46, 0.70), vec3(0.46, 0.58, 1.0), 0.5+0.5*sin(ang*2+Prog*7))
-	fade := (1 - smoothstep(0.55, 1.0, Prog)) * 0.9
-	glow := rim * fade
-	col.rgb += hue * glow * 0.85
-	col.a = max(col.a, glow*0.85)
-	return col
+	tint := mix(vec3(0.68, 0.80, 1.0), vec3(1.0, 0.76, 0.94), 0.5+0.5*sin(ang*1.5+Time*1.6))
+	glow := tint * line(d, at, 24) * 0.30
+	smoke := fbm(rel/90 + vec2(Time*0.4, 0)) // the trail thins in wisps
+	trail := tint * line(d, at-60, 55) * smoothstep(0.45, 0.75, smoke) * 0.22
+	pop := vec3(0.85, 0.90, 1.0) * exp(-d0/(16+Radius*0.35)) * (1 - smoothstep(0.0, 0.2, Prog)) * 0.9
+	light := (rim*1.05 + glow + trail)*live + pop
+
+	shadow := exp(-max(d-edge, 0)/36) * step(edge, d) * 0.26 * live
+
+	out := col
+	out.rgb += light
+	a := max(out.a, min(max(max(light.r, light.g), light.b), 1))
+	return vec4(out.rgb, max(a, shadow))
 }
 `

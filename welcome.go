@@ -40,6 +40,7 @@ type welcomeState struct {
 	stage   *mygo.Window // the clear window over the display that has the colors and the words (clear only)
 	opening *mygo.Window // the frameless window the app opens in, over its own (clear only)
 	inOpen  bool         // the frame being built is the opening window's
+	opened  bool         // the opening window has drawn its first frame: the opening's clock runs from then
 	bar     ui.TitleBar  // the app's window's title bar, which the opening window has not (titleBar)
 	clear   bool         // the welcome is on the stage, and the app's window waits unseen until it has opened
 }
@@ -347,6 +348,9 @@ func (a *app) titleBar(c *ui.Context) ui.TitleBar {
 
 // openingView is the opening window's frame: the app, as in its own window, inside the ring.
 func (a *app) openingView(c *ui.Context) {
+	if !a.wel.opened { // the window took a moment to come: the opening starts now, so that none of it is missed
+		a.wel.opened, a.wel.goAt = true, c.Now()
+	}
 	a.wel.inOpen = true
 	defer func() { a.wel.inOpen = false }()
 	a.view(c)
@@ -472,7 +476,7 @@ func init() {
 		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "Gece": "Night",
 		"Halka": "Ring", "Çizgiler": "Lines",
 		"Bulut": "Clouds", "Sistem": "System",
-		"Buz": "Ice", "Kristal": "Crystal", "Tentakül": "Tentacles", "Prizma": "Prism", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
+		"Buz": "Ice", "Kristal": "Crystal", "Tentakül": "Tentacles", "Portal": "Portal", "Prizma": "Prism", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
 		"Spektrum": "Spectrum",
 		"Yazıların altında, masaüstünün üstünde ne olacağı.": "What is under the words, over the desktop.",
 		"Başla'dan sonra uygulamanın penceresi nasıl gelir.": "How the app's window comes after Start.",
