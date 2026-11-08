@@ -148,6 +148,7 @@ func (a *app) textOverlays(c *ui.Context) {
 	a.caretView(c)
 	a.selectionBar(c)
 	a.gutterView(c)
+	a.taskBoxHits(c)
 	a.gripView(c)
 	a.slashView(c)
 	a.dateEditView(c)

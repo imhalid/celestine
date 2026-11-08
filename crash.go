@@ -144,7 +144,7 @@ func (a *app) crashFallback(c *ui.Context) {
 		ui.Text(c, "Bir hata oldu").FontSize(22).FontWeight(700).TextColor(cl.Text)
 		ui.Text(c, a.crashText).FontSize(13).TextColor(cl.Muted).MaxWidth(560).Wrap()
 		if a.crashPath != "" {
-			ui.Text(c, T("Günlük: ")+a.crashPath).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable()
+			a.textMenu(ui.Text(c, T("Günlük: ")+a.crashPath).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return T("Günlük: ") + a.crashPath }, nil)
 		}
 		if ryugo.Button(c.Key("crash-retry"), "Devam et", ryugo.ButtonOptions{}).Clicked() {
 			a.crashOpen = false
@@ -169,11 +169,11 @@ func (a *app) crashView(c *ui.Context) {
 			ui.Text(c, T("Kitaplığına dokunulmadı. Günlük yalnız bu bilgisayarda durur, hiçbir yere gönderilmez.")).FontSize(13).TextColor(cl.Muted).Wrap()
 			a.scrolled(c, "crash-scroll", nil, ui.Scroll(c.Key("crash-scroll")).MaxHeight(260), func() {
 				ui.Box(c).FillWidth().Padding(10, 12).Radius(rad(8)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-					ui.Text(c, a.crashText).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().Wrap()
+					a.textMenu(ui.Text(c, a.crashText).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().Wrap(), func() string { return a.crashText }, nil)
 				})
 			})
 			if a.crashPath != "" {
-				ui.Text(c, a.crashPath).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Muted).Selectable().Wrap()
+				a.textMenu(ui.Text(c, a.crashPath).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Muted).Selectable().Wrap(), func() string { return a.crashPath }, nil)
 			}
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 				if ryugo.Button(c.Key("crash-copy"), "Kopyala", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {

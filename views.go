@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"sort"
@@ -52,6 +53,11 @@ func (a *app) collectionView(c *ui.Context) {
 						})
 						c.Key("coll-name:" + coll.Dir)
 						name := ui.TextInputBase(c, &a.collName).Label(T("Koleksiyon adı")).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
+						a.fieldMenu(name, &a.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
+							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), "Adsız koleksiyon")); err != nil {
+								a.saveErr = err.Error()
+							}
+						}})
 						if name.Changed() {
 							n := strings.TrimSpace(a.collName)
 							if n == "" {
@@ -89,7 +95,7 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							ui.Spacer(c)
-							ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(220).MinWidth(140).Shrink(1)
+							a.fieldMenu(ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.search, fieldOpts{oneLine: true}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), "Rastgele gün", ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()

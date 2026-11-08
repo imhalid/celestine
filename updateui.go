@@ -63,7 +63,8 @@ func (a *app) updateView(c *ui.Context) {
 			}
 			if strings.TrimSpace(notes) != "" {
 				a.scrolled(c, "upd-notes", nil, ui.Scroll(c.Key("upd-notes")).MaxHeight(240), func() {
-					ui.Text(c, plainText(notes)).FontSize(13).TextColor(cl.Text2).Wrap().Selectable()
+					s := plainText(notes)
+					a.textMenu(ui.Text(c, s).FontSize(13).TextColor(cl.Text2).Wrap().Selectable(), func() string { return s }, nil)
 				})
 			} else {
 				ui.Text(c, T("Sürüm notu yok.")).FontSize(13).TextColor(cl.Muted)

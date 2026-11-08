@@ -234,6 +234,10 @@ func turnInto(doc *richtext.Document, at int, kind string) {
 				p.List, p.Indent = richtext.Numbers, indent
 			case "tasks":
 				p.List, p.Indent = richtext.Tasks, indent
+			default:
+				if id, ok := strings.CutPrefix(kind, "task:"); ok { // a kind of task (taskkinds.go)
+					p.List, p.Indent, p.ID = richtext.Tasks, indent, taskIDPrefix+id
+				}
 			case "quote":
 				p.Quote = true
 			case "code":

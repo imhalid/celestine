@@ -16,6 +16,8 @@ github.com/google/jsonschema-go v0.4.3 h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+
 github.com/google/jsonschema-go v0.4.3/go.mod h1:r5quNTdLOYEz95Ru18zA0ydNbBuYoo9tgaYcxEYhJVE=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/imhalid/mygo v0.7.5-0.20261108045043-239fc97452c0 h1:Q3a+iPoVwfeIlp/41FsX9CQE3Ts0D/PahK7Po9gxRr4=
+github.com/imhalid/mygo v0.7.5-0.20261108045043-239fc97452c0/go.mod h1:dVav53PwF2xEotjf4oA5lTY2Jp2exgzyjLhbSXhbMwE=
 github.com/imhalid/ryu-go v0.1.1-0.20261104162537-81592d21a38d h1:eufUYnlgFhwAqxK4PCxyL1N1ync3ZjHMHtP2btUkpN4=
 github.com/imhalid/ryu-go v0.1.1-0.20261104162537-81592d21a38d/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/imhalid/ryu-go v0.1.1-0.20261105104104-4b6301e25831 h1:/OGqlwZNKC22aYPLsRTdZsE2o6L4xCjPgXAUk3nPRrA=
@@ -28,6 +30,8 @@ github.com/imhalid/ryu-go v0.1.1-0.20261106165010-5a62b9bf7feb h1:eDMrwbmITtr6tT
 github.com/imhalid/ryu-go v0.1.1-0.20261106165010-5a62b9bf7feb/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/imhalid/ryu-go v0.1.1-0.20261107045801-61e84bf33a1f h1:WY0yzrF9DrMTMokaghH5BpFjkBPMWsTv9uQwKkLTcFM=
 github.com/imhalid/ryu-go v0.1.1-0.20261107045801-61e84bf33a1f/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
+github.com/imhalid/ryu-go v0.1.1-0.20261108040113-e94b47959450 h1:Q/J4AqxeZ3q3gLAjngShvax+1R/u9PwqhtMUJxh3W8Q=
+github.com/imhalid/ryu-go v0.1.1-0.20261108040113-e94b47959450/go.mod h1:Of8fbLAVkOT+eYiESasYU823SVWkIGVGqeMzO2FURRg=
 github.com/mattn/go-isatty v0.0.24 h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
 github.com/mattn/go-isatty v0.0.24/go.mod h1:nMCL3Zebbrt45jsMDgnfIwz6ydEQApk5oEI3HqDio6A=
 github.com/modelcontextprotocol/go-sdk v1.8.0 h1:KIvahhYqwtbeniWVPs3TcXEA7b8jEtwfBpOTAI+Urx4=

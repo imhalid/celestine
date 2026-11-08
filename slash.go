@@ -796,6 +796,7 @@ func (a *app) slashView(c *ui.Context) {
 			ph := map[string]string{"link": "Sayfa ara…", "embed": "Gömülecek sayfa…", "date": "Yarın, 2026-11-10…"}[s.view]
 			in := ui.TextInputBase(c.Key("slash-in"), &s.field).Label(ph).Placeholder(ph).PlaceholderColor(cl.Muted).
 				FontSize(14).Grow(1).FocusRing(false).AutoFocus()
+			a.fieldMenu(in, &s.field, fieldOpts{oneLine: true})
 			if in.Focused() {
 				s.fin = true
 			}

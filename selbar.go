@@ -78,7 +78,7 @@ func (a *app) selectionBar(c *ui.Context) {
 		tth.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			if b.link {
-				in := ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: T("Bağlantı adresi"), Placeholder: T("Adres yapıştır, ↵"), PrefixIcon: iconLink, Size: ryugo.Sm}).
+				in := a.fieldMenu(ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: T("Bağlantı adresi"), Placeholder: T("Adres yapıştır, ↵"), PrefixIcon: iconLink, Size: ryugo.Sm}), &b.url, fieldOpts{oneLine: true}).
 					Grow(1).MinWidth(0).AutoFocus()
 				switch {
 				case in.Shortcut(0, ui.KeyEscape):

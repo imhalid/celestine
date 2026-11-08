@@ -23,6 +23,9 @@ import (
 
 const hrID = "ryudit:hr"
 
+// typedTaskBox is a box of a kind of task typed at a line's start, and the space after it.
+var typedTaskBox = regexp.MustCompile(`^\[(.)\] $`)
+
 // blockShortcuts turns the paragraph the caret is at the end of into a
 // divider or a block of code when what was just typed makes it "---" or
 // "```". A divider with text typed into it is a paragraph again.
@@ -34,6 +37,21 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 			ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { p.ID = "" })
 		})
 		return true
+	}
+	// "[*] ", "[!] ", "[?] ", "[/] ", "[e] " at a line's start: a task of that kind (taskkinds.go)
+	if typed && caret == e && !st.CodeBlock && st.Heading == 0 && st.List != richtext.Numbers {
+		if m := typedTaskBox.FindStringSubmatch(text.Slice(s, e).String()); m != nil {
+			if k, ok := taskKindByMD(m[1]); ok {
+				a.doc.Edit(func(ed *richtext.Edit) {
+					ed.ReplaceString(s, e, "", richtext.Attributes{})
+					ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) {
+						p.List, p.Checked, p.ID = richtext.Tasks, false, taskIDPrefix+k.id
+					})
+					ed.Select(s, s)
+				})
+				return true
+			}
+		}
 	}
 	if !typed || caret != e || st.CodeBlock || st.Quote || st.List != richtext.NoList || st.Heading > 0 {
 		return false

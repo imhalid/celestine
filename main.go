@@ -255,6 +255,14 @@ type app struct {
 	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
 	clipRead      func() string             // and to read
+	carry         dockCarry                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
+	panesR        ui.Rect                   // where the panes were, last frame
+	prewarming    bool                      // the pages are being read away from the window (prewarm.go)
+	fieldSels     map[*string]fieldSel      // a selection the menu of a field left, to set on it (fieldmenu.go)
+	edPtr         ui.Point                  // the pointer over the page's text, last frame
+	tagDrafts     map[string]*string        // what is typed in the fields of tags and numbers (tagfield.go)
+	countEditing  string                    // the number field being typed in
+	tagPop        map[string]bool           // a field of tags whose last was taken away with ⌫
 	clipImage     func() []byte             // the clipboard's picture; the system's when nil
 	outlineOf     []heading                 // the page's headings, for the side panel
 	outlineVer    uint64
@@ -281,6 +289,7 @@ type app struct {
 	chipSeen    []chipHit          // and last frame, for a click
 	slash       slashMenu          // the / menu (slash.go)
 	grip        gripState          // the grip of the block under the pointer (blockui.go)
+	tasks       taskFx             // the task boxes: what turns, and the confetti (taskkinds.go)
 	cs          collSettings       // a collection\'s settings (collsettings.go)
 	hist        []place            // where the app went, and where it is in that (nav.go)
 	histAt      int
@@ -370,7 +379,9 @@ func main() {
 					}
 				}
 			}
+			store.snapshot() // the table read at once: not a query a folder and a page
 			lib, err = OpenLibraryIn(store, storeRoot)
+			store.endSnapshot()
 		}
 	}
 	if err != nil {
@@ -395,6 +406,7 @@ func main() {
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
+	a.prewarm()                                             // the pages' text, read away from the window
 	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
 	if unclean {
 		a.crashPrev, a.crashOpen = prevLog, true
@@ -611,7 +623,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.statTick()
 	a.syncTick(c)
 	a.kbBegin()
-	if !a.sx.warm(a, sxBudget) { // the pages are taken into the search index a little a frame, as the window opens
+	if !a.prewarming && !a.sx.warm(a, sxBudget) { // the pages are taken into the search index a little a frame, as the window opens
 		c.Invalidate()
 	}
 	sleepAfter = a.caretSleep()
@@ -803,6 +815,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder: T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
+		Menu:        a.editorMenu, // the app's menu, not the system's (fieldmenu.go)
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)
@@ -824,6 +837,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
 	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
 	if x, y, over := ed.PointerPosition(); over {
+		a.edPtr = ui.Point{X: x, Y: y} // where a right click opens the menu
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.hoverTag = key
 			ed.Cursor(ui.CursorPointer)
@@ -872,6 +886,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
+		a.drawTasks(p, r)
 		a.drawWhite(p, r)
 		a.drawFocusVeil(p, r)
 		a.drawTags(p, r)
@@ -891,6 +906,7 @@ func (a *app) caretView(c *ui.Context) {
 	a.winRect = ui.Rect{W: ww, H: wh}
 	ui.Overlay(c, func() {
 		ui.Box(c.Key("caret-layer")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
+			a.drawConfetti(p)
 			a.drawCaret(p, a.editorR)
 			if tc := a.titleCaret; tc.on {
 				a.paintCaret(p, tc.r, tc.cw, tc.box, kick{wrote: tc.wrote, edited: tc.edited}, tc.sel)
@@ -912,13 +928,15 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().TextColor(ink)
+		ttl := ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().TextColor(ink)
+		a.titleMenu(ttl, p, false)
 		a.titleFocused = false
 		a.coverGap(c, p)
 		a.propsSection(c, p)
 		return
 	}
 	title := ui.TextInputBase(c, &a.title).Label(T("Başlık")).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).CaretWidth(0)
+	a.titleMenu(title, p, true)
 	if a.fresh {
 		title.AutoFocus()
 		a.fresh = false

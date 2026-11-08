@@ -194,7 +194,7 @@ func TestPropertyOnPage(t *testing.T) {
 	if pr := coll.Prop("durum"); pr == nil || len(pr.Options) != 3 || a.prop.open {
 		t.Fatalf("added: %+v", coll.Properties)
 	}
-	if err := tt.Click("—"); err != nil {
+	if err := tt.Click("Durum değeri"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)

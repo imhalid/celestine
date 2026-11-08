@@ -297,6 +297,7 @@ func (a *app) settingsTop(c *ui.Context) {
 		q := a.setSearch
 		in := ui.TextInputBase(c.Key("set-search"), &q).Label("Ayarlarda ara").Placeholder(T("Ayarlarda ara…")).PlaceholderColor(cl.Muted).
 			FontSize(13).Padding(7, 11).Radius(rad(9)).Background(cl.Card).Border(1, cl.Hairline).Grow(1).FocusRing(false)
+		a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
 		if phone {
 			in.FillWidth().Padding(10, 12)
 		}
@@ -470,7 +471,7 @@ func (a *app) settingsProfiles(c *ui.Context) {
 	settingGroup(c, "set-profile-new", func() {
 		settingRow(c, "Şimdikini profil olarak kaydet", "Tema, renk, yazı tipleri, boyutlar, caret ve boşluk gösterimi bir ad altında saklanır; ⌘P'de “Profil: ad” ile geçilir.", func() {
 			ui.Row(c).Gap(6).Children(func() {
-				ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: "Profil adı", Size: ryugo.Sm, Placeholder: T("Profil adı")})
+				a.fieldMenu(ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: "Profil adı", Size: ryugo.Sm, Placeholder: T("Profil adı")}), &a.profName, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("prof-save"), T("Kaydet"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.saveProfile(a.profName)
 					a.profName = ""

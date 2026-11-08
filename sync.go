@@ -241,7 +241,14 @@ type encRemote struct {
 	gcm    cipher.AEAD
 	idx    map[string]string // opaque name → path
 	loaded bool
+	// pending is how many names were added since the index was last put: it is put every indexEvery, and
+	// at the end of a pass (Flush), not at every file, which made a first pass of thousands go as their square
+	pending int
 }
+
+// indexEvery is how many new names wait before the index is put: what another device sees of a long first
+// pass comes in steps of it.
+const indexEvery = 200
 
 const saltFile = "_salt"
 
@@ -430,14 +437,29 @@ func (e *encRemote) Put(name string, data []byte, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
-	if err := e.inner.Put(e.opaque(name), e.seal(data), prev); err != nil {
+	if err := e.inner.Put(e.opaque(name), e.seal(data), prev); err != nil && !e.sentBefore(name, data) {
 		return err
 	}
 	if e.idx[e.opaque(name)] == name {
 		return nil // the index had it when it was read, and names are never taken out
 	}
 	e.idx[e.opaque(name)] = name
-	return e.saveIndex()
+	if e.pending++; e.pending < indexEvery {
+		return nil
+	}
+	return e.Flush()
+}
+
+// Flush puts the index, if names were added to it since it was last put.
+func (e *encRemote) Flush() error {
+	if e.pending == 0 {
+		return nil
+	}
+	if err := e.saveIndex(); err != nil {
+		return err
+	}
+	e.pending = 0
+	return nil
 }
 
 func (e *encRemote) Delete(name, prev string) error {
@@ -524,19 +546,47 @@ func conflictName(name string, at time.Time) string {
 	return strings.TrimSuffix(name, ext) + " (çakışma " + at.Format("2006-01-02 15-04-05") + ")" + ext
 }
 
-// SyncOnce makes one pass: it puts the library under root (in fsys) and the remote in agreement.
+// SyncOnce makes one pass: it puts the library under root (in fsys) and the remote in agreement. What
+// the remote keeps back to write at the end (the sealed index's names, encRemote) is written then, an
+// error or not.
 func SyncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]bool, now time.Time) (SyncResult, error) {
-	var res SyncResult
+	res, pushed, err := syncOnce(fsys, root, r, st, skip, now)
+	if f, ok := r.(interface{ Flush() error }); ok {
+		if ferr := f.Flush(); ferr != nil {
+			// the names of what was sent are not on the remote: what went up is forgotten, and goes up
+			// again next pass. Kept as sent, the next pass would read it as deleted there, and delete it here.
+			for _, n := range pushed {
+				delete(st.Files, n)
+			}
+			if err == nil {
+				err = ferr
+			}
+			return res, err
+		}
+	}
+	if len(pushed) > 0 { // the remote's hash of what was sent, read once, after its names are there
+		if after, lerr := r.List(); lerr == nil {
+			for _, n := range pushed {
+				f := st.Files[n]
+				f.Remote = after[n].Hash
+				st.Files[n] = f
+			}
+		}
+	}
+	return res, err
+}
+
+func syncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]bool, now time.Time) (res SyncResult, pushed []string, err error) {
 	if st.Files == nil {
 		st.Files = map[string]fileSync{}
 	}
 	local, err := localFiles(fsys, root, skip)
 	if err != nil {
-		return res, err
+		return res, pushed, err
 	}
 	remote, err := r.List()
 	if err != nil {
-		return res, err
+		return res, pushed, err
 	}
 	names := map[string]bool{}
 	for n := range local {
@@ -557,19 +607,6 @@ func SyncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 	sort.Strings(order)
 	abs := func(n string) string { return filepath.Join(root, filepath.FromSlash(n)) }
 	fail := func(n string, err error) { res.Errors = append(res.Errors, n+": "+err.Error()) }
-	var pushed []string // the remote's hash of what was sent is read once, after
-	defer func() {
-		if len(pushed) == 0 {
-			return
-		}
-		if after, err := r.List(); err == nil {
-			for _, n := range pushed {
-				f := st.Files[n]
-				f.Remote = after[n].Hash
-				st.Files[n] = f
-			}
-		}
-	}()
 	for _, n := range order {
 		if strings.Contains(n, "(çakışma ") && false {
 			continue
@@ -671,7 +708,7 @@ func SyncOnce(fsys FS, root string, r Remote, st *syncState, skip map[string]boo
 			st.Files[n] = fileSync{Local: hashOf(b), Remote: rh}
 		}
 	}
-	return res, nil
+	return res, pushed, nil
 }
 
 // localHashOf is the hash of the remote's bytes, for comparing with ours when the remote's own hash is
@@ -685,4 +722,18 @@ func localHashOf(r Remote, name, remoteHash, _ string) string {
 		return ""
 	}
 	return hashOf(b)
+}
+
+// sentBefore reports whether the remote holds name already with these very bytes, though its index
+// does not name it: a pass whose index was not written sent it, and sending it again is done.
+func (e *encRemote) sentBefore(name string, data []byte) bool {
+	if e.idx[e.opaque(name)] == name {
+		return false
+	}
+	raw, err := e.inner.Get(e.opaque(name))
+	if err != nil {
+		return false
+	}
+	plain, err := e.open(raw)
+	return err == nil && bytes.Equal(plain, data)
 }

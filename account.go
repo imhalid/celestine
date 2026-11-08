@@ -387,14 +387,14 @@ func (a *app) accountSection(c *ui.Context) {
 			func() {
 				ui.Column(c).Gap(10).FillWidth().Children(func() {
 					ryugo.Field(c, ryugo.FieldOptions{Label: T("Kullanıcı adı")}, func() {
-						ryugo.Input(c.Key("acct-user"), &a.ac.user, ryugo.InputOptions{Label: T("Kullanıcı adı"), Size: ryugo.Sm})
+						a.fieldMenu(ryugo.Input(c.Key("acct-user"), &a.ac.user, ryugo.InputOptions{Label: T("Kullanıcı adı"), Size: ryugo.Sm}), &a.ac.user, fieldOpts{oneLine: true})
 					})
 					ryugo.Field(c, ryugo.FieldOptions{Label: T("Şifre")}, func() {
-						ryugo.Input(c.Key("acct-pass"), &a.ac.pass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true})
+						a.fieldMenu(ryugo.Input(c.Key("acct-pass"), &a.ac.pass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true}), &a.ac.pass, fieldOpts{oneLine: true, secret: true})
 					})
 					if a.ac.mode == "register" {
 						ryugo.Field(c, ryugo.FieldOptions{Label: T("Davet kodu")}, func() {
-							ryugo.Input(c.Key("acct-code"), &a.ac.code, ryugo.InputOptions{Label: T("Davet kodu"), Size: ryugo.Sm, Placeholder: "RYU-XXXXXX"})
+							a.fieldMenu(ryugo.Input(c.Key("acct-code"), &a.ac.code, ryugo.InputOptions{Label: T("Davet kodu"), Size: ryugo.Sm, Placeholder: "RYU-XXXXXX"}), &a.ac.code, fieldOpts{oneLine: true})
 						})
 						ui.Text(c, T("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
 					}
@@ -455,8 +455,8 @@ func (a *app) accountSection(c *ui.Context) {
 			})
 			if a.ac.showPass {
 				ui.Column(c).Gap(8).FillWidth().Children(func() {
-					ryugo.Input(c.Key("acct-pw-old"), &a.ac.pass, ryugo.InputOptions{Label: T("Şimdiki şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şimdiki şifre")})
-					ryugo.Input(c.Key("acct-pw-new"), &a.ac.newPass, ryugo.InputOptions{Label: T("Yeni şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Yeni şifre")})
+					a.fieldMenu(ryugo.Input(c.Key("acct-pw-old"), &a.ac.pass, ryugo.InputOptions{Label: T("Şimdiki şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şimdiki şifre")}), &a.ac.pass, fieldOpts{oneLine: true, secret: true})
+					a.fieldMenu(ryugo.Input(c.Key("acct-pw-new"), &a.ac.newPass, ryugo.InputOptions{Label: T("Yeni şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Yeni şifre")}), &a.ac.newPass, fieldOpts{oneLine: true, secret: true})
 					errLine()
 					if btn("acct-pw-go", T("Şifreyi değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm}) && !a.ac.busy {
 						old, nw := a.ac.pass, a.ac.newPass
@@ -510,7 +510,7 @@ func (a *app) accountSection(c *ui.Context) {
 			})
 			if a.ac.confirm {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).FillWidth().Children(func() {
-					ryugo.Input(c.Key("acct-del-pass"), &a.ac.delPass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şifreni yaz")})
+					a.fieldMenu(ryugo.Input(c.Key("acct-del-pass"), &a.ac.delPass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şifreni yaz")}), &a.ac.delPass, fieldOpts{oneLine: true, secret: true})
 					if btn("acct-del-go", T("Hesabı kalıcı olarak sil"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up}) && !a.ac.busy {
 						pw := a.ac.delPass
 						a.acctRun(func(cl *acctClient) error { return cl.DeleteAccount(s.SyncToken, s.AccountUser, pw) },

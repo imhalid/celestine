@@ -157,12 +157,12 @@ func (a *app) csTemplates(c *ui.Context) {
 		t := &d.Templates[i]
 		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: T("Şablonun adı"), Placeholder: T("Toplantı notu"), Size: ryugo.Sm}).Grow(1)
+				a.fieldMenu(ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: T("Şablonun adı"), Placeholder: T("Toplantı notu"), Size: ryugo.Sm}), &t.Name, fieldOpts{oneLine: true}).Grow(1)
 				if ryugo.Button(c.Key("cs-tpl-del"), T("Şablonu sil"), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 					drop = i
 				}
 			})
-			ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: T("Şablonun metni"), Placeholder: "## {{başlık}}\n\n- [ ] ", Rows: 4, MaxRows: 12, Size: ryugo.Sm})
+			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: T("Şablonun metni"), Placeholder: "## {{başlık}}\n\n- [ ] ", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
 		})
 	}
 	if drop >= 0 {

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -554,6 +556,12 @@ func TestSyncEncryptedIndexRace(t *testing.T) {
 	if err := eb.Put("b/y.json", []byte("y"), ""); err != nil {
 		t.Fatal(err)
 	}
+	if err := ea.Flush(); err != nil { // the index is put at the end of a pass, as SyncOnce does
+		t.Fatal(err)
+	}
+	if err := eb.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	list, err := open().List()
 	if err != nil {
 		t.Fatal(err)
@@ -577,5 +585,89 @@ func TestSyncNeedsEncryption(t *testing.T) {
 	waitSync(t, a)
 	if a.sy.err == "" {
 		t.Fatal("no error said")
+	}
+}
+
+// listCounter counts the remote's listings.
+type listCounter struct {
+	Remote
+	lists int
+}
+
+func (l *listCounter) List() (map[string]RemoteEntry, error) { l.lists++; return l.Remote.List() }
+
+// A first pass of many files puts the sealed index a few times, not once a file: each put lists the remote
+// and merges, and once a file a library of thousands took minutes. Another device sees them all after it.
+func TestSyncEncryptedIndexInSteps(t *testing.T) {
+	a := newDevice(t)
+	const n = 450
+	for i := 0; i < n; i++ {
+		a.write(fmt.Sprintf("notlar/s%03d/page.json", i), "x")
+	}
+	inner := &listCounter{Remote: dirRemote{t.TempDir()}}
+	e, err := openEnc(inner, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := a.sync(e); res.Pushed != n {
+		t.Fatalf("pushed %d", res.Pushed)
+	}
+	if inner.lists > 12 {
+		t.Fatalf("the remote was listed %d times for %d files", inner.lists, n)
+	}
+	b := newDevice(t)
+	e2, err := openEnc(inner.Remote, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := b.sync(e2); res.Pulled != n {
+		t.Fatalf("the other device got %d of %d", res.Pulled, n)
+	}
+}
+
+// indexFails is a remote whose sealed index cannot be written while fail is set.
+type indexFails struct {
+	Remote
+	fail bool
+}
+
+func (r *indexFails) Put(name string, data []byte, prev string) error {
+	if r.fail && name == indexFile {
+		return errors.New("ağ yok")
+	}
+	return r.Remote.Put(name, data, prev)
+}
+
+// The index of an encrypted remote not written at the end of a pass: what went up is not taken as
+// sent, so the next pass sends it again, and never deletes it here as if it were deleted there.
+func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
+	a := newDevice(t)
+	a.write("notlar/bir/page.json", "bir")
+	inner := &indexFails{Remote: dirRemote{t.TempDir()}}
+	e, err := openEnc(inner, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner.fail = true
+	if _, err := SyncOnce(osFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err == nil {
+		t.Fatal("no error for an index not written")
+	}
+	if _, ok := a.st.Files["notlar/bir/page.json"]; ok {
+		t.Fatal("the file is taken as sent, its name not on the remote")
+	}
+	// the app opens the remote anew for the next pass, its index read from it
+	inner.fail = false
+	e2, err := openEnc(inner, "parola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := a.sync(e2)
+	if a.read("notlar/bir/page.json") != "bir" || res.Removed != 0 || res.Pushed != 1 {
+		t.Fatalf("after: %q, %+v", a.read("notlar/bir/page.json"), res)
+	}
+	b := newDevice(t)
+	e3, _ := openEnc(inner, "parola")
+	if b.sync(e3); b.read("notlar/bir/page.json") != "bir" {
+		t.Fatal("the other device did not get it")
 	}
 }

@@ -18,7 +18,10 @@ import (
 // with the backlinks' index (backlinks.go), in the same pass; ticking one
 // writes the page's file (and the page's text, if it is open) at once.
 
-var taskLine = regexp.MustCompile(`^(\s*)[-*+]\s+\[([ xX])\]\s*(.*?)\s*$`)
+var taskLine = regexp.MustCompile(`^(\s*)[-*+]\s+\[([ xX*!?/e])\]\s*(.*?)\s*$`)
+
+// taskBox is the box of a task's line, and what is before it: a kind of task's too (taskkinds.go).
+var taskBox = regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\]`)
 
 // taskItem is a task: its page, which line of the page's Markdown, whether
 // it is done, and what it says.
@@ -68,7 +71,7 @@ func tasksOf(p *Page, body string) []taskItem {
 			if text = strings.TrimSpace(text); text == "" {
 				text = strings.TrimSpace(m[3])
 			}
-			out = append(out, taskItem{p, i, m[2] != " ", text, due, every})
+			out = append(out, taskItem{p, i, m[2] == "x" || m[2] == "X", text, due, every})
 		}
 	}
 	return out
@@ -157,10 +160,10 @@ func (a *app) toggleTask(t taskItem) {
 	}
 	if next, ok := comesAgain(lines[t.line], a.clock()); ok && !t.done {
 		// a task that comes again: this one is done, and the next is made
-		lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(everyTok.ReplaceAllString(lines[t.line], ""), "[x]")
+		lines[t.line] = taskBox.ReplaceAllString(everyTok.ReplaceAllString(lines[t.line], ""), "${1}[x]")
 		lines = append(lines[:t.line+1], append([]string{next}, lines[t.line+1:]...)...)
 	} else {
-		lines[t.line] = regexp.MustCompile(`\[[ xX]\]`).ReplaceAllString(lines[t.line], mark)
+		lines[t.line] = taskBox.ReplaceAllString(lines[t.line], "${1}"+mark)
 	}
 	if err := p.SaveText(strings.Join(lines, "\n")); err != nil {
 		a.saveErr = err.Error()
@@ -212,7 +215,7 @@ func (a *app) tasksView(c *ui.Context) {
 					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: "Koleksiyon", Size: ryugo.Sm})
 				})
 			}
-			ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: T("Görevlerde ara"), Placeholder: T("Görevlerde ara…"), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}).Width(176)
+			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: T("Görevlerde ara"), Placeholder: T("Görevlerde ara…"), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
 		})
 		q := fold(strings.TrimSpace(a.taskQuery))
 		now := a.clock()
@@ -467,7 +470,7 @@ func comesAgain(line string, now time.Time) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	m := regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX]\](\s*)(.*)$`).FindStringSubmatch(line)
+	m := regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\](\s*)(.*)$`).FindStringSubmatch(line)
 	if m == nil {
 		return "", false
 	}

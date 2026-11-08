@@ -298,7 +298,7 @@ func (a *app) searchView(c *ui.Context) {
 	hits := a.searchPages(a.searchQ, 80, a.links.stale)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, "Ara").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		in := ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: "Kitaplıkta ara", Placeholder: T("Sayfaların başlığında ve metninde ara…"), PrefixIcon: iconSearch, Clearable: true})
+		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: "Kitaplıkta ara", Placeholder: T("Sayfaların başlığında ve metninde ara…"), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
 		if a.searchFocus {
 			in.Focus()
 			a.searchFocus = false

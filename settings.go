@@ -468,7 +468,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1)
+						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})
 				})
@@ -548,7 +548,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable()
+						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})
 				})
@@ -583,7 +583,7 @@ func (a *app) settingsQuick(c *ui.Context) {
 	settingGroup(c, "set-quick", func() {
 		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				in := ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}).Width(190)
+				in := a.fieldMenu(ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}), &a.quickKeyDraft, fieldOpts{oneLine: true}).Width(190)
 				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if apply && a.quick != nil {
 					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {

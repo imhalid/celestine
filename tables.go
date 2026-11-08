@@ -737,6 +737,7 @@ func (a *app) cellEditView(c *ui.Context) {
 	ui.Overlay(c, func() {
 		in := ui.TextInputBase(c.Key("cell-in:"+strconv.Itoa(ce.row)+":"+strconv.Itoa(ce.col)), &ce.text).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
 			Label("Hücre").FontSize(a.fontSize()*0.95).Padding(0, 11).Background(cl.Card).Radius(rad(3)).Border(1.5, cl.Accent).FocusRing(false).CaretWidth(0)
+		a.fieldMenu(in, &ce.text, fieldOpts{oneLine: true})
 		if ce.fresh {
 			in.AutoFocus()
 			in.Focus()

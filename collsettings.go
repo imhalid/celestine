@@ -140,7 +140,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 				a.csPages(c)
 			case 4:
 				ui.Text(c, T("Koleksiyonun collection.json dosyası. Değiştirince başka sekmeye geçmek ya da Kaydet uygular.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-				ryugo.Textarea(c.Key("cs-code"), &cs.code, ryugo.TextareaOptions{Label: "collection.json", Rows: 14, MaxRows: 24, Size: ryugo.Sm}).Font(ryugo.FontMono)
+				a.fieldMenu(ryugo.Textarea(c.Key("cs-code"), &cs.code, ryugo.TextareaOptions{Label: "collection.json", Rows: 14, MaxRows: 24, Size: ryugo.Sm}), &cs.code, fieldOpts{}).Font(ryugo.FontMono)
 				if ryugo.Button(c.Key("cs-code-apply"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.applyCode()
 				}
@@ -170,15 +170,15 @@ func (a *app) csGeneral(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
-		ryugo.Input(c.Key("cs-name"), &d.Name, ryugo.InputOptions{Label: T("Koleksiyonun adı")})
+		a.fieldMenu(ryugo.Input(c.Key("cs-name"), &d.Name, ryugo.InputOptions{Label: T("Koleksiyonun adı")}), &d.Name, fieldOpts{oneLine: true})
 	})
 	if d.Dynamic() {
 		ryugo.Field(c, ryugo.FieldOptions{Label: "Sorgu", Help: "Bu koleksiyon, aramanın bulduğu sayfaları gösterir: kelime, \"tam ifade\", başlık:kelime, koleksiyon:ad, #etiket."}, func() {
-			ryugo.Input(c.Key("cs-query"), &d.Query, ryugo.InputOptions{Label: "Sorgu", Placeholder: "#fikir koleksiyon:Notlar"})
+			a.fieldMenu(ryugo.Input(c.Key("cs-query"), &d.Query, ryugo.InputOptions{Label: "Sorgu", Placeholder: "#fikir koleksiyon:Notlar"}), &d.Query, fieldOpts{oneLine: true})
 		})
 	}
 	ryugo.Field(c, ryugo.FieldOptions{Label: T("Açıklama"), Help: "Koleksiyonun sayfasında adının altında görünür."}, func() {
-		ryugo.Input(c.Key("cs-desc"), &d.Description, ryugo.InputOptions{Label: T("Açıklama"), Placeholder: T("Bu koleksiyon ne için?")})
+		a.fieldMenu(ryugo.Input(c.Key("cs-desc"), &d.Description, ryugo.InputOptions{Label: T("Açıklama"), Placeholder: T("Bu koleksiyon ne için?")}), &d.Description, fieldOpts{oneLine: true})
 	})
 	ryugo.Field(c, ryugo.FieldOptions{Label: T("İkon")}, func() {
 		ui.Row(c).Wrap().Gap(6).Children(func() {
@@ -243,7 +243,7 @@ func (a *app) csGeneral(c *ui.Context) {
 						}
 					}
 				})
-				ryugo.Input(c.Key("cs-journal-format"), &d.JournalFormat, ryugo.InputOptions{Label: T("Başlık biçimi"), Placeholder: defaultFormat})
+				a.fieldMenu(ryugo.Input(c.Key("cs-journal-format"), &d.JournalFormat, ryugo.InputOptions{Label: T("Başlık biçimi"), Placeholder: defaultFormat}), &d.JournalFormat, fieldOpts{oneLine: true})
 				ui.Text(c, T("Bugün: ")+formatDay(d.JournalFormat, a.clock())).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			})
 		})
@@ -301,9 +301,9 @@ var iconLock = icon(`<rect x="5.5" y="10.5" width="13" height="9" rx="2.5"/><pat
 
 // tagField is a field of tags for the options of a choice: each with its cross,
 // added with ↵ or a comma.
-func tagField(c *ui.Context, key string, tags *[]string, placeholder string) {
+func (a *app) tagField(c *ui.Context, key string, tags *[]string, placeholder string) {
 	before := slices.Clone(*tags)
-	ryugo.TagInput(c.Key(key), tags, ryugo.TagInputOptions{Placeholder: placeholder, Size: ryugo.Sm, Label: T("Seçenek ekle")})
+	a.tagsField(c, key, tags, placeholder, T("Seçenek ekle"))
 	if !slices.Equal(before, *tags) {
 		*tags = cleanOptions(*tags)
 	}
@@ -314,11 +314,11 @@ func (a *app) csPropEditor(c *ui.Context, p *Property) {
 	cs := &a.cs
 	ui.Column(c.Key("cs-prop-edit:" + p.ID)).FillWidth().Gap(10).Padding(12).Children(func() {
 		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
-			ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: T("Özelliğin adı"), Size: ryugo.Sm})
+			a.fieldMenu(ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: T("Özelliğin adı"), Size: ryugo.Sm}), &p.Name, fieldOpts{oneLine: true})
 		})
 		if p.Type == PropChoice {
 			ryugo.Field(c, ryugo.FieldOptions{Label: T("Seçenekler"), Help: "Sırası panonun sütunları olur."}, func() {
-				tagField(c, "cs-prop-opts", &p.Options, "Seçenek yaz, ↵")
+				a.tagField(c, "cs-prop-opts", &p.Options, "Seçenek yaz, ↵")
 			})
 		}
 		if ryugo.Button(c.Key("cs-prop-del"), T("Özelliği sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
@@ -346,7 +346,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 	}
 	ui.Column(c).Gap(10).Padding(12).Radius(rad(12)).Border(1, cl.Hairline).Children(func() {
 		ui.Text(c, T("Özellik ekle")).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text)
-		ryugo.Input(c.Key("cs-new-name"), &cs.newName, ryugo.InputOptions{Label: T("Yeni özelliğin adı"), Placeholder: T("Ad yaz; başka koleksiyonlardakiler önerilir"), Size: ryugo.Sm})
+		a.fieldMenu(ryugo.Input(c.Key("cs-new-name"), &cs.newName, ryugo.InputOptions{Label: T("Yeni özelliğin adı"), Placeholder: T("Ad yaz; başka koleksiyonlardakiler önerilir"), Size: ryugo.Sm}), &cs.newName, fieldOpts{oneLine: true})
 		// the properties of the other collections, as the name is typed
 		if sugg := a.sharedProps(cs.newName); len(sugg) > 0 {
 			ui.Column(c).Gap(2).Children(func() {
@@ -380,7 +380,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 		}
 		ryugo.Segmented(c.Key("cs-new-type"), &cs.newType, names, ryugo.SegmentedOptions{Label: T("Yeni özelliğin türü"), Fill: true, Size: ryugo.Sm})
 		if PropTypes[cs.newType].Type == PropChoice {
-			tagField(c, "cs-new-opts", &cs.newTags, "Seçenek yaz, ↵: Yapılacak, Sürüyor, Bitti")
+			a.tagField(c, "cs-new-opts", &cs.newTags, "Seçenek yaz, ↵: Yapılacak, Sürüyor, Bitti")
 		}
 		ui.Row(c).Gap(8).Children(func() { // as wide as their labels
 			if ryugo.Button(c.Key("cs-new-add"), "Ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Disabled: strings.TrimSpace(cs.newName) == ""}).Clicked() {
@@ -507,7 +507,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 	d := &cs.draft
 	ui.Column(c.Key("cs-view-edit:" + v.ID)).FillWidth().Gap(12).Padding(12).Children(func() {
 		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
-			ryugo.Input(c.Key("cs-view-name"), &v.Label, ryugo.InputOptions{Label: T("Görünümün adı"), Size: ryugo.Sm})
+			a.fieldMenu(ryugo.Input(c.Key("cs-view-name"), &v.Label, ryugo.InputOptions{Label: T("Görünümün adı"), Size: ryugo.Sm}), &v.Label, fieldOpts{oneLine: true})
 		})
 		switch v.Type {
 		case "table":
@@ -635,10 +635,10 @@ func (a *app) csPages(c *ui.Context) {
 	d := &a.cs.draft
 	ryugo.Switch(c.Key("cs-subpages"), &d.SubPages, ryugo.SwitchOptions{Label: "Alt sayfalar", Description: T("Bir sayfanın altına sayfa eklenebilir.")})
 	ryugo.Field(c, ryugo.FieldOptions{Label: "Bir sayfaya ne denir?", Help: "“Yeni sayfa” yerine “Yeni Tarif” gibi."}, func() {
-		ryugo.Input(c.Key("cs-noun"), &d.PageNoun, ryugo.InputOptions{Label: T("Sayfanın adı"), Placeholder: "sayfa"})
+		a.fieldMenu(ryugo.Input(c.Key("cs-noun"), &d.PageNoun, ryugo.InputOptions{Label: T("Sayfanın adı"), Placeholder: "sayfa"}), &d.PageNoun, fieldOpts{oneLine: true})
 	})
 	ryugo.Field(c, ryugo.FieldOptions{Label: T("Yeni sayfa şablonu"), Help: "Yeni bir sayfa bu Markdown ile başlar."}, func() {
-		ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: T("Şablon"), Placeholder: "## Notlar\n\n- [ ] ", Rows: 6, MaxRows: 14, Size: ryugo.Sm})
+		a.fieldMenu(ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: T("Şablon"), Placeholder: "## Notlar\n\n- [ ] ", Rows: 6, MaxRows: 14, Size: ryugo.Sm}), &d.Template, fieldOpts{})
 	})
 	a.csTemplates(c)
 }

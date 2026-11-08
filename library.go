@@ -374,11 +374,16 @@ func (p *Page) Text() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return textOfBody(body), nil
+}
+
+// textOfBody is Text of a body read.
+func textOfBody(body string) string {
 	text := bodyText(body)
 	if text != "" && !strings.HasSuffix(text, "\n") {
 		text += "\n"
 	}
-	return text, nil
+	return text
 }
 
 // SaveText writes the page with a body made of Markdown: what comes in from

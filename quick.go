@@ -166,7 +166,7 @@ func (q *quickNote) view(c *ui.Context) {
 		if q.mode == quickPage {
 			ph = "İlk satır başlık olur…"
 		}
-		area := ryugo.Textarea(c.Key("quick-text"), &q.text, ryugo.TextareaOptions{Placeholder: ph, Label: "Not", Rows: 4, MaxRows: 4}).Bind(&q.input)
+		area := a.fieldMenu(ryugo.Textarea(c.Key("quick-text"), &q.text, ryugo.TextareaOptions{Placeholder: ph, Label: "Not", Rows: 4, MaxRows: 4}), &q.text, fieldOpts{}).Bind(&q.input)
 		if q.focusWanted {
 			area.Focus()
 			q.focusWanted = false

@@ -314,6 +314,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				q := a.fonts.query[ri]
 				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label(T("Yazı tipi ara")).Placeholder(T("Yazı tipi ara…")).PlaceholderColor(cl.Muted).
 					FontSize(13).Padding(7, 10).Radius(rad(8)).Background(cl.Card).Border(1, cl.Hairline).FocusRing(false)
+				a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.fonts.query[ri] = q }})
 				if in.Changed() {
 					a.fonts.query[ri] = q
 				}

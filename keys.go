@@ -241,8 +241,8 @@ func (a *app) settingsKeys(c *ui.Context) {
 	settingGroup(c, "set-key-new", func() {
 		settingRow(c, "Komuta kısayol ver", "Komutun adını ve tuşu yaz: örn. “Şimdi yedekle” ve cmd+shift+y. Uygulamanın ve sistemin tuşları verilmez.", func() {
 			ui.Column(c).Gap(6).Children(func() {
-				ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: T("Komut adı")})
-				ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: T("Tuş"), Size: ryugo.Sm, Placeholder: "cmd+shift+y"})
+				a.fieldMenu(ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: T("Komut adı")}), &a.keyCmd, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: T("Tuş"), Size: ryugo.Sm, Placeholder: "cmd+shift+y"}), &a.keyAccel, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("key-set"), T("Ata"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.bindKey(a.keyCmd, a.keyAccel); err != nil {
 						a.notice = err.Error()
@@ -282,8 +282,8 @@ func (a *app) settingsKeys(c *ui.Context) {
 	settingGroup(c, "set-macro-new", func() {
 		settingRow(c, "Makro yaz", "Bir ad ve + ile ayrılmış komutlar: örn. “Günlük görev” için “Bugünün sayfası + Görevler”. ⌘P'de “Makro: ad” olarak çıkar.", func() {
 			ui.Column(c).Gap(6).Children(func() {
-				ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: T("Makro adı")})
-				ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: T("Bugünün sayfası + Görevler")})
+				a.fieldMenu(ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: T("Makro adı")}), &a.macroName, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: T("Bugünün sayfası + Görevler")}), &a.macroList, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("macro-save"), T("Kaydet"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.saveMacro(a.macroName, a.macroList); err != nil {
 						a.notice = err.Error()

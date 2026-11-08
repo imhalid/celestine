@@ -321,7 +321,7 @@ func (a *app) startRename(item any, name string) {
 // renameField is the field of a row being renamed: Enter or leaving it
 // keeps the new name, Escape the old one.
 func (a *app) renameField(c *ui.Context) {
-	in := ryugo.Input(c, &a.renameText, ryugo.InputOptions{Label: "Yeni ad", Size: ryugo.Sm}).Grow(1).AutoFocus()
+	in := a.fieldMenu(ryugo.Input(c, &a.renameText, ryugo.InputOptions{Label: "Yeni ad", Size: ryugo.Sm}), &a.renameText, fieldOpts{oneLine: true}).Grow(1).AutoFocus()
 	switch {
 	case in.Shortcut(0, ui.KeyEscape):
 		a.renaming = nil
@@ -636,6 +636,8 @@ type collDragState struct {
 	active  bool
 	before  *Collection // it goes before this one; nil: last of its kind
 	dropped any         // the row just let go: the click that ends the drag is not one
+	pos     ui.Point    // the pointer, in the window
+	dock    bool        // over the panes: let go, it opens there, in the Dock
 }
 
 // collDrag follows the press on a collection's row: dragged, the line shows
@@ -657,9 +659,14 @@ func (a *app) collDrag(r ui.Element, coll *Collection) {
 			cd.active = true
 		}
 		if cd.active {
-			_, py, _ := r.PointerPosition()
-			y := r.LayoutBounds().Y + py
+			px, py, _ := r.PointerPosition()
+			b := r.LayoutBounds()
+			y := b.Y + py
+			cd.pos = ui.Point{X: b.X + px, Y: y}
 			cd.before = nil
+			if cd.dock = a.carryDock(place{"coll", coll.Dir}, coll.Name, collGlyph(coll), cd.pos); cd.dock {
+				break // over the panes: the Dock's, not the list's
+			}
 			for _, g := range a.lib.Collections {
 				if g == coll || g.Pinned != coll.Pinned {
 					continue
@@ -671,7 +678,9 @@ func (a *app) collDrag(r ui.Element, coll *Collection) {
 			}
 		}
 	case !pressed && cd.coll == coll:
-		if cd.active {
+		if cd.active && a.letCarry() { // let go over the panes: the Dock places it
+			cd.dropped = coll
+		} else if cd.active {
 			before := cd.before
 			a.later(func() { // not while the tree is being built from the list it changes
 				if err := a.lib.MoveCollectionBefore(coll, before); err != nil {
@@ -680,7 +689,7 @@ func (a *app) collDrag(r ui.Element, coll *Collection) {
 			})
 			cd.dropped = coll
 		}
-		cd.coll, cd.active, cd.moved, cd.before = nil, false, 0, nil
+		cd.coll, cd.active, cd.moved, cd.before, cd.dock = nil, false, 0, nil, false
 	}
 }
 
@@ -688,6 +697,10 @@ func (a *app) collDrag(r ui.Element, coll *Collection) {
 func (a *app) collDragView(c *ui.Context) {
 	cd := &a.cdrag
 	if !cd.active || cd.coll == nil {
+		return
+	}
+	if cd.dock { // over the panes: its name by the pointer, the Dock showing where it would go
+		a.carryChip(c, cd.pos)
 		return
 	}
 	var y float32

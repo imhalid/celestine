@@ -307,7 +307,7 @@ func (a *app) syncPanes() {
 			}
 		}
 	}
-	if len(a.ps.states) < 2 {
+	if len(a.ps.states) < 2 && a.carry.drop == nil { // one pane: no Dock, unless something is being dragged into it
 		a.ps.layout = nil
 	}
 }
@@ -347,12 +347,13 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	}
 	a.syncPanes()
 	a.keepPanes()
+	var el ui.Element
 	if phone { // one pane: the one in use, the whole window (mobile.go)
-		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			a.withPane(a.ps.active, func() { a.paneColumn(c, th, a.ps.active, 1, false) })
 		})
 	} else if a.ps.layout == nil {
-		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
 		})
 	} else {
@@ -362,7 +363,11 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 				a.withPane(i, func() { p.Title = a.paneTitle() })
 			}
 		}
-		ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host()}).Grow(1)
+		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop}).Grow(1)
+		a.carried()
+	}
+	if b := el.LayoutBounds(); b.W > 0 { // a Dock just made is not laid out yet
+		a.panesR = b
 	}
 	if a.ps.settle > 0 {
 		a.ps.settle--
@@ -498,73 +503,6 @@ func (a *app) paneAtPoint(p ui.Point) int {
 		}
 	}
 	return -1
-}
-
-// sideZone is the pane a page held over the window's content would go into, or -1: with one pane,
-// the right part of the content is a second pane; with more, the pane the page is over.
-func (a *app) sideZone() int {
-	if a.paneCount() > 1 {
-		return a.paneAtPoint(a.drag.pos)
-	}
-	left, right := a.sidebarShown, a.winRect.W
-	if right <= left+80 {
-		return -1
-	}
-	frac := (a.drag.pos.X - left) / (right - left)
-	if frac < 0 {
-		return -1
-	}
-	if frac > 0.62 {
-		return 1
-	}
-	return -1
-}
-
-// aimSide notes where the page held is over a pane's side: let go there, the page opens in that pane.
-func (a *app) aimSide() {
-	d := &a.drag
-	d.sideOn = false
-	if d.page == nil {
-		return
-	}
-	if z := a.sideZone(); z >= 0 {
-		d.sideOn, d.side, d.target = true, z, nil
-	}
-}
-
-// sideZoneRect is the part of the window the pane z covers, for the glow shown while a page is held over it.
-func (a *app) sideZoneRect(z int) ui.Rect {
-	left, right := a.sidebarShown, a.winRect.W
-	h := a.winRect.H
-	if a.paneCount() > 1 && z >= 0 && z < len(a.ps.ids) {
-		if r, ok := a.ps.rects[a.ps.ids[z]]; ok {
-			return ui.Rect{X: r.X, Y: r.Y - 30, W: r.W, H: r.H + 30} // the glow starts 30 under the top
-		}
-	}
-	x := left + 0.62*(right-left)
-	return ui.Rect{X: x, Y: 0, W: right - x, H: h}
-}
-
-// sideGlow is the glow over the pane a page held would go into.
-func (a *app) sideGlow(c *ui.Context) {
-	d := &a.drag
-	if d.page == nil || !d.sideOn {
-		return
-	}
-	cl := ryugo.From(c).Colors
-	r := a.sideZoneRect(d.side)
-	label := "Yan bölmede aç"
-	if a.paneCount() > 1 {
-		label = "Bu bölmede aç"
-	}
-	ui.Overlay(c, func() {
-		c.Key("side-glow")
-		z := ui.Column(c).Absolute().Left(r.X+6).Top(r.Y+30).Width(r.W-12).Height(r.H-36).Radius(14).PassThrough().
-			AlignItems(ui.Center).Justify(ui.Center).Background(cl.ColorAccent500.Alpha(0.10)).Border(2, cl.ColorAccent500.Alpha(0.55))
-		z.Children(func() {
-			ui.Text(c, label).FontSize(15).FontWeight(650).TextColor(cl.ColorAccent500)
-		})
-	})
 }
 
 // openHereInSide shows what the pane in use shows in the other pane too: two views of it side by side.

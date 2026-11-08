@@ -220,7 +220,7 @@ func (a *app) appPalette() []palItem {
 		if cmd.title == "Hızlı not" {
 			keys = a.quickKeys()
 		}
-		it := palItem{title: T(cmd.title), sub: "Komut", keys: keys, glyph: cmd.glyph, run: func() { cmd.run(a) }}
+		it := palItem{title: T(cmd.title), sub: "Komut", keys: keys, glyph: cmd.glyph, run: func() { cmd.run(a) }, cat: cmdCat(cmd.title), fam: cmdFam(cmd.title)}
 		if cmd.off != nil {
 			it.off = cmd.off(a)
 		}

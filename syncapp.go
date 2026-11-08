@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ type syncUI struct {
 	conflictsAt    time.Time
 	conflictsBusy  bool
 	conflictsAgain bool
+	showColls      bool // the list of collections to sync is open
 	tried          time.Time
 	pass           string // the passphrase being typed
 	recovery       string // the recovery key just made, to be written down
@@ -107,7 +109,10 @@ func (a *app) syncNow() {
 		return
 	}
 	a.flush()
-	a.backupBefore("senkron")
+	backupDir := a.backupDirOf() // the backup before it is made in the background too: compressing
+	if a.settings.NoBackup {     // a big library's file took the window a second, at every pass
+		backupDir = ""
+	}
 	a.sy.busy, a.sy.status, a.sy.last = true, "eşitleniyor…", a.clock()
 	skip := map[string]bool{}
 	for _, d := range a.settings.SyncOff {
@@ -116,6 +121,11 @@ func (a *app) syncNow() {
 	state := a.loadSyncState()
 	go func() {
 		defer a.guard()
+		if backupDir != "" {
+			if _, err := backupTo(st, backupDir, "senkron", time.Now()); err == nil {
+				pruneBackups(backupDir, time.Now())
+			}
+		}
 		res, err := SyncOnce(st, storeRoot, remote, state, skip, time.Now())
 		a.do(func() error {
 			a.sy.busy = false
@@ -318,7 +328,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	field := func(key, label string, v *string, secret bool) func() {
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
-				in := ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: label, Size: ryugo.Sm})
+				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: label, Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
 				_ = secret
 				_ = in
 			})
@@ -346,7 +356,7 @@ func (a *app) settingsSync(c *ui.Context) {
 			func() {
 				settingRow(c, "Uçtan uca şifreleme", "Şart: dosyalar bu bilgisayarda şifrelenir, adları da gizlenir; sunucu ya da klasör yalnız anlamsız bloklar görür. Parola olmadan eşitleme başlamaz. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"})
+						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"}), &a.sy.pass, fieldOpts{oneLine: true})
 						if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 							a.setSyncPassphrase(a.sy.pass)
 						}
@@ -398,9 +408,25 @@ func (a *app) settingsSync(c *ui.Context) {
 			}
 		})
 	}
+	// a library of many collections makes a long list of switches, which drawn at every frame made the page
+	// slow: it shows when asked, a line telling how many are synced in its place
 	if len(rows2) > 0 {
-		ui.Text(c, T("Hangi koleksiyonlar eşitlensin")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
-		settingGroup(c, "set-sync-colls", rows2...)
+		off := 0
+		for _, co := range a.lib.Collections {
+			if slices.Contains(s.SyncOff, co.Dir) {
+				off++
+			}
+		}
+		settingGroup(c, "set-sync-colls-head", func() {
+			settingRow(c, "Hangi koleksiyonlar eşitlensin", Tf("%d koleksiyonun %d tanesi eşitleniyor.", len(rows2), len(rows2)-off), func() {
+				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: T("Gizle"), false: T("Seç…")}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.sy.showColls = !a.sy.showColls
+				}
+			})
+		})
+		if a.sy.showColls {
+			settingGroup(c, "set-sync-colls", rows2...)
+		}
 	}
 	// state
 	status := a.sy.status

@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/egoist/mygo v0.7.4
-	github.com/imhalid/ryu-go v0.1.1-0.20261107045801-61e84bf33a1f
+	github.com/imhalid/ryu-go v0.1.1-0.20261108040113-e94b47959450
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
 	modernc.org/sqlite v1.61.1
@@ -33,3 +33,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/egoist/mygo => github.com/imhalid/mygo v0.7.5-0.20261108045043-239fc97452c0

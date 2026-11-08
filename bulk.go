@@ -91,7 +91,7 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 		ui.Spacer(c)
 		off := len(chosen) == 0
 		if a.bulk.tagging {
-			in := ryugo.Input(c.Key("bulk-tag"), &a.bulk.tag, ryugo.InputOptions{Label: "Etiket", Placeholder: "etiket", PrefixIcon: iconTag, Size: ryugo.Sm}).Width(150)
+			in := a.fieldMenu(ryugo.Input(c.Key("bulk-tag"), &a.bulk.tag, ryugo.InputOptions{Label: "Etiket", Placeholder: "etiket", PrefixIcon: iconTag, Size: ryugo.Sm}), &a.bulk.tag, fieldOpts{oneLine: true}).Width(150)
 			if a.bulk.focus {
 				in.Focus()
 				a.bulk.focus = false

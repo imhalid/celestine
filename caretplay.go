@@ -60,6 +60,7 @@ func (a *app) caretPlayground(c *ui.Context) {
 		ui.Text(c, T("Burada dene")).FontSize(13).FontWeight(620).TextColor(cl.Text2)
 		in := ui.TextInputBase(c.Key("caret-try"), &ct.text).Label(T("Careti dene")).FontSize(size).Padding(0, 14).
 			FillWidth().Height(size*2.6).Background(cl.Card).Radius(rad(12)).Border(1, cl.Hairline).FocusRing(false).CaretWidth(0)
+		a.fieldMenu(in, &ct.text, fieldOpts{oneLine: true})
 		if in.Submitted() { // Enter: a new line in the text, here a clean field, with the caret's Enter
 			ct.pending.typed += "\n"
 			ct.text, ct.was = "", ""

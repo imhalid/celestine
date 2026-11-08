@@ -30,6 +30,7 @@ type palette struct {
 	hx, hy float32  // where the pointer was last seen over the rows, in the window: a row is chosen by the pointer only when it moves
 	snap   *palSnap // the settings as they were when it opened, while a command is shown as a preview
 	pvKey  string   // the command being previewed
+	cat    string   // the group of commands opened, with nothing typed (palgroups.go)
 }
 
 // palSnap is what a preview changes, as it was: it goes back when the palette closes without choosing.
@@ -51,6 +52,8 @@ type palItem struct {
 	alias            string // other words it is found by, in the other language too
 	off              string // why it cannot be run now: it is dim, and says so when it is chosen
 	snip             []seg  // a page's words around what was asked, which are marked: a line of two
+	cat              string // a command's group, with nothing typed (palgroups.go)
+	fam              string // its family: its Turkish title before ": "
 }
 
 // openPalette opens the search of the documents (⌘K).
@@ -77,7 +80,7 @@ func (a *app) palQuery() string {
 // commands are what the palette does, where the app is now.
 func (a *app) commands() []palItem {
 	cmd := func(title, keys string, glyph *ui.SVG, run func()) palItem {
-		return palItem{title: T(title), sub: "Komut", keys: keys, glyph: glyph, run: run}
+		return palItem{title: T(title), sub: "Komut", keys: keys, glyph: glyph, run: run, cat: cmdCat(title), fam: cmdFam(title)}
 	}
 	var out []palItem
 	ctxFrom := 0
@@ -434,22 +437,20 @@ func (a *app) commandItems(q string) []palItem {
 		seen := map[string]bool{}
 		for _, t := range recent {
 			for _, it := range all {
-				if it.title == t && !seen[t] {
+				if it.title == t && !seen[t] && len(out) < 5 {
 					seen[t] = true
 					it.group = "Son kullanılanlar"
 					out = append(out, it)
 				}
 			}
 		}
+		var rest []palItem
 		for _, it := range all {
 			if !seen[it.title] {
-				if len(out) > 0 {
-					it.group = "Komutlar"
-				}
-				out = append(out, it)
+				rest = append(rest, it)
 			}
 		}
-		return out
+		return append(out, a.groupCommands(rest)...)
 	}
 	out := append(a.argItems(q), a.fontNameItems(q)...)
 	for _, it := range all {
@@ -666,6 +667,12 @@ func (a *app) paletteView(c *ui.Context) {
 				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.text).Label("Ara ya da komut").
 					Placeholder(palPlaceholder(mode)).PlaceholderColor(cl.Muted).
 					FontSize(14).Grow(1).FocusRing(false).AutoFocus()
+				a.fieldMenu(in, &a.pal.text, fieldOpts{oneLine: true, changed: func() {
+					a.pal.query = a.pal.text
+					if mode != '@' {
+						a.pal.query = string(mode) + a.pal.text
+					}
+				}})
 				if in.Changed() {
 					// a sign written first sets the mode, and is not left in the field
 					m := mode
@@ -678,6 +685,8 @@ func (a *app) paletteView(c *ui.Context) {
 					}
 				}
 				switch {
+				case a.pal.cat != "" && a.pal.text == "" && in.Shortcut(0, ui.KeyBackspace): // out of the group opened
+					a.pal.cat = ""
 				case in.Shortcut(0, ui.KeyDown):
 					a.pal.sel, a.pal.reveal = min(a.pal.sel+1, len(items)-1), true
 				case in.Shortcut(0, ui.KeyUp):
@@ -704,7 +713,7 @@ func (a *app) paletteView(c *ui.Context) {
 						}
 						if h != "" && h != head {
 							head = h
-							ui.Text(c.Key("head:"+h), h).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
+							ui.Text(c.Key("head:"+h), T(h)).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
 						}
 						a.paletteRow(c, i, it)
 					}

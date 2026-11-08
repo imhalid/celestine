@@ -179,10 +179,10 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	}
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, T("Günlük hedef (kelime)")).FontSize(13).TextColor(cl.Muted).Grow(1)
-		g := float64(goal)
-		ryugo.NumberInput(c.Key("write-goal"), &g, ryugo.NumberInputOptions{Label: T("Günlük hedef"), Size: ryugo.Sm, Step: 50}).Width(130)
-		if int(g) != a.settings.WriteGoal {
-			a.settings.WriteGoal = max(int(g), 0)
+		g := goal
+		a.countField(c, "write-goal", &g, T("Günlük hedef")).Width(130)
+		if g != a.settings.WriteGoal {
+			a.settings.WriteGoal = g
 			a.saveSettings()
 		}
 	})

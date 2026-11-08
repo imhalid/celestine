@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // Two panes: a page in each, each written in on its own, the one in use following the user.
@@ -118,15 +119,13 @@ func TestDragToSide(t *testing.T) {
 		t.Fatalf("no row: %v", tt.Texts())
 	}
 	x0, y0 := row.X+row.W/2, row.Y+row.H/2
-	tt.Press(x0, y0)
-	for k := 1; k <= 12; k++ {
-		tt.Move(x0+float32(k)*90, y0+float32(k)*3)
-		tt.Frame()
+	r := a.panesR // the window's right edge target: the middle of the panes' right edge
+	x1, y1 := r.X+r.W-12-15, r.Y+r.H/2
+	holdTo(tt, x0, y0, x1, y1)
+	if a.carry.drop == nil || a.ps.layout == nil {
+		t.Fatalf("not offered to the Dock: pos %v panes %v", a.drag.pos, r)
 	}
-	if !a.drag.sideOn {
-		t.Fatalf("not aimed at the side: pos %v zone %d", a.drag.pos, a.sideZone())
-	}
-	tt.Release(x0+12*90, y0+36)
+	tt.Release(x1, y1)
 	tt.Advance(600 * time.Millisecond)
 	if a.paneCount() != 2 {
 		t.Fatalf("panes: %d", a.paneCount())
@@ -235,12 +234,6 @@ func TestManyPanes(t *testing.T) {
 			t.Fatalf("pane %s at %v", id, r)
 		}
 		seen[r] = true
-	}
-	// a page held over the third pane would open in it
-	r := a.ps.rects[a.ps.ids[2]]
-	a.drag.pos = ui.Point{X: r.X + r.W/2, Y: r.Y + r.H/2}
-	if z := a.sideZone(); z != 2 {
-		t.Fatalf("zone %d, want 2", z)
 	}
 	// the user closes a tab in the Dock: the pane goes from the app too
 	gone := a.ps.ids[1]
@@ -355,4 +348,95 @@ func TestTearOffPane(t *testing.T) {
 	if len(a.ps.layout.Windows) != 2 {
 		t.Fatalf("torn off twice: %d windows", len(a.ps.layout.Windows))
 	}
+}
+
+// holdTo presses at x0, y0 and moves to x1, y1 in steps, a frame each, holding.
+func holdTo(tt *ui.Tester, x0, y0, x1, y1 float32) {
+	tt.Press(x0, y0)
+	for k := 1; k <= 12; k++ {
+		f := float32(k) / 12
+		tt.Move(x0+(x1-x0)*f, y0+(y1-y0)*f)
+		tt.Frame()
+	}
+	for range 3 { // the Dock aims a frame behind the pointer
+		tt.Move(x1, y1)
+		tt.Frame()
+	}
+}
+
+// A page let go on the compass's middle over a pane becomes a tab of that pane's area; a collection
+// dragged over the panes and let go on the window's bottom edge target opens in a pane along it; let go
+// back over the sidebar, nothing opens and the Dock goes again.
+func TestDragIntoDock(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1400, 800)
+	tt.Frame()
+	first := a.page
+	second, _ := first.Coll.NewPage(nil, "İkinci")
+	second.SaveText("Öteki\n")
+	a.open(first)
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	row, ok := tt.Find("İkinci")
+	if !ok {
+		t.Fatalf("no row: %v", tt.Texts())
+	}
+	r := a.panesR
+	// the compass's middle: the middle of the pane, under its header
+	holdTo(tt, row.X+row.W/2, row.Y+row.H/2, r.X+r.W/2, r.Y+r.H/2+14)
+	tt.Release(r.X+r.W/2, r.Y+r.H/2+14)
+	tt.Advance(600 * time.Millisecond)
+	if a.paneCount() != 2 || a.page != second {
+		t.Fatalf("panes %d, in use %v", a.paneCount(), a.page)
+	}
+	ids := a.ps.layout.PaneIDs()
+	if len(ids) != 2 {
+		t.Fatalf("Dock panes %v", ids)
+	}
+	if ar, _ := a.ps.layout.Windows[0].Root, 0; !ar.IsArea() || len(ar.Panes) != 2 {
+		t.Fatalf("not tabs of one area: %+v", ar)
+	}
+	// a collection, onto the bottom edge
+	coll := first.Coll
+	crow, ok := tt.Find("Koleksiyon: " + coll.Name)
+	if !ok {
+		t.Fatalf("no collection row: %v", tt.Texts())
+	}
+	r = a.panesR
+	bx, by := r.X+r.W/2, r.Y+r.H-12-15
+	holdTo(tt, crow.X+crow.W/2, crow.Y+crow.H/2, bx, by)
+	tt.Release(bx, by)
+	tt.Advance(600 * time.Millisecond)
+	if a.paneCount() != 3 || a.coll != coll {
+		t.Fatalf("panes %d, collection in use %v", a.paneCount(), a.coll)
+	}
+	if root := a.ps.layout.Windows[0].Root; root.Dir != ryugo.DockColumn || len(root.Children) != 2 {
+		t.Fatalf("not along the bottom: %+v", root)
+	}
+	if len(a.lib.Collections) == 0 || a.lib.Collections[0] != coll {
+		t.Fatal("the collections' order changed")
+	}
+}
+
+// With one pane, a page dragged over the panes and back to the sidebar opens nothing, and the Dock goes.
+func TestDragIntoDockAndBack(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1400, 800)
+	tt.Frame()
+	second, _ := a.page.Coll.NewPage(nil, "İkinci")
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	row, _ := tt.Find("İkinci")
+	r := a.panesR
+	holdTo(tt, row.X+row.W/2, row.Y+row.H/2, r.X+r.W/2, r.Y+r.H/2)
+	if a.ps.layout == nil {
+		t.Fatal("no Dock for the drag")
+	}
+	holdTo(tt, r.X+r.W/2, r.Y+r.H/2, row.X+row.W/2, row.Y+row.H/2+60)
+	tt.Release(row.X+row.W/2, row.Y+row.H/2+60)
+	tt.Advance(600 * time.Millisecond)
+	if a.paneCount() != 1 || a.ps.layout != nil {
+		t.Fatalf("panes %d, Dock %v", a.paneCount(), a.ps.layout != nil)
+	}
+	_ = second
 }

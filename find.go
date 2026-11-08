@@ -152,7 +152,7 @@ func (a *app) findBar(c *ui.Context) {
 			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], "Değiştir’i aç/kapat") {
 				f.replace = !f.replace
 			}
-			in := ryugo.Input(c.Key("find-in"), &f.query, ryugo.InputOptions{Label: "Sayfada bul", Placeholder: "Bul", PrefixIcon: iconSearch, Size: ryugo.Sm, Invalid: f.query != "" && len(f.matches) == 0})
+			in := a.fieldMenu(ryugo.Input(c.Key("find-in"), &f.query, ryugo.InputOptions{Label: "Sayfada bul", Placeholder: "Bul", PrefixIcon: iconSearch, Size: ryugo.Sm, Invalid: f.query != "" && len(f.matches) == 0}), &f.query, fieldOpts{oneLine: true})
 			if f.focus {
 				in.Focus()
 				f.focus = false
@@ -183,7 +183,7 @@ func (a *app) findBar(c *ui.Context) {
 		})
 		if f.replace {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 32).Children(func() {
-				in := ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: T("Şununla değiştir"), Placeholder: T("Şununla değiştir"), Size: ryugo.Sm})
+				in := a.fieldMenu(ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: T("Şununla değiştir"), Placeholder: T("Şununla değiştir"), Size: ryugo.Sm}), &f.with, fieldOpts{oneLine: true})
 				if in.Submitted() {
 					a.replaceMatch(false)
 				}

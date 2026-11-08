@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -20,7 +21,8 @@ import (
 type Store struct {
 	db   *sql.DB
 	File string
-	now  func() time.Time // the clock of the history; the system's when nil
+	now  func() time.Time          // the clock of the history; the system's when nil
+	snap atomic.Pointer[storeSnap] // the table read at once, while the library opens
 }
 
 // OpenStore opens the library file at file, making it when there is none.
@@ -69,11 +71,19 @@ func (s *Store) Meta(key string) []byte {
 }
 
 func (s *Store) SetMeta(key string, value []byte) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	_, err := s.db.Exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
 }
 
 func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err error) {
+	if sn := s.snap.Load(); sn != nil {
+		n, ok := sn.nodes[clean(name)]
+		if !ok {
+			return false, nil, time.Time{}, pathErr("open", name, fs.ErrNotExist)
+		}
+		return n.dir, n.data, n.mtime, nil
+	}
 	var ns int64
 	var d int
 	err = s.db.QueryRow(`SELECT dir, data, mtime FROM nodes WHERE path = ?`, clean(name)).Scan(&d, &data, &ns)
@@ -95,6 +105,7 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 }
 
 func (s *Store) WriteFile(name string, data []byte) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	n := clean(name)
 	pdir, _, _, err := s.node(path.Dir(n))
 	if err != nil {
@@ -118,6 +129,7 @@ func (s *Store) WriteFile(name string, data []byte) error {
 }
 
 func (s *Store) Mkdir(name string) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	n := clean(name)
 	if _, _, _, err := s.node(n); err == nil {
 		return pathErr("mkdir", name, fs.ErrExist)
@@ -130,6 +142,12 @@ func (s *Store) Mkdir(name string) error {
 }
 
 func (s *Store) MkdirAll(name string) error {
+	if sn := s.snap.Load(); sn != nil {
+		if n, ok := sn.nodes[clean(name)]; ok && n.dir {
+			return nil // there: nothing is written
+		}
+	}
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	n := clean(name)
 	var chain []string
 	for p := n; p != "/"; p = path.Dir(p) {
@@ -170,6 +188,7 @@ func (s *Store) below(dir string) ([]string, error) {
 }
 
 func (s *Store) Rename(oldName, newName string) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	from, to := clean(oldName), clean(newName)
 	if _, _, _, err := s.node(from); err != nil {
 		return pathErr("rename", oldName, fs.ErrNotExist)
@@ -208,6 +227,7 @@ func (s *Store) Rename(oldName, newName string) error {
 }
 
 func (s *Store) Remove(name string) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	n := clean(name)
 	d, _, _, err := s.node(n)
 	if err != nil {
@@ -228,6 +248,7 @@ func (s *Store) Remove(name string) error {
 }
 
 func (s *Store) RemoveAll(name string) error {
+	s.snap.Store(nil) // a write: what was read at once is no more what is there
 	n := clean(name)
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))
@@ -254,6 +275,13 @@ func (s *Store) RemoveAll(name string) error {
 
 func (s *Store) Stat(name string) (fs.FileInfo, error) {
 	n := clean(name)
+	if sn := s.snap.Load(); sn != nil {
+		x, ok := sn.nodes[n]
+		if !ok {
+			return nil, pathErr("stat", name, fs.ErrNotExist)
+		}
+		return info{name: path.Base(n), size: int64(len(x.data)), dir: x.dir, mtime: x.mtime}, nil
+	}
 	var ns, size int64
 	var d int
 	err := s.db.QueryRow(`SELECT dir, length(data), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns)
@@ -267,6 +295,14 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 	n := clean(name)
 	if d, _, _, err := s.node(n); err != nil || !d {
 		return nil, pathErr("readdir", name, fs.ErrNotExist)
+	}
+	if sn := s.snap.Load(); sn != nil {
+		var out []fs.DirEntry
+		for _, p := range sn.kids[n] {
+			x := sn.nodes[p]
+			out = append(out, info{name: path.Base(p), size: int64(len(x.data)), dir: x.dir, mtime: x.mtime})
+		}
+		return out, nil
 	}
 	rows, err := s.db.Query(`SELECT path, dir, coalesce(length(data), 0), mtime FROM nodes WHERE parent = ? ORDER BY path`, n)
 	if err != nil {
@@ -294,3 +330,64 @@ func (s *Store) fast(on bool) {
 		s.db.Exec(`PRAGMA synchronous = FULL`)
 	}
 }
+
+// ReadNamed reads, in one pass over the table, every file whose name ends in "/"+base: by its name.
+// Opening a library of thousands of pages reads them all at once, not a query each.
+func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
+	rows, err := s.db.Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]byte{}
+	for rows.Next() {
+		var p string
+		var data []byte
+		if err := rows.Scan(&p, &data); err != nil {
+			return nil, err
+		}
+		out[p] = data
+	}
+	return out, rows.Err()
+}
+
+// storeSnap is the whole table, read in one pass, for opening the library: the folders and pages of a
+// library of thousands are read without a query each.
+type storeSnap struct {
+	nodes map[string]snapNode
+	kids  map[string][]string // by parent, in order
+}
+
+type snapNode struct {
+	dir   bool
+	data  []byte
+	mtime time.Time
+}
+
+// snapshot reads the table, for what reads it next to be answered from it, until endSnapshot or a write.
+func (s *Store) snapshot() {
+	rows, err := s.db.Query(`SELECT path, parent, dir, data, mtime FROM nodes ORDER BY path`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	sn := &storeSnap{nodes: map[string]snapNode{}, kids: map[string][]string{}}
+	for rows.Next() {
+		var p, parent string
+		var d int
+		var data []byte
+		var ns int64
+		if rows.Scan(&p, &parent, &d, &data, &ns) != nil {
+			return
+		}
+		sn.nodes[p] = snapNode{dir: d == 1, data: data, mtime: time.Unix(0, ns)}
+		if p != parent {
+			sn.kids[parent] = append(sn.kids[parent], p)
+		}
+	}
+	if rows.Err() == nil {
+		s.snap.Store(sn)
+	}
+}
+
+func (s *Store) endSnapshot() { s.snap.Store(nil) }

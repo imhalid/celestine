@@ -148,8 +148,8 @@ func TestCommandAliases(t *testing.T) {
 // The commands used last come first, and "!" lists them.
 func TestRecentCommands(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
-	runCmd(t, a, ">", "Görevler")
-	runCmd(t, a, ">", "Çöp")
+	runCmd(t, a, ">görevler", "Görevler") // with nothing typed, they are in their groups
+	runCmd(t, a, ">çöp", "Çöp")
 	items := a.paletteItems(">")
 	if items[0].title != "Çöp" || items[1].title != "Görevler" || items[0].group != "Son kullanılanlar" {
 		t.Fatalf("order: %q %q (%q)", items[0].title, items[1].title, items[0].group)
@@ -158,7 +158,7 @@ func TestRecentCommands(t *testing.T) {
 	if len(last) < 2 || last[0].title != "Çöp" {
 		t.Fatalf("!: %+v", last)
 	}
-	runCmd(t, a, ">", "Görevler")
+	runCmd(t, a, ">", "Görevler") // now among the last used
 	if a.paletteItems(">")[0].title != "Görevler" {
 		t.Fatal("used again, not first")
 	}

@@ -107,7 +107,7 @@ func (a *app) historyView(c *ui.Context) {
 		}
 		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			in := ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}).Width(190)
+			in := a.fieldMenu(ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}), &v.label, fieldOpts{oneLine: true}).Width(190)
 			keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
 			if keep {
 				a.saveNamedVersion()

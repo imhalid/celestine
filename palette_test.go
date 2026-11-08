@@ -201,6 +201,12 @@ func TestAppTheme(t *testing.T) {
 // The arrows go down the list, and the list follows: the chosen row is always in the window of 300 points.
 func TestPaletteScrollsWithTheArrows(t *testing.T) {
 	a, tt, _ := viewsLibrary(t)
+	elsewhere := map[string]bool{} // a title the window shows outside the palette too (the sidebar's buttons)
+	for _, it := range a.commandItems("") {
+		if _, ok := tt.Find(it.title); ok {
+			elsewhere[it.title] = true
+		}
+	}
 	tt.Key(ui.Cmd, ui.KeyP)
 	tt.Advance(300 * time.Millisecond)
 	items := a.paletteItems(a.pal.query)
@@ -218,6 +224,9 @@ func TestPaletteScrollsWithTheArrows(t *testing.T) {
 		r, ok := tt.Find(items[a.pal.sel].title)
 		if !ok {
 			t.Fatalf("row %d is not drawn", a.pal.sel)
+		}
+		if elsewhere[items[a.pal.sel].title] {
+			continue
 		}
 		if r.Y < first.Y-4 || r.Y+r.H > first.Y+300+4 {
 			t.Fatalf("row %d at y=%.0f is out of the window [%.0f, %.0f]", a.pal.sel, r.Y, first.Y, first.Y+300)

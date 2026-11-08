@@ -36,7 +36,7 @@ func (a *app) linksStale() { a.links.stale, a.px.dirty = true, true }
 // linksTo are the pages that link to p, the title first.
 func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 	l := &a.links
-	if l.into == nil && !force && !a.warmLinks(linksWarmBudget) { // the first time, the files are read over a few frames
+	if l.into == nil && !force && (a.prewarming || !a.warmLinks(linksWarmBudget)) { // the first time, the files are read over a few frames
 		if a.frame != nil {
 			a.frame()
 		}
@@ -211,11 +211,17 @@ type pageIdx struct {
 }
 
 func readPageIdx(q *Page, body string) *pageIdx {
+	e, _ := readPageIdxPlain(q, body)
+	return e
+}
+
+// readPageIdxPlain is readPageIdx, and the page's plain text it was read from.
+func readPageIdxPlain(q *Page, body string) (*pageIdx, string) {
 	plain := plainText(body)
 	e := &pageIdx{mod: q.Modified, writes: q.writes, tasks: tasksOf(q, body), tags: tagsOf(body),
 		words: len(strings.Fields(plain)), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
-		return e
+		return e, plain
 	}
 	seen := map[string]bool{}
 	for _, m := range wikiInText.FindAllStringSubmatch(body, -1) {
@@ -226,7 +232,7 @@ func readPageIdx(q *Page, body string) *pageIdx {
 			e.links = append(e.links, key)
 		}
 	}
-	return e
+	return e, plain
 }
 
 // plainIdx is the text of a page, plain, and folded as the search compares it.

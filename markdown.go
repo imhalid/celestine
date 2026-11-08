@@ -102,7 +102,8 @@ func parseBody(md string) richtext.Text {
 		out = append(out, protectInline(l))
 		i++
 	}
-	t := richtext.ParseMarkdown(strings.Join(out, "\n"))
+	kinds := taskKindsIn(out) // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
+	t := withTaskKinds(richtext.ParseMarkdown(strings.Join(out, "\n")), kinds)
 	if len(held) == 0 {
 		return t
 	}
@@ -262,6 +263,7 @@ func bodyMarkdown(t richtext.Text) string {
 		t = t.FormatParagraphs(sp.s, sp.s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 	}
 	lines := strings.Split(t.Markdown(), "\n")
+	markTaskKinds(t, lines)
 	fence := ""
 	for i, l := range lines {
 		if m := tokenLine.FindStringSubmatch(l); m != nil {
