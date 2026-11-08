@@ -86,8 +86,10 @@ type Settings struct {
 	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
 	TourDone      bool                      `json:"tourDone,omitempty"`      // the first-run tour was shown or skipped (help.go)
 	WelcomeDone   bool                      `json:"welcomeDone,omitempty"`   // the first opening was seen (welcome.go)
-	NoStats       bool                      `json:"noStats,omitempty"`       // no figures of writing and use are kept (stats.go)
-	NoBackup      bool                      `json:"noBackup,omitempty"`      // no backup of the library by itself once a day (backup.go)
+	WelcomeGround string                    `json:"welcomeGround,omitempty"` // the look of the welcome's ground, and of its opening (welcomelooks.go)
+	WelcomeOpen   string                    `json:"welcomeOpen,omitempty"`
+	NoStats       bool                      `json:"noStats,omitempty"`  // no figures of writing and use are kept (stats.go)
+	NoBackup      bool                      `json:"noBackup,omitempty"` // no backup of the library by itself once a day (backup.go)
 	// the typefaces (fonts.go): by family; "" is the default
 	FontApp     string   `json:"fontApp,omitempty"`
 	FontEditor  string   `json:"fontEditor,omitempty"`

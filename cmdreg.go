@@ -141,6 +141,22 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
+		{name: "Karşılamanın arka planı", alias: "welcome ground background onboarding karşılama", fields: []string{"welcomeGround"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, g := range welcomeGrounds {
+				id := g.id
+				out = append(out, settingChoice{name: T(g.name), current: a.settings.WelcomeGround == id, set: func(a *app) { a.settings.WelcomeGround = id; a.saveSettings() }})
+			}
+			return out
+		}},
+		{name: "Açılış", alias: "welcome opening onboarding karşılama açılış", fields: []string{"welcomeOpen"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, o := range welcomeOpenings {
+				id := o.id
+				out = append(out, settingChoice{name: T(o.name), current: a.settings.WelcomeOpen == id, set: func(a *app) { a.settings.WelcomeOpen = id; a.saveSettings() }})
+			}
+			return out
+		}},
 		{name: "Dil", alias: "language english türkçe", fields: []string{"lang"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, l := range []string{"", "tr", "en"} {

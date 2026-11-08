@@ -337,6 +337,37 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.Corner = &v
 		a.saveSettingsSoon()
 	}
+	settingGroup(c, "set-welcome", func() {
+		ui.Column(c).FillWidth().Gap(14).Children(func() {
+			// a list each: there are too many looks for a bar of buttons
+			look := func(key, title, help string, opts []ryugo.Option[string], cur *string) {
+				settingRow(c, title, help, func() {
+					v := *cur
+					ui.Box(c).Width(200).Children(func() {
+						ryugo.Select(c.Key(key), &v, opts, ryugo.SelectOptions{Label: T(title), Size: ryugo.Sm})
+					})
+					if v != *cur {
+						*cur = v
+						a.saveSettings()
+					}
+				})
+			}
+			var grounds, openings []ryugo.Option[string]
+			for _, g := range welcomeGrounds {
+				grounds = append(grounds, ryugo.Option[string]{Value: g.id, Label: T(g.name)})
+			}
+			for _, o := range welcomeOpenings {
+				openings = append(openings, ryugo.Option[string]{Value: o.id, Label: T(o.name)})
+			}
+			look("set-welcome-ground", "Karşılamanın arka planı", "Yazıların altında, masaüstünün üstünde ne olacağı.", grounds, &a.settings.WelcomeGround)
+			look("set-welcome-open", "Açılış", "Başla'dan sonra uygulamanın penceresi nasıl gelir.", openings, &a.settings.WelcomeOpen)
+			settingRow(c, "Karşılama ekranı", "İlk açılıştaki karşılamayı seçilen görünümle baştan gösterir.", func() {
+				if ryugo.Button(c.Key("set-welcome-go"), T("Yeniden başlat"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.welcomeAgain()
+				}
+			})
+		})
+	})
 	settingGroup(c, "set-lang", func() {
 		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
 			lang := a.settings.Lang

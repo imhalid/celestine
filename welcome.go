@@ -3,6 +3,8 @@ package main
 import (
 	"math"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -11,18 +13,18 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The first opening. There is no window to be seen: soft colored circles come slowly onto the desktop itself,
-// and the words of the app rise among them one after another, from below; when the last is there a button
+// The first opening. There is no window to be seen: the desktop itself darkens, most at its edges, and a mesh of
+// colors comes up slowly in the middle of it; the words of the app rise into it one after another, from below; when the last is there a button
 // says "Başla". Pressed, the app's own window opens out of the button, a ring of light running over it (a
-// shader on the whole window, reveal below), and the circles go.
+// shader on the whole window, reveal below), and the colors go.
 //
 // On macOS that is three windows (a first run, or RYUDIT_WELCOME=1): the stage, frameless and clear, over the
-// whole display, which has the circles and the words; the app's window, built all along but hidden; and, for
+// whole display, which has the colors and the words; the app's window, built all along but hidden; and, for
 // the opening only, a frameless clear window just over the app's, in which the app is drawn inside the ring.
 // The app's window has its traffic lights from the moment it is made, and nothing takes them away, so it is
 // not what the ring opens: it is shown unseen (no opacity) under the opening's window, and when the ring has
-// run over all of it, it is seen, lights, shadow and all, and the opening's window goes. Any other time (a
-// replay, Linux, Windows) the welcome is drawn in the app's window, on a plain ground.
+// run over all of it, it is seen, lights, shadow and all, and the opening's window goes. Started again from the
+// settings it is the same. On Linux and Windows the welcome is drawn in the app's window, on a plain ground.
 
 // welcomeShaders is false in the tests, whose CPU renderer runs a shader far too slowly to step through a
 // few seconds of frames: they check where the welcome is, not how it looks (that is looked at in the app).
@@ -35,7 +37,7 @@ type welcomeState struct {
 	goAt    time.Time // when Başla was pressed; zero until then
 	origin  ui.Point  // where the opening runs out from: the button
 	win     *mygo.Window
-	stage   *mygo.Window // the clear window over the display that has the circles and the words (clear only)
+	stage   *mygo.Window // the clear window over the display that has the colors and the words (clear only)
 	opening *mygo.Window // the frameless window the app opens in, over its own (clear only)
 	inOpen  bool         // the frame being built is the opening window's
 	bar     ui.TitleBar  // the app's window's title bar, which the opening window has not (titleBar)
@@ -43,159 +45,55 @@ type welcomeState struct {
 }
 
 const (
-	welGround  = 2.2 // the circles come in over this long, before the words
-	welMark    = 1.6
-	welHead    = 2.0
-	welSub     = 2.35
-	welCard0   = 2.75
+	welVeil    = 1.4 // the desktop darkens over this long
+	welMeshAt  = 0.9 // and the mesh of colors comes in from here, over welMesh
+	welMesh    = 2.2
+	welMark    = 2.3
+	welHead    = 2.7
+	welSub     = 3.05
+	welCard0   = 3.45
 	welCardGap = 0.22
-	welButton  = 3.6
-	welOpen    = 1.35 // the opening takes this long, in seconds
-	welCorner  = 9    // the opening window's corners, as the app's window has them (macOS)
+	welButton  = 4.3
+	welOpen    = 2.1 // the opening takes this long, in seconds, unless its look says otherwise
+	welCorner  = 9   // the opening window's corners, as the app's window has them (macOS)
 )
 
-// wantWelcome: the first run of a library that keeps its settings, or when asked.
+// wantWelcome: the first run of a library that keeps its settings, or when asked (RYUDIT_WELCOME=1, or 0 for never).
 func (a *app) wantWelcome() bool {
-	if os.Getenv("RYUDIT_WELCOME") == "1" {
+	switch os.Getenv("RYUDIT_WELCOME") {
+	case "1":
 		return true
+	case "0": // a run without it, whatever the settings say
+		return false
 	}
 	return !a.settings.WelcomeDone && (a.settingsFile != "" || a.settingsStore != nil)
 }
 
-// welcomeAgain is the command: the welcome, once more. The window is not clear any more, so it sits on a ground.
+// welcomeAgain is the command, and the button of the settings: the welcome, once more. On macOS it is the first run's: the app's
+// window goes, and the colors come onto the desktop; elsewhere it sits in the window, on a ground.
 func (a *app) welcomeAgain() {
 	a.closeSettings()
 	a.wel = welcomeState{on: true, win: a.wel.win}
 	a.settings.WelcomeDone = false
+	if runtime.GOOS == "darwin" && a.wel.win != nil {
+		a.wel.clear = true
+		a.wel.win.SetHasShadow(false)
+		a.wel.win.Hide()
+		a.openStage()
+	}
+}
+
+// welcomeAutoGo is when Başla presses itself, in seconds from the start: RYUDIT_WELCOME_GO=6, to watch a look
+// through without touching the keys (RYUDIT_WELCOME=1 RYUDIT_WELCOME_GO=6 RYUDIT_WELCOME_OPEN=crt). Zero is never.
+func welcomeAutoGo() float64 {
+	v, _ := strconv.ParseFloat(os.Getenv("RYUDIT_WELCOME_GO"), 64)
+	return v
 }
 
 // welcomeUp: the welcome has the window.
 func (a *app) welcomeUp() bool { return a.wel.on }
 
 // ---- the shaders ----
-
-// ringShared is the edge of the opening, in both shaders: the app is kept inside it, and the circles outside.
-const ringShared = `
-func hash(p vec2) float {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
-}
-
-func noise(p vec2) float {
-	i := floor(p)
-	f := fract(p)
-	u := f * f * (3 - 2*f)
-	return mix(mix(hash(i), hash(i+vec2(1, 0)), u.x), mix(hash(i+vec2(0, 1)), hash(i+vec2(1, 1)), u.x), u.y)
-}
-
-// ringEdge is how far from the origin the edge is at pos: not a circle, it breathes, most in the middle.
-func ringEdge(pos vec2, radius float, prog float) float {
-	wob := (noise(pos/46+vec2(prog*2.4, 0))*0.65 + noise(pos/19)*0.12 - 0.38) * 100 * sin(prog*3.14159)
-	return radius + wob
-}
-`
-
-// welcomeGround draws the circles: soft blobs of color that drift, over a base, premultiplied so that what
-// is not covered stays clear and the desktop shows through.
-var welcomeGround = shader.MustCompile(`package main
-
-var Origin vec2
-var Radius float
-var Prog float
-var Open float
-var Time float
-var Fade float
-var Dark float
-var Base vec4
-
-func tint(i int) vec3 {
-	if i == 0 {
-		return vec3(1.00, 0.55, 0.30)
-	}
-	if i == 1 {
-		return vec3(1.00, 0.38, 0.64)
-	}
-	if i == 2 {
-		return vec3(0.60, 0.44, 1.00)
-	}
-	if i == 3 {
-		return vec3(0.28, 0.62, 1.00)
-	}
-	if i == 4 {
-		return vec3(0.24, 0.86, 0.80)
-	}
-	return vec3(1.00, 0.80, 0.42)
-}
-
-func hash21(p vec2) float {
-	q := fract(p * vec2(123.34, 456.21))
-	q += dot(q, q+45.32)
-	return fract(q.x * q.y)
-}
-
-func Fragment(dst vec4, pos vec2) vec4 {
-	sz := rectSize()
-	p := (pos - sz*0.5) / sz.y
-	out := Base
-	for i := 0; i < 6; i++ {
-		fi := float(i)
-		ph := fi*1.7 + 0.3
-		c := vec2(
-			0.46*sin(Time*0.13+ph*1.3)+0.14*sin(Time*0.27+ph),
-			0.34*cos(Time*0.10+ph*1.9)+0.10*cos(Time*0.21+ph*0.7),
-		)
-		r := 0.30 + 0.09*sin(ph*2.3+Time*0.08)
-		d := distance(p, c) / r
-		w := exp(-d * d * 1.7)
-		col := tint(i) * mix(1.0, 0.82, Dark)
-		a := w * 0.72
-		out = vec4(col*a, a) + out*(1-a)
-	}
-	g := (hash21(dst.xy) - 0.5) * 0.06
-	out.rgb += vec3(g) * out.a
-	if Open > 0.5 { // the app has the inside of the ring
-		d := distance(pos, Origin)
-		edge := ringEdge(pos, Radius, Prog)
-		out *= smoothstep(edge-90, edge, d)
-	}
-	return out * Fade
-}
-` + ringShared)
-
-// welcomeOpen is the opening: the app's own pixels, kept inside a ring that grows from the button, with a
-// rim of light on it, bent a little where it passes. Outside the ring the window is the welcome still.
-var welcomeOpen = shader.MustCompile(`package main
-
-var Origin vec2
-var Radius float
-var Prog float
-
-func LayerEffect(pos vec2) vec4 {
-	rel := pos - Origin
-	d := length(rel)
-	dir := rel / max(d, 0.001)
-	// the edge is not a circle: it breathes, most in the middle of the opening
-	edge := ringEdge(pos, Radius, Prog)
-	width := 90.0
-	m := 1 - smoothstep(edge-width, edge, d)
-	// the rim: bright, narrow, and just behind the edge
-	rimAt := (d - (edge - width*0.42)) / (width * 0.30)
-	rim := exp(-rimAt * rimAt)
-	// where the ring passes, the app is seen through it, bent and split in colors
-	lens := smoothstep(edge-width*1.7, edge-width*0.5, d) * (1 - smoothstep(edge-width*0.5, edge+8, d))
-	off := dir * lens * 20 * (1 - Prog*0.6)
-	c0 := layerSample(pos - off*0.75)
-	c1 := layerSample(pos - off)
-	c2 := layerSample(pos - off*1.25)
-	col := vec4(c0.r, c1.g, c2.b, c1.a) * m
-	ang := atan2(dir.y, dir.x)
-	hue := mix(vec3(1.0, 0.46, 0.70), vec3(0.46, 0.58, 1.0), 0.5+0.5*sin(ang*2+Prog*7))
-	fade := (1 - smoothstep(0.55, 1.0, Prog)) * 0.9
-	glow := rim * fade
-	col.rgb += hue * glow * 0.85
-	col.a = max(col.a, glow*0.85)
-	return col
-}
-` + ringShared)
 
 // ---- the frames ----
 
@@ -208,27 +106,59 @@ func (a *app) welcomeClock(c *ui.Context) float64 {
 }
 
 // welcomeProgress is how far the opening is, 0 until Başla, then to 1.
-func (a *app) welcomeProgress(c *ui.Context) float64 {
+func (a *app) welcomeProgress(c *ui.Context) float64 { return a.welcomeProgressAt(c.Now()) }
+
+// welcomeProgressAt is how far the opening is at now: what a paint asks, with the time of its own frame.
+func (a *app) welcomeProgressAt(now time.Time) float64 {
 	if a.wel.goAt.IsZero() {
 		return 0
 	}
-	t := min(1, max(0, c.Now().Sub(a.wel.goAt).Seconds()/welOpen))
-	return t * t * (3 - 2*t) // slow at both ends
+	o := a.welcomeOpeningLook()
+	return o.progress(now.Sub(a.wel.goAt).Seconds() / o.length())
 }
 
 // openStage puts up the stage: a window over the whole display the app's window is on, with no frame, no
 // shadow and no ground, so that only what the welcome draws is seen on the desktop.
 func (a *app) openStage() {
 	d := mygo.Screen.DisplayMatching(a.wel.win.Bounds()).Bounds
-	st := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", X: d.X, Y: d.Y, Width: d.Width, Height: d.Height,
+	opts := mygo.WindowOptions{Title: "ryudit", X: d.X, Y: d.Y, Width: d.Width, Height: d.Height,
 		Frameless: true, Transparent: true, DisableShadow: true, DisableResize: true, DisableMove: true,
-		DisableMinimize: true, DisableMaximize: true, DisableFullScreen: true, Content: ui.View(a.stageView)})
+		DisableMinimize: true, DisableMaximize: true, DisableFullScreen: true, Content: ui.View(a.stageView)}
+	blur := a.welcomeGroundLook().blur
+	if blur { // the desktop blurred under a dark material, which the window's opacity brings in slowly
+		opts.Vibrancy, opts.Opacity = mygo.VibrancyHUD, 0.01
+	}
+	st := mygo.NewWindow(opts)
 	st.SetBounds(d) // a centered window would be kept off the menu bar
 	st.Focus()
 	a.wel.stage = st
+	if blur {
+		a.fadeWindow(st, 0, 1, 0, welVeil)
+	}
 }
 
-// stageView is the stage's frame: the circles and the words, and nothing under them.
+// fadeWindow takes the opacity of w from one value to another, eased, after delay seconds, over dur: the stage's
+// material cannot fade by itself.
+func (a *app) fadeWindow(w *mygo.Window, from, to, delay, dur float64) {
+	go func() {
+		defer a.guard()
+		time.Sleep(time.Duration(delay * float64(time.Second)))
+		start := time.Now()
+		for {
+			t := time.Since(start).Seconds() / dur
+			if w.IsDestroyed() {
+				return
+			}
+			w.SetOpacity(from + (to-from)*smoothstep(t))
+			if t >= 1 {
+				return
+			}
+			time.Sleep(16 * time.Millisecond)
+		}
+	}()
+}
+
+// stageView is the stage's frame: the colors and the words, and nothing under them.
 func (a *app) stageView(c *ui.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -238,23 +168,23 @@ func (a *app) stageView(c *ui.Context) {
 	a.welcomeView(c, true)
 }
 
-// welcomeBackdrop draws the circles: in the app's window built before its own root, so that it is under it.
+// welcomeBackdrop draws the ground (the veil and the colors): in the app's window built before its own root, so that it is under it.
 // onStage is the stage's frame; each is drawn in one window only.
 func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 	if !a.wel.on || a.wel.clear != onStage {
 		return
 	}
-	el := a.welcomeClock(c)
+	a.welcomeClock(c) // its first frame starts the clock
 	tok := ryugo.From(c)
 	clear := c.Vibrancy() || onStage
 	if clear {
 		c.Root().Background(ui.Transparent) // the desktop is the ground
 	}
-	base := tok.Colors.Card // no glass (a replay, Linux): the circles sit on the app's ground
+	base := tok.Colors.Card // no glass (Linux, Windows): the colors sit on the app's ground
 	baseV := []float32{float32(base.R) / 255, float32(base.G) / 255, float32(base.B) / 255, 1}
-	if onStage { // the desktop as it is: only the circles on it
+	if onStage { // the desktop as it is: only the veil and the colors on it
 		baseV = []float32{0, 0, 0, 0}
-	} else if clear { // a veil only, so that the circles and the words keep their contrast over a bright desktop
+	} else if clear { // a veil only, so that the colors and the words keep their contrast over a bright desktop
 		if tok.Dark {
 			baseV = []float32{0, 0, 0, 0.16}
 		} else {
@@ -265,15 +195,11 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 	if tok.Dark {
 		dark = 1
 	}
-	fade := float32(min(1, el/welGround))
-	fade = fade * fade * (3 - 2*fade)
-	// while the app opens, the circles keep to outside the ring that shows it; on the stage the app's window
-	// is over them, and they go as it opens
+	// while the app opens, the ground keeps to outside the ring that shows it; on the stage the app's window
+	// is over it, and it goes as the window opens
 	open, radius, prog := float32(0), float32(0), float32(0)
-	if onStage {
-		out := float32(min(1, max(0, (a.welcomeProgress(c)-0.15)/0.85)))
-		fade *= 1 - out*out*(3-2*out)
-	} else if !a.wel.goAt.IsZero() {
+	ring := a.welcomeOpeningLook().ring
+	if !onStage && ring && !a.wel.goAt.IsZero() {
 		p := a.welcomeProgress(c)
 		open, radius, prog = 1, float32(a.welcomeRadius(c, p)), float32(p)
 	}
@@ -281,8 +207,14 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 		if !welcomeShaders {
 			return
 		}
-		welcomeGround.Draw(p, r, shader.Options{Uniforms: map[string]any{
-			"Time": float32(p.Now().Sub(a.wel.start).Seconds()), "Fade": fade, "Dark": dark,
+		// the steps are timed by the paint's own frame: the view is built again only now and then (welcomeView)
+		t := p.Now().Sub(a.wel.start).Seconds()
+		veil, mesh, fade := smoothstep(t/welVeil), smoothstep((t-welMeshAt)/welMesh), 1.0
+		if onStage || !ring { // the app's window is over it, or the opening has no ring to keep it outside of
+			fade = 1 - smoothstep((a.welcomeProgressAt(p.Now())-0.15)/0.85)
+		}
+		a.welcomeGroundLook().sh.Draw(p, r, shader.Options{Uniforms: map[string]any{
+			"Time": float32(t), "Fade": float32(fade), "Veil": float32(veil), "Mesh": float32(mesh), "Dark": dark,
 			"Open": open, "Origin": []float32{a.wel.origin.X, a.wel.origin.Y}, "Radius": radius, "Prog": prog,
 			"Base": []float32{baseV[0] * baseV[3], baseV[1] * baseV[3], baseV[2] * baseV[3], baseV[3]},
 		}})
@@ -316,9 +248,12 @@ func (a *app) welcomeRoot(c *ui.Context, root ui.Element) {
 	o := a.wel.origin
 	radius := a.welcomeRadius(c, prog)
 	if welcomeShaders {
-		root.Effect(welcomeOpen.Effect(shader.Options{
-			Uniforms:        map[string]any{"Origin": []float32{o.X, o.Y}, "Radius": float32(radius), "Prog": float32(prog)},
-			MaxSampleOffset: ui.Point{X: 28, Y: 28},
+		w, h := c.Size()
+		look := a.welcomeOpeningLook()
+		root.Effect(look.sh.Effect(shader.Options{
+			Uniforms: map[string]any{"Origin": []float32{o.X, o.Y}, "Radius": float32(radius), "Prog": float32(prog), "Size": []float32{w, h},
+				"Time": float32(c.Now().Sub(a.wel.goAt).Seconds())},
+			MaxSampleOffset: ui.Point{X: look.maxOffset, Y: look.maxOffset},
 		}))
 	}
 	c.AnimationFrame()
@@ -373,6 +308,10 @@ func (a *app) welcomeStart(c *ui.Context, from ui.Rect) {
 		a.wel.origin.Y += float32(s.Y - w.Y)
 		a.wel.win.SetOpacity(0) // drawn, ready, and not seen until the ring has run
 		a.wel.win.Show()
+		if a.welcomeGroundLook().blur { // the blur goes as the window comes
+			n := a.welcomeOpeningLook().length()
+			a.fadeWindow(a.wel.stage, 1, 0, 0.15*n, 0.85*n)
+		}
 		op := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", X: w.X, Y: w.Y, Width: w.Width, Height: w.Height,
 			Frameless: true, Transparent: true, DisableShadow: true, DisableResize: true, CornerRadius: welCorner,
 			Content: ui.View(a.openingView)})
@@ -416,7 +355,7 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 	}
 	cl := ryugo.From(c).Colors
 	dark := ryugo.From(c).Dark
-	// the next piece to rise: another frame then (the circles move on their own, in paint)
+	// the next piece to rise: another frame then (the ground moves on its own, in paint)
 	next := math.Inf(1)
 	for _, t := range []float64{welMark, welHead, welSub, welCard0, welCard0 + welCardGap, welCard0 + 2*welCardGap, welButton} {
 		if t > el && t < next {
@@ -481,6 +420,13 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 				if el >= welButton && c.Shortcut(0, ui.KeyEnter) {
 					a.welcomeStart(c, wrap.Bounds())
 				}
+				if at := welcomeAutoGo(); at > 0 && a.wel.goAt.IsZero() { // a look watched to its end, no hand on the keys
+					if el >= at {
+						a.welcomeStart(c, wrap.Bounds())
+					} else {
+						c.After(time.Duration((at-el)*float64(time.Second)) + 8*time.Millisecond)
+					}
+				}
 			})
 		})
 	})
@@ -512,6 +458,14 @@ func init() {
 		"Tek dosya, bu bilgisayarda; yedeği her gün alınır, eşitleme şifreli.": "One file, on this computer; backed up every day, and sync is encrypted.",
 		"Başla":                     "Start",
 		"Karşılama ekranını göster": "Show the welcome screen",
+		"Karşılama ekranı":          "Welcome screen", "Yeniden başlat": "Start again",
+		"İlk açılıştaki karşılamayı seçilen görünümle baştan gösterir.": "Shows the first run's welcome again, from the start, in the look chosen.",
+		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "İki ton": "Two tones", "Renkli": "Colorful", "Gece": "Night",
+		"Halka": "Ring", "Perde": "Curtain", "Çözülme": "Dissolve", "Çizgiler": "Lines",
+		"Bulut": "Clouds", "Sistem": "System",
+		"Yarım ton": "Halftone", "Siyah beyaz": "Monochrome", "Cam dalgası": "Glass ripple", "Renk kayması": "Chromatic aberration",
+		"Yazıların altında, masaüstünün üstünde ne olacağı.": "What is under the words, over the desktop.",
+		"Başla'dan sonra uygulamanın penceresi nasıl gelir.": "How the app's window comes after Start.",
 	} {
 		if _, ok := enText[tr]; !ok {
 			enText[tr] = en
