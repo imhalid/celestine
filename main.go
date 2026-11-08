@@ -156,6 +156,7 @@ type app struct {
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
+	toasts      toastState         // the toasts up (toast.go)
 	statCache   libStats           // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
 	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
@@ -814,22 +815,23 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.treeHeld = false
 	a.runLater()
-	ryugo.Toaster(c)
 	if a.notice != "" {
+		kind := noticeKind(a.notice)           // from the Turkish, as it was written
 		if undo := a.noticeUndo; undo != nil { // a setting changed: it is one click from taken back
-			c.ToastAction(T(a.notice), T("Geri al"), undo)
+			a.toastOf(kind, T(a.notice), T("Geri al"), undo)
 		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
-			c.ToastAction(T(a.notice), T("Aç"), func() { a.open(pg) })
+			a.toastOf(kind, T(a.notice), T("Aç"), func() { a.open(pg) })
 		} else {
-			c.Toast(T(a.notice))
+			a.toastOf(kind, T(a.notice), "", nil)
 		}
 		a.notice, a.noticePage, a.noticeUndo = "", nil, nil
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil
-		c.ToastAction(Tf("“%s” çöpe taşındı", item.Title), T("Geri al"), func() { a.restore(item) })
+		a.toastAction(Tf("“%s” çöpe taşındı", item.Title), T("Geri al"), func() { a.restore(item) })
 		a.loadTrash()
 	}
+	a.toastView(c)
 	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
 		a.trackWindow()

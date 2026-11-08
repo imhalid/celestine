@@ -9,6 +9,9 @@ import (
 )
 
 // pageMarkdown is the text as plain lines, as the tests compare it.
+// The toasts' light is off in the tests: the CPU renderer would run it on every frame of every toast (toast.go).
+func init() { toastShaders = false }
+
 func (a *app) pageMarkdown(p *Page, t richtext.Text) string { return bodyMarkdown(t) }
 
 // writePageFile writes a page file by hand, as another process would.
