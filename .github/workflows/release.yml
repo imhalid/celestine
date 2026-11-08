@@ -3,7 +3,10 @@
 #
 # Secrets: RELEASE_KEY (the secret key of `go run ./scripts/release keygen`), UPDATE_PUBLIC_KEY (its public
 # half, which goes into the program), UPDATE_URL (the Worker's address, https://…/update.json), and for R2:
-# CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY.
+# CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY. Without them the release is made all the same, on
+# GitHub alone: the builds are not signed for the app's update check, and nothing goes to R2.
+#
+# A v0.x tag, or one with a "-" (v1.2.0-beta.1), is a prerelease. The notes are the commits since the tag before.
 name: release
 on:
   push:
@@ -13,6 +16,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SIGNED: ${{ secrets.RELEASE_KEY != '' }}
+      R2: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -35,7 +41,19 @@ jobs:
               -ldflags="-s -w -X main.version=$VERSION $LDX" -o dist/ryudit-$os-$arch$ext .
           done
           ls -l dist
+      - name: notes
+        run: |
+          prev=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || true)
+          if [ -n "$prev" ]; then
+            echo "Since $prev:" > release-notes.md
+            git log --no-merges --format='- %s' "$prev..${{ github.ref_name }}" >> release-notes.md
+          else
+            echo "The first release. The latest changes:" > release-notes.md
+            git log --no-merges --format='- %s' -40 "${{ github.ref_name }}" >> release-notes.md
+          fi
+          cat release-notes.md
       - name: manifest
+        if: env.SIGNED == 'true'
         run: |
           echo "${{ secrets.RELEASE_KEY }}" > release.key
           git log -1 --format=%B > notes.md
@@ -43,6 +61,7 @@ jobs:
             -notes notes.md -key release.key dist/ryudit-* > dist/update.json
           rm release.key
       - name: upload to R2
+        if: env.SIGNED == 'true' && env.R2 == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -52,4 +71,7 @@ jobs:
           aws s3 cp dist/update.json s3://ryudit-releases/update.json --endpoint-url "$EP" --content-type application/json
       - name: github release
         uses: softprops/action-gh-release@v2
-        with: { files: "dist/ryudit-*" }
+        with:
+          files: "dist/ryudit-*"
+          body_path: release-notes.md
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
