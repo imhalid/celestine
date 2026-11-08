@@ -342,6 +342,12 @@ func seed(lib *Library) error {
 var appIcon []byte
 
 func main() {
+	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
+	// and goes, before it opens the library - two would write the same file, and each would take the other's mark
+	// of running for a crash (crash.go).
+	if !mygo.App.RequestSingleInstanceLock() {
+		return
+	}
 	// The library is a file of its own, next to the program: nothing else
 	// opens it, and the two move together. A folder named on the command line
 	// is a library of plain files, as before; the first time, a folder
@@ -488,6 +494,7 @@ func main() {
 			a.newDockHost(w)
 			a.dockHost.Sync() // the windows of the panes, as they were left
 		}
+		mygo.App.OnSecondInstance(func([]string, string) { a.bringToFront() })
 		w.OnClosed(mygo.App.Quit)      // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
@@ -1424,4 +1431,23 @@ func (a *app) docStats() (words, chars int) {
 		a.statWords, a.statChars, a.statsVer = len(strings.Fields(s)), len([]rune(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), string(richtext.ObjectReplacement), ""))), v
 	}
 	return a.statWords, a.statChars
+}
+
+// bringToFront is the app started again while it runs: its window comes to the front, out of the Dock if it was
+// there - or, while the welcome plays, the welcome's.
+func (a *app) bringToFront() {
+	a.do(func() error {
+		if a.wel.clear && a.wel.stage != nil {
+			a.wel.stage.Focus()
+			return nil
+		}
+		if w := a.wel.win; w != nil {
+			if w.IsMinimized() {
+				w.Restore()
+			}
+			w.Show()
+			w.Focus()
+		}
+		return nil
+	})
 }
