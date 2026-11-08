@@ -203,7 +203,15 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 		p := a.welcomeProgress(c)
 		open, radius, prog = 1, float32(a.welcomeRadius(c, p)), float32(p)
 	}
+	win := []float32{0, 0, 0, 0} // the app's window, in the ground's window: on the stage, where it will open
+	if onStage && a.wel.stage != nil && a.wel.win != nil {
+		sb, wb := a.wel.stage.ContentBounds(), a.wel.win.ContentBounds()
+		win = []float32{float32(wb.X - sb.X), float32(wb.Y - sb.Y), float32(wb.Width), float32(wb.Height)}
+	}
 	ui.Box(c.Key("welcome-ground")).Absolute().Fill().Draw(func(p *ui.Painter, r ui.Rect) {
+		if win[2] == 0 { // the app's own window: all of it
+			win = []float32{0, 0, r.W, r.H}
+		}
 		if !welcomeShaders {
 			return
 		}
@@ -217,6 +225,7 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 			"Time": float32(t), "Fade": float32(fade), "Veil": float32(veil), "Mesh": float32(mesh), "Dark": dark,
 			"Open": open, "Origin": []float32{a.wel.origin.X, a.wel.origin.Y}, "Radius": radius, "Prog": prog,
 			"Base": []float32{baseV[0] * baseV[3], baseV[1] * baseV[3], baseV[2] * baseV[3], baseV[3]},
+			"Win":  win,
 		}})
 		p.AnimationFrame()
 	})
@@ -460,10 +469,10 @@ func init() {
 		"Karşılama ekranını göster": "Show the welcome screen",
 		"Karşılama ekranı":          "Welcome screen", "Yeniden başlat": "Start again",
 		"İlk açılıştaki karşılamayı seçilen görünümle baştan gösterir.": "Shows the first run's welcome again, from the start, in the look chosen.",
-		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "İki ton": "Two tones", "Renkli": "Colorful", "Gece": "Night",
-		"Halka": "Ring", "Perde": "Curtain", "Çözülme": "Dissolve", "Çizgiler": "Lines",
+		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "Gece": "Night",
+		"Halka": "Ring", "Çizgiler": "Lines",
 		"Bulut": "Clouds", "Sistem": "System",
-		"Buz": "Ice", "Kristal": "Crystal", "Prizma": "Prism", "Kuzey": "Aurora", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
+		"Buz": "Ice", "Kristal": "Crystal", "Tentakül": "Tentacles", "Prizma": "Prism", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
 		"Spektrum": "Spectrum",
 		"Yazıların altında, masaüstünün üstünde ne olacağı.": "What is under the words, over the desktop.",
 		"Başla'dan sonra uygulamanın penceresi nasıl gelir.": "How the app's window comes after Start.",
