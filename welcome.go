@@ -4,7 +4,6 @@ import (
 	"math"
 	"os"
 	"runtime"
-	"strconv"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -32,31 +31,31 @@ var welcomeShaders = true
 
 // welcomeState is where the welcome is.
 type welcomeState struct {
-	on      bool      // it is up: the intro or the opening
-	start   time.Time // the first frame of it
-	goAt    time.Time // when Başla was pressed; zero until then
-	origin  ui.Point  // where the opening runs out from: the button
-	win     *mygo.Window
-	stage   *mygo.Window // the clear window over the display that has the colors and the words (clear only)
-	opening *mygo.Window // the frameless window the app opens in, over its own (clear only)
-	inOpen  bool         // the frame being built is the opening window's
-	opened  bool         // the opening window has drawn its first frame: the opening's clock runs from then
-	bar     ui.TitleBar  // the app's window's title bar, which the opening window has not (titleBar)
-	clear   bool         // the welcome is on the stage, and the app's window waits unseen until it has opened
+	on       bool      // it is up: the intro or the opening
+	start    time.Time // the first frame of it
+	goAt     time.Time // when Başla was pressed; zero until then
+	origin   ui.Point  // where the opening runs out from: the button
+	win      *mygo.Window
+	stage    *mygo.Window // the clear window over the display that has the colors and the words (clear only)
+	opening  *mygo.Window // the frameless window the app opens in, over its own (clear only)
+	inOpen   bool         // the frame being built is the opening window's
+	opened   bool         // the opening window has drawn its first frame: the opening's clock runs from then
+	chosen   bool         // the welcome has started: the ground comes, and then the opening, by itself
+	chosenAt time.Time    // when
+	bar      ui.TitleBar  // the app's window's title bar, which the opening window has not (titleBar)
+	clear    bool         // the welcome is on the stage, and the app's window waits unseen until it has opened
 }
 
 const (
-	welVeil    = 1.4 // the desktop darkens over this long
-	welMeshAt  = 0.9 // and the mesh of colors comes in from here, over welMesh
-	welMesh    = 2.2
-	welMark    = 2.3
-	welHead    = 2.7
-	welSub     = 3.05
-	welCard0   = 3.45
-	welCardGap = 0.22
-	welButton  = 4.3
-	welOpen    = 2.1 // the opening takes this long, in seconds, unless its look says otherwise
-	welCorner  = 9   // the opening window's corners, as the app's window has them (macOS)
+	welVeil   = 0.8  // the desktop darkens over this long
+	welMeshAt = 0.25 // and the ground's colors come in from here, over welMesh
+	welMesh   = 1.2
+	welPause  = 0.0  // the ground starts at once
+	welHead   = 0.60 // then the words rise in, and Başla
+	welButton = 0.90
+	welOpen   = 2.1 // the opening takes this long, in seconds, unless its look says otherwise
+	welSwap   = 0.6 // and the app's window takes the opening's place over this long
+	welCorner = 9   // the opening window's corners, as the app's window has them (macOS)
 )
 
 // wantWelcome: the first run of a library that keeps its settings, or when asked (RYUDIT_WELCOME=1, or 0 for never).
@@ -82,13 +81,6 @@ func (a *app) welcomeAgain() {
 		a.wel.win.Hide()
 		a.openStage()
 	}
-}
-
-// welcomeAutoGo is when Başla presses itself, in seconds from the start: RYUDIT_WELCOME_GO=6, to watch a look
-// through without touching the keys (RYUDIT_WELCOME=1 RYUDIT_WELCOME_GO=6 RYUDIT_WELCOME_OPEN=crt). Zero is never.
-func welcomeAutoGo() float64 {
-	v, _ := strconv.ParseFloat(os.Getenv("RYUDIT_WELCOME_GO"), 64)
-	return v
 }
 
 // welcomeUp: the welcome has the window.
@@ -125,22 +117,62 @@ func (a *app) openStage() {
 	opts := mygo.WindowOptions{Title: "ryudit", X: d.X, Y: d.Y, Width: d.Width, Height: d.Height,
 		Frameless: true, Transparent: true, DisableShadow: true, DisableResize: true, DisableMove: true,
 		DisableMinimize: true, DisableMaximize: true, DisableFullScreen: true, Content: ui.View(a.stageView)}
-	blur := a.welcomeGroundLook().blur
-	if blur { // the desktop blurred under a dark material, which the window's opacity brings in slowly
-		opts.Vibrancy, opts.Opacity = mygo.VibrancyHUD, 0.01
-	}
 	st := mygo.NewWindow(opts)
 	st.SetBounds(d) // a centered window would be kept off the menu bar
 	st.Focus()
 	a.wel.stage = st
-	if blur {
-		a.fadeWindow(st, 0, 1, 0, welVeil)
+}
+
+// welcomeContinue starts the welcome: the ground comes, and then the opening, by itself (welcomeView). A ground that
+// blurs the desktop has its dark material only now, brought in slowly with the window's opacity.
+func (a *app) welcomeContinue(c *ui.Context) {
+	if a.wel.chosen {
+		return
+	}
+	a.wel.chosen, a.wel.chosenAt = true, c.Now()
+	a.wel.start = c.Now().Add(time.Duration(welPause * float64(time.Second))) // the ground's clock
+	if st := a.wel.stage; a.wel.clear && st != nil && a.welcomeGroundLook().blur {
+		time.AfterFunc(time.Duration(welPause*float64(time.Second)), func() {
+			st.SetOpacity(0.01)
+			st.SetVibrancy(mygo.VibrancyHUD)
+			a.fadeWindow(st, 0, 1, 0, welVeil)
+		})
+	}
+	c.AnimationFrame()
+}
+
+// welcomeSkip is Esc: no welcome, the app's window at once, faded in as on any start.
+func (a *app) welcomeSkip(c *ui.Context) {
+	a.wel.on = false
+	a.welcomeSeen()
+	if a.wel.clear && a.wel.win != nil {
+		w := a.wel.win
+		w.SetHasShadow(true)
+		w.SetOpacity(0)
+		w.Show()
+		w.Focus()
+		w.Invalidate()
+		a.fadeWindow(w, 0, 1, 0, 0.25)
+		if st := a.wel.stage; st != nil {
+			st.Close()
+		}
+		a.wel.stage, a.wel.clear = nil, false
+	}
+	c.Invalidate()
+}
+
+// welcomeSeen keeps that the welcome was seen, so that it is not shown again; one asked for by the variable is a
+// look, not a first run.
+func (a *app) welcomeSeen() {
+	if os.Getenv("RYUDIT_WELCOME") != "1" {
+		a.settings.WelcomeDone = true
+		a.saveSettings()
 	}
 }
 
-// fadeWindow takes the opacity of w from one value to another, eased, after delay seconds, over dur: the stage's
-// material cannot fade by itself.
-func (a *app) fadeWindow(w *mygo.Window, from, to, delay, dur float64) {
+// fadeWindow takes the opacity of w from one value to another, eased, after delay seconds, over dur, and then does
+// then (if any): a window's material, and a window as a whole, cannot fade by themselves.
+func (a *app) fadeWindow(w *mygo.Window, from, to, delay, dur float64, then ...func()) {
 	go func() {
 		defer a.guard()
 		time.Sleep(time.Duration(delay * float64(time.Second)))
@@ -152,6 +184,9 @@ func (a *app) fadeWindow(w *mygo.Window, from, to, delay, dur float64) {
 			}
 			w.SetOpacity(from + (to-from)*smoothstep(t))
 			if t >= 1 {
+				for _, f := range then {
+					f()
+				}
 				return
 			}
 			time.Sleep(16 * time.Millisecond)
@@ -180,6 +215,9 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 	clear := c.Vibrancy() || onStage
 	if clear {
 		c.Root().Background(ui.Transparent) // the desktop is the ground
+	}
+	if !a.wel.chosen { // the window asks first: the ground comes with Devam
+		return
 	}
 	base := tok.Colors.Card // no glass (Linux, Windows): the colors sit on the app's ground
 	baseV := []float32{float32(base.R) / 255, float32(base.G) / 255, float32(base.B) / 255, 1}
@@ -280,16 +318,26 @@ func (a *app) welcomeRadius(c *ui.Context, prog float64) float64 {
 // welcomeEnd: the app is all there. The welcome is done and not shown again; the glass goes.
 func (a *app) welcomeEnd(c *ui.Context) {
 	a.wel.on = false
-	if os.Getenv("RYUDIT_WELCOME") != "1" { // asked for by the variable: a look, not a first run
-		a.settings.WelcomeDone = true
-		a.saveSettings()
-	}
-	if a.wel.clear && a.wel.win != nil { // the app's own window is seen, with its shadow, where the opening was
-		a.wel.win.SetOpacity(1)
-		a.wel.win.SetHasShadow(true)
-		a.wel.win.Focus()
-		a.wel.win.Invalidate()
-		a.wel.clear = false
+	a.welcomeSeen()
+	if a.wel.clear && a.wel.win != nil {
+		// The app's own window takes the opening's place without anything coming all at once. It has the focus first,
+		// while it is still unseen: it comes in front of the opening's window, and its traffic lights are in color
+		// already (a window without the focus has them grey). Then it fades in over that window, which shows the
+		// same, so that only what is its own - the traffic lights and the shadow - is seen coming; and the opening's
+		// window, under it, is closed.
+		w, op, st := a.wel.win, a.wel.opening, a.wel.stage
+		a.wel.opening, a.wel.stage, a.wel.clear = nil, nil, false
+		w.SetHasShadow(true)
+		w.Focus()
+		w.Invalidate()
+		a.fadeWindow(w, 0, 1, 0, welSwap, func() {
+			if op != nil {
+				op.Close()
+			}
+		})
+		if st != nil {
+			a.fadeWindow(st, st.Opacity(), 0, 0, welSwap, st.Close)
+		}
 	}
 	for _, w := range []**mygo.Window{&a.wel.opening, &a.wel.stage} {
 		if *w != nil {
@@ -356,114 +404,172 @@ func (a *app) openingView(c *ui.Context) {
 	a.view(c)
 }
 
-// welcomeView is the words and the button, above everything: they rise in turn, and lift off as the app opens.
+// welcomeView is the words of the welcome (in English in every language: they are the app's line) and Başla, over
+// the ground: the ground starts on the first frame, and the words and the button rise in one after another as it
+// comes. Başla (or Enter) starts the opening from the button; Esc goes straight to the app. They lift off as the
+// app opens.
 func (a *app) welcomeView(c *ui.Context, onStage bool) {
 	if !a.wel.on || a.wel.clear != onStage {
 		return
 	}
-	el := a.welcomeClock(c)
+	a.welcomeClock(c)
+	if !a.wel.chosen {
+		a.welcomeContinue(c)
+	}
+	el := c.Now().Sub(a.wel.chosenAt).Seconds()
 	prog := a.welcomeProgress(c)
-	if !a.wel.goAt.IsZero() { // lifting off: a frame each frame, the app's window has its own
+	going := !a.wel.goAt.IsZero()
+	if going { // lifting off: a frame each frame, the app's window has its own
 		c.AnimationFrame()
+	} else if el < welButton+1.0 {
+		c.After(16 * time.Millisecond)
 	}
 	cl := ryugo.From(c).Colors
-	dark := ryugo.From(c).Dark
-	// the next piece to rise: another frame then (the ground moves on its own, in paint)
-	next := math.Inf(1)
-	for _, t := range []float64{welMark, welHead, welSub, welCard0, welCard0 + welCardGap, welCard0 + 2*welCardGap, welButton} {
-		if t > el && t < next {
-			next = t
-		}
-	}
-	if !math.IsInf(next, 1) {
-		c.After(time.Duration((next-el)*float64(time.Second)) + 8*time.Millisecond)
-	} else if el < welButton+1.2 { // the last has risen; a few frames more while it settles
-		c.After(50 * time.Millisecond)
-	}
-	rise := ui.Animation{Spring: ui.SpringOptions{Duration: 820 * time.Millisecond, Bounce: 0.1}}
-	// rises is an element that comes up from below, and fades in, once its time has come
+	rise := ui.Animation{Spring: ui.SpringOptions{Duration: 700 * time.Millisecond, Bounce: 0.12}}
 	rises := func(e ui.Element, at float64) ui.Element {
-		pose := ui.Pose{Y: 64, Fade: 1}
+		pose := ui.Pose{Y: 36, Fade: 1}
 		if el >= at {
 			pose = ui.Pose{}
 		}
 		return e.AnimatePose(pose, rise)
 	}
-	glass := ui.RGBA(255, 255, 255, 0.46)
-	rim := ui.RGBA(255, 255, 255, 0.55)
-	if dark {
-		glass, rim = ui.RGBA(255, 255, 255, 0.10), ui.RGBA(255, 255, 255, 0.18)
-	}
 	w, h := c.Size()
+	var button ui.Element
+	start := func() {
+		if !going && button.Bounds().W > 0 {
+			a.welcomeStart(c, button.Bounds())
+		}
+	}
 	ui.Overlay(c, func() {
-		stage := ui.Column(c.Key("welcome")).Absolute().Left(0).Top(0).Width(w).Height(h).AlignItems(ui.Center).Justify(ui.Center).Gap(0)
-		// lifting off as the app opens
-		stage.Opacity(float32(1-min(1, prog*3))).Translate(0, float32(-30*prog))
+		stage := ui.Column(c.Key("welcome")).Absolute().Left(0).Top(0).Width(w).Height(h).AlignItems(ui.Center).Justify(ui.Center)
+		stage.Opacity(float32(1-min(1, prog*3))).Translate(0, float32(-24*prog))
 		stage.Children(func() {
-			ui.Column(c.Key("welcome-col")).Width(min(460, w-32)).AlignItems(ui.Center).Gap(0).Children(func() {
-				rises(ui.Text(c.Key("w-mark"), "ryudit").FontSize(15).FontWeight(680).TextColor(cl.Text2), welMark)
-				ui.Box(c.Key("w-gap0")).Height(18)
-				rises(ui.Text(c.Key("w-head"), T("Yaz. Gerisi kendiliğinden.")).FontSize(40).FontWeight(720).TextColor(cl.Text).TextAlign(ui.Center), welHead)
-				ui.Box(c.Key("w-gap1")).Height(12)
-				rises(ui.Text(c.Key("w-sub"), T("İşaret görmeden yazdığın, tamamen sende duran bir not defteri.")).FontSize(15.5).TextColor(cl.Text2).TextAlign(ui.Center).Wrap(), welSub)
-				ui.Box(c.Key("w-gap2")).Height(34)
-				for i, it := range welcomeCards {
-					row := ui.Row(c.Key("w-card"+itoa(i))).FillWidth().AlignItems(ui.Center).Gap(14).Padding(14, 16).
-						Radius(rad(18)).Background(glass).Border(1, rim)
-					rises(row, welCard0+float64(i)*welCardGap).Children(func() {
-						ui.Box(c.Key("w-ic"+itoa(i))).Size(38, 38).Radius(rad(11)).Background(it.tint).Children(func() {
-							ui.Icon(c, it.icon).Width(20).Height(20).TextColor(ui.RGB(255, 255, 255)).Absolute().Left(9).Top(9)
-						})
-						ui.Column(c.Key("w-tx" + itoa(i))).Grow(1).Gap(2).Children(func() {
-							ui.Text(c, T(it.title)).FontSize(14.5).FontWeight(650).TextColor(cl.Text)
-							ui.Text(c, T(it.body)).FontSize(13).TextColor(cl.Text2).Wrap()
-						})
-					})
-					if i < len(welcomeCards)-1 {
-						ui.Box(c.Key("w-cg" + itoa(i))).Height(10)
-					}
-				}
-				ui.Box(c.Key("w-gap3")).Height(30)
-				wrap := ui.Column(c.Key("w-go-box")).AlignItems(ui.Center)
-				rises(wrap, welButton).Children(func() {
-					if ryugo.Button(c.Key("w-go"), T("Başla"), ryugo.ButtonOptions{Size: ryugo.Lg, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
-						a.welcomeStart(c, wrap.Bounds())
-					}
-				})
-				if el >= welButton && c.Shortcut(0, ui.KeyEnter) {
-					a.welcomeStart(c, wrap.Bounds())
-				}
-				if at := welcomeAutoGo(); at > 0 && a.wel.goAt.IsZero() { // a look watched to its end, no hand on the keys
-					if el >= at {
-						a.welcomeStart(c, wrap.Bounds())
-					} else {
-						c.After(time.Duration((at-el)*float64(time.Second)) + 8*time.Millisecond)
-					}
-				}
+			rises(ui.Text(c.Key("w-head"), "Ryudit").FontSize(40).FontWeight(720).TextColor(cl.Text).TextAlign(ui.Center), welHead)
+			ui.Box(c.Key("w-gap1")).Height(10)
+			rises(ui.Text(c.Key("w-sub"), "The notes app you've been looking for.").FontSize(15.5).TextColor(cl.Text2).TextAlign(ui.Center), welHead+0.08)
+			ui.Box(c.Key("w-gap2")).Height(0) // Başla's box has its glow's room round it
+			glow, b := a.welcomeButton(c)
+			rises(glow, welButton)
+			button = b
+		})
+	})
+	if going {
+		return
+	}
+	if el >= welButton && c.Shortcut(0, ui.KeyEnter) {
+		start()
+	}
+	if c.Shortcut(0, ui.KeyEscape) {
+		a.welcomeSkip(c)
+	}
+	if button.Clicked() {
+		start()
+	}
+}
+
+// welcomeButton is Başla: a pill of the accent's color, lighter at its top, a thin light running round its edge and a
+// glow under it that breathes; brighter under the pointer, pressed in when pressed. The glow comes in slowly once
+// the pill has risen, spreading as it brightens. The pill and its glow are drawn by a shader (welcomeButtonShader) on
+// a box larger than the pill, for the glow's room; the button - what is pressed, and has the pointer - is the pill
+// alone, in the middle of it.
+func (a *app) welcomeButton(c *ui.Context) (glow, button ui.Element) {
+	cl := ryugo.From(c).Colors
+	const pad = 56 // the glow's room round the pill: it is gone well before the box's edge
+	bw, bh := float32(168), float32(50)
+	var hover, down bool
+	glow = ui.Box(c.Key("w-go-glow")).Width(bw + 2*pad).Height(bh + 2*pad).AlignItems(ui.Center).Justify(ui.Center)
+	glow.Draw(func(p *ui.Painter, r ui.Rect) {
+		if !welcomeShaders {
+			return
+		}
+		hv, dn := float32(0), float32(0)
+		if hover {
+			hv = 1
+		}
+		if down {
+			dn = 1
+		}
+		in := smoothstep((p.Now().Sub(a.wel.chosenAt).Seconds() - welButton - 0.2) / 1.1) // the glow, after the pill
+		welcomeButtonShader.Draw(p, r, shader.Options{Uniforms: map[string]any{
+			"Time": float32(p.Now().Sub(a.wel.start).Seconds()), "Pad": float32(pad), "Hover": hv, "Down": dn, "In": float32(in), "Accent": cl.Accent,
+		}})
+		p.AnimationFrame()
+	})
+	glow.Children(func() {
+		button = ui.Box(c.Key("w-go")).Width(bw).Height(bh).Radius(bh / 2).AlignItems(ui.Center).Justify(ui.Center).
+			Role(ui.RoleButton).Label(T("Başla")).Cursor(ui.CursorPointer)
+		hover, down = button.Hovered(), button.Pressed()
+		if hover {
+			c.AnimationFrame()
+		}
+		button.Children(func() {
+			scale := float32(1)
+			if down {
+				scale = 0.97
+			}
+			ui.Row(c.Key("w-go-label")).AlignItems(ui.Center).Gap(8).Scale(scale, scale).Children(func() {
+				ui.Text(c, T("Başla")).FontSize(16).FontWeight(680).TextColor(ui.RGB(255, 255, 255))
+				ui.Icon(c, iconArrowRight).Width(16).Height(16).TextColor(ui.RGB(255, 255, 255))
 			})
 		})
 	})
-	if c.Shortcut(0, ui.KeyEscape) { // skip it
-		a.welcomeStart(c, ui.Rect{})
-	}
+	return glow, button
 }
 
-// welcomeCards are the three things said before the app, in the app's own words.
-var welcomeCards = []struct {
-	title, body string
-	icon        *ui.SVG
-	tint        ui.Color
-}{
-	{"Biçimi kendisi girer", "# başlık, - liste, [] görev: yazdıkça yapıya dönüşür, işaret görünmez.", iconEdit, ui.RGB(236, 98, 80)},
-	{"Her şey ⌘P'de", "Komutlar, ayarlar ve sayfalar tek bir kutuda; fare şart değil.", iconSearch, ui.RGB(122, 96, 240)},
-	{"Senin kitaplığın", "Tek dosya, bu bilgisayarda; yedeği her gün alınır, eşitleme şifreli.", iconStack, ui.RGB(36, 150, 232)},
+var iconArrowRight = icon(`<path d="M5 12h14M13 6l6 6-6 6"/>`)
+
+// welcomeButtonShader draws Başla's pill on a box Pad larger than it on each side: its body the accent, lighter at
+// the top and a little glassy; a thin line of light going round its edge; a glow under it that breathes, more under
+// the pointer; a little darker, and smaller, pressed. In (0..1) brings the glow and the running light in.
+var welcomeButtonShader = shader.MustCompile(`package main
+
+var Time float
+var Pad float
+var Hover float
+var Down float
+var In float
+var Accent vec4
+
+func pill(p vec2, half vec2) float {
+	r := half.y
+	q := abs(p) - (half - vec2(r))
+	return length(max(q, vec2(0))) + min(max(q.x, q.y), 0) - r
 }
+
+func Fragment(dst vec4, pos vec2) vec4 {
+	sz := rectSize()
+	half := sz*0.5 - vec2(Pad)
+	half *= 1 - Down*0.03
+	p := pos - sz*0.5
+	sd := pill(p, half)
+	acc := Accent.rgb
+	// the glow under it, breathing
+	breath := 0.5 + 0.5*sin(Time*2.2)
+	reach := (9 + 5*breath + 5*Hover) * mix(0.35, 1.0, In) // it spreads as it comes
+	glow := exp(-max(sd, 0)/reach) * (0.35 + 0.20*breath + 0.35*Hover) * In * step(0, sd)
+	glow *= 1 - smoothstep(Pad*0.45, Pad-4, sd) // and nothing of it at the box's edge, so no square shows
+	out := vec4(acc*glow, glow)
+	// the body: lighter at the top, a sheen across it
+	inside := 1 - smoothstep(-0.8, 0.8, sd)
+	t := clamp(p.y/(half.y*2)+0.5, 0, 1)
+	body := mix(mix(acc, vec3(1), 0.32), acc*0.86, t)
+	body += vec3(1) * 0.10 * exp(-((p.y+half.y*0.45)*(p.y+half.y*0.45))/(half.y*half.y*0.18)) // the sheen
+	body *= 1 + 0.12*Hover - 0.10*Down
+	// the edge: a thin line of light running round it
+	ang := atan2(p.y, p.x)
+	run := pow(0.5+0.5*cos(ang-Time*1.6), 6.0)
+	edge := exp(-abs(sd+1.0)/0.9) * (0.25 + 0.9*run*In)
+	body += vec3(1) * edge * 0.9
+	out = vec4(body, 1)*inside + out*(1-inside)
+	rimOut := exp(-abs(sd)/1.2) * run * 0.5 * In * (1 - inside)
+	out += vec4(vec3(rimOut), rimOut)
+	return out
+}
+`)
 
 func init() {
 	for tr, en := range map[string]string{
-		"Yaz. Gerisi kendiliğinden.":                                             "Write. The rest takes care of itself.",
-		"İşaret görmeden yazdığın, tamamen sende duran bir not defteri.":         "A notebook you write in without seeing a mark, and that stays entirely with you.",
-		"Biçimi kendisi girer":                                                   "It formats itself",
+		"Biçimi kendisi girer": "It formats itself",
 		"# başlık, - liste, [] görev: yazdıkça yapıya dönüşür, işaret görünmez.": "# heading, - list, [] task: as you type it becomes structure, and the mark is not shown.",
 		"Her şey ⌘P'de": "Everything is in ⌘P",
 		"Komutlar, ayarlar ve sayfalar tek bir kutuda; fare şart değil.": "Commands, settings and pages in one box; no mouse needed.",

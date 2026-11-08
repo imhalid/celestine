@@ -26,17 +26,28 @@ func welcomeApp(t *testing.T) *app {
 func TestWelcome(t *testing.T) {
 	a := welcomeApp(t)
 	tt := ui.NewTester(a.view, 560, 660)
-	tt.Advance(4500 * time.Millisecond)
-	if !tt.HasText("Başla") || !tt.HasText("Yaz. Gerisi kendiliğinden.") {
+	tt.Advance(1500 * time.Millisecond)
+	if !a.wel.chosen || !tt.HasText("Başla") || !tt.HasText("Ryudit") {
 		t.Fatalf("the welcome is not up: %v", tt.Texts())
 	}
 	if !a.modal() {
 		t.Fatal("the app takes keys under the welcome")
 	}
+	tt.Advance(2 * time.Second)
+	if !a.wel.goAt.IsZero() {
+		t.Fatal("the opening started without Başla")
+	}
+	// only the pill is the button: its glow, round it, is not
+	r, _ := tt.Find("Başla")
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2+48)
+	tt.Frame()
+	if !a.wel.goAt.IsZero() {
+		t.Fatal("a click in the glow, off the button, started the opening")
+	}
 	if err := tt.Click("Başla"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Advance(3 * time.Second) // the opening is welOpen long
+	tt.Advance(3 * time.Second)
 	if a.wel.on {
 		t.Fatalf("the welcome did not end: %v", tt.Texts())
 	}
@@ -61,9 +72,9 @@ func TestWelcomeAgainFromSettings(t *testing.T) {
 	if !a.wel.on || a.settingsOpen || a.settings.WelcomeDone || !a.wel.goAt.IsZero() {
 		t.Fatalf("the welcome did not start again: on %v, settings %v, done %v", a.wel.on, a.settingsOpen, a.settings.WelcomeDone)
 	}
-	tt.Advance(4500 * time.Millisecond)
-	if !tt.HasText("Başla") {
-		t.Fatalf("the welcome is not up: %v", tt.Texts())
+	tt.Advance(500 * time.Millisecond)
+	if !a.wel.chosen {
+		t.Fatal("the welcome did not start again")
 	}
 }
 
@@ -118,7 +129,7 @@ func TestWelcomeLooksDraw(t *testing.T) {
 				tt := ui.NewTester(a.view, 48, 36)
 				tt.Frame() // the first frame starts the clock
 				now := a.wel.start
-				a.wel.start = now.Add(-5 * time.Second)
+				a.wel.chosen, a.wel.start = true, now.Add(-5*time.Second) // Devam was pressed: the ground is there
 				tt.Frame()
 				a.wel.origin, a.wel.goAt = ui.Point{X: 24, Y: 28}, now.Add(-time.Duration(o.length()/2*float64(time.Second))) // Başla, as welcomeStart has it
 				tt.Frame()
@@ -127,5 +138,17 @@ func TestWelcomeLooksDraw(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Esc opens the app at once, with nothing after it.
+func TestWelcomeSkip(t *testing.T) {
+	a := welcomeApp(t)
+	tt := ui.NewTester(a.view, 560, 660)
+	tt.Advance(500 * time.Millisecond)
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if a.wel.on || !a.settings.WelcomeDone {
+		t.Fatalf("the welcome did not end on Esc: on %v, done %v", a.wel.on, a.settings.WelcomeDone)
 	}
 }
