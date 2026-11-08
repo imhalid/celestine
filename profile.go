@@ -23,42 +23,40 @@ type loginState struct {
 	seen bool // it has been shown in this run
 }
 
-// loginDue: the dialog is to be shown - nobody signed in, and it has not been answered. A library with no settings of its own is a test's,
-// or a scratch one, and is left alone, as the tour is.
+// loginDue is when the app is behind its sign-in: a real library (one with settings of its own), and no account on it. The app
+// is not shown at all then; an invite or a sign-in is the way in, and there is no going on without one.
 func (a *app) loginDue() bool {
-	return !a.settings.AccountAsked && a.settings.AccountUser == "" && !a.login.seen && (a.settingsFile != "" || a.settingsStore != nil)
+	return a.settings.AccountUser == "" && (a.settingsFile != "" || a.settingsStore != nil)
 }
 
-// loginView is the dialog of getting in. Closing it is "no account for now": it is not shown again, and the profile has the same form.
+// gateUp is whether the sign-in screen is what the window shows: until there is an account, and after one is made until its
+// recovery key is said to be kept.
+func (a *app) gateUp() bool {
+	return a.loginDue() || a.login.open && a.ac.mode == "recovery"
+}
+
+// loginView is the sign-in screen: the whole window, over nothing of the app, with the form in its middle.
 func (a *app) loginView(c *ui.Context) {
-	if !a.login.open && a.loginDue() && !a.modal() {
-		a.login.open, a.login.seen = true, true
-		a.ac.mode, a.ac.err = "invite", "" // a first run is most likely one with an invite in the mail
-	}
-	if !a.login.open {
+	if !a.gateUp() {
+		a.login.open = false
 		return
 	}
+	if !a.login.seen { // a first sight is most likely one with an invite in the mail
+		a.login.seen = true
+		a.ac.mode, a.ac.err = "invite", ""
+	}
+	a.login.open = true
 	cl := ryugo.From(c).Colors
-	ryugo.Dialog(c.Key("login"), &a.login.open, ryugo.DialogOptions{Title: T("Ryudit'e hoş geldin"), Width: 430, Footer: func() {
-		if a.ac.mode == "recovery" { // the account is made: there is no going on without one
-			return
-		}
-		ui.Text(c, T("Hesap yalnız eşitleme içindir; sonra Profil'den de açılır.")).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
-		if ryugo.Button(c.Key("login-skip"), T("Hesapsız devam et"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-			a.login.open = false
-		}
-	}}, func() {
-		ui.Column(c).FillWidth().Gap(12).Children(func() {
+	w, h := c.Size()
+	ui.Column(c.Key("login")).Absolute().Left(0).Top(0).Width(w).Height(h).Background(a.pageBg).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+		ui.Column(c.Key("login-card")).Width(min(400, w-32)).Gap(14).Children(func() {
+			ui.Text(c, "Ryudit").FontSize(30).FontWeight(720).TextColor(cl.Text)
 			if a.ac.mode != "recovery" {
-				ui.Text(c, T("Giriş yaparsan kitaplığın şifrelenerek başka bilgisayarlarında da durur. Hesapsız kullanırsan her şey yalnız bu bilgisayarda kalır.")).FontSize(13).TextColor(cl.Text2).Wrap()
+				ui.Text(c, T("Ryudit'i kullanmak için davetinle hesap aç ya da giriş yap. Kitaplığın şifrelenerek bilgisayarlarında eşitlenir.")).FontSize(13).TextColor(cl.Text2).Wrap()
 			}
 			a.acctForm(c)
 		})
 	})
-	if !a.login.open && !a.settings.AccountAsked { // closed: with the sign-in, acctDone has marked it already
-		a.settings.AccountAsked = true
-		a.saveSettings()
-	}
 }
 
 // openProfile shows the profile.
@@ -325,11 +323,9 @@ func init() {
 		"Sunucu": "Server", "Kurtarma anahtarı": "Recovery key", "Profil": "Profile", "Hesap profili": "Account profile",
 		"Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.": "Forgot your password? Set a new one with the recovery key that was shown when the account was made; your data stays the same, and you sign in again on your other computers.",
 		"Şifremi unuttum": "I forgot my password", "Şifreyi yenile": "Set the new password", "Kurtarma anahtarı gerekli.": "The recovery key is needed.", "Kullanıcı adı gerekli.": "A username is needed.",
-		"Şifre en az 8 karakter olsun.":                              "The password needs at least 8 characters.",
-		"Ryudit'e hoş geldin":                                        "Welcome to Ryudit",
-		"Hesap yalnız eşitleme içindir; sonra Profil'den de açılır.": "An account is only for syncing through the server; it can be made later from the profile too.",
-		"Hesapsız devam et":                                          "Continue without an account",
-		"Giriş yaparsan kitaplığın şifrelenerek başka bilgisayarlarında da durur. Hesapsız kullanırsan her şey yalnız bu bilgisayarda kalır.":      "Sign in and your library, encrypted, is on your other computers too. Without an account everything stays on this computer.",
+		"Şifre en az 8 karakter olsun.": "The password needs at least 8 characters.",
+		"ad@ornek.com":                  "name@example.com",
+		"Ryudit'i kullanmak için davetinle hesap aç ya da giriş yap. Kitaplığın şifrelenerek bilgisayarlarında eşitlenir.":                         "To use Ryudit, make an account with your invite or sign in. Your library is encrypted and synced across your computers.",
 		"Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.":                                                                                      "Not signed in: your library is only on this computer.",
 		"Hesap yalnız sunucu üzerinden eşitleme içindir. Giriş yapmadan da her şey çalışır; dosyaların bu bilgisayarda, düz ve taşınabilir kalır.": "An account is only for syncing through the server. Everything works without signing in; your files stay on this computer, plain and portable.",
 		"Yükleniyor…": "Loading…", "Kullanılan yer": "Space used", "henüz eşitlenmedi": "not synced yet", "Eşitleme: ": "Sync: ",

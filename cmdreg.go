@@ -159,9 +159,9 @@ func settingDefs() []settingDef {
 		}},
 		{name: "Dil", alias: "language english türkçe", fields: []string{"lang"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
-			for _, l := range []string{"", "tr", "en"} {
+			for _, l := range []string{"en", "tr"} {
 				l := l
-				out = append(out, settingChoice{name: langName(l), current: a.settings.Lang == l, set: func(a *app) { a.settings.Lang = l; setLang(l); a.saveSettings() }})
+				out = append(out, settingChoice{name: langName(l), current: a.settings.Lang == l || (l == "en" && a.settings.Lang != "tr"), set: func(a *app) { a.settings.Lang = l; setLang(l); a.saveSettings() }})
 			}
 			return out
 		}},

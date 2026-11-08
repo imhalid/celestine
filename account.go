@@ -332,7 +332,7 @@ func (a *app) acctServer() string {
 func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	s := &a.settings
 	s.AccountUser, s.SyncMode, s.SyncURL, s.SyncToken = user, "server", a.acctServer(), token
-	s.AccountAsked, a.login.open = true, false
+	a.login.open = false
 	s.SyncKey = base64.StdEncoding.EncodeToString(key)
 	a.sy.hasKey = true
 	if fresh {
@@ -463,7 +463,7 @@ func (a *app) acctForm(c *ui.Context) {
 		switch mode {
 		case "invite":
 			note("Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.")
-			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = "ad@ornek.com" })
+			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = T("ad@ornek.com") })
 			field("acct-code", "Erişim kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
 		case "password":
 			field("acct-pass", "Şifre", &a.ac.pass, secret)

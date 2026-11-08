@@ -247,7 +247,7 @@ func (a *app) menuBarItems(group string) []*mygo.MenuItem {
 		}
 		out = append(out, &mygo.MenuItem{Label: label, Accelerator: menuAccel(cmd.accel), Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.do(func() error {
-				if cmd.off == nil || cmd.off(a) == "" {
+				if !a.gateUp() && (cmd.off == nil || cmd.off(a) == "") { // behind the sign-in, the app's commands wait
 					cmd.run(a)
 				}
 				return nil

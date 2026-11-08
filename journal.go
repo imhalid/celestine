@@ -20,7 +20,7 @@ import (
 //   - A random day can be opened.
 
 const (
-	journalName   = "Günlük"
+	journalName   = "Journal"
 	defaultFormat = "YYYY-MM-DD"
 )
 
@@ -104,7 +104,7 @@ func (a *app) journal() (*Collection, error) {
 		}
 	}
 	for _, c := range a.lib.Collections {
-		if strings.EqualFold(c.Name, journalName) {
+		if strings.EqualFold(c.Name, journalName) || strings.EqualFold(c.Name, "Günlük") { // or a library of before
 			c.Journal, c.SubPages = true, false
 			return c, c.Save()
 		}
@@ -115,9 +115,9 @@ func (a *app) journal() (*Collection, error) {
 	}
 	c.Icon, c.Journal, c.SubPages = "calendar", true, false
 	c.Views = []View{
-		{ID: "calendar", Label: "Takvim", Type: "calendar", Sort: "created", DateField: "created"},
-		{ID: "list", Label: "Liste", Type: "list", Sort: "created", Desc: true},
-		{ID: "table", Label: "Tablo", Type: "table", Sort: "created", Desc: true},
+		{ID: "calendar", Label: "Calendar", Type: "calendar", Sort: "created", DateField: "created"},
+		{ID: "list", Label: "List", Type: "list", Sort: "created", Desc: true},
+		{ID: "table", Label: "Table", Type: "table", Sort: "created", Desc: true},
 	}
 	c.ActiveView = "calendar"
 	if err := c.Save(); err != nil {
@@ -129,7 +129,7 @@ func (a *app) journal() (*Collection, error) {
 // journalColl is the journal's collection if the library has one, and makes none: what is drawn each frame asks it.
 func (a *app) journalColl() *Collection {
 	for _, c := range a.lib.Collections {
-		if c.Journal || strings.EqualFold(c.Name, journalName) {
+		if c.Journal || strings.EqualFold(c.Name, journalName) || strings.EqualFold(c.Name, "Günlük") {
 			return c
 		}
 	}

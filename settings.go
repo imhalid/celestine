@@ -370,9 +370,13 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	})
 	settingGroup(c, "set-lang", func() {
 		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
-			lang := a.settings.Lang
-			choiceBar(c, "set-lang-bar", T("Dil"), []string{"", "tr", "en"}, []string{langName(""), langName("tr"), langName("en")}, &lang)
-			if lang != a.settings.Lang {
+			was := a.settings.Lang
+			if was != "tr" { // nothing chosen is English
+				was = "en"
+			}
+			lang := was
+			choiceBar(c, "set-lang-bar", T("Dil"), []string{"en", "tr"}, []string{langName("en"), langName("tr")}, &lang)
+			if lang != was {
 				a.settings.Lang = lang
 				setLang(lang)
 				a.saveSettings()

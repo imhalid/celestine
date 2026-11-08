@@ -16,7 +16,7 @@ func statsApp(t *testing.T, src string) (*app, *ui.Tester) {
 	clock := time.Date(2026, 11, 7, 10, 0, 0, 0, time.Local)
 	a.clock = func() time.Time { return clock }
 	a.settingsFile = filepath.Join(t.TempDir(), "ryudit", "settings.json")
-	a.settings.AccountAsked = true // the dialog of getting in is not what these look at
+	a.settings.AccountUser = "ali@ornek.com" // the sign-in is not what these look at
 	a.setClock = func(d time.Duration) { clock = clock.Add(d) }
 	a.usage = nil // what the setup counted was on the real clock, on today: the test's days start clean
 	return a, tt

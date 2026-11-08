@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -15,24 +14,13 @@ import (
 // lang is "tr" or "en".
 var lang = "tr"
 
-// setLang sets the language from the setting: "" is the system's, by its locale variables.
+// setLang sets the language from the setting: English, unless Turkish is chosen.
 func setLang(setting string) {
-	switch setting {
-	case "tr", "en":
-		lang = setting
+	if setting == "tr" {
+		lang = "tr"
 		return
 	}
-	for _, v := range []string{"LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"} {
-		if s := os.Getenv(v); s != "" {
-			if strings.HasPrefix(strings.ToLower(s), "tr") {
-				lang = "tr"
-			} else {
-				lang = "en"
-			}
-			return
-		}
-	}
-	lang = "tr"
+	lang = "en" // English unless Turkish is chosen
 }
 
 // T is s in the language of the window.
@@ -60,10 +48,8 @@ func langName(l string) string {
 	switch l {
 	case "tr":
 		return "Türkçe"
-	case "en":
-		return "English"
 	}
-	return "Sistem"
+	return "English"
 }
 
 var enText = map[string]string{

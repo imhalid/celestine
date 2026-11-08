@@ -31,28 +31,28 @@ import (
 	"github.com/imhalid/ryu-go/dockwin"
 )
 
-const welcome = `Burada **Markdown işareti görmezsin**: yazdığın işaretler anında yapıya dönüşür.
+const welcome = `Here you **don't see Markdown's marks**: what you type turns into structure as you type it.
 
-## Dene
+## Try it
 
-- Yeni bir satırda \# ve boşluk: başlık. \- liste, 1. numaralı liste, \[\] görev, \> alıntı.
-- Sözcükleri iki yıldız arasına al: **kalın**. Tek yıldız _italik_, ters tırnak ` + "`kod`" + `, iki tilde ~~üstü çizili~~.
-- Boş bir satırda üç tire: ayırıcı çizgi. Üç ters tırnak: kod bloğu.
-- ⌘B, ⌘I, ⌘U biçimlendirir; ⌘Z bir dönüşümü geri alır.
-  - Tab içeri, ⇧Tab dışarı.
+- At the start of a line, \# and a space: a heading. \- a list, 1. a numbered list, \[\] a task, \> a quote.
+- Put words between two stars: **bold**. One star _italic_, backticks ` + "`code`" + `, two tildes ~~struck out~~.
+- Three dashes on an empty line: a divider. Three backticks: a code block.
+- ⌘B, ⌘I, ⌘U format; ⌘Z undoes a change.
+  - Tab in, ⇧Tab out.
 
 ---
 
-## Sayfalar
+## Pages
 
-- Soldaki bir koleksiyonun yanındaki + yeni sayfa açar; bir sayfanın yanındaki + onun altına alt sayfa.
-- ⌃N bu koleksiyonda yeni sayfa açar.
-- [ ] Kutuya tıkla
-- [x] Bitmiş bir görev
+- The + beside a collection on the left makes a page; the + beside a page makes a sub-page under it.
+- ⌃N makes a page in this collection.
+- [ ] Click the box
+- [x] A task that is done
 
-> Her sayfa kitaplık klasöründe bir klasör ve içinde page.json: uygulamanın kendi biçimi.
+> Each page is a folder in the library, with page.json in it: the app's own format.
 
-⌘⇧M caret'i değiştirir: Slime ya da Mizan.
+⌘⇧M changes the caret: Slime or Mizan.
 `
 
 const (
@@ -325,11 +325,11 @@ func seed(lib *Library) error {
 	if len(lib.Collections) > 0 {
 		return nil
 	}
-	c, err := lib.NewCollection("Notlar")
+	c, err := lib.NewCollection("Notes")
 	if err != nil {
 		return err
 	}
-	p, err := c.NewPage(nil, "Hoş geldin")
+	p, err := c.NewPage(nil, "Welcome")
 	if err != nil {
 		return err
 	}
@@ -722,6 +722,11 @@ func (a *app) viewFrame(c *ui.Context) {
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
+	if a.gateUp() { // not signed in: the sign-in alone, with nothing of the app behind it
+		root.Children(func() { a.loginView(c) })
+		a.welcomeView(c, false)
+		return
+	}
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
 	}

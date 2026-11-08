@@ -8,60 +8,53 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/ryudit/internal/library"
 )
 
-// The first time a real library is opened (it has settings of its own) the dialog of getting in shows; closing it is "no account for now",
-// and it does not come again; the tour, which waits behind it, comes after.
-func TestLoginDialogFirstRun(t *testing.T) {
+// A real library (it has settings of its own) with no account is behind the sign-in: the window shows the form and nothing of the
+// app, there is no way past it, not Esc, not a command, and the tour waits until one is signed in.
+func TestLoginGate(t *testing.T) {
 	withLang(t, "tr")
 	a, tt := newTestApp(t, "x\n")
 	a.settingsFile = t.TempDir() + "/s.json"
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Ryudit'e hoş geldin", "Hesapsız devam et", "Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu"} {
+	for _, want := range []string{"Ryudit", "Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu"} {
 		if !tt.HasText(want) {
-			t.Fatalf("no %q on the dialog: %v", want, tt.Texts())
+			t.Fatalf("no %q on the sign-in: %v", want, tt.Texts())
 		}
 	}
-	if tt.HasText("Bir daha gösterme") {
-		t.Fatal("the tour shows over the dialog")
+	for _, not := range []string{"Hesapsız devam et", "Bir daha gösterme", "Yeni koleksiyon", "Notes"} {
+		if tt.HasText(not) {
+			t.Fatalf("%q shows behind the sign-in: %v", not, tt.Texts())
+		}
 	}
-	tt.Click("Hesapsız devam et")
+	tt.Key(0, ui.KeyEscape)
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if tt.HasText("Ryudit'e hoş geldin") || !a.settings.AccountAsked {
-		t.Fatalf("the dialog did not close, or is not answered: %v", tt.Texts())
+	if !a.login.open || !tt.HasText("Erişim kodu") {
+		t.Fatal("Esc got past the sign-in")
 	}
+	a.settings.AccountUser = "ali@ornek.com" // signed in: the app, and the tour after it
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if !tt.HasText("Bir daha gösterme") {
-		t.Fatalf("the tour does not come after: %v", tt.Texts())
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	if a.login.open || tt.HasText("Erişim kodu") || !tt.HasText("Bir daha gösterme") {
+		t.Fatalf("the app does not come after the sign-in: %v", tt.Texts())
 	}
-	// not again, in this run or the next
 	if a.loginDue() {
 		t.Fatal("still due")
-	}
-	b, _ := newTestApp(t, "x\n")
-	b.settingsFile = t.TempDir() + "/s.json"
-	b.settings.AccountAsked = true
-	if b.loginDue() {
-		t.Fatal("due after it was answered")
-	}
-	c, _ := newTestApp(t, "x\n")
-	c.settingsFile = t.TempDir() + "/s.json"
-	c.settings.AccountUser = "ali"
-	if c.loginDue() {
-		t.Fatal("due for one who is signed in")
 	}
 }
 
 // A library with no settings of its own (a test's, a scratch one) is not asked.
-func TestLoginDialogNotInScratchLibrary(t *testing.T) {
+func TestLoginGateNotInScratchLibrary(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.Frame()
-	if a.login.open || tt.HasText("Hesapsız devam et") {
-		t.Fatal("the dialog shows in a library with no settings")
+	if a.login.open || a.gateUp() || tt.HasText("Erişim kodu") {
+		t.Fatal("the sign-in shows in a library with no settings")
 	}
 }
 
@@ -151,7 +144,7 @@ func TestInviteSteps(t *testing.T) {
 	a.ac.pass, a.ac.pass2 = "uzun-parola", "uzun-parola"
 	a.acctSubmit()
 	wait()
-	if a.ac.mode != "recovery" || !a.login.open || a.sy.recovery == "" || !tt.HasText(a.sy.recovery) || tt.HasText("Hesapsız devam et") {
+	if a.ac.mode != "recovery" || !a.login.open || a.sy.recovery == "" || !tt.HasText(a.sy.recovery) {
 		t.Fatalf("the recovery key is not shown: %q %q %v", a.ac.mode, a.ac.err, tt.Texts())
 	}
 	if a.settings.AccountUser != "ali@ornek.com" || a.settings.SyncToken != "t1" {

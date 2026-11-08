@@ -35,23 +35,16 @@ func TestEnglishLoses(t *testing.T) {
 	}
 }
 
-func TestLangFromSystem(t *testing.T) {
+// The language is English unless Turkish is chosen, whatever the system's is.
+func TestLangDefault(t *testing.T) {
 	old := lang
 	defer func() { lang = old }()
-	for _, v := range []string{"LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"} {
-		t.Setenv(v, "")
-	}
-	t.Setenv("LANG", "tr_TR.UTF-8")
-	setLang("")
-	if lang != "tr" {
-		t.Fatalf("tr: %s", lang)
-	}
-	t.Setenv("LANG", "en_US.UTF-8")
+	t.Setenv("LANG", "tr_TR.UTF-8") // the system's language does not choose it
 	setLang("")
 	if lang != "en" {
-		t.Fatalf("en: %s", lang)
+		t.Fatalf("not English: %s", lang)
 	}
-	setLang("tr") // a choice beats the system's
+	setLang("tr")
 	if lang != "tr" {
 		t.Fatal("choice lost")
 	}
@@ -101,7 +94,7 @@ func TestTour(t *testing.T) {
 	withLang(t, "tr")
 	a, tt := newTestApp(t, "x\n")
 	a.settingsFile = t.TempDir() + "/s.json"
-	a.settings.AccountAsked = true // the dialog of getting in comes before the tour (TestLoginDialogFirstRun)
+	a.settings.AccountUser = "ali@ornek.com" // the sign-in comes before the tour (TestLoginGate)
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText("Yaz") || !tt.HasText("Bir daha gösterme") {

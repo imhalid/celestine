@@ -29,23 +29,6 @@ function page(html, n, extraScript = "", noStore = false) {
   });
 }
 
-const BASE_CSS = `
-:root{--bg:#fbfaf7;--fg:#1d1d1f;--mut:#66666b;--line:#e4e1da;--card:#fff;--acc:#1f3a5f;--accfg:#fff;--bad:#c20013;--ok:#1f7534}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--fg:#ecebe8;--mut:#9a9aa1;--line:#262932;--card:#171a20;--acc:#dbe4f2;--accfg:#0f1115;--bad:#ff6b6b;--ok:#6fcf8a}}
-*{box-sizing:border-box}html{color-scheme:light dark}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:30rem;margin:0 auto;padding:12vh 20px 48px}
-h1{font-size:2rem;letter-spacing:-.02em;margin:0 0 .4rem}
-p{margin:.4rem 0 1.2rem;color:var(--mut)}
-label{display:block;font-size:.85rem;color:var(--mut);margin:.9rem 0 .25rem}
-input{width:100%;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.65rem .8rem}
-input:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:.7rem 1.1rem;background:var(--acc);color:var(--accfg);margin-top:1.1rem}
-button[disabled]{opacity:.55;cursor:default}
-.msg{margin-top:1rem;min-height:1.5em}.bad{color:var(--bad)}.ok{color:var(--ok)}
-small{display:block;margin-top:2rem;color:var(--mut);font-size:.8rem}
-`;
-
 // The entry screen ("/"): see landing.js.
 export function waitlistPage(env) {
   const n = nonce();
@@ -54,31 +37,92 @@ export function waitlistPage(env) {
   return page(landingHTML(n, site, contact, esc), n, site ? "https://challenges.cloudflare.com" : "");
 }
 
+// The administrator's page looks like an airport's departure board: black, amber letters, square everything; the
+// rows' letters flap into place as they come, and the invite code is shown on flap tiles.
+const BOARD_CSS = `
+:root{--bg:#08090a;--panel:#0f1011;--row:#111214;--row2:#0c0d0e;--line:#1d1f22;--line2:#2a2d31;--amb:#ffb81c;--amb-hi:#ffd36a;--amb-lo:#a8740a;
+  --fg:#ece7da;--mut:#878378;--bad:#ff5a47;--ok:#36d67a;--tile:#17181a;--tile-hi:#202225}
+*{box-sizing:border-box;border-radius:0}html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 "SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em;
+  background-image:radial-gradient(ellipse at 50% -10%,rgba(255,184,28,.07),transparent 55%),repeating-linear-gradient(0deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px)}
+::selection{background:var(--amb);color:#000}
+main{max-width:72rem;margin:0 auto;padding:24px 16px 48px}
+.top{display:flex;align-items:stretch;border:1px solid var(--amb-lo);margin-bottom:20px;background:#0b0b0c}
+.brand{background:linear-gradient(var(--amb-hi),var(--amb));color:#120d00;font-weight:800;padding:10px 16px;display:flex;align-items:center;gap:10px;letter-spacing:.2em;
+  box-shadow:inset 0 -2px 0 var(--amb-lo)}
+.brand i{width:10px;height:10px;background:#120d00;display:inline-block}
+.title{flex:1;display:flex;align-items:center;padding:0 16px;color:var(--amb);letter-spacing:.22em;font-weight:600;text-transform:uppercase;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clock{display:flex;gap:3px;align-items:center;padding:6px 10px;border-left:1px solid var(--amb-lo)}
+.tile{display:inline-block;position:relative;min-width:1.05em;text-align:center;background:linear-gradient(var(--tile-hi) 0 50%,var(--tile) 50%);color:var(--fg);padding:.12em .14em;font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 0 #000}
+.tile::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#000}
+.clock .tile{font-size:1.05rem}.clock .sep{color:var(--amb);font-weight:700;animation:blink 2s steps(1) infinite}
+nav{display:flex;flex-wrap:wrap;border:1px solid var(--line);margin-bottom:16px;background:var(--panel)}
+nav button{flex:1 1 auto;margin:0;background:transparent;color:var(--mut);border:0;border-right:1px solid var(--line);box-shadow:none;padding:13px 14px;font-size:.76rem;letter-spacing:.16em;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:color .15s,background .15s}
+nav button:last-child{border-right:0}
+nav button .no{font-size:.66rem;color:#4c4f55;font-weight:700;transition:color .15s}
+nav button:hover{color:var(--fg);background:rgba(255,255,255,.025);transform:none}
+nav button:hover .no{color:var(--amb-lo)}
+nav button[aria-pressed=true]{color:var(--amb);background:rgba(255,184,28,.07);box-shadow:inset 0 -2px 0 var(--amb)}
+nav button[aria-pressed=true] .no{color:var(--amb)}
+button{font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:34px;padding:0 14px;text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:700;white-space:nowrap;
+  border:1px solid var(--amb-lo);background:linear-gradient(var(--amb-hi),var(--amb));color:#120d00;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 0 #000;transition:filter .12s,background .12s,color .12s,border-color .12s,transform .06s}
+button:hover{filter:brightness(1.08)}
+button:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 #000}
+button.alt{background:linear-gradient(var(--tile-hi),var(--tile));color:var(--amb);border-color:var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 0 #000}
+button.alt:hover{border-color:var(--amb);color:var(--amb-hi);filter:none}
+button.bad{background:linear-gradient(var(--tile-hi),var(--tile));color:var(--bad);border-color:#3a1f1c;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 0 #000}
+button.bad:hover{background:var(--bad);border-color:var(--bad);color:#160200;filter:none}
+button[disabled]{opacity:.4;cursor:default;transform:none}
+button:focus-visible,input:focus-visible{outline:2px solid var(--amb);outline-offset:2px}
+input{font:inherit;color:var(--fg);background:#050506;border:1px solid var(--line2);height:34px;padding:0 12px;min-width:0;letter-spacing:.04em;box-shadow:inset 0 2px 0 rgba(0,0,0,.6);transition:border-color .15s}
+input::placeholder{color:#55524b;text-transform:uppercase;letter-spacing:.12em}
+input:hover{border-color:#3a3d42}input:focus{border-color:var(--amb)}
+.panel{border:1px solid var(--line);background:var(--panel);margin:0 0 16px}
+.ph{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-bottom:1px solid var(--line);background:#0b0c0d;color:var(--amb);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase}
+.ph span:last-child{color:var(--mut)}
+.pb{padding:14px 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row input{flex:1 1 12rem}
+label{display:block;color:var(--mut);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
+.wrap{overflow-x:auto;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;min-width:44rem}
+th{background:#060607;color:var(--amb);text-align:left;font-weight:600;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--amb-lo);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr:nth-child(odd) td{background:var(--row)}tr:nth-child(even) td{background:var(--row2)}
+tr:hover td{background:#16140e}
+td:last-child{text-align:right}td button{margin-left:6px;height:28px;padding:0 10px;font-size:.66rem}
+.st{display:inline-flex;align-items:center;gap:8px;height:24px;padding:0 9px 0 7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.7rem;
+  background:color-mix(in srgb,currentColor 10%,transparent);box-shadow:inset 2px 0 0 currentColor}
+.st::before{content:"";width:6px;height:6px;background:currentColor;box-shadow:0 0 6px currentColor}
+.st.wait{color:var(--amb)}.st.wait::before{animation:blink 1.1s steps(1) infinite}
+.st.ok{color:var(--ok)}.st.bad{color:var(--bad)}.st.off{color:var(--mut)}.st.off::before{box-shadow:none}
+@keyframes blink{50%{opacity:.15}}
+.code{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 12px}.code .tile{font-size:1.9rem;padding:.1em .18em;color:var(--amb);text-shadow:0 0 12px rgba(255,184,28,.35)}
+.note{margin:0 0 12px}.note.ok{color:var(--ok)}.note.bad{color:var(--bad)}
+.empty{padding:32px 12px;text-align:center;color:var(--mut);letter-spacing:.2em;text-transform:uppercase;border:1px dashed var(--line2);background:var(--row2)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--line);color:var(--mut);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase}
+.msg{min-height:1.5em;margin-top:12px;color:var(--bad);letter-spacing:.08em}.msg:not(:empty)::before{content:"! "}
+.gate{max-width:30rem;margin:12vh auto 0}
+.cursor{display:inline-block;width:.6em;height:1em;background:var(--amb);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:640px){.title{display:none}.clock{margin-left:auto}nav button{flex:1 1 45%;border-bottom:1px solid var(--line)}}
+`;
+
 export function adminPage() {
   const n = nonce();
   const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>Ryudit — yönetim</title><style>${BASE_CSS}
-main{max-width:64rem;padding-top:6vh}
-nav{display:flex;gap:.4rem;flex-wrap:wrap;margin:1rem 0}
-nav button{margin:0;background:var(--card);color:var(--fg);border:1px solid var(--line)}
-nav button[aria-pressed=true]{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
-table{width:100%;border-collapse:collapse;font-size:.92rem}
-th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--line);vertical-align:middle}
-th{color:var(--mut);font-weight:500}
-td button{margin:0 .25rem 0 0;padding:.35rem .7rem;font-size:.85rem}
-td button.alt{background:var(--card);color:var(--fg);border:1px solid var(--line)}
-.code{font:600 1.4rem ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
-.banner{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:1rem;margin:1rem 0}
-.row{display:flex;gap:.6rem}.row input{flex:1}.row button{margin-top:0}
-</style></head><body><main>
-<h1>Yönetim</h1>
-<div id="login"><label for="tok">Yönetici anahtarı</label>
-<div class="row"><input id="tok" type="password" autocomplete="off"><button id="enter">Gir</button></div></div>
+<meta name="robots" content="noindex"><title>Ryudit — yönetim</title><style>${BOARD_CSS}</style></head><body><main>
+<header class="top"><div class="brand"><i></i>RYUDIT</div><div class="title">Yönetim · Kontrol masası</div><div class="clock" id="clock" aria-label="saat"></div></header>
+<section id="login" class="panel gate"><div class="ph"><span>Erişim</span><span>Yetki gerekli</span></div>
+<div class="pb"><label for="tok">Yönetici anahtarı <span class="cursor"></span></label>
+<div class="row"><input id="tok" type="password" autocomplete="off"><button id="enter">Gir ▸</button></div></div></section>
 <div id="app" hidden>
 <nav id="tabs"></nav><div id="banner"></div><div id="view"></div>
-<p><button id="out" class="alt" style="background:var(--card);color:var(--fg);border:1px solid var(--line)">Çıkış</button></p>
+<div class="bar"><span id="stat">—</span><span><button id="out" class="alt">Çıkış</button></span></div>
 </div>
-<div id="msg" class="msg bad" role="alert"></div>
+<div id="msg" class="msg" role="alert"></div>
 </main>
 <script nonce="${n}">
 const $=(i)=>document.getElementById(i);
@@ -94,56 +138,81 @@ async function api(path,method="GET",body){
 const el=(t,props={},...kids)=>{const e=document.createElement(t);Object.assign(e,props);for(const k of kids)e.append(k);return e;};
 const date=(s)=>s?new Date(s*1000).toLocaleString("tr-TR",{dateStyle:"short",timeStyle:"short"}):"";
 const mb=(n)=>(n/1048576).toFixed(1)+" MB";
-function btn(label,fn,alt){const b=el("button",{textContent:label,className:alt?"alt":""});b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){$("msg").textContent=e.message;}await load();};return b;}
-function table(head,rows){
-  const t=el("table"),h=el("tr");for(const c of head)h.append(el("th",{textContent:c}));t.append(h);
-  for(const r of rows){const tr=el("tr");for(const c of r)tr.append(el("td",{},c));t.append(tr);}return t;
+// flap turns the letters of a node over until each settles on its own, one after another, as a split-flap board does.
+const FL="ABCDEFGHIJKLMNOPRSTUVYZ0123456789@.-";
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function flap(node,text,wait=0){
+  node.textContent=text;if(still||!text)return;
+  const cs=[...text];let f=-wait;
+  const t=setInterval(()=>{f++;if(f<0)return;
+    node.textContent=cs.map((c,i)=>c===" "||f>4+i*.7?c:FL[Math.random()*FL.length|0]).join("");
+    if(f>4+cs.length*.7){clearInterval(t);node.textContent=text;}},38);
 }
+function tiles(text){const d=el("div",{className:"code"});[...text].forEach((c,i)=>{const s=el("span",{className:"tile"});d.append(s);flap(s,c,i*2);});return d;}
+function btn(label,fn,kind){const b=el("button",{textContent:label,className:kind===true?"alt":kind||""});b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){$("msg").textContent=e.message;}await load();};return b;}
+function status(cls,text){return el("span",{className:"st "+cls,textContent:text});}
+function table(head,rows){
+  const w=el("div",{className:"wrap"}),t=el("table"),h=el("tr");for(const c of head)h.append(el("th",{textContent:c}));t.append(h);
+  rows.forEach((r,ri)=>{const tr=el("tr");for(const c of r){const td=el("td");if(typeof c==="string"){const s=el("span");flap(s,c,ri*2);td.append(s);}else td.append(c);tr.append(td);}t.append(tr);});
+  w.append(t);return w;
+}
+function panel(title,right,...kids){const p=el("div",{className:"panel"}),h=el("div",{className:"ph"},el("span",{textContent:title}),el("span",{textContent:right||""})),b=el("div",{className:"pb"},...kids);p.append(h,b);return p;}
 function showCode(email,j){
   const b=$("banner");b.replaceChildren();
-  const box=el("div",{className:"banner"});
-  box.append(el("div",{textContent:email}),el("div",{className:"code",textContent:j.code}),
-    el("div",{className:j.emailed?"ok":"bad",textContent:j.emailed?"E-posta gönderildi.":"E-posta gitmedi ("+(j.mailError||"?")+"): kodu elle ilet. Bu kod bir daha gösterilmez."}));
-  box.append(btn("Kodu kopyala",async()=>{await navigator.clipboard.writeText(j.code);},true));
-  b.append(box);
+  b.append(panel("Davet kodu",email,tiles(j.code),
+    el("p",{className:"note "+(j.emailed?"ok":"bad"),textContent:j.emailed?"E-posta gönderildi.":"E-posta gitmedi ("+(j.mailError||"?")+"): kodu elle ilet. Bu kod bir daha gösterilmez."}),
+    btn("Kodu kopyala",async()=>{await navigator.clipboard.writeText(j.code);},true)));
 }
 // A person put on the list by hand: an e-mail and a name; "Ekle ve onayla" makes the code at once (shown once, as with Onayla).
 function addForm(){
-  const f=el("div",{className:"banner"}),mail=el("input",{type:"email",placeholder:"e-posta",autocomplete:"off"}),name=el("input",{type:"text",placeholder:"ad (isteğe bağlı)",autocomplete:"off"});
+  const mail=el("input",{type:"email",placeholder:"e-posta",autocomplete:"off"}),name=el("input",{type:"text",placeholder:"ad (isteğe bağlı)",autocomplete:"off"});
   mail.setAttribute("aria-label","e-posta");name.setAttribute("aria-label","ad");
   const r=el("div",{className:"row"});
-  r.append(mail,name,btn("Ekle",async()=>{if(!mail.value.trim())throw new Error("e-posta yaz");await api("waitlist","POST",{email:mail.value.trim(),name:name.value.trim()});}),
+  r.append(mail,name,btn("Ekle",async()=>{if(!mail.value.trim())throw new Error("e-posta yaz");await api("waitlist","POST",{email:mail.value.trim(),name:name.value.trim()});},true),
     btn("Ekle ve onayla",async()=>{if(!mail.value.trim())throw new Error("e-posta yaz");const e=mail.value.trim();
-      const w=await api("waitlist","POST",{email:e,name:name.value.trim()});showCode(e,await api("waitlist/"+w.id+"/approve","POST"));},true));
-  f.append(r);return f;
+      const w=await api("waitlist","POST",{email:e,name:name.value.trim()});showCode(e,await api("waitlist/"+w.id+"/approve","POST"));}));
+  return panel("Elle ekle","Listeye yaz",r);
 }
+const hm=()=>new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 async function load(){
   $("msg").textContent="";const v=$("view");v.replaceChildren();
   const tabs=$("tabs");tabs.replaceChildren();
-  for(const [k,l] of TABS){const b=el("button",{textContent:l});b.setAttribute("aria-pressed",String(k===tab));b.onclick=()=>{tab=k;$("banner").replaceChildren();load();};tabs.append(b);}
+  TABS.forEach(([k,l],i)=>{const b=el("button",{},el("span",{className:"no",textContent:"0"+(i+1)}),l);b.setAttribute("aria-pressed",String(k===tab));b.onclick=()=>{tab=k;$("banner").replaceChildren();load();};tabs.append(b);});
+  let count=0;
   try{
     if(tab==="users"){
-      const us=await api("users");
-      v.append(table(["Kullanıcı","Durum","Alan","Cihaz","Kayıt",""],us.map((u)=>[u.username,u.status,mb(u.bytes)+" / "+mb(u.quota),String(u.devices),date(u.created_at),
+      const us=await api("users");count=us.length;
+      if(!us.length)v.append(el("div",{className:"empty",textContent:"Hesap yok"}));
+      else v.append(table(["Kullanıcı","Durum","Alan","Cihaz","Kayıt",""],us.map((u)=>[u.username,u.status==="active"?status("ok","Aktif"):status("bad","Askıda"),mb(u.bytes)+" / "+mb(u.quota),String(u.devices),date(u.created_at),
         el("span",{},u.status==="active"?btn("Askıya al",()=>api("users/"+u.id+"/disable","POST"),true):btn("Aç",()=>api("users/"+u.id+"/enable","POST"),true),
-          btn("Sil",async()=>{if(confirm(u.username+" ve tüm verisi silinsin mi? Geri alınamaz."))await api("users/"+u.id+"/delete","POST");},true))])));
+          btn("Sil",async()=>{if(confirm(u.username+" ve tüm verisi silinsin mi? Geri alınamaz."))await api("users/"+u.id+"/delete","POST");},"bad"))])));
     }else if(tab==="audit"){
-      const a=await api("audit");v.append(table(["Zaman","İşlem"],a.map((x)=>[date(x.at),x.what])));
+      const a=await api("audit");count=a.length;
+      if(!a.length)v.append(el("div",{className:"empty",textContent:"Kayıt yok"}));
+      else v.append(table(["Zaman","İşlem"],a.map((x)=>[date(x.at),x.what])));
     }else{
-      const w=await api("waitlist?status="+tab);
+      const w=await api("waitlist?status="+tab);count=w.length;
       if(tab==="pending")v.append(addForm());
-      if(!w.length)v.append(el("p",{textContent:"Kimse yok."}));
-      else v.append(table(["E-posta","Ad","Yazıldı","Durum",""],w.map((x)=>[x.email,x.name,date(x.created_at),
-        x.status==="approved"?(x.used_at?"hesap açtı":x.invite_until?"kod "+date(x.invite_until)+" tarihine kadar":"kodun süresi doldu"):x.status==="pending"?"bekliyor":"reddedildi",
+      if(!w.length)v.append(el("div",{className:"empty",textContent:"Kimse yok"}));
+      else v.append(table(["E-posta","Ad","Yazıldı","Durum",""],w.map((x)=>[x.email,x.name||"—",date(x.created_at),
+        x.status==="approved"?(x.used_at?status("ok","Hesap açtı"):x.invite_until?status("wait","Kod "+date(x.invite_until)+" kadar"):status("off","Kodun süresi doldu")):x.status==="pending"?status("wait","Bekliyor"):status("bad","Reddedildi"),
         el("span",{},
           x.status==="pending"?btn("Onayla",async()=>showCode(x.email,await api("waitlist/"+x.id+"/approve","POST"))):
           x.status==="approved"&&!x.used_at?btn("Yeni kod gönder",async()=>showCode(x.email,await api("waitlist/"+x.id+"/resend","POST")),true):
           x.status==="rejected"?btn("Onayla",async()=>showCode(x.email,await api("waitlist/"+x.id+"/approve","POST")),true):"",
-          x.status!=="rejected"&&!x.used_at?btn("Reddet",()=>api("waitlist/"+x.id+"/reject","POST"),true):"")])));
+          x.status!=="rejected"&&!x.used_at?btn("Reddet",()=>api("waitlist/"+x.id+"/reject","POST"),"bad"):"")])));
     }
-  }catch(e){$("msg").textContent=e.message;}
+    $("stat").textContent=TABS.find((t)=>t[0]===tab)[1]+" · "+count+" satır · güncellendi "+hm();
+  }catch(e){$("msg").textContent=e.message;$("stat").textContent="Bağlantı yok";}
 }
-function show(){$("login").hidden=!!tok;$("app").hidden=!tok;if(tok)load();}
+// the clock, on flap tiles, as the board's corner has it
+function clock(){
+  const c=$("clock"),t=new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  if(c.childElementCount!==t.length)c.replaceChildren(...[...t].map((ch)=>el("span",{className:ch===":"?"sep":"tile",textContent:ch})));
+  [...t].forEach((ch,i)=>{const s=c.children[i];if(s.textContent!==ch)s.textContent=ch;});
+}
+clock();setInterval(clock,1000);
+function show(){$("login").hidden=!!tok;$("app").hidden=!tok;if(tok)load();else $("tok").focus();}
 $("enter").onclick=()=>{tok=$("tok").value.trim();if(tok){sessionStorage.setItem("adm",tok);$("tok").value="";show();}};
 $("tok").addEventListener("keydown",(e)=>{if(e.key==="Enter")$("enter").click();});
 $("out").onclick=()=>{sessionStorage.removeItem("adm");tok="";$("banner").replaceChildren();show();};
