@@ -18,9 +18,9 @@ const headerH = 38
 // headerHeight is the header's height: the window's title bar, at least headerH.
 func (a *app) headerHeight(c *ui.Context) float32 {
 	if phone { // a finger's buttons
-		return max(c.TitleBar().Height, 50)
+		return max(a.titleBar(c).Height, 50)
 	}
-	return max(c.TitleBar().Height, headerH)
+	return max(a.titleBar(c).Height, headerH)
 }
 
 // header draws the header.
@@ -35,7 +35,7 @@ func (a *app) header(c *ui.Context) {
 				return
 			}
 			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
-				ui.Box(c).Width(c.TitleBar().Left + sidebarButtonsW)
+				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW)
 			}
 			if title := a.headerTitle(); title != "" {
 				ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).MinWidth(0)

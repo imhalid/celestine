@@ -454,12 +454,15 @@ func main() {
 		opts := mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
-		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: clear glass, the desktop seen through (welcome.go)
-			opts.Transparent, opts.Vibrancy = true, mygo.VibrancyGlass
+		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
+			opts.Hidden, opts.DisableShadow = true, true
 			a.wel.clear = true
 		}
 		w := mygo.NewWindow(opts)
 		a.wel.win = w
+		if a.wel.clear {
+			a.openStage()
+		}
 		if ownWindowControls {
 			a.win = w
 		}
@@ -692,7 +695,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.look = look
 	c.Key("look:" + look)
-	a.welcomeBackdrop(c) // the first opening's circles, under the app
+	a.welcomeBackdrop(c, false) // the first opening's circles, under the app
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
@@ -766,7 +769,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.boundKeys(c)
 	a.kbView(c)
 	a.loginView(c)
-	a.welcomeView(c)
+	a.welcomeView(c, false)
 	a.tourView(c)
 	a.updateView(c)
 	a.collSettingsView(c)
