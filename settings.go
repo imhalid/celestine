@@ -607,6 +607,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 		copyRow("Adres", a.mcpURL(), "copy-url"),
 		copyRow("Claude Code'a eklemek için", a.mcpCommand(), "copy-cmd"),
 		copyRow("Stdio ile bağlanan bir ajan için", a.mcpStdioCommand(), "copy-stdio"),
+		a.mcpSetupRow(c),
 		func() {
 			settingRow(c, "Anahtar", "Yalnız bu bilgisayardan, anahtarla bağlanılır.", func() {
 				if ryugo.Button(c.Key("new-token"), T("Anahtarı yenile"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {

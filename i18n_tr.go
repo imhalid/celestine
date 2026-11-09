@@ -90,6 +90,14 @@ var trText = map[string]string{
 	// a block of a newer version (body.go)
 	"A block of a newer version": "Daha yeni bir sürümün bloğu",
 	"This block was made by a newer version of the app: update the app to see it. It is kept as it is.": "Bu bloğu uygulamanın daha yeni bir sürümü yaptı: görmek için uygulamayı güncelle. Olduğu gibi korunuyor.",
+	// adding the app to the agents' apps (mcpsetup.go)
+	"Add to an agent app": "Bir ajan uygulamasına ekle",
+	"Writes the app into the app's own list of servers (over stdio), keeping what else it has; then restart that app.": "Uygulamayı o uygulamanın sunucu listesine (stdio ile) yazar, içindeki öbür şeyleri korur; sonra o uygulamayı yeniden başlat.",
+	"Claude Code is not installed here: copy the command above into a terminal instead.":                               "Claude Code burada kurulu değil: yukarıdaki komutu bir terminale kopyala.",
+	"Claude Code already has it.":              "Claude Code'da zaten var.",
+	"Added to Claude Code.":                    "Claude Code'a eklendi.",
+	"%s already has it.":                       "%s içinde zaten var.",
+	"Added to %s (%s). Restart it to connect.": "%s uygulamasına eklendi (%s). Bağlanması için yeniden başlat.",
 	// sync
 	", %d merged": ", %d birleştirildi",
 	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",
