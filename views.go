@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -160,6 +161,8 @@ func (a *app) collectionView(c *ui.Context) {
 									a.boardView(c, coll, v, pages)
 								case v.Type == "table":
 									a.tableView(c, coll, v, pages)
+								case v.Type == "gallery":
+									a.galleryView(c, v, pages)
 								default:
 									a.listView(c, v, pages)
 								}
@@ -326,6 +329,71 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 			a.open(p)
 		}
 	}
+}
+
+// galleryView shows the pages as cards in rows that wrap: each its picture across the top (its cover, or else the
+// first picture in its text, or else a field of a color its title gives, with its first letter), then its title,
+// the start of its text and the properties the view shows.
+func (a *app) galleryView(c *ui.Context, v *View, pages []*Page) {
+	t := c.Theme()
+	cl := ryugo.From(c).Colors
+	ui.Row(c.Key("gallery")).FillWidth().Wrap().Gap(14).Padding(6, 0, 0, 0).Children(func() {
+		for _, p := range pages {
+			c.Key("gal:" + p.Dir)
+			card := ui.Column(c).Width(galleryCard).Gap(8).Padding(8).Radius(rad(12)).Border(1, cl.Border).
+				Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
+			if card.Hovered() {
+				card.Background(t.SurfaceHover)
+			} else {
+				card.Background(t.SurfaceHover.Alpha(0))
+			}
+			a.contextOn(card, func() []menuItem { return a.pageMenu(p, false) })
+			card.Children(func() {
+				a.galleryPicture(c, p, galleryCard-16, 132)
+				ui.Text(c, p.Title).FontSize(14.5).FontWeight(620).MaxLines(2).Padding(0, 2)
+				if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
+					ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(3).Padding(0, 2)
+				}
+				if len(v.Fields) > 0 {
+					ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Padding(0, 2).Children(func() { fieldChips(c, p, v) })
+				}
+			})
+			a.kbMark(card, "g:"+p.Dir, true, func() { a.open(p) })
+			if card.Clicked() {
+				a.open(p)
+			}
+		}
+	})
+}
+
+// galleryCard is the width of a gallery's card.
+const galleryCard = 232
+
+// galleryPicture is the top of p's card in a gallery, w by h: its cover, the first picture in its text, or a field
+// of its title's color with its first letter.
+func (a *app) galleryPicture(c *ui.Context, p *Page, w, h float32) {
+	if p.ImageCover() {
+		if src := a.loadImage(p, filepath.Join(p.Dir, p.Cover)); src != nil {
+			a.coverThumb(c, p, w, h, 8)
+			return
+		}
+	}
+	if file := imageFile(p, p.FirstImage()); file != "" {
+		if src := a.loadImage(p, file); src != nil {
+			ui.Box(c.Key("galpic:" + p.Dir)).Width(w).Height(h).Radius(rad(8)).Clip().Shrink(0).
+				Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, 8, func() { pt.Image(src, r, ui.Cover) }) })
+			return
+		}
+	}
+	tone := columnTone(c, p.Title)
+	letter := "·"
+	if r := []rune(strings.TrimSpace(p.Title)); len(r) > 0 {
+		letter = strings.ToUpper(string(r[0]))
+	}
+	ui.Column(c.Key("galtone:" + p.Dir)).Width(w).Height(h).Radius(rad(8)).Background(tone.Alpha(0.18)).Shrink(0).
+		AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+		ui.Text(c, letter).FontSize(40).FontWeight(700).TextColor(tone.Alpha(0.75))
+	})
 }
 
 // fieldChips are the values of the properties view v shows on page p's

@@ -413,7 +413,7 @@ func (a *app) sharedProps(name string) []sharedProp {
 
 // ---- Views ----
 
-var viewTypes = []struct{ Type, Name string }{{"list", "Liste"}, {"table", "Tablo"}, {"board", "Pano"}, {"calendar", "Takvim"}}
+var viewTypes = []struct{ Type, Name string }{{"list", "Liste"}, {"table", "Tablo"}, {"board", "Pano"}, {"calendar", "Takvim"}, {"gallery", "Gallery"}}
 
 func (a *app) csViews(c *ui.Context) {
 	cs := &a.cs

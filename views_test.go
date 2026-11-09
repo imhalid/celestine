@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"image/png"
 	"math"
 	"os"
 	"path/filepath"
@@ -302,5 +303,37 @@ func TestEmptyStates(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("Eşleşen sayfa yok") {
 		t.Fatalf("a search of the library with no hits: %v", tt.Texts())
+	}
+}
+
+// A gallery shows the pages as cards that wrap, each with its title and the start of its text; a card opens its page.
+func TestGalleryView(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.Views = append(coll.Views, View{ID: "gal", Label: "Galeri", Type: "gallery", Sort: "title"})
+	if err := coll.SetView("gal"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	for _, want := range []string{"Dune", "Anna Karenina", "Yüzyıllık Yalnızlık", "Mutlu aileler birbirine benzer."} {
+		if !tt.HasText(want) {
+			t.Fatalf("no %q in the gallery: %v", want, tt.Texts())
+		}
+	}
+	dune, _ := tt.Find("Aç: Dune")
+	anna, _ := tt.Find("Aç: Anna Karenina")
+	if dune.W != galleryCard || anna.Y != dune.Y || anna.X == dune.X {
+		t.Fatalf("the cards are not side by side: %+v %+v", dune, anna)
+	}
+	if out := os.Getenv("GALSHOT"); out != "" {
+		f, _ := os.Create(out)
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	if err := tt.Click("Aç: Anna Karenina"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.page == nil || a.page.Title != "Anna Karenina" {
+		t.Fatalf("the card did not open its page: %v", a.page)
 	}
 }

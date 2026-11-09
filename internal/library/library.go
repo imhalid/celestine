@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -86,7 +87,7 @@ type Collection struct {
 type View struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
-	Type  string `json:"type"` // "list" | "table" | "board" | "calendar"
+	Type  string `json:"type"` // "list" | "table" | "board" | "calendar" | "gallery"
 	Sort  string `json:"sort"` // "title" | "created" | "modified" | "prop:<id>"
 	Desc  bool   `json:"desc,omitempty"`
 	// GroupBy is the choice property a board's columns are the options of.
@@ -185,6 +186,9 @@ type Page struct {
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
 	excerptAt int
+	firstImg  string // the first picture its text shows, for a gallery's card
+	imgOf     time.Time
+	imgAt     int
 }
 
 const CollectionFile = "collection.json"
@@ -436,6 +440,28 @@ func (p *Page) Excerpt() string {
 	p.excerpt, p.excerptOf, p.excerptAt = text, p.Modified, p.Writes
 	return text
 }
+
+// FirstImage is where the first picture the page's text shows is, as its Markdown names it (relative to the
+// page's folder, or a link out), or "": what a gallery's card shows when the page has no cover. It is read
+// again only when the page changed.
+func (p *Page) FirstImage() string {
+	if p.imgOf.Equal(p.Modified) && p.imgAt == p.Writes && !p.Modified.IsZero() {
+		return p.firstImg
+	}
+	body, err := p.Body()
+	if err != nil {
+		return ""
+	}
+	ref := ""
+	if m := imageRef.FindStringSubmatch(Format.Markdown(body)); m != nil {
+		ref = m[1] + m[2] // one of the two: <a path with spaces>, or a plain one
+	}
+	p.firstImg, p.imgOf, p.imgAt = ref, p.Modified, p.Writes
+	return ref
+}
+
+// imageRef is a picture in Markdown, ![alt](ref), and not an embedded page, ![[Page]].
+var imageRef = regexp.MustCompile(`!\[[^\[\]]*\]\((?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\)`)
 
 // SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
