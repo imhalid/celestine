@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -87,5 +88,39 @@ func TestMCPMoreTools(t *testing.T) {
 	call(t, cs, "restore_page", map[string]any{"item": trash[0].ID}, &back)
 	if back.ID != emma.ID || len(a.lib.Trash()) != 0 {
 		t.Fatalf("restored: %q, trash %d", back.ID, len(a.lib.Trash()))
+	}
+}
+
+// TestAgentEditsUndo: what an agent wrote and made shows in the status bar, and one click puts the pages back as they
+// were and the made ones in the trash.
+func TestAgentEditsUndo(t *testing.T) {
+	a, tt := newTestApp(t, "ilk metin")
+	cs := agent(t, a)
+	var colls []collInfo
+	call(t, cs, "list_collections", nil, &colls)
+	var pages []pageInfo
+	call(t, cs, "list_pages", map[string]any{"collection": colls[0].ID}, &pages)
+	first := pages[0]
+	call(t, cs, "update_page", map[string]any{"page": first.ID, "title": "Başka", "append": "ajanın satırı"}, nil)
+	var made struct{ ID string }
+	call(t, cs, "create_page", map[string]any{"collection": colls[0].ID, "title": "Yeni", "markdown": "x"}, &made)
+	tt.Frame()
+	if !tt.HasText("Ajan 2 sayfayı değiştirdi") {
+		t.Fatal("the status bar does not say what the agent changed")
+	}
+	if err := tt.Click("Ajanın değişikliklerini geri al"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	var read struct{ Title, Markdown string }
+	call(t, cs, "read_page", map[string]any{"page": first.ID}, &read)
+	if read.Title != first.Title || strings.Contains(read.Markdown, "ajanın") {
+		t.Fatalf("not put back: %+v", read)
+	}
+	if res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "read_page", Arguments: map[string]any{"page": made.ID}}); !res.IsError {
+		t.Fatal("the made page is still there")
+	}
+	if tt.HasText("Ajan 2 sayfayı değiştirdi") || a.agentChanged() != 0 {
+		t.Fatal("still said")
 	}
 }

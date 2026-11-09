@@ -301,6 +301,9 @@ func (a *app) findPage(id string, need string) (*Page, error) {
 				if err := a.mcpMay(c, need); err != nil {
 					return nil, err
 				}
+				if need == mcpWrite {
+					a.agentTouch(p) // what it was is kept, to be put back
+				}
 				return p, nil
 			}
 		}

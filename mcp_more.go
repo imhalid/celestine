@@ -135,6 +135,7 @@ func (a *app) addMoreTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					if p, err = a.makeDay(c, day); err != nil {
 						return err
 					}
+					a.agentMade(p)
 				} else if err := a.mcpMay(c, mcpRead); err != nil {
 					return err
 				}

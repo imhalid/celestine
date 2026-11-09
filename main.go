@@ -290,6 +290,7 @@ type app struct {
 	settingsAt    time.Time   // when
 	savedAt       time.Time   // the last save of the page, shown in the status bar
 	mcpServer     *http.Server
+	agent         agentEdits // what agents changed, to put back
 	mcpErr        string
 
 	prop        propEdit           // the property dialog
@@ -1470,6 +1471,7 @@ func (a *app) status(c *ui.Context) {
 				a.settingsTab = tabMCP
 			}
 		}
+		a.agentStatus(c)
 		a.syncBadge(c)
 		a.statusExtras(c)
 		// no file paths: what the settings ask for - the letters, how it is saved, the caret

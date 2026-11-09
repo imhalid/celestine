@@ -292,6 +292,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
+				a.agentMade(p)
 				if in.Markdown == "" && in.Template != "" {
 					found := false
 					for _, t := range c.AllTemplates() {
