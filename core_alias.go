@@ -57,6 +57,7 @@ var LibraryFile = library.LibraryFile
 var ModTime = library.ModTime
 
 type NamedTemplate = library.NamedTemplate
+type NewerFormatError = library.NewerFormatError
 
 var NewEncRemote = library.NewEncRemote
 var NewHTTPRemote = library.NewHTTPRemote

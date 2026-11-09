@@ -711,7 +711,7 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 		for _, e := range ents {
 			name := e.Name()
 			r := path.Join(rel, name)
-			if rel == "" && skip[name] {
+			if rel == "" && (skip[name] || name == FormatFile) { // the format is each device's app's to write
 				continue
 			}
 			if strings.HasSuffix(name, ".tmp~") || name == SettingsKey {
@@ -826,7 +826,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		names[n] = true
 	}
 	for n := range remote {
-		if !skip[strings.SplitN(n, "/", 2)[0]] {
+		if !skip[strings.SplitN(n, "/", 2)[0]] && n != FormatFile {
 			names[n] = true
 		}
 	}

@@ -8,6 +8,8 @@ package main
 
 import (
 	_ "embed"
+	"encoding/json"
+	"errors"
 	"log"
 	"math"
 	"net/http"
@@ -446,6 +448,11 @@ func main() {
 			store.EndSnapshot()
 		}
 	}
+	var newer *NewerFormatError
+	if errors.As(err, &newer) {
+		newerLibrary(store)
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -597,6 +604,42 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// newerLibrary says, in a window, that the library was written by a newer Ryudit, and quits when it is closed: the
+// app does not open the library, so that it does not write what it does not know (internal/library/format.go).
+// The settings are not read yet: the window speaks the language they have chosen all the same.
+func newerLibrary(store *Store) {
+	setLang(savedLang(store))
+	mygo.App.WhenReady(func() {
+		mygo.Dialog.Message(mygo.MessageOptions{
+			Type:    mygo.MessageWarning,
+			Title:   "Ryudit",
+			Message: T("This library was written by a newer version of Ryudit."),
+			Detail:  T("Update Ryudit to open it. Nothing in the library was changed."),
+		})
+		mygo.App.Quit()
+	})
+	if err := mygo.App.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// savedLang is the language the settings have chosen, read as loadSettings reads them: from the library's file,
+// or from the settings file beside it.
+func savedLang(store *Store) string {
+	var s struct {
+		Lang string `json:"lang"`
+	}
+	var data []byte
+	if store != nil {
+		data = store.Meta(SettingsKey)
+	}
+	if dir, err := os.UserConfigDir(); data == nil && err == nil {
+		data, _ = os.ReadFile(filepath.Join(dir, "ryudit", "settings.json"))
+	}
+	json.Unmarshal(data, &s)
+	return s.Lang
 }
 
 // frameTheme gives the window of the frame the app's look: Ryugo's tokens, in the app's color theme, its

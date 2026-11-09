@@ -4,6 +4,9 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// a library of a newer format (main.go)
+	"This library was written by a newer version of Ryudit.":        "Bu kitaplık Ryudit'in daha yeni bir sürümüyle yazılmış.",
+	"Update Ryudit to open it. Nothing in the library was changed.": "Açmak için Ryudit'i güncelle. Kitaplıkta hiçbir şey değiştirilmedi.",
 	// files and banners
 	"Drop the file on a page": "Dosyayı bir sayfaya bırak",
 	"Choose a file":           "Bir dosya seç",

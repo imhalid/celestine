@@ -210,9 +210,16 @@ const CollectionFile = "collection.json"
 // OpenLibrary reads the library at root, making the folder when there is none.
 func OpenLibrary(root string) (*Library, error) { return OpenLibraryIn(OSFS{}, root) }
 
-// OpenLibraryIn reads the library at root of fsys, making it when there is none.
+// OpenLibraryIn reads the library at root of fsys, making it when there is none. A library written by a newer
+// app is not read, nor written: the error is a *NewerFormatError (format.go).
 func OpenLibraryIn(fsys FS, root string) (*Library, error) {
+	if err := newerFormat(fsys, root); err != nil {
+		return nil, err
+	}
 	if err := fsys.MkdirAll(root); err != nil {
+		return nil, err
+	}
+	if err := markFormat(fsys, root); err != nil {
 		return nil, err
 	}
 	l := &Library{Root: root, FS: fsys}
