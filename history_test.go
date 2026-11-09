@@ -96,13 +96,8 @@ func TestVersionDialog(t *testing.T) {
 	a.takeOutside(p)
 	tt.Frame()
 
-	if err := tt.Click("Sayfa menüsü"); err != nil {
-		t.Fatal(err)
-	}
-	tt.Advance(100 * time.Millisecond)
-	if err := tt.Click("Sürüm geçmişi…"); err != nil {
-		t.Fatal(err, tt.Texts())
-	}
+	a.openHistory(p) // the dialog of the differences: the page menu opens the history as a stack (timemachine.go)
+	tt.Frame()
 	tt.Advance(400 * time.Millisecond)
 	if !a.vhist.open || len(a.vhist.vers) < 2 {
 		t.Fatalf("versions: %+v", a.vhist.vers)
@@ -293,5 +288,44 @@ func TestTimeLapse(t *testing.T) {
 	}
 	if _, ok := tt.Find("Sayfa"); !ok || a.kb.normal {
 		t.Fatalf("the editor is not back (normal mode %v)", a.kb.normal)
+	}
+}
+
+// The page's history as a stack and a timeline: the arrows bring an older copy to the front, Enter puts it back
+// and goes back to the editor, Esc leaves with nothing changed (#25).
+func TestTimeMachine(t *testing.T) {
+	a, tt := lapsePage(t)
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	tt.Advance(700 * time.Millisecond)
+	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(T("Page history: ")+T("Now")) {
+		t.Fatalf("not open: %+v %v", a.tm.open, tt.Texts())
+	}
+	tt.Key(0, ui.KeyLeft)
+	tt.Key(0, ui.KeyLeft)
+	tt.Advance(700 * time.Millisecond)
+	if a.tm.sel != 2 || !strings.Contains(a.tmText(2), "sat on the mat") {
+		t.Fatalf("at %d: %q", a.tm.sel, a.tmText(a.tm.sel))
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(900 * time.Millisecond)
+	if a.tm.open {
+		t.Fatal("Esc did not leave it")
+	}
+	if text, _ := a.page.Text(); !strings.Contains(text, "rug") {
+		t.Fatalf("Esc changed the page: %q", text)
+	}
+	// again: the copy of the 8th put back
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	tt.Key(0, ui.KeyLeft)
+	tt.Key(0, ui.KeyLeft)
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(900 * time.Millisecond)
+	if a.tm.open {
+		t.Fatal("still open after putting back")
+	}
+	if text, _ := a.page.Text(); !strings.Contains(text, "The black cat sat on the mat") {
+		t.Fatalf("not put back: %q", text)
 	}
 }

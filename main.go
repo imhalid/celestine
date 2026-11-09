@@ -204,13 +204,14 @@ type app struct {
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename  // the dialog to rename a tag (tags.go)
-	vhist         histView   // the dialog of a page's versions (historyui.go)
-	lapse         lapseState // the time-lapse of the page, in place of its editor (lapseui.go)
-	noticePage    *Page      // the page the notice is about, to open from it
-	noticeUndo    func()     // takes back what the notice says was done: the notice has a Geri al
-	noticeTone    *toastKind // the notice's kind, when its words do not tell it (noticeKind)
-	tagHits       []tagHit   // the tags drawn this frame; a click is against the last's
+	tagRen        tagRename   // the dialog to rename a tag (tags.go)
+	vhist         histView    // the dialog of a page's versions (historyui.go)
+	tm            timeMachine // the page's history as a stack and a timeline (timemachine.go)
+	lapse         lapseState  // the time-lapse of the page, in place of its editor (lapseui.go)
+	noticePage    *Page       // the page the notice is about, to open from it
+	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al
+	noticeTone    *toastKind  // the notice's kind, when its words do not tell it (noticeKind)
+	tagHits       []tagHit    // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
 	linkSeen      []linkHit
@@ -820,6 +821,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.keepSettings(c)
 	a.statTick()
 	a.syncTick(c)
+	a.tmKeys(c) // the page's history has the keys while it is open (timemachine.go)
 	a.kbBegin()
 	if !a.prewarming && !a.sx.warm(a, sxBudget) { // the pages are taken into the search index a little a frame, as the window opens
 		c.Invalidate()
@@ -932,7 +934,8 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.cellEd.open = false
 	}
 	a.lightboxView(c)
-	if !a.treeHeld { // the focus is not in the tree: no more arrow keys
+	a.timeMachineView(c) // the page's history, over everything (timemachine.go)
+	if !a.treeHeld {     // the focus is not in the tree: no more arrow keys
 		a.treeNav = false
 	}
 	a.treeHeld = false
