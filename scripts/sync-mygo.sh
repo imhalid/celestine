@@ -7,8 +7,9 @@
 #   scripts/sync-mygo.sh main       onto MyGo's main
 #   MYGO=../mygo scripts/sync-mygo.sh   where the fork is checked out (default ../mygo)
 #
-# A patch that MyGo has taken in comes out of the rebase empty and is dropped. A conflict stops here: the
-# rebase is left open in the fork to be resolved by hand (git rebase --continue), and the script run again.
+# A patch that MyGo has taken in comes out of the rebase empty and is dropped; when none is left, the app needs
+# no fork: the replace goes, and go.mod requires MyGo itself. A conflict stops here: the rebase is left open in
+# the fork to be resolved by hand (git rebase --continue), and the script run again.
 set -eu
 cd "$(dirname "$0")/.."
 MYGO=${MYGO:-../mygo}
@@ -19,21 +20,27 @@ git -C "$MYGO" fetch -q origin ryudit
 if [ "${1:-}" = main ]; then
 	onto=upstream/main
 else
-	onto=$(git -C "$MYGO" describe --tags --abbrev=0 upstream/main)
+	onto=$(git -C "$MYGO" describe --tags --abbrev=0 --match 'v*' upstream/main)
 fi
 echo "putting the patches on $onto"
 git -C "$MYGO" checkout -q ryudit
 git -C "$MYGO" reset -q --hard origin/ryudit
 git -C "$MYGO" rebase --empty=drop "$onto"
 git -C "$MYGO" log --oneline "$onto"..ryudit
-git -C "$MYGO" push -q --force-with-lease origin ryudit
 commit=$(git -C "$MYGO" rev-parse HEAD)
-version=$(git -C "$MYGO" describe --tags --abbrev=0 "$onto" 2>/dev/null || echo "")
 export GOWORK=off
-if [ -n "$version" ]; then
-	go mod edit -require=github.com/egoist/mygo@"$version"
+if [ "$commit" = "$(git -C "$MYGO" rev-parse "$onto")" ]; then
+	echo "no patch is left: MyGo itself, no fork"
+	go mod edit -dropreplace=github.com/egoist/mygo
+	go get github.com/egoist/mygo@"$commit"
+else
+	git -C "$MYGO" push -q --force-with-lease origin ryudit
+	version=$(git -C "$MYGO" describe --tags --abbrev=0 "$onto" 2>/dev/null || echo "")
+	case "$version" in
+	v*) go mod edit -require=github.com/egoist/mygo@"$version" ;;
+	esac
+	go mod edit -replace=github.com/egoist/mygo=github.com/imhalid/mygo@"$commit"
 fi
-go mod edit -replace=github.com/egoist/mygo=github.com/imhalid/mygo@"$commit"
 go mod tidy
 echo "gate"
 test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
