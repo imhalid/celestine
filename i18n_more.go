@@ -10,7 +10,17 @@ var enMore = map[string]string{
 	"## {{başlık}}\n\n- [ ] ": "## {{başlık}}\n\n- [ ] ", // a template's own words: {{başlık}} is the template's, in any language
 	"Hepsini seç":             "Select all",
 	"sayfa kadar":             "as wide as the page", // the line length's slider, at 0
-	"%d karakter":             "%d characters",
+	// sync: its state in the status bar, and what a pass did
+	"senkron ayarlı değil":             "sync is not set up",
+	"Eşit %s":                          "Synced %s",
+	"çakışma: %d":                      "conflicts: %d",
+	"Eşit: değişiklik yok":             "In sync: no changes",
+	"%d gönderildi, %d alındı":         "%d sent, %d received",
+	", %d silme":                       ", %d deleted",
+	", %d çakışma (ikisi de saklandı)": ", %d conflicts (both kept)",
+	", %d hata":                        ", %d errors",
+	", %d silme bekliyor":              ", %d deletions held",
+	"%d karakter":                      "%d characters",
 	// sync: files the remote has none of, held back (massRemovals)
 	"%d dosya uzakta yok görünüyor; silinmedi":     "%d files seem gone from the remote; not deleted",
 	"%d dosya uzakta yok; bu bilgisayarda duruyor": "%d files are not on the remote; kept on this computer",

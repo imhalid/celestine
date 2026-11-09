@@ -198,11 +198,12 @@ type app struct {
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename // the dialog to rename a tag (tags.go)
-	vhist         histView  // the dialog of a page's versions (historyui.go)
-	noticePage    *Page     // the page the notice is about, to open from it
-	noticeUndo    func()    // takes back what the notice says was done: the notice has a Geri al
-	tagHits       []tagHit  // the tags drawn this frame; a click is against the last's
+	tagRen        tagRename  // the dialog to rename a tag (tags.go)
+	vhist         histView   // the dialog of a page's versions (historyui.go)
+	noticePage    *Page      // the page the notice is about, to open from it
+	noticeUndo    func()     // takes back what the notice says was done: the notice has a Geri al
+	noticeTone    *toastKind // the notice's kind, when its words do not tell it (noticeKind)
+	tagHits       []tagHit   // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
 	linkSeen      []linkHit
@@ -525,10 +526,11 @@ func main() {
 			a.dockHost.Sync() // the windows of the panes, as they were left
 		}
 		mygo.App.OnSecondInstance(func([]string, string) { a.bringToFront() })
-		w.OnClosed(mygo.App.Quit)      // the window closed is the app closed: the hidden quick note panel does not keep it on
-		w.SetIcon(appIcon)             // the title bar and taskbar (Linux, Windows)
-		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
-		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
+		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
+		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
+		w.SetIcon(appIcon)                                                         // the title bar and taskbar (Linux, Windows)
+		mygo.App.Dock.SetIcon(appIcon)                                             // the Dock (macOS)
+		if runtime.GOOS != "js" {                                                  // a browser has no global key, and the panel's window would name the tab
 			a.quick = newQuick(a)
 		}
 		go func() { // the day's backup, a moment after the start, when the window is up
@@ -845,7 +847,10 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.treeHeld = false
 	a.runLater()
 	if a.notice != "" {
-		kind := noticeKind(a.notice)           // from the Turkish, as it was written
+		kind := noticeKind(a.notice) // from the Turkish, as it was written
+		if a.noticeTone != nil {
+			kind = *a.noticeTone
+		}
 		if undo := a.noticeUndo; undo != nil { // a setting changed: it is one click from taken back
 			a.toastOf(kind, T(a.notice), T("Geri al"), undo)
 		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
@@ -853,7 +858,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		} else {
 			a.toastOf(kind, T(a.notice), "", nil)
 		}
-		a.notice, a.noticePage, a.noticeUndo = "", nil, nil
+		a.notice, a.noticePage, a.noticeUndo, a.noticeTone = "", nil, nil, nil
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil

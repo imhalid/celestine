@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,8 +50,21 @@ type syncUI struct {
 	seedWait bool
 }
 
-// syncQuiet is how long the library is left unwritten before what was written is synced.
-const syncQuiet = 10 * time.Second
+// syncQuiet is how long the library is left unwritten before what was written is synced: a pause in the typing,
+// so that a page goes up as soon as one stops, and is there on another device by the time one gets to it.
+const syncQuiet = 2 * time.Second
+
+// syncOnFocus is how old the last pass must be for the window coming forward to start one: one comes back to
+// this device from another, and what was written there comes at once.
+const syncOnFocus = 20 * time.Second
+
+// windowFocused starts a pass when the window comes forward and the last one is not recent.
+func (a *app) windowFocused() {
+	if a.settings.SyncMode == "" || a.sy.busy || a.sy.tried.IsZero() || a.clock().Sub(a.sy.tried) < syncOnFocus {
+		return
+	}
+	a.sy.tried = time.Time{} // the next frame's syncTick starts it
+}
 
 // markPristine notes the files a new library made for itself, so that its first pass takes the account's
 // copies of them, if it has them, with no conflict (SyncState.Pristine): signing in on a second device is not
@@ -103,6 +115,8 @@ func (a *app) syncEvery() time.Duration {
 	if m := a.settings.SyncMinutes; m >= 1 && m <= 1440 {
 		return time.Duration(m) * time.Minute
 	}
+	// between passes made for writing here and for the window coming forward, a round every few minutes is enough:
+	// each costs the server a listing
 	return 5 * time.Minute
 }
 
@@ -136,7 +150,7 @@ func (a *app) syncNow() {
 	}
 	remote, err := a.syncRemote()
 	if err != nil {
-		a.sy.err, a.sy.status = err.Error(), "senkron ayarlı değil"
+		a.sy.err, a.sy.status = err.Error(), T("senkron ayarlı değil")
 		return
 	}
 	a.flush()
@@ -144,7 +158,7 @@ func (a *app) syncNow() {
 	if a.settings.NoBackup {     // a big library's file took the window a second, at every pass
 		backupDir = ""
 	}
-	a.sy.busy, a.sy.status, a.sy.last = true, "eşitleniyor…", a.clock()
+	a.sy.busy, a.sy.status, a.sy.last = true, T("eşitleniyor…"), a.clock()
 	skip := map[string]bool{}
 	for _, d := range a.settings.SyncOff {
 		skip[d] = true
@@ -165,10 +179,10 @@ func (a *app) syncNow() {
 			a.saveSyncState(state)
 			switch {
 			case err != nil:
-				a.sy.err, a.sy.status = err.Error(), "çevrimdışı"
+				a.sy.err, a.sy.status = err.Error(), T("çevrimdışı")
 			default:
-				a.sy.err, a.sy.at, a.sy.result = "", time.Now(), res.String()
-				a.sy.status = "Eşit " + a.sy.at.Format("15:04")
+				a.sy.err, a.sy.at, a.sy.result = "", time.Now(), syncSummary(res)
+				a.sy.status = Tf("Eşit %s", a.sy.at.Format("15:04"))
 				if len(res.Errors) > 0 {
 					a.sy.err = res.Errors[0]
 				}
@@ -182,8 +196,15 @@ func (a *app) syncNow() {
 					a.checkDisk()
 					a.reloadLibrary()
 				}
-				if res.Pulled+res.Removed+res.Pushed+len(res.Conflicts) > 0 {
-					a.notice = "Senkron: " + res.String()
+				// told only when something came, or clashed: what was sent is not news, and passes run a moment
+				// after every pause in the typing
+				if res.Pulled+res.Removed+len(res.Conflicts) > 0 {
+					a.notice = T("Senkron: ") + syncSummary(res)
+					tone := toastOK
+					if len(res.Conflicts) > 0 {
+						tone = toastWarn
+					}
+					a.noticeTone = &tone
 				}
 			}
 			return nil
@@ -212,6 +233,27 @@ func (a *app) syncTick(c *ui.Context) {
 		return
 	}
 	c.After(30 * time.Second)
+}
+
+// syncSummary is what a pass did, in the window's language.
+func syncSummary(r SyncResult) string {
+	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
+		return T("Eşit: değişiklik yok")
+	}
+	s := Tf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
+	if n := r.Deleted + r.Removed; n > 0 {
+		s += Tf(", %d silme", n)
+	}
+	if len(r.Conflicts) > 0 {
+		s += Tf(", %d çakışma (ikisi de saklandı)", len(r.Conflicts))
+	}
+	if len(r.Errors) > 0 {
+		s += Tf(", %d hata", len(r.Errors))
+	}
+	if r.Held > 0 {
+		s += Tf(", %d silme bekliyor", r.Held)
+	}
+	return s
 }
 
 // seedAfterSync is the end of a new library's first pass: an account that never held anything gets the welcome
@@ -324,7 +366,7 @@ func (a *app) lookForConflicts() {
 			a.sy.conflicts, a.sy.conflictsAt, a.sy.conflictsBusy = found, time.Now(), false
 			a.sy.conflict = len(found)
 			if a.sy.conflict > 0 && !a.sy.busy && a.sy.err == "" {
-				a.sy.status = "çakışma: " + strconv.Itoa(a.sy.conflict)
+				a.sy.status = Tf("çakışma: %d", a.sy.conflict)
 			}
 			if a.sy.conflictsAgain {
 				a.sy.conflictsAgain = false

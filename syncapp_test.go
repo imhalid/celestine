@@ -327,7 +327,7 @@ func TestSyncAfterWritingAndAtQuit(t *testing.T) {
 	p, _ := c.NewPage(nil, "Written")
 	p.SaveText("words\n")
 	tt.Frame() // the writing is seen
-	now = now.Add(4 * time.Second)
+	now = now.Add(syncQuiet / 2)
 	tt.Frame()
 	waitSync(t, a)
 	if has("Written") {
