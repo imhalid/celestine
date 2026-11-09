@@ -49,6 +49,8 @@ func (a *app) loginView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	w, h := c.Size()
 	ui.Column(c.Key("login")).Absolute().Left(0).Top(0).Width(w).Height(h).Background(a.pageBg).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+		// the window's top is a bar to move it by, as the app's header is
+		ui.Box(c.Key("login-drag")).Absolute().Left(0).Top(0).Width(w).Height(max(a.titleBar(c).Height, headerH)).DragWindow()
 		ui.Column(c.Key("login-card")).Width(min(400, w-32)).Gap(14).Children(func() {
 			ui.Text(c, "Ryudit").FontSize(30).FontWeight(720).TextColor(cl.Text)
 			if a.ac.mode != "recovery" {

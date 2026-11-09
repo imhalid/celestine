@@ -17,9 +17,9 @@ import (
 // come while one is up stand over it.
 
 const (
-	toastIn    = 0.62 // seconds the light takes to bring a toast
+	toastIn    = 0.95 // seconds the light takes to bring a toast
 	toastBeam  = 2.2  // and then to go round its edge
-	toastOut   = 0.48 // and to take it away
+	toastOut   = 0.62 // and to take it away
 	toastStay  = 4.0  // seconds a toast stays, the pointer not on it
 	toastStayA = 6.5  // one with a button, which takes longer to reach
 	toastMax   = 3    // at most this many at once: the oldest goes first

@@ -425,13 +425,16 @@ func (a *app) acctForm(c *ui.Context) {
 	btn := func(key, label string, opts ryugo.ButtonOptions) bool {
 		return ryugo.Button(c.Key(key), label, opts).Clicked()
 	}
+	entered := false // Enter in any of the fields is the form's button
 	field := func(key, label string, v *string, opts ...func(*ryugo.InputOptions)) {
 		ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
 			o := ryugo.InputOptions{Label: T(label), Size: ryugo.Sm}
 			for _, f := range opts {
 				f(&o)
 			}
-			a.fieldMenu(ryugo.Input(c.Key(key), v, o), v, fieldOpts{oneLine: true, secret: o.Password})
+			if a.fieldMenu(ryugo.Input(c.Key(key), v, o), v, fieldOpts{oneLine: true, secret: o.Password}).Submitted() {
+				entered = true
+			}
 		})
 	}
 	secret := func(o *ryugo.InputOptions) { o.Password = true }
@@ -485,7 +488,7 @@ func (a *app) acctForm(c *ui.Context) {
 			if a.ac.busy {
 				label = "…"
 			}
-			if btn("acct-go", T(label), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}) && !a.ac.busy {
+			if (btn("acct-go", T(label), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}) || entered) && !a.ac.busy {
 				a.acctSubmit()
 			}
 			switch mode {

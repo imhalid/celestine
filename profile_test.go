@@ -36,6 +36,19 @@ func TestLoginGate(t *testing.T) {
 	if !a.login.open || !tt.HasText("Erişim kodu") {
 		t.Fatal("Esc got past the sign-in")
 	}
+	// Enter in a field is the form's button
+	r, ok := tt.Find("Erişim kodu") // the field's label: the field is under it
+	if !ok {
+		t.Fatal("no code field")
+	}
+	tt.ClickAt(r.X+20, r.Y+r.H+16)
+	tt.Type("RYU-AAAAAA")
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if a.ac.err == "" {
+		t.Fatalf("Enter did not send the form: focused %v, code %q", tt.Focused("Erişim kodu"), a.ac.code)
+	}
+	a.ac.err = ""
 	a.settings.AccountUser = "ali@ornek.com" // signed in: the app, and the tour after it
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
