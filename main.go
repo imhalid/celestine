@@ -254,6 +254,8 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
+	// inKeychain is each secret of the settings the keychain holds, as it was put there (keychain.go)
+	inKeychain    map[string]string
 	importNote    string                  // what the last import said, in the settings
 	embedCache    map[string][]string     // the first lines of the pages embedded (embed.go)
 	queryCache    map[string]queryResult  // what the query blocks found (queryblock.go)
@@ -412,7 +414,7 @@ func main() {
 	}
 	if info, serr := os.Stat(arg); arg != "" && serr == nil && info.IsDir() {
 		root, _ := filepath.Abs(arg)
-		lib, err = OpenLibrary(root)
+		lib, err = OpenLibraryIn(&countFS{FS: OSFS{}}, root) // its writes counted: the sync goes a moment after them
 	} else {
 		file := LibraryFile()
 		if arg != "" {
@@ -461,6 +463,7 @@ func main() {
 	if _, err := a.journal(); err != nil { // every library has its journal
 		log.Fatal(err)
 	}
+	keychain = systemKeychain()                     // the secrets of the settings, out of the file (keychain.go)
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
 		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
 	}
@@ -567,6 +570,7 @@ func main() {
 		})
 		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
+		w.OnBlur(func() { a.do(func() error { a.sy.behind = true; return nil }) }) // the server is not asked for changes behind other windows
 		if runtime.GOOS == "windows" {
 			w.SetIcon(winIcon) // the title bar and taskbar
 		} else {

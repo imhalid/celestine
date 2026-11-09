@@ -270,6 +270,9 @@ type fakeServer struct {
 	files map[string][]byte
 	dead  map[string]bool
 	token string
+	// changes is the counter of writes; noChanges, a server of before that has none
+	changes   int64
+	noChanges bool
 }
 
 func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -279,6 +282,14 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if r.URL.Path == "/changes" && !s.noChanges {
+		fmt.Fprintf(w, `{"changes":%d}`, s.changes)
+		return
+	}
+	if !strings.HasPrefix(r.URL.Path, "/files") {
+		http.NotFound(w, r)
+		return
+	}
 	name := strings.TrimPrefix(r.URL.Path, "/files")
 	name = strings.TrimPrefix(name, "/")
 	if name == "" {
@@ -312,9 +323,11 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
 		s.files[name] = b
 		delete(s.dead, name)
+		s.changes++
 	case "DELETE":
 		delete(s.files, name)
 		s.dead[name] = true
+		s.changes++
 	}
 }
 
@@ -337,6 +350,21 @@ func TestSyncOverHTTP(t *testing.T) {
 	a.sync(ra)
 	if r := b.sync(rb); r.Removed != 1 {
 		t.Fatalf("deletion over HTTP: %+v", r)
+	}
+	// the counter moves with every write, and is read through the encryption
+	enc, _ := NewEncRemote(ra, make([]byte, 32))
+	n0, err := enc.Changes()
+	if err != nil || n0 != 2 {
+		t.Fatalf("changes: %d %v", n0, err)
+	}
+	b.write("Not/Başka/page.json", "yeni")
+	b.sync(rb)
+	if n, _ := ra.Changes(); n <= n0 {
+		t.Fatalf("the counter did not move: %d", n)
+	}
+	fs.noChanges = true // a server of before: no counter, and an error says so
+	if _, err := ra.Changes(); err == nil {
+		t.Fatal("a server without a counter gave one")
 	}
 	wrong := NewHTTPRemote(srv.URL, "başka")
 	if _, err := wrong.List(); err == nil {

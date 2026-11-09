@@ -174,6 +174,7 @@ func (d DirRemote) Delete(name, prev string) error {
 //	GET    /files/<name>     the bytes
 //	PUT    /files/<name>     the bytes; If-Match: <hash of what was seen>, "" for none; 412 on a conflict
 //	DELETE /files/<name>     If-Match as above; leaves a tombstone
+//	GET    /changes          {"changes": n}: a counter every PUT and DELETE moves (ChangeCounter)
 //
 // with "Authorization: Bearer <the device's token>".
 type httpRemote struct {
@@ -274,7 +275,7 @@ func (h *httpRemote) versionURL(name string, at int64) string {
 	return u
 }
 
-func (h *httpRemote) getVersion(u string) ([]byte, error) {
+func (h *httpRemote) get(u string) ([]byte, error) {
 	if err := HTTPSOnly(h.base); err != nil {
 		return nil, err
 	}
@@ -295,7 +296,7 @@ func (h *httpRemote) getVersion(u string) ([]byte, error) {
 }
 
 func (h *httpRemote) Versions(name string) ([]RemoteVersion, error) {
-	b, err := h.getVersion(h.versionURL(name, 0))
+	b, err := h.get(h.versionURL(name, 0))
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +305,37 @@ func (h *httpRemote) Versions(name string) ([]RemoteVersion, error) {
 }
 
 func (h *httpRemote) VersionData(name string, at int64) ([]byte, error) {
-	return h.getVersion(h.versionURL(name, at))
+	return h.get(h.versionURL(name, at))
+}
+
+// A ChangeCounter is a remote that tells, at the cost of a small request, whether anything was written to it: a
+// counter that each write moves. A device asks it often, and lists the files only when it moved.
+type ChangeCounter interface {
+	Changes() (int64, error)
+}
+
+func (h *httpRemote) Changes() (int64, error) {
+	b, err := h.get(h.base + "/changes")
+	if err != nil {
+		return 0, err
+	}
+	var out struct {
+		Changes *int64 `json:"changes"`
+	}
+	if err := json.Unmarshal(b, &out); err != nil || out.Changes == nil {
+		return 0, errNoChanges
+	}
+	return *out.Changes, nil
+}
+
+var errNoChanges = errors.New("bu eşitleme yeri değişiklik sayacı tutmuyor")
+
+// Changes is the inner remote's counter: the encryption hides names and bytes, not that something was written.
+func (e *EncRemote) Changes() (int64, error) {
+	if c, ok := e.inner.(ChangeCounter); ok {
+		return c.Changes()
+	}
+	return 0, errNoChanges
 }
 
 // ---- end-to-end encryption ----
@@ -608,6 +639,9 @@ type SyncState struct {
 	// was made, is the remote's, with no conflict: the library is a new device's, and the account's copy is
 	// the real one.
 	Pristine map[string]string `json:"pristine,omitempty"`
+	// Bases keep each page file as it was at the last sync, to merge a page changed on both sides (MergePage); with
+	// none, it is kept twice.
+	Bases SyncBases `json:"-"`
 }
 
 // massRemovals is how many files, and a tenth of the library, a pass may delete here for being gone from
@@ -623,6 +657,7 @@ type fileSync struct {
 // SyncResult says what a sync did.
 type SyncResult struct {
 	Pushed, Pulled, Deleted, Removed int      // files sent up, brought down, deleted there, deleted here
+	Merged                           int      // pages changed on both sides and merged: written here, and sent up
 	Held                             int      // files not deleted here, though the remote has none: too many at once (massRemovals)
 	Conflicts                        []string // the files that changed on both sides: ours is kept beside
 	Errors                           []string
@@ -632,10 +667,13 @@ type SyncResult struct {
 }
 
 func (r SyncResult) String() string {
-	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
+	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+r.Merged+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
 		return "Eşit: değişiklik yok"
 	}
 	s := fmt.Sprintf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
+	if r.Merged > 0 {
+		s += fmt.Sprintf(", %d merged", r.Merged)
+	}
 	if r.Deleted+r.Removed > 0 {
 		s += fmt.Sprintf(", %d silme", r.Deleted+r.Removed)
 	}
@@ -833,6 +871,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			continue
 		case lh == "" && rh == "": // gone from both: forget it
 			delete(st.Files, n)
+			st.dropBase(n)
 			continue
 		case localChanged && !remoteChanged: // ours: up
 			if lh == "" {
@@ -842,6 +881,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 				}
 				res.Deleted++
 				delete(st.Files, n)
+				st.dropBase(n)
 				continue
 			}
 			b, err := fsys.ReadFile(abs(n))
@@ -855,6 +895,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			}
 			res.Pushed++
 			st.Files[n] = fileSync{Local: lh}
+			st.setBase(n, b)
 			pushed = append(pushed, n)
 		case !localChanged && remoteChanged: // theirs: down
 			if rh == "" {
@@ -883,6 +924,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			}
 			res.Pulled++
 			st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
+			st.setBase(n, b)
 		default: // both changed
 			if base == (fileSync{}) && lh != "" && rh != "" && st.Pristine[n] == lh { // a new library's own, untouched: theirs
 				b, err := r.Get(n)
@@ -896,10 +938,21 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 				}
 				res.Pulled++
 				st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
+				st.setBase(n, b)
 				continue
 			}
 			if lh != "" && rh != "" && lh == localHashOf(r, n, rh, lh) {
 				st.Files[n] = fileSync{Local: lh, Remote: rh} // the same bytes on both sides
+				continue
+			}
+			if done, err := mergeBoth(fsys, abs(n), r, st, n, lh, rh); errors.Is(err, errWrittenSince) {
+				continue
+			} else if err != nil {
+				fail(n, err)
+				continue
+			} else if done {
+				res.Merged++
+				pushed = append(pushed, n)
 				continue
 			}
 			// theirs stays, ours is kept beside, and goes up as a file of its own on the next pass
@@ -930,6 +983,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			}
 			res.Pulled++
 			st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
+			st.setBase(n, b)
 		}
 	}
 	if len(gone) > 0 {
@@ -949,6 +1003,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		for _, n := range removed {
 			res.Removed++
 			delete(st.Files, n)
+			st.dropBase(n)
 		}
 		for n, err := range failed {
 			fail(n, err)
@@ -966,6 +1021,50 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		}
 	}
 	return res, pushed, nil
+}
+
+// errWrittenSince says the file was written here since the pass looked at it: the next pass takes it.
+var errWrittenSince = errors.New("written since the pass began")
+
+// mergeBoth merges a page file changed on both sides, from its base: the merged page is written here and put on
+// the remote. done is false when it is not to be merged (no base, not a page, the same blocks changed): the
+// conflict copy is made then. The file written here since the pass looked is left for the next pass.
+func mergeBoth(fsys FS, p string, r Remote, st *SyncState, n, lh, rh string) (done bool, err error) {
+	if st.Bases == nil || lh == "" || rh == "" || st.Files[n].Local == "" || !keepsBase(n) {
+		return false, nil
+	}
+	base := st.Bases.Base(n)
+	if base == nil || HashOf(base) != st.Files[n].Local {
+		return false, nil
+	}
+	mine, err := fsys.ReadFile(p)
+	if err != nil || HashOf(mine) != lh {
+		return false, err
+	}
+	theirs, err := r.Get(n)
+	if err != nil {
+		return false, err
+	}
+	merged, ok := MergePage(base, mine, theirs)
+	if !ok {
+		return false, nil
+	}
+	if !localIs(fsys, p, lh) {
+		return false, errWrittenSince
+	}
+	if err := fsys.WriteFile(p, merged); err != nil {
+		return false, err
+	}
+	// until the merge is on the remote, this is as if theirs had come down and the merge been typed here: the next
+	// pass sends it up
+	st.Files[n] = fileSync{Local: HashOf(theirs), Remote: rh}
+	st.setBase(n, theirs)
+	if err := r.Put(n, merged, rh); err != nil {
+		return false, err
+	}
+	st.Files[n] = fileSync{Local: HashOf(merged)}
+	st.setBase(n, merged)
+	return true, nil
 }
 
 // localHashOf is the hash of the remote's bytes, for comparing with ours when the remote's own hash is

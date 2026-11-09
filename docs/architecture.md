@@ -80,7 +80,9 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |
 | `kb.go`, `vim.go`, `help.go` | The keyboard's normal mode (Esc), rows chosen with j k, letters on everything that can be pressed (f), the leader (Space), marks, the command line (:), Vim's motions as a setting, the page of shortcuts and the first-run tour |
 | `update.go`, `updateui.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start; `scripts/release`, `cloudflare/update`, `.github/workflows/release.yml` |
-| `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption; `cloudflare/sync` |
+| `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption, the server's change counter asked while the window is in front; a library file or a folder library (its state in the config folder); `cloudflare/sync` |
+| `internal/library/merge.go`, `syncbase.go` | A page changed on two devices merged block by block from its base (the page as last synced), kept in the library file's meta or a folder |
+| `keychain.go` | The settings' secrets (the sync key and token, the MCP token) in the system's keychain, the settings file when there is none |
 | `i18n.go` | The language: strings written in Turkish, English (the default) from a dictionary |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |

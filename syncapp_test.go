@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 func syncApp(t *testing.T, remoteDir string) *app {
@@ -476,5 +482,206 @@ func TestSyncNewLibraryWithoutAccount(t *testing.T) {
 	}
 	if len(welcomes) != 1 || welcomes[0] != "the account's own welcome\n" {
 		t.Fatalf("the welcome pages after signing in: %q", welcomes)
+	}
+}
+
+// changesServer is a sync server of the Worker's protocol over a folder, with its change counter; it counts how
+// often the counter was asked for.
+type changesServer struct {
+	mu      sync.Mutex
+	dir     DirRemote
+	changes int64
+	asked   int
+}
+
+func (s *changesServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r.URL.Path == "/changes" {
+		s.asked++
+		json.NewEncoder(w).Encode(map[string]int64{"changes": s.changes})
+		return
+	}
+	name := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/files"), "/")
+	prev := strings.Trim(r.Header.Get("If-Match"), `"`)
+	var err error
+	switch {
+	case name == "":
+		var list map[string]RemoteEntry
+		if list, err = s.dir.List(); err == nil {
+			json.NewEncoder(w).Encode(list)
+		}
+	case r.Method == "GET":
+		var b []byte
+		if b, err = s.dir.Get(name); err == nil {
+			w.Write(b)
+		}
+	case r.Method == "PUT":
+		b, _ := io.ReadAll(r.Body)
+		if err = s.dir.Put(name, b, prev); err == nil {
+			s.changes++
+		}
+	case r.Method == "DELETE":
+		if err = s.dir.Delete(name, prev); err == nil {
+			s.changes++
+		}
+	}
+	switch {
+	case errors.Is(err, library.ErrConflict):
+		http.Error(w, "stale", http.StatusPreconditionFailed)
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+}
+
+// While the window is in front, the server is asked every syncPoll whether anything was written; a pass starts
+// when the counter moved, and none when it did not. Behind other windows, it is not asked.
+func TestSyncWhenTheServerChanged(t *testing.T) {
+	library.AllowHTTP = true
+	defer func() { library.AllowHTTP = false }()
+	srv := &changesServer{dir: DirRemote{Root: t.TempDir()}}
+	hs := httptest.NewServer(srv)
+	defer hs.Close()
+	server := func(a *app) {
+		a.settings.SyncMode, a.settings.SyncURL, a.settings.SyncToken = "server", hs.URL, "jeton"
+	}
+	a, b := syncApp(t, ""), syncApp(t, "")
+	server(a)
+	server(b)
+	now := time.Now()
+	b.clock = func() time.Time { return now }
+	tt := ui.NewTester(b.view, 900, 700)
+	tt.Frame() // the pass at the start
+	waitSync(t, b)
+	asked := func() int { srv.mu.Lock(); defer srv.mu.Unlock(); return srv.asked }
+	tick := func() {
+		now = now.Add(syncPoll + time.Second)
+		tt.Frame()
+		for i := 0; i < 200; i++ { // the answer, then the frame it asks for
+			b.mu.Lock()
+			asking := b.sy.asking
+			b.mu.Unlock()
+			if !asking {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		time.Sleep(20 * time.Millisecond)
+		tt.Frame()
+		waitSync(t, b)
+	}
+	last := b.sy.last
+	tick()
+	if asked() == 0 {
+		t.Fatal("the server was not asked")
+	}
+	if b.sy.last != last {
+		t.Fatal("a pass started though nothing changed")
+	}
+	c, _ := a.lib.NewCollection("Shared")
+	p, _ := c.NewPage(nil, "From A")
+	p.SaveText("words\n")
+	a.syncNow()
+	waitSync(t, a)
+	tick()
+	if b.sy.last == last {
+		t.Fatal("no pass after the server changed")
+	}
+	found := false
+	for _, co := range b.lib.Collections {
+		for _, q := range co.All() {
+			found = found || q.Title == "From A"
+		}
+	}
+	if !found {
+		t.Fatalf("the page did not come: %q", b.sy.err)
+	}
+	// behind other windows: not asked
+	b.sy.behind = true
+	n := asked()
+	tick()
+	if asked() != n {
+		t.Fatal("asked behind other windows")
+	}
+}
+
+// folderSyncApp is an app over a folder library, its writes counted as main counts them, its settings in a
+// folder of the test's, syncing to the folder remoteDir.
+func folderSyncApp(t *testing.T, remoteDir string) *app {
+	lib, err := OpenLibraryIn(&countFS{FS: OSFS{}}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(lib)
+	a.settingsFile = filepath.Join(t.TempDir(), "ryudit", "settings.json")
+	a.settings.SyncMode, a.settings.SyncDir = "dir", remoteDir
+	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
+	return a
+}
+
+// A folder library syncs as a library file does: what is written goes up once the writing is quiet, its state is
+// kept in the config folder, and a page changed on both sides is merged.
+func TestSyncFolderLibrary(t *testing.T) {
+	dir := t.TempDir()
+	a, b := folderSyncApp(t, dir), folderSyncApp(t, dir)
+	now := time.Now()
+	a.clock = func() time.Time { return now }
+	tt := ui.NewTester(a.view, 900, 700)
+	tt.Frame() // the pass at the start
+	waitSync(t, a)
+	if a.sy.err != "" {
+		t.Fatalf("the pass: %s", a.sy.err)
+	}
+	c, _ := a.lib.NewCollection("Shared")
+	p, _ := c.NewPage(nil, "Written")
+	p.SaveText("one\n\ntwo\n\nthree\n")
+	if a.libWrites() == a.sy.writes {
+		t.Fatal("the writes were not counted")
+	}
+	tt.Frame() // the writing is seen
+	now = now.Add(syncQuiet + time.Second)
+	tt.Frame()
+	waitSync(t, a)
+	if a.sy.err != "" {
+		t.Fatalf("the pass: %s", a.sy.err)
+	}
+	if _, err := os.Stat(filepath.Join(a.syncStateDir(), "state.json")); err != nil {
+		t.Fatalf("the state is not in the config folder: %v", err)
+	}
+	b.syncNow()
+	waitSync(t, b)
+	page := func(x *app) *Page {
+		for _, co := range x.lib.Collections {
+			for _, q := range co.All() {
+				if q.Title == "Written" {
+					return q
+				}
+			}
+		}
+		return nil
+	}
+	pb := page(b)
+	if pb == nil {
+		t.Fatalf("the page did not come: %q", b.sy.err)
+	}
+	// both change it, each a block of its own: merged, with no conflict
+	edit := func(x *app, q *Page, from, to string) {
+		src, err := x.lib.FS.ReadFile(filepath.Join(q.Dir, PageFileName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := x.lib.FS.WriteFile(filepath.Join(q.Dir, PageFileName), []byte(strings.Replace(string(src), from, to, 1))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	edit(a, page(a), `"one"`, `"ONE"`)
+	edit(b, pb, `"three"`, `"THREE"`)
+	a.syncNow()
+	waitSync(t, a)
+	b.syncNow()
+	waitSync(t, b)
+	src, _ := b.lib.FS.ReadFile(filepath.Join(page(b).Dir, PageFileName))
+	if !strings.Contains(string(src), `"ONE"`) || !strings.Contains(string(src), `"THREE"`) || len(b.conflictFiles()) > 0 {
+		t.Fatalf("not merged (%q): %s", b.sy.err, src)
 	}
 }

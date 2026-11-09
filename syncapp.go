@@ -4,11 +4,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -48,7 +50,18 @@ type syncUI struct {
 	// a new library's welcome page waits for the first pass: made only if the account turns out to hold nothing
 	// at all, so that a second device shows the account's pages, and a welcome deleted there does not come back
 	seedWait bool
+	// the server's change counter as last read (ChangeCounter), and whether it was: it is asked every syncPoll while the
+	// window is in front, and a pass starts when it moved. behind: the window is not in front.
+	changes      int64
+	changesKnown bool
+	askedAt      time.Time
+	asking       bool
+	behind       bool
 }
+
+// syncPoll is how often the server is asked whether anything was written to the account, while the window is in
+// front: one small request, and what another device wrote is here in seconds, not at the next round of minutes.
+const syncPoll = 20 * time.Second
 
 // syncQuiet is how long the library is left unwritten before what was written is synced: a pause in the typing,
 // so that a page goes up as soon as one stops, and is there on another device by the time one gets to it.
@@ -60,6 +73,7 @@ const syncOnFocus = 20 * time.Second
 
 // windowFocused starts a pass when the window comes forward and the last one is not recent.
 func (a *app) windowFocused() {
+	a.sy.behind = false
 	if a.settings.SyncMode == "" || a.sy.busy || a.sy.tried.IsZero() || a.clock().Sub(a.sy.tried) < syncOnFocus {
 		return
 	}
@@ -70,11 +84,8 @@ func (a *app) windowFocused() {
 // copies of them, if it has them, with no conflict (SyncState.Pristine): signing in on a second device is not
 // a conflict over its welcome page.
 func (a *app) markPristine() {
-	st := a.store()
-	if st == nil {
-		return
-	}
-	files, err := PristineOf(st, StoreRoot)
+	fsys, root := a.syncFS()
+	files, err := PristineOf(fsys, root)
 	if err != nil {
 		return
 	}
@@ -120,21 +131,93 @@ func (a *app) syncEvery() time.Duration {
 	return 5 * time.Minute
 }
 
+// loadSyncState is what the last pass knew: kept in a library file's meta, or for a folder library in a folder of
+// the config folder (syncStateDir). The pages as last synced, to merge (MergePage), are kept beside it.
 func (a *app) loadSyncState() *SyncState {
 	st := &SyncState{}
 	if a.settingsStore != nil {
 		if b := a.settingsStore.Meta(syncStateKey); b != nil {
 			json.Unmarshal(b, st)
 		}
+		st.Bases = MetaBases{Store: a.settingsStore}
+	} else if dir := a.syncStateDir(); dir != "" {
+		if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil {
+			json.Unmarshal(b, st)
+		}
+		st.Bases = DirBases{Root: filepath.Join(dir, "bases")}
 	}
 	return st
 }
 
 func (a *app) saveSyncState(st *SyncState) {
+	b, _ := json.Marshal(st)
 	if a.settingsStore != nil {
-		b, _ := json.Marshal(st)
 		a.settingsStore.SetMeta(syncStateKey, b)
+	} else if dir := a.syncStateDir(); dir != "" {
+		if os.MkdirAll(dir, 0o700) == nil {
+			WriteFilePrivate(filepath.Join(dir, "state.json"), b)
+		}
 	}
+}
+
+// syncStateDir is where a folder library's sync keeps what it knows: beside the settings, in a folder named for
+// the library's place, so that two folders synced to two places do not mix. "" when the settings are not kept (a test's).
+func (a *app) syncStateDir() string {
+	if a.settingsFile == "" {
+		return ""
+	}
+	root, err := filepath.Abs(a.lib.Root)
+	if err != nil {
+		root = a.lib.Root
+	}
+	return filepath.Join(filepath.Dir(a.settingsFile), "sync", HashOf([]byte(root))[:16])
+}
+
+// syncFS is the library's files as the sync sees them: a library file's tree, or the folder of a folder library.
+func (a *app) syncFS() (FS, string) {
+	if st := a.store(); st != nil {
+		return st, StoreRoot
+	}
+	return a.lib.FS, a.lib.Root
+}
+
+// libWrites counts the writes to the library: the store's own count, or the app's for a folder library
+// (countFS); a pass starts once it has been still a moment.
+func (a *app) libWrites() uint64 {
+	switch fs := a.lib.FS.(type) {
+	case *Store:
+		return fs.Writes.Load()
+	case *countFS:
+		return fs.n.Load()
+	}
+	return 0
+}
+
+// countFS is a folder library's disk, counting the writes made through it: the folder has no count of its own, as
+// a library file has (Store.Writes). What other programs write is not counted; the round of minutes takes it.
+type countFS struct {
+	FS
+	n atomic.Uint64
+}
+
+func (c *countFS) WriteFile(name string, data []byte) error {
+	c.n.Add(1)
+	return c.FS.WriteFile(name, data)
+}
+func (c *countFS) Rename(oldName, newName string) error {
+	c.n.Add(1)
+	return c.FS.Rename(oldName, newName)
+}
+func (c *countFS) Remove(name string) error    { c.n.Add(1); return c.FS.Remove(name) }
+func (c *countFS) RemoveAll(name string) error { c.n.Add(1); return c.FS.RemoveAll(name) }
+
+// syncSkip is the top folders not to sync: the collections chosen out, and a folder library's .git.
+func (a *app) syncSkip() map[string]bool {
+	skip := map[string]bool{".git": true}
+	for _, d := range a.settings.SyncOff {
+		skip[d] = true
+	}
+	return skip
 }
 
 // syncNow makes a pass in the background: what is typed is saved first, the library is read again if
@@ -143,26 +226,20 @@ func (a *app) syncNow() {
 	if a.sy.busy || a.settings.SyncMode == "" {
 		return
 	}
-	st := a.store()
-	if st == nil {
-		a.sy.err = "senkron, tek dosyalı kitaplıkta çalışır"
-		return
-	}
+	st := a.store() // nil for a folder library: no backup of a file before the pass, the files are there as they are
+	fsys, root := a.syncFS()
 	remote, err := a.syncRemote()
 	if err != nil {
 		a.sy.err, a.sy.status = err.Error(), T("senkron ayarlı değil")
 		return
 	}
 	a.flush()
-	backupDir := a.backupDirOf() // the backup before it is made in the background too: compressing
-	if a.settings.NoBackup {     // a big library's file took the window a second, at every pass
+	backupDir := a.backupDirOf()          // the backup before it is made in the background too: compressing
+	if a.settings.NoBackup || st == nil { // a big library's file took the window a second, at every pass
 		backupDir = ""
 	}
 	a.sy.busy, a.sy.status, a.sy.last = true, T("eşitleniyor…"), a.clock()
-	skip := map[string]bool{}
-	for _, d := range a.settings.SyncOff {
-		skip[d] = true
-	}
+	skip := a.syncSkip()
 	state := a.loadSyncState()
 	state.AllowRemovals, a.sy.allow = a.sy.allow, false
 	go func() {
@@ -172,10 +249,12 @@ func (a *app) syncNow() {
 				pruneBackups(backupDir, time.Now())
 			}
 		}
-		res, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now())
+		res, err := SyncOnce(fsys, root, remote, state, skip, time.Now())
+		changes, cerr := remoteChanges(remote) // what this pass wrote moved it: that is not news for the next ask
 		a.do(func() error {
 			a.sy.busy = false
-			a.sy.writes, a.sy.movedAt = st.Writes.Load(), time.Time{} // what came down is not something to send
+			a.sy.changes, a.sy.changesKnown = changes, cerr == nil
+			a.sy.writes, a.sy.movedAt = a.libWrites(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			switch {
 			case err != nil:
@@ -190,15 +269,15 @@ func (a *app) syncNow() {
 					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
 				}
 				a.seedAfterSync(res)
-				a.purgeTrash()                  // what came down may be a trash that has run out
-				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
-				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
+				a.purgeTrash()                             // what came down may be a trash that has run out
+				a.lookForConflicts()                       // the badge says "çakışma: n" when it is done
+				if res.Pulled+res.Removed+res.Merged > 0 { // something came: the window takes it, as it takes what an agent writes
 					a.checkDisk()
 					a.reloadLibrary()
 				}
 				// told only when something came, or clashed: what was sent is not news, and passes run a moment
 				// after every pause in the typing
-				if res.Pulled+res.Removed+len(res.Conflicts) > 0 {
+				if res.Pulled+res.Removed+res.Merged+len(res.Conflicts) > 0 {
 					a.notice = T("Senkron: ") + syncSummary(res)
 					tone := toastOK
 					if len(res.Conflicts) > 0 {
@@ -218,8 +297,8 @@ func (a *app) syncTick(c *ui.Context) {
 		return
 	}
 	now := a.clock()
-	if st := a.store(); st != nil && !a.sy.tried.IsZero() {
-		if w := st.Writes.Load(); w != a.sy.writes { // written since: the pass waits for the writing to stop
+	if !a.sy.tried.IsZero() {
+		if w := a.libWrites(); w != a.sy.writes { // written since: the pass waits for the writing to stop
 			a.sy.writes, a.sy.movedAt = w, now
 		}
 	}
@@ -232,15 +311,65 @@ func (a *app) syncTick(c *ui.Context) {
 		c.After(syncQuiet - now.Sub(a.sy.movedAt) + 50*time.Millisecond)
 		return
 	}
+	if a.settings.SyncMode == "server" && !a.sy.behind {
+		if now.Sub(a.sy.askedAt) >= syncPoll {
+			a.askChanges()
+		}
+		wait := syncPoll - now.Sub(a.sy.askedAt)
+		if wait <= 0 { // not asked: a pass is going on, and its end asks for a frame
+			wait = syncPoll
+		}
+		c.After(wait + 50*time.Millisecond)
+		return
+	}
 	c.After(30 * time.Second)
+}
+
+// remoteChanges is the remote's change counter, when it keeps one.
+func remoteChanges(r Remote) (int64, error) {
+	if cc, ok := r.(ChangeCounter); ok {
+		return cc.Changes()
+	}
+	return 0, errors.New("no change counter")
+}
+
+// askChanges asks the server, in the background, whether anything was written to the account since the last pass;
+// a pass starts if it was.
+func (a *app) askChanges() {
+	if a.sy.asking || a.sy.busy {
+		return
+	}
+	remote, err := a.syncRemote()
+	if err != nil {
+		return
+	}
+	a.sy.asking, a.sy.askedAt = true, a.clock()
+	go func() {
+		defer a.guard()
+		n, err := remoteChanges(remote)
+		a.do(func() error {
+			a.sy.asking = false
+			if err != nil || a.sy.busy { // a pass going on reads the counter at its end
+				return nil
+			}
+			if a.sy.changesKnown && n != a.sy.changes {
+				a.sy.tried = time.Time{} // the next frame's syncTick starts a pass
+			}
+			a.sy.changes, a.sy.changesKnown = n, true
+			return nil
+		})
+	}()
 }
 
 // syncSummary is what a pass did, in the window's language.
 func syncSummary(r SyncResult) string {
-	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
+	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+r.Merged+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
 		return T("Eşit: değişiklik yok")
 	}
 	s := Tf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
+	if r.Merged > 0 {
+		s += Tf(", %d merged", r.Merged)
+	}
 	if n := r.Deleted + r.Removed; n > 0 {
 		s += Tf(", %d silme", n)
 	}
@@ -303,8 +432,8 @@ func (a *app) syncAtQuit(wait time.Duration) {
 			time.Sleep(50 * time.Millisecond)
 		}
 		a.mu.Lock()
-		st := a.store()
-		if a.settings.SyncMode == "" || a.sy.busy || st == nil || st.Writes.Load() == a.sy.writes && a.sy.movedAt.IsZero() {
+		fsys, root := a.syncFS()
+		if a.settings.SyncMode == "" || a.sy.busy || a.libWrites() == a.sy.writes && a.sy.movedAt.IsZero() {
 			a.mu.Unlock()
 			return
 		}
@@ -313,10 +442,7 @@ func (a *app) syncAtQuit(wait time.Duration) {
 			a.mu.Unlock()
 			return
 		}
-		skip := map[string]bool{}
-		for _, d := range a.settings.SyncOff {
-			skip[d] = true
-		}
+		skip := a.syncSkip()
 		state := a.loadSyncState()
 		a.sy.busy = true
 		a.mu.Unlock()
@@ -324,7 +450,7 @@ func (a *app) syncAtQuit(wait time.Duration) {
 		go func() {
 			defer close(done)
 			defer a.guard()
-			if _, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now()); err == nil {
+			if _, err := SyncOnce(fsys, root, remote, state, skip, time.Now()); err == nil {
 				a.mu.Lock()
 				a.saveSyncState(state)
 				a.mu.Unlock()
@@ -349,10 +475,7 @@ func (a *app) conflictFiles() []string {
 
 // lookForConflicts goes through the library's file names in the background; the window gets the list when it is done.
 func (a *app) lookForConflicts() {
-	st := a.store()
-	if st == nil {
-		return
-	}
+	st, root := a.syncFS()
 	if a.sy.conflictsBusy { // what it finds may be from before: it looks again when done
 		a.sy.conflictsAgain = true
 		return
@@ -376,7 +499,7 @@ func (a *app) lookForConflicts() {
 				}
 			}
 		}
-		walk(StoreRoot, "")
+		walk(root, "")
 		sortStrings(found)
 		a.do(func() error {
 			a.sy.conflicts, a.sy.conflictsAt, a.sy.conflictsBusy = found, time.Now(), false
@@ -413,11 +536,8 @@ func mainOfConflict(name string) string {
 
 // resolveConflict: use the copy (it takes the place of the main file) or throw it away; either way the copy goes.
 func (a *app) resolveConflict(name string, use bool) error {
-	st := a.store()
-	if st == nil {
-		return errors.New("tek dosyalı kitaplık değil")
-	}
-	abs := StoreRoot + "/" + name
+	st, root := a.syncFS()
+	abs := filepath.Join(root, filepath.FromSlash(name))
 	if use {
 		b, err := st.ReadFile(abs)
 		if err != nil {
@@ -427,7 +547,7 @@ func (a *app) resolveConflict(name string, use bool) error {
 		if main == "" {
 			return errors.New("asıl dosya bulunamadı")
 		}
-		if err := st.WriteFile(StoreRoot+"/"+main, b); err != nil {
+		if err := st.WriteFile(filepath.Join(root, filepath.FromSlash(main)), b); err != nil {
 			return err
 		}
 	}

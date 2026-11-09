@@ -203,6 +203,17 @@ func (s *Store) SetMeta(key string, value []byte) error {
 	return nil
 }
 
+// DeleteMeta takes away what is kept under key.
+func (s *Store) DeleteMeta(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.meta[key]; ok {
+		delete(s.meta, key)
+		s.persist()
+	}
+	return nil
+}
+
 // Snapshot: a browser has no file to copy; the library is exported or synced instead.
 func (s *Store) Snapshot(dst string) error {
 	return errors.New("tarayıcıda dosya kopyası yok: dışa aktar ya da eşitle")

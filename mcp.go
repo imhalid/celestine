@@ -175,6 +175,7 @@ func (a *app) loadSettings() {
 			json.Unmarshal(data, &a.settings)
 		}
 	}
+	moved := a.loadSecrets()
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
@@ -182,13 +183,17 @@ func (a *app) loadSettings() {
 	a.settings.Caret, a.settings.CaretName = int(a.caretKind), caretName(a.caretKind)
 	if a.settings.Token == "" {
 		a.settings.Token = newToken()
+		moved = true
+	}
+	if moved {
 		a.saveSettings()
 	}
 }
 
 func (a *app) saveSettings() {
 	a.settingsDirty = false
-	data, _ := json.MarshalIndent(a.settings, "", "  ")
+	kept := a.settingsToSave()
+	data, _ := json.MarshalIndent(kept, "", "  ")
 	if a.settingsStore != nil {
 		if err := a.settingsStore.SetMeta(SettingsKey, data); err != nil {
 			a.saveErr = err.Error()
