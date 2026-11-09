@@ -157,13 +157,13 @@ async function versions(request, env, url) {
   return Response.json(list);
 }
 
-// GET /changes: the account's change counter (see files()). An account of the old kind of token has none: 0, always.
+// GET /changes: the account's change counter (see files()).
 async function changes(request, env) {
   if (request.method !== "GET") return new Response("no", { status: 405 });
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await userOfToken(env, token);
-  if (!user && !legacyAccount(env, token)) return new Response("no", { status: 401 });
-  const row = user ? await env.DB.prepare("SELECT changes FROM users WHERE id=?").bind(user.id).first() : null;
+  if (!user) return new Response("no", { status: 401 });
+  const row = await env.DB.prepare("SELECT changes FROM users WHERE id=?").bind(user.id).first();
   return Response.json({ changes: row?.changes || 0 }, { headers: { "cache-control": "no-store" } });
 }
 
