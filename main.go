@@ -577,9 +577,9 @@ func main() {
 			}
 			a.bringToFront()
 		})
-		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
-		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
-		w.OnBlur(func() { a.do(func() error { a.sy.behind = true; return nil }) }) // the server is not asked for changes behind other windows
+		w.OnClosed(mygo.App.Quit) // the window closed is the app closed: the hidden quick note panel does not keep it on
+		w.OnFocus(a.windowIn)     // back from another device: what it wrote comes
+		w.OnBlur(a.windowOut)     // the server is not asked for changes behind other windows
 		if runtime.GOOS == "windows" {
 			w.SetIcon(winIcon) // the title bar and taskbar
 		} else {
@@ -678,6 +678,18 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	th.CodeFont = a.monoFont()
 	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
 	return tok, th
+}
+
+// windowIn and windowOut are the window's coming forward and going behind. They do their work off the window's thread, not in the call
+// that raised them: showing or focusing a window is done by a frame that holds the app's lock (the welcome's Başla), and the system
+// answers with the focus at once, in that very call. Taking the lock there waited for the frame that was waiting for it, and the
+// window froze (TestWindowFocusDoesNotWaitForTheLock).
+func (a *app) windowIn() {
+	go func() { defer a.guard(); a.do(func() error { a.windowFocused(); return nil }) }()
+}
+
+func (a *app) windowOut() {
+	go func() { defer a.guard(); a.do(func() error { a.sy.behind = true; return nil }) }()
 }
 
 // open shows page p, saving the page that was open first.

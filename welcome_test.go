@@ -152,3 +152,29 @@ func TestWelcomeSkip(t *testing.T) {
 		t.Fatalf("the welcome did not end on Esc: on %v, done %v", a.wel.on, a.settings.WelcomeDone)
 	}
 }
+
+// Showing or focusing the app's window from a frame that holds the app's lock (Başla does) makes the system answer with the focus in that
+// same call: the answer must not wait for the lock, or the window freezes.
+func TestWindowFocusDoesNotWaitForTheLock(t *testing.T) {
+	a := welcomeApp(t)
+	a.mu.Lock()
+	done := make(chan struct{})
+	go func() { a.windowIn(); a.windowOut(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		a.mu.Unlock()
+		t.Fatal("the focus handlers wait for the lock a frame holds")
+	}
+	a.mu.Unlock()
+	for i := 0; i < 200; i++ { // and they do their work once the frame lets go
+		a.mu.Lock()
+		behind := a.sy.behind
+		a.mu.Unlock()
+		if behind {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("going behind was not noted")
+}
