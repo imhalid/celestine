@@ -256,6 +256,7 @@ type app struct {
 	settingsStore *Store
 	importNote    string                  // what the last import said, in the settings
 	embedCache    map[string][]string     // the first lines of the pages embedded (embed.go)
+	queryCache    map[string]queryResult  // what the query blocks found (queryblock.go)
 	ctxCache      map[string][]seg        // the lines that link to a page (backlinks.go)
 	chipW         map[string]float32      // how wide the text of each chip is (chips.go)
 	autoCovers    map[uint64]*autoCover   // the patterns made for the covers of the pages shown lately (autocover.go)
