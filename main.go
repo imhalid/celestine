@@ -155,6 +155,7 @@ type app struct {
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
+	bsel        blockSel           // blocks chosen from the keyboard (blocksel.go)
 	toasts      toastState         // the toasts up (toast.go)
 	statCache   libStats           // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
@@ -1007,6 +1008,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
 		a.editorR = r
+		a.drawBlockSel(p, r)
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)

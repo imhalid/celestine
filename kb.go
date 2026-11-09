@@ -187,6 +187,9 @@ func (a *app) kbKeys(c *ui.Context) {
 	if !ok {
 		return
 	}
+	if a.bsel.on && a.blockSelKey(r) { // the blocks chosen take their keys first
+		return
+	}
 	if r == 0x1b { // Esc: leaves what was begun
 		switch {
 		case k.help:
@@ -295,6 +298,10 @@ func (a *app) kbKeys(c *ui.Context) {
 	case r == 'i' || r == 'a':
 		if a.page != nil && !a.noPage() {
 			a.kbLeave()
+		}
+	case r == 'V':
+		if a.page != nil && !a.noPage() {
+			a.startBlockSel()
 		}
 	case r == 'f':
 		k.hints, k.typed = true, ""
