@@ -207,7 +207,7 @@ func (a *app) appThemePicker(c *ui.Context) {
 	ui.Column(c).Gap(14).Children(func() {
 		ui.Column(c).Gap(3).Children(func() {
 			ui.Text(c, T("Renk teması")).FontSize(15).FontWeight(620).TextColor(cl.Text)
-			ui.Text(c, T("Bütün arayüzün rengi: sayfa, kenar çubuğu, alanlar, çizgiler ve vurgu. ")+a.appTheme().name+T(" seçili.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			ui.Text(c, T("Bütün arayüzün rengi: sayfa, kenar çubuğu, alanlar, çizgiler ve vurgu. ")+T(a.appTheme().name)+T(" seçili.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 		})
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for i, th := range appThemes {

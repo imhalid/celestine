@@ -1464,7 +1464,7 @@ func (a *app) status(c *ui.Context) {
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
-				Label("MCP açık: ayarlar").Role(ui.RoleButton)
+				Label(T("MCP açık: ayarlar")).Role(ui.RoleButton)
 			ryugo.Tooltip(c, m, T("MCP sunucusu açık · ")+a.mcpURL())
 			if m.Hovered() {
 				m.Background(t.SurfaceHover)

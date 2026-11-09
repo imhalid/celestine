@@ -124,14 +124,14 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	beta := a.settings.UpdateChannel == "beta"
 	auto := a.settings.UpdateAuto
 	url := a.updateURLOf()
-	status := "Sürüm " + version
+	status := T("Sürüm ") + version
 	switch {
 	case a.updRel != nil:
-		status += " · yeni sürüm: " + a.updRel.Version
+		status += T(" · yeni sürüm: ") + a.updRel.Version
 	case a.updErr != "":
-		status += " · son denetim olmadı: " + a.updErr
+		status += T(" · son denetim olmadı: ") + a.updErr
 	case a.settings.UpdateAt > 0:
-		status += " · son denetim: " + time.Unix(a.settings.UpdateAt, 0).Format("2 Jan 15:04")
+		status += T(" · son denetim: ") + time.Unix(a.settings.UpdateAt, 0).Format("2 Jan 15:04")
 	}
 	settingGroup(c, "set-update",
 		func() {
@@ -142,7 +142,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 		func() {
 			settingRow(c, "Durum", status, func() {
 				ui.Row(c).Gap(8).Children(func() {
-					if ryugo.Button(c.Key("upd-check"), "Şimdi denetle", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("upd-check"), T("Şimdi denetle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.checkUpdate(true)
 					}
 					if a.updRel != nil && ryugo.Button(c.Key("upd-show"), T("Yeni sürümü göster"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {

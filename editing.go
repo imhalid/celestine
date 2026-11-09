@@ -232,16 +232,16 @@ func (a *app) settingsText(c *ui.Context) {
 		func() {
 			settingRow(c, "Paragraf aralığı", "İki paragraf arasındaki boşluk, yazı boyutunun katı olarak.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-gap"), &gap, 0, 1.5, ryugo.SliderOptions{Label: "Paragraf aralığı", Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) + " em" }})
+					ryugo.Slider(c.Key("set-gap"), &gap, 0, 1.5, ryugo.SliderOptions{Label: T("Paragraf aralığı"), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) + " em" }})
 				})
 			})
 		},
 		func() {
 			settingRow(c, "İlk satır girintisi", "Basılı yazıdaki gibi paragrafın ilk satırı içeriden başlar; başlık, liste ve alıntıdan sonrakine uygulanmaz.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-indent"), &ind, 0, 3, ryugo.SliderOptions{Label: "İlk satır girintisi", Step: 0.25, Format: func(v float64) string {
+					ryugo.Slider(c.Key("set-indent"), &ind, 0, 3, ryugo.SliderOptions{Label: T("İlk satır girintisi"), Step: 0.25, Format: func(v float64) string {
 						if v == 0 {
-							return "yok"
+							return T("yok")
 						}
 						return strconv.FormatFloat(v, 'f', 2, 64) + " em"
 					}})
@@ -273,7 +273,7 @@ func (a *app) settingsText(c *ui.Context) {
 			}
 			settingRow(c, "Kayıt gecikmesi", "Son yazıdan bu kadar sonra kaydedilir.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: "Kayıt gecikmesi", Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " sn" }})
+					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: T("Kayıt gecikmesi"), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + T(" sn") }})
 				})
 			})
 		})
@@ -289,7 +289,7 @@ func (a *app) settingsText(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool) func() {
 		return func() {
 			on := *v
-			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(title) })
+			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(T(title)) })
 			if on != *v {
 				*v = on
 				a.saveSettings()
@@ -336,11 +336,11 @@ func (a *app) settingsText(c *ui.Context) {
 		func() {
 			settingRow(c, "Tab uzunluğu", "Tab'ın yazdığı boşluk sayısı; 0 gerçek bir sekme karakteridir.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-tabs"), &tabs, 0, 8, ryugo.SliderOptions{Label: "Tab uzunluğu", Step: 1, Format: func(v float64) string {
+					ryugo.Slider(c.Key("set-tabs"), &tabs, 0, 8, ryugo.SliderOptions{Label: T("Tab uzunluğu"), Step: 1, Format: func(v float64) string {
 						if v == 0 {
-							return "sekme"
+							return T("sekme")
 						}
-						return strconv.Itoa(int(v)) + " boşluk"
+						return strconv.Itoa(int(v)) + T(" boşluk")
 					}})
 				})
 			})
@@ -348,7 +348,7 @@ func (a *app) settingsText(c *ui.Context) {
 		func() {
 			settingRow(c, "Caret uykusu", "Yazmadan bu kadar durunca caret uyur.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: "Caret uykusu", Step: 1, Format: func(v float64) string { return strconv.Itoa(int(v)) + " sn" }})
+					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: T("Caret uykusu"), Step: 1, Format: func(v float64) string { return strconv.Itoa(int(v)) + T(" sn") }})
 				})
 			})
 		},

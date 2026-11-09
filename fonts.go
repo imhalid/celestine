@@ -286,20 +286,20 @@ func (a *app) settingsFonts(c *ui.Context) {
 			ui.Column(c).Gap(10).Children(func() {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 					ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-						ui.Text(c, role.name).FontSize(15).FontWeight(620).TextColor(cl.Text)
-						ui.Text(c, role.help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+						ui.Text(c, T(role.name)).FontSize(15).FontWeight(620).TextColor(cl.Text)
+						ui.Text(c, T(role.help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 					})
 					label := cur
 					switch {
 					case label == "" && r == fontMono:
-						label = "Sistem (tek aralıklı)"
+						label = T("Sistem (tek aralıklı)")
 					case label == "" && r == fontEditor:
-						label = "Uygulamanınki"
+						label = T("Uygulamanınki")
 					case label == "":
-						label = "Sistem"
+						label = T("Sistem")
 					}
 					b := ui.Row(c.Key("fontbtn"+strconv.Itoa(ri))).Gap(6).Padding(6, 12).Radius(rad(8)).Background(cl.Fill).AlignItems(ui.Center).
-						Label(role.name + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						Label(T(role.name) + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					b.Children(func() {
 						ui.Text(c, label).FontSize(13).Font(a.stackOf(cur, ryugo.FontSans)).TextColor(cl.Text).MaxLines(1)
 						ui.Text(c, map[bool]string{true: "▴", false: "▾"}[a.fonts.open[ri]]).FontSize(11).TextColor(cl.Muted)
@@ -308,7 +308,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 						a.fonts.open[ri] = !a.fonts.open[ri]
 					}
 				})
-				ui.Text(c, role.sample).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: "monospace", false: ryugo.FontSans}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
+				ui.Text(c, T(role.sample)).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: "monospace", false: ryugo.FontSans}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
 				if !a.fonts.open[ri] {
 					return
 				}
@@ -350,7 +350,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				ui.Row(c).Gap(8).Children(func() {
 					for _, k := range []string{"Okuma", "Yazı", "Kod"} {
 						k := k
-						if ryugo.Button(c.Key("fpreset"+k), k, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
+						if ryugo.Button(c.Key("fpreset"+k), T(k), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
 							a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
 						}
 					}
@@ -372,7 +372,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 		func() {
 			settingRow(c, "Yazı kalınlığı", "Editör metninin kalınlığı; yazı tipinde o kalınlık yoksa en yakını çizilir.", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-weight"), &weight, 300, 700, ryugo.SliderOptions{Label: "Yazı kalınlığı", Step: 100, Format: func(v float64) string { return strconv.Itoa(int(v)) }})
+					ryugo.Slider(c.Key("set-weight"), &weight, 300, 700, ryugo.SliderOptions{Label: T("Yazı kalınlığı"), Step: 100, Format: func(v float64) string { return strconv.Itoa(int(v)) }})
 				})
 			})
 		})

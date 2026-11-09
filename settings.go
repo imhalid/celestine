@@ -152,7 +152,7 @@ func (a *app) settingsChips(c *ui.Context) {
 			for i, s := range settingsSections {
 				i, sel := i, a.settingsTab == i
 				e := ui.Row(c.Key("schip:"+s.name)).Height(36).Padding(0, 14).Gap(7).Radius(rad(18)).AlignItems(ui.Center).Shrink(0).
-					Label(s.name).Role(ui.RoleButton).Border(1, cl.Hairline)
+					Label(T(s.name)).Role(ui.RoleButton).Border(1, cl.Hairline)
 				if sel {
 					e.Background(ryugo.Mix(cl.Card, cl.Accent, 0.22)).Border(1, cl.Accent.Alpha(0.5))
 				} else {
@@ -179,7 +179,7 @@ func (a *app) settingsNav(c *ui.Context) {
 		for i, s := range settingsSections {
 			sel := a.settingsTab == i
 			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
-				Label(s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Label(T(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
 			hov := e.AnimateTo("hov", b2f(e.Hovered() && !sel), fadeQuick)
 			if on > 0.01 {
@@ -305,7 +305,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		func() {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
-					ui.Text(c, "Tema").FontSize(15).FontWeight(620).TextColor(cl.Text)
+					ui.Text(c, T("Tema")).FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Sistemin görünümünü izler ya da hep açık ya da koyu olur.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Wrap().Children(func() {
@@ -330,7 +330,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-width", func() {
 		settingRow(c, "Sayfa genişliği", "Metin sütununun genişliği.", func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-width-s"), &w, 520, 1100, ryugo.SliderOptions{Label: "Sayfa genişliği", Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
+				ryugo.Slider(c.Key("set-width-s"), &w, 520, 1100, ryugo.SliderOptions{Label: T("Sayfa genişliği"), Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
 			})
 		})
 	})
@@ -342,7 +342,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-corner", func() {
 		settingRow(c, "Köşeler", "Bütün köşeler tek bir ölçüden hesaplanır: 0 köşeli, 100 tasarımın kendisi, 200 iki kat yuvarlak.", func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: "Köşe yuvarlaklığı", Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
+				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: T("Köşe yuvarlaklığı"), Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
 			})
 		})
 	})
@@ -436,14 +436,14 @@ func (a *app) settingsEditor(c *ui.Context) {
 		func() {
 			settingRow(c, "Yazı boyutu", "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-font"), &fs, 13, 24, ryugo.SliderOptions{Label: "Yazı boyutu", Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
+					ryugo.Slider(c.Key("set-font"), &fs, 13, 24, ryugo.SliderOptions{Label: T("Yazı boyutu"), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
 				})
 			})
 		},
 		func() {
 			settingRow(c, "Satır aralığı", "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-lh"), &lh, 1.3, 2, ryugo.SliderOptions{Label: "Satır aralığı", Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
+					ryugo.Slider(c.Key("set-lh"), &lh, 1.3, 2, ryugo.SliderOptions{Label: T("Satır aralığı"), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
 				})
 			})
 		},
@@ -490,7 +490,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool, invert bool) func() {
 		return func() {
 			on := *v != invert
-			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(title) })
+			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(T(title)) })
 			if on != (*v != invert) {
 				*v = on != invert
 				a.saveSettings()
@@ -514,12 +514,12 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	}
 	row := func(label, text, key string) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: T("Kopyala") + ": " + T(label)})
 				})
 			})
 		}
@@ -530,14 +530,14 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
 			row("Ayar dosyası", a.settingsFile, "copy-settings"),
 			func() {
-				settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa", "Hepsi düz dosya: başka bir editörle de açılır.", func() {})
+				settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages), "Hepsi düz dosya: başka bir editörle de açılır.", func() {})
 			})
 		return
 	}
 	settingGroup(c, "set-lib",
 		row("Kitaplık dosyası", store.File, "copy-root"),
 		func() {
-			settingRow(c, strconv.Itoa(len(a.lib.Collections))+" koleksiyon, "+strconv.Itoa(pages)+" sayfa",
+			settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages),
 				"Hepsi bu tek dosyada; ayarlar ve MCP anahtarı da. Dosyayı uygulamanın yanında taşıman yeter.", func() {})
 		},
 		func() { a.settingsImport(c) },
@@ -593,12 +593,12 @@ func (a *app) settingsMCP(c *ui.Context) {
 	}
 	copyRow := func(label, text, key string) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: "Kopyala: " + label})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: T("Kopyala") + ": " + T(label)})
 				})
 			})
 		}
@@ -669,7 +669,7 @@ func (a *app) settingsQuick(c *ui.Context) {
 		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				in := a.fieldMenu(ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}), &a.quickKeyDraft, fieldOpts{oneLine: true}).Width(190)
-				apply := ryugo.Button(c.Key("set-quick-ok"), "Uygula", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
+				apply := ryugo.Button(c.Key("set-quick-ok"), T("Uygula"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if apply && a.quick != nil {
 					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {
 						a.quickKeyErr = err.Error()
@@ -692,9 +692,9 @@ func settingStack(c *ui.Context, title, help string, control func()) {
 	cl := ryugo.From(c).Colors
 	ui.Column(c).Gap(8).Children(func() {
 		ui.Column(c).Gap(3).Children(func() {
-			ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+			ui.Text(c, T(title)).FontSize(15).FontWeight(620).TextColor(cl.Text)
 			if help != "" {
-				ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, T(help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			}
 		})
 		control()

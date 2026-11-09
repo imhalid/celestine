@@ -114,7 +114,7 @@ func (a *app) syncRemote() (Remote, error) {
 	switch a.settings.SyncMode {
 	case "dir":
 		if strings.TrimSpace(a.settings.SyncDir) == "" {
-			return nil, errors.New("klasör seçilmemiş")
+			return nil, errors.New(T("klasör seçilmemiş"))
 		}
 		r = DirRemote{Root: a.settings.SyncDir}
 	case "server":
@@ -666,8 +666,8 @@ func (a *app) settingsSync(c *ui.Context) {
 	dir, url, token := s.SyncDir, s.SyncURL, s.SyncToken
 	field := func(key, label string, v *string, secret bool) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: label}, func() {
-				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: label, Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
+			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
+				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: T(label), Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
 				_ = secret
 				_ = in
 			})
@@ -695,8 +695,8 @@ func (a *app) settingsSync(c *ui.Context) {
 			func() {
 				settingRow(c, "Uçtan uca şifreleme", "Şart: dosyalar bu bilgisayarda şifrelenir, adları da gizlenir; sunucu ya da klasör yalnız anlamsız bloklar görür. Parola olmadan eşitleme başlamaz. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: "Parola", Size: ryugo.Sm, Placeholder: "Parola"}), &a.sy.pass, fieldOpts{oneLine: true})
-						if ryugo.Button(c.Key("sync-setpass"), map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: T("Parola"), Size: ryugo.Sm, Placeholder: T("Parola")}), &a.sy.pass, fieldOpts{oneLine: true})
+						if ryugo.Button(c.Key("sync-setpass"), T(map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc]), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 							a.setSyncPassphrase(a.sy.pass)
 						}
 					})

@@ -53,7 +53,7 @@ func (a *app) caretPlayground(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ct := &a.caretTry
 	if !ct.seen {
-		ct.text, ct.was, ct.seen = tryText, tryText, true
+		ct.text, ct.was, ct.seen = T(tryText), T(tryText), true
 	}
 	size := a.fontSize()
 	ui.Column(c).FillWidth().Gap(6).Children(func() {
