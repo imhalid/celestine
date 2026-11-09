@@ -159,7 +159,7 @@ func TestWindowFocusDoesNotWaitForTheLock(t *testing.T) {
 	a := welcomeApp(t)
 	a.mu.Lock()
 	done := make(chan struct{})
-	go func() { a.windowIn(); a.windowOut(); close(done) }()
+	go func() { a.windowIn(); a.windowOut(); close(done) }() // forward, then behind: it ends behind
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):

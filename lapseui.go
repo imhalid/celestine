@@ -11,12 +11,16 @@ import (
 )
 
 // The time-lapse of a page, after Lev Manovich's Text Time-lapse: the text,
-// in place of the editor while it is on, each word in the color of the day it
-// was written. A day is a version: the copies kept of the page that day, the
-// last of them, and the page as it is now for the day it was last written.
-// The status bar names the days, v1 v2 …: a click lights a day's words, the
-// rest faint; a double click leaves its words alone, the rest going and the
-// ones that stay moving up into their places.
+// each word in the color of the day it was written. A day is a version: the
+// copies kept of the page that day, the last of them, and the page as it is
+// now for the day it was last written. It is on by default (NoLapse in the
+// settings turns it off), and it is the editor itself that is colored (the
+// editor's Spans), so that one writes in it as anywhere: what is typed is
+// today's, until the page is worked out again once the text has been still a
+// moment. The status bar names the days, v1 v2 …: a click lights a day's words,
+// the rest faint; a double click leaves its words alone, the rest going and the
+// ones that stay moving up into their places: that is a view to look at, with
+// nothing to type in, and Esc leaves it.
 
 var iconLapse = icon(`<path d="M4 6.5h9"/><path d="M4 12h16"/><path d="M4 17.5h6"/><circle cx="17.5" cy="6.5" r="2"/><circle cx="14" cy="17.5" r="2"/>`)
 
@@ -30,7 +34,23 @@ type lapseState struct {
 	lit   int         // the version clicked, from 1: its words bright, the rest faint
 	solo  int         // the version double-clicked: its words alone
 	held  int         // the version double-clicked, whose release is still to come: it is no click of its own
+
+	paras   map[int][]lapseTok // the words of each paragraph of the editor, and the version each was written in, as of when they were worked out
+	ver     int                // changes when the colors do: the editor lays its paragraphs out again (spansVersion)
+	dark    bool               // the colors are for a dark ground
+	docVer  uint64             // the version of the document the words were worked out from
+	docSeen uint64             // the version of the document last seen, and when it was: the words are worked out again once it has been still
+	seenAt  time.Time
 }
+
+// lapseTok is a word of a paragraph of the editor and the version it was written in.
+type lapseTok struct {
+	text string
+	born int
+}
+
+// lapseStill is how long the text is still before the words are worked out again.
+const lapseStill = 900 * time.Millisecond
 
 // lapseWord is how a word moves: to its new place when words before it go,
 // fading as it goes or comes; one that goes is gone before the others are
@@ -54,23 +74,68 @@ var lapsePara = ui.ElementTransition{
 	Exit:     &ui.Motion{Opacity: 0, Collapse: true},
 }
 
-// toggleLapse shows the time-lapse of the page in place of its editor, or
-// the editor again.
+// toggleLapse turns the time-lapse's colors on or off for every page: it is a way the editor looks, kept in the settings.
 func (a *app) toggleLapse() {
-	if a.lapse.on {
-		a.lapse = lapseState{}
-		a.refocus = true
-		return
-	}
 	if a.page == nil || a.noPage() {
 		return
 	}
-	if _, ok := historyOf(a.page); !ok {
-		a.notice = "Sürüm geçmişi yalnız tek dosya kitaplığında tutulur"
+	if a.settings.NoLapse {
+		if _, ok := historyOf(a.page); !ok {
+			a.notice = "Sürüm geçmişi yalnız tek dosya kitaplığında tutulur"
+			return
+		}
+	}
+	a.settings.NoLapse = !a.settings.NoLapse
+	a.saveSettings()
+	a.lapse = lapseState{}
+	a.refocus = true
+}
+
+// lapseAuto keeps the time-lapse as the settings say, for the page the active pane shows: it is on when the page has a history, worked
+// out in the background; and it is worked out again once the text has been still, so that what was written since is counted.
+func (a *app) lapseAuto(c *ui.Context, p *Page) {
+	l := &a.lapse
+	if a.inactivePane() || a.doc == nil {
 		return
 	}
-	a.flush()
-	a.lapse = lapseState{on: true, page: a.page}
+	_, ok := historyOf(p)
+	switch want := !a.settings.NoLapse && ok; {
+	case want && !(l.on && l.page == p):
+		*l = lapseState{on: true, page: p}
+	case !want && l.on:
+		*l = lapseState{}
+	}
+	if !l.on || l.page != p {
+		return
+	}
+	if dark := ryugo.From(c).Dark; dark != l.dark {
+		l.dark, l.ver = dark, l.ver+1
+	}
+	if l.words == nil {
+		if !l.busy {
+			a.startLapse()
+		}
+		return
+	}
+	if v := a.doc.Version(); v != l.docSeen {
+		l.docSeen, l.seenAt = v, c.Now()
+	}
+	if l.docSeen != l.docVer && !l.busy {
+		if wait := lapseStill - c.Now().Sub(l.seenAt); wait > 0 {
+			c.After(wait)
+		} else {
+			a.startLapse()
+		}
+	}
+}
+
+// spansVersion tells the editor when what its spans do has changed: the letters' spacing, the theme, the time-lapse's colors.
+func (a *app) spansVersion() int {
+	v := a.settings.LetterSpacing*100 + a.settings.AppTheme
+	if l := &a.lapse; l.on && l.page == a.page {
+		v += l.ver * 100000
+	}
+	return v
 }
 
 // startLapse works out the time-lapse of the page: the copies are read here,
@@ -94,12 +159,13 @@ func (a *app) startLapse() {
 			times = append(times, v.At)
 		}
 	}
-	now, _ := p.Text()
+	now := a.currentMarkdown(p) // what is typed too: the page is saved first
 	at := p.Modified
 	if at.IsZero() {
 		at = a.clock()
 	}
-	l.busy = true
+	l.busy, l.docVer, l.docSeen = true, a.doc.Version(), a.doc.Version()
+	paras := strings.Split(a.doc.Text().String(), "\n") // the editor's paragraphs, which the words are given to
 	go func() {
 		defer a.guard()
 		var texts []string
@@ -127,15 +193,133 @@ func (a *app) startLapse() {
 				sizes[k-1]++
 			}
 		}
+		toks := lapseParas(ws, paras)
 		a.do(func() error {
 			l := &a.lapse
 			if l.page != p || !l.busy {
 				return nil
 			}
-			l.busy, l.words, l.days, l.sizes = false, ws, when, sizes
+			l.busy, l.words, l.days, l.sizes, l.paras = false, ws, when, sizes, toks
+			l.ver++ // the editor's words are colored anew
 			return nil
 		})
 	}()
+}
+
+// lapseParas gives the words of the page as it is (the ones the last version has) to the paragraphs of the editor, in order: each word
+// of a paragraph takes the next word of that text that is the same, looking a few ahead, since the editor's text and the Markdown's
+// words may differ in a mark; one that is not found is not written in any version yet.
+func lapseParas(ws []Word, paras []string) map[int][]lapseTok {
+	var now []Word
+	for _, w := range ws {
+		if w.Gone == 0 && !w.Para() {
+			now = append(now, w)
+		}
+	}
+	out := map[int][]lapseTok{}
+	j := 0
+	const ahead = 4
+	for p, text := range paras {
+		for _, f := range strings.Fields(text) {
+			tok := lapseTok{text: f}
+			for k := j; k < len(now) && k < j+ahead; k++ {
+				if now[k].Text == f {
+					tok.born, j = now[k].Born, k+1
+					break
+				}
+			}
+			out[p] = append(out[p], tok)
+		}
+	}
+	return out
+}
+
+// lapseSpans colors the words of paragraph p of the editor by the version each was written in; ok is false where the time-lapse has
+// nothing to say (it is off, there is one version only, the paragraph is a block of code, or a view of its own is up). What is typed
+// since the words were worked out is told by what is the same before it and after it: the rest in between is the latest version's.
+func (a *app) lapseSpans(p int, spans []ui.Span) (out []ui.Span, ok bool) {
+	l := &a.lapse
+	// one day only has nothing to tell apart: it is colored when its chip is clicked (v1), as the one day lit
+	if !l.on || l.page != a.page || l.solo != 0 || len(l.days) == 0 || (len(l.days) < 2 && l.lit == 0) || len(spans) == 0 {
+		return nil, false
+	}
+	var text strings.Builder
+	for _, s := range spans {
+		text.WriteString(s.Text)
+	}
+	s := text.String()
+	type rng struct {
+		from, to int
+		col      ui.Color
+	}
+	var toks []string
+	var at [][2]int
+	for i := 0; i < len(s); {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+			i++
+		}
+		from := i
+		for i < len(s) && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' {
+			i++
+		}
+		if i > from {
+			toks, at = append(toks, s[from:i]), append(at, [2]int{from, i})
+		}
+	}
+	old := l.paras[p]
+	pre := 0
+	for pre < len(old) && pre < len(toks) && old[pre].text == toks[pre] {
+		pre++
+	}
+	suf := 0
+	for suf < len(old)-pre && suf < len(toks)-pre && old[len(old)-1-suf].text == toks[len(toks)-1-suf] {
+		suf++
+	}
+	n := len(l.days)
+	var rs []rng
+	for k := range toks {
+		born := n
+		switch {
+		case k < pre:
+			born = old[k].born
+		case k >= len(toks)-suf:
+			born = old[len(old)-(len(toks)-k)].born
+		}
+		if born == 0 {
+			born = n // a word the history has no version for
+		}
+		col := lapseColor(born, n, l.dark)
+		if l.lit != 0 && born != l.lit {
+			col = col.Alpha(0.18)
+		}
+		rs = append(rs, rng{at[k][0], at[k][1], col})
+	}
+	// the spans cut where a word begins and ends
+	pos, r := 0, 0
+	for _, sp := range spans {
+		text := sp.Text
+		for len(text) > 0 {
+			for r < len(rs) && rs[r].to <= pos {
+				r++
+			}
+			piece := sp
+			cut := len(text)
+			colored := false
+			switch {
+			case r < len(rs) && rs[r].from <= pos: // inside a word
+				cut, colored = min(cut, rs[r].to-pos), true
+			case r < len(rs): // before one
+				cut = min(cut, rs[r].from-pos)
+			}
+			piece.Text = text[:cut]
+			if colored && sp.ObjectWidth == 0 {
+				piece.Color = rs[r].col
+			}
+			out = append(out, piece)
+			text, pos = text[cut:], pos+cut
+		}
+	}
+	return out, true
 }
 
 // lapseText is a page's Markdown as the words a reader sees, a paragraph a
@@ -236,6 +420,12 @@ func (a *app) lapseChips(c *ui.Context) {
 	}
 	dark := ryugo.From(c).Dark
 	n := len(l.days)
+	lit, solo := l.lit, l.solo
+	defer func() { // the editor's words are colored anew when a day is lit or left alone
+		if l.lit != lit || l.solo != solo {
+			l.ver++
+		}
+	}()
 	ui.Row(c.Key("lapse-chips")).Gap(2).AlignItems(ui.Center).Children(func() {
 		for k := 1; k <= n; k++ {
 			col := lapseColor(k, n, dark)
@@ -281,4 +471,15 @@ func sameDayAs(a, b time.Time) bool {
 	ay, am, ad := a.Local().Date()
 	by, bm, bd := b.Local().Date()
 	return ay == by && am == bm && ad == bd
+}
+
+func init() {
+	for tr, en := range map[string]string{
+		"Kelimeleri yazıldığı güne göre renklendir": "Color words by the day they were written",
+		"Time-lapse: sayfanın kelimeleri yazıldıkları günün renginde durur (en eski soğuk, bugün sıcak); yazdıkça yeni kelimeler bugünün rengini alır. Yalnız geçmişi olan sayfalarda. Durum çubuğundaki v1 v2… bir günü aydınlatır; çift tıklayınca yalnız o günün kelimeleri kalır (Esc ile çıkılır).": "Time-lapse: a page's words stay in the color of the day they were written (the oldest cool, today warm); what you type takes today's color. Only on pages that have a history. v1 v2… in the status bar light a day; a double click leaves only that day's words (Esc leaves it).",
+	} {
+		if _, ok := enText[tr]; !ok {
+			enText[tr] = en
+		}
+	}
 }

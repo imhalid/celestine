@@ -230,46 +230,75 @@ func lapsePage(t *testing.T) (*app, *ui.Tester) {
 	return a, tt
 }
 
-// TestTimeLapse: the page's button shows the time-lapse in place of the
-// editor - a day a version, named in the status bar - and Esc brings the
-// editor back.
+// TestTimeLapse: the time-lapse is on from the start - the editor itself, each word in the color of the day it was
+// written, a day a version named in the status bar. A click on a day lights it, a double click leaves its words alone
+// (a view to look at), Esc takes that back; the page's button turns the colors off and on.
 func TestTimeLapse(t *testing.T) {
-	a, tt := lapsePage(t)
-	if err := tt.Click(T("Time-lapse")); err != nil {
-		t.Fatal(err, tt.Texts())
-	}
-	for range 50 {
+	a, tt := lapsePage(t) // the page was changed under the open one: its words are worked out again once the text has been still
+	for range 200 {
 		tt.Advance(20 * time.Millisecond)
-		if a.lapse.words != nil {
+		if len(a.lapse.days) == 4 && !a.lapse.busy {
 			break
 		}
 	}
 	tt.Advance(100 * time.Millisecond)
+	tt.Frame() // (the window is told by the app; the tester is not)
 	l := &a.lapse
-	if len(l.days) != 4 || l.days[0].Day() != 6 || l.days[3].Day() != 10 {
-		t.Fatalf("days: %v", l.days)
+	if !l.on || len(l.days) != 4 || l.days[0].Day() != 6 || l.days[3].Day() != 10 {
+		t.Fatalf("on %v, days: %v", l.on, l.days)
 	}
 	if !equal([]string{strconv.Itoa(l.sizes[0]), strconv.Itoa(l.sizes[3])}, []string{"6", "7"}) {
 		t.Fatalf("sizes: %v", l.sizes)
 	}
-	for _, s := range []string{"v1", "v4", "black", "rug"} {
+	for _, s := range []string{"v1", "v4"} {
 		if !tt.HasText(s) {
 			t.Fatalf("no %q: %v", s, tt.Texts())
 		}
 	}
-	if tt.HasText("mat") || tt.HasText("sat") {
-		t.Fatalf("the cut words: %v", tt.Texts())
+	if _, ok := tt.Find("Sayfa"); !ok {
+		t.Fatal("the editor is not there: one writes in the time-lapse")
 	}
-	if _, ok := tt.Find("Sayfa"); ok {
-		t.Fatal("the editor is there too")
+	// the words in the colors of their days: The 1, black 2, cat 1, lay 3, on 1, the 1, rug 4
+	line := "The black cat lay on the rug"
+	colors := func(text string) map[string]ui.Color {
+		out, ok := a.lapseSpans(0, []ui.Span{{Text: text}})
+		if !ok {
+			t.Fatalf("no colors for %q", text)
+		}
+		got := map[string]ui.Color{}
+		for _, sp := range out {
+			if w := strings.TrimSpace(sp.Text); w != "" {
+				got[w] = sp.Color
+			}
+		}
+		return got
+	}
+	dark := l.dark
+	got := colors(line)
+	for w, born := range map[string]int{"The": 1, "black": 2, "cat": 1, "lay": 3, "rug": 4} {
+		if got[w] != lapseColor(born, 4, dark) {
+			t.Errorf("%q is %v, the color of day %d is %v", w, got[w], born, lapseColor(born, 4, dark))
+		}
+	}
+	// what is typed is today's, before the words are worked out again: at the end, and in the middle
+	got = colors(line + " tonight")
+	if got["tonight"] != lapseColor(4, 4, dark) || got["rug"] != lapseColor(4, 4, dark) || got["black"] != lapseColor(2, 4, dark) {
+		t.Errorf("typed at the end: %v", got)
+	}
+	got = colors("The black big cat lay on the rug")
+	if got["big"] != lapseColor(4, 4, dark) || got["cat"] != lapseColor(1, 4, dark) || got["lay"] != lapseColor(3, 4, dark) {
+		t.Errorf("typed in the middle: %v", got)
 	}
 	// a click lights the day, a double click leaves its words alone
 	if err := tt.Click(Tf("Version %d", 2)); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(50 * time.Millisecond)
-	if l.lit != 2 || !tt.HasText("The") {
+	if l.lit != 2 {
 		t.Fatalf("lit %d", l.lit)
+	}
+	if got := colors(line); got["black"] != lapseColor(2, 4, dark) || got["rug"].A >= lapseColor(4, 4, dark).A {
+		t.Errorf("a day lit: the others are not faint: %v", got)
 	}
 	r, _ := tt.Find(Tf("Version %d", 4))
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
@@ -281,13 +310,45 @@ func TestTimeLapse(t *testing.T) {
 	if l.solo != 4 || !tt.HasText("rug") || tt.HasText("black") {
 		t.Fatalf("solo %d: %v", l.solo, tt.Texts())
 	}
+	if _, ok := tt.Find("Sayfa"); ok {
+		t.Fatal("the editor is there in the view of one day")
+	}
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(100 * time.Millisecond)
-	if a.lapse.on {
-		t.Fatal("Esc did not leave it")
+	if !a.lapse.on || a.lapse.solo != 0 {
+		t.Fatalf("Esc did not take the view back: on %v, solo %d", a.lapse.on, a.lapse.solo)
 	}
 	if _, ok := tt.Find("Sayfa"); !ok || a.kb.normal {
 		t.Fatalf("the editor is not back (normal mode %v)", a.kb.normal)
+	}
+	// with nothing lit, Esc is the editor's again: the time-lapse is not left by it
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if !a.lapse.on {
+		t.Fatal("Esc turned the time-lapse off")
+	}
+	// the page's button turns the colors off, and on
+	if err := tt.Click(T("Back to the text")); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(100 * time.Millisecond)
+	if !a.settings.NoLapse || a.lapse.on || tt.HasText("v1") {
+		t.Fatalf("off: setting %v, on %v", a.settings.NoLapse, a.lapse.on)
+	}
+	if _, ok := a.lapseSpans(0, []ui.Span{{Text: line}}); ok {
+		t.Fatal("colors with it off")
+	}
+	if err := tt.Click(T("Time-lapse")); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	for range 50 {
+		tt.Advance(20 * time.Millisecond)
+		if a.lapse.words != nil {
+			break
+		}
+	}
+	if a.settings.NoLapse || !a.lapse.on || a.lapse.words == nil {
+		t.Fatalf("on again: setting %v, on %v", a.settings.NoLapse, a.lapse.on)
 	}
 }
 
@@ -327,5 +388,100 @@ func TestTimeMachine(t *testing.T) {
 	}
 	if text, _ := a.page.Text(); !strings.Contains(text, "The black cat sat on the mat") {
 		t.Fatalf("not put back: %q", text)
+	}
+}
+
+// The history comes and goes at once, with no motion: its copies are whole pages, and moving them every frame cost too much. The
+// first frame is the history, and a frame after Esc is the page.
+func TestTimeMachineComesAndGoesAtOnce(t *testing.T) {
+	a, tt := lapsePage(t)
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	if !tt.HasText(T("Page history: ")+T("Today (Now)")) || !tt.HasText(T("Restore")) {
+		t.Fatalf("the first frame is not the history: %v", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if a.tm.open || tt.HasText(T("Restore")) {
+		t.Fatalf("a frame after Esc it is still there: open %v", a.tm.open)
+	}
+	if _, ok := tt.Find("Sayfa"); !ok {
+		t.Fatal("the editor is not back")
+	}
+}
+
+// Each copy in the history is the whole page area as it was, not its lines: the cover, the title, the properties with
+// their values (the copy's own) and the text.
+func TestTimeMachineShowsTheWholePage(t *testing.T) {
+	a, tt := lapsePage(t)
+	pr, err := a.page.Coll.AddProperty("Konu", "text", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.setValue(a.page, pr.ID, "kediler")
+	a.flush()
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	tt.Advance(900 * time.Millisecond)
+	if !tt.HasText("Konu") || !tt.HasText("kediler") || !strings.Contains(a.tmDoc(0).Text().String(), "The black cat lay on the rug") ||
+		!strings.Contains(a.tmDoc(2).Text().String(), "black cat") {
+		t.Fatalf("not the whole page: %v", tt.Texts())
+	}
+	old := a.tmVersionPage(3)
+	if old == a.page || old.Props[pr.ID] != "" || a.tmVersionPage(0).Props[pr.ID] != "kediler" {
+		t.Fatalf("a copy has the page's values, not its own: %q now %q", old.Props[pr.ID], a.tmVersionPage(0).Props[pr.ID])
+	}
+	if old.Dir != a.page.Dir || old.Coll != a.page.Coll {
+		t.Fatal("the copy is not of this page")
+	}
+}
+
+// A page with one day of history has nothing to tell apart, so it is plain; the one day's chip lights it, all in its color.
+func TestTimeLapseOneDay(t *testing.T) {
+	a, tt := lapsePage(t)
+	for range 200 {
+		tt.Advance(20 * time.Millisecond)
+		if len(a.lapse.days) == 4 && !a.lapse.busy {
+			break
+		}
+	}
+	l := &a.lapse
+	l.days, l.sizes = l.days[:1], l.sizes[:1]
+	spans := []ui.Span{{Text: "The black cat"}}
+	l.paras = map[int][]lapseTok{0: {{"The", 1}, {"black", 1}, {"cat", 1}}} // all of it written on the one day
+	if _, ok := a.lapseSpans(0, spans); ok {
+		t.Fatal("one day colors the text without being asked")
+	}
+	l.lit = 1
+	out, ok := a.lapseSpans(0, spans)
+	if !ok {
+		t.Fatal("v1 lit: nothing lights")
+	}
+	for _, sp := range out {
+		if w := strings.TrimSpace(sp.Text); w != "" && sp.Color != lapseColor(1, 1, l.dark) {
+			t.Errorf("%q is not in the color of v1: %v", w, sp.Color)
+		}
+	}
+}
+
+// The text of a copy is read as the editor reads a page - a link is a chip, not "[[…]]" - and it is only to look at: typing while the
+// history is open changes nothing.
+func TestTimeMachineReadsTextAsThePageDoes(t *testing.T) {
+	a, tt := lapsePage(t)
+	p := a.page
+	p.SaveText("Bir paragraf.\n\nİlgili: [[Welcome]]\n")
+	a.takeOutside(p)
+	tt.Advance(100 * time.Millisecond)
+	a.openTimeMachine(p)
+	tt.Frame()
+	tt.Advance(700 * time.Millisecond)
+	if d := a.tmDoc(0); strings.Contains(d.Text().String(), "[[") {
+		t.Fatalf("a link is raw text in the history: %q", d.Text().String())
+	}
+	before, _ := p.Text()
+	tt.Type("zzz")
+	tt.Advance(100 * time.Millisecond)
+	if after, _ := p.Text(); after != before || !a.tm.open {
+		t.Fatalf("typing in the history changed the page: %q -> %q (open %v)", before, after, a.tm.open)
 	}
 }

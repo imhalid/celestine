@@ -158,12 +158,14 @@ type app struct {
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
-	codeTheme   *editor.Theme      // the colors of code, in the window's theme (codecolors.go)
-	codeLangs   codeLangs          // the languages of the page's lines of code, by paragraph (codecolors.go)
-	blink       caretBlink         // when the caret last moved, for it to blink once still (caretBlinkOff)
-	bsel        blockSel           // blocks chosen from the keyboard (blocksel.go)
-	toasts      toastState         // the toasts up (toast.go)
-	statCache   libStats           // the library's figures, read at most every ten seconds
+	winOnce     sync.Once          // the window coming forward and going behind, in order (windowEvent)
+	winEv       chan bool
+	codeTheme   *editor.Theme // the colors of code, in the window's theme (codecolors.go)
+	codeLangs   codeLangs     // the languages of the page's lines of code, by paragraph (codecolors.go)
+	blink       caretBlink    // when the caret last moved, for it to blink once still (caretBlinkOff)
+	bsel        blockSel      // blocks chosen from the keyboard (blocksel.go)
+	toasts      toastState    // the toasts up (toast.go)
+	statCache   libStats      // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
 	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
 	px          placeIdx            // the palette's places, folded once (palette.go)
@@ -683,13 +685,32 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 // windowIn and windowOut are the window's coming forward and going behind. They do their work off the window's thread, not in the call
 // that raised them: showing or focusing a window is done by a frame that holds the app's lock (the welcome's Başla), and the system
 // answers with the focus at once, in that very call. Taking the lock there waited for the frame that was waiting for it, and the
-// window froze (TestWindowFocusDoesNotWaitForTheLock).
-func (a *app) windowIn() {
-	go func() { defer a.guard(); a.do(func() error { a.windowFocused(); return nil }) }()
-}
+// window froze (TestWindowFocusDoesNotWaitForTheLock). One worker takes them in the order they came, so that a window that came
+// forward and went behind at once is behind, not forward.
+func (a *app) windowIn()  { a.windowEvent(true) }
+func (a *app) windowOut() { a.windowEvent(false) }
 
-func (a *app) windowOut() {
-	go func() { defer a.guard(); a.do(func() error { a.sy.behind = true; return nil }) }()
+func (a *app) windowEvent(forward bool) {
+	a.winOnce.Do(func() {
+		a.winEv = make(chan bool, 64)
+		go func() {
+			defer a.guard()
+			for fwd := range a.winEv {
+				a.do(func() error {
+					if fwd {
+						a.windowFocused()
+					} else {
+						a.sy.behind = true
+					}
+					return nil
+				})
+			}
+		}()
+	})
+	select {
+	case a.winEv <- forward:
+	default: // a flood of them: the next one comes
+	}
 }
 
 // open shows page p, saving the page that was open first.
@@ -877,9 +898,14 @@ func (a *app) viewFrame(c *ui.Context) {
 	if a.profileScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeProfile()
 	}
-	lapseEsc := a.lapse.on && !a.modal() && c.Shortcut(0, ui.KeyEscape) // Esc leaves the time-lapse, back to the editor
+	// Esc takes back what was lit or left alone in the time-lapse; with none of that it is the editor's
+	lapseEsc := a.lapse.on && (a.lapse.solo != 0 || a.lapse.lit != 0) && !a.modal() && c.Shortcut(0, ui.KeyEscape)
 	if lapseEsc {
-		a.toggleLapse()
+		if a.lapse.solo != 0 {
+			a.lapse.solo, a.lapse.ver = 0, a.lapse.ver+1
+		} else {
+			a.lapse.lit, a.lapse.ver = 0, a.lapse.ver+1
+		}
 	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
@@ -1040,7 +1066,8 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		head.Children(func() { a.pageHead(c, p) })
 		a.headH = head.LayoutBounds().H
 	}
-	if a.lapseOn(p) { // the time-lapse where the editor is: nothing to type in
+	a.lapseAuto(c, p)                      // the time-lapse, as the settings say (lapseui.go)
+	if a.lapseOn(p) && a.lapse.solo != 0 { // one day's words alone, to look at: nothing to type in
 		a.focused = false
 		a.lapseView(c)
 		a.backlinksView(c, p)
@@ -1055,7 +1082,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
-		SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
+		SpansVersion: a.spansVersion(),
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)

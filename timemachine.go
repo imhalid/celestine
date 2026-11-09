@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The page's history, laid out as Apple's Time Machine lays out a folder's and drawn as the rest of the app is (its
-// theme, Ryugo's controls): the page steps back from the editor and becomes the front of a stack, the copies kept of
-// it behind it, going off into the distance, each smaller and fainter. On the right, the copies as bars, Now at the
+// theme, Ryugo's controls): the page becomes the front of a stack, the copies kept of it behind it, going off into the
+// distance, each smaller and fainter. It comes and goes at once; only the stack glides as a copy is chosen. On the right, the copies as bars, Now at the
 // foot and the oldest at the top, as long as the page was, the days written where they change: a click on a bar,
 // the buttons under them, ↑ ↓, or a click on a card behind brings that copy to the front, the stack gliding, and one
 // passed goes by towards the one looking and fades. At the foot, a toolbar: Cancel, the day of the front copy, the
@@ -21,6 +22,8 @@ import (
 type timeMachine struct {
 	open    bool
 	closing bool
+	pages   map[int]*Page              // each copy as a page: its own title, cover and values (tmVersionPage)
+	docs    map[int]*richtext.Document // each copy's text, as the editor reads a page (tmDoc)
 	page    *Page
 	vers    []Version        // the copies, the latest first
 	texts   map[int]string   // what each was, as Markdown, by its place: 0 the page now
@@ -109,7 +112,7 @@ func (a *app) tmPutBack() {
 	}
 	a.vhist = histView{page: t.page, vers: t.vers, sel: t.sel - 1, opsFor: -1}
 	a.putBackVersion()
-	t.texts, t.lines = map[int]string{}, map[int][]tmLine{} // the page now is the copy: the front card says so
+	t.texts, t.lines, t.pages, t.docs = map[int]string{}, map[int][]tmLine{}, nil, nil // the page now is the copy: the front card says so
 	t.sel, t.closing = 0, true
 }
 
@@ -151,42 +154,81 @@ func (a *app) timeMachineView(c *ui.Context) {
 	if !t.open || t.page == nil {
 		return
 	}
+	if t.closing { // it comes and goes at once: the copies are whole pages, and moving them every frame cost too much
+		*t = timeMachine{}
+		a.refocus = true // back into the editor, the caret where it was
+		return
+	}
 	ww, wh := c.Size()
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
 		// it has the keys while it is open, not the editor under it
 		back := ui.Box(c.Key("tm-back")).Absolute().Left(0).Top(0).Size(ww, wh).Label(T("Page history")).Role(ui.RoleDialog).
 			Focusable().FocusRing(false).Focus()
-		in := back.AnimateTo("tm-in", b2f(!t.closing), ui.Animation{Spring: ui.SpringOptions{Duration: 520 * time.Millisecond, Bounce: 0.04}})
-		if t.closing && in < 0.02 {
-			*t = timeMachine{}
-			a.refocus = true // back into the editor, the caret where it was
-			return
-		}
 		pos := back.AnimateTo("tm-pos", float32(t.sel), ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.05}})
 		vp := ui.Point{X: (ww - tmBarsW) / 2, Y: wh * 0.12} // where the stack goes off to
 		// the window's own ground, a little deeper; the accent's light far off, where the copies go
-		back.Opacity(min(1, in*1.5)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Surface2, cl.Accent, 0.04), To: cl.Bg}).
+		back.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Surface2, cl.Accent, 0.04), To: cl.Bg}).
 			Draw(func(p *ui.Painter, r ui.Rect) {
 				p.FillRadialGradient(r, ui.RadialGradient{Center: ui.Point{X: vp.X / r.W, Y: vp.Y / r.H}, Radius: r.W * 0.55, Oklab: true,
 					Stops: []ui.GradientStop{{Color: cl.Accent.Alpha(0.10), At: 0}, {Color: cl.Accent.Alpha(0), At: 1}}}, 0)
 			})
-		a.tmStack(c, ww, wh, in, pos, vp)
-		a.tmBars(c, ww, wh, in)
-		a.tmFoot(c, ww, wh, in)
+		a.tmStack(c, ww, wh, pos, vp)
+		a.tmBars(c, ww, wh)
+		a.tmFoot(c, ww, wh)
 	})
 }
 
-// tmStack draws the copies as a stack of cards going off towards vp, the one at pos at the front.
-func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32, vp ui.Point) {
+// tmVersionPage is the page as copy i had it: its title, cover and values from the copy's own front matter, the rest the page's.
+func (a *app) tmVersionPage(i int) *Page {
+	t := &a.tm
+	if i == 0 {
+		return t.page
+	}
+	if vp, ok := t.pages[i]; ok {
+		return vp
+	}
+	vp := new(Page)
+	*vp = *t.page
+	if h, ok := historyOf(t.page); ok {
+		data, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
+		meta, _ := SplitPage(data)
+		if s := meta["title"]; s != "" {
+			vp.Title = s
+		}
+		vp.ReadMeta(meta)
+	}
+	if t.pages == nil {
+		t.pages = map[int]*Page{}
+	}
+	t.pages[i] = vp
+	return vp
+}
+
+// tmPageArea is the area the page is in: each copy is laid out in a room that size.
+func (a *app) tmPageArea(ww, wh float32) ui.Rect {
+	r := a.pageR
+	if r.W < 320 || r.H < 240 {
+		r = ui.Rect{X: 252, Y: 0, W: max(320, ww-252), H: wh}
+	}
+	return r
+}
+
+// tmStack draws the copies as a stack of pages going off towards vp, the one at pos at the front. Each is the whole page area as it was:
+// the cover, the title, the properties and the text, laid out as the page is and scaled down.
+func (a *app) tmStack(c *ui.Context, ww, wh, pos float32, vp ui.Point) {
 	t := &a.tm
 	th := ryugo.From(c)
 	cl := th.Colors
-	cw := min(820, ww-tmBarsW-120)
-	ch := max(220, min(640, wh-tmFootH-vp.Y-90))
+	pr := a.tmPageArea(ww, wh)
+	lw, lh := pr.W, pr.H
+	cwMax := min(ww-tmBarsW-120, float32(1000))
+	chMax := max(220, min(640, wh-tmFootH-vp.Y-90))
+	base := min(1, min(cwMax/lw, chMax/lh)) // the page as large as the room is
+	cw, ch := lw*base, lh*base
 	x0 := (ww - tmBarsW - cw) / 2
-	y0 := wh - tmFootH - 16 - ch // the front card stands just over the toolbar
-	cy := y0 + ch/2
+	y0 := wh - tmFootH - 16 - ch // the front page stands just over the toolbar
+	cx0, cy0 := x0+cw/2, y0+ch/2
 	for i := len(t.vers); i >= 0; i-- {
 		d := float32(i) - pos
 		if d < -1.3 || d > 12 {
@@ -196,53 +238,114 @@ func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32, vp ui.Point) {
 		if d >= 0 { // further back: smaller, further off, fainter, in perspective
 			scale = 1 / (1 + d*0.42)
 			op = float32(math.Pow(float64(scale), 1.4))
-			ty = (vp.Y - cy) * (1 - scale) // its centre on the line from the front card's to where they go
+			ty = (vp.Y - cy0) * (1 - scale) // its centre on the line from the front page's to where they go
 		} else { // gone past: towards the one looking, fading
 			scale = 1 - d*0.5
 			op = max(0, 1+d*1.4)
 			ty = -d * 60
 		}
-		// the page steps back from the editor: it starts as large as the text was, the others come out of the distance
-		scale *= 0.9 + 0.1*(1-in)
-		if i > 0 {
-			op *= in
-		}
+		sc := base * scale
 		front := math.Abs(float64(d)) < 0.5
-		// placed where it goes (a translation under a scale does not move it), scaled round its centre
-		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(x0).Top(y0+ty).Size(cw, ch).
-			Background(cl.Card).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)).Clip().Padding(24, 36).Gap(6).
-			TransformOrigin(0.5, 0.5).Scale(scale, scale).Opacity(op).ZIndex(200 - i).
+		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(cx0-lw/2).Top(cy0+ty-lh/2).Size(lw, lh).
+			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/max(sc, 0.2)).Clip().
+			TransformOrigin(0.5, 0.5).Scale(sc, sc).Opacity(op).ZIndex(200 - i).Cache().
 			Label(T("Page history: ") + a.tmWhen(i)).Role(ui.RoleButton)
 		th.Shadows.ShadowPop.Apply(card)
 		if !front {
 			card.Cursor(ui.CursorPointer)
-			if card.Clicked() {
+			if card.Clicked() && !t.closing {
 				t.sel = i
 			}
 		}
-		card.Children(func() {
-			ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-				ui.Text(c, t.page.Title).FontSize(22).FontWeight(700).TextColor(cl.Text).Grow(1).MaxLines(1)
-				ui.Text(c, a.tmWhen(i)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-			})
-			if math.Abs(float64(d)) > 2.5 { // far back: the shape of a page, not its words
-				for k := 0; k < 7; k++ {
-					ui.Box(c).Height(10).Width(cw * float32(0.35+0.55*math.Mod(float64(k)*0.37+float64(i)*0.21, 1))).Radius(4).Background(cl.Fill)
-				}
-				return
-			}
-			for k, l := range a.tmLines(i) {
-				if k > 40 {
-					break
-				}
-				size, weight := float32(15), 400
-				if l.level > 0 {
-					size, weight = []float32{0, 21, 18, 16, 15}[l.level], 650
-				}
-				ui.Text(c, l.text).FontSize(size).FontWeight(weight).TextColor(cl.Text2).Wrap()
-			}
+		card.Children(func() { a.tmPage(c, i, lw, lh, math.Abs(float64(d)) > 2.5) })
+	}
+}
+
+// tmDoc is the text of copy i as the editor holds a page's: the same reading of its blocks, links and pictures, so that it is laid out as
+// the page is. The page now is the page's own document.
+func (a *app) tmDoc(i int) *richtext.Document {
+	t := &a.tm
+	if i == 0 && a.doc != nil && t.page == a.page {
+		return a.doc
+	}
+	if d, ok := t.docs[i]; ok {
+		return d
+	}
+	vp := a.tmVersionPage(i)
+	var body string
+	if i == 0 {
+		body, _ = vp.Body()
+	} else if h, ok := historyOf(t.page); ok {
+		data, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
+		_, body = SplitPage(data)
+	}
+	d := richtext.NewDocument(a.parsePage(vp, body))
+	if t.docs == nil {
+		t.docs = map[int]*richtext.Document{}
+	}
+	t.docs[i] = d
+	return d
+}
+
+// tmPage is the page as copy i was, in the room of the page area and laid out as the page is - the band of its cover, the title on it,
+// the properties, the text read as the editor reads it, read-only - or, for one far back, the shape of a page. The page's own
+// structure is followed (pageView, pageBody, pageHead), so that nothing moves as the page steps back.
+func (a *app) tmPage(c *ui.Context, i int, lw, lh float32, shape bool) {
+	cl := ryugo.From(c).Colors
+	vp := a.tmVersionPage(i)
+	wrap := ui.Column(c.Key("tm-wrap:" + itoa(i))).Fill()
+	if !shape { // far back, the cover is a flat band: the real one costs a drawing
+		a.paintCover(c, vp, wrap)
+	} else if a.coverKind(vp) != coverKindNone {
+		wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
+			pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: a.coverBandOf(vp)}, cl.Well, 0)
 		})
 	}
+	wrap.Children(func() {
+		if a.topSpace > 0 {
+			ui.Box(c.Key("tm-top:" + itoa(i))).FillWidth().Height(a.topSpace)
+		}
+		ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
+			ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() {
+				ui.Column(c.Key("tm-head:" + itoa(i))).FillWidth().Children(func() {
+					ink := c.Theme().Text
+					if a.coverKind(vp) != coverKindNone { // the title lies on the cover, as it does on the page
+						ui.Box(c.Key("tm-room:" + itoa(i))).FillWidth().Height(a.coverRoomOf(vp))
+						ink = ui.Hex("#ffffff")
+						if a.coverKind(vp) == coverKindAuto && !ryugo.From(c).Dark {
+							ink = c.Theme().Text
+						}
+					}
+					ui.Text(c, vp.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).MaxLines(2)
+					if a.coverKind(vp) != coverKindNone {
+						ui.Box(c.Key("tm-foot-gap:" + itoa(i))).FillWidth().Height(coverFoot)
+					}
+					ui.Column(c).Gap(1).Padding(0, 0, 14, 0).Children(func() {
+						for k := range vp.Coll.Properties {
+							pr := &vp.Coll.Properties[k]
+							ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+								ui.Text(c, pr.Name).FontSize(13).TextColor(cl.Muted).Width(propNameW).Height(propRowH).Padding(0, 6).MaxLines(1)
+								ui.Text(c, vp.Value(pr)).FontSize(propFs).TextColor(cl.Text).MaxLines(1)
+							})
+						}
+						ui.Box(c).Height(28) // the row of "add a property", where the page has its own
+					})
+				})
+				if shape { // far back: the shape of a page, not its words
+					for k := 0; k < 9; k++ {
+						ui.Box(c).Height(14).Width(lw * float32(0.25+0.4*math.Mod(float64(k)*0.37+float64(i)*0.21, 1))).Radius(5).Background(cl.Fill)
+					}
+					return
+				}
+				c.Key("tm-ed:" + itoa(i))
+				richtext.EditorBase(c, a.tmDoc(i), richtext.EditorOptions{
+					Label: T("Page history: ") + a.tmWhen(i), Font: a.font, Theme: a.theme, ReadOnly: true,
+					Spans:        func(_ int, _ richtext.ParagraphStyle, spans []ui.Span) []ui.Span { return spaced(spans) },
+					SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
+				}).FillWidth().Height(lh).FocusRing(false).PassThrough() // a click goes to the page: it brings it to the front
+			})
+		})
+	})
 }
 
 // tmSize is how large the copy at place i is, for its bar: the page now by its text.
@@ -255,12 +358,12 @@ func (a *app) tmSize(i int) int {
 
 // tmBars draws the copies on the right as bars, Now at the foot and the oldest at the top, each as long as the page
 // was, the days written where they change; and the buttons under them, older and newer.
-func (a *app) tmBars(c *ui.Context, ww, wh, in float32) {
+func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 	t := &a.tm
 	cl := ryugo.From(c).Colors
 	n := len(t.vers)
 	top, bottom := float32(56), wh-tmFootH-96
-	right := ww - 28 + (1-in)*60 // they come in from the right
+	right := ww - 28
 	yOf := func(i int) float32 {
 		if n == 0 {
 			return bottom
@@ -280,7 +383,7 @@ func (a *app) tmBars(c *ui.Context, ww, wh, in float32) {
 		y := yOf(i)
 		w := 16 + 70*float32(a.tmSize(i))/float32(most)
 		e := ui.Box(c.Key("tm-bar:"+itoa(i))).Absolute().Left(right-90).Top(y-row/2).Size(90, row).Cursor(ui.CursorPointer).
-			Label(a.tmWhen(i)).Role(ui.RoleButton).Opacity(in)
+			Label(a.tmWhen(i)).Role(ui.RoleButton)
 		col := cl.Text.Alpha(0.2)
 		switch {
 		case i == t.sel:
@@ -313,12 +416,12 @@ func (a *app) tmBars(c *ui.Context, ww, wh, in float32) {
 				tc = cl.Accent
 			}
 			ui.Text(c.Key("tm-day:"+itoa(i)), label).Absolute().Left(right - 180).Top(y - 8).Width(84).TextAlign(ui.End).
-				FontSize(ryugo.FsSm).TextColor(tc).Opacity(in).PassThrough()
+				FontSize(ryugo.FsSm).TextColor(tc).PassThrough()
 			last = y
 		}
 	}
 	// older and newer
-	ui.Row(c.Key("tm-steps")).Absolute().Left(right - 74).Top(bottom + 26).Gap(6).Opacity(in).Children(func() {
+	ui.Row(c.Key("tm-steps")).Absolute().Left(right - 74).Top(bottom + 26).Gap(6).Children(func() {
 		if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.closing {
 			t.sel = min(t.sel+1, n)
 		}
@@ -328,17 +431,17 @@ func (a *app) tmBars(c *ui.Context, ww, wh, in float32) {
 	})
 	if n == 0 {
 		ui.Text(c.Key("tm-none"), T("No copies of this page are kept yet: one is kept when it is written over, every few minutes.")).Absolute().
-			Left(40).Top(24).Width(ww - tmBarsW - 80).TextAlign(ui.Center).FontSize(ryugo.FsSm).TextColor(cl.Muted).Opacity(in).PassThrough()
+			Left(40).Top(24).Width(ww - tmBarsW - 80).TextAlign(ui.Center).FontSize(ryugo.FsSm).TextColor(cl.Muted).PassThrough()
 	}
 }
 
 // tmFoot draws the toolbar at the foot, as the app's floating bars are: Cancel, the day of the front copy, the
 // differences, Restore.
-func (a *app) tmFoot(c *ui.Context, ww, wh, in float32) {
+func (a *app) tmFoot(c *ui.Context, ww, wh float32) {
 	t := &a.tm
 	th := ryugo.From(c)
 	cl := th.Colors
-	ui.Row(c.Key("tm-foot")).Absolute().Left(0).Width(ww - tmBarsW).Top(wh - tmFootH + 16 + (1-in)*40).Justify(ui.Center).Opacity(in).Children(func() {
+	ui.Row(c.Key("tm-foot")).Absolute().Left(0).Width(ww - tmBarsW).Top(wh - tmFootH + 16).Justify(ui.Center).Children(func() {
 		bar := ui.Row(c.Key("tm-tools")).Padding(6, 6, 6, 14).Gap(8).AlignItems(ui.Center).
 			Radius(th.R(ryugo.RadiusControl)+4).Background(cl.Card).Border(1, cl.Hairline).Label(T("Page history"))
 		th.Shadows.ShadowPop.Apply(bar)

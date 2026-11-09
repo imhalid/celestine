@@ -243,6 +243,7 @@ func settingDefs() []settingDef {
 			func(a *app, v bool) { a.settings.Jelly = v; a.saveSettings() }),
 		simple("Jöle sarsıntısı", "pencere sallanma wobble shake", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
 		simple("Otomatik kapak", "kapak cover", "noAutoCover", func(s *Settings) *bool { return &s.NoAutoCover }, true),
+		simple("Kelimeleri yazıldığı güne göre renklendir", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
 		simple("Otomatik kayıt", "autosave kaydet save", "noAutoSave", func(s *Settings) *bool { return &s.NoAutoSave }, true),
 		simple("Boşlukları göster", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),
 		simple("Sekmeleri göster", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),

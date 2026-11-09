@@ -464,6 +464,16 @@ func (a *app) settingsEditor(c *ui.Context) {
 		a.settings.NoAutoCover = !auto
 		a.saveSettings()
 	}
+	lapse := !a.settings.NoLapse
+	settingGroup(c, "set-lapse", func() {
+		settingRow(c, "Kelimeleri yazıldığı güne göre renklendir", "Time-lapse: sayfanın kelimeleri yazıldıkları günün renginde durur (en eski soğuk, bugün sıcak); yazdıkça yeni kelimeler bugünün rengini alır. Yalnız geçmişi olan sayfalarda. Durum çubuğundaki v1 v2… bir günü aydınlatır; çift tıklayınca yalnız o günün kelimeleri kalır (Esc ile çıkılır).", func() {
+			ryugo.Switch(c.Key("set-lapse-sw"), &lapse, ryugo.SwitchOptions{}).Label(T("Kelimeleri yazıldığı güne göre renklendir"))
+		})
+	})
+	if lapse != !a.settings.NoLapse {
+		a.settings.NoLapse = !lapse
+		a.saveSettings()
+	}
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
 		settingRow(c, "Jöle sarsıntısı", "Bir ajan (MCP) sayfaya içerik eklerken pencere, eklenen kadar, jöle gibi sağa sola sallanır ve zıplar. Pencerenin yeri değiştirilemiyorsa (tam ekran, Wayland) içindeki görünüm sallanır.", func() {
