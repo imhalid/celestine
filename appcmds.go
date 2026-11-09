@@ -95,6 +95,11 @@ func appCommands() []appCmd {
 		{title: "Bloğu aşağı taşı", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
 		{title: "Bloğu çoğalt", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
 		{title: "Katla / aç", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
+		{title: "Copy as Markdown", accel: "cmd+shift+c", menu: "block", sep: true, glyph: iconCopy, run: func(a *app) { a.copyAs("markdown") }, off: noPageOff},
+		{title: "Copy as plain text", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("plain") }, off: noPageOff},
+		{title: "Copy as HTML", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("html") }, off: noPageOff},
+		{title: "Paste as Markdown", accel: "alt+cmd+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("markdown") }, off: noPageOff},
+		{title: "Paste as plain text", accel: "cmd+shift+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("plain") }, off: noPageOff},
 
 		{title: "Sayfa ara", accel: "cmd+k", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openPalette},
 		{title: "Komutlar", accel: "cmd+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},

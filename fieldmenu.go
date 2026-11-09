@@ -132,8 +132,21 @@ func (a *app) editorItems(y float32) []menuItem {
 				doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, richtext.Text{}); ed.Select(s, s) })
 				a.refocus = true
 			}},
-			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }})
+			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }},
+			a.into(T("Copy as"), iconCopy, func() []menuItem {
+				return []menuItem{
+					{title: "Markdown", hint: "⇧⌘C", glyph: iconCopy, run: func() { a.copyAs("markdown") }},
+					{title: T("Plain text"), glyph: iconCopy, run: func() { a.copyAs("plain") }},
+					{title: "HTML", glyph: iconCopy, run: func() { a.copyAs("html") }},
+				}
+			}))
 	}
+	out = append(out, a.into(T("Paste as"), iconPaste, func() []menuItem {
+		return []menuItem{
+			{title: "Markdown", hint: "⌥⌘V", glyph: iconPaste, run: func() { a.pasteAs("markdown") }},
+			{title: T("Plain text"), hint: "⇧⌘V", glyph: iconPaste, run: func() { a.pasteAs("plain") }},
+		}
+	}))
 	out = append(out,
 		menuItem{title: "Yapıştır", hint: "⌘V", glyph: iconPaste, run: func() {
 			if clip := a.readClip(); clip != "" {
