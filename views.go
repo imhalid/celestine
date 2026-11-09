@@ -671,6 +671,50 @@ var tableLabels = ryugo.TableLabels{
 	Pagination: ryugo.PaginationLabels{Group: "Sayfalar", Of: "/", Previous: "Önceki sayfa", Next: "Sonraki sayfa", Page: "Sayfa", Current: "geçerli"},
 }
 
+// pagesCalc is what a table's foot says under column col for rows: the sum, the mean, the least or the most of a
+// number's values, or how many rows have a value (the title's: how many rows), by its name.
+func pagesCalc(calc string, col column, rows []*Page) string {
+	var vals []string
+	for _, p := range rows {
+		v := p.Title
+		if col.prop != nil {
+			v = p.Value(col.prop)
+		}
+		vals = append(vals, v)
+	}
+	out := ""
+	if calc == "count" {
+		n := 0
+		for _, v := range vals {
+			if strings.TrimSpace(v) != "" {
+				n++
+			}
+		}
+		out = strconv.Itoa(n)
+	} else {
+		var nums []float64
+		for _, v := range vals {
+			if x, ok := parseNumber(v); ok {
+				nums = append(nums, x)
+			}
+		}
+		if len(nums) == 0 {
+			return ""
+		}
+		least, most, sum := nums[0], nums[0], 0.0
+		for _, x := range nums {
+			least, most, sum = min(least, x), max(most, x), sum+x
+		}
+		out = formatNumber(map[string]float64{"sum": sum, "avg": sum / float64(len(nums)), "min": least, "max": most}[calc])
+	}
+	return footName(calc) + " " + out
+}
+
+// footName is what a calculation of a table's foot is called, in the window's language.
+func footName(calc string) string {
+	return T(map[string]string{"sum": "Toplam", "avg": "Ortalama", "min": "En küçük", "max": "En büyük", "count": "Adet"}[calc])
+}
+
 // tableOf is the state of the table of view v of collection coll.
 func (a *app) tableOf(coll *Collection, v *View) *tableUI {
 	if a.tables == nil {
@@ -687,7 +731,7 @@ func (a *app) tableOf(coll *Collection, v *View) *tableUI {
 
 // viewSortKeys is the view's sort as Ryugo's table has it.
 func viewSortKeys(v *View) []ryugo.SortKey {
-	if v.Sort == "" {
+	if v.Sort == "" || v.Sort == "manual" { // the own order is no column's: the rows are moved by their grips
 		return nil
 	}
 	return []ryugo.SortKey{{Column: v.Sort, Desc: v.Desc}}
@@ -702,7 +746,7 @@ func (a *app) takeSort(coll *Collection, v *View, tu *tableUI) {
 	case !slices.Equal(tu.st.Sort, tu.applied): // the user sorted
 		if k := tu.st.Sort; len(k) > 0 {
 			v.Sort, v.Desc = k[0].Column, k[0].Desc
-		} else {
+		} else if v.Sort != "manual" {
 			v.Sort, v.Desc = "title", false // sorted by nothing: by title
 		}
 		if err := coll.Save(); err != nil {
@@ -792,6 +836,9 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		if col.width == 0 {
 			rc.MinWidth = tableTitleMin
 		}
+		if calc := v.Calcs[id]; calc != "" { // what its foot says
+			rc.Foot = func(rows []*Page) string { return pagesCalc(calc, col, rows) }
+		}
 		if col.right {
 			rc.Align = ui.End
 		}
@@ -805,19 +852,78 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			tu.st.Selected[p] = true
 		}
 	}
-	head, row := ryugo.TableSize(ryugo.Md)
-	rows := min(len(pages), tablePageSize)
-	if left := len(pages) - tu.st.Page*tablePageSize; left < rows {
-		rows = max(left, 0)
+	// grouped by a choice: the rows in its options' order, under their headings, folded as the view keeps them
+	group := coll.Prop(v.GroupBy)
+	if group != nil && group.Type != PropChoice {
+		group = nil
 	}
-	height := head + float32(rows)*row
+	if group != nil {
+		order := func(p *Page) int {
+			if i := slices.Index(group.Options, p.Value(group)); i >= 0 {
+				return i
+			}
+			return len(group.Options) // none, last
+		}
+		slices.SortStableFunc(pages, func(x, y *Page) int { return order(x) - order(y) })
+		if tu.st.Collapsed == nil {
+			tu.st.Collapsed = map[string]bool{}
+			for _, k := range v.Collapsed {
+				tu.st.Collapsed[k] = true
+			}
+		}
+	}
+	head, row := ryugo.TableSize(ryugo.Md)
+	from := min(tu.st.Page*tablePageSize, len(pages))
+	shown := pages[from:min(from+tablePageSize, len(pages))]
+	lines := len(shown)
+	if group != nil { // a heading for each group on the page, and no rows of a folded one
+		lines = 0
+		seen := map[string]bool{}
+		for _, p := range shown {
+			k := p.Value(group)
+			if !seen[k] {
+				seen[k] = true
+				lines++
+			}
+			if !tu.st.Collapsed[k] {
+				lines++
+			}
+		}
+	}
+	height := head + float32(lines)*row
+	if len(v.Calcs) > 0 { // the foot
+		height += row
+	}
 	if len(pages) > tablePageSize {
 		height += ryugo.PaginationHeight(c, ryugo.Md) + 10 // the pages under the table, and the gap
+	}
+	var groupOf func(p *Page) string
+	var groupLabel func(key string, rows []*Page) string
+	if group != nil {
+		groupOf = func(p *Page) string { return p.Value(group) }
+		groupLabel = func(key string, _ []*Page) string {
+			if key == "" {
+				return Tf("No %s", group.Name)
+			}
+			return key
+		}
+	}
+	var reorder func(from, to int)
+	if v.Sort == "manual" && !coll.Dynamic() {
+		rows := slices.Clone(pages)
+		reorder = func(from, to int) {
+			p := rows[from]
+			moved := slices.Insert(slices.Delete(slices.Clone(rows), from, from+1), to, p)
+			if err := coll.SetManual(moved); err != nil {
+				a.saveErr = err.Error()
+			}
+		}
 	}
 	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: "Sayfalar", Height: height + 2,
 		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
-		Pin: true, // the title stays as the table is scrolled sideways
+		Pin:   true, // the title stays as the table is scrolled sideways
+		Group: groupOf, GroupLabel: groupLabel, Reorder: reorder,
 		Open: func(p *Page) {
 			if a.bulk.on {
 				a.bulkToggle(p) // chosen, not opened; the table's own choice follows, or it would be taken back below
@@ -838,6 +944,23 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) }) // the keys move over the rows of the table, too
 		},
 	})
+	if group != nil { // the groups folded, kept in the view
+		var folded []string
+		for k, f := range tu.st.Collapsed {
+			if f {
+				folded = append(folded, k)
+			}
+		}
+		slices.Sort(folded)
+		was := slices.Clone(v.Collapsed)
+		slices.Sort(was)
+		if !slices.Equal(folded, was) {
+			v.Collapsed = folded
+			if err := coll.Save(); err != nil {
+				a.saveErr = err.Error()
+			}
+		}
+	}
 	if a.bulk.on { // what was chosen in the table, by its boxes
 		a.bulk.sel = map[*Page]bool{}
 		for k := range tu.st.Selected {

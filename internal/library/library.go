@@ -115,6 +115,8 @@ type View struct {
 	Hidden []string           `json:"hidden,omitempty"`
 	// Filters are the conditions a page meets to be shown (Match).
 	Filters []Filter `json:"filters,omitempty"`
+	// Calcs are what a table's foot says under its columns, by column: "sum", "avg", "min", "max" or "count".
+	Calcs map[string]string `json:"calcs,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.

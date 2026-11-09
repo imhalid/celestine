@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // viewsLibrary is a collection of pages made and changed at known times.
@@ -516,4 +517,84 @@ func TestManualListDrag(t *testing.T) {
 	if a.page == nil || a.page.Title != before[0] || a.coll != nil {
 		t.Fatal("a row's arrow does not open its page")
 	}
+}
+
+// A table's foot says what the view asks under its columns; grouped by a choice its rows are under the options'
+// headings, a heading folds its group and the fold is kept; in its own order a row dragged by its grip stays where
+// it was let go.
+func TestTableFootGroupsAndOrder(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	pr, _ := coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okundu"})
+	pages, _ := coll.AddProperty("Sayfa sayısı", PropNumber, nil)
+	vals := map[string][2]string{"Dune": {"Okundu", "412"}, "Anna Karenina": {"Okunacak", "864"}, "Yüzyıllık Yalnızlık": {"Okundu", "417"}}
+	for _, p := range coll.All() {
+		if v, ok := vals[p.Title]; ok {
+			p.SetValue(pr.ID, v[0])
+			p.SetValue(pages.ID, v[1])
+		}
+	}
+	if err := tt.Click("Tablo"); err != nil {
+		t.Fatal(err)
+	}
+	v := coll.View()
+	v.Columns = []string{"prop:" + pr.ID, "prop:" + pages.ID}
+	v.Calcs = map[string]string{"title": "count", "prop:" + pages.ID: "sum"}
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("Adet 4") || !tt.HasText("Toplam 1.693") && !tt.HasText("Toplam 1693") {
+		t.Fatalf("the foot: %v", tt.Texts())
+	}
+	v.GroupBy = pr.ID
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	// in the table (after its last header), as the texts come: each group's heading, then its rows
+	texts := tt.Texts()
+	from := slices.Index(texts, "Sayfa sayısı")
+	want := []string{"Okunacak", "Anna Karenina", "Okundu", "Dune", "Yüzyıllık Yalnızlık", "No Durum", "Notlar: Dune"}
+	at := 0
+	for _, s := range texts[max(from, 0):] {
+		if at < len(want) && s == want[at] {
+			at++
+		}
+	}
+	if from < 0 || at < len(want) {
+		t.Fatalf("not in their groups, in the options' order (found %d of %v): %v", at, want, texts)
+	}
+	tu := a.tableOf(coll, v)
+	tu.st.Collapsed = map[string]bool{"Okundu": true}
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !slices.Equal(v.Collapsed, []string{"Okundu"}) {
+		t.Fatalf("the fold is not kept: %v", v.Collapsed)
+	}
+	// its own order: the first row dragged by its grip below the second
+	v.GroupBy, v.Sort, v.Desc = "", "manual", false
+	tu.st.Collapsed = nil
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	before := viewOrder(coll, v)
+	grip, ok := tt.Find("Move row")
+	if !ok {
+		t.Fatalf("no grip to move a row by: %v", tt.Texts())
+	}
+	x0, y0 := grip.X+grip.W/2, grip.Y+grip.H/2
+	_, row := ryugo.TableSize(ryugo.Md)
+	y1 := y0 + row
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	tt.Release(x0, y1)
+	tt.Advance(time.Second)
+	if after := viewOrder(coll, v); after[1] != before[0] || after[0] != before[1] {
+		t.Fatalf("the row dragged is not where it was let go: %v, was %v", after, before)
+	}
+}
+
+// viewOrder is coll's pages in view v's order.
+func viewOrder(coll *Collection, v *View) []string {
+	ps := coll.All()
+	sortPages(ps, v)
+	return titles(ps)
 }

@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/egoist/mygo v0.8.3
-	github.com/imhalid/ryu-go v0.1.1-0.20261108040113-e94b47959450
+	github.com/imhalid/ryu-go v0.1.1-0.20261109084958-97763d0fcb58
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
 	modernc.org/sqlite v1.61.1

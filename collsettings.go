@@ -493,6 +493,17 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 					}
 				})
 			})
+			a.csViewSort(c, d, v)
+			groups := []ryugo.Option[string]{{Value: "", Label: T("No groups")}}
+			for _, p := range d.Properties {
+				if p.Type == PropChoice {
+					groups = append(groups, ryugo.Option[string]{Value: p.ID, Label: p.Name})
+				}
+			}
+			ryugo.Field(c, ryugo.FieldOptions{Label: T("Grouped by")}, func() {
+				ryugo.Select(c.Key("cs-table-group"), &v.GroupBy, groups, ryugo.SelectOptions{Label: T("Grouped by"), Size: ryugo.Sm})
+			})
+			a.csTableCalcs(c, d, v)
 		case "calendar":
 			ryugo.Field(c, ryugo.FieldOptions{Label: T("Hangi güne konur"), Help: "Sayfalar takvimde bu tarihin gününde görünür."}, func() {
 				opts := []ryugo.Option[string]{{Value: "created", Label: T("Oluşturulma günü")}, {Value: "modified", Label: T("Değiştirilme günü")}}
@@ -548,6 +559,45 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 				id := v.ID
 				d.Views = slices.DeleteFunc(d.Views, func(x View) bool { return x.ID == id })
 				cs.view = ""
+			}
+		})
+	})
+}
+
+// csTableCalcs are what the foot of a table says under its columns: for the title, how many pages; for a number,
+// its sum, mean, least or most, or how many have one.
+func (a *app) csTableCalcs(c *ui.Context, d *Collection, v *View) {
+	type target struct{ key, name, typ string }
+	targets := []target{{"title", T("Title"), "title"}}
+	for _, p := range d.Properties {
+		if slices.Contains(viewColumns(d, v), "prop:"+p.ID) {
+			targets = append(targets, target{"prop:" + p.ID, p.Name, p.Type})
+		}
+	}
+	ryugo.Field(c, ryugo.FieldOptions{Label: T("At the foot"), Help: T("What the last row says under each column.")}, func() {
+		ui.Column(c).Gap(6).FillWidth().Children(func() {
+			for _, tg := range targets {
+				opts := []ryugo.Option[string]{{Value: "", Label: T("Nothing")}, {Value: "count", Label: footName("count")}}
+				if tg.typ == PropNumber {
+					for _, k := range []string{"sum", "avg", "min", "max"} {
+						opts = append(opts, ryugo.Option[string]{Value: k, Label: footName(k)})
+					}
+				}
+				calc := v.Calcs[tg.key]
+				ui.Row(c.Key("cs-calc:" + tg.key)).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, tg.name).FontSize(13).Width(140).MaxLines(1)
+					ryugo.Select(c.Key("cs-calc-sel:"+tg.key), &calc, opts, ryugo.SelectOptions{Label: tg.name, Size: ryugo.Sm}).Width(160)
+				})
+				if calc != v.Calcs[tg.key] {
+					if v.Calcs == nil {
+						v.Calcs = map[string]string{}
+					}
+					if calc == "" {
+						delete(v.Calcs, tg.key)
+					} else {
+						v.Calcs[tg.key] = calc
+					}
+				}
 			}
 		})
 	})
