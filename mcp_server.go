@@ -235,6 +235,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		})
 
 	a.addExtraTools(s, ro)
+	a.addMoreTools(s, ro)
 	a.addCommandTools(s, ro)
 
 	mcp.AddTool(s, &mcp.Tool{Name: "create_collection", Description: "Makes a collection."},
