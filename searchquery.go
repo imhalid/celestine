@@ -382,6 +382,9 @@ func dayRange(op, v string, now time.Time) (from, to time.Time, bad bool) {
 		if d, err := time.ParseInLocation("2006-01-02", s, now.Location()); err == nil {
 			return d, true
 		}
+		if d, ok := parseNaturalDay(s, now); ok {
+			return d, true
+		}
 		return time.Time{}, false
 	}
 	if a, b, ok := strings.Cut(v, ".."); ok && op == ":" {

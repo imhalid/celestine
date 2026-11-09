@@ -353,15 +353,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 			}
 		}
 	case "date":
-		today := a.clock()
-		days := []namedDay{{"Bugün", today}, {"Yarın", today.AddDate(0, 0, 1)}, {"Dün", today.AddDate(0, 0, -1)}, {"Gelecek hafta", today.AddDate(0, 0, 7)}}
-		if d, err := time.Parse("2006-01-02", tq); err == nil {
-			days = append([]namedDay{{shortDate(d), d}}, days...)
-		}
-		for _, d := range days {
-			if q != "" && match(q, d.name) < 0 && !strings.HasPrefix(d.d.Format("2006-01-02"), tq) {
-				continue
-			}
+		for _, d := range a.dayChoices(q) {
 			ch := &chip{kind: "date", target: d.d.Format("2006-01-02")}
 			out = append(out, menuItem{title: d.name, hint: shortDate(d.d), glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
 		}
@@ -422,15 +414,7 @@ func (a *app) searchItems(q string) []menuItem {
 		kinds = append(kinds, menuItem{title: k.name, group: "Satırı biçimlendir", glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
 	}
 	// dates
-	today := a.clock()
-	list := []namedDay{{"Bugün", today}, {"Yarın", today.AddDate(0, 0, 1)}, {"Dün", today.AddDate(0, 0, -1)}, {"Gelecek hafta", today.AddDate(0, 0, 7)}}
-	if d, err := time.Parse("2006-01-02", tq); err == nil {
-		list = append([]namedDay{{shortDate(d), d}}, list...)
-	}
-	for _, d := range list {
-		if q != "" && match(q, d.name) < 0 && !strings.HasPrefix(d.d.Format("2006-01-02"), tq) {
-			continue
-		}
+	for _, d := range a.dayChoices(q) {
 		ch := &chip{kind: "date", target: d.d.Format("2006-01-02")}
 		days = append(days, menuItem{title: d.name, hint: shortDate(d.d), group: "Tarih", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
 	}
