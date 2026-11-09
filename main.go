@@ -271,6 +271,7 @@ type app struct {
 	imageMiss     map[string]time.Time      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
 	clipText      func(string)              // the clipboard to write; the system's when nil
 	clipRead      func() string             // and to read
+	ownClip       ownClip                   // the blocks of the last copy in the editor (clipmodes.go)
 	carry         dockCarry                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
 	panesR        ui.Rect                   // where the panes were, last frame
 	prewarming    bool                      // the pages are being read away from the window (prewarm.go)
@@ -994,7 +995,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		Label: "Sayfa", Font: a.font, Theme: th,
 		Placeholder:  T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
 		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
-		OnKey:        a.editorKey,   // the / menu's keys, before the editor's (slash.go)
+		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
 		SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
