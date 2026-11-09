@@ -248,12 +248,13 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
-	importNote    string                // what the last import said, in the settings
-	embedCache    map[string][]string   // the first lines of the pages embedded (embed.go)
-	ctxCache      map[string][]seg      // the lines that link to a page (backlinks.go)
-	chipW         map[string]float32    // how wide the text of each chip is (chips.go)
-	autoCovers    map[uint64]*autoCover // the patterns made for the covers of the pages shown lately (autocover.go)
-	tables        map[string]*tableUI   // the state of each collection table, by collection and view (views.go)
+	importNote    string                  // what the last import said, in the settings
+	embedCache    map[string][]string     // the first lines of the pages embedded (embed.go)
+	ctxCache      map[string][]seg        // the lines that link to a page (backlinks.go)
+	chipW         map[string]float32      // how wide the text of each chip is (chips.go)
+	autoCovers    map[uint64]*autoCover   // the patterns made for the covers of the pages shown lately (autocover.go)
+	tables        map[string]*tableUI     // the state of each collection table, by collection and view (views.go)
+	sortLists     map[string]*manualState // each list in its own order, by collection and view (views.go)
 	writingSaved  time.Time
 	exportNote    string                    // what the last export said, in the settings
 	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)

@@ -49,7 +49,7 @@ type Property struct {
 }
 
 // reserved are the front matter keys of the page itself.
-var reserved = []string{"title", "created", "order", "rank", "cover"}
+var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover"}
 
 // Prop is the property id, or nil.
 func (c *Collection) Prop(id string) *Property {
@@ -237,6 +237,7 @@ func (c *Collection) migrate() bool {
 // ReadMeta takes a page's values from its front matter.
 func (p *Page) ReadMeta(meta map[string]string) {
 	fmt.Sscan(meta["rank"], &p.Rank)
+	fmt.Sscan(meta["manualrank"], &p.Manual)
 	p.Cover = meta["cover"]
 	p.Props = map[string]string{}
 	for k, v := range meta {
@@ -345,6 +346,54 @@ func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
 			return err
 		}
 		if err := q.Save(body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CompareManual orders two pages by their place in the collection's own order: placed ones first, by place, the
+// rest after them by when they were made.
+func CompareManual(a, b *Page) int {
+	switch {
+	case a.Manual == b.Manual:
+		return a.Created.Compare(b.Created)
+	case a.Manual == 0:
+		return 1
+	case b.Manual == 0:
+		return -1
+	}
+	return a.Manual - b.Manual
+}
+
+// SetManual puts pages in the order given, in the collection's own order: the places they had among its pages
+// (all of them, in that order) are given to them in the new order, so that a list showing some of the pages (a
+// search, a filter) moves only those. Every page is then numbered from 1, and only those whose place changed are
+// written.
+func (c *Collection) SetManual(pages []*Page) error {
+	all := c.All()
+	slices.SortStableFunc(all, CompareManual)
+	moving := map[*Page]bool{}
+	for _, p := range pages {
+		moving[p] = true
+	}
+	next := 0
+	for i, p := range all {
+		if moving[p] && next < len(pages) {
+			all[i] = pages[next]
+			next++
+		}
+	}
+	for i, p := range all {
+		if p.Manual == i+1 {
+			continue
+		}
+		p.Manual = i + 1
+		body, err := p.Body()
+		if err != nil {
+			return err
+		}
+		if err := p.Save(body); err != nil {
 			return err
 		}
 	}

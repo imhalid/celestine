@@ -13,6 +13,7 @@ var CleanOptions = library.CleanOptions
 
 type Collection = library.Collection
 
+var CompareManual = library.CompareManual
 var CompareValues = library.CompareValues
 
 const CollectionFile = library.CollectionFile

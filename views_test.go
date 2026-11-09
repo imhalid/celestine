@@ -471,3 +471,49 @@ func TestViewFiltersShown(t *testing.T) {
 		f.Close()
 	}
 }
+
+// A list in the collection's own order: a row dragged to the top stays there, in the pages' files; a row's arrow
+// opens its page.
+func TestManualListDrag(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.View().Sort = "manual"
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	order := func() []string {
+		ps := coll.All()
+		sortPages(ps, coll.View())
+		return titles(ps)
+	}
+	before := order()
+	last := before[len(before)-1]
+	from, ok := tt.Find("Sırala: " + last)
+	if !ok {
+		t.Fatalf("no row for %s: %v", last, tt.Texts())
+	}
+	to, _ := tt.Find("Sırala: " + before[0])
+	x0, y0 := from.X+from.W/2, from.Y+from.H/2
+	x1, y1 := to.X+to.W/2, to.Y+4
+	tt.Press(x0, y0)
+	for k := 1; k <= 12; k++ {
+		tt.Move(x0+(x1-x0)*float32(k)/12, y0+(y1-y0)*float32(k)/12)
+		tt.Frame()
+	}
+	tt.Release(x1, y1)
+	tt.Advance(time.Second)
+	if got := order(); got[0] != last {
+		t.Fatalf("not first after the drag: %v (was %v)", got, before)
+	}
+	again, _ := OpenLibrary(a.lib.Root)
+	ps := again.Collections[0].All()
+	slices.SortStableFunc(ps, CompareManual)
+	if ps[0].Title != last {
+		t.Fatalf("not kept: %v", titles(ps))
+	}
+	if err := tt.Click("Aç: " + before[0]); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.page == nil || a.page.Title != before[0] || a.coll != nil {
+		t.Fatal("a row's arrow does not open its page")
+	}
+}

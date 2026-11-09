@@ -512,7 +512,12 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 				ryugo.Select(c.Key("cs-datefield"), &f, opts, ryugo.SelectOptions{Label: "Tarih", Size: ryugo.Sm})
 				v.DateField = f
 			})
-		case "list":
+		case "list", "gallery":
+			a.csViewSort(c, d, v)
+			if v.Type == "gallery" {
+				a.csViewFields(c, d, v)
+				break
+			}
 			opts := []ryugo.Option[string]{{Value: "", Label: T("When they changed")}}
 			for _, p := range d.Properties {
 				if p.Type == PropChoice {
@@ -547,6 +552,28 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 				id := v.ID
 				d.Views = slices.DeleteFunc(d.Views, func(x View) bool { return x.ID == id })
 				cs.view = ""
+			}
+		})
+	})
+}
+
+// csViewSort is how a list or a gallery orders its pages: by title, when made or changed, the collection's own order
+// (dragged in a list), or a property; and which way.
+func (a *app) csViewSort(c *ui.Context, d *Collection, v *View) {
+	opts := []ryugo.Option[string]{{Value: "title", Label: T("Title")}, {Value: "created", Label: T("Oluşturulma")}, {Value: "modified", Label: T("Değiştirilme")}, {Value: "manual", Label: T("Your own order")}}
+	for _, p := range d.Properties {
+		opts = append(opts, ryugo.Option[string]{Value: "prop:" + p.ID, Label: p.Name})
+	}
+	if v.Sort == "" || v.Sort == "rank" {
+		v.Sort = "title"
+	}
+	ryugo.Field(c, ryugo.FieldOptions{Label: T("Sorted by"), Help: map[bool]string{true: T("Drag the rows of the list into the order you want."), false: ""}[v.Sort == "manual"]}, func() {
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			ryugo.Select(c.Key("cs-sort"), &v.Sort, opts, ryugo.SelectOptions{Label: T("Sorted by"), Size: ryugo.Sm}).Width(200)
+			if v.Sort != "manual" {
+				ryugo.Checkbox(c.Key("cs-desc"), &v.Desc, T("Reversed"), ryugo.CheckOptions{})
+			} else {
+				v.Desc = false // the order is the one dragged
 			}
 		})
 	})

@@ -90,7 +90,7 @@ type View struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 	Type  string `json:"type"` // "list" | "table" | "board" | "calendar" | "gallery"
-	Sort  string `json:"sort"` // "title" | "created" | "modified" | "prop:<id>"
+	Sort  string `json:"sort"` // "title" | "created" | "modified" | "prop:<id>" | "rank" (a board's) | "manual"
 	Desc  bool   `json:"desc,omitempty"`
 	// GroupBy is the choice property a board's columns are the options of.
 	GroupBy string `json:"groupBy,omitempty"`
@@ -183,6 +183,7 @@ type Page struct {
 	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
 	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
 	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
+	Manual   int               // its place in a view in its own order (sort "manual"), from 1; 0: not yet placed
 	Cover    string            // the picture across its top: a file of its folder (cover.go)
 	Dir      string
 	Coll     *Collection
@@ -422,6 +423,9 @@ func (p *Page) Save(body string) error {
 	}
 	if p.Rank != 0 {
 		meta["rank"] = strconv.Itoa(p.Rank)
+	}
+	if p.Manual != 0 {
+		meta["manualrank"] = strconv.Itoa(p.Manual)
 	}
 	if p.Cover != "" {
 		meta["cover"] = p.Cover

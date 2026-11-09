@@ -236,6 +236,8 @@ func sortPages(ps []*Page, v *View) {
 			return x.Created.Compare(y.Created)
 		case "modified":
 			return x.Modified.Compare(y.Modified)
+		case "manual":
+			return CompareManual(x, y)
 		}
 		if id, ok := strings.CutPrefix(v.Sort, "prop:"); ok {
 			if pr := x.Coll.Prop(id); pr != nil {
@@ -249,7 +251,7 @@ func sortPages(ps []*Page, v *View) {
 		if d == 0 {
 			return strings.ToLower(ps[i].Title) < strings.ToLower(ps[j].Title)
 		}
-		if v.Desc {
+		if v.Desc && v.Sort != "manual" { // the own order is as it was dragged, never the other way
 			return d > 0
 		}
 		return d < 0
@@ -268,6 +270,10 @@ func compareValues(pr *Property, a, b string) int { return CompareValues(pr, a, 
 func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
 	if pr := coll.Prop(v.GroupBy); pr != nil && pr.Type == PropChoice {
 		a.listGroups(c, coll, v, pr, pages)
+		return
+	}
+	if v.Sort == "manual" && !coll.Dynamic() {
+		a.manualList(c, coll, v, pages)
 		return
 	}
 	t := c.Theme()
@@ -334,6 +340,80 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 			a.listRow(c, v, p, now)
 		}
 	}
+}
+
+// manualList is a list in the collection's own order: its rows are dragged into place (Ryugo's Sortable), and the
+// order is kept in the pages (Collection.SetManual), the rows a search or a filter hides keeping theirs.
+func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+	t := c.Theme()
+	key := coll.Dir + "|" + v.ID
+	if a.sortLists == nil {
+		a.sortLists = map[string]*manualState{}
+	}
+	ms := a.sortLists[key]
+	if ms == nil {
+		ms = &manualState{list: new(ui.ListState)}
+		a.sortLists[key] = ms
+	}
+	// Sortable moves a row in the list it was given when the row was let go, a frame later: the list is kept here
+	// across frames, and taken anew when the pages shown are others (a page made, a search)
+	if !samePages(ms.items, pages) {
+		ms.items = slices.Clone(pages)
+	}
+	items := &ms.items
+	ryugo.Sortable(c.Key("manual:"+key), ms.list, items, ryugo.SortableOptions{
+		Label: func(i int) string { return T("Sırala: ") + (*items)[i].Title },
+		Key:   func(i int) any { return (*items)[i] },
+	}, func(p *Page) {
+		// the whole row is what is dragged: nothing in it takes the pointer but its arrow, which opens the page (as
+		// the keys do) and has its menu
+		row := ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Padding(4, 6)
+		row.Children(func() {
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
+					fieldChips(c, p, v)
+				})
+				if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
+					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(1)
+				}
+			})
+			open := ryugo.Button(c.Key("open:"+p.Dir), T("Aç: ")+p.Title, ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
+			a.contextOn(open, func() []menuItem { return a.pageMenu(p, false) })
+			if open.Clicked() {
+				a.open(p)
+			}
+		})
+		a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
+	})
+	if !slices.Equal(*items, pages) { // a row was moved
+		if err := coll.SetManual(*items); err != nil {
+			a.saveErr = err.Error()
+		}
+	}
+}
+
+// manualState is a list in its own order across frames: Ryugo's state of it, and its rows as last shown or moved.
+type manualState struct {
+	list  *ui.ListState
+	items []*Page
+}
+
+// samePages is whether a and b hold the same pages, in any order.
+func samePages(a, b []*Page) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	in := make(map[*Page]bool, len(a))
+	for _, p := range a {
+		in[p] = true
+	}
+	for _, p := range b {
+		if !in[p] {
+			return false
+		}
+	}
+	return true
 }
 
 // listRow is page p's row in a list: its title, the properties the view shows, when it changed, the start of its
