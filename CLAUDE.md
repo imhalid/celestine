@@ -1,7 +1,7 @@
 # ryudit
 
 A notes app in Go: one binary, native UI on MyGo (`github.com/egoist/mygo`, replaced by the fork
-`github.com/imhalid/mygo` in `go.mod`) and the Ryugo kit (`github.com/imhalid/ryu-go`). README.md has the
+`github.com/imhalid/mygo` in `go.mod`) and the Ryugo kit (`github.com/imhalid/ryu-go`). docs/architecture.md has the
 file-by-file table; `docs/` has the design notes (the older ones in Turkish; new ones in English).
 
 ## Layout
