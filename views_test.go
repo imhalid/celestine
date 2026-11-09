@@ -367,11 +367,11 @@ func TestListGroupedByChoice(t *testing.T) {
 		}
 		return r.Y
 	}
-	if !(y("Collapse: Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y("Collapse: Okundu") &&
-		y("Collapse: Okundu") < y("Aç: Dune") && y("Aç: Dune") < y("Collapse: No Durum") && y("Collapse: No Durum") < y("Aç: Yüzyıllık Yalnızlık")) {
+	if !(y(T("Collapse: ")+"Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y(T("Collapse: ")+"Okundu") &&
+		y(T("Collapse: ")+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(T("Collapse: ")+Tf("No %s", "Durum")) && y(T("Collapse: ")+Tf("No %s", "Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
 		t.Fatalf("the groups are not in the options' order: %v", tt.Texts())
 	}
-	if err := tt.Click("Collapse: Okundu"); err != nil {
+	if err := tt.Click(T("Collapse: ") + "Okundu"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
@@ -446,19 +446,19 @@ func TestViewFiltersShown(t *testing.T) {
 	}
 	v.Filters = []Filter{{Prop: "title", Op: "is", Value: "nothing"}}
 	tt.Advance(400 * time.Millisecond)
-	if !tt.HasText("No page meets this view's filters") {
+	if !tt.HasText(T("No page meets this view's filters")) {
 		t.Fatalf("no word that the filters leave nothing: %v", tt.Texts())
 	}
 	v.Filters = []Filter{{Prop: "title", Op: "contains", Value: "dune"}}
 	tt.Advance(400 * time.Millisecond)
-	if err := tt.Click("1 filter"); err != nil {
+	if err := tt.Click(T("1 filter")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if !a.cs.open || a.cs.tab != 2 || a.cs.view != v.ID || !tt.HasText("Add filter") {
+	if !a.cs.open || a.cs.tab != 2 || a.cs.view != v.ID || !tt.HasText(T("Add filter")) {
 		t.Fatalf("the view's settings are not open at its filters: open %v tab %d view %q", a.cs.open, a.cs.tab, a.cs.view)
 	}
-	if err := tt.Click("Add filter"); err != nil {
+	if err := tt.Click(T("Add filter")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -550,7 +550,7 @@ func TestTableFootGroupsAndOrder(t *testing.T) {
 	// in the table (after its last header), as the texts come: each group's heading, then its rows
 	texts := tt.Texts()
 	from := slices.Index(texts, "Sayfa sayısı")
-	want := []string{"Okunacak", "Anna Karenina", "Okundu", "Dune", "Yüzyıllık Yalnızlık", "No Durum", "Notlar: Dune"}
+	want := []string{"Okunacak", "Anna Karenina", "Okundu", "Dune", "Yüzyıllık Yalnızlık", Tf("No %s", "Durum"), "Notlar: Dune"}
 	at := 0
 	for _, s := range texts[max(from, 0):] {
 		if at < len(want) && s == want[at] {

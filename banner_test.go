@@ -29,7 +29,7 @@ func TestCollectionBanner(t *testing.T) {
 		t.Fatalf("collection.json: %s", data)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if r, ok := tt.Find("Banner"); !ok || r.H != bannerH {
+	if r, ok := tt.Find(T("Banner")); !ok || r.H != bannerH {
 		t.Fatalf("no banner on the page: %+v %v", r, ok)
 	}
 	a.openCollSettings(coll, 0) // the settings keep it

@@ -43,7 +43,7 @@ func TestPropertyKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if err := tt.Click("Open Anna Karenina"); err != nil {
+	if err := tt.Click(Tf("Open %s", "Anna Karenina")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()

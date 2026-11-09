@@ -224,3 +224,37 @@ func TestEnglishCoversScreen(t *testing.T) {
 		t.Fatalf("no English for %d: %q", len(missing), missing)
 	}
 }
+
+// Every string given to T has its other language: a Turkish one its English in enText, an English one (as new
+// strings are written) its Turkish in trText. A string with neither shows in one language in both windows.
+func TestTurkishCovers(t *testing.T) {
+	srcs, _ := filepath.Glob("*.go")
+	re := regexp.MustCompile(`\bTf?\(("(?:[^"\\]|\\.)*")`)
+	letters := regexp.MustCompile(`[A-Za-z]{2}`)
+	var missing []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			s, err := strconv.Unquote(m[1])
+			if err != nil || !letters.MatchString(s) {
+				continue
+			}
+			_, en := enText[s]
+			_, tr := trText[s]
+			if !en && !tr {
+				missing = append(missing, f+": "+s)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("no other language for:\n%s", strings.Join(missing, "\n"))
+	}
+	for k := range trText {
+		if _, ok := enText[k]; ok {
+			t.Errorf("%q is in both enText and trText", k)
+		}
+	}
+}

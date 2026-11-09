@@ -103,7 +103,7 @@ func TestCodeBlockCopy(t *testing.T) {
 	copied := ""
 	a.clipText = func(s string) { copied = s }
 	tt.Advance(200 * time.Millisecond)
-	if err := tt.Click("Copy the code"); err != nil {
+	if err := tt.Click(T("Copy the code")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()

@@ -26,6 +26,9 @@ func setLang(setting string) {
 // T is s in the language of the window.
 func T(s string) string {
 	if lang != "en" {
+		if tr, ok := trText[s]; ok { // a string written in English (i18n_tr.go)
+			return tr
+		}
 		return s
 	}
 	if e, ok := enText[s]; ok {

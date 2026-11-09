@@ -240,7 +240,7 @@ func lapsePage(t *testing.T) (*app, *ui.Tester) {
 // editor back.
 func TestTimeLapse(t *testing.T) {
 	a, tt := lapsePage(t)
-	if err := tt.Click("Time-lapse"); err != nil {
+	if err := tt.Click(T("Time-lapse")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	for range 50 {
@@ -269,14 +269,14 @@ func TestTimeLapse(t *testing.T) {
 		t.Fatal("the editor is there too")
 	}
 	// a click lights the day, a double click leaves its words alone
-	if err := tt.Click("Version 2"); err != nil {
+	if err := tt.Click(Tf("Version %d", 2)); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(50 * time.Millisecond)
 	if l.lit != 2 || !tt.HasText("The") {
 		t.Fatalf("lit %d", l.lit)
 	}
-	r, _ := tt.Find("Version 4")
+	r, _ := tt.Find(Tf("Version %d", 4))
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
 	tt.Frame()
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
