@@ -5,7 +5,8 @@
 #   ./deploy.sh                                                  code only: the secrets stay as they are
 #
 # secrets.json is {"ADMIN_TOKEN": "…", "TURNSTILE_SECRET": "…", "TURNSTILE_SITEKEY": "…", "RESEND_API_KEY": "…",
-# "MAIL_FROM": "Ryudit <davet@resend.halid.dev>", "ADMIN_EMAIL": "…", "CONTACT_EMAIL": "…", "TOKENS": "{…}"}, kept outside the
+# "MAIL_FROM": "Ryudit <davet@resend.halid.dev>", "ADMIN_EMAIL": "…", "CONTACT_EMAIL": "…", "TOKENS": "{…}",
+# "DOWNLOAD_URL": "https://<the update Worker>/download"}, kept outside the
 # repository; each key in it becomes a secret of the Worker. Before the first deploy:
 #   cf r2 buckets create --name ryudit-sync
 #   cf d1 create --name ryudit      (its id goes below, and in wrangler.toml)

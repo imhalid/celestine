@@ -1,12 +1,33 @@
 <script>
   // The entry screen, in the manner of ui.halid.dev (Mizan): calm and plain. A thin bar on top, the name being typed with
-  // its caret and one line on what it is, the waitlist in a well; below a hatched rule, the app's carets each in a card,
-  // writing their little notes; a footer. Light or dark as the system has it, or as the toggle says.
+  // its caret and one line on what it is, the download for the visitor's computer and the others under it; below a hatched
+  // rule, the app's carets each in a card, writing their little notes; a footer, where the waitlist of sync is, quietly: the
+  // app needs no account, and sync is by invite. Light or dark as the system has it, or as the toggle says.
   import { onMount } from "svelte";
   import SignupForm from "./SignupForm.svelte";
   import CaretCard from "./CaretCard.svelte";
 
-  let { contact = "" } = $props();
+  let { contact = "", download = "" } = $props();
+
+  // the builds, by the name the update server knows them by (cloudflare/update: /download/<os-arch>)
+  const BUILDS = [
+    { id: "darwin-arm64", os: "macOS", chip: "Apple silicon" },
+    { id: "darwin-amd64", os: "macOS", chip: "Intel" },
+    { id: "windows-amd64", os: "Windows", chip: "x64" },
+    { id: "linux-amd64", os: "Linux", chip: "x64" },
+    { id: "linux-arm64", os: "Linux", chip: "ARM" },
+  ];
+  const href = (b) => download.replace(/\/+$/, "") + "/" + b.id;
+  // the visitor's: a Mac is taken for Apple silicon (a browser does not say), its Intel build is the next link
+  const mine = (() => {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|Android/i.test(ua)) return null;
+    if (/Mac/i.test(ua)) return BUILDS[0];
+    if (/Win/i.test(ua)) return BUILDS[2];
+    if (/Linux/i.test(ua)) return /aarch64|arm64/i.test(ua) ? BUILDS[4] : BUILDS[3];
+    return null;
+  })();
+  const others = BUILDS.filter((b) => b !== mine);
 
   const NAME = "Ryudit";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -79,13 +100,27 @@
 
   <main class="frame">
     <section class="hero">
-      <span class="badge">Waitlist open <span aria-hidden="true">·</span> invite only</span>
+      <span class="badge">Free <span aria-hidden="true">·</span> early access</span>
       <h1 aria-label={NAME}><span aria-hidden="true">{typed}</span><span class="tc" aria-hidden="true"></span></h1>
       <p class="lead">A one-of-a-kind notes app, built with MyGo.</p>
-      <div class="well">
-        <SignupForm prompt="" placeholder="you@example.com" label="Join the waitlist" kbd={false} />
+      <div class="get">
+        {#if !download}
+          <span class="dl off">Downloads are on their way</span>
+        {:else if mine}
+          <a class="dl" href={href(mine)} download>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" /></svg>
+            Download for {mine.os}
+          </a>
+          <span class="chip">{mine.chip}</span>
+        {/if}
       </div>
-      <p class="fine">Your email is only used to send your invite code, and is never shared.{contact}</p>
+      {#if download}
+        <p class="also">
+          {mine ? "Also for" : "Download for"}
+          {#each others as b, i (b.id)}<a href={href(b)} download>{b.os} ({b.chip})</a>{i < others.length - 1 ? ", " : ""}{/each}
+        </p>
+      {/if}
+      <p class="fine">No account needed: your notes stay on your computer, in one file of their own.</p>
     </section>
 
     <div class="rule" aria-hidden="true"></div>
@@ -105,8 +140,15 @@
     <div class="rule" aria-hidden="true"></div>
 
     <footer class="foot">
-      <span>Ryudit</span>
-      <span>Made with MyGo</span>
+      <div class="wait" id="waitlist">
+        <p>Sync across your computers, encrypted end to end, is by invite while it is young. Leave your email and an invite code comes when there is room.</p>
+        <SignupForm id="waitlist-form" prompt="" placeholder="you@example.com" label="Join the waitlist" kbd={false} />
+        <p class="fine">Your email is only used to send your invite code, and is never shared.{contact}</p>
+      </div>
+      <div class="meta">
+        <span>Ryudit</span>
+        <span>Made with MyGo</span>
+      </div>
     </footer>
   </main>
 </div>
@@ -137,8 +179,22 @@
   h1 { margin: 22px 0 0; display: flex; align-items: center; font-size: clamp(56px, 10vw, 104px); line-height: 1; font-weight: 700; letter-spacing: -0.05em; color: var(--text); min-height: 1em; }
   .tc { display: inline-block; width: 0.07em; height: 0.78em; margin-left: 0.06em; border-radius: 2px; background: var(--accent); animation: blink 1.05s steps(1) infinite; }
   .lead { margin: 18px 0 0; font-size: clamp(18px, 2.3vw, 24px); line-height: 1.35; letter-spacing: -0.015em; color: var(--muted); max-width: 30ch; }
-  .well { margin-top: 36px; width: min(520px, 100%); text-align: left; }
   .fine { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); max-width: 52ch; }
+
+  /* the download: one button for this computer, the others as a line of links */
+  .get { margin-top: 36px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .dl { display: inline-flex; align-items: center; gap: 9px; height: 46px; padding: 0 22px; border-radius: 999px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    text-decoration: none; color: var(--on-accent); background: linear-gradient(180deg, var(--solid-top), var(--solid-bottom));
+    border: 1px solid color-mix(in oklab, var(--solid-bottom) 80%, #000); box-shadow: var(--sheen), 0 1px 2px color-mix(in oklab, var(--accent) 45%, transparent);
+    transition: filter 0.2s, transform 0.15s var(--ease); }
+  .dl:hover { filter: brightness(1.1); }
+  .dl:active { transform: translateY(1px); filter: brightness(0.95); }
+  .dl:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .dl.off { color: var(--muted); background: var(--well); border-color: var(--border); box-shadow: none; font-weight: 500; }
+  .chip { font-size: 13px; color: var(--muted); }
+  .also { margin: 16px 0 0; font-size: 13.5px; color: var(--muted); max-width: 60ch; }
+  .also a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+  .also a:hover { text-decoration-color: currentColor; }
 
   /* the hatched rule between sections, with its crosses at the frame's corners */
   .rule { position: relative; height: 26px; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
@@ -154,25 +210,29 @@
   .head p { margin: 10px 0 0; font-size: 16px; line-height: 1.5; color: var(--muted); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 
-  .foot { display: flex; justify-content: space-between; gap: 16px; padding: 22px 24px 28px; font-size: 13px; color: var(--muted); }
+  .foot { padding: 28px 24px; font-size: 13px; color: var(--muted); }
+  .meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 24px; }
+  .wait { max-width: 460px; }
+  .wait > p:first-child { margin: 0 0 10px; line-height: 1.5; }
+  .wait .fine { margin-top: 2px; font-size: 12px; }
 
   @keyframes blink { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .tc, .mark i { animation: none; } }
 
-  /* the waitlist in a well: the field and the button inside one rounded box, as ui.halid.dev's install line */
-  .well :global(.row) { display: flex; align-items: center; gap: 8px; background: var(--well); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 14px; transition: border-color 0.2s, box-shadow 0.2s; }
-  .well :global(.row:focus-within) { border-color: color-mix(in oklab, var(--accent) 55%, transparent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 16%, transparent); }
-  .well :global(.field) { --fg: var(--text); --dim: var(--muted); --line: transparent; --line-hi: transparent; --bad: transparent;
-    --caret: var(--accent); --caret-ink: var(--on-accent); --sel: color-mix(in oklab, var(--accent) 25%, transparent); --field-px: 0; --field-py: 0.55rem; font-size: 15px; }
-  .well :global(.go) { height: 40px; padding: 0 18px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer;
+  /* the waitlist, small, in the footer: the field and the button inside one rounded box, as ui.halid.dev's install line */
+  .wait :global(.row) { display: flex; align-items: center; gap: 8px; background: var(--well); border: 1px solid var(--border); border-radius: 12px; padding: 4px 4px 4px 12px; transition: border-color 0.2s, box-shadow 0.2s; }
+  .wait :global(.row:focus-within) { border-color: color-mix(in oklab, var(--accent) 55%, transparent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 16%, transparent); }
+  .wait :global(.field) { --fg: var(--text); --dim: var(--muted); --line: transparent; --line-hi: transparent; --bad: transparent;
+    --caret: var(--accent); --caret-ink: var(--on-accent); --sel: color-mix(in oklab, var(--accent) 25%, transparent); --field-px: 0; --field-py: 0.4rem; font-size: 14px; }
+  .wait :global(.go) { height: 34px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer;
     color: var(--on-accent); background: linear-gradient(180deg, var(--solid-top), var(--solid-bottom)); border: 1px solid color-mix(in oklab, var(--solid-bottom) 80%, #000);
     box-shadow: var(--sheen), 0 1px 2px color-mix(in oklab, var(--accent) 45%, transparent); transition: filter 0.2s, transform 0.15s var(--ease); }
-  .well :global(.go:hover) { filter: brightness(1.1); }
-  .well :global(.go:active) { transform: translateY(1px); filter: brightness(0.95); }
-  .well :global(.go:disabled) { opacity: 0.55; cursor: default; filter: none; transform: none; }
-  .well :global(.go:focus-visible) { outline: none; box-shadow: var(--focus-ring); }
-  .well :global(.msg) { min-height: 20px; margin: 8px 4px 0; font-size: 13px; color: var(--muted); }
-  .well :global(.msg.bad) { color: var(--danger); }
-  .well :global(.done) { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--well); border: 1px solid var(--border); font-size: 14px; color: var(--text); }
-  .well :global(.done svg) { color: var(--accent); flex: none; }
+  .wait :global(.go:hover) { filter: brightness(1.1); }
+  .wait :global(.go:active) { transform: translateY(1px); filter: brightness(0.95); }
+  .wait :global(.go:disabled) { opacity: 0.55; cursor: default; filter: none; transform: none; }
+  .wait :global(.go:focus-visible) { outline: none; box-shadow: var(--focus-ring); }
+  .wait :global(.msg) { min-height: 20px; margin: 8px 4px 0; font-size: 13px; color: var(--muted); }
+  .wait :global(.msg.bad) { color: var(--danger); }
+  .wait :global(.done) { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--well); border: 1px solid var(--border); font-size: 14px; color: var(--text); }
+  .wait :global(.done svg) { color: var(--accent); flex: none; }
 </style>

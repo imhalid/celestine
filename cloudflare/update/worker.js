@@ -2,6 +2,7 @@
 //
 //   GET /update.json          the manifest of the latest release (channel=beta for trials)
 //   GET /<version>/<file>     the release's files
+//   GET /download/<os-arch>   the latest release's file for darwin-arm64, windows-amd64, …: a redirect, for the site's buttons
 //
 // The release's workflow (.github/workflows/release.yml) puts the files and update.json in the bucket.
 // The Worker adds nothing and logs nothing of the user: the request is a version in the User-Agent, and
@@ -10,6 +11,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("no", { status: 405 });
+    const dl = url.pathname.match(/^\/download\/([a-z0-9]+-[a-z0-9]+)$/);
+    if (dl) return download(env, dl[1]);
     let key = url.pathname.replace(/^\/+/, "");
     if (key === "update.json") key = url.searchParams.get("channel") === "beta" ? "beta.json" : "update.json";
     if (!/^[A-Za-z0-9._\/-]+$/.test(key) || key.includes("..")) return new Response("not found", { status: 404 });
@@ -22,3 +25,12 @@ export default {
     return new Response(request.method === "HEAD" ? null : obj.body, { headers });
   },
 };
+
+// download sends the browser to the latest release's file for a platform, as update.json names it.
+async function download(env, platform) {
+  const obj = await env.RELEASES.get("update.json");
+  if (!obj) return new Response("no release yet", { status: 404 });
+  const asset = (await obj.json()).assets?.[platform];
+  if (!asset?.url) return new Response("no build for " + platform, { status: 404 });
+  return new Response(null, { status: 302, headers: { location: asset.url, "cache-control": "public, max-age=300" } });
+}

@@ -1,4 +1,4 @@
-// The two pages of the server: the waitlist ("/") and the administrator's ("/admin"). Plain HTML and a little
+// The two pages of the server: the entry screen ("/": the download, and the waitlist of sync) and the administrator's ("/admin"). Plain HTML and a little
 // script; what a person typed (an e-mail, a name) is put on a page only as text, never as markup.
 import { landingHTML } from "./landing.js";
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -34,7 +34,9 @@ export function waitlistPage(env) {
   const n = nonce();
   const site = env.TURNSTILE_SITEKEY || "";
   const contact = env.CONTACT_EMAIL ? ` To have it deleted, write to ${esc(env.CONTACT_EMAIL)}.` : "";
-  return page(landingHTML(n, site, contact, esc), n, site ? "https://challenges.cloudflare.com" : "");
+  // DOWNLOAD_URL is the update server's /download (cloudflare/update), where the buttons lead
+  const download = /^https:\/\//.test(env.DOWNLOAD_URL || "") ? env.DOWNLOAD_URL : "";
+  return page(landingHTML(n, site, contact, download, esc), n, site ? "https://challenges.cloudflare.com" : "");
 }
 
 // The administrator's page looks like an airport's departure board: black, amber letters, square everything; the
