@@ -21,6 +21,8 @@
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
+import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
+import ADMIN_WASM from "./admin.bin";
 
 const MAX_BYTES = 50 * 1024 * 1024; // a file larger than this is refused (413)
 const TOMB_DAYS = 180;
@@ -95,6 +97,9 @@ async function handle(request, env) {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === "/") return waitlistPage(env);
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
+  // the admin panel's module and the WebAssembly it draws with (admin/build.mjs): nothing secret, the key stays the page's
+  if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_JS_PATH) return asset(ADMIN_JS, "text/javascript; charset=utf-8");
+  if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_WASM_PATH) return asset(ADMIN_WASM, "application/wasm");
   if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
@@ -251,4 +256,9 @@ async function files(request, env, url) {
   await bytes(-oldSize);
   await bump();
   return new Response("ok");
+}
+
+// asset is a file of the admin panel: its name says what is in it (admin/build.mjs), so it is cached for good.
+function asset(body, type) {
+  return new Response(body, { headers: { "content-type": type, "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
 }

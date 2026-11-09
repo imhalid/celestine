@@ -23,6 +23,9 @@ Hesap formu Ayarlar ▸ Senkron'da: davetle hesap aç (e-posta + erişim kodu �
 Site (`cloudflare/sync/landing`) önce indirme, bekleme listesi altta.
 `/privacy` says what the server keeps and how to have it deleted. Deleting an account also deletes its invite and waitlist row and
 puts `account#<id>` for its address in the audit; /admin exports the waitlist as CSV and deletes a row (one without an account).
+The admin panel (`/admin`) is drawn with synth-ui on a canvas (`cloudflare/sync/admin`, built by `npm run build` into
+`admin.gen.js` and `admin.bin`, served by the Worker with its WebAssembly; the page's CSP allows WebAssembly and no
+other site). It needs WebGPU or WebGL2: a browser without them (or with the GPU turned off) shows nothing.
 
 ## Açık
 

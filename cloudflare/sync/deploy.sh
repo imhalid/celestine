@@ -20,7 +20,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 out=$(mktemp -d)
 w=$out/.cloudflare/output/v0/workers/default
 mkdir -p "$w/bundle"
-cp "$here"/*.js "$w/bundle/"
+cp "$here"/*.js "$here"/*.bin "$w/bundle/"
 echo '{"buildContext":{"isPreview":false,"mode":"production"}}' > "$out/.cloudflare/output/v0/config.json"
 # Without a secrets file, the secrets the deployed version has are named in the new one, without a value: cf keeps
 # each as it is. A secret not named is dropped with the old version.
@@ -36,7 +36,8 @@ fi
 # the crons are wrangler.toml's ([triggers] crons), one list for both
 SECRET_NAMES="$SECRET_NAMES" CRONS=$(sed -n 's/^crons *= *//p' "$here/wrangler.toml") HERE_JS="$w/bundle" SECRETS="$RYUDIT_SYNC_SECRETS" DOMAIN="$DOMAIN" node -e '
 const fs = require("fs");
-const modules = Object.fromEntries(fs.readdirSync(process.env.HERE_JS).map((f) => [f, { type: "esm" }]));
+// the scripts, and the WebAssembly of the admin panel as bytes (admin.bin, served as a file)
+const modules = Object.fromEntries(fs.readdirSync(process.env.HERE_JS).map((f) => [f, { type: f.endsWith(".bin") ? "data" : "esm" }]));
 const triggers = JSON.parse(process.env.CRONS || "[]").map((schedule) => ({ type: "scheduled", schedule }));
 if (!triggers.length) throw new Error("no [triggers] crons in wrangler.toml");
 const env = { SYNC: { type: "r2", name: "ryudit-sync" }, DB: { type: "d1", name: "ryudit" } };
