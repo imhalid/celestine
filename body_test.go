@@ -52,3 +52,34 @@ func TestEditingKeepsUnknownObjects(t *testing.T) {
 		t.Fatalf("saved: %s", body)
 	}
 }
+
+// A block of a newer version goes through Markdown as a mark no reader shows, and comes back as it was.
+func TestUnknownBlockThroughMarkdown(t *testing.T) {
+	md := bodyMarkdown(decodeBody(newerBody))
+	if !strings.Contains(md, blockMarkStart) || strings.Contains(md, "ai-answer") {
+		t.Fatalf("Markdown: %q", md)
+	}
+	back := encodeBody(importMarkdown(md))
+	if !strings.Contains(back, newerObj) || !strings.Contains(back, "before") || !strings.Contains(back, "after") {
+		t.Fatalf("read back:\n%s", back)
+	}
+}
+
+// An agent that reads a page and writes it back whole, changed, keeps a block of a newer version (#65).
+func TestAgentRewriteKeepsUnknownBlock(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	tt.Advance(50 * time.Millisecond)
+	if err := a.page.Save(newerBody); err != nil {
+		t.Fatal(err)
+	}
+	a.takeOutside(a.page)
+	cs := agent(t, a)
+	id := a.idOf(a.page.Dir)
+	var read struct{ Markdown string }
+	call(t, cs, "read_page", map[string]any{"page": id}, &read)
+	call(t, cs, "update_page", map[string]any{"page": id, "markdown": strings.Replace(read.Markdown, "after", "after, changed", 1)}, nil)
+	body, _ := a.page.Body()
+	if !strings.Contains(body, newerObj) || !strings.Contains(body, "changed") {
+		t.Fatalf("rewritten: %s", body)
+	}
+}

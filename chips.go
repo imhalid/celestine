@@ -207,7 +207,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 // file dropped or imported, what an agent writes, a template). It is not
 // how a page is kept.
 func importMarkdown(md string) richtext.Text {
-	return chipsIn(embedsIn(queriesIn(tablesIn(parseBody(md)))))
+	return chipsIn(embedsIn(queriesIn(tablesIn(blockMarksIn(parseBody(md))))))
 }
 
 // parse reads Markdown into the editor's text, drawn, for the open page.
@@ -238,6 +238,10 @@ func withoutChips(t richtext.Text) richtext.Text {
 		}
 		if f.ch.kind == "query" {
 			t = fencedAsText(t, f.i, f.ch.target, queryLang, f.a)
+			continue
+		}
+		if f.ch.kind == unknownKind { // a mark no reader shows, that brings it back (blockmark.go)
+			t = blockMarkAsText(t, f.i, f.ch, f.a)
 			continue
 		}
 		if f.ch.kind == "file" { // its name, a link to the file beside the page
