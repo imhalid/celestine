@@ -11,14 +11,13 @@
 //
 // Every device has a token, "Authorization: Bearer <token>"; it leads to an account, and an account's files are
 // under its own prefix ("u<id>/"). Every write is checked by R2 itself (onlyIf on the object's etag), so that two
-// devices writing at once cannot both win. A token of the old kind (env.TOKENS, a JSON object {"<token>": "<account>"})
-// still works, with no quota: it is for tests, and goes when nothing needs it.
+// devices writing at once cannot both win.
 //
 // A deletion is not a second object: the file's own object is replaced by an empty one marked
 // deleted ("tomb" in its metadata), by the same conditional write as any other change. A tombstone older
 // than TOMB_DAYS is dropped when the files are listed: a device that was away longer than that has, for
 // the files it deletes or keeps, the same outcome as with the tombstone.
-import { handleApi, userOfToken, same } from "./auth.js";
+import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage } from "./pages.js";
 
 const MAX_BYTES = 50 * 1024 * 1024; // a file larger than this is refused (413)
@@ -40,12 +39,6 @@ const CORS = {
 async function sha256(buf) {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-function legacyAccount(env, token) {
-  if (!token) return "";
-  let found = "";
-  for (const [t, acc] of Object.entries(JSON.parse(env.TOKENS || "{}"))) if (same(t, token)) found = acc;
-  return found;
 }
 const dead = (o) => o?.customMetadata?.tomb === "1";
 
@@ -112,7 +105,7 @@ async function handle(request, env) {
 // it writes over, without listing the versions.
 async function keepVersion(env, user, name, head, key) {
   const was = head.customMetadata?.kept || "";
-  if (!user || name.startsWith("_") || head.size === 0 || head.size > VERSION_MAX) return was; // _index and _salt are not pages
+  if (name.startsWith("_") || head.size === 0 || head.size > VERSION_MAX) return was; // _index and _salt are not pages
   const at = head.uploaded.getTime(); // when what is being kept was written
   const gap = Number(env.VERSION_GAP_MS ?? VERSION_GAP); // (the variable is for trying it: a test cannot wait ten minutes)
   if (was && at - Number(was) < gap) return was;
@@ -162,14 +155,9 @@ async function versions(request, env, url) {
 
 async function files(request, env, url) {
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  let user = await userOfToken(env, token);
-  let prefix;
-  if (user) prefix = `u${user.id}/`;
-  else {
-    const legacy = legacyAccount(env, token);
-    if (!legacy) return new Response("no", { status: 401 });
-    prefix = `${legacy}/`;
-  }
+  const user = await userOfToken(env, token);
+  if (!user) return new Response("no", { status: 401 });
+  const prefix = `u${user.id}/`;
   const m = url.pathname.match(/^\/files(?:\/(.+))?$/);
   const name = m[1] ? decodeURIComponent(m[1]) : "";
   if (name.split("/").includes("..") || name.startsWith("/")) return new Response("bad name", { status: 400 });
@@ -211,14 +199,14 @@ async function files(request, env, url) {
   if (ifMatch !== cur) return new Response("stale", { status: 412 });
   const only = head ? { etagMatches: head.etag } : { etagDoesNotMatch: "*" };
   const oldSize = head && !dead(head) ? head.size : 0;
-  const bytes = (n) => (user && n ? env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes+?) WHERE id=?").bind(n, user.id).run() : null);
+  const bytes = (n) => (n ? env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes+?) WHERE id=?").bind(n, user.id).run() : null);
   if (request.method === "PUT") {
     const body = await request.arrayBuffer();
     if (body.byteLength > MAX_BYTES) return new Response("too large", { status: 413 });
     const delta = body.byteLength - oldSize;
     // what the write adds is taken from the quota first, in one statement that checks it, so two writes at once cannot both
     // pass; it is given back if the write does not happen
-    if (user && delta > 0) {
+    if (delta > 0) {
       const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(delta, user.id).run();
       if (r.meta.changes !== 1) return new Response("quota", { status: 413 });
     }

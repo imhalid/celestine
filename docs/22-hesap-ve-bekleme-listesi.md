@@ -27,7 +27,6 @@ Site (`cloudflare/sync/landing`) önce indirme, bekleme listesi altta.
 - 8 Kasım değişiklikleri (şifre sıfırlama, `0002_recovery.sql`, e-postalı davet akışı, sunucu sürümleri) yerelde `wrangler dev` ile denendi;
   canlıya gidip gitmediği doğrulanmalı (gitmediyse Sunucudaki sürümler 404 verir).
 - Uygulama içinden canlı sunucuya karşı uçtan uca deneme yapılmadı.
-- Eski `TOKENS` sırrı (testler, `halit`/`test` jetonları) Worker'da hâlâ okunuyor; ihtiyaç kalmayınca kaldırılacak.
 - Bekleme listesi dışa aktarma yok.
 - Gizlilik metni sayfada tek cümle; ayrı sayfa ve silme/dışa aktarma süreci yazılmadı.
 - DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var: zararsız, silinebilir.

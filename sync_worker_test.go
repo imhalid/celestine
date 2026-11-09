@@ -12,8 +12,9 @@ import (
 //
 //	RYUDIT_SYNC_URL=http://localhost:8799 RYUDIT_SYNC_TOKEN=… go test -run TestWorkerLive -v
 //
-// Run it with the token of an account made for tests: what it writes is deleted at the end, but a
-// deletion leaves a tombstone, and a tombstone stays.
+// RYUDIT_SYNC_TOKEN is the device token of a real account made for tests (an invite, then a sign-in:
+// the token the app keeps for that device); the Worker knows no other kind of token. What the test writes
+// is deleted at the end, but a deletion leaves a tombstone, and a tombstone stays.
 func TestWorkerLive(t *testing.T) {
 	url, token := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_SYNC_TOKEN")
 	if url == "" || token == "" {
