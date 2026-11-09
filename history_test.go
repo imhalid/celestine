@@ -217,7 +217,9 @@ func lapsePage(t *testing.T) (*app, *ui.Tester) {
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
 	p := a.page
-	p.Save("") // the seeded text is not one of the days
+	p.Save("") // the seeded text is not one of the days:
+	// its copy, stamped with the computer's clock, would fall on one of the days below after 15:00 and be its last copy
+	st.DB.Exec(`DELETE FROM versions WHERE path = ?`, Clean(p.File()))
 	for _, s := range []string{"The cat sat on the mat", "The black cat sat on the mat", "The black cat lay on the mat", "The black cat lay on the rug"} {
 		*now = now.Add(10 * time.Minute)
 		p.SaveText(s + "\n")
