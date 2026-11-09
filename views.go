@@ -164,7 +164,7 @@ func (a *app) collectionView(c *ui.Context) {
 								case v.Type == "gallery":
 									a.galleryView(c, v, pages)
 								default:
-									a.listView(c, v, pages)
+									a.listView(c, coll, v, pages)
 								}
 								if !coll.Journal && !coll.Dynamic() { // its one new page is today's, above
 									a.newPageRow(c, coll)
@@ -271,8 +271,13 @@ func compareValues(pr *Property, a, b string) int {
 // ---- the list ----
 
 // listView shows the pages under headings of when they changed (or were made,
-// as the view is sorted), each with the start of its text.
-func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
+// as the view is sorted), each with the start of its text; or, grouped by a
+// choice, under its options (listGroups).
+func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+	if pr := coll.Prop(v.GroupBy); pr != nil && pr.Type == PropChoice {
+		a.listGroups(c, coll, v, pr, pages)
+		return
+	}
 	t := c.Theme()
 	now := a.clock()
 	last := ""
@@ -290,44 +295,96 @@ func (a *app) listView(c *ui.Context, v *View, pages []*Page) {
 				ui.Text(c, g).FontSize(12).FontWeight(650).TextColor(t.TextMuted).Padding(14, 8, 4, 8).Transition(rowEnter)
 			}
 		}
-		c.Key("list:" + p.Dir)
-		row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Transition(rowEnter)
-		a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
-		if row.Hovered() {
-			row.Background(t.SurfaceHover)
-		} else {
-			row.Background(t.SurfaceHover.Alpha(0))
+		a.listRow(c, v, p, now)
+	}
+}
+
+// listGroups shows the pages under the options of choice pr, in the options' order, those with none last; each
+// group's heading folds it (kept in the view, as a board's columns are), and an empty group is not shown.
+func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property, pages []*Page) {
+	t := c.Theme()
+	now := a.clock()
+	for _, s := range append(slices.Clone(pr.Options), "") {
+		var group []*Page
+		for _, p := range pages {
+			if p.Value(pr) == s {
+				group = append(group, p)
+			}
 		}
-		if a.bulk.sel[p] {
-			row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
+		if len(group) == 0 {
+			continue
 		}
-		row.Children(func() {
-			a.bulkMark(c, p)
-			ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
-					fieldChips(c, p, v)
-					when := p.Modified
-					if v.Sort == "created" {
-						when = p.Created
-					}
-					ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
-				})
-				if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
-					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
+		title := s
+		if s == "" {
+			title = Tf("No %s", pr.Name)
+		}
+		folded := slices.Contains(v.Collapsed, s)
+		c.Key("lgroup:" + s)
+		head := ui.Row(c).Gap(7).AlignItems(ui.Center).Padding(14, 8, 4, 8).Radius(rad(6)).Transition(rowEnter).
+			Label(map[bool]string{true: T("Expand: "), false: T("Collapse: ")}[folded] + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		head.Children(func() {
+			glyph := iconChevronDown
+			if folded {
+				glyph = iconChevron
+			}
+			ui.Icon(c, glyph).Width(12).Height(12).TextColor(t.TextMuted)
+			ui.Box(c).Size(8, 8).Radius(rad(3)).Background(columnTone(c, s))
+			ui.Text(c, title).FontSize(12).FontWeight(650).TextColor(t.TextMuted)
+			ui.Text(c, strconv.Itoa(len(group))).FontSize(12).TextColor(t.TextMuted.Alpha(0.7))
+		})
+		if head.Clicked() {
+			a.foldColumn(coll, v, s, !folded)
+		}
+		if folded {
+			continue
+		}
+		for _, p := range group {
+			a.listRow(c, v, p, now)
+		}
+	}
+}
+
+// listRow is page p's row in a list: its title, the properties the view shows, when it changed, the start of its
+// text and its cover.
+func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
+	t := c.Theme()
+	c.Key("list:" + p.Dir)
+	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+	a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
+	if row.Hovered() {
+		row.Background(t.SurfaceHover)
+	} else {
+		row.Background(t.SurfaceHover.Alpha(0))
+	}
+	if a.bulk.sel[p] {
+		row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
+	}
+	row.Children(func() {
+		a.bulkMark(c, p)
+		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
+				fieldChips(c, p, v)
+				when := p.Modified
+				if v.Sort == "created" {
+					when = p.Created
 				}
+				ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
 			})
-			if p.ImageCover() {
-				ui.Box(c.Key("thumb-gap")).Width(12).Height(1).Shrink(0)
-				a.coverThumb(c, p, 72, 52, 8)
+			if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
+				ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
 			}
 		})
-		a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
-		if a.bulkRowClicked(p, row.Clicked()) {
-			// chosen, not opened
-		} else if row.Clicked() {
-			a.open(p)
+		if p.ImageCover() {
+			ui.Box(c.Key("thumb-gap")).Width(12).Height(1).Shrink(0)
+			a.coverThumb(c, p, 72, 52, 8)
 		}
+	})
+	a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
+	if a.bulkRowClicked(p, row.Clicked()) {
+		// chosen, not opened
+	} else if row.Clicked() {
+		a.open(p)
 	}
 }
 

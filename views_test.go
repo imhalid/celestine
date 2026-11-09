@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -335,5 +336,54 @@ func TestGalleryView(t *testing.T) {
 	tt.Frame()
 	if a.page == nil || a.page.Title != "Anna Karenina" {
 		t.Fatalf("the card did not open its page: %v", a.page)
+	}
+}
+
+// A list grouped by a choice shows its pages under the choice's options, in their order, those with none last; a
+// heading folds its group, and the fold is kept in the view. A list by a choice that is gone is by date again.
+func TestListGroupedByChoice(t *testing.T) {
+	_, tt, coll := viewsLibrary(t)
+	pr, err := coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okundu"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for title, s := range map[string]string{"Dune": "Okundu", "Anna Karenina": "Okunacak"} {
+		for _, p := range coll.All() {
+			if p.Title == title {
+				if err := p.SetValue(pr.ID, s); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	coll.View().GroupBy = pr.ID
+	tt.Advance(400 * time.Millisecond)
+	y := func(label string) float32 {
+		t.Helper()
+		r, ok := tt.Find(label)
+		if !ok {
+			t.Fatalf("no %q: %v", label, tt.Texts())
+		}
+		return r.Y
+	}
+	if !(y("Collapse: Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y("Collapse: Okundu") &&
+		y("Collapse: Okundu") < y("Aç: Dune") && y("Aç: Dune") < y("Collapse: No Durum") && y("Collapse: No Durum") < y("Aç: Yüzyıllık Yalnızlık")) {
+		t.Fatalf("the groups are not in the options' order: %v", tt.Texts())
+	}
+	if err := tt.Click("Collapse: Okundu"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if _, ok := tt.Find("Aç: Dune"); ok || !tt.HasText("Okundu") {
+		t.Fatal("the folded group still shows its pages")
+	}
+	if !slices.Contains(coll.View().Collapsed, "Okundu") {
+		t.Fatalf("the fold is not kept: %v", coll.View().Collapsed)
+	}
+	if err := coll.RemoveProperty(pr.ID); err != nil {
+		t.Fatal(err)
+	}
+	if g := coll.View().GroupBy; g != "" {
+		t.Fatalf("still grouped by a property that is gone: %q", g)
 	}
 }

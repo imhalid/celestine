@@ -169,6 +169,11 @@ func (c *Collection) Normalize() {
 				c.Views[i].GroupBy = choice
 			}
 		}
+		if c.Views[i].Type == "list" && c.Views[i].GroupBy != "" { // a list grouped by a choice that is gone is by date again
+			if p := c.Prop(c.Views[i].GroupBy); p == nil || p.Type != PropChoice {
+				c.Views[i].GroupBy = ""
+			}
+		}
 		if f, ok := strings.CutPrefix(c.Views[i].Sort, "prop:"); ok && c.Prop(f) == nil {
 			c.Views[i].Sort = "title"
 		}

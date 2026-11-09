@@ -511,6 +511,17 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 				ryugo.Select(c.Key("cs-datefield"), &f, opts, ryugo.SelectOptions{Label: "Tarih", Size: ryugo.Sm})
 				v.DateField = f
 			})
+		case "list":
+			opts := []ryugo.Option[string]{{Value: "", Label: T("When they changed")}}
+			for _, p := range d.Properties {
+				if p.Type == PropChoice {
+					opts = append(opts, ryugo.Option[string]{Value: p.ID, Label: p.Name})
+				}
+			}
+			ryugo.Field(c, ryugo.FieldOptions{Label: T("Grouped by")}, func() {
+				ryugo.Select(c.Key("cs-list-group"), &v.GroupBy, opts, ryugo.SelectOptions{Label: T("Grouped by"), Size: ryugo.Sm})
+			})
+			a.csViewFields(c, d, v)
 		case "board":
 			var opts []ryugo.Option[string]
 			for _, p := range d.Properties {
@@ -521,35 +532,41 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: T("Sütunlar şuna göre")}, func() {
 				ryugo.Select(c.Key("cs-group"), &v.GroupBy, opts, ryugo.SelectOptions{Label: T("Gruplanan özellik"), Size: ryugo.Sm})
 			})
-			fallthrough
-		default: // list and board: the properties shown on a row or card
-			ryugo.Field(c, ryugo.FieldOptions{Label: map[bool]string{true: "Kartlarda", false: "Satırlarda"}[v.Type == "board"]}, func() {
-				ui.Column(c).Gap(6).Children(func() {
-					show := !v.NoExcerpt
-					ryugo.Checkbox(c.Key("cs-excerpt"), &show, "Metnin başı", ryugo.CheckOptions{})
-					v.NoExcerpt = !show
-					for _, p := range d.Properties {
-						if v.Type == "board" && p.ID == v.GroupBy {
-							continue
-						}
-						on := slices.Contains(v.Fields, p.ID)
-						ryugo.Checkbox(c.Key("cs-field:"+p.ID), &on, p.Name, ryugo.CheckOptions{})
-						if on != slices.Contains(v.Fields, p.ID) {
-							if on {
-								v.Fields = append(v.Fields, p.ID)
-							} else {
-								v.Fields = slices.DeleteFunc(v.Fields, func(f string) bool { return f == p.ID })
-							}
-						}
-					}
-				})
-			})
+			a.csViewFields(c, d, v)
+		default: // board and gallery: the properties shown on a card
+			a.csViewFields(c, d, v)
 		}
 		ui.Row(c).Children(func() { // as wide as its label
 			if len(d.Views) > 1 && v.Type != "calendar" && ryugo.Button(c.Key("cs-view-del"), T("Görünümü sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 				id := v.ID
 				d.Views = slices.DeleteFunc(d.Views, func(x View) bool { return x.ID == id })
 				cs.view = ""
+			}
+		})
+	})
+}
+
+// csViewFields is what a list's rows or a board's or gallery's cards show: the start of the text, and which
+// properties.
+func (a *app) csViewFields(c *ui.Context, d *Collection, v *View) {
+	ryugo.Field(c, ryugo.FieldOptions{Label: map[bool]string{true: "Kartlarda", false: "Satırlarda"}[v.Type != "list"]}, func() {
+		ui.Column(c).Gap(6).Children(func() {
+			show := !v.NoExcerpt
+			ryugo.Checkbox(c.Key("cs-excerpt"), &show, "Metnin başı", ryugo.CheckOptions{})
+			v.NoExcerpt = !show
+			for _, p := range d.Properties {
+				if v.Type == "board" && p.ID == v.GroupBy {
+					continue
+				}
+				on := slices.Contains(v.Fields, p.ID)
+				ryugo.Checkbox(c.Key("cs-field:"+p.ID), &on, p.Name, ryugo.CheckOptions{})
+				if on != slices.Contains(v.Fields, p.ID) {
+					if on {
+						v.Fields = append(v.Fields, p.ID)
+					} else {
+						v.Fields = slices.DeleteFunc(v.Fields, func(f string) bool { return f == p.ID })
+					}
+				}
 			}
 		})
 	})
