@@ -495,13 +495,19 @@ func (a *app) addCommandTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 	mcp.AddTool(s, &mcp.Tool{Name: "run_command", Description: "Runs a command of the app's command palette by its title (list_commands gives them), as the user would from ⌘P; the user sees it happen in their window."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in runCmdArgs) (*mcp.CallToolResult, any, error) {
 			ran := false
-			a.do(func() error {
+			err := a.do(func() error {
 				if it := a.commandByTitle(in.Command); it != nil && it.run != nil && mcpMayRun(*it) { // what it found, not what was named: a near title is another command
+					if err := a.mcpMayChange(*it); err != nil {
+						return err
+					}
 					it.run()
 					ran = true
 				}
 				return nil
 			})
+			if err != nil {
+				return nil, nil, err
+			}
 			if !ran {
 				return nil, nil, errString("no such command, or it cannot run now: " + in.Command)
 			}
@@ -531,4 +537,43 @@ func mcpMayRun(it palItem) bool {
 		}
 	}
 	return false
+}
+
+// mcpReadOnlyCommands are commands of a page that change nothing, by their Turkish title.
+var mcpReadOnlyCommands = map[string]bool{"Sayfada bul": true}
+
+// mcpMayChange says why an agent may not run command it, or nil: a command of a page or a collection changes
+// the page or collection the window shows (a new page goes into it), and so needs what writing it needs
+// (Settings ▸ MCP), as the tools do; a journal's commands, the journal's.
+func (a *app) mcpMayChange(it palItem) error {
+	name := it.name
+	if name == "" {
+		name = it.fam
+	}
+	if it.cat != "Sayfa" && it.cat != "Koleksiyon" || mcpReadOnlyCommands[name] {
+		return nil
+	}
+	if name == "Yeni koleksiyon" {
+		if a.mcpAccess(nil) != mcpWrite {
+			return errors.New("agents may not make collections (Settings ▸ MCP)")
+		}
+		return nil
+	}
+	var c *Collection
+	switch {
+	case name == "Bugünün sayfası" || name == "Yeni günlük":
+		for _, x := range a.lib.Collections {
+			if x.Journal {
+				c = x
+			}
+		}
+	case a.page != nil:
+		c = a.page.Coll
+	default:
+		c = a.coll
+	}
+	if c == nil {
+		return nil
+	}
+	return a.mcpMay(c, mcpWrite)
 }

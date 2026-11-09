@@ -54,6 +54,7 @@ type palItem struct {
 	snip             []seg  // a page's words around what was asked, which are marked: a line of two
 	cat              string // a command's group, with nothing typed (palgroups.go)
 	fam              string // its family: its Turkish title before ": "
+	name             string // an app command's Turkish title, as the code names it (appcmds.go), whatever the language
 }
 
 // openPalette opens the search of the documents (⌘K).

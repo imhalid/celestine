@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -122,5 +124,27 @@ func TestAgentEditsUndo(t *testing.T) {
 	}
 	if tt.HasText("Ajan 2 sayfayı değiştirdi") || a.agentChanged() != 0 {
 		t.Fatal("still said")
+	}
+}
+
+// run_command keeps what agents may do with a collection: a command that changes the open page is refused when
+// its collection is read-only to agents, and runs when they may write it (#66).
+func TestRunCommandKeepsAccess(t *testing.T) {
+	a, tt := newTestApp(t, "metin")
+	tt.Advance(50 * time.Millisecond)
+	cs := agent(t, a)
+	p := a.page
+	key := filepath.Base(p.Coll.Dir)
+	a.settings.MCPAccess = map[string]string{key: mcpRead}
+	res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "run_command", Arguments: map[string]any{"command": "Çöpe taşı: Sayfa"}})
+	if !res.IsError || !a.inLibrary(p) {
+		t.Fatal("a read-only collection's page was thrown away")
+	}
+	// a command that changes nothing runs
+	call(t, cs, "run_command", map[string]any{"command": "Sayfada bul"}, nil)
+	a.settings.MCPAccess = map[string]string{key: mcpWrite}
+	call(t, cs, "run_command", map[string]any{"command": "Çöpe taşı: Sayfa"}, nil)
+	if a.inLibrary(p) {
+		t.Fatal("not thrown away with write access")
 	}
 }
