@@ -122,7 +122,7 @@ func (a *app) collectionView(c *ui.Context) {
 									}
 								}
 							}
-							label := "Yeni " + pageNoun(coll)
+							label := newPageLabel(coll)
 							if coll.Journal {
 								label = "Bugünün sayfası"
 							}
@@ -988,7 +988,7 @@ func (a *app) newPageRow(c *ui.Context, coll *Collection) {
 		// the plus is a mark of its own, in the middle of the line: as a character it sat on the text's baseline,
 		// lower than the words
 		ui.Icon(c, iconPlus).Width(14).Height(14).TextColor(t.TextMuted)
-		ui.Text(c, T("Yeni "+pageNoun(coll))).FontSize(13.5).TextColor(t.TextMuted)
+		ui.Text(c, newPageLabel(coll)).FontSize(13.5).TextColor(t.TextMuted)
 	})
 	if row.Clicked() {
 		a.newPage(coll, nil)

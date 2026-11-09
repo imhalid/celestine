@@ -146,7 +146,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: "Aç", glyph: iconStack, run: func() { a.openCollection(coll) }},
 		{title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"coll", coll.Dir}) }},
 		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
-		{title: "Yeni " + pageNoun(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
+		{title: newPageLabel(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
 		{title: map[bool]string{true: T("Change banner…"), false: T("Add banner…")}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
 		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
