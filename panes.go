@@ -88,6 +88,7 @@ type paneState struct {
 	calDay        time.Time // the day open on the calendar, and whether it is
 	calOpen       bool
 	calGrid       ui.Rect
+	calDrag       calDrag   // a page being dragged to another day (calendarview.go)
 	calMonth      time.Time // the month the calendar view shows
 	editorR       ui.Rect   // the editor's box, from its last frame
 	bulk          bulkState // pages being chosen in a collection, to be done to all (bulk.go)
