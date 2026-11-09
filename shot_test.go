@@ -462,3 +462,32 @@ func TestChipShots(t *testing.T) {
 	png.Encode(f, tt.Image())
 	f.Close()
 }
+
+// TestWelcomeShots draws the welcome in the app's window, as Linux and Windows have it, for each ground: the ground
+// when it is all there, and the opening halfway. Run with WELSHOT=dir.
+func TestWelcomeShots(t *testing.T) {
+	dir := os.Getenv("WELSHOT")
+	if dir == "" {
+		t.Skip()
+	}
+	for _, g := range welcomeGrounds {
+		a := welcomeApp(t)
+		welcomeShaders = true
+		a.settings.WelcomeGround, a.settings.Theme = g.id, 2
+		tt := ui.NewTester(a.view, 472, 304)
+		tt.Frame()
+		now := a.wel.start
+		a.wel.chosen, a.wel.chosenAt, a.wel.start = true, now.Add(-5*time.Second), now.Add(-5*time.Second)
+		tt.Frame()
+		save := func(name string) {
+			f, _ := os.Create(dir + "/" + g.id + "-" + name + ".png")
+			png.Encode(f, tt.Image())
+			f.Close()
+		}
+		save("ground")
+		o := a.welcomeOpeningLook()
+		a.wel.origin, a.wel.goAt = ui.Point{X: 236, Y: 200}, now.Add(-time.Duration(o.length()*0.2*float64(time.Second)))
+		tt.Frame()
+		save("opening")
+	}
+}

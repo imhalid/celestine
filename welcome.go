@@ -230,9 +230,12 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 			baseV = []float32{0.16, 0.16, 0.16, 0.16}
 		}
 	}
-	dark := float32(0)
+	dark, inWin := float32(0), float32(0)
 	if tok.Dark {
 		dark = 1
+	}
+	if !clear { // the app's own window, with no desktop under it
+		inWin = 1
 	}
 	// while the app opens, the ground keeps to outside the ring that shows it; on the stage the app's window
 	// is over it, and it goes as the window opens
@@ -261,7 +264,7 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 			fade = 1 - smoothstep((a.welcomeProgressAt(p.Now())-0.15)/0.85)
 		}
 		a.welcomeGroundLook().sh.Draw(p, r, shader.Options{Uniforms: map[string]any{
-			"Time": float32(t), "Fade": float32(fade), "Veil": float32(veil), "Mesh": float32(mesh), "Dark": dark,
+			"Time": float32(t), "Fade": float32(fade), "Veil": float32(veil), "Mesh": float32(mesh), "Dark": dark, "InWin": inWin,
 			"Open": open, "Origin": []float32{a.wel.origin.X, a.wel.origin.Y}, "Radius": radius, "Prog": prog,
 			"Base": []float32{baseV[0] * baseV[3], baseV[1] * baseV[3], baseV[2] * baseV[3], baseV[3]},
 			"Win":  win,

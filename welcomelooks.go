@@ -137,7 +137,8 @@ func ringEdge(pos vec2, origin vec2, radius float, prog float) float {
 
 // groundShader is a ground with the layer given: first the desktop darkens, most at its edges (a radial veil);
 // then the layer comes up over it, as Mesh grows. Premultiplied, so that what is not covered stays clear and the
-// desktop shows through.
+// desktop shows through. In the app's own window (InWin: Linux, Windows) there is no desktop to darken: the veil
+// is light, and the layer is spread to the window's edges, so that the window is not black round a small middle.
 func groundShader(layer string) *shader.Shader {
 	return shader.MustCompile(`package main
 
@@ -152,6 +153,7 @@ var Mesh float
 var Dark float
 var Base vec4
 var Win vec4 // the app's window, in this one: x, y, width, height
+var InWin float
 ` + layer + `
 func hash21(p vec2) float {
 	q := fract(p * vec2(123.34, 456.21))
@@ -164,11 +166,16 @@ func Fragment(dst vec4, pos vec2) vec4 {
 	p := (pos - sz*0.5) / sz.y
 	e := length((pos - sz*0.5) / (sz * 0.5)) // 0 in the middle, 1 at the edges' middles
 
-	// the veil: darker toward the edges
+	// the veil: darker toward the edges; in a window, only a little
 	va := Veil * mix(0.34, 0.80, smoothstep(0.0, 1.3, e))
+	le := e
+	if InWin > 0.5 {
+		va = Veil * mix(0.0, 0.22, smoothstep(0.2, 1.4, e))
+		le = e * 0.55
+	}
 	out := vec4(0, 0, 0, va) + Base*(1-va)
 
-	lay := layer(p, e, pos) * Mesh
+	lay := layer(p, le, pos) * Mesh
 	out = lay + out*(1-lay.a)
 
 	g := (hash21(dst.xy) - 0.5) * 0.05
