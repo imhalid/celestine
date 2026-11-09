@@ -125,7 +125,8 @@ func TestEnglishCoversTitles(t *testing.T) {
 		}
 		b, _ := os.ReadFile(f)
 		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
-			if _, ok := enText[m[1]]; !ok && !strings.HasSuffix(m[1], ": ") {
+			_, tr := trText[m[1]] // written in English, its Turkish beside it
+			if _, ok := enText[m[1]]; !ok && !tr && !strings.HasSuffix(m[1], ": ") {
 				missing = append(missing, m[1])
 			}
 		}
@@ -142,7 +143,12 @@ func TestEnglishCoversTitles(t *testing.T) {
 		}
 		b, _ := os.ReadFile(f)
 		for _, m := range helpRe.FindAllStringSubmatch(string(b), -1) {
-			if _, ok := enText[m[1]]; !ok {
+			s, err := strconv.Unquote(`"` + m[1] + `"`)
+			if err != nil {
+				s = m[1]
+			}
+			_, tr := trText[s]
+			if _, ok := enText[s]; !ok && !tr {
 				noHelp = append(noHelp, m[1])
 			}
 		}
