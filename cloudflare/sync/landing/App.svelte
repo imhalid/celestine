@@ -9,7 +9,8 @@
 
   let { contact = "", download = "" } = $props();
 
-  // the builds, by the name the update server knows them by (cloudflare/update: /download/<os-arch>)
+  // the builds, by the name the update server knows them by (cloudflare/update: /download/<os-arch>, which gives
+  // macOS a zipped ryudit.app and Linux a .tar.gz with its .desktop file)
   const BUILDS = [
     { id: "darwin-arm64", os: "macOS", chip: "Apple silicon" },
     { id: "darwin-amd64", os: "macOS", chip: "Intel" },
