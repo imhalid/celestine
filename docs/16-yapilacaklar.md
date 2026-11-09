@@ -7,7 +7,7 @@ Web (J), güncelleme (K), senkron (L) ve Android (M) için kalanlar kendi belgel
 ## Kalanlar
 
 **D — Editör ayarları**
-- Harf ve kelime aralığı: imleç konumu düzenleyicinin düzeniyle hizalı kalmaz, bu yüzden yapılmadı.
+- Kelime aralığı (harf aralığı yapıldı).
 - Yazım denetimi (işletim sistemi sözlüğü, dil seçimi, kelime ekleme): MyGo'dan işletim sistemi sözlüğüne yol yok.
 - Sağdan sola yazı (Arapça/İbranice).
 - İmleç yanıp sönme hızı.
@@ -30,7 +30,8 @@ Web (J), güncelleme (K), senkron (L) ve Android (M) için kalanlar kendi belgel
 
 **N4 — Dil**
 - Menüler dil değişince ancak yeniden başlatmada değişir.
-- `T()` ile sarılmamış metinler Türkçe kalabilir; test bunları yakalamaz.
+- `T()` ile sarılmamış metinler bir dilde kalabilir: ayarlar ekranını `TestSettingsInEnglish` çizerek, `T()`'ye verilenleri
+  `TestTurkishCovers` denetliyor; öbür ekranların çizilerek denetimi yok.
 
 **N6 — Performans**
 - Bir tuş vuruşu bütçeyi aşıyor (`TestPerfBudget`, tam test setiyle koşunca başarısız); gerçek GPU'da ölçüm yok. Ayrıntı [17](17-boyut-ve-performans.md).

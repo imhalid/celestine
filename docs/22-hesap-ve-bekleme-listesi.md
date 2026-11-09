@@ -26,7 +26,6 @@ puts `account#<id>` for its address in the audit; /admin exports the waitlist as
 
 ## Açık
 
-- 8 Kasım değişiklikleri (şifre sıfırlama, `0002_recovery.sql`, e-postalı davet akışı, sunucu sürümleri) yerelde `wrangler dev` ile denendi;
-  canlıya gidip gitmediği doğrulanmalı (gitmediyse Sunucudaki sürümler 404 verir).
-- Uygulama içinden canlı sunucuya karşı uçtan uca deneme yapılmadı.
+- Worker 9 Kasım'da sürüm 15 olarak canlıda (8 Kasım değişiklikleri, değişiklik sayacı ve `0003_changes.sql` dahil; #46). Uygulama içinden
+  canlı sunucuya karşı uçtan uca deneme ve Resend ile gerçek bir gönderim henüz yapılmadı (#59).
 - DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var: zararsız, silinebilir.

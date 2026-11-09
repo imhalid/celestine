@@ -83,7 +83,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption, the server's change counter asked while the window is in front; a library file or a folder library (its state in the config folder); `cloudflare/sync` |
 | `internal/library/merge.go`, `syncbase.go` | A page changed on two devices merged block by block from its base (the page as last synced), kept in the library file's meta or a folder |
 | `keychain.go` | The settings' secrets (the sync key and token, the MCP token) in the system's keychain, the settings file when there is none |
-| `i18n.go` | The language: strings written in Turkish, English (the default) from a dictionary |
+| `i18n.go`, `i18n_more.go`, `i18n_tr.go` | The language: the older strings written in Turkish with their English in `enText`, the new ones written in English with their Turkish in `trText`; English is the default. `TestTurkishCovers` and `TestSettingsInEnglish` check that nothing shows in the other language |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
@@ -96,7 +96,14 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `chips.go` | Chips: page links and dates in the text, as richtext attachments; `[[…]]` in the file |
 | `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
-| `mcp.go`, `mcp_server.go`, `mcp_extra.go`, `settings.go` | The MCP server, its tools, and the settings that turn it on |
+| `mcp.go`, `mcp_server.go`, `mcp_extra.go`, `mcp_more.go`, `settings.go` | The MCP server, its tools, what agents may do with each collection, and the settings that turn it on |
+| `mcpbridge.go` | `ryudit mcp`: the server over stdio for agents that start one, carried to the app's own server (the app started, or its server turned on, when needed) |
+| `agentedits.go` | What agents changed: each page kept as it was before their first write, a version before each write, and the status bar's one-click undo |
+| `fold.go`, `zoom.go` | Folding a block behind a chip, and zooming into one (what is above and below behind two chips); the file is always written whole, with the blocks' IDs kept |
+| `clipmodes.go` | Copy and paste as Markdown, plain text or HTML; ⌘C/⌘V inside the app keeping code languages, task kinds and dividers |
+| `search.go`, `searchindex.go`, `searchquery.go`, `queryblock.go` | Search: the index, the query language (OR, NOT, groups, tasks, days, properties), and the query block that keeps a search live in a page |
+| `journal.go`, `naturaldate.go`, `taskkinds.go` | The journal (a day's page, the day before and after, a day by name), dates said in words, and the kinds of tasks |
+| `lapseui.go`, `internal/library/timelapse.go` | A page's time-lapse: its words in the colors of the days they were written, from its versions |
 | `quicksettings.go` | The gear at the top left: a short menu of the settings used most, with the dialog of all of them at its end |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |

@@ -27,21 +27,19 @@
 ## Bizim editör için [öneri]
 
 Karar: MCP bir eklenti değil; uygulamanın kendi işlemleri dışarıya açılır. Eklenti/kod araçları **yok**. Sunucu uygulamanın
-içinde (Streamable HTTP, `127.0.0.1`, token, varsayılan kapalı) ve ilk araç seti yapıldı. Kalanlar:
+içinde (Streamable HTTP, `127.0.0.1`, token, varsayılan kapalı). Sonra yapılanlar (#40): `ryudit mcp` stdio köprüsü, koleksiyon başına
+erişim (Okur ve yazar / Yalnız okur / Göremez), `insert_under_heading`, `query_pages`, `get_daily_note`, `list_trash`, `restore_page`;
+her yazmadan önce sürüm ve durum çubuğunda "Ajan N sayfayı değiştirdi" ile tek tıkla geri alma. Kalanlar:
 
-1. **stdio köprüsü**: stdio isteyen istemciler için uygulamanın kendisi `ryudit mcp` diye bir stdio köprüsü olarak da çalışabilsin.
-2. **Koleksiyon başına** erişim: Kapalı / Salt okunur / Okuma-yazma (bugün yalnız aç/kapat).
-3. **Eksik araçlar**:
+1. **Eksik araçlar**:
 
    | Araç | İş |
    |---|---|
    | `help` | Veri modeli, satır tipleri, sorgu dili (Thymer'in `data_help`'i gibi) |
    | `update_collection` | Koleksiyon ayarlama (görünümler, alt sayfa); bugün yalnız `add_property` var |
-   | `insert_markdown` | Bir sayfanın istenen yerine Markdown ekleme (bugün `update_page` yalnız sona ekler) |
-   | `restore_page` | Çöpten geri alma (kalıcı silme yok) |
    | `list_themes`, `set_theme`, `create_theme` | Tema (veri olduğu için güvenli) |
    | `open_page` | Sayfayı arayüzde açma |
+   | resources, prompts | MCP'nin araç dışı iki parçası |
 
-4. **Güvenlik**: her yazma işlemi geçmişe "agent: …" diye yazılsın; çöpe atma onay istesin (ayardan kapatılabilir); kalıcı
-   silme MCP'de yok.
-5. **Görünürlük**: değişen satırda kısa bir vurgu (pencerenin sallanması ve durum çubuğundaki nokta var).
+2. **Güvenlik**: çöpe atma onay istesin (ayardan kapatılabilir); kalıcı silme MCP'de yok.
+3. **Görünürlük**: değişen satırda kısa bir vurgu ve bir "Ajan geçmişi" listesi.

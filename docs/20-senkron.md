@@ -65,7 +65,8 @@ Koleksiyon başına eşitle aç/kapa (kapalıysa hiçbir şeyi yukarı çıkmaz,
 ## Yapılmadı (dürüstçe)
 
 - **Sunucuda günlük anlık görüntü, paylaşım, Wi-Fi sınırı, ağ hızı ayarı, ek boyut sınırı.** (Sürüm geçmişi yapıldı, yukarıda.) **QR eşleştirme istenmedi.**
-- **Gerçek zamanlı eşitleme**: yazma durduktan 2 sn sonra, pencere öne gelince, 5 dk'da bir ve elle; sunucudan anında itme yok.
-- **Metin birleştirme** (3 yollu): çakışma kopyası var, otomatik birleştirme yok.
-- **Canlı sunucuya karşı uygulama içinden uçtan uca elle deneme.** Worker yerelde (`wrangler dev`, `sync_worker_test.go`) ve Cloudflare'da denendi; dağıtım `cloudflare/sync/deploy.sh`.
-- Eşitleme yalnız tek dosyalı (SQLite) kitaplıkta çalışır.
+- **Anında itme**: sunucudan itme yok; uygulama pencere öndeyken hesabın değişiklik sayacını sorar (20 sn'den başlayıp değişiklik gelmedikçe
+  1 dk'ya kadar seyrekleşir, 5 dk kimse yoksa durur; #44, #45). Gerçek itme (Durable Object/WebSocket) sonraya.
+- **Canlı sunucuya karşı uygulama içinden uçtan uca elle deneme** (#59). Worker yerelde (`wrangler dev`, `sync_worker_test.go`) ve Cloudflare'da denendi; dağıtım `cloudflare/sync/deploy.sh`.
+
+İki cihazda değişen sayfa blok blok birleşir (`internal/library/merge.go`); aynı blok iki yanda değiştiyse çakışma kopyası. Klasör kitaplığı da eşitlenir.
