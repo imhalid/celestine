@@ -148,7 +148,7 @@ func (a *app) csGeneral(c *ui.Context) {
 		a.fieldMenu(ryugo.Input(c.Key("cs-name"), &d.Name, ryugo.InputOptions{Label: T("Koleksiyonun adı")}), &d.Name, fieldOpts{oneLine: true})
 	})
 	if d.Dynamic() {
-		ryugo.Field(c, ryugo.FieldOptions{Label: "Sorgu", Help: "Bu koleksiyon, aramanın bulduğu sayfaları gösterir: kelime, \"tam ifade\", başlık:kelime, koleksiyon:ad, #etiket."}, func() {
+		ryugo.Field(c, ryugo.FieldOptions{Label: "Sorgu", Help: T("Bu koleksiyon, aramanın bulduğu sayfaları gösterir: kelime, \"tam ifade\", VEYA, -kelime, başlık:, koleksiyon:, #etiket, @todo, created:, özellik:değer.")}, func() {
 			a.fieldMenu(ryugo.Input(c.Key("cs-query"), &d.Query, ryugo.InputOptions{Label: "Sorgu", Placeholder: "#fikir koleksiyon:Notlar"}), &d.Query, fieldOpts{oneLine: true})
 		})
 	}

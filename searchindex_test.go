@@ -87,7 +87,8 @@ func indexApp(t testing.TB, pages int) *app {
 // that are written, made and gone.
 func TestIndexAgreesWithScan(t *testing.T) {
 	a := indexApp(t, 400)
-	queries := []string{"nadirkelime", "sayfa 12", "metin", "ıö", "bir iki üç", `"iki üç"`, "başlık:sayfa", "koleksiyon:koleksiyon sayfa", "#etiket3 sayfa", "yok yok yok", "s", "sayfa 399"}
+	queries := []string{"nadirkelime", "sayfa 12", "metin", "ıö", "bir iki üç", `"iki üç"`, "başlık:sayfa", "koleksiyon:koleksiyon sayfa", "#etiket3 sayfa", "yok yok yok", "s", "sayfa 399",
+		"nadirkelime OR sayfa 12", "metin -nadirkelime", "(sayfa 1 VEYA sayfa 2) NOT nadirkelime", "@todo sayfa 3", "-#etiket3 iki"}
 	compare := func(label string) {
 		t.Helper()
 		for _, q := range queries {

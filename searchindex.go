@@ -200,7 +200,7 @@ type sxHit struct {
 	score int
 }
 
-// terms are what has to be in a page's title or text: the words and the phrases.
+// terms are what every page found has in its title or text: the words and the phrases not under an OR or a NOT.
 func (q query) terms() []string { return append(append([]string{}, q.words...), q.phrases...) }
 
 // countCap is how often w is in s, up to max.
@@ -267,45 +267,7 @@ func (x *searchIndex) query(a *app, pq query, limit int) []sxHit {
 		if d == nil || !d.alive {
 			return 0, false
 		}
-		for _, w := range pq.colls {
-			if !strings.Contains(d.fcoll, w) {
-				return 0, false
-			}
-		}
-		s := 0
-		for _, w := range pq.words {
-			inTitle, c := strings.Contains(d.ftitle, w), countCap(d.ftext, w, sxCountCap)
-			if !inTitle && c == 0 {
-				return 0, false
-			}
-			if inTitle {
-				s += 50
-			}
-			s += c * 2
-		}
-		for _, w := range pq.phrases {
-			inTitle, c := strings.Contains(d.ftitle, w), countCap(d.ftext, w, sxCountCap)
-			if !inTitle && c == 0 {
-				return 0, false
-			}
-			if inTitle {
-				s += 60
-			}
-			s += c * 3
-		}
-		for _, w := range pq.title {
-			if !strings.Contains(d.ftitle, w) {
-				return 0, false
-			}
-			s += 60
-		}
-		for _, tg := range pq.tags {
-			if !slices.Contains(a.links.tags[tg], d.page) {
-				return 0, false
-			}
-			s += 20
-		}
-		return s, true
+		return a.score(pq.root, qdoc{d.page, d.coll, d.ftitle, d.ftext, d.fcoll})
 	}
 	broad := limit > 0 && len(ids) > sxScoreCap
 	if broad {
