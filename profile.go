@@ -11,55 +11,11 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The account's two screens: the one to get in by (a dialog, the first time the app is opened, until it is answered once), and the
-// profile (a screen of the window like the settings: who one is, the server, the quota, the sync, the recovery key, the
-// computers signed in, the password). One can use the app with neither: the account is only for synchronizing through the server.
+// The account's screen: the profile (a screen of the window like the settings: who one is, the server, the quota, the
+// sync, the recovery key, the computers signed in, the password). The app is used without an account: one is only for
+// synchronizing through the server, and is made or signed in to in the sync settings (account.go).
 
 var iconUser = icon(`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>`)
-
-// loginState is the dialog of getting in.
-type loginState struct {
-	open bool
-	seen bool // it has been shown in this run
-}
-
-// loginDue is when the app is behind its sign-in: a real library (one with settings of its own), and no account on it. The app
-// is not shown at all then; an invite or a sign-in is the way in, and there is no going on without one.
-func (a *app) loginDue() bool {
-	return a.settings.AccountUser == "" && (a.settingsFile != "" || a.settingsStore != nil)
-}
-
-// gateUp is whether the sign-in screen is what the window shows: until there is an account, and after one is made until its
-// recovery key is said to be kept.
-func (a *app) gateUp() bool {
-	return a.loginDue() || a.login.open && a.ac.mode == "recovery"
-}
-
-// loginView is the sign-in screen: the whole window, over nothing of the app, with the form in its middle.
-func (a *app) loginView(c *ui.Context) {
-	if !a.gateUp() {
-		a.login.open = false
-		return
-	}
-	if !a.login.seen { // a first sight is most likely one with an invite in the mail
-		a.login.seen = true
-		a.ac.mode, a.ac.err = "invite", ""
-	}
-	a.login.open = true
-	cl := ryugo.From(c).Colors
-	w, h := c.Size()
-	ui.Column(c.Key("login")).Absolute().Left(0).Top(0).Width(w).Height(h).Background(a.pageBg).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-		// the window's top is a bar to move it by, as the app's header is
-		ui.Box(c.Key("login-drag")).Absolute().Left(0).Top(0).Width(w).Height(max(a.titleBar(c).Height, headerH)).DragWindow()
-		ui.Column(c.Key("login-card")).Width(min(400, w-32)).Gap(14).Children(func() {
-			ui.Text(c, "Ryudit").FontSize(30).FontWeight(720).TextColor(cl.Text)
-			if a.ac.mode != "recovery" {
-				ui.Text(c, T("Ryudit'i kullanmak için davetinle hesap aç ya da giriş yap. Kitaplığın şifrelenerek bilgisayarlarında eşitlenir.")).FontSize(13).TextColor(cl.Text2).Wrap()
-			}
-			a.acctForm(c)
-		})
-	})
-}
 
 // openProfile shows the profile.
 func (a *app) openProfile() {
@@ -327,8 +283,7 @@ func init() {
 		"Şifremi unuttum": "I forgot my password", "Şifreyi yenile": "Set the new password", "Kurtarma anahtarı gerekli.": "The recovery key is needed.", "Kullanıcı adı gerekli.": "A username is needed.",
 		"Şifre en az 8 karakter olsun.": "The password needs at least 8 characters.",
 		"ad@ornek.com":                  "name@example.com",
-		"Ryudit'i kullanmak için davetinle hesap aç ya da giriş yap. Kitaplığın şifrelenerek bilgisayarlarında eşitlenir.":                         "To use Ryudit, make an account with your invite or sign in. Your library is encrypted and synced across your computers.",
-		"Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.":                                                                                      "Not signed in: your library is only on this computer.",
+		"Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.": "Not signed in: your library is only on this computer.",
 		"Hesap yalnız sunucu üzerinden eşitleme içindir. Giriş yapmadan da her şey çalışır; dosyaların bu bilgisayarda, düz ve taşınabilir kalır.": "An account is only for syncing through the server. Everything works without signing in; your files stay on this computer, plain and portable.",
 		"Yükleniyor…": "Loading…", "Kullanılan yer": "Space used", "henüz eşitlenmedi": "not synced yet", "Eşitleme: ": "Sync: ",
 		"Bağlantıyı dene": "Try the connection", "Deneniyor…": "Trying…", "Olmadı: ": "It did not work: ", "Bağlantı tamam: %d dosya, %d ms.": "The connection is good: %d files, %d ms.",

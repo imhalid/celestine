@@ -152,7 +152,6 @@ type app struct {
 	vimReg      richtext.Text      // what dd and yy took, for p
 	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
 	winW, winH  float32            // the window's size, last frame
-	login       loginState         // the dialog of getting in (profile.go)
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
@@ -422,17 +421,15 @@ func main() {
 	}
 	// A library with nothing in it yet but a journal (a new file, or one made and left empty): what it holds after
 	// this is only what it makes for itself, and its first sync takes the account's copies of that (markPristine).
-	// One in a file is an account's: its welcome page waits for the first sync, which says whether the account
-	// has anything (seedAfterSync); a folder's has it at once.
+	// A folder's has its welcome page at once; one in a file has it once the settings say whether it is signed in
+	// to an account (below).
 	empty := bareLibrary(lib)
-	wait := empty && store != nil
-	if !wait {
+	if store == nil {
 		if err := seed(lib); err != nil {
 			log.Fatal(err)
 		}
 	}
 	a := newApp(lib)
-	a.sy.seedWait = wait
 	a.notice = restoreNote
 	if _, err := a.journal(); err != nil { // every library has its journal
 		log.Fatal(err)
@@ -445,6 +442,7 @@ func main() {
 	}
 	if a.settingsFile != "" || a.settingsStore != nil {
 		a.loadSettings()
+		a.seedNew(empty && store != nil)
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
@@ -762,11 +760,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
-	if a.gateUp() { // not signed in: the sign-in alone, with nothing of the app behind it
-		root.Children(func() { a.loginView(c) })
-		a.welcomeView(c, false)
-		return
-	}
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
 	}
@@ -836,7 +829,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.kbKeys(c)
 	a.boundKeys(c)
 	a.kbView(c)
-	a.loginView(c)
 	a.welcomeView(c, false)
 	a.tourView(c)
 	a.updateView(c)

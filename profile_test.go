@@ -12,29 +12,27 @@ import (
 	"github.com/imhalid/ryudit/internal/library"
 )
 
-// A real library (it has settings of its own) with no account is behind the sign-in: the window shows the form and nothing of the
-// app, there is no way past it, not Esc, not a command, and the tour waits until one is signed in.
-func TestLoginGate(t *testing.T) {
+// A real library (it has settings of its own) with no account is not behind a sign-in: the app opens, and the account is
+// made or signed in to in the sync settings, where the form starts with the invite.
+func TestNoLoginGate(t *testing.T) {
 	withLang(t, "tr")
 	a, tt := newTestApp(t, "x\n")
 	a.settingsFile = t.TempDir() + "/s.json"
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Ryudit", "Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu"} {
-		if !tt.HasText(want) {
-			t.Fatalf("no %q on the sign-in: %v", want, tt.Texts())
-		}
+	tt.Frame()
+	if tt.HasText("Erişim kodu") || !tt.HasText("Bir daha gösterme") {
+		t.Fatalf("the app does not open without an account: %v", tt.Texts())
 	}
-	for _, not := range []string{"Hesapsız devam et", "Bir daha gösterme", "Yeni koleksiyon", "Notes"} {
-		if tt.HasText(not) {
-			t.Fatalf("%q shows behind the sign-in: %v", not, tt.Texts())
-		}
-	}
-	tt.Key(0, ui.KeyEscape)
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if !a.login.open || !tt.HasText("Erişim kodu") {
-		t.Fatal("Esc got past the sign-in")
+	for _, want := range []string{"Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu", "Kodum yok: bekleme listesine yazıl"} {
+		if !tt.HasText(want) {
+			t.Fatalf("no %q in the sync settings: %v", want, tt.Texts())
+		}
 	}
 	// Enter in a field is the form's button
 	r, ok := tt.Find("Erişim kodu") // the field's label: the field is under it
@@ -47,27 +45,6 @@ func TestLoginGate(t *testing.T) {
 	tt.Frame()
 	if a.ac.err == "" {
 		t.Fatalf("Enter did not send the form: focused %v, code %q", tt.Focused("Erişim kodu"), a.ac.code)
-	}
-	a.ac.err = ""
-	a.settings.AccountUser = "ali@ornek.com" // signed in: the app, and the tour after it
-	tt.Advance(100 * time.Millisecond)
-	tt.Frame()
-	tt.Advance(100 * time.Millisecond)
-	tt.Frame()
-	if a.login.open || tt.HasText("Erişim kodu") || !tt.HasText("Bir daha gösterme") {
-		t.Fatalf("the app does not come after the sign-in: %v", tt.Texts())
-	}
-	if a.loginDue() {
-		t.Fatal("still due")
-	}
-}
-
-// A library with no settings of its own (a test's, a scratch one) is not asked.
-func TestLoginGateNotInScratchLibrary(t *testing.T) {
-	a, tt := newTestApp(t, "x\n")
-	tt.Frame()
-	if a.login.open || a.gateUp() || tt.HasText("Erişim kodu") {
-		t.Fatal("the sign-in shows in a library with no settings")
 	}
 }
 
@@ -97,7 +74,7 @@ func TestAcctFormChecks(t *testing.T) {
 }
 
 // An invite opens the account in steps: the address and the code, checked by the server and not spent, then the password, then the
-// recovery key, which the dialog shows before anything else and leaves only when one says it is kept.
+// recovery key, which the form shows before anything else and leaves only when one says it is kept.
 func TestInviteSteps(t *testing.T) {
 	withLang(t, "tr")
 	var got []string
@@ -129,9 +106,13 @@ func TestInviteSteps(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settingsFile = t.TempDir() + "/s.json"
 	a.settings.SyncURL = srv.URL
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
 	if a.ac.mode != "invite" || !tt.HasText("Erişim kodu") {
-		t.Fatalf("the first run does not start with the invite: %q %v", a.ac.mode, tt.Texts())
+		t.Fatalf("the form does not start with the invite: %q %v", a.ac.mode, tt.Texts())
 	}
 	wait := func() {
 		t.Helper()
@@ -157,7 +138,7 @@ func TestInviteSteps(t *testing.T) {
 	a.ac.pass, a.ac.pass2 = "uzun-parola", "uzun-parola"
 	a.acctSubmit()
 	wait()
-	if a.ac.mode != "recovery" || !a.login.open || a.sy.recovery == "" || !tt.HasText(a.sy.recovery) {
+	if a.ac.mode != "recovery" || a.sy.recovery == "" || !tt.HasText(a.sy.recovery) {
 		t.Fatalf("the recovery key is not shown: %q %q %v", a.ac.mode, a.ac.err, tt.Texts())
 	}
 	if a.settings.AccountUser != "ali@ornek.com" || a.settings.SyncToken != "t1" {
@@ -166,8 +147,8 @@ func TestInviteSteps(t *testing.T) {
 	tt.Click("Sakladım, devam")
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if a.login.open {
-		t.Fatal("the dialog stays after the key is kept")
+	if a.ac.mode != "login" || tt.HasText("Sakladım, devam") {
+		t.Fatalf("the recovery step stays after the key is kept: %q", a.ac.mode)
 	}
 	want := []string{"/api/invite ali@ornek.com", "/api/invite ali@ornek.com", "/api/register ali@ornek.com"}
 	if len(got) < 3 || strings.Join(got[:3], ",") != strings.Join(want, ",") {

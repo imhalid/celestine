@@ -332,7 +332,6 @@ func (a *app) acctServer() string {
 func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	s := &a.settings
 	s.AccountUser, s.SyncMode, s.SyncURL, s.SyncToken = user, "server", a.acctServer(), token
-	a.login.open = false
 	s.SyncKey = base64.StdEncoding.EncodeToString(key)
 	a.sy.hasKey = true
 	if fresh {
@@ -341,7 +340,6 @@ func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	a.ac = acctUI{mode: "login"}
 	if fresh { // the recovery key is shown before anything else: it is the only way back to the data
 		a.ac.mode = "recovery"
-		a.login.open = true
 	}
 	a.saveSettings()
 	a.sy.tried = time.Time{}
@@ -415,12 +413,12 @@ func humanBytes(n int64) string {
 
 // acctForm is the form of getting in. One with an invite opens the account in steps: the address and the access code that was sent
 // to it (checked, not spent), then the password, then the recovery key, shown once. One with an account signs in with the address and
-// the password; one who forgot the password sets a new one with the recovery key. The screen of signing in (profile.go), the profile
-// of one not signed in and the sync settings all show it.
+// the password; one who forgot the password sets a new one with the recovery key. The sync settings and the profile of one not signed
+// in show it; a first sight of it is the invite's, as most who come to it have one in the mail.
 func (a *app) acctForm(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	if a.ac.mode == "" {
-		a.ac.mode = "login"
+		a.ac.mode = "invite"
 	}
 	btn := func(key, label string, opts ryugo.ButtonOptions) bool {
 		return ryugo.Button(c.Key(key), label, opts).Clicked()
@@ -498,7 +496,7 @@ func (a *app) acctForm(c *ui.Context) {
 				}
 			case "invite":
 				if btn("acct-wait", T("Kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
-					c.OpenURL(a.acctServer())
+					c.OpenURL(strings.TrimSuffix(a.acctServer(), "/") + "/#waitlist")
 				}
 			case "password":
 				if btn("acct-back", T("Geri"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
@@ -524,7 +522,6 @@ func (a *app) acctRecoveryStep(c *ui.Context) {
 			ryugo.CopyButton(c.Key("copy-recovery-step"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
 			if ryugo.Button(c.Key("acct-kept"), T("Sakladım, devam"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 				a.ac.mode = "login"
-				a.login.open = false
 			}
 		})
 	})
@@ -670,7 +667,7 @@ func (a *app) acctSignOut() {
 // to the profile (profile.go), where it is looked after.
 func (a *app) accountSection(c *ui.Context) {
 	s := &a.settings
-	if s.AccountUser == "" || s.SyncToken == "" {
+	if s.AccountUser == "" || s.SyncToken == "" || a.ac.mode == "recovery" { // a new account's key, before anything else
 		settingGroup(c, "set-acct-in", func() { a.acctForm(c) })
 		return
 	}

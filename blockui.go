@@ -429,5 +429,5 @@ func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 // modal reports whether a dialog is open over the window: what is under it is
 // not pointed at (no grip, no bar) while it is.
 func (a *app) modal() bool {
-	return a.cs.open || a.prop.open || a.pal.open || a.tagRen.open || a.crashOpen || a.vhist.open || a.login.open || a.lightbox != nil || a.wel.on
+	return a.cs.open || a.prop.open || a.pal.open || a.tagRen.open || a.crashOpen || a.vhist.open || a.lightbox != nil || a.wel.on
 }

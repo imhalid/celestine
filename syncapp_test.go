@@ -426,3 +426,55 @@ func TestSyncNewLibraryWaitsForTheAccount(t *testing.T) {
 		t.Fatalf("the third device: %v (%s)", got, c.sy.result)
 	}
 }
+
+// A new library not signed in to an account has its welcome page at once, opened; signing in later takes the account's
+// copies over it, untouched, with no conflict. One signed in waits for its first pass.
+func TestSyncNewLibraryWithoutAccount(t *testing.T) {
+	dir := t.TempDir()
+	open := func(user string) *app {
+		a := syncApp(t, dir)
+		if _, err := a.journal(); err != nil {
+			t.Fatal(err)
+		}
+		a.settings.AccountUser = user
+		a.seedNew(bareLibrary(a.lib))
+		a.markPristine()
+		return a
+	}
+	first := open("ali@ornek.com")
+	if !first.sy.seedWait || len(first.lib.Collections) != 1 {
+		t.Fatalf("signed in, the welcome page did not wait: %d collections", len(first.lib.Collections))
+	}
+	first.syncNow()
+	waitSync(t, first)
+	if first.page == nil || first.page.Title != "Welcome" {
+		t.Fatal("an empty account got no welcome page")
+	}
+	first.page.SaveText("the account's own welcome\n")
+	first.syncNow()
+	waitSync(t, first)
+
+	time.Sleep(10 * time.Millisecond)
+	second := open("") // used without an account, then signed in
+	if second.sy.seedWait || second.page == nil || second.page.Title != "Welcome" {
+		t.Fatalf("without an account, no welcome page at once: wait %v", second.sy.seedWait)
+	}
+	second.settings.AccountUser = "ali@ornek.com"
+	second.syncNow()
+	waitSync(t, second)
+	if second.sy.conflict != 0 || len(second.conflictFiles()) != 0 {
+		t.Fatalf("conflicts on signing in: %v (%s)", second.conflictFiles(), second.sy.result)
+	}
+	var welcomes []string
+	for _, c := range second.lib.Collections {
+		for _, p := range c.All() {
+			if p.Title == "Welcome" {
+				text, _ := p.Text()
+				welcomes = append(welcomes, text)
+			}
+		}
+	}
+	if len(welcomes) != 1 || welcomes[0] != "the account's own welcome\n" {
+		t.Fatalf("the welcome pages after signing in: %q", welcomes)
+	}
+}

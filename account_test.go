@@ -234,15 +234,15 @@ func TestAccountSettingsPage(t *testing.T) {
 	a.settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"Giriş yap", "Davetle hesap aç", "E-posta", "Şifre"} {
+	for _, want := range []string{"Giriş yap", "Davetle hesap aç", "E-posta", "Erişim kodu"} { // the invite first
 		if !tt.HasText(want) {
 			t.Errorf("signed out: no %q: %v", want, tt.Texts())
 		}
 	}
-	a.ac.mode = "invite"
+	a.ac.mode = "login"
 	tt.Frame()
-	if !tt.HasText("Erişim kodu") {
-		t.Errorf("invite: no access code field: %v", tt.Texts())
+	if !tt.HasText("Şifre") {
+		t.Errorf("sign-in: no password field: %v", tt.Texts())
 	}
 
 	a.settings.AccountUser, a.settings.SyncToken, a.ac.meAt = "ali", "tok", time.Now() // no call to a server

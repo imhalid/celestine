@@ -256,6 +256,22 @@ func syncSummary(r SyncResult) string {
 	return s
 }
 
+// seedNew gives a new library in a file its welcome page, opened, when it is not signed in to an account: the app
+// is used without one, and the page is pristine (markPristine), so that signing in later takes the account's
+// copies over it. One that is signed in waits for its first pass (seedAfterSync).
+func (a *app) seedNew(empty bool) {
+	if !empty {
+		return
+	}
+	if a.settings.AccountUser != "" {
+		a.sy.seedWait = true
+		return
+	}
+	if p, err := seedWelcome(a.lib); err == nil {
+		a.open(p)
+	}
+}
+
 // seedAfterSync is the end of a new library's first pass: an account that never held anything gets the welcome
 // page, opened; one that did has its pages here now, and gets none.
 func (a *app) seedAfterSync(res SyncResult) {
@@ -489,6 +505,10 @@ func (a *app) settingsSync(c *ui.Context) {
 	}
 	if s.SyncMode == "" {
 		ui.Text(c, T("Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.")).FontSize(13).TextColor(cl.Muted).Wrap()
+		if s.AccountUser == "" { // the way to sync: an account, made with an invite or signed in to
+			ui.Text(c, T("With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.")).FontSize(13).TextColor(cl.Text2).Wrap()
+			a.accountSection(c)
+		}
 		return
 	}
 	if s.SyncMode == "server" {
@@ -541,7 +561,7 @@ func (a *app) settingsSync(c *ui.Context) {
 				ui.Text(c, T("Şifreleme açık.")).FontSize(12.5).TextColor(cl.Muted)
 			})
 	}
-	if a.sy.recovery != "" {
+	if a.sy.recovery != "" && a.ac.mode != "recovery" { // the account's step shows it, then this
 		settingGroup(c, "set-sync-recovery", func() {
 			settingRow(c, "Kurtarma anahtarı: bir yere yaz", a.sy.recovery, func() {
 				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
