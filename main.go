@@ -360,6 +360,18 @@ func seedWelcome(lib *Library) (*Page, error) {
 	return p, p.SaveText(welcome)
 }
 
+// mcpFlag is the command line's word for the app to turn its MCP server on (`ryudit mcp` starts it, or the
+// running app is handed it).
+const mcpFlag = "--mcp"
+
+// withoutMCPFlag is the command line without --mcp, and whether it was there.
+func withoutMCPFlag(args []string) ([]string, bool) {
+	if !slices.Contains(args, mcpFlag) {
+		return args, false
+	}
+	return slices.DeleteFunc(slices.Clone(args), func(s string) bool { return s == mcpFlag }), true
+}
+
 // appIcon is the app's icon, for its window and its Dock (assets/): in the Dock's shape, a rounded
 // square with room around it. winIcon is the one Windows has, the picture filling its square.
 //
@@ -370,12 +382,18 @@ var appIcon []byte
 var winIcon []byte
 
 func main() {
+	// `ryudit mcp`: the app's MCP server for an agent over stdio, by way of the app itself (mcpbridge.go)
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		os.Exit(runMCP(os.Args[2:]))
+	}
 	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
 	// and goes, before it opens the library - two would write the same file, and each would take the other's mark
-	// of running for a crash (crash.go).
+	// of running for a crash (crash.go). --mcp goes with it, for the first to turn its MCP server on.
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}
+	var mcpOn bool
+	os.Args, mcpOn = withoutMCPFlag(os.Args)
 	// The library is a file of its own, next to the program: nothing else
 	// opens it, and the two move together. A folder named on the command line
 	// is a library of plain files, as before; the first time, a folder
@@ -534,7 +552,17 @@ func main() {
 			a.newDockHost(w)
 			a.dockHost.Sync() // the windows of the panes, as they were left
 		}
-		mygo.App.OnSecondInstance(func([]string, string) { a.bringToFront() })
+		mygo.App.OnSecondInstance(func(args []string, _ string) {
+			if slices.Contains(args, mcpFlag) { // `ryudit mcp` found the server off: it is turned on
+				a.do(func() error {
+					if a.mcpServer == nil {
+						a.setMCP(true)
+					}
+					return nil
+				})
+			}
+			a.bringToFront()
+		})
 		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
 		if runtime.GOOS == "windows" {
@@ -555,7 +583,7 @@ func main() {
 		}()
 		go func() { defer a.guard(); a.watch() }()
 		go func() { defer a.guard(); a.watchClipboard() }()
-		if a.settings.MCP {
+		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `ryudit mcp`
 			a.setMCP(true)
 		}
 	})

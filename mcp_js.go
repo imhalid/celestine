@@ -10,3 +10,6 @@ func (a *app) setMCP(on bool) {
 		a.mcpErr = T("Tarayıcıda MCP sunucusu açılamaz")
 	}
 }
+
+// runMCP is `ryudit mcp`, which a browser has not.
+func runMCP([]string) int { return 1 }

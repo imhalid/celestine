@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -214,6 +215,19 @@ func newToken() string {
 
 // mcpURL is where agents reach the server.
 func (a *app) mcpURL() string { return fmt.Sprintf("http://127.0.0.1:%d/mcp", a.settings.Port) }
+
+// mcpStdioCommand is the line that adds the server to an agent that starts its servers itself and speaks over
+// stdio: this program with `mcp`, which reaches the app (and starts it, or its server, when they are not running).
+func (a *app) mcpStdioCommand() string {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "ryudit"
+	}
+	if strings.ContainsAny(exe, " \t") {
+		exe = strconv.Quote(exe)
+	}
+	return "claude mcp add ryudit -- " + exe + " mcp"
+}
 
 // mcpCommand is the line that adds the server to Claude Code.
 func (a *app) mcpCommand() string {
