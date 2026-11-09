@@ -2,7 +2,8 @@
 //
 //   GET /update.json          the manifest of the latest release (channel=beta for trials)
 //   GET /<version>/<file>     the release's files
-//   GET /download/<os-arch>   the latest release's file for darwin-arm64, windows-amd64, …: a redirect, for the site's buttons
+//   GET /download/<os-arch>   the latest release's file for darwin-arm64, windows-amd64, …: a redirect, for the site's buttons;
+//                             macOS's is the zipped ryudit.app, Linux's the .tar.gz beside the binary when the release has one
 //
 // The release's workflow (.github/workflows/release.yml) puts the files and update.json in the bucket.
 // The Worker adds nothing and logs nothing of the user: the request is a version in the User-Agent, and
@@ -26,11 +27,17 @@ export default {
   },
 };
 
-// download sends the browser to the latest release's file for a platform, as update.json names it.
+// download sends the browser to the latest release's file for a platform, as update.json names it. The
+// manifest names the bare Linux binary (what the update takes); a person gets the .tar.gz put beside it
+// (scripts/package.sh), with the .desktop file and the icon, when that release has one.
 async function download(env, platform) {
   const obj = await env.RELEASES.get("update.json");
   if (!obj) return new Response("no release yet", { status: 404 });
-  const asset = (await obj.json()).assets?.[platform];
+  const manifest = await obj.json();
+  const asset = manifest.assets?.[platform];
   if (!asset?.url) return new Response("no build for " + platform, { status: 404 });
-  return new Response(null, { status: 302, headers: { location: asset.url, "cache-control": "public, max-age=300" } });
+  let location = asset.url;
+  if (platform.startsWith("linux-") && (await env.RELEASES.head(`${manifest.version}/ryudit-${platform}.tar.gz`)))
+    location += ".tar.gz";
+  return new Response(null, { status: 302, headers: { location, "cache-control": "public, max-age=300" } });
 }

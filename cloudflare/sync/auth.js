@@ -146,13 +146,44 @@ export async function deleteAccountFiles(env, userId) {
     } while (cursor);
   }
 }
+// forget takes a name (an e-mail, an old username) out of the audit: each line naming it has the name put as `account #<id>`
+// (or "someone"). A line is words split by spaces ("approve a@b.c mail=true"), and only a whole word is the name.
+async function forget(env, name, as) {
+  if (!name) return;
+  const rows = await env.DB.prepare("SELECT id,what FROM audit WHERE instr(lower(what),?)>0").bind(name.toLowerCase()).all();
+  const stmts = [];
+  for (const r of rows.results) {
+    const what = r.what.split(" ").map((w) => (w.toLowerCase() === name.toLowerCase() ? as : w)).join(" ");
+    if (what !== r.what) stmts.push(env.DB.prepare("UPDATE audit SET what=? WHERE id=?").bind(what, r.id));
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+}
+// deleteUser deletes an account and what the server knew of the person: the files, the devices, the invite it was opened with,
+// the address's row on the waitlist, and the name in the audit's lines. It returns how the audit calls it from then on.
 async function deleteUser(env, userId) {
+  const u = await env.DB.prepare("SELECT username FROM users WHERE id=?").bind(userId).first();
+  const name = u?.username || "";
   await deleteAccountFiles(env, userId);
+  // the waitlist's rows: the one of its address, and the one of the invite it was opened with (an older account's name is no address)
+  const wl = await env.DB.prepare("SELECT id FROM waitlist WHERE email=? UNION SELECT waitlist_id FROM invites WHERE used_by=?").bind(name, userId).all();
+  const ids = wl.results.map((r) => r.id);
+  const marks = ids.map(() => "?").join(",");
+  const wlRows = ids.length ? await env.DB.prepare(`SELECT email FROM waitlist WHERE id IN (${marks})`).bind(...ids).all() : { results: [] };
   await env.DB.batch([
     env.DB.prepare("DELETE FROM devices WHERE user_id=?").bind(userId),
-    env.DB.prepare("UPDATE invites SET used_by=NULL WHERE used_by=?").bind(userId),
+    env.DB.prepare("DELETE FROM invites WHERE used_by=?").bind(userId),
+    ...(ids.length
+      ? [
+        env.DB.prepare(`DELETE FROM invites WHERE waitlist_id IN (${marks})`).bind(...ids),
+        env.DB.prepare(`DELETE FROM waitlist WHERE id IN (${marks})`).bind(...ids),
+      ]
+      : []),
     env.DB.prepare("DELETE FROM users WHERE id=?").bind(userId),
   ]);
+  const as = `account#${userId}`;
+  await forget(env, name, as);
+  for (const r of wlRows.results) if (r.email !== name) await forget(env, r.email, as);
+  return as;
 }
 
 // ---- the routes ----
@@ -328,8 +359,7 @@ export async function handleApi(request, env, url) {
     if (!validAuth(body.auth)) return fail(400, "bad request");
     const u = await env.DB.prepare("SELECT salt,auth_hash FROM users WHERE id=?").bind(me.id).first();
     if (!same(await authHash(u.salt, body.auth), u.auth_hash)) return fail(401, "şifre yanlış");
-    await deleteUser(env, me.id);
-    await audit(env, `delete ${me.username}`);
+    await audit(env, `delete ${await deleteUser(env, me.id)}`);
     return json({ ok: true });
   }
   return null;
@@ -345,6 +375,23 @@ async function admin(request, env, path, method, body, bearer, url) {
   if (!(await allow(env, "admin:" + ip(request), 600, 3600))) return fail(429, "çok fazla istek");
   const base = `${url.protocol}//${url.host}`;
 
+  // the whole waitlist as CSV, for the administrator's own records (a cell that a spreadsheet would take for a formula is quoted out)
+  if (path === "/api/admin/waitlist.csv" && method === "GET") {
+    const rows = await env.DB.prepare("SELECT id,email,name,status,created_at,decided_at FROM waitlist ORDER BY created_at").all();
+    const iso = (t) => (t ? new Date(t * 1000).toISOString() : "");
+    const cell = (v) => {
+      let s = String(v ?? "");
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    };
+    const lines = [["id", "email", "name", "status", "created_at", "decided_at"]]
+      .concat(rows.results.map((w) => [w.id, w.email, w.name, w.status, iso(w.created_at), iso(w.decided_at)]))
+      .map((r) => r.map(cell).join(","));
+    await audit(env, `export waitlist rows=${rows.results.length}`);
+    return new Response(lines.join("\r\n") + "\r\n", {
+      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="ryudit-waitlist.csv"', "cache-control": "no-store" },
+    });
+  }
   if (path === "/api/admin/waitlist" && method === "GET") {
     const st = url.searchParams.get("status");
     const rows = await env.DB.prepare(
@@ -364,7 +411,24 @@ async function admin(request, env, path, method, body, bearer, url) {
     await audit(env, `add ${email}`);
     return json({ ok: true, id: w.id, status: w.status });
   }
-  let m = path.match(/^\/api\/admin\/waitlist\/(\d+)\/(approve|resend|reject)$/);
+  let m = path.match(/^\/api\/admin\/waitlist\/(\d+)\/delete$/);
+  // a row taken off the waitlist, as the person asked: the row, its invites, and the address in the audit. An address that opened an
+  // account is the account's name: that is deleted as an account (Hesaplar), which takes the row with it.
+  if (m && method === "POST") {
+    const id = Number(m[1]);
+    const w = await env.DB.prepare("SELECT id,email FROM waitlist WHERE id=?").bind(id).first();
+    if (!w) return fail(404, "yok");
+    const acc = await env.DB.prepare("SELECT id FROM users WHERE username=? UNION SELECT used_by FROM invites WHERE waitlist_id=? AND used_by IS NOT NULL").bind(w.email, id).first();
+    if (acc) return fail(409, "bu adresin bir hesabı var: hesabı sil");
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM invites WHERE waitlist_id=?").bind(id),
+      env.DB.prepare("DELETE FROM waitlist WHERE id=?").bind(id),
+    ]);
+    await forget(env, w.email, `waitlist#${id}`);
+    await audit(env, `remove waitlist#${id}`);
+    return json({ ok: true });
+  }
+  m = path.match(/^\/api\/admin\/waitlist\/(\d+)\/(approve|resend|reject)$/);
   if (m && method === "POST") {
     const id = Number(m[1]);
     const w = await env.DB.prepare("SELECT id,email,status FROM waitlist WHERE id=?").bind(id).first();
@@ -400,8 +464,10 @@ async function admin(request, env, path, method, body, bearer, url) {
     const id = Number(m[1]);
     const u = await env.DB.prepare("SELECT username FROM users WHERE id=?").bind(id).first();
     if (!u) return fail(404, "yok");
-    if (m[2] === "delete") await deleteUser(env, id);
-    else if (m[2] === "quota") {
+    if (m[2] === "delete") {
+      await audit(env, `delete ${await deleteUser(env, id)}`);
+      return json({ ok: true });
+    } else if (m[2] === "quota") {
       const q = Math.floor(Number(body.quota));
       if (!(q >= 0 && q <= 100 * 1024 ** 3)) return fail(400, "bad request");
       await env.DB.prepare("UPDATE users SET quota=? WHERE id=?").bind(q, id).run();

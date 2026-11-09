@@ -68,12 +68,19 @@ func main() {
 		assets := map[string]asset{}
 		for _, f := range fs.Args() {
 			name := filepath.Base(f)
+			// the .tar.gz of Linux is for people (scripts/package.sh); the update takes the bare binary
+			if strings.HasSuffix(name, ".tar.gz") {
+				continue
+			}
 			// ryudit-linux-amd64, ryudit-windows-amd64.exe, ryudit-darwin-arm64.zip
 			parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), "-")
 			if len(parts) < 3 {
 				continue
 			}
 			key := parts[1] + "-" + parts[2]
+			if _, ok := assets[key]; ok {
+				check(fmt.Errorf("two files for %s: %s and another (a bare darwin binary beside its zip?)", key, name))
+			}
 			h := sha256.New()
 			in, err := os.Open(f)
 			check(err)

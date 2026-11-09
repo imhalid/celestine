@@ -21,13 +21,12 @@ uygulama hesapsız açılır ve çalışır.
 Hesap formu Ayarlar ▸ Senkron'da: davetle hesap aç (e-posta + erişim kodu → şifre → kurtarma anahtarı bir kez gösterilir) ya da giriş yap;
 "No code: join the waitlist" `<sunucu>/#waitlist`'i açar. Profil (⌘P ▸ "Hesap profili"): kota, eşitleme, kurtarma anahtarı, şifre, cihazlar, hesabı sil, çıkış.
 Site (`cloudflare/sync/landing`) önce indirme, bekleme listesi altta.
+`/privacy` says what the server keeps and how to have it deleted. Deleting an account also deletes its invite and waitlist row and
+puts `account#<id>` for its address in the audit; /admin exports the waitlist as CSV and deletes a row (one without an account).
 
 ## Açık
 
 - 8 Kasım değişiklikleri (şifre sıfırlama, `0002_recovery.sql`, e-postalı davet akışı, sunucu sürümleri) yerelde `wrangler dev` ile denendi;
   canlıya gidip gitmediği doğrulanmalı (gitmediyse Sunucudaki sürümler 404 verir).
 - Uygulama içinden canlı sunucuya karşı uçtan uca deneme yapılmadı.
-- Eski `TOKENS` sırrı (testler, `halit`/`test` jetonları) Worker'da hâlâ okunuyor; ihtiyaç kalmayınca kaldırılacak.
-- Bekleme listesi dışa aktarma yok.
-- Gizlilik metni sayfada tek cümle; ayrı sayfa ve silme/dışa aktarma süreci yazılmadı.
 - DNS'te `resend._domainkey.halid.dev` altında ikinci, boş bir `v=DKIM1; p=` kaydı var: zararsız, silinebilir.
