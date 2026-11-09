@@ -22,14 +22,17 @@ w=$out/.cloudflare/output/v0/workers/default
 mkdir -p "$w/bundle"
 cp "$here"/*.js "$w/bundle/"
 echo '{"buildContext":{"isPreview":false,"mode":"production"}}' > "$out/.cloudflare/output/v0/config.json"
-HERE_JS="$w/bundle" SECRETS="$RYUDIT_SYNC_SECRETS" DOMAIN="$DOMAIN" node -e '
+# the crons are wrangler.toml's ([triggers] crons), one list for both
+CRONS=$(sed -n 's/^crons *= *//p' "$here/wrangler.toml") HERE_JS="$w/bundle" SECRETS="$RYUDIT_SYNC_SECRETS" DOMAIN="$DOMAIN" node -e '
 const fs = require("fs");
 const modules = Object.fromEntries(fs.readdirSync(process.env.HERE_JS).map((f) => [f, { type: "esm" }]));
+const triggers = JSON.parse(process.env.CRONS || "[]").map((schedule) => ({ type: "scheduled", schedule }));
+if (!triggers.length) throw new Error("no [triggers] crons in wrangler.toml");
 const env = { SYNC: { type: "r2", name: "ryudit-sync" }, DB: { type: "d1", name: "ryudit" } };
 if (process.env.SECRETS) for (const k of Object.keys(JSON.parse(fs.readFileSync(process.env.SECRETS, "utf8")))) env[k] = { type: "secret" };
 const cfg = {
   name: "ryudit-sync", compatibilityDate: "2026-01-01", workersDev: true, observability: { enabled: true },
-  domains: [process.env.DOMAIN], manifest: { type: "complete", mainModule: "worker.js", modules }, env,
+  domains: [process.env.DOMAIN], triggers, manifest: { type: "complete", mainModule: "worker.js", modules }, env,
 };
 fs.writeFileSync(process.env.HERE_JS + "/../worker.config.json", JSON.stringify(cfg));
 '
