@@ -254,6 +254,8 @@ type app struct {
 	// settingsStore, when the library is a file of its own, keeps the settings
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
+	// inKeychain is each secret of the settings the keychain holds, as it was put there (keychain.go)
+	inKeychain    map[string]string
 	importNote    string                  // what the last import said, in the settings
 	embedCache    map[string][]string     // the first lines of the pages embedded (embed.go)
 	ctxCache      map[string][]seg        // the lines that link to a page (backlinks.go)
@@ -441,6 +443,7 @@ func main() {
 	if _, err := a.journal(); err != nil { // every library has its journal
 		log.Fatal(err)
 	}
+	keychain = systemKeychain()                     // the secrets of the settings, out of the file (keychain.go)
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
 		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
 	}
