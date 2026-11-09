@@ -338,3 +338,25 @@ func init() {
 		}
 	}
 }
+
+// The words of the commands and settings of the views and the editor added in November: copying and pasting as,
+// choosing blocks, files, the caret's blink.
+func init() {
+	for tr, en := range map[string]string{
+		"Dosya ekle":                       "Attach a file",
+		"Blokları seç":                     "Select blocks",
+		"Blok menüsü":                      "Block menu",
+		"Bloğu yanda aç":                   "Open block beside",
+		"Markdown olarak kopyala":          "Copy as Markdown",
+		"Düz metin olarak kopyala":         "Copy as plain text",
+		"HTML olarak kopyala":              "Copy as HTML",
+		"Markdown olarak yapıştır":         "Paste as Markdown",
+		"Düz metin olarak yapıştır":        "Paste as plain text",
+		"İmleç yanıp sönmesi":              "Caret blink",
+		"Boşlukları yalnız seçimde göster": "White space only in the selection",
+		"Oluşturulma":                      "Created",
+		"Değiştirilme":                     "Modified",
+	} {
+		enText[tr] = en
+	}
+}
