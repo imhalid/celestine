@@ -2,11 +2,13 @@ package main
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // Blocks richtext doesn't make on its own, made here:
@@ -122,7 +124,11 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		}
 		span := ui.Span{Text: label, Size: 11, Weight: 560, Color: th.TextMuted.Alpha(0.75)}
 		w, h := p.MeasureText(200, span)
-		p.RichText(r.X+r.W-w-10, r.Y+b.Top+max(0, (b.Height-h)/2), w+1, span)
+		room := float32(0)
+		if strings.HasPrefix(st.ID, codeIDPrefix) && !phone { // the copy button is at the corner (codeCopyView)
+			room = codeCopyW + 4
+		}
+		p.RichText(r.X+r.W-w-10-room, r.Y+b.Top+max(0, (b.Height-h)/2), w+1, span)
 	}
 }
 
@@ -223,4 +229,63 @@ func calloutTint(line string) (ui.Color, bool) {
 		return ui.Hex("#a855f7"), true
 	}
 	return ui.Hex("#3b82f6"), true // note, info, abstract, todo, quote, …
+}
+
+// codeCopyW is the copy button of a block of code, at its top right corner.
+const codeCopyW = 24
+
+// codeCopyView is a copy button at the top right corner of each block of code in view: a click puts the block's
+// text on the clipboard as it is, its lines and nothing else.
+func (a *app) codeCopyView(c *ui.Context) {
+	if phone || a.doc == nil || a.noPage() {
+		return
+	}
+	text := a.doc.Text()
+	r := a.editorR
+	cl := ryugo.From(c).Colors
+	ui.Overlay(c, func() {
+		for _, b := range a.boxes {
+			if b.Start > text.Len() {
+				continue
+			}
+			st := text.ParagraphStyleAt(b.Start)
+			if !st.CodeBlock || !strings.HasPrefix(st.ID, codeIDPrefix) {
+				continue
+			}
+			if b.Start > 0 && text.ParagraphStyleAt(b.Start-1).CodeBlock { // not the block's first line
+				continue
+			}
+			start := b.Start
+			btn := ui.Box(c.Key("code-copy:"+strconv.Itoa(start))).Absolute().Left(r.X+r.W-codeCopyW-4).Top(r.Y+b.Top+2).
+				Size(codeCopyW, codeCopyW).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
+				Label(T("Copy the code")).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			tone := cl.Muted.Alpha(0.55)
+			if btn.Hovered() {
+				btn.Background(cl.Fill)
+				tone = cl.Text2
+			}
+			btn.Children(func() { ui.Icon(c, iconCopy).Width(14).Height(14).TextColor(tone) })
+			if btn.Clicked() {
+				a.copyText(codeBlockText(text, start))
+				a.notice = T("The code was copied.")
+			}
+		}
+	})
+}
+
+// codeBlockText is the text of the block of code whose first line starts at start: its lines, one after another.
+func codeBlockText(text richtext.Text, start int) string {
+	var lines []string
+	for at := start; at <= text.Len(); {
+		if !text.ParagraphStyleAt(at).CodeBlock {
+			break
+		}
+		s, e := text.ParagraphRange(at)
+		lines = append(lines, text.Slice(s, e).PlainText())
+		if e >= text.Len() {
+			break
+		}
+		at = e + 1
+	}
+	return strings.Join(lines, "\n")
 }

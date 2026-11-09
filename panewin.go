@@ -150,6 +150,7 @@ func (a *app) textOverlays(c *ui.Context) {
 	a.gutterView(c)
 	a.taskBoxHits(c)
 	a.gripView(c)
+	a.codeCopyView(c)
 	a.slashView(c)
 	a.dateEditView(c)
 	a.cellEditView(c)

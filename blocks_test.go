@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -93,5 +94,20 @@ func TestCodeShortcut(t *testing.T) {
 	tt.Frame()
 	if got := a.doc.Text().String(); got != "```" {
 		t.Fatalf("undo: %q", got)
+	}
+}
+
+// A block of code has a copy button at its corner, which puts its lines on the clipboard as they are.
+func TestCodeBlockCopy(t *testing.T) {
+	a, tt := newTestApp(t, "Before.\n\n```go\nfunc main() {\n\tprintln(\"hi\")\n}\n```\n\nAfter.\n")
+	copied := ""
+	a.clipText = func(s string) { copied = s }
+	tt.Advance(200 * time.Millisecond)
+	if err := tt.Click("Copy the code"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Frame()
+	if want := "func main() {\n\tprintln(\"hi\")\n}"; copied != want {
+		t.Fatalf("copied %q, want %q", copied, want)
 	}
 }
