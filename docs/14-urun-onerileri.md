@@ -15,7 +15,7 @@ MyGo artık çatal değil, asıl sürümüyle kullanılıyor; gereken yamalar My
 ## Öneriler
 
 Yapıldı: 8 canlı sorgu bloğu, 12 takvimde sürükleme, 13 galeri, 14 süzgeçler ve alt satır, 15 gruplama, 19 kod renkleri ve kopyala
-düğmesi, 30 koleksiyon izinleri, 31 başlık altına ekleme / özelliğe göre sorgu / günün notu, 32 `ryudit mcp`. Kalanlar:
+düğmesi, 30 koleksiyon izinleri, 31 daha akıllı araçlar (resources ve prompts dahil), 32 `ryudit mcp`. Kalanlar:
 
 4. **Bağlantı yapıştırınca kart.** URL yapıştırınca başlığı ve sitesi çekilir (isteğe bağlı, ağ gerekir; ayarla kapatılabilir). *(O)*
 26. **Sayfa sabitleme.** Koleksiyonlar sabitlenebiliyor, tek tek sayfalar değil. *(K)*
@@ -23,7 +23,6 @@ düğmesi, 30 koleksiyon izinleri, 31 başlık altına ekleme / özelliğe göre
 ### Ajanlar (MCP)
 29. **Ajan etkinliği görünür olsun.** Durum çubuğunda "Ajan N sayfayı değiştirdi" ve geri alma var; değiştirilen satırların kısa süre
     parlaması ve bir "Ajan geçmişi" listesi yok. *(O)*
-31. **Daha akıllı araçlar.** Kalan: MCP "resources" ve "prompts" ([10](10-mcp.md)). *(O)*
 
 ### Dışarıyla
 34. **Dışa aktar:** sayfa Markdown olarak var, seçim HTML olarak kopyalanabiliyor; HTML/PDF dosyası ve koleksiyonu tek dosya olarak yok. *(O)*

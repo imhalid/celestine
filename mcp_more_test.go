@@ -148,3 +148,51 @@ func TestRunCommandKeepsAccess(t *testing.T) {
 		t.Fatal("not thrown away with write access")
 	}
 }
+
+// help, open_page, update_collection, a page as a resource and the prompts (#68).
+func TestMCPHelpResourcesPrompts(t *testing.T) {
+	a, tt := newTestApp(t, "ilk metin")
+	tt.Advance(50 * time.Millisecond)
+	cs := agent(t, a)
+	ctx := context.Background()
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "help"})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "query language") {
+		t.Fatalf("help: %v", err)
+	}
+	call(t, cs, "create_collection", map[string]any{"name": "Tarifler"}, nil)
+	var made struct{ ID string }
+	call(t, cs, "create_page", map[string]any{"collection": "Tarifler", "title": "Menemen", "markdown": "Domates, biber, yumurta."}, &made)
+	call(t, cs, "open_page", map[string]any{"page": made.ID}, nil)
+	if a.page == nil || a.page.Title != "Menemen" {
+		t.Fatal("open_page did not open it")
+	}
+	f := false
+	call(t, cs, "update_collection", map[string]any{"collection": "Tarifler", "name": "Yemekler", "pageNoun": "Tarif", "subPages": f}, nil)
+	c, _ := a.findColl("tarifler", mcpRead)
+	if c.Name != "Yemekler" || c.PageNoun != "Tarif" || c.SubPages {
+		t.Fatalf("update_collection: %+v", c)
+	}
+	// the page as a resource; one of a hidden collection is not there
+	r, err := cs.ReadResource(ctx, &mcp.ReadResourceParams{URI: pageURIPrefix + made.ID})
+	if err != nil || !strings.Contains(r.Contents[0].Text, "Domates") {
+		t.Fatalf("resource: %v %+v", err, r)
+	}
+	a.settings.MCPAccess = map[string]string{"tarifler": mcpOff}
+	if _, err := cs.ReadResource(ctx, &mcp.ReadResourceParams{URI: pageURIPrefix + made.ID}); err == nil {
+		t.Fatal("a hidden collection's page read as a resource")
+	}
+	a.settings.MCPAccess = nil
+	// the prompts
+	ps, err := cs.ListPrompts(ctx, nil)
+	if err != nil || len(ps.Prompts) != 2 {
+		t.Fatalf("prompts: %v %+v", err, ps)
+	}
+	p, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "summarize_page", Arguments: map[string]string{"page": made.ID}})
+	if err != nil || !strings.Contains(p.Messages[0].Content.(*mcp.TextContent).Text, "yumurta") {
+		t.Fatalf("summarize_page: %v", err)
+	}
+	w, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "weekly_review"})
+	if err != nil || !strings.Contains(w.Messages[0].Content.(*mcp.TextContent).Text, a.clock().Format(time.DateOnly)) {
+		t.Fatalf("weekly_review: %v", err)
+	}
+}

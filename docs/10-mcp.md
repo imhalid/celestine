@@ -31,15 +31,8 @@ içinde (Streamable HTTP, `127.0.0.1`, token, varsayılan kapalı). Sonra yapıl
 erişim (Okur ve yazar / Yalnız okur / Göremez), `insert_under_heading`, `query_pages`, `get_daily_note`, `list_trash`, `restore_page`;
 her yazmadan önce sürüm ve durum çubuğunda "Ajan N sayfayı değiştirdi" ile tek tıkla geri alma. Kalanlar:
 
-1. **Eksik araçlar**:
-
-   | Araç | İş |
-   |---|---|
-   | `help` | Veri modeli, satır tipleri, sorgu dili (Thymer'in `data_help`'i gibi) |
-   | `update_collection` | Koleksiyon ayarlama (görünümler, alt sayfa); bugün yalnız `add_property` var |
-   | `list_themes`, `set_theme`, `create_theme` | Tema (veri olduğu için güvenli) |
-   | `open_page` | Sayfayı arayüzde açma |
-   | resources, prompts | MCP'nin araç dışı iki parçası |
-
+1. **Eksik araçlar**: tema araçları (`list_themes`, `set_theme`, `create_theme`). `help`, `open_page`, `update_collection`,
+   sayfaların kaynak olarak okunması (`ryudit://page/<id>`) ve iki hazır istem (`summarize_page`, `weekly_review`) yapıldı (#68);
+   Ayarlar ▸ MCP'den Claude Desktop, Cursor ve Claude Code'a tek tıkla eklenir (#67).
 2. **Güvenlik**: çöpe atma onay istesin (ayardan kapatılabilir); kalıcı silme MCP'de yok.
 3. **Görünürlük**: değişen satırda kısa bir vurgu ve bir "Ajan geçmişi" listesi.
