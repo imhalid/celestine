@@ -130,7 +130,7 @@ type (
 
 func (a *app) newMCPServer() *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "ryudit", Title: "ryudit", Version: "0.1.0"}, &mcp.ServerOptions{
-		Instructions: "ryudit is a Markdown editor of collections of pages, kept as plain files. Pages are named by ids (their folders, as list_pages gives them). Text is Markdown; the user sees what you write in their window at once. Pages have #tags and \"- [ ]\" tasks in their text, and the app keeps versions of each page.",
+		Instructions: "ryudit is a notes app: a library of collections of pages, kept in one file (or, opened so, a folder of plain files). Pages are named by ids (their folders, as list_pages gives them) and have properties (list_collections says each collection's). A page's text is read and written as Markdown, which the app keeps as its own blocks: headings, lists, \"- [ ]\" tasks, #tags, [[links]] to pages, tables, code. The user sees what you write in their window at once. A library in one file keeps versions of each page (list_versions), and a page thrown away goes to the trash.",
 	})
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
