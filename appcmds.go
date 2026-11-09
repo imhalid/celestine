@@ -95,6 +95,7 @@ func appCommands() []appCmd {
 		{title: "Bloğu aşağı taşı", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
 		{title: "Bloğu çoğalt", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
 		{title: "Katla / aç", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
+		{title: "Attach a file", menu: "block", dots: true, glyph: iconAttach, run: (*app).pickFileToAttach, off: noPageOff},
 		{title: "Select blocks", menu: "block", glyph: iconStack, run: (*app).startBlockSel, off: noPageOff},
 		{title: "Block menu", accel: "alt+cmd+.", menu: "block", dots: true, glyph: iconStack, run: (*app).openBlockMenu, off: noPageOff},
 		{title: "Open block beside", menu: "block", glyph: iconPanel, run: (*app).openBlockBeside, off: noPageOff},

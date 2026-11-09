@@ -54,6 +54,10 @@ func (a *app) dropFile(f string, overText bool) {
 			a.notice = "Resmi bir sayfaya bırak"
 		}
 	default:
+		if overText && a.page != nil && a.doc != nil && !a.noPage() { // any other file goes into the page, beside it
+			a.addFileFrom(f)
+			return
+		}
 		a.notice = "Bu dosya türü sayfa olmaz: " + filepath.Base(f)
 	}
 }

@@ -2,12 +2,14 @@ package main
 
 import (
 	"math"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
@@ -21,8 +23,8 @@ import (
 
 // chip is what an attachment of ours is.
 type chip struct {
-	kind   string // "page" or "date"
-	target string // the page's title, or the day as 2006-01-02
+	kind   string // "page", "date", "embed", "file", "fold" or "table"
+	target string // the page's title, the day as 2006-01-02, or a file's name in the page's folder
 	alias  string // what a page's chip says instead of its title
 	// a fold's: what it hides, and how many lines (fold.go)
 	hidden *richtext.Text
@@ -34,6 +36,13 @@ type chip struct {
 
 // markdown is the chip in the file.
 func (ch *chip) markdown() string {
+	if ch.kind == "file" { // a link to the file beside the page
+		ref := ch.target
+		if strings.ContainsAny(ref, " ()") {
+			ref = "<" + ref + ">"
+		}
+		return "[" + ch.label() + "](" + ref + ")"
+	}
 	if ch.kind == "embed" {
 		return "![[" + ch.target + "]]"
 	}
@@ -100,7 +109,7 @@ func chipOf(inside string) *chip {
 // depends on the app (its pages, its colors), so the app gives it.
 func (a *app) attachment(ch *chip) *richtext.Attachment {
 	w := a.chipTextWidth(ch.label()) + 2*(chipPad-1) // the text is drawn chipPad-1 in from each side
-	if ch.kind == "date" {
+	if ch.kind == "date" || ch.kind == "file" {
 		w += chipIcon + 4
 	}
 	return &richtext.Attachment{Width: w, Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawChip(p, r, ch) }}
@@ -150,7 +159,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 		switch d := o.attrs.Attachment.Data.(type) {
 		case *chip:
 			switch d.kind {
-			case "page", "date":
+			case "page", "date", "file":
 				att = a.attachment(d)
 			case "embed":
 				att = a.embedAttachment(d)
@@ -205,6 +214,12 @@ func withoutChips(t richtext.Text) richtext.Text {
 			t = tableAsText(t, f.i, f.ch, f.a)
 			continue
 		}
+		if f.ch.kind == "file" { // its name, a link to the file beside the page
+			link := f.a
+			link.Link = f.ch.target
+			t = t.ReplaceString(f.i, f.i+1, f.ch.label(), link)
+			continue
+		}
 		if f.ch.kind == "fold" { // what was hidden comes back, under its line
 			_, pe := t.ParagraphRange(f.i)
 			t = t.Replace(pe+1, pe+1, withoutChips(*f.ch.hidden))
@@ -240,7 +255,7 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
 		}
 		text = cl.Muted
-	case ch.kind == "date":
+	case ch.kind == "date" || ch.kind == "file":
 		p.Fill(r, cl.Fill, rad(r.H/2))
 		if hover {
 			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
@@ -263,6 +278,13 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 		ic := ui.Rect{X: x, Y: r.Y + (r.H-chipIcon)/2, W: chipIcon, H: chipIcon}
 		p.Stroke(ui.Rect{X: ic.X + 1, Y: ic.Y + 2, W: ic.W - 2, H: ic.H - 3}, text, 2, 1.2)
 		p.Fill(ui.Rect{X: ic.X + 1, Y: ic.Y + 5, W: ic.W - 2, H: 1.2}, text, 0)
+		x += chipIcon + 4
+	}
+	if ch.kind == "file" { // a sheet with its corner turned
+		ic := ui.Rect{X: x + 2, Y: r.Y + (r.H-chipIcon)/2 + 1, W: chipIcon - 4, H: chipIcon - 2}
+		p.Stroke(ic, text, 1.5, 1.2)
+		p.Fill(ui.Rect{X: ic.X + 2.5, Y: ic.Y + 4, W: ic.W - 5, H: 1.1}, text, 0)
+		p.Fill(ui.Rect{X: ic.X + 2.5, Y: ic.Y + 7, W: ic.W - 6, H: 1.1}, text, 0)
 		x += chipIcon + 4
 	}
 	span := ui.Span{Text: ch.label(), Size: chipSize, Weight: 520, Color: text}
@@ -335,6 +357,13 @@ func (a *app) clickChip(x, y float32) bool {
 	if h := a.chipAt(x, y); h != nil {
 		if h.ch.kind == "fold" {
 			a.unfold(h.ch)
+			return true
+		}
+		if h.ch.kind == "file" { // the file, in the system's program for it
+			if a.page != nil {
+				file := filepath.Join(a.page.Dir, h.ch.target)
+				go mygo.Shell.OpenPath(file)
+			}
 			return true
 		}
 		if h.ch.kind == "embed" { // the page it shows

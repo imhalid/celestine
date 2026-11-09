@@ -40,7 +40,7 @@ type bodyRun struct {
 }
 
 // bodyObj is what takes the place of one character: k is "page", "date",
-// "embed", "table" or "image".
+// "embed", "file", "table" or "image".
 type bodyObj struct {
 	K      string     `json:"k"`
 	Target string     `json:"target,omitempty"` // a page's title, or a day
@@ -91,7 +91,7 @@ func objOf(at *richtext.Attachment) *bodyObj {
 	switch d := at.Data.(type) {
 	case *chip:
 		switch d.kind {
-		case "page", "date", "embed":
+		case "page", "date", "embed", "file":
 			return &bodyObj{K: d.kind, Target: d.target, Alias: d.alias}
 		case "table":
 			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
@@ -140,7 +140,7 @@ func decodeBody(s string) richtext.Text {
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.
 func attachmentOf(o *bodyObj) *richtext.Attachment {
 	switch o.K {
-	case "page", "date", "embed":
+	case "page", "date", "embed", "file":
 		ch := &chip{kind: o.K, target: o.Target, alias: o.Alias}
 		return &richtext.Attachment{Name: ch.label(), Data: ch}
 	case "table":
