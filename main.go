@@ -354,10 +354,14 @@ func seedWelcome(lib *Library) (*Page, error) {
 	return p, p.SaveText(welcome)
 }
 
-// appIcon is the app's icon, for its window and its Dock (assets/).
+// appIcon is the app's icon, for its window and its Dock (assets/): in the Dock's shape, a rounded
+// square with room around it. winIcon is the one Windows has, the picture filling its square.
 //
 //go:embed assets/icon-512.png
 var appIcon []byte
+
+//go:embed assets/icon-win.png
+var winIcon []byte
 
 func main() {
 	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
@@ -528,9 +532,13 @@ func main() {
 		mygo.App.OnSecondInstance(func([]string, string) { a.bringToFront() })
 		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
-		w.SetIcon(appIcon)                                                         // the title bar and taskbar (Linux, Windows)
-		mygo.App.Dock.SetIcon(appIcon)                                             // the Dock (macOS)
-		if runtime.GOOS != "js" {                                                  // a browser has no global key, and the panel's window would name the tab
+		if runtime.GOOS == "windows" {
+			w.SetIcon(winIcon) // the title bar and taskbar
+		} else {
+			w.SetIcon(appIcon) // the title bar and taskbar (Linux)
+		}
+		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
+		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
 			a.quick = newQuick(a)
 		}
 		go func() { // the day's backup, a moment after the start, when the window is up
