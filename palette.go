@@ -456,7 +456,7 @@ func (a *app) commandItems(q string) []palItem {
 		}
 		return append(out, a.groupCommands(rest)...)
 	}
-	out := append(a.argItems(q), a.fontNameItems(q)...)
+	out := append(append(a.argItems(q), a.fontNameItems(q)...), a.dateItems(q)...)
 	for _, it := range all {
 		s := match(q, it.title)
 		if s2 := match(q, it.title+" "+it.alias); s < 0 && s2 >= 0 {

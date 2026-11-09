@@ -21,6 +21,16 @@ var enFind = map[string]string{
 	"Soru":           "Question",
 	"Süren görev":    "Task in progress",
 	"Hatalı görev":   "Failed task",
+	// the journal (journal.go)
+	"Önceki gün":                    "Previous day",
+	"Sonraki gün":                   "Next day",
+	"Tarihe git":                    "Go to date",
+	"Günlükte gün yok":              "The journal has no days",
+	"Günlükte daha önceki gün yok":  "The journal has no earlier day",
+	"Günlükte daha sonraki gün yok": "The journal has no later day",
+	"Günlükte o güne sayfa yok":     "The journal has no page for that day",
+	"Günlükte önceki, sonraki gün":  "The journal's previous, next day",
+	"Bu bir gün değil: yarın, cuma, 3 gün sonra, 2026-11-20 gibi yaz.": "Not a day: write tomorrow, friday, in 3 days, 2026-11-20.",
 }
 
 func init() {

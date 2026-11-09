@@ -2,6 +2,8 @@ package main
 
 import (
 	"math/rand"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -17,7 +19,9 @@ import (
 //     set in the journal's settings; the title is not typed in the page),
 //     and is the day it was made: its Created. A date chip, [[2026-11-05]],
 //     finds a day by that, not by the title.
-//   - A random day can be opened.
+//   - A random day can be opened, the day before or after the one shown
+//     (Önceki gün, Sonraki gün, [ and ] in the normal mode), and a day by
+//     name (Tarihe git: yarın, geçen cuma, 2026-11-05).
 
 const (
 	journalName   = "Journal"
@@ -239,4 +243,59 @@ func formatOrDefault(f string) string {
 		return defaultFormat
 	}
 	return f
+}
+
+// stepDay opens the day of the journal n days with pages before (n < 0) or after the day shown: the open
+// page's day when it is a day of the journal, today otherwise. A day without a page is passed over.
+func (a *app) stepDay(n int) {
+	c := a.journalColl()
+	if c == nil || n == 0 {
+		a.notice = "Günlükte gün yok"
+		return
+	}
+	base := startOfDay(a.clock())
+	if a.page != nil && !a.noPage() && a.page.Coll == c {
+		base = dayOf(a.page)
+	}
+	var days []*Page // those on the side asked, the nearest first
+	for _, p := range c.All() {
+		if d := dayOf(p); n < 0 && d.Before(base) || n > 0 && d.After(base) {
+			days = append(days, p)
+		}
+	}
+	if len(days) == 0 {
+		a.notice = map[bool]string{true: "Günlükte daha önceki gün yok", false: "Günlükte daha sonraki gün yok"}[n < 0]
+		return
+	}
+	slices.SortStableFunc(days, func(p, q *Page) int {
+		if n < 0 {
+			return dayOf(q).Compare(dayOf(p))
+		}
+		return dayOf(p).Compare(dayOf(q))
+	})
+	a.open(days[min(len(days), max(n, -n))-1])
+}
+
+// askDate opens the palette's commands with "Tarihe git " in it, for the day to be written after it.
+func (a *app) askDate() { a.pal = palette{open: true, query: ">" + T("Tarihe git") + " "} }
+
+// goDate is how a day to go to is asked in the palette: the command's name in either language, then the day.
+var goDate = regexp.MustCompile(`^(?:tarihe git|tarih|go to date|go to|date)\s+(.+)$`)
+
+// dateItems are the palette's lines for "Tarihe git" and a day said after it (parseNaturalDay): its page, or
+// today's made, or what the journal does not have.
+func (a *app) dateItems(q string) []palItem {
+	m := goDate.FindStringSubmatch(strings.Join(strings.Fields(fold(q)), " "))
+	if m == nil {
+		return nil
+	}
+	d, ok := parseNaturalDay(m[1], a.clock())
+	if !ok {
+		return []palItem{{title: T("Tarihe git") + ": " + m[1], glyph: iconCalendar, score: 1000, off: T("Bu bir gün değil: yarın, cuma, 3 gün sonra, 2026-11-20 gibi yaz.")}}
+	}
+	it := palItem{title: T("Tarihe git") + ": " + shortDate(d), sub: formatDay("dddd", d), glyph: iconCalendar, score: 1000, run: func() { a.openDay(d) }}
+	if c := a.journalColl(); (c == nil || a.journalPage(c, d) == nil) && !sameDay(d, a.clock()) {
+		it.off = T("Günlükte o güne sayfa yok")
+	}
+	return []palItem{it}
 }
