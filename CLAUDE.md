@@ -55,3 +55,7 @@ The gate before a commit (the release workflow runs it too): `gofmt -l .` empty,
   GitHub release, notes from the commits since the tag before). A `v0.x` tag, or one with a "-", is a prerelease.
   Versions go up one at a time from v0.0.1; the gate passes before a tag.
 - A local checkout of Ryugo beside this one is used through a `go.work` (ignored by git).
+- MyGo is followed, not forked away from: `go.mod` replaces it with the `ryudit` branch of imhalid/mygo, which is
+  MyGo's newest release and the few small, general patches the app needs, each also a pull request to MyGo (a
+  patch MyGo takes in is dropped). `scripts/sync-mygo.sh` puts the patches on MyGo's newest release, pushes the
+  branch, points `go.mod` at it and runs the gate. Whatever the app can do itself is not a patch.

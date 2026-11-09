@@ -3,7 +3,7 @@ module github.com/imhalid/ryudit
 go 1.27.3
 
 require (
-	github.com/egoist/mygo v0.7.4
+	github.com/egoist/mygo v0.8.3
 	github.com/imhalid/ryu-go v0.1.1-0.20261108040113-e94b47959450
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
@@ -34,4 +34,4 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 )
 
-replace github.com/egoist/mygo => github.com/imhalid/mygo v0.7.5-0.20261108045043-239fc97452c0
+replace github.com/egoist/mygo => github.com/imhalid/mygo v0.8.4-0.20261109082354-a2f12c550d76

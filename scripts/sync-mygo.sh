@@ -1,0 +1,44 @@
+#!/bin/sh
+# Brings ryudit to the newest MyGo: the fork's ryudit branch (MyGo and the few patches the app needs, each also a
+# pull request to MyGo) is put on top of MyGo's newest release or main, pushed, and ryudit's go.mod points at it.
+# Then the gate runs. Nothing is committed: look, then commit go.mod and go.sum.
+#
+#   scripts/sync-mygo.sh            onto MyGo's newest release tag
+#   scripts/sync-mygo.sh main       onto MyGo's main
+#   MYGO=../mygo scripts/sync-mygo.sh   where the fork is checked out (default ../mygo)
+#
+# A patch that MyGo has taken in comes out of the rebase empty and is dropped. A conflict stops here: the
+# rebase is left open in the fork to be resolved by hand (git rebase --continue), and the script run again.
+set -eu
+cd "$(dirname "$0")/.."
+MYGO=${MYGO:-../mygo}
+[ -d "$MYGO/.git" ] || { echo "no fork at $MYGO: git clone git@github.com:imhalid/mygo.git $MYGO"; exit 1; }
+git -C "$MYGO" remote get-url upstream >/dev/null 2>&1 || git -C "$MYGO" remote add upstream https://github.com/egoist/mygo.git
+git -C "$MYGO" fetch -q upstream --tags
+git -C "$MYGO" fetch -q origin ryudit
+if [ "${1:-}" = main ]; then
+	onto=upstream/main
+else
+	onto=$(git -C "$MYGO" describe --tags --abbrev=0 upstream/main)
+fi
+echo "putting the patches on $onto"
+git -C "$MYGO" checkout -q ryudit
+git -C "$MYGO" reset -q --hard origin/ryudit
+git -C "$MYGO" rebase --empty=drop "$onto"
+git -C "$MYGO" log --oneline "$onto"..ryudit
+git -C "$MYGO" push -q --force-with-lease origin ryudit
+commit=$(git -C "$MYGO" rev-parse HEAD)
+version=$(git -C "$MYGO" describe --tags --abbrev=0 "$onto" 2>/dev/null || echo "")
+export GOWORK=off
+if [ -n "$version" ]; then
+	go mod edit -require=github.com/egoist/mygo@"$version"
+fi
+go mod edit -replace=github.com/egoist/mygo=github.com/imhalid/mygo@"$commit"
+go mod tidy
+echo "gate"
+test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+go vet ./...
+go test ./...
+for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null .; done
+GOOS=js GOARCH=wasm go build -o /dev/null .
+echo "ryudit builds on MyGo $onto with its patches: commit go.mod and go.sum"
