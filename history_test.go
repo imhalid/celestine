@@ -294,8 +294,6 @@ func TestTimeLapse(t *testing.T) {
 // The page's history as a stack and a timeline: the arrows bring an older copy to the front, Enter puts it back
 // and goes back to the editor, Esc leaves with nothing changed (#25).
 func TestTimeMachine(t *testing.T) {
-	tmShaders = false // the CPU renderer draws the galaxy too slowly
-	t.Cleanup(func() { tmShaders = true })
 	a, tt := lapsePage(t)
 	a.openTimeMachine(a.page)
 	tt.Frame()
