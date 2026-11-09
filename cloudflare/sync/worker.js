@@ -107,22 +107,27 @@ async function handle(request, env) {
 }
 
 // Puts what the file is, before it is written over, among its versions (see VERSIONS). It never fails the write: a version that cannot be kept
-// (the quota is full, the file is big, the last one is recent) is only not kept.
+// (the quota is full, the file is big, the last one is recent) is only not kept. It returns when the file's last version was kept, as
+// the file's own metadata keeps it ("kept"): a write within VERSION_GAP of it, as most are while one types, is told so by the file
+// it writes over, without listing the versions.
 async function keepVersion(env, user, name, head, key) {
-  if (!user || name.startsWith("_") || head.size === 0 || head.size > VERSION_MAX) return; // _index and _salt are not pages
+  const was = head.customMetadata?.kept || "";
+  if (!user || name.startsWith("_") || head.size === 0 || head.size > VERSION_MAX) return was; // _index and _salt are not pages
+  const at = head.uploaded.getTime(); // when what is being kept was written
+  const gap = Number(env.VERSION_GAP_MS ?? VERSION_GAP); // (the variable is for trying it: a test cannot wait ten minutes)
+  if (was && at - Number(was) < gap) return was;
   const prefix = `v${user.id}/${name}@`;
   const mine = (await env.SYNC.list({ prefix })).objects.filter((o) => o.key.length === prefix.length + 13 && /^\d{13}$/.test(o.key.slice(prefix.length)));
   mine.sort((a, b) => (a.key < b.key ? -1 : 1));
-  const at = head.uploaded.getTime(); // when what is being kept was written
   const last = mine.length ? Number(mine[mine.length - 1].key.slice(prefix.length)) : 0;
-  if (last && at - last < Number(env.VERSION_GAP_MS ?? VERSION_GAP)) return; // (the variable is for trying it: a test cannot wait ten minutes)
-  if (mine.some((o) => o.key === vkey(user.id, name, at))) return;
+  if (last && at - last < gap) return String(last);
+  if (mine.some((o) => o.key === vkey(user.id, name, at))) return String(at);
   const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(head.size, user.id).run();
-  if (r.meta.changes !== 1) return;
+  if (r.meta.changes !== 1) return was;
   const old = await env.SYNC.get(key);
   if (!old) {
     await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(head.size, user.id).run();
-    return;
+    return was;
   }
   await env.SYNC.put(vkey(user.id, name, at), old.body);
   const extra = mine.slice(0, Math.max(0, mine.length + 1 - VERSIONS));
@@ -130,6 +135,7 @@ async function keepVersion(env, user, name, head, key) {
     await env.SYNC.delete(extra.map((o) => o.key));
     await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(extra.reduce((n, o) => n + o.size, 0), user.id).run();
   }
+  return String(at);
 }
 
 // GET /versions/<name>: the versions kept of a file, newest first ([{at, size}]); with ?at=<when>, the bytes of one.
@@ -216,10 +222,12 @@ async function files(request, env, url) {
       const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(delta, user.id).run();
       if (r.meta.changes !== 1) return new Response("quota", { status: 413 });
     }
-    if (head && !dead(head)) await keepVersion(env, user, name, head, key);
+    const kept = head && !dead(head) ? await keepVersion(env, user, name, head, key) : "";
+    const meta = { hash: await sha256(body) };
+    if (kept) meta.kept = kept;
     let o;
     try {
-      o = await bucket.put(key, body, { onlyIf: only, customMetadata: { hash: await sha256(body) } });
+      o = await bucket.put(key, body, { onlyIf: only, customMetadata: meta });
     } catch (e) {
       if (delta > 0) await bytes(-delta);
       throw e;

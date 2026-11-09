@@ -322,6 +322,15 @@ type EncRemote struct {
 	// pending is how many names were added since the index was last put: it is put every indexEvery, and
 	// at the end of a pass (Flush), not at every file, which made a first pass of thousands go as their square
 	pending int
+	// sent is the remote's hash of each file put in this pass, by its name: the hash of the sealed bytes, as a
+	// folder and the Worker both have it, so that the pass need not list the remote again to learn it (PutHash)
+	sent map[string]string
+}
+
+// PutHash is the remote's hash of what was put under name, when it is known without asking the remote.
+func (e *EncRemote) PutHash(name string) (string, bool) {
+	h, ok := e.sent[name]
+	return h, ok
 }
 
 // indexEvery is how many new names wait before the index is put: what another device sees of a long first
@@ -536,17 +545,23 @@ func (e *EncRemote) Put(name string, data []byte, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
-	err := e.inner.Put(e.opaque(name), e.seal(data), prev)
+	sealed := e.seal(data)
+	err := e.inner.Put(e.opaque(name), sealed, prev)
 	if errors.Is(err, ErrConflict) && prev == "" && e.idx[e.opaque(name)] != name {
 		// an object a pass left there, its name never put in the index: it is ours, and what is in it may
 		// be older than what is sent now. It is written over, by its hash as the remote has it now.
 		if list, lerr := e.inner.List(); lerr == nil {
 			if ent, ok := list[e.opaque(name)]; ok && !ent.Deleted {
-				err = e.inner.Put(e.opaque(name), e.seal(data), ent.Hash)
+				err = e.inner.Put(e.opaque(name), sealed, ent.Hash)
 			}
 		}
 	}
-	if err != nil && !e.sentBefore(name, data) {
+	if err == nil {
+		if e.sent == nil {
+			e.sent = map[string]string{}
+		}
+		e.sent[name] = HashOf(sealed)
+	} else if !e.sentBefore(name, data) {
 		return err
 	}
 	if e.idx[e.opaque(name)] == name {
@@ -718,9 +733,23 @@ func SyncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			return res, err
 		}
 	}
-	if len(pushed) > 0 { // the remote's hash of what was sent, read once, after its names are there
+	// the remote's hash of what was sent: known from what was put where the remote can tell it (EncRemote), and
+	// for the rest read once, after their names are there
+	var unknown []string
+	for _, n := range pushed {
+		if ph, ok := r.(interface{ PutHash(string) (string, bool) }); ok {
+			if h, ok := ph.PutHash(n); ok {
+				f := st.Files[n]
+				f.Remote = h
+				st.Files[n] = f
+				continue
+			}
+		}
+		unknown = append(unknown, n)
+	}
+	if len(unknown) > 0 {
 		if after, lerr := r.List(); lerr == nil {
-			for _, n := range pushed {
+			for _, n := range unknown {
 				f := st.Files[n]
 				f.Remote = after[n].Hash
 				st.Files[n] = f

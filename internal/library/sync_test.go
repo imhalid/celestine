@@ -849,3 +849,38 @@ func TestSyncNewDeviceTakesTheAccountsSeed(t *testing.T) {
 		t.Fatalf("still pristine after the pass: %v", b.st.Pristine)
 	}
 }
+
+// countingRemote counts the listings of the remote under it.
+type countingRemote struct {
+	Remote
+	lists int
+}
+
+func (c *countingRemote) List() (map[string]RemoteEntry, error) {
+	c.lists++
+	return c.Remote.List()
+}
+
+// A pass that sends an edit lists the remote once: the hash of what was sent is known from the sealed bytes, which
+// is the remote's own hash of them, and the next pass, finding the same, does nothing.
+func TestSyncPushListsOnce(t *testing.T) {
+	inner := &countingRemote{Remote: DirRemote{Root: t.TempDir()}}
+	r, err := NewEncRemote(inner, bytes.Repeat([]byte{7}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newDevice(t)
+	d.write("Not/Bir/page.json", "bir")
+	d.sync(r)
+	d.write("Not/Bir/page.json", "bir, düzeltildi")
+	inner.lists = 0
+	if res := d.sync(r); res.Pushed != 1 {
+		t.Fatalf("%+v", res)
+	}
+	if inner.lists != 1 {
+		t.Fatalf("an edit's pass listed the remote %d times", inner.lists)
+	}
+	if res := d.sync(r); res.Pushed+res.Pulled+len(res.Conflicts) != 0 {
+		t.Fatalf("the next pass did something: %+v", res)
+	}
+}
