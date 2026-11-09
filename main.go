@@ -26,6 +26,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
 	"github.com/imhalid/ryu-go/dockwin"
@@ -155,6 +156,8 @@ type app struct {
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
+	codeTheme   *editor.Theme      // the colors of code, in the window's theme (codecolors.go)
+	codeLangs   codeLangs          // the languages of the page's lines of code, by paragraph (codecolors.go)
 	blink       caretBlink         // when the caret last moved, for it to blink once still (caretBlinkOff)
 	bsel        blockSel           // blocks chosen from the keyboard (blocksel.go)
 	toasts      toastState         // the toasts up (toast.go)
@@ -938,10 +941,15 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.headH = head.LayoutBounds().H
 	}
 	c.Key("body:" + p.Dir)
+	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
+	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
-		Placeholder: T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
-		Menu:        a.editorMenu, // the app's menu, not the system's (fieldmenu.go)
+		Placeholder:  T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
+		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
+		OnKey:        a.editorKey,   // the / menu's keys, before the editor's (slash.go)
+		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
+		SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)

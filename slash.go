@@ -567,27 +567,6 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 	q := a.slashQueryAt(text, caret)
 	items := a.menuItems(q)
 	switch {
-	case edited && caret > pe && pe < text.Len() && caret == pe+1:
-		// ↵: the line was broken after the query; it is joined back, and
-		// the choice made
-		a.doc.Edit(func(ed *richtext.Edit) { ed.Replace(pe, pe+1, richtext.Text{}) })
-		a.doc.SetSelection(pe, pe)
-		s.open = false
-		if len(items) > 0 {
-			it := items[min(s.sel, len(items)-1)]
-			it.run()
-			s.open = it.nav
-		}
-		return true
-	case !edited && (caret < ps || caret > pe):
-		// ↑ or ↓: the caret goes back, the choice moves
-		if caret < ps {
-			s.sel = max(s.sel-1, 0)
-		} else {
-			s.sel = min(s.sel+1, max(len(items)-1, 0))
-		}
-		a.doc.SetSelection(s.at, s.at)
-		return false
 	case s.view != "" && !edited && caret < s.start+len(s.sign) && caret >= ps: // ← before the sign: a menu back
 		a.doc.SetSelection(s.at, s.at)
 		a.enterView("")
@@ -609,6 +588,41 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 	}
 	s.at = caret
 	return false
+}
+
+// editorKey takes the keys of the menu under the caret before the editor acts on them (EditorOptions.OnKey): ↑ and ↓
+// move the choice, ↵ makes it, Esc goes back a menu or closes it. With no menu open the keys are the editor's.
+func (a *app) editorKey(key ui.Key, mods ui.Modifiers) bool {
+	s := &a.slash
+	if !s.open || hasField(s.view) || mods != 0 || a.doc == nil {
+		return false
+	}
+	switch key {
+	case ui.KeyDown:
+		s.sel++
+	case ui.KeyUp:
+		s.sel = max(s.sel-1, 0)
+	case ui.KeyEscape:
+		if s.view != "" {
+			a.enterView("")
+		} else {
+			s.open = false
+		}
+	case ui.KeyEnter:
+		items := a.menuItems(a.slashQuery())
+		s.open = false
+		if len(items) > 0 {
+			it := items[min(s.sel, len(items)-1)]
+			it.run()
+			s.open = it.nav
+		}
+	default:
+		return false
+	}
+	if a.invalidate != nil {
+		a.invalidate()
+	}
+	return true
 }
 
 // chooseSlash takes the "/…" away and turns the line into the kind chosen.
@@ -700,12 +714,8 @@ func (a *app) slashView(c *ui.Context) {
 	if !s.open || a.doc == nil || a.noPage() {
 		return
 	}
-	if c.Shortcut(0, ui.KeyEscape) {
-		if s.view != "" {
-			a.enterView("")
-		} else {
-			s.open = false
-		}
+	if hasField(s.view) && c.Shortcut(0, ui.KeyEscape) { // in the text, the editor gives its keys (editorKey)
+		a.enterView("")
 		return
 	}
 	if a.refocus {
@@ -717,12 +727,13 @@ func (a *app) slashView(c *ui.Context) {
 	}
 	q := a.slashQuery()
 	items := a.menuItems(q)
-	// ↑ ↓ the editor had nowhere to go with (the first or last line)
-	if c.Shortcut(0, ui.KeyDown) {
-		s.sel++
-	}
-	if c.Shortcut(0, ui.KeyUp) {
-		s.sel--
+	if hasField(s.view) { // the field has the focus: its arrows choose
+		if c.Shortcut(0, ui.KeyDown) {
+			s.sel++
+		}
+		if c.Shortcut(0, ui.KeyUp) {
+			s.sel--
+		}
 	}
 	s.sel = max(0, min(s.sel, len(items)-1))
 	t := ryugo.From(c)

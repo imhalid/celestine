@@ -66,8 +66,16 @@ func newTestApp(t *testing.T, src string) (*app, *ui.Tester) {
 
 // TestCaretMatchesEditor puts the caret on every rune of every kind of
 // paragraph and checks that ours is where the editor's own caret is.
-func TestCaretMatchesEditor(t *testing.T) {
+func TestCaretMatchesEditor(t *testing.T) { caretMatches(t, 0) }
+
+// With the letters spaced, the caret is still where the editor's is: the app lays a paragraph out spaced as the
+// editor draws it (codecolors.go).
+func TestCaretMatchesEditorSpaced(t *testing.T) { caretMatches(t, 3) }
+
+func caretMatches(t *testing.T, spacing int) {
 	a, tt := newTestApp(t, sample)
+	a.settings.LetterSpacing = spacing
+	tt.Frame()
 	n := a.doc.Text().Len()
 	checked := 0
 	for i := 0; i <= n; i++ {

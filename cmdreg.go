@@ -132,6 +132,15 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
+		{name: "Harf aralığı", alias: "letter spacing tracking harf aralığı", fields: []string{"letterSpacing"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for i, s := range letterSpacings {
+				i := i
+				out = append(out, settingChoice{name: T(s.name), current: a.settings.LetterSpacing == i,
+					set: func(a *app) { a.settings.LetterSpacing = i; a.saveSettings() }})
+			}
+			return out
+		}},
 		{name: "İmleç yanıp sönmesi", alias: "imleç yanıp sönme blink cursor", fields: []string{"caretBlink"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, o := range []struct {

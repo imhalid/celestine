@@ -352,6 +352,7 @@ func init() {
 		"HTML olarak kopyala":              "Copy as HTML",
 		"Markdown olarak yapıştır":         "Paste as Markdown",
 		"Düz metin olarak yapıştır":        "Paste as plain text",
+		"Harf aralığı":                     "Letter spacing",
 		"İmleç yanıp sönmesi":              "Caret blink",
 		"Boşlukları yalnız seçimde göster": "White space only in the selection",
 		"Oluşturulma":                      "Created",

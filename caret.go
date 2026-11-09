@@ -153,6 +153,7 @@ func layoutParagraph(p richtext.Paragraph, w float32, base ui.Font, th *richtext
 	if len(spans) == 0 {
 		spans = []ui.Span{{Text: ""}}
 	}
+	spans = spaced(spans) // as the editor's (codecolors.go)
 	return ui.ShapeRichTextWith(spans, f, ui.TextShape{Width: width, Align: st.Align}), left
 }
 
