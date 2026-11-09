@@ -374,3 +374,50 @@ func TestTickingABoxKeepsThePage(t *testing.T) {
 		t.Fatal("the task is gone")
 	}
 }
+
+// TestTaskKinds: a task knows its kind from its box, and the view shows the open tasks of one kind.
+func TestTaskKinds(t *testing.T) {
+	got := tasksOf(&Page{}, "- [!] acil\n- [/] sürüyor\n- [ ] düz\n- [x] bitti\n- [?] soru\n")
+	kinds := []string{}
+	for _, k := range got {
+		kinds = append(kinds, taskKindKey(k))
+	}
+	if strings.Join(kinds, ",") != "important,progress,plain,plain,question" || got[3].kind != "" || !got[3].done {
+		t.Fatalf("%v", kinds)
+	}
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	k1, _ := lib.NewCollection("İş")
+	p1, _ := k1.NewPage(nil, "Plan")
+	p1.SaveText("- [!] faturayı öde\n- [/] raporu yaz\n- [ ] çiçekleri sula\n")
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1100, 760)
+	a.tasksOpen, a.coll = true, nil
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	if !tt.HasText("faturayı öde") || !tt.HasText("raporu yaz") || !tt.HasText("çiçekleri sula") {
+		t.Fatalf("not all: %v", tt.Texts())
+	}
+	for kind, want := range map[string]string{"important": "faturayı öde", "progress": "raporu yaz", "plain": "çiçekleri sula"} {
+		a.taskKindF = kind
+		tt.Frame()
+		tt.Advance(300 * time.Millisecond)
+		n := 0
+		for _, s := range []string{"faturayı öde", "raporu yaz", "çiçekleri sula"} {
+			if tt.HasText(s) {
+				n++
+			}
+		}
+		if n != 1 || !tt.HasText(want) {
+			t.Fatalf("%s: %v", kind, tt.Texts())
+		}
+	}
+	// a kind no open task is any more is let go
+	a.taskKindF = "error"
+	tt.Frame()
+	if a.taskKindF != "" {
+		t.Fatalf("kept %q", a.taskKindF)
+	}
+}

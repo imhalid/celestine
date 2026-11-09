@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -94,8 +95,136 @@ func TestParseQuery(t *testing.T) {
 		!equal(q.colls, []string{"test"}) || !equal(q.tags, []string{"fikir", "plan"}) {
 		t.Fatalf("%+v", q)
 	}
-	if !parseQuery("  ").empty() || parseQuery("#a").empty() {
+	if !parseQuery("  ").empty() || parseQuery("#a").empty() || !parseQuery("( )").empty() {
 		t.Fatal("empty")
+	}
+	// the tree, written back as it was read
+	var show func(n *qnode) string
+	show = func(n *qnode) string {
+		var parts []string
+		for _, k := range n.kids {
+			parts = append(parts, show(k))
+		}
+		switch n.kind {
+		case qAnd:
+			return "(" + strings.Join(parts, " ") + ")"
+		case qOr:
+			return "(" + strings.Join(parts, " | ") + ")"
+		case qNot:
+			return "!" + parts[0]
+		case qPhrase:
+			return `"` + n.text + `"`
+		case qTag:
+			return "#" + n.text
+		case qTodo:
+			return "@todo"
+		case qDone:
+			return "@done"
+		case qToday:
+			return "@today"
+		case qCreated, qModified, qProp:
+			return map[qkind]string{qCreated: "created", qModified: "modified", qProp: n.text}[n.kind] + n.op + n.val
+		case qTitle:
+			return "title:" + n.text
+		case qColl:
+			return "in:" + n.text
+		}
+		return n.text
+	}
+	for q, want := range map[string]string{
+		"çay kahve":                         "(cay kahve)",
+		"çay OR kahve":                      "(cay | kahve)",
+		"çay VEYA kahve süt":                "(cay | (kahve sut))",
+		"çay or kahve":                      "(cay or kahve)", // a small or is a word
+		"-çay kahve":                        "(!cay kahve)",
+		"NOT çay DEĞİL #fikir":              "(!cay !#fikir)",
+		"(çay OR kahve) süt":                "((cay | kahve) sut)",
+		"(çay OR (kahve süt)) -\"x y\"":     "((cay | (kahve sut)) !\"x y\")",
+		"çay çay ÇAY":                       "cay",
+		"@todo @DONE @bugün":                "(@todo @done @today)",
+		"created:>2026-11-01":               "created>2026-11-01",
+		"modified:2026-11-01..2026-11-30":   "modified:2026-11-01..2026-11-30",
+		"Öncelik>=2 durum:\"Devam ediyor\"": "(oncelik>=2 durum:Devam ediyor)",
+		"(çay":                              "cay",
+		"çay) kahve":                        "(cay kahve)",
+		"in:Notlar başlık:x":                "(in:notlar title:x)",
+	} {
+		if got := show(parseQuery(q).root); got != want {
+			t.Errorf("%s: %s, not %s", q, got, want)
+		}
+	}
+	// only what every page found has narrows the index; the words of an OR are still marked
+	q = parseQuery(`(çay OR kahve) süt -şeker`)
+	if !equal(q.words, []string{"sut"}) || !equal(q.marks(), []string{"cay", "kahve", "sut"}) {
+		t.Fatalf("words %v, marks %v", q.words, q.marks())
+	}
+}
+
+// TestSearchLanguage: OR, NOT and groups; tasks, days and properties are looked up on the page.
+func TestSearchLanguage(t *testing.T) {
+	a, tt := newTestApp(t, "çay demlenir\n\n- [ ] demlik al\n")
+	now := time.Date(2026, 11, 9, 10, 0, 0, 0, time.Local)
+	a.clock = func() time.Time { return now }
+	coll := a.page.Coll
+	b, _ := coll.NewPage(nil, "Kahve")
+	b.SaveText("kahve ve süt\n\n- [x] fincan yıka\n")
+	c, _ := coll.NewPage(nil, "Süt")
+	c.SaveText("yalnız süt\n")
+	pr, err := coll.AddProperty("Öncelik", PropNumber, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, _ := coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
+	b.SetValue(pr.ID, "3")
+	c.SetValue(pr.ID, "1")
+	b.SetValue(st.ID, "Sürüyor")
+	c.SetValue(st.ID, "Bitti")
+	a.page.Created, a.page.Modified = now.AddDate(0, 0, -20), now.AddDate(0, 0, -10)
+	b.Created, b.Modified = now.AddDate(0, 0, -5), now.Add(-time.Hour)
+	c.Created, c.Modified = now.AddDate(0, -2, 0), now.AddDate(0, -2, 0)
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	for _, ready := range []bool{false, true} {
+		if ready {
+			for !a.sx.warm(a, time.Second) {
+			}
+		}
+		a.sx.ready = ready
+		titles := func(q string) string {
+			var out []string
+			for _, h := range a.searchPages(q, 0, true) {
+				out = append(out, h.page.Title)
+			}
+			slices.Sort(out)
+			return strings.Join(out, ",")
+		}
+		self := a.page.Title
+		for q, want := range map[string]string{
+			"çay OR kahve":                    "Kahve," + self,
+			"süt -kahve":                      "Süt",
+			"süt NOT (kahve OR yok)":          "Süt",
+			"(çay VEYA yalnız) -demlik":       "Süt",
+			"@todo":                           self,
+			"@done":                           "Kahve",
+			"@today":                          "Kahve",
+			"created:>2026-11-01":             "Kahve",
+			"created:<=2026-10-20":            self + ",Süt",
+			"modified:2026-10-25..2026-11-05": self,
+			"modified:2026-11-09":             "Kahve",
+			"created:dün":                     "",
+			"öncelik>2":                       "Kahve",
+			"oncelik<=1":                      "Süt",
+			"öncelik:3":                       "Kahve",
+			"durum:sürüyor":                   "Kahve",
+			"durum<bitti":                     "Kahve",
+			"durum:\"Bitti\" OR @todo":        self + ",Süt",
+			"yok:kahve":                       "",
+		} {
+			if got := titles(q); got != want {
+				t.Errorf("index %v: %s: %q, not %q", ready, q, got, want)
+			}
+		}
 	}
 }
 

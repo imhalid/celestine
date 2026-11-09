@@ -40,7 +40,7 @@ type bodyRun struct {
 }
 
 // bodyObj is what takes the place of one character: k is "page", "date",
-// "embed", "file", "table" or "image".
+// "embed", "file", "table", "query" or "image".
 type bodyObj struct {
 	K      string     `json:"k"`
 	Target string     `json:"target,omitempty"` // a page's title, or a day
@@ -49,7 +49,7 @@ type bodyObj struct {
 	Ref    string     `json:"ref,omitempty"`
 	Cols   []tableCol `json:"cols,omitempty"` // a table's
 	Rows   [][]string `json:"rows,omitempty"`
-	Q      string     `json:"q,omitempty"` // a table's filter
+	Q      string     `json:"q,omitempty"` // a table's filter, or a query block's query (queryblock.go)
 }
 
 // encodeBody writes the editor's text as the body: what is folded is put
@@ -95,6 +95,8 @@ func objOf(at *richtext.Attachment) *bodyObj {
 			return &bodyObj{K: d.kind, Target: d.target, Alias: d.alias}
 		case "table":
 			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
+		case "query":
+			return &bodyObj{K: "query", Q: d.target}
 		}
 		return nil
 	case *imageData:
@@ -155,6 +157,8 @@ func attachmentOf(o *bodyObj) *richtext.Attachment {
 			m.rows[i] = r[:len(m.cols)]
 		}
 		return &richtext.Attachment{Name: "Tablo", Data: &chip{kind: "table", tbl: m}}
+	case "query":
+		return &richtext.Attachment{Name: "Sorgu", Data: &chip{kind: "query", target: o.Q}}
 	case "image":
 		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
 	}

@@ -1060,8 +1060,13 @@ func tablesIn(t richtext.Text) richtext.Text {
 // of code the file has as its fenced block; a table with other text in its
 // paragraph is parted from it.
 func tableAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes) richtext.Text {
+	return fencedAsText(t, i, ch.tbl.text(), tableLang, plain)
+}
+
+// fencedAsText puts txt where the object at i in t is, as a block of code in language lang: the fenced block
+// the file has for it.
+func fencedAsText(t richtext.Text, i int, txt, lang string, plain richtext.Attributes) richtext.Text {
 	ps, pe := t.ParagraphRange(i)
-	txt := ch.tbl.text()
 	if pe > i+1 { // text after it
 		t = t.ReplaceString(i+1, i+1, "\n", plain)
 	}
@@ -1072,5 +1077,5 @@ func tableAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes) ri
 	t = t.ReplaceString(i, i+1, txt, plain)
 	end := i + utf8.RuneCountInString(txt)
 	t = t.FormatParagraphs(i, end, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{CodeBlock: true} })
-	return t.FormatParagraphs(i, i, func(p *richtext.ParagraphStyle) { p.ID = codeIDPrefix + tableLang })
+	return t.FormatParagraphs(i, i, func(p *richtext.ParagraphStyle) { p.ID = codeIDPrefix + lang })
 }

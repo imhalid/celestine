@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -48,69 +46,6 @@ type searchHit struct {
 	snip  []seg
 	at    string // the first word, folded: where in the page's text to go
 }
-
-// query is what was asked, taken apart: words, "phrases", and the filters
-// başlık:word (in the title), koleksiyon:ad, #etiket.
-type query struct {
-	words   []string // folded
-	phrases []string
-	title   []string
-	colls   []string
-	tags    []string
-}
-
-var queryPart = regexp.MustCompile(`"([^"]+)"|(\S+)`)
-
-// parseQuery takes q apart.
-func parseQuery(q string) query {
-	var out query
-	seen := map[string]bool{}
-	add := func(list *[]string, w string) {
-		if w != "" && !seen[fmt.Sprint(list, w)] {
-			seen[fmt.Sprint(list, w)] = true
-			*list = append(*list, w)
-		}
-	}
-	for _, m := range queryPart.FindAllStringSubmatch(q, -1) {
-		if m[1] != "" {
-			add(&out.phrases, fold(strings.TrimSpace(m[1])))
-			continue
-		}
-		w := m[2]
-		switch {
-		case strings.HasPrefix(w, "#") && len(w) > 1:
-			add(&out.tags, tagKey(w[1:]))
-			continue
-		}
-		if k, v, ok := strings.Cut(w, ":"); ok && v != "" {
-			switch fold(k) {
-			case "baslik", "title":
-				add(&out.title, fold(v))
-				continue
-			case "koleksiyon", "kol", "in":
-				add(&out.colls, fold(v))
-				continue
-			case "etiket", "tag":
-				add(&out.tags, tagKey(v))
-				continue
-			}
-		}
-		add(&out.words, fold(w))
-	}
-	return out
-}
-
-// marks are the words to mark in a result: the words, the phrases, the title's.
-func (q query) marks() []string {
-	return append(append(append([]string{}, q.phrases...), q.title...), q.words...)
-}
-
-func (q query) empty() bool {
-	return len(q.words)+len(q.phrases)+len(q.title)+len(q.colls)+len(q.tags) == 0
-}
-
-// queryWords are the words of a query, folded, once each.
-func queryWords(q string) []string { return parseQuery(q).words }
 
 // snippet is the words of text around the first of the words, marked.
 func snippet(text string, words []string) []seg {
@@ -179,13 +114,14 @@ func runeIndex(hay, needle []rune) int {
 	return -1
 }
 
-// searchPages are the pages that have every word of q, the best first.
+// searchPages are the pages that meet query q (searchquery.go), the best first.
 func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 	pq := parseQuery(q)
 	if pq.empty() {
 		return nil
 	}
 	a.linksTo(nil, a.clock(), force)
+	pq.resolve(a.clock())
 	marks := pq.marks()
 	if a.sx != nil && a.sx.ready { // the index: the pages that may have it, then the snippets of the few shown
 		first := ""
@@ -199,6 +135,10 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 		}
 		return out
 	}
+	first := ""
+	if len(marks) > 0 {
+		first = marks[0]
+	}
 	var out []searchHit
 	for _, c := range a.lib.Collections {
 		cname := fold(c.Name)
@@ -210,47 +150,9 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 			continue
 		}
 		for _, p := range c.All() {
-			text, title := a.plainOf(p).folded, fold(p.Title)
-			score, ok := 0, true
-			for _, w := range pq.words {
-				inTitle, n := strings.Contains(title, w), strings.Count(text, w)
-				if !inTitle && n == 0 {
-					ok = false
-					break
-				}
-				if inTitle {
-					score += 50
-				}
-				score += min(n, 10) * 2
-			}
-			for _, w := range pq.phrases {
-				inTitle, n := strings.Contains(title, w), strings.Count(text, w)
-				if !ok || (!inTitle && n == 0) {
-					ok = false
-					break
-				}
-				score += map[bool]int{true: 60, false: 0}[inTitle] + min(n, 10)*3
-			}
-			for _, w := range pq.title {
-				if !ok || !strings.Contains(title, w) {
-					ok = false
-					break
-				}
-				score += 60
-			}
-			for _, tg := range pq.tags {
-				if !ok || !slices.Contains(a.links.tags[tg], p) {
-					ok = false
-					break
-				}
-				score += 20
-			}
+			score, ok := a.score(pq.root, qdoc{p, c, fold(p.Title), a.plainOf(p).folded, cname})
 			if !ok {
 				continue
-			}
-			first := ""
-			if len(marks) > 0 {
-				first = marks[0]
 			}
 			out = append(out, searchHit{page: p, score: score, snip: snippet(a.plainOf(p).plain, marks), at: first})
 		}
@@ -304,7 +206,7 @@ func (a *app) searchView(c *ui.Context) {
 			a.searchFocus = false
 		}
 		ui.Row(c).Children(func() { a.saveSearchButton(c) })
-		sub := "Her kelimeyi içeren sayfalar. \"tam ifade\", başlık:kelime, koleksiyon:ad, #etiket yazabilirsin."
+		sub := T("Her kelimeyi içeren sayfalar. \"tam ifade\", VEYA, -kelime, (…), başlık:, koleksiyon:, #etiket, @todo, @done, @today, created:>2026-11-01, özellik:değer yazabilirsin.")
 		switch {
 		case strings.TrimSpace(a.searchQ) == "":
 		case len(hits) == 0:
@@ -318,7 +220,7 @@ func (a *app) searchView(c *ui.Context) {
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(2, 0, 4, 0)
 		if len(hits) == 0 {
 			if strings.TrimSpace(a.searchQ) == "" {
-				a.emptyState(c, iconSearch, "Kitaplıkta ara", "Sayfaların başlığında ve metninde ara; \"tam ifade\", başlık:, koleksiyon: ve #etiket süzgeçleri de çalışır.", "", nil)
+				a.emptyState(c, iconSearch, "Kitaplıkta ara", "Sayfaların başlığında ve metninde ara; \"tam ifade\", VEYA, -kelime, başlık:, koleksiyon:, #etiket, @todo, @done, created:, modified: ve özellik:değer süzgeçleri de çalışır.", "", nil)
 			} else {
 				a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "Başka bir kelime dene ya da süzgeçleri kaldır.", "", nil)
 			}

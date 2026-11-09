@@ -29,6 +29,7 @@ func (a *app) helpGroups() []helpGroup {
 			{"j k ↓ ↑", "Sıradaki, önceki satır (5j: beş satır)"}, {"gg G", "İlk, son satır"}, {"l ↵", "Seçileni aç"}, {"h", "Geri"},
 			{"f", "Basılabilen her şeye harf etiketi koy; harfi yaz"}, {"Space", "Leader menüsü (which-key)"},
 			{"/", "Sayfada bul"}, {":", "Komut satırı"}, {"m a · ' a", "a harfiyle yer işaretle, ona git"},
+			{"[ ]", "Günlükte önceki, sonraki gün"}, {"Space g", "Tarihe git"},
 			{"u ⌃R", "Geri al, yinele"}, {"p o s t b n w", "Komutlar, sayfa aç, ayarlar, görevler, kenar çubuğu, yeni sayfa, bölme"}, {"?", "Bu sayfa"},
 		}},
 		{"Palet kipleri", [][2]string{

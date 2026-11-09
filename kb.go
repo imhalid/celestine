@@ -164,6 +164,7 @@ var leaderKeys = []struct {
 	{'t', "Görevler", func(a *app) { a.openTasks() }},
 	{'d', "Çöp", func(a *app) { a.openTrash() }},
 	{'j', "Bugünün sayfası", func(a *app) { a.openToday() }},
+	{'g', "Tarihe git", func(a *app) { a.askDate() }},
 	{'i', "İstatistikler", func(a *app) { a.openStats() }},
 	{'n', "Yeni sayfa", func(a *app) {
 		if c := a.currentColl(); c != nil {
@@ -308,6 +309,10 @@ func (a *app) kbKeys(c *ui.Context) {
 	case r == ' ':
 		k.which = true
 		return
+	case r == '[':
+		a.stepDay(-n)
+	case r == ']':
+		a.stepDay(n)
 	case r == '/':
 		a.openFind()
 	case r == ':':
@@ -408,6 +413,12 @@ func kbLetter(c *ui.Context) (rune, bool) {
 	}
 	if c.Shortcut(0, ui.KeyQuote) {
 		return '\'', true
+	}
+	if c.Shortcut(0, ui.KeyBracketLeft) {
+		return '[', true
+	}
+	if c.Shortcut(0, ui.KeyBracketRight) {
+		return ']', true
 	}
 	for i, key := range kbDigitKeys {
 		if c.Shortcut(0, key) {

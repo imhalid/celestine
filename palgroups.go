@@ -20,7 +20,7 @@ var cmdCats = []struct {
 		"Sayfada bul", "=Kaydet", "Yeni sayfa", "Yeni alt sayfa", "Yeni günlük", "Bugünün sayfası", "Hızlı not"}},
 	{"Koleksiyon", []string{"Koleksiyon", "Görünüm:", "Şablondan yeni", "Yeni koleksiyon"}},
 	{"Bölmeler", []string{"Yan bölmede aç", "Yeni bölme", "Bölme", "Kenar çubuğu", "Yan panel"}},
-	{"Git", []string{"=Görevler", "=İstatistikler", "=Hesap profili", "Rastgele gün", "=Ayarlar", "=Çöp", "Kitaplıkta ara", "=Geri", "=İleri"}},
+	{"Git", []string{"=Görevler", "=İstatistikler", "=Hesap profili", "Rastgele gün", "=Önceki gün", "=Sonraki gün", "=Tarihe git", "=Ayarlar", "=Çöp", "Kitaplıkta ara", "=Geri", "=İleri"}},
 	{"Dosyalar ve senkron", []string{"Senkron", "Şimdi eşitle", "Şimdi yedekle", "Yedek", "Markdown", "Ayar", "Son kayıttan",
 		"Kayıt gecikmesi", "Otomatik kayıt", "Hepsini varsayılana"}},
 	{"Yazı", []string{"Yazı", "Sayfa genişliği", "Satır", "Paragraf aralığı", "İlk satır", "Tab uzunluğu", "Kod yazı tipi", "Ligatür"}},

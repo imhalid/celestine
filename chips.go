@@ -23,8 +23,8 @@ import (
 
 // chip is what an attachment of ours is.
 type chip struct {
-	kind   string // "page", "date", "embed", "file", "fold" or "table"
-	target string // the page's title, the day as 2006-01-02, or a file's name in the page's folder
+	kind   string // "page", "date", "embed", "file", "fold", "table" or "query"
+	target string // the page's title, the day as 2006-01-02, a file's name in the page's folder, or a query (queryblock.go)
 	alias  string // what a page's chip says instead of its title
 	// a fold's: what it hides, and how many lines (fold.go)
 	hidden *richtext.Text
@@ -163,6 +163,8 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 				att = a.attachment(d)
 			case "embed":
 				att = a.embedAttachment(d)
+			case "query":
+				att = a.queryAttachment(d)
 			case "table":
 				d.tw = a.tableWidths(d.tbl)
 				att = a.tableAttachment(d)
@@ -185,7 +187,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 // file dropped or imported, what an agent writes, a template). It is not
 // how a page is kept.
 func importMarkdown(md string) richtext.Text {
-	return chipsIn(embedsIn(tablesIn(parseBody(md))))
+	return chipsIn(embedsIn(queriesIn(tablesIn(parseBody(md)))))
 }
 
 // parse reads Markdown into the editor's text, drawn, for the open page.
@@ -212,6 +214,10 @@ func withoutChips(t richtext.Text) richtext.Text {
 		f := found[k]
 		if f.ch.kind == "table" { // its fenced block, as the file has it
 			t = tableAsText(t, f.i, f.ch, f.a)
+			continue
+		}
+		if f.ch.kind == "query" {
+			t = fencedAsText(t, f.i, f.ch.target, queryLang, f.a)
 			continue
 		}
 		if f.ch.kind == "file" { // its name, a link to the file beside the page
@@ -364,6 +370,10 @@ func (a *app) clickChip(x, y float32) bool {
 				file := filepath.Join(a.page.Dir, h.ch.target)
 				go mygo.Shell.OpenPath(file)
 			}
+			return true
+		}
+		if h.ch.kind == "query" { // the page of the row, or the search
+			a.clickQuery(h, y)
 			return true
 		}
 		if h.ch.kind == "embed" { // the page it shows

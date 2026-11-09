@@ -111,6 +111,9 @@ func appCommands() []appCmd {
 		{title: "Sayfada bul", accel: "cmd+f", menu: "go", dots: true, glyph: iconSearch, run: (*app).openFind, off: noPageOff},
 		{title: "Kitaplıkta ara", accel: "cmd+shift+f", menu: "go", dots: true, glyph: iconSearch, run: func(a *app) { a.openSearch(a.searchQ) }},
 		{title: "Bugünün sayfası", accel: "cmd+j", menu: "go", sep: true, glyph: iconCalendar, run: (*app).openToday},
+		{title: "Önceki gün", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(-1) }},
+		{title: "Sonraki gün", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(1) }},
+		{title: "Tarihe git", menu: "go", dots: true, glyph: iconCalendar, run: (*app).askDate},
 		{title: "Hızlı not", menu: "go", dots: true, glyph: iconPlus, run: (*app).showQuick, off: func(a *app) string {
 			if a.quick == nil {
 				return T("Burada hızlı not paneli yok")

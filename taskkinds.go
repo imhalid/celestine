@@ -73,6 +73,17 @@ func taskKindOf(st richtext.ParagraphStyle) (taskKind, bool) {
 	return taskKind{}, false
 }
 
+// taskKindByID is the kind of id, or false.
+func taskKindByID(id string) (taskKind, bool) {
+	for _, k := range taskKinds {
+		if k.id == id {
+			return k, true
+		}
+	}
+	return taskKind{}, false
+}
+
+// taskKindByMD is the kind whose Markdown box has character c, or false.
 func taskKindByMD(c string) (taskKind, bool) {
 	for _, k := range taskKinds {
 		if k.md == c {
