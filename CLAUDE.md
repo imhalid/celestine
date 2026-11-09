@@ -51,9 +51,10 @@ The gate before a commit (the release workflow runs it too): `gofmt -l .` empty,
   where the CPU renderer is too slow (`welcomeShaders`).
 - A change to the library comes with a test in `internal/library/` when it can be made without the app.
 - Commits go to `main`: a one-line title that says what changed, then prose.
-- Work is picked from the GitHub issues (and the Project board) of imhalid/ryudit. A commit names its issue: `(#N)`
-  at the end of the title, and `Fixes #N` in the body when it finishes it. A finished issue is closed with a note
-  of its commits; work with no issue gets one first.
+- No work without an issue: before anything is changed, the work has an issue on imhalid/ryudit (open one first if
+  there is none, a fix found along the way too) and is on the Ryudit board. Every commit names its issue: `(#N)` at
+  the end of the title, and `Fixes #N` in the body of the one that finishes it. A finished issue is closed with a
+  note of its commits. The issues and the board are where what was done and what is left are read.
 - Releases: a tag `vX.Y.Z` pushed to GitHub runs `.github/workflows/release.yml` (tests, the five builds, the
   GitHub release, notes from the commits since the tag before). A `v0.x` tag, or one with a "-", is a prerelease.
   Versions go up one at a time from v0.0.1; the gate passes before a tag.
