@@ -46,6 +46,7 @@ type paneState struct {
 	taskList      *ui.ListState  // the list of tasks, a row for each in view (tasks.go)
 	taskQuery     string         // what is typed in the tasks' search
 	taskColl      string         // the collection the tasks are of (its Dir), "" all of them
+	taskKindF     string         // the kind of the tasks shown (taskkinds.go): its id, "plain", or "" any
 	taskFolded    map[*Page]bool // the pages whose tasks are folded away
 	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
 	colDrag       colDragState

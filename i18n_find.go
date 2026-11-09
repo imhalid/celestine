@@ -12,6 +12,15 @@ var enFind = map[string]string{
 	"aramanın bulduğu sayfalar, canlı": "the pages a search finds, live",
 	"Bir sorgu yaz: #etiket @todo …":   "Write a query: #tag @todo …",
 	"ve daha fazlası: aramada aç ↗":    "and more: open in the search ↗",
+	// the task view's kinds (tasks.go)
+	"Tüm türler":     "All kinds",
+	"Düz görev":      "Plain task",
+	"Tür":            "Kind",
+	"Yıldızlı görev": "Starred task",
+	"Önemli görev":   "Important task",
+	"Soru":           "Question",
+	"Süren görev":    "Task in progress",
+	"Hatalı görev":   "Failed task",
 }
 
 func init() {

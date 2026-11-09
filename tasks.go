@@ -32,6 +32,7 @@ type taskItem struct {
 	text  string
 	due   time.Time // a day named in it, as [[2026-11-10]]; zero when none
 	every string    // how it comes again, as "her hafta"; "" when it does not
+	kind  string    // its kind's id (taskkinds.go), as its box says: "" a plain one, or a done one
 }
 
 // tasksOf are the tasks in a page's Markdown, not those in code.
@@ -71,7 +72,11 @@ func tasksOf(p *Page, body string) []taskItem {
 			if text = strings.TrimSpace(text); text == "" {
 				text = strings.TrimSpace(m[3])
 			}
-			out = append(out, taskItem{p, i, m[2] == "x" || m[2] == "X", text, due, every})
+			kind := ""
+			if k, ok := taskKindByMD(m[2]); ok {
+				kind = k.id
+			}
+			out = append(out, taskItem{p, i, m[2] == "x" || m[2] == "X", text, due, every, kind})
 		}
 	}
 	return out
@@ -186,10 +191,17 @@ func (a *app) tasksView(c *ui.Context) {
 			open++
 		}
 	}
-	// the collections that have tasks, to choose among
+	// the collections that have tasks, and the kinds the tasks are, to choose among
 	colls := map[*Collection]int{}
+	kinds := map[string]int{}
 	for _, k := range all {
 		colls[k.page.Coll]++
+		if !k.done {
+			kinds[taskKindKey(k)]++
+		}
+	}
+	if a.taskKindF != "" && kinds[a.taskKindF] == 0 {
+		a.taskKindF = "" // no open task of that kind now
 	}
 	if a.taskColl != "" && !slices.ContainsFunc(a.lib.Collections, func(co *Collection) bool { return co.Dir == a.taskColl && colls[co] > 0 }) {
 		a.taskColl = "" // that collection has no tasks now
@@ -204,6 +216,17 @@ func (a *app) tasksView(c *ui.Context) {
 				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hepsi", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: T("Gün"), Size: ryugo.Sm})
 			}
 			ui.Spacer(c)
+			if len(kinds) > 1 || a.taskKindF != "" {
+				opts := []ryugo.Option[string]{{Value: "", Label: T("Tüm türler")}, {Value: "plain", Label: T("Düz görev") + "  ·  " + strconv.Itoa(kinds["plain"])}}
+				for _, tk := range taskKinds {
+					if kinds[tk.id] > 0 {
+						opts = append(opts, ryugo.Option[string]{Value: tk.id, Label: T(tk.name) + "  ·  " + strconv.Itoa(kinds[tk.id])})
+					}
+				}
+				ui.Box(c.Key("task-kind-wrap")).Width(176).Children(func() {
+					ryugo.Select(c.Key("task-kind"), &a.taskKindF, opts, ryugo.SelectOptions{Label: T("Tür"), Size: ryugo.Sm})
+				})
+			}
 			if len(colls) > 1 {
 				opts := []ryugo.Option[string]{{Value: "", Label: T("Tüm koleksiyonlar")}}
 				for _, co := range a.lib.Collections {
@@ -225,6 +248,7 @@ func (a *app) tasksView(c *ui.Context) {
 			case a.taskFilter != 2 && (a.taskFilter == 0) == k.done:
 			case a.taskFilter == 0 && !dueMatches(k, a.taskDue, now):
 			case a.taskColl != "" && k.page.Coll.Dir != a.taskColl:
+			case a.taskKindF != "" && (k.done || taskKindKey(k) != a.taskKindF):
 			case q != "" && !strings.Contains(fold(k.text), q) && !strings.Contains(fold(k.page.Title), q):
 			default:
 				shown = append(shown, k)
@@ -256,13 +280,13 @@ func (a *app) noTasks(c *ui.Context, none bool) {
 		o.Title, o.Description = "Henüz görev yok", "Bir sayfada [] yazınca görev olur; burada hepsi, sayfalarına göre durur."
 	case a.taskFilter == 1:
 		o.Title, o.Description = "Tamamlanan görev yok", "Bir görevi işaretleyince buraya gelir."
-	case a.taskFilter == 0 && a.taskDue == 0 && a.taskColl == "" && strings.TrimSpace(a.taskQuery) == "":
+	case a.taskFilter == 0 && a.taskDue == 0 && a.taskColl == "" && a.taskKindF == "" && strings.TrimSpace(a.taskQuery) == "":
 		o.Title, o.Description = "Açık görev kalmadı", "Hepsi tamam."
 	}
-	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0) {
+	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0 || a.taskKindF != "") {
 		o.Action = func() {
 			if ryugo.Button(c.Key("task-clear-filters"), T("Süzgeçleri temizle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-				a.taskColl, a.taskQuery, a.taskDue = "", "", 0
+				a.taskColl, a.taskQuery, a.taskDue, a.taskKindF = "", "", 0, ""
 			}
 		}
 	}
@@ -354,6 +378,9 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 	row.Children(func() {
 		on := k.done
 		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(T("Görev: ") + k.text)
+		if tk, ok := taskKindByID(k.kind); ok && !k.done { // its kind, in its color
+			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(T(tk.name))
+		}
 		col, st := cl.Text, false
 		if k.done {
 			col, st = cl.Muted, true
@@ -386,6 +413,14 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 			a.toggleTask(k)
 		}
 	})
+}
+
+// taskKindKey is what the kind filter knows task k by: its kind's id, or "plain".
+func taskKindKey(k taskItem) string {
+	if k.kind == "" {
+		return "plain"
+	}
+	return k.kind
 }
 
 // startOfDay is d at its day's start.
