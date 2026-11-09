@@ -7,7 +7,7 @@
 //   PUT    /files/<name>   the bytes; If-Match: "<hash seen>" ("" when there was none); 412 when it is stale
 //   DELETE /files/<name>   If-Match as above; the file becomes a tombstone
 //   /api/…   accounts: waitlist, registration with an invite code, login, devices (auth.js)
-//   /        the waitlist page;  /admin  the administrator's page (pages.js)
+//   /        the waitlist page;  /privacy  what is kept;  /admin  the administrator's page (pages.js)
 //
 // Every device has a token, "Authorization: Bearer <token>"; it leads to an account, and an account's files are
 // under its own prefix ("u<id>/"). Every write is checked by R2 itself (onlyIf on the object's etag), so that two
@@ -18,7 +18,7 @@
 // than TOMB_DAYS is dropped when the files are listed: a device that was away longer than that has, for
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
-import { waitlistPage, adminPage } from "./pages.js";
+import { waitlistPage, adminPage, privacyPage } from "./pages.js";
 
 const MAX_BYTES = 50 * 1024 * 1024; // a file larger than this is refused (413)
 const TOMB_DAYS = 180;
@@ -93,6 +93,7 @@ async function handle(request, env) {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === "/") return waitlistPage(env);
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
+  if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (!/^\/files(\/|$)/.test(url.pathname)) return new Response("not found", { status: 404 });

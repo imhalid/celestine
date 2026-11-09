@@ -149,6 +149,7 @@
       <div class="meta">
         <span>Ryudit</span>
         <span>Made with MyGo</span>
+        <a href="/privacy">Privacy</a>
       </div>
     </footer>
   </main>
@@ -213,6 +214,7 @@
 
   .foot { padding: 28px 24px; font-size: 13px; color: var(--muted); }
   .meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 24px; }
+  .meta a { color: inherit; }
   .wait { max-width: 460px; }
   .wait > p:first-child { margin: 0 0 10px; line-height: 1.5; }
   .wait .fine { margin-top: 2px; font-size: 12px; }
