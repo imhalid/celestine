@@ -49,7 +49,15 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					}
 					var tags []tag
 					for _, ti := range a.allTags() {
-						tags = append(tags, tag{ti.name, len(ti.pages)})
+						n := 0
+						for _, p := range ti.pages {
+							if a.mcpSees(p.Coll) {
+								n++
+							}
+						}
+						if n > 0 {
+							tags = append(tags, tag{ti.name, n})
+						}
 					}
 					out = tags
 					return nil
@@ -61,7 +69,9 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				}
 				var ps []page
 				for _, p := range a.tagPages(tagKey(strings.TrimPrefix(strings.TrimSpace(in.Tag), "#"))) {
-					ps = append(ps, page{a.idOf(p.Dir), p.Title, p.Coll.Name})
+					if a.mcpSees(p.Coll) {
+						ps = append(ps, page{a.idOf(p.Dir), p.Title, p.Coll.Name})
+					}
 				}
 				out = ps
 				return nil
@@ -87,7 +97,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				var want *Collection
 				if in.Collection != "" {
 					var err error
-					if want, err = a.findColl(in.Collection); err != nil {
+					if want, err = a.findColl(in.Collection, mcpRead); err != nil {
 						return err
 					}
 				}
@@ -102,7 +112,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				}
 				a.linksStale()
 				for _, k := range a.allTasks(true) {
-					if want != nil && k.page.Coll != want {
+					if want != nil && k.page.Coll != want || !a.mcpSees(k.page.Coll) {
 						continue
 					}
 					if (state == "" || state == "open") && k.done || state == "done" && !k.done {
@@ -128,7 +138,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 	mcp.AddTool(s, &mcp.Tool{Name: "set_task", Description: "Ticks a task off, or puts it back, by its page and line (list_tasks gives them)."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in setTaskArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
 				}
@@ -160,7 +170,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			}
 			var out []version
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpRead)
 				if err != nil {
 					return err
 				}
@@ -183,7 +193,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in versionArgs) (*mcp.CallToolResult, any, error) {
 			var md string
 			err := a.do(func() error {
-				p, h, err := a.versionOf(in.Page)
+				p, h, err := a.versionOf(in.Page, mcpRead)
 				if err != nil {
 					return err
 				}
@@ -204,7 +214,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 	mcp.AddTool(s, &mcp.Tool{Name: "restore_version", Description: "Puts a page's text back to what it was in a version; the text it has now is kept as a version first."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in versionArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
-				p, h, err := a.versionOf(in.Page)
+				p, h, err := a.versionOf(in.Page, mcpWrite)
 				if err != nil {
 					return err
 				}
@@ -231,8 +241,8 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 }
 
 // versionOf is the page of id and where its versions are kept.
-func (a *app) versionOf(id string) (*Page, Historian, error) {
-	p, err := a.findPage(id)
+func (a *app) versionOf(id, need string) (*Page, Historian, error) {
+	p, err := a.findPage(id, need)
 	if err != nil {
 		return nil, nil, err
 	}

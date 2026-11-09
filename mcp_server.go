@@ -139,6 +139,9 @@ func (a *app) newMCPServer() *mcp.Server {
 			var out []collInfo
 			a.do(func() error {
 				for _, c := range a.lib.Collections {
+					if !a.mcpSees(c) { // one agents may not see is not listed
+						continue
+					}
 					ci := collInfo{ID: a.idOf(c.Dir), Name: c.Name, Pages: len(c.All()), Properties: c.Properties, SubPages: c.SubPages, Query: c.Query}
 					for _, t := range c.AllTemplates() {
 						ci.Templates = append(ci.Templates, t.Name)
@@ -154,7 +157,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in collArgs) (*mcp.CallToolResult, any, error) {
 			var out []pageInfo
 			err := a.do(func() error {
-				c, err := a.findColl(in.Collection)
+				c, err := a.findColl(in.Collection, mcpRead)
 				if err != nil {
 					return err
 				}
@@ -171,7 +174,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in pageArgs) (*mcp.CallToolResult, any, error) {
 			var out map[string]any
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpRead)
 				if err != nil {
 					return err
 				}
@@ -208,13 +211,13 @@ func (a *app) newMCPServer() *mcp.Server {
 				var want *Collection
 				if in.Collection != "" {
 					var err error
-					if want, err = a.findColl(in.Collection); err != nil {
+					if want, err = a.findColl(in.Collection, mcpRead); err != nil {
 						return err
 					}
 				}
 				a.linksStale()
 				for _, h := range a.searchPages(in.Query, 0, true) {
-					if want != nil && h.page.Coll != want {
+					if want != nil && h.page.Coll != want || !a.mcpSees(h.page.Coll) {
 						continue
 					}
 					var sb strings.Builder
@@ -242,6 +245,9 @@ func (a *app) newMCPServer() *mcp.Server {
 				if name == "" {
 					return errors.New("no name")
 				}
+				if a.mcpAccess(nil) != mcpWrite { // new collections are what the others are
+					return errors.New("agents may not make collections (Settings ▸ MCP)")
+				}
 				c, err := a.lib.NewCollection(name)
 				if err != nil {
 					return err
@@ -264,13 +270,13 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in newPageArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
-				c, err := a.findColl(in.Collection)
+				c, err := a.findColl(in.Collection, mcpWrite)
 				if err != nil {
 					return err
 				}
 				var parent *Page
 				if in.Parent != "" {
-					if parent, err = a.findPage(in.Parent); err != nil {
+					if parent, err = a.findPage(in.Parent, mcpWrite); err != nil {
 						return err
 					}
 					if parent.Coll != c {
@@ -321,7 +327,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in addPropArgs) (*mcp.CallToolResult, any, error) {
 			var pr *Property
 			err := a.do(func() error {
-				c, err := a.findColl(in.Collection)
+				c, err := a.findColl(in.Collection, mcpWrite)
 				if err != nil {
 					return err
 				}
@@ -338,7 +344,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in updateArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
 				}
@@ -393,19 +399,19 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in moveArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
 				}
 				c := p.Coll
 				if in.Collection != "" {
-					if c, err = a.findColl(in.Collection); err != nil {
+					if c, err = a.findColl(in.Collection, mcpWrite); err != nil {
 						return err
 					}
 				}
 				var parent *Page
 				if in.Parent != "" {
-					if parent, err = a.findPage(in.Parent); err != nil {
+					if parent, err = a.findPage(in.Parent, mcpWrite); err != nil {
 						return err
 					}
 					c = parent.Coll
@@ -440,7 +446,7 @@ func (a *app) newMCPServer() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "trash_page", Description: "Moves a page, its sub-pages with it, to the trash; the user can put it back.", Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)}},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in pageArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
-				p, err := a.findPage(in.Page)
+				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
 				}

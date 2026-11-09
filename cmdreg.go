@@ -53,6 +53,7 @@ var settingsApart = map[string]string{
 	"panelWidth":   "dragged at the side panel's edge",
 	"port":         "the MCP server's port: typed in its own settings",
 	"token":        "the MCP server's secret",
+	"mcpAccess":    "what agents may do with each collection: chosen per collection in the MCP settings",
 	"recent":       "what the / menu was used for",
 	"recentCmds":   "the commands used last",
 	"writing":      "the words written, by day",

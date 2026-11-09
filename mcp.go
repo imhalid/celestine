@@ -27,6 +27,9 @@ type Settings struct {
 	MCP   bool   `json:"mcp"`
 	Port  int    `json:"port"`
 	Token string `json:"token"`
+	// MCPAccess is what an agent may do with a collection, by its folder's name ("*": the others, and new ones):
+	// "off", "read" or "write" (the default).
+	MCPAccess map[string]string `json:"mcpAccess,omitempty"`
 	// Recent are the kinds of line the / menu was used for last, newest first.
 	Recent []string `json:"recent,omitempty"`
 	// RecentCmds are the commands of the palette used last, newest first (palette.go).
@@ -274,26 +277,70 @@ func (a *app) idOf(dir string) string {
 	return filepath.ToSlash(rel)
 }
 
-func (a *app) findColl(id string) (*Collection, error) {
+// findColl is the collection id names, for an agent that needs to read it or to write it (need): one the agent may
+// not see is not found, one it may only read refuses to be written.
+func (a *app) findColl(id string, need string) (*Collection, error) {
 	id = strings.Trim(id, "/")
 	for _, c := range a.lib.Collections {
 		if a.idOf(c.Dir) == id || strings.EqualFold(c.Name, id) {
+			if err := a.mcpMay(c, need); err != nil {
+				return nil, err
+			}
 			return c, nil
 		}
 	}
 	return nil, fmt.Errorf("no collection %q: list_collections names them", id)
 }
 
-func (a *app) findPage(id string) (*Page, error) {
+// findPage is the page id names, as findColl its collection.
+func (a *app) findPage(id string, need string) (*Page, error) {
 	id = strings.Trim(id, "/")
 	for _, c := range a.lib.Collections {
 		for _, p := range c.All() {
 			if a.idOf(p.Dir) == id {
+				if err := a.mcpMay(c, need); err != nil {
+					return nil, err
+				}
 				return p, nil
 			}
 		}
 	}
 	return nil, fmt.Errorf("no page %q: list_pages names them", id)
+}
+
+// What an agent may do with a collection (Settings.MCPAccess): not see it, read it, or read and write it.
+const (
+	mcpOff   = "off"
+	mcpRead  = "read"
+	mcpWrite = "write"
+)
+
+// mcpAccess is what an agent may do with collection c: its own setting, or the one for the others ("*"), or write.
+func (a *app) mcpAccess(c *Collection) string {
+	if c != nil {
+		if v, ok := a.settings.MCPAccess[filepath.Base(c.Dir)]; ok {
+			return v
+		}
+	}
+	if v, ok := a.settings.MCPAccess["*"]; ok {
+		return v
+	}
+	return mcpWrite
+}
+
+// mcpSees is whether an agent may see collection c at all.
+func (a *app) mcpSees(c *Collection) bool { return a.mcpAccess(c) != mcpOff }
+
+// mcpMay says why an agent may not do need (mcpRead, mcpWrite) with collection c, or nil when it may. A collection it
+// may not see is answered as one that is not there.
+func (a *app) mcpMay(c *Collection, need string) error {
+	switch acc := a.mcpAccess(c); {
+	case acc == mcpOff:
+		return fmt.Errorf("no such collection or page")
+	case need == mcpWrite && acc != mcpWrite:
+		return fmt.Errorf("the collection %q is read-only to agents (Settings ▸ MCP)", c.Name)
+	}
+	return nil
 }
 
 func (a *app) tree(ps []*Page) []pageInfo {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -316,7 +317,7 @@ func TestMCPTagsTasksVersions(t *testing.T) {
 	}
 
 	// versions: written over after the quiet, then read and put back
-	p, _ := a.findPage(made.ID)
+	p, _ := a.findPage(made.ID, mcpRead)
 	*now = now.Add(10 * time.Minute)
 	p.SaveText("# Haftalık\n\nbaşka bir metin\n")
 	var vers []struct {
@@ -376,4 +377,49 @@ func TestMCPCommandsAllowed(t *testing.T) {
 			t.Errorf("%q is allowed", it.title)
 		}
 	}
+}
+
+// What agents may do with each collection: one they may not see is not listed, found or searched; one they may only
+// read is read and not written; new collections follow the others' setting.
+func TestMCPAccessPerCollection(t *testing.T) {
+	a, _ := newTestApp(t, "")
+	secret, _ := a.lib.NewCollection("Gizli")
+	sp, _ := secret.NewPage(nil, "Şifreler")
+	sp.SaveText("parola kelimesi\n")
+	shared, _ := a.lib.NewCollection("Ortak")
+	op, _ := shared.NewPage(nil, "Plan")
+	op.SaveText("parola değil, plan\n")
+	a.settings.MCPAccess = map[string]string{filepath.Base(secret.Dir): mcpOff, filepath.Base(shared.Dir): mcpRead}
+	cs := agent(t, a)
+	failing := func(tool string, args map[string]any) string {
+		t.Helper()
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: tool, Arguments: args})
+		if err != nil {
+			t.Fatal(tool, err)
+		}
+		if !res.IsError {
+			t.Fatalf("%s %v was allowed", tool, args)
+		}
+		return res.Content[0].(*mcp.TextContent).Text
+	}
+	var colls []collInfo
+	call(t, cs, "list_collections", nil, &colls)
+	for _, c := range colls {
+		if c.Name == "Gizli" {
+			t.Fatal("a collection agents may not see is listed")
+		}
+	}
+	failing("read_page", map[string]any{"page": a.idOf(sp.Dir)})
+	var hits []map[string]any
+	call(t, cs, "search", map[string]any{"query": "parola"}, &hits)
+	if len(hits) != 1 || hits[0]["title"] != "Plan" {
+		t.Fatalf("search: %v", hits)
+	}
+	var read map[string]any
+	call(t, cs, "read_page", map[string]any{"page": a.idOf(op.Dir)}, &read)
+	if msg := failing("update_page", map[string]any{"page": a.idOf(op.Dir), "markdown": "x"}); !strings.Contains(msg, "read-only") {
+		t.Fatalf("written to a read-only collection: %s", msg)
+	}
+	a.settings.MCPAccess["*"] = mcpRead
+	failing("create_collection", map[string]any{"name": "Yeni"})
 }

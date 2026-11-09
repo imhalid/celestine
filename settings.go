@@ -615,6 +615,42 @@ func (a *app) settingsMCP(c *ui.Context) {
 				}
 			})
 		})
+	a.settingsMCPAccess(c)
+}
+
+// settingsMCPAccess is what agents may do with each collection: not see it, read it, or read and write it; and with
+// the others, new ones among them.
+func (a *app) settingsMCPAccess(c *ui.Context) {
+	opts := []ryugo.Option[string]{{Value: mcpWrite, Label: T("Okur ve yazar")}, {Value: mcpRead, Label: T("Yalnız okur")}, {Value: mcpOff, Label: T("Göremez")}}
+	row := func(key, name string) func() {
+		return func() {
+			v := mcpWrite
+			if x, ok := a.settings.MCPAccess[key]; ok {
+				v = x
+			} else if key != "*" {
+				v = a.mcpAccess(nil) // as the others
+			}
+			was := v
+			settingRow(c, name, "", func() {
+				ryugo.Select(c.Key("mcp-access:"+key), &v, opts, ryugo.SelectOptions{Label: name, Size: ryugo.Sm}).Width(170)
+			})
+			if v != was {
+				if a.settings.MCPAccess == nil {
+					a.settings.MCPAccess = map[string]string{}
+				}
+				a.settings.MCPAccess[key] = v
+				a.saveSettings()
+			}
+		}
+	}
+	rows := []func(){func() {
+		ui.Text(c, T("Ajanların koleksiyonlarla ne yapabileceği. Göremediği koleksiyon ajana hiç görünmez.")).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted).Wrap()
+	}}
+	for _, coll := range a.lib.Collections {
+		rows = append(rows, row(filepath.Base(coll.Dir), coll.Name))
+	}
+	rows = append(rows, row("*", T("Diğerleri ve yeni koleksiyonlar")))
+	settingGroup(c, "set-mcp-access", rows...)
 }
 
 // settingsQuick is the key of the quick note.
