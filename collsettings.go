@@ -533,6 +533,10 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: T("Sütunlar şuna göre")}, func() {
 				ryugo.Select(c.Key("cs-group"), &v.GroupBy, opts, ryugo.SelectOptions{Label: T("Gruplanan özellik"), Size: ryugo.Sm})
 			})
+			ryugo.Field(c, ryugo.FieldOptions{Label: T("Card size")}, func() {
+				sizes := []ryugo.Option[string]{{Value: "small", Label: T("Small")}, {Value: "", Label: T("Medium")}, {Value: "large", Label: T("Large")}}
+				ryugo.Select(c.Key("cs-cardsize"), &v.CardSize, sizes, ryugo.SelectOptions{Label: T("Card size"), Size: ryugo.Sm})
+			})
 			a.csViewFields(c, d, v)
 		default: // board and gallery: the properties shown on a card
 			a.csViewFields(c, d, v)

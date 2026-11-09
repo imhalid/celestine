@@ -148,12 +148,16 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
 		{title: "Yeni " + pageNoun(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
+		{title: map[bool]string{true: T("Change banner…"), false: T("Add banner…")}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
 		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
 		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
 		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
 	}
 	if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from its templates
 		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
+	}
+	if coll.Banner != "" {
+		out = append(out, menuItem{title: T("Remove banner"), glyph: iconCover, run: func() { a.removeBanner(coll) }})
 	}
 	if !coll.Journal { // the journal is not thrown away
 		out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})

@@ -46,6 +46,7 @@ func (a *app) collectionView(c *ui.Context) {
 			ui.Column(c).FillWidth().Gap(10).Children(func() {
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(viewMax).Gap(10).Children(func() {
+						a.bannerView(c, coll)
 						// its icon and the capsule that opens its settings, as Thymer's
 						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 							ui.Icon(c, collGlyph(coll)).Width(20).Height(20).TextColor(collTint(c, coll))
@@ -807,9 +808,10 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 						continue
 					}
 					wrap := ui.Column(c.Key("colwrap:" + s)).Gap(6).Shrink(0)
-					want := float32(250)
+					look := cardLookOf(v)
+					want := look.width
 					if focus == id {
-						want = 360
+						want = look.focused
 					}
 					wrap.Width(wrap.AnimateTo("w", want, boardSpring))
 					wrap.Children(func() {
@@ -842,13 +844,16 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 							for _, p := range col {
 								p := p
 								card := ryugo.DragCard(c.Key("card:"+p.Dir), p, func() {
-									a.coverThumb(c, p, 0, 84, 8)                                                // its cover, across the top
-									ui.Box(c).FillWidth().Height(3).Radius(rad(2)).Background(tone.Alpha(0.75)) // its column's color
-									ui.Text(c, p.Title).FontSize(14).FontWeight(600).MaxLines(2)
-									if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && focus == id {
-										ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(map[bool]int{true: 3, false: 2}[focus == id])
+									if look.cover > 0 {
+										a.coverThumb(c, p, 0, look.cover, 8) // its cover, across the top
 									}
-									if len(v.Fields) > 0 && focus == id {
+									ui.Box(c).FillWidth().Height(3).Radius(rad(2)).Background(tone.Alpha(0.75)) // its column's color
+									ui.Text(c, p.Title).FontSize(look.font).FontWeight(600).MaxLines(look.lines)
+									full := focus == id || look.always
+									if ex := p.Excerpt(); ex != "" && !v.NoExcerpt && full {
+										ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(3)
+									}
+									if len(v.Fields) > 0 && full {
 										ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
 									}
 								}).Label("Kart: " + p.Title)
@@ -869,6 +874,26 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		})
 		a.edgeFades(c, a.boardScroll)
 	})
+}
+
+// cardLook is how large a board's cards are: its columns' width, and when one is the focus; the cover's height
+// (none on the small ones); the title's size and lines; and whether every card shows what it says, not only the
+// focused column's.
+type cardLook struct {
+	width, focused, cover, font float32
+	lines                       int
+	always                      bool
+}
+
+// cardLookOf is the look of view v's cards, by its CardSize.
+func cardLookOf(v *View) cardLook {
+	switch v.CardSize {
+	case "small":
+		return cardLook{width: 200, focused: 300, font: 13, lines: 1}
+	case "large":
+		return cardLook{width: 330, focused: 440, cover: 150, font: 15, lines: 3, always: true}
+	}
+	return cardLook{width: 250, focused: 360, cover: 84, font: 14, lines: 2}
 }
 
 // boardCardMenu is what a card offers: its page's menu, and the groups it

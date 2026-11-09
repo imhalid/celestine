@@ -255,3 +255,32 @@ func TestBoardCardMoveMenu(t *testing.T) {
 		t.Fatal("the menu opened the page")
 	}
 }
+
+// A board's cards come in three sizes: small, with no cover and one line of title; the middle; and large, wider, every
+// card showing what it says.
+func TestBoardCardSize(t *testing.T) {
+	_, tt, coll := viewsLibrary(t)
+	coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Bitti"})
+	tt.Frame()
+	if err := tt.Click("Pano"); err != nil {
+		t.Fatal(err)
+	}
+	width := func(size string) float32 {
+		t.Helper()
+		coll.View().CardSize = size
+		tt.Frame()
+		tt.Advance(time.Second)
+		r, ok := tt.Find("Kart: Dune")
+		if !ok {
+			t.Fatalf("no card: %v", tt.Texts())
+		}
+		return r.W
+	}
+	small, mid, large := width("small"), width(""), width("large")
+	if !(small < mid && mid < large) {
+		t.Fatalf("cards: small %v, middle %v, large %v", small, mid, large)
+	}
+	if !tt.HasText("Çöl gezegeni Arrakis.") {
+		t.Fatal("a large card does not show the start of its text")
+	}
+}

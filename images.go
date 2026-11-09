@@ -101,7 +101,10 @@ const imageRetry = 3 * time.Second
 
 // loadImage reads and decodes the picture in file; pictures do not change, so
 // it is kept once read. One that cannot be read or decoded is not kept: it is tried again after imageRetry.
-func (a *app) loadImage(p *Page, file string) ui.ImageSource {
+func (a *app) loadImage(p *Page, file string) ui.ImageSource { return a.loadImageIn(p.FS(), file) }
+
+// loadImageIn is loadImage for a file in fsys: a collection's banner, which is no page's.
+func (a *app) loadImageIn(fsys FS, file string) ui.ImageSource {
 	if src, ok := a.images[file]; ok && src != nil {
 		return src
 	}
@@ -110,7 +113,7 @@ func (a *app) loadImage(p *Page, file string) ui.ImageSource {
 		return nil
 	}
 	var src ui.ImageSource
-	if data, err := p.FS().ReadFile(file); err == nil {
+	if data, err := fsys.ReadFile(file); err == nil {
 		src, _ = ui.DecodeImage(data)
 	}
 	if src == nil {

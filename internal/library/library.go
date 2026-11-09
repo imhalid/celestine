@@ -45,6 +45,8 @@ type Collection struct {
 	Color string `json:"color,omitempty"` // one of Ryugo's c1…c8; "" none
 	// Description says what the collection is for, under its name.
 	Description string `json:"description,omitempty"`
+	// Banner is the picture across the top of its page, a file in its folder ("" none).
+	Banner string `json:"banner,omitempty"`
 	// PageNoun is what a page of it is called ("Tarif"): "Yeni Tarif".
 	PageNoun string `json:"pageNoun,omitempty"`
 	// Template is the Markdown a new page of it starts with.
@@ -101,6 +103,8 @@ type View struct {
 	NoExcerpt bool `json:"noExcerpt,omitempty"`
 	// Collapsed are a board's columns folded to a strip, by option ("" none).
 	Collapsed []string `json:"collapsed,omitempty"`
+	// CardSize is how large a board's cards are: "small", "" (the middle) or "large".
+	CardSize string `json:"cardSize,omitempty"`
 	// DateField is what places a page on a calendar's day: "created" (the
 	// default), "modified", or "prop:<id>" of a date property.
 	DateField string `json:"dateField,omitempty"`
@@ -1029,7 +1033,7 @@ func (c *Collection) SetConfig(data []byte) error {
 	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
 	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
 	c.Query = fresh.Query
-	c.JournalFormat = fresh.JournalFormat // c.Pinned and c.Order are the sidebar's, not the code tab's
+	c.JournalFormat, c.Banner = fresh.JournalFormat, fresh.Banner // c.Pinned and c.Order are the sidebar's, not the code tab's
 	// c.Journal stays as it is: the code tab does not take it away
 	if c.Name == "" {
 		c.Name = "Adsız koleksiyon"
