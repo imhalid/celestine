@@ -2,7 +2,7 @@
 
 A notes app in Go: one binary, native UI on MyGo (`github.com/egoist/mygo`, replaced by the fork
 `github.com/imhalid/mygo` in `go.mod`) and the Ryugo kit (`github.com/imhalid/ryu-go`). README.md has the
-file-by-file table; `docs/` has the design notes (Turkish).
+file-by-file table; `docs/` has the design notes (the older ones in Turkish; new ones in English).
 
 ## Layout
 
@@ -41,11 +41,17 @@ The gate before a commit (the release workflow runs it too): `gofmt -l .` empty,
   a panic instead of losing it.
 - Time comes from `a.clock()`, not `time.Now()`, so tests can set it; a test that counts days sets the clock
   before anything is counted.
-- Words shown are Turkish, through `T("…")`, with the English in `enText` (i18n.go).
+- English is the project's language: new words shown in the app, comments, docs, commit messages, release
+  notes, tags, issues and PRs are written in English. Only the conversation with the maintainer is in Turkish.
+- The app is English unless Turkish is chosen. Words shown go through `T("…")` (i18n.go): the older strings are
+  written in Turkish with their English in `enText`; a new one is written in English, and T gives it as it is.
 - Comments are sentences that say what a thing is and why, in the voice of the ones around them; a
   declaration's comment starts with its name.
 - UI tests drive the real view with `ui.NewTester` (`newTestApp` in helpers_test.go). Shaders are off in tests
   where the CPU renderer is too slow (`welcomeShaders`).
 - A change to the library comes with a test in `internal/library/` when it can be made without the app.
 - Commits go to `main`: a one-line title that says what changed, then prose.
+- Releases: a tag `vX.Y.Z` pushed to GitHub runs `.github/workflows/release.yml` (tests, the five builds, the
+  GitHub release, notes from the commits since the tag before). A `v0.x` tag, or one with a "-", is a prerelease.
+  Versions go up one at a time from v0.0.1; the gate passes before a tag.
 - A local checkout of Ryugo beside this one is used through a `go.work` (ignored by git).
