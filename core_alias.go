@@ -67,6 +67,7 @@ var PageMeta = library.PageMeta
 var PagesChanged = library.PagesChanged
 var PairWords = library.PairWords
 var Parents = library.Parents
+var PristineOf = library.PristineOf
 
 const PropChoice = library.PropChoice
 const PropDate = library.PropDate

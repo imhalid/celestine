@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -40,6 +41,31 @@ type syncUI struct {
 	hasKey         bool
 	held           int  // files the last pass did not delete here, the remote having none of them (massRemovals)
 	allow          bool // the user said to delete them: the next pass does
+	// the store's Writes when it was last synced or last seen moving, and when it moved: a pass starts once the
+	// writing has been quiet for syncQuiet, so that what is typed goes up in seconds, not at the next round
+	writes   uint64
+	movedAt  time.Time
+	doneOnce sync.Once // the pass at quit, made once
+}
+
+// syncQuiet is how long the library is left unwritten before what was written is synced.
+const syncQuiet = 10 * time.Second
+
+// markPristine notes the files a new library made for itself, so that its first pass takes the account's
+// copies of them, if it has them, with no conflict (SyncState.Pristine): signing in on a second device is not
+// a conflict over its welcome page.
+func (a *app) markPristine() {
+	st := a.store()
+	if st == nil {
+		return
+	}
+	files, err := PristineOf(st, StoreRoot)
+	if err != nil {
+		return
+	}
+	state := a.loadSyncState()
+	state.Pristine = files
+	a.saveSyncState(state)
 }
 
 // syncRemote makes the remote the settings describe.
@@ -132,6 +158,7 @@ func (a *app) syncNow() {
 		res, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now())
 		a.do(func() error {
 			a.sy.busy = false
+			a.sy.writes, a.sy.movedAt = st.Writes.Load(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			switch {
 			case err != nil:
@@ -166,11 +193,71 @@ func (a *app) syncTick(c *ui.Context) {
 		return
 	}
 	now := a.clock()
-	if a.sy.tried.IsZero() || now.Sub(a.sy.tried) > a.syncEvery() {
-		a.sy.tried = now
+	if st := a.store(); st != nil && !a.sy.tried.IsZero() {
+		if w := st.Writes.Load(); w != a.sy.writes { // written since: the pass waits for the writing to stop
+			a.sy.writes, a.sy.movedAt = w, now
+		}
+	}
+	quiet := !a.sy.movedAt.IsZero() && now.Sub(a.sy.movedAt) >= syncQuiet
+	if a.sy.tried.IsZero() || quiet || now.Sub(a.sy.tried) > a.syncEvery() {
+		a.sy.tried, a.sy.movedAt = now, time.Time{}
 		a.syncNow()
 	}
+	if !a.sy.movedAt.IsZero() {
+		c.After(syncQuiet - now.Sub(a.sy.movedAt) + 50*time.Millisecond)
+		return
+	}
 	c.After(30 * time.Second)
+}
+
+// syncAtQuit makes a last pass as the app goes, when something was written since the last one: a pass in the
+// background is waited for, and the whole is given up after wait, the app going all the same (what was not
+// sent goes up at the next start).
+func (a *app) syncAtQuit(wait time.Duration) {
+	a.sy.doneOnce.Do(func() {
+		deadline := time.Now().Add(wait)
+		for {
+			a.mu.Lock()
+			busy := a.sy.busy
+			a.mu.Unlock()
+			if !busy || time.Now().After(deadline) {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		a.mu.Lock()
+		st := a.store()
+		if a.settings.SyncMode == "" || a.sy.busy || st == nil || st.Writes.Load() == a.sy.writes && a.sy.movedAt.IsZero() {
+			a.mu.Unlock()
+			return
+		}
+		remote, err := a.syncRemote()
+		if err != nil {
+			a.mu.Unlock()
+			return
+		}
+		skip := map[string]bool{}
+		for _, d := range a.settings.SyncOff {
+			skip[d] = true
+		}
+		state := a.loadSyncState()
+		a.sy.busy = true
+		a.mu.Unlock()
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			defer a.guard()
+			if _, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now()); err == nil {
+				a.mu.Lock()
+				a.saveSyncState(state)
+				a.mu.Unlock()
+			}
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Until(deadline)):
+		}
+	})
 }
 
 // conflictFiles are the files that a conflict left: "… (çakışma …)…", as last looked for. The sync settings ask

@@ -811,3 +811,41 @@ func TestSyncDoesNotOverwriteWhatIsSavedMidPass(t *testing.T) {
 		t.Fatal("what the user wrote is lost")
 	}
 }
+
+// A new device: its library made its own first page and collection, untouched, and the account has the same
+// files from the first device. The account's copies come down with no conflict, and what the first device wrote
+// besides comes down too; a seeded file the user did change is still a conflict.
+func TestSyncNewDeviceTakesTheAccountsSeed(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("notes/collection.json", `{"name":"Notes","id":"a"}`)
+	a.write("notes/welcome/page.json", "welcome, from a")
+	a.write("notes/meeting/page.json", "the meeting")
+	a.write("journal/collection.json", `{"name":"Journal","id":"a"}`)
+	a.sync(remote)
+
+	b.write("notes/collection.json", `{"name":"Notes","id":"b"}`)
+	b.write("notes/welcome/page.json", "welcome, from b")
+	b.write("journal/collection.json", `{"name":"Journal","id":"b","edited":true}`)
+	b.st.Pristine = map[string]string{
+		"notes/collection.json":   HashOf([]byte(`{"name":"Notes","id":"b"}`)),
+		"notes/welcome/page.json": HashOf([]byte("welcome, from b")),
+		"journal/collection.json": HashOf([]byte(`{"name":"Journal","id":"b"}`)), // changed since it was made
+	}
+	r := b.sync(remote)
+	if len(r.Conflicts) != 1 || r.Conflicts[0] != "journal/collection.json" {
+		t.Fatalf("conflicts: %v", r.Conflicts)
+	}
+	for name, want := range map[string]string{
+		"notes/collection.json":   `{"name":"Notes","id":"a"}`,
+		"notes/welcome/page.json": "welcome, from a",
+		"notes/meeting/page.json": "the meeting",
+	} {
+		if got := b.read(name); got != want {
+			t.Errorf("%s: %q, want %q", name, got, want)
+		}
+	}
+	if len(b.st.Pristine) != 0 {
+		t.Fatalf("still pristine after the pass: %v", b.st.Pristine)
+	}
+}

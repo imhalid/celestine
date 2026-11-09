@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func syncApp(t *testing.T, remoteDir string) *app {
@@ -295,4 +297,52 @@ func allRemoteBytes(t *testing.T, root string) (names []string, all []byte) {
 		return nil
 	})
 	return
+}
+
+// What is written goes up once the writing has been quiet a few seconds, not at the next round of minutes; and
+// what is written last goes up as the app quits.
+func TestSyncAfterWritingAndAtQuit(t *testing.T) {
+	dir := t.TempDir()
+	a, b := syncApp(t, dir), syncApp(t, dir)
+	a.settings.AccountUser = "ali@ornek.com" // past the sign-in
+	now := time.Now()
+	a.clock = func() time.Time { return now }
+	tt := ui.NewTester(a.view, 900, 700)
+	tt.Frame() // the pass at the start
+	waitSync(t, a)
+	has := func(title string) bool {
+		t.Helper()
+		b.syncNow()
+		waitSync(t, b)
+		for _, c := range b.lib.Collections {
+			for _, p := range c.All() {
+				if p.Title == title {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	c, _ := a.lib.NewCollection("Shared")
+	p, _ := c.NewPage(nil, "Written")
+	p.SaveText("words\n")
+	tt.Frame() // the writing is seen
+	now = now.Add(4 * time.Second)
+	tt.Frame()
+	waitSync(t, a)
+	if has("Written") {
+		t.Fatal("synced before the writing was quiet")
+	}
+	now = now.Add(syncQuiet)
+	tt.Frame()
+	waitSync(t, a)
+	if !has("Written") {
+		t.Fatalf("not synced after the writing stopped: %q", a.sy.err)
+	}
+	q, _ := c.NewPage(nil, "Last")
+	q.SaveText("the last words\n")
+	a.syncAtQuit(5 * time.Second)
+	if !has("Last") {
+		t.Fatal("not synced at quit")
+	}
 }

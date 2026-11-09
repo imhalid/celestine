@@ -588,6 +588,11 @@ type SyncState struct {
 	AllowRemovals bool `json:"-"`
 	// Seen is each file as it was seen when its hash here was what the last sync had (localFiles).
 	Seen map[string]fileSeen `json:"seen,omitempty"`
+	// Pristine is the files a new library made for itself (its first collection and page, its journal), by
+	// their hash then, until they are first synced. One the remote has too, never synced here and still as it
+	// was made, is the remote's, with no conflict: the library is a new device's, and the account's copy is
+	// the real one.
+	Pristine map[string]string `json:"pristine,omitempty"`
 }
 
 // massRemovals is how many files, and a tenth of the library, a pass may delete here for being gone from
@@ -678,6 +683,13 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 		return nil
 	}
 	return out, seen, walk(root, "")
+}
+
+// PristineOf is the files of the library under root by their hash, as SyncState.Pristine has them: what a new
+// library made for itself, before anything was written in it.
+func PristineOf(fsys FS, root string) (map[string]string, error) {
+	local, _, err := localFiles(fsys, root, nil, &SyncState{})
+	return local, err
 }
 
 func conflictName(name string, at time.Time) string {
@@ -839,6 +851,20 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			res.Pulled++
 			st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
 		default: // both changed
+			if base == (fileSync{}) && lh != "" && rh != "" && st.Pristine[n] == lh { // a new library's own, untouched: theirs
+				b, err := r.Get(n)
+				if err != nil {
+					fail(n, err)
+					continue
+				}
+				if err := fsys.WriteFile(abs(n), b); err != nil {
+					fail(n, err)
+					continue
+				}
+				res.Pulled++
+				st.Files[n] = fileSync{Local: HashOf(b), Remote: rh}
+				continue
+			}
 			if lh != "" && rh != "" && lh == localHashOf(r, n, rh, lh) {
 				st.Files[n] = fileSync{Local: lh, Remote: rh} // the same bytes on both sides
 				continue
@@ -893,6 +919,11 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		}
 		for n, err := range failed {
 			fail(n, err)
+		}
+	}
+	for n := range st.Pristine { // synced once, a file is the library's like any other
+		if _, ok := st.Files[n]; ok {
+			delete(st.Pristine, n)
 		}
 	}
 	st.Seen = map[string]fileSeen{} // a file is kept as seen only when what the sync knows of it is what is there

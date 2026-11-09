@@ -154,10 +154,11 @@ func IsLibraryFolder(dir string) bool {
 }
 
 // LibraryFile is where the library is kept when none is named: a file next
-// to the program, so that the two move together.
+// to the program, so that the two move together. A program `go run` built is
+// in a folder of its own each time, and its library is the working folder's.
 func LibraryFile() string {
 	dir := "."
-	if exe, err := os.Executable(); err == nil {
+	if exe, err := os.Executable(); err == nil && !strings.Contains(filepath.ToSlash(exe), "/go-build") {
 		dir = filepath.Dir(exe)
 	}
 	return filepath.Join(dir, "kitaplik.db")

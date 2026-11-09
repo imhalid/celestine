@@ -24,6 +24,15 @@ type Store struct {
 	File string
 	Now  func() time.Time          // the clock of the history; the system's when nil
 	Snap atomic.Pointer[storeSnap] // the table read at once, while the library opens
+	// Writes counts the changes to the files and folders (not to the settings, Meta): the app syncs a little
+	// after it moves, so that what was written goes up before long.
+	Writes atomic.Uint64
+}
+
+// wrote marks a change to the tree: what was read at once is no more what is there, and Writes moves.
+func (s *Store) wrote() {
+	s.Snap.Store(nil)
+	s.Writes.Add(1)
 }
 
 // OpenStore opens the library file at file, making it when there is none.
@@ -107,7 +116,7 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 }
 
 func (s *Store) WriteFile(name string, data []byte) error {
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	n := Clean(name)
 	pdir, _, _, err := s.node(path.Dir(n))
 	if err != nil {
@@ -131,7 +140,7 @@ func (s *Store) WriteFile(name string, data []byte) error {
 }
 
 func (s *Store) Mkdir(name string) error {
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	n := Clean(name)
 	if _, _, _, err := s.node(n); err == nil {
 		return pathErr("mkdir", name, fs.ErrExist)
@@ -149,7 +158,7 @@ func (s *Store) MkdirAll(name string) error {
 			return nil // there: nothing is written
 		}
 	}
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	n := Clean(name)
 	var chain []string
 	for p := n; p != "/"; p = path.Dir(p) {
@@ -190,7 +199,7 @@ func (s *Store) below(dir string) ([]string, error) {
 }
 
 func (s *Store) Rename(oldName, newName string) error {
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	from, to := Clean(oldName), Clean(newName)
 	if _, _, _, err := s.node(from); err != nil {
 		return pathErr("rename", oldName, fs.ErrNotExist)
@@ -229,7 +238,7 @@ func (s *Store) Rename(oldName, newName string) error {
 }
 
 func (s *Store) Remove(name string) error {
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	n := Clean(name)
 	d, _, _, err := s.node(n)
 	if err != nil {
@@ -250,7 +259,7 @@ func (s *Store) Remove(name string) error {
 }
 
 func (s *Store) RemoveAll(name string) error {
-	s.Snap.Store(nil) // a write: what was read at once is no more what is there
+	s.wrote()
 	n := Clean(name)
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))

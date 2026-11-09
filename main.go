@@ -359,6 +359,7 @@ func main() {
 		err   error
 	)
 	restoreNote := ""
+	fresh := false // the library file is new here: what it holds is what it makes for itself
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -377,10 +378,12 @@ func main() {
 		}
 		restoreNote = restored
 		_, existed := os.Stat(file)
+		fresh = existed != nil
 		if store, err = OpenStore(file); err == nil {
 			if existed != nil {
 				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
 					if IsLibraryFolder(old) {
+						fresh = false    // a library already, taken in: its files are the user's
 						store.Fast(true) // a copy of what is still there: no wait for each file
 						err = CopyTree(OSFS{}, old, store, StoreRoot)
 						store.Fast(false)
@@ -418,6 +421,9 @@ func main() {
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
+	if fresh {
+		a.markPristine()
+	}
 	a.wel.on = a.wantWelcome()                              // the first opening, if it is one
 	a.purgeTrash()                                          // what has been in the trash trashDays is deleted for good
 	a.prewarm()                                             // the pages' text, read away from the window
@@ -447,6 +453,7 @@ func main() {
 		a.endSession()
 		a.saveUsage()
 		a.mu.Unlock()
+		a.syncAtQuit(6 * time.Second) // what was written since the last pass goes up before the app goes
 		markClean(crashDir())
 	})
 	defer func() { // a panic of the program itself is written, too, and then goes on

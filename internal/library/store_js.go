@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall/js"
 	"time"
 )
@@ -37,6 +38,8 @@ type Store struct {
 	hold  int
 	dirty bool
 	Now   func() time.Time
+	// Writes counts the changes to the files and folders, as the Store of a file has it (store_sql.go).
+	Writes atomic.Uint64
 }
 
 func storage() js.Value {
@@ -230,6 +233,7 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 func (s *Store) WriteFile(name string, data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	n := Clean(name)
 	p, ok := s.node[path.Dir(n)]
 	if !ok {
@@ -261,6 +265,7 @@ func (s *Store) mkdir(name string) error {
 func (s *Store) Mkdir(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	err := s.mkdir(name)
 	if err == nil {
 		s.persist()
@@ -271,6 +276,7 @@ func (s *Store) Mkdir(name string) error {
 func (s *Store) MkdirAll(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	var chain []string
 	for p := Clean(name); p != "/"; p = path.Dir(p) {
 		chain = append(chain, p)
@@ -305,6 +311,7 @@ func (s *Store) under(dir string) []string {
 func (s *Store) Rename(oldName, newName string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	from, to := Clean(oldName), Clean(newName)
 	if _, ok := s.node[from]; !ok {
 		return pathErr("rename", oldName, fs.ErrNotExist)
@@ -332,6 +339,7 @@ func (s *Store) Rename(oldName, newName string) error {
 func (s *Store) Remove(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	n := Clean(name)
 	cur, ok := s.node[n]
 	if !ok {
@@ -351,6 +359,7 @@ func (s *Store) Remove(name string) error {
 func (s *Store) RemoveAll(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
 	n := Clean(name)
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))
