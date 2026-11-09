@@ -79,6 +79,11 @@ var trText = map[string]string{
 	"Show in its folder": "Klasöründe göster",
 	"Choose another…":    "Başkasını seç…",
 	"Remove the file":    "Dosyayı kaldır",
+	// zooming into a block
+	"%d lines above · zoom out": "yukarıda %d satır · uzaklaş",
+	"1 line above · zoom out":   "yukarıda 1 satır · uzaklaş",
+	"1 line below · zoom out":   "aşağıda 1 satır · uzaklaş",
+	"%d lines below · zoom out": "aşağıda %d satır · uzaklaş",
 	// sync
 	", %d merged": ", %d birleştirildi",
 	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",

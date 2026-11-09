@@ -70,7 +70,7 @@ func (a *app) unfold(ch *chip) {
 	}
 	_, pe := a.doc.Text().ParagraphRange(i)
 	a.doc.Edit(func(ed *richtext.Edit) {
-		ed.Replace(pe+1, pe+1, *ch.hidden)
+		editReplaceKeepIDs(ed, pe+1, pe+1, *ch.hidden)
 		ed.Replace(i, i+1, richtext.Text{})
 		ed.Select(i, i)
 	})
@@ -89,7 +89,7 @@ var iconFoldOpen = icon(`<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>`)
 
 var _ = ui.Rect{}
 
-// unfold puts back what every fold in t holds, as a page is kept with none.
+// unfold puts back what every fold and zoom in t holds, as a page is kept with none.
 func unfold(t richtext.Text) richtext.Text {
 	for {
 		found := false
@@ -100,8 +100,13 @@ func unfold(t richtext.Text) richtext.Text {
 			}
 			if ch, ok := att.Data.(*chip); ok && ch.kind == "fold" {
 				_, pe := t.ParagraphRange(i)
-				t = t.Replace(pe+1, pe+1, unfold(*ch.hidden))
+				t = replaceKeepIDs(t, pe+1, pe+1, unfold(*ch.hidden))
 				t = t.Replace(i, i+1, richtext.Text{})
+				found = true
+				break
+			}
+			if ch, ok := att.Data.(*chip); ok && ch.kind == "zoom" { // what is above or below the block, in the chip's place
+				t = replaceKeepIDs(t, i, i+1, unfold(*ch.hidden))
 				found = true
 				break
 			}

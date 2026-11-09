@@ -95,6 +95,13 @@ func appCommands() []appCmd {
 		{title: "Bloğu aşağı taşı", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
 		{title: "Bloğu çoğalt", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
 		{title: "Katla / aç", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
+		{title: "Bloğa yakınlaş", accel: "alt+cmd+down", menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
+		{title: "Uzaklaş", accel: "alt+cmd+up", menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
+			if !a.zoomed() {
+				return "Sayfa bir bloğa yakınlaşmış değil"
+			}
+			return ""
+		}},
 		{title: "Dosya ekle", menu: "block", dots: true, glyph: iconAttach, run: (*app).pickFileToAttach, off: noPageOff},
 		{title: "Blokları seç", menu: "block", glyph: iconStack, run: (*app).startBlockSel, off: noPageOff},
 		{title: "Blok menüsü", accel: "alt+cmd+.", menu: "block", dots: true, glyph: iconStack, run: (*app).openBlockMenu, off: noPageOff},

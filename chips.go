@@ -23,12 +23,13 @@ import (
 
 // chip is what an attachment of ours is.
 type chip struct {
-	kind   string // "page", "date", "embed", "file", "fold", "table" or "query"
+	kind   string // "page", "date", "embed", "file", "fold", "zoom", "table" or "query"
 	target string // the page's title, the day as 2006-01-02, a file's name in the page's folder, or a query (queryblock.go)
 	alias  string // what a page's chip says instead of its title
-	// a fold's: what it hides, and how many lines (fold.go)
+	// a fold's or a zoom's: what it hides, and how many lines (fold.go, zoom.go); a zoom's at the top of the page
 	hidden *richtext.Text
 	lines  int
+	top    bool
 	// a table's: what it is, and how wide its columns are (tables.go)
 	tbl *tableModel
 	tw  []float32
@@ -56,6 +57,17 @@ func (ch *chip) markdown() string {
 func (ch *chip) label() string {
 	if ch.kind == "fold" {
 		return "⋯ " + strconv.Itoa(ch.lines) + " satır"
+	}
+	if ch.kind == "zoom" {
+		switch {
+		case ch.top && ch.lines == 1:
+			return "↑ " + T("1 line above · zoom out")
+		case ch.top:
+			return "↑ " + Tf("%d lines above · zoom out", ch.lines)
+		case ch.lines == 1:
+			return "↓ " + T("1 line below · zoom out")
+		}
+		return "↓ " + Tf("%d lines below · zoom out", ch.lines)
 	}
 	if ch.kind == "date" {
 		if d, err := time.Parse("2006-01-02", ch.target); err == nil {
@@ -228,8 +240,12 @@ func withoutChips(t richtext.Text) richtext.Text {
 		}
 		if f.ch.kind == "fold" { // what was hidden comes back, under its line
 			_, pe := t.ParagraphRange(f.i)
-			t = t.Replace(pe+1, pe+1, withoutChips(*f.ch.hidden))
+			t = replaceKeepIDs(t, pe+1, pe+1, withoutChips(*f.ch.hidden))
 			t = t.Replace(f.i, f.i+1, richtext.Text{})
+			continue
+		}
+		if f.ch.kind == "zoom" { // what is above and below the block comes back, in the chip's place
+			t = replaceKeepIDs(t, f.i, f.i+1, withoutChips(*f.ch.hidden))
 			continue
 		}
 		t = t.ReplaceString(f.i, f.i+1, f.ch.markdown(), f.a)
@@ -255,7 +271,7 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	text := cl.Accent
 	hover := a.hoverCh == ch
 	switch {
-	case ch.kind == "fold":
+	case ch.kind == "fold" || ch.kind == "zoom":
 		p.Fill(r, cl.Fill, rad(r.H/2))
 		if hover {
 			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
@@ -363,6 +379,10 @@ func (a *app) clickChip(x, y float32) bool {
 	if h := a.chipAt(x, y); h != nil {
 		if h.ch.kind == "fold" {
 			a.unfold(h.ch)
+			return true
+		}
+		if h.ch.kind == "zoom" {
+			a.zoomOut()
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it
