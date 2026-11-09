@@ -556,6 +556,7 @@ func TestSyncWhenTheServerChanged(t *testing.T) {
 	asked := func() int { srv.mu.Lock(); defer srv.mu.Unlock(); return srv.asked }
 	tick := func() {
 		now = now.Add(syncPoll + time.Second)
+		tt.Move(float32(now.Second()%50+100), 100) // one is here, doing something
 		tt.Frame()
 		for i := 0; i < 200; i++ { // the answer, then the frame it asks for
 			b.mu.Lock()
@@ -570,6 +571,13 @@ func TestSyncWhenTheServerChanged(t *testing.T) {
 		tt.Frame()
 		waitSync(t, b)
 	}
+	settle := func() {
+		for range 2 {
+			now = now.Add(syncQuiet + time.Second)
+			tt.Frame()
+			waitSync(t, b)
+		}
+	}
 	last := b.sy.last
 	tick()
 	if asked() == 0 {
@@ -577,6 +585,12 @@ func TestSyncWhenTheServerChanged(t *testing.T) {
 	}
 	if b.sy.last != last {
 		t.Fatal("a pass started though nothing changed")
+	}
+	// still: the next ask waits longer
+	n := asked()
+	tick()
+	if asked() != n {
+		t.Fatal("asked again though the counter stayed still")
 	}
 	c, _ := a.lib.NewCollection("Shared")
 	p, _ := c.NewPage(nil, "From A")
@@ -598,10 +612,31 @@ func TestSyncWhenTheServerChanged(t *testing.T) {
 	}
 	// behind other windows: not asked
 	b.sy.behind = true
-	n := asked()
+	settle() // the pass for what came down, which reads the counter too
+	n = asked()
 	tick()
 	if asked() != n {
 		t.Fatal("asked behind other windows")
+	}
+	// in front, but nobody doing anything: not asked; the first move asks
+	b.sy.behind = false
+	now = now.Add(syncIdle)
+	settle()
+	n = asked()
+	now = now.Add(syncPollMost)
+	tt.Frame()
+	time.Sleep(20 * time.Millisecond)
+	if asked() != n {
+		t.Fatal("asked while nobody was there")
+	}
+	tt.Move(300, 300)
+	tt.Frame()
+	waitSync(t, b)
+	for i := 0; i < 200 && asked() == n; i++ {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if asked() == n {
+		t.Fatal("not asked when one came back")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -57,11 +58,24 @@ type syncUI struct {
 	askedAt      time.Time
 	asking       bool
 	behind       bool
+	// gap: how long to the next ask (syncPoll, longer while the counter stays still); activeAt: when one last did
+	// something in the window, and seen what that was (activity)
+	gap      time.Duration
+	activeAt time.Time
+	seen     string
 }
 
 // syncPoll is how often the server is asked whether anything was written to the account, while the window is in
 // front: one small request, and what another device wrote is here in seconds, not at the next round of minutes.
 const syncPoll = 20 * time.Second
+
+// syncPollMost is how far apart the asks grow while the counter does not move: each still answer adds syncPoll, and
+// a change brings them back to syncPoll. What this device writes goes up at once all the same (syncQuiet).
+const syncPollMost = 60 * time.Second
+
+// syncIdle is how long the window may be in front with nobody doing anything in it before the server is not asked
+// any more: a window left open overnight costs nothing. The first thing done asks again.
+const syncIdle = 5 * time.Minute
 
 // syncQuiet is how long the library is left unwritten before what was written is synced: a pause in the typing,
 // so that a page goes up as soon as one stops, and is there on another device by the time one gets to it.
@@ -254,6 +268,9 @@ func (a *app) syncNow() {
 		a.do(func() error {
 			a.sy.busy = false
 			a.sy.changes, a.sy.changesKnown = changes, cerr == nil
+			if cerr == nil {
+				a.sy.askedAt = a.clock() // the pass asked: the next ask is a gap from now
+			}
 			a.sy.writes, a.sy.movedAt = a.libWrites(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			switch {
@@ -303,7 +320,9 @@ func (a *app) syncTick(c *ui.Context) {
 		}
 	}
 	quiet := !a.sy.movedAt.IsZero() && now.Sub(a.sy.movedAt) >= syncQuiet
-	if a.sy.tried.IsZero() || quiet || now.Sub(a.sy.tried) > a.syncEvery() {
+	// a round every few minutes, but not to a server while nobody is here: what is written still goes up (quiet)
+	away := a.settings.SyncMode == "server" && !a.sy.activeAt.IsZero() && now.Sub(a.sy.activeAt) >= syncIdle
+	if a.sy.tried.IsZero() || quiet || !away && now.Sub(a.sy.tried) > a.syncEvery() {
 		a.sy.tried, a.sy.movedAt = now, time.Time{}
 		a.syncNow()
 	}
@@ -312,14 +331,21 @@ func (a *app) syncTick(c *ui.Context) {
 		return
 	}
 	if a.settings.SyncMode == "server" && !a.sy.behind {
-		if now.Sub(a.sy.askedAt) >= syncPoll {
+		if a.sy.activeAt.IsZero() { // the window just opened: one is here, and the pass at the start read the counter
+			a.sy.activeAt = now
+		}
+		if now.Sub(a.sy.activeAt) >= syncIdle {
+			return // nobody here: the next thing done in the window is a frame, and asks
+		}
+		gap := max(a.sy.gap, syncPoll)
+		if now.Sub(a.sy.askedAt) >= gap {
 			a.askChanges()
 		}
-		wait := syncPoll - now.Sub(a.sy.askedAt)
+		wait := gap - now.Sub(a.sy.askedAt)
 		if wait <= 0 { // not asked: a pass is going on, and its end asks for a frame
-			wait = syncPoll
+			wait = gap
 		}
-		c.After(wait + 50*time.Millisecond)
+		c.After(min(wait, syncIdle-now.Sub(a.sy.activeAt)) + 50*time.Millisecond)
 		return
 	}
 	c.After(30 * time.Second)
@@ -354,6 +380,9 @@ func (a *app) askChanges() {
 			}
 			if a.sy.changesKnown && n != a.sy.changes {
 				a.sy.tried = time.Time{} // the next frame's syncTick starts a pass
+				a.sy.gap = syncPoll
+			} else {
+				a.sy.gap = min(max(a.sy.gap, syncPoll)+syncPoll, syncPollMost)
 			}
 			a.sy.changes, a.sy.changesKnown = n, true
 			return nil
@@ -828,4 +857,21 @@ func (a *app) setSyncPassphrase(pass string) {
 	a.sy.recovery, a.sy.pass, a.sy.hasKey = RecoveryKey(e.Key), "", true
 	a.saveSettings()
 	a.notice = "Şifreleme açık: kurtarma anahtarını bir yere yaz."
+}
+
+// activity notes whether one did something in the window since the last frame: the pointer moved over it or pressed,
+// or the text or the caret moved. What the sync itself writes is not one doing something. Back after a still while, the server is asked at once, and as often
+// as at first.
+func (a *app) activity(root ui.Element) {
+	x, y, over := root.PointerPosition()
+	seen := fmt.Sprint(x, y, over, root.Pressed(), a.caretAt, a.version)
+	if seen == a.sy.seen {
+		return
+	}
+	idle := a.clock().Sub(a.sy.activeAt) >= syncIdle
+	a.sy.seen, a.sy.activeAt = seen, a.clock()
+	if idle && a.frame != nil {
+		a.sy.askedAt, a.sy.gap = time.Time{}, syncPoll // back after a while: asked now, and as often as at first
+		a.frame()
+	}
 }

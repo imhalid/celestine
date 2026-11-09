@@ -801,6 +801,8 @@ func (a *app) viewFrame(c *ui.Context) {
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
+	// the sync's asks rest while nobody is here
+	a.activity(root)
 	for _, f := range root.DroppedFiles() { // and those dropped elsewhere in the window
 		a.dropFile(f, false)
 	}
