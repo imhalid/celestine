@@ -50,7 +50,35 @@ type bodyObj struct {
 	Cols   []tableCol `json:"cols,omitempty"` // a table's
 	Rows   [][]string `json:"rows,omitempty"`
 	Q      string     `json:"q,omitempty"` // a table's filter, or a query block's query (queryblock.go)
+	// raw is the object as the file has it: one of a kind this version does not know (a newer version wrote
+	// it) is kept and written back as it came, never dropped.
+	raw []byte
 }
+
+// UnmarshalJSON reads an object, keeping it as it came too.
+func (o *bodyObj) UnmarshalJSON(b []byte) error {
+	type plain bodyObj
+	var p plain
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	*o = bodyObj(p)
+	o.raw = append([]byte(nil), b...)
+	return nil
+}
+
+// MarshalJSON writes an object; one this version does not know as it came.
+func (o *bodyObj) MarshalJSON() ([]byte, error) {
+	if o.K == unknownKind && o.raw != nil {
+		return o.raw, nil
+	}
+	type plain bodyObj
+	return json.Marshal((*plain)(o))
+}
+
+// unknownKind marks an object of a kind this version does not know, in the editor: shown as a placeholder,
+// written back as it came.
+const unknownKind = "?"
 
 // encodeBody writes the editor's text as the body: what is folded is put
 // back (a fold is the editor's, never the page's).
@@ -97,6 +125,8 @@ func objOf(at *richtext.Attachment) *bodyObj {
 			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
 		case "query":
 			return &bodyObj{K: "query", Q: d.target}
+		case unknownKind:
+			return &bodyObj{K: unknownKind, raw: d.raw}
 		}
 		return nil
 	case *imageData:
@@ -161,6 +191,10 @@ func attachmentOf(o *bodyObj) *richtext.Attachment {
 		return &richtext.Attachment{Name: "Sorgu", Data: &chip{kind: "query", target: o.Q}}
 	case "image":
 		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
+	}
+	if o.raw != nil { // a kind of a newer version: kept, to be written back as it came
+		ch := &chip{kind: unknownKind, raw: o.raw}
+		return &richtext.Attachment{Name: ch.label(), Data: ch}
 	}
 	return nil
 }

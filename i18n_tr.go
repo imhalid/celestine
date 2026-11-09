@@ -84,6 +84,9 @@ var trText = map[string]string{
 	"1 line above · zoom out":   "yukarıda 1 satır · uzaklaş",
 	"1 line below · zoom out":   "aşağıda 1 satır · uzaklaş",
 	"%d lines below · zoom out": "aşağıda %d satır · uzaklaş",
+	// a block of a newer version (body.go)
+	"A block of a newer version": "Daha yeni bir sürümün bloğu",
+	"This block was made by a newer version of the app: update the app to see it. It is kept as it is.": "Bu bloğu uygulamanın daha yeni bir sürümü yaptı: görmek için uygulamayı güncelle. Olduğu gibi korunuyor.",
 	// sync
 	", %d merged": ", %d birleştirildi",
 	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",

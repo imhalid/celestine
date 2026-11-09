@@ -23,7 +23,7 @@ import (
 
 // chip is what an attachment of ours is.
 type chip struct {
-	kind   string // "page", "date", "embed", "file", "fold", "zoom", "table" or "query"
+	kind   string // "page", "date", "embed", "file", "fold", "zoom", "table", "query", or unknownKind (body.go)
 	target string // the page's title, the day as 2006-01-02, a file's name in the page's folder, or a query (queryblock.go)
 	alias  string // what a page's chip says instead of its title
 	// a fold's or a zoom's: what it hides, and how many lines (fold.go, zoom.go); a zoom's at the top of the page
@@ -33,10 +33,15 @@ type chip struct {
 	// a table's: what it is, and how wide its columns are (tables.go)
 	tbl *tableModel
 	tw  []float32
+	// an object of a kind a newer version wrote, as the file has it (body.go): written back as it came
+	raw []byte
 }
 
 // markdown is the chip in the file.
 func (ch *chip) markdown() string {
+	if ch.kind == unknownKind { // nothing in Markdown says what it is
+		return ""
+	}
 	if ch.kind == "file" { // a link to the file beside the page
 		ref := ch.target
 		if strings.ContainsAny(ref, " ()") {
@@ -55,6 +60,9 @@ func (ch *chip) markdown() string {
 
 // label is what the chip says.
 func (ch *chip) label() string {
+	if ch.kind == unknownKind {
+		return T("A block of a newer version")
+	}
 	if ch.kind == "fold" {
 		return "⋯ " + strconv.Itoa(ch.lines) + " satır"
 	}
@@ -171,7 +179,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 		switch d := o.attrs.Attachment.Data.(type) {
 		case *chip:
 			switch d.kind {
-			case "page", "date", "file":
+			case "page", "date", "file", unknownKind:
 				att = a.attachment(d)
 			case "embed":
 				att = a.embedAttachment(d)
@@ -271,7 +279,7 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	text := cl.Accent
 	hover := a.hoverCh == ch
 	switch {
-	case ch.kind == "fold" || ch.kind == "zoom":
+	case ch.kind == "fold" || ch.kind == "zoom" || ch.kind == unknownKind:
 		p.Fill(r, cl.Fill, rad(r.H/2))
 		if hover {
 			p.Fill(r, cl.Text.Alpha(0.08), rad(r.H/2))
@@ -383,6 +391,10 @@ func (a *app) clickChip(x, y float32) bool {
 		}
 		if h.ch.kind == "zoom" {
 			a.zoomOut()
+			return true
+		}
+		if h.ch.kind == unknownKind {
+			a.notice = T("This block was made by a newer version of the app: update the app to see it. It is kept as it is.")
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it
