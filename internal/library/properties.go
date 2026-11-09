@@ -3,6 +3,7 @@ package library
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,12 +23,16 @@ const (
 	PropNumber = "number"
 	PropDate   = "date"
 	PropURL    = "url"
+	PropPage   = "page" // another page: its folders from the library's root (Library.PageAt)
+	PropTags   = "tags" // words, ", " between them
+	PropFile   = "file" // a file in the page's folder: its name
 )
 
 // PropTypes are the kinds of property, in the order the menu shows them,
 // with their names.
 var PropTypes = []struct{ Type, Name string }{
 	{PropChoice, "Seçim"}, {PropText, "Metin"}, {PropNumber, "Sayı"}, {PropDate, "Tarih"}, {PropURL, "Bağlantı"},
+	{PropPage, "Sayfa"}, {PropTags, "Etiketler"}, {PropFile, "Dosya"},
 }
 
 // PropTypeName is the name of a kind of property.
@@ -287,6 +292,14 @@ func (p *Page) SetValue(id, v string) error {
 		if _, err := time.Parse("2006-01-02", v); v != "" && err != nil {
 			return fmt.Errorf("%s is a day, as 2026-11-04", pr.Name)
 		}
+	case PropTags:
+		v = strings.Join(SplitTags(v), ", ")
+	case PropPage:
+		v = strings.Trim(filepath.ToSlash(v), "/")
+	case PropFile:
+		if v != "" && (strings.ContainsAny(v, `/\`) || v == "." || v == "..") {
+			return fmt.Errorf("%s is the name of a file in the page's folder", pr.Name)
+		}
 	}
 	if p.Props[id] == v {
 		return nil
@@ -398,4 +411,16 @@ func (c *Collection) SetManual(pages []*Page) error {
 		}
 	}
 	return nil
+}
+
+// SplitTags are the tags of a tags value: the words between its commas, trimmed, each once (its case as first
+// written).
+func SplitTags(v string) []string {
+	var out []string
+	for _, w := range strings.Split(v, ",") {
+		if w = strings.TrimSpace(w); w != "" && !slices.ContainsFunc(out, func(o string) bool { return strings.EqualFold(o, w) }) {
+			out = append(out, w)
+		}
+	}
+	return out
 }

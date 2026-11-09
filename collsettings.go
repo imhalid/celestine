@@ -349,11 +349,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 				}
 			})
 		}
-		var names []string
-		for _, t := range PropTypes {
-			names = append(names, t.Name)
-		}
-		ryugo.Segmented(c.Key("cs-new-type"), &cs.newType, names, ryugo.SegmentedOptions{Label: T("Yeni özelliğin türü"), Fill: true, Size: ryugo.Sm})
+		ryugo.Select(c.Key("cs-new-type"), &cs.newType, propTypeOptions(), ryugo.SelectOptions{Label: T("Yeni özelliğin türü"), Size: ryugo.Sm})
 		if PropTypes[cs.newType].Type == PropChoice {
 			a.tagField(c, "cs-new-opts", &cs.newTags, "Seçenek yaz, ↵: Yapılacak, Sürüyor, Bitti")
 		}

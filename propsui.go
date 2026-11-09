@@ -118,6 +118,12 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			a.propChoice(c, p, pr, key)
 		case PropDate:
 			a.propDate(c, p, pr, key)
+		case PropTags:
+			a.propTags(c, p, pr, key)
+		case PropPage:
+			a.propPageLink(c, p, pr, key)
+		case PropFile:
+			a.propFile(c, p, pr, key)
 		default:
 			a.propText(c, p, pr, key)
 		}
@@ -351,11 +357,7 @@ func (a *app) propDialog(c *ui.Context) {
 			})
 			if e.id == "" {
 				ryugo.Field(c, ryugo.FieldOptions{Label: T("Tür")}, func() {
-					var names []string
-					for _, t := range PropTypes {
-						names = append(names, t.Name)
-					}
-					ryugo.Segmented(c.Key("prop-type"), &e.typ, names, ryugo.SegmentedOptions{Label: T("Tür"), Fill: true})
+					ryugo.Select(c.Key("prop-type"), &e.typ, propTypeOptions(), ryugo.SelectOptions{Label: T("Tür")})
 				})
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {

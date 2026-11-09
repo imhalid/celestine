@@ -1065,3 +1065,38 @@ func (p *Page) ImageCover() bool { return p.Cover != "" && p.Cover != CoverNone 
 
 // CoverNone is the cover "none" in a page's file: no cover, not the made one either (autocover.go).
 const CoverNone = "none"
+
+// Path is the page's folders from the library's root, with slashes: what a page:// link and a page property name.
+func (p *Page) Path() string {
+	rel, err := filepath.Rel(filepath.Dir(p.Coll.Dir), p.Dir) // a collection's folder is in the library's root
+	if err != nil {
+		return filepath.ToSlash(p.Dir)
+	}
+	return filepath.ToSlash(rel)
+}
+
+// PageAt is the page whose folders from the library's root are path; failing that (it moved), the one page whose
+// folder has path's last name, when there is just one; or nil.
+func (l *Library) PageAt(path string) *Page {
+	path = strings.Trim(filepath.ToSlash(path), "/")
+	if path == "" {
+		return nil
+	}
+	last := path[strings.LastIndex(path, "/")+1:]
+	var byName *Page
+	names := 0
+	for _, c := range l.Collections {
+		for _, p := range c.All() {
+			if p.Path() == path {
+				return p
+			}
+			if filepath.Base(p.Dir) == last {
+				byName, names = p, names+1
+			}
+		}
+	}
+	if names == 1 {
+		return byName
+	}
+	return nil
+}

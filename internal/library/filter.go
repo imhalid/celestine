@@ -20,8 +20,10 @@ func FilterOps(typ string) []string {
 	switch typ {
 	case PropNumber, PropDate:
 		return []string{"is", "isNot", "lt", "gt", "empty", "notEmpty"}
-	case PropChoice:
+	case PropChoice, PropPage, PropFile:
 		return []string{"is", "isNot", "empty", "notEmpty"}
+	case PropTags:
+		return []string{"contains", "empty", "notEmpty"}
 	case "title":
 		return []string{"contains", "is", "isNot"}
 	}
@@ -54,6 +56,9 @@ func (f Filter) match(c *Collection, p *Page) bool {
 	case "notEmpty":
 		return val != ""
 	case "contains":
+		if pr != nil && pr.Type == PropTags { // one of its tags, whole
+			return slices.ContainsFunc(SplitTags(val), func(t string) bool { return strings.EqualFold(t, want) })
+		}
 		return strings.Contains(strings.ToLower(val), strings.ToLower(want))
 	case "is":
 		return strings.EqualFold(val, want)

@@ -31,6 +31,7 @@ type EncRemote = library.EncRemote
 type FS = library.FS
 
 var FileSafe = library.FileSafe
+var SplitTags = library.SplitTags
 
 type Filter = library.Filter
 
@@ -84,6 +85,9 @@ const PropText = library.PropText
 var PropTypeName = library.PropTypeName
 
 const PropURL = library.PropURL
+const PropPage = library.PropPage
+const PropTags = library.PropTags
+const PropFile = library.PropFile
 
 type Property = library.Property
 

@@ -372,7 +372,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
-					fieldChips(c, p, v)
+					a.fieldChips(c, p, v)
 				})
 				if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(1)
@@ -436,7 +436,7 @@ func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
-				fieldChips(c, p, v)
+				a.fieldChips(c, p, v)
 				when := p.Modified
 				if v.Sort == "created" {
 					when = p.Created
@@ -484,7 +484,7 @@ func (a *app) galleryView(c *ui.Context, v *View, pages []*Page) {
 					ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(3).Padding(0, 2)
 				}
 				if len(v.Fields) > 0 {
-					ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Padding(0, 2).Children(func() { fieldChips(c, p, v) })
+					ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Padding(0, 2).Children(func() { a.fieldChips(c, p, v) })
 				}
 			})
 			a.kbMark(card, "g:"+p.Dir, true, func() { a.open(p) })
@@ -526,8 +526,8 @@ func (a *app) galleryPicture(c *ui.Context, p *Page, w, h float32) {
 }
 
 // fieldChips are the values of the properties view v shows on page p's
-// row or card: a choice as a badge, the rest as muted text.
-func fieldChips(c *ui.Context, p *Page, v *View) {
+// row or card: a choice as a badge, tags a badge each, the rest as muted text (a page as its title).
+func (a *app) fieldChips(c *ui.Context, p *Page, v *View) {
 	t := c.Theme()
 	for _, id := range v.Fields {
 		pr := p.Coll.Prop(id)
@@ -538,10 +538,15 @@ func fieldChips(c *ui.Context, p *Page, v *View) {
 		if val == "" {
 			continue
 		}
-		if pr.Type == PropChoice {
+		switch pr.Type {
+		case PropChoice:
 			ryugo.Badge(c.Key("chip:"+id), val, choiceTone(pr, val))
-		} else {
-			ui.Text(c.Key("chip:"+id), val).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
+		case PropTags:
+			for _, tag := range SplitTags(val) {
+				ryugo.Badge(c.Key("chip:"+id+":"+tag), tag, ryugo.ToneNeutral)
+			}
+		default:
+			ui.Text(c.Key("chip:"+id), a.propLabel(p, pr)).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		}
 	}
 }
@@ -762,7 +767,19 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 					}
 					return
 				}
-				tx := ui.Text(c, col.cell(p, now)).FontSize(13.5).SingleLine().Ellipsis("…")
+				if col.prop != nil && col.prop.Type == PropTags {
+					ui.Row(c).Gap(4).AlignItems(ui.Center).Clip().Children(func() {
+						for _, tag := range SplitTags(p.Value(col.prop)) {
+							ryugo.Badge(c.Key(tag), tag, ryugo.ToneNeutral)
+						}
+					})
+					return
+				}
+				text := col.cell(p, now)
+				if col.prop != nil {
+					text = a.propLabel(p, col.prop) // a page as its title
+				}
+				tx := ui.Text(c, text).FontSize(13.5).SingleLine().Ellipsis("…")
 				if col.right {
 					tx.FontFeatures("tnum")
 				}
@@ -934,7 +951,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 										ui.Text(c, ex).FontSize(12.5).TextColor(t.TextMuted).MaxLines(3)
 									}
 									if len(v.Fields) > 0 && full {
-										ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { fieldChips(c, p, v) })
+										ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { a.fieldChips(c, p, v) })
 									}
 								}).Label("Kart: " + p.Title)
 								a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
