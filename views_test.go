@@ -432,3 +432,42 @@ func TestTableColumnsRemembered(t *testing.T) {
 		t.Fatalf("the table opened again: %+v", st)
 	}
 }
+
+// A view's filters: the view shows only the pages that meet them, its toolbar says how many there are and opens them
+// in its settings, where one is added; a view whose filters leave nothing says so.
+func TestViewFiltersShown(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	v := coll.View()
+	v.Filters = []Filter{{Prop: "title", Op: "contains", Value: "dune"}}
+	tt.Advance(400 * time.Millisecond)
+	if _, ok := tt.Find("Aç: Anna Karenina"); ok || !tt.HasText("Dune") || !tt.HasText("Notlar: Dune") {
+		t.Fatalf("the filter does not hold: %v", tt.Texts())
+	}
+	v.Filters = []Filter{{Prop: "title", Op: "is", Value: "nothing"}}
+	tt.Advance(400 * time.Millisecond)
+	if !tt.HasText("No page meets this view's filters") {
+		t.Fatalf("no word that the filters leave nothing: %v", tt.Texts())
+	}
+	v.Filters = []Filter{{Prop: "title", Op: "contains", Value: "dune"}}
+	tt.Advance(400 * time.Millisecond)
+	if err := tt.Click("1 filter"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if !a.cs.open || a.cs.tab != 2 || a.cs.view != v.ID || !tt.HasText("Add filter") {
+		t.Fatalf("the view's settings are not open at its filters: open %v tab %d view %q", a.cs.open, a.cs.tab, a.cs.view)
+	}
+	if err := tt.Click("Add filter"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if d := a.cs.draft.View(); len(d.Filters) != 2 {
+		t.Fatalf("no filter added to the draft: %+v", d.Filters)
+	}
+	if out := os.Getenv("FILTERSHOT"); out != "" {
+		tt.Advance(400 * time.Millisecond)
+		f, _ := os.Create(out)
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+}

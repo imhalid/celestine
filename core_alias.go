@@ -13,6 +13,8 @@ var CleanOptions = library.CleanOptions
 
 type Collection = library.Collection
 
+var CompareValues = library.CompareValues
+
 const CollectionFile = library.CollectionFile
 
 var CopyTree = library.CopyTree
@@ -28,6 +30,10 @@ type EncRemote = library.EncRemote
 type FS = library.FS
 
 var FileSafe = library.FileSafe
+
+type Filter = library.Filter
+
+var FilterOps = library.FilterOps
 var HTTPSOnly = library.HTTPSOnly
 var HashOf = library.HashOf
 

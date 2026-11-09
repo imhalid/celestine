@@ -169,6 +169,7 @@ func (c *Collection) Normalize() {
 				c.Views[i].GroupBy = choice
 			}
 		}
+		c.Views[i].Filters = slices.DeleteFunc(c.Views[i].Filters, func(f Filter) bool { return f.Prop != "title" && c.Prop(f.Prop) == nil })
 		if c.Views[i].Type == "list" && c.Views[i].GroupBy != "" { // a list grouped by a choice that is gone is by date again
 			if p := c.Prop(c.Views[i].GroupBy); p == nil || p.Type != PropChoice {
 				c.Views[i].GroupBy = ""

@@ -109,6 +109,8 @@ type View struct {
 	Widths map[string]float32 `json:"widths,omitempty"`
 	Order  []string           `json:"order,omitempty"`
 	Hidden []string           `json:"hidden,omitempty"`
+	// Filters are the conditions a page meets to be shown (Match).
+	Filters []Filter `json:"filters,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.

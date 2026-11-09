@@ -2,6 +2,7 @@ package main
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -536,6 +537,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 		default: // board and gallery: the properties shown on a card
 			a.csViewFields(c, d, v)
 		}
+		a.csFilters(c, d, v)
 		ui.Row(c).Children(func() { // as wide as its label
 			if len(d.Views) > 1 && v.Type != "calendar" && ryugo.Button(c.Key("cs-view-del"), T("Görünümü sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 				id := v.ID
@@ -544,6 +546,105 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			}
 		})
 	})
+}
+
+// editViewFilters opens view v's settings, where its filters are.
+func (a *app) editViewFilters(coll *Collection, v *View) {
+	a.openCollSettings(coll, 2)
+	a.cs.view = v.ID
+}
+
+// csFilters are view v's filters: each a property, a comparison and a value (none for "is empty"), removed by its
+// cross; a new one is on the title, to be changed.
+func (a *app) csFilters(c *ui.Context, d *Collection, v *View) {
+	cl := ryugo.From(c).Colors
+	ryugo.Field(c, ryugo.FieldOptions{Label: T("Filters"), Help: T("The view shows only the pages that meet every one.")}, func() {
+		ui.Column(c).Gap(6).FillWidth().Children(func() {
+			props := []ryugo.Option[string]{{Value: "title", Label: T("Title")}}
+			for _, p := range d.Properties {
+				props = append(props, ryugo.Option[string]{Value: p.ID, Label: p.Name})
+			}
+			remove := -1
+			for i := range v.Filters {
+				f := &v.Filters[i]
+				typ, pr := "title", d.Prop(f.Prop)
+				if pr != nil {
+					typ = pr.Type
+				}
+				ops := FilterOps(typ)
+				if !slices.Contains(ops, f.Op) {
+					f.Op = ops[0]
+				}
+				var opOpts []ryugo.Option[string]
+				for _, o := range ops {
+					opOpts = append(opOpts, ryugo.Option[string]{Value: o, Label: filterOpName(o, typ)})
+				}
+				k := strconv.Itoa(i)
+				ui.Row(c.Key("cs-filter:" + k)).Gap(6).AlignItems(ui.Center).FillWidth().Children(func() {
+					was := f.Prop
+					ryugo.Select(c.Key("cs-fprop:"+k), &f.Prop, props, ryugo.SelectOptions{Label: T("Property"), Size: ryugo.Sm}).Width(150)
+					if f.Prop != was {
+						f.Value = ""
+					}
+					ryugo.Select(c.Key("cs-fop:"+k), &f.Op, opOpts, ryugo.SelectOptions{Label: T("Comparison"), Size: ryugo.Sm}).Width(140)
+					switch {
+					case f.Op == "empty" || f.Op == "notEmpty":
+						ui.Spacer(c)
+					case pr != nil && pr.Type == PropChoice:
+						var vals []ryugo.Option[string]
+						for _, o := range pr.Options {
+							vals = append(vals, ryugo.Option[string]{Value: o, Label: o})
+						}
+						ryugo.Select(c.Key("cs-fval:"+k), &f.Value, vals, ryugo.SelectOptions{Label: T("Value"), Size: ryugo.Sm}).Grow(1)
+					default:
+						ph := ""
+						if typ == PropDate {
+							ph = "2026-11-04"
+						}
+						a.fieldMenu(ryugo.Input(c.Key("cs-fval:"+k), &f.Value, ryugo.InputOptions{Label: T("Value"), Placeholder: ph, Size: ryugo.Sm}), &f.Value, fieldOpts{oneLine: true}).Grow(1)
+					}
+					if ryugo.Button(c.Key("cs-fdel:"+k), T("Remove filter"), ryugo.ButtonOptions{Icon: iconClose, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm, Color: cl.Muted}).Clicked() {
+						remove = i
+					}
+				})
+			}
+			if remove >= 0 {
+				v.Filters = slices.Delete(v.Filters, remove, remove+1)
+			}
+			ui.Row(c).Children(func() {
+				if ryugo.Button(c.Key("cs-fadd"), T("Add filter"), ryugo.ButtonOptions{Icon: iconPlus, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+					v.Filters = append(v.Filters, Filter{Prop: "title", Op: "contains"})
+				}
+			})
+		})
+	})
+}
+
+// filterOpName is a comparison as the filter's menu says it, for a property of type typ.
+func filterOpName(op, typ string) string {
+	switch op {
+	case "is":
+		return T("is")
+	case "isNot":
+		return T("is not")
+	case "contains":
+		return T("contains")
+	case "empty":
+		return T("is empty")
+	case "notEmpty":
+		return T("is not empty")
+	case "lt":
+		if typ == PropDate {
+			return T("is before")
+		}
+		return T("is less than")
+	case "gt":
+		if typ == PropDate {
+			return T("is after")
+		}
+		return T("is more than")
+	}
+	return op
 }
 
 // csViewFields is what a list's rows or a board's or gallery's cards show: the start of the text, and which

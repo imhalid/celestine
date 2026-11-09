@@ -97,6 +97,15 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							ui.Spacer(c)
+							if n := len(v.Filters); n > 0 { // the view's filters, which its settings change
+								label := Tf("%d filters", n)
+								if n == 1 {
+									label = T("1 filter")
+								}
+								if ryugo.Button(c.Key("view-filters"), label, ryugo.ButtonOptions{Icon: iconFilter, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+									a.editViewFilters(coll, v)
+								}
+							}
 							a.fieldMenu(ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: "Ara", Placeholder: "Bu koleksiyonda ara…", PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.search, fieldOpts{oneLine: true}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), "Rastgele gün", ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
@@ -139,6 +148,9 @@ func (a *app) collectionView(c *ui.Context) {
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(maxW).Children(func() {
 						pages := a.filtered(coll)
+						if len(v.Filters) > 0 { // the view's own conditions
+							pages = slices.DeleteFunc(pages, func(p *Page) bool { return !v.Match(coll, p) })
+						}
 						sortPages(pages, v)
 						if v.Type == "board" || v.Type == "calendar" {
 							a.bulkClear()
@@ -152,6 +164,8 @@ func (a *app) collectionView(c *ui.Context) {
 								switch {
 								case v.Type == "calendar": // a month shows even with nothing in it
 									a.calendarView(c, coll, v, pages)
+								case len(pages) == 0 && len(v.Filters) > 0 && a.search == "":
+									a.emptyState(c, iconFilter, T("No page meets this view's filters"), T("The view shows only the pages that meet its filters."), T("Edit filters"), func() { a.editViewFilters(coll, v) })
 								case len(pages) == 0 && a.search != "":
 									a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "“"+a.search+"” bu koleksiyonda bir sayfayla eşleşmiyor.", "Aramayı temizle", func() { a.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
@@ -243,31 +257,7 @@ func sortPages(ps []*Page, v *View) {
 
 // compareValues orders two values of property pr: a choice by its
 // options, a number as a number, the rest as text; no value last.
-func compareValues(pr *Property, a, b string) int {
-	switch {
-	case a == b:
-		return 0
-	case a == "":
-		return 1
-	case b == "":
-		return -1
-	}
-	switch pr.Type {
-	case PropChoice:
-		return slices.Index(pr.Options, a) - slices.Index(pr.Options, b)
-	case PropNumber:
-		x, _ := strconv.ParseFloat(strings.ReplaceAll(a, ",", "."), 64)
-		y, _ := strconv.ParseFloat(strings.ReplaceAll(b, ",", "."), 64)
-		switch {
-		case x < y:
-			return -1
-		case x > y:
-			return 1
-		}
-		return 0
-	}
-	return strings.Compare(strings.ToLower(a), strings.ToLower(b))
-}
+func compareValues(pr *Property, a, b string) int { return CompareValues(pr, a, b) }
 
 // ---- the list ----
 
