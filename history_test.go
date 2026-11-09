@@ -294,11 +294,13 @@ func TestTimeLapse(t *testing.T) {
 // The page's history as a stack and a timeline: the arrows bring an older copy to the front, Enter puts it back
 // and goes back to the editor, Esc leaves with nothing changed (#25).
 func TestTimeMachine(t *testing.T) {
+	tmShaders = false // the CPU renderer draws the galaxy too slowly
+	t.Cleanup(func() { tmShaders = true })
 	a, tt := lapsePage(t)
 	a.openTimeMachine(a.page)
 	tt.Frame()
 	tt.Advance(700 * time.Millisecond)
-	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(T("Page history: ")+T("Now")) {
+	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(T("Page history: ")+T("Today (Now)")) {
 		t.Fatalf("not open: %+v %v", a.tm.open, tt.Texts())
 	}
 	tt.Key(0, ui.KeyLeft)

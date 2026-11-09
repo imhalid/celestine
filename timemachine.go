@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/shader"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The page's history as Apple's Time Machine shows a folder's: the page steps back from the editor and becomes the
-// front of a stack, the copies kept of it behind it, each further back, smaller and fainter; a timeline at the
-// foot runs from the oldest copy to Now, and moving along it (a click, a drag, ← →) brings that day's page to the
-// front, the stack gliding. Put back makes the page what the front copy is; Esc or Cancel goes back into the
-// editor, the way it came. The differences, line by line, and keeping a copy by name are the version dialog's
-// (historyui.go), a click away.
+// front of a stack, the copies kept of it behind it, going off towards a spiral galaxy, each smaller and fainter.
+// On the right, a timeline from Now at its foot up to the oldest copy, the days written beside it: a click or a drag
+// along it, the tilted arrows under it, ↑ ↓, or a click on a card behind brings that copy to the front, the stack
+// gliding, and one passed goes by towards the one looking and fades. Along the foot, a bar: Cancel, the day of the
+// copy at the front, Restore. Restore makes the page what that copy is; Cancel or Esc goes back into the editor, the
+// way it came. The differences, line by line, and keeping a copy by name are the version dialog's (historyui.go).
 
 type timeMachine struct {
 	open    bool
@@ -22,9 +24,9 @@ type timeMachine struct {
 	page    *Page
 	vers    []Version        // the copies, the latest first
 	texts   map[int]string   // what each was, as Markdown, by its place: 0 the page now
-	sel     int              // the copy at the front: 0 the page now, i the copy vers[i-1]
 	lines   map[int][]tmLine // each copy's text, read into lines once
-	stars   [][3]float32     // the night behind the stack: x, y as fractions, and how bright
+	sel     int              // the copy at the front: 0 the page now, i the copy vers[i-1]
+	at      time.Time        // when it opened: the galaxy turns from there
 }
 
 // tmLine is a line of a copy's text, as the card shows it.
@@ -32,6 +34,9 @@ type tmLine struct {
 	text  string
 	level int // a heading's, 0 for text
 }
+
+// tmShaders is false in the tests, whose CPU renderer draws the galaxy far too slowly.
+var tmShaders = true
 
 // openTimeMachine shows the history of page p.
 func (a *app) openTimeMachine(p *Page) {
@@ -41,11 +46,7 @@ func (a *app) openTimeMachine(p *Page) {
 		return
 	}
 	a.flush()
-	a.tm = timeMachine{open: true, page: p, vers: h.Versions(p.File()), texts: map[int]string{}, lines: map[int][]tmLine{}}
-	for i := 0; i < 90; i++ { // the same night each time: a page's history is a place
-		f := float64(i)
-		a.tm.stars = append(a.tm.stars, [3]float32{float32(math.Mod(f*0.618034, 1)), float32(math.Mod(f*0.414214+0.13, 1)), float32(0.25 + 0.75*math.Mod(f*0.7548, 1))})
-	}
+	a.tm = timeMachine{open: true, page: p, vers: h.Versions(p.File()), texts: map[int]string{}, lines: map[int][]tmLine{}, at: a.clock()}
 }
 
 // tmText is what the copy at place i was, as Markdown: 0 is the page now.
@@ -91,12 +92,16 @@ func (a *app) tmLines(i int) []tmLine {
 	return out
 }
 
-// tmWhen is when the copy at place i was written: Now for the page.
+// tmWhen is when the copy at place i was written: Now for the page; today's copies by the hour, as Today 14:05.
 func (a *app) tmWhen(i int) string {
 	if i == 0 {
-		return T("Now")
+		return T("Today (Now)")
 	}
-	return a.tm.vers[i-1].At.Format("2 Jan 2006 · 15:04")
+	at := a.tm.vers[i-1].At
+	if sameDay(at, a.clock()) {
+		return T("Today") + " " + at.Format("15:04")
+	}
+	return at.Format("2 Jan 2006 · 15:04")
 }
 
 // tmPutBack makes the page what the copy at the front is, as the version dialog does (the page now kept as a
@@ -126,15 +131,21 @@ func (a *app) tmKeys(c *ui.Context) bool {
 	switch {
 	case c.Shortcut(0, ui.KeyEscape):
 		t.closing = true
-	case c.Shortcut(0, ui.KeyLeft), c.Shortcut(0, ui.KeyUp):
+	case c.Shortcut(0, ui.KeyUp), c.Shortcut(0, ui.KeyLeft):
 		t.sel = min(t.sel+1, n)
-	case c.Shortcut(0, ui.KeyRight), c.Shortcut(0, ui.KeyDown):
+	case c.Shortcut(0, ui.KeyDown), c.Shortcut(0, ui.KeyRight):
 		t.sel = max(t.sel-1, 0)
 	case c.Shortcut(0, ui.KeyEnter):
 		a.tmPutBack()
 	}
 	return true
 }
+
+// The layout of the history, in the window: the bar along the foot, the timeline's room on the right.
+const (
+	tmBarH      = 46
+	tmLineRight = 128
+)
 
 // timeMachineView draws the history over the window while it is open.
 func (a *app) timeMachineView(c *ui.Context) {
@@ -145,60 +156,68 @@ func (a *app) timeMachineView(c *ui.Context) {
 	ww, wh := c.Size()
 	ui.Overlay(c, func() {
 		// it has the keys while it is open, not the editor under it
-		back := ui.Box(c.Key("tm-back")).Absolute().Left(0).Top(0).Size(ww, wh).Label(T("Page history")).Role(ui.RoleDialog).Focusable().FocusRing(false).Focus()
-		in := back.AnimateTo("tm-in", b2f(!t.closing), ui.Animation{Spring: ui.SpringOptions{Duration: 520 * time.Millisecond, Bounce: 0.04}})
+		back := ui.Box(c.Key("tm-back")).Absolute().Left(0).Top(0).Size(ww, wh).Label(T("Page history")).Role(ui.RoleDialog).
+			Focusable().FocusRing(false).Focus()
+		in := back.AnimateTo("tm-in", b2f(!t.closing), ui.Animation{Spring: ui.SpringOptions{Duration: 560 * time.Millisecond, Bounce: 0.04}})
 		if t.closing && in < 0.02 {
 			*t = timeMachine{}
 			a.refocus = true // back into the editor, the caret where it was
 			return
 		}
-		pos := back.AnimateTo("tm-pos", float32(t.sel), ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.06}})
-		stars := t.stars
-		back.Opacity(min(1, in*1.4)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ui.Hex("#05081a"), To: ui.Hex("#18224a")}).Draw(func(p *ui.Painter, r ui.Rect) {
-			for _, s := range stars {
-				sz := 1 + s[2]
-				p.Fill(ui.Rect{X: r.X + s[0]*r.W, Y: r.Y + s[1]*r.H*0.8, W: sz, H: sz}, ui.Hex("#ffffff").Alpha(0.15+0.5*s[2]), sz/2)
+		pos := back.AnimateTo("tm-pos", float32(t.sel), ui.Animation{Spring: ui.SpringOptions{Duration: 440 * time.Millisecond, Bounce: 0.05}})
+		vp := ui.Point{X: (ww - tmLineRight) / 2, Y: wh * 0.17} // where the stack goes off to: the galaxy's heart
+		turn := float32(c.Now().Sub(t.at).Seconds())
+		back.Opacity(min(1, in*1.5)).Draw(func(p *ui.Painter, r ui.Rect) {
+			if tmShaders {
+				tmGalaxy.Draw(p, r, shader.Options{Uniforms: map[string]any{"Time": turn, "Center": []float32{vp.X, vp.Y}, "Scale": min(ww, wh) * 0.42}})
+				return
 			}
+			p.Fill(r, ui.Hex("#05060d"), 0) // the night without the galaxy, as the tests draw it
 		})
-		a.tmStack(c, ww, wh, in, pos)
+		if tmShaders {
+			c.After(33 * time.Millisecond) // the galaxy turns, slowly: a frame every 33 ms is enough
+		}
+		a.tmStack(c, ww, wh, in, pos, vp)
 		a.tmTimeline(c, ww, wh, in)
+		a.tmBar(c, ww, wh, in)
 	})
 }
 
-// tmStack draws the copies as a stack of cards going back, the one at pos at the front.
-func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32) {
+// tmStack draws the copies as a stack of cards going off towards vp, the one at pos at the front.
+func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32, vp ui.Point) {
 	t := &a.tm
 	cl := ryugo.From(c).Colors
-	cw := min(780, ww-160)
-	ch := max(240, wh-250)
-	x0 := (ww - cw) / 2
-	y0 := float32(96)
+	cw := min(820, ww-tmLineRight-120)
+	ch := max(220, min(620, wh-tmBarH-vp.Y-110))
+	x0 := (ww - tmLineRight - cw) / 2
+	y0 := wh - tmBarH - 34 - ch // the front card's top: it stands just over the bar
+	cy := y0 + ch/2
 	for i := len(t.vers); i >= 0; i-- {
 		d := float32(i) - pos
-		if d < -1.3 || d > 7 {
+		if d < -1.3 || d > 12 {
 			continue
 		}
-		var scale, ty, op float32
-		if d >= 0 { // at the front, or further back: smaller, higher, fainter
-			scale = float32(math.Pow(0.93, float64(d)))
-			ty = -d * 30
-			op = max(0, 1-d*0.17)
+		var scale, op, ty float32
+		if d >= 0 { // further back: smaller, nearer the galaxy, fainter, in perspective
+			scale = 1 / (1 + d*0.42)
+			op = float32(math.Pow(float64(scale), 1.3))
+			ty = (vp.Y - cy) * (1 - scale) // its centre on the line from the front card's to the galaxy's
 		} else { // gone past: towards the one looking, fading
-			scale = 1 - d*0.22
-			ty = -d * 40
-			op = max(0, 1+d*1.2)
+			scale = 1 - d*0.5
+			op = max(0, 1+d*1.4)
+			ty = -d * 60
 		}
 		// the page steps back from the editor: it starts as large as the text was, the others come out of the dark
-		scale *= 0.86 + 0.14*(1-in)
+		scale *= 0.9 + 0.1*(1-in)
 		if i > 0 {
 			op *= in
 		}
-		ty = ty*in + (1-in)*(-y0+24)
 		front := math.Abs(float64(d)) < 0.5
-		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(x0).Top(y0).Size(cw, ch).
-			Background(cl.Bg).Border(1, cl.Hairline).Radius(rad(14)).Clip().Padding(26, 40).Gap(6).
-			Shadow(0, 18, 50, 0, ui.Hex("#000000").Alpha(0.45*op)).
-			TransformOrigin(0.5, 0).Translate(0, ty).Scale(scale, scale).Opacity(op).ZIndex(100 - i).
+		// placed where it goes (a translation under a scale does not move it), scaled round its centre
+		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(x0).Top(y0+ty).Size(cw, ch).
+			Background(cl.Bg).Border(1, cl.Hairline).Radius(rad(10)).Clip().Padding(24, 36).Gap(6).
+			Shadow(0, 20, 60, 0, ui.Hex("#000000").Alpha(0.55*op)).
+			TransformOrigin(0.5, 0.5).Scale(scale, scale).Opacity(op).ZIndex(200 - i).
 			Label(T("Page history: ") + a.tmWhen(i)).Role(ui.RoleButton)
 		if !front {
 			card.Cursor(ui.CursorPointer)
@@ -212,8 +231,8 @@ func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32) {
 				ui.Text(c, a.tmWhen(i)).FontSize(12.5).TextColor(cl.Muted)
 			})
 			if math.Abs(float64(d)) > 2.5 { // far back: the shape of a page, not its words
-				for k := 0; k < 6; k++ {
-					ui.Box(c).Height(9).Width(cw * float32(0.4+0.5*math.Mod(float64(k)*0.37+float64(i)*0.21, 1))).Radius(4).Background(cl.Text.Alpha(0.08))
+				for k := 0; k < 7; k++ {
+					ui.Box(c).Height(10).Width(cw * float32(0.35+0.55*math.Mod(float64(k)*0.37+float64(i)*0.21, 1))).Radius(4).Background(cl.Text.Alpha(0.08))
 				}
 				return
 			}
@@ -231,80 +250,204 @@ func (a *app) tmStack(c *ui.Context, ww, wh, in, pos float32) {
 	}
 }
 
-// tmTimeline draws the timeline at the foot, the buttons, and the day of the copy at the front over it.
+// tmTimeline draws the timeline on the right: Now at its foot, the oldest copy at its top, a mark for each copy and
+// the day where the days change, and the tilted arrows under it.
 func (a *app) tmTimeline(c *ui.Context, ww, wh, in float32) {
 	t := &a.tm
 	n := len(t.vers)
-	tw := min(900, ww-200)
-	left := (ww - tw) / 2
-	ty := wh - 86 + (1-in)*60
 	white := ui.Hex("#ffffff")
-	// place k on the line, from the oldest (0) to Now (n): the copy vers[n-1-k], Now last
-	xOf := func(i int) float32 {
+	top, bottom := float32(64), wh-tmBarH-120
+	lx := ww - 34 + (1-in)*80 // the line's x: it comes in from the right
+	yOf := func(i int) float32 {
 		if n == 0 {
-			return left + tw
+			return bottom
 		}
-		return left + tw*float32(n-i)/float32(n)
+		return bottom - (bottom-top)*float32(i)/float32(n)
 	}
-	bar := ui.Box(c.Key("tm-line")).Absolute().Left(left-12).Top(ty-14).Size(tw+24, 40).Cursor(ui.CursorPointer).
-		Label(T("Timeline")).Role(ui.RoleSlider).Opacity(in)
-	px, _, over := bar.PointerPosition()
-	at := func(x float32) int { // the copy nearest x on the line
+	bar := ui.Box(c.Key("tm-line")).Absolute().Left(lx-tmLineRight+20).Top(top-14).Size(tmLineRight, bottom-top+28).
+		Cursor(ui.CursorPointer).Label(T("Timeline")).Role(ui.RoleSlider).Opacity(in)
+	_, py, over := bar.PointerPosition()
+	at := func(y float32) int { // the copy nearest y on the line
 		if n == 0 {
 			return 0
 		}
-		k := int(math.Round(float64((x - 12) / tw * float32(n))))
-		return n - min(max(k, 0), n)
+		k := int(math.Round(float64((bottom - (y + top - 14)) / (bottom - top) * float32(n))))
+		return min(max(k, 0), n)
 	}
 	if bar.Pressed() && !t.closing { // a click, or a drag along it: the copy under the pointer comes to the front
-		t.sel = at(px)
+		t.sel = at(py)
 	}
-	sel := t.sel
 	hover := -1
 	if over {
-		hover = at(px)
+		hover = at(py)
+	}
+	sel := t.sel
+	// the days, where they change, and Now; none closer than a line's height to the one under it
+	type mark struct {
+		y     float32
+		label string
+	}
+	var marks []mark
+	last := float32(1e9)
+	for i := 0; i <= n; i++ {
+		label := ""
+		switch {
+		case i == 0:
+			label = T("Now")
+		case i == 1 && sameDay(t.vers[0].At, a.clock()):
+			label = T("Today")
+		case i == 1 || !sameDay(t.vers[i-1].At, t.vers[i-2].At):
+			label = t.vers[i-1].At.Format("2 Jan")
+		}
+		if y := yOf(i); label != "" && last-y >= 16 {
+			marks = append(marks, mark{y, label})
+			last = y
+		}
 	}
 	bar.Draw(func(p *ui.Painter, r ui.Rect) {
-		y := r.Y + 14
-		p.Fill(ui.Rect{X: r.X + 12, Y: y, W: tw, H: 2}, white.Alpha(0.22), 1)
+		x := r.X + r.W - 20
+		p.Fill(ui.Rect{X: x, Y: top, W: 1.5, H: bottom - top}, white.Alpha(0.25), 0)
 		for i := 0; i <= n; i++ {
-			x := xOf(i) - left + r.X + 12
-			h, col := float32(10), white.Alpha(0.45)
+			y := yOf(i)
+			w, col := float32(10), white.Alpha(0.45)
 			if i == hover {
-				h, col = 14, white.Alpha(0.8)
+				w, col = 16, white.Alpha(0.85)
 			}
 			if i == sel {
-				h, col = 20, ui.Hex("#ff9f43")
+				w, col = 24, ui.Hex("#ff9f43")
 			}
-			p.Fill(ui.Rect{X: x - 1.5, Y: y + 1 - h/2, W: 3, H: h}, col, 1.5)
+			p.Fill(ui.Rect{X: x - w + 1, Y: y - 1, W: w, H: 2}, col, 1)
 		}
 	})
-	// the day of the front copy, over its mark; the ends' days under the line
-	label := a.tmWhen(sel)
-	ui.Text(c.Key("tm-when"), label).Absolute().Left(min(max(xOf(sel)-110, 8), ww-228)).Top(ty - 46).Width(220).TextAlign(ui.Center).
-		FontSize(15).FontWeight(650).TextColor(white).Opacity(in).PassThrough()
-	if n > 0 {
-		ui.Text(c.Key("tm-oldest"), a.tmWhen(n)).Absolute().Left(left - 40).Top(ty + 16).Width(200).FontSize(11.5).TextColor(white.Alpha(0.55)).Opacity(in).PassThrough()
+	for k, m := range marks {
+		ui.Text(c.Key("tm-mark:"+itoa(k)), m.label).Absolute().Left(lx - tmLineRight).Top(m.y - 8).Width(tmLineRight - 30).TextAlign(ui.End).
+			FontSize(11.5).TextColor(white.Alpha(0.7)).Opacity(in).PassThrough()
 	}
-	ui.Text(c.Key("tm-now"), T("Now")).Absolute().Left(left + tw - 60).Top(ty + 16).Width(100).TextAlign(ui.End).FontSize(11.5).TextColor(white.Alpha(0.55)).Opacity(in).PassThrough()
+	// the arrows under the line, tilted back as Time Machine's are: older, newer
+	arrow := func(key string, up bool, y float32) bool {
+		e := ui.Box(c.Key(key)).Absolute().Left(lx-60).Top(y).Size(56, 34).Radius(6).Cursor(ui.CursorPointer).
+			Label(map[bool]string{true: T("Older"), false: T("Newer")}[up]).Role(ui.RoleButton).
+			LinearGradient(ui.LinearGradient{Angle: 180, From: ui.Hex("#f2f4f8"), To: ui.Hex("#7d8594")}).
+			Border(1, ui.Hex("#ffffff").Alpha(0.5)).Shadow(0, 6, 14, 0, ui.Hex("#000000").Alpha(0.5)).
+			TransformOrigin(0.5, 1).Perspective(160).RotateX(38).Opacity(in)
+		if e.Hovered() {
+			e.LinearGradient(ui.LinearGradient{Angle: 180, From: ui.Hex("#ffffff"), To: ui.Hex("#9aa3b3")})
+		}
+		e.Draw(func(p *ui.Painter, r ui.Rect) {
+			path := &ui.Path{}
+			cx, cy := r.X+r.W/2, r.Y+r.H/2
+			s := float32(1)
+			if !up {
+				s = -1
+			}
+			path.MoveTo(cx, cy-10*s)
+			path.LineTo(cx+13, cy+5*s)
+			path.LineTo(cx+5, cy+5*s)
+			path.LineTo(cx+5, cy+11*s)
+			path.LineTo(cx-5, cy+11*s)
+			path.LineTo(cx-5, cy+5*s)
+			path.LineTo(cx-13, cy+5*s)
+			path.Close()
+			p.FillPath(path, ui.Hex("#2b3140"))
+		})
+		return e.Clicked() && !t.closing
+	}
+	if arrow("tm-older", true, bottom+22) {
+		t.sel = min(t.sel+1, n)
+	}
+	if arrow("tm-newer", false, bottom+62) {
+		t.sel = max(t.sel-1, 0)
+	}
 	if n == 0 {
 		ui.Text(c.Key("tm-none"), T("No copies of this page are kept yet: one is kept when it is written over, every few minutes.")).Absolute().
-			Left(left).Top(ty - 80).Width(tw).TextAlign(ui.Center).FontSize(13).TextColor(white.Alpha(0.7)).Opacity(in).PassThrough()
+			Left(40).Top(30).Width(ww - tmLineRight - 80).TextAlign(ui.Center).FontSize(13).TextColor(white.Alpha(0.75)).Opacity(in).PassThrough()
 	}
-	// the buttons
-	ui.Row(c.Key("tm-buttons")).Absolute().Right(28).Bottom(24 - (1-in)*60).Gap(8).Opacity(in).Children(func() {
-		if t.sel > 0 && ryugo.Button(c.Key("tm-diff"), T("Show the differences"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+}
+
+// tmBar draws the bar along the foot: Cancel, the day of the copy at the front, Restore; and the differences.
+func (a *app) tmBar(c *ui.Context, ww, wh, in float32) {
+	t := &a.tm
+	white := ui.Hex("#ffffff")
+	y := wh - tmBarH + (1-in)*tmBarH
+	ui.Box(c.Key("tm-bar")).Absolute().Left(0).Top(y).Size(ww, tmBarH).
+		LinearGradient(ui.LinearGradient{Angle: 180, From: ui.Hex("#454b57"), To: ui.Hex("#111318")}).Opacity(in).PassThrough().
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: 1}, white.Alpha(0.35), 0)
+			p.Fill(ui.Rect{X: r.X + r.W*0.2, Y: r.Y + 8, W: 1, H: r.H - 16}, white.Alpha(0.12), 0)
+			p.Fill(ui.Rect{X: r.X + r.W*0.8, Y: r.Y + 8, W: 1, H: r.H - 16}, white.Alpha(0.12), 0)
+		})
+	word := func(key, text string, x, w float32, on bool) bool {
+		e := ui.Box(c.Key(key)).Absolute().Left(x).Top(y).Size(w, tmBarH).AlignItems(ui.Center).Justify(ui.Center).
+			Label(text).Role(ui.RoleButton).Opacity(in)
+		col := white.Alpha(0.35)
+		if on {
+			e.Cursor(ui.CursorPointer)
+			col = white.Alpha(0.85)
+			if e.Hovered() {
+				col = white
+			}
+		}
+		e.Children(func() { ui.Text(c, text).FontSize(15).FontWeight(650).TextColor(col) })
+		return on && e.Clicked() && !t.closing
+	}
+	if word("tm-cancel", T("Cancel"), 0, ww*0.2, true) {
+		t.closing = true
+	}
+	ui.Text(c.Key("tm-when"), a.tmWhen(t.sel)).Absolute().Left(ww * 0.2).Top(y + 13).Width(ww * 0.6).TextAlign(ui.Center).
+		FontSize(16).FontWeight(700).TextColor(white).Opacity(in).PassThrough()
+	if word("tm-restore", T("Restore"), ww*0.8, ww*0.2, t.sel > 0) {
+		a.tmPutBack()
+	}
+	if t.sel > 0 { // the dialog of the differences, at this copy
+		d := ui.Box(c.Key("tm-diff")).Absolute().Left(ww*0.8-150).Top(y+12).Size(140, 22).AlignItems(ui.Center).Justify(ui.End).
+			Label(T("Show the differences")).Role(ui.RoleButton).Cursor(ui.CursorPointer).Opacity(in)
+		alpha := float32(0.55)
+		if d.Hovered() {
+			alpha = 0.95
+		}
+		d.Children(func() { ui.Text(c, T("Show the differences")).FontSize(12).TextColor(white.Alpha(alpha)) })
+		if d.Clicked() {
 			sel := t.sel - 1
 			p, vers := t.page, t.vers
 			*t = timeMachine{}
 			a.vhist = histView{open: true, page: p, vers: vers, sel: sel, opsFor: -1}
-			return
 		}
-		if ryugo.Button(c.Key("tm-cancel"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-			t.closing = true
-		}
-		if t.sel > 0 && ryugo.Button(c.Key("tm-restore"), T("Put this back"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
-			a.tmPutBack()
-		}
-	})
+	}
 }
+
+// tmGalaxy draws the night behind the history: a spiral galaxy seen a little from above, turning slowly, its heart at
+// Center, Scale pixels across; its dust in blocks of a few pixels, and stars scattered round it.
+var tmGalaxy = shader.MustCompile(`package main
+
+var Time float
+var Center vec2
+var Scale float
+
+func hash(p vec2) float {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
+}
+
+func Fragment(dst vec4, pos vec2) vec4 {
+	px := floor(pos/2) * 2
+	q := (px - Center) / Scale
+	q.y *= 2.3 // seen from a little above: a disc, not a circle
+	r := length(q)
+	ang := atan2(q.y, q.x)
+	// two arms wound in a log spiral, turning
+	arm := 0.5 + 0.5*cos(2*ang-6*log(r+0.03)+Time*0.06)
+	arm = arm * arm * arm
+	disc := exp(-r * 2.2)
+	grain := 0.55 + 0.45*hash(floor(px/3))
+	col := vec3(0.35, 0.47, 0.95) * arm * disc * grain * 1.1
+	col += vec3(0.75, 0.6, 1.0) * arm * exp(-r*5) * 0.35
+	// the heart: white hot, then gold
+	col += vec3(1.0, 0.95, 0.85) * exp(-r*r*55) * 1.6
+	col += vec3(1.0, 0.78, 0.5) * exp(-r*6) * 0.45
+	// stars, twinkling
+	s := hash(floor(pos/2) + vec2(7, 13))
+	col += vec3(step(0.9965, s)) * (0.55 + 0.45*sin(Time*1.7+s*60))
+	// the night, a little blue at the foot
+	col += mix(vec3(0.012, 0.014, 0.03), vec3(0.03, 0.04, 0.09), pos.y/rectSize().y)
+	return vec4(col, 1)
+}
+`)

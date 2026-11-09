@@ -99,6 +99,10 @@ var trText = map[string]string{
 	"%s already has it.":                       "%s içinde zaten var.",
 	"Added to %s (%s). Restart it to connect.": "%s uygulamasına eklendi (%s). Bağlanması için yeniden başlat.",
 	// the page's history (timemachine.go)
+	"Today (Now)":    "Bugün (Şimdi)",
+	"Older":          "Daha eski",
+	"Newer":          "Daha yeni",
+	"Restore":        "Geri yükle",
 	"Now":            "Şimdi",
 	"Page history":   "Sayfa geçmişi",
 	"Page history: ": "Sayfa geçmişi: ",
@@ -106,7 +110,6 @@ var trText = map[string]string{
 	"No copies of this page are kept yet: one is kept when it is written over, every few minutes.": "Bu sayfanın henüz saklanan bir kopyası yok: sayfa değiştikçe birkaç dakikada bir kopya saklanır.",
 	"Show the differences": "Farkları göster",
 	"Cancel":               "Vazgeç",
-	"Put this back":        "Bunu geri koy",
 	// sync
 	", %d merged": ", %d birleştirildi",
 	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",
