@@ -6,6 +6,8 @@
 //   GET    /files/<name>   the bytes
 //   PUT    /files/<name>   the bytes; If-Match: "<hash seen>" ("" when there was none); 412 when it is stale
 //   DELETE /files/<name>   If-Match as above; the file becomes a tombstone
+//   GET    /changes        { "changes": <n> }: the account's change counter, bumped by every PUT and DELETE; a device asks
+//                          for it often (it is one small read) and lists the files only when it moved
 //   /api/…   accounts: waitlist, registration with an invite code, login, devices (auth.js)
 //   /        the waitlist page;  /admin  the administrator's page (pages.js)
 //
@@ -102,6 +104,7 @@ async function handle(request, env) {
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
+  if (url.pathname === "/changes") return changes(request, env);
   if (!/^\/files(\/|$)/.test(url.pathname)) return new Response("not found", { status: 404 });
   return files(request, env, url);
 }
@@ -160,6 +163,16 @@ async function versions(request, env, url) {
   return Response.json(list);
 }
 
+// GET /changes: the account's change counter (see files()). An account of the old kind of token has none: 0, always.
+async function changes(request, env) {
+  if (request.method !== "GET") return new Response("no", { status: 405 });
+  const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const user = await userOfToken(env, token);
+  if (!user && !legacyAccount(env, token)) return new Response("no", { status: 401 });
+  const row = user ? await env.DB.prepare("SELECT changes FROM users WHERE id=?").bind(user.id).first() : null;
+  return Response.json({ changes: row?.changes || 0 }, { headers: { "cache-control": "no-store" } });
+}
+
 async function files(request, env, url) {
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   let user = await userOfToken(env, token);
@@ -212,6 +225,8 @@ async function files(request, env, url) {
   const only = head ? { etagMatches: head.etag } : { etagDoesNotMatch: "*" };
   const oldSize = head && !dead(head) ? head.size : 0;
   const bytes = (n) => (user && n ? env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes+?) WHERE id=?").bind(n, user.id).run() : null);
+  // a write done: the account's change counter moves, and the other devices, asking /changes, sync
+  const bump = () => (user ? env.DB.prepare("UPDATE users SET changes=changes+1 WHERE id=?").bind(user.id).run() : null);
   if (request.method === "PUT") {
     const body = await request.arrayBuffer();
     if (body.byteLength > MAX_BYTES) return new Response("too large", { status: 413 });
@@ -237,6 +252,7 @@ async function files(request, env, url) {
       return new Response("stale", { status: 412 });
     }
     if (delta < 0) await bytes(delta);
+    await bump();
     return new Response("ok");
   }
   if (!head || dead(head)) return new Response("ok"); // already gone
@@ -244,5 +260,6 @@ async function files(request, env, url) {
   const o = await bucket.put(key, new Uint8Array(0), { onlyIf: only, customMetadata: { tomb: "1" } });
   if (!o) return new Response("stale", { status: 412 });
   await bytes(-oldSize);
+  await bump();
   return new Response("ok");
 }

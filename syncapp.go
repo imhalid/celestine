@@ -48,7 +48,18 @@ type syncUI struct {
 	// a new library's welcome page waits for the first pass: made only if the account turns out to hold nothing
 	// at all, so that a second device shows the account's pages, and a welcome deleted there does not come back
 	seedWait bool
+	// the server's change counter as last read (ChangeCounter), and whether it was: it is asked every syncPoll while the
+	// window is in front, and a pass starts when it moved. behind: the window is not in front.
+	changes      int64
+	changesKnown bool
+	askedAt      time.Time
+	asking       bool
+	behind       bool
 }
+
+// syncPoll is how often the server is asked whether anything was written to the account, while the window is in
+// front: one small request, and what another device wrote is here in seconds, not at the next round of minutes.
+const syncPoll = 20 * time.Second
 
 // syncQuiet is how long the library is left unwritten before what was written is synced: a pause in the typing,
 // so that a page goes up as soon as one stops, and is there on another device by the time one gets to it.
@@ -60,6 +71,7 @@ const syncOnFocus = 20 * time.Second
 
 // windowFocused starts a pass when the window comes forward and the last one is not recent.
 func (a *app) windowFocused() {
+	a.sy.behind = false
 	if a.settings.SyncMode == "" || a.sy.busy || a.sy.tried.IsZero() || a.clock().Sub(a.sy.tried) < syncOnFocus {
 		return
 	}
@@ -174,8 +186,10 @@ func (a *app) syncNow() {
 			}
 		}
 		res, err := SyncOnce(st, StoreRoot, remote, state, skip, time.Now())
+		changes, cerr := remoteChanges(remote) // what this pass wrote moved it: that is not news for the next ask
 		a.do(func() error {
 			a.sy.busy = false
+			a.sy.changes, a.sy.changesKnown = changes, cerr == nil
 			a.sy.writes, a.sy.movedAt = st.Writes.Load(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			switch {
@@ -233,7 +247,54 @@ func (a *app) syncTick(c *ui.Context) {
 		c.After(syncQuiet - now.Sub(a.sy.movedAt) + 50*time.Millisecond)
 		return
 	}
+	if a.settings.SyncMode == "server" && !a.sy.behind {
+		if now.Sub(a.sy.askedAt) >= syncPoll {
+			a.askChanges()
+		}
+		wait := syncPoll - now.Sub(a.sy.askedAt)
+		if wait <= 0 { // not asked: a pass is going on, and its end asks for a frame
+			wait = syncPoll
+		}
+		c.After(wait + 50*time.Millisecond)
+		return
+	}
 	c.After(30 * time.Second)
+}
+
+// remoteChanges is the remote's change counter, when it keeps one.
+func remoteChanges(r Remote) (int64, error) {
+	if cc, ok := r.(ChangeCounter); ok {
+		return cc.Changes()
+	}
+	return 0, errors.New("no change counter")
+}
+
+// askChanges asks the server, in the background, whether anything was written to the account since the last pass;
+// a pass starts if it was.
+func (a *app) askChanges() {
+	if a.sy.asking || a.sy.busy {
+		return
+	}
+	remote, err := a.syncRemote()
+	if err != nil {
+		return
+	}
+	a.sy.asking, a.sy.askedAt = true, a.clock()
+	go func() {
+		defer a.guard()
+		n, err := remoteChanges(remote)
+		a.do(func() error {
+			a.sy.asking = false
+			if err != nil || a.sy.busy { // a pass going on reads the counter at its end
+				return nil
+			}
+			if a.sy.changesKnown && n != a.sy.changes {
+				a.sy.tried = time.Time{} // the next frame's syncTick starts a pass
+			}
+			a.sy.changes, a.sy.changesKnown = n, true
+			return nil
+		})
+	}()
 }
 
 // syncSummary is what a pass did, in the window's language.

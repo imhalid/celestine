@@ -540,6 +540,7 @@ func main() {
 		mygo.App.OnSecondInstance(func([]string, string) { a.bringToFront() })
 		w.OnClosed(mygo.App.Quit)                                                  // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(func() { a.do(func() error { a.windowFocused(); return nil }) }) // back from another device: what it wrote comes
+		w.OnBlur(func() { a.do(func() error { a.sy.behind = true; return nil }) }) // the server is not asked for changes behind other windows
 		if runtime.GOOS == "windows" {
 			w.SetIcon(winIcon) // the title bar and taskbar
 		} else {

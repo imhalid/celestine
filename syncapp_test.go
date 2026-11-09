@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/ryudit/internal/library"
 )
 
 func syncApp(t *testing.T, remoteDir string) *app {
@@ -476,5 +482,125 @@ func TestSyncNewLibraryWithoutAccount(t *testing.T) {
 	}
 	if len(welcomes) != 1 || welcomes[0] != "the account's own welcome\n" {
 		t.Fatalf("the welcome pages after signing in: %q", welcomes)
+	}
+}
+
+// changesServer is a sync server of the Worker's protocol over a folder, with its change counter; it counts how
+// often the counter was asked for.
+type changesServer struct {
+	mu      sync.Mutex
+	dir     DirRemote
+	changes int64
+	asked   int
+}
+
+func (s *changesServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r.URL.Path == "/changes" {
+		s.asked++
+		json.NewEncoder(w).Encode(map[string]int64{"changes": s.changes})
+		return
+	}
+	name := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/files"), "/")
+	prev := strings.Trim(r.Header.Get("If-Match"), `"`)
+	var err error
+	switch {
+	case name == "":
+		var list map[string]RemoteEntry
+		if list, err = s.dir.List(); err == nil {
+			json.NewEncoder(w).Encode(list)
+		}
+	case r.Method == "GET":
+		var b []byte
+		if b, err = s.dir.Get(name); err == nil {
+			w.Write(b)
+		}
+	case r.Method == "PUT":
+		b, _ := io.ReadAll(r.Body)
+		if err = s.dir.Put(name, b, prev); err == nil {
+			s.changes++
+		}
+	case r.Method == "DELETE":
+		if err = s.dir.Delete(name, prev); err == nil {
+			s.changes++
+		}
+	}
+	switch {
+	case errors.Is(err, library.ErrConflict):
+		http.Error(w, "stale", http.StatusPreconditionFailed)
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+}
+
+// While the window is in front, the server is asked every syncPoll whether anything was written; a pass starts
+// when the counter moved, and none when it did not. Behind other windows, it is not asked.
+func TestSyncWhenTheServerChanged(t *testing.T) {
+	library.AllowHTTP = true
+	defer func() { library.AllowHTTP = false }()
+	srv := &changesServer{dir: DirRemote{Root: t.TempDir()}}
+	hs := httptest.NewServer(srv)
+	defer hs.Close()
+	server := func(a *app) {
+		a.settings.SyncMode, a.settings.SyncURL, a.settings.SyncToken = "server", hs.URL, "jeton"
+	}
+	a, b := syncApp(t, ""), syncApp(t, "")
+	server(a)
+	server(b)
+	now := time.Now()
+	b.clock = func() time.Time { return now }
+	tt := ui.NewTester(b.view, 900, 700)
+	tt.Frame() // the pass at the start
+	waitSync(t, b)
+	asked := func() int { srv.mu.Lock(); defer srv.mu.Unlock(); return srv.asked }
+	tick := func() {
+		now = now.Add(syncPoll + time.Second)
+		tt.Frame()
+		for i := 0; i < 200; i++ { // the answer, then the frame it asks for
+			b.mu.Lock()
+			asking := b.sy.asking
+			b.mu.Unlock()
+			if !asking {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		time.Sleep(20 * time.Millisecond)
+		tt.Frame()
+		waitSync(t, b)
+	}
+	last := b.sy.last
+	tick()
+	if asked() == 0 {
+		t.Fatal("the server was not asked")
+	}
+	if b.sy.last != last {
+		t.Fatal("a pass started though nothing changed")
+	}
+	c, _ := a.lib.NewCollection("Shared")
+	p, _ := c.NewPage(nil, "From A")
+	p.SaveText("words\n")
+	a.syncNow()
+	waitSync(t, a)
+	tick()
+	if b.sy.last == last {
+		t.Fatal("no pass after the server changed")
+	}
+	found := false
+	for _, co := range b.lib.Collections {
+		for _, q := range co.All() {
+			found = found || q.Title == "From A"
+		}
+	}
+	if !found {
+		t.Fatalf("the page did not come: %q", b.sy.err)
+	}
+	// behind other windows: not asked
+	b.sy.behind = true
+	n := asked()
+	tick()
+	if asked() != n {
+		t.Fatal("asked behind other windows")
 	}
 }

@@ -174,6 +174,7 @@ func (d DirRemote) Delete(name, prev string) error {
 //	GET    /files/<name>     the bytes
 //	PUT    /files/<name>     the bytes; If-Match: <hash of what was seen>, "" for none; 412 on a conflict
 //	DELETE /files/<name>     If-Match as above; leaves a tombstone
+//	GET    /changes          {"changes": n}: a counter every PUT and DELETE moves (ChangeCounter)
 //
 // with "Authorization: Bearer <the device's token>".
 type httpRemote struct {
@@ -274,7 +275,7 @@ func (h *httpRemote) versionURL(name string, at int64) string {
 	return u
 }
 
-func (h *httpRemote) getVersion(u string) ([]byte, error) {
+func (h *httpRemote) get(u string) ([]byte, error) {
 	if err := HTTPSOnly(h.base); err != nil {
 		return nil, err
 	}
@@ -295,7 +296,7 @@ func (h *httpRemote) getVersion(u string) ([]byte, error) {
 }
 
 func (h *httpRemote) Versions(name string) ([]RemoteVersion, error) {
-	b, err := h.getVersion(h.versionURL(name, 0))
+	b, err := h.get(h.versionURL(name, 0))
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +305,37 @@ func (h *httpRemote) Versions(name string) ([]RemoteVersion, error) {
 }
 
 func (h *httpRemote) VersionData(name string, at int64) ([]byte, error) {
-	return h.getVersion(h.versionURL(name, at))
+	return h.get(h.versionURL(name, at))
+}
+
+// A ChangeCounter is a remote that tells, at the cost of a small request, whether anything was written to it: a
+// counter that each write moves. A device asks it often, and lists the files only when it moved.
+type ChangeCounter interface {
+	Changes() (int64, error)
+}
+
+func (h *httpRemote) Changes() (int64, error) {
+	b, err := h.get(h.base + "/changes")
+	if err != nil {
+		return 0, err
+	}
+	var out struct {
+		Changes *int64 `json:"changes"`
+	}
+	if err := json.Unmarshal(b, &out); err != nil || out.Changes == nil {
+		return 0, errNoChanges
+	}
+	return *out.Changes, nil
+}
+
+var errNoChanges = errors.New("bu eşitleme yeri değişiklik sayacı tutmuyor")
+
+// Changes is the inner remote's counter: the encryption hides names and bytes, not that something was written.
+func (e *EncRemote) Changes() (int64, error) {
+	if c, ok := e.inner.(ChangeCounter); ok {
+		return c.Changes()
+	}
+	return 0, errNoChanges
 }
 
 // ---- end-to-end encryption ----

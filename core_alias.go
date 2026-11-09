@@ -123,6 +123,7 @@ type SyncResult = library.SyncResult
 type SyncState = library.SyncState
 type MetaBases = library.MetaBases
 type DirBases = library.DirBases
+type ChangeCounter = library.ChangeCounter
 
 var TextOfBody = library.TextOfBody
 
