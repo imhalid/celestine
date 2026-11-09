@@ -387,3 +387,48 @@ func TestListGroupedByChoice(t *testing.T) {
 		t.Fatalf("still grouped by a property that is gone: %q", g)
 	}
 }
+
+// A table's columns stay as the user leaves them: a width dragged, a column moved or hidden goes into the view and is
+// saved once still (not on each frame of the drag), and comes back on the table of a library opened again.
+func TestTableColumnsRemembered(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	if err := tt.Click("Tablo"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	v := coll.View()
+	tu := a.tableOf(coll, v)
+	tu.st.Widths = map[string]float32{"created": 220}
+	tu.st.Order = []string{"modified", "created"}
+	tu.st.Hidden = map[string]bool{"parent": true}
+	tt.Frame()
+	saved := func() View {
+		data, _ := os.ReadFile(filepath.Join(coll.Dir, CollectionFile))
+		var c Collection
+		json.Unmarshal(data, &c)
+		for _, sv := range c.Views {
+			if sv.ID == v.ID {
+				return sv
+			}
+		}
+		return View{}
+	}
+	if v.Widths["created"] != 220 || saved().Widths != nil {
+		t.Fatalf("taken into the view %v, or saved at once %v", v.Widths, saved().Widths)
+	}
+	tt.Advance(layoutSettle + 200*time.Millisecond)
+	sv := saved()
+	if sv.Widths["created"] != 220 || !slices.Equal(sv.Order, []string{"modified", "created"}) || !slices.Equal(sv.Hidden, []string{"parent"}) {
+		t.Fatalf("not saved once still: %+v", sv)
+	}
+	again, _ := OpenLibrary(a.lib.Root)
+	b := newApp(again)
+	ac := again.Collections[0]
+	tt2 := ui.NewTester(b.view, 1180, 900)
+	b.openCollection(ac)
+	tt2.Frame()
+	st := b.tableOf(ac, ac.View()).st
+	if st.Widths["created"] != 220 || !st.Hidden["parent"] || !slices.Equal(st.Order, []string{"modified", "created"}) {
+		t.Fatalf("the table opened again: %+v", st)
+	}
+}

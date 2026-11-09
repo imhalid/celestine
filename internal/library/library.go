@@ -104,6 +104,11 @@ type View struct {
 	// DateField is what places a page on a calendar's day: "created" (the
 	// default), "modified", or "prop:<id>" of a date property.
 	DateField string `json:"dateField,omitempty"`
+	// Widths, Order and Hidden are how a table's columns were left: the widths dragged, the order they were
+	// moved to, and those hidden from its menu, by column.
+	Widths map[string]float32 `json:"widths,omitempty"`
+	Order  []string           `json:"order,omitempty"`
+	Hidden []string           `json:"hidden,omitempty"`
 }
 
 // defaultViews are the views a collection starts with.

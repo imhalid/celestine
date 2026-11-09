@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -520,7 +521,71 @@ const tableTitleMin = 200
 type tableUI struct {
 	st      ryugo.TableState
 	applied []ryugo.SortKey
+	layout  tableLayout // the columns as last given to the table or taken from it (takeLayout)
+	dirtyAt time.Time   // when the user last changed them, not yet saved; zero when saved
 }
+
+// tableLayout is how a table's columns are: their widths, order and those hidden.
+type tableLayout struct {
+	widths map[string]float32
+	order  []string
+	hidden []string
+}
+
+func (l tableLayout) equal(o tableLayout) bool {
+	return maps.Equal(l.widths, o.widths) && slices.Equal(l.order, o.order) && slices.Equal(l.hidden, o.hidden)
+}
+
+// layoutOf is the layout of the table's state, the hidden columns sorted.
+func layoutOf(st *ryugo.TableState) tableLayout {
+	l := tableLayout{widths: maps.Clone(st.Widths), order: slices.Clone(st.Order)}
+	for id, h := range st.Hidden {
+		if h {
+			l.hidden = append(l.hidden, id)
+		}
+	}
+	slices.Sort(l.hidden)
+	return l
+}
+
+// takeLayout keeps the columns as the user leaves them, as takeSort does the sort: a width dragged, a column
+// moved or hidden goes into the view, and is saved once it has been still a moment (not each frame of a drag);
+// a view changed elsewhere (read again, another pane) is given to the table.
+func (a *app) takeLayout(c *ui.Context, coll *Collection, v *View, tu *tableUI) {
+	now := c.Now()
+	got := layoutOf(&tu.st)
+	switch {
+	case !got.equal(tu.layout): // the user changed them
+		v.Widths, v.Order, v.Hidden = got.widths, got.order, got.hidden
+		tu.layout, tu.dirtyAt = got, now
+		c.After(layoutSettle + 50*time.Millisecond)
+	case !tu.dirtyAt.IsZero():
+		if now.Sub(tu.dirtyAt) < layoutSettle {
+			c.After(layoutSettle - now.Sub(tu.dirtyAt) + 20*time.Millisecond)
+			return
+		}
+		tu.dirtyAt = time.Time{}
+		if err := coll.Save(); err != nil {
+			a.saveErr = err.Error()
+		}
+	default:
+		want := tableLayout{widths: v.Widths, order: v.Order, hidden: v.Hidden}
+		if !want.equal(tu.layout) {
+			tu.st.Widths, tu.st.Order = maps.Clone(v.Widths), slices.Clone(v.Order)
+			tu.st.Hidden = nil
+			for _, id := range v.Hidden {
+				if tu.st.Hidden == nil {
+					tu.st.Hidden = map[string]bool{}
+				}
+				tu.st.Hidden[id] = true
+			}
+			tu.layout = layoutOf(&tu.st)
+		}
+	}
+}
+
+// layoutSettle is how long the columns are still before what the user did to them is saved.
+const layoutSettle = 400 * time.Millisecond
 
 // tableLabels are the table's words.
 var tableLabels = ryugo.TableLabels{
@@ -609,6 +674,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	now := a.clock()
 	tu := a.tableOf(coll, v)
 	a.takeSort(coll, v, tu)
+	a.takeLayout(c, coll, v, tu)
 	var cols []ryugo.Column[*Page]
 	for i, col := range tableColumns(coll, v) {
 		col, first := col, i == 0
