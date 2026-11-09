@@ -132,6 +132,18 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
+		{name: "Caret blink", alias: "imleç yanıp sönme blink cursor", fields: []string{"caretBlink"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, o := range []struct {
+				name string
+				ms   int
+			}{{"Off", 0}, {"Slow", 1000}, {"Normal", 530}, {"Fast", 350}} {
+				o := o
+				out = append(out, settingChoice{name: T(o.name), current: a.settings.CaretBlink == o.ms,
+					set: func(a *app) { a.settings.CaretBlink = o.ms; a.saveSettings() }})
+			}
+			return out
+		}},
 		{name: "Köşeler", alias: "köşe yuvarlaklığı radius", fields: []string{"corner"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, p := range []int{0, 50, 100, 150, 200} {
@@ -225,6 +237,7 @@ func settingDefs() []settingDef {
 		simple("Boşlukları göster", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),
 		simple("Sekmeleri göster", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),
 		simple("Paragraf sonlarını göster", "pilcrow satır sonu eol", "showBreaks", func(s *Settings) *bool { return &s.ShowBreaks }, false),
+		simple("White space only in the selection", "whitespace selection boşluk seçim", "whiteInSel", func(s *Settings) *bool { return &s.WhiteInSel }, false),
 		simple("Kod bloklarında boşlukları göster", "kod code whitespace", "markCode", func(s *Settings) *bool { return &s.MarkCode }, false),
 		simple("Kısayol ipuçları", "keys shortcuts hints status kısayol ipucu", "hideHints", func(s *Settings) *bool { return &s.HideHints }, true),
 		simple("Durum çubuğunu gizle", "odak modu focus hide statusbar", "hideStatus", func(s *Settings) *bool { return &s.HideStatus }, false),

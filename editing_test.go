@@ -195,3 +195,64 @@ func TestEditorSettingsDefaults(t *testing.T) {
 		t.Fatal("old file not read")
 	}
 }
+
+// With white space shown only in the selection, a page with nothing selected has no marks, and one selected across
+// the spaces has them there.
+func TestWhiteSpaceOnlyInSelection(t *testing.T) {
+	a, tt := newTestApp(t, "one two three four\n\n"+strings.Repeat("filler\n\n", 9)+"end")
+	end := a.doc.Text().Len()
+	a.doc.SetSelection(end, end) // the caret far from the first line
+	tt.Advance(100 * time.Millisecond)
+	tt.Advance(100 * time.Millisecond)
+	first := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+40)
+	snap := func() *image.RGBA {
+		tt.Frame()
+		tt.Advance(40 * time.Millisecond)
+		im := *tt.Image()
+		im.Pix = append([]byte(nil), im.Pix...)
+		return &im
+	}
+	plain := snap()
+	a.settings.ShowSpaces, a.settings.WhiteInSel = true, true
+	if n := pixelsDiffer(plain, snap(), first, image.Rectangle{}); n != 0 {
+		t.Fatalf("marks with nothing selected: %d", n)
+	}
+	a.settings.WhiteInSel = false
+	if n := pixelsDiffer(plain, snap(), first, image.Rectangle{}); n == 0 {
+		t.Fatal("no marks at all: the test sees nothing")
+	}
+}
+
+// A caret set to blink is shown while it moves, and once still is hidden and shown again; set not to, it stays.
+func TestCaretBlink(t *testing.T) {
+	a, tt := newTestApp(t, "one two\n")
+	a.settings.NoCaretFX = true // a plain caret: nothing else moves round it
+	a.doc.SetSelection(3, 3)
+	tt.Advance(100 * time.Millisecond)
+	box := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+40)
+	snap := func() *image.RGBA {
+		im := *tt.Image()
+		im.Pix = append([]byte(nil), im.Pix...)
+		return &im
+	}
+	a.settings.CaretBlink = 500
+	a.doc.SetSelection(4, 4) // moved: shown
+	tt.Frame()
+	shown := snap()
+	tt.Advance(700 * time.Millisecond) // still past the first half: hidden
+	tt.Frame()
+	if pixelsDiffer(shown, snap(), box, image.Rectangle{}) == 0 {
+		t.Fatal("the caret did not blink off")
+	}
+	tt.Advance(500 * time.Millisecond) // on again
+	tt.Frame()
+	if n := pixelsDiffer(shown, snap(), box, image.Rectangle{}); n != 0 {
+		t.Fatalf("the caret did not come back: %d", n)
+	}
+	a.settings.CaretBlink = 0
+	tt.Advance(500 * time.Millisecond)
+	tt.Frame()
+	if n := pixelsDiffer(shown, snap(), box, image.Rectangle{}); n != 0 {
+		t.Fatalf("a caret not set to blink went: %d", n)
+	}
+}

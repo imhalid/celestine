@@ -102,9 +102,16 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 	cl := ryugo.Painting(p).Colors
 	faint := cl.Muted.Alpha(0.55)
 	warn := cl.Warn.Alpha(0.75)
+	// only in the selection, when that is set: and nothing with none
+	sa, sc := a.doc.Selection()
+	selS, selE := min(sa, sc), max(sa, sc)
+	onlySel := a.settings.WhiteInSel
+	if onlySel && selS == selE {
+		return
+	}
 	for _, b := range a.shown(r) {
 		s, e := text.ParagraphRange(b.Start)
-		if e-s > maxMarked {
+		if e-s > maxMarked || onlySel && (e < selS || s >= selE) {
 			continue
 		}
 		var para richtext.Paragraph
@@ -156,6 +163,9 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 			return ui.Rect{}, false
 		}
 		for i, ch := range runes {
+			if onlySel && (s+i < selS || s+i >= selE) {
+				continue
+			}
 			col := faint
 			if i >= end {
 				col = warn
@@ -180,7 +190,7 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 				}
 			}
 		}
-		if a.settings.ShowBreaks && e < text.Len() { // not after the last one: nothing follows it
+		if a.settings.ShowBreaks && e < text.Len() && (!onlySel || e >= selS && e < selE) { // not after the last one: nothing follows it
 			if n := len(runes); n > 0 {
 				if rc, ok := at(n - 1); ok {
 					a.pilcrow(p, rc.X+rc.W+2, rc.Y, rc.H, faint)

@@ -74,6 +74,8 @@ type Settings struct {
 	TabSpaces     int                       `json:"tabSpaces,omitempty"`     // a Tab writes this many spaces; 0 a tab
 	SleepSecs     float64                   `json:"sleepSecs,omitempty"`     // seconds at rest before the caret dozes: 5 when not set
 	NoCaretFX     bool                      `json:"noCaretFx,omitempty"`     // a plain caret, whatever caret is chosen: light mode
+	CaretBlink    int                       `json:"caretBlink,omitempty"`    // the caret blinks, on and off this many ms each, once still; 0: it does not
+	WhiteInSel    bool                      `json:"whiteInSel,omitempty"`    // the white space is shown only in the selection
 	Keys          map[string]string         `json:"keys,omitempty"`          // a command (its title) to a key of its own (keys.go)
 	Macros        map[string][]string       `json:"macros,omitempty"`        // a name to the commands it runs one after another
 	AlwaysRing    bool                      `json:"alwaysRing,omitempty"`    // the row the keys are on is ringed, in the normal mode or not (kb.go)

@@ -155,6 +155,7 @@ type app struct {
 	tourAt      int                // the step of the tour
 	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
+	blink       caretBlink         // when the caret last moved, for it to blink once still (caretBlinkOff)
 	bsel        blockSel           // blocks chosen from the keyboard (blocksel.go)
 	toasts      toastState         // the toasts up (toast.go)
 	statCache   libStats           // the library's figures, read at most every ten seconds
@@ -1296,6 +1297,9 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.caretWin = cr
 	a.revealCaret(cr)
 	anchor, caret := a.doc.Selection()
+	if a.caretBlinkOff(p, anchor, caret) { // the off half of a blink
+		return
+	}
 	if anchor != caret || a.settings.NoCaretFX { // over a selection, or with the effects off, a plain caret: the jelly would hide what is selected
 		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
@@ -1307,6 +1311,34 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.wordsFn = &caretWords{doc: doc, boxes: boxes, x: r.X, y: r.Y, w: r.W, font: font, th: th}
 	a.paintCaret(p, cr, cb.cw, r, k, false)
 	a.nearFn, a.wordsFn = nil, nil
+}
+
+// caretBlink is where the caret last was, and since when: it blinks only once it has been still.
+type caretBlink struct {
+	anchor, caret int
+	since         time.Time
+}
+
+// caretBlinkOff reports whether the caret is in the off half of its blink: with the blink set, once it has stood
+// still a moment, it is hidden and shown again every CaretBlink ms; typing or moving it shows it at once.
+func (a *app) caretBlinkOff(p *ui.Painter, anchor, caret int) bool {
+	rate := time.Duration(a.settings.CaretBlink) * time.Millisecond
+	now := p.Now()
+	b := &a.blink
+	if b.anchor != anchor || b.caret != caret || a.wrote > 0 || a.edited || b.since.IsZero() {
+		*b = caretBlink{anchor: anchor, caret: caret, since: now}
+	}
+	if rate <= 0 || anchor != caret {
+		return false
+	}
+	still := now.Sub(b.since)
+	if still < rate { // shown, and still while it is moved about
+		p.After(rate - still + time.Millisecond)
+		return false
+	}
+	phase := (still - rate) / rate
+	p.After(rate - (still-rate)%rate + time.Millisecond)
+	return phase%2 == 0
 }
 
 // paintCaret draws the caret cr, in the editor's box bounds (or an input's):
