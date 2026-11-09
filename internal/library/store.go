@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -156,10 +157,52 @@ func IsLibraryFolder(dir string) bool {
 // LibraryFile is where the library is kept when none is named: a file next
 // to the program, so that the two move together. A program `go run` built is
 // in a folder of its own each time, and its library is the working folder's.
+// A program installed where it cannot write (/usr/local/bin, Program Files)
+// keeps its library in the user's data folder.
 func LibraryFile() string {
 	dir := "."
 	if exe, err := os.Executable(); err == nil && !strings.Contains(filepath.ToSlash(exe), "/go-build") {
 		dir = filepath.Dir(exe)
 	}
-	return filepath.Join(dir, "kitaplik.db")
+	return libraryFileIn(dir, dataDir())
+}
+
+// libraryFileIn is kitaplik.db in dir, or in data when dir cannot be written
+// (and data is known).
+func libraryFileIn(dir, data string) string {
+	if data == "" || writable(dir) {
+		return filepath.Join(dir, "kitaplik.db")
+	}
+	os.MkdirAll(data, 0o755)
+	return filepath.Join(data, "kitaplik.db")
+}
+
+// writable is whether a file can be made in dir: the library's file and the
+// journal SQLite keeps beside it.
+func writable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".ryudit-*")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	os.Remove(f.Name())
+	return true
+}
+
+// dataDir is the user's folder for the app's data: ~/.local/share/ryudit on
+// Linux (or $XDG_DATA_HOME), the config folder elsewhere.
+func dataDir() string {
+	if runtime.GOOS == "linux" {
+		if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+			return filepath.Join(d, "ryudit")
+		}
+		if h, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(h, ".local", "share", "ryudit")
+		}
+		return ""
+	}
+	if d, err := os.UserConfigDir(); err == nil {
+		return filepath.Join(d, "ryudit")
+	}
+	return ""
 }
