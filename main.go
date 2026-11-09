@@ -394,7 +394,7 @@ func main() {
 	}
 	if info, serr := os.Stat(arg); arg != "" && serr == nil && info.IsDir() {
 		root, _ := filepath.Abs(arg)
-		lib, err = OpenLibrary(root)
+		lib, err = OpenLibraryIn(&countFS{FS: OSFS{}}, root) // its writes counted: the sync goes a moment after them
 	} else {
 		file := LibraryFile()
 		if arg != "" {

@@ -604,3 +604,84 @@ func TestSyncWhenTheServerChanged(t *testing.T) {
 		t.Fatal("asked behind other windows")
 	}
 }
+
+// folderSyncApp is an app over a folder library, its writes counted as main counts them, its settings in a
+// folder of the test's, syncing to the folder remoteDir.
+func folderSyncApp(t *testing.T, remoteDir string) *app {
+	lib, err := OpenLibraryIn(&countFS{FS: OSFS{}}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(lib)
+	a.settingsFile = filepath.Join(t.TempDir(), "ryudit", "settings.json")
+	a.settings.SyncMode, a.settings.SyncDir = "dir", remoteDir
+	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
+	return a
+}
+
+// A folder library syncs as a library file does: what is written goes up once the writing is quiet, its state is
+// kept in the config folder, and a page changed on both sides is merged.
+func TestSyncFolderLibrary(t *testing.T) {
+	dir := t.TempDir()
+	a, b := folderSyncApp(t, dir), folderSyncApp(t, dir)
+	now := time.Now()
+	a.clock = func() time.Time { return now }
+	tt := ui.NewTester(a.view, 900, 700)
+	tt.Frame() // the pass at the start
+	waitSync(t, a)
+	if a.sy.err != "" {
+		t.Fatalf("the pass: %s", a.sy.err)
+	}
+	c, _ := a.lib.NewCollection("Shared")
+	p, _ := c.NewPage(nil, "Written")
+	p.SaveText("one\n\ntwo\n\nthree\n")
+	if a.libWrites() == a.sy.writes {
+		t.Fatal("the writes were not counted")
+	}
+	tt.Frame() // the writing is seen
+	now = now.Add(syncQuiet + time.Second)
+	tt.Frame()
+	waitSync(t, a)
+	if a.sy.err != "" {
+		t.Fatalf("the pass: %s", a.sy.err)
+	}
+	if _, err := os.Stat(filepath.Join(a.syncStateDir(), "state.json")); err != nil {
+		t.Fatalf("the state is not in the config folder: %v", err)
+	}
+	b.syncNow()
+	waitSync(t, b)
+	page := func(x *app) *Page {
+		for _, co := range x.lib.Collections {
+			for _, q := range co.All() {
+				if q.Title == "Written" {
+					return q
+				}
+			}
+		}
+		return nil
+	}
+	pb := page(b)
+	if pb == nil {
+		t.Fatalf("the page did not come: %q", b.sy.err)
+	}
+	// both change it, each a block of its own: merged, with no conflict
+	edit := func(x *app, q *Page, from, to string) {
+		src, err := x.lib.FS.ReadFile(filepath.Join(q.Dir, PageFileName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := x.lib.FS.WriteFile(filepath.Join(q.Dir, PageFileName), []byte(strings.Replace(string(src), from, to, 1))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	edit(a, page(a), `"one"`, `"ONE"`)
+	edit(b, pb, `"three"`, `"THREE"`)
+	a.syncNow()
+	waitSync(t, a)
+	b.syncNow()
+	waitSync(t, b)
+	src, _ := b.lib.FS.ReadFile(filepath.Join(page(b).Dir, PageFileName))
+	if !strings.Contains(string(src), `"ONE"`) || !strings.Contains(string(src), `"THREE"`) || len(b.conflictFiles()) > 0 {
+		t.Fatalf("not merged (%q): %s", b.sy.err, src)
+	}
+}
