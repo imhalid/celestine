@@ -491,3 +491,64 @@ func TestWelcomeShots(t *testing.T) {
 		save("opening")
 	}
 }
+
+// TestLapseShots draws the time-lapse of a page written over five days, in
+// the light and the dark theme, a day lit and a day alone: run with
+// LAPSE=dir.
+func TestLapseShots(t *testing.T) {
+	dir := os.Getenv("LAPSE")
+	if dir == "" {
+		t.Skip()
+	}
+	st, now := storeAt(t)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	seed(lib)
+	a := newApp(lib)
+	a.clock = func() time.Time { return *now }
+	tt := ui.NewTester(a.view, 1180, 820)
+	tt.Advance(50 * time.Millisecond)
+	p := a.page
+	p.Save("")
+	drafts := []string{
+		"The garden is small.",
+		"The garden is small and faces north, so the light is thin in winter.\n\nI want to plant something that does not mind the shade.",
+		"The garden is small and faces north, so the light is thin from October to March.\n\nI want to plant ferns, hostas and anything else that does not mind the shade.\n\nThe soil is heavy clay.",
+		"The garden is small and faces north, so the light is thin from October to March. In summer the far corner gets two hours of sun.\n\nI want to plant ferns, hostas and anything else that does not mind the shade. Foxgloves self-seed and come back every year.\n\nThe soil is heavy clay: it holds water and cracks in August.",
+		"In summer the far corner gets two hours of sun, and the rest stays cool all day. The garden is small and faces north, so the light is thin from October to March.\n\nPlant ferns, hostas and anything else that does not mind the shade. Foxgloves self-seed and come back every year.\n\nThe soil is heavy clay: it holds water in spring and cracks in August, so dig in compost before planting.\n\nNext: a bench by the wall.",
+	}
+	for _, s := range drafts {
+		*now = now.Add(10 * time.Minute)
+		p.SaveText(s + "\n")
+	}
+	vs := st.Versions(p.File()) // the latest first
+	for i := range len(drafts) - 1 {
+		st.DB.Exec(`UPDATE versions SET at = ? WHERE id = ?`, time.Date(2026, 11, 9-i, 16, 0, 0, 0, time.Local).UnixNano(), vs[i].ID)
+	}
+	a.takeOutside(p)
+	p.Modified = time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
+	*now = p.Modified
+	a.toggleLapse()
+	shot := func(name string, wait time.Duration) {
+		for range 50 {
+			tt.Frame()
+			tt.Advance(20 * time.Millisecond)
+			if a.lapse.words != nil {
+				break
+			}
+		}
+		tt.Frame() // what was set here, outside a frame
+		tt.Advance(wait)
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	shot("lapse", 300*time.Millisecond)
+	a.lapse.lit = 4
+	shot("lapse-lit", 400*time.Millisecond)
+	a.lapse.lit, a.lapse.solo = 0, 5
+	shot("lapse-solo-moving", 150*time.Millisecond)
+	shot("lapse-solo", 600*time.Millisecond)
+	a.lapse.solo = 0
+	a.settings.Theme = 2
+	shot("lapse-dark", 600*time.Millisecond)
+}

@@ -38,11 +38,12 @@ func (s *Store) oldFile(n string) ([]byte, time.Time) {
 	return data, mt
 }
 
-// keep stores data as a version of n written at at, and lets the oldest go
-// past historyKeep.
+// keep stores data as a version of n written at at, and lets the copies of
+// every page taken more than HistoryDays ago go, but the named ones.
 func (s *Store) keep(n string, data []byte, at time.Time) {
-	s.DB.Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), s.clock().UnixNano(), data)
-	s.DB.Exec(`DELETE FROM versions WHERE path = ?1 AND label = '' AND id NOT IN (SELECT id FROM versions WHERE path = ?1 AND label = '' ORDER BY id DESC LIMIT ?2)`, n, HistoryKeep)
+	now := s.clock()
+	s.DB.Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), now.UnixNano(), data)
+	s.DB.Exec(`DELETE FROM versions WHERE label = '' AND taken < ?`, now.AddDate(0, 0, -HistoryDays).UnixNano())
 }
 
 // SnapshotNow keeps the file at name as it is, whatever was kept lately: as

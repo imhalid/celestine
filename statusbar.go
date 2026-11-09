@@ -41,6 +41,8 @@ type hint struct{ key, what string }
 // hints are the keys that can be pressed now, by where the user is: the first the most useful.
 func (a *app) hints() []hint {
 	switch {
+	case a.lapse.on && !a.pal.open:
+		return []hint{{"Esc", "back to the text"}}
 	case a.pal.open:
 		return []hint{{"↑↓", "seç"}, {"↵", "aç"}, {"Esc", "kapat"}, {">", "komutlar"}, {"#", "etiketler"}, {":", "satıra git"}}
 	case a.find.open:

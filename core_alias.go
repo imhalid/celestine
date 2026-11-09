@@ -41,12 +41,13 @@ var HashOf = library.HashOf
 
 type Historian = library.Historian
 
-const HistoryKeep = library.HistoryKeep
+const HistoryDays = library.HistoryDays
 const IndexFile = library.IndexFile
 
 var IsLibraryFolder = library.IsLibraryFolder
 var JoinPage = library.JoinPage
 var KeyFromRecovery = library.KeyFromRecovery
+var LastOfDays = library.LastOfDays
 
 const LegacyPageFile = library.LegacyPageFile
 
@@ -136,6 +137,10 @@ type Version = library.Version
 type View = library.View
 
 var Within = library.Within
+
+type Word = library.Word
+
+var WordHistory = library.WordHistory
 var WriteFilePrivate = library.WriteFilePrivate
 
 // The library's variables that the app reads: its counter itself, and the others, which do not change.

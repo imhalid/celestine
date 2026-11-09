@@ -26,6 +26,9 @@ func (a *app) pageButtons(c *ui.Context) {
 		if !phone && a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") { // a phone has no side panel
 			a.togglePanel()
 		}
+		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: T("Time-lapse"), true: T("Back to the text")}[a.lapse.on]) {
+			a.toggleLapse()
+		}
 		if a.barButton(c, iconMore, "Sayfa menüsü") {
 			ww, wh := c.Size()
 			a.showContext(ww-24, wh-34, a.pageMoreMenu(a.page)) // opens upward, from the bar

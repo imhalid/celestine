@@ -117,6 +117,9 @@ func (a *app) commands() []palItem {
 		if p.Coll.SubPages {
 			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
+		if _, ok := historyOf(p); ok {
+			out = append(out, cmd(map[bool]string{false: "Time-lapse", true: "Back to the text"}[a.lapse.on], "", iconLapse, a.toggleLapse))
+		}
 		out = append(out, cmd("Geri al", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
 		out = append(out, cmd("Yinele", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
 		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))

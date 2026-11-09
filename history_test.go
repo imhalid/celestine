@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -153,7 +154,8 @@ func TestPairWords(t *testing.T) {
 }
 
 // TestNamedVersion: a copy the user names is kept whatever was kept lately,
-// is never pushed out by the limit, and has its name in the list.
+// stays when the copies of more than a week ago go, and has its name in the
+// list.
 func TestNamedVersion(t *testing.T) {
 	st, now := storeAt(t)
 	st.Mkdir("/a")
@@ -161,19 +163,19 @@ func TestNamedVersion(t *testing.T) {
 	if !st.SaveNamed("/a/"+PageFileName, "Yayına giden") {
 		t.Fatal("not kept")
 	}
-	for i := 0; i < HistoryKeep+20; i++ {
-		*now = now.Add(10 * time.Minute)
+	for i := 0; i < 24*(HistoryDays+3)/2; i++ { // every two hours, for ten days
+		*now = now.Add(2 * time.Hour)
 		st.WriteFile("/a/"+PageFileName, JoinPage(map[string]string{"title": "A"}, encodeBody(importMarkdown("metin "+strings.Repeat("x", i+1)))))
 	}
-	vs := st.Versions("/a/" + PageFileName)
+	vs := st.Versions("/a/" + PageFileName) // a copy for every two hours of the week, the one of a week ago to the minute, and the named
 	named := 0
 	for _, v := range vs {
 		if v.Label == "Yayına giden" {
 			named++
 		}
 	}
-	if named != 1 || len(vs) != HistoryKeep+1 {
-		t.Fatalf("named %d, copies %d", named, len(vs))
+	if want := 24*HistoryDays/2 + 2; named != 1 || len(vs) != want {
+		t.Fatalf("named %d, copies %d, not %d", named, len(vs), want)
 	}
 }
 
@@ -200,5 +202,94 @@ func TestVersionDialogName(t *testing.T) {
 	}
 	if !tt.HasText("Bugünkü hâl") {
 		t.Fatalf("not listed: %v", tt.Texts())
+	}
+}
+
+// lapsePage is a page whose copies were written on three days, the page
+// now on a fourth: the cat sat, the black cat sat, the black cat lay, and
+// the black cat lay on the rug.
+func lapsePage(t *testing.T) (*app, *ui.Tester) {
+	st, now := storeAt(t)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	seed(lib)
+	a := newApp(lib)
+	a.clock = func() time.Time { return *now }
+	tt := ui.NewTester(a.view, 1100, 800)
+	tt.Advance(50 * time.Millisecond)
+	p := a.page
+	p.Save("") // the seeded text is not one of the days
+	for _, s := range []string{"The cat sat on the mat", "The black cat sat on the mat", "The black cat lay on the mat", "The black cat lay on the rug"} {
+		*now = now.Add(10 * time.Minute)
+		p.SaveText(s + "\n")
+	}
+	vs := st.Versions(p.File()) // the latest first: the copies of the 9th, the 8th, the 6th (the store stamps them with the time of the computer)
+	for i, day := range []int{9, 8, 6} {
+		st.DB.Exec(`UPDATE versions SET at = ? WHERE id = ?`, time.Date(2026, 11, day, 15, 0, 0, 0, time.Local).UnixNano(), vs[i].ID)
+	}
+	a.takeOutside(p)
+	p.Modified = time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
+	*now = p.Modified
+	tt.Frame()
+	return a, tt
+}
+
+// TestTimeLapse: the page's button shows the time-lapse in place of the
+// editor - a day a version, named in the status bar - and Esc brings the
+// editor back.
+func TestTimeLapse(t *testing.T) {
+	a, tt := lapsePage(t)
+	if err := tt.Click("Time-lapse"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	for range 50 {
+		tt.Advance(20 * time.Millisecond)
+		if a.lapse.words != nil {
+			break
+		}
+	}
+	tt.Advance(100 * time.Millisecond)
+	l := &a.lapse
+	if len(l.days) != 4 || l.days[0].Day() != 6 || l.days[3].Day() != 10 {
+		t.Fatalf("days: %v", l.days)
+	}
+	if !equal([]string{strconv.Itoa(l.sizes[0]), strconv.Itoa(l.sizes[3])}, []string{"6", "7"}) {
+		t.Fatalf("sizes: %v", l.sizes)
+	}
+	for _, s := range []string{"v1", "v4", "black", "rug"} {
+		if !tt.HasText(s) {
+			t.Fatalf("no %q: %v", s, tt.Texts())
+		}
+	}
+	if tt.HasText("mat") || tt.HasText("sat") {
+		t.Fatalf("the cut words: %v", tt.Texts())
+	}
+	if _, ok := tt.Find("Sayfa"); ok {
+		t.Fatal("the editor is there too")
+	}
+	// a click lights the day, a double click leaves its words alone
+	if err := tt.Click("Version 2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(50 * time.Millisecond)
+	if l.lit != 2 || !tt.HasText("The") {
+		t.Fatalf("lit %d", l.lit)
+	}
+	r, _ := tt.Find("Version 4")
+	tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(30 * time.Millisecond)
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(600 * time.Millisecond)
+	if l.solo != 4 || !tt.HasText("rug") || tt.HasText("black") {
+		t.Fatalf("solo %d: %v", l.solo, tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(100 * time.Millisecond)
+	if a.lapse.on {
+		t.Fatal("Esc did not leave it")
+	}
+	if _, ok := tt.Find("Sayfa"); !ok || a.kb.normal {
+		t.Fatalf("the editor is not back (normal mode %v)", a.kb.normal)
 	}
 }

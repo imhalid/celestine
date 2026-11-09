@@ -13,8 +13,9 @@ import (
 // historyEvery is how far apart the copies of a page are, at the least.
 var historyEvery = 5 * time.Minute
 
-// HistoryKeep is how many copies of a page are kept, the oldest going first.
-const HistoryKeep = 100
+// HistoryDays is how long a copy is kept: a week after it was taken, it
+// goes, unless it has a name.
+const HistoryDays = 7
 
 // Version is a copy of a page.
 type Version struct {

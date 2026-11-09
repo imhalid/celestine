@@ -204,6 +204,7 @@ type app struct {
 	quickKeyErr   string
 	tagRen        tagRename  // the dialog to rename a tag (tags.go)
 	vhist         histView   // the dialog of a page's versions (historyui.go)
+	lapse         lapseState // the time-lapse of the page, in place of its editor (lapseui.go)
 	noticePage    *Page      // the page the notice is about, to open from it
 	noticeUndo    func()     // takes back what the notice says was done: the notice has a Geri al
 	noticeTone    *toastKind // the notice's kind, when its words do not tell it (noticeKind)
@@ -782,6 +783,10 @@ func (a *app) viewFrame(c *ui.Context) {
 	if a.profileScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeProfile()
 	}
+	lapseEsc := a.lapse.on && !a.modal() && c.Shortcut(0, ui.KeyEscape) // Esc leaves the time-lapse, back to the editor
+	if lapseEsc {
+		a.toggleLapse()
+	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
 	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && a.page != nil && a.doc != nil {
@@ -819,7 +824,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
 		// Esc, in the text or on a screen that has nothing to close: the keys are commands. The settings
 		// and the figures have their own Esc, which goes back.
-		if !a.settingsOpen && !a.statsScreen && !a.profileScreen && c.Shortcut(0, ui.KeyEscape) {
+		if !a.settingsOpen && !a.statsScreen && !a.profileScreen && !lapseEsc && c.Shortcut(0, ui.KeyEscape) {
 			a.kbEnter()
 		}
 	}
@@ -939,6 +944,12 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		}
 		head.Children(func() { a.pageHead(c, p) })
 		a.headH = head.LayoutBounds().H
+	}
+	if a.lapseOn(p) { // the time-lapse where the editor is: nothing to type in
+		a.focused = false
+		a.lapseView(c)
+		a.backlinksView(c, p)
+		return
 	}
 	c.Key("body:" + p.Dir)
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
@@ -1444,6 +1455,7 @@ func (a *app) status(c *ui.Context) {
 				st.TextColor(ryugo.From(c).Colors.Up)
 			}
 		}
+		a.lapseChips(c)
 		a.themeButton(c)
 		a.pageButtons(c)
 	})
