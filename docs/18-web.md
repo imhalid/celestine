@@ -1,58 +1,29 @@
-# 18 — Web uygulaması (J): çalışan deneme sürümü
+# 18 — Web uygulaması (J)
 
-**Soru:** ryudit tarayıcıda çalışır mı? **Cevap: evet. 7 Kasım 2026'da derlendi, tarayıcıda açıldı, yazıldı, kaydedildi, sayfa yenilenince yazı yerinde durdu.**
+ryudit tarayıcıda çalışır (7 Kasım 2026'da derlendi, tarayıcıda yazıldı, kaydedildi, yenileyince yerindeydi; çevrimdışı da açılıyor).
 
-## Ne yapıldı
+## Nasıl
 
-- `modernc.org/sqlite` js/wasm için derlenmiyordu: tek engel buydu. `Store` ikiye ayrıldı: `store_sql.go` (`!js`, SQLite dosyası) ve
-  `store_js.go` (`js`, aynı tür: bellekte bir klasör/dosya ağacı, her değişiklikte tarayıcının **localStorage**'ına yazılır). Sürüm geçmişi
-  (`history_sql.go`) ve dosya yedeği (`backup_sql.go`) yalnız masaüstünde; web'de `historian` yok, yedek yerine dışa aktarma ve senkron var.
-- `scripts/web.sh`: `mygo build -platform web` ile `dist/web/` (index.html, wasm, wasm_exec.js) ve `:8765`'te sunar.
-- Denenen (uygulama içi tarayıcıda): karşılama sayfası açılır, kenar çubuğu, kapak, jöle caret, ilk açılış turu, yazma ("WEBTEST"), "Kaydediliyor…" →
-  "Kaydedildi", sayfayı yenileyince yazı yerinde. Kitaplık `localStorage["ryudit:kitaplik.db"]` altında (3,3 KB).
+- `modernc.org/sqlite` js/wasm için derlenmediğinden `Store` ikiye ayrıldı: `store_sql.go` (`!js`, SQLite dosyası) ve `store_js.go` (`js`, aynı tür:
+  bellekte bir dosya ağacı). Sürüm geçmişi (`history_sql.go`) ve dosya yedeği (`backup_sql.go`) yalnız masaüstünde; web'de yedek yerine dışa aktarma ve senkron var.
+- `scripts/web.sh`: `mygo build -platform web` ile `dist/web/` (index.html, wasm, wasm_exec.js, PWA dosyaları, `web/touch.js`) ve `:8765`'te sunar.
+- **PWA:** `web/manifest.webmanifest`, `web/sw.js`, simgeler. Servis çalışanı gerçek Chromium'da kaydoldu; sunucu durunca sayfa ve wasm önbellekten geldi.
+  Sayfa önce ağdan (yoksa önbellekten), adı derlemeye bağlı dosyalar önce önbellekten gelir: yoksa yeni derleme hiç alınmaz.
+- Dar pencere (telefon) telefon düzeninde açılır ve parmakla kaydırılır: ayrıntı docs/21.
 
 ## Boyut
 
-wasm 34 MB (32 MB `mygo build` çıktısında), **brotli ≈ 6,9 MB, gzip ≈ 8,3 MB** inen. Cloudflare Pages brotli ile sunar. İlk yükleme bu kadar;
-ikincisi önbellekten.
+wasm ≈ 28,5 MB (brotli ≈ 5,3 MB): MCP sunucusu web derlemesinde yok (docs/17). İlk yükleme bu kadar, ikincisi önbellekten.
 
-## Sınırlar (bilinen, hâlâ geçerli)
+## Sınırlar
 
-- **Depolama:** kitaplık **IndexedDB**'de (`store_js.go`): başlangıçta bir kez okunur, değişikliklerden 300 ms sonra ve sayfa gizlenirken yazılır; tarayıcının
-  izin verdiği kadar büyür (tarayıcıda denendi: yazı IndexedDB'ye gitti, localStorage boş, yenileyince yerinde). IndexedDB yoksa localStorage'a (≈5 MB) düşer.
-  File System Access API ile gerçek klasör (Chromium) ve OPFS yapılmadı.
-- **Klavye modu:** web'de Esc ile normal kip açılıyor (köşede "NORMAL" rozeti çıktı), ama o kipte harf tuşları (`f`, `?`) otomasyon aracından
-  gönderildiğinde çalışmadı: gerçek klavyeyle ve tarayıcı tuş eşlemesiyle denenmeli (masaüstünde testli). Yazma ve fare çalışıyor.
-- **MCP:** tarayıcıda yerel sunucu açılamaz; web sürümünde ajan bağlantısı yok.
-- **Pencere sarsıntısı, hızlı not (genel kısayol), dosya izleme, güncelleme (service worker yapar), yedek dosyası:** web'de yok.
+- **Depolama:** kitaplık **IndexedDB**'de (`store_js.go`): başlangıçta bir kez okunur, değişikliklerden 300 ms sonra ve sayfa gizlenirken yazılır; IndexedDB
+  yoksa localStorage'a (≈5 MB) düşer. Tüm kitaplık tek anahtarda (docs/23). File System Access API ve OPFS yok.
+- **Klavye modu:** Esc ile normal kip açılıyor, ama o kipte harf tuşları (`f`, `?`) otomasyon aracından gönderilince çalışmadı: gerçek klavyeyle denenmeli.
+- **Web'de olmayanlar:** MCP (tarayıcı yerel sunucu açamaz), pencere sarsıntısı, hızlı not, dosya izleme, güncelleme (servis çalışanı yapar), yedek dosyası,
+  pencere düğmeleri, bölmeyi ayrı pencereye alma.
 - **Kısayollar:** ⌘P (yazdır), ⌘T, ⌘W, ⌘L tarayıcıya ait: komut paleti için ⇧⌘P, normal kip için Esc.
-- Başka bir bilgisayarla eşitleme: `httpRemote` tarayıcıdan da çalışır (aynı Go kodu); CORS için `cloudflare/sync/worker.js`'e başlık eklenmeli.
-- **PWA:** `web/manifest.webmanifest`, `web/sw.js` (programı önbelleğe alır: çevrimdışı açılır, ikinci açılış anında) ve simgeler `scripts/web.sh` ile
-  `dist/web`'e konur, `index.html` bunlara bağlanır. Manifest geçerli ve sw.js sözdizimi doğru; **servis çalışanı bu ortamdaki uygulama içi tarayıcıda
-  kaydolmadı** (tarayıcı kayıt isteğini reddetti), o yüzden çevrimdışı açılış ve "kur" düğmesi gerçek bir tarayıcıda denenmedi.
 
-## 7 Kasım, öğlen: gerçek tarayıcıda deneme
+## Kalan
 
-- Servis çalışanı **kaydoldu ve sayfayı yönetti** (uygulama içi Chromium). Sunucu durdurulunca sayfa (200, 2,8 KB), wasm (34,6 MB) ve `wasm_exec.js`
-  önbellekten geldi: çevrimdışı açılış çalışıyor. Yazı (“WEBYAZI”) IndexedDB'ye kaydedildi, yenileyince yerindeydi; yeni kaydırma çubuğu ve üst çubuk web'de de çalışıyor.
-- **Bulunan ve düzeltilen hata:** `sw.js` sayfayı da önce önbellekten veriyordu; sayfa wasm'ın adını taşıdığından yeni bir derleme hiç alınmazdı. Artık
-  sayfa önce ağdan (yoksa önbellekten), adı derlemeye bağlı dosyalar önce önbellekten. Program (sayfa, betik, wasm, manifest, simgeler) çalışan
-  kurulurken önbelleğe alınır.
-- Web'de olmayanlar artık çizilmiyor: pencere düğmeleri (sekme pencerenin kendisi), hızlı not paneli (tarayıcının genel tuşu yok, paneli sekmenin
-  başlığını "Hızlı not" yapıyordu), bölmeyi ayrı pencereye alma.
-- `scripts/web.sh` çalışma alanında (`go.work`) `-mod=mod` yüzünden derlemiyordu: düzeltildi.
-- Denenmeyen: "Uygulamayı yükle" düğmesi (uygulama içi tarayıcı göstermiyor), Safari/Firefox.
-
-## 7 Kasım, akşam
-
-- wasm 33,0 → **28,5 MB** (brotli ≈5,3 MB): MCP sunucusu web derlemesinde yok (docs/17). Ayarlardaki MCP anahtarı web'de açılmadığını söyler.
-- Panonun yatay kaydırması da uygulamanın kendi çubuğunu kullanıyor.
-
-## 7 Kasım, gece: dokunma ve telefon
-
-Dar bir tarayıcı penceresi (telefon) artık telefon düzeninde açılır ve parmakla kaydırılır: ayrıntı docs/21 ("telefona göre tasarım").
-`web/touch.js` her web derlemesinde sayfaya eklenir ve servis çalışanı onu da önbelleğe alır.
-
-## Tahmini kalan iş
-
-PWA'nın gerçek tarayıcıda denenmesi ve düzeltilmesi 1 gün, tarayıcı testleri (Chrome, Safari, Firefox; IME, pano, dokunmatik) 2 gün, klavye harf tuşlarının eşlemesi 1 gün.
+"Uygulamayı yükle" düğmesi, Safari ve Firefox, tarayıcıda IME ve pano denenmedi; klavye harf tuşlarının eşlemesi.

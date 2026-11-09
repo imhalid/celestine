@@ -9,7 +9,7 @@ into structure as you type it: `# ` makes a heading and the `#` is gone, `**word
 are gone. Markdown is never seen in the editor and is not how a page is kept: a page is a list of typed blocks (`body.go`), in a file of its own format. Markdown only comes in (an import, a file dropped, what an agent writes) and goes out (export, what an agent reads).
 
 ```bash
-go run . [library]      # default: ./kitaplik, made and seeded when missing; saved as you type
+go run . [library]      # default: kitaplik.db beside the program (the data folder when that cannot be written); a folder given opens a folder library
 ```
 
 The library is a tree of folders, as [Locus](https://github.com/oneo-me/locus) keeps notes: a collection is a folder with a
@@ -38,8 +38,8 @@ collection a board of it.
 | `---` | divider |
 
 Keys are the editor's, a word processor's: ⌘B ⌘I ⌘U, ⌘K a link, Tab ⇧Tab indent; ⌘Z undoes a conversion and
-gives the marks back. ⌘⇧M switches the caret (Slime, Mizan). ⌘K opens the palette (go to any page or collection by a
-few letters of it, run any command), ⌘F finds and replaces in the page, ⌘[ ⌘] go back and forward. A block - a paragraph and what is under it - has a grip (⋮⋮) on its left: its menu
+gives the marks back. ⌘⇧M switches the caret (Slime, Mizan). ⌘P opens the palette of commands and every setting, ⌘K
+goes to any page or collection by a few letters of it, ⌘F finds and replaces in the page, ⌘[ ⌘] go back and forward. A block - a paragraph and what is under it - has a grip (⋮⋮) on its left: its menu
 turns it into another kind, duplicates, moves or deletes it, and it drags; ⌘⇧↑ ⌘⇧↓ move it, `/` at the start of a
 line turns it into a kind of block. `@` links a page or a date, or sets one of the page's choices: links are chips
 in the text and Obsidian's `[[Page]]`, `[[Page|alias]]`, `[[2026-11-05]]` in the file; a click on one opens its page,
@@ -47,7 +47,7 @@ or makes it.
 
 ## MCP
 
-Turned on in the settings (the sliders at the foot of the sidebar), the app serves its library to agents over MCP at
+Turned on in the settings, the app serves its library to agents over MCP at
 `http://127.0.0.1:7457/mcp`, with a token; the settings show the line that adds it to Claude Code:
 
 ```bash
@@ -55,7 +55,9 @@ claude mcp add --transport http ryudit http://127.0.0.1:7457/mcp --header "Autho
 ```
 
 Its tools: `list_collections`, `list_pages`, `read_page`, `search`, `create_collection`, `create_page`,
-`update_page` (title, text replaced or appended, property values), `add_property`, `move_page`, `trash_page`. Pages are named by their
+`update_page` (title, text replaced or appended, property values), `add_property`, `move_page`, `trash_page`,
+`list_tags`, `list_tasks`, `set_task`, `list_versions`, `read_version`, `restore_version`, and `list_commands`/`run_command` (the palette's
+commands, those of the page, panes, view and the like; not the ones that change where the library is kept or sent). Pages are named by their
 folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the window at once.
 
 ## Layout
@@ -65,21 +67,21 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `internal/library/` | The library, a package of its own that knows nothing of the window: collections, their views, pages, sub-pages, the page file, front matter, properties, the store in one file (`store_sql.go`, `store_js.go`), versions, the trash, sync, the Markdown export. `core_alias.go` gives its names to the app unqualified; its tests run alone in a second or two (`go test ./internal/library/`) |
 | `views.go` | A collection's page: its views (a list grouped by date, a sortable table, a board of statuses on Ryugo's drag and drop), search, a new page |
 | `main.go` | The window (its own title bar), the page (title and MyGo's rich text editor), autosave |
-| `sidebar.go` | The title bar and the sidebar: folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn |
+| `sidebar.go`, `topbar.go` | The sidebar, which folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn; the header row over the panes |
 | `drag.go` | Dragging pages in the tree, as [Ryugo](https://github.com/imhalid/ryu-go)'s cards move: the row lifts, rows make room, the row it goes into glows, it glides into place |
 | `tables.go`, `tablemodel.go` | Tables: one object in the text, always a table (columns with a kind, alignment, width and a foot calculation); in the body a typed object. Markdown tables that come in are read as tables of ours |
 | `tablefn.go` | What a table does with its rows: sort by a column, a filter the page keeps, CSV in and out (and tab-separated text pasted from a spreadsheet) |
 | `wobble.go` | The jelly: the window itself shakes from side to side and hops when an agent (MCP) adds to a page (what is drawn in it, where the window cannot be moved); the settings can turn it off |
 | `editing.go` | How the text is set and kept: paragraph spacing, first-line indent, autosave on/off and its delay, ⌘S, ⌘= ⌘− ⌘0, and the white space drawn over the text |
 | `cmdreg.go` | The settings as one list the palette reads: every setting is a command (toggle, number, choice), commands with a value ("yazı boyutu 18"), and the test that holds `Settings` and the commands together |
-| `fonts.go` | The typefaces: app, editor and code, from the families installed, each in its own letters, shown on the page as they are passed over, with presets, stars and a fallback |
+| `fonts.go` | The typefaces: app, editor and code, from the families installed, each in its own letters and applied when chosen, with presets, stars and a fallback |
 | `crash.go` | The crash log: a panic in a frame, a goroutine or the program is written to the config folder; the next start tells of a session that ended badly |
 | `backup.go` | Backups of the library's file (daily, before an import or an update, by hand), pruning, restore at the next start, zip export |
 | `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |
 | `kb.go`, `vim.go`, `help.go` | The keyboard's normal mode (Esc), rows chosen with j k, letters on everything that can be pressed (f), the leader (Space), marks, the command line (:), Vim's motions as a setting, the page of shortcuts and the first-run tour |
 | `update.go`, `updateui.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start; `scripts/release`, `cloudflare/update`, `.github/workflows/release.yml` |
 | `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption; `cloudflare/sync` |
-| `i18n.go` | The language: Turkish as written, English from a dictionary for the main surfaces |
+| `i18n.go` | The language: strings written in Turkish, English (the default) from a dictionary |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |
@@ -92,15 +94,15 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `chips.go` | Chips: page links and dates in the text, as richtext attachments; `[[…]]` in the file |
 | `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
-| `mcp.go`, `settings.go` | The MCP server and the settings that turn it on |
+| `mcp.go`, `mcp_server.go`, `mcp_extra.go`, `settings.go` | The MCP server, its tools, and the settings that turn it on |
 | `quicksettings.go` | The gear at the top left: a short menu of the settings used most, with the dialog of all of them at its end |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |
 | `slime.go`, `mizan.go` | The two carets |
-| `docs/` | Research on Thymer and the step-by-step plan (Turkish) |
+| `docs/` | What is still to do, decisions in force and open problems (Turkish); 00-OKU-BENI.md is the index |
 | `prototypes/slime-md` | The caret prototype |
 
 Decisions: no plugin system and no outside code — only themes (data files) change from outside; MCP exposes the
-app's own operations. See `docs/11-yol-haritasi.md` for the plan.
+app's own operations.
 
 The gate: `gofmt -l .` empty, `go vet ./...`, `go test ./...`, and builds without cgo for darwin, linux and windows.

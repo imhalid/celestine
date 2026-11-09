@@ -17,12 +17,16 @@
    eski dosya yerine konur, düşen `.failed` olarak saklanır ve eski sürüm başlatılır. 20 sn sağlıklı çalışırsa işaret silinir, eski dosya bir gün sonra.
 8. Güncellemeden sonra ilk açılışta "Bu sürümde neler yeni" bir kez çıkar. Kitaplık verisi hiç değişmez.
 
-## Cloudflare tarafı (yazıldı, canlıda denenmedi)
+## Cloudflare tarafı ve yayın
 
-- `cloudflare/update/worker.js` + `wrangler.toml`: R2 kovasından `update.json` ve `<sürüm>/<dosya>` sunar; hiçbir şey kaydetmez.
+- `cloudflare/update/worker.js` + `wrangler.toml`: R2 kovasından `update.json` ve `<sürüm>/<dosya>` sunar; `GET /download/<os-arch>` sitenin indirme
+  düğmeleri için son sürümün dosyasına yönlendirir (sync Worker'ı adresi `DOWNLOAD_URL`'den okur). Hiçbir şey kaydetmez.
 - `scripts/release`: `keygen` (anahtar çifti), `manifest` (dosyaları karma ve imzala, `update.json` yaz).
 - `.github/workflows/release.yml`: `v*` etiketi → test, beş derleme (gömülü sürüm ve anahtarla), manifest, R2'ye yükleme, GitHub release.
-  Gereken sırlar dosyanın başında yazılı.
+  Gereken sırlar dosyanın başında yazılı. **Açık:** sırlar (`RELEASE_KEY`, `UPDATE_PUBLIC_KEY`, `UPDATE_URL`, R2 anahtarları; `DOWNLOAD_HOST` değişkeni)
+  ayarlı değil: sürümler imzasız ve R2'ye bir şey gitmiyor, uygulamanın güncelleme denetimi bir şey bulamaz.
+- **Açık:** macOS ve Linux derlemeleri çıplak ikili dosya (macOS'ta `.app` yok, çalıştırma izni yok); yukarıdaki macOS `.app` değişimi
+  (`kind: app-zip`) yayında kullanılmıyor.
 
 Neden Cloudflare: depo özel; belirteç uygulamaya gömülemez; R2 ve Worker'la indirme sayacı ve hız elde, belirteç gerekmez.
 

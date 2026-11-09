@@ -46,7 +46,7 @@ eşitleniyor… / çevrimdışı / çakışma: 2` rozeti. Çevrimdışıyken yaz
 ## Sunucudaki sürümler (8 Kasım 2026)
 
 Worker bir dosyanın üzerine yazılırken (ya da silinirken) önceki hâlini `v<hesap>/<ad>@<zaman>` altında saklar: en çok **10 dakikada bir**, dosya başına **10**, **30 gün**
-(günlük cron ve her yazma budar), yalnız **1 MB'a kadar** dosyalar (sayfa, resim değil); `_index` ve `_salt` hariç. Kopyalar kotadan düşer, silinince geri verilir; hesap silinince
+(yaşa göre günlük cron budar, sayıya göre her yazma), yalnız **1 MB'a kadar** dosyalar (sayfa, resim değil); `_index` ve `_salt` hariç. Kopyalar kotadan düşer, silinince geri verilir; hesap silinince
 gider. Bayt olarak mühürlüdür: sunucu okuyamaz, uygulama kendi anahtarıyla açar. `GET /versions/<ad>` zamanları, `?at=<ms>` baytları verir.
 
 Uygulamada: sayfa menüsü ▸ **Sunucudaki sürümler…** (yalnız sunucu hesabıyla), yerel Sürüm geçmişi penceresinin aynısı (fark görünümü, **Bu sürüme dön**; dönünce
@@ -64,9 +64,8 @@ Koleksiyon başına eşitle aç/kapa (kapalıysa hiçbir şeyi yukarı çıkmaz,
 
 ## Yapılmadı (dürüstçe)
 
-- **Cihaz yönetimi** (liste, uzaktan çıkarma, QR eşleştirme): jetonlar elle Worker sırrına yazılır.
 - **Sunucuda günlük anlık görüntü, paylaşım, Wi-Fi sınırı, ağ hızı ayarı, ek boyut sınırı.** (Sürüm geçmişi yapıldı, yukarıda.) **QR eşleştirme istenmedi.**
-- **Gerçek zamanlı eşitleme**: aralıklı (öntanımlı 5 dk) ve elle; değişiklik anında gitmez.
+- **Gerçek zamanlı eşitleme**: yazma durduktan 2 sn sonra, pencere öne gelince, 5 dk'da bir ve elle; sunucudan anında itme yok.
 - **Metin birleştirme** (3 yollu): çakışma kopyası var, otomatik birleştirme yok.
-- **Canlı Cloudflare denemesi**: Worker yerelde (`wrangler dev`, R2 benzetimi) gerçek istemciyle denendi (`sync_worker_test.go`: gönder/al/güncelle/çakışma/şifreli; CORS eklendi); Cloudflare'da da denendi (2026-11-07): `https://ryudit-sync.imhalid.workers.dev`, R2 bucket `ryudit-sync`, dağıtım `cloudflare/sync/deploy.sh` (`cf deploy --prebuilt`; wrangler girişli değil). Jetonlar `TOKENS` sırrında, depoda değil. Ayarlar ▸ Senkron'da **Bağlantıyı dene** düğmesi eklendi; canlı sunucuya karşı uygulama içinden elle deneme yine de kaldı.
+- **Canlı sunucuya karşı uygulama içinden uçtan uca elle deneme.** Worker yerelde (`wrangler dev`, `sync_worker_test.go`) ve Cloudflare'da denendi; dağıtım `cloudflare/sync/deploy.sh`.
 - Eşitleme yalnız tek dosyalı (SQLite) kitaplıkta çalışır.

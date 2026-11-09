@@ -18,24 +18,32 @@ Alınmış kararlar (her belgede geçerlidir):
 
 ## Okuma sırası
 
+Belgelerde yalnız henüz yapılmamış işler, hâlâ geçerli kararlar ve açık sorunlar durur; yapılanlar koddadır.
+Kodun bugünkü hâli için [architecture.md](architecture.md).
+
 | # | Belge | Ne anlatıyor |
 |---|---|---|
-| 01 | [Genel bakış](01-thymer-genel-bakis.md) | Thymer ekranının parçaları: kenar çubuğu, paneller, durum çubuğu |
-| 02 | [Veri modeli](02-veri-modeli.md) | Tek ağaç: çalışma alanı, koleksiyon, kayıt (not), satır, özellik |
-| 03 | [Kenar çubuğu ve alt sayfalar](03-kenar-cubugu-ve-alt-sayfalar.md) | "+" ile altına not ekleme, notu koleksiyon gibi kullanma |
-| 04 | [Not sayfası](04-not-sayfasi.md) | Bir notun anatomisi, satır tipleri, bloklar |
-| 05 | [Not ekleme akışları](05-not-ekleme-akislari.md) | Not oluşturmanın bütün yolları |
-| 06 | [Koleksiyonlar ve görünümler](06-koleksiyonlar-ve-gorunumler.md) | Koleksiyon ayarları, özellikler, görünümler, dinamik koleksiyon |
-| 07 | [Ayarlar paneli](07-ayarlar-paneli.md) | Ayarlar penceresinin yapısı, tema, MCP, Markdown Mirror |
-| 08 | [Komut paleti ve kısayollar](08-komut-paleti-ve-kisayollar.md) | ⌘P, ⌘K, satır komutları |
-| 09 | [Arama, görevler, günlük](09-arama-gorevler-gunluk.md) | Sorgu dili, görev durumları, günlük sayfaları |
-| 10 | [MCP](10-mcp.md) | Thymer'in MCP araçları ve bizim editörün araç listesi |
-| 11 | [Yol haritası](11-yol-haritasi.md) | Bizim editörü kurmanın adımları, sırasıyla |
-| 12 | [MyGo ekosistemi](12-mygo-ekosistemi.md) | MyGo için yazılmış kütüphaneler, işimize yarayanlar |
-| 13 | [İstekler](13-istekler.md) | Kullanırken çıkan istek ve düzeltmeler, önerilen sırasıyla |
-| 14 | [Ürün önerileri ve uyarılar](14-urun-onerileri.md) | Benzer uygulamalardan öneriler, riskler (Markdown'ı bozma, dosya izleme…), sıra |
-| 15 | [Bloklar denemesi](15-bloklar-denemesi.md) | richtext üstünde bloklar: ne yapıldı, ne olur, ne olmaz; karar |
-| 16 | [Yapılacaklar](16-yapilacaklar.md) | 6 Kasım: klavye, ayarlar sayfası, ⌘P, istatistik, boyut, web/Android, güncelleme, senkron; önem ve zorluğa göre sıralı |
+| 02 | [Veri modeli](02-veri-modeli.md) | Henüz olmayan satır ve özellik tipleri |
+| 03 | [Kenar çubuğu ve alt sayfalar](03-kenar-cubugu-ve-alt-sayfalar.md) | Kenar çubuğunda eksik gösterim biçimleri, sayfa ikonu ve sabitleme |
+| 04 | [Not sayfası](04-not-sayfasi.md) | Eksik satır tipleri ve satır işlemleri, yapıştırma/kopyalama biçimleri |
+| 05 | [Not ekleme akışları](05-not-ekleme-akislari.md) | ⇧↵, "Yeni sayfa…" seçicisi, varsayılan koleksiyon |
+| 06 | [Koleksiyonlar ve görünümler](06-koleksiyonlar-ve-gorunumler.md) | Galeri görünümü, alana göre gruplama, elle sıralama |
+| 07 | [Ayarlar paneli](07-ayarlar-paneli.md) | Veri dosyası olarak temalar, tarih ve saat biçimleri |
+| 09 | [Arama, görevler, günlük](09-arama-gorevler-gunluk.md) | Sorgu dili, görev filtreleri, canlı sorgu bloğu |
+| 10 | [MCP](10-mcp.md) | Thymer'in MCP araçları; bizde eksik olanlar |
+| 12 | [MyGo ekosistemi](12-mygo-ekosistemi.md) | İşimize yarayabilecek MyGo kütüphaneleri |
+| 13 | [İstekler](13-istekler.md) | Kullanırken çıkan, henüz yapılmamış istekler |
+| 14 | [Ürün önerileri ve uyarılar](14-urun-onerileri.md) | Açık kalan öneriler ve riskler |
+| 15 | [Bloklar denemesi](15-bloklar-denemesi.md) | Bloklarla ilgili karar ve olmayacaklar |
+| 16 | [Yapılacaklar](16-yapilacaklar.md) | Editör, yazı tipi, klavye, dil ve performansta kalan işler |
+| 17 | [Boyut ve performans](17-boyut-ve-performans.md) | Uygulamanın boyutu, ölçümler, tuş süresi bütçesi |
+| 18 | [Web](18-web.md) | Web sürümü ve denenmemiş kalanlar |
+| 19 | [Güncelleme](19-guncelleme.md) | Otomatik güncelleme, yayın imzası ve açık işler |
+| 20 | [Senkron](20-senkron.md) | Uçtan uca şifreli eşitleme ve eksikleri |
+| 21 | [Android](21-android.md) | Android uygulaması ve telefonda eksikler |
+| 22 | [Acil sorunlar](22-acil-sorunlar.md) | Kalan birkaç açık uç |
+| 22 | [Hesap ve bekleme listesi](22-hesap-ve-bekleme-listesi.md) | Hesap, davet ve bekleme listesi: kararlar ve açıklar |
+| 23 | [Denetim aksiyonları](23-denetim-aksiyonlari.md) | Denetimden kalan açık maddeler |
 
 ## Kaynak etiketleri
 
