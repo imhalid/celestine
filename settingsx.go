@@ -318,16 +318,23 @@ func (a *app) settingsTop(c *ui.Context) {
 			}
 		}
 	}
-	if phone { // the search on a line of its own, the pages under it
-		ui.Column(c.Key("set-top")).FillWidth().Gap(8).Padding(0, 0, 10, 0).Children(func() {
-			search()
-			ui.Row(c).Gap(6).Wrap().Children(modes)
-		})
-		return
+	box := ui.Box(c.Key("set-top-box")).FillWidth()
+	narrow := phone
+	if b := box.LayoutBounds(); b.W > 0 && b.W < 560 { // a small window: no room for the search beside the pages
+		narrow = true
 	}
-	ui.Row(c.Key("set-top")).FillWidth().Gap(8).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
-		search()
-		modes()
+	box.Children(func() {
+		if narrow { // the search on a line of its own, the pages under it
+			ui.Column(c.Key("set-top")).FillWidth().Gap(8).Padding(0, 0, 10, 0).Children(func() {
+				search()
+				ui.Row(c).Gap(6).Wrap().Children(modes)
+			})
+			return
+		}
+		ui.Row(c.Key("set-top")).FillWidth().Gap(8).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
+			search()
+			modes()
+		})
 	})
 }
 

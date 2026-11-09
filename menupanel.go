@@ -113,12 +113,12 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 								ui.Box(c).Height(1).Background(cl.Hairline)
 							})
 						default:
-							ui.Text(c.Key("g:"+group), group).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).
+							ui.Text(c.Key("g:"+group), T(group)).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).
 								Height(menuHead).Padding(7, 8, 0, 8)
 						}
 					}
 					row := ui.Row(c.Key(i)).Height(menuRowH(it)).Padding(0, 8).Gap(8).Radius(rad(ryugo.RadiusControl - 4)).
-						AlignItems(ui.Center).Label(it.title).Role(ui.RoleButton)
+						AlignItems(ui.Center).Label(T(it.title)).Role(ui.RoleButton)
 					text, muted := cl.Text, cl.Muted
 					if it.danger {
 						text, muted = cl.Up, cl.Up.Alpha(0.8)
@@ -146,7 +146,7 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 							ui.Icon(c, it.glyph).Width(13).Height(13).TextColor(muted)
 						}
 						ui.Column(c).Grow(1).Shrink(1).Children(func() {
-							ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1)
+							ui.Text(c, T(it.title)).FontSize(12.5).TextColor(text).MaxLines(1) // the app's words are written in Turkish: shown in the window's language
 							if it.sub != "" {
 								ui.Text(c, it.sub).FontSize(10.5).TextColor(muted).MaxLines(1)
 							}

@@ -681,11 +681,11 @@ func (a *app) accountSection(c *ui.Context) {
 			help = humanBytes(a.ac.me.Bytes) + " / " + humanBytes(a.ac.me.Quota)
 		}
 		settingRow(c, T("Hesap: ")+s.AccountUser, help, func() {
-			ui.Row(c).Gap(8).Children(func() {
-				if ryugo.Button(c.Key("acct-profile"), T("Profil"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			ui.Row(c).Gap(8).Wrap().Children(func() {
+				if ryugo.Button(c.Key("acct-profile"), T("Profil"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconUser}).Clicked() {
 					a.openProfile()
 				}
-				if ryugo.Button(c.Key("acct-out"), T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("acct-out"), T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconSignOut, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft}).Clicked() {
 					a.acctSignOut()
 				}
 			})

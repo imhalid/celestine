@@ -290,11 +290,11 @@ func (a *app) settingsText(c *ui.Context) {
 	settingGroup(c, "set-linechars", func() {
 		settingRow(c, "Satır uzunluğu", "Metin sütunu en çok bu kadar karakter genişliğinde olur (okunaklı satır 60–80 karakterdir); 0 sayfa genişliği kadar.", func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-linechars-s"), &chars, 0, 120, ryugo.SliderOptions{Label: "Satır uzunluğu", Step: 5, Format: func(v float64) string {
+				ryugo.Slider(c.Key("set-linechars-s"), &chars, 0, 120, ryugo.SliderOptions{Label: T("Satır uzunluğu"), Step: 5, Format: func(v float64) string {
 					if v < 20 {
-						return "sayfa kadar"
+						return T("sayfa kadar")
 					}
-					return strconv.Itoa(int(v)) + " karakter"
+					return Tf("%d karakter", int(v))
 				}})
 			})
 		})

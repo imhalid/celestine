@@ -218,7 +218,21 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 func settingRow(c *ui.Context, title, help string, control func()) {
 	title, help = T(title), T(help)
 	cl := ryugo.From(c).Colors
-	if phone { // its control under its name: a phone has no room beside it
+	// its control under its name on a phone, and where the row is narrow (a small window): beside it, the name
+	// and its help would be squeezed into a column a word wide
+	box := ui.Box(c).FillWidth()
+	narrow := phone
+	if b := box.LayoutBounds(); b.W > 0 && b.W < settingNarrow {
+		narrow = true
+	}
+	box.Children(func() { settingRowIn(c, cl, title, help, narrow, control) })
+}
+
+// settingNarrow is the width under which a setting's control goes under its name.
+const settingNarrow = 430
+
+func settingRowIn(c *ui.Context, cl ryugo.Colors, title, help string, narrow bool, control func()) {
+	if narrow {
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
 			ui.Column(c).FillWidth().Gap(3).Children(func() {
 				ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
@@ -226,7 +240,7 @@ func settingRow(c *ui.Context, title, help string, control func()) {
 					ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				}
 			})
-			control()
+			ui.Row(c).Children(control) // as wide as it is, not stretched across the row
 		})
 		return
 	}
@@ -390,13 +404,13 @@ func (a *app) settingsEditor(c *ui.Context) {
 	caret := int(a.caretKind)
 	settingGroup(c, "set-caret",
 		func() {
-			ui.Column(c).Gap(14).Children(func() {
+			ui.Column(c).FillWidth().Gap(14).Children(func() { // the whole width: the tiles wrap in it, not in a column one tile wide
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, T("Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				a.caretPlayground(c) // over the tiles: a tile chosen is tried here at once, as it is in the text
-				ui.Row(c).Gap(14).Wrap().Children(func() {
+				ui.Row(c).FillWidth().Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
 						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), caret == int(k), func() { a.caretMock(c, k) }) {

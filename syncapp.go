@@ -421,7 +421,22 @@ func (a *app) settingsSync(c *ui.Context) {
 	mode := s.SyncMode
 	modeRow := func() {
 		settingRow(c, "Nereye", "Bir klasör (iCloud, Dropbox, Syncthing bırakınca onu taşır) ya da kendi sunucun (cloudflare/sync/worker.js).", func() {
-			choiceBar(c, "set-sync-bar", T("Nereye"), []string{"", "dir", "server"}, []string{T("Kapalı"), T("Klasör"), T("Sunucu")}, &mode)
+			// each a button of its own color and mark, the one in use filled
+			ui.Row(c).Gap(6).Wrap().Children(func() {
+				for _, m := range []struct {
+					id, name string
+					glyph    *ui.SVG
+					tone     ui.Color
+				}{{"", "Kapalı", iconClose, cl.Muted}, {"dir", "Klasör", iconLibrary, cl.Warn}, {"server", "Sunucu", iconSync, cl.Accent}} {
+					v := ryugo.Soft
+					if mode == m.id {
+						v = ryugo.Solid
+					}
+					if ryugo.Button(c.Key("set-sync-mode:"+m.id), T(m.name), ryugo.ButtonOptions{Size: ryugo.Sm, Color: m.tone, Variant: v, Icon: m.glyph}).Clicked() {
+						mode = m.id
+					}
+				}
+			})
 		})
 	}
 	settingGroup(c, "set-sync", modeRow)
@@ -532,7 +547,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		}
 		settingGroup(c, "set-sync-colls-head", func() {
 			settingRow(c, "Hangi koleksiyonlar eşitlensin", Tf("%d koleksiyonun %d tanesi eşitleniyor.", len(rows2), len(rows2)-off), func() {
-				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: T("Gizle"), false: T("Seç…")}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: T("Gizle"), false: T("Seç…")}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconStack}).Clicked() {
 					a.sy.showColls = !a.sy.showColls
 				}
 			})
@@ -550,12 +565,12 @@ func (a *app) settingsSync(c *ui.Context) {
 		status += " · " + a.sy.err
 	}
 	settingGroup(c, "set-sync-state", func() {
-		settingRow(c, "Durum: "+status, a.sy.result, func() {
-			ui.Row(c).Gap(8).Children(func() {
-				if ryugo.Button(c.Key("sync-now"), "Şimdi eşitle", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+		settingRow(c, T("Durum: ")+T(status), a.sy.result, func() {
+			ui.Row(c).Gap(8).Wrap().Children(func() {
+				if ryugo.Button(c.Key("sync-now"), T("Şimdi eşitle"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 					a.syncNow()
 				}
-				if ryugo.Button(c.Key("sync-probe"), T("Bağlantıyı dene"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("sync-probe"), T("Bağlantıyı dene"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Down, Variant: ryugo.Soft, Icon: iconPlug}).Clicked() {
 					a.syncProbe()
 				}
 			})
@@ -572,7 +587,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		settingGroup(c, "set-sync-held", func() {
 			settingRow(c, Tf("%d dosya uzakta yok; bu bilgisayarda duruyor", a.sy.held),
 				"Sunucu ya da klasör listesini kaybetmiş olabilir. Başka bir cihazda gerçekten sildiysen uygula; emin değilsen bekle.", func() {
-					if ryugo.Button(c.Key("sync-allow"), "Silmeleri uygula", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft}).Clicked() {
+					if ryugo.Button(c.Key("sync-allow"), T("Silmeleri uygula"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
 						a.sy.allow = true
 						a.syncNow()
 					}
@@ -587,12 +602,12 @@ func (a *app) settingsSync(c *ui.Context) {
 			rows3 = append(rows3, func() {
 				settingRow(c, mainOfConflict(f), f, func() {
 					ui.Row(c).Gap(6).Children(func() {
-						if ryugo.Button(c.Key("cf-use:"+f), "Bunu kullan", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						if ryugo.Button(c.Key("cf-use:"+f), T("Bunu kullan"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft, Icon: iconCheck}).Clicked() {
 							if err := a.resolveConflict(f, true); err != nil {
 								a.notice = "Olmadı: " + err.Error()
 							}
 						}
-						if ryugo.Button(c.Key("cf-drop:"+f), "Sil", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						if ryugo.Button(c.Key("cf-drop:"+f), T("Sil"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
 							if err := a.resolveConflict(f, false); err != nil {
 								a.notice = "Olmadı: " + err.Error()
 							}

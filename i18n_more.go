@@ -9,6 +9,8 @@ var enMore = map[string]string{
 	// what the window says outside T's own words, found by TestEnglishCoversScreen
 	"## {{başlık}}\n\n- [ ] ": "## {{başlık}}\n\n- [ ] ", // a template's own words: {{başlık}} is the template's, in any language
 	"Hepsini seç":             "Select all",
+	"sayfa kadar":             "as wide as the page", // the line length's slider, at 0
+	"%d karakter":             "%d characters",
 	// sync: files the remote has none of, held back (massRemovals)
 	"%d dosya uzakta yok görünüyor; silinmedi":     "%d files seem gone from the remote; not deleted",
 	"%d dosya uzakta yok; bu bilgisayarda duruyor": "%d files are not on the remote; kept on this computer",
