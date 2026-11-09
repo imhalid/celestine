@@ -126,6 +126,7 @@ func (a *app) loadSyncState() *SyncState {
 		if b := a.settingsStore.Meta(syncStateKey); b != nil {
 			json.Unmarshal(b, st)
 		}
+		st.Bases = MetaBases{Store: a.settingsStore} // the pages as last synced, to merge (MergePage)
 	}
 	return st
 }
@@ -190,15 +191,15 @@ func (a *app) syncNow() {
 					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
 				}
 				a.seedAfterSync(res)
-				a.purgeTrash()                  // what came down may be a trash that has run out
-				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
-				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
+				a.purgeTrash()                             // what came down may be a trash that has run out
+				a.lookForConflicts()                       // the badge says "çakışma: n" when it is done
+				if res.Pulled+res.Removed+res.Merged > 0 { // something came: the window takes it, as it takes what an agent writes
 					a.checkDisk()
 					a.reloadLibrary()
 				}
 				// told only when something came, or clashed: what was sent is not news, and passes run a moment
 				// after every pause in the typing
-				if res.Pulled+res.Removed+len(res.Conflicts) > 0 {
+				if res.Pulled+res.Removed+res.Merged+len(res.Conflicts) > 0 {
 					a.notice = T("Senkron: ") + syncSummary(res)
 					tone := toastOK
 					if len(res.Conflicts) > 0 {
@@ -237,10 +238,13 @@ func (a *app) syncTick(c *ui.Context) {
 
 // syncSummary is what a pass did, in the window's language.
 func syncSummary(r SyncResult) string {
-	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
+	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+r.Merged+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
 		return T("Eşit: değişiklik yok")
 	}
 	s := Tf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
+	if r.Merged > 0 {
+		s += Tf(", %d merged", r.Merged)
+	}
 	if n := r.Deleted + r.Removed; n > 0 {
 		s += Tf(", %d silme", n)
 	}

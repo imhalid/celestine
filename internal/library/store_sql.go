@@ -87,6 +87,13 @@ func (s *Store) SetMeta(key string, value []byte) error {
 	return err
 }
 
+// DeleteMeta takes away what is kept under key.
+func (s *Store) DeleteMeta(key string) error {
+	s.Snap.Store(nil)
+	_, err := s.DB.Exec(`DELETE FROM meta WHERE key = ?`, key)
+	return err
+}
+
 func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err error) {
 	if sn := s.Snap.Load(); sn != nil {
 		n, ok := sn.nodes[Clean(name)]
