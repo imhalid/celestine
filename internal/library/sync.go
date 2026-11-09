@@ -611,6 +611,9 @@ type SyncResult struct {
 	Held                             int      // files not deleted here, though the remote has none: too many at once (massRemovals)
 	Conflicts                        []string // the files that changed on both sides: ours is kept beside
 	Errors                           []string
+	// Remote is how many names the remote had as the pass began, deleted ones too: none is an account that was
+	// never used (the app gives a new one its welcome page then, and not before).
+	Remote int
 }
 
 func (r SyncResult) String() string {
@@ -739,6 +742,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	if err != nil {
 		return res, pushed, err
 	}
+	res.Remote = len(remote)
 	for n := range remote { // a name that leaves the folder is a remote's to write over, or to delete, what is outside the library
 		if !SafeName(n) {
 			delete(remote, n)

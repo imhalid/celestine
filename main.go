@@ -326,15 +326,31 @@ func seed(lib *Library) error {
 	if len(lib.Collections) > 0 {
 		return nil
 	}
+	_, err := seedWelcome(lib)
+	return err
+}
+
+// bareLibrary is whether lib has nothing in it but its journal, if that.
+func bareLibrary(lib *Library) bool {
+	for _, c := range lib.Collections {
+		if !c.Journal {
+			return false
+		}
+	}
+	return true
+}
+
+// seedWelcome makes the Notes collection with its Welcome page.
+func seedWelcome(lib *Library) (*Page, error) {
 	c, err := lib.NewCollection("Notes")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p, err := c.NewPage(nil, "Welcome")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return p.SaveText(welcome)
+	return p, p.SaveText(welcome)
 }
 
 // appIcon is the app's icon, for its window and its Dock (assets/).
@@ -359,7 +375,6 @@ func main() {
 		err   error
 	)
 	restoreNote := ""
-	fresh := false // the library file is new here: what it holds is what it makes for itself
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -378,12 +393,10 @@ func main() {
 		}
 		restoreNote = restored
 		_, existed := os.Stat(file)
-		fresh = existed != nil
 		if store, err = OpenStore(file); err == nil {
 			if existed != nil {
 				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
 					if IsLibraryFolder(old) {
-						fresh = false    // a library already, taken in: its files are the user's
 						store.Fast(true) // a copy of what is still there: no wait for each file
 						err = CopyTree(OSFS{}, old, store, StoreRoot)
 						store.Fast(false)
@@ -402,10 +415,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := seed(lib); err != nil {
-		log.Fatal(err)
+	// A library with nothing in it yet but a journal (a new file, or one made and left empty): what it holds after
+	// this is only what it makes for itself, and its first sync takes the account's copies of that (markPristine).
+	// One in a file is an account's: its welcome page waits for the first sync, which says whether the account
+	// has anything (seedAfterSync); a folder's has it at once.
+	empty := bareLibrary(lib)
+	wait := empty && store != nil
+	if !wait {
+		if err := seed(lib); err != nil {
+			log.Fatal(err)
+		}
 	}
 	a := newApp(lib)
+	a.sy.seedWait = wait
 	a.notice = restoreNote
 	if _, err := a.journal(); err != nil { // every library has its journal
 		log.Fatal(err)
@@ -421,7 +443,7 @@ func main() {
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
-	if fresh {
+	if empty {
 		a.markPristine()
 	}
 	a.wel.on = a.wantWelcome()                              // the first opening, if it is one

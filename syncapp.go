@@ -46,6 +46,9 @@ type syncUI struct {
 	writes   uint64
 	movedAt  time.Time
 	doneOnce sync.Once // the pass at quit, made once
+	// a new library's welcome page waits for the first pass: made only if the account turns out to hold nothing
+	// at all, so that a second device shows the account's pages, and a welcome deleted there does not come back
+	seedWait bool
 }
 
 // syncQuiet is how long the library is left unwritten before what was written is synced.
@@ -172,6 +175,7 @@ func (a *app) syncNow() {
 				if a.sy.held = res.Held; res.Held > 0 && a.sy.err == "" {
 					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
 				}
+				a.seedAfterSync(res)
 				a.purgeTrash()                  // what came down may be a trash that has run out
 				a.lookForConflicts()            // the badge says "çakışma: n" when it is done
 				if res.Pulled+res.Removed > 0 { // something came: the window takes it, as it takes what an agent writes
@@ -208,6 +212,21 @@ func (a *app) syncTick(c *ui.Context) {
 		return
 	}
 	c.After(30 * time.Second)
+}
+
+// seedAfterSync is the end of a new library's first pass: an account that never held anything gets the welcome
+// page, opened; one that did has its pages here now, and gets none.
+func (a *app) seedAfterSync(res SyncResult) {
+	if !a.sy.seedWait {
+		return
+	}
+	a.sy.seedWait = false
+	if res.Remote > 0 || !bareLibrary(a.lib) {
+		return
+	}
+	if p, err := seedWelcome(a.lib); err == nil {
+		a.open(p)
+	}
 }
 
 // syncAtQuit makes a last pass as the app goes, when something was written since the last one: a pass in the

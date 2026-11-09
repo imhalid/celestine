@@ -346,3 +346,83 @@ func TestSyncAfterWritingAndAtQuit(t *testing.T) {
 		t.Fatal("not synced at quit")
 	}
 }
+
+// A new library waits for its account before it has a welcome page: an account that never held anything gets
+// one; a second device gets the account's pages and makes none of its own, with no conflict over the journal it
+// made; and a welcome page thrown away on the account does not come back on a third.
+func TestSyncNewLibraryWaitsForTheAccount(t *testing.T) {
+	dir := t.TempDir()
+	open := func() *app {
+		a := syncApp(t, dir)
+		a.sy.seedWait = bareLibrary(a.lib)
+		if _, err := a.journal(); err != nil {
+			t.Fatal(err)
+		}
+		a.markPristine()
+		return a
+	}
+	titles := func(a *app) map[string]bool {
+		out := map[string]bool{}
+		for _, c := range a.lib.Collections {
+			for _, p := range c.All() {
+				out[p.Title] = true
+			}
+		}
+		return out
+	}
+	a := open()
+	if titles(a)["Welcome"] {
+		t.Fatal("a welcome page before the account was asked")
+	}
+	a.syncNow()
+	waitSync(t, a)
+	if !titles(a)["Welcome"] || a.page == nil || a.page.Title != "Welcome" {
+		t.Fatalf("an empty account got no welcome page: %v", titles(a))
+	}
+	var notes *Collection
+	for _, c := range a.lib.Collections {
+		if !c.Journal {
+			notes = c
+		}
+	}
+	p, _ := notes.NewPage(nil, "From the first")
+	p.SaveText("words\n")
+	a.syncNow()
+	waitSync(t, a)
+
+	time.Sleep(10 * time.Millisecond) // the second device's journal is made later, and differs
+	b := open()
+	b.syncNow()
+	waitSync(t, b)
+	if b.sy.conflict != 0 || len(b.conflictFiles()) != 0 {
+		t.Fatalf("conflicts on the second device: %v (%s)", b.conflictFiles(), b.sy.result)
+	}
+	if got := titles(b); !got["From the first"] || !got["Welcome"] {
+		t.Fatalf("the account's pages did not come down: %v (%s)", got, b.sy.result)
+	}
+	n := 0
+	for _, c := range b.lib.Collections {
+		if !c.Journal {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("the second device made a collection of its own: %d", n)
+	}
+
+	for _, pp := range a.lib.Collections {
+		for _, q := range pp.All() {
+			if q.Title == "Welcome" {
+				a.trashPage(q)
+			}
+		}
+	}
+	a.syncNow()
+	waitSync(t, a)
+	c := open()
+	c.syncNow()
+	waitSync(t, c)
+	if got := titles(c); got["Welcome"] || !got["From the first"] {
+		t.Fatalf("the third device: %v (%s)", got, c.sy.result)
+	}
+}
