@@ -20,7 +20,7 @@ func TestDamagedSettingsKept(t *testing.T) {
 		t.Fatalf("written over: %s", b)
 	}
 	kept, _ := filepath.Glob(a.settingsFile + ".damaged-*")
-	if len(kept) != 1 || !strings.Contains(a.notice, "could not be read") {
+	if len(kept) != 1 || !strings.Contains(a.notice, kept[0]) {
 		t.Fatalf("kept %v, notice %q", kept, a.notice)
 	}
 	os.WriteFile(a.settingsFile, []byte(`{"theme": -1, "appTheme": -7}`), 0o600)
