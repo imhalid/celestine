@@ -43,6 +43,7 @@ type syncUI struct {
 	hasKey         bool
 	held           int  // files the last pass did not delete here, the remote having none of them (massRemovals)
 	allow          bool // the user said to delete them: the next pass does
+	resend         bool // the user said to send them up again: the next pass does
 	// the store's Writes when it was last synced or last seen moving, and when it moved: a pass starts once the
 	// writing has been quiet for syncQuiet, so that what is typed goes up in seconds, not at the next round
 	writes   uint64
@@ -281,6 +282,7 @@ func (a *app) syncNow() {
 	state := a.loadSyncState()
 	state.ForRemote(a.syncRemoteID())
 	state.AllowRemovals, a.sy.allow = a.sy.allow, false
+	state.Resend, a.sy.resend = a.sy.resend, false
 	go func() {
 		defer a.guard()
 		if backupDir != "" {
@@ -824,10 +826,17 @@ func (a *app) settingsSync(c *ui.Context) {
 		settingGroup(c, "set-sync-held", func() {
 			settingRow(c, Tf("%d dosya uzakta yok; bu bilgisayarda duruyor", a.sy.held),
 				"Sunucu ya da klasör listesini kaybetmiş olabilir. Başka bir cihazda gerçekten sildiysen uygula; emin değilsen bekle.", func() {
-					if ryugo.Button(c.Key("sync-allow"), T("Silmeleri uygula"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
-						a.sy.allow = true
-						a.syncNow()
-					}
+					ui.Row(c).Gap(8).Children(func() {
+						// the way the guard is for: the remote lost them, and these are the copies to keep (#147)
+						if ryugo.Button(c.Key("sync-resend"), T("Send mine up again"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
+							a.sy.resend = true
+							a.syncNow()
+						}
+						if ryugo.Button(c.Key("sync-allow"), T("Silmeleri uygula"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
+							a.sy.allow = true
+							a.syncNow()
+						}
+					})
 				})
 		})
 	}

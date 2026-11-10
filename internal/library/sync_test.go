@@ -965,3 +965,51 @@ func TestSyncPushListsOnce(t *testing.T) {
 		t.Fatalf("the next pass did something: %+v", res)
 	}
 }
+
+// noHash lists one name with no hash, as the Worker lists an object without its metadata.
+type noHash struct {
+	Remote
+	name string
+}
+
+func (r noHash) List() (map[string]RemoteEntry, error) {
+	m, err := r.Remote.List()
+	if e, ok := m[r.name]; ok {
+		e.Hash = ""
+		m[r.name] = e
+	}
+	return m, err
+}
+
+// The mass-removal guard holds a small library whose every synced file is gone from the remote, sends them up again
+// when asked, and reads an entry listed with no hash as an error, not as a deletion (#147).
+func TestSyncGuardSmallAndNoHash(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a := newDevice(t)
+	for i := range 6 {
+		a.write(fmt.Sprintf("Not/S%d/page.json", i), "sayfa")
+	}
+	a.sync(remote)
+	// the remote loses all of it, with no tombstone; a file put there by another hand keeps it from being empty
+	os.RemoveAll(filepath.Join(remote.Root, "Not"))
+	os.MkdirAll(filepath.Join(remote.Root, "Yeni", "Y"), 0o755)
+	os.WriteFile(filepath.Join(remote.Root, "Yeni", "Y", "page.json"), []byte("başka"), 0o644)
+	res := a.sync(remote)
+	if res.Held != 6 || res.Removed+res.Deleted != 0 || a.read("Not/S0/page.json") != "sayfa" {
+		t.Fatalf("not held: %+v", res)
+	}
+	a.st.Resend = true
+	res = a.sync(remote)
+	a.st.Resend = false
+	if res.Pushed != 6 || a.read("Not/S0/page.json") != "sayfa" {
+		t.Fatalf("not sent up again: %+v", res)
+	}
+
+	c := newDevice(t)
+	c.sync(remote)
+	r := noHash{Remote: remote, name: "Not/S1/page.json"}
+	res, err := SyncOnce(OSFS{}, c.root, r, &c.st, nil, time.Now())
+	if err != nil || len(res.Errors) != 1 || res.Removed+res.Deleted != 0 || c.read("Not/S1/page.json") != "sayfa" {
+		t.Fatalf("an entry with no hash: %+v %v", res, err)
+	}
+}

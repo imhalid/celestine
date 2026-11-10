@@ -632,6 +632,12 @@ type SyncState struct {
 	// AllowRemovals lets this one pass delete here what the remote does not have, past massRemovals (the
 	// user said so); it is never kept.
 	AllowRemovals bool `json:"-"`
+	// Resend sends up again, as new, the files this one pass would hold back (massRemovals): what the guard is
+	// for is a remote that lost them, and the copies here are the ones to keep (#147). It is never kept.
+	Resend bool `json:"-"`
+	// Held is how many files the last pass held back: they stay held, whatever the next pass counts, until the
+	// user says to delete them or to send them up again.
+	Held int `json:"held,omitempty"`
 	// Seen is each file as it was seen when its hash here was what the last sync had (localFiles).
 	Seen map[string]fileSeen `json:"seen,omitempty"`
 	// Pristine is the files a new library made for itself (its first collection and page, its journal), by
@@ -883,19 +889,47 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	// files the remote has no entry for at all (no tombstone), that are here as at the last pass: they
 	// would be deleted here. A few is a deletion elsewhere whose tombstone is gone; a tenth of the library
 	// is a remote that lost its list.
+	// An entry listed without a hash, not deleted, is not one the pass can read: an object put in the bucket by
+	// another tool. Read as gone it would be deleted here, past the guard (#147): it is an error for that name.
+	for n, re := range remote {
+		if !re.Deleted && re.Hash == "" {
+			delete(remote, n)
+			names[n] = false
+			res.Errors = append(res.Errors, n+": listed with no hash, left as it is")
+		}
+	}
 	hold := false
 	if !st.AllowRemovals {
-		gone := 0
+		gone, synced := 0, 0
+		var goneNames []string
 		for _, n := range order {
+			if !names[n] {
+				continue
+			}
+			if st.Files[n].Remote != "" {
+				synced++
+			}
 			if _, rok := remote[n]; !rok {
 				if lh := local[n]; lh != "" && lh == st.Files[n].Local && st.Files[n].Remote != "" {
 					gone++
+					goneNames = append(goneNames, n)
 				}
 			}
 		}
-		hold = gone >= massRemovals && gone*10 >= len(local)
+		// many gone at once, or every file synced before, however few: a remote that lost its list
+		hold = gone >= massRemovals && gone*10 >= len(local) || gone > 0 && gone == synced && synced > 1 || gone > 0 && st.Held > 0
+		if hold && st.Resend { // the copies here are the ones to keep: they go up as new
+			for _, n := range goneNames {
+				delete(st.Files, n)
+				st.dropBase(n)
+			}
+			hold = false
+		}
 	}
 	for _, n := range order {
+		if !names[n] { // listed with no hash: left as it is
+			continue
+		}
 		lh := local[n] // "" when it is not here
 		re, rok := remote[n]
 		rh := ""
@@ -1059,6 +1093,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			st.Seen[n] = s
 		}
 	}
+	st.Held = res.Held // what was held stays held at the next pass, until the user says what it is
 	return res, pushed, nil
 }
 

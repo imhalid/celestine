@@ -4,6 +4,8 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// files the sync held back, sent up again (#147)
+	"Send mine up again": "Benimkileri yeniden gönder",
 	// a fold's or a zoom's chip taken away (#128)
 	"The lines it held were put back, not deleted.": "Sakladığı satırlar silinmedi, yerine kondu.",
 	// before what cannot be taken back: a question, or a way back (#217)
