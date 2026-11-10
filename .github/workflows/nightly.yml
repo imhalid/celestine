@@ -1,8 +1,12 @@
-# The gate, every evening there were commits: format, vet, every test, the library under the race detector, the
-# builds a release makes (the three systems without cgo, and the web's wasm), and govulncheck. Not on each push: the
-# repository is private, and its Actions minutes are counted; an evening's run is one, on Linux, the cheapest runner.
-# An evening with no commit in the day before stops after the check, a minute. It can be run by hand too
-# (Actions ▸ nightly ▸ Run workflow).
+# The gate, every evening there were commits: format, vet, the builds a release makes (the three systems without cgo,
+# and the web's wasm), the library under the race detector, every test, the performance with a big library, and
+# govulncheck. Not on each push: the repository is private, and its Actions minutes are counted; an evening's run is
+# one, on Linux, the cheapest runner. An evening with no commit in the day before stops after the check, a minute. It
+# can be run by hand too (Actions ▸ nightly ▸ Run workflow).
+#
+# Each run that checks something opens an issue, labelled nightly, with what it found (scripts/nightly-report.sh): the
+# commits it tested, each step, the failed tests, the slowest, the performance figures, the vulnerabilities. One where
+# everything passed is closed at once, a record; one where something failed stays open.
 name: nightly
 on:
   schedule:
@@ -10,20 +14,30 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
+  actions: read
 concurrency:
   group: nightly
   cancel-in-progress: true
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: anything new today
+        with: { fetch-depth: 0 }
+      - name: anything new
         id: new
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # the commit the last run that checked something tested: what is new is what came after it
+          from=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow nightly.yml --status completed --limit 20 \
+            --json headSha,databaseId,conclusion \
+            -q "[.[] | select(.databaseId != $GITHUB_RUN_ID and .conclusion != \"skipped\" and .conclusion != \"cancelled\")][0].headSha // \"\"")
+          echo "from=$from" >> "$GITHUB_OUTPUT"
           last=$(git log -1 --format=%ct)
-          if [ "${{ github.event_name }}" = workflow_dispatch ] || [ $(( $(date +%s) - last )) -lt 86400 ]; then
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ $(( $(date +%s) - last )) -lt 86400 ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "No commit in the last day: nothing to check."
@@ -31,22 +45,87 @@ jobs:
       - uses: actions/setup-go@v5
         if: steps.new.outputs.run == 'true'
         with: { go-version-file: go.mod }
-      - name: format and vet
+      - name: gofmt and vet
+        id: fmt
         if: steps.new.outputs.run == 'true'
+        continue-on-error: true
         run: |
-          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
-          go vet ./...
+          mkdir -p report
+          set -o pipefail
+          { test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }; go vet ./...; } 2>&1 | tee report/vet.txt
       - name: builds
+        id: build
         if: steps.new.outputs.run == 'true'
+        continue-on-error: true
         run: |
-          for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . ; done
-          GOOS=js GOARCH=wasm go build -o /dev/null .
+          set -o pipefail
+          {
+            for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . || exit 1; done
+            GOOS=js GOARCH=wasm go build -o /dev/null .
+          } 2>&1 | tee report/builds.txt
       - name: the library under the race detector
+        id: race
         if: steps.new.outputs.run == 'true'
-        run: go test -race ./internal/library/
-      - name: test
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          go test -race ./internal/library/ 2>&1 | tee report/race.txt
+      - name: every test
+        id: test
         if: steps.new.outputs.run == 'true'
-        run: go test -timeout 20m ./...
-      - name: known vulnerabilities
+        continue-on-error: true
+        run: go test -json -timeout 25m ./... > report/test.json
+      - name: performance with a big library
+        id: perf
         if: steps.new.outputs.run == 'true'
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          PERF_PAGES: "10000"
+        run: |
+          set -o pipefail
+          go test -count=1 -run '^TestPerfBudget$' -v . 2>&1 | tee report/perf.txt
+          PERF_PAGES="" go test -run '^$' -bench 'BigLibrary' -benchmem -benchtime 5x . 2>&1 | tee report/bench.txt
+      - name: govulncheck
+        id: vuln
+        if: steps.new.outputs.run == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          go run golang.org/x/vuln/cmd/govulncheck@latest ./... 2>&1 | tee report/vuln.txt
+      - name: the report, as an issue
+        if: always() && steps.new.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FROM: ${{ steps.new.outputs.from }}
+          PERF_PAGES: "10000"
+          OUT_FMT: ${{ steps.fmt.outcome }}
+          OUT_BUILD: ${{ steps.build.outcome }}
+          OUT_RACE: ${{ steps.race.outcome }}
+          OUT_TEST: ${{ steps.test.outcome }}
+          OUT_PERF: ${{ steps.perf.outcome }}
+          OUT_VULN: ${{ steps.vuln.outcome }}
+        run: |
+          mkdir -p report
+          bash scripts/nightly-report.sh > report/issue.md
+          head -c 60000 report/issue.md > report/body.md # GitHub takes 65536 characters
+          bad=""
+          for o in "$OUT_FMT" "$OUT_BUILD" "$OUT_RACE" "$OUT_TEST" "$OUT_PERF" "$OUT_VULN"; do
+            if [ "$o" = failure ]; then bad=1; fi
+          done
+          nfail=$(jq -r 'select(.Action=="fail" and .Test != null) | .Test' report/test.json 2>/dev/null | sort -u | wc -l | tr -d ' ')
+          what="all passed"
+          if [ -n "$bad" ]; then what="something failed"; fi
+          if [ "${nfail:-0}" -gt 0 ]; then what="$nfail failing tests"; fi
+          title="Nightly $(date -u +%Y-%m-%d): $what ($(git rev-parse --short HEAD))"
+          gh label create nightly --repo "$GITHUB_REPOSITORY" --color 5319e7 --description "The nightly gate's report" 2>/dev/null || true
+          url=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label nightly --body-file report/body.md)
+          echo "$url"
+          if [ -z "$bad" ]; then
+            gh issue close "$url" --repo "$GITHUB_REPOSITORY" --comment "Everything passed: kept as a record."
+          fi
+          echo "bad=$bad" >> "$GITHUB_ENV"
+      - name: the run's own colour
+        if: always() && steps.new.outputs.run == 'true'
+        run: test -z "${bad:-}"

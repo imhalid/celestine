@@ -54,13 +54,17 @@ func TestDamagedCollectionLeftOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, n := range []string{"Good", "Bad"} {
-		if _, err := lib.NewCollection(n); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := lib.NewCollection("Good"); err != nil {
+		t.Fatal(err)
 	}
-	bad := filepath.Join(root, "Bad", CollectionFile)
-	os.WriteFile(bad, []byte(`{"name": "Bad", "pages": [`), 0o644)
+	c, err := lib.NewCollection("Bad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(c.Dir, CollectionFile) // its folder as the library names it: "bad", on a disk that tells case apart
+	if err := os.WriteFile(bad, []byte(`{"name": "Bad", "pages": [`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	lib, err = OpenLibrary(root)
 	if err != nil {
 		t.Fatalf("the library did not open: %v", err)
