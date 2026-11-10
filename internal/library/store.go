@@ -257,3 +257,17 @@ func dataDir() string {
 	}
 	return ""
 }
+
+// Batcher is a file system whose writes can be made one change: all of them or none.
+type Batcher interface {
+	Batch(fn func() error) error
+}
+
+// InBatch runs fn, whose writes go to fsys, as one change of it when it can be one: a reorder that writes every
+// sibling is not left half done (#138).
+func InBatch(fsys FS, fn func() error) error {
+	if b, ok := fsys.(Batcher); ok {
+		return b.Batch(fn)
+	}
+	return fn()
+}

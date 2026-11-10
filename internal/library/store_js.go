@@ -500,3 +500,11 @@ func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
 	}
 	return out, nil
 }
+
+// Batch runs fn with the writes to the browser's storage held, and writes them once after: there is one value to
+// write, so it is whole or not written.
+func (s *Store) Batch(fn func() error) error {
+	s.Fast(true)
+	defer s.Fast(false)
+	return fn()
+}

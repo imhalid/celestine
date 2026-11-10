@@ -349,20 +349,23 @@ func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
 		p.Props = map[string]string{}
 	}
 	p.Props[id] = v
-	for i, q := range col {
-		if q.Rank == i+1 && q != p {
-			continue
+	// one change of the store: all of them or none (#138)
+	return InBatch(c.FS, func() error {
+		for i, q := range col {
+			if q.Rank == i+1 && q != p {
+				continue
+			}
+			q.Rank = i + 1
+			body, err := q.Body()
+			if err != nil {
+				return err
+			}
+			if err := q.Save(body); err != nil {
+				return err
+			}
 		}
-		q.Rank = i + 1
-		body, err := q.Body()
-		if err != nil {
-			return err
-		}
-		if err := q.Save(body); err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // CompareManual orders two pages by their place in the collection's own order: placed ones first, by place, the
@@ -397,20 +400,23 @@ func (c *Collection) SetManual(pages []*Page) error {
 			next++
 		}
 	}
-	for i, p := range all {
-		if p.Manual == i+1 {
-			continue
+	// one change of the store: all of them or none (#138)
+	return InBatch(c.FS, func() error {
+		for i, p := range all {
+			if p.Manual == i+1 {
+				continue
+			}
+			p.Manual = i + 1
+			body, err := p.Body()
+			if err != nil {
+				return err
+			}
+			if err := p.Save(body); err != nil {
+				return err
+			}
 		}
-		p.Manual = i + 1
-		body, err := p.Body()
-		if err != nil {
-			return err
-		}
-		if err := p.Save(body); err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // SplitTags are the tags of a tags value: the words between its commas, trimmed, each once (its case as first

@@ -3,6 +3,7 @@
 package library
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,5 +77,63 @@ func TestStoreSmallerPoints(t *testing.T) {
 	after, _ := st.ReadFile(filepath.Join(c.Dir, CollectionFile))
 	if string(before) != string(after) {
 		t.Fatalf("collection.json changed:\n%s\n%s", before, after)
+	}
+}
+
+// A reorder is one change and keeps no copy of pages whose text did not change (#138); a removed file's copies go
+// with it (#139); a trash item with no page file stays in the trash (#142).
+func TestReorderVersionsRestore(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	now := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+	st.Now = func() time.Time { return now }
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	c, _ := lib.NewCollection("Notes")
+	var ps []*Page
+	for i := range 5 {
+		p, _ := c.NewPage(nil, "Sayfa")
+		p.SaveText(strings.Repeat("metin ", i+1))
+		ps = append(ps, p)
+	}
+	now = now.Add(time.Hour)
+	ps = append([]*Page{ps[4]}, ps[:4]...)
+	if err := Renumber(ps); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range ps {
+		if n := len(st.Versions(p.File())); n != 0 {
+			t.Fatalf("a reorder kept %d copies of %s", n, p.File())
+		}
+	}
+	// a batch that fails is undone whole
+	err = st.Batch(func() error {
+		ps[0].SaveText("değişti\n")
+		return errors.New("stop")
+	})
+	if b, _ := ps[0].Text(); err == nil || strings.Contains(b, "değişti") {
+		t.Fatalf("a failed batch was kept: %q", b)
+	}
+	// a removed file's copies go with it
+	p := ps[1]
+	now = now.Add(time.Hour)
+	p.SaveText("yeni metin\n")
+	if len(st.Versions(p.File())) == 0 {
+		t.Fatal("no copy to begin with")
+	}
+	st.Remove(p.File())
+	if n := len(st.Versions(p.File())); n != 0 {
+		t.Fatalf("%d copies left for the next page at that place", n)
+	}
+	// a trash item with no page file stays in the trash
+	item, _ := lib.TrashPage(ps[2])
+	st.Remove(filepath.Join(item.Dir, PageFileName))
+	if _, _, err := lib.Restore(item); err == nil {
+		t.Fatal("restored with no page file")
+	}
+	if len(lib.Trash()) != 1 {
+		t.Fatal("not in the trash any more")
 	}
 }

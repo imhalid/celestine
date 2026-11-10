@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +28,9 @@ type Store struct {
 	// Writes counts the changes to the files and folders (not to the settings, Meta): the app syncs a little
 	// after it moves, so that what was written goes up before long.
 	Writes atomic.Uint64
+
+	batchMu  sync.Mutex  // one Batch at a time
+	batching atomic.Bool // a Batch's transaction is open on the connection
 }
 
 // wrote marks a change to the tree: what was read at once is no more what is there, and Writes moves.
@@ -249,11 +253,11 @@ func (s *Store) Rename(oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	tx, err := s.DB.Begin()
+	tx, commit, rollback, err := s.begin()
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollback()
 	// the checks above again, in the transaction: nothing else writes while it holds the one connection (#143)
 	var ok int
 	if err := tx.QueryRow(`SELECT (SELECT count(*) FROM nodes WHERE path = ?1) = 1
@@ -273,7 +277,7 @@ func (s *Store) Rename(oldName, newName string) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return commit()
 }
 
 func (s *Store) Remove(name string) error {
@@ -293,7 +297,11 @@ func (s *Store) Remove(name string) error {
 			return pathErr("remove", name, errors.New("directory not empty"))
 		}
 	}
-	_, err = s.DB.Exec(`DELETE FROM nodes WHERE path = ?`, n)
+	if _, err = s.DB.Exec(`DELETE FROM nodes WHERE path = ?`, n); err != nil {
+		return err
+	}
+	// its copies go with it: a page made later at the same place would show them as its own (#139)
+	_, err = s.DB.Exec(`DELETE FROM versions WHERE path = ?`, n)
 	return err
 }
 
@@ -307,11 +315,11 @@ func (s *Store) RemoveAll(name string) error {
 	if err != nil {
 		return err
 	}
-	tx, err := s.DB.Begin()
+	tx, commit, rollback, err := s.begin()
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollback()
 	for _, p := range all {
 		if _, err := tx.Exec(`DELETE FROM nodes WHERE path = ?`, p); err != nil {
 			return err
@@ -320,7 +328,7 @@ func (s *Store) RemoveAll(name string) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return commit()
 }
 
 func (s *Store) Stat(name string) (fs.FileInfo, error) {
@@ -441,3 +449,41 @@ func (s *Store) BeginSnapshot() {
 }
 
 func (s *Store) EndSnapshot() { s.Snap.Store(nil) }
+
+// Batch runs fn as one transaction: the store has one connection, so what fn writes through the store is in it, and
+// is kept whole or not at all. Rename and RemoveAll, which make transactions of their own, run inside it.
+func (s *Store) Batch(fn func() error) error {
+	s.batchMu.Lock()
+	defer s.batchMu.Unlock()
+	if _, err := s.DB.Exec(`BEGIN IMMEDIATE`); err != nil {
+		return err
+	}
+	s.batching.Store(true)
+	err := fn()
+	s.batching.Store(false)
+	if err != nil {
+		s.DB.Exec(`ROLLBACK`)
+		s.wrote()
+		return err
+	}
+	_, err = s.DB.Exec(`COMMIT`)
+	return err
+}
+
+// execer is a transaction, or the store's connection inside a Batch.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// begin starts a transaction, or, inside a Batch, goes on in the Batch's: done commits it (or does nothing).
+func (s *Store) begin() (x execer, done func() error, undo func(), err error) {
+	if s.batching.Load() {
+		return s.DB, func() error { return nil }, func() {}, nil
+	}
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return tx, tx.Commit, func() { tx.Rollback() }, nil
+}

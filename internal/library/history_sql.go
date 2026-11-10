@@ -21,6 +21,11 @@ func (s *Store) snapshotBefore(n string, data []byte) {
 	if old == nil || bytes.Equal(old, data) || blankBody(old) {
 		return
 	}
+	if _, ob := SplitPage(old); ob != "" { // only the meta changed (an order, a rank): the text is kept already (#138)
+		if _, nb := SplitPage(data); nb == ob {
+			return
+		}
+	}
 	var taken int64
 	s.DB.QueryRow(`SELECT coalesce(max(taken), 0) FROM versions WHERE path = ?`, n).Scan(&taken)
 	if taken != 0 && s.clock().Sub(time.Unix(0, taken)) < historyEvery {
@@ -38,12 +43,18 @@ func (s *Store) oldFile(n string) ([]byte, time.Time) {
 	return data, mt
 }
 
+// maxVersions is how many unnamed copies of one page are kept, at most.
+const maxVersions = 200
+
 // keep stores data as a version of n written at at, and lets the copies of
 // every page taken more than HistoryDays ago go, but the named ones.
 func (s *Store) keep(n string, data []byte, at time.Time) {
 	now := s.clock()
 	s.DB.Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), now.UnixNano(), data)
 	s.DB.Exec(`DELETE FROM versions WHERE label = '' AND taken < ?`, now.AddDate(0, 0, -HistoryDays).UnixNano())
+	// and no more than maxVersions of a page, the oldest unnamed going first (#139)
+	s.DB.Exec(`DELETE FROM versions WHERE path = ?1 AND label = '' AND id NOT IN
+		(SELECT id FROM versions WHERE path = ?1 AND label = '' ORDER BY taken DESC LIMIT ?2)`, n, maxVersions)
 }
 
 // SnapshotNow keeps the file at name as it is, whatever was kept lately: as

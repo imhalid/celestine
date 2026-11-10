@@ -774,15 +774,16 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	if parent != nil {
 		in, siblings = parent.Dir, &parent.Children
 	}
+	// read before it moves: an item with no page file stays in the trash, not half in the library (#142)
+	src, err := l.FS.ReadFile(filepath.Join(item.Dir, PageFileName))
+	if err != nil {
+		return nil, nil, errors.New(item.Title + ": no page file to bring back")
+	}
+	meta, body, damaged := SplitPageChecked(src)
 	to, err := l.putBack(item, in, filepath.Base(item.From))
 	if err != nil {
 		return nil, nil, err
 	}
-	src, err := l.FS.ReadFile(filepath.Join(to, PageFileName))
-	if err != nil {
-		return nil, nil, err
-	}
-	meta, body := SplitPage(src)
 	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent}
 	p.ReadMeta(meta)
 	if p.Title == "" {
@@ -793,8 +794,10 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	}
 	p.Children = ReadPages(to, coll, p)
 	p.Order = lastOrder(*siblings) + 1 // at the end of where it goes
-	if err := p.Save(body); err != nil {
-		return nil, nil, err
+	if damaged == nil {                // a damaged file is brought back as it is, not written over with an empty body
+		if err := p.Save(body); err != nil {
+			return nil, nil, err
+		}
 	}
 	*siblings = append(*siblings, p)
 	if parent != nil {
@@ -954,21 +957,37 @@ func (p *Page) setColl(c *Collection) {
 }
 
 // Renumber writes the order of siblings, as they stand, into the pages whose order changed.
+// It is one change of the store: all of them or none (#138).
 func Renumber(ps []*Page) error {
+	if len(ps) == 0 {
+		return nil
+	}
+	was := make([]int, len(ps))
 	for i, p := range ps {
-		if p.Order == i+1 {
-			continue
+		was[i] = p.Order
+	}
+	err := InBatch(ps[0].FS(), func() error {
+		for i, p := range ps {
+			if p.Order == i+1 {
+				continue
+			}
+			p.Order = i + 1
+			body, err := p.Body()
+			if err != nil {
+				return err
+			}
+			if err := p.Save(body); err != nil {
+				return err
+			}
 		}
-		p.Order = i + 1
-		body, err := p.Body()
-		if err != nil {
-			return err
-		}
-		if err := p.Save(body); err != nil {
-			return err
+		return nil
+	})
+	if err != nil { // none of it written: the pages say what the files say
+		for i, p := range ps {
+			p.Order = was[i]
 		}
 	}
-	return nil
+	return err
 }
 
 // SortCollections puts collections in the sidebar's order: the pinned first,
