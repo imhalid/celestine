@@ -124,6 +124,7 @@ func (f *front) keys() []string {
 
 // SplitFrontMatter is src's front matter as text values, and its body.
 func SplitFrontMatter(src string) (map[string]string, string) {
+	src = strings.TrimPrefix(src, "\uFEFF") // front matter after a BOM is still front matter (#131)
 	f, body := readFront(src)
 	meta := map[string]string{}
 	for _, k := range f.keys() {

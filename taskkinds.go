@@ -110,13 +110,35 @@ func (a *app) setTaskKind(at int, id string) {
 // ---- Markdown ----
 
 // taskBoxLine is an item of a list in Markdown with a box: what comes before the box, and what is in it.
+// listItemLine is a line that starts an item of a list.
+var listItemLine = regexp.MustCompile(`^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s`)
+
 var taskBoxLine = regexp.MustCompile(`^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+)\[(.)\](\s|$)`)
 
 // taskKindsIn takes the kinds out of the boxes of md's lines, which richtext reads as plain ones,
 // and gives them back in the order of the tasks: "" for a plain one or a done one.
 func taskKindsIn(lines []string) []string {
 	var kinds []string
+	inCode, prevBlank, prevList := false, true, false
 	for i, l := range lines {
+		// an indented block of code (four spaces after a blank line, not under a list item) is code: a box in it is
+		// text, not to be rewritten, or the count of tasks differs and every task loses its kind (#131)
+		if strings.TrimSpace(l) == "" {
+			prevBlank = true
+			continue
+		}
+		indent := len(strings.ReplaceAll(l, "\t", "    ")) - len(strings.TrimLeft(strings.ReplaceAll(l, "\t", "    "), " "))
+		switch {
+		case inCode && indent >= 4:
+			prevBlank = false
+			continue
+		case !inCode && indent >= 4 && prevBlank && !prevList:
+			inCode, prevBlank = true, false
+			continue
+		}
+		inCode = false
+		prevList = listItemLine.MatchString(l) || prevList && indent >= 2
+		prevBlank = false
 		m := taskBoxLine.FindStringSubmatchIndex(l)
 		if m == nil {
 			continue

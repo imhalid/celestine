@@ -99,3 +99,42 @@ func TestOwnTagsNotRawHTML(t *testing.T) {
 		t.Errorf("a div is %q", kind)
 	}
 }
+
+// The Markdown view's escapes and import keep text as it was (#130, #131).
+func TestMarkdownEscapesAndImport(t *testing.T) {
+	round := func(md string) string { return strings.TrimSpace(bodyMarkdown(parseBody(md))) }
+	for _, md := range []string{
+		`C:\!foo`,
+		"split on [^ ]+",
+		"[[_private]] and [[a*b*c]]",
+	} {
+		once := round(md)
+		if twice := round(once); twice != once {
+			t.Errorf("%q grows: %q then %q", md, once, twice)
+		}
+		if got := parseBody(md).PlainText(); !strings.Contains(got, strings.Trim(md, `\`)) && md != `C:\!foo` {
+			t.Errorf("%q reads as %q", md, got)
+		}
+	}
+	if got := parseBody(`C:\\!foo`).PlainText(); !strings.Contains(got, `C:\!foo`) {
+		t.Errorf("a backslash before ! lost: %q", got)
+	}
+	// a paragraph that says what the held blocks stand as is text
+	md := "RYUDITBLOCK0X\n\n```go\nx\n```"
+	if got := round(md); strings.Count(got, "```go") != 1 || !strings.Contains(got, "RYUDITBLOCK0X") {
+		t.Errorf("the token is read as a block: %q", got)
+	}
+	// CRLF and a BOM
+	if got := round("\uFEFFbir\r\n\r\n---\r\n\r\niki\r\n"); got != "bir\n\n---\n\niki" {
+		t.Errorf("CRLF: %q", got)
+	}
+	// a divider right after a block of code
+	if got := round("```\nx\n```\n---\n\nsonra"); !strings.Contains(got, "---") {
+		t.Errorf("the divider after a fence: %q", got)
+	}
+	// a kinded box in an indented block of code is text, and the tasks keep their kinds
+	md = "metin\n\n    - [!] kodda\n\n- [*] yıldızlı\n- [!] acil"
+	if got := round(md); !strings.Contains(got, "[!] kodda") || !strings.Contains(got, "- [*] yıldızlı") || !strings.Contains(got, "- [!] acil") {
+		t.Errorf("kinds with indented code: %q", got)
+	}
+}

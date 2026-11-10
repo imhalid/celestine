@@ -38,9 +38,11 @@ const (
 // rawNames are what a raw block is called over it, in the editor.
 var rawNames = map[string]string{"table": "Tablo", "html": "HTML", "math": "Matematik", "footnote": "Dipnot", "callout": "Not kutusu"}
 
-func blockToken(i int) string { return "RYUDITBLOCK" + strconv.Itoa(i) + "X" }
+// blockToken is the line a held block stands as while richtext reads or writes the rest. Its marks are of Unicode's
+// private use: a line typed as text never is one (#130).
+func blockToken(i int) string { return "\uE000RYUDITBLOCK" + strconv.Itoa(i) + "\uE001" }
 
-var tokenLine = regexp.MustCompile(`^RYUDITBLOCK(\d+)X$`)
+var tokenLine = regexp.MustCompile("^\uE000RYUDITBLOCK(\\d+)\uE001$")
 
 var (
 	hrLine     = regexp.MustCompile(`^ {0,3}(?:(?:- *){3,}|(?:\* *){3,}|(?:_ *){3,})$`)
@@ -53,12 +55,16 @@ var (
 
 // parseBody reads a page's Markdown into the editor's text.
 func parseBody(md string) richtext.Text {
+	// one form at the door: a file written on Windows has CRLF lines, and one from some editors a BOM (#131)
+	md = strings.ReplaceAll(strings.TrimPrefix(md, "\uFEFF"), "\r\n", "\n")
 	lines := strings.Split(md, "\n")
 	var out []string
 	var held []heldBlock
+	afterHeld := false // the last line given to richtext is a held block's: what follows starts a block
 	hold := func(h heldBlock) {
 		out = append(out, "", blockToken(len(held)), "")
 		held = append(held, h)
+		afterHeld = true
 	}
 	blank := func(i int) bool { return i < 0 || strings.TrimSpace(lines[i]) == "" }
 	for i := 0; i < len(lines); {
@@ -93,13 +99,14 @@ func parseBody(md string) richtext.Text {
 				continue
 			}
 			// "---" right under a line of text underlines it as a heading
-			if hrLine.MatchString(l) && (blank(i-1) || !strings.Contains(l, "-")) {
+			if hrLine.MatchString(l) && (blank(i-1) || afterHeld || !strings.Contains(l, "-")) {
 				hold(heldBlock{kind: "hr"})
 				i++
 				continue
 			}
 		}
 		out = append(out, protectInline(l))
+		afterHeld = false
 		i++
 	}
 	kinds := taskKindsIn(out) // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
@@ -219,10 +226,51 @@ func withoutCode(s string) string {
 // protectInline keeps footnote references as text, which richtext reads
 // as "[1]" and writes so.
 func protectInline(l string) string {
-	if !strings.Contains(l, "[^") {
+	if !strings.Contains(l, "[^") && !strings.Contains(l, "[[") {
 		return l
 	}
-	return outsideCode(l, func(s string) string { return strings.ReplaceAll(s, "[^", `\[^`) })
+	return outsideCode(l, func(s string) string {
+		var sb strings.Builder
+		for i := 0; i < len(s); i++ {
+			// one not escaped already: "\\[^" read and written again would grow a backslash at each round (#130)
+			if strings.HasPrefix(s[i:], "[^") && !escapedAt(s, i) {
+				sb.WriteByte('\\')
+			}
+			sb.WriteByte(s[i])
+		}
+		return protectLinks(sb.String())
+	})
+}
+
+// escapedAt says whether the byte at i of s is escaped: an odd run of backslashes before it.
+func escapedAt(s string, i int) bool {
+	n := 0
+	for k := i - 1; k >= 0 && s[k] == '\\'; k-- {
+		n++
+	}
+	return n%2 == 1
+}
+
+// wikiInLine is a [[link]] as it is typed, its inside kept whole.
+var wikiInLine = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
+
+// protectLinks escapes the marks inside a [[link]] that richtext would read as emphasis: [[_private]] is the page
+// "_private", not "private" in italics (#130). The chips find the link as it was typed.
+func protectLinks(s string) string {
+	if !strings.Contains(s, "[[") {
+		return s
+	}
+	return wikiInLine.ReplaceAllStringFunc(s, func(m string) string {
+		inner := m[2 : len(m)-2]
+		var sb strings.Builder
+		for i := 0; i < len(inner); i++ {
+			if strings.IndexByte("_*~", inner[i]) >= 0 && !escapedAt(inner, i) {
+				sb.WriteByte('\\')
+			}
+			sb.WriteByte(inner[i])
+		}
+		return "[[" + sb.String() + "]]"
+	})
 }
 
 // outsideCode applies fn to the parts of line l outside inline code.
@@ -332,6 +380,8 @@ func writeHeld(h heldBlock) string {
 var (
 	wikiLink = regexp.MustCompile(`\\\[\\\[(.+?)\\\]\\\]`)
 	footRef  = regexp.MustCompile(`\\\[\^([^\]\\\s]+)\\\]`)
+	// linkEscape is an escape richtext writes inside a [[link]]'s text
+	linkEscape = regexp.MustCompile(`\\([\\_*~#!\[\]<>` + "`" + `])`)
 )
 
 // unescape takes back the escapes richtext writes where Markdown needs
@@ -348,13 +398,21 @@ func unescape(l string) string {
 		rest = rest[1:]
 	}
 	rest = outsideCode(rest, func(s string) string {
-		s = wikiLink.ReplaceAllString(s, "[[$1]]")
+		s = wikiLink.ReplaceAllStringFunc(s, func(m string) string { // its inside as it is typed, not escaped
+			inner := wikiLink.FindStringSubmatch(m)[1]
+			return "[[" + linkEscape.ReplaceAllString(inner, "$1") + "]]"
+		})
 		s = footRef.ReplaceAllString(s, "[^$1]")
 		r := []rune(s)
 		var sb strings.Builder
 		for i := 0; i < len(r); i++ {
 			if r[i] == '\\' && i+1 < len(r) {
 				next := r[i+1]
+				if next == '\\' { // an escaped backslash is a pair: what follows it is not escaped by it (#130)
+					sb.WriteString(`\\`)
+					i++
+					continue
+				}
 				switch {
 				case next == '!' && (i+2 >= len(r) || (r[i+2] != '[' && !(r[i+2] == '\\' && i+3 < len(r) && r[i+3] == '['))):
 					continue
