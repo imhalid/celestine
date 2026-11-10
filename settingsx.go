@@ -201,6 +201,7 @@ func (a *app) applyProfile(name string) bool {
 	if err := json.Unmarshal(data, &next); err != nil {
 		return false
 	}
+	next.normalize()
 	a.settings = next
 	a.caretKind = a.savedCaret()
 	a.saveSettings()
@@ -255,6 +256,7 @@ func (a *app) importSettingsFrom(path string) (int, error) {
 	if err := json.Unmarshal(data, &next); err != nil {
 		return 0, err
 	}
+	next.normalize()
 	a.settings = next
 	a.caretKind = a.savedCaret()
 	a.saveSettings()

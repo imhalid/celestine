@@ -162,21 +162,28 @@ func (a *app) setCaret(k caretKind) {
 	a.saveSettings()
 }
 
-// loadSettings reads the settings, making a token the first time.
+// loadSettings reads the settings, making a token the first time. Settings that cannot be read are kept aside, under
+// a name of their own, and the defaults are used without being saved: a change the user makes saves them (#133).
 func (a *app) loadSettings() {
+	var data []byte
 	if a.settingsStore != nil { // kept in the library's file, with the token
-		if data := a.settingsStore.Meta(SettingsKey); data != nil {
-			json.Unmarshal(data, &a.settings)
-		} else if a.settingsFile != "" { // the settings of before the file: taken in once
-			if data, err := os.ReadFile(a.settingsFile); err == nil {
-				json.Unmarshal(data, &a.settings)
-			}
+		if data = a.settingsStore.Meta(SettingsKey); data == nil && a.settingsFile != "" { // the settings of before the file: taken in once
+			data, _ = os.ReadFile(a.settingsFile)
 		}
 	} else if a.settingsFile != "" {
-		if data, err := os.ReadFile(a.settingsFile); err == nil {
-			json.Unmarshal(data, &a.settings)
+		data, _ = os.ReadFile(a.settingsFile)
+	}
+	damaged := false
+	if len(data) > 0 {
+		read := a.settings
+		if err := json.Unmarshal(data, &read); err != nil {
+			damaged = true
+			a.keepDamagedSettings(data, err)
+		} else {
+			a.settings = read
 		}
 	}
+	a.settings.normalize()
 	moved := a.loadSecrets()
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
@@ -187,9 +194,37 @@ func (a *app) loadSettings() {
 		a.settings.Token = newToken()
 		moved = true
 	}
-	if moved {
+	if moved && !damaged {
 		a.saveSettings()
 	}
+}
+
+// keepDamagedSettings keeps settings that could not be read beside where they were, and says so.
+func (a *app) keepDamagedSettings(data []byte, err error) {
+	stamp := a.clock().Format("20060102-150405")
+	where := ""
+	if a.settingsStore != nil {
+		key := SettingsKey + ".damaged-" + stamp
+		if a.settingsStore.SetMeta(key, data) == nil {
+			where = key
+		}
+	} else if a.settingsFile != "" {
+		name := a.settingsFile + ".damaged-" + stamp
+		if WriteFilePrivate(name, data) == nil {
+			where = name
+		}
+	}
+	a.notice = T("The settings could not be read, so the defaults are in use: ") + err.Error()
+	if where != "" {
+		a.notice += T(". What was there is kept as ") + where
+	}
+}
+
+// normalize brings the values that pick from a list into range: a settings file, an import or a profile may hold
+// any number, and an index out of range would fail at every frame.
+func (s *Settings) normalize() {
+	s.Theme = ((s.Theme % 3) + 3) % 3
+	s.AppTheme = ((s.AppTheme % len(appThemes)) + len(appThemes)) % len(appThemes)
 }
 
 func (a *app) saveSettings() {
