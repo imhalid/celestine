@@ -62,7 +62,7 @@ func TestCover(t *testing.T) {
 	}
 	// the page menu knows
 	var titles []string
-	for _, it := range a.pageMoreMenu(p) {
+	for _, it := range a.pageMenu(p, false) {
 		titles = append(titles, it.title)
 	}
 	if !contains(titles, "Kapak resmi ekle…") {

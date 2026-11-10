@@ -7,9 +7,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// A right click on the page's title opens the app's context menu: the title's text to cut, copy,
-// paste or select, then what the page's "…" menu offers, renaming left out, as the title is where
-// that happens.
+// A right click on the page's title opens the page's menu, the same as its row's in the sidebar (pageMenu); while
+// the title is being edited, the title's text to cut, copy, paste or select comes first.
 
 var (
 	iconCut       = icon(`<circle cx="7" cy="17" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8.8 15.2 17 5M15.2 15.2 7 5"/>`)
@@ -25,23 +24,19 @@ func (a *app) readClip() string {
 	return mygo.Clipboard.ReadText()
 }
 
-// titleMenu gives the page's title (a text input, or the journal's text) the app's menu: its text,
-// then what the page's "…" menu offers, renaming left out, as the title is where that happens.
+// titleMenu gives the page's title (a text input, or the journal's text) the page's menu, and the input its text's
+// lines while it is being edited.
 func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
-	more := func() []menuItem {
-		var out []menuItem
-		for _, it := range a.pageMoreMenu(p) {
-			if it.title != "Yeniden adlandır" {
-				out = append(out, it)
-			}
-		}
-		return out
-	}
-	if !editable {
-		a.textMenu(title, func() string { return p.Title }, more)
+	more := func() []menuItem { return a.pageMenu(p, false) }
+	if !editable { // a day's title is not typed: only the page's menu
+		title.ContextMenu(func(*ui.Menu) {
+			px, py, _ := title.PointerPosition()
+			b := title.LayoutBounds()
+			a.showContext(b.X+px, b.Y+py, more())
+		})
 		return
 	}
-	a.fieldMenu(title, &a.title, fieldOpts{oneLine: true, more: more, changed: func() {
+	a.fieldMenu(title, &a.title, fieldOpts{oneLine: true, editing: func() bool { return a.titleFocused }, more: more, changed: func() {
 		name := strings.TrimSpace(a.title)
 		if name == "" {
 			name = "Adsız"

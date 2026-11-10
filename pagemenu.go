@@ -31,45 +31,9 @@ func (a *app) pageButtons(c *ui.Context) {
 		}
 		if a.barButton(c, iconMore, "Sayfa menüsü") {
 			ww, wh := c.Size()
-			a.showContext(ww-24, wh-34, a.pageMoreMenu(a.page)) // opens upward, from the bar
+			a.showContext(ww-24, wh-34, a.pageMenu(a.page, false)) // opens upward, from the bar
 		}
 	})
-}
-
-// pageMoreMenu is what the page offers as a whole.
-func (a *app) pageMoreMenu(p *Page) []menuItem {
-	var out []menuItem
-	if !p.Coll.Journal {
-		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.fresh = true }})
-	}
-	if p.Coll.SubPages {
-		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
-	}
-	coverTitle := "Kapak resmi ekle…"
-	if p.ImageCover() {
-		coverTitle = "Kapak resmini değiştir…"
-	}
-	out = append(out, menuItem{title: coverTitle, glyph: iconCover, run: func() { a.pickCover(p) }})
-	if a.coverKind(p) != coverKindNone {
-		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
-	}
-	if p.Cover == CoverNone && !a.settings.NoAutoCover {
-		out = append(out, menuItem{title: "Otomatik kapağı geri getir", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
-	}
-	if !p.Coll.Journal {
-		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
-	}
-	if a.settings.SyncMode == "server" && a.settings.SyncToken != "" && !p.Coll.Journal {
-		out = append(out, menuItem{title: "Sunucudaki sürümler…", glyph: iconHistory, run: func() { a.openServerHistory(p) }})
-	}
-	out = append(out,
-		menuItem{title: "Bağlantıyı kopyala", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
-		menuItem{title: "Markdown'u kopyala", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }},
-		menuItem{title: "Sürüm geçmişi…", glyph: iconHistory, run: func() { a.openTimeMachine(p) }},
-		menuItem{title: "Dosya olarak dışa aktar…", glyph: iconExport, run: func() { a.exportPage(p) }},
-		menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }},
-	)
-	return out
 }
 
 // copyText puts text on the clipboard.

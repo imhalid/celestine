@@ -126,17 +126,47 @@ func (a *app) contextView(c *ui.Context) {
 
 // ---- what each thing offers ----
 
-// pageMenu is what a page offers where it is listed: in the tree, a list,
-// a table, a board.
-func (a *app) pageMenu(p *Page, rename bool) []menuItem {
+// pageMenu is what a page offers, the same wherever it is opened: its row in the tree, a list, a table, a board, its
+// title and the "…" of the bar (#267). inPlace is a row that turns into a field to rename the page; elsewhere the
+// page is opened and the caret put in its title.
+func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	out := []menuItem{{title: "Aç", glyph: iconPage, run: func() { a.open(p) }}, {title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"page", p.Dir}) }}}
-	if rename && !p.Coll.Journal {
-		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(p, p.Title) }})
+	if !p.Coll.Journal {
+		rename := func() { a.open(p); a.fresh = true }
+		if inPlace {
+			rename = func() { a.startRename(p, p.Title) }
+		}
+		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: rename})
 	}
 	if p.Coll.SubPages {
 		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
 	}
-	out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
+	coverTitle := "Kapak resmi ekle…"
+	if p.ImageCover() {
+		coverTitle = "Kapak resmini değiştir…"
+	}
+	out = append(out, menuItem{title: coverTitle, group: "~", glyph: iconCover, run: func() { a.pickCover(p) }})
+	if a.coverKind(p) != coverKindNone {
+		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
+	}
+	if p.Cover == CoverNone && !a.settings.NoAutoCover {
+		out = append(out, menuItem{title: "Otomatik kapağı geri getir", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
+	}
+	if !p.Coll.Journal {
+		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
+	}
+	if a.settings.SyncMode == "server" && a.settings.SyncToken != "" && !p.Coll.Journal {
+		out = append(out, menuItem{title: "Sunucudaki sürümler…", glyph: iconHistory, run: func() { a.openServerHistory(p) }})
+	}
+	out = append(out,
+		menuItem{title: "Bağlantıyı kopyala", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
+		menuItem{title: "Markdown'u kopyala", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }})
+	if _, ok := historyOf(p); ok { // the history is the page's room: the page is opened, then its history (#265)
+		out = append(out, menuItem{title: "Sürüm geçmişi…", glyph: iconHistory, run: func() { a.open(p); a.openTimeMachine(p) }})
+	}
+	out = append(out,
+		menuItem{title: "Dosya olarak dışa aktar…", glyph: iconExport, run: func() { a.exportPage(p) }},
+		menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
 	return out
 }
 

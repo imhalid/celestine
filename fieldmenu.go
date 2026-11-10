@@ -19,6 +19,7 @@ type fieldOpts struct {
 	secret  bool              // a password: nothing of it is copied
 	changed func()            // after the menu changed the text
 	more    func() []menuItem // after a line
+	editing func() bool       // when set, the text's lines only while it says the field is being edited; else only more
 }
 
 // fieldSel is a selection the menu left in a field, to be set on it as it is built next.
@@ -34,7 +35,11 @@ func (a *app) fieldMenu(el ui.Element, value *string, o fieldOpts) ui.Element {
 	el.ContextMenu(func(*ui.Menu) {
 		px, py, _ := el.PointerPosition()
 		b := el.LayoutBounds()
-		if items := a.fieldItems(el, value, o); len(items) > 0 {
+		items := a.fieldItems(el, value, o)
+		if o.editing != nil && !o.editing() && o.more != nil { // not el.Focused(): the right click has given it the focus
+			items = o.more()
+		}
+		if len(items) > 0 {
 			a.showContext(b.X+px, b.Y+py, items)
 		}
 	})
@@ -64,7 +69,13 @@ func (a *app) fieldItems(el ui.Element, value *string, o fieldOpts) []menuItem {
 				a.copyText(sel)
 				set(string(r[:s])+string(r[e:]), s)
 			}},
-			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(sel) }})
+			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() {
+				a.copyText(sel)
+				if a.fieldSels == nil {
+					a.fieldSels = map[*string]fieldSel{}
+				}
+				a.fieldSels[value] = fieldSel{s, e} // the field keeps the focus and its selection, as after the others
+			}})
 	}
 	out = append(out,
 		menuItem{title: "Yapıştır", hint: "⌘V", glyph: iconPaste, run: func() {

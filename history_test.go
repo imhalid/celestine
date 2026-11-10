@@ -666,3 +666,33 @@ func TestTimeMachineComesAndGoes(t *testing.T) {
 		t.Fatal("the editor is not back")
 	}
 }
+
+// The history is in a page's menu where it is listed too, not only in the page's own: from the tree it opens the
+// page and its history (#265).
+func TestHistoryFromThePageMenu(t *testing.T) {
+	a, tt := lapsePage(t)
+	p := a.page
+	for _, c := range a.lib.Collections {
+		if !c.Journal && !c.Dynamic() && a.page == p {
+			a.newPage(c, nil) // another page, which the history is opened from
+		}
+	}
+	if a.page == p {
+		t.Fatal("no other page to stand on")
+	}
+	tt.Frame()
+	found := false
+	for _, it := range a.pageMenu(p, true) {
+		if it.title == "Sürüm geçmişi…" {
+			found = true
+			it.run()
+		}
+	}
+	if !found {
+		t.Fatal("no \"Sürüm geçmişi…\" in the page's menu")
+	}
+	tt.Advance(700 * time.Millisecond)
+	if a.page != p || !a.tm.open || a.tm.page != p || len(a.tm.vers) != 3 {
+		t.Fatalf("not the page's history: page %q, open %v, %d copies", a.page.Title, a.tm.open, len(a.tm.vers))
+	}
+}

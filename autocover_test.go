@@ -111,7 +111,7 @@ func TestAutoCoverKinds(t *testing.T) {
 		t.Fatalf("read again: %q", got.Cover)
 	}
 	var titles []string
-	for _, it := range a.pageMoreMenu(p) {
+	for _, it := range a.pageMenu(p, false) {
 		titles = append(titles, it.title)
 	}
 	if !contains(titles, "Otomatik kapağı geri getir") || contains(titles, "Kapağı kaldır") {
