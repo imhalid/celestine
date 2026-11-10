@@ -183,7 +183,7 @@ func (a *app) gripView(c *ui.Context) {
 			break
 		}
 	}
-	if !found {
+	if !found && !g.dragging { // a block dragged far keeps its grip where it was, or the drag would be lost
 		g.hover = false
 		return
 	}
@@ -275,6 +275,9 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 		b := grip.LayoutBounds()
 		px, py, _ := grip.PointerPosition()
 		g.pos = ui.Point{X: b.X + px, Y: b.Y + py}
+		if a.edgeScroll(g.pos.Y) {
+			c.AnimationFrame() // held still at the edge, it goes on scrolling
+		}
 		a.aimBlock(g.pos.Y - a.editorR.Y)
 	case !pressed && g.dragging:
 		if g.to >= 0 {
@@ -325,6 +328,28 @@ func (a *app) blockSpan(s, e int) (top, bottom float32, ok bool) {
 		bottom = b.Top + b.Height
 	}
 	return top, bottom, ok
+}
+
+// edgeScroll scrolls the page while a block is dragged near its top or
+// bottom edge (y in window DIPs), faster the closer it is, as a browser
+// does; it reports whether it scrolled.
+func (a *app) edgeScroll(y float32) bool {
+	const zone, fastest = 56, 18 // DIPs from the edge where it scrolls; DIPs a frame at the edge
+	vp := a.scrollR
+	if vp.H <= 0 {
+		return false
+	}
+	top, bottom := vp.Y+a.barInset, vp.Y+vp.H
+	var d float32
+	switch {
+	case y < top+zone:
+		d = -fastest * min(1, (top+zone-y)/zone)
+	case y > bottom-zone:
+		d = fastest * min(1, (y-(bottom-zone))/zone)
+	}
+	was := a.pageScroll.Y
+	a.pageScroll.Y = min(max(0, was+d), a.pageScroll.MaxY)
+	return a.pageScroll.Y != was
 }
 
 // aimBlock works out where the block dragged would go, from y in the

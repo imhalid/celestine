@@ -203,3 +203,46 @@ func TestBlockMenuKeys(t *testing.T) {
 		t.Fatal("Esc did not close it")
 	}
 }
+
+// A block dragged to the bottom edge of a long page and held there scrolls
+// the page down, and let go it goes where the pointer is then.
+func TestGripDragScrollsAtEdge(t *testing.T) {
+	text := ""
+	for i := 0; i < 80; i++ {
+		text += "Satır " + string(rune('A'+i%26)) + string(rune('a'+i/26)) + "\n\n"
+	}
+	a, tt := newTestApp(t, text)
+	tt.Advance(300 * time.Millisecond)
+	if a.pageScroll.MaxY <= 0 {
+		t.Fatal("the page does not scroll")
+	}
+	r, b := a.editorR, a.boxes[0]
+	tt.Move(r.X+40, r.Y+b.Top+b.Height/2)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	y1 := a.scrollR.Y + a.scrollR.H - 4
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	if !a.grip.dragging {
+		t.Fatal("no drag")
+	}
+	for k := 0; k < 30; k++ { // held still at the edge
+		tt.Frame()
+	}
+	if a.pageScroll.Y < 200 {
+		t.Fatalf("scrolled only %v", a.pageScroll.Y)
+	}
+	tt.Release(x0, y1)
+	tt.Advance(300 * time.Millisecond)
+	if got := mdOf(a.doc); got[:len("Satır Aa")] == "Satır Aa" {
+		t.Fatalf("not moved: %q", got[:40])
+	}
+}
