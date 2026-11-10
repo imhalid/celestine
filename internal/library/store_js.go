@@ -37,7 +37,12 @@ type Store struct {
 	meta  map[string]string // base64
 	hold  int
 	dirty bool
-	Now   func() time.Time
+	// before is the library as it was read, kept under a key of its own before the first write over it: the
+	// browser's storage has no versions and no backups, and this is one way back (#237).
+	before string
+	// writeErr is what the last write said, or nil (WriteError).
+	writeErr error
+	Now      func() time.Time
 	// Writes counts the changes to the files and folders, as the Store of a file has it (store_sql.go).
 	Writes atomic.Uint64
 }
@@ -50,13 +55,17 @@ func storage() js.Value {
 	return s
 }
 
-// idbCode is the little of IndexedDB the store uses: one object store, a get and a put, both promises.
+// idbCode is the little of IndexedDB the store uses: one object store, a get and a put, both promises. The
+// connection is opened once and kept, so that a put made as the page goes away starts its transaction at once,
+// before the page is gone (#238).
 const idbCode = `(function(){
   if (window.__idb || !window.indexedDB) return;
-  const open = () => new Promise((res, rej) => { const r = indexedDB.open('ryudit', 1); r.onupgradeneeded = () => r.result.createObjectStore('lib'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  let db = null, opening = null;
+  const open = () => db ? Promise.resolve(db) : (opening = opening || new Promise((res, rej) => { const r = indexedDB.open('ryudit', 1); r.onupgradeneeded = () => r.result.createObjectStore('lib'); r.onsuccess = () => { db = r.result; res(db); }; r.onerror = () => rej(r.error); }));
+  const put = (d, k, v) => new Promise((res, rej) => { const t = d.transaction('lib', 'readwrite'); t.objectStore('lib').put(v, k); t.oncomplete = () => res(true); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
   window.__idb = {
-    get: async (k) => { const db = await open(); return await new Promise((res, rej) => { const q = db.transaction('lib').objectStore('lib').get(k); q.onsuccess = () => res(q.result === undefined ? null : q.result); q.onerror = () => rej(q.error); }); },
-    put: async (k, v) => { const db = await open(); return await new Promise((res, rej) => { const t = db.transaction('lib', 'readwrite'); t.objectStore('lib').put(v, k); t.oncomplete = () => res(true); t.onerror = () => rej(t.error); }); },
+    get: async (k) => { const d = await open(); return await new Promise((res, rej) => { const q = d.transaction('lib').objectStore('lib').get(k); q.onsuccess = () => res(q.result === undefined ? null : q.result); q.onerror = () => rej(q.error); }); },
+    put: (k, v) => db ? put(db, k, v) : open().then((d) => put(d, k, v)),
   };
 })()`
 
@@ -70,39 +79,60 @@ func idb() js.Value {
 	return h
 }
 
-// idbGet reads a key, waiting for the promise (the browser's event loop runs on): ok is false when there is none.
-func idbGet(h js.Value, key string) (string, bool) {
+// readWait is how long a read of the library may take before it is a failure: a library of tens of megabytes on a
+// phone takes seconds, and a slow read is not an absent one.
+const readWait = 2 * time.Minute
+
+// idbGet reads a key, waiting for the promise (the browser's event loop runs on). found is false when there is
+// none; err is set when it could not be read, which is not the same (#237).
+func idbGet(h js.Value, key string) (v string, found bool, err error) {
 	type res struct {
-		v  string
-		ok bool
+		v   string
+		ok  bool
+		err error
 	}
 	ch := make(chan res, 1)
 	then := js.FuncOf(func(this js.Value, args []js.Value) any {
-		if len(args) > 0 && args[0].Type() == js.TypeString {
-			ch <- res{args[0].String(), true}
-		} else {
+		switch {
+		case len(args) > 0 && args[0].Type() == js.TypeString:
+			ch <- res{v: args[0].String(), ok: true}
+		case len(args) == 0 || args[0].IsNull() || args[0].IsUndefined():
 			ch <- res{}
+		default:
+			ch <- res{err: errors.New("the library in the browser's storage is not text")}
 		}
 		return nil
 	})
-	catch := js.FuncOf(func(this js.Value, args []js.Value) any { ch <- res{}; return nil })
+	catch := js.FuncOf(func(this js.Value, args []js.Value) any {
+		msg := "the browser's storage could not be read"
+		if len(args) > 0 && !args[0].IsUndefined() && !args[0].IsNull() {
+			msg += ": " + args[0].Call("toString").String()
+		}
+		ch <- res{err: errors.New(msg)}
+		return nil
+	})
 	defer then.Release()
 	defer catch.Release()
 	h.Call("get", key).Call("then", then).Call("catch", catch)
 	select {
 	case r := <-ch:
-		return r.v, r.ok
-	case <-time.After(4 * time.Second):
-		return "", false
+		return r.v, r.ok, r.err
+	case <-time.After(readWait):
+		return "", false, errors.New("the browser's storage did not answer")
 	}
 }
 
-// OpenStore opens the library named file in the browser's storage, making it when there is none.
+// OpenStore opens the library named file in the browser's storage, making it when there is none. A library that is
+// there but cannot be read is an error, never an empty library: that would be written over the real one a moment
+// later (#237).
 func OpenStore(file string) (*Store, error) {
 	s := &Store{File: file, node: map[string]*jnode{"/": {Dir: true, MTime: time.Now().UnixNano()}}, meta: map[string]string{}}
 	raw, found := "", false
 	if h := idb(); !h.IsUndefined() {
-		raw, found = idbGet(h, "ryudit:"+file)
+		var err error
+		if raw, found, err = idbGet(h, "ryudit:"+file); err != nil {
+			return nil, err
+		}
 	}
 	if !found { // a library of before IndexedDB, or a browser without it
 		if st := storage(); !st.IsUndefined() {
@@ -116,15 +146,19 @@ func OpenStore(file string) (*Store, error) {
 			Nodes map[string]*jnode `json:"nodes"`
 			Meta  map[string]string `json:"meta"`
 		}
-		if err := json.Unmarshal([]byte(raw), &in); err == nil && in.Nodes != nil {
-			s.node = in.Nodes
-			if in.Meta != nil {
-				s.meta = in.Meta
-			}
-			if s.node["/"] == nil {
-				s.node["/"] = &jnode{Dir: true, MTime: time.Now().UnixNano()}
-			}
+		if err := json.Unmarshal([]byte(raw), &in); err != nil {
+			return nil, errors.New("the library in the browser's storage is damaged: " + err.Error())
 		}
+		if in.Nodes != nil {
+			s.node = in.Nodes
+		}
+		if in.Meta != nil {
+			s.meta = in.Meta
+		}
+		if s.node["/"] == nil {
+			s.node["/"] = &jnode{Dir: true, MTime: time.Now().UnixNano()}
+		}
+		s.before = raw
 	}
 	// the page going away: what is waiting is written at once
 	hide := js.FuncOf(func(this js.Value, args []js.Value) any { s.mu.Lock(); s.flushLocked(); s.mu.Unlock(); return nil })
@@ -150,7 +184,8 @@ func (s *Store) persist() {
 	time.AfterFunc(300*time.Millisecond, func() { s.mu.Lock(); s.flushLocked(); s.mu.Unlock() })
 }
 
-// flushLocked writes the library to the browser's storage now (s.mu is held).
+// flushLocked writes the library to the browser's storage now (s.mu is held). A write that fails leaves the library
+// to be written again, and says so through WriteError (#238).
 func (s *Store) flushLocked() {
 	if !s.dirty {
 		return
@@ -162,12 +197,45 @@ func (s *Store) flushLocked() {
 	}{s.node, s.meta})
 	key := "ryudit:" + s.File
 	if h := idb(); !h.IsUndefined() {
-		h.Call("put", key, string(data))
+		if s.before != "" { // once: the library as it was read, before it is first written over
+			h.Call("put", key+":before", s.before)
+			s.before = ""
+		}
+		var then, catch js.Func
+		release := func() { then.Release(); catch.Release() }
+		then = js.FuncOf(func(this js.Value, args []js.Value) any {
+			release()
+			go func() { s.mu.Lock(); s.writeErr = nil; s.mu.Unlock() }()
+			return nil
+		})
+		catch = js.FuncOf(func(this js.Value, args []js.Value) any {
+			release()
+			msg := "the library could not be written to the browser's storage"
+			if len(args) > 0 && !args[0].IsUndefined() && !args[0].IsNull() {
+				msg += ": " + args[0].Call("toString").String()
+			}
+			go func() {
+				s.mu.Lock()
+				s.writeErr = errors.New(msg)
+				s.mu.Unlock()
+				time.AfterFunc(5*time.Second, func() { s.mu.Lock(); s.dirty = true; s.flushLocked(); s.mu.Unlock() })
+			}()
+			return nil
+		})
+		h.Call("put", key, string(data)).Call("then", then).Call("catch", catch)
 		return
 	}
 	if st := storage(); !st.IsUndefined() {
 		st.Call("setItem", key, string(data)) // over the quota it throws: the library stays in memory
 	}
+}
+
+// WriteError is what the last write to the browser's storage said, or nil: the app shows it, as what is typed is
+// then only in memory.
+func (s *Store) WriteError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeErr
 }
 
 // Fast holds the writes to the browser's storage while a copy goes on, and writes them once after.

@@ -70,6 +70,10 @@ func OpenStore(file string) (*Store, error) {
 	return s, nil
 }
 
+// WriteError is nil for a library file: its writes say at once when they fail. The browser's store writes later,
+// and keeps what its last write said (store_js.go).
+func (s *Store) WriteError() error { return nil }
+
 func (s *Store) Close() error { return s.DB.Close() }
 
 // Meta is the small thing kept under key, nil when there is none.

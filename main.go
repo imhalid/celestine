@@ -205,6 +205,7 @@ type app struct {
 	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
 	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
 	unsavedAt   time.Time
+	storeErr    string     // the library store's last write error, as shown
 	notice      string     // a toast to show
 	trashed     *TrashItem // just thrown away: a toast offers it back
 
@@ -1698,6 +1699,14 @@ func (a *app) pulseDot(c *ui.Context) {
 
 // autosave writes the file a moment after the last edit.
 func (a *app) autosave(c *ui.Context) {
+	if a.settingsStore != nil { // the browser's store writes later: what it said is shown once (#238)
+		if err := a.settingsStore.WriteError(); err == nil {
+			a.storeErr = ""
+		} else if err.Error() != a.storeErr {
+			a.storeErr = err.Error()
+			a.fail(err)
+		}
+	}
 	if len(a.unsaved) > 0 {
 		if wait := retrySave - a.clock().Sub(a.unsavedAt); wait > 0 {
 			c.After(wait)
