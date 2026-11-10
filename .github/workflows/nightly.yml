@@ -84,8 +84,11 @@ jobs:
           PERF_PAGES: "10000"
         run: |
           set -o pipefail
-          go test -count=1 -run '^TestPerfBudget$' -v . 2>&1 | tee report/perf.txt
-          PERF_PAGES="" go test -run '^$' -bench 'BigLibrary' -benchmem -benchtime 5x . 2>&1 | tee report/bench.txt
+          ok=0
+          go test -count=1 -run '^TestPerfBudget$' -v . 2>&1 | tee report/perf.txt || ok=1
+          # the benchmarks whatever the budgets said: their figures are what to compare from one evening to the next
+          PERF_PAGES="" go test -run '^$' -bench 'BigLibrary' -benchmem -benchtime 5x . 2>&1 | tee report/bench.txt || ok=1
+          exit $ok
       - name: govulncheck
         id: vuln
         if: steps.new.outputs.run == 'true'
