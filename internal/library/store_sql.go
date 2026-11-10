@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -66,6 +65,7 @@ func OpenStore(file string) (*Store, error) {
 		`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB) WITHOUT ROWID`,
 		`CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL, at INTEGER NOT NULL, taken INTEGER NOT NULL DEFAULT 0, label TEXT NOT NULL DEFAULT '', data BLOB NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS versions_path ON versions(path)`,
+		`CREATE INDEX IF NOT EXISTS versions_taken ON versions(taken)`, // the prune of old copies, at each one kept (#200)
 	} {
 		if _, err := db.Exec(q); err != nil {
 			db.Close()
@@ -127,6 +127,20 @@ func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err e
 	return d == 1, data, time.Unix(0, ns), err
 }
 
+// kind says whether name is there and whether it is a folder, without reading its data: the checks of a write read
+// a page's whole blob for its kind, and a save read it three times (#200).
+func (s *Store) kind(name string) (dir, ok bool) {
+	if sn := s.Snap.Load(); sn != nil {
+		n, there := sn.nodes[Clean(name)]
+		return there && n.dir, there
+	}
+	var d int
+	if err := s.DB.QueryRow(`SELECT dir FROM nodes WHERE path = ?`, Clean(name)).Scan(&d); err != nil {
+		return false, false
+	}
+	return d == 1, true
+}
+
 func (s *Store) ReadFile(name string) ([]byte, error) {
 	dir, data, _, err := s.node(name)
 	if err != nil {
@@ -141,14 +155,14 @@ func (s *Store) ReadFile(name string) ([]byte, error) {
 func (s *Store) WriteFile(name string, data []byte) error {
 	s.wrote()
 	n := Clean(name)
-	pdir, _, _, err := s.node(path.Dir(n))
-	if err != nil {
+	pdir, there := s.kind(path.Dir(n))
+	if !there {
 		return pathErr("write", name, fs.ErrNotExist)
 	}
 	if !pdir {
 		return pathErr("write", name, errors.New("not a directory"))
 	}
-	if d, _, _, err := s.node(n); err == nil && d {
+	if d, _ := s.kind(n); d {
 		return pathErr("write", name, errors.New("is a directory"))
 	}
 	if data == nil {
@@ -213,28 +227,15 @@ func (s *Store) MkdirAll(name string) error {
 }
 
 // below is the paths under dir, deepest first.
-func (s *Store) below(dir string) ([]string, error) {
-	rows, err := s.DB.Query(`SELECT path FROM nodes WHERE path = ?1 OR substr(path, 1, length(?1) + 1) = ?1 || '/'`, dir)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	sort.Slice(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
-	return out, rows.Err()
-}
+// underSQL is the paths of ?1 and under it, as a range of the key: "/" sorts just before "0", so what starts with
+// ?1 + "/" lies between the two. A substr of the path read every row of the table for every move, delete and
+// trash (#200).
+const underSQL = `(path = ?1 OR (path >= ?1 || '/' AND path < ?1 || '0'))`
 
 func (s *Store) Rename(oldName, newName string) error {
 	s.wrote()
 	from, to := Clean(oldName), Clean(newName)
-	if _, _, _, err := s.node(from); err != nil {
+	if _, there := s.kind(from); !there || from == "/" {
 		return pathErr("rename", oldName, fs.ErrNotExist)
 	}
 	if from == to {
@@ -243,15 +244,11 @@ func (s *Store) Rename(oldName, newName string) error {
 	if strings.HasPrefix(to, from+"/") {
 		return pathErr("rename", oldName, errors.New("into itself"))
 	}
-	if _, _, _, err := s.node(to); err == nil {
+	if _, there := s.kind(to); there {
 		return pathErr("rename", newName, fs.ErrExist)
 	}
-	if d, _, _, err := s.node(path.Dir(to)); err != nil || !d {
+	if d, _ := s.kind(path.Dir(to)); !d {
 		return pathErr("rename", newName, fs.ErrNotExist)
-	}
-	all, err := s.below(from)
-	if err != nil {
-		return err
 	}
 	tx, commit, rollback, err := s.begin()
 	if err != nil {
@@ -268,14 +265,13 @@ func (s *Store) Rename(oldName, newName string) error {
 	if ok != 1 {
 		return pathErr("rename", oldName, errors.New("changed while it was moved"))
 	}
-	for _, p := range all {
-		np := to + strings.TrimPrefix(p, from)
-		if _, err := tx.Exec(`UPDATE nodes SET path = ?, parent = ? WHERE path = ?`, np, path.Dir(np), p); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`UPDATE versions SET path = ? WHERE path = ?`, np, p); err != nil {
-			return err
-		}
+	// one statement a table, the tree under it with it: the new names lie outside the old range, so none is met twice
+	if _, err := tx.Exec(`UPDATE nodes SET path = ?2 || substr(path, length(?1) + 1),
+		parent = CASE WHEN path = ?1 THEN ?3 ELSE ?2 || substr(parent, length(?1) + 1) END WHERE `+underSQL, from, to, path.Dir(to)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE versions SET path = ?2 || substr(path, length(?1) + 1) WHERE `+underSQL, from, to); err != nil {
+		return err
 	}
 	return commit()
 }
@@ -311,22 +307,16 @@ func (s *Store) RemoveAll(name string) error {
 	if n == "/" {
 		return pathErr("remove", name, errors.New("the root"))
 	}
-	all, err := s.below(n)
-	if err != nil {
-		return err
-	}
 	tx, commit, rollback, err := s.begin()
 	if err != nil {
 		return err
 	}
 	defer rollback()
-	for _, p := range all {
-		if _, err := tx.Exec(`DELETE FROM nodes WHERE path = ?`, p); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`DELETE FROM versions WHERE path = ?`, p); err != nil {
-			return err
-		}
+	if _, err := tx.Exec(`DELETE FROM nodes WHERE `+underSQL, n); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM versions WHERE `+underSQL, n); err != nil {
+		return err
 	}
 	return commit()
 }

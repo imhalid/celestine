@@ -137,3 +137,48 @@ func TestReorderVersionsRestore(t *testing.T) {
 		t.Fatal("not in the trash any more")
 	}
 }
+
+// A folder moved or removed takes its tree and its copies with it, in one statement a table, and nothing of a
+// folder whose name only starts the same (#200).
+func TestStoreSubtreeRange(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	for _, d := range []string{"/a/b", "/a-b", "/a0", "/x"} {
+		if err := st.MkdirAll(d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"/a/page.json", "/a/b/page.json", "/a-b/page.json", "/a0/page.json"} {
+		st.WriteFile(f, []byte(`{"meta":{},"body":[]}`))
+	}
+	st.keep("/a/b/page.json", []byte("eski"), time.Now())
+	if err := st.Rename("/a", "/x/a"); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"/x/a/page.json", "/x/a/b/page.json", "/a-b/page.json", "/a0/page.json"} {
+		if _, err := st.ReadFile(f); err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+	}
+	if _, err := st.Stat("/a"); err == nil {
+		t.Fatal("the old folder stays")
+	}
+	if len(st.Versions("/x/a/b/page.json")) != 1 {
+		t.Fatal("the copies did not move")
+	}
+	if ents, _ := st.ReadDir("/x/a"); len(ents) != 2 {
+		t.Fatalf("children under the new parent: %d", len(ents))
+	}
+	if err := st.RemoveAll("/x/a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ReadFile("/x/a/b/page.json"); err == nil || len(st.Versions("/x/a/b/page.json")) != 0 {
+		t.Fatal("not removed with its copies")
+	}
+	if _, err := st.ReadFile("/a-b/page.json"); err != nil {
+		t.Fatal("a folder of a like name went with it")
+	}
+}
