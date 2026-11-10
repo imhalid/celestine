@@ -38,7 +38,8 @@ func (a *app) statusExtras(c *ui.Context) {
 // hint is a key to press, and what it does.
 type hint struct{ key, what string }
 
-// hints are the keys that can be pressed now, by where the user is: the first the most useful.
+// hints are the keys that can be pressed now, by where the user is: the first the most useful. The keys known to
+// all (⌘P, ⌘K, ⌘F) are not among them: the palette lists every key.
 func (a *app) hints() []hint {
 	switch {
 	case a.lapse.on && (a.lapse.solo != 0 || a.lapse.lit != 0) && !a.pal.open:
@@ -54,13 +55,17 @@ func (a *app) hints() []hint {
 	case a.settingsOpen:
 		return []hint{{"/", "ayar ara"}, {"Esc", "geri"}}
 	case a.statsScreen, a.profileScreen, a.trashOpen, a.tasksOpen, a.searchOpen, a.tag != "":
-		return []hint{{"Esc", "geri"}, {"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}}
+		return []hint{{"Esc", "geri"}}
 	case a.coll != nil:
-		return []hint{{"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}, {"⌘N", "yeni sayfa"}, {"⌘\\", "kenar çubuğu"}}
-	case a.page != nil && !a.noPage():
-		return []hint{{"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}, {"⌘F", "sayfada bul"}, {"/", "blok ekle"}, {"[[", "bağlantı"}, {"Esc", "normal kip"}}
+		return []hint{{"⌘N", "yeni sayfa"}, {"⌘\\", "kenar çubuğu"}}
+	case a.page != nil && !a.noPage() && a.cellEd.open:
+		return []hint{{"Tab", "next cell"}, {"⇧Tab", "previous cell"}, {"↑↓", "row"}, {"↵", "keep"}}
+	case a.page != nil && !a.noPage() && a.titleFocused:
+		return []hint{{"↵", "into the text"}}
+	case a.page != nil && !a.noPage() && a.doc != nil && a.focused:
+		return a.editorHints() // the block the caret is in (blockhints.go)
 	}
-	return []hint{{"⌘P", "komutlar"}, {"⌘K", "sayfa ara"}}
+	return nil
 }
 
 // statusHints writes the keys that can be pressed now, at the left of the status bar, in the room the
