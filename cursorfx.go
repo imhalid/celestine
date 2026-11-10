@@ -11,8 +11,7 @@ import (
 // off by default. Each goes with the system's pointer, which stays as it is, and is drawn over the window in
 // an overlay the pointer passes through, so a click lands where it would without it.
 //
-//	Spider        walks to the pointer on its eight legs, its silk behind it (cursorfx_chase.go)
-//	Rocket        homes in on the pointer; a click locks it on and it strikes (cursorfx_chase.go)
+//	Rocket        homes in on the pointer; a click locks it on and it strikes (cursorfx_rocket.go)
 
 // cursorFX is an effect of the pointer: told where the pointer is each frame, it moves and draws itself.
 type cursorFX interface {
@@ -40,7 +39,6 @@ var cursorPresets []cursorPreset
 
 func init() {
 	cursorPresets = []cursorPreset{
-		{"Spider", func() cursorFX { return &spider{} }},
 		{"Rocket", func() cursorFX { return &rocket{} }},
 	}
 }
@@ -103,16 +101,6 @@ func (a *app) cursorFXView(c *ui.Context, root ui.Element) {
 
 // ---- what they share ----
 
-// turnTo turns angle a toward b (radians) by the shortest way, at rate per second.
-func turnTo(a, b, rate, dt float64) float64 {
-	d := math.Remainder(b-a, 2*math.Pi)
-	step := rate * dt
-	if math.Abs(d) <= step {
-		return b
-	}
-	return a + math.Copysign(step, d)
-}
-
 // turned is (x, y) turned by ang about the origin and moved to (cx, cy).
 func turned(cx, cy, x, y, ang float64) (float32, float32) {
 	s, c := math.Sincos(ang)
@@ -131,12 +119,6 @@ func shape(cx, cy, ang float64, pts ...float64) *ui.Path {
 		}
 	}
 	return path.Close()
-}
-
-// slant is a straight line from (x0, y0) to (x1, y1) at any slant, which Painter.Line is not: it draws only the
-// level and the upright.
-func slant(p *ui.Painter, x0, y0, x1, y1, width float32, col ui.Color) {
-	p.StrokePolyline([][2]float32{{x0, y0}, {x1, y1}}, width, col)
 }
 
 // ink is the color drawn on the page in the dark or the light: near white, or near black.
