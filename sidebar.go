@@ -484,6 +484,9 @@ func (a *app) rowsAway(i, n int) bool {
 // mustBuild reports whether the rows of p are built wherever they are: it, or a page under it, is being
 // renamed or is to have the focus.
 func (a *app) mustBuild(p *Page) bool {
+	if a.renaming == nil && a.treeFocus == nil { // nothing is: asked of every page at every frame, it walked them all (#204)
+		return false
+	}
 	var has func(q *Page) bool
 	has = func(q *Page) bool {
 		if a.renaming == any(q) || a.treeFocus == any(q) {

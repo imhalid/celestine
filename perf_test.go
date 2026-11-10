@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -106,21 +107,21 @@ func TestPerfBudget(t *testing.T) {
 	t0 = time.Now()
 	ls := a.libraryStats()
 	health := time.Since(t0)
-	// a key in the text, and the frame it makes: what typing costs, however big the library
-	for i := 0; i < 5; i++ { // the index and the tree settle first
-		tt.Advance(50 * time.Millisecond)
+	// a key in the text, and the frames it makes: the same keys in a library of ten pages and in the big one, by turns,
+	// both warmed up first; what is held is that a key costs about the same in any library (#203, issue #70)
+	sa, stt := keyTester(t, 10)
+	warm(a, tt)
+	var bigKeys, smallKeys []time.Duration
+	for i := 0; i < 21; i++ {
+		bigKeys = append(bigKeys, timeKey(tt))
+		smallKeys = append(smallKeys, timeKey(stt))
 	}
-	const keys = 20
-	t0 = time.Now()
-	for i := 0; i < keys; i++ {
-		tt.Type("x")
-		tt.Frame()
-	}
-	key := time.Since(t0) / keys
-
+	_ = sa
+	key, smallKey := median(bigKeys), median(smallKeys)
 	t.Logf("%d pages: open %v, first frame %v, search %v, index %v, palette %v, library figures %v, a key %v, memory +%.0f MB",
 		n, open.Round(time.Millisecond), first.Round(time.Millisecond), find.Round(time.Millisecond), index.Round(time.Millisecond),
 		pal.Round(time.Millisecond), health.Round(time.Millisecond), key.Round(100*time.Microsecond), mem)
+	t.Logf("a key in a library of 10 pages: %v", smallKey.Round(100*time.Microsecond))
 	_ = ls
 
 	// budgets, per thousand pages; generous, so that a slow machine does not fail them and a real
@@ -136,7 +137,10 @@ func TestPerfBudget(t *testing.T) {
 	check("the link index", index, 2*time.Second)
 	check("a palette query", pal, 600*time.Millisecond)
 	check("the library figures", health, 4*time.Second)
-	if key > 60*time.Millisecond { // not scaled: a key costs the same in any library (in the headless, software painter)
+	if key > smallKey*3/2+5*time.Millisecond { // a ratio: a slower machine is slower at both
+		t.Errorf("a key in the big library took %v, in a small one %v: over one and a half times", key, smallKey)
+	}
+	if os.Getenv("PERF_STRICT") == "1" && key > 60*time.Millisecond { // the absolute budget, on a machine known (in the headless, software painter)
 		t.Errorf("a key in the text took %v: over the budget of 60ms", key)
 	}
 	if limit := 200 * max(scale, 1); mem > limit {
@@ -171,12 +175,49 @@ func BenchmarkKeyBigLibrary(b *testing.B) {
 	}
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1100, 800)
-	for i := 0; i < 200; i++ { // the indexes are read in, a little a frame
-		tt.Advance(20 * time.Millisecond)
-	}
+	warm(a, tt) // the indexes are read in, a little a frame: not in the keys timed
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tt.Type("x")
 		tt.Frame()
 	}
+}
+
+// keyTester is an app with a library of n pages, warmed up, for keys to be timed in.
+func keyTester(t *testing.T, n int) (*app, *ui.Tester) {
+	st, _ := bigLibrary(t, n)
+	lib, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1100, 800)
+	warm(a, tt)
+	return a, tt
+}
+
+// warm runs frames until the search index has read every page in, as it does a little a frame: the keys timed after
+// carry none of it.
+func warm(a *app, tt *ui.Tester) {
+	for i := 0; i < 2000 && !(a.sx != nil && a.sx.ready); i++ {
+		tt.Advance(20 * time.Millisecond)
+	}
+	for i := 0; i < 5; i++ {
+		tt.Advance(50 * time.Millisecond)
+	}
+}
+
+// timeKey is how long a key and the frames it makes take.
+func timeKey(tt *ui.Tester) time.Duration {
+	t0 := time.Now()
+	tt.Type("x")
+	tt.Frame()
+	return time.Since(t0)
+}
+
+// median is the middle of ds: one sample a busy machine slowed does not move it.
+func median(ds []time.Duration) time.Duration {
+	s := slices.Clone(ds)
+	slices.Sort(s)
+	return s[len(s)/2]
 }
