@@ -321,6 +321,14 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	if r.Hovered() == false && a.cdrag.dropped == s.item {
 		a.cdrag.dropped = nil
 	}
+	if !renaming && a.drag.dropped == 0 && r.DoubleClicked() { // a double click renames, as in a file manager (#266)
+		switch x := s.item.(type) {
+		case *Page:
+			a.startRename(x, x.Title)
+		case *Collection:
+			a.startRename(x, x.Name)
+		}
+	}
 	return clicked && !chev && !add && !renaming && !pinHit, chev, add
 }
 

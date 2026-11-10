@@ -101,6 +101,33 @@ func TestRenameInPlace(t *testing.T) {
 	}
 }
 
+// A double click on a row's name turns it into the field, as the menu's "Yeniden adlandır" does; a click alone does
+// not (#266).
+func TestRenameOnDoubleClick(t *testing.T) {
+	a, tt := newTestApp(t, "x")
+	p := a.page
+	if err := tt.Click("Sayfa: Sayfa"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(600 * time.Millisecond)
+	if a.renaming != nil {
+		t.Fatal("a click alone renames")
+	}
+	tt.Click("Sayfa: Sayfa")
+	tt.Click("Sayfa: Sayfa")
+	tt.Advance(50 * time.Millisecond)
+	if a.renaming != p {
+		t.Fatal("a double click did not rename the row")
+	}
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("Yeni ad")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(50 * time.Millisecond)
+	if a.renaming != nil || p.Title != "Yeni ad" {
+		t.Fatalf("after Enter: renaming %v, title %q", a.renaming, p.Title)
+	}
+}
+
 // TestTrashPage: "Çöpe taşı" moves the page's folder, its sub-pages with it,
 // into the library's trash; the open page closes to its parent.
 func TestTrashPage(t *testing.T) {
