@@ -718,6 +718,7 @@ func (a *app) wheelToPage(el ui.Element) {
 // the buttons for rows and columns, and for what the column is.
 func (a *app) cellEditView(c *ui.Context) {
 	ce := &a.cellEd
+	a.cellBar = ui.Rect{}
 	if !ce.open || a.doc == nil || a.noPage() {
 		ce.open = false
 		return
@@ -844,6 +845,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		col := ce.ch.tbl.cols[ce.col]
 		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline)
 		a.wheelToPage(bar)
+		a.cellBar = bar.LayoutBounds()
 		bar.
 			Children(func() {
 				btn := func(glyph *ui.SVG, label string, danger bool, do func(m *tableModel)) {
@@ -989,12 +991,25 @@ var (
 	iconFilter = icon(`<path d="M4.5 6h15l-5.8 7v5l-3.4 1.5V13z"/>`)
 )
 
+// textPointer is where the pointer is over the page's text, as the
+// editor's PointerPosition, but not over the bar of the cell being written:
+// the bar is drawn over the text without being in it, and the cell, border
+// or chip under it would take the pointer too, its cursor and its light
+// coming and going as the pointer goes along the bar's buttons.
+func (a *app) textPointer(ed ui.Element) (x, y float32, over bool) {
+	x, y, over = ed.PointerPosition()
+	if over && a.cellBar.Contains(a.editorR.X+x, a.editorR.Y+y) {
+		over = false
+	}
+	return x, y, over
+}
+
 // dragColumns follows the pointer over the borders of the tables: the cursor
 // there, and a drag of one, which resizes its column and, let go, keeps the
 // width in the table.
 func (a *app) dragColumns(ed ui.Element) {
 	a.hoverBorder = borderKey{}
-	x, y, over := ed.PointerPosition()
+	x, y, over := a.textPointer(ed)
 	px, py := a.editorR.X+x, a.editorR.Y+y
 	if over && !a.colDrag.active {
 		if b := a.borderAt(px, py); b != nil {

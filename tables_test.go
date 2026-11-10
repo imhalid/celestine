@@ -481,3 +481,36 @@ func TestTableArrowKeys(t *testing.T) {
 		t.Fatalf("out of the top the caret is at %d,%d, not before the table (%d)", an, ca, pos)
 	}
 }
+
+// The bar under a cell being written takes the pointer from the text it is
+// drawn over: going along its buttons, the cell, the column's border or a
+// chip under it does not light up or change the cursor.
+func TestTableCellBarTakesPointer(t *testing.T) {
+	a, tt := newTestApp(t, tableMD)
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	for _, h := range a.tableSeen {
+		if h.row == 0 && h.col == 0 {
+			tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+		}
+	}
+	tt.Advance(300 * time.Millisecond)
+	b, ok := tt.Find("Sağa sütun ekle")
+	if !ok || !a.cellEd.open {
+		t.Fatalf("no bar: %v %v", ok, a.cellEd.open)
+	}
+	if a.tableCellAt(b.X+b.W/2, b.Y+b.H/2) == nil {
+		t.Fatal("no cell under the bar: the test shows nothing")
+	}
+	a.edPtr = ui.Point{X: -1, Y: -1}
+	for x := b.X + 2; x < b.X+b.W-2; x += 4 {
+		tt.Move(x, b.Y+b.H/2)
+		tt.Advance(16 * time.Millisecond)
+	}
+	if a.edPtr != (ui.Point{X: -1, Y: -1}) || a.hoverBorder != (borderKey{}) {
+		t.Fatalf("the text took the pointer under the bar: at %v, border %v", a.edPtr, a.hoverBorder)
+	}
+}

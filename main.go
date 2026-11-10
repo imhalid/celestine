@@ -290,6 +290,7 @@ type app struct {
 	prewarming    bool                      // the pages are being read away from the window (prewarm.go)
 	fieldSels     map[*string]fieldSel      // a selection the menu of a field left, to set on it (fieldmenu.go)
 	edPtr         ui.Point                  // the pointer over the page's text, last frame
+	cellBar       ui.Rect                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
 	tagDrafts     map[string]*string        // what is typed in the fields of tags and numbers (tagfield.go)
 	countEditing  string                    // the number field being typed in
 	tagPop        map[string]bool           // a field of tags whose last was taken away with ⌫
@@ -1196,7 +1197,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
 	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
 	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
-	if x, y, over := ed.PointerPosition(); over {
+	if x, y, over := a.textPointer(ed); over {
 		a.edPtr = ui.Point{X: x, Y: y} // where a right click opens the menu
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.hoverTag = key
