@@ -260,7 +260,6 @@ type app struct {
 	ctx           ctxMenu   // the context menu (ctxmenu.go)
 	frame         func()    // asks for a frame that builds the view
 	links         linkIndex // who links to whom (backlinks.go)
-	linksH        float32   // the backlinks' height, last frame
 	hoverCh       *chip     // the chip the pointer is over
 	dateEdit      dateEdit  // the calendar a date chip opens
 
@@ -1102,9 +1101,8 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.loadTrash()
 	}
 	a.toastView(c)
-	a.cursorFXView(c, root) // over everything, the pointer's effect when one is chosen (cursorfx.go)
-	if a.doc != nil && a.coll == nil {
-		a.boxes = a.doc.VisibleParagraphs()
+	a.cursorFXView(c, root)            // over everything, the pointer's effect when one is chosen (cursorfx.go)
+	if a.doc != nil && a.coll == nil { // the boxes were read as the page's editor was built (pageBody)
 		a.trackWindow()
 		a.autosave(c)
 	}
@@ -1198,6 +1196,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		// window on its text scrolls in itself, and keeps its bar
 		NoScrollbar: !window,
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
+	// this editor's paragraphs, read right after it is built: with the page open in two panes, each pane's are its
+	// own, laid out at its width, and its height is worked out from them (#190)
+	a.boxes = a.doc.VisibleParagraphs()
 	if window {
 		ed.Transition(windowEditor)
 	}

@@ -58,6 +58,7 @@ type paneState struct {
 	selPrevA      int     // the selection before a pointer went down in the editor
 	selPrevC      int
 	boxes         []richtext.ParagraphBox
+	linksH        float32 // the backlinks' height, last frame: each pane's own, as its page's
 	focused       bool
 	lastSave      string                  // the body as last written
 	lastWords     int                     // the words it had, or -1 when not known

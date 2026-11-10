@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -526,4 +527,43 @@ func TestDocsAreBounded(t *testing.T) {
 	if got := a.doc.Text().String(); !strings.Contains(got, "değişti") {
 		t.Fatalf("what was written is lost: %q", got)
 	}
+}
+
+// Each pane reads its own editor's paragraphs as it is built: one not in use follows the window narrowing, its
+// text wrapping to more lines, as the one in use does, and its height with them (#190).
+func TestPaneBoxesOwn(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("Uzunca bir paragraf, bölme daraldıkça daha çok satıra kırılır. ", 8)+"\n\nİkinci paragraf.\n")
+	tt.SetSize(1600, 800)
+	tt.Frame()
+	first := a.page
+	a.openInSide(place{"page", first.Dir})
+	tt.Advance(400 * time.Millisecond)
+	if a.paneCount() != 2 || a.ps.active != 1 {
+		t.Fatalf("panes %d, active %d", a.paneCount(), a.ps.active)
+	}
+	before := a.ps.states[0].boxes
+	if len(before) == 0 {
+		t.Fatal("the pane not in use has no boxes")
+	}
+	tt.SetSize(1000, 800)
+	tt.Advance(400 * time.Millisecond)
+	after := a.ps.states[0].boxes
+	if len(after) == 0 || after[0].Height <= before[0].Height {
+		t.Fatalf("the pane not in use kept its boxes as the window narrowed: %v, then %v", before[0].Height, firstH(after))
+	}
+	// the two editors of one page each compare what they painted with what was read for them: no frame at each
+	// refresh (60 a second) for a move that is not; the caret's blink and the timers are a few
+	tt.Advance(3 * time.Second)
+	v := a.frameSeq
+	tt.Advance(time.Second)
+	if n := a.frameSeq - v; n > 30 {
+		t.Fatalf("%d views in a second at rest", n)
+	}
+}
+
+func firstH(bs []richtext.ParagraphBox) float32 {
+	if len(bs) == 0 {
+		return 0
+	}
+	return bs[0].Height
 }
