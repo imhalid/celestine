@@ -43,22 +43,43 @@ func (OSFS) RemoveAll(n string) error                { return os.RemoveAll(n) }
 func (OSFS) Stat(n string) (fs.FileInfo, error)      { return os.Stat(n) }
 
 // WriteFile goes through a temporary file, so a crash never leaves half of it.
-func (OSFS) WriteFile(name string, data []byte) error {
-	tmp := name + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, name)
-}
+func (OSFS) WriteFile(name string, data []byte) error { return writeWhole(name, data, 0o644) }
 
 // WriteFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
-func WriteFilePrivate(name string, data []byte) error {
-	tmp := name + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+func WriteFilePrivate(name string, data []byte) error { return writeWhole(name, data, 0o600) }
+
+// writeWhole writes data to name through a temporary file of its own beside it, on the disk before it takes the
+// name, and the folder's entry after: a power cut leaves the old file or the new one, never an empty one, and two
+// writers do not share a temporary name (#140).
+func writeWhole(name string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(name)
+	f, err := os.CreateTemp(dir, "."+filepath.Base(name)+".*.tmp")
+	if err != nil {
 		return err
 	}
-	os.Chmod(tmp, 0o600) // a leftover from before was made with more
-	return os.Rename(tmp, name)
+	tmp := f.Name()
+	_, err = f.Write(data)
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp, perm)
+	}
+	if err == nil {
+		err = os.Rename(tmp, name)
+	}
+	if err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	if d, err := os.Open(dir); err == nil { // the rename itself on the disk (not on every system: no error then)
+		d.Sync()
+		d.Close()
+	}
+	return nil
 }
 
 // StoreRoot is the root of a store's tree.

@@ -86,3 +86,19 @@ func TestSaveRefusesInvalidBody(t *testing.T) {
 		t.Fatal("the file changed")
 	}
 }
+
+// A folder library's file is written whole through a temporary file of its own, which does not stay; an empty page
+// file is one cut short, not an empty page (#140).
+func TestWriteWholeAndEmptyPage(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, PageFileName)
+	if err := (OSFS{}).WriteFile(name, []byte(`{"meta":{"title":"x"},"body":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if ents, _ := os.ReadDir(dir); len(ents) != 1 {
+		t.Fatalf("left beside it: %v", ents)
+	}
+	if _, _, err := SplitPageChecked([]byte("  ")); err == nil {
+		t.Fatal("an empty page file read as a page")
+	}
+}

@@ -35,8 +35,8 @@ func SplitPage(src []byte) (map[string]string, string) {
 // take the empty body it is given then for the page's own, and write it over a file that can be mended.
 func SplitPageChecked(src []byte) (map[string]string, string, error) {
 	var d pageDoc
-	if len(bytes.TrimSpace(src)) == 0 { // nothing yet: an empty page
-		return map[string]string{}, "[]", nil
+	if len(bytes.TrimSpace(src)) == 0 { // every page file is written with its meta: an empty one is one cut short (#140)
+		return map[string]string{}, "[]", errors.New("sayfa dosyası boş")
 	}
 	if err := json.Unmarshal(src, &d); err != nil {
 		return map[string]string{}, "[]", errors.New("sayfa dosyası bozuk: " + err.Error())
