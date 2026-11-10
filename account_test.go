@@ -239,10 +239,12 @@ func TestAccountSettingsPage(t *testing.T) {
 			t.Errorf("signed out: no %q: %v", want, tt.Texts())
 		}
 	}
-	a.ac.mode = "login"
-	tt.Frame()
-	if !tt.HasText("Şifre") {
-		t.Errorf("sign-in: no password field: %v", tt.Texts())
+	if err := tt.Click("Giriş yap"); err != nil { // the sign-in's tab (#286)
+		t.Fatal(err)
+	}
+	tt.Advance(100 * time.Millisecond)
+	if a.ac.mode != "login" || !tt.HasText("Şifre") {
+		t.Errorf("sign-in: mode %q, no password field: %v", a.ac.mode, tt.Texts())
 	}
 
 	a.settings.AccountUser, a.settings.SyncToken, a.ac.meAt = "ali", "tok", time.Now() // no call to a server

@@ -4,6 +4,8 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// the account's two ways in, a segmented control (account.go)
+	"Account": "Hesap",
 	// the plain caret, the default (caretfx.go)
 	"Line": "Çizgi",
 	// the status bar's hints, by where the caret is (statusbar.go, blockhints.go)

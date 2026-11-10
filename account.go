@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -445,17 +446,7 @@ func (a *app) acctForm(c *ui.Context) {
 	ui.Column(c).Gap(10).FillWidth().Children(func() {
 		switch mode {
 		case "invite", "login":
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				for _, m := range []struct{ id, name string }{{"invite", "Davetle hesap aç"}, {"login", "Giriş yap"}} {
-					m := m
-					b := ui.Row(c.Key("acct-mode:"+m.id)).Padding(6, 14).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[mode == m.id]).
-						Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-					b.Children(func() { ui.Text(c, T(m.name)).FontSize(13).TextColor(cl.Text) })
-					if b.Clicked() {
-						a.ac.mode, a.ac.err = m.id, ""
-					}
-				}
-			})
+			a.acctWays(c, mode)
 		case "password":
 			note(Tf("Davet doğrulandı: %s. Şimdi şifreni belirle.", acctName(a.ac.user)))
 		case "reset":
@@ -509,6 +500,20 @@ func (a *app) acctForm(c *ui.Context) {
 			}
 		})
 	})
+}
+
+// acctWays are the two ways into an account, as Ryugo's segmented control (#286): opening one with an invite, or
+// signing in.
+func (a *app) acctWays(c *ui.Context, mode string) {
+	ways := []string{"invite", "login"}
+	sel := slices.Index(ways, mode)
+	// its track a step deeper than the well: the settings' group it is in is the well's color, and the track would
+	// not show on it
+	ryugo.Segmented(c.Key("acct-ways"), &sel, []string{T("Davetle hesap aç"), T("Giriş yap")}, ryugo.SegmentedOptions{Label: T("Account"), Size: ryugo.Sm}).
+		Background(ryugo.From(c).Colors.WellStrong)
+	if ways[sel] != mode {
+		a.ac.mode, a.ac.err = ways[sel], ""
+	}
 }
 
 // acctRecoveryStep is the last step of opening an account: the recovery key, which is the only way back to the data without the
