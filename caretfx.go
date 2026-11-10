@@ -71,6 +71,7 @@ func init() {
 		{"Neon tabela", func() caretFX { return newNeon() }},
 		// more games (caretfx_arcade.go)
 		{"Robot", func() caretFX { return newRobot() }},
+		{"Marine", func() caretFX { return newMarine() }}, // Doom's spirit (caretfx_marine.go)
 	}
 }
 
