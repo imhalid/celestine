@@ -98,12 +98,15 @@ func (sp *spider) draw(p *ui.Painter, m pointerAt) {
 // ---- Rocket ----
 
 // rocket homes in on the pointer: it steers its speed toward it, as a guided missile does, so it curves into a
-// pointer that moves, and comes to rest beside it. Close, a reticle closes on the pointer; a click locks it on,
-// and the rocket strikes the pointer at full thrust, bursts, and comes back from below.
+// pointer that moves, and comes to rest beside it. Close, a reticle closes on the pointer; a click locks it on
+// the place clicked, which it keeps however the pointer goes on, and the rocket strikes there at full thrust,
+// bursts, and comes back from below.
 type rocket struct {
 	x, y, vx, vy, ang float64
 	set, locked       bool
 	lock              float64 // seconds since the lock
+	lx, ly            float64 // where it is locked on: the place clicked
+	bx, by            float64 // where it burst last
 	puffs             []puff
 	flash             float64 // what is left of a burst's flash, 1 to 0
 	debris            sparks
@@ -117,23 +120,24 @@ func (r *rocket) step(m pointerAt, dt float64) bool {
 	if !r.set {
 		r.x, r.y, r.ang, r.set = m.x-220, m.y+220, -math.Pi/4, true
 	}
-	if m.press && m.in {
-		r.locked, r.lock = true, 0
+	if m.press && m.in && !r.locked { // locked on, it is set on its place: another click does not move it
+		r.locked, r.lock, r.lx, r.ly = true, 0, m.x, m.y
 	}
 	tx, ty := m.x+20, m.y+22
 	cruise, force := 280.0, 900.0
 	if r.locked {
-		tx, ty = m.x, m.y
+		tx, ty = r.lx, r.ly
 		cruise, force = 760, 3000
 		r.lock += dt
 	}
 	dx, dy := tx-r.x, ty-r.y
 	d := math.Hypot(dx, dy)
 	if r.locked && d < 9 { // a hit: it bursts, and a new one comes from below
-		r.debris.burst(m.x, m.y, 26, m.col, 260)
-		r.debris.burst(m.x, m.y, 12, ui.Hex("#ff9f1c"), 200)
-		r.flash, r.locked = 1, false
-		r.x, r.y, r.vx, r.vy, r.ang = m.x-240, m.y+260, 0, 0, -math.Pi/4
+		r.debris.burst(r.lx, r.ly, 26, m.col, 260)
+		r.debris.burst(r.lx, r.ly, 12, ui.Hex("#ff9f1c"), 200)
+		r.flash, r.locked, r.bx, r.by = 1, false, r.lx, r.ly
+		r.x, r.y, r.vx, r.vy, r.ang = r.lx-240, r.ly+260, 0, 0, -math.Pi/4
+		tx, ty = m.x+20, m.y+22 // and the new one comes to the pointer
 		dx, dy, d = tx-r.x, ty-r.y, math.Hypot(tx-r.x, ty-r.y)
 	}
 	want := cruise
@@ -187,7 +191,7 @@ func (r *rocket) draw(p *ui.Painter, m pointerAt) {
 	}
 	r.reticle(p, m)
 	if r.flash > 0 {
-		p.StrokePath((&ui.Path{}).Circle(f32(m.x), f32(m.y), f32(6+30*(1-r.flash))), f32(3*r.flash), withAlpha(ui.Hex("#ff9f1c"), r.flash))
+		p.StrokePath((&ui.Path{}).Circle(f32(r.bx), f32(r.by), f32(6+30*(1-r.flash))), f32(3*r.flash), withAlpha(ui.Hex("#ff9f1c"), r.flash))
 	}
 	r.debris.draw(p)
 	x, y, a := r.x, r.y, r.ang
@@ -212,12 +216,15 @@ func (r *rocket) draw(p *ui.Painter, m pointerAt) {
 }
 
 // reticle closes on the pointer as the rocket comes near: four corners, turning, that tighten with the
-// distance; locked on, they are red and shut.
+// distance; locked on, they are red and shut, and stay on the place clicked.
 func (r *rocket) reticle(p *ui.Painter, m pointerAt) {
-	if !m.in {
+	cx, cy := m.x, m.y
+	if r.locked {
+		cx, cy = r.lx, r.ly
+	} else if !m.in {
 		return
 	}
-	d := math.Hypot(m.x-r.x, m.y-r.y)
+	d := math.Hypot(cx-r.x, cy-r.y)
 	near := clamp01(1 - (d-30)/170) // 0 far, 1 close
 	col := withAlpha(m.col, 0.75*near)
 	size, spin := 26-10*near, near*math.Pi/4
@@ -230,12 +237,12 @@ func (r *rocket) reticle(p *ui.Painter, m pointerAt) {
 	}
 	for i := 0; i < 4; i++ {
 		a := spin + float64(i)*math.Pi/2
-		x0, y0 := turned(m.x, m.y, size, -6, a)
-		xc, yc := turned(m.x, m.y, size, 0, a)
-		x1, y1 := turned(m.x, m.y, size-6, 0, a)
+		x0, y0 := turned(cx, cy, size, -6, a)
+		xc, yc := turned(cx, cy, size, 0, a)
+		x1, y1 := turned(cx, cy, size-6, 0, a)
 		p.StrokePolyline([][2]float32{{x0, y0}, {xc, yc}, {x1, y1}}, 1.8, col)
 	}
 	if r.locked {
-		p.Text(f32(m.x+size+4), f32(m.y-size-4), "LOCK", 9, ui.Hex("#ef4444"))
+		p.Text(f32(cx+size+4), f32(cy-size-4), "LOCK", 9, ui.Hex("#ef4444"))
 	}
 }

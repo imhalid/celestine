@@ -38,7 +38,8 @@ func TestCursorFX(t *testing.T) {
 	}
 }
 
-// The rocket comes to rest beside the pointer; clicked, it locks on, strikes and bursts.
+// The rocket comes to rest beside the pointer; clicked, it locks on the place clicked, strikes there and
+// bursts, however the pointer goes on.
 func TestCursorFXStrike(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.SetSize(800, 500)
@@ -55,6 +56,8 @@ func TestCursorFXStrike(t *testing.T) {
 	if !r.locked {
 		t.Fatal("a click did not lock the rocket on")
 	}
+	tt.Move(700, 60) // locked on, it keeps to the place clicked, not to the pointer
+	tt.Advance(16 * time.Millisecond)
 	hit := false
 	for i := 0; i < 60 && !hit; i++ {
 		tt.Advance(16 * time.Millisecond)
@@ -62,5 +65,8 @@ func TestCursorFXStrike(t *testing.T) {
 	}
 	if !hit || r.locked {
 		t.Fatalf("locked on, the rocket did not strike: flash %.2f, locked %v", r.flash, r.locked)
+	}
+	if r.bx != 400 || r.by != 250 {
+		t.Fatalf("it burst at %.0f,%.0f, not where it was locked on", r.bx, r.by)
 	}
 }
