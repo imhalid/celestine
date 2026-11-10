@@ -711,9 +711,12 @@ func savedLang(store *Store) string {
 func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
 	radiusScale = float32(a.cornerPercent()) / 100
-	tok := ryugo.Root(c, ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()}) // Ryugo's theme, its components' tokens, for the appearance
-	if a.appTheme().colors(tok.Dark).bg != "" {                                                                             // and in the app's theme: the same appearance, in its colors
-		tok = ryugo.Root(c, ryugo.Options{Mode: map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], Accent: a.accentOf(tok.Dark), Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale()})
+	// Ryugo's theme, its components' tokens, for the appearance; a pressed button's wave as the settings say
+	opts := ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale(), Waves: !a.settings.NoWaves}
+	tok := ryugo.Root(c, opts)
+	if a.appTheme().colors(tok.Dark).bg != "" { // and in the app's theme: the same appearance, in its colors
+		opts.Mode, opts.Accent = map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], a.accentOf(tok.Dark)
+		tok = ryugo.Root(c, opts)
 		a.skin(tok, c.Theme())
 	}
 	t := c.Theme()

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Settings that cannot be read are kept aside and not written over with the defaults, and a list index out of range
@@ -29,4 +30,40 @@ func TestDamagedSettingsKept(t *testing.T) {
 		t.Fatalf("out of range: %d %d", a.settings.Theme, a.settings.AppTheme)
 	}
 	a.appTheme()
+}
+
+// The press waves are on until the Appearance settings' switch turns them
+// off; the setting is what Ryugo's Root is given (frameTheme).
+func TestPressWavesSetting(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1000, 2400)
+	if a.settings.NoWaves {
+		t.Fatal("the waves start off")
+	}
+	a.settingsOpen, a.settingsTab = true, 0
+	tt.Advance(900 * time.Millisecond)
+	title, ok := tt.Find(T("Press waves"))
+	if !ok {
+		t.Fatal("no Press waves row")
+	}
+	// the switch is at the row's end, level with the middle of its title and help
+	flip := func() bool {
+		was := a.settings.NoWaves
+		for dy := float32(0); dy <= 40; dy += 8 {
+			for x := float32(990); x > title.X+title.W; x -= 6 {
+				tt.ClickAt(x, title.Y+title.H/2+dy)
+				tt.Advance(50 * time.Millisecond)
+				if a.settings.NoWaves != was {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if !flip() || !a.settings.NoWaves {
+		t.Fatal("the switch did not turn the waves off")
+	}
+	if !flip() || a.settings.NoWaves {
+		t.Fatal("the switch did not turn the waves back on")
+	}
 }

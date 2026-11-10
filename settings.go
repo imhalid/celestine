@@ -351,6 +351,16 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.Corner = &v
 		a.saveSettingsSoon()
 	}
+	waves := !a.settings.NoWaves
+	settingGroup(c, "set-waves", func() {
+		settingRow(c, "Press waves", "A pressed button sends a wave through itself from where it was pressed. With less motion in the system's settings, none goes.", func() {
+			ryugo.Switch(c.Key("set-waves-sw"), &waves, ryugo.SwitchOptions{}).Label(T("Press waves"))
+		})
+	})
+	if waves != !a.settings.NoWaves {
+		a.settings.NoWaves = !waves
+		a.saveSettings()
+	}
 	settingGroup(c, "set-welcome", func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
 			// a list each: there are too many looks for a bar of buttons

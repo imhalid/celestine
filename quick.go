@@ -147,9 +147,9 @@ func (q *quickNote) view(c *ui.Context) {
 	// what the app holds that a frame reads, taken under its lock: this window is drawn beside the main one, and a note
 	// added from it (submit) takes the lock itself, so it is not held for the frame
 	a.mu.Lock()
-	theme, where := a.settings.Theme, q.where()
+	theme, waves, where := a.settings.Theme, !a.settings.NoWaves, q.where()
 	a.mu.Unlock()
-	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[theme%3]})
+	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[theme%3], Waves: waves})
 	t := ryugo.From(c)
 	cl := t.Colors
 	if c.Vibrancy() {
