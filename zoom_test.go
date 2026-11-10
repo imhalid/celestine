@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -70,5 +71,34 @@ func TestFoldKeepsBlocks(t *testing.T) {
 	a.toggleFold(at)
 	if md := bodyMarkdown(a.doc.Text()); md != strings.TrimSuffix(zoomPage, "\n") {
 		t.Fatalf("unfolded:\n%q", md)
+	}
+}
+
+// The zoom's keys reach it from the text: Alt+→ in and Alt+← out off macOS, where Option+←/→ moves by words (#269).
+func TestZoomKeys(t *testing.T) {
+	if runtime.GOOS != "darwin" && (zoomInKey != "alt+right" || zoomOutKey != "alt+left") {
+		t.Fatalf("the zoom's keys: %q %q", zoomInKey, zoomOutKey)
+	}
+	a, tt := newTestApp(t, zoomPage)
+	tt.Advance(100 * time.Millisecond)
+	at := strings.Index(a.doc.Text().String(), "Notes")
+	a.doc.SetSelection(at, at)
+	a.refocus = true
+	tt.Frame()
+	press := func(accel string) {
+		mods, key, _, ok := parseAccel(accel)
+		if !ok {
+			t.Fatalf("not a key: %q", accel)
+		}
+		tt.Key(mods, key)
+		tt.Advance(50 * time.Millisecond)
+	}
+	press(zoomInKey)
+	if !a.zoomed() || strings.Contains(a.doc.Text().String(), "Before.") {
+		t.Fatalf("%s did not zoom in: %q", zoomInKey, a.doc.Text().String())
+	}
+	press(zoomOutKey)
+	if a.zoomed() || !strings.Contains(a.doc.Text().String(), "Before.") {
+		t.Fatalf("%s did not zoom out: %q", zoomOutKey, a.doc.Text().String())
 	}
 }

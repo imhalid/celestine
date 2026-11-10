@@ -95,8 +95,8 @@ func appCommands() []appCmd {
 		{title: "Bloğu aşağı taşı", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
 		{title: "Bloğu çoğalt", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
 		{title: "Katla / aç", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
-		{title: "Bloğa yakınlaş", accel: "alt+cmd+down", menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
-		{title: "Uzaklaş", accel: "alt+cmd+up", menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
+		{title: "Bloğa yakınlaş", accel: zoomInKey, menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
+		{title: "Uzaklaş", accel: zoomOutKey, menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
 			if !a.zoomed() {
 				return "Sayfa bir bloğa yakınlaşmış değil"
 			}

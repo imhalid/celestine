@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"strings"
 
 	"github.com/egoist/mygo/ui/richtext"
@@ -11,6 +12,18 @@ import (
 // behind two chips, one at the top and one at the bottom, as a fold is; a click on either, or Zoom out, puts the
 // page back as it was a level up. The file is always written whole (withoutChips), and a zoom is not remembered
 // when the page is closed. Zooming in again, inside a zoom, goes a level deeper.
+
+// zoomInKey and zoomOutKey are the zoom's keys: Alt+→ and Alt+←, which nothing else takes on Linux and Windows,
+// where the editor moves by words with Ctrl (#269). On macOS Option+←/→ moves by words, as MyGo's editor does
+// there, so the zoom has Option+Cmd+↓/↑.
+var zoomInKey, zoomOutKey = zoomKeys()
+
+func zoomKeys() (in, out string) {
+	if runtime.GOOS == "darwin" {
+		return "alt+cmd+down", "alt+cmd+up"
+	}
+	return "alt+right", "alt+left"
+}
 
 // zoomIn zooms into the block holding rune at.
 func (a *app) zoomIn(at int) {
