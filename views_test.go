@@ -598,3 +598,40 @@ func viewOrder(coll *Collection, v *View) []string {
 	sortPages(ps, v)
 	return titles(ps)
 }
+
+// A view's pages are filtered and sorted once, not at every frame, and made again when a page changes (#194); a
+// dynamic collection's search is made once too (#187).
+func TestViewPagesKept(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	made := a.viewCache.made
+	for i := range 10 {
+		tt.Move(500, float32(200+i*20))
+		tt.Frame()
+	}
+	if a.viewCache.made != made {
+		t.Fatalf("made %d times more in ten frames", a.viewCache.made-made)
+	}
+	coll.Pages[0].SetTitle("Ab")
+	tt.Frame()
+	if a.viewCache.made == made {
+		t.Fatal("not made again when a page changed")
+	}
+	dyn, err := a.lib.NewCollection("Aranan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dyn.Query = "baharat"
+	dyn.Save()
+	a.openCollection(dyn)
+	tt.Frame()
+	searches := a.searchMade
+	for range 10 {
+		tt.Frame()
+	}
+	if a.searchMade != searches {
+		t.Fatalf("searched %d times more in ten frames", a.searchMade-searches)
+	}
+	if got := titles(a.viewPages(dyn, dyn.View())); len(got) != 1 || got[0] != "Notlar: Dune" {
+		t.Fatalf("the dynamic collection: %v", got)
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -148,11 +149,7 @@ func (a *app) collectionView(c *ui.Context) {
 				}
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(maxW).Children(func() {
-						pages := a.filtered(coll)
-						if len(v.Filters) > 0 { // the view's own conditions
-							pages = slices.DeleteFunc(pages, func(p *Page) bool { return !v.Match(coll, p) })
-						}
-						sortPages(pages, v)
+						pages := a.viewPages(coll, v)
 						if v.Type == "board" || v.Type == "calendar" {
 							a.bulkClear()
 						}
@@ -206,12 +203,43 @@ var rowEnter = ui.ElementTransition{
 	Exit:  &ui.Motion{Opacity: 0},
 }
 
+// viewKey is what a view's pages come from: the collection and the view as it is set, the search typed over it, and
+// the pages, their values (a write) and, for a dynamic collection, the index of their texts.
+type viewKey struct {
+	coll          *Collection
+	view, search  string
+	pages, writes uint64
+	built         time.Time
+	text          uint64
+}
+
+// viewPages are the pages view v of collection coll shows, filtered and sorted: kept while what they come from is as
+// it was, as they were made again at every frame, a sort of 5 000 pages each (#194). A copy: the caller's to change.
+func (a *app) viewPages(coll *Collection, v *View) []*Page {
+	vb, _ := json.Marshal(v)
+	k := viewKey{coll: coll, view: string(vb), search: a.search, pages: PagesGen.Load(), writes: a.libWrites() + SavesGen.Load(), built: a.links.built}
+	if a.doc != nil {
+		k.text = a.doc.Version()
+	}
+	if a.viewCache.have && a.viewCache.key == k {
+		return slices.Clone(a.viewCache.pages)
+	}
+	pages := a.filtered(coll)
+	if len(v.Filters) > 0 { // the view's own conditions
+		pages = slices.DeleteFunc(pages, func(p *Page) bool { return !v.Match(coll, p) })
+	}
+	sortPages(pages, v)
+	a.viewCache.key, a.viewCache.pages, a.viewCache.have = k, pages, true
+	a.viewCache.made++
+	return slices.Clone(pages)
+}
+
 // filtered is the collection's pages, those matching the search when there is one.
 func (a *app) filtered(coll *Collection) []*Page {
 	all := coll.All()
 	if coll.Dynamic() { // the pages the query finds, wherever they are
 		all = all[:0:0]
-		for _, h := range a.searchPages(coll.Query, 0, a.links.stale) {
+		for _, h := range a.searchList(coll.Query, 0, a.links.stale) {
 			all = append(all, h.page)
 		}
 	}
@@ -230,6 +258,10 @@ func (a *app) filtered(coll *Collection) []*Page {
 
 // sortPages sorts by the view's field; a tie goes by title.
 func sortPages(ps []*Page, v *View) {
+	low := make(map[*Page]string, len(ps)) // each title lower-cased once, not at each comparison (#194)
+	for _, p := range ps {
+		low[p] = strings.ToLower(p.Title)
+	}
 	less := func(x, y *Page) int {
 		switch v.Sort {
 		case "created":
@@ -244,12 +276,12 @@ func sortPages(ps []*Page, v *View) {
 				return compareValues(pr, x.Value(pr), y.Value(pr))
 			}
 		}
-		return strings.Compare(strings.ToLower(x.Title), strings.ToLower(y.Title))
+		return strings.Compare(low[x], low[y])
 	}
 	sort.SliceStable(ps, func(i, j int) bool {
 		d := less(ps[i], ps[j])
 		if d == 0 {
-			return strings.ToLower(ps[i].Title) < strings.ToLower(ps[j].Title)
+			return low[ps[i]] < low[ps[j]]
 		}
 		if v.Desc && v.Sort != "manual" { // the own order is as it was dragged, never the other way
 			return d > 0

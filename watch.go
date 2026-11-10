@@ -143,6 +143,7 @@ func (a *app) takeOutside(p *Page) {
 	}
 	if bad == nil {
 		p.ReadMeta(meta)
+		SavesGen.Add(1) // its values may be others: what is kept from them is made again
 	}
 	doc := a.docs[p]
 	if doc == nil {

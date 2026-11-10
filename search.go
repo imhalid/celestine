@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -116,11 +117,59 @@ func runeIndex(hay, needle []rune) int {
 
 // searchPages are the pages that meet query q (searchquery.go), the best first.
 func (a *app) searchPages(q string, limit int, force bool) []searchHit {
+	return a.searchKept(q, limit, force, true)
+}
+
+// searchList is searchPages without the snippets: what wants only the pages (a dynamic collection, a count).
+func (a *app) searchList(q string, limit int, force bool) []searchHit {
+	return a.searchKept(q, limit, force, false)
+}
+
+// searchKey is what a search's hits come from: the query and how many, whether with snippets, the pages and their
+// texts as last indexed, the open page's text, and the day (a query may say "today").
+type searchKey struct {
+	q             string
+	limit         int
+	snips         bool
+	pages, writes uint64
+	built         time.Time
+	text          uint64
+	day           string
+}
+
+// searchKept is the search, its hits kept while what they come from is as it was: a view, the search screen and the
+// palette ask for them at every frame, and a query that finds two thousand pages folded each of them a frame (#187).
+func (a *app) searchKept(q string, limit int, force, snips bool) []searchHit {
+	if parseQuery(q).empty() {
+		return nil
+	}
+	a.linksTo(nil, a.clock(), force)
+	k := searchKey{q: q, limit: limit, snips: snips, pages: PagesGen.Load(), writes: a.libWrites() + SavesGen.Load(), built: a.links.built, day: a.clock().Format("2006-01-02")}
+	if a.doc != nil {
+		k.text = a.doc.Version()
+	}
+	if hits, ok := a.searchCache[k]; ok {
+		return hits
+	}
+	hits := a.findPages(q, limit, snips)
+	a.searchMade++
+	if len(a.searchCache) >= 32 { // a handful of queries at a time: the oldest go with the rest
+		clear(a.searchCache)
+	}
+	if a.searchCache == nil {
+		a.searchCache = map[searchKey][]searchHit{}
+	}
+	a.searchCache[k] = hits
+	return hits
+}
+
+// findPages is the search itself: the pages for query q, best first, at most limit (0: all), with the words around
+// what was asked when snips.
+func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 	pq := parseQuery(q)
 	if pq.empty() {
 		return nil
 	}
-	a.linksTo(nil, a.clock(), force)
 	pq.resolve(a.clock())
 	marks := pq.marks()
 	if a.sx != nil && a.sx.ready { // the index: the pages that may have it, then the snippets of the few shown
@@ -131,7 +180,11 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 		hits := a.sx.query(a, pq, limit)
 		out := make([]searchHit, 0, len(hits))
 		for _, h := range hits {
-			out = append(out, searchHit{page: h.d.page, score: h.score, snip: snippet(a.plainOf(h.d.page).plain, marks), at: first})
+			hit := searchHit{page: h.d.page, score: h.score, at: first}
+			if snips {
+				hit.snip = snippet(a.plainOf(h.d.page).plain, marks)
+			}
+			out = append(out, hit)
 		}
 		return out
 	}
@@ -154,7 +207,11 @@ func (a *app) searchPages(q string, limit int, force bool) []searchHit {
 			if !ok {
 				continue
 			}
-			out = append(out, searchHit{page: p, score: score, snip: snippet(a.plainOf(p).plain, marks), at: first})
+			hit := searchHit{page: p, score: score, at: first}
+			if snips {
+				hit.snip = snippet(a.plainOf(p).plain, marks)
+			}
+			out = append(out, hit)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {

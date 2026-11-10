@@ -171,6 +171,6 @@ func (a *app) queryItems(q string) []menuItem {
 	if tq == "" {
 		return nil
 	}
-	n := len(a.searchPages(tq, 0, false))
+	n := len(a.searchList(tq, 0, false))
 	return []menuItem{{title: tq, hint: strconv.Itoa(n) + " " + T("sayfa"), glyph: iconSearch, run: func() { a.insertQuery(start, tq) }}}
 }

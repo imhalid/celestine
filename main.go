@@ -314,23 +314,31 @@ type app struct {
 	agent         agentEdits // what agents changed, to put back
 	mcpErr        string
 
-	prop        propEdit           // the property dialog
-	propBuf     map[string]*string // the text of the properties' fields, by page and property
-	propEditing string             // the field being typed in
-	propErr     string             // the field whose value did not fit
-	invalidate  func()             // asks the window for a frame, from any goroutine
-	pal         palette            // the command palette (palette.go)
-	chipHits    []chipHit          // the chips drawn this frame (chips.go)
-	chipSeen    []chipHit          // and last frame, for a click
-	slash       slashMenu          // the / menu (slash.go)
-	grip        gripState          // the grip of the block under the pointer (blockui.go)
-	tasks       taskFx             // the task boxes: what turns, and the confetti (taskkinds.go)
-	cs          collSettings       // a collection\'s settings (collsettings.go)
-	hist        []place            // where the app went, and where it is in that (nav.go)
-	histAt      int
-	going       bool     // going back or forward: no new place in the history
-	menuBar     bool     // the menu bar has the shortcuts, not the window
-	pageBg      ui.Color // the page's background this frame (bg)
+	prop        propEdit                  // the property dialog
+	propBuf     map[string]*string        // the text of the properties' fields, by page and property
+	propEditing string                    // the field being typed in
+	propErr     string                    // the field whose value did not fit
+	invalidate  func()                    // asks the window for a frame, from any goroutine
+	pal         palette                   // the command palette (palette.go)
+	searchCache map[searchKey][]searchHit // the last searches' hits (searchKept)
+	viewCache   struct {                  // the pages of the view shown (viewPages)
+		key   viewKey
+		pages []*Page
+		have  bool
+		made  int // how many times, counted for a test
+	}
+	searchMade int          // the searches made, not taken from searchCache: counted for a test
+	chipHits   []chipHit    // the chips drawn this frame (chips.go)
+	chipSeen   []chipHit    // and last frame, for a click
+	slash      slashMenu    // the / menu (slash.go)
+	grip       gripState    // the grip of the block under the pointer (blockui.go)
+	tasks      taskFx       // the task boxes: what turns, and the confetti (taskkinds.go)
+	cs         collSettings // a collection\'s settings (collsettings.go)
+	hist       []place      // where the app went, and where it is in that (nav.go)
+	histAt     int
+	going      bool     // going back or forward: no new place in the history
+	menuBar    bool     // the menu bar has the shortcuts, not the window
+	pageBg     ui.Color // the page's background this frame (bg)
 }
 
 func newApp(lib *Library) *app {

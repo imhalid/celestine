@@ -267,6 +267,10 @@ func OpenLibraryIn(fsys FS, root string) (*Library, error) {
 }
 
 // readPages reads the pages in dir: each subfolder holding an index.md.
+// SavesGen counts the pages and collections written, by any path: what is kept from their values (a view's pages, a
+// search's hits) is made again when it moves. PagesGen counts only what changes the tree.
+var SavesGen atomic.Uint64
+
 // PagesGen counts the changes to the pages of the libraries: one made, renamed, moved, thrown away or
 // brought back, or read from disk. What is kept of them (the titles of chips.go) is made again when it moves.
 var PagesGen atomic.Uint64
@@ -332,6 +336,7 @@ func (c *Collection) Save() error {
 		return err
 	}
 	c.Seen = ModTime(c.FS, file)
+	SavesGen.Add(1)
 	return nil
 }
 
@@ -461,6 +466,7 @@ func (p *Page) Save(body string) error {
 	}
 	p.Modified = ModTime(p.FS(), p.File())
 	p.Writes++
+	SavesGen.Add(1)
 	return nil
 }
 

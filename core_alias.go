@@ -151,6 +151,7 @@ var WriteFilePrivate = library.WriteFilePrivate
 // The library's variables that the app reads: its counter itself, and the others, which do not change.
 var (
 	PagesGen    = &library.PagesGen
+	SavesGen    = &library.SavesGen
 	PropTypes   = library.PropTypes
 	TurkishFold = library.TurkishFold
 )
