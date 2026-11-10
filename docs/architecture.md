@@ -9,7 +9,7 @@ into structure as you type it: `# ` makes a heading and the `#` is gone, `**word
 are gone. Markdown is never seen in the editor and is not how a page is kept: a page is a list of typed blocks (`body.go`), in a file of its own format. Markdown only comes in (an import, a file dropped, what an agent writes) and goes out (export, what an agent reads).
 
 ```bash
-go run . [library]      # default: kitaplik.db beside the program (the data folder when that cannot be written); a folder given opens a folder library
+go run . [library]      # default: kitaplik.db in the data folder (one already beside the program stays there; never inside an app bundle); a folder given opens a folder library
 ```
 
 The library is a tree of folders, as [Locus](https://github.com/oneo-me/locus) keeps notes: a collection is a folder with a

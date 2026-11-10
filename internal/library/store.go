@@ -154,11 +154,10 @@ func IsLibraryFolder(dir string) bool {
 	return false
 }
 
-// LibraryFile is where the library is kept when none is named: a file next
-// to the program, so that the two move together. A program `go run` built is
-// in a folder of its own each time, and its library is the working folder's.
-// A program installed where it cannot write (/usr/local/bin, Program Files)
-// keeps its library in the user's data folder.
+// LibraryFile is where the library is kept when none is named: the user's data folder. A library already beside the
+// program (kitaplik.db there: a portable copy the user set up) stays there, and so does one a program `go run` built
+// uses, which is the working folder's. Never inside an app bundle, which an update or a new copy of the app replaces
+// with the library in it (#230); one found there is moved out once.
 func LibraryFile() string {
 	dir := "."
 	if exe, err := os.Executable(); err == nil && !strings.Contains(filepath.ToSlash(exe), "/go-build") {
@@ -167,14 +166,66 @@ func LibraryFile() string {
 	return libraryFileIn(dir, dataDir())
 }
 
-// libraryFileIn is kitaplik.db in dir, or in data when dir cannot be written
-// (and data is known).
+// libraryFileIn is where the library is for a program in dir, with data the user's data folder ("" when unknown).
 func libraryFileIn(dir, data string) string {
-	if data == "" || writable(dir) {
-		return filepath.Join(dir, "kitaplik.db")
+	beside := filepath.Join(dir, "kitaplik.db")
+	if data == "" {
+		return beside
+	}
+	if inBundle(dir) {
+		os.MkdirAll(data, 0o755)
+		to := filepath.Join(data, "kitaplik.db")
+		// an update keeps the bundle it replaced beside the new one, as name.app.old, for a day
+		old := strings.Replace(filepath.ToSlash(dir), ".app/Contents/MacOS", ".app.old/Contents/MacOS", 1)
+		for _, from := range []string{beside, filepath.Join(filepath.FromSlash(old), "kitaplik.db")} {
+			if moveLibrary(from, to) {
+				break
+			}
+		}
+		return to
+	}
+	if dir == "." || fileExists(beside) && writable(dir) {
+		return beside
 	}
 	os.MkdirAll(data, 0o755)
 	return filepath.Join(data, "kitaplik.db")
+}
+
+// inBundle says whether dir is a macOS app bundle's program folder.
+func inBundle(dir string) bool {
+	return strings.Contains(filepath.ToSlash(filepath.Clean(dir))+"/", ".app/Contents/MacOS/")
+}
+
+func fileExists(name string) bool {
+	st, err := os.Stat(name)
+	return err == nil && st.Mode().IsRegular()
+}
+
+// moveLibrary moves the library file from, with the journal SQLite keeps beside it, to to, when there is one at
+// from and none at to; it says whether it did. Across disks it is copied, and the copy is checked before the
+// original goes.
+func moveLibrary(from, to string) bool {
+	if !fileExists(from) || fileExists(to) {
+		return false
+	}
+	for _, ext := range []string{"", "-wal", "-shm"} {
+		if !fileExists(from + ext) {
+			continue
+		}
+		if os.Rename(from+ext, to+ext) == nil {
+			continue
+		}
+		b, err := os.ReadFile(from + ext)
+		if err != nil || os.WriteFile(to+ext, b, 0o600) != nil {
+			os.Remove(to + ext)
+			return false
+		}
+		if got, err := os.ReadFile(to + ext); err != nil || len(got) != len(b) {
+			return false
+		}
+		os.Remove(from + ext)
+	}
+	return true
 }
 
 // writable is whether a file can be made in dir: the library's file and the
