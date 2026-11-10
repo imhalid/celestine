@@ -205,7 +205,7 @@ type app struct {
 	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
 	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
 	unsavedAt   time.Time
-	daysStamped bool   // the journal's pages have their days kept (stampDays)
+	daysStamped bool       // the journal's pages have their days kept (stampDays)
 	storeErr    string     // the library store's last write error, as shown
 	notice      string     // a toast to show
 	trashed     *TrashItem // just thrown away: a toast offers it back
