@@ -830,8 +830,11 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			names[n] = true
 		}
 	}
-	for n := range st.Files {
-		names[n] = true
+	for n := range st.Files { // a collection chosen out keeps its entries for when it is chosen back in, but is not worked
+		// on: its files are missing here only because the walk left them out, and would read as deleted here
+		if !skip[strings.SplitN(n, "/", 2)[0]] {
+			names[n] = true
+		}
 	}
 	order := make([]string, 0, len(names))
 	for n := range names {

@@ -159,6 +159,29 @@ func TestSyncSelective(t *testing.T) {
 	}
 }
 
+// A collection synced before and then chosen out is not deleted on the other side, and choosing it back in
+// changes nothing (#145).
+func TestSyncChosenOutLater(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("Ozel/B/page.json", "ikisinde de")
+	a.sync(remote)
+	b.sync(remote)
+	if b.read("Ozel/B/page.json") != "ikisinde de" {
+		t.Fatal("not synced to begin with")
+	}
+	if res := a.sync(remote, "Ozel"); res.Deleted != 0 {
+		t.Fatalf("choosing it out deleted %d", res.Deleted)
+	}
+	b.sync(remote)
+	if b.read("Ozel/B/page.json") != "ikisinde de" {
+		t.Fatal("the other device lost it")
+	}
+	if res := a.sync(remote); res.Deleted+res.Pushed+res.Pulled != 0 {
+		t.Fatalf("choosing it back in did something: %+v", res)
+	}
+}
+
 // A remote that cannot be reached is an error; what was done here waits, and is sent when it can be.
 type flaky struct {
 	Remote
