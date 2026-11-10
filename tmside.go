@@ -112,7 +112,7 @@ func tmDotAt(w, x, y float32, n int) int {
 func (a *app) tmTimeline(c *ui.Context, top, full, k float32) {
 	s := &a.tmSide
 	t := &a.tm
-	live := t.open && !t.closing
+	live := t.open && !t.busy()
 	cl := ryugo.From(c).Colors
 	col := ui.Column(c.Key("tm-side")).Absolute().Left(0).Top(top).Bottom(0).Width(full).Opacity(k).Label(T("Timeline"))
 	if !live { // on its way out: only to look at

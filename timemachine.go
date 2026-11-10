@@ -43,6 +43,9 @@ type timeMachine struct {
 	diffs      map[int][]tmDiffRow // each copy's, by its place
 	diffScroll ui.ScrollState
 	diffFor    int // the copy the differences were last scrolled for
+
+	reveal   tmReveal // a restore being shown: the light running down the front card (tmreveal.go)
+	noReveal bool     // the system asks for less motion: a restore goes straight back into the editor
 }
 
 // tmLine is a line of a copy's text, as the card shows it.
@@ -131,7 +134,7 @@ func (a *app) tmLines(i int) []tmLine {
 
 // tmWhen is when the copy at place i was written: Now for the page; today's copies by the hour, as Today 14:05.
 func (a *app) tmWhen(i int) string {
-	if i == 0 {
+	if i <= 0 { // the page now, or as it was while a restore is shown
 		return T("Today (Now)")
 	}
 	at := a.tm.vers[i-1].At
@@ -142,16 +145,27 @@ func (a *app) tmWhen(i int) string {
 }
 
 // tmPutBack makes the page what the copy at the front is, as the version dialog does (the page now kept as a
-// copy first), and goes back into the editor.
+// copy first), and goes back into the editor: after the light has run down the front card, the copy in its wake
+// (tmreveal.go), unless less motion is asked for.
 func (a *app) tmPutBack() {
 	t := &a.tm
-	if t.sel == 0 || t.sel > len(t.vers) {
+	if t.sel == 0 || t.sel > len(t.vers) || t.busy() {
 		return
 	}
-	a.vhist = histView{page: t.page, vers: t.vers, sel: t.sel - 1, opsFor: -1}
+	sel := t.sel
+	var keep func()
+	if !t.noReveal {
+		keep = a.startReveal(sel)
+	}
+	a.vhist = histView{page: t.page, vers: t.vers, sel: sel - 1, opsFor: -1}
 	a.putBackVersion()
 	t.texts, t.lines, t.pages, t.docs, t.diffs = map[int]string{}, map[int][]tmLine{}, nil, nil, nil // the page now is the copy: the front card says so
-	t.sel, t.closing, t.diff = 0, true, false
+	t.diff = false
+	if keep != nil {
+		keep()
+		return
+	}
+	t.sel, t.closing = 0, true
 }
 
 // tmKeys takes the history's keys, early in the frame: before the editor's normal mode takes Esc, and the arrows
@@ -161,7 +175,7 @@ func (a *app) tmKeys(c *ui.Context) bool {
 	if !t.open {
 		return false
 	}
-	if t.closing {
+	if t.busy() {
 		return true
 	}
 	n := len(t.vers)
@@ -206,6 +220,7 @@ func (a *app) timeMachineView(c *ui.Context) {
 	}
 	aw := ww - ox
 	cl := ryugo.From(c).Colors
+	t.noReveal = c.Preferences().ReduceMotion
 	ui.Overlay(c, func() {
 		// it has the keys while it is open, not the editor under it
 		back := ui.Box(c.Key("tm-back")).Absolute().Left(ox).Top(0).Size(aw, wh).Label(T("Page history")).Role(ui.RoleDialog).
@@ -297,6 +312,16 @@ func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 	x0 := ox + (aw-tmBarsWidth()-cw)/2
 	y0 := wh - tmFootH - 16 - ch // the front page stands just over the toolbar
 	cx0, cy0 := x0+cw/2, y0+ch/2
+	rp := a.revealStep(c) // a restore being shown: the copy over the page as it was, in the front's place
+	if t.reveal.sel > 0 {
+		sc := base * revealScale(rp)
+		old := ui.Column(c.Key("tm-card:"+itoa(tmRevealOld))).Absolute().Left(cx0-lw/2).Top(cy0-lh/2).Size(lw, lh).
+			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/sc).Clip().
+			TransformOrigin(0.5, 0.5).Scale(sc, sc).Opacity(t.in).ZIndex(200 - t.reveal.sel).Cache().PassThrough()
+		th.Shadows.ShadowPop.Apply(old)
+		revealEffect(old, rp, false, lw, lh, th.R(ryugo.RadiusPop)/sc, cl)
+		old.Children(func() { a.tmPage(c, tmRevealOld, lw, lh, false) })
+	}
 	for i := len(t.vers); i >= 0; i-- {
 		d := float32(i) - pos
 		if d < -1.3 || d > 12 {
@@ -313,15 +338,24 @@ func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 			ty = -d * 60
 		}
 		sc := base * scale * (0.96 + 0.04*t.in) // coming in, it grows the last of the way
+		shown := t.reveal.sel > 0 && i == t.reveal.sel
+		z := 200 - i
+		if shown {
+			sc = base * revealScale(rp)
+			z++ // over the page as it was, in the same place
+		}
 		front := math.Abs(float64(d)) < 0.5
 		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(cx0-lw/2).Top(cy0+ty-lh/2).Size(lw, lh).
 			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/max(sc, 0.2)).Clip().
-			TransformOrigin(0.5, 0.5).Scale(sc, sc).Translate(0, (1-t.in)*36).Opacity(op * t.in).ZIndex(200 - i).Cache().
+			TransformOrigin(0.5, 0.5).Scale(sc, sc).Translate(0, (1-t.in)*36).Opacity(op * t.in).ZIndex(z).Cache().
 			Label(T("Page history: ") + a.tmWhen(i)).Role(ui.RoleButton)
 		th.Shadows.ShadowPop.Apply(card)
+		if shown {
+			revealEffect(card, rp, true, lw, lh, th.R(ryugo.RadiusPop)/sc, cl)
+		}
 		if !front {
 			card.Cursor(ui.CursorPointer)
-			if card.Clicked() && !t.closing {
+			if card.Clicked() && !t.busy() {
 				t.sel = i
 			}
 		}
@@ -466,7 +500,7 @@ func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 		if e.Hovered() {
 			ryugo.Tooltip(c, e, a.tmWhen(i))
 		}
-		if e.Clicked() && !t.closing {
+		if e.Clicked() && !t.busy() {
 			t.sel = i
 		}
 		label := ""
@@ -503,23 +537,23 @@ func (a *app) tmFoot(c *ui.Context, ox, aw, wh float32) {
 		th.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			ui.Text(c.Key("tm-when"), a.tmWhen(t.sel)).FontSize(14).FontWeight(650).TextColor(cl.Text).MinWidth(170)
-			if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.closing {
+			if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.busy() {
 				t.sel = min(t.sel+1, n)
 			}
-			if ryugo.Button(c.Key("tm-newer"), T("Newer"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.closing {
+			if ryugo.Button(c.Key("tm-newer"), T("Newer"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.busy() {
 				t.sel = max(t.sel-1, 0)
 			}
 			label := T("Show the differences") // in its place, side by side with the page now (tmdiff.go)
 			if t.diff && t.sel > 0 {
 				label = T("Show the page")
 			}
-			if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 && !t.closing {
+			if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 && !t.busy() {
 				t.diff = !t.diff
 			}
-			if ryugo.Button(c.Key("tm-cancel"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.closing {
+			if ryugo.Button(c.Key("tm-cancel"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.busy() {
 				t.closing = true
 			}
-			if ryugo.Button(c.Key("tm-restore"), T("Restore"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Disabled: t.sel == 0}).Clicked() && !t.closing {
+			if ryugo.Button(c.Key("tm-restore"), T("Restore"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Disabled: t.sel == 0}).Clicked() && !t.busy() {
 				a.tmPutBack()
 			}
 		})

@@ -383,7 +383,9 @@ func TestTimeMachine(t *testing.T) {
 	tt.Key(0, ui.KeyLeft)
 	tt.Key(0, ui.KeyLeft)
 	tt.Key(0, ui.KeyEnter)
-	tt.Advance(900 * time.Millisecond)
+	for range 100 { // the sweep, then the going (#316)
+		tt.Advance(20 * time.Millisecond)
+	}
 	if a.tm.open {
 		t.Fatal("still open after putting back")
 	}
@@ -565,7 +567,7 @@ func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 		tt.Frame()
 		a.tm.sel = sel
 		a.tmPutBack()
-		for range 40 {
+		for range 100 {
 			tt.Advance(20 * time.Millisecond)
 		}
 	}
@@ -589,7 +591,7 @@ func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 	}
 	a.tm.sel = 2
 	a.tmPutBack()
-	for range 40 {
+	for range 100 {
 		tt.Advance(20 * time.Millisecond)
 	}
 	if n := len(st.Versions(p.File())); n != 4 {
@@ -694,5 +696,42 @@ func TestHistoryFromThePageMenu(t *testing.T) {
 	tt.Advance(700 * time.Millisecond)
 	if a.page != p || !a.tm.open || a.tm.page != p || len(a.tm.vers) != 3 {
 		t.Fatalf("not the page's history: page %q, open %v, %d copies", a.page.Title, a.tm.open, len(a.tm.vers))
+	}
+}
+
+// A restore is shown before the history goes (#316): the copy is written at once, then the light runs down the front
+// card, the copy over the page as it was, keys and clicks not taken; only after it does the editor come back.
+func TestTimeMachineRestoreSweeps(t *testing.T) {
+	a, tt := lapsePage(t)
+	p := a.page
+	before, _ := p.Text()
+	a.openTimeMachine(p)
+	tt.Frame()
+	a.tm.sel = 2
+	copyText := a.tmText(2)
+	a.tmPutBack()
+	if now, _ := p.Text(); now == before || strings.TrimSpace(now) != strings.TrimSpace(copyText) {
+		t.Fatalf("the copy is not written when Restore is pressed: %q", now)
+	}
+	tt.Frame()
+	if a.tm.reveal.sel != 2 || a.tm.closing || !a.tm.open {
+		t.Fatalf("no sweep: reveal %d, closing %v", a.tm.reveal.sel, a.tm.closing)
+	}
+	if got := a.tmText(0); a.tm.docs[tmRevealOld] == nil || strings.TrimSpace(got) != strings.TrimSpace(copyText) {
+		t.Fatalf("the page as it was is not kept for the sweep, or the page now is not the copy: %q", got)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(revealLen / 2)
+	if a.tm.closing || a.tm.reveal.sel != 2 {
+		t.Fatal("Esc stopped the sweep half way")
+	}
+	if f := revealFront(0.5); f < 0.45 || f > 0.55 {
+		t.Fatalf("the band is at %v half way", f)
+	}
+	for range 100 {
+		tt.Advance(20 * time.Millisecond)
+	}
+	if a.tm.open {
+		t.Fatal("the history is still open after the sweep")
 	}
 }
