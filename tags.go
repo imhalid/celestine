@@ -351,44 +351,6 @@ type tagRename struct {
 	err  string
 }
 
-// replaceTag writes tag key as newName in Markdown body, where it is a tag
-// and not code.
-func replaceTag(body, key, newName string) (string, int) {
-	n := 0
-	lines := strings.Split(body, "\n")
-	inFence := false
-	for i, ln := range lines {
-		if fenceLine.MatchString(ln) {
-			inFence = !inFence
-			continue
-		}
-		if inFence || !strings.Contains(ln, "#") {
-			continue
-		}
-		// the text outside `code` only
-		var sb strings.Builder
-		at := 0
-		fix := func(seg string) string {
-			return tagWord.ReplaceAllStringFunc(seg, func(m string) string {
-				sm := tagWord.FindStringSubmatch(m)
-				if tagKey(sm[2]) != key {
-					return m
-				}
-				n++
-				return sm[1] + "#" + newName
-			})
-		}
-		for _, loc := range inlineCode.FindAllStringIndex(ln, -1) {
-			sb.WriteString(fix(ln[at:loc[0]]))
-			sb.WriteString(ln[loc[0]:loc[1]])
-			at = loc[1]
-		}
-		sb.WriteString(fix(ln[at:]))
-		lines[i] = sb.String()
-	}
-	return strings.Join(lines, "\n"), n
-}
-
 // renameTag renames the tag key in every page that has it; when newName is
 // the name of a tag there is, the two are one. It says how many pages changed.
 func (a *app) renameTag(key, newName string) (int, error) {
@@ -402,15 +364,15 @@ func (a *app) renameTag(key, newName string) (int, error) {
 	pages := append([]*Page{}, a.links.tags[key]...)
 	changed := 0
 	for _, p := range pages {
-		body, err := p.Text()
+		body, err := p.Body()
 		if err != nil {
 			return changed, err
 		}
-		nb, n := replaceTag(body, key, newName)
+		nb, n := renameTagInBody(body, key, newName)
 		if n == 0 {
 			continue
 		}
-		if err := p.SaveText(nb); err != nil {
+		if err := p.Save(nb); err != nil {
 			return changed, err
 		}
 		a.takeOutside(p)

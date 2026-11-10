@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 func TestTasksOf(t *testing.T) {
@@ -419,5 +420,46 @@ func TestTaskKinds(t *testing.T) {
 	tt.Frame()
 	if a.taskKindF != "" {
 		t.Fatalf("kept %q", a.taskKindF)
+	}
+}
+
+// Ticking a task from the Tasks view, a quick note and a tag renamed change the body where they must and nothing
+// else: a starred task, an alignment, empty lines and underline stay as they were (#123).
+func TestBodyEditsKeepTheRest(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	p := a.page
+	star := richtext.ParagraphStyle{List: richtext.Tasks, ID: taskIDPrefix + "star"}
+	under := richtext.Attributes{Underline: true}
+	rich := func(firstDone bool) richtext.Text {
+		task := richtext.ParagraphStyle{List: richtext.Tasks, Checked: firstDone}
+		return richtext.TextOf(
+			richtext.Paragraph{Style: task, Runs: []richtext.Run{{Text: "işaretlenecek #fikir"}}},
+			richtext.Paragraph{Style: star, Runs: []richtext.Run{{Text: "yıldızlı"}}},
+			richtext.Paragraph{},
+			richtext.Paragraph{},
+			richtext.Paragraph{Style: richtext.ParagraphStyle{Align: ui.Center}, Runs: []richtext.Run{{Text: "ortada "}, {Text: "altı çizili", Attributes: under}}},
+		)
+	}
+	if err := p.Save(encodeBody(rich(false))); err != nil {
+		t.Fatal(err)
+	}
+	a.takeOutside(p)
+	body, _ := p.Text()
+	a.toggleTask(tasksOf(p, body)[0])
+	got, _ := p.Body()
+	if want := encodeBody(rich(true)); got != want {
+		t.Fatalf("ticked:\n%s\nwant\n%s", got, want)
+	}
+	if n, err := a.renameTag("fikir", "plan"); err != nil || n != 1 {
+		t.Fatalf("renamed %d: %v", n, err)
+	}
+	got, _ = p.Body()
+	if want := strings.Replace(encodeBody(rich(true)), "#fikir", "#plan", 1); got != want {
+		t.Fatalf("renamed:\n%s\nwant\n%s", got, want)
+	}
+	before := got
+	got = appendBody(before, importMarkdown("yeni not\n"))
+	if !strings.HasPrefix(got, strings.TrimSuffix(before, "]")) || !strings.Contains(got, "yeni not") {
+		t.Fatalf("appended:\n%s", got)
 	}
 }

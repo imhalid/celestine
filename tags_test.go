@@ -149,10 +149,11 @@ func TestHashAtLineStart(t *testing.T) {
 }
 
 func TestReplaceTag(t *testing.T) {
-	got, n := replaceTag("bir #Fikir ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #FIKIR.", "fikir", "plan")
-	want := "bir #plan ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #plan."
+	body := encodeBody(importMarkdown("bir #Fikir ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #FIKIR."))
+	got, n := renameTagInBody(body, "fikir", "plan")
+	want := encodeBody(importMarkdown("bir #plan ve #fikirler `#fikir` #fikir/alt\n```\n#fikir\n```\n(#fikir) x #plan."))
 	if got != want || n != 2 {
-		t.Fatalf("%d: %q", n, got)
+		t.Fatalf("%d: %s", n, got)
 	}
 }
 

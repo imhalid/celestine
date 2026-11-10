@@ -142,40 +142,66 @@ func (a *app) openTasks() {
 	a.visit()
 }
 
-// toggleTask ticks a task off, or on again: in the page's file, and in its
-// text where that is open.
+// toggleTask ticks a task off, or on again: in the page's file, and in its text where that is open. The body is
+// changed where the task is, not written again from its Markdown, which loses what Markdown cannot say (#123).
 func (a *app) toggleTask(t taskItem) {
 	p := t.page
 	if p == a.page {
 		a.flush()
 	}
-	body, err := p.Text()
+	body, err := p.Body()
 	if err != nil {
 		a.saveErr = err.Error()
 		return
 	}
-	lines := strings.Split(body, "\n")
-	if t.line >= len(lines) || taskLine.FindStringSubmatch(lines[t.line]) == nil {
+	tx := decodeBody(body)
+	at, ok := taskParagraph(tx, p, t)
+	if !ok {
 		a.linksStale() // the page changed since: read it again
 		return
 	}
-	mark := "[x]"
-	if t.done {
-		mark = "[ ]"
-	}
-	if next, ok := comesAgain(lines[t.line], a.clock()); ok && !t.done {
-		// a task that comes again: this one is done, and the next is made
-		lines[t.line] = taskBox.ReplaceAllString(everyTok.ReplaceAllString(lines[t.line], ""), "${1}[x]")
-		lines = append(lines[:t.line+1], append([]string{next}, lines[t.line+1:]...)...)
-	} else {
-		lines[t.line] = taskBox.ReplaceAllString(lines[t.line], "${1}"+mark)
-	}
-	if err := p.SaveText(strings.Join(lines, "\n")); err != nil {
+	doc := richtext.NewDocument(tx)
+	doc.ToggleChecked(at)
+	rollRecurringIn(doc, a.clock(), importMarkdown) // a task that comes again: this one is done, and the next is made
+	if err := p.Save(encodeBody(doc.Text())); err != nil {
 		a.saveErr = err.Error()
 		return
 	}
 	a.takeOutside(p) // its text, in the editor, as the file has it now
 	a.linksStale()
+}
+
+// taskParagraph is where in tx, page p's text, the task t starts: the task paragraph whose Markdown is t's line,
+// counted among the tasks as tasksOf counts them. False when the page has changed since t was read.
+func taskParagraph(tx richtext.Text, p *Page, t taskItem) (int, bool) {
+	md := bodyMarkdown(tx)
+	lines := strings.Split(md, "\n")
+	if t.line >= len(lines) {
+		return 0, false
+	}
+	k := -1
+	for i, ti := range tasksOf(p, md) {
+		if ti.line == t.line {
+			k = i
+		}
+	}
+	if k < 0 {
+		return 0, false
+	}
+	for s, para := range tx.Paragraphs() {
+		if para.Style.List != richtext.Tasks {
+			continue
+		}
+		s, e := tx.ParagraphRange(s)
+		line := strings.TrimSpace(strings.TrimRight(bodyMarkdown(tx.Slice(s, e)), "\n"))
+		if m := taskLine.FindStringSubmatch(line); m == nil || m[3] == "" {
+			continue
+		}
+		if k--; k < 0 {
+			return s, line == strings.TrimSpace(lines[t.line])
+		}
+	}
+	return 0, false
 }
 
 // tasksView is the view: a filter, and the tasks under their pages.
@@ -543,7 +569,12 @@ func (a *app) rollRecurring() {
 	if a.doc == nil || a.page == nil {
 		return
 	}
-	text := a.doc.Text()
+	rollRecurringIn(a.doc, a.clock(), a.parse)
+}
+
+// rollRecurringIn is rollRecurring in doc, the text of what comes again made with parse.
+func rollRecurringIn(doc *richtext.Document, now time.Time, parse func(string) richtext.Text) {
+	text := doc.Text()
 	var at []int
 	for s, para := range text.Paragraphs() {
 		if para.Style.List == richtext.Tasks && para.Style.Checked && everyTok.MatchString(paraText(para)) {
@@ -553,12 +584,12 @@ func (a *app) rollRecurring() {
 	for i := len(at) - 1; i >= 0; i-- {
 		s, e := text.ParagraphRange(at[i])
 		line := strings.TrimRight(bodyMarkdown(text.Slice(s, e)), "\n")
-		next, ok := comesAgain(line, a.clock())
+		next, ok := comesAgain(line, now)
 		if !ok {
 			continue
 		}
 		done := everyTok.ReplaceAllString(line, "")
-		a.doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, a.parse(done+"\n"+next)) })
-		text = a.doc.Text()
+		doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, parse(done+"\n"+next)) })
+		text = doc.Text()
 	}
 }

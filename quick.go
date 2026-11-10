@@ -94,12 +94,11 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 	if p == a.page {
 		a.flush()
 	}
-	body, _ := p.Text()
-	if strings.TrimSpace(body) != "" && !strings.HasSuffix(body, "\n") {
-		body += "\n"
+	body, err := p.Body()
+	if err != nil {
+		return "", err
 	}
-	body += strings.Join(noteLines(text), "\n") + "\n"
-	if err := p.SaveText(body); err != nil {
+	if err := p.Save(appendBody(body, importMarkdown(strings.Join(noteLines(text), "\n")+"\n"))); err != nil {
 		return "", err
 	}
 	a.takeOutside(p) // the page, if it is open, shows it
