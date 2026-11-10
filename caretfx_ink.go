@@ -375,8 +375,11 @@ func (g *inkCaret) deposit(cx, cy int, v float64, hue int) {
 	}
 }
 
-// blob is a soft round blot of radius r.
+// blob is a soft round blot of radius r. Its own cell is inked full, so a blot smaller than a cell, between the
+// cells' middles, still leaves one.
 func (g *inkCaret) blob(x, y, r, v float64, hue int) {
+	cx, cy := g.cellOf(x, y)
+	g.deposit(cx, cy, v, hue)
 	ax, ay := g.cellOf(x-r, y-r)
 	bx, by := g.cellOf(x+r, y+r)
 	for cy := ay; cy <= by; cy++ {

@@ -49,9 +49,9 @@ func TestInkCaret(t *testing.T) {
 	if words != 1 {
 		t.Fatalf("a mark after the space locked the word again: %d locks", words)
 	}
+	tt.Advance(time.Second) // the typing's ink, still going, would draw over the rose
 	tt.Key(0, ui.KeyBackspace)
-	tt.Key(0, ui.KeyBackspace)
-	tt.Advance(30 * time.Millisecond)
+	tt.Frame() // the erase's own frame: a fish of another hue sinks through the rose and inks over it soon after
 	rose, gone := 0, false
 	for _, c := range g.cells {
 		if c.hue == inkRose {
