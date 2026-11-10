@@ -151,14 +151,7 @@ func (a *app) startLapse() {
 	week := a.clock().AddDate(0, 0, -HistoryDays)
 	vers := slices.DeleteFunc(h.Versions(p.File()), func(v Version) bool { return v.Label != "" && v.At.Before(week) })
 	slices.SortStableFunc(vers, func(x, y Version) int { return x.At.Compare(y.At) })
-	var datas [][]byte
-	var times []time.Time
-	for _, v := range vers {
-		if d, ok := h.VersionData(p.File(), v.ID); ok {
-			datas = append(datas, d)
-			times = append(times, v.At)
-		}
-	}
+	file := p.File()
 	now := a.currentMarkdown(p) // what is typed too: the page is saved first
 	at := p.Modified
 	if at.IsZero() {
@@ -168,6 +161,16 @@ func (a *app) startLapse() {
 	paras := strings.Split(a.doc.Text().String(), "\n") // the editor's paragraphs, which the words are given to
 	go func() {
 		defer a.guard()
+		// the copies read here, away from the window: every one the page kept, at each page opened and each pause in
+		// the typing, was read under the lock (#199)
+		var datas [][]byte
+		var times []time.Time
+		for _, v := range vers {
+			if d, ok := h.VersionData(file, v.ID); ok {
+				datas = append(datas, d)
+				times = append(times, v.At)
+			}
+		}
 		var texts []string
 		for _, d := range datas {
 			_, body := SplitPage(d)

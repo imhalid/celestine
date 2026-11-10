@@ -2,8 +2,11 @@ package library
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -104,5 +107,28 @@ func TestWriteWholeAndEmptyPage(t *testing.T) {
 	}
 	if _, _, err := SplitPageChecked([]byte("  ")); err == nil {
 		t.Fatal("an empty page file read as a page")
+	}
+}
+
+// DiffLines compares only what lies between the lines both texts start and end with, and gives what it gave: the
+// shared lines kept, the version's as "+", the present's as "-" (#199).
+func TestDiffLinesTrimmed(t *testing.T) {
+	got := DiffLines([]string{"a", "b", "c", "d"}, []string{"a", "x", "c", "d"})
+	want := "=a +b -x =c =d"
+	var s []string
+	for _, o := range got {
+		s = append(s, string(o.Kind)+o.Text)
+	}
+	if strings.Join(s, " ") != want {
+		t.Fatalf("%v, want %s", s, want)
+	}
+	long := make([]string, 1500)
+	for i := range long {
+		long[i] = fmt.Sprint("satır ", i)
+	}
+	edited := slices.Clone(long)
+	edited[700] = "değişti"
+	if ops := DiffLines(long, edited); len(ops) != 1501 {
+		t.Fatalf("%d ops for one line changed in 1 500", len(ops))
 	}
 }

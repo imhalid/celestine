@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/egoist/mygo"
@@ -15,13 +14,15 @@ const bannerH = 168
 
 // setBanner makes data the collection's banner, the old one's file going.
 func (a *app) setBanner(coll *Collection, data []byte) error {
-	ext := imageExt(data)
-	if ext == "" {
-		return fmt.Errorf("%s", notImage)
+	ext, err := checkImage(data)
+	if err != nil {
+		return err
 	}
-	if _, err := decodeCheck(data); err != nil {
-		return fmt.Errorf("%s", notImage)
-	}
+	return a.putBanner(coll, data, ext)
+}
+
+// putBanner makes data, a picture checked, collection coll's banner.
+func (a *app) putBanner(coll *Collection, data []byte, ext string) error {
 	name := "afis-" + a.clock().Format("20060102-150405") + ext
 	if err := coll.FS.WriteFile(filepath.Join(coll.Dir, name), data); err != nil {
 		return err
@@ -65,10 +66,14 @@ func (a *app) pickBanner(coll *Collection) {
 		if err != nil || len(paths) == 0 {
 			return
 		}
+		data, err := readFile(paths[0]) // read and decoded away from the window (#201)
+		ext := ""
+		if err == nil {
+			ext, err = checkImage(data)
+		}
 		a.do(func() error {
-			data, err := readFile(paths[0])
 			if err == nil {
-				err = a.setBanner(coll, data)
+				err = a.putBanner(coll, data, ext)
 			}
 			if err != nil {
 				a.notice = err.Error()

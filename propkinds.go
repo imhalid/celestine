@@ -159,22 +159,39 @@ func (a *app) pickPropFile(p *Page, pr *Property) {
 		if err != nil || len(paths) == 0 {
 			return
 		}
-		a.do(func() error { a.setPropFile(p, pr, paths[0]); return nil })
+		data, err := os.ReadFile(paths[0]) // read away from the window: a file may be big (#201)
+		a.do(func() error {
+			if err != nil {
+				a.notice = err.Error()
+				return nil
+			}
+			a.setPropData(p, pr, filepath.Base(paths[0]), data)
+			return nil
+		})
 	}()
 }
 
 // setPropFile copies the file at src into page p's folder (its name kept, numbered when it is taken) and makes it
 // p's value of pr, the file it had going; an empty src takes the value and its file away.
 func (a *app) setPropFile(p *Page, pr *Property, src string) {
+	if src == "" {
+		a.setPropData(p, pr, "", nil)
+		return
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		a.notice = err.Error()
+		return
+	}
+	a.setPropData(p, pr, filepath.Base(src), data)
+}
+
+// setPropData is setPropFile with the file read: data, named base ("" takes the value away).
+func (a *app) setPropData(p *Page, pr *Property, base string, data []byte) {
 	old := p.Props[pr.ID]
 	name := ""
-	if src != "" {
-		data, err := os.ReadFile(src)
-		if err != nil {
-			a.notice = err.Error()
-			return
-		}
-		name = freeName(p, filepath.Base(src))
+	if base != "" {
+		name = freeName(p, base)
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
 			a.fail(err)
 			return

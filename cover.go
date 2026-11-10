@@ -20,13 +20,28 @@ var iconCover = icon(`<rect x="3.5" y="5" width="17" height="10.5" rx="2.5"/><pa
 
 // setCover makes data the page's cover, the old one's file going.
 func (a *app) setCover(p *Page, data []byte) error {
+	ext, err := checkImage(data)
+	if err != nil {
+		return err
+	}
+	return a.putCover(p, data, ext)
+}
+
+// checkImage is the extension of the picture data is, or an error when it is not one this app shows: decoded whole,
+// it is the slow part of setting a picture, and does not need the app's lock (#201).
+func checkImage(data []byte) (string, error) {
 	ext := imageExt(data)
 	if ext == "" {
-		return fmt.Errorf("%s", notImage)
+		return "", fmt.Errorf("%s", notImage)
 	}
 	if _, err := decodeCheck(data); err != nil {
-		return fmt.Errorf("%s", notImage)
+		return "", fmt.Errorf("%s", notImage)
 	}
+	return ext, nil
+}
+
+// putCover makes data, a picture checked, page p's cover.
+func (a *app) putCover(p *Page, data []byte, ext string) error {
 	if p == a.page {
 		a.flush()
 	}
@@ -105,7 +120,20 @@ func (a *app) pickCover(p *Page) {
 		if err != nil || len(paths) == 0 {
 			return
 		}
-		a.do(func() error { a.coverFile(p, paths[0]); return nil })
+		data, err := readFile(paths[0]) // read and decoded away from the window
+		ext := ""
+		if err == nil {
+			ext, err = checkImage(data)
+		}
+		a.do(func() error {
+			if err == nil {
+				err = a.putCover(p, data, ext)
+			}
+			if err != nil {
+				a.notice = err.Error()
+			}
+			return nil
+		})
 	}()
 }
 

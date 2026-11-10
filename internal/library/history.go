@@ -99,21 +99,31 @@ func DiffLines(version, now []string) []DiffOp {
 	if len(now) > cap {
 		now = now[:cap]
 	}
-	n, m := len(version), len(now)
-	lcs := make([][]int, n+1)
-	for i := range lcs {
-		lcs[i] = make([]int, m+1)
+	// the lines both start and end with are the same in any longest run: only those between are compared, a copy
+	// a few lines from the present costing a few lines, not 1 501 × 1 501 numbers (#199)
+	var head, tail []DiffOp
+	for len(version) > 0 && len(now) > 0 && version[0] == now[0] {
+		head = append(head, DiffOp{Kind: '=', Text: version[0]})
+		version, now = version[1:], now[1:]
 	}
+	for len(version) > 0 && len(now) > 0 && version[len(version)-1] == now[len(now)-1] {
+		tail = append(tail, DiffOp{Kind: '=', Text: version[len(version)-1]})
+		version, now = version[:len(version)-1], now[:len(now)-1]
+	}
+	n, m := len(version), len(now)
+	w := m + 1
+	lcs := make([]int32, (n+1)*w) // one block, not a slice a line
+	at := func(i, j int) int32 { return lcs[i*w+j] }
 	for i := n - 1; i >= 0; i-- {
 		for j := m - 1; j >= 0; j-- {
 			if version[i] == now[j] {
-				lcs[i][j] = lcs[i+1][j+1] + 1
+				lcs[i*w+j] = at(i+1, j+1) + 1
 			} else {
-				lcs[i][j] = max(lcs[i+1][j], lcs[i][j+1])
+				lcs[i*w+j] = max(at(i+1, j), at(i, j+1))
 			}
 		}
 	}
-	var out []DiffOp
+	out := head
 	i, j := 0, 0
 	for i < n && j < m {
 		switch {
@@ -121,7 +131,7 @@ func DiffLines(version, now []string) []DiffOp {
 			out = append(out, DiffOp{Kind: '=', Text: version[i]})
 			i++
 			j++
-		case lcs[i+1][j] >= lcs[i][j+1]:
+		case at(i+1, j) >= at(i, j+1):
 			out = append(out, DiffOp{Kind: '+', Text: version[i]})
 			i++
 		default:
@@ -134,6 +144,9 @@ func DiffLines(version, now []string) []DiffOp {
 	}
 	for ; j < m; j++ {
 		out = append(out, DiffOp{Kind: '-', Text: now[j]})
+	}
+	for k := len(tail) - 1; k >= 0; k-- {
+		out = append(out, tail[k])
 	}
 	return out
 }
