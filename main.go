@@ -1551,10 +1551,10 @@ func (a *app) revealCaret(cr ui.Rect) {
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	a.caretDraws++
 	if !a.focused {
-		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same
+		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same.
+		// Only the caret's place is needed, so it is the editor's own (CaretRect), not laid out again (#306).
 		if a.revealWant && a.find.open {
-			if cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme); ok {
-				cr := cb.r
+			if cr, ok := a.doc.CaretRect(); ok {
 				cr.X += r.X
 				cr.Y += r.Y
 				a.revealCaret(cr)

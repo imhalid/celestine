@@ -210,3 +210,41 @@ func TestLongParagraphCaret(t *testing.T) {
 		t.Fatal("the caret moving made the layout again")
 	}
 }
+
+// MyGo's Document.CaretRect is where the editor paints the caret, on every rune as the editor reports it to input
+// methods: the find bar reveals its match from it, with no layout of the app's own (#306).
+func TestCaretRectMatchesEditor(t *testing.T) {
+	a, tt := newTestApp(t, sample)
+	tt.Frame()
+	n := a.doc.Text().Len()
+	checked := 0
+	for i := 0; i <= n; i++ {
+		a.doc.SetSelection(i, i)
+		tt.Frame()
+		want, ok := tt.TextCaret()
+		if !ok {
+			t.Fatal("the editor has no caret: is it focused?")
+		}
+		got, ok := a.doc.CaretRect()
+		if !ok {
+			continue // out of view
+		}
+		got.X += a.editorR.X
+		got.Y += a.editorR.Y
+		if math.Abs(float64(got.X-want.X)) > 0.75 || math.Abs(float64(got.Y-want.Y)) > 0.75 || math.Abs(float64(got.H-want.H)) > 0.75 {
+			t.Fatalf("rune %d: CaretRect %+v, the editor's %+v", i, got, want)
+		}
+		if cb, ok := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme); ok {
+			g := cb.full
+			g.X += a.editorR.X
+			g.Y += a.editorR.Y
+			if math.Abs(float64(g.X-got.X)) > 0.75 || math.Abs(float64(g.Y-got.Y)) > 0.75 {
+				t.Fatalf("rune %d: locate %+v, CaretRect %+v", i, g, got)
+			}
+		}
+		checked++
+	}
+	if checked < n/2 {
+		t.Fatalf("only %d of %d places checked", checked, n)
+	}
+}
