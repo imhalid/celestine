@@ -209,6 +209,7 @@ type app struct {
 	tagRen        tagRename   // the dialog to rename a tag (tags.go)
 	vhist         histView    // the dialog of a page's versions (historyui.go)
 	tm            timeMachine // the page's history as a stack and a timeline (timemachine.go)
+	tmSide        tmSideState // what the timeline in the sidebar shows, while it is there and as it fades (tmside.go)
 	lapse         lapseState  // the time-lapse of the page, in place of its editor (lapseui.go)
 	noticePage    *Page       // the page the notice is about, to open from it
 	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al

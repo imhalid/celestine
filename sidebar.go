@@ -98,10 +98,16 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	t := c.Theme()
 	full := a.sidebarWidth()
 	target := full
-	if a.sidebarClosed {
+	history := a.tm.open && !a.tm.closing && !phone // the page's history is open: its timeline is here, the tree faded out
+	closed := a.sidebarClosed && !history           // and a folded sidebar opens for it
+	if closed {
 		target = 0
 	}
 	sb := ui.Column(c).Background(t.Surface).Clip()
+	if history {
+		a.tmSide = tmSideState{days: a.tm.days, n: len(a.tm.vers), sel: a.tm.sel, title: a.tm.page.Title}
+	}
+	fade := sb.AnimateTo("history", map[bool]float32{true: 1}[history], fadeOver) // how far the timeline is in
 	var w float32
 	switch {
 	case phone: // a drawer over the page: it slides in, as wide as it is (mobile.go)
@@ -120,11 +126,11 @@ func (a *app) sidebar(c *ui.Context) float32 {
 		w = sb.AnimateTo("width", target, springSheet)
 		sb.Width(w)
 	}
-	if w < 0.5 && a.sidebarClosed && !phone {
+	if w < 0.5 && closed && !phone {
 		sb.Hidden(true)
 	}
 	sb.Children(func() {
-		if !a.sidebarClosed && !phone { // over the content, which is built first
+		if !closed && !phone { // over the content, which is built first
 			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar)
 		}
 		ui.Column(c).Width(full).Grow(1).Children(func() {
@@ -140,46 +146,54 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			} else {
 				ui.Box(c).Height(a.headerHeight(c)).DragWindow()
 			}
-			ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
-				if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
-					a.collapseAll()
-				}
-				if a.iconButton(c, iconPlus, "Yeni koleksiyon") {
-					if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
-						a.newPage(coll, nil)
-					} else {
-						a.saveErr = err.Error()
+			// the tree, and over it, while the page's history is open, the history's timeline: one fades as the other comes
+			under := ui.Column(c.Key("sidebar-tree")).FillWidth().Grow(1).MinHeight(0)
+			if fade > 0.005 {
+				under.Opacity(1 - fade).Disabled(history).DimDisabled(false)
+				defer a.tmTimeline(c, a.headerHeight(c), full, fade) // after the tree, over it
+			}
+			under.Children(func() {
+				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+					if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
+						a.collapseAll()
 					}
-				}
-			})
-			a.scrolled(c, "sidebar:133", nil, ui.Scroll(c).Grow(1), func() {
-				if a.drag.dropped > 0 {
-					a.drag.dropped--
-				}
-				a.settleDrop()
-				tree := ui.Column(c).Padding(0, 8, 16, 8)
-				a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
-				a.drag.x -= 8 // the rows start inside the padding
-				a.well(c, tree)
-				a.treeVirtual = a.treeCensus().rows >= treeVirtualFrom && !a.moving()
-				if b := a.bars[a.ps.key(a.ps.cur)+"/sidebar:133"]; b != nil { // where the tree is scrolled, last frame
-					a.treeTop, a.treeView = b.st.Y, b.view
-				}
-				a.rowsLast = append(a.rowsLast[:0], a.rows...)
-				a.rows = a.rows[:0]
-				tree.Children(func() {
-					for _, coll := range a.lib.Collections {
-						a.collectionRow(c, coll)
-						c.Key("coll-kids:" + coll.Dir)
-						if coll.Open && len(coll.Pages) > 0 {
-							a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
+					if a.iconButton(c, iconPlus, "Yeni koleksiyon") {
+						if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
+							a.newPage(coll, nil)
+						} else {
+							a.saveErr = err.Error()
 						}
 					}
 				})
-				a.trashRow(c) // the tasks and the trash: the end of the list, not fixed under it
-				a.aim()
-				a.ghost(c)
+				a.scrolled(c, "sidebar:133", nil, ui.Scroll(c).Grow(1), func() {
+					if a.drag.dropped > 0 {
+						a.drag.dropped--
+					}
+					a.settleDrop()
+					tree := ui.Column(c).Padding(0, 8, 16, 8)
+					a.drag.x, a.drag.y, a.drag.over = tree.PointerPosition()
+					a.drag.x -= 8 // the rows start inside the padding
+					a.well(c, tree)
+					a.treeVirtual = a.treeCensus().rows >= treeVirtualFrom && !a.moving()
+					if b := a.bars[a.ps.key(a.ps.cur)+"/sidebar:133"]; b != nil { // where the tree is scrolled, last frame
+						a.treeTop, a.treeView = b.st.Y, b.view
+					}
+					a.rowsLast = append(a.rowsLast[:0], a.rows...)
+					a.rows = a.rows[:0]
+					tree.Children(func() {
+						for _, coll := range a.lib.Collections {
+							a.collectionRow(c, coll)
+							c.Key("coll-kids:" + coll.Dir)
+							if coll.Open && len(coll.Pages) > 0 {
+								a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
+							}
+						}
+					})
+					a.trashRow(c) // the tasks and the trash: the end of the list, not fixed under it
+					a.aim()
+					a.ghost(c)
+				})
 			})
 		})
 	})

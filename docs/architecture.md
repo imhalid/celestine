@@ -105,6 +105,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `search.go`, `searchindex.go`, `searchquery.go`, `queryblock.go` | Search: the index, the query language (OR, NOT, groups, tasks, days, properties), and the query block that keeps a search live in a page |
 | `journal.go`, `naturaldate.go`, `taskkinds.go` | The journal (a day's page, the day before and after, a day by name), dates said in words, and the kinds of tasks |
 | `lapseui.go`, `internal/library/timelapse.go` | A page's time-lapse: its words in the colors of the days they were written, from its versions |
+| `timemachine.go`, `tmside.go`, `tmdiff.go` | A page's history: its copies as a stack in the page's room, the timeline of their days in the sidebar, where the tree fades out, and a copy's differences from the page now, side by side |
 | `quicksettings.go` | The gear at the top left: a short menu of the settings used most, with the dialog of all of them at its end |
 | `icons.go` | The SVG icons |
 | `caret.go` | Where richtext's caret is (it does not say): its paragraph laid out again as the editor lays it out; `caret_test.go` checks it against the editor's own caret on every rune |

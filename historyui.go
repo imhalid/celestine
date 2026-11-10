@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -74,8 +75,33 @@ func (a *app) histOps() []DiffOp {
 	return v.ops
 }
 
-// putBack makes the page what the chosen version was; the text it had
-// is kept as a version first, so that this too can be undone.
+// keepBefore keeps the page as it is now as a copy, before an older copy is written over it, so that going back
+// can be undone: unless a copy kept already is what the page is, as after going back to one, when another would
+// only be that copy again.
+func (a *app) keepBefore(p *Page) {
+	h, ok := historyOf(p)
+	if !ok {
+		return
+	}
+	if now, err := p.FS().ReadFile(p.File()); err == nil {
+		for _, v := range h.Versions(p.File()) {
+			if data, ok := h.VersionData(p.File(), v.ID); ok && samePage(data, now) {
+				return
+			}
+		}
+	}
+	h.SnapshotNow(p.File())
+}
+
+// samePage reports whether two files of a page say the same: what is known of it and its body, however written.
+func samePage(x, y []byte) bool {
+	xm, xb := SplitPage(x)
+	ym, yb := SplitPage(y)
+	return xb == yb && maps.Equal(xm, ym)
+}
+
+// putBack makes the page what the chosen version was, the whole of it: its text, and its title, cover and values.
+// What it was is kept as a version first (keepBefore), so that this too can be undone.
 func (a *app) putBackVersion() {
 	v := &a.vhist
 	if v.sel >= len(v.vers) {
@@ -90,10 +116,16 @@ func (a *app) putBackVersion() {
 	if p == a.page {
 		a.flush()
 	}
-	if lh, ok := historyOf(p); ok {
-		lh.SnapshotNow(p.File())
+	a.keepBefore(p)
+	meta, body, err := SplitPageChecked(data)
+	if err != nil {
+		a.saveErr = err.Error()
+		return
 	}
-	_, body := SplitPage(data)
+	if s := meta["title"]; s != "" {
+		p.Title = s
+	}
+	p.ReadMeta(meta) // the copy's cover and values; where the page is in the tree stays
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return

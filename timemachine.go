@@ -12,12 +12,16 @@ import (
 
 // The page's history, laid out as Apple's Time Machine lays out a folder's and drawn as the rest of the app is (its
 // theme, Ryugo's controls): the page becomes the front of a stack, the copies kept of it behind it, going off into the
-// distance, each smaller and fainter. It comes and goes at once; only the stack glides as a copy is chosen. On the right, the copies as bars, Now at the
-// foot and the oldest at the top, as long as the page was, the days written where they change: a click on a bar,
-// the buttons under them, ↑ ↓, or a click on a card behind brings that copy to the front, the stack gliding, and one
-// passed goes by towards the one looking and fades. At the foot, a toolbar: Cancel, the day of the front copy, the
-// differences, Restore. Restore makes the page what that copy is; Cancel or Esc goes back into the editor, the way
-// it came. The differences, line by line, and keeping a copy by name are the version dialog's (historyui.go).
+// distance, each smaller and fainter. It comes in and goes out in a moment, the copies rising into place, and the
+// stack glides as a copy is chosen: only the layers of the copies move, each drawn and laid out once. The stack
+// has the page's room; in the sidebar, where the tree fades out, the timeline (tmside.go): a row a day, today at the
+// top, a dot for each copy. A click on a day or a dot, the buttons in the toolbar, the arrows (↑ newer, ↓ older), or
+// a click on a card behind brings that copy to the front, the stack gliding, and one passed goes by towards the one
+// looking and fades. On a phone, which has no sidebar beside the page, the copies are bars on the right instead. At
+// the foot, a toolbar: the day of the front copy, older and newer, the differences, Cancel, Restore. Restore makes
+// the page what that copy is, the whole of it; Cancel or Esc goes back into the editor, the way it came. The
+// differences are shown in the stack's place, side by side with the page now (tmdiff.go); keeping a copy by name is
+// the version dialog's (historyui.go).
 
 type timeMachine struct {
 	open    bool
@@ -29,6 +33,15 @@ type timeMachine struct {
 	texts   map[int]string   // what each was, as Markdown, by its place: 0 the page now
 	lines   map[int][]tmLine // each copy's text, read into lines once
 	sel     int              // the copy at the front: 0 the page now, i the copy vers[i-1]
+	days    []tmDay          // the copies by the day, for the timeline in the sidebar (tmside.go)
+	shown   int              // the copy the timeline was last scrolled to
+	begun   bool             // it has been drawn: its coming in has begun
+	in      float32          // how far it is in: 0 gone, 1 here (timeMachineView)
+
+	diff       bool                // the differences from the page now are shown, not the stack (tmdiff.go)
+	diffs      map[int][]tmDiffRow // each copy's, by its place
+	diffScroll ui.ScrollState
+	diffFor    int // the copy the differences were last scrolled for
 }
 
 // tmLine is a line of a copy's text, as the card shows it.
@@ -45,7 +58,16 @@ func (a *app) openTimeMachine(p *Page) {
 		return
 	}
 	a.flush()
-	a.tm = timeMachine{open: true, page: p, vers: h.Versions(p.File()), texts: map[int]string{}, lines: map[int][]tmLine{}}
+	a.tm = timeMachine{open: true, page: p, vers: h.Versions(p.File()), texts: map[int]string{}, lines: map[int][]tmLine{}, shown: -1}
+	a.tm.days = tmDaysOf(a.tm.vers, a.clock())
+}
+
+// tmBarsWidth is the room of the bars on the right: none where the sidebar has the timeline.
+func tmBarsWidth() float32 {
+	if phone {
+		return tmBarsW
+	}
+	return 0
 }
 
 // tmText is what the copy at place i was, as Markdown: 0 is the page now.
@@ -112,8 +134,8 @@ func (a *app) tmPutBack() {
 	}
 	a.vhist = histView{page: t.page, vers: t.vers, sel: t.sel - 1, opsFor: -1}
 	a.putBackVersion()
-	t.texts, t.lines, t.pages, t.docs = map[int]string{}, map[int][]tmLine{}, nil, nil // the page now is the copy: the front card says so
-	t.sel, t.closing = 0, true
+	t.texts, t.lines, t.pages, t.docs, t.diffs = map[int]string{}, map[int][]tmLine{}, nil, nil, nil // the page now is the copy: the front card says so
+	t.sel, t.closing, t.diff = 0, true, false
 }
 
 // tmKeys takes the history's keys, early in the frame: before the editor's normal mode takes Esc, and the arrows
@@ -127,12 +149,16 @@ func (a *app) tmKeys(c *ui.Context) bool {
 		return true
 	}
 	n := len(t.vers)
+	up, down := c.Shortcut(0, ui.KeyUp), c.Shortcut(0, ui.KeyDown)
+	if !phone { // the timeline has the newest at the top; the bars, at the foot
+		up, down = down, up
+	}
 	switch {
 	case c.Shortcut(0, ui.KeyEscape):
 		t.closing = true
-	case c.Shortcut(0, ui.KeyUp), c.Shortcut(0, ui.KeyLeft):
+	case up, c.Shortcut(0, ui.KeyLeft):
 		t.sel = min(t.sel+1, n)
-	case c.Shortcut(0, ui.KeyDown), c.Shortcut(0, ui.KeyRight):
+	case down, c.Shortcut(0, ui.KeyRight):
 		t.sel = max(t.sel-1, 0)
 	case c.Shortcut(0, ui.KeyEnter):
 		a.tmPutBack()
@@ -148,34 +174,60 @@ const (
 
 var iconChevronUp = icon(`<path d="M6.5 14.5 12 9l5.5 5.5"/>`)
 
+// tmInOut is how the history comes in and goes out.
+var tmInOut = ui.Animation{Duration: 240 * time.Millisecond, Ease: ui.EaseOut}
+
 // timeMachineView draws the history over the window while it is open.
 func (a *app) timeMachineView(c *ui.Context) {
 	t := &a.tm
 	if !t.open || t.page == nil {
 		return
 	}
-	if t.closing { // it comes and goes at once: the copies are whole pages, and moving them every frame cost too much
-		*t = timeMachine{}
-		a.refocus = true // back into the editor, the caret where it was
-		return
-	}
 	ww, wh := c.Size()
+	ox := float32(0) // its left edge: the sidebar, which has the timeline, stays
+	if !phone {
+		ox = min(a.sidebarShown, ww-320)
+	}
+	aw := ww - ox
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
 		// it has the keys while it is open, not the editor under it
-		back := ui.Box(c.Key("tm-back")).Absolute().Left(0).Top(0).Size(ww, wh).Label(T("Page history")).Role(ui.RoleDialog).
+		back := ui.Box(c.Key("tm-back")).Absolute().Left(ox).Top(0).Size(aw, wh).Label(T("Page history")).Role(ui.RoleDialog).
 			Focusable().FocusRing(false).Focus()
+		// It comes in and goes out in a moment: the ground fades, the copies rise into place. Only what the GPU does
+		// to a layer moves (where it is, how large, how clear): each copy is drawn once (Cache) and laid out once.
+		if !t.begun {
+			back.Jump("tm-in", 0)
+			t.begun = true
+		}
+		t.in = back.AnimateTo("tm-in", map[bool]float32{false: 1}[t.closing], tmInOut)
+		if t.closing && t.in < 0.02 {
+			*t = timeMachine{}
+			a.refocus = true // back into the editor, the caret where it was
+			return
+		}
+		back.Opacity(t.in)
 		pos := back.AnimateTo("tm-pos", float32(t.sel), ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.05}})
-		vp := ui.Point{X: (ww - tmBarsW) / 2, Y: wh * 0.12} // where the stack goes off to
+		vp := ui.Point{X: ox + (aw-tmBarsWidth())/2, Y: wh * 0.12} // where the stack goes off to
 		// the window's own ground, a little deeper; the accent's light far off, where the copies go
 		back.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Surface2, cl.Accent, 0.04), To: cl.Bg}).
 			Draw(func(p *ui.Painter, r ui.Rect) {
-				p.FillRadialGradient(r, ui.RadialGradient{Center: ui.Point{X: vp.X / r.W, Y: vp.Y / r.H}, Radius: r.W * 0.55, Oklab: true,
+				p.FillRadialGradient(r, ui.RadialGradient{Center: ui.Point{X: (vp.X - ox) / r.W, Y: vp.Y / r.H}, Radius: r.W * 0.55, Oklab: true,
 					Stops: []ui.GradientStop{{Color: cl.Accent.Alpha(0.10), At: 0}, {Color: cl.Accent.Alpha(0), At: 1}}}, 0)
 			})
-		a.tmStack(c, ww, wh, pos, vp)
-		a.tmBars(c, ww, wh)
-		a.tmFoot(c, ww, wh)
+		if t.diff && t.sel > 0 {
+			a.tmDiffView(c, ox, aw, wh)
+		} else {
+			a.tmStack(c, ox, aw, wh, pos, vp)
+		}
+		if phone {
+			a.tmBars(c, ww, wh)
+		}
+		if len(t.vers) == 0 {
+			ui.Text(c.Key("tm-none"), T("No copies of this page are kept yet: one is kept when it is written over, every few minutes.")).Absolute().
+				Left(ox + 40).Top(24).Width(aw - tmBarsWidth() - 80).TextAlign(ui.Center).FontSize(ryugo.FsSm).TextColor(cl.Muted).PassThrough()
+		}
+		a.tmFoot(c, ox, aw, wh)
 	})
 }
 
@@ -216,17 +268,17 @@ func (a *app) tmPageArea(ww, wh float32) ui.Rect {
 
 // tmStack draws the copies as a stack of pages going off towards vp, the one at pos at the front. Each is the whole page area as it was:
 // the cover, the title, the properties and the text, laid out as the page is and scaled down.
-func (a *app) tmStack(c *ui.Context, ww, wh, pos float32, vp ui.Point) {
+func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 	t := &a.tm
 	th := ryugo.From(c)
 	cl := th.Colors
-	pr := a.tmPageArea(ww, wh)
+	pr := a.tmPageArea(ox+aw, wh)
 	lw, lh := pr.W, pr.H
-	cwMax := min(ww-tmBarsW-120, float32(1000))
+	cwMax := min(aw-tmBarsWidth()-120, float32(1000))
 	chMax := max(220, min(640, wh-tmFootH-vp.Y-90))
 	base := min(1, min(cwMax/lw, chMax/lh)) // the page as large as the room is
 	cw, ch := lw*base, lh*base
-	x0 := (ww - tmBarsW - cw) / 2
+	x0 := ox + (aw-tmBarsWidth()-cw)/2
 	y0 := wh - tmFootH - 16 - ch // the front page stands just over the toolbar
 	cx0, cy0 := x0+cw/2, y0+ch/2
 	for i := len(t.vers); i >= 0; i-- {
@@ -244,11 +296,11 @@ func (a *app) tmStack(c *ui.Context, ww, wh, pos float32, vp ui.Point) {
 			op = max(0, 1+d*1.4)
 			ty = -d * 60
 		}
-		sc := base * scale
+		sc := base * scale * (0.96 + 0.04*t.in) // coming in, it grows the last of the way
 		front := math.Abs(float64(d)) < 0.5
 		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(cx0-lw/2).Top(cy0+ty-lh/2).Size(lw, lh).
 			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/max(sc, 0.2)).Clip().
-			TransformOrigin(0.5, 0.5).Scale(sc, sc).Opacity(op).ZIndex(200 - i).Cache().
+			TransformOrigin(0.5, 0.5).Scale(sc, sc).Translate(0, (1-t.in)*36).Opacity(op * t.in).ZIndex(200 - i).Cache().
 			Label(T("Page history: ") + a.tmWhen(i)).Role(ui.RoleButton)
 		th.Shadows.ShadowPop.Apply(card)
 		if !front {
@@ -357,7 +409,7 @@ func (a *app) tmSize(i int) int {
 }
 
 // tmBars draws the copies on the right as bars, Now at the foot and the oldest at the top, each as long as the page
-// was, the days written where they change; and the buttons under them, older and newer.
+// was, the days written where they change: on a phone, where no sidebar has the timeline.
 func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 	t := &a.tm
 	cl := ryugo.From(c).Colors
@@ -420,39 +472,33 @@ func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 			last = y
 		}
 	}
-	// older and newer
-	ui.Row(c.Key("tm-steps")).Absolute().Left(right - 74).Top(bottom + 26).Gap(6).Children(func() {
-		if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.closing {
-			t.sel = min(t.sel+1, n)
-		}
-		if ryugo.Button(c.Key("tm-newer"), T("Newer"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.closing {
-			t.sel = max(t.sel-1, 0)
-		}
-	})
-	if n == 0 {
-		ui.Text(c.Key("tm-none"), T("No copies of this page are kept yet: one is kept when it is written over, every few minutes.")).Absolute().
-			Left(40).Top(24).Width(ww - tmBarsW - 80).TextAlign(ui.Center).FontSize(ryugo.FsSm).TextColor(cl.Muted).PassThrough()
-	}
 }
 
-// tmFoot draws the toolbar at the foot, as the app's floating bars are: Cancel, the day of the front copy, the
-// differences, Restore.
-func (a *app) tmFoot(c *ui.Context, ww, wh float32) {
+// tmFoot draws the toolbar at the foot, as the app's floating bars are: the day of the front copy, older and newer,
+// the differences, Cancel, Restore.
+func (a *app) tmFoot(c *ui.Context, ox, aw, wh float32) {
 	t := &a.tm
 	th := ryugo.From(c)
 	cl := th.Colors
-	ui.Row(c.Key("tm-foot")).Absolute().Left(0).Width(ww - tmBarsW).Top(wh - tmFootH + 16).Justify(ui.Center).Children(func() {
+	n := len(t.vers)
+	ui.Row(c.Key("tm-foot")).Absolute().Left(ox).Width(aw-tmBarsWidth()).Top(wh-tmFootH+16).Justify(ui.Center).Translate(0, (1-t.in)*20).Opacity(t.in).Children(func() {
 		bar := ui.Row(c.Key("tm-tools")).Padding(6, 6, 6, 14).Gap(8).AlignItems(ui.Center).
 			Radius(th.R(ryugo.RadiusControl)+4).Background(cl.Card).Border(1, cl.Hairline).Label(T("Page history"))
 		th.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			ui.Text(c.Key("tm-when"), a.tmWhen(t.sel)).FontSize(14).FontWeight(650).TextColor(cl.Text).MinWidth(170)
-			if ryugo.Button(c.Key("tm-diff"), T("Show the differences"), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 {
-				sel := t.sel - 1
-				p, vers := t.page, t.vers
-				*t = timeMachine{}
-				a.vhist = histView{open: true, page: p, vers: vers, sel: sel, opsFor: -1}
-				return
+			if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.closing {
+				t.sel = min(t.sel+1, n)
+			}
+			if ryugo.Button(c.Key("tm-newer"), T("Newer"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.closing {
+				t.sel = max(t.sel-1, 0)
+			}
+			label := T("Show the differences") // in its place, side by side with the page now (tmdiff.go)
+			if t.diff && t.sel > 0 {
+				label = T("Show the page")
+			}
+			if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 && !t.closing {
+				t.diff = !t.diff
 			}
 			if ryugo.Button(c.Key("tm-cancel"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.closing {
 				t.closing = true

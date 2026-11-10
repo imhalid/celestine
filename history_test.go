@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -391,25 +392,6 @@ func TestTimeMachine(t *testing.T) {
 	}
 }
 
-// The history comes and goes at once, with no motion: its copies are whole pages, and moving them every frame cost too much. The
-// first frame is the history, and a frame after Esc is the page.
-func TestTimeMachineComesAndGoesAtOnce(t *testing.T) {
-	a, tt := lapsePage(t)
-	a.openTimeMachine(a.page)
-	tt.Frame()
-	if !tt.HasText(T("Page history: ")+T("Today (Now)")) || !tt.HasText(T("Restore")) {
-		t.Fatalf("the first frame is not the history: %v", tt.Texts())
-	}
-	tt.Key(0, ui.KeyEscape)
-	tt.Frame()
-	if a.tm.open || tt.HasText(T("Restore")) {
-		t.Fatalf("a frame after Esc it is still there: open %v", a.tm.open)
-	}
-	if _, ok := tt.Find("Sayfa"); !ok {
-		t.Fatal("the editor is not back")
-	}
-}
-
 // Each copy in the history is the whole page area as it was, not its lines: the cover, the title, the properties with
 // their values (the copy's own) and the text.
 func TestTimeMachineShowsTheWholePage(t *testing.T) {
@@ -483,5 +465,189 @@ func TestTimeMachineReadsTextAsThePageDoes(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if after, _ := p.Text(); after != before || !a.tm.open {
 		t.Fatalf("typing in the history changed the page: %q -> %q (open %v)", before, after, a.tm.open)
+	}
+}
+
+// While the history is open its timeline is in the sidebar, where the tree was (#71): a row a day from today back to the
+// oldest copy's, the empty days too; a click on a day brings its copy to the front, ↓ goes to an older one and ↑ to a
+// newer; Esc brings the tree back. A folded sidebar opens for it, and folds again.
+func TestTimeMachineTimeline(t *testing.T) {
+	a, tt := lapsePage(t)
+	settle := func() { // the sidebar's width and the fade are on their way for a while
+		for range 60 {
+			tt.Advance(20 * time.Millisecond)
+		}
+	}
+	a.sidebarClosed = true
+	settle()
+	if a.sidebarShown > 1 {
+		t.Fatalf("the sidebar is not folded: %v", a.sidebarShown)
+	}
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	settle()
+	var got []int
+	for _, d := range a.tm.days {
+		got = append(got, d.day.Day()*10+d.n)
+	}
+	if want := []int{101, 91, 81, 70, 61}; !slices.Equal(got, want) { // the 10th (the page now) … the 7th, with none … the 6th
+		t.Fatalf("the days are %v, not %v", got, want)
+	}
+	if a.sidebarShown < 100 || !tt.HasText(T("copies of")) || !tt.HasText(a.page.Title) {
+		t.Fatalf("no timeline in the sidebar (%v wide): %v", a.sidebarShown, tt.Texts())
+	}
+	if err := tt.Click(T("Page history: ") + "8 Nov 2026"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.tm.sel != 2 {
+		t.Fatalf("a click on the 8th: at %d", a.tm.sel)
+	}
+	tt.Key(0, ui.KeyDown)
+	if a.tm.sel != 3 {
+		t.Fatalf("↓ is not older: at %d", a.tm.sel)
+	}
+	tt.Key(0, ui.KeyUp)
+	tt.Key(0, ui.KeyUp)
+	if a.tm.sel != 1 {
+		t.Fatalf("↑ is not newer: at %d", a.tm.sel)
+	}
+	if err := tt.Click(T("Page history: ") + "7 Nov 2026"); err == nil && a.tm.sel != 1 {
+		t.Fatalf("a day with no copy chose one: at %d", a.tm.sel)
+	}
+	tt.Key(0, ui.KeyEscape)
+	settle()
+	if a.tm.open || tt.HasText(T("copies of")) || a.sidebarShown > 1 {
+		t.Fatalf("after Esc: open %v, the sidebar %v wide, %v", a.tm.open, a.sidebarShown, tt.Texts())
+	}
+}
+
+// A long run of days with no copy is one row of the timeline, a day's copies are counted on its row, and the dots
+// are found from the line leftwards.
+func TestTimeMachineDays(t *testing.T) {
+	now := time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
+	at := func(day, hour int) Version { return Version{At: time.Date(2026, 11, day, hour, 0, 0, 0, time.Local)} }
+	days := tmDaysOf([]Version{at(10, 8), at(10, 7), at(9, 12), at(-20, 12)}, now) // the last on the 11th of October
+	if len(days) != 4 || days[0].n != 3 || days[1].first != 3 || days[2].skip != 28 || days[3].first != 4 || days[3].n != 1 {
+		t.Fatalf("%+v", days)
+	}
+	if !days[0].month || !days[3].month || days[3].day.Month() != time.October {
+		t.Fatalf("the months: %+v", days)
+	}
+	const w = 250
+	x0 := float32(w - tmRight - tmLineW - 8)
+	if j := tmDotAt(w, x0-2, 12, 3); j != 0 {
+		t.Fatalf("the first dot: %d", j)
+	}
+	if j := tmDotAt(w, x0-2-2*tmPitch, 12, 3); j != 2 {
+		t.Fatalf("the third dot: %d", j)
+	}
+	if j := tmDotAt(w, x0-2-3*tmPitch, 12, 3); j != -1 {
+		t.Fatalf("past the dots: %d", j)
+	}
+	if j := tmDotAt(w, w-10, 12, 3); j != -1 {
+		t.Fatalf("on the day's number: %d", j)
+	}
+}
+
+// Going back to a copy brings the whole of it - its cover and values, not only its text - and keeps the page as it
+// was as a copy once: going back again, to what a copy already is, keeps no second one of it (#71).
+func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
+	a, tt := lapsePage(t)
+	p := a.page
+	st := p.FS().(*Store)
+	st.DB.Exec(`UPDATE versions SET data = replace(data, '"title"', '"cover":"none","title"') WHERE id = ?`, st.Versions(p.File())[1].ID) // the copy of the 8th had no cover
+	if a.coverKind(p) == coverKindNone {
+		t.Fatal("the page has no cover to begin with")
+	}
+	back := func(sel int) {
+		a.openTimeMachine(p)
+		tt.Frame()
+		a.tm.sel = sel
+		a.tmPutBack()
+		for range 40 {
+			tt.Advance(20 * time.Millisecond)
+		}
+	}
+	back(2)
+	if text, _ := p.Text(); !strings.Contains(text, "The black cat sat on the mat") || p.Cover != CoverNone {
+		t.Fatalf("not the whole copy: %q, cover %q", text, p.Cover)
+	}
+	if n := len(st.Versions(p.File())); n != 4 {
+		t.Fatalf("%d copies after going back, not the three and the page as it was", n)
+	}
+	back(3) // the copy of the 8th again, which the page already is
+	if n := len(st.Versions(p.File())); n != 4 {
+		t.Fatalf("%d copies: going back to what a copy is kept another", n)
+	}
+	if a.tm.open {
+		t.Fatal("the history is still open")
+	}
+}
+
+// The differences are in the history itself, side by side: the toolbar's button turns the stack into the copy's
+// lines beside the page's, and back; the arrows go on choosing the copy.
+func TestTimeMachineDifferences(t *testing.T) {
+	a, tt := lapsePage(t)
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	tt.Key(0, ui.KeyDown)
+	if err := tt.Click(T("Show the differences")); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Frame()
+	if !a.tm.diff || a.vhist.open || !tt.HasText(T("Show the page")) || !tt.HasText(T("Now")) {
+		t.Fatalf("the differences are not in the history: diff %v, dialog %v, %v", a.tm.diff, a.vhist.open, tt.Texts())
+	}
+	rows := a.tmDiff(1)
+	if len(rows) != 1 || rows[0].left == nil || rows[0].right == nil || rows[0].left.Text != "The black cat lay on the mat" ||
+		rows[0].right.Text != "The black cat lay on the rug" || len(rows[0].left.Words) == 0 {
+		t.Fatalf("not side by side: %+v", rows)
+	}
+	tt.Key(0, ui.KeyDown)
+	if a.tm.sel != 2 || !a.tm.diff {
+		t.Fatalf("↓ in the differences: at %d, diff %v", a.tm.sel, a.tm.diff)
+	}
+	if err := tt.Click(T("Show the page")); err != nil || a.tm.diff {
+		t.Fatal("not back to the stack", err)
+	}
+	rows = tmDiffRows("a\nb\nc\nd\ne\nf\ng\nh\nold\n", "a\nb\nc\nd\ne\nf\ng\nh\nnew\nmore\n")
+	if len(rows) != 7 || rows[2].same != 4 || rows[5].left.Text != "old" || rows[5].right.Text != "new" || rows[6].left != nil || rows[6].right.Text != "more" {
+		t.Fatalf("%+v", rows)
+	}
+}
+
+// The history comes in and goes out in a moment, and not at once: the first frame has it, still clear, and it is
+// whole a little later; after Esc it fades, and then the editor is back. Only its layers move.
+func TestTimeMachineComesAndGoes(t *testing.T) {
+	a, tt := lapsePage(t)
+	a.openTimeMachine(a.page)
+	tt.Frame()
+	if !tt.HasText(T("Page history: ")+T("Today (Now)")) || !tt.HasText(T("Restore")) {
+		t.Fatalf("the first frame is not the history: %v", tt.Texts())
+	}
+	tt.Advance(60 * time.Millisecond)
+	if in := a.tm.in; in <= 0.05 || in >= 0.999 {
+		t.Fatalf("60ms in, it is %v in: not on its way", in)
+	}
+	for range 30 {
+		tt.Advance(16 * time.Millisecond)
+	}
+	if a.tm.in < 0.999 {
+		t.Fatalf("half a second in, it is %v in", a.tm.in)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(60 * time.Millisecond)
+	if !a.tm.open || !a.tm.closing || a.tm.in >= 0.999 {
+		t.Fatalf("60ms after Esc: open %v, closing %v, %v in", a.tm.open, a.tm.closing, a.tm.in)
+	}
+	for range 30 {
+		tt.Advance(16 * time.Millisecond)
+	}
+	if a.tm.open || tt.HasText(T("Restore")) {
+		t.Fatalf("half a second after Esc it is still there: open %v", a.tm.open)
+	}
+	if _, ok := tt.Find("Sayfa"); !ok {
+		t.Fatal("the editor is not back")
 	}
 }
