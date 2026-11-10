@@ -147,11 +147,11 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 		}
 		body, err := p.Body()
 		if err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			continue
 		}
 		if err := p.Save(appendLine(body, "#"+tag)); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			continue
 		}
 		a.takeOutside(p)
@@ -185,7 +185,7 @@ func (a *app) bulkMove(pages []*Page, to *Collection) {
 			continue
 		}
 		if err := a.lib.MovePage(p, to, nil, len(to.Pages)); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			continue
 		}
 		n++

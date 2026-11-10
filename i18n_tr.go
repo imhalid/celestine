@@ -4,6 +4,14 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// what could not be read or saved is said, and kept (#125, #129, #133, #134)
+	"could not save: ": "kaydedilemedi: ",
+	"Some collections could not be read and are not shown; their folders are left as they are: ": "Bazı koleksiyonlar okunamadı ve gösterilmiyor; klasörlerine dokunulmadı: ",
+	"The library could not be opened.": "Kitaplık açılamadı.",
+	"Nothing in it was changed. A backup can be put in its place from the backups folder.":                                                      "İçinde hiçbir şey değişmedi. Yedekler klasöründen bir yedek yerine konabilir.",
+	"This page could not be read, so it opens read-only and nothing is written over its file. Its history may hold an earlier copy to restore.": "Bu sayfa okunamadı: salt okunur açıldı ve dosyasının üstüne bir şey yazılmıyor. Geçmişinde geri yüklenecek daha eski bir kopya olabilir.",
+	"The settings could not be read, so the defaults are in use: ":                                                                              "Ayarlar okunamadı, varsayılanlar kullanılıyor: ",
+	". What was there is kept as ": ". Eskisi şu adla saklandı: ",
 	// the account's two ways in, a segmented control (account.go)
 	"Account": "Hesap",
 	// the plain caret, the default (caretfx.go)

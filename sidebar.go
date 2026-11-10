@@ -162,7 +162,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 						if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
 							a.newPage(coll, nil)
 						} else {
-							a.saveErr = err.Error()
+							a.fail(err)
 						}
 					}
 				})
@@ -377,7 +377,7 @@ func (a *app) commitRename() {
 		}
 	}
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 
@@ -512,7 +512,7 @@ func (a *app) trashPage(p *Page) {
 	}
 	item, err := a.lib.TrashPage(p)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.trashed = item
@@ -549,7 +549,7 @@ func (a *app) trashCollection(c *Collection) {
 	}
 	item, err := a.lib.TrashCollection(c)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.trashed = item
@@ -717,7 +717,7 @@ func (a *app) collDrag(r ui.Element, coll *Collection) {
 			before := cd.before
 			a.later(func() { // not while the tree is being built from the list it changes
 				if err := a.lib.MoveCollectionBefore(coll, before); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			})
 			cd.dropped = coll

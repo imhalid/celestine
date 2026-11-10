@@ -64,11 +64,11 @@ func (a *app) removeCover(p *Page) {
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if err := p.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if old != "" && old != CoverNone {
@@ -86,11 +86,11 @@ func (a *app) restoreAutoCover(p *Page) {
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if err := p.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 

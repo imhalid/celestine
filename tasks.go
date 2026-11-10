@@ -151,7 +151,7 @@ func (a *app) toggleTask(t taskItem) {
 	}
 	body, err := p.Body()
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	tx := decodeBody(body)
@@ -164,7 +164,7 @@ func (a *app) toggleTask(t taskItem) {
 	doc.ToggleChecked(at)
 	rollRecurringIn(doc, a.clock(), importMarkdown) // a task that comes again: this one is done, and the next is made
 	if err := p.Save(encodeBody(doc.Text())); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.takeOutside(p) // its text, in the editor, as the file has it now

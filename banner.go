@@ -48,7 +48,7 @@ func (a *app) removeBanner(coll *Collection) {
 	coll.Banner = ""
 	if err := coll.Save(); err != nil {
 		coll.Banner = old
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	coll.FS.Remove(filepath.Join(coll.Dir, old))

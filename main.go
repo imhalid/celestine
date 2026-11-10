@@ -201,6 +201,9 @@ type app struct {
 	cursor      cursorState              // the effect of the mouse pointer (cursorfx.go)
 	winRect     ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
 	saveErr     string
+	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
+	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
+	unsavedAt   time.Time
 	notice      string     // a toast to show
 	trashed     *TrashItem // just thrown away: a toast offers it back
 
@@ -749,6 +752,12 @@ func (a *app) open(p *Page) {
 		return
 	}
 	a.flush()
+	if a.page != nil && a.dirty { // its save failed: its text is kept and saved when it can be, not dropped (#129)
+		if a.unsaved == nil {
+			a.unsaved = map[*Page]bool{}
+		}
+		a.unsaved[a.page] = true
+	}
 	a.noteOpened(p)
 	doc := a.docFor(p)
 	a.page, a.doc, a.title = p, doc, p.Title
@@ -757,6 +766,10 @@ func (a *app) open(p *Page) {
 	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
 	a.prevText = doc.Text()
 	a.dirty, a.saveErr, a.lastSave, a.lastWords = false, "", "", -1
+	if a.unsaved[p] { // back to a page whose save failed: what it shows is still to be saved
+		delete(a.unsaved, p)
+		a.dirty, a.editAt = true, a.clock()
+	}
 	a.boxes = nil
 	a.winScrolled, a.winTop, a.winFlip = false, 0, a.clock()
 	*a.pageScroll = ui.ScrollState{}
@@ -810,6 +823,9 @@ func (a *app) touchDoc(p *Page) {
 		return
 	}
 	shown := map[*Page]bool{p: true, a.page: true}
+	for q := range a.unsaved { // a text not yet saved is not let go
+		shown[q] = true
+	}
 	for _, st := range a.ps.states {
 		shown[st.page] = true
 	}
@@ -835,13 +851,13 @@ func (a *app) newPage(c *Collection, parent *Page) {
 	}
 	p, err := c.NewPage(parent, "Adsız")
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.noteCreated()
 	if c.Template != "" { // it starts as the collection says
 		if err := p.SaveText(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}
 	a.open(p)
@@ -852,6 +868,9 @@ func (a *app) newPage(c *Collection, parent *Page) {
 func (a *app) flush() {
 	if a.page != nil && a.dirty {
 		a.save()
+	}
+	if len(a.unsaved) > 0 {
+		a.retryUnsaved()
 	}
 	a.flushPanes()
 }
@@ -1275,7 +1294,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 			name = "Adsız"
 		}
 		if err := p.SetTitle(name); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}
 	a.titleFocused = title.Focused()
@@ -1672,8 +1691,22 @@ func (a *app) pulseDot(c *ui.Context) {
 
 // autosave writes the file a moment after the last edit.
 func (a *app) autosave(c *ui.Context) {
-	if !a.dirty || a.page == nil || a.saveErr != "" || a.settings.NoAutoSave {
+	if len(a.unsaved) > 0 {
+		if wait := retrySave - a.clock().Sub(a.unsavedAt); wait > 0 {
+			c.After(wait)
+		} else {
+			a.retryUnsaved()
+			c.After(retrySave)
+		}
+	}
+	if !a.dirty || a.page == nil || a.settings.NoAutoSave {
 		return
+	}
+	if a.saveErr != "" { // it failed: again a while after, not at every frame
+		if wait := retrySave - a.clock().Sub(a.saveTried); wait > 0 {
+			c.After(wait)
+			return
+		}
 	}
 	if wait := a.saveAfter() - a.clock().Sub(a.editAt); wait > 0 {
 		c.After(wait)
@@ -1690,14 +1723,34 @@ func (a *app) save() {
 		return
 	}
 	if err := a.page.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.saveErr, a.saveTried = err.Error(), a.clock()
 		return
 	}
+	a.saveErr = ""
 	words := len(strings.Fields(a.doc.Text().PlainText()))
 	a.countWriting(a.lastWords, words)
 	a.lastSave, a.lastWords, a.dirty = body, words, false
 	a.savedAt = a.clock()
 	a.linksStale()
+}
+
+// retrySave is how long after a failed save it is tried again.
+const retrySave = 5 * time.Second
+
+// retryUnsaved saves again the pages left with a save that failed, and forgets those it could save.
+func (a *app) retryUnsaved() {
+	a.unsavedAt = a.clock()
+	for p := range a.unsaved {
+		doc := a.docs[p]
+		if doc == nil {
+			delete(a.unsaved, p)
+			continue
+		}
+		if err := p.Save(encodeBody(doc.Text())); err == nil {
+			delete(a.unsaved, p)
+			a.linksStale()
+		}
+	}
 }
 
 // docStats are the open page's words and letters, counted again when the text changed.

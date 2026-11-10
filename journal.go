@@ -155,7 +155,7 @@ func (a *app) journalPage(c *Collection, d time.Time) *Page {
 func (a *app) openDay(d time.Time) {
 	c, err := a.journal()
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if p := a.journalPage(c, d); p != nil {
@@ -168,7 +168,7 @@ func (a *app) openDay(d time.Time) {
 	}
 	p, err := a.makeDay(c, d)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 	if p != nil {
 		a.open(p)
@@ -208,7 +208,7 @@ func (a *app) openToday() { a.openDay(a.clock()) }
 func (a *app) openRandomDay() {
 	c, err := a.journal()
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	var days []*Page
@@ -229,7 +229,7 @@ func (a *app) retitleJournal(c *Collection) {
 	for _, p := range c.All() {
 		if title := dayTitle(c, dayOf(p)); title != p.Title {
 			if err := p.SetTitle(title); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 			if p == a.page {
 				a.title = title

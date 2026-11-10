@@ -30,7 +30,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		at := slices.Index(sib, p)
 		up := cmd("Sayfayı yukarı taşı (sırada)", "", iconBack, func() {
 			if err := a.lib.MovePage(p, p.Coll, p.Parent, at-1); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 				return
 			}
 			done("Sayfa bir sıra yukarı çıktı")
@@ -40,7 +40,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		}
 		down := cmd("Sayfayı aşağı taşı (sırada)", "", iconChevron, func() {
 			if err := a.lib.MovePage(p, p.Coll, p.Parent, at+2); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 				return
 			}
 			done("Sayfa bir sıra aşağı indi")
@@ -54,7 +54,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 				parent := p.Parent
 				idx := slices.Index(siblingsOf(parent), parent) + 1
 				if err := a.lib.MovePage(p, p.Coll, parent.Parent, idx); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 					return
 				}
 				done("Sayfa bir üst düzeye çıktı")
@@ -68,7 +68,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 			out = append(out, cmd("Sayfayı taşı: "+c.Name, "", iconStack, func() {
 				a.flush()
 				if err := a.lib.MovePage(p, c, nil, len(c.Pages)); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 					return
 				}
 				c.Open = true
@@ -80,12 +80,12 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		out = append(out,
 			cmd("Koleksiyonu yukarı taşı", "", iconBack, func() {
 				if err := a.lib.MoveCollection(c, -1); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			}),
 			cmd("Koleksiyonu aşağı taşı", "", iconChevron, func() {
 				if err := a.lib.MoveCollection(c, 1); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			}))
 	}

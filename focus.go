@@ -93,7 +93,7 @@ func (a *app) revertToBeforeSave() {
 	_, body := SplitPage(data)
 	p.Unreadable = "" // a whole earlier copy is written over the file: what mends one that could not be read
 	if err := p.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.takeOutside(p)

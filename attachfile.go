@@ -26,7 +26,7 @@ func (a *app) addFileFrom(src string) {
 	}
 	name := freeName(p, filepath.Base(src))
 	if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	ch := &chip{kind: "file", target: name}

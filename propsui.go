@@ -318,7 +318,7 @@ func (a *app) setValue(p *Page, id, v string) {
 		a.flush()
 	}
 	if err := p.SetValue(id, v); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 
@@ -403,7 +403,7 @@ func (a *app) propRowMenu(p *Page, pr *Property) []menuItem {
 	}
 	return append(out, menuItem{title: "Özelliği sil", group: "~", glyph: iconTrash, danger: true, run: func() {
 		if err := coll.RemoveProperty(id); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}})
 }

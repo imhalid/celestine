@@ -42,7 +42,7 @@ func (a *app) openTrash() {
 func (a *app) restore(item *TrashItem) {
 	coll, p, err := a.lib.Restore(item)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.loadTrash()
@@ -154,7 +154,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 		}
 		if ryugo.Button(c.Key("delete:"+item.Dir), T("Kalıcı olarak sil: ")+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			if err := a.lib.DeleteForever(item); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 			a.loadTrash()
 		}

@@ -233,7 +233,7 @@ func (a *app) saveSettings() {
 	data, _ := json.MarshalIndent(kept, "", "  ")
 	if a.settingsStore != nil {
 		if err := a.settingsStore.SetMeta(SettingsKey, data); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 		return
 	}
@@ -242,7 +242,7 @@ func (a *app) saveSettings() {
 	}
 	os.MkdirAll(filepath.Dir(a.settingsFile), 0o700)
 	if err := WriteFilePrivate(a.settingsFile, data); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 

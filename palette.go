@@ -132,7 +132,7 @@ func (a *app) commands() []palItem {
 			v := c.Views[i]
 			out = append(out, cmd("Görünüm: "+v.Label, "", iconStack, func() {
 				if err := c.SetView(v.ID); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			}))
 		}

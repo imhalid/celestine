@@ -348,7 +348,7 @@ func (a *app) calDragRow(c *ui.Context, row ui.Element, coll *Collection, field 
 		if !day.IsZero() {
 			if id, ok := strings.CutPrefix(field, "prop:"); ok {
 				if err := p.SetValue(id, day.Format("2006-01-02")); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			}
 		}
@@ -398,12 +398,12 @@ func (a *app) makeOnDay(coll *Collection, field string, d time.Time) {
 	}
 	p, err := coll.NewPage(nil, "Adsız")
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if id, ok := strings.CutPrefix(field, "prop:"); ok {
 		if err := p.SetValue(id, d.Format("2006-01-02")); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}
 	a.open(p)

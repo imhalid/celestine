@@ -143,7 +143,7 @@ func (a *app) settleDrop() {
 	d.pending, d.settle = nil, true
 	p := d.landing
 	if err := a.lib.MovePage(p, t.coll, t.parent, t.index); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	t.coll.Open = true

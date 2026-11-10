@@ -38,12 +38,12 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 	}
 	p, err := c.NewPage(parent, "Adsız")
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if tpl != "" {
 		if err := p.SaveText(expandTemplate(tpl, p.Title, a.clock())); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}
 	a.open(p)

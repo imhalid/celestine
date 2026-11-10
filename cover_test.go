@@ -119,8 +119,8 @@ func TestCorruptPageIsLeftAlone(t *testing.T) {
 	}
 	p.Cover = "kapak.png"
 	a.removeCover(p)
-	if a.saveErr == "" || p.Cover != "kapak.png" {
-		t.Fatalf("saveErr %q cover %q", a.saveErr, p.Cover)
+	if !hasErrToast(a) || p.Cover != "kapak.png" {
+		t.Fatalf("no error toast, cover %q", p.Cover)
 	}
 	if b, _ := p.FS().ReadFile(p.File()); string(b) != `{"meta": bozuk` {
 		t.Fatalf("the file was written over: %q", b)

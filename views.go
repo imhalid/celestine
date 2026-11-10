@@ -58,7 +58,7 @@ func (a *app) collectionView(c *ui.Context) {
 						name := ui.TextInputBase(c, &a.collName).Label(T("Koleksiyon adı")).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 						a.fieldMenu(name, &a.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
 							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), "Adsız koleksiyon")); err != nil {
-								a.saveErr = err.Error()
+								a.fail(err)
 							}
 						}})
 						if name.Changed() {
@@ -67,7 +67,7 @@ func (a *app) collectionView(c *ui.Context) {
 								n = "Adsız koleksiyon"
 							}
 							if err := coll.Rename(n); err != nil {
-								a.saveErr = err.Error()
+								a.fail(err)
 							}
 						}
 						if coll.Dynamic() {
@@ -94,7 +94,7 @@ func (a *app) collectionView(c *ui.Context) {
 							ryugo.Segmented(c.Key("views:"+coll.Dir), &sel, labels, ryugo.SegmentedOptions{Label: "Görünüm", Size: ryugo.Sm})
 							if sel != was {
 								if err := coll.SetView(coll.Views[sel].ID); err != nil {
-									a.saveErr = err.Error()
+									a.fail(err)
 								}
 							}
 							ui.Spacer(c)
@@ -388,7 +388,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 	})
 	if !slices.Equal(*items, pages) { // a row was moved
 		if err := coll.SetManual(*items); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}
 }
@@ -642,7 +642,7 @@ func (a *app) takeLayout(c *ui.Context, coll *Collection, v *View, tu *tableUI) 
 		}
 		tu.dirtyAt = time.Time{}
 		if err := coll.Save(); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	default:
 		want := tableLayout{widths: v.Widths, order: v.Order, hidden: v.Hidden}
@@ -750,7 +750,7 @@ func (a *app) takeSort(coll *Collection, v *View, tu *tableUI) {
 			v.Sort, v.Desc = "title", false // sorted by nothing: by title
 		}
 		if err := coll.Save(); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 		tu.st.Sort = viewSortKeys(v)
 	case !slices.Equal(want, tu.applied):
@@ -915,7 +915,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			p := rows[from]
 			moved := slices.Insert(slices.Delete(slices.Clone(rows), from, from+1), to, p)
 			if err := coll.SetManual(moved); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 		}
 	}
@@ -957,7 +957,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		if !slices.Equal(folded, was) {
 			v.Collapsed = folded
 			if err := coll.Save(); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 		}
 	}
@@ -1085,7 +1085,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 							}
 						}, func(p *Page, index int) {
 							if err := coll.MoveOnBoard(p, pr.ID, s, index); err != nil {
-								a.saveErr = err.Error()
+								a.fail(err)
 							}
 						}).MinHeight(180) // an empty one has room to drop on
 					})
@@ -1135,7 +1135,7 @@ func (a *app) boardCardMenu(c *ui.Context, coll *Collection, pr *Property, p *Pa
 					return
 				}
 				if err := coll.MoveOnBoard(p, pr.ID, s, len(coll.Column(pr.ID, s))); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 				}
 			}}
 			if p.Value(pr) == s {
@@ -1193,7 +1193,7 @@ func (a *app) foldColumn(coll *Collection, v *View, s string, fold bool) {
 		v.Collapsed = append(v.Collapsed, s)
 	}
 	if err := coll.Save(); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 

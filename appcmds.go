@@ -63,7 +63,7 @@ func appCommands() []appCmd {
 			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
 				a.newPage(c, nil)
 			} else {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 		}},
 		{title: "Çöp", menu: "file", sep: true, glyph: iconTrash, run: (*app).openTrash},

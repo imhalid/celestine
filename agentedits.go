@@ -115,7 +115,7 @@ func (a *app) undoAgent() {
 			h.SnapshotNow(p.File())
 		}
 		if err := p.FS().WriteFile(p.File(), r.before[p]); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			continue
 		}
 		p.Writes++

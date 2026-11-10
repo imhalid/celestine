@@ -176,12 +176,12 @@ func (a *app) setPropFile(p *Page, pr *Property, src string) {
 		}
 		name = freeName(p, filepath.Base(src))
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			return
 		}
 	}
 	if err := p.SetValue(pr.ID, name); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if old != "" && old != name {

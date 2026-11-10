@@ -201,7 +201,7 @@ func (a *app) trashMenu(item *TrashItem) []menuItem {
 		{title: "Geri yükle", glyph: iconRestore, run: func() { a.restore(item) }},
 		{title: "Kalıcı olarak sil", group: "~", glyph: iconTrash, danger: true, run: func() {
 			if err := a.lib.DeleteForever(item); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 			}
 			a.loadTrash()
 		}},
@@ -213,13 +213,13 @@ var iconPin = icon(`<path d="M12 16.5V21"/><path d="M9.2 10.3a2 2 0 0 1-1.1 1.8l
 // pinCollection pins a collection to the top of the sidebar, or lets it go.
 func (a *app) pinCollection(c *Collection, pin bool) {
 	if err := a.lib.PinCollection(c, pin); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }
 
 // moveCollection moves a collection up or down in the sidebar.
 func (a *app) moveCollection(c *Collection, delta int) {
 	if err := a.lib.MoveCollection(c, delta); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 }

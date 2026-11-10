@@ -42,7 +42,7 @@ func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
 			name = "Adsız"
 		}
 		if err := p.SetTitle(name); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 		}
 	}})
 }

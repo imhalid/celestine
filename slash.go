@@ -228,7 +228,7 @@ func (a *app) wikiItems(q string) []menuItem {
 	if tq != "" && !exact && a.page != nil {
 		out = append(out, menuItem{title: "Yeni sayfa: " + tq, glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 				return
 			}
 			a.insertChip(start, &chip{kind: "page", target: tq})
@@ -375,7 +375,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 		if tq != "" && !exact && a.page != nil {
 			out = append(out, menuItem{title: "Yeni sayfa: " + tq, glyph: iconPlus, run: func() {
 				if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
-					a.saveErr = err.Error()
+					a.fail(err)
 					return
 				}
 				a.insertChip(start, &chip{kind: "page", target: tq})
@@ -457,7 +457,7 @@ func (a *app) searchItems(q string) []menuItem {
 	if tq != "" && !exact && a.page != nil {
 		fresh = append(fresh, menuItem{title: "Yeni sayfa: " + tq, group: "Yeni", glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 				return
 			}
 			a.insertChip(start, &chip{kind: "page", target: tq})

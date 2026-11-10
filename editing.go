@@ -71,7 +71,7 @@ func (a *app) saveNow() {
 func (a *app) savedText() string {
 	switch {
 	case a.saveErr != "":
-		return "kaydedilemedi: " + a.saveErr
+		return T("could not save: ") + a.saveErr
 	case a.dirty && a.settings.NoAutoSave:
 		return T("kaydedilmedi")
 	case a.dirty:

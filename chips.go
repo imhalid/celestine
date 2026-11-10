@@ -430,7 +430,7 @@ func (a *app) clickChip(x, y float32) bool {
 		if p == nil && a.page != nil {
 			np, err := a.page.Coll.NewPage(nil, h.ch.target)
 			if err != nil {
-				a.saveErr = err.Error()
+				a.fail(err)
 				return true
 			}
 			p = np

@@ -152,7 +152,7 @@ func (a *app) takeOutside(p *Page) {
 		// both kept: theirs next to the page, ours over it
 		name := "page (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").json"
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
-			a.saveErr = err.Error()
+			a.fail(err)
 			return
 		}
 		a.save()
@@ -175,7 +175,7 @@ func (a *app) reloadLibrary() {
 	a.linksStale()
 	fresh, err := OpenLibraryIn(a.lib.FS, a.lib.Root)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	open := map[string]bool{}

@@ -25,12 +25,12 @@ func (a *app) saveSearch(q string) {
 	}
 	c, err := a.lib.NewCollection(name)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	c.Query, c.SubPages, c.Icon = q, false, "search"
 	if err := c.Save(); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 	a.openCollection(c)
 }

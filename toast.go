@@ -85,6 +85,11 @@ type toastState struct {
 // toast puts up a toast that says text: news.
 func (a *app) toast(text string) { a.toastOf(toastInfo, text, "", nil) }
 
+// fail says that something did not work, in an error toast. The open page's own save keeps its error in saveErr,
+// shown in the status bar; nothing else does, so another failure neither shows as "could not save" nor holds the
+// page's autosave back (#216).
+func (a *app) fail(err error) { a.toastOf(toastErr, err.Error(), "", nil) }
+
 // toastAction puts up a toast that says text, with a button labelled action that runs fn and closes it.
 func (a *app) toastAction(text, action string, fn func()) { a.toastOf(toastInfo, text, action, fn) }
 

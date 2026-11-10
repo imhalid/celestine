@@ -119,7 +119,7 @@ func (a *app) putBackVersion() {
 	a.keepBefore(p)
 	meta, body, err := SplitPageChecked(data)
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	if s := meta["title"]; s != "" {
@@ -128,7 +128,7 @@ func (a *app) putBackVersion() {
 	p.ReadMeta(meta)  // the copy's cover and values; where the page is in the tree stays
 	p.Unreadable = "" // a whole earlier copy is written over the file: what mends one that could not be read
 	if err := p.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	a.takeOutside(p)

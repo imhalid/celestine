@@ -68,7 +68,7 @@ func (a *app) duplicatePage(p *Page) {
 		err = CopyTree(fsys, p.Dir, fsys, dir)
 	}
 	if err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 		return
 	}
 	cp := &Page{Title: p.Title + " (kopya)", Created: a.clock().Truncate(1e9), Dir: dir, Coll: p.Coll, Parent: p.Parent, Props: map[string]string{}}
@@ -92,10 +92,10 @@ func (a *app) duplicatePage(p *Page) {
 	}
 	*siblings = append((*siblings)[:at], append([]*Page{cp}, (*siblings)[at:]...)...)
 	if err := cp.Save(body); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 	if err := Renumber(*siblings); err != nil {
-		a.saveErr = err.Error()
+		a.fail(err)
 	}
 	a.open(cp)
 }
