@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -58,8 +59,23 @@ func (a *app) openTimeMachine(p *Page) {
 		return
 	}
 	a.flush()
-	a.tm = timeMachine{open: true, page: p, vers: h.Versions(p.File()), texts: map[int]string{}, lines: map[int][]tmLine{}, shown: -1}
+	a.tm = timeMachine{open: true, page: p, vers: tmCopies(h, p), texts: map[int]string{}, lines: map[int][]tmLine{}, shown: -1}
 	a.tm.days = tmDaysOf(a.tm.vers, a.clock())
+}
+
+// tmCopies are the copies kept of page p, the latest first, but those that say what the page now says: after going
+// back to a copy the page is that copy, and the stack would show it twice, as Now and as itself (#263). They stay
+// kept, and the version dialog lists them.
+func tmCopies(h Historian, p *Page) []Version {
+	vers := h.Versions(p.File())
+	now, err := p.FS().ReadFile(p.File())
+	if err != nil {
+		return vers
+	}
+	return slices.DeleteFunc(vers, func(v Version) bool {
+		data, ok := h.VersionData(p.File(), v.ID)
+		return ok && samePage(data, now)
+	})
 }
 
 // tmBarsWidth is the room of the bars on the right: none where the sidebar has the timeline.

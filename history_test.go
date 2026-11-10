@@ -576,9 +576,24 @@ func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 	if n := len(st.Versions(p.File())); n != 4 {
 		t.Fatalf("%d copies after going back, not the three and the page as it was", n)
 	}
-	back(3) // the copy of the 8th again, which the page already is
+	// the copy of the 8th is the page now: the stack shows it once, as Now, though it stays kept (#263)
+	a.openTimeMachine(p)
+	tt.Frame()
+	if len(a.tm.vers) != 3 {
+		t.Fatalf("%d copies in the stack, not the three the page now is not", len(a.tm.vers))
+	}
+	for i := 1; i <= len(a.tm.vers); i++ {
+		if a.tmText(i) == a.tmText(0) {
+			t.Fatalf("the page now is in the stack twice: as Now and at %d", i)
+		}
+	}
+	a.tm.sel = 2
+	a.tmPutBack()
+	for range 40 {
+		tt.Advance(20 * time.Millisecond)
+	}
 	if n := len(st.Versions(p.File())); n != 4 {
-		t.Fatalf("%d copies: going back to what a copy is kept another", n)
+		t.Fatalf("%d copies: going back to a copy kept the page, which a copy already is, again", n)
 	}
 	if a.tm.open {
 		t.Fatal("the history is still open")
