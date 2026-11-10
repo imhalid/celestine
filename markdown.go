@@ -165,17 +165,43 @@ func rawBlock(lines []string, i int, paraStart bool) (string, int) {
 		return "callout", until(i, func(s string) bool { return strings.HasPrefix(strings.TrimSpace(s), ">") })
 	case footDef.MatchString(l):
 		return "footnote", until(i, any)
-	case htmlStart.MatchString(l):
+	case htmlStart.MatchString(l) && foreignHTML(l):
 		return "html", until(i, any)
 	case paraStart:
 		n := until(i, any)
 		for _, s := range lines[i : i+n] {
-			if inlineHTML.MatchString(withoutCode(s)) {
+			if foreignHTML(withoutCode(s)) {
 				return "html", n
 			}
 		}
 	}
 	return "", 0
+}
+
+// ownTags are the tags richtext writes and reads itself: underline, and bold, italic or strikethrough that Markdown
+// cannot flank. A line with them is the editor's text, not HTML to keep as it is (#124).
+var ownTags = map[string]bool{"u": true, "ins": true, "s": true, "strike": true, "del": true, "b": true, "strong": true, "i": true, "em": true, "br": true}
+
+// foreignHTML says whether line s has a tag of HTML that the editor does not read: not one of ownTags, and not one
+// escaped with a backslash, as richtext writes a "<" that was typed.
+func foreignHTML(s string) bool {
+	for _, m := range inlineHTML.FindAllStringIndex(s, -1) {
+		slashes := 0
+		for k := m[0] - 1; k >= 0 && s[k] == '\\'; k-- {
+			slashes++
+		}
+		if slashes%2 == 1 {
+			continue
+		}
+		tag := strings.TrimPrefix(s[m[0]+1:m[1]-1], "/")
+		if end := strings.IndexAny(tag, " \t/"); end >= 0 {
+			tag = tag[:end]
+		}
+		if !ownTags[strings.ToLower(tag)] {
+			return true
+		}
+	}
+	return false
 }
 
 // withoutCode is line s without its spans of inline code.

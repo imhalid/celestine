@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 // TestMarkdownKept: what other tools write comes back as it was, after
@@ -70,5 +72,30 @@ func TestRawBlockEdited(t *testing.T) {
 	a.save()
 	if body, _ := a.page.Text(); body != "> [!note] Not\n> Metin daha\n" {
 		t.Fatalf("written: %q", body)
+	}
+}
+
+// Underline, the tags richtext writes for itself, and a "<" that was typed come back as the text they were, not
+// as a raw HTML block; HTML the editor does not read is still kept as it is (#124).
+func TestOwnTagsNotRawHTML(t *testing.T) {
+	under := richtext.Attributes{Underline: true}
+	bold := richtext.Attributes{Weight: 700}
+	for _, tx := range []richtext.Text{
+		richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "bir "}, {Text: "altı çizili", Attributes: under}, {Text: " kelime"}}}),
+		richtext.TextOf(
+			richtext.Paragraph{Style: richtext.ParagraphStyle{List: richtext.Tasks}, Runs: []richtext.Run{{Text: "bir "}, {Text: "iş", Attributes: under}}},
+			richtext.Paragraph{Style: richtext.ParagraphStyle{List: richtext.Tasks}, Runs: []richtext.Run{{Text: "iki"}}},
+		),
+		richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "Fiyat:", Attributes: bold}, {Text: "100"}}}),
+		richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "a <b> c"}}}),
+	} {
+		md := bodyMarkdown(tx)
+		back := parseBody(md)
+		if got, want := encodeBody(back), encodeBody(tx); got != want {
+			t.Errorf("%q came back as %s, want %s", md, got, want)
+		}
+	}
+	if kind, _ := rawBlock([]string{`<div class="x">kutu</div>`}, 0, true); kind != "html" {
+		t.Errorf("a div is %q", kind)
 	}
 }
