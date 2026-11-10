@@ -54,7 +54,8 @@ type paneState struct {
 	titleCaret    titleCaretSpec // where the caret in the title is, to draw it (the title is an input)
 	titleSeen     bool
 	titleLen      int
-	selPrevA      int // the selection before a pointer went down in the editor
+	titleW        float32 // the title's room, as last laid out: what it wraps at (titlesize.go)
+	selPrevA      int     // the selection before a pointer went down in the editor
 	selPrevC      int
 	boxes         []richtext.ParagraphBox
 	focused       bool

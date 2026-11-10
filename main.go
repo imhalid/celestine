@@ -1197,15 +1197,33 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ttl := ui.Text(c, p.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().TextColor(ink)
+		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, a.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().Wrap().FillWidth().TextColor(ink)
 		a.titleMenu(ttl, p, false)
+		a.titleRoom(c, ttl)
 		a.titleFocused = false
 		a.coverGap(c, p)
 		a.propsSection(c, p)
 		return
 	}
-	title := ui.TextInputBase(c, &a.title).Label(T("Başlık")).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).CaretWidth(0)
+	// the title wraps, at a size its length gives it, and is as high as its lines (titlesize.go); it is one line of
+	// text all the same: a line break typed or pasted is not kept
+	size := a.titleSize(a.title, a.titleW)
+	_, textH := a.titleLayout(a.title, size, a.titleW).Size()
+	before := a.title
+	title := ui.TextAreaBase(c, &a.title).Label(T("Başlık")).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
+		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
 	a.titleMenu(title, p, true)
+	a.titleRoom(c, title)
+	enter := false
+	if strings.ContainsAny(a.title, "\r\n") {
+		// the area takes ↵ as a break: one break typed into the title as it was is ↵, which goes into the text below,
+		// as from the one-line input; a break pasted is a space
+		if enter = strings.Count(a.title, "\n") == 1 && strings.Replace(a.title, "\n", "", 1) == before; enter {
+			a.title = before
+		} else {
+			a.title = strings.Join(strings.Fields(a.title), " ")
+		}
+	}
 	if a.fresh {
 		title.AutoFocus()
 		a.fresh = false
@@ -1223,7 +1241,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	a.titleCaret = titleCaretSpec{}
 	if b := title.LayoutBounds(); title.Focused() && b.W > 0 { // the caret is ours, as the page's
 		anchor, caret := title.TextAnchorCaret()
-		cr, cw := a.inputCaret(a.title, caret, 32, 720, b.X, b.Y+6, b.H-16)
+		cr, cw := a.inputCaretIn(a.title, caret, size, titleWeight, a.titleW, b.X, b.Y+6, b.H-16)
 		n := utf8.RuneCountInString(a.title)
 		spec := titleCaretSpec{on: true, r: cr, cw: cw, box: b, sel: anchor != caret}
 		if a.titleSeen && n != a.titleLen {
@@ -1236,7 +1254,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	}
 	a.coverGap(c, p)
 	// ↓ or ↵ in the title goes into the text
-	if title.Focused() && (title.Shortcut(0, ui.KeyDown) || title.Submitted()) {
+	if title.Focused() && (enter || title.Shortcut(0, ui.KeyDown) && a.titleLastLine(size, titleCaretOf(title))) {
 		a.doc.SetSelection(0, 0)
 		a.refocus = true
 	}

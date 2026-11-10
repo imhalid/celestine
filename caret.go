@@ -235,7 +235,12 @@ func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.P
 // middle of it: its place and the width of the letter after it. The input's
 // own caret is hidden (CaretWidth(0)); ours is drawn as the page's.
 func (a *app) inputCaret(text string, caret int, size float32, weight int, left, top, height float32) (ui.Rect, float32) {
-	l := ui.ShapeRichTextWith([]ui.Span{{Text: text, Size: size, Weight: weight}}, a.font, ui.TextShape{})
+	return a.inputCaretIn(text, caret, size, weight, 0, left, top, height)
+}
+
+// inputCaretIn is inputCaret in a text wrapped at width, as the page's title is (0: one line).
+func (a *app) inputCaretIn(text string, caret int, size float32, weight int, width, left, top, height float32) (ui.Rect, float32) {
+	l := ui.ShapeRichTextWith([]ui.Span{{Text: text, Size: size, Weight: weight}}, a.font, ui.TextShape{Width: width})
 	u := units(text, caret)
 	c := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextDownstream})
 	full := c
