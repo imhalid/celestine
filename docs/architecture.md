@@ -116,4 +116,5 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 Decisions: no plugin system and no outside code — only themes (data files) change from outside; MCP exposes the
 app's own operations.
 
-The gate: `gofmt -l .` empty, `go vet ./...`, `go test ./...`, and builds without cgo for darwin, linux and windows.
+The gate before a release: `gofmt -l .` empty, `go vet ./...`, `go test ./...`, and builds without cgo for darwin,
+linux and windows, and for wasm. Before a commit, only the tests of what the change touches.

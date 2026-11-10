@@ -27,10 +27,15 @@ go run . [library]                  # ./kitaplik by default, made and seeded whe
 RYUDIT_WELCOME=1 go run .           # the first-run welcome, again
 go test ./internal/library/         # the library alone: a second or two; run it after any library change
 go test -run 'Sync|Store' .         # the app's tests of an area
-go test ./...                       # everything: about four minutes, run it in the background
+go test ./...                       # everything: about four minutes, only before a release
 ```
 
-The gate before a commit (the release workflow runs it too): `gofmt -l .` empty, `go vet ./...`,
+Before a commit: `gofmt -l .` empty, `go vet ./...`, and the tests of what the change touches, not all of them:
+`go test ./internal/library/` for the library, `go test -run '…' .` with the names of the app's tests of that area
+(`-run 'TimeMachine|Version'` for the page history), and the builds a change could break (the wasm build when
+`store_js.go` or a `js` file is touched).
+
+The gate before a release tag (the release workflow runs it too): `gofmt -l .` empty, `go vet ./...`,
 `go test ./...`, and builds without cgo: `CGO_ENABLED=0 GOOS=darwin|linux|windows go build .` and
 `GOOS=js GOARCH=wasm go build .`. The Go of `go.mod` formats; another gofmt aligns differently.
 
