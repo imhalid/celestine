@@ -125,7 +125,7 @@ func TestCorruptPageIsLeftAlone(t *testing.T) {
 	if b, _ := p.FS().ReadFile(p.File()); string(b) != `{"meta": bozuk` {
 		t.Fatalf("the file was written over: %q", b)
 	}
-	if _, body, err := SplitPageChecked(nil); err != nil || body != "[]" {
-		t.Fatalf("an empty file is an empty page: %q %v", body, err)
+	if _, _, err := SplitPageChecked(nil); err == nil { // every page file is written with its meta: an empty one is cut short (#140)
+		t.Fatal("an empty file read as a page")
 	}
 }
