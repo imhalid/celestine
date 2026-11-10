@@ -38,29 +38,10 @@ func TestCursorFX(t *testing.T) {
 	}
 }
 
-// The follower comes to the pointer; the ripple rings a press; the rocket, clicked, locks on, strikes and bursts.
-func TestCursorFXFollowAndStrike(t *testing.T) {
+// The rocket comes to rest beside the pointer; clicked, it locks on, strikes and bursts.
+func TestCursorFXStrike(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.SetSize(800, 500)
-	a.settings.CursorFX = "Follower"
-	tt.Move(100, 100)
-	tt.Advance(50 * time.Millisecond)
-	tt.Move(400, 300)
-	tt.Advance(2 * time.Second)
-	f := a.cursor.fx.(*follower)
-	if math.Hypot(f.s.x-410, f.s.y-312) > 1 {
-		t.Fatalf("the follower is at %.0f,%.0f, not by the pointer", f.s.x, f.s.y)
-	}
-
-	a.settings.CursorFX = "Ripple"
-	tt.Frame()
-	tt.Press(300, 200)
-	tt.Advance(16 * time.Millisecond)
-	if r := a.cursor.fx.(*ripples); len(r.rings) != 1 {
-		t.Fatalf("a press rang %d rings", len(r.rings))
-	}
-	tt.Release(300, 200)
-
 	a.settings.CursorFX = "Rocket"
 	tt.Move(400, 250)
 	tt.Advance(3 * time.Second)

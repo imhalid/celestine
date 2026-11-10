@@ -6,74 +6,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The effects of the pointer that go after it on their own (#287): a paper plane, a spider, a rocket. Each has
+// The effects of the pointer that go after it on their own (#287): a spider and a rocket. Each has
 // a place, a speed and a heading of its own, and turns toward where it goes by the shortest way.
-
-// ---- Paper plane ----
-
-// paperPlane follows the pointer a little behind it, on a loose spring, turned the way it flies; it banks in a
-// turn, its wings narrowing as it rolls, and leaves a dotted wake.
-type paperPlane struct {
-	s         spring2
-	ang, bank float64
-	wake      []trailPt
-	now       float64
-}
-
-func (pl *paperPlane) step(m pointerAt, dt float64) bool {
-	pl.now += dt
-	moving := pl.s.to(m.x+16, m.y+18, 38, 8, dt)
-	before := pl.ang
-	if sp := math.Hypot(pl.s.vx, pl.s.vy); sp > 25 {
-		pl.ang = turnTo(pl.ang, math.Atan2(pl.s.vy, pl.s.vx), 6, dt)
-		if n := len(pl.wake); n == 0 || math.Hypot(pl.s.x-pl.wake[n-1].x, pl.s.y-pl.wake[n-1].y) > 7 {
-			tx, ty := turned(pl.s.x, pl.s.y, -9, 0, pl.ang)
-			pl.wake = append(pl.wake, trailPt{float64(tx), float64(ty), pl.now})
-		}
-	}
-	turn := 0.0
-	if dt > 0 {
-		turn = math.Remainder(pl.ang-before, 2*math.Pi) / dt
-	}
-	pl.bank += (math.Max(-1, math.Min(1, turn*0.25)) - pl.bank) * math.Min(1, dt*8)
-	i := 0
-	for i < len(pl.wake) && pl.now-pl.wake[i].t > 0.6 {
-		i++
-	}
-	pl.wake = pl.wake[i:]
-	return moving || len(pl.wake) > 0 || math.Abs(pl.bank) > 0.01
-}
-
-func (pl *paperPlane) draw(p *ui.Painter, m pointerAt) {
-	if !pl.s.set {
-		return
-	}
-	for _, w := range pl.wake {
-		left := 1 - (pl.now-w.t)/0.6
-		p.Fill(ui.Rect{X: f32(w.x - 1), Y: f32(w.y - 1), W: 2, H: 2}, withAlpha(ink(m.dark), 0.35*left), 1)
-	}
-	x, y, a := pl.s.x, pl.s.y, pl.ang
-	near := 9 * (1 - 0.55*math.Abs(pl.bank)) // the wing toward the turn is foreshortened as it rolls
-	far := 9.0
-	if pl.bank < 0 {
-		near, far = far, near
-	}
-	paper, shade := ui.Hex("#ffffff"), ui.Hex("#d9dde3")
-	if m.dark {
-		paper, shade = ui.Hex("#e9eaee"), ui.Hex("#b4b8c2")
-	}
-	edge := withAlpha(ink(m.dark), 0.45)
-	p.FillPath(shape(x+1.5, y+2.5, a, 14, 0, -10, -far, -6, 0, -10, near), ui.RGBA(0, 0, 0, 0.16))
-	left := shape(x, y, a, 14, 0, -10, -far, -6, 0)
-	right := shape(x, y, a, 14, 0, -6, 0, -10, near)
-	p.FillPath(left, paper)
-	p.FillPath(right, shade)
-	p.StrokePath(left, 1, edge)
-	p.StrokePath(right, 1, edge)
-	x0, y0 := turned(x, y, 14, 0, a) // the fold, and its keel under it
-	x1, y1 := turned(x, y, -7, 0, a)
-	slant(p, x0, y0, x1, y1, 1.3, withAlpha(m.col, 0.8))
-}
 
 // ---- Spider ----
 
@@ -170,11 +104,14 @@ type rocket struct {
 	x, y, vx, vy, ang float64
 	set, locked       bool
 	lock              float64 // seconds since the lock
-	puffs             []ripple
+	puffs             []puff
 	flash             float64 // what is left of a burst's flash, 1 to 0
 	debris            sparks
 	flicker           float64
 }
+
+// puff is a puff of the rocket's smoke: where it was left, and how long ago.
+type puff struct{ x, y, age float64 }
 
 func (r *rocket) step(m pointerAt, dt float64) bool {
 	if !r.set {
@@ -225,7 +162,7 @@ func (r *rocket) step(m pointerAt, dt float64) bool {
 	r.flicker += dt * 30
 	if speed > 40 && (len(r.puffs) == 0 || math.Hypot(r.x-r.puffs[len(r.puffs)-1].x, r.y-r.puffs[len(r.puffs)-1].y) > 6) {
 		bx, by := turned(r.x, r.y, -12, 0, r.ang)
-		r.puffs = append(r.puffs, ripple{x: float64(bx), y: float64(by)})
+		r.puffs = append(r.puffs, puff{x: float64(bx), y: float64(by)})
 	}
 	out := r.puffs[:0]
 	for _, pf := range r.puffs {
