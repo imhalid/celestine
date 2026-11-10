@@ -39,6 +39,9 @@ var trText = map[string]string{
 	"Account": "Hesap",
 	// the plain caret, the default (caretfx.go)
 	"Line": "Çizgi",
+	// the carets after pastel.zig (caretfx_ink.go, #309)
+	"Ink":     "Mürekkep",
+	"Lock-on": "Kilit",
 	// a pressed button's wave, on or off (#297)
 	"Press waves": "Basınca dalga",
 	"A pressed button sends a wave through itself from where it was pressed. With less motion in the system's settings, none goes.": "Basılan düğme, basıldığı yerden kendi içinden bir dalga geçirir. Sistem ayarlarında hareket azaltılmışsa dalga olmaz.",

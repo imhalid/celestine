@@ -72,6 +72,9 @@ func init() {
 		// more games (caretfx_arcade.go)
 		{"Robot", func() caretFX { return newRobot() }},
 		{"Marine", func() caretFX { return newMarine() }}, // Doom's spirit (caretfx_marine.go)
+		// after pastel.zig (caretfx_ink.go)
+		{"Ink", func() caretFX { return newInkCaret(true) }},
+		{"Lock-on", func() caretFX { return newInkCaret(false) }},
 	}
 }
 
