@@ -102,3 +102,34 @@ func TestZoomKeys(t *testing.T) {
 		t.Fatalf("%s did not zoom out: %q", zoomOutKey, a.doc.Text().String())
 	}
 }
+
+// Taking a fold's or a zoom's chip away does not take what it holds: Backspace over a fold, and ⌘A and a key while
+// zoomed, put the lines back (#128).
+func TestChipTakenAwayKeepsLines(t *testing.T) {
+	a, tt := newTestApp(t, "# Başlık\n\nBir\n\nİki\n\n# Son\n\nüç\n")
+	tt.Frame()
+	a.fold(strings.Index(a.doc.Text().String(), "Başlık"))
+	tt.Frame()
+	i := strings.Index(a.doc.Text().String(), "\n") // the chip ends the heading's line: Backspace from after it
+	runes := utf8.RuneCountInString(a.doc.Text().String()[:i])
+	a.doc.SetSelection(runes-1, runes)
+	a.doc.InsertText("")
+	tt.Frame()
+	a.save()
+	if md := a.currentMarkdown(a.page); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
+		t.Fatalf("the fold's lines went with its chip:\n%q", md)
+	}
+
+	b, tb := newTestApp(t, zoomPage)
+	tb.Advance(100 * time.Millisecond)
+	b.zoomIn(strings.Index(b.doc.Text().String(), "Notes"))
+	tb.Frame()
+	b.doc.SetSelection(0, b.doc.Text().Len())
+	b.doc.InsertText("yeni")
+	tb.Frame()
+	b.save()
+	md := b.currentMarkdown(b.page)
+	if !strings.Contains(md, "Before.") || !strings.Contains(md, "after") || !strings.Contains(md, "yeni") {
+		t.Fatalf("the zoom's lines went with its chips:\n%q", md)
+	}
+}

@@ -67,19 +67,29 @@ func (a *app) zoomed() bool {
 	return top != nil || end != nil
 }
 
-// zoomChips are the chips of the zoom shown: the one at the top, the one at the bottom, and where they are.
+// zoomChips are the chips of the zoom shown: the one at the top, the one at the bottom, and where they are. The top
+// one is looked for in the first line, the bottom one in the last: text typed before or after either is on its line
+// (#128).
 func zoomChips(t richtext.Text) (top, end *chip, ti, ei int) {
 	ti, ei = -1, -1
 	if t.Len() == 0 {
 		return
 	}
-	if ch := chipIn(t, 0); ch != nil && ch.kind == "zoom" && ch.top {
-		top, ti = ch, 0
-	}
-	if i := t.Len() - 1; i > 0 {
-		if ch := chipIn(t, i); ch != nil && ch.kind == "zoom" && !ch.top {
-			end, ei = ch, i
+	look := func(s, e int, wantTop bool) (*chip, int) {
+		for i, r := range t.Runs(s, e) {
+			if att := r.Attributes.Attachment; att != nil {
+				if ch, ok := att.Data.(*chip); ok && ch.kind == "zoom" && ch.top == wantTop {
+					return ch, i
+				}
+			}
 		}
+		return nil, -1
+	}
+	_, fe := t.ParagraphRange(0)
+	top, ti = look(0, max(fe, 1), true)
+	ls, le := t.ParagraphRange(t.Len())
+	if ch, i := look(ls, max(le, ls+1), false); ch != nil && i > ti {
+		end, ei = ch, i
 	}
 	return
 }
@@ -114,6 +124,7 @@ func (a *app) zoomOut() {
 		caret = min(max(caret, 0), ed.Text().Len())
 		ed.Select(caret, caret)
 	})
+	a.prevText = a.doc.Text() // the chips went because what they held is back: not ones to put back (keepHidden)
 }
 
 // replaceKeepIDs is t.Replace(s, e, with), the paragraphs put in keeping their IDs: Replace gives them none, and

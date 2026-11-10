@@ -1386,6 +1386,11 @@ func (a *app) track(c *ui.Context) {
 		a.caretAt, a.style = caret, style
 		return
 	}
+	if a.keepHidden(a.prevText, text, caret) { // a fold's or a zoom's chip taken away: what it held, back
+		_, caret = a.doc.Selection()
+		text, v = a.doc.Text(), a.doc.Version()
+		style = text.ParagraphStyleAt(caret)
+	}
 	n := text.Len()
 	// an edit that moves nothing - a box ticked, a mark changed - does not take the page to the caret:
 	// the caret may be far from what was clicked
@@ -1729,7 +1734,7 @@ func (a *app) save() {
 		return
 	}
 	a.saveErr = ""
-	words := len(strings.Fields(a.doc.Text().PlainText()))
+	words := len(strings.Fields(unfold(a.doc.Text()).PlainText())) // a fold's lines too: folding is not writing (#128)
 	a.countWriting(a.lastWords, words)
 	a.lastSave, a.lastWords, a.dirty = body, words, false
 	a.savedAt = a.clock()
