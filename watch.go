@@ -122,21 +122,33 @@ func (a *app) takeOutside(p *Page) {
 	if err != nil {
 		return
 	}
-	meta, body := SplitPage(src)
+	meta, body, bad := SplitPageChecked(src)
+	if bad == nil {
+		bad = bodyReadable(body)
+	}
 	p.Modified = ModTime(p.FS(), p.File())
-	if t := meta["title"]; t != "" {
+	// what was shown of a page that could not be read is not the page: nothing of it is kept over the file
+	ours := p == a.page && a.dirty && p.Unreadable == ""
+	if bad != nil && !ours { // a file that cannot be read now: its meta and text are not taken for
+		// the page's, it is shown read-only, and nothing is written over it (#125)
+		p.Unreadable = bad.Error()
+		return
+	}
+	if t := meta["title"]; bad == nil && t != "" {
 		p.Title = t
 		PagesChanged()
 		if p == a.page && !a.dirty {
 			a.title = t
 		}
 	}
-	p.ReadMeta(meta)
+	if bad == nil {
+		p.ReadMeta(meta)
+	}
 	doc := a.docs[p]
 	if doc == nil {
 		return
 	}
-	if p == a.page && a.dirty {
+	if ours {
 		// both kept: theirs next to the page, ours over it
 		name := "page (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").json"
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
@@ -147,8 +159,10 @@ func (a *app) takeOutside(p *Page) {
 		a.notice = Tf("“%s” dışarıda da değişti: senin yazdıkların kaydedildi, öteki sürüm yanına “%s” olarak kondu.", p.Title, name)
 		return
 	}
+	p.Unreadable = ""
 	doc.SetText(a.parsePage(p, body))
 	if p == a.page {
+		a.dirty, a.saveErr = false, ""
 		_, caret := doc.Selection()
 		a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
 		a.lastSave, a.lastWords = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText()))

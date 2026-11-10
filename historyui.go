@@ -125,7 +125,8 @@ func (a *app) putBackVersion() {
 	if s := meta["title"]; s != "" {
 		p.Title = s
 	}
-	p.ReadMeta(meta) // the copy's cover and values; where the page is in the tree stays
+	p.ReadMeta(meta)  // the copy's cover and values; where the page is in the tree stays
+	p.Unreadable = "" // a whole earlier copy is written over the file: what mends one that could not be read
 	if err := p.Save(body); err != nil {
 		a.saveErr = err.Error()
 		return

@@ -284,21 +284,32 @@ func (a *app) watchClipboard() {
 // ourPicture is the name of a picture the app made.
 var ourPicture = regexp.MustCompile(`^resim-\d{8}-\d{6}(-\d+)?\.(png|jpg|gif|webp|svg)$`)
 
-// sweepPictures deletes the pictures the app made in page p's folder that no
-// line of body names any more. It is done as a page is first opened in a
-// run, when there is no undo to bring a line back; a picture one put there by
-// hand, under another name, is left alone.
+// sweepPictures moves to the trash the pictures the app made in page p's folder that no line of body names any
+// more. It is done as a page is first opened in a run, when there is no undo to bring a line back; a picture one put
+// there by hand, under another name, is left alone. Only a body that was read is swept (docFor), and a picture
+// written in the last minutes is left: a sync may bring it before the page that names it (#126).
 func (a *app) sweepPictures(p *Page, body string) {
 	entries, err := p.FS().ReadDir(p.Dir)
 	if err != nil {
 		return
 	}
+	var gone []string
 	for _, e := range entries {
-		if !e.IsDir() && ourPicture.MatchString(e.Name()) && !strings.Contains(body, e.Name()) {
-			p.FS().Remove(filepath.Join(p.Dir, e.Name()))
+		if e.IsDir() || !ourPicture.MatchString(e.Name()) || strings.Contains(body, e.Name()) {
+			continue
 		}
+		if a.clock().Sub(ModTime(p.FS(), filepath.Join(p.Dir, e.Name()))) < sweepAfter {
+			continue
+		}
+		gone = append(gone, e.Name())
+	}
+	if len(gone) > 0 && a.lib != nil {
+		a.lib.TrashFiles(p, gone, a.clock())
 	}
 }
+
+// sweepAfter is how old a picture no line names must be before it is swept.
+const sweepAfter = 10 * time.Minute
 
 // picHit is a picture drawn, where in the window, for a click on it.
 type picHit struct {

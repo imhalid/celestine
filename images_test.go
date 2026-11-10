@@ -157,8 +157,8 @@ func TestPasteTextStaysText(t *testing.T) {
 	}
 }
 
-// TestPicturesSwept: a picture no line names is deleted when the page is first
-// opened; one that is named, and one of another name, stay.
+// TestPicturesSwept: a picture no line names goes to the trash when the page is first opened; one that is named,
+// one of another name, and one written in the last minutes stay.
 func TestPicturesSwept(t *testing.T) {
 	a, _ := newTestApp(t, "metin\n")
 	if err := a.addImage("foto.png", pngBytes(20, 20)); err != nil {
@@ -170,11 +170,22 @@ func TestPicturesSwept(t *testing.T) {
 	mine := filepath.Join(a.page.Dir, "benim.png")
 	os.WriteFile(orphan, pngBytes(5, 5), 0o644)
 	os.WriteFile(mine, pngBytes(5, 5), 0o644)
+	old := a.clock().Add(-time.Hour)
+	os.Chtimes(orphan, old, old)
+	fresh := filepath.Join(a.page.Dir, "resim-20200101-020202.png") // a sync brought it before its page
+	os.WriteFile(fresh, pngBytes(5, 5), 0o644)
+	os.Chtimes(fresh, a.clock(), a.clock())
 	a.docs = map[*Page]*richtext.Document{}
 	a.page = nil
 	a.open(a.lib.Collections[0].Pages[0])
 	if _, err := os.Stat(orphan); err == nil {
 		t.Fatal("the orphan stays")
+	}
+	if got, _ := filepath.Glob(filepath.Join(a.lib.Root, TrashDir, "*", "resim-20200101-010101.png")); len(got) != 1 {
+		t.Fatal("the orphan is not in the trash")
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Fatal("a picture written a moment ago was swept")
 	}
 	if _, err := os.Stat(mine); err != nil {
 		t.Fatal("a picture of another name was deleted")
@@ -268,5 +279,45 @@ func TestSettingsPrivate(t *testing.T) {
 	defer s.Close()
 	if fi, _ := os.Stat(filepath.Join(dir, "k.db")); fi.Mode().Perm() != 0o600 {
 		t.Fatalf("library file mode %v", fi.Mode())
+	}
+}
+
+// An unreadable page opens read-only: it says so, nothing is written over its file, and its pictures stay (#125,
+// #126). A restore of an earlier copy mends it.
+func TestUnreadablePageKept(t *testing.T) {
+	for _, bad := range []string{`{"meta":{"title":"Kesik"},"body":[{"r":[{"t":"yar`, `{"meta":{"title":"Yeni"},"body":{"v":2,"blocks":[]}}`} {
+		a, _ := newTestApp(t, "ilk hâli\n")
+		p := a.page
+		a.save()
+		pic := filepath.Join(p.Dir, "resim-20200101-010101.png")
+		os.WriteFile(pic, pngBytes(5, 5), 0o644)
+		old := a.clock().Add(-time.Hour)
+		os.Chtimes(pic, old, old)
+		os.WriteFile(p.File(), []byte(bad), 0o644)
+		a.docs = map[*Page]*richtext.Document{}
+		a.page = nil
+		a.open(p)
+		if p.Unreadable == "" {
+			t.Fatalf("%q: not seen as unreadable", bad)
+		}
+		a.doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "x"}}}))
+		a.dirty = true
+		a.save()
+		if b, _ := os.ReadFile(p.File()); string(b) != bad {
+			t.Fatalf("%q: written over: %s", bad, b)
+		}
+		if _, err := os.Stat(pic); err != nil {
+			t.Fatalf("%q: its picture was swept", bad)
+		}
+		if err := p.SetTitle("başka"); err == nil {
+			if b, _ := os.ReadFile(p.File()); string(b) != bad {
+				t.Fatalf("%q: a rename wrote over it", bad)
+			}
+		}
+		os.WriteFile(p.File(), JoinPage(map[string]string{"title": "Kesik"}, `[{"r":[{"t":"onarıldı"}]}]`), 0o644)
+		a.takeOutside(p)
+		if p.Unreadable != "" || !strings.Contains(a.doc.Text().String(), "onarıldı") {
+			t.Fatalf("%q: a mended file is not taken: %q %q", bad, p.Unreadable, a.doc.Text().String())
+		}
 	}
 }

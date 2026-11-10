@@ -130,3 +130,21 @@ func removeFile(fsys FS, name string) error {
 	}
 	return nil
 }
+
+// TrashFiles moves files of page p's folder, by name, into the trash, as a sync's removals go: a folder of the
+// trash for them, under the page's name, from which they can be taken back for 30 days (#126).
+func (l *Library) TrashFiles(p *Page, names []string, now time.Time) error {
+	rel, err := filepath.Rel(l.Root, p.Dir)
+	if err != nil {
+		return err
+	}
+	gone := make([]string, len(names))
+	for i, n := range names {
+		gone[i] = path.Join(filepath.ToSlash(rel), n)
+	}
+	_, failed := syncTrash(l.FS, l.Root, gone, map[string]string{}, map[string]bool{}, now)
+	for _, err := range failed {
+		return err
+	}
+	return nil
+}

@@ -751,10 +751,15 @@ func (a *app) docFor(p *Page) *richtext.Document {
 	doc := a.docs[p]
 	if doc == nil {
 		body, err := p.Body()
-		if err != nil {
-			a.saveErr = err.Error()
+		if err == nil {
+			err = bodyReadable(body)
 		}
-		a.sweepPictures(p, body)
+		p.Unreadable = "" // read again: what it says now
+		if err != nil {   // shown read-only and never saved over, and its pictures kept (#125, #126)
+			p.Unreadable = err.Error()
+		} else {
+			a.sweepPictures(p, body)
+		}
 		doc = richtext.NewDocument(a.parsePage(p, body))
 		if hugePage(doc.Text()) {
 			doc.SetSelection(0, 0) // a document begins with its caret at the end: a huge page opens at its top
@@ -1077,6 +1082,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.backlinksView(c, p)
 		return
 	}
+	if p.Unreadable != "" { // shown, not edited: the editor would save what it shows over the file
+		ui.Text(c, T("This page could not be read, so it opens read-only and nothing is written over its file. Its history may hold an earlier copy to restore.")+"\n"+p.Unreadable).FontSize(13).TextColor(ryugo.From(c).Colors.Warn).Wrap().FillWidth().Padding(0, 0, 8, 0)
+	}
 	c.Key("body:" + p.Dir)
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
 	a.codeTheme = editor.DefaultTheme(c.Theme())
@@ -1087,6 +1095,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
 		SpansVersion: a.spansVersion(),
+		ReadOnly:     p.Unreadable != "",
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)

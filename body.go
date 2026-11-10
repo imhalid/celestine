@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/egoist/mygo/ui/richtext"
@@ -135,6 +136,16 @@ func objOf(at *richtext.Attachment) *bodyObj {
 		if at.URL != "" { // a picture not yet dressed
 			return &bodyObj{K: "image", Alt: at.Name, Ref: at.URL}
 		}
+	}
+	return nil
+}
+
+// bodyReadable says why a body is not one decodeBody can read: a value of the wrong type, or a shape of a later
+// version. decodeBody gives the empty text for it, which must not be taken for the page's (#125).
+func bodyReadable(s string) error {
+	var paras []bodyPara
+	if err := json.Unmarshal([]byte(s), &paras); err != nil {
+		return errors.New("the page's text is in a form this version cannot read: " + err.Error())
 	}
 	return nil
 }

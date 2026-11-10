@@ -197,6 +197,11 @@ type Page struct {
 	SxOf  any // the index it is in (searchindex.go): the library does not know it
 	SxGen int
 
+	// Unreadable says why the page's text could not be read when it was opened, and while it is set nothing is
+	// written over its file (Save refuses): what is shown is not the page, and saving it would replace the file
+	// with what was shown (#125). A restore of an earlier copy clears it.
+	Unreadable string
+
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
 	excerptAt int
@@ -417,6 +422,9 @@ func (p *Page) SaveText(md string) error { return p.Save(Format.FromMarkdown(md)
 
 // Save writes the page: its body, and what is known of it.
 func (p *Page) Save(body string) error {
+	if p.Unreadable != "" {
+		return fmt.Errorf("%w: %s", ErrUnreadable, p.Unreadable)
+	}
 	meta := map[string]string{}
 	for k, v := range p.Props {
 		if v != "" && !slices.Contains(reserved, k) {
@@ -486,6 +494,9 @@ func (p *Page) FirstImage() string {
 
 // imageRef is a picture in Markdown, ![alt](ref), and not an embedded page, ![[Page]].
 var imageRef = regexp.MustCompile(`!\[[^\[\]]*\]\((?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\)`)
+
+// ErrUnreadable is what Save says of a page whose text could not be read (Page.Unreadable).
+var ErrUnreadable = errors.New("the page could not be read, so it is not written over")
 
 // SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
