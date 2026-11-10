@@ -165,8 +165,18 @@ func (a *app) linkContext(q, p *Page) []seg {
 	if v, ok := a.ctxCache[key]; ok {
 		return v
 	}
-	if a.ctxCache == nil || len(a.ctxCache) > 800 {
+	if a.ctxCache == nil {
 		a.ctxCache = map[string][]seg{}
+	}
+	if len(a.ctxCache) > 4000 { // half of it goes, not all: a page with more backlinks than it holds emptied it and read
+		// them all again at every frame (#195); which half does not matter, the lines are read again when asked
+		n := 0
+		for k := range a.ctxCache {
+			if n%2 == 0 {
+				delete(a.ctxCache, k)
+			}
+			n++
+		}
 	}
 	var out []seg
 	if body, err := q.Text(); err == nil {

@@ -467,7 +467,11 @@ func (a *app) score(n *qnode, d qdoc) (int, bool) {
 	case qColl:
 		return 0, strings.Contains(d.fcoll, n.text)
 	case qTag:
-		return 20, slices.Contains(a.links.tags[n.text], d.page)
+		// the page's own tags, a few: the pages of the tag were gone through for every page asked about (#195)
+		if e := a.links.pages[d.page]; e != nil {
+			return 20, slices.ContainsFunc(e.tags, func(name string) bool { return tagKey(name) == n.text })
+		}
+		return 20, false
 	case qTodo, qDone:
 		if e := a.links.pages[d.page]; e != nil {
 			return 0, slices.ContainsFunc(e.tasks, func(t taskItem) bool { return t.done == (n.kind == qDone) })
