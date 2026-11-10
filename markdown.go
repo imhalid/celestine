@@ -106,6 +106,9 @@ func parseBody(md string) richtext.Text {
 				continue
 			}
 		}
+		if footDef.MatchString(l) && len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
+			out = append(out, "") // a footnote's note is a paragraph of its own, under another note too (#308)
+		}
 		out = append(out, protectInline(l))
 		afterHeld = false
 		i++
@@ -171,8 +174,7 @@ func rawBlock(lines []string, i int, paraStart bool) (string, int) {
 		return "", 0
 	case callout.MatchString(l):
 		return "callout", until(i, func(s string) bool { return strings.HasPrefix(strings.TrimSpace(s), ">") })
-	case footDef.MatchString(l):
-		return "footnote", until(i, any)
+	// a footnote's note ([^1]: …) is a paragraph of the page, written in as any other (footnote.go, #308)
 	case htmlStart.MatchString(l) && foreignHTML(l):
 		return "html", until(i, any)
 	case paraStart:
@@ -358,6 +360,12 @@ func bodyMarkdown(t richtext.Text) string {
 		}
 		if fence == "" {
 			lines[i] = unescape(l)
+		}
+	}
+	// footnotes' notes one under the other, as they are written: no empty line between two (#308)
+	for i := len(lines) - 2; i > 0; i-- {
+		if lines[i] == "" && footDef.MatchString(lines[i-1]) && footDef.MatchString(lines[i+1]) {
+			lines = append(lines[:i], lines[i+1:]...)
 		}
 	}
 	return strings.Join(lines, "\n")

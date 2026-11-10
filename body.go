@@ -158,7 +158,7 @@ func objOf(at *richtext.Attachment) *bodyObj {
 	switch d := at.Data.(type) {
 	case *chip:
 		switch d.kind {
-		case "page", "date", "embed", "file":
+		case "page", "date", "embed", "file", "footnote":
 			return &bodyObj{K: d.kind, Target: d.target, Alias: d.alias}
 		case "table":
 			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
@@ -228,7 +228,7 @@ func decodeBody(s string) richtext.Text {
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.
 func attachmentOf(o *bodyObj) *richtext.Attachment {
 	switch o.K {
-	case "page", "date", "embed", "file":
+	case "page", "date", "embed", "file", "footnote":
 		ch := &chip{kind: o.K, target: o.Target, alias: o.Alias}
 		return &richtext.Attachment{Name: ch.label(), Data: ch}
 	case "table":

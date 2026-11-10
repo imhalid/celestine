@@ -23,7 +23,7 @@ import (
 
 // chip is what an attachment of ours is.
 type chip struct {
-	kind   string // "page", "date", "embed", "file", "fold", "zoom", "table", "query", or unknownKind (body.go)
+	kind   string // "page", "date", "embed", "file", "footnote", "fold", "zoom", "table", "query", or unknownKind (body.go)
 	target string // the page's title, the day as 2006-01-02, a file's name in the page's folder, or a query (queryblock.go)
 	alias  string // what a page's chip says instead of its title
 	// a fold's or a zoom's: what it hides, and how many lines (fold.go, zoom.go); a zoom's at the top of the page
@@ -51,6 +51,9 @@ func (ch *chip) markdown() string {
 	}
 	if ch.kind == "embed" {
 		return "![[" + ch.target + "]]"
+	}
+	if ch.kind == "footnote" {
+		return "[^" + ch.target + "]"
 	}
 	if ch.alias != "" {
 		return "[[" + ch.target + "|" + ch.alias + "]]"
@@ -183,6 +186,8 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 				att = a.attachment(d)
 			case "embed":
 				att = a.embedAttachment(d)
+			case "footnote":
+				att = a.footnoteAttachment(d)
 			case "query":
 				att = a.queryAttachment(d)
 			case "table":
@@ -207,7 +212,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 // file dropped or imported, what an agent writes, a template). It is not
 // how a page is kept.
 func importMarkdown(md string) richtext.Text {
-	return chipsIn(embedsIn(queriesIn(tablesIn(blockMarksIn(parseBody(md))))))
+	return footnotesIn(chipsIn(embedsIn(queriesIn(tablesIn(blockMarksIn(parseBody(md)))))))
 }
 
 // parse reads Markdown into the editor's text, drawn, for the open page.
@@ -410,6 +415,10 @@ func (a *app) clickChip(x, y float32) bool {
 		}
 		if h.ch.kind == "query" { // the page of the row, or the search
 			a.clickQuery(h, y)
+			return true
+		}
+		if h.ch.kind == "footnote" { // its note
+			a.goToNote(h.ch.target)
 			return true
 		}
 		if h.ch.kind == "embed" { // the page it shows

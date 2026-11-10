@@ -4,6 +4,10 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// footnotes (#308)
+	"Footnote":                         "Dipnot",
+	"a mark here, its note at the end": "burada bir işaret, notu sayfanın sonunda",
+	"Footnote %s has no note on this page: a line “[^%s]: …” makes one.": "%s dipnotunun bu sayfada notu yok: “[^%s]: …” diye bir satır onu yapar.",
 	// the stats' busiest hour, its day named by the window's language (#302)
 	"Most fruitful: around %s %02d:00 (%d words).": "En verimli: %s %02d:00 civarı (%d kelime).",
 	// files the sync held back, sent up again (#147)

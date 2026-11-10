@@ -255,6 +255,9 @@ func (a *app) rawItems(q string) []menuItem {
 	if q == "" || match(q, "Tablo") >= 0 {
 		out = append(out, menuItem{title: "Tablo", sub: "satırlar ve sütunlar", glyph: iconTable, group: "Ekle", run: a.chooseTable})
 	}
+	if q == "" || match(q, T("Footnote")) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
+		out = append(out, menuItem{title: T("Footnote"), sub: T("a mark here, its note at the end"), glyph: iconFootnote, group: "Ekle", run: a.chooseFootnote})
+	}
 	for _, r := range rawTemplates {
 		r := r
 		if q != "" && match(q, r.name) < 0 {
