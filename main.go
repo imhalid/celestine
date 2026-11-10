@@ -1193,6 +1193,10 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		SpansVersion: a.spansVersion(),
 		Space:        a.blockRoom, // the room a block dragged opens where it would go (blockui.go)
 		ReadOnly:     p.Unreadable != "",
+		// the page scrolls as a whole, the editor as tall as its text: no bar of its own beside the page's, which
+		// showed when a split pane narrowed it and the height worked out was a frame behind (#190); a huge page's
+		// window on its text scrolls in itself, and keeps its bar
+		NoScrollbar: !window,
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {
 		ed.Transition(windowEditor)
