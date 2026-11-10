@@ -578,7 +578,7 @@ const TrashNote = ".trashed.json"
 
 // TrashItem is a page or a collection in the trash.
 type TrashItem struct {
-	Kind    string    `json:"kind"` // "page" | "collection"
+	Kind    string    `json:"kind"` // "page" | "collection" | "files" (files of the library's top, a sync took away)
 	Title   string    `json:"title"`
 	From    string    `json:"from"`            // its folder, from the library's root
 	Where   string    `json:"where,omitempty"` // where it was, to show: its collection and the pages above it
@@ -687,6 +687,25 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	defer PagesChanged()
 	if item.From != "" && !SafeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
 		return nil, nil, errors.New("çöp notundaki yol güvenli değil: " + item.From)
+	}
+	if item.Kind == "files" { // each back at the library's top; one that is there again is not written over
+		ents, err := l.FS.ReadDir(item.Dir)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, e := range ents {
+			if e.IsDir() || e.Name() == TrashNote {
+				continue
+			}
+			to := filepath.Join(l.Root, e.Name())
+			if _, err := l.FS.Stat(to); err == nil {
+				return nil, nil, errors.New(e.Name() + ": a file of that name is there already")
+			}
+			if err := l.FS.Rename(filepath.Join(item.Dir, e.Name()), to); err != nil {
+				return nil, nil, err
+			}
+		}
+		return nil, nil, l.FS.RemoveAll(item.Dir)
 	}
 	if item.Kind == "collection" {
 		name := filepath.Base(item.From)

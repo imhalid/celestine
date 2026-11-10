@@ -1013,3 +1013,45 @@ func TestSyncGuardSmallAndNoHash(t *testing.T) {
 		t.Fatalf("an entry with no hash: %+v %v", res, err)
 	}
 }
+
+// A remote whose tombstones claim every file synced before is held too, and a file of the library's top that a
+// sync takes away goes to the trash, from which it comes back (#147).
+func TestSyncGuardTombstonesAndTopFiles(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("Not/A/page.json", "bir")
+	a.write("Not/B/page.json", "iki")
+	a.write("kök.txt", "kökte")
+	a.sync(remote)
+	b.sync(remote)
+	for _, n := range []string{"Not/A/page.json", "Not/B/page.json", "kök.txt"} {
+		os.Remove(filepath.Join(b.root, filepath.FromSlash(n)))
+	}
+	b.sync(remote) // tombstones for all three
+	res := a.sync(remote)
+	if res.Held != 3 || a.read("Not/A/page.json") != "bir" || a.read("kök.txt") != "kökte" {
+		t.Fatalf("tombstones for everything were taken at their word: %+v", res)
+	}
+	a.st.AllowRemovals = true
+	res = a.sync(remote)
+	a.st.AllowRemovals = false
+	if res.Held != 0 || a.read("kök.txt") != "<yok>" {
+		t.Fatalf("not removed when allowed: %+v", res)
+	}
+	lib, err := OpenLibrary(a.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files *TrashItem
+	for _, it := range lib.Trash() {
+		if it.Kind == "files" {
+			files = it
+		}
+	}
+	if files == nil {
+		t.Fatal("the top's file is not in the trash")
+	}
+	if _, _, err := lib.Restore(files); err != nil || a.read("kök.txt") != "kökte" {
+		t.Fatalf("not back: %v", err)
+	}
+}

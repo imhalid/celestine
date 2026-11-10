@@ -50,10 +50,13 @@ func (a *app) restore(item *TrashItem) {
 		a.notice = Tf("“%s” geri yüklendi", item.Title)
 		return
 	}
-	if p != nil {
+	switch {
+	case p != nil:
 		a.open(p)
-	} else {
+	case coll != nil:
 		a.openCollection(coll)
+	default: // files of the library's top: nothing to open
+		a.notice = Tf("“%s” geri yüklendi", item.Title)
 	}
 }
 

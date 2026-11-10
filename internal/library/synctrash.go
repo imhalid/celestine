@@ -33,7 +33,7 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 	failed = map[string]error{}
 	for _, n := range gone {
 		dir := path.Dir(n)
-		if dir == "." || strings.HasPrefix(n, TrashDir+"/") { // no folder to keep it in, or it is the trash
+		if strings.HasPrefix(n, TrashDir+"/") { // it is the trash
 			if err := removeFile(fsys, abs(n)); err != nil {
 				failed[n] = err
 				continue
@@ -70,16 +70,26 @@ func syncTrash(fsys FS, root string, gone []string, hash map[string]string, kept
 				failed[n] = err
 				continue
 			}
-			to, err := UniqueDir(fsys, bin, now.Format("20060102-150405")+"-sync-"+path.Base(dir))
+			base := path.Base(dir)
+			if dir == "." {
+				base = "files"
+			}
+			to, err := UniqueDir(fsys, bin, now.Format("20060102-150405")+"-sync-"+base)
 			if err != nil {
 				failed[n] = err
 				continue
 			}
 			kind := "page"
-			if !strings.Contains(dir, "/") {
+			switch {
+			case dir == ".": // files of the library's top: kept together, put back where they were (#147)
+				kind = "files"
+			case !strings.Contains(dir, "/"):
 				kind = "collection"
 			}
 			f = &folder{to: to, item: TrashItem{Kind: kind, Title: path.Base(dir), From: filepath.FromSlash(dir), Trashed: now.Truncate(time.Second)}}
+			if kind == "files" {
+				f.item.Title, f.item.From = "Files of the library", ""
+			}
 			if kind == "page" {
 				f.item.Where = path.Dir(dir)
 			}

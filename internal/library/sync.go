@@ -898,9 +898,9 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			res.Errors = append(res.Errors, n+": listed with no hash, left as it is")
 		}
 	}
-	hold := false
+	hold, holdTombs := false, false
 	if !st.AllowRemovals {
-		gone, synced := 0, 0
+		gone, tombed, synced := 0, 0, 0
 		var goneNames []string
 		for _, n := range order {
 			if !names[n] {
@@ -909,21 +909,30 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			if st.Files[n].Remote != "" {
 				synced++
 			}
-			if _, rok := remote[n]; !rok {
-				if lh := local[n]; lh != "" && lh == st.Files[n].Local && st.Files[n].Remote != "" {
+			re, rok := remote[n]
+			if rok && !re.Deleted {
+				continue
+			}
+			if lh := local[n]; lh != "" && lh == st.Files[n].Local && st.Files[n].Remote != "" {
+				if rok {
+					tombed++
+				} else {
 					gone++
-					goneNames = append(goneNames, n)
 				}
+				goneNames = append(goneNames, n)
 			}
 		}
 		// many gone at once, or every file synced before, however few: a remote that lost its list
-		hold = gone >= massRemovals && gone*10 >= len(local) || gone > 0 && gone == synced && synced > 1 || gone > 0 && st.Held > 0
-		if hold && st.Resend { // the copies here are the ones to keep: they go up as new
+		hold = gone >= massRemovals && gone*10 >= len(local) || gone > 0 && gone+tombed == synced && synced > 1 || gone > 0 && st.Held > 0
+		// every file synced before deleted at once, by tombstones: a remote that says "deleted" of everything is
+		// not taken at its word (#147); a library really emptied elsewhere is one button away
+		holdTombs = tombed > 0 && gone+tombed == synced && synced > 1 || tombed > 0 && st.Held > 0
+		if (hold || holdTombs) && st.Resend { // the copies here are the ones to keep: they go up as new
 			for _, n := range goneNames {
 				delete(st.Files, n)
 				st.dropBase(n)
 			}
-			hold = false
+			hold, holdTombs = false, false
 		}
 	}
 	for _, n := range order {
@@ -972,7 +981,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			pushed = append(pushed, n)
 		case !localChanged && remoteChanged: // theirs: down
 			if rh == "" {
-				if _, there := remote[n]; hold && !there {
+				if _, there := remote[n]; hold && !there || holdTombs && there {
 					res.Held++
 					continue
 				}
