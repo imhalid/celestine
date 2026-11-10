@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 // The library is a folder of plain files, laid out as Locus lays notes out,
@@ -66,7 +67,7 @@ type Collection struct {
 	// JournalFormat is how the journal's days are titled, as YYYY-MM-DD or
 	// D MMMM YYYY, dddd (journal.go); set in the journal's settings only.
 	JournalFormat string `json:"journalFormat,omitempty"`
-	Creating      bool   // the journal is making today's page
+	Creating      bool   `json:"-"` // the journal is making today's page
 	FS            FS     `json:"-"`
 	// Pinned collections come first in the sidebar; Order places a
 	// collection among the ones pinned or not, as the user moved it (0: by name).
@@ -84,7 +85,7 @@ type Collection struct {
 	Dir        string    `json:"-"`
 	Pages      []*Page   `json:"-"` // top-level pages, oldest first
 	Open       bool      `json:"-"` // shown expanded in the sidebar
-	Seen       time.Time // when its collection.json was last read or written here (watch.go)
+	Seen       time.Time `json:"-"` // when its collection.json was last read or written here (watch.go)
 }
 
 // View is a way of showing a collection's pages: a list grouped by date or a
@@ -548,8 +549,12 @@ func Slug(title string) string {
 	if out == "" {
 		out = "sayfa"
 	}
-	if len(out) > 60 {
-		out = strings.TrimRight(out[:60], "-")
+	if len(out) > 60 { // at a letter's start: a cut in the middle of one is not a name a folder may have (#143)
+		cut := 60
+		for cut > 0 && !utf8.RuneStart(out[cut]) {
+			cut--
+		}
+		out = strings.TrimRight(out[:cut], "-")
 	}
 	return out
 }

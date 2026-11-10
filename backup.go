@@ -244,8 +244,13 @@ func applyRestore(dir, file string, now time.Time) (string, error) {
 			return "", err
 		}
 	}
-	os.Remove(file + "-wal")
-	os.Remove(file + "-shm")
+	// the file's journals go with it, not onto the restored one: in WAL what was last written is in -wal (#136)
+	for _, ext := range []string{"-wal", "-shm", "-journal"} {
+		if kept != "" {
+			os.Rename(file+ext, kept+ext)
+		}
+		os.Remove(file + ext)
+	}
 	if err := os.Rename(tmp, file); err != nil {
 		return "", err
 	}

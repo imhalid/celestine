@@ -146,6 +146,9 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 			continue
 		}
 		body, err := p.Body()
+		if err == nil {
+			err = bodyReadable(body) // appendLine would make the page of the tag line alone (#143)
+		}
 		if err != nil {
 			a.fail(err)
 			continue

@@ -35,9 +35,17 @@ func (s *Store) wrote() {
 	s.Writes.Add(1)
 }
 
+// sqliteURI is the file: URI of the database at file, with query: the characters a URI reads as its own (%, ?, #)
+// are escaped, or a folder named "My #1 notes" opens a database named "My " (#137).
+func sqliteURI(file, query string) string {
+	p := strings.NewReplacer("%", "%25", "?", "%3f", "#", "%23").Replace(filepath.ToSlash(file))
+	return "file:" + p + "?" + query
+}
+
 // OpenStore opens the library file at file, making it when there is none.
 func OpenStore(file string) (*Store, error) {
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(file)+"?_pragma=busy_timeout(5000)&_pragma=foreign_keys(0)")
+	// WAL: a reader on the file, the backup's snapshot or the MCP bridge, does not hold a save back (#136)
+	db, err := sql.Open("sqlite", sqliteURI(file, "_pragma=busy_timeout(5000)&_pragma=foreign_keys(0)&_pragma=journal_mode(WAL)"))
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +153,19 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	if path.Base(n) == PageFileName {
 		s.snapshotBefore(n, data)
 	}
-	_, err = s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 0, ?, ?)
+	// the checks above again, in the statement that writes: the sync's goroutine uses the same store, and a folder
+	// taken away between them would leave a row with no folder (#143)
+	r, err := s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime)
+		SELECT ?1, ?2, 0, ?3, ?4 WHERE EXISTS (SELECT 1 FROM nodes WHERE path = ?2 AND dir = 1)
+			AND NOT EXISTS (SELECT 1 FROM nodes WHERE path = ?1 AND dir = 1)
 		ON CONFLICT(path) DO UPDATE SET data = excluded.data, mtime = excluded.mtime`, n, path.Dir(n), data, time.Now().UnixNano())
-	return err
+	if err != nil {
+		return err
+	}
+	if k, err := r.RowsAffected(); err == nil && k == 0 {
+		return pathErr("write", name, fs.ErrNotExist)
+	}
+	return nil
 }
 
 func (s *Store) Mkdir(name string) error {
@@ -236,6 +254,16 @@ func (s *Store) Rename(oldName, newName string) error {
 		return err
 	}
 	defer tx.Rollback()
+	// the checks above again, in the transaction: nothing else writes while it holds the one connection (#143)
+	var ok int
+	if err := tx.QueryRow(`SELECT (SELECT count(*) FROM nodes WHERE path = ?1) = 1
+		AND (SELECT count(*) FROM nodes WHERE path = ?2) = 0
+		AND (SELECT count(*) FROM nodes WHERE path = ?3 AND dir = 1) = 1`, from, to, path.Dir(to)).Scan(&ok); err != nil {
+		return err
+	}
+	if ok != 1 {
+		return pathErr("rename", oldName, errors.New("changed while it was moved"))
+	}
 	for _, p := range all {
 		np := to + strings.TrimPrefix(p, from)
 		if _, err := tx.Exec(`UPDATE nodes SET path = ?, parent = ? WHERE path = ?`, np, path.Dir(np), p); err != nil {
@@ -306,7 +334,7 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 	}
 	var ns, size int64
 	var d int
-	err := s.DB.QueryRow(`SELECT dir, length(data), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns)
+	err := s.DB.QueryRow(`SELECT dir, coalesce(length(data), 0), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns) // a folder's data is NULL
 	if err != nil {
 		return nil, pathErr("stat", name, fs.ErrNotExist)
 	}
