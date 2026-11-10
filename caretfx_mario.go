@@ -10,7 +10,7 @@ import (
 // ---- Mario: the box in his colors, with an eye ----
 
 // The box is red on top, his cap, melting into blue below, his overalls, with an eye that looks the
-// way the caret last went. At a space he hops a little, and a coin springs out over his head
+// way the writing goes (gazeWant). At a space he hops a little, and a coin springs out over his head
 // and spins up and away.
 
 const (
@@ -55,9 +55,11 @@ func (m *mario) draw(p *ui.Painter, f caretFrame, k kick) {
 	tn := m.at(p)
 	box := boxOf(f)
 	h := float64(box.H)
-	if m.have && math.Abs(float64(f.r.X-m.prev.X)) > 0.5 {
-		m.left = f.r.X < m.prev.X
+	was := 1.0
+	if m.left {
+		was = -1
 	}
+	m.left = gazeWant(was, k) < 0 // the way the writing goes, as the others look (#283)
 	m.prev, m.have = f.r, true
 	// a space: a hop, and a coin over his head
 	if strings.Contains(k.typed, " ") {

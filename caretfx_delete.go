@@ -142,6 +142,9 @@ func (b *backman) spring(dt float64) {
 }
 
 func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
+	if k.wrote > 0 && k.erased == 0 { // writing, it turns the way the writing goes; erasing, the way it eats (#283)
+		b.dir = 1
+	}
 	now := p.Now()
 	if b.base.IsZero() {
 		b.base = now

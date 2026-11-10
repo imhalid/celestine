@@ -83,8 +83,9 @@ func (g *kawaii) draw(p *ui.Painter, f caretFrame, k kick) {
 		}
 	}
 	er := max(1.2, b.H*0.11)
+	look := g.gaze()
 	for _, ox := range []float32{0.28, 0.72} {
-		ex, ey := b.X+b.W*ox, b.Y+b.H*0.4
+		ex, ey := b.X+b.W*ox+look*b.W*0.05, b.Y+b.H*0.4
 		switch {
 		case glad:
 			arc := &ui.Path{}
@@ -94,8 +95,11 @@ func (g *kawaii) draw(p *ui.Painter, f caretFrame, k kick) {
 			p.Fill(ui.Rect{X: ex - er, Y: ey, W: 2 * er, H: max(0.8, er*0.35)}, ink, 0)
 		default:
 			p.Fill(ui.Rect{X: ex - er, Y: ey - er*1.2, W: 2 * er, H: 2.4 * er}, ink, er)
-			p.Fill(ui.Rect{X: ex - er*0.55, Y: ey - er*0.95, W: er * 0.7, H: er * 0.7}, ui.RGBA(255, 255, 255, 0.95), er*0.35)
-			p.Fill(ui.Rect{X: ex + er*0.15, Y: ey + er*0.25, W: er * 0.35, H: er * 0.35}, ui.RGBA(255, 255, 255, 0.85), er*0.2)
+			// the glints on the side it looks to, the big one high, the small one low on the other
+			gx := ex + look*er*0.45
+			p.Fill(ui.Rect{X: gx - er*0.35, Y: ey - er*0.95, W: er * 0.7, H: er * 0.7}, ui.RGBA(255, 255, 255, 0.95), er*0.35)
+			sx := ex - look*er*0.5
+			p.Fill(ui.Rect{X: sx - er*0.17, Y: ey + er*0.25, W: er * 0.35, H: er * 0.35}, ui.RGBA(255, 255, 255, 0.85), er*0.2)
 		}
 	}
 	for _, ox := range []float32{0.14, 0.86} {
@@ -171,9 +175,10 @@ func (g *uwu) draw(p *ui.Painter, f caretFrame, k kick) {
 	if eyes == "><" {
 		left, right = ">", "<"
 	}
-	glyphAt(p, left, b.X+b.W*0.2, cy, size, ink, true, 0, 1)
-	glyphAt(p, "w", b.X+b.W*0.5, cy+box.H*0.06, size*0.85, ink, true, 0, 1)
-	glyphAt(p, right, b.X+b.W*0.8, cy, size, ink, true, 0, 1)
+	lx := g.gaze() * b.W * 0.05 // the face turned the way it looks
+	glyphAt(p, left, b.X+b.W*0.2+lx, cy, size, ink, true, 0, 1)
+	glyphAt(p, "w", b.X+b.W*0.5+lx, cy+box.H*0.06, size*0.85, ink, true, 0, 1)
+	glyphAt(p, right, b.X+b.W*0.8+lx, cy, size, ink, true, 0, 1)
 	for _, ox := range []float32{0.08, 0.92} { // blush
 		x := b.X + b.W*ox
 		p.Fill(ui.Rect{X: x - b.H*0.08, Y: b.Y + b.H*0.66, W: b.H * 0.16, H: b.H * 0.08}, ui.RGBA(244, 114, 182, 0.7), b.H*0.04)

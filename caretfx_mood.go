@@ -96,13 +96,14 @@ func (g *moodFace) draw(p *ui.Painter, f caretFrame, k kick) {
 		}
 	}
 	for i, ox := range []float32{0.3, 0.7} {
-		ex, ey := b.X+b.W*ox, b.Y+b.H*0.36
+		ex, ey := b.X+b.W*ox+g.gaze()*b.W*0.06, b.Y+b.H*0.36
 		switch {
 		case blinking:
 			p.Fill(ui.Rect{X: ex - er, Y: ey, W: 2 * er, H: max(0.8, er*0.4)}, ink, 0)
 		case g.mood == moodWow:
 			p.Fill(ui.Rect{X: ex - er*1.3, Y: ey - er*1.3, W: er * 2.6, H: er * 2.6}, ink, er*1.3)
-			p.Fill(ui.Rect{X: ex - er*0.4, Y: ey - er*0.8, W: er * 0.8, H: er * 0.8}, ui.RGBA(255, 255, 255, 0.9), er*0.4)
+			gx := ex + g.gaze()*er*0.45 // the glint on the side it looks to
+			p.Fill(ui.Rect{X: gx - er*0.4, Y: ey - er*0.8, W: er * 0.8, H: er * 0.8}, ui.RGBA(255, 255, 255, 0.9), er*0.4)
 		case g.mood == moodGlad: // eyes that smile: arcs
 			arc := &ui.Path{}
 			arc.MoveTo(ex-er, ey+er*0.4).QuadTo(ex, ey-er*1.2, ex+er, ey+er*0.4)

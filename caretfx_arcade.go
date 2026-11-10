@@ -51,8 +51,8 @@ func (g *robot) draw(p *ui.Painter, f caretFrame, k kick) {
 	ink := faceInk(f.dark, ui.Hex("#0f172a"))
 	oops := tn-g.oops < 700
 	er := max(1, box.W*0.13)
-	for _, ox := range []float32{0.3, 0.7} { // square eyes; crossed when startled
-		ex, ey := box.X+box.W*ox, box.Y+box.H*0.36
+	for _, ox := range []float32{0.3, 0.7} { // square eyes, looking the way it goes; crossed when startled
+		ex, ey := box.X+box.W*ox+g.gaze()*box.W*0.08, box.Y+box.H*0.36
 		if oops {
 			x := &ui.Path{}
 			x.MoveTo(ex-er, ey-er).LineTo(ex+er, ey+er).MoveTo(ex+er, ey-er).LineTo(ex-er, ey+er)

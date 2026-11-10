@@ -17,6 +17,8 @@ type fxBase struct {
 	have   bool
 	last   float64 // ms, the last frame
 	active float64 // ms, when something was last written, erased or moved
+	look   float64 // where its eyes look, -1 left to 1 right, eased toward want (gaze)
+	want   float64
 }
 
 // step moves a caret's base to this frame: the time now and since the last frame (s), whether the caret moved
@@ -28,12 +30,30 @@ func (b *fxBase) step(p *ui.Painter, f caretFrame, k kick) (tn, dt float64, move
 	if b.have {
 		moved, dist = movedBy(b.prev, f.r)
 	}
+	b.want = gazeWant(b.want, k)
+	b.look += (b.want - b.look) * (1 - math.Exp(-dt/0.09))
 	b.prev, b.have = f.r, true
 	if moved || k.wrote > 0 || k.erased > 0 {
 		b.active = tn
 	}
 	return
 }
+
+// gazeWant is the way a caret's eyes look after this frame (#283): the way the writing goes, right as it is
+// written (a line wrapped or a new one started too); the way it is erased, left for Backspace, right for Delete;
+// else as they looked. Not the way the caret moved on the screen: the page scrolls and the column settles under it.
+func gazeWant(was float64, k kick) float64 {
+	switch {
+	case k.erased > 0 && k.dir < 0:
+		return -1
+	case k.erased > 0, k.wrote > 0:
+		return 1
+	}
+	return was
+}
+
+// gaze is where the eyes look, -1 left to 1 right.
+func (b *fxBase) gaze() float32 { return float32(b.look) }
 
 // idle is how long nothing happened, in seconds.
 func (b *fxBase) idle(tn float64) float64 { return (tn - b.active) / 1000 }
@@ -122,7 +142,7 @@ func (g *pet) draw(p *ui.Painter, f caretFrame, k kick) {
 	ink := faceInk(f.dark, ui.Hex("#1f1530"))
 	er := max(1, b.W*0.11)
 	for _, ox := range []float32{0.3, 0.7} {
-		ex, ey := b.X+b.W*ox, b.Y+b.H*0.38
+		ex, ey := b.X+b.W*ox+g.gaze()*b.W*0.07, b.Y+b.H*0.38
 		p.Fill(ui.Rect{X: ex - er, Y: ey - er, W: 2 * er, H: 2 * er}, ink, er)
 	}
 	mouth := &ui.Path{}
