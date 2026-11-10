@@ -44,6 +44,7 @@ var caretPresets []caretPreset
 
 func init() {
 	caretPresets = []caretPreset{
+		{"Line", func() caretFX { return lineCaret{} }}, // the default (savedCaret)
 		{"CRT", func() caretFX { return newCRT() }},
 		{"Back-man", func() caretFX { return newBackman() }},
 		{"Portal", func() caretFX { return newPortal() }},
@@ -211,19 +212,29 @@ var legacyCarets = []string{"Slime", "Mizan", "Pacman", "Jöle (smear)", "Enerji
 	"Daktilo", "Piksel izi", "Yıldız tozu", "Hız iblisi", "Ateş başı", "Meşale"}
 
 // savedCaret is the caret the settings keep: by its name, or, in settings of before the
-// name was kept, by its old number. A caret that is no more is the slime.
+// name was kept, by its old number. With none chosen, and for a caret that is no more, it
+// is the plain line (#282).
 func (a *app) savedCaret() caretKind {
 	name := a.settings.CaretName
 	if name == "" && a.settings.Caret > 0 && a.settings.Caret < len(legacyCarets) {
 		name = legacyCarets[a.settings.Caret]
 	}
 	for k := caretKind(0); k < caretCount(); k++ {
-		if name == "" {
-			return caretKind(a.settings.Caret % int(caretCount()))
-		}
 		if caretName(k) == name {
 			return k
 		}
 	}
-	return caretSlime
+	return caretLine()
 }
+
+// caretLine is the plain line, the first of the presets.
+func caretLine() caretKind { return caretFirstFX }
+
+// lineCaret is a plain line, as thin as a letter's stem, in the accent: no body, no effect.
+type lineCaret struct{}
+
+func (lineCaret) draw(p *ui.Painter, f caretFrame, k kick) {
+	p.Fill(ui.Rect{X: f.r.X - 1, Y: f.r.Y, W: 2, H: f.r.H}, p.Theme().Accent, 1)
+}
+func (lineCaret) shift(dy float32) {}
+func (lineCaret) reset()           {}

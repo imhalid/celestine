@@ -18,7 +18,7 @@ import (
 // way of writing that are saved under a name and put on with one command), and the settings as a file.
 
 // defaultsApp is an app with nothing set: what a setting is by default is what it reads there.
-func defaultsApp() *app { return &app{} }
+func defaultsApp() *app { return &app{caretKind: caretLine()} } // the caret not chosen is the line (#282)
 
 // state is the setting as a word: on/off, a number with its unit, the choice's name.
 func (d settingDef) state(a *app) string {
