@@ -23,18 +23,18 @@ type palette struct {
 	open   bool
 	query  string // a ">" first in it: the commands; else the documents
 	sel    int
-	text   string   // what is in the field: the query without the sign of the mode
-	hseen  int      // the row last hovered
-	reveal bool     // the arrows (or a new query) moved the chosen row: the list scrolls to show it
-	was    string   // the query of the last frame, to start from the top when it changes
-	hx, hy float32  // where the pointer was last seen over the rows, in the window: a row is chosen by the pointer only when it moves
-	snap   *palSnap // the settings as they were when it opened, while a command is shown as a preview
-	pvKey  string   // the command being previewed
-	cat    string   // the group of commands opened, with nothing typed (palgroups.go)
+	text   string    // what is in the field: the query without the sign of the mode
+	hseen  int       // the row last hovered
+	reveal bool      // the arrows (or a new query) moved the chosen row: the list scrolls to show it
+	was    string    // the query of the last frame, to start from the top when it changes
+	hx, hy float32   // where the pointer was last seen over the rows, in the window: a row is chosen by the pointer only when it moves
+	snap   *palSnap  // the settings as they were when it opened, while a command is shown as a preview
+	pvKey  string    // the command being previewed
+	cat    string    // the group of commands opened, with nothing typed (palgroups.go)
 	items  []palItem // the lines for key, kept: made again only when what they come from changed (#186)
 	key    palKey
 	have   bool // items are made for key (none at all is a list too)
-	made   int // how many times the lines were made, counted for a test
+	made   int  // how many times the lines were made, counted for a test
 }
 
 // palKey is what the palette's lines come from: the query, the group opened, the pages of the library, the open page's
@@ -654,8 +654,8 @@ func matchFolded(q string, words []string, qr []rune, s string) int {
 // paletteView shows the palette while it is open.
 func (a *app) paletteView(c *ui.Context) {
 	if !a.pal.open {
-		a.px.dirty = true // the places are made again when it opens
-		a.palRestore()    // closed without choosing: what a preview changed goes back
+		a.px.dirty = true  // the places are made again when it opens
+		a.palRestore()     // closed without choosing: what a preview changed goes back
 		a.pal.have = false // and the lines: the commands' state, the backups, the recent pages may have changed
 		return
 	}
