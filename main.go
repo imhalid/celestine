@@ -960,6 +960,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.kbKeys(c)
 	a.boundKeys(c)
+	a.noAlignKeys(c) // after the user's own keys, which may take Ctrl+E
 	a.kbView(c)
 	a.welcomeView(c, false)
 	a.tourView(c)
