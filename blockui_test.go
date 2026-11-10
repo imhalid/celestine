@@ -142,3 +142,62 @@ func TestContextMenus(t *testing.T) {
 		t.Fatal("Esc did not close it")
 	}
 }
+
+// A block dragged opens room where it would go: the paragraph there and those
+// under it slide down (the editor's Space) while the pointer aims at it, the
+// room shuts when it aims elsewhere, and let go, the block is there and no
+// room is left open.
+func TestBlockDragOpensRoom(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n\nÜç\n\nDört\n")
+	tt.Advance(300 * time.Millisecond)
+	r := a.editorR
+	topOf := func(i int) float32 {
+		for _, b := range a.boxes {
+			if b.Index == i {
+				return b.Top
+			}
+		}
+		t.Fatalf("no box %d", i)
+		return 0
+	}
+	before := topOf(2) // Üç
+	b0 := a.boxes[0]
+	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	y1 := r.Y + before + 2 // the top half of Üç: before it
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	tt.Advance(500 * time.Millisecond)
+	if !a.grip.dragging || a.grip.toIdx != 2 {
+		t.Fatalf("aim: dragging %v, toIdx %d", a.grip.dragging, a.grip.toIdx)
+	}
+	if room := a.blockRoom(2); room < a.grip.roomH-1 {
+		t.Fatalf("room %.1f, want %.1f", room, a.grip.roomH)
+	}
+	if moved := topOf(2) - before; moved < a.grip.roomH-1 {
+		t.Fatalf("Üç moved %.1f, want %.1f", moved, a.grip.roomH)
+	}
+	// the aim holds though the room moved Üç down: it is read without the room
+	tt.Move(x0, y1+1)
+	tt.Frame()
+	if a.grip.toIdx != 2 {
+		t.Fatalf("aim moved with the room: %d", a.grip.toIdx)
+	}
+	tt.Release(x0, y1+1)
+	tt.Advance(300 * time.Millisecond)
+	if got := mdOf(a.doc); got != "İki\n\nBir\n\nÜç\n\nDört" {
+		t.Fatalf("dragged: %q", got)
+	}
+	if len(a.grip.rooms) != 0 {
+		t.Fatalf("rooms left open: %v", a.grip.rooms)
+	}
+}

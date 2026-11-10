@@ -1142,6 +1142,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
 		SpansVersion: a.spansVersion(),
+		Space:        a.blockRoom, // the room a block dragged opens where it would go (blockui.go)
 		ReadOnly:     p.Unreadable != "",
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	if window {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	ryugo "github.com/imhalid/ryu-go"
@@ -8,9 +10,10 @@ import (
 
 // The grip of a block (⋮⋮): it shows left of the paragraph the pointer is
 // on. A click opens the block's menu - turn it into another kind, duplicate,
-// move, delete; a drag lifts the block, a copy of its first line follows
-// the pointer, a line shows where it would go, and let go it moves there,
-// what is under it with it.
+// move, delete; a drag lifts the block: in its place it fades and glows, a
+// copy of its first line follows the pointer, and where it would go the
+// paragraphs slide apart (the editor's Space) to open room for a preview
+// of it, its first lines. Let go, it moves there, what is under it with it.
 
 type gripState struct {
 	para     int     // the start of the paragraph the grip is for, -1 for none
@@ -27,8 +30,12 @@ type gripState struct {
 	from     [2]int // the block dragged
 	to       int    // where it would go: the paragraph it goes before, or the text's length+1
 	toY      float32
-	pos      ui.Point // the pointer, in window DIPs
-	hover    bool     // the pointer is on the grip
+	toIdx    int             // the paragraph (from 0) the room opens above, -1 at the end of the text
+	rooms    map[int]float32 // the room open above paragraphs, by index, as it springs open and shut
+	roomH    float32         // the room a preview of the block dragged takes
+	bg       ui.Color        // the page's background, which the block lifted fades into
+	pos      ui.Point        // the pointer, in window DIPs
+	hover    bool            // the pointer is on the grip
 }
 
 // blockKinds are what a block can be turned into, in the menus.
@@ -222,6 +229,8 @@ func (a *app) gripView(c *ui.Context) {
 			a.blockMenu(c, grip.LayoutBounds())
 		}
 		if g.dragging {
+			g.bg = a.bg(c)
+			a.blockPreview(c)
 			a.blockGhost(c)
 		}
 	})
@@ -257,7 +266,13 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 		}
 		if g.moved += abs32(dx) + abs32(dy); g.moved > 4 {
 			s, e := blockRange(a.doc.Text(), g.para)
-			g.dragging, g.from, g.to = true, [2]int{s, e}, -1
+			g.dragging, g.from, g.to, g.toIdx, g.rooms = true, [2]int{s, e}, -1, -1, map[int]float32{}
+			// the preview is as tall as the block, up to three lines of it
+			top, bottom, ok := a.blockSpan(s, e)
+			if !ok {
+				top, bottom = 0, a.firstLineH(s, 24)
+			}
+			g.roomH = min(bottom-top, 3*previewLineH) + 2*previewPad + previewGap
 		}
 	case pressed && g.dragging:
 		b := grip.LayoutBounds()
@@ -268,50 +283,158 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 		if g.to >= 0 {
 			moveBlockTo(a.doc, g.from[0], g.from[1], g.to)
 		}
-		g.dragging, g.pressed, g.para = false, false, -1
+		// the block takes the room's place: it shuts at once, not after it
+		g.dragging, g.pressed, g.para, g.rooms = false, false, -1, nil
 		c.AnimationFrame()
 	case !pressed:
 		g.pressed = false
 	}
 }
 
+// The preview of a block dragged, in the room opened for it: lines of 14
+// DIP text, an inset well around them, and a gap to the line under it.
+const (
+	previewLineH = 20
+	previewPad   = 8
+	previewGap   = 6
+)
+
+// blockRoom is the room the editor leaves above paragraph p (its Space): the
+// room a block dragged opens where it would go.
+func (a *app) blockRoom(p int) float32 { return a.grip.rooms[p] }
+
+// roomAbove is how far the rooms open push paragraph p down: those above it
+// and its own.
+func (a *app) roomAbove(p int) float32 {
+	var d float32
+	for i, h := range a.grip.rooms {
+		if i <= p {
+			d += h
+		}
+	}
+	return d
+}
+
+// blockSpan is where the block from s to e is in the editor, its top and
+// bottom, or false when none of it is in view.
+func (a *app) blockSpan(s, e int) (top, bottom float32, ok bool) {
+	for _, b := range a.boxes {
+		if b.Start < s || b.Start > e {
+			continue
+		}
+		if !ok {
+			top, ok = b.Top, true
+		}
+		bottom = b.Top + b.Height
+	}
+	return top, bottom, ok
+}
+
 // aimBlock works out where the block dragged would go, from y in the
 // editor: before the paragraph whose middle is below, outside the block.
+// The paragraphs are taken where they would be with no room open, so that
+// opening it does not move where the pointer aims.
 func (a *app) aimBlock(y float32) {
 	g := &a.grip
 	t := a.doc.Text()
-	g.to = -1
+	g.to, g.toIdx = -1, -1
 	for _, b := range a.boxes {
 		if b.Start >= g.from[0] && b.Start <= g.from[1] {
 			continue
 		}
-		if y < b.Top+b.Height/2 {
+		if top := b.Top - a.roomAbove(b.Index); y < top+b.Height/2 {
 			if b.Start == g.from[1]+1 { // right after itself: where it is
 				return
 			}
-			g.to, g.toY = b.Start, b.Top-3
+			g.to, g.toIdx = b.Start, b.Index
 			return
 		}
 	}
 	if n := len(a.boxes); n > 0 && g.from[1] < t.Len() {
 		last := a.boxes[n-1]
 		if _, e := t.ParagraphRange(last.Start); e == t.Len() {
-			g.to, g.toY = t.Len()+1, last.Top+last.Height+3
+			g.to, g.toY = t.Len()+1, last.Top+last.Height+previewGap
 		}
 	}
 }
 
-// drawBlockDrop draws where the block dragged would go: a line across the
-// editor with a dot at its start, as the tree's.
+// openRooms springs the rooms open and shut, on el, a frame's element of
+// the drag: the one where the block would go opens to its preview's height,
+// the others close and are let go once shut.
+func (a *app) openRooms(el ui.Element) {
+	g := &a.grip
+	if g.toIdx >= 0 {
+		if _, ok := g.rooms[g.toIdx]; !ok {
+			el.Jump("room"+strconv.Itoa(g.toIdx), 0)
+			g.rooms[g.toIdx] = 0
+		}
+	}
+	for i := range g.rooms {
+		to := float32(0)
+		if i == g.toIdx {
+			to = g.roomH
+		}
+		h := el.AnimateTo("room"+strconv.Itoa(i), to, springShift)
+		if to == 0 && h < 0.5 {
+			delete(g.rooms, i)
+			continue
+		}
+		g.rooms[i] = h
+	}
+}
+
+// drawBlockDrop draws the block dragged lifted from its place: faded into
+// the page, with a glow of the accent around it.
 func (a *app) drawBlockDrop(p *ui.Painter, r ui.Rect) {
 	g := &a.grip
-	if !g.dragging || g.to < 0 {
+	if !g.dragging {
 		return
 	}
-	th := p.Theme()
-	y := r.Y + g.toY
-	p.Fill(ui.Rect{X: r.X, Y: y - 1, W: r.W, H: 2}, th.Accent, rad(1))
-	p.StrokePath((&ui.Path{}).Circle(r.X-3, y, 3), 1.5, th.Accent)
+	top, bottom, ok := a.blockSpan(g.from[0], g.from[1])
+	if !ok {
+		return
+	}
+	acc := p.Theme().Accent
+	box := ui.Rect{X: r.X - 8, Y: r.Y + top - 4, W: r.W + 16, H: bottom - top + 8}
+	p.Shadow(box, 8, 0, 0, 14, 0, acc.Alpha(0.22))
+	p.Fill(box, g.bg.Alpha(0.6), rad(8))
+	p.Stroke(box, acc.Alpha(0.45), rad(8), 1)
+}
+
+// blockPreview is the block dragged where it would go: its first lines, in
+// the room opened for them, an inset well that fades in as the room opens.
+func (a *app) blockPreview(c *ui.Context) {
+	g := &a.grip
+	t := ryugo.From(c)
+	cl := t.Colors
+	var y, h float32
+	switch {
+	case g.toIdx >= 0:
+		for _, b := range a.boxes {
+			if b.Index == g.toIdx {
+				h = g.rooms[g.toIdx]
+				y = b.Top - h
+				break
+			}
+		}
+	case g.to >= 0: // at the end of the text: below it, nothing to move
+		y, h = g.toY, g.roomH
+	}
+	if h < 1 {
+		return
+	}
+	text := a.doc.Text().Slice(g.from[0], g.from[1]).String()
+	if text == "" {
+		text = "…"
+	}
+	lines := max(1, int((g.roomH-2*previewPad-previewGap)/previewLineH))
+	pv := ui.Column(c.Key("block-preview")).Absolute().Left(a.editorR.X-8).Top(a.editorR.Y+y).
+		Width(a.editorR.W+16).Height(h-previewGap).Padding(previewPad, 12).Clip().PassThrough().
+		Radius(8).Background(ryugo.Mix(cl.Well, cl.ColorAccent500, 0.06)).Border(1, cl.ColorAccent500).BorderStyle(ui.BorderDashed).
+		Opacity(min(1, h/g.roomH))
+	pv.Children(func() {
+		ui.Text(c, text).FontSize(14).LineHeight(previewLineH).TextColor(cl.Muted).MaxLines(lines)
+	})
 }
 
 // blockGhost is the block's first line, lifted, following the pointer.
@@ -327,6 +450,7 @@ func (a *app) blockGhost(c *ui.Context) {
 	gh := ui.Row(c.Key("block-ghost")).Absolute().Left(g.pos.X-12).Top(g.pos.Y-16).MaxWidth(420).Padding(6, 12).Gap(8).
 		Radius(10).Background(cl.Card).Border(1, cl.Hairline).PassThrough().AlignItems(ui.Center)
 	t.Shadows.ShadowPop.Apply(gh)
+	a.openRooms(gh)
 	gh.Rotate(gh.AnimateTo("tilt", -1.2, springTilt)).Scale(1.02, 1.02)
 	gh.Children(func() {
 		gripDots(c, cl.Muted)
