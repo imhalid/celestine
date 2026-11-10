@@ -261,6 +261,52 @@ func TestTableCellLetGo(t *testing.T) {
 	}
 }
 
+// TestTableCellWheel: the wheel over an open cell scrolls the page, and the cell goes with it.
+func TestTableCellWheel(t *testing.T) {
+	a, tt := newTestApp(t, tableMD+strings.Repeat("satır\n\n", 80))
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	var h tableHit
+	for _, s := range a.tableSeen {
+		if s.row == 0 && s.col == 0 {
+			h = s
+		}
+	}
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(200 * time.Millisecond)
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("kiraz")
+	tt.Advance(200 * time.Millisecond)
+	tt.Wheel(h.r.X+h.r.W/2, h.r.Y+h.r.H/2, 0, 120)
+	tt.Advance(500 * time.Millisecond)
+	tt.Frame()
+	if a.pageScroll.Y < 100 || !a.cellEd.open || a.cellEd.text != "kiraz" {
+		t.Fatalf("the page did not scroll under the cell: scrolled %v, %+v", a.pageScroll.Y, a.cellEd)
+	}
+	for _, s := range a.tableSeen {
+		if s.row == 0 && s.col == 0 && s.r.Y > h.r.Y-100 {
+			t.Fatalf("the cell did not go with the page: %v, was %v", s.r.Y, h.r.Y)
+		}
+	}
+	// far down, the cell out of sight, and back: it is open as it was
+	for range 3 {
+		tt.Wheel(500, 400, 0, 400)
+		tt.Advance(500 * time.Millisecond)
+	}
+	tt.Frame()
+	for range 3 {
+		tt.Wheel(500, 400, 0, -400)
+		tt.Advance(500 * time.Millisecond)
+	}
+	tt.Frame()
+	if !a.cellEd.open || a.cellEd.text != "kiraz" {
+		t.Fatalf("the cell was lost out of sight: %+v", a.cellEd)
+	}
+}
+
 // A check is ticked by a click, with no cell to write in.
 func TestTableCheck(t *testing.T) {
 	a, tt := newTestApp(t, "```"+tableLang+"\n"+`[{"name":"Bitti","kind":"check","align":1},{"name":"İş"}]`+"\n"+`["","a"]`+"\n```\n")

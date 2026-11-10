@@ -699,6 +699,21 @@ func (a *app) closeCell() {
 	a.refocus = true
 }
 
+// wheelToPage has the wheel over el, which is in an overlay, scroll the page under it: the overlay is
+// not in the page's scroll container, and would keep the page still under an open cell.
+func (a *app) wheelToPage(el ui.Element) {
+	el.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind != ui.InputScroll || ev.DY == 0 {
+			return false
+		}
+		a.pageScroll.Y = max(0, min(a.pageScroll.Y+ev.DY, a.pageScroll.MaxY))
+		if a.frame != nil {
+			a.frame()
+		}
+		return true
+	})
+}
+
 // cellEditView is the box a cell is written in, over the cell, and under it
 // the buttons for rows and columns, and for what the column is.
 func (a *app) cellEditView(c *ui.Context) {
@@ -738,6 +753,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		in := ui.TextInputBase(c.Key("cell-in:"+strconv.Itoa(ce.row)+":"+strconv.Itoa(ce.col)), &ce.text).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
 			Label("Hücre").FontSize(a.fontSize()*0.95).Padding(0, 11).Background(cl.Card).Radius(rad(3)).Border(1.5, cl.Accent).FocusRing(false).CaretWidth(0)
 		a.fieldMenu(in, &ce.text, fieldOpts{oneLine: true})
+		a.wheelToPage(in)
 		if ce.fresh {
 			in.AutoFocus()
 			in.Focus()
@@ -826,7 +842,9 @@ func (a *app) cellEditView(c *ui.Context) {
 			return
 		}
 		col := ce.ch.tbl.cols[ce.col]
-		ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Gap(2).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline).
+		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Gap(2).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline)
+		a.wheelToPage(bar)
+		bar.
 			Children(func() {
 				btn := func(glyph *ui.SVG, label string, danger bool, do func(m *tableModel)) {
 					b := ui.Box(c.Key(label)).Size(26, 26).Radius(rad(7)).Center().Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
