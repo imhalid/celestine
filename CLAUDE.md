@@ -35,7 +35,9 @@ Before a commit: `gofmt -l .` empty, `go vet ./...`, and the tests of what the c
 (`-run 'TimeMachine|Version'` for the page history), and the builds a change could break (the wasm build when
 `store_js.go` or a `js` file is touched).
 
-The gate before a release tag (the release workflow runs it too): `gofmt -l .` empty, `go vet ./...`,
+The gate before a release tag (the release workflow runs it too, and `.github/workflows/nightly.yml` every evening
+there were commits, with `-race` on the library and govulncheck; not on each push, as the repository's Actions
+minutes are counted): `gofmt -l .` empty, `go vet ./...`,
 `go test ./...`, and builds without cgo: `CGO_ENABLED=0 GOOS=darwin|linux|windows go build .` and
 `GOOS=js GOARCH=wasm go build .`. The Go of `go.mod` formats; another gofmt aligns differently.
 

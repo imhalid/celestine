@@ -1,0 +1,52 @@
+# The gate, every evening there were commits: format, vet, every test, the library under the race detector, the
+# builds a release makes (the three systems without cgo, and the web's wasm), and govulncheck. Not on each push: the
+# repository is private, and its Actions minutes are counted; an evening's run is one, on Linux, the cheapest runner.
+# An evening with no commit in the day before stops after the check, a minute. It can be run by hand too
+# (Actions ▸ nightly ▸ Run workflow).
+name: nightly
+on:
+  schedule:
+    - cron: "0 18 * * *" # 21:00 in Istanbul
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: anything new today
+        id: new
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || [ $(( $(date +%s) - last )) -lt 86400 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No commit in the last day: nothing to check."
+          fi
+      - uses: actions/setup-go@v5
+        if: steps.new.outputs.run == 'true'
+        with: { go-version-file: go.mod }
+      - name: format and vet
+        if: steps.new.outputs.run == 'true'
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go vet ./...
+      - name: builds
+        if: steps.new.outputs.run == 'true'
+        run: |
+          for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . ; done
+          GOOS=js GOARCH=wasm go build -o /dev/null .
+      - name: the library under the race detector
+        if: steps.new.outputs.run == 'true'
+        run: go test -race ./internal/library/
+      - name: test
+        if: steps.new.outputs.run == 'true'
+        run: go test -timeout 20m ./...
+      - name: known vulnerabilities
+        if: steps.new.outputs.run == 'true'
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

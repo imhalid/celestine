@@ -41,6 +41,7 @@ jobs:
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false \
               -ldflags="-s -w -X main.version=$VERSION $LDX" -o dist/ryudit-$os-$arch$ext .
           done
+          GOOS=js GOARCH=wasm go build -o /dev/null . # the web's build is in the gate too
           ls -l dist
       - name: package
         env:
