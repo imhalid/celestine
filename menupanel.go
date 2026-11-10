@@ -6,10 +6,10 @@ import (
 	"strconv"
 )
 
-// The menu panel the / and @ menu and the block's menu share: a header, a
-// divider, an optional field, and a list of rows - grouped, with icons, a
-// second line, a hint on the right, a ›  on those that go into a menu -
-// that scrolls when there is no room.
+// The menu panel of the / and @ menu: a header, a divider, an optional field, and a list of rows - grouped, with
+// icons, a second line, a hint on the right, a › on those that go into a menu - that scrolls when there is no room.
+// It is the app's own, as MyGo's menus have no field or calendar inside them; the context menus and the block's
+// are MyGo's (popmenu.go, #305).
 
 // placed is where a menu goes: beside its anchor, inside the window.
 type placed struct {

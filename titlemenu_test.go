@@ -25,10 +25,10 @@ func TestTitleRightClickMenu(t *testing.T) {
 		if !a.ctx.open {
 			t.Fatalf("no menu on the title at %v; platform menu %v", r, tt.Menu() != nil)
 		}
-		if tt.Menu() != nil {
-			t.Fatal("the editor's own menu opened too")
+		if m := tt.Menu(); len(m) == 0 || m[0] != T(a.ctx.items[0].title) {
+			t.Fatalf("the menu shown is not the app's: %v", m)
 		}
-		return a.ctx.stack[0]
+		return a.ctx.items
 	}
 	run := func(items []menuItem, title string) {
 		for _, it := range items {
@@ -88,7 +88,7 @@ func TestTitleMenuIsThePageMenu(t *testing.T) {
 		if !a.ctx.open {
 			t.Fatalf("no menu on %q", label)
 		}
-		return titles(a.ctx.stack[0])
+		return titles(a.ctx.items)
 	}
 	a.refocus = true // the caret in the text, not the title
 	tt.Frame()
@@ -98,7 +98,7 @@ func TestTitleMenuIsThePageMenu(t *testing.T) {
 	if err := tt.RightClick("Sayfa: Sayfa"); err != nil || !a.ctx.open {
 		t.Fatalf("no menu on the row: %v", err)
 	}
-	row := titles(a.ctx.stack[0])
+	row := titles(a.ctx.items)
 	if !slices.Equal(title, row) {
 		t.Fatalf("the title's menu %v, the row's %v", title, row)
 	}

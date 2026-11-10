@@ -126,13 +126,13 @@ func TestTaskBoxRightClickMenu(t *testing.T) {
 	x, y := a.editorR.X+r.X+r.W/2, a.editorR.Y+r.Y+r.H/2
 	tt.RightClickAt(x, y)
 	tt.Frame()
-	if !a.ctx.open || len(a.ctx.stack) == 0 || len(a.ctx.stack[0]) != len(taskKinds)+1 {
+	if !a.ctx.open || len(a.ctx.items) == 0 || len(a.ctx.items) != len(taskKinds)+1 {
 		t.Fatalf("no menu of kinds: open %v", a.ctx.open)
 	}
-	if tt.Menu() != nil {
-		t.Fatal("the editor's own menu opened too")
+	if m := tt.Menu(); len(m) == 0 || m[0] != T(a.ctx.items[0].title) {
+		t.Fatalf("the menu shown is not the app's: %v", m)
 	}
-	for _, it := range a.ctx.stack[0] {
+	for _, it := range a.ctx.items {
 		if it.title == "Soru" {
 			it.run()
 		}

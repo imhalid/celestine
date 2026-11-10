@@ -42,10 +42,11 @@ type slashMenu struct {
 // menuItem is a line of the menu.
 type menuItem struct {
 	title, hint, group string
-	sub                string // faint, under the title
-	nav                bool   // goes into a menu: the menu stays open
-	back               bool   // the first line of a menu that was gone into: ← Geri
-	danger             bool   // in red: deletes
+	sub                string            // faint, under the title
+	nav                bool              // goes into a menu: the menu stays open
+	back               bool              // the first line of a menu that was gone into: ← Geri
+	danger             bool              // in red: deletes
+	items              func() []menuItem // a submenu, in the menus MyGo draws (popmenu.go)
 	glyph              *ui.SVG
 	dot                *ui.Color // a dot of this color where the glyph goes (a group's)
 	run                func()

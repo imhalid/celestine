@@ -142,7 +142,10 @@ func (a *app) openBlockMenu() {
 	s, _ := blockOf(a.doc.Text(), at)
 	g := &a.grip
 	g.para = s
-	g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
+	g.menu = true
+	if a.frame != nil {
+		a.frame()
+	}
 }
 
 // openBlockBeside shows the page in the next pane at the block the caret is in.

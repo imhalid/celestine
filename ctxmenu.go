@@ -1,30 +1,21 @@
 package main
 
 import (
-	"github.com/egoist/mygo/ui"
-	ryugo "github.com/imhalid/ryu-go"
 	"slices"
+
+	"github.com/egoist/mygo/ui"
 )
 
-// The context menu, the one for the whole app: a right click on a row of
-// the tree, a page in a list or on a board, a block's grip or the margin by
-// its line, or a page in the trash opens it where the pointer is, in the
-// design of the / menu (menupanel.go). (A right click on the text itself
-// does not reach the app: MyGo's editor takes it for its own menu, which has
-// nothing in it.) Its lines are the ones that thing offers; one that
-// goes into another list (›) shows it with ← Geri over it. ↑↓ ↵ Esc, or a
-// click out of it.
+// The context menu, the one for the whole app: a right click on a row of the tree, a page in a list or on a board,
+// a block's margin, a field, or a page in the trash opens it where the pointer is, and the "…" of the bar and a few
+// buttons open it where they are. It is MyGo's menu drawn in the window (popmenu.go), from an anchor at that point:
+// its keys (↑↓ ← → ↵ Esc, the first letters of a line), its submenus (a line made by into, with ›) and its placement
+// are MyGo's. Its lines are the ones that thing offers.
 
 type ctxMenu struct {
-	open   bool
-	x, y   float32
-	title  string
-	stack  [][]menuItem // the lists gone through; the last is shown
-	sel    int
-	seen   int
-	hseen  int // the row last hovered
-	scroll ui.ScrollState
-	fresh  bool // opened in this frame: the click that opened it is not one that closes it
+	open  bool
+	x, y  float32
+	items []menuItem // what the menu offers; nil when none is open
 }
 
 // showContext opens the menu at x, y in the window.
@@ -38,7 +29,10 @@ func (a *app) showContext(x, y float32, items []menuItem) {
 		}
 		items = kept
 	}
-	a.ctx = ctxMenu{open: true, x: x, y: y, stack: [][]menuItem{items}, seen: -1, fresh: true}
+	a.ctx = ctxMenu{open: true, x: x, y: y, items: items}
+	if a.frame != nil { // asked for after the menu's anchor was built in this frame: it opens in the next
+		a.frame()
+	}
 }
 
 // rightClick reports a click of the secondary button on el, where in the
@@ -61,67 +55,23 @@ func (a *app) contextOn(el ui.Element, menu func() []menuItem) {
 	}
 }
 
-// into is a line that shows another list in the menu.
+// into is a line that opens another list beside the menu: a submenu.
 func (a *app) into(title string, glyph *ui.SVG, items func() []menuItem) menuItem {
-	return menuItem{title: title, glyph: glyph, nav: true, run: func() {
-		a.ctx.stack = append(a.ctx.stack, items())
-		a.ctx.sel, a.ctx.seen, a.ctx.scroll = 1, -1, ui.ScrollState{} // the first line after ← Geri
-	}}
+	return menuItem{title: title, glyph: glyph, items: items}
 }
 
-// contextView draws the menu, over the window, while it is open.
+// contextView draws the menu, over the window, while it is open, and in the frame after a line of it was chosen,
+// when the line runs. A line that opens another menu (showContext) leaves it open with the new lines.
 func (a *app) contextView(c *ui.Context) {
 	m := &a.ctx
-	if !m.open {
+	if m.items == nil {
 		return
 	}
-	t := ryugo.From(c)
-	back := func() {
-		m.stack = m.stack[:len(m.stack)-1]
-		m.sel, m.seen, m.scroll = 1, -1, ui.ScrollState{}
+	items := m.items
+	menuAt(c, "ctx-at", "Bağlam menüsü", ui.Rect{X: m.x, Y: m.y}, &m.open, items)
+	if !m.open {
+		m.items = nil
 	}
-	items := m.stack[len(m.stack)-1]
-	if len(m.stack) > 1 { // a list gone into: ← Geri is its first line, as any other
-		items = append([]menuItem{{title: "Geri", glyph: iconBack, nav: true, back: true, run: back}}, items...)
-	}
-	m.sel = max(0, min(m.sel, len(items)-1))
-	pl := placeMenu(c, m.x, m.y, m.y, items, 0, 0)
-	keepInSight(m.sel, &m.seen, &m.scroll, pl)
-	choose := func(it menuItem) {
-		m.open = false
-		it.run()
-		if it.nav && a.ctx.stack != nil {
-			m.open = true
-		}
-	}
-	ww, wh := c.Size()
-	mp := &menuPanel{key: "ctx", label: "Bağlam menüsü", pl: pl, items: items, sel: m.sel, selPtr: &m.sel, hoverSeen: &m.hseen, scroll: &m.scroll, choose: choose, empty: "Boş"}
-	ui.Overlay(c, func() {
-		away := ui.Box(c.Key("ctx-away")).Absolute().Left(0).Top(0).Size(ww, wh)
-		if m.fresh {
-			m.fresh = false
-		} else if away.Clicked() || away.RightClicked() {
-			m.open = false
-			return
-		}
-		panel := a.drawMenu(c, t, mp).Focusable().Focus()
-		switch {
-		case panel.Shortcut(0, ui.KeyEscape):
-			if len(m.stack) > 1 {
-				back()
-			} else {
-				m.open = false
-			}
-		case panel.Shortcut(0, ui.KeyDown):
-			m.sel = min(m.sel+1, len(items)-1)
-		case panel.Shortcut(0, ui.KeyUp):
-			m.sel = max(m.sel-1, 0)
-		case len(m.stack) > 1 && panel.Shortcut(0, ui.KeyLeft):
-			back()
-		case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
-			choose(items[m.sel])
-		}
-	})
 }
 
 // ---- what each thing offers ----

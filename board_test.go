@@ -242,11 +242,10 @@ func TestBoardCardMoveMenu(t *testing.T) {
 	if !tt.HasText("Durum yok") || !tt.HasText("şimdi burada") {
 		t.Fatalf("the groups: %v", tt.Texts())
 	}
-	// the names are in the board too: the menu is walked by keys
-	for i := 0; i < 3; i++ {
-		tt.Key(0, ui.KeyDown)
+	// the names are in the board too: the menu's own item is chosen
+	if err := tt.ChooseMenuItem("Grubu değiştir", "Bitti"); err != nil {
+		t.Fatal(err, tt.Menu())
 	}
-	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
 	if got := titles(coll.Column("durum", "Bitti")); !equal(got, []string{"Dune"}) {
 		t.Fatalf("column %v", got)

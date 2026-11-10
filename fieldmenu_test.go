@@ -26,10 +26,10 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 		}
 		tt.RightClickAt(r.X+r.W/2, r.Y+r.H/2)
 		tt.Frame()
-		if !a.ctx.open || tt.Menu() != nil {
+		if !a.ctx.open || tt.Menu() == nil {
 			t.Fatalf("%q: app menu %v, system menu %v", label, a.ctx.open, tt.Menu() != nil)
 		}
-		return a.ctx.stack[0]
+		return a.ctx.items
 	}
 	has := func(items []menuItem, title string) *menuItem {
 		for i := range items {
@@ -75,15 +75,15 @@ func TestEditorOpensTheAppMenu(t *testing.T) {
 	tt.Frame()
 	tt.RightClickAt(r.X+60, r.Y+12)
 	tt.Frame()
-	if !a.ctx.open || tt.Menu() != nil {
+	if !a.ctx.open || tt.Menu() == nil {
 		t.Fatalf("app menu %v, system menu %v", a.ctx.open, tt.Menu() != nil)
 	}
 	titles := map[string]func(){}
-	for _, it := range a.ctx.stack[0] {
+	for _, it := range a.ctx.items {
 		titles[it.title] = it.run
 	}
 	for _, want := range []string{"Kopyala", "Kes", "Yapıştır", "Kalın", "Dönüştür…", "Sil"} {
-		if titles[want] == nil {
+		if _, ok := titles[want]; !ok {
 			t.Fatalf("no %q in %v", want, titles)
 		}
 	}
@@ -122,7 +122,7 @@ func TestTagsFieldAndItsMenu(t *testing.T) {
 	r, _ := tt.Find("Seçenek ekle")
 	tt.RightClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Frame()
-	if !a.ctx.open || tt.Menu() != nil {
+	if !a.ctx.open || tt.Menu() == nil {
 		t.Fatalf("app menu %v, system menu %v", a.ctx.open, tt.Menu() != nil)
 	}
 }

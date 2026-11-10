@@ -19,11 +19,7 @@ type gripState struct {
 	para     int     // the start of the paragraph the grip is for, -1 for none
 	top, h   float32 // its line in the editor
 	menu     bool
-	view     string // "turn" in the menu's list of kinds, "" the first
-	sel      int
-	seen     int
-	hseen    int // the row last hovered
-	scroll   ui.ScrollState
+	menuWas  bool // the menu showed last frame: it is built once more, when the line chosen in it runs
 	pressed  bool
 	moved    float32
 	dragging bool
@@ -162,7 +158,7 @@ func (a *app) gutterView(c *ui.Context) {
 					a.refocus = true
 				}
 				if gut.RightClicked() { // the block's menu, as from its grip
-					g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
+					g.menu = true
 				}
 			}
 		}
@@ -223,11 +219,12 @@ func (a *app) gripView(c *ui.Context) {
 		}
 		a.dragGrip(c, grip)
 		if (grip.Clicked() && !g.dragging && g.moved < 4) || grip.RightClicked() {
-			g.menu, g.view, g.sel, g.seen, g.scroll = true, "", 0, -1, ui.ScrollState{}
+			g.menu = true
 		}
-		if g.menu {
+		if g.menu || g.menuWas {
 			a.blockMenu(c, grip.LayoutBounds())
 		}
+		g.menuWas = g.menu
 		if g.dragging {
 			g.bg = a.bg(c)
 			a.blockPreview(c)
@@ -483,7 +480,7 @@ func (a *app) blockItems() []menuItem {
 	g := &a.grip
 	at := g.para
 	done := func(fn func()) func() { return func() { fn() } }
-	if g.view == "turn" {
+	turn := func() []menuItem {
 		var out []menuItem
 		for _, k := range blockKinds {
 			k := k
@@ -498,7 +495,7 @@ func (a *app) blockItems() []menuItem {
 		fold = []menuItem{{title: "Katla", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
 	}
 	return append(fold, []menuItem{
-		{title: "Dönüştür…", glyph: iconFormat, nav: true, run: func() { g.view, g.sel, g.seen, g.scroll = "turn", 1, -1, ui.ScrollState{} }},
+		{title: "Dönüştür…", glyph: iconFormat, items: turn},
 		{title: "Çoğalt", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
 		{title: "Yukarı taşı", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
 		{title: "Aşağı taşı", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
@@ -506,52 +503,14 @@ func (a *app) blockItems() []menuItem {
 	}...)
 }
 
-// blockMenu is the menu of a block, in the / menu's design, under its grip
-// (the span at): ↑↓ move, ↵ chooses, Esc goes back and then closes.
-func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
-	g := &a.grip
-	t := ryugo.From(c)
-	back := func() { g.view, g.sel, g.seen, g.scroll = "", 0, -1, ui.ScrollState{} }
-	items := a.blockItems()
-	if g.view != "" { // a list gone into: ← Geri is its first line, as any other
-		items = append([]menuItem{{title: "Geri", glyph: iconBack, nav: true, back: true, run: back}}, items...)
-	}
-	g.sel = max(0, min(g.sel, len(items)-1))
-	pl := placeMenu(c, at.X, at.Y, at.Y+at.H, items, 0, 0) // no header
-	keepInSight(g.sel, &g.seen, &g.scroll, pl)
-	choose := func(it menuItem) {
-		it.run()
-		if !it.nav {
-			g.menu = false
-		}
-	}
-	ww, wh := c.Size()
-	if ui.Box(c.Key("block-away")).Absolute().Left(0).Top(0).Size(ww, wh).Clicked() {
-		g.menu = false
-		return
-	}
-	m := &menuPanel{key: "block", label: "Blok menüsü", pl: pl, items: items, sel: g.sel, selPtr: &g.sel, hoverSeen: &g.hseen, scroll: &g.scroll, choose: choose, empty: "Boş"}
-	panel := a.drawMenu(c, t, m).Focusable().Focus()
-	switch {
-	case panel.Shortcut(0, ui.KeyEscape):
-		if g.view != "" {
-			back()
-		} else {
-			g.menu = false
-		}
-	case panel.Shortcut(0, ui.KeyDown):
-		g.sel = min(g.sel+1, len(items)-1)
-	case panel.Shortcut(0, ui.KeyUp):
-		g.sel = max(g.sel-1, 0)
-	case g.view != "" && panel.Shortcut(0, ui.KeyLeft):
-		back()
-	case panel.Shortcut(0, ui.KeyEnter) && len(items) > 0:
-		choose(items[g.sel])
-	}
-}
-
 // modal reports whether a dialog is open over the window: what is under it is
 // not pointed at (no grip, no bar) while it is.
 func (a *app) modal() bool {
 	return a.cs.open || a.prop.open || a.pal.open || a.tagRen.open || a.crashOpen || a.vhist.open || a.lightbox != nil || a.wel.on
+}
+
+// blockMenu is the menu of a block, MyGo's drawn in the window (popmenu.go), under its grip (the span at): its kinds
+// to turn it into are a submenu.
+func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
+	menuAt(c, "block-at", "Blok menüsü", at, &a.grip.menu, a.blockItems())
 }

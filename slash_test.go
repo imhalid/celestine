@@ -397,44 +397,21 @@ func TestSlashMenuKeysReachBack(t *testing.T) {
 	}
 }
 
-// The context menu's inner list has the same way: ↑ to ← Geri and ↵, or ←.
-func TestContextMenuKeysReachBack(t *testing.T) {
+// A line made by into is a submenu of MyGo's menu, and a line chosen in it runs (#305).
+func TestContextSubmenu(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(900, 600)
-	inner := []menuItem{{title: "İç bir", run: func() {}}, {title: "İç iki", run: func() {}}}
+	ran := ""
+	inner := []menuItem{{title: "İç bir", run: func() { ran = "bir" }}, {title: "İç iki", run: func() { ran = "iki" }}}
 	a.showContext(300, 200, []menuItem{a.into("Daha…", iconPlus, func() []menuItem { return inner })})
 	tt.Frame()
-	tt.Advance(200 * time.Millisecond)
-	if err := tt.Click("Daha…"); err != nil {
-		t.Fatal(err, tt.Texts())
-	}
-	tt.Advance(200 * time.Millisecond)
-	if len(a.ctx.stack) != 2 {
-		t.Fatalf("not in the inner list: %d", len(a.ctx.stack))
-	}
-	if !tt.HasText("Geri") || a.ctx.sel != 1 {
-		t.Fatalf("← Geri is not a line of the list, or the choice not after it: sel %d %v", a.ctx.sel, tt.Texts())
-	}
-	tt.Key(0, ui.KeyUp)
-	tt.Advance(100 * time.Millisecond)
-	if a.ctx.sel != 0 {
-		t.Fatalf("↑ did not reach the way back: %d", a.ctx.sel)
-	}
-	tt.Key(0, ui.KeyEnter)
-	tt.Advance(200 * time.Millisecond)
-	if len(a.ctx.stack) != 1 || !a.ctx.open {
-		t.Fatalf("↵ on ← Geri: stack %d open %v", len(a.ctx.stack), a.ctx.open)
-	}
 	tt.Frame()
-	tt.Key(0, ui.KeyEnter) // into it again, and ← goes back
-	tt.Advance(300 * time.Millisecond)
-	tt.Frame()
-	if len(a.ctx.stack) != 2 {
-		t.Fatalf("↵ did not go in: %d", len(a.ctx.stack))
-	}
-	tt.Key(0, ui.KeyLeft)
 	tt.Advance(200 * time.Millisecond)
-	if len(a.ctx.stack) != 1 {
-		t.Fatalf("← did not go back: %d", len(a.ctx.stack))
+	if err := tt.ChooseMenuItem("Daha…", "İç iki"); err != nil {
+		t.Fatal(err, tt.Menu())
+	}
+	tt.Advance(200 * time.Millisecond)
+	if ran != "iki" || a.ctx.open || a.ctx.items != nil {
+		t.Fatalf("ran %q, open %v", ran, a.ctx.open)
 	}
 }

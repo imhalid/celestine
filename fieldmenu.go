@@ -188,20 +188,9 @@ func (a *app) editorItems(y float32) []menuItem {
 		}
 	}
 	if box, ok := a.paraAtY(y); ok { // the block under the pointer, as its grip's menu has it
-		a.grip.para, a.grip.view = box.Start, ""
+		a.grip.para = box.Start
 		first := true
-		for _, it := range a.blockItems() {
-			if it.nav { // Dönüştür…: its kinds, in this menu
-				at := box.Start
-				it = a.into(it.title, it.glyph, func() []menuItem {
-					var kinds []menuItem
-					for _, k := range blockKinds {
-						k := k
-						kinds = append(kinds, menuItem{title: k.name, glyph: kindIcon[k.kind], run: func() { a.turnBlock(at, k.kind) }})
-					}
-					return kinds
-				})
-			}
+		for _, it := range a.blockItems() { // Dönüştür… is a submenu of its kinds
 			if first {
 				it.group, first = "~", false
 			}
