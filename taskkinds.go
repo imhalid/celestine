@@ -475,7 +475,9 @@ func (a *app) drawConfetti(p *ui.Painter) {
 		p.Fill(ui.Rect{X: f32(x) - w/2, Y: f32(y) - h/2, W: w, H: h}, b.color.Alpha(f32(alpha)), 1)
 	}
 	fx.bits = keep
-	p.AnimationFrame()
+	if len(keep) > 0 { // until the last bit has fallen
+		p.AnimationFrame()
+	}
 }
 
 // taskBoxHits puts a target over each task's box in view, over the window: richtext's editor takes the

@@ -110,7 +110,7 @@ func (g *kawaii) draw(p *ui.Painter, f caretFrame, k kick) {
 	mouth := &ui.Path{}
 	mouth.MoveTo(mx-2*mw, my).QuadTo(mx-mw, my+mw*1.4, mx, my).QuadTo(mx+mw, my+mw*1.4, mx+2*mw, my)
 	p.StrokePath(mouth, max(0.8, b.H*0.05), ink)
-	p.AnimationFrame() // it blinks
+	idleFrame(p, f) // it blinks
 }
 
 // ---- UwU ----

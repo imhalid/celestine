@@ -153,7 +153,7 @@ func (g *pet) draw(p *ui.Painter, f caretFrame, k kick) {
 	g.hearts.stepDraw(p, tn, dt, func(m *mote, age float64) {
 		glyphAt(p, "♥", f32(m.x), f32(m.y), f32(m.size), withAlpha(ui.Hex("#f43f5e"), 1-age), true, 0, 1+0.3*age)
 	})
-	p.AnimationFrame() // it breathes
+	idleFrame(p, f) // it breathes
 }
 
 // deg is an angle in radians as a rotation takes it, in degrees.

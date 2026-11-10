@@ -157,7 +157,7 @@ func (g *moodFace) draw(p *ui.Painter, f caretFrame, k kick) {
 			p.Fill(ui.Rect{X: cx - er*1.2, Y: b.Y + b.H*0.52, W: er * 2.4, H: er * 1.2}, ui.RGBA(244, 63, 94, 0.55), er*0.6)
 		}
 	}
-	p.AnimationFrame() // it blinks
+	idleFrame(p, f) // it blinks
 }
 
 // ---- Noktalama ----

@@ -96,7 +96,7 @@ func (g *plant) draw(p *ui.Painter, f caretFrame, k kick) {
 		p.Transform(ui.Rotation(deg(m.ang)).Then(ui.Translation(f32(m.x), f32(m.y))), 0, 0, func() { p.FillPath(lf, withAlpha(m.col, 1-age)) })
 	})
 	glassBody(p, f, box, leaf, 1, 0.8)
-	p.AnimationFrame() // it sways
+	idleFrame(p, f) // it sways
 }
 
 func easeOut(x float64) float64 { x = clamp01(x); return 1 - (1-x)*(1-x)*(1-x) }

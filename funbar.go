@@ -166,7 +166,7 @@ func (a *app) barStrip(c *ui.Context, key string, b *funBar) {
 	default:
 		b.drag = false
 	}
-	if b.drag || b.hover {
+	if b.drag { // the view follows the thumb; hovering, the paint does the rest (#189)
 		c.Invalidate()
 	}
 }
@@ -218,6 +218,9 @@ func (a *app) paintBar(p *ui.Painter, b *funBar, r ui.Rect) {
 		wantW = funBarHover
 	}
 	b.w += (wantW - b.w) * (1 - math.Exp(-dt*20))
+	if math.Abs(wantW-b.w) < 0.05 { // there: a value that only comes closer asks for frames for ever (#189)
+		b.w = wantW
+	}
 	active := b.drag || b.hover || now.Sub(b.moved) < funBarShow
 	wantA := 0.0
 	switch {
@@ -227,6 +230,9 @@ func (a *app) paintBar(p *ui.Painter, b *funBar, r ui.Rect) {
 		wantA = 0.55
 	}
 	b.alpha += (wantA - b.alpha) * (1 - math.Exp(-dt*10))
+	if math.Abs(wantA-b.alpha) < 0.01 {
+		b.alpha = wantA
+	}
 	if b.alpha < 0.01 && !active && !b.over {
 		b.alpha = 0
 		return
@@ -288,7 +294,10 @@ func (a *app) paintBar(p *ui.Painter, b *funBar, r ui.Rect) {
 		p.Fill(ui.Rect{X: bx, Y: by, W: bw, H: bh}, withAlpha(accent, 0.95*b.alpha), rad(bh/2))
 		p.RichText(bx+7, by+3, tw+4, span)
 	}
-	if active || b.alpha > 0.01 && b.alpha < 0.99 || b.stretch > 0.3 || math.Abs(b.w-wantW) > 0.05 {
+	// a frame while something moves: its light fading after a scroll, its width, its alpha, its stretch; resting
+	// under the pointer, lit, it is drawn as it is and asks for none
+	fading := !b.drag && !b.hover && now.Sub(b.moved) < funBarShow
+	if b.drag || fading || b.alpha != wantA || b.w != wantW || b.stretch > 0.3 {
 		p.AnimationFrame()
 	}
 }

@@ -160,11 +160,13 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 	// The caret: glass, as the slime is - see-through, lit from above, its top's
 	// color melting into its bottom's, a rim and a glint. It stays as it is while
 	// you write and breathes slowly when you stop.
+	breathing := false
 	if m.glide == nil {
 		a := 1.0
-		if idle > 600*time.Millisecond {
+		// it breathes a while when you stop, then stands as it is: the window at rest (#188)
+		if idle > 600*time.Millisecond && idle < mizanBreathes {
 			a = 0.55 + 0.45*(0.5+0.5*math.Cos(float64(idle-600*time.Millisecond)/float64(time.Second)*math.Pi*2/1.1))
-			busy = true
+			breathing = true
 		}
 		c := boxOf(f) // a block, as the other carets are
 		styledDraw(p, f, c, func() {
@@ -180,12 +182,18 @@ func (m *mizanCaret) draw(p *ui.Painter, f caretFrame) {
 		show := mizanEase(float64(now.Sub(m.openAt))/float64(mizanIn)) * (1 - easeInOutSine(clamp(fade, 0, 1)))
 		m.stat(p, f, tk, show, dt)
 	}
-	if busy {
+	switch {
+	case busy:
 		p.AnimationFrame()
-	} else {
-		p.After(50 * time.Millisecond)
+	case breathing:
+		p.AnimationFrameRate(30)
+	case idle <= 600*time.Millisecond: // the breath begins then
+		p.After(600*time.Millisecond - idle + time.Millisecond)
 	}
 }
+
+// mizanBreathes is how long the mizan breathes once you stop writing.
+const mizanBreathes = time.Minute
 
 // stat draws the Stat over the caret: glass, edge, beam, sparkline, the pace and its badge.
 func (m *mizanCaret) stat(p *ui.Painter, f caretFrame, tk mizanTokens, show, dt float64) {

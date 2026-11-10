@@ -65,5 +65,5 @@ func (g *neon) draw(p *ui.Painter, f caretFrame, k kick) {
 		z.MoveTo(x, y).LineTo(x+s*0.4, y-s*0.3).LineTo(x+s*0.2, y).LineTo(x+s*0.6, y-s*0.3)
 		p.StrokePath(z, 1, withAlpha(pink, 1-age))
 	})
-	p.AnimationFrame() // it hums
+	idleFrame(p, f) // it hums
 }

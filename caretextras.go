@@ -57,6 +57,33 @@ type sleepZ struct {
 	seed float64
 }
 
+// rested is how long the caret has stood still, nothing written, as observe last saw it.
+func (s *sleeper) rested(now time.Time) time.Duration {
+	if !s.seen {
+		return 0
+	}
+	return now.Sub(s.since)
+}
+
+// idleFrame asks for the next frame of a caret that moves of itself (it breathes, blinks, sways, hums), by how long
+// it has rested: at the display's rate a moment after a key, at 30 a second while the sleeper is awake to it, and none
+// after that, so that a window left with the caret in its text is a window at rest (#188). What it draws then stays.
+func idleFrame(p *ui.Painter, f caretFrame) {
+	switch {
+	case f.rest < caretLively:
+		p.AnimationFrame()
+	case f.rest < caretRests():
+		p.AnimationFrameRate(30)
+	}
+}
+
+// caretRests is how long a caret goes on moving of itself once it stands still: as long as the sleeper is awake to
+// it, its z's gone. After that it asks for no frame.
+func caretRests() time.Duration { return sleepAfter + sleepFor + 3*time.Second }
+
+// caretLively is how long after a key a caret that moves of itself is drawn at the display's rate.
+const caretLively = 2 * time.Second
+
 // wake puts the caret awake: a page opened, a key pressed.
 func (s *sleeper) wake() { s.seen, s.zs, s.next, s.amp = false, nil, time.Time{}, 0 }
 

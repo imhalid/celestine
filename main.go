@@ -77,6 +77,7 @@ type caretFrame struct {
 	style  caretStyle              // the text under the caret
 	near   func(n int) []nearGlyph // the letters of its line within n of it; nil where there are none (a field, a demo)
 	words  caretText               // the text round it: the word just written, its paragraph's words, where a word is; nil as near
+	rest   time.Duration           // how long it has stood still, nothing written (idleFrame)
 }
 
 // titleCaretSpec is the caret in the page's title, as it was found: where it
@@ -97,13 +98,15 @@ type app struct {
 	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
 	ps        paneSet // the panes of the window (panes.go)
 
-	bars     map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
-	titles   titleIdx                // the pages by their titles, for the chips (chips.go)
-	nearFn   func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
-	wordsFn  caretText               // and the words round it
-	caretTry caretTry                // the caret's playground in the settings (caretplay.go)
-	census   census                  // the sidebar's tree, counted once a frame (sidebar.go)
-	frameSeq uint64                  // the frames built, counted
+	bars       map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
+	titles     titleIdx                // the pages by their titles, for the chips (chips.go)
+	nearFn     func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	wordsFn    caretText               // and the words round it
+	caretTry   caretTry                // the caret's playground in the settings (caretplay.go)
+	census     census                  // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq   uint64                  // the frames built, counted
+	meter      frameMeter              // what RYUDIT_FRAMES counts (framemeter.go)
+	caretDraws int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
 	drawerOpen bool  // on a phone, the sidebar is open over the page
@@ -924,6 +927,10 @@ func (a *app) view(c *ui.Context) {
 			}()
 		}
 	}()
+	if frameMeterOn {
+		t0 := time.Now()
+		defer func() { a.meter.mu.Lock(); a.meterView(time.Since(t0)); a.meter.mu.Unlock() }()
+	}
 	a.viewFrame(c)
 }
 
@@ -1054,6 +1061,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.tagRenameView(c)
 	a.historyView(c)
 	a.crashView(c)
+	a.frameMeterView(c)
 	a.askView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
@@ -1527,6 +1535,7 @@ func (a *app) revealCaret(cr ui.Rect) {
 }
 
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
+	a.caretDraws++
 	if !a.focused {
 		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same
 		if a.revealWant && a.find.open {
@@ -1620,8 +1629,9 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 	if i := int(a.caretKind) - int(caretFirstFX); i >= 0 && i < len(caretPresets) {
 		if t, ok := a.fxOf(i).(*torch); ok && a.winRect.W > 0 {
 			f.bounds = a.winRect
-			t.draw(p, f, k)
 			a.sleep.observe(p, f, k)
+			f.rest = a.sleep.rested(p.Now())
+			t.draw(p, f, k)
 			a.sleep.draw(p, f, a.caretTint(p))
 			return
 		}
@@ -1633,6 +1643,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 		room = ui.Rect{X: bounds.X - 24, Y: bounds.Y - 12, W: bounds.W + 48, H: bounds.H + 24}
 	}
 	a.sleep.observe(p, f, k) // five seconds of rest, and it sleeps
+	f.rest = a.sleep.rested(p.Now())
 	body := func() {
 		switch a.caretKind {
 		case caretMizan:

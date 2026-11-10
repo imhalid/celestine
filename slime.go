@@ -20,8 +20,12 @@ type slime struct {
 	last                time.Time
 	prev                ui.Rect
 	placed              bool
-	flying              bool // on its way to a new line or place: it squashes when it lands
+	flying              bool      // on its way to a new line or place: it squashes when it lands
+	kicked              time.Time // when the caret last moved: it wobbles at the display's rate a moment after
 }
+
+// slimeBreathes is how long the slime goes on breathing, drawn at 30 a second, once the caret stopped.
+const slimeBreathes = time.Minute
 
 const slimeStep = 1.0 / 240 // springs are integrated in steps this small: every frame rate wobbles alike
 
@@ -108,23 +112,34 @@ func (s *slime) draw(p *ui.Painter, r ui.Rect, cw float32, col ui.Color, dark bo
 func (s *slime) drawWith(p *ui.Painter, r ui.Rect, cw float32, col ui.Color, dark bool, deco func(b ui.Rect)) {
 	now := p.Now()
 	if !s.placed {
-		s.prev, s.last, s.placed = r, now, true
+		s.prev, s.last, s.placed, s.kicked = r, now, true, now
 	} else if r != s.prev {
 		s.moved(s.prev, r)
-		s.prev = r
+		s.prev, s.kicked = r, now
 	}
 	dt := now.Sub(s.last).Seconds()
 	s.last = now
 	W := math.Max(float64(cw), 7)
 	H := float64(r.H)
-	s.step(now, dt, 1, W)
+	if s.flying || now.Sub(s.kicked) < slimeBreathes { // rested past its breath, it stands as it was last drawn
+		s.step(now, dt, 1, W)
+	}
 	// Landing: the foot is home and coming in fast - it splats, then springs up.
 	if s.flying && math.Hypot(s.ax, s.ay) < 0.25*H {
 		s.flying = false
 		s.vy -= 11
 		s.vx += 8
 	}
-	defer p.AnimationFrame()
+	// it never rests, but the window does (#188): at the display's rate while it flies and a moment after the caret
+	// moved, at 30 a second while it breathes, and still after a minute, as it was last drawn
+	defer func() {
+		switch rest := now.Sub(s.kicked); {
+		case s.flying || rest < caretLively:
+			p.AnimationFrame()
+		case rest < slimeBreathes:
+			p.AnimationFrameRate(30)
+		}
+	}()
 
 	j := s.jelly(float64(r.X)+W/2, float64(r.Y)+H, W, H)
 	path := j.outline()

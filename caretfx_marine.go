@@ -231,7 +231,7 @@ func (g *marine) draw(p *ui.Painter, f caretFrame, k kick) {
 	})
 	if ouch > 0 || shot > 0 || len(g.gibs) > 0 || g.rate > 0.5 || god {
 		p.AnimationFrame()
-	} else {
-		p.After(800 * time.Millisecond) // to blink, and to take its wounds
+	} else if f.rest < caretRests() { // to blink, and to take its wounds; then it stands, wounded, the window at rest (#188)
+		p.After(800 * time.Millisecond)
 	}
 }

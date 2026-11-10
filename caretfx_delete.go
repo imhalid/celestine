@@ -200,7 +200,7 @@ func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
 	}
 	styledDraw(p, f, box, func() { glassPath(p, pts, col, f.dark) })
 	b.drawEye(p, f, box, bt)
-	p.AnimationFrame()
+	idleFrame(p, f)
 }
 
 // key is a letter erased at tn: the bend gets its kick, a bite is begun or went on, the letters wait.
@@ -443,5 +443,5 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 	if glow > 0.01 {
 		p.Fill(bar, ui.RGBA(255, 255, 255, float32(0.6*glow)), f32(uh/2))
 	}
-	p.AnimationFrame()
+	idleFrame(p, f)
 }
