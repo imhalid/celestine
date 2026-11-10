@@ -29,7 +29,7 @@ func (a *app) quickSettings() []menuItem {
 				i := i
 				out = append(out, menuItem{title: name, hint: tick(a.settings.Theme%3 == i), run: func() {
 					a.settings.Theme = i
-					a.saveSettings()
+					a.saveSettingsSoon()
 				}})
 			}
 			return out
@@ -51,16 +51,16 @@ func (a *app) quickSettings() []menuItem {
 			return out
 		}),
 		a.into("Cursor FX", iconEditing, func() []menuItem {
-			out := []menuItem{{title: "Kapalı", hint: tick(a.settings.CursorFX == ""), run: func() { a.settings.CursorFX = ""; a.saveSettings() }}}
+			out := []menuItem{{title: "Kapalı", hint: tick(a.settings.CursorFX == ""), run: func() { a.settings.CursorFX = ""; a.saveSettingsSoon() }}}
 			for _, p := range cursorPresets {
 				name := p.name
-				out = append(out, menuItem{title: name, hint: tick(a.settings.CursorFX == name), run: func() { a.settings.CursorFX = name; a.saveSettings() }})
+				out = append(out, menuItem{title: name, hint: tick(a.settings.CursorFX == name), run: func() { a.settings.CursorFX = name; a.saveSettingsSoon() }})
 			}
 			return out
 		}),
 		{title: "Jöle efekti", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
 			a.settings.Jelly = !a.settings.Jelly
-			a.saveSettings()
+			a.saveSettingsSoon()
 		}},
 		a.into("Köşeler", iconBar, func() []menuItem {
 			var out []menuItem
@@ -68,7 +68,7 @@ func (a *app) quickSettings() []menuItem {
 				v := v
 				out = append(out, menuItem{title: strconv.Itoa(v) + "%", hint: tick(a.cornerPercent() == v), run: func() {
 					a.settings.Corner = &v
-					a.saveSettings()
+					a.saveSettingsSoon()
 				}})
 			}
 			return out
