@@ -116,7 +116,10 @@ func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err e
 		if !ok {
 			return false, nil, time.Time{}, pathErr("open", name, fs.ErrNotExist)
 		}
-		return n.dir, n.data, n.mtime, nil
+		if n.dir || n.held {
+			return n.dir, n.data, n.mtime, nil
+		}
+		// a file the snapshot did not read (a picture, an attachment): from the table
 	}
 	var ns int64
 	var d int
@@ -328,7 +331,7 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 		if !ok {
 			return nil, pathErr("stat", name, fs.ErrNotExist)
 		}
-		return info{name: path.Base(n), size: int64(len(x.data)), dir: x.dir, mtime: x.mtime}, nil
+		return info{name: path.Base(n), size: x.size, dir: x.dir, mtime: x.mtime}, nil
 	}
 	var ns, size int64
 	var d int
@@ -348,7 +351,7 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 		var out []fs.DirEntry
 		for _, p := range sn.kids[n] {
 			x := sn.nodes[p]
-			out = append(out, info{name: path.Base(p), size: int64(len(x.data)), dir: x.dir, mtime: x.mtime})
+			out = append(out, info{name: path.Base(p), size: x.size, dir: x.dir, mtime: x.mtime})
 		}
 		return out, nil
 	}
@@ -409,12 +412,14 @@ type storeSnap struct {
 type snapNode struct {
 	dir   bool
 	data  []byte
+	size  int64
+	held  bool // data was read: the JSON files, which opening the library reads, not the pictures (#197)
 	mtime time.Time
 }
 
 // BeginSnapshot reads the table, for what reads it next to be answered from it, until endSnapshot or a write.
 func (s *Store) BeginSnapshot() {
-	rows, err := s.DB.Query(`SELECT path, parent, dir, data, mtime FROM nodes ORDER BY path`)
+	rows, err := s.DB.Query(`SELECT path, parent, dir, CASE WHEN path LIKE '%.json' THEN data END, coalesce(length(data), 0), mtime FROM nodes ORDER BY path`)
 	if err != nil {
 		return
 	}
@@ -424,11 +429,11 @@ func (s *Store) BeginSnapshot() {
 		var p, parent string
 		var d int
 		var data []byte
-		var ns int64
-		if rows.Scan(&p, &parent, &d, &data, &ns) != nil {
+		var ns, size int64
+		if rows.Scan(&p, &parent, &d, &data, &size, &ns) != nil {
 			return
 		}
-		sn.nodes[p] = snapNode{dir: d == 1, data: data, mtime: time.Unix(0, ns)}
+		sn.nodes[p] = snapNode{dir: d == 1, data: data, size: size, held: strings.HasSuffix(p, ".json"), mtime: time.Unix(0, ns)}
 		if p != parent {
 			sn.kids[parent] = append(sn.kids[parent], p)
 		}

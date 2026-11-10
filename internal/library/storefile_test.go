@@ -182,3 +182,29 @@ func TestStoreSubtreeRange(t *testing.T) {
 		t.Fatal("a folder of a like name went with it")
 	}
 }
+
+// The snapshot read as the library opens holds the JSON files only: a picture's or an attachment's bytes are read
+// when asked for, not kept for all of them at once (#197).
+func TestSnapshotHoldsJSONOnly(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.MkdirAll("/c/p")
+	st.WriteFile("/c/p/page.json", []byte(`{"meta":{},"body":[]}`))
+	big := make([]byte, 1<<20)
+	st.WriteFile("/c/p/resim.png", big)
+	st.BeginSnapshot()
+	defer st.EndSnapshot()
+	sn := st.Snap.Load()
+	if sn == nil || sn.nodes["/c/p/resim.png"].data != nil || sn.nodes["/c/p/page.json"].data == nil {
+		t.Fatal("the snapshot holds what it should not, or not what it should")
+	}
+	if b, err := st.ReadFile("/c/p/resim.png"); err != nil || len(b) != len(big) {
+		t.Fatalf("the picture: %d bytes, %v", len(b), err)
+	}
+	if fi, err := st.Stat("/c/p/resim.png"); err != nil || fi.Size() != int64(len(big)) {
+		t.Fatalf("its size: %v", err)
+	}
+}

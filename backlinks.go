@@ -72,6 +72,11 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 			}
 		}
 		l.pages = kept
+		for q := range l.plain { // the texts of pages there no more (trashed, or replaced by a reload): let go (#196)
+			if _, ok := kept[q]; !ok {
+				delete(l.plain, q)
+			}
+		}
 	}
 	if p == nil { // only the index was wanted (tags.go)
 		return nil
