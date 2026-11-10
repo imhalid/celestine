@@ -451,7 +451,11 @@ func (p *Page) Save(body string) error {
 	if p.Cover != "" {
 		meta["cover"] = p.Cover
 	}
-	if err := p.FS().WriteFile(p.File(), JoinPage(meta, body)); err != nil {
+	src, err := JoinPageChecked(meta, body)
+	if err != nil {
+		return err
+	}
+	if err := p.FS().WriteFile(p.File(), src); err != nil {
 		return err
 	}
 	p.Modified = ModTime(p.FS(), p.File())

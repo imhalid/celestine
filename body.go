@@ -111,7 +111,10 @@ func encodeBody(t richtext.Text) string {
 	for len(paras) > 0 && paras[len(paras)-1].S == nil && len(paras[len(paras)-1].R) == 0 { // the empty lines that end the text are no part of it
 		paras = paras[:len(paras)-1]
 	}
-	b, _ := json.Marshal(paras)
+	b, err := json.Marshal(paras)
+	if err != nil { // not "" and not "[]", which read as an empty page: a body no page file takes, so the save fails (#135)
+		return "!" + err.Error()
+	}
 	return string(b)
 }
 

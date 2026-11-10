@@ -77,13 +77,22 @@ func PageMeta(src []byte) map[string]string {
 	return map[string]string{}
 }
 
-// JoinPage writes a page file.
+// JoinPage writes a page file. A body that is not JSON makes nil: what writes a page uses JoinPageChecked.
 func JoinPage(meta map[string]string, body string) []byte {
+	b, _ := JoinPageChecked(meta, body)
+	return b
+}
+
+// JoinPageChecked writes a page file, or says why it cannot: a body that is not JSON would make an empty file,
+// which reads back as an empty page with no title (#135).
+func JoinPageChecked(meta map[string]string, body string) ([]byte, error) {
 	if strings.TrimSpace(body) == "" {
 		body = "[]"
 	}
-	b, _ := json.Marshal(pageDoc{Meta: meta, Body: json.RawMessage(body)})
-	return b
+	if !json.Valid([]byte(body)) {
+		return nil, errors.New("the page's text could not be written: its body is not valid")
+	}
+	return json.Marshal(pageDoc{Meta: meta, Body: json.RawMessage(body)})
 }
 
 // blankText reports whether a body holds no text and no object.
@@ -104,7 +113,10 @@ func migrateLegacyPage(fsys FS, pdir string) ([]byte, error) {
 	}
 	meta, md := SplitFrontMatter(string(old))
 	rest, _ := SplitTitle(md, meta["title"])
-	src := JoinPage(meta, Format.FromMarkdown(rest))
+	src, err := JoinPageChecked(meta, Format.FromMarkdown(rest))
+	if err != nil {
+		return nil, err
+	}
 	if err := fsys.WriteFile(filepath.Join(pdir, PageFileName), src); err != nil {
 		return nil, err
 	}

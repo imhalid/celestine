@@ -72,3 +72,17 @@ func TestDamagedCollectionLeftOut(t *testing.T) {
 		t.Fatal("the damaged file was changed")
 	}
 }
+
+// A body that is not JSON is refused, not written as an empty file (#135).
+func TestSaveRefusesInvalidBody(t *testing.T) {
+	lib, _ := OpenLibrary(t.TempDir())
+	c, _ := lib.NewCollection("Notes")
+	p, _ := c.NewPage(nil, "Trip")
+	before, _ := os.ReadFile(p.File())
+	if err := p.Save("!json: unsupported value"); err == nil {
+		t.Fatal("saved")
+	}
+	if after, _ := os.ReadFile(p.File()); string(after) != string(before) {
+		t.Fatal("the file changed")
+	}
+}
