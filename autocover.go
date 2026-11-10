@@ -960,6 +960,10 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 	pt.AnimationFrameRate(coverFPS)
 }
 
+// wrap is x modulo m, for x and m not below zero: what math.Mod gives then, without its slow loop. The moving parts
+// of a cover wrap a position for every column of every tile at every frame, and math.Mod was half of their cost (#204).
+func wrap(x, m float64) float64 { return x - m*math.Floor(x/m) }
+
 // paintLife is what moves in the landscape at time t (seconds), on a tile: at gives where
 // a pixel of the picture is.
 func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32), flip bool) {
@@ -967,7 +971,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 	white := rgb{255, 255, 255}
 	ac.paintScene(pt, t, at, flip)
 	for _, c := range ac.clouds { // clouds drift, and come round again
-		x, y := at(math.Mod(c.x+t*c.speed, picW+c.w)-c.w, c.y)
+		x, y := at(wrap(c.x+t*c.speed, picW+c.w)-c.w, c.y)
 		w := f32(c.w * s)
 		dst := ui.Rect{X: x, Y: y, W: w, H: f32(c.h * s)}
 		if flip { // a mirrored tile: its left is where its right was
@@ -985,7 +989,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 	}
 	if ac.shooting { // now and then a star falls
 		const every = 11.0
-		k := math.Mod(t, every) / 0.9
+		k := wrap(t, every) / 0.9
 		if k < 1 {
 			r := splitmix(ac.seed ^ uint64(t/every))
 			x0, y0 := r.f()*picW, r.in(0.05, 0.35)*picHz
@@ -998,7 +1002,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 	}
 	if ac.birds { // a few birds, flapping, once across in a while
 		const cross = 70.0
-		k := math.Mod(t+float64(ac.seed%50), cross*1.6) / cross
+		k := wrap(t+float64(ac.seed%50), cross*1.6) / cross
 		if k < 1 {
 			r := splitmix(ac.seed ^ 0xb1)
 			by := r.in(0.15, 0.45) * picHz
@@ -1022,7 +1026,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 		r := splitmix(ac.seed ^ 0x5a0)
 		for i := 0; i < 90; i++ {
 			fx, sp, ph := r.f()*picW, r.in(3, 7), r.f()*6.28
-			y := math.Mod(r.f()*picH+t*sp, picH)
+			y := wrap(r.f()*picH+t*sp, picH)
 			x := fx + math.Sin(t*0.8+ph)*3
 			px, py := at(x, y)
 			pt.Fill(ui.Rect{X: px, Y: py, W: s, H: s}, white.ui(0.85), 0)
@@ -1075,7 +1079,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 				pt.Fill(ui.Rect{X: px, Y: py + 4*s, W: col * s, H: s}, foam.ui(0.4), 0)
 			}
 			// the swell itself, a line of light a little out, coming in
-			k := math.Mod(t*0.25+float64(x)*0.0005, 1)
+			k := wrap(t*0.25+float64(x)*0.0005, 1)
 			_, wy := at(float64(x), sh+4+(1-k)*14)
 			pt.Fill(ui.Rect{X: px, Y: wy, W: col * s, H: s}, foam.ui(0.28*math.Sin(k*math.Pi)), 0)
 		}
@@ -1086,7 +1090,7 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 			if i >= 8 { // the shoal
 				fx, fy, v = 400+float64(i%3)*5, 74+float64(i/3)*3, 3
 			}
-			x := math.Mod(fx+t*v, picW+20) - 10
+			x := wrap(fx+t*v, picW+20) - 10
 			y := fy + math.Sin(t*0.6+float64(i))*1.5
 			hx, hy := at(x, y)
 			tx, _ := at(x-2, y)
