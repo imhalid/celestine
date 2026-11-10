@@ -205,6 +205,7 @@ type app struct {
 	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
 	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
 	unsavedAt   time.Time
+	daysStamped bool   // the journal's pages have their days kept (stampDays)
 	storeErr    string     // the library store's last write error, as shown
 	notice      string     // a toast to show
 	trashed     *TrashItem // just thrown away: a toast offers it back
@@ -438,22 +439,13 @@ func main() {
 			restored = "Geri yükleme olmadı: " + rerr.Error()
 		}
 		restoreNote = restored
-		_, existed := os.Stat(file)
-		if store, err = OpenStore(file); err == nil {
-			if existed != nil {
-				for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
-					if IsLibraryFolder(old) {
-						store.Fast(true) // a copy of what is still there: no wait for each file
-						err = CopyTree(OSFS{}, old, store, StoreRoot)
-						store.Fast(false)
-						if err != nil {
-							cannotOpen(store, err)
-							return
-						}
-						break
-					}
-				}
+		if _, serr := os.Stat(file); serr != nil {
+			if err := importFolderLibrary(file); err != nil {
+				cannotOpen(nil, err)
+				return
 			}
+		}
+		if store, err = OpenStore(file); err == nil {
 			store.BeginSnapshot() // the table read at once: not a query a folder and a page
 			lib, err = OpenLibraryIn(store, StoreRoot)
 			store.EndSnapshot()
@@ -621,6 +613,42 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// importFolderLibrary takes a folder library found beside file (from before the one-file library) into a new
+// library file, the first time: into file.importing, which becomes file only when it is whole. A copy that failed
+// left a file that was there, so the next start skipped the import and opened part of the library (#141).
+func importFolderLibrary(file string) error {
+	for _, old := range []string{filepath.Join(filepath.Dir(file), "kitaplik"), "kitaplik"} {
+		if !IsLibraryFolder(old) {
+			continue
+		}
+		tmp := file + ".importing"
+		for _, ext := range []string{"", "-wal", "-shm"} {
+			os.Remove(tmp + ext) // what a failed import left
+		}
+		st, err := OpenStore(tmp)
+		if err != nil {
+			return err
+		}
+		st.Fast(true) // a copy of what is still there: no wait for each file
+		err = CopyTree(OSFS{}, old, st, StoreRoot)
+		st.Fast(false)
+		if cerr := st.Close(); err == nil {
+			err = cerr
+		}
+		if err == nil {
+			err = os.Rename(tmp, file)
+		}
+		for _, ext := range []string{"-wal", "-shm"} {
+			os.Remove(tmp + ext)
+		}
+		if err != nil {
+			os.Remove(tmp)
+		}
+		return err
+	}
+	return nil
 }
 
 // cannotOpen says, in a window, that the library could not be opened and why, and quits when it is closed: a

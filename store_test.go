@@ -261,3 +261,30 @@ func TestCopyTreeSkipsLinks(t *testing.T) {
 		}
 	}
 }
+
+// The old folder library is taken into the library file whole or not at all: a failed import leaves no file, and the
+// next start tries again (#141).
+func TestImportFolderLibraryWhole(t *testing.T) {
+	root := t.TempDir()
+	lib, _ := OpenLibrary(filepath.Join(root, "kitaplik"))
+	c, _ := lib.NewCollection("Eski")
+	p, _ := c.NewPage(nil, "Sayfa")
+	p.SaveText("içerik\n")
+	file := filepath.Join(root, "kitaplik.db")
+	os.WriteFile(file+".importing", []byte("a failed one's leftover"), 0o644)
+	if err := importFolderLibrary(file); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(file + ".importing"); err == nil {
+		t.Fatal("the import's file is left")
+	}
+	st, err := OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	in, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil || len(in.Collections) != 1 || len(in.Collections[0].Pages) != 1 {
+		t.Fatalf("not whole: %v", err)
+	}
+}

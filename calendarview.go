@@ -32,6 +32,8 @@ func pageDate(p *Page, field string) (time.Time, bool) {
 			return d, false
 		}
 		d = v
+	case p.Coll != nil && p.Coll.Journal: // a day of the journal is its own, wherever it is looked at from (#144)
+		return dayOf(p), true
 	default:
 		d = p.Created
 	}

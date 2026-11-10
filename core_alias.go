@@ -38,6 +38,7 @@ type Filter = library.Filter
 var FilterOps = library.FilterOps
 var HTTPSOnly = library.HTTPSOnly
 var HashOf = library.HashOf
+var InBatch = library.InBatch
 
 type Historian = library.Historian
 

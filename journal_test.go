@@ -153,3 +153,28 @@ func TestJournalKeys(t *testing.T) {
 		t.Fatalf("[ ]: %q", a.page.Title)
 	}
 }
+
+// A page of the journal keeps its day: after a journey to another time zone a late evening page is still on its day,
+// and today does not get a second page (#144).
+func TestJournalDayKeptAcrossZones(t *testing.T) {
+	was := time.Local
+	defer func() { time.Local = was }()
+	time.Local = time.FixedZone("İstanbul", 3*3600)
+	a, _ := newTestApp(t, "x\n")
+	late := time.Date(2026, 11, 9, 23, 30, 0, 0, time.Local)
+	a.clock = func() time.Time { return late }
+	p, err := a.todayPage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Local = time.FixedZone("New York", -5*3600) // 23:30 in İstanbul is 15:30 in New York, the same day; and back
+	time.Local = time.FixedZone("Tokyo", 9*3600)     // 23:30 in İstanbul is 05:30 the next day in Tokyo
+	day := time.Date(2026, 11, 9, 0, 0, 0, 0, time.Local)
+	c, _ := a.journal()
+	if got := a.journalPage(c, day); got != p {
+		t.Fatalf("the page of 9 November moved: %v", dayOf(p))
+	}
+	if got := a.journalPage(c, day.AddDate(0, 0, 1)); got != nil {
+		t.Fatal("the next day took the page")
+	}
+}

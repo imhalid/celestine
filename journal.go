@@ -90,10 +90,48 @@ func pad(n, width int) string {
 	return s
 }
 
-// dayOf is the day a page of the journal is for: the day it was made.
+// journalDayKey is the meta key of the day a page of the journal is for, as a date: the day it was made, in the
+// zone it was made in. Read from Created in the zone of the moment, a late evening page moved to another day after a
+// journey, and a second page was made for today (#144). Not a property's id: those have no colon.
+const journalDayKey = "ryudit:day"
+
+// dayOf is the day a page of the journal is for: its day as kept, or, for a page that has none, the day it was made.
 func dayOf(p *Page) time.Time {
+	if d, err := time.ParseInLocation("2006-01-02", p.Props[journalDayKey], time.Local); err == nil {
+		return d
+	}
 	d := p.Created.Local()
 	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.Local)
+}
+
+// stampDays keeps in each page of the journal c that has none the day it is for now, once: from then on a change of
+// time zone does not move it.
+func stampDays(c *Collection) error {
+	var bare []*Page
+	for _, p := range c.All() {
+		if p.Props[journalDayKey] == "" {
+			bare = append(bare, p)
+		}
+	}
+	if len(bare) == 0 {
+		return nil
+	}
+	return InBatch(c.FS, func() error {
+		for _, p := range bare {
+			body, err := p.Body()
+			if err != nil {
+				continue // a page that cannot be read is not written
+			}
+			if p.Props == nil {
+				p.Props = map[string]string{}
+			}
+			p.Props[journalDayKey] = dayOf(p).Format("2006-01-02")
+			if err := p.Save(body); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // dayTitle is the title of a page of day d in collection c.
@@ -104,6 +142,10 @@ func dayTitle(c *Collection, d time.Time) string { return formatDay(c.JournalFor
 func (a *app) journal() (*Collection, error) {
 	for _, c := range a.lib.Collections {
 		if c.Journal {
+			if !a.daysStamped {
+				a.daysStamped = true
+				stampDays(c)
+			}
 			return c, nil
 		}
 	}
@@ -185,6 +227,10 @@ func (a *app) makeDay(c *Collection, d time.Time) (*Page, error) {
 		return nil, err
 	}
 	p.Created = a.clock().Truncate(time.Second)
+	if p.Props == nil {
+		p.Props = map[string]string{}
+	}
+	p.Props[journalDayKey] = d.Format("2006-01-02")
 	return p, p.Save("") // a page, though its file would not write
 }
 
