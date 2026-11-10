@@ -129,6 +129,13 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 		}
 		l, left := layoutParagraph(para, r.W, a.font, a.theme)
 		runes := []rune(line.String())
+		pre := make([]int, len(runes)+1) // where each rune starts, in the layout's units: once, not once a rune (#198)
+		for i, r := range runes {
+			pre[i+1] = pre[i] + 1
+			if r > 0xFFFF {
+				pre[i+1]++
+			}
+		}
 		end := len(runes)
 		for end > 0 && (runes[end-1] == ' ' || runes[end-1] == '\t' || runes[end-1] == 0xA0) {
 			end--
@@ -137,7 +144,7 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 			if i < 0 || i >= len(runes) {
 				return ui.Rect{}, false
 			}
-			rects := l.SelectionRects(ui.TextInputRange{Start: units(line.String(), i), End: units(line.String(), i+1)})
+			rects := l.SelectionRects(ui.TextInputRange{Start: pre[i], End: pre[i+1]})
 			if len(rects) == 0 {
 				return ui.Rect{}, false
 			}

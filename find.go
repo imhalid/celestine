@@ -46,12 +46,25 @@ func (a *app) openFind() {
 // letters as their ASCII.
 func foldRunes(s string) []rune {
 	out := make([]rune, 0, len(s))
+	seen := map[rune]rune{} // a letter is folded once a call, not each time it comes (#198)
 	for _, r := range s {
-		f := []rune(fold(string(r)))
-		if len(f) == 0 {
-			f = []rune{r}
+		if r < 0x80 { // ASCII: its lower case, which fold gives it
+			if 'A' <= r && r <= 'Z' {
+				r += 'a' - 'A'
+			}
+			out = append(out, r)
+			continue
 		}
-		out = append(out, f[0])
+		f, ok := seen[r]
+		if !ok {
+			fr := []rune(fold(string(r)))
+			f = r
+			if len(fr) > 0 {
+				f = fr[0]
+			}
+			seen[r] = f
+		}
+		out = append(out, f)
 	}
 	return out
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -434,7 +435,8 @@ func isWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
 func starts(t richtext.Text) []int {
 	var out []int
 	for at := range t.Paragraphs() {
-		out = append([]int{at}, out...)
+		out = append(out, at)
 	}
+	slices.Reverse(out) // put each first, it was a copy of all the others: 46 ms at 10 000 paragraphs (#198)
 	return out
 }
