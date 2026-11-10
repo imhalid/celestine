@@ -169,14 +169,14 @@ func pruneBackups(dir string, now time.Time) {
 	all := backups(dir)
 	keep := map[string]bool{}
 	days, weeks := map[string]bool{}, map[string]bool{}
-	pre := 0
+	pre := map[string]int{} // by label: the sync's backups, taken often, do not push out one before an import or by hand
 	y0, m0, d0 := now.Date()
 	today := time.Date(y0, m0, d0, 0, 0, 0, 0, now.Location())
 	for _, b := range all { // newest first
 		if b.Label != "" {
-			if pre < backupPre {
+			if pre[b.Label] < backupPre {
 				keep[b.Path] = true
-				pre++
+				pre[b.Label]++
 			}
 			continue
 		}

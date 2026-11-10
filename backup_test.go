@@ -290,3 +290,22 @@ func TestExportZip(t *testing.T) {
 		t.Fatal("the folder is left")
 	}
 }
+
+// Each label keeps its own last backups: the sync's, taken often, do not push out the one taken before an import
+// (#205).
+func TestBackupPruneByLabel(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.Local)
+	touchBackup(t, dir, now.Add(-48*time.Hour), "içe-aktarma")
+	for i := 0; i < 12; i++ {
+		touchBackup(t, dir, now.Add(-time.Duration(i)*time.Minute), "senkron")
+	}
+	pruneBackups(dir, now)
+	by := map[string]int{}
+	for _, b := range backups(dir) {
+		by[b.Label]++
+	}
+	if by["içe-aktarma"] != 1 || by["senkron"] != backupPre {
+		t.Fatalf("kept: %v", by)
+	}
+}

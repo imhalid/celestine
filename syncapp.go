@@ -41,9 +41,10 @@ type syncUI struct {
 	pass           string // the passphrase being typed
 	recovery       string // the recovery key just made, to be written down
 	hasKey         bool
-	held           int  // files the last pass did not delete here, the remote having none of them (massRemovals)
-	allow          bool // the user said to delete them: the next pass does
-	resend         bool // the user said to send them up again: the next pass does
+	held           int       // files the last pass did not delete here, the remote having none of them (massRemovals)
+	allow          bool      // the user said to delete them: the next pass does
+	backedUp       time.Time // when a pass last backed the library up
+	resend         bool      // the user said to send them up again: the next pass does
 	// the store's Writes when it was last synced or last seen moving, and when it moved: a pass starts once the
 	// writing has been quiet for syncQuiet, so that what is typed goes up in seconds, not at the next round
 	writes   uint64
@@ -161,6 +162,9 @@ func (a *app) syncRemoteID() string {
 	return HashOf([]byte(id))
 }
 
+// syncBackupEvery is how often a sync pass backs the library up first, at most.
+const syncBackupEvery = 30 * time.Minute
+
 func (a *app) syncEvery() time.Duration {
 	if m := a.settings.SyncMinutes; m >= 1 && m <= 1440 {
 		return time.Duration(m) * time.Minute
@@ -276,6 +280,13 @@ func (a *app) syncNow() {
 	backupDir := a.backupDirOf()          // the backup before it is made in the background too: compressing
 	if a.settings.NoBackup || st == nil { // a big library's file took the window a second, at every pass
 		backupDir = ""
+	}
+	// once in a while, not before every pass: passes come two seconds after each pause in typing, and each backup is
+	// the whole file read and compressed (#205)
+	if now := a.clock(); now.Sub(a.sy.backedUp) < syncBackupEvery {
+		backupDir = ""
+	} else if backupDir != "" {
+		a.sy.backedUp = now
 	}
 	a.sy.busy, a.sy.status, a.sy.last = true, T("eşitleniyor…"), a.clock()
 	skip := a.syncSkip()
