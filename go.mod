@@ -6,6 +6,7 @@ require (
 	github.com/egoist/mygo v0.8.4-0.20261110102616-3ea00a774d50
 	github.com/imhalid/ryu-go v0.1.1-0.20261110153211-7f118a81ea7e
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.6
 	modernc.org/sqlite v1.61.1
 )
@@ -24,9 +25,8 @@ require (
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	github.com/zalando/go-keyring v0.2.8 // indirect
 	golang.org/x/image v0.46.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
