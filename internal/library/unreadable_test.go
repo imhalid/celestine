@@ -45,3 +45,30 @@ func TestUnreadableAndTrashFiles(t *testing.T) {
 		t.Fatal("the page went with it")
 	}
 }
+
+// A collection.json that cannot be read leaves its collection out, named in Damaged, and the rest of the library
+// opens; its folder is left as it is (#134).
+func TestDamagedCollectionLeftOut(t *testing.T) {
+	root := t.TempDir()
+	lib, err := OpenLibrary(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"Good", "Bad"} {
+		if _, err := lib.NewCollection(n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bad := filepath.Join(root, "Bad", CollectionFile)
+	os.WriteFile(bad, []byte(`{"name": "Bad", "pages": [`), 0o644)
+	lib, err = OpenLibrary(root)
+	if err != nil {
+		t.Fatalf("the library did not open: %v", err)
+	}
+	if len(lib.Collections) != 1 || lib.Collections[0].Name != "Good" || len(lib.Damaged) != 1 {
+		t.Fatalf("collections %d, damaged %v", len(lib.Collections), lib.Damaged)
+	}
+	if b, _ := os.ReadFile(bad); string(b) != `{"name": "Bad", "pages": [` {
+		t.Fatal("the damaged file was changed")
+	}
+}

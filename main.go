@@ -442,7 +442,8 @@ func main() {
 						err = CopyTree(OSFS{}, old, store, StoreRoot)
 						store.Fast(false)
 						if err != nil {
-							log.Fatal(err)
+							cannotOpen(store, err)
+							return
 						}
 						break
 					}
@@ -459,7 +460,8 @@ func main() {
 		return
 	}
 	if err != nil {
-		log.Fatal(err)
+		cannotOpen(store, err)
+		return
 	}
 	// A library with nothing in it yet but a journal (a new file, or one made and left empty): what it holds after
 	// this is only what it makes for itself, and its first sync takes the account's copies of that (markPristine).
@@ -468,13 +470,15 @@ func main() {
 	empty := bareLibrary(lib)
 	if store == nil {
 		if err := seed(lib); err != nil {
-			log.Fatal(err)
+			cannotOpen(store, err)
+			return
 		}
 	}
 	a := newApp(lib)
 	a.notice = restoreNote
 	if _, err := a.journal(); err != nil { // every library has its journal
-		log.Fatal(err)
+		cannotOpen(store, err)
+		return
 	}
 	keychain = systemKeychain()                     // the secrets of the settings, out of the file (keychain.go)
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
@@ -488,6 +492,9 @@ func main() {
 		a.seedNew(empty && store != nil)
 		a.applyTree()
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
+	}
+	if len(lib.Damaged) > 0 { // left out, and left as they are on disk
+		a.notice = T("Some collections could not be read and are not shown; their folders are left as they are: ") + strings.Join(lib.Damaged, "; ")
 	}
 	if empty {
 		a.markPristine()
@@ -607,6 +614,24 @@ func main() {
 		}
 	})
 	if err := mygo.App.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// cannotOpen says, in a window, that the library could not be opened and why, and quits when it is closed: a
+// library's content is not a reason for the app to vanish with a line in a log no one reads (#134).
+func cannotOpen(store *Store, err error) {
+	setLang(savedLang(store))
+	mygo.App.WhenReady(func() {
+		mygo.Dialog.Message(mygo.MessageOptions{
+			Type:    mygo.MessageError,
+			Title:   "Ryudit",
+			Message: T("The library could not be opened."),
+			Detail:  err.Error() + "\n\n" + T("Nothing in it was changed. A backup can be put in its place from the backups folder."),
+		})
+		mygo.App.Quit()
+	})
+	if rerr := mygo.App.Run(); rerr != nil {
 		log.Fatal(err)
 	}
 }

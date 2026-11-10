@@ -37,6 +37,9 @@ type Library struct {
 	FS          FS
 	Root        string
 	Collections []*Collection
+	// Damaged are the collections whose collection.json could not be read, as "folder: what was wrong": left out
+	// and left as they are, for the app to say so, instead of the library not opening at all (#134).
+	Damaged []string
 }
 
 type Collection struct {
@@ -243,7 +246,8 @@ func OpenLibraryIn(fsys FS, root string) (*Library, error) {
 		}
 		c := &Collection{SubPages: true, Open: true, FS: fsys}
 		if err := json.Unmarshal(data, c); err != nil {
-			return nil, fmt.Errorf("%s: %w", filepath.Join(dir, CollectionFile), err)
+			l.Damaged = append(l.Damaged, e.Name()+": "+err.Error())
+			continue
 		}
 		if c.Name == "" {
 			c.Name = e.Name()
