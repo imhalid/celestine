@@ -427,6 +427,25 @@ func (a *app) settingsEditor(c *ui.Context) {
 				a.settings.Jelly = on
 				a.saveSettings()
 			}
+		},
+		func() { // the mouse pointer's effect: there is no pointer on a phone
+			if phone {
+				return
+			}
+			settingRow(c, "Cursor FX", "An effect that goes with the mouse pointer. The pointer itself stays as it is, and clicks land as they would.", func() {
+				v := a.settings.CursorFX
+				opts := []ryugo.Option[string]{{Value: "", Label: T("Kapalı")}}
+				for _, p := range cursorPresets {
+					opts = append(opts, ryugo.Option[string]{Value: p.name, Label: T(p.name)})
+				}
+				ui.Box(c).Width(200).Children(func() {
+					ryugo.Select(c.Key("set-cursor-fx"), &v, opts, ryugo.SelectOptions{Label: T("Cursor FX"), Size: ryugo.Sm})
+				})
+				if v != a.settings.CursorFX {
+					a.settings.CursorFX = v
+					a.saveSettings()
+				}
+			})
 		})
 	if caret != int(a.caretKind) {
 		a.setCaret(caretKind(caret))

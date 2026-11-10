@@ -50,6 +50,14 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
+		a.into("Cursor FX", iconEditing, func() []menuItem {
+			out := []menuItem{{title: "Kapalı", hint: tick(a.settings.CursorFX == ""), run: func() { a.settings.CursorFX = ""; a.saveSettings() }}}
+			for _, p := range cursorPresets {
+				name := p.name
+				out = append(out, menuItem{title: name, hint: tick(a.settings.CursorFX == name), run: func() { a.settings.CursorFX = name; a.saveSettings() }})
+			}
+			return out
+		}),
 		{title: "Jöle efekti", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
 			a.settings.Jelly = !a.settings.Jelly
 			a.saveSettings()

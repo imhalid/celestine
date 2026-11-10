@@ -8,6 +8,15 @@ var trText = map[string]string{
 	"Account": "Hesap",
 	// the plain caret, the default (caretfx.go)
 	"Line": "Çizgi",
+	// the effects of the mouse pointer (cursorfx.go)
+	"Cursor FX":   "İmleç efekti",
+	"Follower":    "Takipçi",
+	"Trail":       "İz",
+	"Ripple":      "Dalga",
+	"Paper plane": "Kâğıt uçak",
+	"Spider":      "Örümcek",
+	"Rocket":      "Roket",
+	"An effect that goes with the mouse pointer. The pointer itself stays as it is, and clicks land as they would.": "Fare imleciyle giden bir efekt. İmlecin kendisi olduğu gibi kalır, tıklamalar da olması gereken yere düşer.",
 	// the status bar's hints, by where the caret is (statusbar.go, blockhints.go)
 	"zoom out":              "uzaklaş",
 	"bold":                  "kalın",

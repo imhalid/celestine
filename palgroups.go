@@ -24,7 +24,7 @@ var cmdCats = []struct {
 	{"Dosyalar ve senkron", []string{"Senkron", "Şimdi eşitle", "Şimdi yedekle", "Yedek", "Markdown", "Ayar", "Son kayıttan",
 		"Kayıt gecikmesi", "Otomatik kayıt", "Hepsini varsayılana"}},
 	{"Yazı", []string{"Yazı", "Sayfa genişliği", "Satır", "Paragraf aralığı", "İlk satır", "Tab uzunluğu", "Kod yazı tipi", "Ligatür"}},
-	{"Görünüm", []string{"Renk teması", "Tema", "Köşe", "Caret", "Jöle", "Odak", "Otomatik kapak", "Kısayol ipuçları", "Dil",
+	{"Görünüm", []string{"Renk teması", "Tema", "Köşe", "Caret", "Cursor", "İmleç efekti", "Jöle", "Odak", "Otomatik kapak", "Kısayol ipuçları", "Dil",
 		"Profil", "Uygulama yazı tipi", "Sekmeleri göster", "Paragraf sonlarını", "Kod bloklarında"}},
 	{"Uygulama", nil}, // the rest
 }

@@ -133,6 +133,18 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
+		{name: "Cursor FX", alias: "mouse pointer fare imleç efekt effect trail", fields: []string{"cursorFx"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			out := []settingChoice{{name: T("Kapalı"), current: a.settings.CursorFX == "",
+				set:     func(a *app) { a.settings.CursorFX = ""; a.saveSettings() },
+				preview: func(a *app) { a.settings.CursorFX = "" }}}
+			for _, p := range cursorPresets {
+				name := p.name
+				out = append(out, settingChoice{name: T(name), current: a.settings.CursorFX == name,
+					set:     func(a *app) { a.settings.CursorFX = name; a.saveSettings() },
+					preview: func(a *app) { a.settings.CursorFX = name }})
+			}
+			return out
+		}},
 		{name: "Harf aralığı", alias: "letter spacing tracking harf aralığı", fields: []string{"letterSpacing"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for i, s := range letterSpacings {

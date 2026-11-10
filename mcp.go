@@ -40,6 +40,7 @@ type Settings struct {
 	Caret      int     `json:"caret,omitempty"`      // 0 Slime, 1 Mizan
 	CaretName  string  `json:"caretName,omitempty"`  // the caret by name: its number moves as carets are taken away
 	Jelly      bool    `json:"jelly,omitempty"`      // the jelly, put on any caret but the slime
+	CursorFX   string  `json:"cursorFx,omitempty"`   // the effect of the mouse pointer, by name (cursorfx.go): "" none
 	FontSize   float64 `json:"fontSize,omitempty"`   // the text's, 16.5
 	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720

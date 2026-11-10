@@ -48,7 +48,7 @@ func TestSettingCommandsListed(t *testing.T) {
 	for _, d := range settingDefs() {
 		n := 0
 		for _, it := range items {
-			if strings.HasPrefix(it.title, d.name) && it.sub == "Ayar" {
+			if strings.HasPrefix(it.title, T(d.name)) && it.sub == "Ayar" { // a name written in English is shown in the window's language
 				n++
 			}
 		}

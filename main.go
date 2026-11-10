@@ -198,6 +198,7 @@ type app struct {
 	jellied     smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
 	sleep       sleeper                  // the caret asleep after five seconds (caretextras.go)
 	demos       map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
+	cursor      cursorState              // the effect of the mouse pointer (cursorfx.go)
 	winRect     ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
 	saveErr     string
 	notice      string     // a toast to show
@@ -1000,6 +1001,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.loadTrash()
 	}
 	a.toastView(c)
+	a.cursorFXView(c, root) // over everything, the pointer's effect when one is chosen (cursorfx.go)
 	if a.doc != nil && a.coll == nil {
 		a.boxes = a.doc.VisibleParagraphs()
 		a.trackWindow()
