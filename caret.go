@@ -63,18 +63,27 @@ func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, 
 	}
 	box := boxes[bi]
 	start, end := text.ParagraphRange(box.Start)
+	var para richtext.Paragraph
+	if end-start <= maxCaretParagraph {
+		for _, p := range text.Slice(start, end).Paragraphs() {
+			para = p
+			break
+		}
+		para.Style = text.ParagraphStyleAt(start)
+	}
+	return locateIn(doc, caret, box, start, end, para, w, base, th)
+}
+
+// locateIn is locateAt in the paragraph of box, from start to end, para, as the caller has it already: a box's
+// from the text's table (paraOfBox) is not read again from the start of the text, which for a mark drawn over
+// each paragraph in view of a long page was most of a frame (#314).
+func locateIn(doc *richtext.Document, caret int, box richtext.ParagraphBox, start, end int, para richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (caretBox, bool) {
 	if caret > end { // past the last paragraph in view
 		return caretBox{}, false
 	}
 	if end-start > maxCaretParagraph { // one line of a megabyte: laying it out again, for a caret, takes minutes
 		return caretBox{}, false
 	}
-	var para richtext.Paragraph
-	for _, p := range text.Slice(start, end).Paragraphs() {
-		para = p
-		break
-	}
-	para.Style = text.ParagraphStyleAt(start)
 	l, left := longMemo.layout(doc, start, end-start, para, w, base, th)
 	var line string
 	for _, r := range para.Runs {
@@ -104,7 +113,7 @@ func locateAt(doc *richtext.Document, caret int, boxes []richtext.ParagraphBox, 
 	cw := c.H * 0.5
 	// the caret is as wide as the letter after it - but not over a chip,
 	// which is one object, wider than a word: it would swallow it
-	onChip := caret < text.Len() && text.Slice(caret, caret+1).String() == string(richtext.ObjectReplacement)
+	onChip := runeIn(line, caret-start) == richtext.ObjectReplacement // read from the paragraph, not from the start of the text (#314)
 	if next := l.NextBoundary(u); next > u && !onChip {
 		if nc := l.CaretAt(ui.TextCaretPosition{Index: next}); nc.X > full.X && math.Abs(float64(nc.Y-full.Y)) < 0.5 {
 			cw = nc.X - full.X
@@ -219,7 +228,7 @@ type paraMemo struct {
 
 func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (*ui.TextLayout, float32) {
 	if runes < longParagraphRunes {
-		return layoutParagraph(p, w, base, th)
+		return shortMemo.layout(doc, start, p, w, base, th)
 	}
 	ver := doc.Version()
 	if m.l != nil && m.doc == doc && m.ver == ver && m.start == start && m.w == w && m.base == base && m.th == th && m.style == p.Style {
@@ -227,6 +236,39 @@ func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.P
 	}
 	l, left := layoutParagraph(p, w, base, th)
 	*m = paraMemo{doc, ver, start, w, base, th, p.Style, l, left}
+	return l, left
+}
+
+// shortMemo keeps the layouts of the short paragraphs laid out for a caret or a mark over them (a task's box),
+// for one version of the text: on a long page the boxes of the tasks in view were each laid out twice a frame,
+// most of a frame, in every frame between two keys as in the one after a key (#314).
+var shortMemo shortLayouts
+
+type shortLayouts struct {
+	doc  *richtext.Document
+	ver  uint64
+	w    float32
+	base ui.Font
+	th   *richtext.Theme
+	m    map[int]shortLaid // by the rune the paragraph starts at
+}
+
+type shortLaid struct {
+	style richtext.ParagraphStyle
+	l     *ui.TextLayout
+	left  float32
+}
+
+func (s *shortLayouts) layout(doc *richtext.Document, start int, p richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (*ui.TextLayout, float32) {
+	ver := doc.Version()
+	if s.m == nil || s.doc != doc || s.ver != ver || s.w != w || s.base != base || s.th != th || len(s.m) > 1024 {
+		*s = shortLayouts{doc, ver, w, base, th, map[int]shortLaid{}}
+	}
+	if e, ok := s.m[start]; ok && e.style == p.Style {
+		return e.l, e.left
+	}
+	l, left := layoutParagraph(p, w, base, th)
+	s.m[start] = shortLaid{p.Style, l, left}
 	return l, left
 }
 
@@ -437,4 +479,15 @@ func (c *caretWords) find(word string) (rects []ui.Rect, total int) {
 		}
 	}
 	return rects, total
+}
+
+// runeIn is the rune at i of s, counted in runes, or 0 past its end.
+func runeIn(s string, i int) rune {
+	for _, r := range s {
+		if i == 0 {
+			return r
+		}
+		i--
+	}
+	return 0
 }

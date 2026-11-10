@@ -90,15 +90,19 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		if b.Start > text.Len() {
 			continue
 		}
-		st := text.ParagraphStyleAt(b.Start)
+		s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
+		st := para.Style
 		if st.ID == hrID {
-			if s, e := text.ParagraphRange(b.Start); s == e {
+			if s == e {
 				y := r.Y + b.Top + b.Height/2
 				p.Fill(ui.Rect{X: r.X, Y: y - 0.5, W: r.W, H: 1}, th.Border, rad(0.5))
 			}
 			continue
 		}
-		// a callout is tinted by its kind
+		// a callout is tinted by its kind: a raw block is lines of code, and rawKindAt reads back to its first
+		if !st.CodeBlock {
+			continue
+		}
 		if kind, first := rawKindAt(text, b.Start); kind == "callout" {
 			if col, ok := calloutTint(first); ok {
 				p.Fill(ui.Rect{X: r.X, Y: r.Y + b.Top - 1, W: r.W, H: b.Height + 2}, col.Alpha(0.10), 0)
@@ -244,11 +248,14 @@ func (a *app) codeCopyView(c *ui.Context) {
 	r := a.editorR
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
-		for _, b := range a.boxes {
+		// the paragraphs the page shows, not every one laid out: each style asked is a read of the text from its
+		// start, and on a long page all of them were most of a frame (#312)
+		for _, b := range a.shown(r) {
 			if b.Start > text.Len() {
 				continue
 			}
-			st := text.ParagraphStyleAt(b.Start)
+			_, _, para := a.paraOfBox(b)
+			st := para.Style
 			if !st.CodeBlock || !strings.HasPrefix(st.ID, codeIDPrefix) {
 				continue
 			}

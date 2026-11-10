@@ -102,16 +102,10 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 	text := a.doc.Text()
 	a.tagHits, a.linkHits = a.tagHits[:0], a.linkHits[:0]
 	for _, b := range a.shown(r) {
-		s, e := text.ParagraphRange(b.Start)
+		s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
 		if e <= s {
 			continue
 		}
-		var para richtext.Paragraph
-		for _, pp := range text.Slice(s, e).Paragraphs() {
-			para = pp
-			break
-		}
-		para.Style = text.ParagraphStyleAt(s)
 		var line string
 		for _, run := range para.Runs {
 			line += run.Text

@@ -731,7 +731,13 @@ func (a *app) cellEditView(c *ui.Context) {
 		}
 	}
 	if hit == nil {
-		if !ce.fresh {
+		switch {
+		case ce.fresh:
+		case a.chipInText(ce.ch):
+			// out of view: the editor paints only the paragraphs that show (#314), so the table was not drawn and
+			// gave no place for its cells; the cell stays open as it was, and takes the keyboard when it is back
+			ce.fresh = true
+		default:
 			ce.open = false
 		}
 		return

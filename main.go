@@ -173,7 +173,6 @@ type app struct {
 	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
 	px          placeIdx            // the palette's places, folded once (palette.go)
 	edge        edgeDrag            // the sidebar or the side panel being dragged wider or narrower
-	coverAway   bool                // the cover of a huge page scrolled in its window is not drawn (pageView)
 	statLoading bool                // the first frame of the stats screen is drawn before the figures are read
 	setClock    func(time.Duration) // a test moves the clock
 	statReset   bool                // the reset asked once: the next click does it
@@ -816,7 +815,6 @@ func (a *app) open(p *Page) {
 		a.dirty, a.editAt = true, a.clock()
 	}
 	a.boxes = nil
-	a.winScrolled, a.winTop, a.winFlip = false, 0, a.clock()
 	*a.pageScroll = ui.ScrollState{}
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
@@ -844,9 +842,6 @@ func (a *app) docFor(p *Page) *richtext.Document {
 			a.sweepPictures(p, body)
 		}
 		doc = richtext.NewDocument(a.parsePage(p, body))
-		if hugePage(doc.Text()) {
-			doc.SetSelection(0, 0) // a document begins with its caret at the end: a huge page opens at its top
-		}
 		a.docs[p] = doc
 	}
 	a.touchDoc(p)
@@ -1103,7 +1098,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.toastView(c)
 	a.cursorFXView(c, root)            // over everything, the pointer's effect when one is chosen (cursorfx.go)
 	if a.doc != nil && a.coll == nil { // the boxes were read as the page's editor was built (pageBody)
-		a.trackWindow()
 		a.autosave(c)
 	}
 }
@@ -1134,11 +1128,7 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
-			// a huge page scrolls in its window, not as a whole: once the text is scrolled the title is gone
-			// (pageBody), and the cover goes with it, or it would stay at the top over the lines
-			// (it is only not drawn: the tree stays as it was, or the window state would flip each frame)
-			a.coverAway = a.winScrolled && hugePage(a.doc.Text())
-			if _, y, over := wrap.PointerPosition(); over && !a.coverAway && a.coverKind(p) != coverKindNone {
+			if _, y, over := wrap.PointerPosition(); over && a.coverKind(p) != coverKindNone {
 				a.coverHover = y < a.coverBandOf(p)
 			} else {
 				a.coverHover = false
@@ -1158,17 +1148,9 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 
 // pageBody is the title, the properties and the text.
 func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
-	window := hugePage(a.doc.Text())
-	if window && a.winScrolled { // scrolled in its window: the title and the properties are gone with what scrolled
-		a.headH = 0
-	} else {
-		head := ui.Column(c.Key("page-head")).FillWidth()
-		if window {
-			head.Transition(branch).Clip()
-		}
-		head.Children(func() { a.pageHead(c, p) })
-		a.headH = head.LayoutBounds().H
-	}
+	head := ui.Column(c.Key("page-head")).FillWidth()
+	head.Children(func() { a.pageHead(c, p) })
+	a.headH = head.LayoutBounds().H
 	a.lapseAuto(c, p)                      // the time-lapse, as the settings say (lapseui.go)
 	if a.lapseOn(p) && a.lapse.solo != 0 { // one day's words alone, to look at: nothing to type in
 		a.focused = false
@@ -1191,17 +1173,14 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		SpansVersion: a.spansVersion(),
 		Space:        a.blockRoom, // the room a block dragged opens where it would go (blockui.go)
 		ReadOnly:     p.Unreadable != "",
-		// the page scrolls as a whole, the editor as tall as its text: no bar of its own beside the page's, which
-		// showed when a split pane narrowed it and the height worked out was a frame behind (#190); a huge page's
-		// window on its text scrolls in itself, and keeps its bar
-		NoScrollbar: !window,
+		// the page scrolls as a whole, the editor as tall as its text, however long: no bar of its own beside the
+		// page's, which showed when a split pane narrowed it and the height worked out was a frame behind (#190), and
+		// no window on a long text scrolling in itself (#314)
+		NoScrollbar: true,
 	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
 	// this editor's paragraphs, read right after it is built: with the page open in two panes, each pane's are its
 	// own, laid out at its width, and its height is worked out from them (#190)
 	a.boxes = a.doc.VisibleParagraphs()
-	if window {
-		ed.Transition(windowEditor)
-	}
 	if !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() && !a.kb.normal {
 		ed.AutoFocus()
 	}
@@ -1393,32 +1372,20 @@ func (a *app) editorH(c *ui.Context) float32 {
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
 	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-8, 160)
-	if hugePage(a.doc.Text()) {
-		// a window on the text, which scrolls in it (see hugePageRunes); the room
-		// around it (gaps, paddings) is learnt from how far the page around it
-		// still scrolls, so that it does not: a second bar
-		if a.winTrim == 0 {
-			a.winTrim = 40 // a guess, learnt below
-		}
-		if a.pageScroll.MaxY > 0.5 && a.clock().Sub(a.winFlip) > time.Second { // not while the title moves
-			a.winTrim += a.pageScroll.MaxY
-		}
-		return max(least-a.winTrim, 160)
-	}
 	n := len(a.boxes)
 	if n == 0 {
 		// nothing laid out yet (a page just opened): room for what the text
 		// should take, more than it will, so the editor does not scroll
-		// itself to the caret and then slide as it grows
+		// itself to the caret and then slide as it grows. However long the
+		// text: a long page is laid out whole in its first frame, once, rather
+		// than its height growing frame after frame, the page's bar with it (#314)
 		t := a.doc.Text()
-		paras := strings.Count(t.String(), "\n") + 1
 		line := a.fontSize() * a.lineHeight()
-		return min(max(least, (float32(paras)+float32(t.Len())/55)*line*1.5+240), 80000)
+		return min(max(least, (float32(t.ParagraphCount())+float32(t.Len())/55)*line*1.5+240), 4e6)
 	}
 	last := a.boxes[n-1]
-	_, pe := a.doc.Text().ParagraphRange(last.Start)
 	slack := max(a.scrollR.H*2, 1600)
-	if pe >= a.doc.Text().Len() {
+	if last.Index >= a.doc.Text().ParagraphCount()-1 {
 		slack = 96 // the last paragraph is in
 	}
 	return max(last.Top+last.Height+slack, least)
@@ -1562,7 +1529,8 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 		}
 		return
 	}
-	cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme)
+	_, caret := a.doc.Selection()
+	cb, ok := a.locateRune(caret, r.W)
 	if !ok {
 		return
 	}

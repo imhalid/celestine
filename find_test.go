@@ -81,9 +81,9 @@ func TestFindStepScrollsToTheMatch(t *testing.T) {
 	}
 }
 
-// A found line far down a huge page, which scrolls in its window: the cover goes with the title, and does
-// not stay at the top of the window over the lines (the margin is the page's own color all the way down).
-func TestHugePageCoverGoesWhenScrolled(t *testing.T) {
+// A found line far down a long page: the cover scrolls away with the title, and does not stay at the top of the
+// window over the lines (the margin is the page's own color all the way down).
+func TestLongPageCoverGoesWhenScrolled(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 1200; i++ {
 		fmt.Fprintf(&b, "Paragraf %d: bir araç ne kadar güçlüyse yanlış kullanımın sonucu da o kadar büyüktür.\n\n", i)
@@ -92,23 +92,17 @@ func TestHugePageCoverGoesWhenScrolled(t *testing.T) {
 	a, tt := newTestApp(t, b.String())
 	tt.SetSize(1100, 800)
 	tt.Advance(500 * time.Millisecond)
-	if !hugePage(a.doc.Text()) {
-		t.Fatal("not a huge page")
-	}
 	a.gotoPos(strings.Index(a.doc.Text().String(), "Bizans"))
-	// the window state settles over some frames; the check is of a frame that follows one of the same state
-	var was bool
 	for i := 0; i < 20; i++ {
 		tt.Advance(150 * time.Millisecond)
 		tt.Frame()
-		if a.winScrolled && was {
+		if a.pageScroll.Y > autoFullH+a.headH {
 			img := tt.Image()
 			if top, below := img.RGBAAt(1060, 60), img.RGBAAt(1060, 500); top != below {
 				t.Fatalf("the cover is over the lines: %v at the top, %v below", top, below)
 			}
 			return
 		}
-		was = a.winScrolled
 	}
-	t.Fatal("the page never stayed scrolled in its window")
+	t.Fatal("the page never scrolled to the line")
 }

@@ -53,7 +53,7 @@ func (a *app) selectionBar(c *ui.Context) {
 		return
 	}
 	// where: over the start of the selection, under it when there is no room above
-	cb, ok := locateAt(a.doc, s, a.boxes, a.editorR.W, a.font, a.theme)
+	cb, ok := a.locateRune(s, a.editorR.W)
 	if !ok {
 		return
 	}

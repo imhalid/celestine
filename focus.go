@@ -43,7 +43,8 @@ func (a *app) drawFocusVeil(p *ui.Painter, r ui.Rect) {
 	if mode == "" || !a.focused || a.doc == nil {
 		return
 	}
-	cb, ok := locate(a.doc, a.boxes, r.W, a.font, a.theme)
+	_, caret := a.doc.Selection()
+	cb, ok := a.locateRune(caret, r.W)
 	if !ok {
 		return
 	}

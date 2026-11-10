@@ -58,7 +58,8 @@ type paneState struct {
 	selPrevA      int     // the selection before a pointer went down in the editor
 	selPrevC      int
 	boxes         []richtext.ParagraphBox
-	linksH        float32 // the backlinks' height, last frame: each pane's own, as its page's
+	paras         paraTable // the text's paragraphs, read once for each version of it (shown.go)
+	linksH        float32   // the backlinks' height, last frame: each pane's own, as its page's
 	focused       bool
 	lastSave      string                  // the body as last written
 	lastWords     int                     // the words it had, or -1 when not known
@@ -76,10 +77,6 @@ type paneState struct {
 	scrollR       ui.Rect         // its room in the window, last frame
 	barInset      float32         // the part of the top of the page the title bar lies over (the page scrolls under it)
 	topSpace      float32         // what the page leaves above its title, in its scroll
-	winScrolled   bool            // a huge page is scrolled in its window: its title and properties give way (trackWindow)
-	winTop        float32         // where its first paragraph is, scrolled to the top
-	winTrim       float32         // the room around the window of a huge page that the page does not have (it starts with a guess)
-	winFlip       time.Time       // when its title last went or came back
 	headH         float32         // the title's and properties' height, last frame
 	titleFocused  bool
 	edH           float32 // the editor's height, last frame

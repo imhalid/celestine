@@ -58,98 +58,83 @@ func TestPageScrollsAsAWhole(t *testing.T) {
 	}
 }
 
-// A huge page (20000 lines) is a window: the editor is as high as the page's
-// room and scrolls the text in it. Each frame lays out and paints every
-// paragraph in the editor's height, and that height once grew frame after frame
-// until the whole text was in (seconds a frame); and a document begins with its
-// caret at the end, which a window shorter than its text scrolls itself to. It
-// opens at its top, scrolls on to the end, and the caret goes there and back.
-func TestHugePageIsAWindow(t *testing.T) {
+// A long page (1200 paragraphs, three pages linking to it) scrolls as a whole, as any page: the editor is as
+// tall as its text from its first frames and never scrolls in itself, its height does not move as the page
+// scrolls, and the backlinks are under the text. It was a window on its text past 60000 runes or 800
+// paragraphs, scrolling in itself with a bar of its own, the title and backlinks coming and going (#314).
+func TestLongPageScrollsAsAWhole(t *testing.T) {
 	var b strings.Builder
-	const lines = 20000
-	for i := 1; i <= lines; i++ {
-		fmt.Fprintf(&b, "- Madde %d: biraz metin, biraz daha metin.\n", i)
+	for i := 1; i <= 1200; i++ {
+		fmt.Fprintf(&b, "Paragraf %d: biraz metin, biraz daha metin.\n\n", i)
 	}
 	a, tt := newTestApp(t, b.String())
-	a.clock = tt.Now // the time the frames run on
-	tt.SetSize(900, 700)
+	a.clock = tt.Now
+	for i := 0; i < 3; i++ { // pages that link to it
+		q, err := a.lib.Collections[0].NewPage(nil, fmt.Sprintf("Bağlayan %d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := q.SaveText("Bkz. [[Sayfa]] üstüne birkaç söz, uzunca bir satır.\n"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.linksStale()
+	if got := len(a.linksTo(a.page, a.clock(), true)); got != 3 {
+		t.Fatalf("%d backlinks, want 3", got)
+	}
+	tt.SetSize(1100, 720)
 	settle := func(n int) {
 		for i := 0; i < n; i++ {
 			tt.Advance(100 * time.Millisecond)
 		}
 	}
-	inView := func(what string) (first, last int) {
+	settle(10)
+	paras := a.doc.Text().ParagraphCount()
+	whole := func(when string) {
 		t.Helper()
 		n := len(a.boxes)
-		if n == 0 || n > 100 {
-			t.Fatalf("%s: %d paragraphs laid out of %d", what, n, lines)
+		if n == 0 || a.boxes[0].Index != 0 || a.boxes[n-1].Index != paras-1 {
+			t.Fatalf("%s: the editor does not hold its whole text: %d boxes of %d paragraphs", when, n, paras)
 		}
-		return a.boxes[0].Index, a.boxes[n-1].Index
-	}
-	settle(20)
-	if first, _ := inView("opened"); first != 0 {
-		t.Fatalf("opened at paragraph %d, not at its top", first)
-	}
-	if an, ca := a.doc.Selection(); an != 0 || ca != 0 {
-		t.Fatalf("opened with the caret at %d-%d, not at its start", an, ca)
-	}
-	if a.winScrolled || a.headH == 0 {
-		t.Fatalf("at the top the title is shown: scrolled %v, its height %v", a.winScrolled, a.headH)
-	}
-	if a.pageScroll.MaxY > 1 {
-		t.Fatalf("the page around the window scrolls too (%v), a second bar", a.pageScroll.MaxY)
-	}
-	// the wheel takes the text on, and what is in view is all that is laid out
-	prev := 0
-	for i := 0; i < 5; i++ {
-		tt.Wheel(a.editorR.X+100, 300, 0, 3000)
-		settle(3)
-		first, _ := inView("scrolled")
-		if first <= prev {
-			t.Fatalf("the wheel did not take the text on: %d after %d", first, prev)
+		if a.boxes[0].Top < 0 {
+			t.Fatalf("%s: the editor scrolled in itself: its first paragraph at %v", when, a.boxes[0].Top)
 		}
-		prev = first
+		last := a.boxes[n-1]
+		if bottom := last.Top + last.Height; bottom > a.edH {
+			t.Fatalf("%s: the text (%v) is taller than the editor (%v)", when, bottom, a.edH)
+		}
+		if a.linksH == 0 {
+			t.Fatalf("%s: no backlinks under the text", when)
+		}
 	}
-	if !a.winScrolled || a.headH != 0 {
-		t.Fatalf("scrolled, the title gives way: scrolled %v, its height %v", a.winScrolled, a.headH)
+	whole("opened")
+	h, top := a.edH, a.boxes[0].Top
+	if a.pageScroll.MaxY < h/2 {
+		t.Fatalf("the page does not scroll as a whole: %v of a text %v tall", a.pageScroll.MaxY, h)
 	}
-	if a.pageScroll.MaxY > 1 {
-		t.Fatalf("the page around the window scrolls too (%v), a second bar", a.pageScroll.MaxY)
+	// the wheel scrolls the page, and nothing in it moves or changes its height
+	a.doc.SetSelection(0, 0)
+	settle(5)
+	prev := a.pageScroll.Y
+	for i := 0; i < 8; i++ {
+		tt.Wheel(a.editorR.X+100, 400, 0, 2000)
+		settle(2)
+		whole(fmt.Sprintf("wheel %d", i))
+		if a.edH != h || a.boxes[0].Top != top {
+			t.Fatalf("wheel %d: the editor %v tall (was %v), its first paragraph at %v (was %v)", i, a.edH, h, a.boxes[0].Top, top)
+		}
+		if a.pageScroll.Y <= prev && a.pageScroll.Y < a.pageScroll.MaxY {
+			t.Fatalf("wheel %d: the page did not scroll on: %v after %v", i, a.pageScroll.Y, prev)
+		}
+		prev = a.pageScroll.Y
 	}
-	// the caret to the end: the last line is in view, nothing more is laid out
+	// the caret at the end: the page takes it into view, and the backlinks are under it
 	n := a.doc.Text().Len()
 	a.doc.SetSelection(n, n)
-	settle(30)
-	if _, last := inView("caret at the end"); last != lines-1 {
-		t.Fatalf("the end of the page is not in view: last paragraph %d of %d", last, lines)
-	}
-	// and back to the start
-	a.doc.SetSelection(0, 0)
-	settle(30)
-	if first, _ := inView("caret at the start"); first != 0 {
-		t.Fatalf("the start of the page is not in view: first paragraph %d", first)
-	}
-	if a.winScrolled || a.headH == 0 {
-		t.Fatalf("back at the top the title comes back: scrolled %v, its height %v", a.winScrolled, a.headH)
-	}
-}
-
-// A page of many short lines is a window too, though it is short in runes.
-func TestManyLinesPageIsAWindow(t *testing.T) {
-	var b strings.Builder
-	for i := 1; i <= 5000; i++ {
-		fmt.Fprintf(&b, "- satır %d\n", i)
-	}
-	a, tt := newTestApp(t, b.String())
-	tt.SetSize(900, 700)
-	for i := 0; i < 20; i++ {
-		tt.Advance(100 * time.Millisecond)
-	}
-	if n := len(a.boxes); n == 0 || n > 100 {
-		t.Fatalf("%d paragraphs laid out of 5000", n)
-	}
-	if !hugePage(a.doc.Text()) {
-		t.Fatal("5000 lines are not a huge page")
+	settle(10)
+	whole("caret at the end")
+	if cr, vp := a.caretWin, a.scrollR; cr.Y < vp.Y || cr.Y+cr.H > vp.Y+vp.H {
+		t.Fatalf("the caret %+v is out of the page's room %+v", cr, vp)
 	}
 }
 

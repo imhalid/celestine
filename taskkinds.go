@@ -265,7 +265,8 @@ func (a *app) taskBoxAt(b richtext.ParagraphBox, st richtext.ParagraphStyle) (ui
 	if st.Heading > 0 || a.theme == nil {
 		return ui.Rect{}, false
 	}
-	cb, ok := locateAt(a.doc, b.Start, a.boxes, a.editorR.W, a.font, a.theme)
+	s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#314)
+	cb, ok := locateIn(a.doc, b.Start, b, s, e, para, a.editorR.W, a.font, a.theme)
 	if !ok {
 		return ui.Rect{}, false
 	}
@@ -293,7 +294,8 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 		if b.Start > text.Len() {
 			continue
 		}
-		st := text.ParagraphStyleAt(b.Start)
+		_, _, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
+		st := para.Style
 		if st.List != richtext.Tasks {
 			continue
 		}
@@ -498,7 +500,8 @@ func (a *app) taskBoxHits(c *ui.Context) {
 			if b.Start > text.Len() {
 				continue
 			}
-			st := text.ParagraphStyleAt(b.Start)
+			_, _, para := a.paraOfBox(b)
+			st := para.Style
 			if st.List != richtext.Tasks {
 				continue
 			}
