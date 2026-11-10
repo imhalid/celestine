@@ -62,7 +62,9 @@ func (a *app) keepSettings(c *ui.Context) {
 	if !a.settingsDirty {
 		return
 	}
-	if wait := 300*time.Millisecond - a.clock().Sub(a.settingsAt); wait > 0 && a.settingsOpen {
+	// a moment after the last change, wherever it was made: a pane dragged or a title typed changed them at every
+	// frame, and each was a marshal and a write of all the settings (#192)
+	if wait := 300*time.Millisecond - a.clock().Sub(a.settingsAt); wait > 0 {
 		c.After(wait)
 		return
 	}

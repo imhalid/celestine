@@ -29,9 +29,39 @@ func (a *app) watch() {
 	if _, ok := a.lib.FS.(*Store); ok {
 		return // nothing else reads or writes a library's file: no one to wait for
 	}
-	for range time.Tick(watchEvery) {
-		a.do(func() error { a.checkDisk(); return nil })
+	for range time.Tick(watchEvery) { // one scan at a time: a tick that comes during one is dropped
+		a.mu.Lock()
+		fsys, root := a.lib.FS, a.lib.Root
+		a.mu.Unlock()
+		disk := scanLibrary(fsys, root) // the slow part, outside the lock: no frame waits for the disk (#193)
+		a.do(func() error {
+			if a.lib.FS == fsys && a.lib.Root == root { // the same library still
+				a.applyDisk(disk, true)
+			}
+			return nil
+		})
 	}
+}
+
+// diskReload says whether disk shows the tree changed: a collection or a page there or gone, a collection.json
+// written.
+func (a *app) diskReload(disk diskState) bool {
+	if len(disk.colls) != len(a.lib.Collections) {
+		return true
+	}
+	pages := 0
+	for _, c := range a.lib.Collections {
+		if t, ok := disk.colls[c.Dir]; !ok || !t.Equal(c.Seen) {
+			return true
+		}
+		for _, p := range c.All() {
+			pages++
+			if _, ok := disk.pages[p.Dir]; !ok {
+				return true
+			}
+		}
+	}
+	return pages != len(disk.pages)
 }
 
 // diskState is the library as the disk has it.
@@ -75,8 +105,30 @@ func scanPages(fsys FS, dir string, into map[string]time.Time) {
 }
 
 // checkDisk takes the changes made to the library from outside.
-func (a *app) checkDisk() {
-	disk := scanLibrary(a.lib.FS, a.lib.Root)
+func (a *app) checkDisk() { a.applyDisk(scanLibrary(a.lib.FS, a.lib.Root), false) }
+
+// applyDisk takes the changes disk shows. A scan made outside the lock (late) may be older than what the app wrote
+// since: what it says changed is looked at again first, and a reload it calls for is checked with a scan made now,
+// so that a page saved meanwhile is not taken for one changed outside.
+func (a *app) applyDisk(disk diskState, late bool) {
+	if late {
+		if a.diskReload(disk) {
+			disk = scanLibrary(a.lib.FS, a.lib.Root)
+		} else {
+			fresh := diskState{colls: disk.colls, pages: map[string]time.Time{}}
+			for d, t := range disk.pages {
+				fresh.pages[d] = t
+			}
+			for _, c := range a.lib.Collections {
+				for _, p := range c.All() {
+					if t, ok := disk.pages[p.Dir]; ok && !t.Equal(p.Modified) {
+						fresh.pages[p.Dir] = ModTime(a.lib.FS, p.File())
+					}
+				}
+			}
+			disk = fresh
+		}
+	}
 	reload := len(disk.colls) != len(a.lib.Collections)
 	pages := 0
 	var changed []*Page

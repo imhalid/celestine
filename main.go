@@ -534,6 +534,9 @@ func main() {
 		}
 		a.mu.Lock()
 		a.flush()
+		if a.settingsDirty { // what saveSettingsSoon left
+			a.saveSettings()
+		}
 		a.endSession()
 		a.saveUsage()
 		a.mu.Unlock()
