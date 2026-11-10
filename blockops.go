@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/ui/richtext"
@@ -118,8 +119,12 @@ func moveBlock(doc *richtext.Document, dir int) bool {
 	}
 	moved := swapBlocks(t, a0, a1, b0, b1)
 	off := caret - s
+	styles := paraStyles(t)
+	i0, i1, j0, j1 := paraIndex(t, a0), paraIndex(t, a1), paraIndex(t, b0), paraIndex(t, b1)
+	order := append(slices.Clone(styles[j0:j1+1]), styles[i0:i1+1]...)
 	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(a0, b1, moved)
+		restyle(ed, i0, order)
 		if dir < 0 {
 			ed.Select(a0+off, a0+off)
 		} else {
@@ -147,7 +152,22 @@ func moveBlockTo(doc *richtext.Document, s, e, to int) int {
 	blk := t.Slice(s, e)
 	n := e - s
 	at := s
+	styles := paraStyles(t)
+	i0, i1 := paraIndex(t, s), paraIndex(t, e)
+	j := len(styles) // the paragraph it goes before
+	if to <= t.Len() {
+		j = paraIndex(t, to)
+	}
+	moved := slices.Clone(styles[i0 : i1+1])
+	rest := slices.Delete(slices.Clone(styles), i0, i1+1)
+	k := j
+	if j > i1 {
+		k -= i1 + 1 - i0
+	}
+	order := slices.Insert(rest, k, moved...)
+	lo := min(i0, k)
 	doc.Edit(func(ed *richtext.Edit) {
+		defer func() { restyle(ed, lo, order[lo:]) }()
 		if to > e { // down: insert first, then take it out from above
 			if to > t.Len() { // at the end
 				end := t.Len()
@@ -187,9 +207,13 @@ func duplicateBlock(doc *richtext.Document, at int) {
 	s, e := blockOf(t, at)
 	blk := t.Slice(s, e)
 	st := t.ParagraphStyleAt(s)
+	styles := paraStyles(t)
+	i0, i1 := paraIndex(t, s), paraIndex(t, e)
+	order := slices.Concat(styles[i0:i1+1], styles[i0:])
 	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(e, e, blk.Insert(0, richtext.NewText("\n")))
 		ed.FormatParagraphs(e+1, e+1, func(p *richtext.ParagraphStyle) { *p = st })
+		restyle(ed, i0, order)
 		ed.Select(e+1, e+1)
 	})
 }
@@ -245,4 +269,40 @@ func turnInto(doc *richtext.Document, at int, kind string) {
 			}
 		})
 	})
+}
+
+// paraStyles is the style of each paragraph of t, in order.
+func paraStyles(t richtext.Text) []richtext.ParagraphStyle {
+	var out []richtext.ParagraphStyle
+	for _, p := range t.Paragraphs() {
+		out = append(out, p.Style)
+	}
+	return out
+}
+
+// paraIndex is the index of the paragraph holding rune at of t.
+func paraIndex(t richtext.Text, at int) int {
+	i := -1
+	for s := range t.Paragraphs() {
+		if s > at {
+			break
+		}
+		i++
+	}
+	return max(i, 0)
+}
+
+// restyle gives the paragraphs of the edit's text from index from the styles, in order. A block moved or copied
+// with Replace keeps its text but not what its paragraphs are, which the app keeps in their IDs (a divider, a task's
+// kind, a code block's language), and the paragraph beside it may take them instead (#127): the styles are put back
+// as they were, in the new order.
+func restyle(ed *richtext.Edit, from int, styles []richtext.ParagraphStyle) {
+	i := 0
+	for s := range ed.Text().Paragraphs() {
+		if k := i - from; k >= 0 && k < len(styles) {
+			st := styles[k]
+			ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = st })
+		}
+		i++
+	}
 }
