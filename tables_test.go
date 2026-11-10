@@ -218,6 +218,49 @@ func TestTableCellEdit(t *testing.T) {
 	}
 }
 
+// TestTableCellLetGo: a click into the text, with a cell open, writes the cell and lets it go,
+// and what is typed goes into the text.
+func TestTableCellLetGo(t *testing.T) {
+	a, tt := newTestApp(t, tableMD)
+	tt.SetSize(1000, 700)
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	var h, last tableHit
+	for _, s := range a.tableSeen {
+		if s.row == 0 && s.col == 0 {
+			h = s
+		}
+		if s.r.Y >= last.r.Y {
+			last = s
+		}
+	}
+	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.Advance(200 * time.Millisecond)
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("kiraz")
+	tt.Advance(200 * time.Millisecond)
+	if !a.cellEd.open || a.focused {
+		t.Fatalf("the cell is not the one written in: open %v, text focused %v", a.cellEd.open, a.focused)
+	}
+	// "sonra", under the table
+	tt.ClickAt(last.r.X+last.r.W/2, last.r.Y+last.r.H+3*a.fontSize())
+	tt.Advance(200 * time.Millisecond)
+	tt.Frame()
+	if a.cellEd.open || !a.focused {
+		t.Fatalf("the table kept the focus: open %v, text focused %v", a.cellEd.open, a.focused)
+	}
+	if m := a.tableSeen[0].ch.tbl; m.cell(0, 0) != "kiraz" {
+		t.Fatalf("the cell was not written: %q", m.cell(0, 0))
+	}
+	tt.Type("z")
+	tt.Advance(200 * time.Millisecond)
+	if s := a.doc.Text().String(); !strings.Contains(s, "z") || strings.Count(s, "kiraz") > 0 {
+		t.Fatalf("the letter did not go into the text: %q", s)
+	}
+}
+
 // A check is ticked by a click, with no cell to write in.
 func TestTableCheck(t *testing.T) {
 	a, tt := newTestApp(t, "```"+tableLang+"\n"+`[{"name":"Bitti","kind":"check","align":1},{"name":"İş"}]`+"\n"+`["","a"]`+"\n```\n")

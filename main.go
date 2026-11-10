@@ -1099,6 +1099,10 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.refocus = false
 	}
 	a.focused = ed.Focused()
+	if a.focused && a.cellEd.open && a.cellEd.was { // the text took the keyboard back from a cell: it is written and let go
+		a.commitCell()
+		a.cellEd.open = false
+	}
 	a.tabKey(c)
 	a.tableKeys(c)
 	a.edPressed = ed.Pressed()
