@@ -295,7 +295,7 @@ func (a *app) settingsTop(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	search := func() {
 		q := a.setSearch
-		in := ui.TextInputBase(c.Key("set-search"), &q).Label("Ayarlarda ara").Placeholder(T("Ayarlarda ara…")).PlaceholderColor(cl.Muted).
+		in := ui.TextInputBase(c.Key("set-search"), &q).Label(T("Ayarlarda ara")).Placeholder(T("Ayarlarda ara…")).PlaceholderColor(cl.Muted).
 			FontSize(13).Padding(7, 11).Radius(rad(9)).Background(cl.Card).Border(1, cl.Hairline).Grow(1).FocusRing(false)
 		a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
 		if phone {

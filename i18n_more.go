@@ -6,6 +6,22 @@ import "strings"
 // when something happens. It is merged into enText, and a key already there keeps its English.
 // A key that ends with ": " is also known without it, for a notice that has a value after the colon.
 var enMore = map[string]string{
+	// the settings' Library tab, the backups, the top bar's tips (#285)
+	"Hepsi bu tek dosyada; ayarlar ve MCP anahtarı da. Dosyayı uygulamanın yanında taşıman yeter.":                              "All of it is in this one file, the settings and the MCP key too. Carrying the file beside the app is enough.",
+	"Obsidian kasası ya da .md dosyaları olan bir klasör: alt klasörleri koleksiyon, dosyaları sayfa olur. Klasöre dokunulmaz.": "An Obsidian vault or a folder of .md files: its subfolders become collections, its files pages. The folder is not touched.",
+	"Düz .md klasörü olarak, dosyanın yanına yazılır.":                                                                          "As a folder of plain .md files, written beside the file.",
+	"Zip yaz":            "Write a zip",
+	"günlük":             "daily",
+	"elle":               "by hand",
+	"içe aktarma":        "before an import",
+	"güncelleme":         "before an update",
+	"geri yükleme":       "before a restore",
+	"Ayarlarda ara":      "Search settings",
+	"Koyu temaya geç":    "Switch to the dark theme",
+	"Açık temaya geç":    "Switch to the light theme",
+	"Kenar çubuğu (⌘\\)": "Sidebar (⌘\\)",
+	"Geri (⌘[)":          "Back (⌘[)",
+	"İleri (⌘])":         "Forward (⌘])",
 	// what the window says outside T's own words, found by TestEnglishCoversScreen
 	"## {{başlık}}\n\n- [ ] ": "## {{başlık}}\n\n- [ ] ", // a template's own words: {{başlık}} is the template's, in any language
 	"Hepsini seç":             "Select all",

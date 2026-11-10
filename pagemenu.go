@@ -163,6 +163,7 @@ func safeFile(s string) string {
 
 // barButton is a small icon button for the status bar, as tall as its text.
 func (a *app) barButton(c *ui.Context, glyph *ui.SVG, label string) bool {
+	label = T(label) // its tip, in the window's language
 	t := c.Theme()
 	b := ui.Box(c).Width(22).Height(18).Radius(rad(5)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	ryugo.Tooltip(c, b, label)

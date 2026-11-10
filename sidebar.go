@@ -611,6 +611,7 @@ const sidebarButtonsW = 4*(24+2) + 6
 
 // barIcon is an icon button of the top bar: small, as the bar is.
 func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
+	label = T(label) // its tip, in the window's language
 	t := c.Theme()
 	b := ui.Box(c).Width(24).Height(barBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})

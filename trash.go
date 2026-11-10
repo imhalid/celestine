@@ -149,7 +149,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 			}
 			ui.Text(c, note).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		})
-		if ryugo.Button(c.Key("restore:"+item.Dir), "Geri yükle", ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("restore:"+item.Dir), T("Geri yükle"), ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
 		}
 		if ryugo.Button(c.Key("delete:"+item.Dir), T("Kalıcı olarak sil: ")+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {

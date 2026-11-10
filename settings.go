@@ -557,14 +557,14 @@ func (a *app) settingsLibrary(c *ui.Context) {
 				note = "Düz .md klasörü olarak, dosyanın yanına yazılır."
 			}
 			settingRow(c, "Markdown olarak dışa aktar", note, func() {
-				if ryugo.Button(c.Key("export-md"), "Dışa aktar", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("export-md"), T("Dışa aktar"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.exportNote = a.exportLibrary(store)
 				}
 			})
 		},
 		func() {
 			settingRow(c, "Markdown olarak zip", "Aynısı tek bir .zip dosyası: başka bir bilgisayara taşımak ya da arşivlemek için.", func() {
-				if ryugo.Button(c.Key("export-zip"), "Zip yaz", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("export-zip"), T("Zip yaz"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.exportNote = a.exportZip(store)
 				}
 			})
