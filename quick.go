@@ -95,6 +95,9 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 		a.flush()
 	}
 	body, err := p.Body()
+	if err == nil {
+		err = bodyReadable(body) // what this version does not read would be dropped by writing it again
+	}
 	if err != nil {
 		return "", err
 	}

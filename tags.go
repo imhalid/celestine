@@ -365,6 +365,9 @@ func (a *app) renameTag(key, newName string) (int, error) {
 	changed := 0
 	for _, p := range pages {
 		body, err := p.Body()
+		if err == nil {
+			err = bodyReadable(body) // what this version does not read would be dropped by writing it again
+		}
 		if err != nil {
 			return changed, err
 		}

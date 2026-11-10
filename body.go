@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/ryudit/internal/library"
 )
@@ -24,8 +25,29 @@ import (
 // editor dresses its objects to be drawn afterwards (dress, in chips.go).
 
 type bodyPara struct {
-	S *richtext.ParagraphStyle `json:"s,omitempty"`
-	R []bodyRun                `json:"r,omitempty"`
+	S *bodyStyle `json:"s,omitempty"`
+	R []bodyRun  `json:"r,omitempty"`
+}
+
+// bodyStyle is a paragraph's style as the page file has it: the app's own struct, not MyGo's, so that a field
+// renamed there does not change the file's format without a word (#132). Its names are those the files have.
+type bodyStyle struct {
+	Heading   int               `json:"heading,omitempty"`
+	List      richtext.ListKind `json:"list,omitempty"`
+	Checked   bool              `json:"checked,omitempty"`
+	Indent    int               `json:"indent,omitempty"`
+	Align     ui.Align          `json:"align,omitempty"`
+	Quote     bool              `json:"quote,omitempty"`
+	CodeBlock bool              `json:"codeBlock,omitempty"`
+	ID        string            `json:"id,omitempty"`
+}
+
+func styleOf(st richtext.ParagraphStyle) bodyStyle {
+	return bodyStyle{st.Heading, st.List, st.Checked, st.Indent, st.Align, st.Quote, st.CodeBlock, st.ID}
+}
+
+func (b bodyStyle) style() richtext.ParagraphStyle {
+	return richtext.ParagraphStyle{Heading: b.Heading, List: b.List, Checked: b.Checked, Indent: b.Indent, Align: b.Align, Quote: b.Quote, CodeBlock: b.CodeBlock, ID: b.ID}
 }
 
 type bodyRun struct {
@@ -89,7 +111,7 @@ func encodeBody(t richtext.Text) string {
 	for _, p := range t.Paragraphs() {
 		bp := bodyPara{}
 		if p.Style != (richtext.ParagraphStyle{}) {
-			st := p.Style
+			st := styleOf(p.Style)
 			bp.S = &st
 		}
 		for _, r := range p.Runs {
@@ -104,6 +126,13 @@ func encodeBody(t richtext.Text) string {
 			if a.Weight != 0 && a.Weight != 400 {
 				run.W = a.Weight
 			}
+			if n := len(bp.R); n > 0 && bp.R[n-1].O == nil && sameMarks(bp.R[n-1], run) { // one run: the editor makes it one at the next read
+				bp.R[n-1].T += run.T
+				continue
+			}
+			if run.T == "" {
+				continue
+			}
 			bp.R = append(bp.R, run)
 		}
 		paras = append(paras, bp)
@@ -116,6 +145,12 @@ func encodeBody(t richtext.Text) string {
 		return "!" + err.Error()
 	}
 	return string(b)
+}
+
+// sameMarks says whether two runs have the same marks, whatever their text.
+func sameMarks(a, b bodyRun) bool {
+	a.T, b.T = "", ""
+	return a.O == nil && b.O == nil && a == b
 }
 
 // objOf is the object an attachment is, or nil for one the page does not keep.
@@ -145,9 +180,16 @@ func objOf(at *richtext.Attachment) *bodyObj {
 
 // bodyReadable says why a body is not one decodeBody can read: a value of the wrong type, or a shape of a later
 // version. decodeBody gives the empty text for it, which must not be taken for the page's (#125).
+// A field this version does not know, in a paragraph, its style or a run, is a newer version's: the page is read
+// but not written, as saving would drop it (#132).
 func bodyReadable(s string) error {
 	var paras []bodyPara
-	if err := json.Unmarshal([]byte(s), &paras); err != nil {
+	dec := json.NewDecoder(strings.NewReader(s))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&paras); err != nil {
+		if strings.Contains(err.Error(), "unknown field") {
+			return errors.New("the page was written by a newer version of Ryudit: " + err.Error())
+		}
 		return errors.New("the page's text is in a form this version cannot read: " + err.Error())
 	}
 	return nil
@@ -164,7 +206,7 @@ func decodeBody(s string) richtext.Text {
 	for _, bp := range paras {
 		p := richtext.Paragraph{}
 		if bp.S != nil {
-			p.Style = *bp.S
+			p.Style = bp.S.style()
 		}
 		for _, r := range bp.R {
 			a := richtext.Attributes{Italic: r.I, Underline: r.U, Strikethrough: r.X, Code: r.C, Link: r.L, Tag: r.G, Weight: r.W}
@@ -220,13 +262,17 @@ func bodyText(body string) string { return bodyMarkdown(decodeBody(body)) }
 
 // appendLine puts a paragraph of text at the end of a body.
 func appendLine(body, line string) string {
-	var paras []bodyPara
-	if json.Unmarshal([]byte(body), &paras) != nil {
-		paras = nil
+	// the new paragraph put after the others in the JSON as it is: decoding and encoding it again would drop
+	// what this version does not know (#132). A body that cannot be read is refused before (bodyReadable).
+	b, _ := json.Marshal(bodyPara{R: []bodyRun{{T: line}}})
+	t := strings.TrimSpace(body)
+	if !strings.HasPrefix(t, "[") || !strings.HasSuffix(t, "]") {
+		return "[" + string(b) + "]"
 	}
-	paras = append(paras, bodyPara{R: []bodyRun{{T: line}}})
-	b, _ := json.Marshal(paras)
-	return string(b)
+	if strings.TrimSpace(t[1:len(t)-1]) == "" {
+		return "[" + string(b) + "]"
+	}
+	return t[:len(t)-1] + "," + string(b) + "]"
 }
 
 // editorFormat is the editor's format, which the library reads its bodies in (internal/library/bodyformat.go).
