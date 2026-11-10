@@ -216,7 +216,7 @@ func (a *app) miniCalendar(c *ui.Context, month *time.Time, chosen time.Time, pi
 	first := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, time.Local)
 	ui.Column(c).Gap(2).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(2).Padding(0, 0, 4, 4).Children(func() {
-			ui.Text(c, T(monthNames[first.Month()-1])+" "+strconv.Itoa(first.Year())).FontSize(13.5).FontWeight(600).TextColor(t.Text)
+			ui.Text(c, monthYear(first, false)).FontSize(13.5).FontWeight(600).TextColor(t.Text)
 			ui.Spacer(c)
 			if a.iconButton(c.Key("cal-prev"), iconChevronBack, T("Önceki ay")) {
 				*month = first.AddDate(0, -1, 0)
@@ -227,13 +227,13 @@ func (a *app) miniCalendar(c *ui.Context, month *time.Time, chosen time.Time, pi
 		})
 		const cell = 30
 		ui.Row(c).Children(func() {
-			for _, w := range weekdayShort {
+			for _, w := range weekdayHeads(false) {
 				ui.Box(c).Width(cell).Height(22).Center().Children(func() {
-					ui.Text(c, T(w)).FontSize(11).TextColor(t.TextMuted.Alpha(0.7))
+					ui.Text(c, w).FontSize(11).TextColor(t.TextMuted.Alpha(0.7))
 				})
 			}
 		})
-		start := first.AddDate(0, 0, -((int(first.Weekday()) + 6) % 7))
+		start := weekStart(first)
 		for w := range 6 {
 			ui.Row(c.Key(w)).Children(func() {
 				for i := range 7 {

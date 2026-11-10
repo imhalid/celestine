@@ -471,7 +471,7 @@ func dueMatches(k taskItem, group int, now time.Time) bool {
 	case 1:
 		return sameDay(k.due, today)
 	case 2:
-		end := today.AddDate(0, 0, (7-int(today.Weekday()))%7+1)
+		end := weekStart(today).AddDate(0, 0, 7)
 		return !k.due.Before(today) && k.due.Before(end)
 	}
 	return k.due.Before(today)

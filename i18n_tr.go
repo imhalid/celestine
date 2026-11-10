@@ -4,6 +4,8 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// the stats' busiest hour, its day named by the window's language (#302)
+	"Most fruitful: around %s %02d:00 (%d words).": "En verimli: %s %02d:00 civarı (%d kelime).",
 	// files the sync held back, sent up again (#147)
 	"Send mine up again": "Benimkileri yeniden gönder",
 	// a fold's or a zoom's chip taken away (#128)
@@ -176,7 +178,6 @@ var trText = map[string]string{
 	"Timeline":       "Zaman çizgisi",
 	"copies of":      "kopya:",
 	"copy of":        "kopya:",
-	"SMTWTFS":        "PPSÇPCC",
 	"No copies of this page are kept yet: one is kept when it is written over, every few minutes.": "Bu sayfanın henüz saklanan bir kopyası yok: sayfa değiştikçe birkaç dakikada bir kopya saklanır.",
 	"Show the differences":                   "Farkları göster",
 	"Show the page":                          "Sayfayı göster",

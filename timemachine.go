@@ -138,7 +138,7 @@ func (a *app) tmWhen(i int) string {
 	if sameDay(at, a.clock()) {
 		return T("Today") + " " + at.Format("15:04")
 	}
-	return at.Format("2 Jan 2006 · 15:04")
+	return dateTime(at, true)
 }
 
 // tmPutBack makes the page what the copy at the front is, as the version dialog does (the page now kept as a
@@ -476,7 +476,7 @@ func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 		case i == 1 && sameDay(t.vers[0].At, a.clock()):
 			label = T("Today")
 		case i == 1 || !sameDay(t.vers[i-1].At, t.vers[i-2].At):
-			label = t.vers[i-1].At.Format("2 Jan")
+			label = dayMonth(t.vers[i-1].At)
 		}
 		if label != "" && last-y >= 16 {
 			tc := cl.Muted

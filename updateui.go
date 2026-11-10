@@ -131,7 +131,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	case a.updErr != "":
 		status += T(" · son denetim olmadı: ") + a.updErr
 	case a.settings.UpdateAt > 0:
-		status += T(" · son denetim: ") + time.Unix(a.settings.UpdateAt, 0).Format("2 Jan 15:04")
+		status += T(" · son denetim: ") + dateTime(time.Unix(a.settings.UpdateAt, 0), false)
 	}
 	settingGroup(c, "set-update",
 		func() {

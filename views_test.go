@@ -146,15 +146,17 @@ func TestNewPageFromCollection(t *testing.T) {
 	}
 }
 
+// Relative times, dates and a list's headings are in the window's language (#302).
 func TestTimeWords(t *testing.T) {
+	withLang(t, "tr")
 	now := time.Date(2026, 11, 4, 15, 0, 0, 0, time.Local)
 	cases := []struct {
 		t          time.Time
 		ago, group string
 	}{
 		{now.Add(-30 * time.Second), "şimdi", "Bugün"},
-		{now.Add(-5 * time.Minute), "5 dk önce", "Bugün"},
-		{now.Add(-3 * time.Hour), "3 sa önce", "Bugün"},
+		{now.Add(-5 * time.Minute), "5 dk. önce", "Bugün"},
+		{now.Add(-3 * time.Hour), "3 sa. önce", "Bugün"},
 		{now.Add(-20 * time.Hour), "dün", "Dün"},
 		{now.Add(-4 * 24 * time.Hour), "4 gün önce", "Son 7 gün"},
 		{time.Date(2026, 10, 10, 9, 0, 0, 0, time.Local), "10 Eki 2026", "Son 30 gün"},

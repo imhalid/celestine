@@ -133,7 +133,7 @@ func (a *app) putBackVersion() {
 	}
 	a.takeOutside(p)
 	a.linksStale()
-	a.notice = Tf("“%s” %s sürümüne döndü", p.Title, v.vers[v.sel].At.Format("2 Jan 15:04"))
+	a.notice = Tf("“%s” %s sürümüne döndü", p.Title, dateTime(v.vers[v.sel].At, false))
 	v.open = false
 }
 
@@ -180,7 +180,7 @@ func (a *app) historyView(c *ui.Context) {
 					for i, ver := range v.vers {
 						i, ver := i, ver
 						row := ui.Column(c.Key("hv:"+strconv.FormatInt(ver.ID, 10))).FillWidth().Padding(7, 10).Radius(rad(9)).Gap(1).
-							Label("Sürüm: " + ver.At.Format("2 Jan 15:04")).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+							Label("Sürüm: " + dateTime(ver.At, false)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case i == v.sel:
 							row.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Card, cl.Accent, 0.26), To: ryugo.Mix(cl.Card, cl.Accent, 0.14)}).Border(1, cl.Accent.Alpha(0.4))
@@ -193,7 +193,7 @@ func (a *app) historyView(c *ui.Context) {
 								head = ver.Label
 							}
 							ui.Text(c, head).FontSize(13.5).FontWeight(600).TextColor(cl.Text).MaxLines(1)
-							ui.Text(c, ver.At.Format("2 Jan 2006, 15:04")+"  ·  "+sizeText(ver.Size)).FontSize(11.5).TextColor(cl.Muted)
+							ui.Text(c, dateTime(ver.At, true)+"  ·  "+sizeText(ver.Size)).FontSize(11.5).TextColor(cl.Muted)
 						})
 						if row.Clicked() {
 							v.sel = i

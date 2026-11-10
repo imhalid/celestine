@@ -273,6 +273,7 @@ func TestJournalStays(t *testing.T) {
 }
 
 func TestFormatDay(t *testing.T) {
+	withLang(t, "tr")
 	d := time.Date(2026, 11, 6, 9, 0, 0, 0, time.Local) // a Friday
 	for layout, want := range map[string]string{
 		"":                  "2026-11-06",

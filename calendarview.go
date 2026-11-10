@@ -18,8 +18,6 @@ import (
 // property's calendar a page in an open day is dragged to another day: its
 // date becomes that day.
 
-var weekdayShort = []string{"Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"}
-
 // pageDate is the day p is on in a calendar dated by field.
 func pageDate(p *Page, field string) (time.Time, bool) {
 	var d time.Time
@@ -76,7 +74,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 	for _, l := range byDay {
 		sort.SliceStable(l, func(i, j int) bool { return l[i].Created.Before(l[j].Created) })
 	}
-	offset := (int(month.Weekday()) + 6) % 7
+	offset := weekIndex(month)
 	start := month.AddDate(0, 0, -offset)
 	days := month.AddDate(0, 1, -1).Day()
 	weeks := (offset + days + 6) / 7
@@ -87,7 +85,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
 		// the month, and the way through the months
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, monthNames[month.Month()-1]+" "+pad(month.Year(), 4)).FontSize(20).FontWeight(680)
+			ui.Text(c, monthYear(month, false)).FontSize(20).FontWeight(680)
 			ui.Spacer(c)
 			if a.iconButton(c, iconBack, "Önceki ay") {
 				a.calMonth, a.calOpen = month.AddDate(0, -1, 0), false
@@ -100,7 +98,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 			}
 		})
 		ui.Row(c).FillWidth().Gap(calGap).Children(func() {
-			for _, d := range weekdayShort {
+			for _, d := range weekdayHeads(false) {
 				ui.Text(c.Key("wd:"+d), d).FontSize(11.5).FontWeight(650).TextColor(cl.Muted).Grow(1).Basis(0).Padding(0, 8)
 			}
 		})

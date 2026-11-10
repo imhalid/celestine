@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -76,7 +77,7 @@ func tmDaysOf(vers []Version, now time.Time) []tmDay {
 	for i := range out {
 		d := &out[i]
 		since++
-		if d.skip == 0 && (i == 0 || (d.day.Weekday() == time.Monday || out[i-1].skip > 0) && since >= 3) {
+		if d.skip == 0 && (i == 0 || (d.day.Weekday() == firstWeekday() || out[i-1].skip > 0) && since >= 3) {
 			d.month, since = true, 0
 		}
 	}
@@ -129,7 +130,7 @@ func (a *app) tmTimeline(c *ui.Context, top, full, k float32) {
 		})
 		a.scrolled(c, "tm-side", nil, ui.Scroll(c.Key("tm-side-rows")).Grow(1), func() {
 			ui.Column(c).FillWidth().Padding(0, 8, 16, 8).Children(func() {
-				letters := []rune(T("SMTWTFS"))
+				letters := i18n.Weekdays(lang, i18n.Narrow, true)
 				for i := range s.days {
 					a.tmDayRow(c, cl, i, letters, live)
 				}
@@ -139,7 +140,7 @@ func (a *app) tmTimeline(c *ui.Context, top, full, k float32) {
 }
 
 // tmDayRow draws row i of the timeline.
-func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters []rune, live bool) {
+func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters [7]string, live bool) {
 	s, t := &a.tmSide, &a.tm
 	d := s.days[i]
 	if d.skip > 0 {
@@ -156,7 +157,7 @@ func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters []rune, li
 		ink, faint, line = cl.Accent, cl.Accent, cl.Accent.Alpha(0.5)
 	}
 	row := ui.Row(c.Key("tm-row:"+d.day.Format("2006-01-02"))).FillWidth().Height(tmRowH).Padding(0, tmPadR, 0, tmPadL).Gap(tmGap).
-		AlignItems(ui.Center).Radius(rad(7)).Label(T("Page history: ") + d.day.Format("2 Jan 2006")).Role(ui.RoleButton)
+		AlignItems(ui.Center).Radius(rad(7)).Label(T("Page history: ") + shortDate(d.day)).Role(ui.RoleButton)
 	w := row.LayoutBounds().W
 	per, shown := tmDots(w, d.n)
 	at := -1 // the dot under the pointer
@@ -168,7 +169,7 @@ func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters []rune, li
 		if row.Hovered() {
 			row.Background(cl.Fill)
 			if live {
-				tip := d.day.Format("Mon 2 Jan 2006")
+				tip := weekdayDate(d.day)
 				if at >= 0 {
 					tip = a.tmWhen(d.first + at*d.n/shown)
 				}
@@ -200,11 +201,11 @@ func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters []rune, li
 	row.Children(func() {
 		month := ""
 		if d.month {
-			month = d.day.Format("Jan 2006")
+			month = monthYear(d.day, true)
 		}
 		ui.Text(c, month).Width(tmMonthW).FontSize(12).TextColor(cl.Muted.Alpha(0.85)).MaxLines(1).PassThrough()
 		ui.Box(c).Grow(1).PassThrough()
-		ui.Text(c, string(letters[int(d.day.Weekday())%len(letters)])).Width(tmLetW).TextAlign(ui.Center).FontSize(12.5).FontWeight(650).
+		ui.Text(c, letters[d.day.Weekday()]).Width(tmLetW).TextAlign(ui.Center).FontSize(12.5).FontWeight(650).
 			TextColor(ink).PassThrough()
 		ui.Text(c, itoa(d.day.Day())).Width(tmNumW).TextAlign(ui.End).FontSize(12.5).TextColor(faint).PassThrough()
 	})

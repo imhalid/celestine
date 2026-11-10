@@ -28,16 +28,11 @@ const (
 	defaultFormat = "YYYY-MM-DD"
 )
 
-var (
-	monthNames = []string{"Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"}
-	dayNames   = []string{"Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"} // time.Weekday order
-)
-
 // the formats offered, with how each looks
 var journalFormats = []string{"YYYY-MM-DD", "DD.MM.YYYY", "D MMMM YYYY", "D MMMM YYYY, dddd"}
 
 // formatDay writes day d as layout says: YYYY, YY, MMMM, MMM, MM, M, DD, D,
-// dddd and ddd, anything else as it is; months and days in Turkish.
+// dddd and ddd, anything else as it is; months and days in the window's language.
 func formatDay(layout string, d time.Time) string {
 	if layout == "" {
 		layout = defaultFormat
@@ -48,14 +43,14 @@ func formatDay(layout string, d time.Time) string {
 	}{
 		{"YYYY", func() string { return pad(d.Year(), 4) }},
 		{"YY", func() string { return pad(d.Year()%100, 2) }},
-		{"MMMM", func() string { return monthNames[d.Month()-1] }},
-		{"MMM", func() string { return string([]rune(monthNames[d.Month()-1])[:3]) }},
+		{"MMMM", func() string { return monthName(d.Month(), false) }},
+		{"MMM", func() string { return monthName(d.Month(), true) }},
 		{"MM", func() string { return pad(int(d.Month()), 2) }},
 		{"M", func() string { return pad(int(d.Month()), 0) }},
 		{"DD", func() string { return pad(d.Day(), 2) }},
 		{"D", func() string { return pad(d.Day(), 0) }},
-		{"dddd", func() string { return dayNames[d.Weekday()] }},
-		{"ddd", func() string { return string([]rune(dayNames[d.Weekday()])[:3]) }},
+		{"dddd", func() string { return dayName(d.Weekday(), false) }},
+		{"ddd", func() string { return dayName(d.Weekday(), true) }},
 	}
 	var b strings.Builder
 	for i := 0; i < len(layout); {

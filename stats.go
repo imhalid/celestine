@@ -392,7 +392,7 @@ func (a *app) useOver(from, to time.Time, f func(*dayUse) int) int {
 	return n
 }
 
-// hourGrid is the words written by weekday (Monday first) and hour, over all the days kept.
+// hourGrid is the words written by weekday (the week's first day first) and hour, over all the days kept.
 func (a *app) hourGrid() (grid [7][24]int, best [2]int, hi int) {
 	if a.usage == nil {
 		a.loadUsage()
@@ -402,7 +402,7 @@ func (a *app) hourGrid() (grid [7][24]int, best [2]int, hi int) {
 		if err != nil {
 			continue
 		}
-		wd := (int(t.Weekday()) + 6) % 7
+		wd := weekIndex(t)
 		for h, n := range u.Hours {
 			grid[wd][h] += n
 			if grid[wd][h] > hi {
@@ -617,17 +617,6 @@ func (a *app) exportStatsJSON() string {
 	return "Yazıldı: " + path
 }
 
-// duration says seconds as "2 sa 5 dk" or "40 sn".
-func duration(secs int) string {
-	switch {
-	case secs >= 3600:
-		return strconv.Itoa(secs/3600) + " sa " + strconv.Itoa(secs%3600/60) + " dk"
-	case secs >= 60:
-		return strconv.Itoa(secs/60) + " dk"
-	}
-	return strconv.Itoa(secs) + " sn"
-}
-
 // weekSummary is the week up to today in Markdown: for the journal.
 func (a *app) weekSummary() string {
 	now := startOfDay(a.clock())
@@ -637,7 +626,7 @@ func (a *app) weekSummary() string {
 		words += a.writtenOn(d)
 	}
 	var b strings.Builder
-	b.WriteString("## Haftalık özet: " + from.Format("2 Jan") + " – " + now.Format("2 Jan 2006") + "\n\n")
+	b.WriteString("## Haftalık özet: " + dayMonth(from) + " – " + shortDate(now) + "\n\n")
 	b.WriteString("- Yazılan: " + strconv.Itoa(words) + " kelime\n")
 	b.WriteString("- Kullanım: " + duration(a.activeOver(from, now)) + "\n")
 	b.WriteString("- Açılan sayfa: " + strconv.Itoa(a.useOver(from, now, func(u *dayUse) int { return u.Opened })) + ", yeni: " + strconv.Itoa(a.useOver(from, now, func(u *dayUse) int { return u.Created })) + "\n")

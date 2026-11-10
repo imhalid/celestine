@@ -97,14 +97,12 @@ func statList(c *ui.Context, key string, rows []count, empty string, open func(c
 	})
 }
 
-var weekdays = []string{"Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"}
-
 // statsView is the page.
 func (a *app) statsView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	s := a.stats()
 	now := startOfDay(a.clock())
-	weekFrom := now.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
+	weekFrom := weekStart(now)
 	// the scroll bar is the window's: the page is as wide as the area, its column is centered inside it
 	ui.Column(c).Fill().Gap(12).Children(func() {
 		ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
@@ -193,7 +191,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	statHead(c, "Hangi saatlerde yazıyorum", "Gün ve saate göre yazılan kelime.")
 	a.hourHeat(c, cl, grid, hi)
 	if hi > 0 {
-		ui.Text(c, "En verimli: "+weekdays[best[0]]+" "+pad(best[1], 2)+":00 civarı ("+strconv.Itoa(hi)+" kelime).").FontSize(13).TextColor(cl.Text2)
+		ui.Text(c, Tf("Most fruitful: around %s %02d:00 (%d words).", dayName((firstWeekday()+time.Weekday(best[0]))%7, false), best[1], hi)).FontSize(13).TextColor(cl.Text2)
 	} else {
 		ui.Text(c, T("Henüz saat verisi yok: yazdıkça burada birikir.")).FontSize(13).TextColor(cl.Muted)
 	}
@@ -333,7 +331,7 @@ func (a *app) statsLibrary(c *ui.Context, cl ryugo.Colors) {
 		statTile(c, "lib-tasks", "görev", strconv.Itoa(l.Tasks))
 	})
 	if l.Oldest != nil && l.Newest != nil {
-		ui.Text(c, T("En eski değişiklik: ")+l.Oldest.Title+" ("+l.Oldest.Modified.Format("2 Jan 2006")+") · "+T("en yeni: ")+l.Newest.Title+" ("+l.Newest.Modified.Format("2 Jan 15:04")+")").FontSize(12.5).TextColor(cl.Muted).Wrap()
+		ui.Text(c, T("En eski değişiklik: ")+l.Oldest.Title+" ("+shortDate(l.Oldest.Modified)+") · "+T("en yeni: ")+l.Newest.Title+" ("+dateTime(l.Newest.Modified, false)+")").FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
 	ui.Text(c, T("En büyük sayfalar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	statList(c, "big-pages", l.Biggest, "Sayfa yok.", nil)
@@ -431,7 +429,7 @@ func (a *app) writeWeekSummary() {
 // yearHeat draws the year as a grid of days, a column a week.
 func (a *app) yearHeat(c *ui.Context, cl ryugo.Colors, now time.Time) {
 	hi := 1
-	start := now.AddDate(0, 0, -(52*7 + (int(now.Weekday())+6)%7))
+	start := weekStart(now).AddDate(0, 0, -52*7)
 	for d := start; !d.After(now); d = d.AddDate(0, 0, 1) {
 		hi = max(hi, a.writtenOn(d))
 	}
@@ -439,7 +437,7 @@ func (a *app) yearHeat(c *ui.Context, cl ryugo.Colors, now time.Time) {
 		cell := min(float32(13), (r.W-52*2)/53)
 		col := 0
 		for d := start; !d.After(now); d = d.AddDate(0, 0, 1) {
-			wd := (int(d.Weekday()) + 6) % 7
+			wd := weekIndex(d)
 			if wd == 0 && !d.Equal(start) {
 				col++
 			}
@@ -458,8 +456,9 @@ func (a *app) hourHeat(c *ui.Context, cl ryugo.Colors, grid [7][24]int, hi int) 
 	ui.Box(c.Key("hour-heat")).FillWidth().Height(7*18 + 22).Label(T("Saat ve güne göre yazılan kelime")).Draw(func(p *ui.Painter, r ui.Rect) {
 		left := float32(34)
 		cell := (r.W - left) / 24
+		heads := weekdayHeads(false)
 		for wd := 0; wd < 7; wd++ {
-			sp := ui.Span{Text: weekdays[wd], Size: 11, Color: cl.Muted}
+			sp := ui.Span{Text: heads[wd], Size: 11, Color: cl.Muted}
 			p.RichText(r.X, r.Y+float32(wd)*18+2, left, sp)
 			for h := 0; h < 24; h++ {
 				n := grid[wd][h]

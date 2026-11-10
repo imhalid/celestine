@@ -2,7 +2,6 @@ package main
 
 import (
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -69,13 +68,13 @@ type writingStats struct {
 	last                            [30]int // the last 30 days, today last
 }
 
-// stats counts what was written up to now. The week starts on Monday; the
+// stats counts what was written up to now. The week starts on the window's first day; the
 // streak counts the days in a row, back from today (or yesterday, while
 // today has nothing yet), on which the goal - at least a word - was reached.
 func (a *app) stats() writingStats {
 	var s writingStats
 	now := startOfDay(a.clock())
-	weekStart := now.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
+	weekFrom := weekStart(now)
 	goal := max(a.settings.WriteGoal, 1)
 	for d, n := range a.settings.Writing {
 		t, err := time.Parse("2006-01-02", d)
@@ -86,7 +85,7 @@ func (a *app) stats() writingStats {
 		if n > s.best {
 			s.best, s.bestDay = n, d
 		}
-		if !t.Before(weekStart) && !t.After(now) {
+		if !t.Before(weekFrom) && !t.After(now) {
 			s.week += n
 		}
 		if t.Year() == now.Year() && t.Month() == now.Month() {
@@ -141,7 +140,7 @@ func (a *app) writingChart(c *ui.Context, cl ryugo.Colors, s writingStats) {
 			}
 			p.Fill(ui.Rect{X: x, Y: r.Y + plot - h, W: w, H: h}, col, rad(min(3, w/2)))
 			if d := now.AddDate(0, 0, i-29); i%7 == 1 || i == 29 {
-				sp := ui.Span{Text: strconv.Itoa(d.Day()) + " " + months[d.Month()-1], Size: 11, Color: cl.Muted}
+				sp := ui.Span{Text: dayMonth(d), Size: 11, Color: cl.Muted}
 				tw, _ := p.MeasureText(0, sp)
 				p.RichText(min(max(x+w/2-tw/2, r.X), r.X+r.W-tw), r.Y+plot+6, tw+2, sp)
 			}

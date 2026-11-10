@@ -221,7 +221,7 @@ func (a *app) commands() []palItem {
 		if b.Label != "" {
 			what = b.Label
 		}
-		it := cmd("Yedekten geri yükle: "+b.At.Format("2 Jan 15:04")+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
+		it := cmd("Yedekten geri yükle: "+dateTime(b.At, false)+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
 		it.alias = "restore backup yedek"
 		out = append(out, it)
 	}

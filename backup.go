@@ -368,7 +368,7 @@ func (a *app) restoreFrom(b Backup) {
 		a.notice = "Geri yüklenemedi: " + err.Error()
 		return
 	}
-	a.notice = Tf("Yeniden başlatınca %s yedeği geri yüklenecek; şimdiki dosya yanında saklanır.", b.At.Format("2 Jan 15:04"))
+	a.notice = Tf("Yeniden başlatınca %s yedeği geri yüklenecek; şimdiki dosya yanında saklanır.", dateTime(b.At, false))
 }
 
 // exportZip writes the library as Markdown files and zips them, next to its file.
@@ -426,7 +426,7 @@ func (a *app) settingsBackup(c *ui.Context) {
 			if b.Label != "" {
 				what = T(strings.ReplaceAll(b.Label, "-", " ")) // what it was taken for, as the file names it: elle, içe-aktarma
 			}
-			settingRow(c, b.At.Format("2 Jan 2006, 15:04"), what+" · "+fmt.Sprintf("%.1f MB", float64(b.Size)/1e6), func() {
+			settingRow(c, dateTime(b.At, true), what+" · "+fmt.Sprintf("%.1f MB", float64(b.Size)/1e6), func() {
 				if ryugo.Button(c.Key("restore:"+b.Path), T("Geri yükle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.restoreFrom(b)
 				}

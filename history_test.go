@@ -496,7 +496,7 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if a.sidebarShown < 100 || !tt.HasText(T("copies of")) || !tt.HasText(a.page.Title) {
 		t.Fatalf("no timeline in the sidebar (%v wide): %v", a.sidebarShown, tt.Texts())
 	}
-	if err := tt.Click(T("Page history: ") + "8 Nov 2026"); err != nil {
+	if err := tt.Click(T("Page history: ") + shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local))); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()

@@ -61,8 +61,8 @@ func parseNaturalDay(q string, now time.Time) (time.Time, bool) {
 	// a weekday, alone or after next, this or last
 	if wd, ok := weekdayNames[words[len(words)-1]]; ok && len(words) <= 2 {
 		after := (int(wd) - int(today.Weekday()) + 7) % 7 // days to the next one, 0 today
-		monday := today.AddDate(0, 0, -((int(today.Weekday()) + 6) % 7))
-		inWeek := (int(wd) + 6) % 7 // Monday 0
+		first := weekStart(today)
+		inWeek := (int(wd) - int(firstWeekday()) + 7) % 7 // the week's first day 0
 		if len(words) == 1 {
 			if after == 0 {
 				after = 7
@@ -71,9 +71,9 @@ func parseNaturalDay(q string, now time.Time) (time.Time, bool) {
 		}
 		switch words[0] {
 		case "gelecek", "next", "haftaya":
-			return monday.AddDate(0, 0, 7+inWeek), true
+			return first.AddDate(0, 0, 7+inWeek), true
 		case "bu", "this":
-			return monday.AddDate(0, 0, inWeek), true
+			return first.AddDate(0, 0, inWeek), true
 		case "gecen", "last", "onceki":
 			before := (int(today.Weekday()) - int(wd) + 7) % 7
 			if before == 0 {

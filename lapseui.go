@@ -445,7 +445,7 @@ func (a *app) lapseChips(c *ui.Context) {
 				ui.Box(c).Size(8, 8).Radius(4).Background(col)
 				ui.Text(c, "v"+strconv.Itoa(k)).FontSize(11.5).FontWeight(650).TextColor(col)
 			})
-			day := l.days[k-1].Format("Mon, 2 Jan 2006")
+			day := weekdayDate(l.days[k-1])
 			if sameDayAs(l.days[k-1], a.clock()) {
 				day = T("Today")
 			}
