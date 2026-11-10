@@ -650,7 +650,7 @@ var vimNames = map[string]string{
 	"fontsize": "yazı boyutu", "fs": "yazı boyutu", "lineheight": "satır aralığı", "lh": "satır aralığı", "width": "sayfa genişliği",
 	"textwidth": "sayfa genişliği", "autosave": "otomatik kayıt", "list": "boşlukları göster", "spaces": "boşlukları göster",
 	"tabs": "sekmeleri göster", "ligatures": "ligatürler", "indent": "ilk satır girintisi", "sidebar": "kenar çubuğu", "mcp": "mcp sunucusu",
-	"stats": "istatistik toplama", "backup": "günlük yedek", "jelly": "jöle efekti", "wobble": "jöle sarsıntısı", "cover": "otomatik kapak",
+	"stats": "istatistik toplama", "backup": "günlük yedek", "jelly": "jöle efekti", "wobble": "parıltı", "cover": "otomatik kapak",
 	"weight": "yazı kalınlığı", "corner": "köşe yuvarlaklığı", "delay": "kayıt gecikmesi",
 }
 

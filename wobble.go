@@ -2,157 +2,138 @@ package main
 
 import (
 	"math"
+	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/shader"
 )
 
-// The jelly: when an agent (MCP) adds to a page, the window itself shakes from
-// side to side like a jelly, hopping as it goes, and settles where it was - the
-// more it was given, the harder it shakes. The window is moved by a goroutine of
-// its own, a step every frame, so that a slow frame of the view does not slow it
-// (and the view, which holds the app's lock, never waits on the window). Where
-// a window cannot be moved (a maximized one, a full screen one, and Wayland, which
-// leaves a window's place to the compositor) the shake is laid on what is drawn in
-// the window instead: a slide and a lean and a squeeze of the whole view.
+// The shimmer: when an agent (MCP) adds to a page, a band of light sweeps once
+// across the whole view, from its top left corner to its bottom right, and is
+// gone; the window stays where it is. The band lightens what it passes over, the
+// page's ground and its letters alike, so that on a light ground the letters
+// shine and on a dark one the ground does too. The more was added, the brighter
+// it is. A write while one goes on brightens it, and one past its middle sends
+// it again from the start.
 
 const (
-	wobbleLen  = 1600 * time.Millisecond
-	wobbleHz   = 3.4  // swings in a second
-	wobbleDamp = 3.0  // how fast they die away, per second
-	wobbleMin  = 3.0  // the least it slides, in px, and
-	wobbleMax  = 10.0 // the most
-	hopHz      = 1.7  // hops in a second: one for every two swings
-	winGain    = 1.6  // the window swings this much wider than what is drawn in it
-	hopGain    = 1.1  // and hops this high, of the swing
+	shimmerLen = 1100 * time.Millisecond
+	shimmerMin = 0.10 // how far the band lightens at its middle, for a little, and
+	shimmerMax = 0.24 // for a lot
+	shimmerW   = 140  // the band's half width, in DIPs
+	shimmerTip = 0.45 // the slope of the band: its line goes this much down for each across
 )
 
+// shimmerDraws is false in tests: the tester draws on the CPU, where a shader over the whole
+// window takes seconds a frame. The sweep is kept all the same.
+var shimmerDraws = !testing.Testing()
+
+var shimmerShader = shader.MustCompile(`package main
+
+var Head float // where the band's middle is, along the sweep, in DIPs
+var Width float
+var Tip float
+var Strength float
+
+func ColorEffect(pos vec2, color vec4) vec4 {
+	u := pos.x + Tip*pos.y
+	d := (u - Head) / Width
+	band := exp(-d * d) * Strength
+	// toward white, as much of it as the pixel has: what is see-through stays so
+	return vec4(mix(color.rgb, vec3(color.a), band), color.a)
+}
+`)
+
+// wobble is the shimmer going on: when it started (zero until the frame that first draws it:
+// it is timed on the view's clock, which a write from an agent's goroutine does not have), and
+// how bright it is.
 type wobble struct {
-	at  time.Time
-	amp float32
+	at       time.Time
+	strength float32
+	on       bool
 }
 
-// windowMover is what the shake needs of a window: where it is, to move it, and whether it can be.
-type windowMover interface {
-	Position() (x, y int)
-	SetPosition(x, y int)
-	IsMaximized() bool
-	IsFullScreen() bool
-	IsMinimized() bool
-}
-
-// wobbleState is the shake as it is now; it is read by the view and by the window's goroutine.
+// wobbleState is the shimmer as it is now.
 func (a *app) wobbleState() wobble {
 	a.wobMu.Lock()
 	defer a.wobMu.Unlock()
 	return a.wob
 }
 
-// jiggle shakes the window for n characters of text added. A shake already going
-// on is taken over by the stronger of the two.
+// shimmerOf is how bright a shimmer is for n characters of text added.
+func shimmerOf(n int) float32 {
+	return float32(math.Min(shimmerMax, shimmerMin+math.Sqrt(float64(n))/250))
+}
+
+// jiggle sends the shimmer across the window for n characters of text added.
 func (a *app) jiggle(n int) {
-	if a.settings.NoWobble || n <= 0 {
+	if a.settings.NoWobble {
 		return
 	}
-	amp := float32(math.Min(wobbleMax, wobbleMin+math.Sqrt(float64(n))/6))
-	now := time.Now()
+	a.shimmer(n)
+}
+
+// shimmer sends it whatever the settings say: the settings' button tries it.
+func (a *app) shimmer(n int) {
+	if n <= 0 {
+		return
+	}
+	s := shimmerOf(n)
 	a.wobMu.Lock()
-	if left := wobbleAmpOf(a.wob, now); left > amp {
-		amp = left
+	w := a.wob
+	switch {
+	case !w.on, !w.at.IsZero() && time.Since(w.at) > shimmerLen/2: // none, or one past its middle: from the start
+		a.wob = wobble{strength: s, on: true}
+	default:
+		a.wob.strength = max(w.strength, s)
 	}
-	a.wob = wobble{at: now, amp: amp}
 	a.wobMu.Unlock()
-	a.shakeWindow()
-}
-
-// wobbleAmpOf is how far the shake w slides at now, at its widest swing.
-func wobbleAmpOf(w wobble, now time.Time) float32 {
-	t := now.Sub(w.at)
-	if w.at.IsZero() || t < 0 || t > wobbleLen {
-		return 0
+	if a.invalidate != nil {
+		a.invalidate()
 	}
-	return w.amp * float32(math.Exp(-wobbleDamp*t.Seconds()))
 }
 
-// swingOf is the shake w at now: how far it slides, its lean in degrees, the squeeze in the
-// two directions and how high it hops; on is false once it is still.
-func swingOf(w wobble, now time.Time) (dx, lean, sx, sy, hop float32, on bool) {
-	amp := wobbleAmpOf(w, now)
-	if amp < 0.05 {
-		return 0, 0, 1, 1, 0, false
-	}
-	t := now.Sub(w.at).Seconds()
-	phase := 2 * math.Pi * wobbleHz * t
-	osc, turn := float32(math.Sin(phase)), float32(math.Cos(phase))
-	dx = amp * osc
-	lean = -0.09 * amp * turn // leans against the way it is going: its top lags
-	k := 0.0035 * amp
-	hop = amp * float32(math.Abs(math.Sin(2*math.Pi*hopHz*t))) // up and down on its landing
-	return dx, lean, 1 + k*absf(turn), 1 - k*0.6*absf(turn), hop, true
+// shimmerHead is where the band's middle is at t of the sweep, across a view w by h: it comes in
+// from before the top left corner and leaves past the bottom right, easing in and out.
+func shimmerHead(t, w, h float32) float32 {
+	t = min(max(t, 0), 1)
+	e := t * t * (3 - 2*t)
+	from, to := float32(-2*shimmerW), w+shimmerTip*h+2*shimmerW
+	return from + (to-from)*e
 }
 
-func absf(v float32) float32 {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
-// shake lays the shake on what is drawn in the window, while the window itself
-// is not the one moving, and asks for the frames of it.
+// shake lays the shimmer on what is drawn in the window, and asks for its frames.
 func (a *app) shake(c *ui.Context, root ui.Element) {
-	dx, lean, sx, sy, _, on := swingOf(a.wobbleState(), time.Now())
-	if !on {
+	now := c.Now()
+	a.wobMu.Lock()
+	if a.wob.on && a.wob.at.IsZero() {
+		a.wob.at = now
+	}
+	w := a.wob
+	if w.on && now.Sub(w.at) >= shimmerLen {
+		a.wob = wobble{}
+		w.on = false
+	}
+	a.wobMu.Unlock()
+	if !w.on || c.Preferences().ReduceMotion {
 		return
 	}
-	c.After(16 * time.Millisecond)
-	if a.winShaking.Load() {
-		return // the window moves: what is in it stays
-	}
-	root.Translate(dx, 0).Skew(lean, 0).Scale(sx, sy)
-}
-
-// shakeWindow moves the window with the shake, if it can be moved and is not
-// being moved already. The goroutine stops when the shake has died away, and puts
-// the window back where it was; or, when the user takes hold of the window and moves
-// it, where they put it.
-func (a *app) shakeWindow() {
-	m := a.mover
-	if m == nil || a.winBusy.Swap(true) {
+	c.AnimationFrame()
+	if !shimmerDraws {
 		return
 	}
-	go func() {
-		defer a.guard()
-		defer a.winBusy.Store(false)
-		defer a.winShaking.Store(false)
-		if m.IsMaximized() || m.IsFullScreen() || m.IsMinimized() {
-			return
-		}
-		a.winShaking.Store(true) // the window is the one that moves, until it shows it does not
-		hx, hy := m.Position()
-		lx, ly := hx, hy // where the last step put it
-		for step := 0; ; step++ {
-			time.Sleep(16 * time.Millisecond)
-			dx, _, _, _, hop, on := swingOf(a.wobbleState(), time.Now())
-			// not where the last step put it: the user has it, or the window does not obey; either way, leave it be
-			if cx, cy := m.Position(); step > 0 && (absInt(cx-lx) > 3 || absInt(cy-ly) > 3) {
-				return
-			}
-			if !on {
-				m.SetPosition(hx, hy)
-				return
-			}
-			nx := max(hx+int(math.Round(float64(dx*winGain))), 0)
-			ny := max(hy-int(math.Round(float64(hop*winGain*hopGain))), 0)
-			m.SetPosition(nx, ny)
-			lx, ly = nx, ny
-		}
-	}()
-}
-
-func absInt(v int) int {
-	if v < 0 {
-		return -v
+	b := root.LayoutBounds()
+	if b.W == 0 { // the first frame: its size comes after; the window's is as good
+		b.W, b.H = c.Size()
 	}
-	return v
+	t := float32(now.Sub(w.at)) / float32(shimmerLen)
+	root.Effect(shimmerShader.Effect(shader.Options{
+		Uniforms: map[string]any{
+			"Head":     shimmerHead(t, b.W, b.H),
+			"Width":    float32(shimmerW),
+			"Tip":      float32(shimmerTip),
+			"Strength": w.strength,
+		},
+	}))
 }

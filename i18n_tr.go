@@ -187,4 +187,8 @@ var trText = map[string]string{
 	// sync
 	", %d merged": ", %d birleştirildi",
 	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",
+	// the shimmer when an agent writes (#301)
+	"Shimmer": "Parıltı",
+	"While an agent (MCP) adds content to a page, a band of light sweeps across the window, brighter the more is added.": "Bir ajan (MCP) sayfaya içerik eklerken pencerenin üzerinden bir ışık şeridi geçer; ne kadar çok eklenirse o kadar parlak.",
+	"Try it": "Dene",
 }

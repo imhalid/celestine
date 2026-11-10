@@ -157,7 +157,6 @@ var enMore = map[string]string{
 	"Üst çubuk":          "Top bar",
 	"Başlık":             "Title",
 	"Önizleme":           "Preview",
-	"Jöle sarsıntısı":    "Jelly shake",
 	"Satır ":             "Line ",
 	", sütun ":           ", column ",
 	// backup and crash

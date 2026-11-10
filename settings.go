@@ -507,8 +507,13 @@ func (a *app) settingsEditor(c *ui.Context) {
 	}
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
-		settingRow(c, "Jöle sarsıntısı", "Bir ajan (MCP) sayfaya içerik eklerken pencere, eklenen kadar, jöle gibi sağa sola sallanır ve zıplar. Pencerenin yeri değiştirilemiyorsa (tam ekran, Wayland) içindeki görünüm sallanır.", func() {
-			ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label(T("Jöle sarsıntısı"))
+		settingRow(c, "Shimmer", "While an agent (MCP) adds content to a page, a band of light sweeps across the window, brighter the more is added.", func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				if ryugo.Button(c.Key("set-wobble-try"), T("Try it"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.shimmer(400)
+				}
+				ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label(T("Shimmer"))
+			})
 		})
 	})
 	if shake != !a.settings.NoWobble {

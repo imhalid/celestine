@@ -303,11 +303,8 @@ type app struct {
 	outlineDoc    *richtext.Document
 	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
 	settingsDirty bool        // changed, not yet written (saveSettingsSoon)
-	wob           wobble      // the jelly's shake, when an agent writes (wobble.go)
-	wobMu         sync.Mutex  // guards it: the window's goroutine reads it too
-	mover         windowMover // the window, to shake it
-	winBusy       atomic.Bool // a goroutine is moving the window
-	winShaking    atomic.Bool // and the window does move: the view keeps still
+	wob           wobble      // the shimmer, when an agent writes (wobble.go)
+	wobMu         sync.Mutex  // guards it: an agent's goroutine sends it
 	settingsAt    time.Time   // when
 	savedAt       time.Time   // the last save of the page, shown in the status bar
 	mcpServer     *http.Server
@@ -584,7 +581,6 @@ func main() {
 			a.win = w
 		}
 		a.invalidate = w.Invalidate
-		a.mover = w
 		if runtime.GOOS != "js" { // a browser has one window: the panes stay in it
 			a.newDockHost(w)
 			a.dockHost.Sync() // the windows of the panes, as they were left

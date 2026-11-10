@@ -253,7 +253,7 @@ func settingDefs() []settingDef {
 		tog("Jöle efekti", "caret jöle jelly", []string{"jelly"},
 			func(a *app) bool { return a.settings.Jelly },
 			func(a *app, v bool) { a.settings.Jelly = v; a.saveSettings() }),
-		simple("Jöle sarsıntısı", "pencere sallanma wobble shake", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
+		simple("Shimmer", "parıltı ışık jöle sarsıntısı wobble shake shimmer", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
 		simple("Press waves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
 		simple("Otomatik kapak", "kapak cover", "noAutoCover", func(s *Settings) *bool { return &s.NoAutoCover }, true),
 		simple("Kelimeleri yazıldığı güne göre renklendir", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
