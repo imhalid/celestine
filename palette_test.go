@@ -242,3 +242,27 @@ func TestPaletteScrollsWithTheArrows(t *testing.T) {
 		t.Fatalf("the first row did not come back: %v", r)
 	}
 }
+
+// The palette makes its lines once for a query, not at every frame: the pointer moving over them, a frame asked for,
+// cost nothing of it; a letter typed makes them again (#186).
+func TestPaletteLinesKept(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.Key(ui.Cmd, ui.KeyP)
+	tt.Advance(300 * time.Millisecond)
+	made := a.pal.made
+	if made == 0 || len(a.pal.items) == 0 {
+		t.Fatal("no lines")
+	}
+	for i := range 20 {
+		tt.Move(450, float32(160+i*6))
+		tt.Frame()
+	}
+	if a.pal.made != made {
+		t.Fatalf("made %d times more as the pointer moved", a.pal.made-made)
+	}
+	tt.Type("çöp")
+	tt.Frame()
+	if a.pal.made == made || a.pal.query != ">çöp" {
+		t.Fatalf("not made again for the query: %q", a.pal.query)
+	}
+}

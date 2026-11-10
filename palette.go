@@ -31,6 +31,19 @@ type palette struct {
 	snap   *palSnap // the settings as they were when it opened, while a command is shown as a preview
 	pvKey  string   // the command being previewed
 	cat    string   // the group of commands opened, with nothing typed (palgroups.go)
+	items  []palItem // the lines for key, kept: made again only when what they come from changed (#186)
+	key    palKey
+	have   bool // items are made for key (none at all is a list too)
+	made   int // how many times the lines were made, counted for a test
+}
+
+// palKey is what the palette's lines come from: the query, the group opened, the pages of the library, the open page's
+// text, and the settings as the palette shows them (its ticks).
+type palKey struct {
+	query, cat  string
+	pages, text uint64
+	theme, look int
+	caret       caretKind
 }
 
 // palSnap is what a preview changes, as it was: it goes back when the palette closes without choosing.
@@ -643,6 +656,7 @@ func (a *app) paletteView(c *ui.Context) {
 	if !a.pal.open {
 		a.px.dirty = true // the places are made again when it opens
 		a.palRestore()    // closed without choosing: what a preview changed goes back
+		a.pal.have = false // and the lines: the commands' state, the backups, the recent pages may have changed
 		return
 	}
 	t := ryugo.From(c)
@@ -652,7 +666,7 @@ func (a *app) paletteView(c *ui.Context) {
 		panel.Width(480).MaxWidthPercent(100).Radius(rad(ryugo.RadiusPop)).Background(cl.Card).
 			Border(1, cl.Hairline).Clip().Label(a.palLabel())
 		t.Shadows.ShadowPop.Apply(panel)
-		items := a.paletteItems(a.pal.query)
+		items := a.palLines()
 		if a.pal.query != a.pal.was {
 			a.pal.sel, a.pal.was, a.pal.hseen, a.pal.reveal = 0, a.pal.query, -1, true
 		}
@@ -726,6 +740,20 @@ func (a *app) paletteView(c *ui.Context) {
 			})
 		})
 	})
+}
+
+// palLines are the palette's lines for its query, made only when what they come from changed: made at every frame,
+// they were every command with its closures, the backups read from the disk, every page of the library (#186).
+func (a *app) palLines() []palItem {
+	k := palKey{query: a.pal.query, cat: a.pal.cat, pages: PagesGen.Load(), theme: a.settings.Theme, look: a.settings.AppTheme, caret: a.caretKind}
+	if a.doc != nil {
+		k.text = a.doc.Version()
+	}
+	if !a.pal.have || a.pal.key != k {
+		a.pal.items, a.pal.key, a.pal.have = a.paletteItems(a.pal.query), k, true
+		a.pal.made++
+	}
+	return a.pal.items
 }
 
 func (a *app) palLabel() string {
