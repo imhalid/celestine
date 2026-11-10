@@ -842,7 +842,7 @@ func (a *app) cellEditView(c *ui.Context) {
 			return
 		}
 		col := ce.ch.tbl.cols[ce.col]
-		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Gap(2).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline)
+		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline)
 		a.wheelToPage(bar)
 		bar.
 			Children(func() {
