@@ -253,3 +253,28 @@ func TestStatsOut(t *testing.T) {
 		t.Fatal("not erased")
 	}
 }
+
+// Time in use is gathered, frame by frame, and counted once: frames 600 ms apart for three seconds are three seconds,
+// for the day and for the page, as frames 5 ms apart are (#202).
+func TestUsageCountedOnce(t *testing.T) {
+	for _, gap := range []time.Duration{600 * time.Millisecond, 5 * time.Millisecond} {
+		a, _ := newTestApp(t, "x\n")
+		now := time.Date(2026, 11, 10, 10, 0, 0, 0, time.Local)
+		a.clock = func() time.Time { return now }
+		a.stirred()
+		a.statTick()
+		d := a.useDay()
+		active, page := d.Active, d.PageSecs[a.page.Dir]
+		for range int(3 * time.Second / gap) {
+			now = now.Add(gap)
+			a.stirred()
+			a.statTick()
+		}
+		if got := d.Active - active; got != 3 {
+			t.Errorf("gap %v: %d seconds in use, want 3", gap, got)
+		}
+		if got := d.PageSecs[a.page.Dir] - page; got != 3 {
+			t.Errorf("gap %v: %d seconds in the page, want 3", gap, got)
+		}
+	}
+}

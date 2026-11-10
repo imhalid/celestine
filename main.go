@@ -180,7 +180,9 @@ type app struct {
 	usage       *usageData          // what is used, by the day (stats.go)
 	usageDirty  bool
 	usageSaved  time.Time
-	activeAt    time.Time // the last thing done: a minute after it, the time is not counted
+	activeAt    time.Time     // the last thing done: a minute after it, the time is not counted
+	pageFrac    time.Duration // the open page's time gathered, not yet a whole second (statTick)
+	pageFracOf  string        // the page it is of
 	activeFrac  time.Duration
 	statLast    time.Time
 	statVer     uint64

@@ -99,6 +99,11 @@ func (a *app) saveUsage() {
 	}
 	a.usageDirty = false
 	data, _ := json.Marshal(a.usage)
+	a.writeUsage(data)
+}
+
+// writeUsage writes the figures marshalled: in the library's file, or in their own.
+func (a *app) writeUsage(data []byte) {
 	if a.settingsStore != nil {
 		a.settingsStore.SetMeta(usageKey, data)
 		return
@@ -139,9 +144,13 @@ func (a *app) useDay() *dayUse {
 
 // keepUsage writes the figures when they changed and some time has gone since the last time.
 func (a *app) keepUsage() {
-	if a.usageDirty && a.clock().Sub(a.usageSaved) > usageSaveEvery {
-		a.usageSaved = a.clock()
-		a.saveUsage()
+	if a.usageDirty && a.clock().Sub(a.usageSaved) > usageSaveEvery && a.usage != nil {
+		a.usageSaved, a.usageDirty = a.clock(), false
+		data, _ := json.Marshal(a.usage) // a copy, made here; written away from the window (#202)
+		go func() {
+			defer a.guard()
+			a.writeUsage(data)
+		}()
 	}
 }
 
@@ -162,18 +171,25 @@ func (a *app) statTick() {
 	}
 	if dt := now.Sub(last); dt > 0 {
 		if d := a.useDay(); d != nil {
-			d.Active += int(dt.Round(time.Second).Seconds())
-			if a.page != nil && !a.noPage() && dt >= time.Second {
-				if d.PageSecs == nil {
-					d.PageSecs = map[string]int{}
-				}
-				d.PageSecs[a.page.Dir] += int(dt.Round(time.Second).Seconds())
+			// the time gathered, and whole seconds taken from it: a gap of 0.5 to 1 s was rounded up to a second
+			// and also gathered, counted twice, and a page was given only gaps of a second or more, so the time
+			// spent writing in it, frames a few milliseconds apart, was never its own (#202)
+			a.activeFrac += dt
+			if s := a.activeFrac.Truncate(time.Second); s > 0 {
+				d.Active += int(s.Seconds())
+				a.activeFrac -= s
 			}
-			if dt < time.Second { // a frame is a few milliseconds: they are gathered, not lost
-				a.activeFrac += dt
-				if a.activeFrac >= time.Second {
-					d.Active += int(a.activeFrac.Seconds())
-					a.activeFrac = 0
+			if a.page != nil && !a.noPage() {
+				if a.pageFracOf != a.page.Dir {
+					a.pageFracOf, a.pageFrac = a.page.Dir, 0
+				}
+				a.pageFrac += dt
+				if s := a.pageFrac.Truncate(time.Second); s > 0 {
+					if d.PageSecs == nil {
+						d.PageSecs = map[string]int{}
+					}
+					d.PageSecs[a.page.Dir] += int(s.Seconds())
+					a.pageFrac -= s
 				}
 			}
 		}
