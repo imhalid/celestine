@@ -32,8 +32,14 @@ type collSettings struct {
 	adding  bool     // the form for a new property is open
 	newType int
 
-	code   string // the Code tab's JSON
-	closed bool   // what closing does is done: the panel only slides away
+	code    string // the Code tab's JSON
+	closed  bool   // what closing does is done: the panel only slides away
+	discard bool   // closing was asked about, and its changes are let go
+}
+
+// changed says whether the draft, or the Code tab's JSON, differs from the collection as it was.
+func (cs *collSettings) changed() bool {
+	return string(cs.draft.ConfigJSON()) != string(cs.orig) || cs.code != string(cs.orig)
 }
 
 func (a *app) openCollSettings(c *Collection, tab int) {
@@ -74,8 +80,15 @@ func (a *app) collSettingsView(c *ui.Context) {
 	if cs.coll == nil {
 		return
 	}
-	if !cs.open && !cs.closed {
-		a.endCollSettings() // closed by Vazgeç, Esc or the scrim: as it was
+	if !cs.open && !cs.closed { // closed by Vazgeç, Esc or the scrim: as it was, once asked when it changed (#217)
+		if !cs.saved && !cs.discard && cs.changed() {
+			cs.open = true
+			a.ask(T("Discard the changes?"), Tf("What was changed in the settings of “%s” is not kept.", cs.coll.Name), T("Discard"), func() {
+				a.cs.open, a.cs.discard = false, true
+			})
+		} else {
+			a.endCollSettings()
+		}
 	}
 	d := &cs.draft
 	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / Ayarlar", Width: 560, Fixed: true, Footer: func() {

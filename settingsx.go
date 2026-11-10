@@ -71,6 +71,15 @@ func (a *app) changedDefs() []settingDef {
 }
 
 // resetAll puts every changed setting back, and says how many.
+// resetAllAsked asks, then puts every setting back to its default, with a way back: the language, the sync and
+// the MCP server go back too.
+func (a *app) resetAllAsked() {
+	a.ask(T("Reset all settings?"), T("Every setting goes back to its default: the language, the look, the sync and the MCP server too."), T("Reset all"), func() {
+		before := a.settings
+		a.undoSettings(Tf("%d ayar varsayılana döndü", a.resetAll()), before)
+	})
+}
+
 func (a *app) resetAll() int {
 	n := 0
 	for _, d := range a.changedDefs() {
@@ -179,7 +188,7 @@ func (a *app) saveProfile(name string) {
 }
 
 // applyProfile puts a profile on: what it holds is set, the rest of the settings stay.
-func (a *app) applyProfile(name string) bool {
+func (a *app) applyProfile(name string) (on bool) {
 	prof, ok := a.settings.Profiles[name]
 	if !ok {
 		prof, ok = builtinProfiles[name]
@@ -187,6 +196,12 @@ func (a *app) applyProfile(name string) bool {
 	if !ok {
 		return false
 	}
+	before := a.settings
+	defer func() {
+		if on { // the profile was put on: it can be taken off, as one change
+			a.undoSettings(Tf("Profile “%s” is on", name), before)
+		}
+	}()
 	data, _ := json.Marshal(a.settings)
 	var all map[string]any
 	json.Unmarshal(data, &all)
@@ -364,8 +379,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 			return true
 		}
 		if ryugo.Button(c.Key("reset-all"), T("Hepsini varsayılana döndür")+" ("+strconv.Itoa(len(ch))+")", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-			n := a.resetAll()
-			a.notice = Tf("%d ayar varsayılana döndü", n)
+			a.resetAllAsked()
 		}
 		var rows []func()
 		for _, d := range ch {

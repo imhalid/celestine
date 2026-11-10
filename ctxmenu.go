@@ -200,10 +200,7 @@ func (a *app) trashMenu(item *TrashItem) []menuItem {
 	return []menuItem{
 		{title: "Geri yükle", glyph: iconRestore, run: func() { a.restore(item) }},
 		{title: "Kalıcı olarak sil", group: "~", glyph: iconTrash, danger: true, run: func() {
-			if err := a.lib.DeleteForever(item); err != nil {
-				a.fail(err)
-			}
-			a.loadTrash()
+			a.deleteForever(item)
 		}},
 	}
 }

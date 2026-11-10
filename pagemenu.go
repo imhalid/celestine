@@ -140,7 +140,11 @@ func (a *app) writeExport(p *Page, md, path string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(filepath.Dir(path), e.Name()), data, 0o644); err != nil {
+		to := filepath.Join(filepath.Dir(path), e.Name())
+		if _, err := os.Stat(to); err == nil { // a file of that name is there already: it is not written over (#217)
+			continue
+		}
+		if err := os.WriteFile(to, data, 0o644); err != nil {
 			return err
 		}
 	}

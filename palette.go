@@ -151,7 +151,7 @@ func (a *app) commands() []palItem {
 			}
 		}),
 		cmd("Ayar dosyası oku…", "", iconExport, a.pickSettingsFile),
-		cmd("Hepsini varsayılana döndür", "", iconSettings, func() { a.notice = Tf("%d ayar varsayılana döndü", a.resetAll()) }),
+		cmd("Hepsini varsayılana döndür", "", iconSettings, a.resetAllAsked),
 		cmd("Son kayıttan önceki hâle dön", "", iconBack, a.revertToBeforeSave),
 		cmd("Şimdi eşitle", "", iconSync, func() {
 			if a.settings.SyncMode == "" {

@@ -153,10 +153,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 			a.restore(item)
 		}
 		if ryugo.Button(c.Key("delete:"+item.Dir), T("Kalıcı olarak sil: ")+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-			if err := a.lib.DeleteForever(item); err != nil {
-				a.fail(err)
-			}
-			a.loadTrash()
+			a.deleteForever(item)
 		}
 	})
 }
@@ -201,5 +198,16 @@ func (a *app) tasksRow(c *ui.Context) {
 		if r.Clicked() {
 			a.openTasks()
 		}
+	})
+}
+
+// deleteForever asks, then deletes item from the trash for good: a page and its sub-pages, or a collection, with no
+// way back.
+func (a *app) deleteForever(item *TrashItem) {
+	a.ask(T("Delete for good?"), Tf("“%s” and everything in it are deleted, and cannot be brought back.", item.Title), T("Delete for good"), func() {
+		if err := a.lib.DeleteForever(item); err != nil {
+			a.fail(err)
+		}
+		a.loadTrash()
 	})
 }

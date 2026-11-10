@@ -4,6 +4,19 @@ package main
 // the window in Turkish: T gives them from here. TestTurkishCovers checks that every English string given to T
 // has its Turkish here.
 var trText = map[string]string{
+	// before what cannot be taken back: a question, or a way back (#217)
+	"Discard the changes?": "Değişiklikler atılsın mı?",
+	"What was changed in the settings of “%s” is not kept.": "“%s” ayarlarında değiştirilenler saklanmaz.",
+	"Discard":             "Değişiklikleri at",
+	"Undo":                "Geri al",
+	"Property deleted":    "Özellik silindi",
+	"Reset all settings?": "Bütün ayarlar sıfırlansın mı?",
+	"Every setting goes back to its default: the language, the look, the sync and the MCP server too.": "Her ayar varsayılanına döner: dil, görünüm, senkron ve MCP sunucusu da.",
+	"Reset all":          "Hepsini sıfırla",
+	"Profile “%s” is on": "“%s” profili açık",
+	"Delete for good?":   "Kalıcı olarak silinsin mi?",
+	"“%s” and everything in it are deleted, and cannot be brought back.": "“%s” ve içindeki her şey silinir; geri getirilemez.",
+	"Delete for good": "Kalıcı olarak sil",
 	// what could not be read or saved is said, and kept (#125, #129, #133, #134)
 	"could not save: ": "kaydedilemedi: ",
 	"Some collections could not be read and are not shown; their folders are left as they are: ": "Bazı koleksiyonlar okunamadı ve gösterilmiyor; klasörlerine dokunulmadı: ",

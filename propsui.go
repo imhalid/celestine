@@ -331,10 +331,7 @@ func (a *app) propDialog(c *ui.Context) {
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
 		if e.id != "" && ryugo.Button(c.Key("prop-delete"), T("Özelliği sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-			if err := e.coll.RemoveProperty(e.id); err != nil {
-				e.err = err.Error()
-				return
-			}
+			a.removeProperty(e.coll, e.id)
 			e.open = false
 		}
 		ui.Spacer(c)
@@ -402,9 +399,7 @@ func (a *app) propRowMenu(p *Page, pr *Property) []menuItem {
 		out = append(out, menuItem{title: "Değeri temizle", glyph: iconClose, run: func() { a.setValue(p, id, "") }})
 	}
 	return append(out, menuItem{title: "Özelliği sil", group: "~", glyph: iconTrash, danger: true, run: func() {
-		if err := coll.RemoveProperty(id); err != nil {
-			a.fail(err)
-		}
+		a.removeProperty(coll, id)
 	}})
 }
 
@@ -412,4 +407,21 @@ func (a *app) propRowMenu(p *Page, pr *Property) []menuItem {
 func (a *app) editProp(p *Page, pr *Property) {
 	a.prop = propEdit{open: true, coll: p.Coll, id: pr.ID, name: pr.Name, options: strings.Join(pr.Options, ", ")}
 	a.prop.typ = slices.IndexFunc(PropTypes, func(x struct{ Type, Name string }) bool { return x.Type == pr.Type })
+}
+
+// removeProperty takes property id away from collection coll, with a way back: its values stay in the pages, so
+// putting the property back brings them back (#217).
+func (a *app) removeProperty(coll *Collection, id string) {
+	before := slices.Clone(coll.Properties)
+	if err := coll.RemoveProperty(id); err != nil {
+		a.fail(err)
+		return
+	}
+	a.toastAction(T("Property deleted"), T("Undo"), func() {
+		coll.Properties = before
+		coll.Normalize()
+		if err := coll.Save(); err != nil {
+			a.fail(err)
+		}
+	})
 }

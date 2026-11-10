@@ -192,6 +192,7 @@ type app struct {
 	crashText   string                   // what it said
 	testPanic   string                   // a test sets it to have a frame panic
 	crashOpen   bool                     // the dialog of a crash is shown
+	asking      askState                 // a question before an action that cannot be taken back (confirm.go)
 	crashPrev   string                   // the last session ended badly: its log, or ""
 	fonts       fontState                // the typefaces installed, and the lists of them (fonts.go)
 	fx          []caretFX                // the carets of the presets, made as they are used (caretfx.go)
@@ -1020,6 +1021,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.tagRenameView(c)
 	a.historyView(c)
 	a.crashView(c)
+	a.askView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
 	}

@@ -20,6 +20,13 @@ func TestCollSettings(t *testing.T) {
 	}
 	a.cs.draft.Name, a.cs.draft.Icon, a.cs.draft.Color = "Okuma", "book", "c3"
 	tt.Click("Vazgeç")
+	tt.Advance(600 * time.Millisecond)
+	if !a.asking.open || !a.cs.open {
+		t.Fatal("changes let go without asking")
+	}
+	if err := tt.Click(T("Discard")); err != nil {
+		t.Fatal(err)
+	}
 	tt.Advance(time.Second)
 	if coll.Name != "Kitaplar" || coll.Icon != "" || a.cs.open {
 		t.Fatalf("cancel: %q %q", coll.Name, coll.Icon)
