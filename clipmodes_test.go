@@ -82,3 +82,35 @@ func TestCopyPasteKeepsBlocks(t *testing.T) {
 		t.Fatalf("another app's copy: %q", md)
 	}
 }
+
+// ⌘V of text with Markdown blocks makes the blocks, as a file dropped does: a table, a fenced code block with its
+// language, a heading; plain text stays as it is (#307).
+func TestPasteMarkdownBlocks(t *testing.T) {
+	a, tt := newTestApp(t, "\n")
+	tt.Frame()
+	md := "## Önemli olan\n\n| Model | Ne çalışır |\n| :--- | :--- |\n| Anlık | Her şey |\n\n```rust\nlet x = 1;\n```\n\nBir paragraf.\n"
+	a.clipRead = func() string { return md }
+	if !a.clipKey(ui.KeyV, ui.Cmd) {
+		t.Fatal("⌘V of Markdown was left to the editor's plain paste")
+	}
+	tx := a.doc.Text()
+	heading, code, table := false, false, false
+	for _, p := range tx.Paragraphs() {
+		heading = heading || p.Style.Heading == 2
+		code = code || p.Style.ID == codeIDPrefix+"rust"
+		for _, r := range p.Runs {
+			if att := r.Attributes.Attachment; att != nil {
+				if ch, ok := att.Data.(*chip); ok && ch.kind == "table" {
+					table = true
+				}
+			}
+		}
+	}
+	if !heading || !code || !table {
+		t.Fatalf("heading %v, code with its language %v, table %v:\n%s", heading, code, table, bodyMarkdown(tx))
+	}
+	a.clipRead = func() string { return "just words, no blocks" }
+	if a.clipKey(ui.KeyV, ui.Cmd) {
+		t.Fatal("plain text was taken from the editor")
+	}
+}
