@@ -47,6 +47,9 @@ func spaced(spans []ui.Span) []ui.Span {
 // editorSpans are paragraph p's spans as the page editor draws them: spaced, and a block of code's colored.
 func (a *app) editorSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	spans = spaced(spans)
+	if a.grip.dragging && p >= a.grip.paras[0] && p <= a.grip.paras[1] { // the block dragged (blockui.go)
+		return a.blockSpans(p, spans)
+	}
 	if !st.CodeBlock {
 		if out, ok := a.lapseSpans(p, spans); ok { // the words in the colors of their days
 			return out

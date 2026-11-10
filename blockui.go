@@ -1,7 +1,9 @@
 package main
 
 import (
+	"math"
 	"strconv"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -26,12 +28,14 @@ type gripState struct {
 	from     [2]int // the block dragged
 	to       int    // where it would go: the paragraph it goes before, or the text's length+1
 	toY      float32
-	toIdx    int             // the paragraph (from 0) the room opens above, -1 at the end of the text
-	rooms    map[int]float32 // the room open above paragraphs, by index, as it springs open and shut
-	roomH    float32         // the room a preview of the block dragged takes
-	bg       ui.Color        // the page's background, which the block lifted fades into
-	pos      ui.Point        // the pointer, in window DIPs
-	hover    bool            // the pointer is on the grip
+	toIdx    int              // the paragraph (from 0) the room opens above, -1 at the end of the text
+	rooms    map[int]float32  // the room open above paragraphs, by index, as it springs open and shut
+	roomH    float32          // the room a preview of the block dragged takes
+	paras    [2]int           // the block's first and last paragraph, by index, for the editor's spans (blockSpans)
+	lays     map[int]blockLay // the block's paragraphs, laid out for the drag (drawBlockDrop)
+	ink      ui.Color         // the accent, the block's text drawn in it
+	pos      ui.Point         // the pointer, in window DIPs
+	hover    bool             // the pointer is on the grip
 }
 
 // blockKinds are what a block can be turned into, in the menus.
@@ -226,9 +230,12 @@ func (a *app) gripView(c *ui.Context) {
 		}
 		g.menuWas = g.menu
 		if g.dragging {
-			g.bg = a.bg(c)
-			a.blockPreview(c)
-			a.blockGhost(c)
+			a.openRooms(grip)
+			if g.to >= 0 { // where it would go, it shows there; elsewhere it follows the pointer
+				a.blockPreview(c)
+			} else {
+				a.blockGhost(c)
+			}
 		}
 	})
 }
@@ -262,14 +269,13 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 			g.pressed, g.moved = true, 0
 		}
 		if g.moved += abs32(dx) + abs32(dy); g.moved > 4 {
-			s, e := blockRange(a.doc.Text(), g.para)
+			t := a.doc.Text()
+			s, e := blockRange(t, g.para)
+			first := t.Slice(0, s).ParagraphCount() - 1
 			g.dragging, g.from, g.to, g.toIdx, g.rooms = true, [2]int{s, e}, -1, -1, map[int]float32{}
-			// the preview is as tall as the block, up to three lines of it
-			top, bottom, ok := a.blockSpan(s, e)
-			if !ok {
-				top, bottom = 0, a.firstLineH(s, 24)
-			}
-			g.roomH = min(bottom-top, 3*previewLineH) + 2*previewPad + previewGap
+			g.paras = [2]int{first, first + t.Slice(s, e).ParagraphCount() - 1}
+			g.lays, g.ink = map[int]blockLay{}, c.Theme().Accent
+			g.roomH = previewH + 2*previewGap
 		}
 	case pressed && g.dragging:
 		b := grip.LayoutBounds()
@@ -291,12 +297,11 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 	}
 }
 
-// The preview of a block dragged, in the room opened for it: lines of 14
-// DIP text, an inset well around them, and a gap to the line under it.
+// The preview of a block dragged, in the room opened for it: a card a line
+// tall, with some air above and below it.
 const (
-	previewLineH = 20
-	previewPad   = 8
-	previewGap   = 6
+	previewH   = 30
+	previewGap = 5
 )
 
 // blockRoom is the room the editor leaves above paragraph p (its Space): the
@@ -405,37 +410,104 @@ func (a *app) openRooms(el ui.Element) {
 	}
 }
 
-// drawBlockDrop draws the block dragged lifted from its place: faded into
-// the page, with a glow of the accent around it.
+// drawBlockDrop draws the shimmer over the block dragged, which the editor
+// draws faded in the accent (blockSpans): a band of brighter ink going
+// across it, so that it is plain which block is lifted. Where it would go
+// is its preview (blockPreview), over the window.
 func (a *app) drawBlockDrop(p *ui.Painter, r ui.Rect) {
 	g := &a.grip
 	if !g.dragging {
 		return
 	}
-	top, bottom, ok := a.blockSpan(g.from[0], g.from[1])
-	if !ok {
+	t := a.doc.Text()
+	type line struct {
+		l    *ui.TextLayout
+		x, y float32
+	}
+	var lines []line
+	top, bottom := float32(-1), float32(0)
+	for _, b := range a.shown(r) {
+		if b.Start < g.from[0] || b.Start > g.from[1] {
+			continue
+		}
+		s, e := t.ParagraphRange(b.Start)
+		if e-s > maxCaretParagraph { // too long to lay out again each frame: it stays as the editor draws it
+			continue
+		}
+		if top < 0 {
+			top = b.Top
+		}
+		bottom = b.Top + b.Height
+		l, ok := g.lays[s]
+		if !ok || l.w != r.W {
+			var para richtext.Paragraph
+			for _, q := range t.Slice(s, e).Paragraphs() {
+				para = q
+				break
+			}
+			para.Style = t.ParagraphStyleAt(s)
+			l.l, l.left = layoutParagraph(para, r.W, a.font, a.theme)
+			l.w = r.W
+			g.lays[s] = l
+		}
+		lines = append(lines, line{l.l, r.X + l.left, r.Y + b.Top})
+	}
+	if top < 0 {
 		return
 	}
-	acc := p.Theme().Accent
-	box := ui.Rect{X: r.X - 8, Y: r.Y + top - 4, W: r.W + 16, H: bottom - top + 8}
-	p.Shadow(box, 8, 0, 0, 14, 0, acc.Alpha(0.22))
-	p.Fill(box, g.bg.Alpha(0.6), rad(8))
-	p.Stroke(box, acc.Alpha(0.45), rad(8), 1)
+	th := p.Theme()
+	box := ui.Rect{X: r.X - 4, Y: r.Y + top - 2, W: r.W + 8, H: bottom - top + 4}
+	text := func(c ui.Color) {
+		for _, ln := range lines {
+			p.TextLayout(ln.l, ln.x, ln.y, c)
+		}
+	}
+	// the shimmer: a slanted band of brighter ink going left to right, soft at its edges
+	const period, slant = 1.6, 40
+	k := float32(math.Mod(float64(p.Now().UnixMilli())/1000/period, 1))
+	x := box.X - 160 + (box.W+320)*k
+	for _, w := range []float32{150, 90, 40} {
+		band := (&ui.Path{}).MoveTo(x-w/2+slant, box.Y).LineTo(x+w/2+slant, box.Y).
+			LineTo(x+w/2-slant, box.Y+box.H).LineTo(x-w/2-slant, box.Y+box.H).Close()
+		p.ClipPath(band, func() { text(th.Accent.Alpha(0.4)) })
+	}
+	p.AnimationFrame()
 }
 
-// blockPreview is the block dragged where it would go: its first lines, in
-// the room opened for them, an inset well that fades in as the room opens.
+// blockSpans draws the paragraphs of the block dragged faded, in the accent.
+func (a *app) blockSpans(p int, spans []ui.Span) []ui.Span {
+	g := &a.grip
+	if !g.dragging || p < g.paras[0] || p > g.paras[1] {
+		return spans
+	}
+	for i := range spans {
+		spans[i].Color = g.ink.Alpha(0.5)
+	}
+	return spans
+}
+
+// blockLay is a paragraph of the block dragged laid out as the editor lays
+// it out, kept for the drag, for drawBlockDrop to draw it in its own ink.
+type blockLay struct {
+	l       *ui.TextLayout
+	left, w float32
+}
+
+// blockPreview is the block dragged where it would go: the start of its
+// text on a card, one line cut short, in the room the paragraphs make for
+// it there (openRooms), coming as the room opens.
 func (a *app) blockPreview(c *ui.Context) {
 	g := &a.grip
 	t := ryugo.From(c)
 	cl := t.Colors
+	r := a.editorR
 	var y, h float32
 	switch {
 	case g.toIdx >= 0:
 		for _, b := range a.boxes {
 			if b.Index == g.toIdx {
 				h = g.rooms[g.toIdx]
-				y = b.Top - h
+				y = b.Top - h + previewGap
 				break
 			}
 		}
@@ -445,17 +517,21 @@ func (a *app) blockPreview(c *ui.Context) {
 	if h < 1 {
 		return
 	}
-	text := a.doc.Text().Slice(g.from[0], g.from[1]).String()
-	if text == "" {
-		text = "…"
+	s := a.doc.Text().Slice(g.from[0], min(g.from[1], a.doc.Text().Len())).String()
+	s = strings.Join(strings.Fields(s), " ")
+	if n := []rune(s); len(n) > 160 {
+		s = string(n[:160]) + "…"
 	}
-	lines := max(1, int((g.roomH-2*previewPad-previewGap)/previewLineH))
-	pv := ui.Column(c.Key("block-preview")).Absolute().Left(a.editorR.X-8).Top(a.editorR.Y+y).
-		Width(a.editorR.W+16).Height(h-previewGap).Padding(previewPad, 12).Clip().PassThrough().
-		Radius(8).Background(ryugo.Mix(cl.Well, cl.ColorAccent500, 0.06)).Border(1, cl.ColorAccent500).BorderStyle(ui.BorderDashed).
+	if s == "" {
+		s = "…"
+	}
+	card := ui.Row(c.Key("block-preview")).Absolute().Left(r.X-8).Top(r.Y+y).Width(r.W+16).Height(previewH).Padding(0, 12).Gap(8).
+		Radius(rad(8)).Background(cl.Card.Alpha(0.96)).Border(1, cl.Accent.Alpha(0.6)).PassThrough().AlignItems(ui.Center).
 		Opacity(min(1, h/g.roomH))
-	pv.Children(func() {
-		ui.Text(c, text).FontSize(14).LineHeight(previewLineH).TextColor(cl.Muted).MaxLines(lines)
+	t.Shadows.ShadowPop.Apply(card)
+	card.Children(func() {
+		gripDots(c, cl.Muted)
+		ui.Text(c, s).FontSize(13).TextColor(cl.Text).MaxLines(1).Opacity(0.85)
 	})
 }
 
@@ -472,7 +548,6 @@ func (a *app) blockGhost(c *ui.Context) {
 	gh := ui.Row(c.Key("block-ghost")).Absolute().Left(g.pos.X-12).Top(g.pos.Y-16).MaxWidth(420).Padding(6, 12).Gap(8).
 		Radius(10).Background(cl.Card).Border(1, cl.Hairline).PassThrough().AlignItems(ui.Center)
 	t.Shadows.ShadowPop.Apply(gh)
-	a.openRooms(gh)
 	gh.Rotate(gh.AnimateTo("tilt", -1.2, springTilt)).Scale(1.02, 1.02)
 	gh.Children(func() {
 		gripDots(c, cl.Muted)

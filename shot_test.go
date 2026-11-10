@@ -552,3 +552,37 @@ func TestLapseShots(t *testing.T) {
 	a.settings.Theme = 2
 	shot("lapse-dark", 600*time.Millisecond)
 }
+
+// TestBlockDragShots draws a block dragged by its grip: faded and lit where
+// it is, its preview where it would go. Run with BLOCKDRAG=dir.
+func TestBlockDragShots(t *testing.T) {
+	dir := os.Getenv("BLOCKDRAG")
+	if dir == "" {
+		t.Skip()
+	}
+	a, tt := newTestApp(t, "Bir paragraf, kısa.\n\nİki: bu biraz daha uzun bir paragraf, sürüklenince önizlemesi kısaltılarak gösterilir; satırlar sürdükçe sürer ve kart onun yalnızca başını gösterir, gerisi üç noktayla biter.\n\nÜç\n\nDört\n\nBeş\n")
+	tt.Advance(300 * time.Millisecond)
+	r, b := a.editorR, a.boxes[1]
+	tt.Move(r.X+40, r.Y+b.Top+6)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	last := a.boxes[len(a.boxes)-2]
+	y1 := r.Y + last.Top + 2
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0+float32(k)*8, y0+(y1-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	for i, name := range []string{"block-drag", "block-drag-2", "block-drag-3"} { // the shimmer, on its way
+		tt.Advance(time.Duration(400+i*300) * time.Millisecond)
+		f, _ := os.Create(dir + "/" + name + ".png")
+		png.Encode(f, tt.Image())
+		f.Close()
+	}
+	tt.Release(x0+80, y1)
+}
