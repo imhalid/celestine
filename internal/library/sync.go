@@ -642,6 +642,33 @@ type SyncState struct {
 	// Bases keep each page file as it was at the last sync, to merge a page changed on both sides (MergePage); with
 	// none, it is kept twice.
 	Bases SyncBases `json:"-"`
+	// Remote names the remote the state is of (ForRemote): the files it knows were synced with that one.
+	Remote string `json:"remote,omitempty"`
+}
+
+// ForRemote makes st the state of the remote named id, and says whether it forgot what it knew: a state of another
+// remote reads every file as synced, and against a new one each would be "unchanged here, gone there", deleted here
+// (#146). It starts again as a first pass, where a file on both sides with the same bytes is only recorded. A state
+// kept before remotes were named takes the name it is given.
+func (st *SyncState) ForRemote(id string) bool {
+	if st.Remote == id {
+		return false
+	}
+	old := st.Remote
+	st.Remote = id
+	if old == "" {
+		return false
+	}
+	st.forget()
+	return true
+}
+
+// forget drops what the state knows of each file and its base; what this library made for itself stays (Pristine).
+func (st *SyncState) forget() {
+	for n := range st.Files {
+		st.dropBase(n)
+	}
+	st.Files = map[string]fileSync{}
 }
 
 // massRemovals is how many files, and a tenth of the library, a pass may delete here for being gone from
@@ -810,6 +837,15 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		return res, pushed, err
 	}
 	res.Remote = len(remote)
+	if len(remote) == 0 { // a remote with nothing, not even a tombstone, never had what the state says was synced
+		// with it: a bucket made again, an account opened again. Starting over sends everything up.
+		for _, f := range st.Files {
+			if f.Remote != "" {
+				st.forget()
+				break
+			}
+		}
+	}
 	for n := range remote { // a name that leaves the folder is a remote's to write over, or to delete, what is outside the library
 		if !SafeName(n) {
 			delete(remote, n)

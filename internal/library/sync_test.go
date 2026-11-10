@@ -182,6 +182,36 @@ func TestSyncChosenOutLater(t *testing.T) {
 	}
 }
 
+// A state of one remote used against another, empty one forgets what it knew and sends everything up, deleting
+// nothing here (#146): named apart by ForRemote, or seen to be new because it has nothing at all.
+func TestSyncNewRemote(t *testing.T) {
+	for _, named := range []bool{true, false} {
+		first, second := DirRemote{Root: t.TempDir()}, DirRemote{Root: t.TempDir()}
+		a := newDevice(t)
+		for i := range 6 {
+			a.write(fmt.Sprintf("Not/S%d/page.json", i), "sayfa")
+		}
+		a.write("kök.txt", "kökte")
+		a.st.ForRemote("first")
+		a.sync(first)
+		if named && !a.st.ForRemote("second") {
+			t.Fatal("a new name did not forget")
+		}
+		res := a.sync(second)
+		if res.Deleted != 0 || res.Pushed != 7 || a.read("kök.txt") != "kökte" || a.read("Not/S3/page.json") != "sayfa" {
+			t.Fatalf("named=%v: %+v", named, res)
+		}
+		if res := a.sync(second); res.Pushed+res.Pulled+res.Deleted != 0 {
+			t.Fatalf("named=%v, second pass: %+v", named, res)
+		}
+	}
+	// a state from before remotes were named takes the name, and keeps what it knows
+	st := SyncState{Files: map[string]fileSync{"a": {Local: "x", Remote: "y"}}}
+	if st.ForRemote("r") || len(st.Files) != 1 {
+		t.Fatal("an unnamed state was forgotten")
+	}
+}
+
 // A remote that cannot be reached is an error; what was done here waits, and is sent when it can be.
 type flaky struct {
 	Remote

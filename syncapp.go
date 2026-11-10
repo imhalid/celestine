@@ -136,6 +136,30 @@ func (a *app) syncRemote() (Remote, error) {
 	return NewEncRemote(r, key)
 }
 
+// syncRemoteID names the remote the settings point at, for the sync state (SyncState.ForRemote): the folder, or the
+// server with the account (or the token, without one), and the key, which names every file on the remote. A
+// hash, so that the token and the key are not written beside the state.
+func (a *app) syncRemoteID() string {
+	s := &a.settings
+	id := s.SyncMode + "\x00" + s.SyncKey + "\x00"
+	switch s.SyncMode {
+	case "dir":
+		dir := s.SyncDir
+		if abs, err := filepath.Abs(dir); err == nil {
+			dir = abs
+		}
+		id += filepath.Clean(dir)
+	case "server":
+		id += strings.TrimRight(s.SyncURL, "/") + "\x00"
+		if s.AccountUser != "" {
+			id += "account:" + s.AccountUser
+		} else {
+			id += "token:" + s.SyncToken
+		}
+	}
+	return HashOf([]byte(id))
+}
+
 func (a *app) syncEvery() time.Duration {
 	if m := a.settings.SyncMinutes; m >= 1 && m <= 1440 {
 		return time.Duration(m) * time.Minute
@@ -255,6 +279,7 @@ func (a *app) syncNow() {
 	a.sy.busy, a.sy.status, a.sy.last = true, T("eşitleniyor…"), a.clock()
 	skip := a.syncSkip()
 	state := a.loadSyncState()
+	state.ForRemote(a.syncRemoteID())
 	state.AllowRemovals, a.sy.allow = a.sy.allow, false
 	go func() {
 		defer a.guard()
@@ -473,6 +498,7 @@ func (a *app) syncAtQuit(wait time.Duration) {
 		}
 		skip := a.syncSkip()
 		state := a.loadSyncState()
+		state.ForRemote(a.syncRemoteID())
 		a.sy.busy = true
 		a.mu.Unlock()
 		done := make(chan struct{})
