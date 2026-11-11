@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // TestBulk: rows chosen, then done to all: a tag, a value, a move, the trash.
@@ -25,10 +27,10 @@ func TestBulk(t *testing.T) {
 	if !a.bulk.on || !tt.HasText("Satırlara tıklayarak seç") {
 		t.Fatalf("not on: %v", tt.Texts())
 	}
-	if err := tt.Click("Aç: Dune"); err != nil {
+	if err := tt.Click(locales.ViewsOpenLabel("Dune")); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.Click("Aç: Anna Karenina"); err != nil {
+	if err := tt.Click(locales.ViewsOpenLabel("Anna Karenina")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)

@@ -373,7 +373,7 @@ func TestCatalogs(t *testing.T) {
 	}
 	all := code.String()
 	for id := range en {
-		if _, ok := named[id]; !ok && !strings.Contains(all, "."+goName(id)+"(") {
+		if _, ok := named[id]; !ok && !regexp.MustCompile(`\.`+goName(id)+`\b`).MatchString(all) { // called, or given as a function
 			t.Errorf("%s is said nowhere", id)
 		}
 	}
@@ -418,7 +418,7 @@ func TestCatalogsAsWritten(t *testing.T) {
 	for _, c := range []struct{ l, got, want string }{
 		{"en", locales.In("en").SyncCollectionsSynced(5, 2), "2 of 5 collections are synced."},
 		{"en", locales.In("en").SyncCollectionsSynced(1, 1), "1 of 1 collection is synced."},
-		{"tr", locales.In("tr").SyncCollectionsSynced(5, 2), "5 koleksiyonun 2 tanesi eşitleniyor."},
+		{"tr", locales.In("tr").SyncCollectionsSynced(5, 2), "5 koleksiyondan 2 tanesi eşitleniyor."},
 		{"en", locales.In("en").CommonPageCount(1), "1 page"}, {"en", locales.In("en").CommonPageCount(1200), "1,200 pages"},
 		{"tr", locales.In("tr").CommonPageCount(1200), "1.200 sayfa"},
 	} {

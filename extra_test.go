@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestHideStatusBar(t *testing.T) {
@@ -104,7 +105,7 @@ func TestSettingsSearchAndReset(t *testing.T) {
 	}
 	a.setSearch, a.setMode = "", "changed"
 	tt.Frame()
-	if !tt.HasText("Hiçbir ayar değişmemiş: hepsi varsayılan.") {
+	if !tt.HasText(locales.SettingsNothingHasChangedAll()) {
 		t.Fatalf("%v", tt.Texts())
 	}
 	a.setFontSize(21)
@@ -302,17 +303,17 @@ func TestMoveCommands(t *testing.T) {
 		}
 		return strings.Join(s, ",")
 	}
-	runCmd(t, a, ">yukarı taşı", "Sayfayı yukarı taşı (sırada)")
+	runCmd(t, a, ">yukarı taşı", locales.MoveThePageUpInIts())
 	if got := order(); got != "Sayfa,Üçüncü,İkinci" {
 		t.Fatalf("up: %s", got)
 	}
-	runCmd(t, a, ">aşağı taşı", "Sayfayı aşağı taşı (sırada)")
+	runCmd(t, a, ">aşağı taşı", locales.MoveThePageDownInIts())
 	if got := order(); got != "Sayfa,İkinci,Üçüncü" {
 		t.Fatalf("down: %s", got)
 	}
 	// the end of the row says so
 	for _, it := range a.commands() {
-		if it.title == "Sayfayı aşağı taşı (sırada)" && it.off == "" {
+		if it.title == locales.MoveThePageDownInIts() && it.off == "" {
 			t.Fatal("down at the end is allowed")
 		}
 	}

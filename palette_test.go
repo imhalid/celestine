@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // TestPaletteGoes opens the search (⌘K), finds a page by a few letters of it
@@ -163,7 +164,7 @@ func TestAppTheme(t *testing.T) {
 	tt.Type("renk teması gece")
 	tt.Frame()
 	items := a.paletteItems(a.pal.query)
-	if len(items) == 0 || items[0].title != "Renk teması: Gece Yarısı" {
+	if len(items) == 0 || items[0].title != "Renk teması: "+locales.Midnight() {
 		t.Fatalf("first: %+v", items)
 	}
 	tt.Key(0, ui.KeyEnter)

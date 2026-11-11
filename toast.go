@@ -68,6 +68,11 @@ func (a *app) say(kind toastKind, text string) {
 	a.notice, a.noticeTone = text, &kind
 }
 
+// sayDone puts up text as done, or as an error when ok is false: for what reports both in one message.
+func (a *app) sayDone(text string, ok bool) {
+	a.say(map[bool]toastKind{true: toastOK, false: toastErr}[ok], text)
+}
+
 // A toastItem is a toast up.
 type toastItem struct {
 	id      int

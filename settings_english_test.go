@@ -13,6 +13,7 @@ var turkishWords = regexp.MustCompile(`(?i)\b(ve|bir|ile|bu|için|yok|var|veya|y
 
 // turkish reports whether a line shown is Turkish: it has a letter of Turkish's own, or a word only Turkish has.
 func turkish(s string) bool {
+	s = regexp.MustCompile(`['’]\pL+`).ReplaceAllString(s, "") // "you've": not the Turkish "ve"
 	if regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`).MatchString(s) {
 		return true
 	}

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -129,7 +130,7 @@ func TestFontSettingsPage(t *testing.T) {
 	if len(fam) == 0 {
 		t.Skip("no fonts installed")
 	}
-	if err := tt.Click("Editör yazı tipi: Uygulamanınki"); err != nil {
+	if err := tt.Click(T("Editör yazı tipi") + ": " + locales.FontsTheApps()); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	_ = ryugo.FontSans

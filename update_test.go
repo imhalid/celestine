@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestVersionOrder(t *testing.T) {
@@ -435,7 +436,7 @@ func TestCheckUpdateSettings(t *testing.T) {
 func TestNoURLSaysSo(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	a.checkUpdate(true)
-	if !strings.Contains(a.notice, "güncellemeleri denetleyemez") {
+	if a.notice != locales.UpdateCannotCheck() {
 		t.Fatalf("%q", a.notice)
 	}
 }
@@ -448,7 +449,7 @@ func TestWhatsNew(t *testing.T) {
 	a.settings.UpdateFor, a.settings.UpdateNotes = "v3.0.0", "- yeni şeyler"
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	if !tt.HasText("3.0.0 sürümünde neler var") {
+	if !tt.HasText(locales.UpdateWhatsNew("3.0.0")) {
 		t.Fatalf("%v", tt.Texts())
 	}
 	tt.Click("Tamam")
@@ -457,7 +458,7 @@ func TestWhatsNew(t *testing.T) {
 		t.Fatal("not marked as seen")
 	}
 	tt.Frame()
-	if tt.HasText("3.0.0 sürümünde neler var") {
+	if tt.HasText(locales.UpdateWhatsNew("3.0.0")) {
 		t.Fatal("shown again")
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/locales"
 )
 
 // A real library (it has settings of its own) with no account is not behind a sign-in: the app opens, and the account is
@@ -29,7 +30,7 @@ func TestNoLoginGate(t *testing.T) {
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	for _, want := range []string{"Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu", "Kodum yok: bekleme listesine yazıl"} {
+	for _, want := range []string{"Davetle hesap aç", "Giriş yap", "E-posta", "Erişim kodu", locales.AccountNoCodeJoinWaitlist()} {
 		if !tt.HasText(want) {
 			t.Fatalf("no %q in the sync settings: %v", want, tt.Texts())
 		}
@@ -144,10 +145,10 @@ func TestInviteSteps(t *testing.T) {
 	if a.settings.AccountUser != "ali@ornek.com" || a.settings.SyncToken != "t1" {
 		t.Fatalf("account %q token %q", a.settings.AccountUser, a.settings.SyncToken)
 	}
-	tt.Click("Sakladım, devam")
+	tt.Click(locales.AccountIKeptContinue())
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if a.ac.mode != "login" || tt.HasText("Sakladım, devam") {
+	if a.ac.mode != "login" || tt.HasText(locales.AccountIKeptContinue()) {
 		t.Fatalf("the recovery step stays after the key is kept: %q", a.ac.mode)
 	}
 	want := []string{"/api/invite ali@ornek.com", "/api/invite ali@ornek.com", "/api/register ali@ornek.com"}
@@ -166,7 +167,7 @@ func TestProfileScreen(t *testing.T) {
 	if !a.profileScreen || a.paneTitle() != "Profil" || a.here().kind != "profile" {
 		t.Fatalf("the profile is not shown: screen %v, title %q, place %v", a.profileScreen, a.paneTitle(), a.here())
 	}
-	for _, want := range []string{"Profil", "Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.", "Giriş yap", "Davetle hesap aç", "E-posta"} {
+	for _, want := range []string{"Profil", locales.AccountNotSignedYourLibrary(), "Giriş yap", "Davetle hesap aç", "E-posta"} {
 		if !tt.HasText(want) {
 			t.Errorf("signed out: no %q: %v", want, tt.Texts())
 		}

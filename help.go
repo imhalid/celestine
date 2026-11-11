@@ -19,27 +19,28 @@ type helpGroup struct {
 // helpGroups are the shortcuts. The commands that have a key are listed from the palette's own list, so
 // that one that is added there is here.
 func (a *app) helpGroups() []helpGroup {
+	L := locales.In(lang)
 	groups := []helpGroup{
-		{"Her yerde", [][2]string{
-			{"⌘P · ⇧⌘P", "Komutlar ve bütün ayarlar"}, {"⌘K", "Sayfaya git, metinde ara"}, {"⌘,", "Ayarlar"},
-			{"⌘S", "Kaydet"}, {"⌘F", "Sayfada bul"}, {"⇧⌘F", "Kitaplıkta ara"}, {"⌘J", "Bugünün sayfası"},
-			{"⌘\\", "Kenar çubuğu"}, {"⇧⌘\\", "Yan panel"}, {"⌘[ ⌘]", "Geri, ileri"}, {"⌘= ⌘− ⌘0", "Yazıyı büyüt, küçült, varsayılan"},
-			{"⌘1 ⌘2 ⌘3", "Kenar çubuğuna, yan panele, metne odaklan"}, {"⌥⌘→ ⌥⌘↵ ⌥⌘W", "Bölmeler: geç, yanda aç, kapat"},
+		{L.HelpEverywhere(), [][2]string{
+			{"⌘P · ⇧⌘P", L.HelpCommandsAndSettings()}, {"⌘K", L.HelpGoToPage()}, {"⌘,", L.HelpSettings()},
+			{"⌘S", L.HelpSave()}, {"⌘F", L.HelpFindInPage()}, {"⇧⌘F", L.HelpSearchLibrary()}, {"⌘J", L.HelpToday()},
+			{"⌘\\", L.HelpSidebar()}, {"⇧⌘\\", L.HelpSidePanel()}, {"⌘[ ⌘]", L.HelpBackForward()}, {"⌘= ⌘− ⌘0", L.HelpTextSize()},
+			{"⌘1 ⌘2 ⌘3", L.HelpFocus()}, {"⌥⌘→ ⌥⌘↵ ⌥⌘W", L.HelpPanes()},
 		}},
-		{"Normal kip (Esc ile girilir, i ile çıkılır)", [][2]string{
-			{"j k ↓ ↑", "Sıradaki, önceki satır (5j: beş satır)"}, {"gg G", "İlk, son satır"}, {"l ↵", "Seçileni aç"}, {"h", "Geri"},
-			{"f", "Basılabilen her şeye harf etiketi koy; harfi yaz"}, {"Space", "Leader menüsü (which-key)"},
-			{"/", "Sayfada bul"}, {":", "Komut satırı"}, {"m a · ' a", "a harfiyle yer işaretle, ona git"},
-			{"[ ]", "Günlükte önceki, sonraki gün"}, {"Space g", "Tarihe git"},
-			{"u ⌃R", "Geri al, yinele"}, {"p o s t b n w", "Komutlar, sayfa aç, ayarlar, görevler, kenar çubuğu, yeni sayfa, bölme"}, {"?", "Bu sayfa"},
+		{L.HelpNormalMode(), [][2]string{
+			{"j k ↓ ↑", L.HelpNextLine()}, {"gg G", L.HelpFirstLast()}, {"l ↵", L.HelpOpenSelected()}, {"h", L.HelpBack()},
+			{"f", L.HelpHints()}, {"Space", L.HelpLeader()},
+			{"/", L.HelpFindInPage()}, {":", L.HelpCommandLine()}, {"m a · ' a", L.HelpMarks()},
+			{"[ ]", L.HelpJournalDays()}, {"Space g", L.HelpGoToDate()},
+			{"u ⌃R", L.HelpUndoRedo()}, {"p o s t b n w", L.HelpLeaderKeys()}, {"?", L.HelpThisPage()},
 		}},
-		{"Palet kipleri", [][2]string{
-			{"@", "Sayfa, koleksiyon, metin"}, {">", "Komutlar ve ayarlar (yazı boyutu 18)"}, {"#", "Etiketler"}, {":", "Satıra git, :w :q :e ad :tema koyu"},
-			{"/", "Bu sayfada ara"}, {"!", "Son komutlar"}, {"?", "Kipleri listele"},
+		{L.HelpPaletteModes(), [][2]string{
+			{"@", L.HelpPagesText()}, {">", L.HelpCommandsExample()}, {"#", L.HelpTags()}, {":", L.HelpLineCommands()},
+			{"/", L.HelpSearchThisPage()}, {"!", L.HelpRecentCommands()}, {"?", L.HelpListModes()},
 		}},
-		{"Metin", [][2]string{
-			{"⌘B ⌘I ⌘U", "Kalın, italik, altı çizili"}, {"⌘K", "Bağlantı"}, {"⌘Z ⇧⌘Z", "Geri al, yinele"}, {"⌘/", "Katla"}, {"⇧⌘↑ ⇧⌘↓", "Bloğu taşı"},
-			{"⌘D", "Bloğu çoğalt"}, {"/", "Satır menüsü"}, {"Tab ⇧Tab", "Girinti"}, {"⌃Boşluk", "Satır menüsü"},
+		{L.HelpText(), [][2]string{
+			{"⌘B ⌘I ⌘U", L.HelpBoldItalic()}, {"⌘K", L.HelpLink()}, {"⌘Z ⇧⌘Z", L.HelpUndoRedo()}, {"⌘/", L.HelpFold()}, {"⇧⌘↑ ⇧⌘↓", L.HelpMoveBlock()},
+			{"⌘D", L.HelpDuplicateBlock()}, {"/", L.HelpLineMenu()}, {"Tab ⇧Tab", L.HelpIndent()}, {L.HelpCtrlSpace(), L.HelpLineMenu()},
 		}},
 	}
 	var cmds [][2]string
@@ -52,7 +53,7 @@ func (a *app) helpGroups() []helpGroup {
 	}
 	sort.Slice(cmds, func(i, j int) bool { return cmds[i][1] < cmds[j][1] })
 	if len(cmds) > 0 {
-		groups = append(groups, helpGroup{"Komutların kısayolları", cmds})
+		groups = append(groups, helpGroup{L.HelpCommandKeys(), cmds})
 	}
 	return groups
 }
@@ -63,16 +64,16 @@ func (a *app) helpView(c *ui.Context) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	ryugo.Dialog(c.Key("help"), &a.kb.help, ryugo.DialogOptions{Title: "Kısayollar", Width: 680}, func() {
+	ryugo.Dialog(c.Key("help"), &a.kb.help, ryugo.DialogOptions{Title: locales.HelpTitle(), Width: 680}, func() {
 		a.scrolled(c, "help-scroll", nil, ui.Scroll(c.Key("help-scroll")).MaxHeight(520), func() {
 			ui.Column(c).FillWidth().Gap(14).Padding(0, 6, 0, 0).Children(func() {
 				for gi, g := range a.helpGroups() {
 					ui.Column(c.Key("hg" + itoa(gi))).FillWidth().Gap(4).Children(func() {
-						ui.Text(c, T(g.title)).FontSize(13).FontWeight(680).TextColor(cl.Muted)
+						ui.Text(c, g.title).FontSize(13).FontWeight(680).TextColor(cl.Muted)
 						for ri, r := range g.rows {
 							ui.Row(c.Key("hr"+itoa(gi)+":"+itoa(ri))).FillWidth().Gap(12).Padding(2, 0).Children(func() {
 								ui.Text(c, r[0]).FontSize(12.5).FontWeight(650).Font(ryugo.FontMono).TextColor(cl.Accent).Width(150)
-								ui.Text(c, T(r[1])).FontSize(13).TextColor(cl.Text).Grow(1)
+								ui.Text(c, r[1]).FontSize(13).TextColor(cl.Text).Grow(1)
 							})
 						}
 					})
@@ -85,11 +86,12 @@ func (a *app) helpView(c *ui.Context) {
 
 // ---- the tour ----
 
-var tourSteps = []struct{ title, body string }{
-	{"Yaz", "Bir sayfa aç ve yaz. # başlık, - liste, [] görev, > alıntı; yazdıkça biçime girer. Bir şey kaybolmaz: sürüm geçmişi ve çöp var."},
-	{"Her şey ⌘P'de", "⌘P komutları ve bütün ayarları açar: “yazı boyutu 18”, “tema koyu”, “yeni sayfa”. ⌘K sayfaya götürür, # etiketlere, : satıra."},
-	{"Fare olmadan", "Esc ile normal kipe geç: j k ile gez, ↵ ile aç, f ile her şeye harf koy, Space ile menü, ? ile kısayolların hepsi. i yazmaya döndürür."},
-	{"Senin kitaplığın", "Her şey tek dosyada, bu bilgisayarda; her gün yedeği alınır. Ayarlar'dan yazı tipini, temayı ve MCP'yi seç."},
+// tourSteps are the steps of the tour, each a title and a body, said in the window's language when shown.
+var tourSteps = []struct{ title, body func() string }{
+	{locales.HelpTourWrite, locales.HelpTourWriteBody},
+	{locales.HelpTourPalette, locales.HelpTourPaletteBody},
+	{locales.HelpTourKeyboard, locales.HelpTourKeyboardBody},
+	{locales.HelpTourLibrary, locales.HelpTourLibraryBody},
 }
 
 // tourView is the first-run tour, a card with four steps, which is not shown again once it is closed.
@@ -107,17 +109,17 @@ func (a *app) tourView(c *ui.Context) {
 			card.Right(20).Bottom(46).Width(340)
 		}
 		card.Padding(16, 18).Gap(8).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline).Children(func() {
-			ui.Text(c, itoa(step+1)+" / "+itoa(len(tourSteps))).FontSize(11.5).TextColor(cl.Muted)
-			ui.Text(c, T(tourSteps[step].title)).FontSize(16).FontWeight(700).TextColor(cl.Text)
-			ui.Text(c, tourSteps[step].body).FontSize(13).TextColor(cl.Text2).Wrap()
+			ui.Text(c, locales.HelpTourStep(step+1, len(tourSteps))).FontSize(11.5).TextColor(cl.Muted)
+			ui.Text(c, tourSteps[step].title()).FontSize(16).FontWeight(700).TextColor(cl.Text)
+			ui.Text(c, tourSteps[step].body()).FontSize(13).TextColor(cl.Text2).Wrap()
 			ui.Row(c).Gap(8).Justify(ui.End).Padding(6, 0, 0, 0).Children(func() {
-				if ryugo.Button(c.Key("tour-skip"), "Bir daha gösterme", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("tour-skip"), locales.HelpTourDontShow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.settings.TourDone = true
 					a.saveSettings()
 				}
-				label := "İleri"
+				label := locales.HelpTourNext()
 				if step == len(tourSteps)-1 {
-					label = "Bitti"
+					label = locales.HelpTourDone()
 				}
 				if ryugo.Button(c.Key("tour-next"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 					if step == len(tourSteps)-1 {

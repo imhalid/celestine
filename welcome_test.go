@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func welcomeApp(t *testing.T) *app {
@@ -98,7 +99,7 @@ func TestWelcomeLooks(t *testing.T) {
 		}
 		tt.Advance(300 * time.Millisecond)
 	}
-	pick(welcomeGrounds[0].name, "Bulut")
+	pick(welcomeGrounds[0].name, locales.Clouds())
 	if a.settings.WelcomeGround != "bulut" || a.welcomeGroundLook().name != "Bulut" || a.welcomeOpeningLook().name != "Halka" {
 		t.Fatalf("chosen: %q %q", a.settings.WelcomeGround, a.settings.WelcomeOpen)
 	}

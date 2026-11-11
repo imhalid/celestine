@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // In English the settings' Library tab of a one-file library, with backups of each kind, has no Turkish left: its
@@ -32,7 +33,7 @@ func TestLibrarySettingsInEnglish(t *testing.T) {
 	a.settingsOpen, a.settingsTab = true, 5
 	tt.Advance(900 * time.Millisecond)
 	texts := tt.Texts()
-	from, to := slices.Index(texts, "The files and where they are"), slices.Index(texts, "search settings")
+	from, to := slices.Index(texts, T("Dosyalar ve nerede durdukları")), slices.Index(texts, "search settings")
 	if from < 0 || to < from {
 		t.Fatalf("not the Library tab: %q", texts)
 	}
@@ -42,7 +43,7 @@ func TestLibrarySettingsInEnglish(t *testing.T) {
 			t.Errorf("Turkish in the Library tab: %q", s)
 		}
 	}
-	for _, want := range []string{"Write a zip", "Back up now", "Restore", "Backups", "by hand · ", "before an import · ", "daily · "} {
+	for _, want := range []string{locales.SettingsWriteZip(), locales.CommonBackUpNow(), locales.CommonRestore(), locales.BackupBackups(), T("elle") + " · ", T("içe aktarma") + " · ", T("günlük") + " · "} {
 		found := false
 		for _, s := range texts[from:to] {
 			found = found || s == want || len(s) > len(want) && s[:len(want)] == want

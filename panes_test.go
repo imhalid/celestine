@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -175,7 +176,7 @@ func TestOpenInPaneMenus(t *testing.T) {
 	for _, it := range a.commands() {
 		have[it.title] = true
 	}
-	for _, w := range []string{"Yan bölmede aç: bu ekran", "Bölmeler arası geç", "Bölmeyi kapat"} {
+	for _, w := range []string{"Yan bölmede aç: bu ekran", locales.SwitchPane(), "Bölmeyi kapat"} {
 		if !have[w] {
 			t.Errorf("no command %q", w)
 		}

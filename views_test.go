@@ -74,7 +74,7 @@ func TestListView(t *testing.T) {
 		t.Fatalf("newest first: %v", got)
 	}
 	// A page opens from the list, and a sub-page is in it with its parent.
-	if err := tt.Click("Aç: Notlar: Dune"); err != nil {
+	if err := tt.Click(locales.ViewsOpenLabel("Notlar: Dune")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -324,8 +324,8 @@ func TestGalleryView(t *testing.T) {
 			t.Fatalf("no %q in the gallery: %v", want, tt.Texts())
 		}
 	}
-	dune, _ := tt.Find("Aç: Dune")
-	anna, _ := tt.Find("Aç: Anna Karenina")
+	dune, _ := tt.Find(locales.ViewsOpenLabel("Dune"))
+	anna, _ := tt.Find(locales.ViewsOpenLabel("Anna Karenina"))
 	if dune.W != galleryCard || anna.Y != dune.Y || anna.X == dune.X {
 		t.Fatalf("the cards are not side by side: %+v %+v", dune, anna)
 	}
@@ -334,7 +334,7 @@ func TestGalleryView(t *testing.T) {
 		png.Encode(f, tt.Image())
 		f.Close()
 	}
-	if err := tt.Click("Aç: Anna Karenina"); err != nil {
+	if err := tt.Click(locales.ViewsOpenLabel("Anna Karenina")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -370,15 +370,15 @@ func TestListGroupedByChoice(t *testing.T) {
 		}
 		return r.Y
 	}
-	if !(y(locales.ViewsCollapse()+"Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y(locales.ViewsCollapse()+"Okundu") &&
-		y(locales.ViewsCollapse()+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) && y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
+	if !(y(locales.ViewsCollapse()+"Okunacak") < y(locales.ViewsOpenLabel("Anna Karenina")) && y(locales.ViewsOpenLabel("Anna Karenina")) < y(locales.ViewsCollapse()+"Okundu") &&
+		y(locales.ViewsCollapse()+"Okundu") < y(locales.ViewsOpenLabel("Dune")) && y(locales.ViewsOpenLabel("Dune")) < y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) && y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) < y(locales.ViewsOpenLabel("Yüzyıllık Yalnızlık"))) {
 		t.Fatalf("the groups are not in the options' order: %v", tt.Texts())
 	}
 	if err := tt.Click(locales.ViewsCollapse() + "Okundu"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if _, ok := tt.Find("Aç: Dune"); ok || !tt.HasText("Okundu") {
+	if _, ok := tt.Find(locales.ViewsOpenLabel("Dune")); ok || !tt.HasText("Okundu") {
 		t.Fatal("the folded group still shows its pages")
 	}
 	if !slices.Contains(coll.View().Collapsed, "Okundu") {
@@ -444,7 +444,7 @@ func TestViewFiltersShown(t *testing.T) {
 	v := coll.View()
 	v.Filters = []Filter{{Prop: "title", Op: "contains", Value: "dune"}}
 	tt.Advance(400 * time.Millisecond)
-	if _, ok := tt.Find("Aç: Anna Karenina"); ok || !tt.HasText("Dune") || !tt.HasText("Notlar: Dune") {
+	if _, ok := tt.Find(locales.ViewsOpenLabel("Anna Karenina")); ok || !tt.HasText("Dune") || !tt.HasText("Notlar: Dune") {
 		t.Fatalf("the filter does not hold: %v", tt.Texts())
 	}
 	v.Filters = []Filter{{Prop: "title", Op: "is", Value: "nothing"}}
@@ -513,7 +513,7 @@ func TestManualListDrag(t *testing.T) {
 	if ps[0].Title != last {
 		t.Fatalf("not kept: %v", titles(ps))
 	}
-	if err := tt.Click("Aç: " + before[0]); err != nil {
+	if err := tt.Click(locales.ViewsOpenLabel(before[0])); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()

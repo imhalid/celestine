@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -355,7 +356,7 @@ func TestMCPCommandsAllowed(t *testing.T) {
 		ok    bool
 	}{
 		{"Yazıyı büyüt", true}, {"Ayarlar", true}, {"Çöpe taşı: Sayfa", true}, {"Şimdi eşitle", true},
-		{"Hepsini varsayılana döndür", false}, {"Ayar dosyası oku…", false}, {"Markdown klasörü içe aktar…", false},
+		{locales.CommonResetAllDefaults(), false}, {"Ayar dosyası oku…", false}, {"Markdown klasörü içe aktar…", false},
 		{"Senkron: sunucu", false}, {"Güncelleme kanalı: Deneme (beta)", false}, {"MCP sunucusu: aç", false},
 	} {
 		var found *palItem

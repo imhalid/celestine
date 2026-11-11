@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // What is written and what is used, by the day, kept on this computer alone: in the library's file, or
@@ -571,8 +573,8 @@ func (a *app) libraryStats() libStats {
 
 // ---- out ----
 
-// exportStatsCSV writes the days as CSV beside the settings, and says where.
-func (a *app) exportStatsCSV() string {
+// exportStatsCSV writes the days as CSV beside the settings, and says where, or what failed.
+func (a *app) exportStatsCSV() (string, bool) {
 	dir := filepath.Dir(a.settingsFile)
 	if a.settingsFile == "" {
 		dir = os.TempDir()
@@ -581,7 +583,7 @@ func (a *app) exportStatsCSV() string {
 	path := filepath.Join(dir, "istatistik-"+a.clock().Format("20060102-150405")+".csv")
 	f, err := os.Create(path)
 	if err != nil {
-		return "Olmadı: " + err.Error()
+		return locales.CommonDidntWork(err.Error()), false
 	}
 	w := csv.NewWriter(f)
 	w.Write([]string{"gün", "kelime", "kullanım_sn", "açılan", "yeni", "silinen", "arama"})
@@ -590,13 +592,13 @@ func (a *app) exportStatsCSV() string {
 	}
 	w.Flush()
 	if err := f.Close(); err != nil || w.Error() != nil {
-		return "Olmadı: yazılamadı"
+		return locales.StatsWriteFailed(), false
 	}
-	return "Yazıldı: " + path
+	return locales.StatsWrittenTo(path), true
 }
 
 // exportStatsJSON writes all of it as JSON beside the settings.
-func (a *app) exportStatsJSON() string {
+func (a *app) exportStatsJSON() (string, bool) {
 	if a.usage == nil {
 		a.loadUsage()
 	}
@@ -612,9 +614,9 @@ func (a *app) exportStatsJSON() string {
 	os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "istatistik-"+a.clock().Format("20060102-150405")+".json")
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return "Olmadı: " + err.Error()
+		return locales.CommonDidntWork(err.Error()), false
 	}
-	return "Yazıldı: " + path
+	return locales.StatsWrittenTo(path), true
 }
 
 // weekSummary is the week up to today in Markdown: for the journal.
@@ -626,10 +628,10 @@ func (a *app) weekSummary() string {
 		words += a.writtenOn(d)
 	}
 	var b strings.Builder
-	b.WriteString("## Haftalık özet: " + dayMonth(from) + " – " + shortDate(now) + "\n\n")
-	b.WriteString("- Yazılan: " + strconv.Itoa(words) + " kelime\n")
-	b.WriteString("- Kullanım: " + duration(a.activeOver(from, now)) + "\n")
-	b.WriteString("- Açılan sayfa: " + strconv.Itoa(a.useOver(from, now, func(u *dayUse) int { return u.Opened })) + ", yeni: " + strconv.Itoa(a.useOver(from, now, func(u *dayUse) int { return u.Created })) + "\n")
+	b.WriteString("## " + locales.StatsWeekTitle(dayMonth(from), shortDate(now)) + "\n\n")
+	b.WriteString("- " + locales.StatsWeekWords(words) + "\n")
+	b.WriteString("- " + locales.StatsWeekUse(duration(a.activeOver(from, now))) + "\n")
+	b.WriteString("- " + locales.StatsWeekPages(a.useOver(from, now, func(u *dayUse) int { return u.Opened }), a.useOver(from, now, func(u *dayUse) int { return u.Created })) + "\n")
 	cs := map[string]int{}
 	for d := from; !d.After(now); d = d.AddDate(0, 0, 1) {
 		if u := a.usage.Days[d.Format("2006-01-02")]; u != nil {
@@ -639,14 +641,11 @@ func (a *app) weekSummary() string {
 		}
 	}
 	if t := top(cs, 3); len(t) > 0 {
-		b.WriteString("- En çok yazılan koleksiyonlar: ")
-		for i, e := range t {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(e.Name + " (" + strconv.Itoa(e.N) + ")")
+		var list []string
+		for _, e := range t {
+			list = append(list, e.Name+" ("+strconv.Itoa(e.N)+")")
 		}
-		b.WriteString("\n")
+		b.WriteString("- " + locales.StatsWeekTopCollections(strings.Join(list, locales.CommonListSeparator())) + "\n")
 	}
 	return b.String()
 }

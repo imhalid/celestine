@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestNoteLines(t *testing.T) {
@@ -124,7 +125,7 @@ func TestQuickKeySetting(t *testing.T) {
 	a.settingsOpen, a.settingsTab = true, 1
 	tt.Frame()
 	tt.Advance(600 * time.Millisecond)
-	if !tt.HasText("Hızlı not tuşu") {
+	if !tt.HasText(locales.SettingsQuickNoteKey()) {
 		t.Fatalf("no row: %v", tt.Texts())
 	}
 }

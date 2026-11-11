@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func statsApp(t *testing.T, src string) (*app, *ui.Tester) {
@@ -151,7 +152,7 @@ func TestStatsPage(t *testing.T) {
 	a.openStats()
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	for _, want := range []string{"İstatistikler", "Yazım", "Kullanım", "Kitaplık", "Kitaplık sağlığı", "Veri", "Yazma oturumları", "Hangi saatlerde yazıyorum", "bugün", "kelime kaldı"} {
+	for _, want := range []string{"İstatistikler", locales.StatsWriting(), "Kullanım", "Kitaplık", "Kitaplık sağlığı", "Veri", "Yazma oturumları", locales.StatsWhenDoIWrite(), "bugün", "kelime kaldı"} {
 		if !tt.HasText(want) {
 			t.Errorf("no %q: %v", want, tt.Texts())
 		}
@@ -221,8 +222,8 @@ func TestStatsOut(t *testing.T) {
 	a, tt := statsApp(t, "x\n")
 	a.settings.Writing = map[string]int{"2026-11-06": 120, "2026-11-07": 40}
 	a.noteWords(a.page, 40)
-	msg := a.exportStatsCSV()
-	path := strings.TrimPrefix(msg, "Yazıldı: ")
+	msg, _ := a.exportStatsCSV()
+	path := strings.TrimPrefix(msg, strings.TrimSuffix(locales.StatsWrittenTo(""), ""))
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(msg, err)
@@ -232,9 +233,9 @@ func TestStatsOut(t *testing.T) {
 	if err != nil || len(rows) != 3 || rows[1][0] != "2026-11-06" || rows[1][1] != "120" {
 		t.Fatalf("csv %v %v", rows, err)
 	}
-	if m := a.exportStatsJSON(); !strings.HasPrefix(m, "Yazıldı: ") {
+	if m, ok := a.exportStatsJSON(); !ok {
 		t.Fatal(m)
-	} else if b, _ := os.ReadFile(strings.TrimPrefix(m, "Yazıldı: ")); !strings.Contains(string(b), "\"words\"") {
+	} else if b, _ := os.ReadFile(strings.TrimPrefix(m, locales.StatsWrittenTo(""))); !strings.Contains(string(b), "\"words\"") {
 		t.Fatalf("json %s", b)
 	}
 	sum := a.weekSummary()
