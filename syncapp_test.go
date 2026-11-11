@@ -17,6 +17,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/locales"
 )
 
 func syncApp(t *testing.T, remoteDir string) *app {
@@ -61,7 +62,7 @@ func TestSyncApps(t *testing.T) {
 	p.SaveText("birinci metin\n")
 	a.syncNow()
 	waitSync(t, a)
-	if !strings.HasPrefix(a.sy.status, "Eşit") {
+	if !strings.HasPrefix(a.sy.status, "Son eşitleme") {
 		t.Fatalf("status %q err %q", a.sy.status, a.sy.err)
 	}
 	b.syncNow()
@@ -84,7 +85,7 @@ func TestSyncApps(t *testing.T) {
 	waitSync(t, a)
 	b.syncNow()
 	waitSync(t, b)
-	if b.sy.conflict != 1 || !strings.HasPrefix(b.sy.status, "çakışma") {
+	if b.sy.conflict != 1 || b.sy.status != locales.SyncConflictCount(1) {
 		t.Fatalf("no conflict on B: %d %q", b.sy.conflict, b.sy.status)
 	}
 	files := b.conflictFiles()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -88,7 +89,7 @@ func noteAt(t richtext.Text, id string) int {
 func (a *app) goToNote(id string) {
 	at := noteAt(a.doc.Text(), id)
 	if at < 0 {
-		a.notice = Tf("Footnote %s has no note on this page: a line “[^%s]: …” makes one.", id, id)
+		a.say(toastWarn, locales.EditorFootnoteMissing(id))
 		return
 	}
 	a.doc.SetSelection(at, at)

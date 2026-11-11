@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // kbd drives the app with the keyboard alone: it has no pointer to move, and a test written with it is
@@ -215,7 +216,7 @@ func TestKbMarks(t *testing.T) {
 		t.Fatalf("' a went to %v", k.a.page.Title)
 	}
 	k.press("'", "q")
-	if !k.tt.HasText("İşaret q yok") {
+	if !k.tt.HasText(locales.KeysNoMark("q")) {
 		t.Fatalf("a missing mark did not say: %v", k.tt.Texts())
 	}
 }

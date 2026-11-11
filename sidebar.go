@@ -284,7 +284,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
 			c.Key("pin:" + s.key)
 			if s.pinned {
-				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(locales.SidebarUnpin() + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(locales.SidebarUnpinLabel(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				if b.Hovered() {
 					b.Background(t.SurfacePressed)
 				}

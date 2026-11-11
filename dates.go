@@ -120,11 +120,11 @@ func dateGroup(t, now time.Time) string {
 func duration(secs int) string {
 	switch {
 	case secs >= 3600:
-		return strconv.Itoa(secs/3600) + " " + locales.DatesH() + " " + strconv.Itoa(secs%3600/60) + " " + locales.DatesMin()
+		return locales.DatesHoursMinutes(secs/3600, secs%3600/60)
 	case secs >= 60:
-		return strconv.Itoa(secs/60) + " " + locales.DatesMin()
+		return locales.DatesMinutes(secs / 60)
 	}
-	return strconv.Itoa(secs) + " " + locales.DatesS()
+	return locales.DatesSeconds(strconv.Itoa(secs))
 }
 
 // daysBetween is how many calendar days lie from a to b.
@@ -151,4 +151,9 @@ func dateTime(t time.Time, withYear bool) string {
 // weekdayDate is t's weekday, day, month and year: "Pzt 2 Mar 2026", "Mon, Mar 2, 2026".
 func weekdayDate(t time.Time) string {
 	return i18n.FormatDate(lang, t, i18n.DateOptions{Skeleton: "yMMMEd"})
+}
+
+// clockTime is t's hour and minute as the window writes a time: "15:04", "3:04 PM".
+func clockTime(t time.Time) string {
+	return i18n.FormatDate(lang, t, i18n.DateOptions{Skeleton: "jm"})
 }

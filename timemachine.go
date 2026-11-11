@@ -140,7 +140,7 @@ func (a *app) tmWhen(i int) string {
 	}
 	at := a.tm.vers[i-1].At
 	if sameDay(at, a.clock()) {
-		return locales.HistoryToday() + " " + at.Format("15:04")
+		return locales.HistoryTodayAt(clockTime(at))
 	}
 	return dateTime(at, true)
 }
@@ -349,7 +349,7 @@ func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(cx0-lw/2).Top(cy0+ty-lh/2).Size(lw, lh).
 			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/max(sc, 0.2)).Clip().
 			TransformOrigin(0.5, 0.5).Scale(sc, sc).Translate(0, (1-t.in)*36).Opacity(op * t.in).ZIndex(z).Cache().
-			Label(locales.HistoryPageHistory2() + a.tmWhen(i)).Role(ui.RoleButton)
+			Label(locales.HistoryPageHistoryAt(a.tmWhen(i))).Role(ui.RoleButton)
 		th.Shadows.ShadowPop.Apply(card)
 		if shown {
 			revealEffect(card, rp, true, lw, lh, th.R(ryugo.RadiusPop)/sc, cl)
@@ -442,7 +442,7 @@ func (a *app) tmPage(c *ui.Context, i int, lw, lh float32, shape bool) {
 				}
 				c.Key("tm-ed:" + itoa(i))
 				richtext.EditorBase(c, a.tmDoc(i), richtext.EditorOptions{
-					Label: locales.HistoryPageHistory2() + a.tmWhen(i), Font: a.font, Theme: a.theme, ReadOnly: true,
+					Label: locales.HistoryPageHistoryAt(a.tmWhen(i)), Font: a.font, Theme: a.theme, ReadOnly: true,
 					Spans:        func(_ int, _ richtext.ParagraphStyle, spans []ui.Span) []ui.Span { return spaced(spans) },
 					SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
 				}).FillWidth().Height(lh).FocusRing(false).PassThrough() // a click goes to the page: it brings it to the front

@@ -3,6 +3,8 @@ package main
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // Files dropped on the window: a Markdown or text file becomes a page - in the
@@ -43,7 +45,11 @@ func (a *app) dropFile(f string, overText bool) {
 		}
 		a.linksStale()
 		a.open(p)
-		a.notice = Tf("“%s” sayfası “%s” koleksiyonuna eklendi", p.Title, c.Name) + map[bool]string{true: Tf(" (%d resim)", st.Pictures), false: ""}[st.Pictures > 0]
+		if st.Pictures > 0 {
+			a.say(toastOK, locales.PageAddedToWithPictures(p.Title, c.Name, st.Pictures))
+		} else {
+			a.say(toastOK, locales.PageAddedTo(p.Title, c.Name))
+		}
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
 		switch {
 		case overText && a.page != nil && a.doc != nil && !a.noPage():

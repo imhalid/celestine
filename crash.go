@@ -148,7 +148,7 @@ func (a *app) crashFallback(c *ui.Context) {
 		ui.Text(c, "Bir hata oldu").FontSize(22).FontWeight(700).TextColor(cl.Text)
 		ui.Text(c, a.crashText).FontSize(13).TextColor(cl.Muted).MaxWidth(560).Wrap()
 		if a.crashPath != "" {
-			a.textMenu(ui.Text(c, locales.AppLog()+a.crashPath).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return locales.AppLog() + a.crashPath }, nil)
+			a.textMenu(ui.Text(c, locales.AppLogAt(a.crashPath)).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return locales.AppLogAt(a.crashPath) }, nil)
 		}
 		if ryugo.Button(c.Key("crash-retry"), "Devam et", ryugo.ButtonOptions{}).Clicked() {
 			a.crashOpen = false

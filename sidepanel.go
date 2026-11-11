@@ -124,7 +124,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 		for i, h := range hs {
 			h := h
 			row := ui.Row(c.Key("ol:"+strconv.Itoa(i))).FillWidth().Height(28).Padding(0, 6, 0, 6+float32(h.level-least)*12).AlignItems(ui.Center).
-				Radius(7).Label(locales.PanesHeading() + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Radius(7).Label(locales.PanesHeadingLabel(h.text)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}
@@ -149,7 +149,7 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 		}
 		for _, q := range links {
 			q := q
-			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label(locales.CommonLink() + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label(locales.CommonLinkLabel(q.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}

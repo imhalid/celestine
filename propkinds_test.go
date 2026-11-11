@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // The page, tags and file properties on a page and in a list: a page link shows its page's title and opens it; tags
@@ -43,7 +45,7 @@ func TestPropertyKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if err := tt.Click(Tf("Open %s", "Anna Karenina")); err != nil {
+	if err := tt.Click(locales.PropsOpenPage("Anna Karenina")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()

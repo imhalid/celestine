@@ -292,7 +292,7 @@ func TestTimeLapse(t *testing.T) {
 		t.Errorf("typed in the middle: %v", got)
 	}
 	// a click lights the day, a double click leaves its words alone
-	if err := tt.Click(Tf("Version %d", 2)); err != nil {
+	if err := tt.Click(locales.HistoryVersionN(2)); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(50 * time.Millisecond)
@@ -302,7 +302,7 @@ func TestTimeLapse(t *testing.T) {
 	if got := colors(line); got["black"] != lapseColor(2, 4, dark) || got["rug"].A >= lapseColor(4, 4, dark).A {
 		t.Errorf("a day lit: the others are not faint: %v", got)
 	}
-	r, _ := tt.Find(Tf("Version %d", 4))
+	r, _ := tt.Find(locales.HistoryVersionN(4))
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)
 	tt.Frame()
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
@@ -361,7 +361,7 @@ func TestTimeMachine(t *testing.T) {
 	a.openTimeMachine(a.page)
 	tt.Frame()
 	tt.Advance(700 * time.Millisecond)
-	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(locales.HistoryPageHistory2()+locales.HistoryTodayNow()) {
+	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(locales.HistoryPageHistoryAt(locales.HistoryTodayNow())) {
 		t.Fatalf("not open: %+v %v", a.tm.open, tt.Texts())
 	}
 	tt.Key(0, ui.KeyLeft)
@@ -499,7 +499,7 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if a.sidebarShown < 100 || !tt.HasText(locales.HistoryCopies()) || !tt.HasText(a.page.Title) {
 		t.Fatalf("no timeline in the sidebar (%v wide): %v", a.sidebarShown, tt.Texts())
 	}
-	if err := tt.Click(locales.HistoryPageHistory2() + shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local))); err != nil {
+	if err := tt.Click(locales.HistoryPageHistoryAt(shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local)))); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -515,7 +515,7 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if a.tm.sel != 1 {
 		t.Fatalf("↑ is not newer: at %d", a.tm.sel)
 	}
-	if err := tt.Click(locales.HistoryPageHistory2() + "7 Nov 2026"); err == nil && a.tm.sel != 1 {
+	if err := tt.Click(locales.HistoryPageHistoryAt("7 Nov 2026")); err == nil && a.tm.sel != 1 {
 		t.Fatalf("a day with no copy chose one: at %d", a.tm.sel)
 	}
 	tt.Key(0, ui.KeyEscape)
@@ -641,7 +641,7 @@ func TestTimeMachineComesAndGoes(t *testing.T) {
 	a, tt := lapsePage(t)
 	a.openTimeMachine(a.page)
 	tt.Frame()
-	if !tt.HasText(locales.HistoryPageHistory2()+locales.HistoryTodayNow()) || !tt.HasText(locales.HistoryRestore()) {
+	if !tt.HasText(locales.HistoryPageHistoryAt(locales.HistoryTodayNow())) || !tt.HasText(locales.HistoryRestore()) {
 		t.Fatalf("the first frame is not the history: %v", tt.Texts())
 	}
 	tt.Advance(60 * time.Millisecond)

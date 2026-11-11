@@ -217,9 +217,10 @@ func (a *app) keepDamagedSettings(data []byte, err error) {
 			where = name
 		}
 	}
-	a.notice = locales.McpTheSettingsCouldNot() + err.Error()
 	if where != "" {
-		a.notice += locales.McpWhatWasThereKept() + where
+		a.say(toastErr, locales.McpSettingsUnreadableKept(err.Error(), where))
+	} else {
+		a.say(toastErr, locales.McpSettingsUnreadable(err.Error()))
 	}
 }
 

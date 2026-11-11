@@ -520,7 +520,7 @@ func main() {
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
 	if len(lib.Damaged) > 0 { // left out, and left as they are on disk
-		a.notice = locales.AppSomeCollectionsCouldNot() + strings.Join(lib.Damaged, "; ")
+		a.say(toastErr, locales.AppDamagedCollections(strings.Join(lib.Damaged, "; ")))
 	}
 	if empty {
 		a.markPristine()
@@ -1106,7 +1106,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil
-		a.toastAction(Tf("“%s” çöpe taşındı", item.Title), locales.CommonUndo2(), func() { a.restore(item) })
+		a.toastAction(locales.TrashMoved(item.Title), locales.CommonUndo2(), func() { a.restore(item) })
 		a.loadTrash()
 	}
 	a.toastView(c)
@@ -1678,7 +1678,7 @@ func (a *app) status(c *ui.Context) {
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
 				Label(locales.AppMcpSettings()).Role(ui.RoleButton)
-			ryugo.Tooltip(c, m, locales.AppMcpServer()+a.mcpURL())
+			ryugo.Tooltip(c, m, locales.AppMcpServerOn(a.mcpURL()))
 			if m.Hovered() {
 				m.Background(t.SurfaceHover)
 			}

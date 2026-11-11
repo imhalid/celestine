@@ -247,7 +247,7 @@ func (a *app) commands() []palItem {
 		k := k
 		it := cmd("Yazı tipi hazırı: "+k, "", iconSettings, func() {
 			if !a.fontPreset(k) {
-				a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
+				a.say(toastWarn, locales.FontsNoneFound(k))
 			}
 		})
 		it.alias = "font preset serif sans mono ayar"

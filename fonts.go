@@ -352,7 +352,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 					for _, k := range []string{"Okuma", "Yazı", "Kod"} {
 						k := k
 						if ryugo.Button(c.Key("fpreset"+k), T(k), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
-							a.notice = Tf("Bu bilgisayarda “%s” için uygun bir yazı tipi bulunamadı.", k)
+							a.say(toastWarn, locales.FontsNoneFound(k))
 						}
 					}
 				})

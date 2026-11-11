@@ -449,7 +449,7 @@ func (a *app) acctForm(c *ui.Context) {
 		case "invite", "login":
 			a.acctWays(c, mode)
 		case "password":
-			note(Tf("Davet doğrulandı: %s. Şimdi şifreni belirle.", acctName(a.ac.user)))
+			note(locales.AccountInviteConfirmed(acctName(a.ac.user)))
 		case "reset":
 			note("Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.")
 		}
@@ -630,7 +630,7 @@ func (a *app) acctManage(c *ui.Context) {
 					ui.Row(c.Key("acct-dev:" + d.ID)).Gap(10).AlignItems(ui.Center).FillWidth().Children(func() {
 						name := d.Name
 						if d.Current {
-							name += " · " + locales.AccountThisDevice()
+							name = locales.AccountDeviceThis(name)
 						}
 						ui.Text(c, name).FontSize(13).TextColor(cl.Text).Grow(1)
 						ui.Text(c, time.Unix(d.Seen, 0).Format("2006-01-02 15:04")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
@@ -683,7 +683,7 @@ func (a *app) accountSection(c *ui.Context) {
 		if a.ac.me != nil {
 			help = humanBytes(a.ac.me.Bytes) + " / " + humanBytes(a.ac.me.Quota)
 		}
-		settingRow(c, locales.AccountAccount2()+s.AccountUser, help, func() {
+		settingRow(c, locales.AccountAccountOf(s.AccountUser), help, func() {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
 				if ryugo.Button(c.Key("acct-profile"), locales.CommonProfile(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconUser}).Clicked() {
 					a.openProfile()

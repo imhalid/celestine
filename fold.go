@@ -218,6 +218,6 @@ func (a *app) keepHidden(prev, now richtext.Text, caret int) bool {
 		at := min(caret+shift, full.Len())
 		ed.Select(at, at)
 	})
-	a.notice = locales.BlocksTheLinesHeldWere()
+	a.say(toastInfo, locales.BlocksTheLinesHeldWere())
 	return true
 }

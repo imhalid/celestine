@@ -568,7 +568,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopy() + ": " + T(label)})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(T(label))})
 				})
 			})
 		}
@@ -579,14 +579,14 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
 			row("Ayar dosyası", a.settingsFile, "copy-settings"),
 			func() {
-				settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages), locales.SettingsAllPlainFilesThey(), func() {})
+				settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages), locales.SettingsAllPlainFilesThey(), func() {})
 			})
 		return
 	}
 	settingGroup(c, "set-lib",
 		row("Kitaplık dosyası", store.File, "copy-root"),
 		func() {
-			settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages),
+			settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages),
 				locales.SettingsAllThisOneFile(), func() {})
 		},
 		func() { a.settingsImport(c) },
@@ -635,7 +635,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 		a.setMCP(on)
 	}
 	if a.mcpErr != "" {
-		ui.Text(c, locales.SettingsCouldNotOpen()+a.mcpErr).FontSize(ryugo.FsSm).TextColor(cl.Up)
+		ui.Text(c, locales.SettingsCouldNotOpenErr(a.mcpErr)).FontSize(ryugo.FsSm).TextColor(cl.Up)
 	}
 	if !a.settings.MCP {
 		return
@@ -647,7 +647,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopy() + ": " + T(label)})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(T(label))})
 				})
 			})
 		}

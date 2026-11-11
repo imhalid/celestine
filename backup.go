@@ -369,7 +369,7 @@ func (a *app) restoreFrom(b Backup) {
 		a.notice = "Geri yüklenemedi: " + err.Error()
 		return
 	}
-	a.notice = Tf("Yeniden başlatınca %s yedeği geri yüklenecek; şimdiki dosya yanında saklanır.", dateTime(b.At, false))
+	a.say(toastInfo, locales.BackupRestoreOnRestart(dateTime(b.At, false)))
 }
 
 // exportZip writes the library as Markdown files and zips them, next to its file.

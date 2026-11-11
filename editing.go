@@ -72,13 +72,13 @@ func (a *app) saveNow() {
 func (a *app) savedText() string {
 	switch {
 	case a.saveErr != "":
-		return locales.EditorCouldNotSave() + a.saveErr
+		return locales.EditorCouldNotSave(a.saveErr)
 	case a.dirty && a.settings.NoAutoSave:
 		return locales.EditorNotSaved()
 	case a.dirty:
 		return locales.EditorSaving()
 	case !a.savedAt.IsZero():
-		return locales.EditorSaved() + " " + a.savedAt.Format("15:04")
+		return locales.EditorSavedAt(clockTime(a.savedAt))
 	}
 	return locales.EditorSaved()
 }
@@ -281,7 +281,7 @@ func (a *app) settingsText(c *ui.Context) {
 			}
 			settingRow(c, locales.CommonSaveDelay(), locales.EditorItSavedThisLong(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: locales.CommonSaveDelay(), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + locales.CommonS() }})
+					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: locales.CommonSaveDelay(), Step: 0.5, Format: func(v float64) string { return locales.DatesSeconds(strconv.FormatFloat(v, 'f', 1, 64)) }})
 				})
 			})
 		})
@@ -312,7 +312,7 @@ func (a *app) settingsText(c *ui.Context) {
 					if v < 20 {
 						return locales.EditorAsWideAsPage()
 					}
-					return Tf("%d karakter", int(v))
+					return locales.EditorCharacters(int(v))
 				}})
 			})
 		})
@@ -348,7 +348,7 @@ func (a *app) settingsText(c *ui.Context) {
 						if v == 0 {
 							return locales.EditorTab()
 						}
-						return strconv.Itoa(int(v)) + locales.CommonSpaces()
+						return locales.EditorSpacesN(int(v))
 					}})
 				})
 			})
@@ -356,7 +356,7 @@ func (a *app) settingsText(c *ui.Context) {
 		func() {
 			settingRow(c, locales.CommonCaretSleep(), locales.EditorTheCaretDozesOff(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: locales.CommonCaretSleep(), Step: 1, Format: func(v float64) string { return strconv.Itoa(int(v)) + locales.CommonS() }})
+					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: locales.CommonCaretSleep(), Step: 1, Format: func(v float64) string { return locales.DatesSeconds(strconv.Itoa(int(v))) }})
 				})
 			})
 		},

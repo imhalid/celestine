@@ -160,7 +160,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 		frac := float32(min(s.today, goal)) / float32(goal)
 		ui.Column(c.Key("goal")).FillWidth().Gap(5).Children(func() {
 			ui.Row(c).Children(func() {
-				ui.Text(c, locales.StatsDailyGoal()+strconv.Itoa(s.today)+" / "+strconv.Itoa(goal)+locales.StatsWords()).FontSize(13).TextColor(cl.Text2).Grow(1)
+				ui.Text(c, locales.StatsDailyGoalProgress(s.today, goal)).FontSize(13).TextColor(cl.Text2).Grow(1)
 				switch {
 				case s.today >= goal:
 					ui.Text(c, "tamam").FontSize(12.5).FontWeight(650).TextColor(cl.Down)
@@ -192,7 +192,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	statHead(c, locales.StatsWhenDoIWrite(), "Gün ve saate göre yazılan kelime.")
 	a.hourHeat(c, cl, grid, hi)
 	if hi > 0 {
-		ui.Text(c, Tf("Most fruitful: around %s %02d:00 (%d words).", dayName((firstWeekday()+time.Weekday(best[0]))%7, false), best[1], hi)).FontSize(13).TextColor(cl.Text2)
+		ui.Text(c, locales.StatsMostFruitful(dayName((firstWeekday()+time.Weekday(best[0]))%7, false), clockTime(time.Date(2000, 1, 1, best[1], 0, 0, 0, time.Local)), hi)).FontSize(13).TextColor(cl.Text2)
 	} else {
 		ui.Text(c, locales.StatsNoHourlyDataYet()).FontSize(13).TextColor(cl.Muted)
 	}
@@ -295,7 +295,7 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 		statList(c, "by-time", timed, "", nil)
 	}
 	if un := a.unusedFeatures(6); len(un) > 0 {
-		ui.Text(c, locales.StatsNeverUsed()+strings.Join(un, " · ")).FontSize(12.5).TextColor(cl.Muted).Wrap()
+		ui.Text(c, locales.StatsNeverUsedList(strings.Join(un, " · "))).FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
 }
 
@@ -332,7 +332,7 @@ func (a *app) statsLibrary(c *ui.Context, cl ryugo.Colors) {
 		statTile(c, "lib-tasks", locales.StatsTasks(), strconv.Itoa(l.Tasks))
 	})
 	if l.Oldest != nil && l.Newest != nil {
-		ui.Text(c, locales.StatsOldestChange()+l.Oldest.Title+" ("+shortDate(l.Oldest.Modified)+") · "+locales.StatsNewest()+l.Newest.Title+" ("+dateTime(l.Newest.Modified, false)+")").FontSize(12.5).TextColor(cl.Muted).Wrap()
+		ui.Text(c, locales.StatsOldestNewest(l.Oldest.Title, shortDate(l.Oldest.Modified), l.Newest.Title, dateTime(l.Newest.Modified, false))).FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
 	ui.Text(c, locales.StatsBiggestPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	statList(c, "big-pages", l.Biggest, "Sayfa yok.", nil)
@@ -369,13 +369,13 @@ func (a *app) statsLibrary(c *ui.Context, cl ryugo.Colors) {
 	if len(l.Broken) == 0 {
 		ui.Text(c, locales.StatsBrokenLinksNone()).FontSize(13).TextColor(cl.Down)
 	} else {
-		ui.Text(c, locales.StatsPagesWithBrokenLink()+strconv.Itoa(len(l.Broken))).FontSize(13).FontWeight(620).TextColor(cl.Warn)
+		ui.Text(c, locales.StatsBrokenLinkCount(len(l.Broken))).FontSize(13).FontWeight(620).TextColor(cl.Warn)
 		statList(c, "broken", l.Broken, "", nil)
 	}
 	if len(l.Dupes) == 0 {
 		ui.Text(c, locales.StatsPagesWithSameTitle()).FontSize(13).TextColor(cl.Down)
 	} else {
-		ui.Text(c, locales.StatsPagesWithSameTitle2()+strings.Join(l.Dupes, ", ")).FontSize(13).TextColor(cl.Warn).Wrap()
+		ui.Text(c, locales.StatsSameTitleList(strings.Join(l.Dupes, ", "))).FontSize(13).TextColor(cl.Warn).Wrap()
 	}
 }
 

@@ -48,7 +48,7 @@ func (a *app) restore(item *TrashItem) {
 	}
 	a.loadTrash()
 	if a.trashOpen {
-		a.notice = Tf("“%s” geri yüklendi", item.Title)
+		a.say(toastOK, locales.TrashRestored(item.Title))
 		return
 	}
 	switch {
@@ -57,7 +57,7 @@ func (a *app) restore(item *TrashItem) {
 	case coll != nil:
 		a.openCollection(coll)
 	default: // files of the library's top: nothing to open
-		a.notice = Tf("“%s” geri yüklendi", item.Title)
+		a.say(toastOK, locales.TrashRestored(item.Title))
 	}
 }
 
@@ -124,7 +124,7 @@ func (a *app) trashView(c *ui.Context) {
 func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	t := c.Theme()
 	c.Key("trash:" + item.Dir)
-	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label(locales.TrashInTrash() + item.Title)
+	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label(locales.TrashInTrashLabel(item.Title))
 	a.contextOn(row, func() []menuItem { return a.trashMenu(item) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -149,14 +149,14 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 			}
 			note := from + "  ·  " + ago(item.Trashed, now) + " atıldı"
 			if !item.Trashed.IsZero() {
-				note += "  ·  " + Tf("%d gün sonra silinir", trashDaysLeft(item, now))
+				note += "  ·  " + locales.TrashDeletedIn(trashDaysLeft(item, now))
 			}
 			ui.Text(c, note).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		})
 		if ryugo.Button(c.Key("restore:"+item.Dir), locales.CommonRestore(), ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
 		}
-		if ryugo.Button(c.Key("delete:"+item.Dir), locales.TrashDeleteForGood()+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("delete:"+item.Dir), locales.TrashDeleteForGoodLabel(item.Title), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			a.deleteForever(item)
 		}
 	})
@@ -208,7 +208,7 @@ func (a *app) tasksRow(c *ui.Context) {
 // deleteForever asks, then deletes item from the trash for good: a page and its sub-pages, or a collection, with no
 // way back.
 func (a *app) deleteForever(item *TrashItem) {
-	a.ask(locales.TrashDeleteForGood2(), Tf("“%s” and everything in it are deleted, and cannot be brought back.", item.Title), locales.TrashDeleteForGood3(), func() {
+	a.ask(locales.TrashDeleteForGood2(), locales.TrashDeleteForGoodConfirm(item.Title), locales.TrashDeleteForGood3(), func() {
 		if err := a.lib.DeleteForever(item); err != nil {
 			a.fail(err)
 		}

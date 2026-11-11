@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strconv"
 	"strings"
 	"time"
 
@@ -62,7 +61,7 @@ func queryHeight(n int) float32 {
 // queryAttachment is the block of a query, as tall as its results were when it was made.
 func (a *app) queryAttachment(ch *chip) *richtext.Attachment {
 	n := len(a.queryHits(ch.target))
-	return &richtext.Attachment{Width: a.pageWidth(), Height: queryHeight(n), Name: locales.CommonQuery() + ": " + ch.target, Data: ch,
+	return &richtext.Attachment{Width: a.pageWidth(), Height: queryHeight(n), Name: locales.QueryNamed(ch.target), Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawQuery(p, r, ch) }}
 }
 
@@ -96,9 +95,9 @@ func (a *app) drawQuery(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(r, cl.WellBorder, rad(12))
 	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, cl.Well, rad(11))
 	size := a.fontSize() * 0.88
-	count := strconv.Itoa(len(hits)) + " " + locales.CommonPages()
+	count := locales.CommonPageCount(len(hits))
 	if len(hits) > queryRows {
-		count = strconv.Itoa(queryRows) + "+ " + locales.CommonPages()
+		count = locales.QueryPagesMore(queryRows)
 	}
 	cw, _ := p.MeasureText(0, ui.Span{Text: count, Size: 12})
 	p.RichText(r.X+r.W-cw-14, r.Y+12, cw+2, ui.Span{Text: count, Size: 12, Color: cl.Muted})
@@ -173,5 +172,5 @@ func (a *app) queryItems(q string) []menuItem {
 		return nil
 	}
 	n := len(a.searchList(tq, 0, false))
-	return []menuItem{{title: tq, hint: strconv.Itoa(n) + " " + locales.CommonPages(), glyph: iconSearch, run: func() { a.insertQuery(start, tq) }}}
+	return []menuItem{{title: tq, hint: locales.CommonPageCount(n), glyph: iconSearch, run: func() { a.insertQuery(start, tq) }}}
 }

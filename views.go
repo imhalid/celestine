@@ -101,7 +101,7 @@ func (a *app) collectionView(c *ui.Context) {
 							}
 							ui.Spacer(c)
 							if n := len(v.Filters); n > 0 { // the view's filters, which its settings change
-								label := Tf("%d filters", n)
+								label := locales.ViewsFilterCount(n)
 								if n == 1 {
 									label = locales.ViewsN1Filter()
 								}
@@ -347,7 +347,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		}
 		title := s
 		if s == "" {
-			title = Tf("No %s", pr.Name)
+			title = locales.ViewsNoValue(pr.Name)
 		}
 		folded := slices.Contains(v.Collapsed, s)
 		c.Key("lgroup:" + s)
@@ -395,7 +395,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 	}
 	items := &ms.items
 	ryugo.Sortable(c.Key("manual:"+key), ms.list, items, ryugo.SortableOptions{
-		Label: func(i int) string { return locales.ViewsSort() + (*items)[i].Title },
+		Label: func(i int) string { return locales.ViewsSortHandle((*items)[i].Title) },
 		Key:   func(i int) any { return (*items)[i] },
 	}, func(p *Page) {
 		// the whole row is what is dragged: nothing in it takes the pointer but its arrow, which opens the page (as
@@ -411,7 +411,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(1)
 				}
 			})
-			open := ryugo.Button(c.Key("open:"+p.Dir), locales.ViewsOpen()+p.Title, ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
+			open := ryugo.Button(c.Key("open:"+p.Dir), locales.ViewsOpenLabel(p.Title), ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
 			a.contextOn(open, func() []menuItem { return a.pageMenu(p, false) })
 			if open.Clicked() {
 				a.open(p)
@@ -454,7 +454,7 @@ func samePages(a, b []*Page) bool {
 func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
 	t := c.Theme()
 	c.Key("list:" + p.Dir)
-	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(locales.ViewsOpen() + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(locales.ViewsOpenLabel(p.Title)).Role(ui.RoleButton).Transition(rowEnter)
 	a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -503,7 +503,7 @@ func (a *app) galleryView(c *ui.Context, v *View, pages []*Page) {
 		for _, p := range pages {
 			c.Key("gal:" + p.Dir)
 			card := ui.Column(c).Width(galleryCard).Gap(8).Padding(8).Radius(rad(12)).Border(1, cl.Border).
-				Label(locales.ViewsOpen() + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
+				Label(locales.ViewsOpenLabel(p.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
 			if card.Hovered() {
 				card.Background(t.SurfaceHover)
 			} else {
@@ -936,7 +936,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		groupOf = func(p *Page) string { return p.Value(group) }
 		groupLabel = func(key string, _ []*Page) string {
 			if key == "" {
-				return Tf("No %s", group.Name)
+				return locales.ViewsNoValue(group.Name)
 			}
 			return key
 		}

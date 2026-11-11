@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -77,7 +76,7 @@ func (a *app) changedDefs() []settingDef {
 func (a *app) resetAllAsked() {
 	a.ask(locales.SettingsResetAllSettings(), locales.SettingsEverySettingGoesBack(), locales.SettingsResetAll(), func() {
 		before := a.settings
-		a.undoSettings(Tf("%d ayar varsayılana döndü", a.resetAll()), before)
+		a.undoSettings(locales.SettingsResetDone(a.resetAll()), before)
 	})
 }
 
@@ -200,7 +199,7 @@ func (a *app) applyProfile(name string) (on bool) {
 	before := a.settings
 	defer func() {
 		if on { // the profile was put on: it can be taken off, as one change
-			a.undoSettings(Tf("Profile “%s” is on", name), before)
+			a.undoSettings(locales.SettingsProfileOn(name), before)
 		}
 	}()
 	data, _ := json.Marshal(a.settings)
@@ -299,7 +298,7 @@ func (a *app) pickSettingsFile() {
 			if err != nil {
 				a.notice = "Olmadı: " + err.Error()
 			} else {
-				a.notice = Tf("%d ayar içe aktarıldı", n)
+				a.say(toastOK, locales.SettingsImported(n))
 			}
 			return nil
 		})
@@ -379,7 +378,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 			ui.Text(c, locales.SettingsNothingHasChangedAll()).FontSize(13).TextColor(cl.Muted)
 			return true
 		}
-		if ryugo.Button(c.Key("reset-all"), locales.CommonResetAllDefaults()+" ("+strconv.Itoa(len(ch))+")", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("reset-all"), locales.SettingsResetAllCount(len(ch)), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.resetAllAsked()
 		}
 		var rows []func()
@@ -452,13 +451,13 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 				ui.Text(c, T(d.state(a))).FontSize(13).FontWeight(620).TextColor(cl.Text2)
 			}
 			if withReset || d.changed(a) {
-				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsResetDefault() + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsResetLabel(T(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				b.Children(func() { ui.Text(c, locales.SettingsResetDefault()).FontSize(12).TextColor(cl.Text2) })
 				if b.Clicked() {
 					d.reset(a)
 				}
 			}
-			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.CommonGo() + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(T(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			g.Children(func() { ui.Text(c, locales.CommonGo()).FontSize(12).TextColor(cl.Text2) })
 			if g.Clicked() {
 				a.settingsTab, a.setSearch, a.setMode = tab, "", ""

@@ -134,7 +134,7 @@ func (a *app) putBackVersion() {
 	}
 	a.takeOutside(p)
 	a.linksStale()
-	a.notice = Tf("“%s” %s sürümüne döndü", p.Title, dateTime(v.vers[v.sel].At, false))
+	a.say(toastOK, locales.HistoryBackTo(p.Title, dateTime(v.vers[v.sel].At, false)))
 	v.open = false
 }
 

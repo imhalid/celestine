@@ -334,9 +334,9 @@ func (a *app) dateItems(q string) []palItem {
 	}
 	d, ok := parseNaturalDay(m[1], a.clock())
 	if !ok {
-		return []palItem{{title: locales.CommonGoDate() + ": " + m[1], glyph: iconCalendar, score: 1000, off: locales.DatesNotDayWriteTomorrow()}}
+		return []palItem{{title: locales.DatesGoToDateLabel(m[1]), glyph: iconCalendar, score: 1000, off: locales.DatesNotDayWriteTomorrow()}}
 	}
-	it := palItem{title: locales.CommonGoDate() + ": " + shortDate(d), sub: formatDay("dddd", d), glyph: iconCalendar, score: 1000, run: func() { a.openDay(d) }}
+	it := palItem{title: locales.DatesGoToDateLabel(shortDate(d)), sub: formatDay("dddd", d), glyph: iconCalendar, score: 1000, run: func() { a.openDay(d) }}
 	if c := a.journalColl(); (c == nil || a.journalPage(c, d) == nil) && !sameDay(d, a.clock()) {
 		it.off = locales.DatesTheJournalHasNo()
 	}

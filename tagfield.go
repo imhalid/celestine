@@ -47,7 +47,7 @@ func (a *app) tagsField(c *ui.Context, key string, tags *[]string, placeholder, 
 			remove := func() { *tags = slices.Delete(slices.Clone(*tags), i, i+1) }
 			chip.Children(func() {
 				ui.Text(c, tag).FontSize(13).TextColor(cl.Text).NoWrap()
-				x := ui.Box(c.Key("x")).Size(18, 18).Center().Radius(rad(5)).Role(ui.RoleButton).Label(locales.CommonDelete() + ": " + tag).Cursor(ui.CursorPointer)
+				x := ui.Box(c.Key("x")).Size(18, 18).Center().Radius(rad(5)).Role(ui.RoleButton).Label(locales.TagsRemoveLabel(tag)).Cursor(ui.CursorPointer)
 				if x.Hovered() {
 					x.Background(cl.Hairline)
 				}

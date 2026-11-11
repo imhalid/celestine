@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Ways of writing without being looked at by the rest of the page: the line or the paragraph the caret
@@ -99,5 +100,5 @@ func (a *app) revertToBeforeSave() {
 	}
 	a.takeOutside(p)
 	a.linksStale()
-	a.notice = Tf("“%s” son kayıttan önceki hâline döndü", p.Title)
+	a.say(toastOK, locales.HistoryBackBeforeSave(p.Title))
 }

@@ -4,7 +4,6 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -68,18 +67,13 @@ func (ch *chip) label() string {
 		return locales.BlocksABlockNewerVersion()
 	}
 	if ch.kind == "fold" {
-		return "⋯ " + strconv.Itoa(ch.lines) + " satır"
+		return locales.BlocksFoldedLines(ch.lines)
 	}
 	if ch.kind == "zoom" {
-		switch {
-		case ch.top && ch.lines == 1:
-			return "↑ " + locales.BlocksN1LineAboveZoom()
-		case ch.top:
-			return "↑ " + Tf("%d lines above · zoom out", ch.lines)
-		case ch.lines == 1:
-			return "↓ " + locales.BlocksN1LineBelowZoom()
+		if ch.top {
+			return locales.BlocksLinesAbove(ch.lines)
 		}
-		return "↓ " + Tf("%d lines below · zoom out", ch.lines)
+		return locales.BlocksLinesBelow(ch.lines)
 	}
 	if ch.kind == "date" {
 		if d, err := time.Parse("2006-01-02", ch.target); err == nil {
@@ -404,7 +398,7 @@ func (a *app) clickChip(x, y float32) bool {
 			return true
 		}
 		if h.ch.kind == unknownKind {
-			a.notice = locales.BlocksThisBlockWasMade()
+			a.say(toastInfo, locales.BlocksThisBlockWasMade())
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it

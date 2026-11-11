@@ -407,7 +407,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 	}
 	row.Children(func() {
 		on := k.done
-		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(locales.TasksTask() + k.text)
+		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(locales.TasksTaskLabel(k.text))
 		if tk, ok := taskKindByID(k.kind); ok && !k.done { // its kind, in its color
 			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(T(tk.name))
 		}
@@ -415,7 +415,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 		if k.done {
 			col, st = cl.Muted, true
 		}
-		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label(locales.TasksGoLine() + k.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label(locales.TasksGoToLineLabel(k.text)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		body.Children(func() {
 			tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
 			if st {

@@ -371,7 +371,7 @@ func TestListGroupedByChoice(t *testing.T) {
 		return r.Y
 	}
 	if !(y(locales.ViewsCollapse()+"Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y(locales.ViewsCollapse()+"Okundu") &&
-		y(locales.ViewsCollapse()+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(locales.ViewsCollapse()+Tf("No %s", "Durum")) && y(locales.ViewsCollapse()+Tf("No %s", "Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
+		y(locales.ViewsCollapse()+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) && y(locales.ViewsCollapse()+locales.ViewsNoValue("Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
 		t.Fatalf("the groups are not in the options' order: %v", tt.Texts())
 	}
 	if err := tt.Click(locales.ViewsCollapse() + "Okundu"); err != nil {
@@ -553,7 +553,7 @@ func TestTableFootGroupsAndOrder(t *testing.T) {
 	// in the table (after its last header), as the texts come: each group's heading, then its rows
 	texts := tt.Texts()
 	from := slices.Index(texts, "Sayfa sayısı")
-	want := []string{"Okunacak", "Anna Karenina", "Okundu", "Dune", "Yüzyıllık Yalnızlık", Tf("No %s", "Durum"), "Notlar: Dune"}
+	want := []string{"Okunacak", "Anna Karenina", "Okundu", "Dune", "Yüzyıllık Yalnızlık", locales.ViewsNoValue("Durum"), "Notlar: Dune"}
 	at := 0
 	for _, s := range texts[max(from, 0):] {
 		if at < len(want) && s == want[at] {

@@ -158,7 +158,7 @@ func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters [7]string,
 		ink, faint, line = cl.Accent, cl.Accent, cl.Accent.Alpha(0.5)
 	}
 	row := ui.Row(c.Key("tm-row:"+d.day.Format("2006-01-02"))).FillWidth().Height(tmRowH).Padding(0, tmPadR, 0, tmPadL).Gap(tmGap).
-		AlignItems(ui.Center).Radius(rad(7)).Label(locales.HistoryPageHistory2() + shortDate(d.day)).Role(ui.RoleButton)
+		AlignItems(ui.Center).Radius(rad(7)).Label(locales.HistoryPageHistoryAt(shortDate(d.day))).Role(ui.RoleButton)
 	w := row.LayoutBounds().W
 	per, shown := tmDots(w, d.n)
 	at := -1 // the dot under the pointer

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -224,7 +225,7 @@ func (a *app) kbKeys(c *ui.Context) {
 				return
 			}
 		}
-		a.notice = Tf("Space %s: böyle bir kısayol yok", string(r))
+		a.say(toastWarn, locales.KeysNoSuchShortcut(string(r)))
 		return
 	}
 	if k.pending != "" {
@@ -246,12 +247,12 @@ func (a *app) kbKeys(c *ui.Context) {
 				k.marks = map[rune]place{}
 			}
 			k.marks[r] = a.here()
-			a.notice = Tf("İşaret %s konuldu", string(r))
+			a.say(toastInfo, locales.KeysMarkSet(string(r)))
 		case p == "'":
 			if pl, ok := k.marks[r]; ok {
 				a.goTo(pl)
 			} else {
-				a.notice = Tf("İşaret %s yok", string(r))
+				a.say(toastWarn, locales.KeysNoMark(string(r)))
 			}
 		}
 		return

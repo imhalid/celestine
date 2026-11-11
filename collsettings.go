@@ -84,7 +84,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 	if !cs.open && !cs.closed { // closed by Vazgeç, Esc or the scrim: as it was, once asked when it changed (#217)
 		if !cs.saved && !cs.discard && cs.changed() {
 			cs.open = true
-			a.ask(locales.CollectionDiscardChanges(), Tf("What was changed in the settings of “%s” is not kept.", cs.coll.Name), locales.CollectionDiscard(), func() {
+			a.ask(locales.CollectionDiscardChanges(), locales.CollectionDiscardChangesNote(cs.coll.Name), locales.CollectionDiscard(), func() {
 				a.cs.open, a.cs.discard = false, true
 			})
 		} else {
@@ -217,7 +217,7 @@ func (a *app) csGeneral(c *ui.Context) {
 					for _, f := range journalFormats {
 						f := f
 						on := formatOrDefault(d.JournalFormat) == f
-						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(rad(8)).Label(locales.CollectionFormat() + f).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						b := ui.Row(c.Key("cs-fmt:"+f)).Padding(5, 10).Radius(rad(8)).Label(locales.CollectionFormatLabel(f)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case on:
 							b.Background(cl.Accent.Alpha(0.16)).Border(1.5, cl.Accent)
@@ -233,7 +233,7 @@ func (a *app) csGeneral(c *ui.Context) {
 					}
 				})
 				a.fieldMenu(ryugo.Input(c.Key("cs-journal-format"), &d.JournalFormat, ryugo.InputOptions{Label: locales.CollectionTitleFormat(), Placeholder: defaultFormat}), &d.JournalFormat, fieldOpts{oneLine: true})
-				ui.Text(c, locales.CollectionToday()+formatDay(d.JournalFormat, a.clock())).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, locales.CollectionTodayIs(formatDay(d.JournalFormat, a.clock()))).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			})
 		})
 		ui.Text(c, locales.CollectionTheJournalEveryLibrary()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
@@ -255,7 +255,7 @@ func (a *app) csProperties(c *ui.Context) {
 		for _, b := range builtins {
 			b := b
 			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(rad(12)).AlignItems(ui.Center).
-				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label(locales.CollectionBuiltProperty() + b.name).Children(func() {
+				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label(locales.CollectionBuiltInLabel(b.name)).Children(func() {
 				ui.Icon(c, iconLock).Width(15).Height(15).TextColor(cl.Muted)
 				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
 				ui.Text(c, "· "+b.kind).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1)

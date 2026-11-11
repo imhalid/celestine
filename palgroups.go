@@ -90,7 +90,7 @@ func (a *app) groupCommands(items []palItem) []palItem {
 	for _, g := range cmdCats { // each group a line, which opens it
 		if n := len(byCat[g.name]); n > 0 {
 			name := g.name
-			out = append(out, palItem{title: T(name), keys: Tf("%d seçenek", n), glyph: catGlyph(byCat[name]), group: "Gruplar",
+			out = append(out, palItem{title: T(name), keys: locales.PaletteOptions(n), glyph: catGlyph(byCat[name]), group: "Gruplar",
 				run: func() { a.pal = palette{open: true, query: ">", cat: name} }})
 		}
 	}
@@ -105,6 +105,6 @@ func catGlyph(items []palItem) *ui.SVG {
 // famItem is the line of a family of n commands, of which it is one: chosen, the palette shows them all.
 func (a *app) famItem(it palItem, n int) palItem {
 	name := T(it.fam)
-	return palItem{title: name + "…", keys: Tf("%d seçenek", n), glyph: it.glyph, cat: it.cat, boost: it.boost,
+	return palItem{title: name + "…", keys: locales.PaletteOptions(n), glyph: it.glyph, cat: it.cat, boost: it.boost,
 		run: func() { a.pal = palette{open: true, query: ">" + name + ": "} }}
 }

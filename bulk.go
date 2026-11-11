@@ -196,7 +196,7 @@ func (a *app) bulkMove(pages []*Page, to *Collection) {
 	}
 	a.linksStale()
 	a.bulkClear()
-	a.notice = Tf("%d sayfa “%s” koleksiyonuna taşındı", n, to.Name)
+	a.say(toastOK, locales.BulkMovedTo(n, to.Name))
 }
 
 // bulkChoices are the values of the collection's choices, as lines to give
@@ -237,5 +237,5 @@ func (a *app) bulkTrash(pages []*Page) {
 	}
 	a.linksStale()
 	a.bulkClear()
-	a.notice = Tf("%d sayfa çöpe taşındı", n)
+	a.say(toastOK, locales.BulkMovedToTrash(n))
 }

@@ -144,7 +144,7 @@ func (a *app) profileSync(c *ui.Context, cl ryugo.Colors) {
 	}
 	settingGroup(c, "prof-sync",
 		func() {
-			settingRow(c, locales.AccountSync()+status, a.sy.result, func() {
+			settingRow(c, locales.AccountSyncState(status), a.sy.result, func() {
 				ui.Row(c).Gap(8).Children(func() {
 					if ryugo.Button(c.Key("prof-sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.syncNow()
@@ -197,7 +197,7 @@ func (a *app) syncProbe() {
 	}
 	remote, err := a.syncRemote()
 	if err != nil {
-		a.ac.probe = locales.CommonFailed() + T(err.Error())
+		a.ac.probe = locales.CommonDidntWork(T(err.Error()))
 		return
 	}
 	a.ac.probing, a.ac.probe = true, ""
@@ -209,7 +209,7 @@ func (a *app) syncProbe() {
 		a.do(func() error {
 			a.ac.probing = false
 			if err != nil {
-				a.ac.probe = locales.CommonFailed() + err.Error()
+				a.ac.probe = locales.CommonDidntWork(err.Error())
 				return nil
 			}
 			n := 0
@@ -218,7 +218,7 @@ func (a *app) syncProbe() {
 					n++
 				}
 			}
-			a.ac.probe = Tf("Bağlantı tamam: %d dosya, %d ms.", n, took.Milliseconds())
+			a.ac.probe = locales.AccountConnectionWorks(n, int(took.Milliseconds()))
 			return nil
 		})
 	}()

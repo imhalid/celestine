@@ -275,7 +275,7 @@ func (a *app) codeCopyView(c *ui.Context) {
 			btn.Children(func() { ui.Icon(c, iconCopy).Width(14).Height(14).TextColor(tone) })
 			if btn.Clicked() {
 				a.copyText(codeBlockText(text, start))
-				a.notice = locales.BlocksTheCodeWasCopied()
+				a.say(toastOK, locales.BlocksTheCodeWasCopied())
 			}
 		}
 	})

@@ -114,9 +114,9 @@ func (a *app) addToAgentApp(ag agentApp) (string, error) {
 		return "", err
 	}
 	if !changed {
-		return Tf("%s already has it.", ag.name), nil
+		return locales.McpAlreadyThere(ag.name), nil
 	}
-	return Tf("Added to %s (%s). Restart it to connect.", ag.name, path), nil
+	return locales.McpAdded(ag.name, path), nil
 }
 
 // mcpSetupRow is the settings' row of the buttons that add the app to the agents' apps.

@@ -120,7 +120,7 @@ func (a *app) tmDiffView(c *ui.Context, ox, aw, wh float32) {
 			ui.Column(c).FillWidth().Padding(6, 0, 12, 0).Children(func() {
 				for i, r := range rows {
 					if r.same > 0 {
-						ui.Text(c.Key("tm-same:"+itoa(i)), Tf("⋯ %d lines the same", r.same)).FillWidth().Padding(5, 16).TextAlign(ui.Center).
+						ui.Text(c.Key("tm-same:"+itoa(i)), locales.HistorySameLines(r.same)).FillWidth().Padding(5, 16).TextAlign(ui.Center).
 							FontSize(11.5).TextColor(cl.Muted.Alpha(0.8))
 						continue
 					}

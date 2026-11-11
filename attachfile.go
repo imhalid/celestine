@@ -17,7 +17,7 @@ import (
 func (a *app) addFileFrom(src string) {
 	p := a.page
 	if p == nil || a.doc == nil || a.noPage() {
-		a.notice = locales.PageDropFilePage()
+		a.say(toastInfo, locales.PageDropFilePage())
 		return
 	}
 	data, err := os.ReadFile(src)

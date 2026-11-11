@@ -317,12 +317,12 @@ func (a *app) syncNow() {
 				a.sy.err, a.sy.status = err.Error(), locales.SyncOffline()
 			default:
 				a.sy.err, a.sy.at, a.sy.result = "", time.Now(), syncSummary(res)
-				a.sy.status = Tf("Eşit %s", a.sy.at.Format("15:04"))
+				a.sy.status = locales.SyncLastSynced(clockTime(a.sy.at))
 				if len(res.Errors) > 0 {
 					a.sy.err = res.Errors[0]
 				}
 				if a.sy.held = res.Held; res.Held > 0 && a.sy.err == "" {
-					a.sy.err = Tf("%d dosya uzakta yok görünüyor; silinmedi", res.Held)
+					a.sy.err = locales.SyncHeldGone(res.Held)
 				}
 				a.seedAfterSync(res)
 				a.purgeTrash()                             // what came down may be a trash that has run out
@@ -334,7 +334,7 @@ func (a *app) syncNow() {
 				// told only when something came, or clashed: what was sent is not news, and passes run a moment
 				// after every pause in the typing
 				if res.Pulled+res.Removed+res.Merged+len(res.Conflicts) > 0 {
-					a.notice = locales.SyncSync() + syncSummary(res)
+					a.notice = locales.SyncSummary(syncSummary(res))
 					tone := toastOK
 					if len(res.Conflicts) > 0 {
 						tone = toastWarn
@@ -434,22 +434,23 @@ func syncSummary(r SyncResult) string {
 	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+r.Merged+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
 		return locales.SyncInSyncNoChanges()
 	}
-	s := Tf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
+	parts := []string{locales.SyncSent(r.Pushed), locales.SyncReceived(r.Pulled)}
 	if r.Merged > 0 {
-		s += Tf(", %d merged", r.Merged)
+		parts = append(parts, locales.SyncMerged(r.Merged))
 	}
 	if n := r.Deleted + r.Removed; n > 0 {
-		s += Tf(", %d silme", n)
+		parts = append(parts, locales.SyncDeleted(n))
 	}
 	if len(r.Conflicts) > 0 {
-		s += Tf(", %d çakışma (ikisi de saklandı)", len(r.Conflicts))
+		parts = append(parts, locales.SyncConflictsKept(len(r.Conflicts)))
 	}
 	if len(r.Errors) > 0 {
-		s += Tf(", %d hata", len(r.Errors))
+		parts = append(parts, locales.SyncErrors(len(r.Errors)))
 	}
 	if r.Held > 0 {
-		s += Tf(", %d silme bekliyor", r.Held)
+		parts = append(parts, locales.SyncDeletionsHeld(r.Held))
 	}
+	s := strings.Join(parts, locales.CommonListSeparator())
 	return s
 }
 
@@ -574,7 +575,7 @@ func (a *app) lookForConflicts() {
 			a.sy.conflicts, a.sy.conflictsAt, a.sy.conflictsBusy = found, time.Now(), false
 			a.sy.conflict = len(found)
 			if a.sy.conflict > 0 && !a.sy.busy && a.sy.err == "" {
-				a.sy.status = Tf("çakışma: %d", a.sy.conflict)
+				a.sy.status = locales.SyncConflictCount(a.sy.conflict)
 			}
 			if a.sy.conflictsAgain {
 				a.sy.conflictsAgain = false
@@ -770,7 +771,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		rows2 = append(rows2, func() {
 			now := on
 			settingRow(c, co.Name, "", func() {
-				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label(locales.SyncSync2() + co.Name)
+				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label(locales.SyncCollectionLabel(co.Name))
 			})
 			if now != on {
 				var out []string
@@ -797,7 +798,7 @@ func (a *app) settingsSync(c *ui.Context) {
 			}
 		}
 		settingGroup(c, "set-sync-colls-head", func() {
-			settingRow(c, locales.SyncWhichCollectionsSync(), Tf("%d koleksiyonun %d tanesi eşitleniyor.", len(rows2), len(rows2)-off), func() {
+			settingRow(c, locales.SyncWhichCollectionsSync(), locales.SyncCollectionsSynced(len(rows2), len(rows2)-off), func() {
 				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: locales.CommonHide(), false: locales.SyncChoose()}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconStack}).Clicked() {
 					a.sy.showColls = !a.sy.showColls
 				}
@@ -816,7 +817,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		status += " · " + a.sy.err
 	}
 	settingGroup(c, "set-sync-state", func() {
-		settingRow(c, locales.SyncState()+T(status), a.sy.result, func() {
+		settingRow(c, locales.SyncStateIs(T(status)), a.sy.result, func() {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
 				if ryugo.Button(c.Key("sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 					a.syncNow()
@@ -836,7 +837,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	})
 	if a.sy.held > 0 {
 		settingGroup(c, "set-sync-held", func() {
-			settingRow(c, Tf("%d dosya uzakta yok; bu bilgisayarda duruyor", a.sy.held),
+			settingRow(c, locales.SyncNotOnRemote(a.sy.held),
 				locales.SyncTheRemoteMayHave(), func() {
 					ui.Row(c).Gap(8).Children(func() {
 						// the way the guard is for: the remote lost them, and these are the copies to keep (#147)

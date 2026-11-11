@@ -437,7 +437,7 @@ func (a *app) lapseChips(c *ui.Context) {
 		for k := 1; k <= n; k++ {
 			col := lapseColor(k, n, dark)
 			chip := ui.Row(c.Key("lc"+strconv.Itoa(k))).Gap(4).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
-				Label(Tf("Version %d", k)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Label(locales.HistoryVersionN(k)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := l.lit == k || l.solo == k
 			if on || chip.Hovered() {
 				chip.Background(col.Alpha(0.16))
@@ -453,7 +453,7 @@ func (a *app) lapseChips(c *ui.Context) {
 			if sameDayAs(l.days[k-1], a.clock()) {
 				day = locales.HistoryToday()
 			}
-			ryugo.Tooltip(c, chip, Tf("%s · %d words", day, l.sizes[k-1]))
+			ryugo.Tooltip(c, chip, locales.HistoryDayWords(day, l.sizes[k-1]))
 			switch {
 			case chip.DoubleClicked(): // its first click lit it; a click again brings the rest back
 				l.solo, l.lit, l.held = k, 0, k

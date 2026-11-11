@@ -239,7 +239,7 @@ func TestSyncProbe(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if !strings.Contains(got, "Bağlantı tamam: 0 dosya") {
+	if !strings.Contains(got, "Bağlantı çalışıyor: 0 dosya") {
 		t.Fatalf("probe of an empty place: %q", got)
 	}
 	a.settings.SyncMode = ""

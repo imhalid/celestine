@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Watching the library for changes made elsewhere: another editor, a
@@ -155,7 +156,7 @@ func (a *app) applyDisk(disk diskState, late bool) {
 		if _, ok := disk.pages[p.Dir]; !ok && a.dirty {
 			if err := a.lib.FS.MkdirAll(p.Dir); err == nil {
 				a.save()
-				a.notice = Tf("“%s” dışarıda silinmişti; yazdıkların kaybolmasın diye geri yazıldı.", p.Title)
+				a.say(toastOK, locales.PageRestoredAfterDelete(p.Title))
 				return // the next look sees it back
 			}
 		}
@@ -209,7 +210,7 @@ func (a *app) takeOutside(p *Page) {
 			return
 		}
 		a.save()
-		a.notice = Tf("“%s” dışarıda da değişti: senin yazdıkların kaydedildi, öteki sürüm yanına “%s” olarak kondu.", p.Title, name)
+		a.say(toastOK, locales.PageChangedOutside(p.Title, name))
 		return
 	}
 	p.Unreadable = ""

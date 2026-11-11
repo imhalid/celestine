@@ -414,8 +414,16 @@ func TestCatalogsAsWritten(t *testing.T) {
 			t.Errorf("%s: T(%q) = %q, want %q", c.l, c.code, got, c.want)
 		}
 	}
-	withLang(t, "en")
-	if got := Tf("%d koleksiyonun %d tanesi eşitleniyor.", 5, 2); got != "2 of 5 collections are synced." {
-		t.Errorf("Tf = %q", got)
+	// a sentence with values is one message, its counts said with the language's plural forms
+	for _, c := range []struct{ l, got, want string }{
+		{"en", locales.In("en").SyncCollectionsSynced(5, 2), "2 of 5 collections are synced."},
+		{"en", locales.In("en").SyncCollectionsSynced(1, 1), "1 of 1 collection is synced."},
+		{"tr", locales.In("tr").SyncCollectionsSynced(5, 2), "5 koleksiyonun 2 tanesi eşitleniyor."},
+		{"en", locales.In("en").CommonPageCount(1), "1 page"}, {"en", locales.In("en").CommonPageCount(1200), "1,200 pages"},
+		{"tr", locales.In("tr").CommonPageCount(1200), "1.200 sayfa"},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s: %q, want %q", c.l, c.got, c.want)
+		}
 	}
 }

@@ -418,7 +418,7 @@ func (a *app) applyTagRename() {
 		return
 	}
 	r.open, r.err = false, ""
-	a.notice = Tf("%d sayfada etiket değişti", n)
+	a.say(toastOK, locales.TagsChangedIn(n))
 	if a.tag == r.key {
 		a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(r.name), "#")))
 	}

@@ -60,7 +60,7 @@ func (a *app) blockSelKey(r rune) bool {
 		}
 	case 'y':
 		a.copyText(strings.TrimSuffix(bodyMarkdown(t.Slice(s, e)), "\n"))
-		a.notice = locales.BlocksTheBlocksWereCopied()
+		a.say(toastOK, locales.BlocksTheBlocksWereCopied())
 		a.bsel.on = false
 	case 'd', 'x':
 		deleteRange(a.doc, s, e)

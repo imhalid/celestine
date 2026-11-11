@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strconv"
-
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
@@ -32,7 +30,7 @@ func (a *app) statusExtras(c *ui.Context) {
 	if a.settings.ShowPos {
 		_, caret := a.doc.Selection()
 		line, col := caretPos(a.doc.Text(), caret)
-		ui.Text(c, locales.SidebarLine()+strconv.Itoa(line)+locales.SidebarColumn()+strconv.Itoa(col)).FontSize(11.5).TextColor(c.Theme().TextMuted).MaxLines(1)
+		ui.Text(c, locales.SidebarLineColumn(line, col)).FontSize(11.5).TextColor(c.Theme().TextMuted).MaxLines(1)
 	}
 }
 

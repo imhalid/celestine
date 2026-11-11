@@ -125,7 +125,7 @@ func (a *app) undoAgent() {
 	}
 	a.linksStale()
 	PagesChanged()
-	a.notice = Tf("Ajanın değişiklikleri geri alındı: %d sayfa", n)
+	a.say(toastOK, locales.AgentChangesUndone(n))
 }
 
 // agentStatus is the status bar's word of what the agents changed: a click puts it all back, the × keeps it.
@@ -143,7 +143,7 @@ func (a *app) agentStatus(c *ui.Context) {
 			b.Background(t.SurfaceHover)
 		}
 		b.Children(func() {
-			ui.Text(c, Tf("Ajan %d sayfayı değiştirdi", n)).FontSize(11.5).TextColor(t.TextMuted)
+			ui.Text(c, locales.AgentChangedPages(n)).FontSize(11.5).TextColor(t.TextMuted)
 		})
 		if b.Clicked() {
 			a.undoAgent()

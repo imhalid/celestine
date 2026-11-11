@@ -61,7 +61,7 @@ func (a *app) propPageLink(c *ui.Context, p *Page, pr *Property, key string) {
 	ryugo.Popover(kc, tr, open, func() {
 		ui.Column(c).Gap(4).Width(280).Children(func() {
 			if target != nil {
-				if a.quietButton(c.Key("prop-page-open"), iconPage, Tf("Open %s", target.Title)) {
+				if a.quietButton(c.Key("prop-page-open"), iconPage, locales.PropsOpenPage(target.Title)) {
 					*open = false
 					a.open(target)
 				}
