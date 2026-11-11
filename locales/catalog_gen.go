@@ -881,6 +881,20 @@ func (msgs Messages) BackupImportMarkdownFolder() string {
 	return Catalog.Format(msgs.locale, "backup_importMarkdownFolder", nil)
 }
 
+// BackupKindSync says "before a sync"
+// in the language the app shows.
+//
+// What a backup was taken for, beside its date in the list of backups.
+func BackupKindSync() string { return In(i18n.Locale()).BackupKindSync() }
+
+// BackupKindSync says "before a sync"
+// in the language of msgs.
+//
+// What a backup was taken for, beside its date in the list of backups.
+func (msgs Messages) BackupKindSync() string {
+	return Catalog.Format(msgs.locale, "backup_kindSync", nil)
+}
+
 // BackupRestoreOnRestart says "When you restart, the backup from {date} will be restored. The current file is kept next to it."
 // in the language the app shows.
 func BackupRestoreOnRestart(date string) string {
@@ -9423,6 +9437,16 @@ func (msgs Messages) SyncEndEndEncryption() string {
 	return Catalog.Format(msgs.locale, "sync_endEndEncryption", nil)
 }
 
+// SyncErrOff says "sync is off"
+// in the language the app shows.
+func SyncErrOff() string { return In(i18n.Locale()).SyncErrOff() }
+
+// SyncErrOff says "sync is off"
+// in the language of msgs.
+func (msgs Messages) SyncErrOff() string {
+	return Catalog.Format(msgs.locale, "sync_errOff", nil)
+}
+
 // SyncErrors says "{count, plural, one {# error} other {# errors}}"
 // in the language the app shows.
 func SyncErrors(count int) string { return In(i18n.Locale()).SyncErrors(count) }
@@ -9597,16 +9621,6 @@ func SyncSummary(summary string) string { return In(i18n.Locale()).SyncSummary(s
 // in the language of msgs.
 func (msgs Messages) SyncSummary(summary string) string {
 	return Catalog.Format(msgs.locale, "sync_summary", map[string]any{"summary": summary})
-}
-
-// SyncSync says "Sync: "
-// in the language the app shows.
-func SyncSync() string { return In(i18n.Locale()).SyncSync() }
-
-// SyncSync says "Sync: "
-// in the language of msgs.
-func (msgs Messages) SyncSync() string {
-	return Catalog.Format(msgs.locale, "sync_sync", nil)
 }
 
 // SyncSyncNotSetUp says "sync is not set up"

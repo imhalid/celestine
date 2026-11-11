@@ -126,7 +126,7 @@ func (a *app) syncRemote() (Remote, error) {
 		}
 		r = NewHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
 	default:
-		return nil, errors.New("senkron kapalı")
+		return nil, errors.New(locales.SyncErrOff())
 	}
 	// end-to-end encryption is not a choice: nothing leaves this computer before a passphrase has made the key
 	if a.settings.SyncKey == "" {
@@ -651,7 +651,7 @@ func (a *app) syncBadge(c *ui.Context) {
 	case a.sy.err != "":
 		col = cl.Up
 	}
-	b := ui.Row(c.Key("sync-badge")).Padding(2, 6).Radius(rad(6)).Label("Senkron: " + a.sy.status).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	b := ui.Row(c.Key("sync-badge")).Padding(2, 6).Radius(rad(6)).Label(locales.SyncSummary(a.sy.status)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	if b.Hovered() {
 		b.Background(c.Theme().SurfaceHover)
 	}

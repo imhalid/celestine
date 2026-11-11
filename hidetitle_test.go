@@ -637,7 +637,7 @@ func TestSettingsScreen(t *testing.T) {
 		t.Fatal("the settings did not open")
 	}
 	for _, s := range settingsSections {
-		if !tt.HasText(s.name) {
+		if !tt.HasText(T(s.name)) {
 			t.Fatalf("no %q in the list: %v", s.name, tt.Texts())
 		}
 	}

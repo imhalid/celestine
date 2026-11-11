@@ -357,7 +357,7 @@ func TestMCPCommandsAllowed(t *testing.T) {
 	}{
 		{"Yazıyı büyüt", true}, {"Ayarlar", true}, {"Çöpe taşı: Sayfa", true}, {"Şimdi eşitle", true},
 		{locales.CommonResetAllDefaults(), false}, {"Ayar dosyası oku…", false}, {"Markdown klasörü içe aktar…", false},
-		{"Senkron: sunucu", false}, {"Güncelleme kanalı: Deneme (beta)", false}, {"MCP sunucusu: aç", false},
+		{T("Senkron") + ": " + T("sunucu"), false}, {"Güncelleme kanalı: Deneme (beta)", false}, {"MCP sunucusu: aç", false},
 	} {
 		var found *palItem
 		for _, it := range a.commands() {

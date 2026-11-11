@@ -6,6 +6,7 @@ package main
 // codeKeys names the message of each text the code gives T and Tf, as it is written there: the Turkish of the
 // older strings, the English of the newer ones (docs/24-i18n.md).
 var codeKeys = map[string]string{
+	"senkron": "backup_kindSync", // a backup's kind, as its file is named (syncapp.go)
 	"bu e-postayla açılmış bir hesap var: giriş yap":              "thereIsAlreadyAnAccountWith",
 	"e-posta adresi geçersiz":                                     "thatEmailAddressIsntValid2",
 	"e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş": "theEmailOrTheAccessCode",
@@ -313,7 +314,6 @@ var codeKeys = map[string]string{
 	"Senkron":                                                      "sync4",
 	"Senkron aralığı":                                              "syncInterval",
 	"Senkron kapalı (Ayarlar ▸ Senkron).":                          "syncIsOffSettingsSync",
-	"Senkron: ":                                                    "sync_sync",
 	"Sepya":                                                        "sepia",
 	"Seçenek yaz, ↵":                                               "common_typeChoice",
 	"Seçimi italik yap":                                            "makeTheSelectionItalic",

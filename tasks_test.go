@@ -325,10 +325,10 @@ func TestTasksFilterSearchFold(t *testing.T) {
 	a.taskQuery = "yok böyle bir şey"
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if !tt.HasText("Bu süzgece uyan görev yok") || !tt.HasText("Süzgeçleri temizle") {
+	if !tt.HasText("Bu filtreye uyan görev yok") || !tt.HasText("Filtreleri temizle") {
 		t.Fatalf("no empty state: %v", tt.Texts())
 	}
-	if err := tt.Click("Süzgeçleri temizle"); err != nil {
+	if err := tt.Click("Filtreleri temizle"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
