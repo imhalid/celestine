@@ -1,9 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -69,7 +69,18 @@ type palItem struct {
 	cat              string // a command's group, with nothing typed (palgroups.go)
 	fam              string // its family: its Turkish title before ": "
 	name             string // an app command's Turkish title, as the code names it (appcmds.go), whatever the language
+	id               string // what it is whatever the language: a command's or a setting's title as the code writes it; the recent commands and the keys of one's own are kept by it
+	kind             palKind
 }
+
+// A palKind is what a line of the palette is, where it matters: a command and a setting are remembered when run.
+type palKind int
+
+const (
+	palOther   palKind = iota
+	palCommand         // a command
+	palSetting         // a setting as a command
+)
 
 // openPalette opens the search of the documents (⌘K).
 func (a *app) openPalette() {
@@ -95,7 +106,7 @@ func (a *app) palQuery() string {
 // commands are what the palette does, where the app is now.
 func (a *app) commands() []palItem {
 	cmd := func(title, keys string, glyph *ui.SVG, run func()) palItem {
-		return palItem{title: T(title), sub: "Komut", keys: keys, glyph: glyph, run: run, cat: cmdCat(title), fam: cmdFam(title)}
+		return palItem{title: T(title), sub: locales.PaletteCommand(), kind: palCommand, id: title, keys: keys, glyph: glyph, run: run, cat: cmdCat(title), fam: cmdFam(title)}
 	}
 	var out []palItem
 	ctxFrom := 0
@@ -240,6 +251,7 @@ func (a *app) commands() []palItem {
 	for _, n := range a.profileNames() {
 		n := n
 		it := cmd("Profil: "+n, "", iconSettings, func() { a.applyProfile(n) })
+		it.title = T("Profil") + ": " + T(n) // a built-in profile's name in the window's language; one's own as it was given
 		it.alias = "profile görünüm ayar paketi"
 		out = append(out, it)
 	}
@@ -250,11 +262,12 @@ func (a *app) commands() []palItem {
 				a.say(toastWarn, locales.FontsNoneFound(k))
 			}
 		})
+		it.title = T("Yazı tipi hazırı") + ": " + T(k) // both its parts in the window's language
 		it.alias = "font preset serif sans mono ayar"
 		out = append(out, it)
 	}
 	for i := range out { // a key of one's own shows where the command's key is
-		if k := a.settings.Keys[out[i].title]; k != "" && out[i].keys == "" {
+		if k := a.settings.Keys[out[i].id]; k != "" && out[i].keys == "" {
 			out[i].keys = k
 		}
 	}
@@ -279,7 +292,7 @@ func (a *app) places() []palItem {
 	var out []palItem
 	for _, c := range a.lib.Collections {
 		c := c
-		out = append(out, palItem{title: c.Name, sub: "Koleksiyon", glyph: iconStack, to: place{"coll", c.Dir}, run: func() { a.goTo(place{"coll", c.Dir}) }})
+		out = append(out, palItem{title: c.Name, sub: locales.PaletteCollection(), glyph: iconStack, to: place{"coll", c.Dir}, run: func() { a.goTo(place{"coll", c.Dir}) }})
 		for _, p := range c.All() {
 			p := p
 			sub := c.Name
@@ -291,7 +304,7 @@ func (a *app) places() []palItem {
 	}
 	for _, ti := range a.allTags() {
 		key := ti.key
-		out = append(out, palItem{title: "#" + ti.name, sub: "Etiket · " + strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
+		out = append(out, palItem{title: "#" + ti.name, sub: locales.PaletteTagSub(len(ti.pages)), glyph: iconTag, to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
 	}
 	return out
 }
@@ -393,7 +406,7 @@ func (a *app) placeMatches(q string, max int) []palItem {
 	out := make([]palItem, len(rank))
 	for i, r := range rank {
 		out[i] = px.items[r.at]
-		out[i].group = "Sayfalar"
+		out[i].group = locales.PaletteGroupPages()
 		out[i].score = int(r.score)
 	}
 	return out
@@ -434,7 +447,7 @@ func (a *app) paletteItems(q string) []palItem {
 			out = append(out, palItem{title: h.page.Title, sub: sub, group: "Metinde", snip: h.snip, glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
 		}
 		query := strings.TrimSpace(q)
-		out = append(out, palItem{title: "Kitaplıkta ara: " + query, sub: "Komut", group: "Daha fazlası", keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
+		out = append(out, palItem{title: locales.PaletteSearchLibraryFor(query), sub: locales.PaletteCommand(), kind: palCommand, id: "Kitaplıkta ara", group: locales.PaletteMore(), keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
 	}
 	return out
 }
@@ -443,9 +456,9 @@ func (a *app) paletteItems(q string) []palItem {
 func (a *app) commandItems(q string) []palItem {
 	all := a.commands()
 	recent := a.settings.RecentCmds
-	rank := func(title string) int { // the more lately used, the more it counts
+	rank := func(id string) int { // the more lately used, the more it counts
 		for i, t := range recent {
-			if t == title {
+			if t == id {
 				return len(recent) - i
 			}
 		}
@@ -456,9 +469,9 @@ func (a *app) commandItems(q string) []palItem {
 		seen := map[string]bool{}
 		for _, t := range recent {
 			for _, it := range all {
-				if it.title == t && !seen[t] && len(out) < 5 {
+				if it.id == t && !seen[t] && len(out) < 5 {
 					seen[t] = true
-					it.group = "Son kullanılanlar"
+					it.group = locales.PaletteRecentlyUsed()
 					out = append(out, it)
 				}
 			}
@@ -497,16 +510,16 @@ func (a *app) commandItems(q string) []palItem {
 // palModes are the signs a palette starts with: what each looks for.
 var palModes = []struct {
 	sign byte
-	name string
-	help string
+	name func() string
+	help func() string
 }{
-	{'@', "Sayfalar", "sayfa, koleksiyon ve metinde ara (öntanımlı)"},
-	{'>', "Komutlar", "uygulamanın yapabildiği her şey ve bütün ayarlar"},
-	{'#', "Etiketler", "bir etiketin sayfalarına git"},
-	{':', "Satıra git", "açık sayfada paragraf numarasına git"},
-	{'/', "Sayfada ara", "açık sayfada bul"},
-	{'!', "Son komutlar", "en son çalıştırdıkların"},
-	{'?', "Yardım", "bu liste"},
+	{'@', locales.PaletteModePages, locales.PaletteModePagesHelp},
+	{'>', locales.PaletteModeCommands, locales.PaletteModeCommandsHelp},
+	{'#', locales.PaletteModeTags, locales.PaletteModeTagsHelp},
+	{':', locales.PaletteModeLine, locales.PaletteModeLineHelp},
+	{'/', locales.PaletteModeFind, locales.PaletteModeFindHelp},
+	{'!', locales.PaletteModeRecent, locales.PaletteModeRecentHelp},
+	{'?', locales.PaletteModeHelp, locales.PaletteModeHelpHelp},
 }
 
 // palModeOf is the sign of the mode a query is in: '@' for none written.
@@ -528,17 +541,17 @@ func (a *app) modeItems(mode byte, q string) []palItem {
 				continue
 			}
 			key := ti.key
-			out = append(out, palItem{title: "#" + ti.name, sub: "Etiket · " + strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, score: match(q, ti.name), to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
+			out = append(out, palItem{title: "#" + ti.name, sub: locales.PaletteTagSub(len(ti.pages)), glyph: iconTag, score: match(q, ti.name), to: place{"tag", key}, run: func() { a.goTo(place{"tag", key}) }})
 		}
 		sort.SliceStable(out, func(i, j int) bool { return out[i].score > out[j].score })
 		if len(out) == 0 {
-			out = append(out, palItem{title: "Etiket yok", sub: "Sayfalara #etiket yazınca burada çıkar", glyph: iconTag, off: "Henüz böyle bir etiket yok."})
+			out = append(out, palItem{title: locales.PaletteNoTags(), sub: locales.PaletteNoTagsSub(), glyph: iconTag, off: locales.PaletteNoSuchTag()})
 		}
 	case ':':
 		return a.colonItems(q)
 	case '/':
 		if a.page == nil || a.doc == nil || a.noPage() {
-			out = append(out, palItem{title: "Sayfada ara", sub: "Bir sayfa açık değil", glyph: iconSearch, off: "Aramak için bir sayfa aç."})
+			out = append(out, palItem{title: locales.PaletteSearchPage(), sub: locales.PaletteNoPageOpen(), glyph: iconSearch, off: locales.PaletteOpenPageToSearch()})
 		} else {
 			out = append(out, palItem{title: "Sayfada ara: " + q, sub: "⌘F", glyph: iconSearch, run: func() {
 				a.openFind()
@@ -549,18 +562,18 @@ func (a *app) modeItems(mode byte, q string) []palItem {
 		all := a.commands()
 		for _, t := range a.settings.RecentCmds {
 			for _, it := range all {
-				if it.title == t && (q == "" || match(q, it.title) >= 0) {
+				if it.id == t && (q == "" || match(q, it.title) >= 0) {
 					out = append(out, it)
 				}
 			}
 		}
 		if len(out) == 0 {
-			out = append(out, palItem{title: "Henüz komut çalıştırmadın", glyph: iconSettings, off: "Çalıştırdığın komutlar burada sıralanır."})
+			out = append(out, palItem{title: locales.PaletteNoRecent(), glyph: iconSettings, off: locales.PaletteNoRecentHelp()})
 		}
 	case '?':
 		for _, m := range palModes {
 			m := m
-			out = append(out, palItem{title: string(m.sign) + "  " + m.name, sub: m.help, glyph: iconSearch, keys: string(m.sign), run: func() {
+			out = append(out, palItem{title: string(m.sign) + "  " + m.name(), sub: m.help(), glyph: iconSearch, keys: string(m.sign), run: func() {
 				a.pal = palette{open: true}
 				if m.sign != '@' {
 					a.pal.query = string(m.sign)
@@ -760,7 +773,7 @@ func (a *app) palLines() []palItem {
 func (a *app) palLabel() string {
 	for _, m := range palModes {
 		if m.sign == palModeOf(a.pal.query) {
-			return T(m.name)
+			return m.name()
 		}
 	}
 	return "Sayfa ara"
@@ -840,7 +853,7 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 		} else {
 			ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).Shrink(1)
 		}
-		if len(it.snip) == 0 && it.sub != "" && it.sub != "Komut" {
+		if len(it.snip) == 0 && it.sub != "" && it.kind != palCommand {
 			ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1).Shrink(1)
 		}
 		ui.Spacer(c)
@@ -861,9 +874,9 @@ func (a *app) runItem(it palItem) {
 	a.pal.open = false
 	a.palRestore() // the command sets what it sets, from where it was, and keeps it
 	if it.run != nil {
-		if it.sub == "Komut" || it.sub == "Ayar" { // a command: remembered, so that it comes first next time
-			a.rememberCmd(it.title)
-			a.noteCommand(it.title)
+		if it.kind != palOther { // a command: remembered, so that it comes first next time
+			a.rememberCmd(cmp.Or(it.id, it.title))
+			a.noteCommand(cmp.Or(it.id, it.title))
 		}
 		it.run()
 	}

@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The keyboard's side of dragging: the commands that put a page or a collection somewhere else, which the
@@ -24,7 +25,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		done := func(what string) {
 			a.linksStale()
 			p.Coll.Open = true
-			a.notice = what
+			a.say(toastOK, what)
 		}
 		sib := siblingsOf(p)
 		at := slices.Index(sib, p)
@@ -33,20 +34,20 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 				a.fail(err)
 				return
 			}
-			done("Sayfa bir sıra yukarı çıktı")
+			done(locales.MoveUpDone())
 		})
 		if at <= 0 {
-			up.off = "Sayfa zaten sıranın başında."
+			up.off = locales.MoveAtTop()
 		}
 		down := cmd("Sayfayı aşağı taşı (sırada)", "", iconChevron, func() {
 			if err := a.lib.MovePage(p, p.Coll, p.Parent, at+2); err != nil {
 				a.fail(err)
 				return
 			}
-			done("Sayfa bir sıra aşağı indi")
+			done(locales.MoveDownDone())
 		})
 		if at < 0 || at >= len(sib)-1 {
-			down.off = "Sayfa zaten sıranın sonunda."
+			down.off = locales.MoveAtBottom()
 		}
 		out = append(out, up, down)
 		if p.Parent != nil {
@@ -57,7 +58,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 					a.fail(err)
 					return
 				}
-				done("Sayfa bir üst düzeye çıktı")
+				done(locales.MoveOutDone())
 			}))
 		}
 		for _, c := range a.lib.Collections {
@@ -72,7 +73,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 					return
 				}
 				c.Open = true
-				done("Sayfa “" + c.Name + "” koleksiyonuna taşındı")
+				done(locales.MoveToCollection(c.Name))
 			}))
 		}
 	}

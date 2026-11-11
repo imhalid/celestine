@@ -310,7 +310,20 @@ func settingDefs() []settingDef {
 }
 
 func (d settingDef) fmt(v float64) string {
-	return strconv.FormatFloat(v, 'f', d.dec, 64) + d.unit
+	s := strconv.FormatFloat(v, 'f', d.dec, 64)
+	switch strings.TrimSpace(d.unit) { // the units in words, in the window's language
+	case "karakter":
+		return locales.SettingsUnitChars(s, int(v))
+	case "boşluk":
+		return locales.SettingsUnitSpaces(s, int(v))
+	case "sn":
+		return locales.DatesSeconds(s)
+	case "sa":
+		return locales.SettingsUnitHours(s)
+	case "dk":
+		return locales.SettingsUnitMinutes(s)
+	}
+	return s + d.unit
 }
 
 func (d settingDef) clamp(v float64) float64 { return min(max(v, d.min), d.max) }
@@ -336,10 +349,12 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 		switch d.kind {
 		case setToggle:
 			on := d.on(a)
-			state := map[bool]string{true: "açık", false: "kapalı"}[on]
-			it := cmd(T(d.name)+": "+T(map[bool]string{true: "kapat", false: "aç"}[on]), state, iconSettings, a.undoable(
-				d.name+": "+map[bool]string{true: "kapalı", false: "açık"}[on], func() { d.flip(a, on) }, func() { d.flip(a, !on) }))
-			it.sub = "Ayar"
+			state := map[bool]string{true: locales.SettingsOn(), false: locales.SettingsOff()}[on]
+			it := cmd(d.name, state, iconSettings, a.undoable(
+				locales.SettingsChanged(T(d.name), map[bool]string{true: locales.SettingsOff(), false: locales.SettingsOn()}[on]), func() { d.flip(a, on) }, func() { d.flip(a, !on) }))
+			it.title = T(d.name) + ": " + map[bool]string{true: locales.SettingsTurnOff(), false: locales.SettingsTurnOn()}[on]
+			it.id = d.name + ": " + map[bool]string{true: "kapat", false: "aç"}[on]
+			it.sub, it.kind = locales.PaletteSetting(), palSetting
 			add(it)
 		case setNumber:
 			cur := d.val(a)
@@ -354,12 +369,17 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 			}
 			for _, s := range steps {
 				s := s
-				it := cmd(T(d.name)+": "+T(s.label), d.fmt(cur), iconSettings, a.undoable(T(d.name)+": "+d.fmt(s.to), func() { d.put(a, cur) }, func() { d.put(a, s.to) }))
-				it.sub = "Ayar"
+				it := cmd(d.name+": "+s.label, d.fmt(cur), iconSettings, a.undoable(locales.SettingsChanged(T(d.name), d.fmt(s.to)), func() { d.put(a, cur) }, func() { d.put(a, s.to) }))
+				it.title = T(d.name) + ": " + T(s.label)
+				it.sub, it.kind = locales.PaletteSetting(), palSetting
 				if !s.ok {
-					it.off = d.name + " zaten " + map[bool]string{true: "en yüksekte", false: "en düşükte"}[s.label == "artır"] + " (" + d.fmt(cur) + ")"
-					if s.label == "varsayılan" {
-						it.off = d.name + " zaten varsayılan (" + d.fmt(cur) + ")"
+					switch s.label {
+					case "artır":
+						it.off = locales.SettingsAlreadyHighest(T(d.name), d.fmt(cur))
+					case "azalt":
+						it.off = locales.SettingsAlreadyLowest(T(d.name), d.fmt(cur))
+					default:
+						it.off = locales.SettingsAlreadyDefault(T(d.name), d.fmt(cur))
 					}
 				}
 				add(it)
@@ -375,12 +395,13 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 						was = func() { c.set(a) }
 					}
 				}
-				it := cmd(T(d.name)+": "+T(ch.name), map[bool]string{true: "✓", false: ""}[ch.current], iconSettings, a.undoable(T(d.name)+": "+T(ch.name), func() {
+				it := cmd(d.name+": "+ch.name, map[bool]string{true: "✓", false: ""}[ch.current], iconSettings, a.undoable(locales.SettingsChanged(T(d.name), T(ch.name)), func() {
 					if was != nil {
 						was()
 					}
 				}, func() { ch.set(a) }))
-				it.sub = "Ayar"
+				it.title = T(d.name) + ": " + T(ch.name)
+				it.sub, it.kind = locales.PaletteSetting(), palSetting
 				if ch.preview != nil {
 					pv := ch.preview
 					it.preview = func() { pv(a) }
@@ -415,10 +436,10 @@ func (a *app) argItems(q string) []palItem {
 			continue
 		}
 		to, cur := d.clamp(v), d.val(a)
-		it := palItem{title: d.name + " → " + d.fmt(to), sub: "Ayar", glyph: iconSettings, score: 1000 + s,
-			run: a.undoable(d.name+": "+d.fmt(to), func() { d.put(a, cur) }, func() { d.put(a, to) })}
+		it := palItem{title: locales.SettingsSetTo(T(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 1000 + s,
+			run: a.undoable(locales.SettingsChanged(T(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}
 		if to != v {
-			it.title += " (sınırda: " + d.fmt(d.min) + "–" + d.fmt(d.max) + ")"
+			it.title = locales.SettingsSetToClamped(T(d.name), d.fmt(to), d.fmt(d.min), d.fmt(d.max))
 		}
 		out = append(out, it)
 	}

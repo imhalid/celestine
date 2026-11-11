@@ -72,7 +72,7 @@ func TestEnglishUI(t *testing.T) {
 	for _, it := range a.commands() {
 		titles[it.title] = true
 	}
-	for _, want := range []string{"New collection", "Tasks", "Trash", "Back up now", "Autosave: off", "Theme: Dark"} {
+	for _, want := range []string{"New collection", "Tasks", "Trash", "Back up now", "Autosave: turn off", "Theme: Dark"} {
 		if !titles[want] {
 			t.Errorf("no command %q", want)
 		}

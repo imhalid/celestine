@@ -477,11 +477,11 @@ func (a *app) settingsProfiles(c *ui.Context) {
 			if mine {
 				help = locales.SettingsSavedProfile()
 			}
-			settingRow(c, n, help, func() {
+			settingRow(c, T(n), help, func() {
 				ui.Row(c).Gap(6).Children(func() {
 					if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.applyProfile(n)
-						a.notice = "Profil: " + n
+						a.say(toastOK, locales.SettingsProfileOn(T(n)))
 					}
 					if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.deleteProfile(n)

@@ -34,7 +34,7 @@ func fillMenu(m *ui.Menu, items []menuItem, chosen func()) {
 		}
 		mi := m.Item(T(it.title))
 		if it.sub != "" {
-			mi.Subtitle(it.sub)
+			mi.Subtitle(T(it.sub))
 		}
 		if it.hint != "" {
 			mi.Trailing(it.hint)

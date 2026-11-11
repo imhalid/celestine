@@ -148,7 +148,7 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 						ui.Column(c).Grow(1).Shrink(1).Children(func() {
 							ui.Text(c, T(it.title)).FontSize(12.5).TextColor(text).MaxLines(1) // the app's words are written in Turkish: shown in the window's language
 							if it.sub != "" {
-								ui.Text(c, it.sub).FontSize(10.5).TextColor(muted).MaxLines(1)
+								ui.Text(c, T(it.sub)).FontSize(10.5).TextColor(muted).MaxLines(1)
 							}
 						})
 						if it.hint != "" {

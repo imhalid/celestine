@@ -264,7 +264,11 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 	ui.Row(c).FillWidth().Gap(18).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
 			ui.Text(c, locales.StatsMostUsedCommands()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
-			statList(c, "by-cmd", top(a.usage.Cmds, 8), locales.StatsNoCommandsYet(), nil)
+			cmds := top(a.usage.Cmds, 8)
+			for i := range cmds { // kept by what the command is, shown in the window's language
+				cmds[i].Name = T(cmds[i].Name)
+			}
+			statList(c, "by-cmd", cmds, locales.StatsNoCommandsYet(), nil)
 		})
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
 			ui.Text(c, locales.StatsMostOpenedPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
@@ -304,15 +308,15 @@ func (a *app) unusedFeatures(n int) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, it := range a.commands() {
-		if it.sub != "Komut" || it.off != "" {
+		if it.kind != palCommand || it.off != "" {
 			continue
 		}
-		name, _, _ := strings.Cut(it.title, ": ")
-		if seen[name] || a.usage.Cmds[name] > 0 || strings.Contains(it.title, "Yedekten") || strings.Contains(it.title, "→") {
+		id, _, _ := strings.Cut(it.id, ": ")
+		if seen[id] || a.usage.Cmds[it.id] > 0 || a.usage.Cmds[id] > 0 || strings.Contains(it.id, "Yedekten") || strings.Contains(it.id, "→") {
 			continue
 		}
-		seen[name] = true
-		out = append(out, name)
+		seen[id] = true
+		out = append(out, T(id))
 		if len(out) >= n {
 			break
 		}

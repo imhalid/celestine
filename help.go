@@ -46,7 +46,7 @@ func (a *app) helpGroups() []helpGroup {
 	var cmds [][2]string
 	seen := map[string]bool{}
 	for _, it := range a.commands() {
-		if it.keys != "" && it.keys != "✓" && it.sub == "Komut" && !seen[it.title] {
+		if it.keys != "" && it.keys != "✓" && it.kind == palCommand && !seen[it.title] {
 			seen[it.title] = true
 			cmds = append(cmds, [2]string{it.keys, it.title})
 		}

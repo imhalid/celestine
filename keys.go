@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"sort"
 	"strings"
 
@@ -72,13 +73,13 @@ func parseAccel(s string) (ui.Modifiers, ui.Key, string, bool) {
 
 // reservedAccels are keys the editor or the system has; the keys of the app's own commands are in their
 // list (appAccels). A command of one's own is refused both.
-var reservedAccels = map[string]string{
-	"cmd+1": "kenar çubuğuna odaklan", "cmd+2": "yan panel", "cmd+3": "metne odaklan", "ctrl+n": "yeni sayfa",
-	"cmd+b": "kalın", "cmd+i": "italik", "cmd+u": "altı çizili", "cmd+z": "geri al", "cmd+shift+z": "yinele",
-	"cmd+x": "kes", "cmd+c": "kopyala", "cmd+v": "yapıştır", "cmd+a": "tümünü seç",
-	"cmd+q": "sistem: çık", "cmd+w": "sistem: pencereyi kapat", "cmd+h": "sistem: gizle", "cmd+space": "sistem: arama",
-	"cmd+tab": "sistem: uygulama değiştir", "cmd+m": "sistem: küçült", "cmd+t": "tarayıcı: yeni sekme",
-	"cmd+l": "tarayıcı: adres çubuğu", "cmd+r": "tarayıcı: yenile",
+var reservedAccels = map[string]func() string{
+	"cmd+1": locales.KeysFocusSidebar, "cmd+2": locales.KeysSidePanel, "cmd+3": locales.KeysFocusText, "ctrl+n": locales.KeysNewPage,
+	"cmd+b": locales.KeysBold, "cmd+i": locales.KeysItalic, "cmd+u": locales.KeysUnderline, "cmd+z": locales.KeysUndo, "cmd+shift+z": locales.KeysRedo,
+	"cmd+x": locales.KeysCut, "cmd+c": locales.KeysCopy, "cmd+v": locales.KeysPaste, "cmd+a": locales.KeysSelectAll,
+	"cmd+q": locales.KeysSysQuit, "cmd+w": locales.KeysSysCloseWindow, "cmd+h": locales.KeysSysHide, "cmd+space": locales.KeysSysSearch,
+	"cmd+tab": locales.KeysSysSwitch, "cmd+m": locales.KeysSysMinimize, "cmd+t": locales.KeysBrowserTab,
+	"cmd+l": locales.KeysBrowserAddress, "cmd+r": locales.KeysBrowserReload,
 }
 
 // accelConflict says what a key is already for, or "" when it is free (also from the other commands).
@@ -87,11 +88,11 @@ func (a *app) accelConflict(norm, forCmd string) string {
 		return r
 	}
 	if r, ok := reservedAccels[norm]; ok {
-		return r
+		return r()
 	}
 	for cmd, k := range a.settings.Keys {
 		if k == norm && cmd != forCmd {
-			return "“" + cmd + "” komutu"
+			return locales.KeysTheCommand(T(cmd))
 		}
 	}
 	return ""
@@ -101,13 +102,15 @@ func (a *app) accelConflict(norm, forCmd string) string {
 func (a *app) bindKey(cmd, accel string) error {
 	_, _, norm, ok := parseAccel(accel)
 	if !ok {
-		return errString("Anahtar anlaşılmadı: “" + accel + "”. Örnek: cmd+shift+y (cmd, ctrl, shift, alt ve bir tuş)")
+		return errString(locales.KeysErrKey(accel))
 	}
-	if a.commandByTitle(cmd) == nil {
-		return errString("Böyle bir komut yok: “" + cmd + "”")
+	it := a.commandByTitle(cmd)
+	if it == nil {
+		return errString(locales.KeysErrNoCommand(cmd))
 	}
+	cmd = cmp.Or(it.id, it.title) // kept by what the command is, whatever the language
 	if c := a.accelConflict(norm, cmd); c != "" {
-		return errString(norm + " zaten " + c + " için kullanılıyor")
+		return errString(locales.KeysErrTaken(norm, c))
 	}
 	if a.settings.Keys == nil {
 		a.settings.Keys = map[string]string{}
@@ -130,7 +133,7 @@ func (a *app) unbindKey(cmd string) {
 func (a *app) commandByTitle(title string) *palItem {
 	all := a.commands()
 	for i := range all {
-		if all[i].title == title && all[i].off == "" {
+		if (all[i].title == title || all[i].id == title) && all[i].off == "" {
 			return &all[i]
 		}
 	}
@@ -175,7 +178,7 @@ func (a *app) runMacro(name string) int {
 func (a *app) saveMacro(name, list string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errString("Makroya bir ad ver")
+		return errString(locales.KeysErrMacroName())
 	}
 	var cmds []string
 	for _, t := range strings.FieldsFunc(list, func(r rune) bool { return r == '+' || r == ';' }) {
@@ -185,12 +188,12 @@ func (a *app) saveMacro(name, list string) error {
 		}
 		it := a.commandByTitle(t)
 		if it == nil {
-			return errString("Böyle bir komut yok: “" + t + "”")
+			return errString(locales.KeysErrNoCommand(t))
 		}
-		cmds = append(cmds, it.title)
+		cmds = append(cmds, cmp.Or(it.id, it.title))
 	}
 	if len(cmds) == 0 {
-		return errString("Makro en az bir komut ister")
+		return errString(locales.KeysErrMacroEmpty())
 	}
 	if a.settings.Macros == nil {
 		a.settings.Macros = map[string][]string{}
@@ -228,7 +231,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 	for _, k := range cmds {
 		k := k
 		rows = append(rows, func() {
-			settingRow(c, k, a.settings.Keys[k], func() {
+			settingRow(c, T(k), a.settings.Keys[k], func() {
 				if ryugo.Button(c.Key("key-del:"+k), locales.KeysRemove(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.unbindKey(k)
 				}
@@ -263,7 +266,11 @@ func (a *app) settingsKeys(c *ui.Context) {
 	for _, n := range names {
 		n := n
 		mrows = append(mrows, func() {
-			settingRow(c, n, strings.Join(a.settings.Macros[n], " + "), func() {
+			var shown []string
+			for _, t := range a.settings.Macros[n] { // kept by what each command is, shown in the window's language
+				shown = append(shown, T(t))
+			}
+			settingRow(c, n, strings.Join(shown, " + "), func() {
 				ui.Row(c).Gap(6).Children(func() {
 					if ryugo.Button(c.Key("macro-run:"+n), locales.KeysRun(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.runMacro(n)

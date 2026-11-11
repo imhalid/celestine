@@ -94,7 +94,7 @@ func TestArgumentCommand(t *testing.T) {
 	}
 	// out of range: the nearest, and it says so
 	items = a.paletteItems(">satır aralığı 9")
-	if !strings.Contains(items[0].title, "sınırda") {
+	if !strings.Contains(items[0].title, "sınır") {
 		t.Fatalf("no limit said: %q", items[0].title)
 	}
 	a.runItem(items[0])
@@ -183,7 +183,7 @@ func TestPaletteModes(t *testing.T) {
 	if len(a.paletteItems(":")) != 1 || a.paletteItems(":")[0].off == "" {
 		t.Fatal("no hint for a missing number")
 	}
-	if got := a.paletteItems(":99"); !strings.Contains(got[0].title, "Paragraf 4") && !strings.Contains(got[0].title, "Paragraf") {
+	if got := a.paletteItems(":99"); !strings.Contains(got[0].title, "paragraf") {
 		t.Fatalf("past the end: %+v", got)
 	}
 	a.runItem(a.paletteItems("/dört")[0])

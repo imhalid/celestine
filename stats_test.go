@@ -87,8 +87,8 @@ func TestStatsUse(t *testing.T) {
 	a.newPage(c, nil)
 	a.trashPage(a.page)
 	a.openSearch("elma")
-	a.runItem(palItem{title: "Görevler: bugün", sub: "Komut", run: func() {}})
-	a.runItem(palItem{title: "Görevler: bugün", sub: "Komut", run: func() {}})
+	a.runItem(palItem{title: "Tasks: today", id: "Görevler: bugün", kind: palCommand, run: func() {}})
+	a.runItem(palItem{title: "Tasks: today", id: "Görevler: bugün", kind: palCommand, run: func() {}})
 	d := a.usage.Days["2026-11-07"]
 	if d.Opened < 2 || d.Created != 1 || d.Deleted != 1 || d.Searches != 1 {
 		t.Fatalf("%+v", d)

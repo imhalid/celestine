@@ -577,31 +577,31 @@ func (a *app) colonItems(q string) []palItem {
 		return palItem{title: title, sub: sub, glyph: iconPage, run: run}
 	}
 	if q == "" {
-		out := []palItem{{title: "Bir sayı, ya da: w q wq e ad tema koyu set fontsize=18 help", glyph: iconPage, off: "Yaz: örn. :12 satıra gider, :w kaydeder."}}
+		out := []palItem{{title: locales.PaletteLineHint(), glyph: iconPage, off: locales.PaletteLineHelp()}}
 		return out
 	}
 	if n, err := strconv.Atoi(q); err == nil {
 		if !hasPage {
-			return []palItem{{title: "Satıra git", sub: "Bir sayfa açık değil", glyph: iconPage, off: "Satıra gitmek için bir sayfa aç."}}
+			return []palItem{{title: locales.PaletteGoToLine(), sub: locales.PaletteNoPageOpen(), glyph: iconPage, off: locales.PaletteOpenPageForLine()}}
 		}
 		if n < 1 {
-			return []palItem{{title: "Paragraf numarası 1'den başlar", glyph: iconPage, off: "Bir sayı yaz: örn. :12"}}
+			return []palItem{{title: locales.PaletteParagraphFromOne(), glyph: iconPage, off: locales.PaletteTypeNumber()}}
 		}
 		total := countParagraphs(a.doc.Text())
 		to := min(n, total)
-		return []palItem{item("Paragraf "+strconv.Itoa(to)+"'e git", strconv.Itoa(total)+" paragraftan", func() { a.goToParagraph(to) })}
+		return []palItem{item(locales.PaletteGoToParagraph(to), locales.PaletteOfParagraphs(total), func() { a.goToParagraph(to) })}
 	}
 	cmd, arg, _ := strings.Cut(q, " ")
 	arg = strings.TrimSpace(arg)
 	switch strings.ToLower(cmd) {
 	case "w", "write":
-		return []palItem{item("Kaydet", "⌘S", a.saveNow)}
+		return []palItem{item(locales.PaletteSave(), "⌘S", a.saveNow)}
 	case "q", "quit":
-		return []palItem{item("Kapat: geri dön", "⌘[", func() { a.step(-1) })}
+		return []palItem{item(locales.PaletteCloseBack(), "⌘[", func() { a.step(-1) })}
 	case "wq", "x":
-		return []palItem{item("Kaydet ve geri dön", "", func() { a.saveNow(); a.step(-1) })}
+		return []palItem{item(locales.PaletteSaveBack(), "", func() { a.saveNow(); a.step(-1) })}
 	case "help", "h":
-		return []palItem{item("Kısayollar", "?", func() { a.kb.help = true })}
+		return []palItem{item(locales.PaletteShortcuts(), "?", func() { a.kb.help = true })}
 	case "e", "edit", "open":
 		var out []palItem
 		for _, it := range a.places() {
@@ -618,18 +618,18 @@ func (a *app) colonItems(q string) []palItem {
 			out = out[:12]
 		}
 		if len(out) == 0 {
-			return []palItem{{title: "Böyle bir sayfa yok: " + arg, glyph: iconPage, off: "Başka bir ad dene."}}
+			return []palItem{{title: locales.PaletteNoSuchPage(arg), glyph: iconPage, off: locales.PaletteTryAnotherName()}}
 		}
 		return out
 	case "tema", "theme":
 		var out []palItem
 		for _, it := range a.commands() {
-			if strings.HasPrefix(it.title, "Tema: ") && (arg == "" || match(arg, strings.TrimPrefix(it.title, "Tema: ")) >= 0) {
+			if strings.HasPrefix(it.id, "Tema: ") && (arg == "" || match(arg, strings.TrimPrefix(it.id, "Tema: ")) >= 0 || match(arg, it.title) >= 0) {
 				out = append(out, it)
 			}
 		}
 		if len(out) == 0 {
-			return []palItem{{title: "Böyle bir tema yok: " + arg, glyph: iconPage, off: "Sistem, Açık ya da Koyu."}}
+			return []palItem{{title: locales.PaletteNoSuchTheme(arg), glyph: iconPage, off: locales.PaletteThemeNames()}}
 		}
 		return out
 	case "set", "se":
@@ -639,11 +639,11 @@ func (a *app) colonItems(q string) []palItem {
 		}
 		name, val = strings.TrimSpace(name), strings.TrimSpace(val)
 		if !ok || name == "" || val == "" {
-			return []palItem{{title: "set ad=değer", sub: "örn. set fontsize=18, set autosave=off", glyph: iconPage, off: "Ayarın adını ve değerini yaz."}}
+			return []palItem{{title: locales.PaletteSetUsage(), sub: locales.PaletteSetExample(), glyph: iconPage, off: locales.PaletteSetHelp()}}
 		}
 		return a.setItems(name, val)
 	}
-	return []palItem{{title: "Bilinmeyen komut: " + cmd, sub: "w q wq e tema set help ya da bir sayı", glyph: iconPage, off: "Bilinmeyen komut."}}
+	return []palItem{{title: locales.PaletteUnknownCommand(cmd), sub: locales.PaletteUnknownHint(), glyph: iconPage, off: locales.PaletteUnknown()}}
 }
 
 // vimNames are the names of Vim's options that mean a setting here.
@@ -673,19 +673,20 @@ func (a *app) setItems(name, val string) []palItem {
 				continue
 			}
 			to, cur := d.clamp(v), d.val(a)
-			return []palItem{{title: d.name + " → " + d.fmt(to), sub: "Ayar", glyph: iconSettings,
-				run: a.undoable(d.name+": "+d.fmt(to), func() { d.put(a, cur) }, func() { d.put(a, to) })}}
+			return []palItem{{title: locales.SettingsSetTo(T(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
+				run: a.undoable(locales.SettingsChanged(T(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}}
 		case setToggle:
 			on, ok := map[string]bool{"on": true, "off": false, "1": true, "0": false, "yes": true, "no": false, "aç": true, "kapat": false, "açık": true, "kapalı": false, "true": true, "false": false}[strings.ToLower(val)]
 			if !ok {
 				continue
 			}
 			was := d.on(a)
-			return []palItem{{title: d.name + " → " + map[bool]string{true: "açık", false: "kapalı"}[on], sub: "Ayar", glyph: iconSettings,
-				run: a.undoable(d.name+": "+map[bool]string{true: "açık", false: "kapalı"}[on], func() { d.flip(a, was) }, func() { d.flip(a, on) })}}
+			state := map[bool]string{true: locales.SettingsOn(), false: locales.SettingsOff()}[on]
+			return []palItem{{title: locales.SettingsSetTo(T(d.name), state), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
+				run: a.undoable(locales.SettingsChanged(T(d.name), state), func() { d.flip(a, was) }, func() { d.flip(a, on) })}}
 		}
 	}
-	return []palItem{{title: "Böyle bir ayar ya da değer yok: " + name + "=" + val, glyph: iconPage, off: "Ayarın adı ve değeri tutmadı."}}
+	return []palItem{{title: locales.PaletteNoSuchSetting(name, val), glyph: iconPage, off: locales.PaletteSettingMismatch()}}
 }
 
 // kbRun does again what . asks for: a motion of Vim that edits, or a pair like dd.
