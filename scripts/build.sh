@@ -5,6 +5,7 @@
 #   scripts/build.sh              all targets, into dist/
 #   BUDGET_MB=22 scripts/build.sh the budget of a binary, in MB (default 25)
 #   scripts/build.sh linux/amd64  one target
+#   LDFLAGS='-X main.updateURL=…' scripts/build.sh   more -ldflags, as the release puts its update address and key in
 #
 # The flags, each measured (docs/17-boyut-ve-performans.md): -s -w takes the symbols and the DWARF off
 # (a third of the file), -trimpath and -buildvcs=false take the paths and the version control's stamp.
@@ -25,7 +26,7 @@ for t in $TARGETS; do
 	ext=""; [ "$os" = windows ] && ext=".exe"
 	out="dist/ryudit-$os-$arch$ext"
 	CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false ${SMALL:+-gcflags=all=-l} \
-		-ldflags="-s -w -X main.version=$VERSION" -o "$out" .
+		-ldflags="-s -w -X main.version=$VERSION ${LDFLAGS:-}" -o "$out" .
 	bytes=$(wc -c < "$out" | tr -d ' ')
 	echo "$os/$arch $bytes" >> "$prev"
 	old=$(grep "^$os/$arch " dist/sizes.prev.txt | cut -d' ' -f2 || true)
