@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/egoist/mygo v0.8.4-0.20261110212913-ec11ad71a4f8
-	github.com/imhalid/ryu-go v0.1.1-0.20261110153211-7f118a81ea7e
+	github.com/imhalid/ryu-go v0.1.1-0.20261111181500-d211c0112eab
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.6

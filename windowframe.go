@@ -2,10 +2,10 @@ package main
 
 import (
 	"runtime"
-	"strconv"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -79,35 +79,56 @@ func (a *app) frameTop(c *ui.Context) {
 	top.Children(func() {
 		ui.Row(c.Key("frame-tabs")).Absolute().Left(left).Right(4).Top(y).Height(frameTabH).Gap(4).AlignItems(ui.Center).
 			Opacity(p).Translate(0, -10*(1-p)).Children(func() {
-			for i := range a.ps.states {
-				a.frameTab(c, i)
+			if a.ps.layout == nil {
+				return
+			}
+			for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
+				if i := a.ps.index(tab.Pane.ID); i >= 0 {
+					a.frameTab(c, i, tab.Pane.ID)
+				}
 			}
 		})
 	})
 }
 
-// frameTab is pane i's tab: what it shows, lit while it is the one in use. A click goes to it.
-func (a *app) frameTab(c *ui.Context, i int) {
+// frameTab is pane i's tab, the Dock's pane id: what it shows, lit while it is the one in use, with its close
+// button while it is or the pointer is over it. A click shows the pane in its area and puts it in use; the close
+// button closes it as the Dock's own tab would (Layout.ClosePane), and the panes follow (syncPanes).
+func (a *app) frameTab(c *ui.Context, i int, id string) {
 	t := c.Theme()
 	var title string
 	a.withPane(i, func() { title = a.paneTitle() })
 	used := i == a.ps.active
-	tab := ui.Row(c.Key("frame-tab:"+strconv.Itoa(i))).Height(frameTabH).MaxWidth(220).MinWidth(0).Shrink(1).
-		Padding(0, 12).AlignItems(ui.Center).Radius(rad(9)).Label(title).Role(ui.RoleTab)
+	tab := ui.Row(c.Key("frame-tab:"+id)).Height(frameTabH).MaxWidth(240).MinWidth(0).Shrink(1).
+		Padding(0, 6, 0, 12).Gap(4).AlignItems(ui.Center).Radius(rad(9)).Label(title).Role(ui.RoleTab)
 	switch {
 	case used:
 		tab.Background(a.pageBg).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.12))
 	case tab.Hovered():
 		tab.Background(t.Text.Alpha(0.06))
 	}
+	closed := false
 	tab.Children(func() {
 		col := t.TextMuted
 		if used {
 			col = t.Text
 		}
-		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).MinWidth(0)
+		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).MinWidth(0).Grow(1)
+		x := ui.Box(c.Key("close")).Size(18, 18).Radius(9).Center().Shrink(0).Label(locales.CloseThePane() + ": " + title).Role(ui.RoleButton)
+		x.Opacity(x.AnimateTo("shown", map[bool]float32{true: 1}[used || tab.Hovered()], springSheet))
+		if x.Hovered() {
+			x.Background(t.Text.Alpha(0.08))
+		}
+		x.Children(func() { ui.Icon(c, iconWinClose).Size(11, 11).TextColor(t.TextMuted) })
+		closed = x.Clicked()
 	})
-	if tab.Clicked() && !used {
+	switch {
+	case closed:
+		a.flush()
+		a.ps.layout.ClosePane(id)
+		c.Invalidate()
+	case tab.Clicked():
+		a.ps.layout.ShowPane(id)
 		a.usePane(i)
 	}
 }

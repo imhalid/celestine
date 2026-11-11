@@ -369,7 +369,7 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 				a.withPane(i, func() { p.Title = a.paneTitle() })
 			}
 		}
-		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop}).Grow(1)
+		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop, NoHeaders: a.wframe.on}).Grow(1)
 		a.carried()
 	}
 	if b := el.LayoutBounds(); b.W > 0 { // a Dock just made is not laid out yet
