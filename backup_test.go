@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 func testStore(t *testing.T) *Store {
@@ -276,11 +278,11 @@ func TestExportZip(t *testing.T) {
 	st := testStore(t)
 	lib, _ := OpenLibraryIn(st, StoreRoot)
 	a := newApp(lib)
-	msg := a.exportZip(st)
-	if !strings.HasPrefix(msg, "Yazıldı: ") {
+	msg, ok := a.exportZip(st)
+	if !ok {
 		t.Fatal(msg)
 	}
-	zp := strings.TrimPrefix(msg, "Yazıldı: ")
+	zp := strings.TrimPrefix(msg, locales.CommonSavedTo(""))
 	defer os.Remove(zp)
 	fi, err := os.Stat(zp)
 	if err != nil || fi.Size() == 0 {

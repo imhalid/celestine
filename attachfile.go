@@ -22,7 +22,7 @@ func (a *app) addFileFrom(src string) {
 	}
 	data, err := os.ReadFile(src)
 	if err != nil {
-		a.notice = err.Error()
+		a.say(toastErr, err.Error())
 		return
 	}
 	name := freeName(p, filepath.Base(src))

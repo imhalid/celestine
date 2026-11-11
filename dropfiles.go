@@ -33,14 +33,14 @@ func (a *app) dropFile(f string, overText bool) {
 	case ".md", ".markdown", ".txt":
 		c := a.dropCollection()
 		if c == nil {
-			a.notice = "Sayfa eklenecek koleksiyon yok"
+			a.say(toastWarn, locales.ThereIsNoCollectionToAdd())
 			return
 		}
 		a.flush()
 		var st importStats
 		p, err := a.importFile(c, filepath.Dir(f), f, &st)
 		if err != nil {
-			a.notice = "Olmadı: " + err.Error()
+			a.say(toastErr, locales.CommonDidntWork(err.Error()))
 			return
 		}
 		a.linksStale()
@@ -57,13 +57,13 @@ func (a *app) dropFile(f string, overText bool) {
 		case a.page != nil && !a.noPage():
 			a.coverFile(a.page, f)
 		default:
-			a.notice = "Resmi bir sayfaya bırak"
+			a.say(toastWarn, locales.DropThePictureOnAPage())
 		}
 	default:
 		if overText && a.page != nil && a.doc != nil && !a.noPage() { // any other file goes into the page, beside it
 			a.addFileFrom(f)
 			return
 		}
-		a.notice = "Bu dosya türü sayfa olmaz: " + filepath.Base(f)
+		a.say(toastWarn, locales.PageNotPageType(filepath.Base(f)))
 	}
 }

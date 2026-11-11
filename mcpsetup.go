@@ -130,7 +130,7 @@ func (a *app) mcpSetupRow(c *ui.Context) func() {
 						if err != nil {
 							msg = err.Error()
 						}
-						a.notice = msg
+						a.sayDone(msg, err == nil)
 					}
 				}
 			})

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -127,7 +126,7 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 func (a *app) bulkAddTag(pages []*Page, tag string) {
 	tag = strings.TrimPrefix(strings.TrimSpace(tag), "#")
 	if tag == "" || !tagQuery.MatchString(tag) || !tagWord.MatchString(" #"+tag) {
-		a.notice = "Etiket harfle başlar; harf, rakam, - _ / içerir"
+		a.say(toastWarn, locales.ATagStartsWithALetter())
 		return
 	}
 	n := 0
@@ -162,7 +161,7 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 		n++
 	}
 	a.linksStale()
-	a.notice = strconv.Itoa(n) + " sayfaya #" + tag + " eklendi"
+	a.say(toastOK, locales.BulkTagAdded(n, tag))
 }
 
 // bulkMoveMenu lists the collections the pages can go to.

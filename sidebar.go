@@ -554,7 +554,7 @@ func pageUnder(q, p *Page) bool {
 // trashCollection moves c to the library's trash, and shows another one's first page.
 func (a *app) trashCollection(c *Collection) {
 	if c.Journal {
-		a.notice = "Günlük çöpe taşınamaz"
+		a.say(toastWarn, locales.TheJournalCannotBeMovedTo())
 		return
 	}
 	if a.page != nil && a.page.Coll == c {

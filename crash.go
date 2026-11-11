@@ -182,7 +182,7 @@ func (a *app) crashView(c *ui.Context) {
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 				if ryugo.Button(c.Key("crash-copy"), "Kopyala", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.copyText(a.crashText)
-					a.notice = "Günlük panoya kopyalandı"
+					a.say(toastOK, locales.TheLogWasCopiedToThe())
 				}
 				if ryugo.Button(c.Key("crash-close"), "Kapat", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.crashOpen = false
@@ -196,7 +196,7 @@ func (a *app) crashView(c *ui.Context) {
 func (a *app) showCrash() {
 	text, path := latestCrash(a.crashDirOf())
 	if text == "" {
-		a.notice = "Hiç çökme günlüğü yok."
+		a.say(toastWarn, locales.ThereIsNoCrashLog())
 		return
 	}
 	a.crashText, a.crashPath, a.crashPrev, a.crashOpen = text, path, "", true

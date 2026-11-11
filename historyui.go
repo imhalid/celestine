@@ -48,7 +48,7 @@ func (v *histView) hist() (Historian, bool) {
 func (a *app) openHistory(p *Page) {
 	h, ok := historyOf(p)
 	if !ok {
-		a.notice = "Sürüm geçmişi yalnız tek dosya kitaplığında tutulur"
+		a.say(toastInfo, locales.VersionHistoryIsKeptOnlyIn())
 		return
 	}
 	a.flush()

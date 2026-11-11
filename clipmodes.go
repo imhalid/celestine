@@ -39,7 +39,7 @@ func (a *app) copyAs(kind string) {
 	case "html":
 		a.copyText(withoutChips(src).HTML())
 	}
-	a.notice = map[string]string{"markdown": locales.BlocksCopiedAsMarkdown(), "plain": locales.BlocksCopiedAsPlainText(), "html": locales.BlocksCopiedAsHtml()}[kind]
+	a.say(toastOK, map[string]string{"markdown": locales.BlocksCopiedAsMarkdown(), "plain": locales.BlocksCopiedAsPlainText(), "html": locales.BlocksCopiedAsHtml()}[kind])
 	a.refocus = true
 }
 

@@ -73,18 +73,18 @@ func (a *app) drawFocusVeil(p *ui.Painter, r ui.Rect) {
 func (a *app) revertToBeforeSave() {
 	p := a.page
 	if p == nil || a.noPage() {
-		a.notice = "Açık bir sayfa yok."
+		a.say(toastWarn, locales.ThereIsNoOpenPage())
 		return
 	}
 	h, ok := historyOf(p)
 	if !ok {
-		a.notice = "Bu kitaplık sürüm tutmuyor."
+		a.say(toastWarn, locales.ThisLibraryKeepsNoVersions())
 		return
 	}
 	a.flush()
 	vers := h.Versions(p.File())
 	if len(vers) == 0 {
-		a.notice = "Bu sayfanın önceki bir sürümü yok."
+		a.say(toastWarn, locales.ThisPageHasNoEarlierVersion())
 		return
 	}
 	data, ok := h.VersionData(p.File(), vers[0].ID)

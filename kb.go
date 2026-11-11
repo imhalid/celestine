@@ -701,7 +701,7 @@ func (a *app) kbRun(r rune, n int, pair string) {
 // followAtCaret opens the link, tag or chip the caret is on.
 func (a *app) followAtCaret() {
 	if a.page == nil || a.noPage() || a.caretWin.W <= 0 && a.caretWin.H <= 0 {
-		a.notice = "Açık bir sayfada caret'in üstünde bir bağlantı yok."
+		a.say(toastWarn, locales.ThereIsNoLinkUnderThe())
 		return
 	}
 	x, y := a.caretWin.X+1, a.caretWin.Y+a.caretWin.H/2
@@ -717,5 +717,5 @@ func (a *app) followAtCaret() {
 		a.clickChip(x, y)
 		return
 	}
-	a.notice = "Caret'in üstünde bir bağlantı, etiket ya da çip yok."
+	a.say(toastWarn, locales.ThereIsNoLinkTagOr())
 }

@@ -82,7 +82,7 @@ func (a *app) toggleLapse() {
 	}
 	if a.settings.NoLapse {
 		if _, ok := historyOf(a.page); !ok {
-			a.notice = "Sürüm geçmişi yalnız tek dosya kitaplığında tutulur"
+			a.say(toastInfo, locales.VersionHistoryIsKeptOnlyIn())
 			return
 		}
 	}

@@ -118,9 +118,9 @@ func (a *app) exportPage(p *Page) {
 		}
 		a.do(func() error {
 			if err := a.writeExport(p, md, path); err != nil {
-				a.notice = "Olmadı: " + err.Error()
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 			} else {
-				a.notice = "Yazıldı: " + path
+				a.say(toastOK, locales.CommonSavedTo(path))
 			}
 			return nil
 		})

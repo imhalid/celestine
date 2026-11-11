@@ -59,7 +59,7 @@ type tmLine struct {
 func (a *app) openTimeMachine(p *Page) {
 	h, ok := historyOf(p)
 	if !ok {
-		a.notice = "Sürüm geçmişi yalnız tek dosya kitaplığında tutulur"
+		a.say(toastInfo, locales.VersionHistoryIsKeptOnlyIn())
 		return
 	}
 	a.flush()

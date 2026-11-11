@@ -77,7 +77,7 @@ func (a *app) pickBanner(coll *Collection) {
 				err = a.putBanner(coll, data, ext)
 			}
 			if err != nil {
-				a.notice = err.Error()
+				a.say(toastErr, err.Error())
 			}
 			return nil
 		})

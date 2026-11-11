@@ -346,7 +346,7 @@ func (a *app) acctDone(user, token string, key []byte, fresh bool) {
 	}
 	a.saveSettings()
 	a.sy.tried = time.Time{}
-	a.notice = "Hesap hazır."
+	a.say(toastOK, locales.TheAccountIsReady())
 	a.syncNow()
 }
 
@@ -612,7 +612,7 @@ func (a *app) acctManage(c *ui.Context) {
 								func() {
 									a.ac.showPass, a.ac.pass, a.ac.newPass = false, "", ""
 									a.ac.meAt = time.Time{}
-									a.notice = "Şifre değişti."
+									a.say(toastOK, locales.PasswordChanged())
 								})
 						}
 					}
@@ -655,7 +655,7 @@ func (a *app) acctManage(c *ui.Context) {
 					if btn("acct-del-go", locales.AccountDeleteAccountForGood(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up}) && !a.ac.busy {
 						pw := a.ac.delPass
 						a.acctRun(func(cl *acctClient) error { return cl.DeleteAccount(s.SyncToken, s.AccountUser, pw) },
-							func() { a.acctForget(); a.notice = "Hesap silindi." })
+							func() { a.acctForget(); a.say(toastOK, locales.TheAccountWasDeleted()) })
 					}
 				})
 				errLine()

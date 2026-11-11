@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The motions of Vim in the normal mode, in the text, when the setting asks for them (Ayarlar ▸ Editör ▸
@@ -202,7 +203,7 @@ func (a *app) vimPair(first, second rune) bool {
 		a.kb.again.r, a.kb.again.n, a.kb.again.pair = 'd', 1, "dd"
 	}
 	if first == 'y' {
-		a.notice = "Paragraf kopyalandı"
+		a.say(toastOK, locales.ParagraphCopied())
 		return true
 	}
 	end := pe + 1

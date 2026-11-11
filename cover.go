@@ -131,7 +131,7 @@ func (a *app) pickCover(p *Page) {
 				err = a.putCover(p, data, ext)
 			}
 			if err != nil {
-				a.notice = err.Error()
+				a.say(toastErr, err.Error())
 			}
 			return nil
 		})
@@ -145,7 +145,7 @@ func (a *app) coverFile(p *Page, file string) {
 		err = a.setCover(p, data)
 	}
 	if err != nil {
-		a.notice = err.Error()
+		a.say(toastErr, err.Error())
 	}
 }
 

@@ -870,7 +870,7 @@ func (a *app) cellEditView(c *ui.Context) {
 						a.commitCell()
 						if do == nil { // not a change: the table is copied as it is
 							a.copyText(ce.ch.tbl.csvText(','))
-							a.notice = "Tablo CSV olarak kopyalandı"
+							a.say(toastOK, locales.TheTableWasCopiedAsCsv())
 						} else {
 							a.editTable(ce.ch, do)
 						}
@@ -979,7 +979,7 @@ func (a *app) pasteTable() {
 	}
 	m := tableFromCSV(read())
 	if m == nil {
-		a.notice = "Panodaki metin bir tablo değil (hücreler virgül, noktalı virgül ya da tab ile ayrılmalı)"
+		a.say(toastWarn, locales.TheTextOnTheClipboardIs())
 		return
 	}
 	_, caret := a.doc.Selection()

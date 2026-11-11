@@ -310,7 +310,8 @@ func (a *app) commitValue(p *Page, id, key, v string) {
 		a.flush()
 	}
 	if err := p.SetValue(id, v); err != nil {
-		a.propErr, a.notice = key, err.Error()
+		a.propErr = key
+		a.say(toastErr, err.Error())
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Links: a run of text with an address. A click on it goes there: an address
@@ -57,7 +58,7 @@ func (a *app) openLink(url string) {
 	case strings.HasPrefix(url, "page://"):
 		path := strings.Trim(strings.TrimPrefix(url, "page://"), "/")
 		if !a.openByPath(path) {
-			a.notice = "Bağlantının gittiği sayfa yok: " + path
+			a.say(toastWarn, locales.PageLinkMissingAt(path))
 		}
 	case strings.HasPrefix(url, "http://"), strings.HasPrefix(url, "https://"), strings.HasPrefix(url, "mailto:"):
 		go mygo.Shell.OpenExternal(url)

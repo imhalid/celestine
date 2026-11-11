@@ -202,7 +202,7 @@ func (a *app) openDay(d time.Time) {
 		return
 	}
 	if !sameDay(d, a.clock()) {
-		a.notice = "Geçmiş güne sayfa eklenemez: günlüğe yalnız bugünün sayfası eklenir"
+		a.say(toastWarn, locales.APageCannotBeAddedTo())
 		return
 	}
 	p, err := a.makeDay(c, d)
@@ -261,7 +261,7 @@ func (a *app) openRandomDay() {
 		}
 	}
 	if len(days) == 0 {
-		a.notice = "Günlükte başka gün yok"
+		a.say(toastWarn, locales.ThereIsNoOtherDayIn())
 		return
 	}
 	a.open(days[rand.Intn(len(days))])
@@ -293,7 +293,7 @@ func formatOrDefault(f string) string {
 func (a *app) stepDay(n int) {
 	c := a.journalColl()
 	if c == nil || n == 0 {
-		a.notice = "Günlükte gün yok"
+		a.say(toastWarn, locales.TheJournalHasNoDays())
 		return
 	}
 	base := startOfDay(a.clock())
@@ -307,7 +307,7 @@ func (a *app) stepDay(n int) {
 		}
 	}
 	if len(days) == 0 {
-		a.notice = map[bool]string{true: "Günlükte daha önceki gün yok", false: "Günlükte daha sonraki gün yok"}[n < 0]
+		a.say(toastWarn, map[bool]string{true: locales.TheJournalHasNoEarlierDay(), false: locales.TheJournalHasNoLaterDay()}[n < 0])
 		return
 	}
 	slices.SortStableFunc(days, func(p, q *Page) int {

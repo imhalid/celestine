@@ -226,7 +226,7 @@ func (a *app) addImageFile(file string) {
 		err = a.addImage(filepath.Base(file), data)
 	}
 	if err != nil {
-		a.notice = err.Error()
+		a.say(toastErr, err.Error())
 	}
 }
 
@@ -258,7 +258,7 @@ func (a *app) pasteImage() bool {
 		return false
 	}
 	if err := a.addImage("resim", data); err != nil {
-		a.notice = err.Error()
+		a.say(toastErr, err.Error())
 	}
 	return true
 }

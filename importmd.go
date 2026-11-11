@@ -257,10 +257,10 @@ func (a *app) pickImportFolder() {
 			a.backupBefore("içe aktarma")
 			st, err := a.importMarkdown(paths[0])
 			if err != nil {
-				a.notice = "Olmadı: " + err.Error()
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 				return nil
 			}
-			a.notice = st.String()
+			a.say(toastOK, st.String())
 			a.importNote = st.String()
 			return nil
 		})

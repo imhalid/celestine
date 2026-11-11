@@ -170,9 +170,9 @@ func (a *app) commands() []palItem {
 		cmd("Ayarları dosyaya yaz", "", iconExport, func() {
 			p := a.settingsFileOut()
 			if err := a.exportSettingsTo(p); err != nil {
-				a.notice = "Olmadı: " + err.Error()
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 			} else {
-				a.notice = "Yazıldı: " + p
+				a.say(toastOK, locales.CommonSavedTo(p))
 			}
 		}),
 		cmd("Ayar dosyası oku…", "", iconExport, a.pickSettingsFile),
@@ -180,7 +180,7 @@ func (a *app) commands() []palItem {
 		cmd("Son kayıttan önceki hâle dön", "", iconBack, a.revertToBeforeSave),
 		cmd("Şimdi eşitle", "", iconSync, func() {
 			if a.settings.SyncMode == "" {
-				a.notice = "Senkron kapalı (Ayarlar ▸ Senkron)."
+				a.say(toastWarn, locales.SyncIsOffSettingsSync())
 				return
 			}
 			a.syncNow()
@@ -197,16 +197,16 @@ func (a *app) commands() []palItem {
 		cmd("Şimdi yedekle", "", iconExport, func() { a.backupNow("elle", false) }),
 		cmd("Markdown olarak dışa aktar (klasör)", "", iconExport, func() {
 			if st := a.store(); st != nil {
-				a.notice = a.exportLibrary(st)
+				a.sayDone(a.exportLibrary(st))
 			} else {
-				a.notice = "Bu kitaplık zaten düz dosyalardan oluşuyor."
+				a.say(toastInfo, locales.ThisLibraryIsAlreadyMadeOf())
 			}
 		}),
 		cmd("Markdown olarak dışa aktar (zip)", "", iconExport, func() {
 			if st := a.store(); st != nil {
-				a.notice = a.exportZip(st)
+				a.sayDone(a.exportZip(st))
 			} else {
-				a.notice = "Bu kitaplık zaten düz dosyalardan oluşuyor."
+				a.say(toastInfo, locales.ThisLibraryIsAlreadyMadeOf())
 			}
 		}),
 		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
@@ -868,7 +868,7 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 
 func (a *app) runItem(it palItem) {
 	if it.off != "" { // it cannot be run now: the palette stays, and says why
-		a.notice = it.off
+		a.say(toastWarn, it.off)
 		return
 	}
 	a.pal.open = false

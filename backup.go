@@ -314,7 +314,7 @@ func (a *app) backupNow(label string, quiet bool) {
 	dir := a.backupDirOf()
 	if s == nil || dir == "" {
 		if !quiet {
-			a.notice = "Bu kitaplık düz dosyalardan oluşuyor: yedek için klasörü kopyalaman yeter."
+			a.say(toastInfo, locales.ThisLibraryIsMadeOfPlain())
 		}
 		return
 	}
@@ -330,9 +330,9 @@ func (a *app) backupNow(label string, quiet bool) {
 		a.do(func() error {
 			switch {
 			case err != nil:
-				a.notice = "Yedek alınamadı: " + err.Error()
+				a.say(toastErr, locales.BackupBackupFailed(err.Error()))
 			case !quiet:
-				a.notice = "Yedeklendi: " + filepath.Base(path)
+				a.say(toastOK, locales.BackupBackedUp(filepath.Base(path)))
 			}
 			return nil
 		})
@@ -366,28 +366,28 @@ func (a *app) backupBefore(what string) {
 // restoreFrom plans the restore of a backup, and says what will happen.
 func (a *app) restoreFrom(b Backup) {
 	if err := planRestore(a.backupDirOf(), b.Path); err != nil {
-		a.notice = "Geri yüklenemedi: " + err.Error()
+		a.say(toastErr, locales.BackupRestoreFailed(err.Error()))
 		return
 	}
 	a.say(toastInfo, locales.BackupRestoreOnRestart(dateTime(b.At, false)))
 }
 
 // exportZip writes the library as Markdown files and zips them, next to its file.
-func (a *app) exportZip(store *Store) string {
+func (a *app) exportZip(store *Store) (string, bool) {
 	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
 	a.flush()
 	if err := a.lib.ExportMarkdown(dir); err != nil {
 		os.RemoveAll(dir)
-		return "Olmadı: " + err.Error()
+		return locales.CommonDidntWork(err.Error()), false
 	}
 	zipPath := dir + ".zip"
 	err := zipDir(dir, zipPath)
 	os.RemoveAll(dir)
 	if err != nil {
 		os.Remove(zipPath)
-		return "Olmadı: " + err.Error()
+		return locales.CommonDidntWork(err.Error()), false
 	}
-	return "Yazıldı: " + zipPath
+	return locales.CommonSavedTo(zipPath), true
 }
 
 // settingsBackup is the settings' group of the backups.

@@ -216,7 +216,7 @@ func (q *quickNote) submit() {
 		var err error
 		msg, err = q.a.captureNote(q.mode, q.text)
 		if err == nil {
-			q.a.notice = msg
+			q.a.say(toastOK, msg)
 		}
 		return err
 	})

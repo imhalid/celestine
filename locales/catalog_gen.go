@@ -841,26 +841,6 @@ func (msgs Messages) Back3() string {
 	return Catalog.Format(msgs.locale, "back3", nil)
 }
 
-// BackedUp says "Backed up"
-// in the language the app shows.
-func BackedUp() string { return In(i18n.Locale()).BackedUp() }
-
-// BackedUp says "Backed up"
-// in the language of msgs.
-func (msgs Messages) BackedUp() string {
-	return Catalog.Format(msgs.locale, "backedUp", nil)
-}
-
-// BackedUp2 says "Backed up: "
-// in the language the app shows.
-func BackedUp2() string { return In(i18n.Locale()).BackedUp2() }
-
-// BackedUp2 says "Backed up: "
-// in the language of msgs.
-func (msgs Messages) BackedUp2() string {
-	return Catalog.Format(msgs.locale, "backedUp2", nil)
-}
-
 // BackupACompressedCopyLibrary says "A compressed copy of the library is made the first time you open the app each day; the last 7 daily and 4 weekly copi…"
 // in the language the app shows.
 func BackupACompressedCopyLibrary() string { return In(i18n.Locale()).BackupACompressedCopyLibrary() }
@@ -869,6 +849,26 @@ func BackupACompressedCopyLibrary() string { return In(i18n.Locale()).BackupACom
 // in the language of msgs.
 func (msgs Messages) BackupACompressedCopyLibrary() string {
 	return Catalog.Format(msgs.locale, "backup_aCompressedCopyLibrary", nil)
+}
+
+// BackupBackedUp says "Backed up: {name}"
+// in the language the app shows.
+func BackupBackedUp(name string) string { return In(i18n.Locale()).BackupBackedUp(name) }
+
+// BackupBackedUp says "Backed up: {name}"
+// in the language of msgs.
+func (msgs Messages) BackupBackedUp(name string) string {
+	return Catalog.Format(msgs.locale, "backup_backedUp", map[string]any{"name": name})
+}
+
+// BackupBackupFailed says "Couldn't back up: {error}"
+// in the language the app shows.
+func BackupBackupFailed(error string) string { return In(i18n.Locale()).BackupBackupFailed(error) }
+
+// BackupBackupFailed says "Couldn't back up: {error}"
+// in the language of msgs.
+func (msgs Messages) BackupBackupFailed(error string) string {
+	return Catalog.Format(msgs.locale, "backup_backupFailed", map[string]any{"error": error})
 }
 
 // BackupBackupFolder says "Backup folder"
@@ -985,6 +985,16 @@ func BackupMissingPicture(ref string) string { return In(i18n.Locale()).BackupMi
 // in the language of msgs.
 func (msgs Messages) BackupMissingPicture(ref string) string {
 	return Catalog.Format(msgs.locale, "backup_missingPicture", map[string]any{"ref": ref})
+}
+
+// BackupRestoreFailed says "Couldn't restore: {error}"
+// in the language the app shows.
+func BackupRestoreFailed(error string) string { return In(i18n.Locale()).BackupRestoreFailed(error) }
+
+// BackupRestoreFailed says "Couldn't restore: {error}"
+// in the language of msgs.
+func (msgs Messages) BackupRestoreFailed(error string) string {
+	return Catalog.Format(msgs.locale, "backup_restoreFailed", map[string]any{"error": error})
 }
 
 // BackupRestoreOnRestart says "When you restart, the backup from {date} will be restored. The current file is kept next to it."
@@ -1521,6 +1531,16 @@ func BulkSelectedCount(count int) string { return In(i18n.Locale()).BulkSelected
 // in the language of msgs.
 func (msgs Messages) BulkSelectedCount(count int) string {
 	return Catalog.Format(msgs.locale, "bulk_selectedCount", map[string]any{"count": count})
+}
+
+// BulkTagAdded says "{count, plural, one {Added #{tag} to # page} other {Added #{tag} to # pages}}"
+// in the language the app shows.
+func BulkTagAdded(count int, tag string) string { return In(i18n.Locale()).BulkTagAdded(count, tag) }
+
+// BulkTagAdded says "{count, plural, one {Added #{tag} to # page} other {Added #{tag} to # pages}}"
+// in the language of msgs.
+func (msgs Messages) BulkTagAdded(count int, tag string) string {
+	return Catalog.Format(msgs.locale, "bulk_tagAdded", map[string]any{"count": count, "tag": tag})
 }
 
 // BulletList says "bullet list"
@@ -3749,6 +3769,16 @@ func (msgs Messages) CommonSaveDelay() string {
 	return Catalog.Format(msgs.locale, "common_saveDelay", nil)
 }
 
+// CommonSavedTo says "Saved to {path}"
+// in the language the app shows.
+func CommonSavedTo(path string) string { return In(i18n.Locale()).CommonSavedTo(path) }
+
+// CommonSavedTo says "Saved to {path}"
+// in the language of msgs.
+func (msgs Messages) CommonSavedTo(path string) string {
+	return Catalog.Format(msgs.locale, "common_savedTo", map[string]any{"path": path})
+}
+
 // CommonSearch says "Search"
 // in the language the app shows.
 func CommonSearch() string { return In(i18n.Locale()).CommonSearch() }
@@ -4167,26 +4197,6 @@ func CopyAsPlainText() string { return In(i18n.Locale()).CopyAsPlainText() }
 // in the language of msgs.
 func (msgs Messages) CopyAsPlainText() string {
 	return Catalog.Format(msgs.locale, "copyAsPlainText", nil)
-}
-
-// CouldNotRestore says "Couldn't restore"
-// in the language the app shows.
-func CouldNotRestore() string { return In(i18n.Locale()).CouldNotRestore() }
-
-// CouldNotRestore says "Couldn't restore"
-// in the language of msgs.
-func (msgs Messages) CouldNotRestore() string {
-	return Catalog.Format(msgs.locale, "couldNotRestore", nil)
-}
-
-// CouldNotRestore2 says "Couldn't restore: "
-// in the language the app shows.
-func CouldNotRestore2() string { return In(i18n.Locale()).CouldNotRestore2() }
-
-// CouldNotRestore2 says "Couldn't restore: "
-// in the language of msgs.
-func (msgs Messages) CouldNotRestore2() string {
-	return Catalog.Format(msgs.locale, "couldNotRestore2", nil)
 }
 
 // CreateAccount says "Create account"
@@ -7687,6 +7697,16 @@ func (msgs Messages) PageExportFile() string {
 	return Catalog.Format(msgs.locale, "page_exportFile", nil)
 }
 
+// PageLinkMissingAt says "The linked page doesn't exist: {path}"
+// in the language the app shows.
+func PageLinkMissingAt(path string) string { return In(i18n.Locale()).PageLinkMissingAt(path) }
+
+// PageLinkMissingAt says "The linked page doesn't exist: {path}"
+// in the language of msgs.
+func (msgs Messages) PageLinkMissingAt(path string) string {
+	return Catalog.Format(msgs.locale, "page_linkMissingAt", map[string]any{"path": path})
+}
+
 // PageMenu says "Page menu"
 // in the language the app shows.
 func PageMenu() string { return In(i18n.Locale()).PageMenu() }
@@ -7715,6 +7735,16 @@ func PageNotImage() string { return In(i18n.Locale()).PageNotImage() }
 // in the language of msgs.
 func (msgs Messages) PageNotImage() string {
 	return Catalog.Format(msgs.locale, "page_notImage", nil)
+}
+
+// PageNotPageType says "This kind of file can't become a page: {name}"
+// in the language the app shows.
+func PageNotPageType(name string) string { return In(i18n.Locale()).PageNotPageType(name) }
+
+// PageNotPageType says "This kind of file can't become a page: {name}"
+// in the language of msgs.
+func (msgs Messages) PageNotPageType(name string) string {
+	return Catalog.Format(msgs.locale, "page_notPageType", map[string]any{"name": name})
 }
 
 // PagePCommandsKFind says "⌘P commands · ⌘K find a page · ? shortcuts (Esc for normal mode)"
@@ -12801,26 +12831,6 @@ func (msgs Messages) TheAccountWasDeleted() string {
 	return Catalog.Format(msgs.locale, "theAccountWasDeleted", nil)
 }
 
-// TheBackupFailed says "Backup failed"
-// in the language the app shows.
-func TheBackupFailed() string { return In(i18n.Locale()).TheBackupFailed() }
-
-// TheBackupFailed says "Backup failed"
-// in the language of msgs.
-func (msgs Messages) TheBackupFailed() string {
-	return Catalog.Format(msgs.locale, "theBackupFailed", nil)
-}
-
-// TheBackupFailed2 says "Backup failed: "
-// in the language the app shows.
-func TheBackupFailed2() string { return In(i18n.Locale()).TheBackupFailed2() }
-
-// TheBackupFailed2 says "Backup failed: "
-// in the language of msgs.
-func (msgs Messages) TheBackupFailed2() string {
-	return Catalog.Format(msgs.locale, "theBackupFailed2", nil)
-}
-
 // TheCaretsParagraphAndItsPlace says "The caret's paragraph and its position in it."
 // in the language the app shows.
 func TheCaretsParagraphAndItsPlace() string { return In(i18n.Locale()).TheCaretsParagraphAndItsPlace() }
@@ -12973,26 +12983,6 @@ func ThePageIsNotZoomedInto() string { return In(i18n.Locale()).ThePageIsNotZoom
 // in the language of msgs.
 func (msgs Messages) ThePageIsNotZoomedInto() string {
 	return Catalog.Format(msgs.locale, "thePageIsNotZoomedInto", nil)
-}
-
-// ThePageTheLinkGoesTo says "The linked page doesn't exist"
-// in the language the app shows.
-func ThePageTheLinkGoesTo() string { return In(i18n.Locale()).ThePageTheLinkGoesTo() }
-
-// ThePageTheLinkGoesTo says "The linked page doesn't exist"
-// in the language of msgs.
-func (msgs Messages) ThePageTheLinkGoesTo() string {
-	return Catalog.Format(msgs.locale, "thePageTheLinkGoesTo", nil)
-}
-
-// ThePageTheLinkGoesTo2 says "The linked page doesn't exist: "
-// in the language the app shows.
-func ThePageTheLinkGoesTo2() string { return In(i18n.Locale()).ThePageTheLinkGoesTo2() }
-
-// ThePageTheLinkGoesTo2 says "The linked page doesn't exist: "
-// in the language of msgs.
-func (msgs Messages) ThePageTheLinkGoesTo2() string {
-	return Catalog.Format(msgs.locale, "thePageTheLinkGoesTo2", nil)
 }
 
 // ThePagesTextWhenEmptyThe says "The text of your pages. When empty, the app font is used."
@@ -13237,26 +13227,6 @@ func ThisDevicesToken() string { return In(i18n.Locale()).ThisDevicesToken() }
 // in the language of msgs.
 func (msgs Messages) ThisDevicesToken() string {
 	return Catalog.Format(msgs.locale, "thisDevicesToken", nil)
-}
-
-// ThisKindOfFileCannotBe says "This kind of file can't be a page"
-// in the language the app shows.
-func ThisKindOfFileCannotBe() string { return In(i18n.Locale()).ThisKindOfFileCannotBe() }
-
-// ThisKindOfFileCannotBe says "This kind of file can't be a page"
-// in the language of msgs.
-func (msgs Messages) ThisKindOfFileCannotBe() string {
-	return Catalog.Format(msgs.locale, "thisKindOfFileCannotBe", nil)
-}
-
-// ThisKindOfFileCannotBe2 says "This kind of file can't be a page: "
-// in the language the app shows.
-func ThisKindOfFileCannotBe2() string { return In(i18n.Locale()).ThisKindOfFileCannotBe2() }
-
-// ThisKindOfFileCannotBe2 says "This kind of file can't be a page: "
-// in the language of msgs.
-func (msgs Messages) ThisKindOfFileCannotBe2() string {
-	return Catalog.Format(msgs.locale, "thisKindOfFileCannotBe2", nil)
 }
 
 // ThisLibraryIsAlreadyMadeOf says "This library is already made of plain files."
@@ -14773,26 +14743,6 @@ func (msgs Messages) Writing() string {
 	return Catalog.Format(msgs.locale, "writing", nil)
 }
 
-// Written says "Saved"
-// in the language the app shows.
-func Written() string { return In(i18n.Locale()).Written() }
-
-// Written says "Saved"
-// in the language of msgs.
-func (msgs Messages) Written() string {
-	return Catalog.Format(msgs.locale, "written", nil)
-}
-
-// Written2 says "Saved: "
-// in the language the app shows.
-func Written2() string { return In(i18n.Locale()).Written2() }
-
-// Written2 says "Saved: "
-// in the language of msgs.
-func (msgs Messages) Written2() string {
-	return Catalog.Format(msgs.locale, "written2", nil)
-}
-
 // WrongEmailOrPassword says "Wrong email or password."
 // in the language the app shows.
 func WrongEmailOrPassword() string { return In(i18n.Locale()).WrongEmailOrPassword() }
@@ -14811,16 +14761,6 @@ func WrongEmailOrRecoveryKey() string { return In(i18n.Locale()).WrongEmailOrRec
 // in the language of msgs.
 func (msgs Messages) WrongEmailOrRecoveryKey() string {
 	return Catalog.Format(msgs.locale, "wrongEmailOrRecoveryKey", nil)
-}
-
-// YouAreUpToDate says "You're up to date"
-// in the language the app shows.
-func YouAreUpToDate() string { return In(i18n.Locale()).YouAreUpToDate() }
-
-// YouAreUpToDate says "You're up to date"
-// in the language of msgs.
-func (msgs Messages) YouAreUpToDate() string {
-	return Catalog.Format(msgs.locale, "youAreUpToDate", nil)
 }
 
 // YourPasswordNeverLeavesThisComputer says "Your password never leaves this computer. If you forget it, no one can recover your data. After you create the accoun…"

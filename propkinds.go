@@ -163,7 +163,7 @@ func (a *app) pickPropFile(p *Page, pr *Property) {
 		data, err := os.ReadFile(paths[0]) // read away from the window: a file may be big (#201)
 		a.do(func() error {
 			if err != nil {
-				a.notice = err.Error()
+				a.say(toastErr, err.Error())
 				return nil
 			}
 			a.setPropData(p, pr, filepath.Base(paths[0]), data)
@@ -181,7 +181,7 @@ func (a *app) setPropFile(p *Page, pr *Property, src string) {
 	}
 	data, err := os.ReadFile(src)
 	if err != nil {
-		a.notice = err.Error()
+		a.say(toastErr, err.Error())
 		return
 	}
 	a.setPropData(p, pr, filepath.Base(src), data)

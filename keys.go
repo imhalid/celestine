@@ -249,7 +249,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 				a.fieldMenu(ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: locales.KeysKey(), Size: ryugo.Sm, Placeholder: "cmd+shift+y"}), &a.keyAccel, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("key-set"), locales.KeysAssign(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.bindKey(a.keyCmd, a.keyAccel); err != nil {
-						a.notice = err.Error()
+						a.say(toastErr, err.Error())
 					} else {
 						a.keyCmd, a.keyAccel = "", ""
 					}
@@ -294,7 +294,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: locales.KeysTodaysPageTasks()}), &a.macroList, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("macro-save"), locales.CommonSave(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.saveMacro(a.macroName, a.macroList); err != nil {
-						a.notice = err.Error()
+						a.say(toastErr, err.Error())
 					} else {
 						a.macroName, a.macroList = "", ""
 					}

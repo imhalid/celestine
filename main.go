@@ -226,7 +226,7 @@ type app struct {
 	lapse         lapseState  // the time-lapse of the page, in place of its editor (lapseui.go)
 	noticePage    *Page       // the page the notice is about, to open from it
 	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al
-	noticeTone    *toastKind  // the notice's kind, when its words do not tell it (noticeKind)
+	noticeTone    *toastKind  // the notice's kind, which a.say tells; none is news
 	tagHits       []tagHit    // the tags drawn this frame; a click is against the last's
 	tagSeen       []tagHit
 	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
@@ -451,7 +451,7 @@ func main() {
 		store *Store
 		err   error
 	)
-	restoreNote := ""
+	restoreNote, restoreKind := "", toastOK
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -466,7 +466,7 @@ func main() {
 		}
 		restored, rerr := applyRestore(backupDir(), file, time.Now()) // a backup chosen before the last quit is put in place first
 		if rerr != nil {
-			restored = locales.AppRestoreFailed(rerr.Error())
+			restored, restoreKind = locales.AppRestoreFailed(rerr.Error()), toastErr
 		}
 		restoreNote = restored
 		if _, serr := os.Stat(file); serr != nil {
@@ -502,7 +502,9 @@ func main() {
 		}
 	}
 	a := newApp(lib)
-	a.notice = restoreNote
+	if restoreNote != "" {
+		a.say(restoreKind, restoreNote)
+	}
 	if _, err := a.journal(); err != nil { // every library has its journal
 		cannotOpen(store, err)
 		return
@@ -897,7 +899,7 @@ func (a *app) touchDoc(p *Page) {
 // newPage makes a page in c (under parent when not nil) and opens it, its title ready to be typed.
 func (a *app) newPage(c *Collection, parent *Page) {
 	if c.Dynamic() {
-		a.notice = "Arama koleksiyonuna sayfa eklenmez: sayfalarını sorgusu bulur"
+		a.say(toastWarn, locales.PagesAreNotAddedToA())
 		return
 	}
 	if c.Journal { // the journal gets today's page and no other
@@ -1118,7 +1120,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.treeHeld = false
 	a.runLater()
 	if a.notice != "" {
-		kind := noticeKind(a.notice) // from the Turkish, as it was written
+		kind := toastInfo // a notice tells its kind (a.say); one that does not is news
 		if a.noticeTone != nil {
 			kind = *a.noticeTone
 		}

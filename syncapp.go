@@ -863,12 +863,12 @@ func (a *app) settingsSync(c *ui.Context) {
 					ui.Row(c).Gap(6).Children(func() {
 						if ryugo.Button(c.Key("cf-use:"+f), locales.SyncUseThis(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft, Icon: iconCheck}).Clicked() {
 							if err := a.resolveConflict(f, true); err != nil {
-								a.notice = "Olmadı: " + err.Error()
+								a.say(toastErr, locales.CommonDidntWork(err.Error()))
 							}
 						}
 						if ryugo.Button(c.Key("cf-drop:"+f), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
 							if err := a.resolveConflict(f, false); err != nil {
-								a.notice = "Olmadı: " + err.Error()
+								a.say(toastErr, locales.CommonDidntWork(err.Error()))
 							}
 						}
 					})
@@ -883,7 +883,7 @@ func (a *app) settingsSync(c *ui.Context) {
 // recovery words shown once.
 func (a *app) setSyncPassphrase(pass string) {
 	if strings.TrimSpace(pass) == "" {
-		a.notice = "Bir parola yaz."
+		a.say(toastWarn, locales.TypeAPassword())
 		return
 	}
 	var inner Remote
@@ -893,18 +893,18 @@ func (a *app) setSyncPassphrase(pass string) {
 	case "server":
 		inner = NewHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
 	default:
-		a.notice = "Önce nereye eşitleneceğini seç."
+		a.say(toastWarn, locales.FirstChooseWhereToSyncTo())
 		return
 	}
 	e, err := OpenEnc(inner, pass)
 	if err != nil {
-		a.notice = "Olmadı: " + err.Error()
+		a.say(toastErr, locales.CommonDidntWork(err.Error()))
 		return
 	}
 	a.settings.SyncKey = base64.StdEncoding.EncodeToString(e.Key)
 	a.sy.recovery, a.sy.pass, a.sy.hasKey = RecoveryKey(e.Key), "", true
 	a.saveSettings()
-	a.notice = "Şifreleme açık: kurtarma anahtarını bir yere yaz."
+	a.say(toastWarn, locales.EncryptionIsOnWriteTheRecovery())
 }
 
 // activity notes whether one did something in the window since the last frame: the pointer moved over it or pressed,

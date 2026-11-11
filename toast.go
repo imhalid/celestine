@@ -2,7 +2,6 @@ package main
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -40,30 +39,8 @@ const (
 	toastErr                   // it did not work
 )
 
-// noticeKind tells the kind of a notice from its words, in Turkish as the app writes them (before T): the endings of
-// "it could not be done" are errors; "there is none", "first …" and the like are warnings; what was done is done.
-func noticeKind(s string) toastKind {
-	has := func(words ...string) bool {
-		for _, w := range words {
-			if strings.Contains(s, w) {
-				return true
-			}
-		}
-		return false
-	}
-	switch {
-	case has("amadı", "emedi", "Olmadı", "bulunamadı", "hata"):
-		return toastErr
-	case has(" yok", "eklenmez", "eklenemez", "taşınamaz", "değil", "gerekir", "Önce ", "kapalı", "ayarlanmamış", "dışarıda", "yaz.", "tutmuyor", "Resmi bir", "başlar"):
-		return toastWarn
-	case has("landı", "lendi", "ndı", "ndi", "ldı", "ldi", "rıldı", "ıldı", "üldü", "üştü", "döndü", "konuldu", "değişti", "hazır", "Güncelsin", "Yazıldı", "Yedeklendi"):
-		return toastOK
-	}
-	return toastInfo
-}
-
-// say puts up text, a message already in the window's language, as a notice of kind: the kind is told, not read
-// from the words, which noticeKind can do in Turkish only.
+// say puts up text, a message already in the window's language, as a notice of kind: the kind is told, never read
+// from the words.
 func (a *app) say(kind toastKind, text string) {
 	a.notice, a.noticeTone = text, &kind
 }

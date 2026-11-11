@@ -296,7 +296,7 @@ func (a *app) pickSettingsFile() {
 		a.do(func() error {
 			n, err := a.importSettingsFrom(paths[0])
 			if err != nil {
-				a.notice = "Olmadı: " + err.Error()
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 			} else {
 				a.say(toastOK, locales.SettingsImported(n))
 			}
@@ -401,9 +401,9 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 					if ryugo.Button(c.Key("set-export"), locales.CommonExport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						p := a.settingsFileOut()
 						if err := a.exportSettingsTo(p); err != nil {
-							a.notice = "Olmadı: " + err.Error()
+							a.say(toastErr, locales.CommonDidntWork(err.Error()))
 						} else {
-							a.notice = "Yazıldı: " + p
+							a.say(toastOK, locales.CommonSavedTo(p))
 						}
 					}
 				})

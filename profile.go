@@ -248,12 +248,12 @@ func (a *app) openServerHistory(p *Page) {
 	remote, err := a.syncRemote()
 	enc, ok := remote.(*EncRemote)
 	if err != nil || !ok || a.settings.SyncMode != "server" {
-		a.notice = "Sunucudaki sürümler için sunucu hesabıyla eşitlemek gerekir"
+		a.say(toastWarn, locales.VersionsOnTheServerNeedSyncing())
 		return
 	}
 	a.flush()
 	name := strings.TrimPrefix(filepath.ToSlash(p.File()), StoreRoot)
-	a.notice = "Sunucudaki sürümler getiriliyor…"
+	a.say(toastInfo, locales.FetchingTheVersionsOnTheServer())
 	go func() {
 		defer a.guard()
 		h := &serverHist{data: map[int64][]byte{}}
@@ -267,7 +267,7 @@ func (a *app) openServerHistory(p *Page) {
 		}
 		a.do(func() error {
 			if err != nil {
-				a.notice = "Olmadı: " + err.Error()
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 				return nil
 			}
 			a.notice = ""

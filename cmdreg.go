@@ -332,7 +332,7 @@ func (d settingDef) clamp(v float64) float64 { return min(max(v, d.min), d.max) 
 func (a *app) undoable(what string, back func(), do func()) func() {
 	return func() {
 		do()
-		a.notice = what
+		a.say(toastInfo, what)
 		a.noticeUndo = func() { back(); a.saveSettings() }
 	}
 }
