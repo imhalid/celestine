@@ -233,7 +233,9 @@ func (a *app) updateEvery() time.Duration {
 
 // ---- downloading and putting in place ----
 
-// download takes the release's asset for this system into dir, checking its size, hash and signature.
+// download takes the release's asset for this system into a new file in dir, checking its size, hash and
+// signature. dir is the caller's own (updateDir): beside the program, so the file is renamed into place on one
+// filesystem, and closed to anyone else, so what was checked is what is put in place.
 func download(ctx context.Context, rel *Release, pubKey, dir string) (string, Asset, error) {
 	as, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]
 	if !ok {
@@ -245,9 +247,6 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	if as.SHA256 == "" || as.Sig == "" {
 		return "", as, errors.New("imzasız güncelleme kurulmaz")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", as, err
-	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", as.URL, nil)
 	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
 	if err != nil {
@@ -257,11 +256,11 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	if resp.StatusCode != 200 {
 		return "", as, fmt.Errorf("indirme %d döndü", resp.StatusCode)
 	}
-	tmp := filepath.Join(dir, "ryudit-"+rel.Version+".part")
-	f, err := os.Create(tmp)
+	f, err := os.CreateTemp(dir, "ryudit-"+rel.Version+"-*.part") // a name of its own, made new: nothing left there is followed
 	if err != nil {
 		return "", as, err
 	}
+	tmp := f.Name()
 	h := sha256.New()
 	limit := int64(1 << 30)
 	if as.Size > 0 {
@@ -286,6 +285,22 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 		return "", as, err
 	}
 	return tmp, as, nil
+}
+
+// updateDir makes the folder an update is downloaded into: beside what it replaces (the bundle on macOS, else
+// the program), so the swap is a rename on one filesystem and not a copy from a temp folder on another; and
+// readable by this user alone, so nobody can change the file between its check and the swap. The caller
+// removes it.
+func updateDir(exe, bundle string) (string, error) {
+	target := exe
+	if bundle != "" {
+		target = bundle
+	}
+	dir, err := os.MkdirTemp(filepath.Dir(target), ".ryudit-update-")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", T("the program's folder cannot be written to"), err)
+	}
+	return dir, nil
 }
 
 // updateMark is the file that says an update was put in place and has not yet proved itself: it holds
@@ -375,24 +390,42 @@ func installApp(zipFile, app string) (old string, err error) {
 	return old, nil
 }
 
-// rollbackIfBroken, at the start: an update that was put in place and whose first start ended badly is
-// taken back - the old program is put where the new one is. It reports what it did.
-func rollbackIfBroken(mark string, unclean bool) string {
+// startedStamp is the line an update's first start adds to its mark before anything else can fail.
+const startedStamp = "started"
+
+// readMark gives the lines of an update's mark: the version, what was replaced, the old one kept, and
+// startedStamp once the new version began its first start. A mark that is not one is removed.
+func readMark(mark string) []string {
 	if mark == "" {
-		return ""
+		return nil
 	}
 	b, err := os.ReadFile(mark)
 	if err != nil {
-		return ""
+		return nil
 	}
 	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
 	if len(lines) < 3 {
 		os.Remove(mark)
+		return nil
+	}
+	return lines
+}
+
+// rollbackIfBroken, as early in a start as it can be: the update's own version stamps its first start in the
+// mark; a start that finds that stamp and no proof (updateProved) follows one that died, and the old program is
+// put back where the new one is. Only the stamp counts, not how the last session ended: an old copy killed after
+// "Later" leaves the new one's first start clean, and a new one that dies before its window is still caught
+// (#234). cur is this program's version: a mark of another version is not this program's to judge. It reports
+// what it did.
+func rollbackIfBroken(mark, cur string) string {
+	lines := readMark(mark)
+	if lines == nil || lines[0] != cur {
 		return ""
 	}
 	ver, target, old := lines[0], lines[1], lines[2]
-	if !unclean {
-		return "" // the new one is on its first start: it proves itself (updateProved)
+	if len(lines) < 4 || lines[3] != startedStamp {
+		os.WriteFile(mark, []byte(strings.Join(lines[:3], "\n")+"\n"+startedStamp+"\n"), 0o644)
+		return "" // the first start: it proves itself (updateProved)
 	}
 	os.Remove(mark)
 	if _, err := os.Stat(old); err != nil {
@@ -409,19 +442,14 @@ func rollbackIfBroken(mark string, unclean bool) string {
 	return "Sürüm " + ver + " açılışta düştü: önceki sürüme dönüldü."
 }
 
-// updateProved, some time into a start, says the update works: the mark goes, and the old file after a day.
-func updateProved(mark string) {
-	if mark == "" {
+// updateProved says the update works, twenty seconds into its first start or at a quit that came sooner: the
+// mark goes, and the old program with it, now and not a day later, which a short session never reached.
+func updateProved(mark, cur string) {
+	lines := readMark(mark)
+	if lines == nil || lines[0] != cur {
 		return
 	}
-	b, err := os.ReadFile(mark)
-	if err != nil {
-		return
-	}
-	if lines := strings.Split(strings.TrimSpace(string(b)), "\n"); len(lines) >= 3 {
-		old := lines[2]
-		time.AfterFunc(24*time.Hour, func() { os.RemoveAll(old) })
-	}
+	os.RemoveAll(lines[2])
 	os.Remove(mark)
 }
 
@@ -438,24 +466,35 @@ func (a *app) startUpdate() {
 		return
 	}
 	exe, _ = filepath.EvalSymlinks(exe)
+	bundle := ""
+	if as := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]; as.Kind == "app-zip" {
+		if bundle = appBundleOf(exe); bundle == "" {
+			a.updBusy.Store(false)
+			a.notice = T("Could not update: the program is not inside a macOS .app")
+			return
+		}
+	}
+	dir, err := updateDir(exe, bundle)
+	if err != nil {
+		a.updBusy.Store(false)
+		a.notice = T("Could not update: ") + err.Error()
+		return
+	}
 	pub := a.updateKeyOf()
 	a.updState = "indiriliyor…"
 	a.backupBefore("güncelleme")
 	go func() {
 		defer a.guard()
 		defer a.updBusy.Store(false)
+		defer os.RemoveAll(dir)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		file, as, err := download(ctx, rel, pub, filepath.Join(os.TempDir(), "ryudit-update"))
+		file, _, err := download(ctx, rel, pub, dir)
 		var old, target string
 		if err == nil {
-			if as.Kind == "app-zip" {
-				target = appBundleOf(exe)
-				if target == "" {
-					err = errors.New("macOS paketi bulunamadı: program bir .app içinde değil")
-				} else {
-					old, err = installApp(file, target)
-				}
+			if bundle != "" {
+				target = bundle
+				old, err = installApp(file, target)
 			} else {
 				target = exe
 				old, err = installBinary(file, exe)

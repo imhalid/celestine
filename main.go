@@ -416,8 +416,25 @@ func main() {
 	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
 	// and goes, before it opens the library - two would write the same file, and each would take the other's mark
 	// of running for a crash (crash.go). --mcp goes with it, for the first to turn its MCP server on.
+	// A restart waits for the copy before it to be gone first (restart.go).
+	var leaving int
+	if len(os.Args) > 1 {
+		var rest []string
+		rest, leaving = withoutRestartFlag(os.Args[1:])
+		os.Args = append(os.Args[:1:1], rest...)
+	}
+	waitForExit(leaving, 15*time.Second)
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
+	}
+	// An update's first start is stamped before anything can fail, and a second start that finds the stamp
+	// unproved puts the old program back and starts it (update.go).
+	if note := rollbackIfBroken(updateMark(), version); note != "" {
+		if exe, err := os.Executable(); err == nil {
+			exec.Command(exe, restartArgs()...).Start()
+		}
+		log.Println(note)
+		os.Exit(0)
 	}
 	var mcpOn bool
 	os.Args, mcpOn = withoutMCPFlag(os.Args)
@@ -517,15 +534,8 @@ func main() {
 			a.crashText, a.crashPath = string(b), prevLog
 		}
 	}
-	if note := rollbackIfBroken(updateMark(), unclean); note != "" { // a new version that did not start: the old one is back
-		if exe, err := os.Executable(); err == nil {
-			exec.Command(exe, os.Args[1:]...).Start()
-		}
-		log.Println(note)
-		os.Exit(0)
-	}
-	time.AfterFunc(20*time.Second, func() { updateProved(updateMark()) }) // twenty seconds in, it has proved itself
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                         // what is written and not saved goes to its file before the app goes
+	time.AfterFunc(20*time.Second, func() { updateProved(updateMark(), version) }) // twenty seconds in, it has proved itself
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                                  // what is written and not saved goes to its file before the app goes
 		if a.quick != nil {
 			a.quick.leaving = true
 		}
@@ -539,6 +549,7 @@ func main() {
 		a.mu.Unlock()
 		a.syncAtQuit(6 * time.Second) // what was written since the last pass goes up before the app goes
 		markClean(crashDir())
+		updateProved(updateMark(), version) // a first start that ended as it should has proved itself too
 	})
 	defer func() { // a panic of the program itself is written, too, and then goes on
 		if r := recover(); r != nil {

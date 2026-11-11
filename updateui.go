@@ -22,7 +22,7 @@ func (a *app) restartApp() {
 		return
 	}
 	a.flush()
-	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd := exec.Command(exe, restartArgs()...) // it waits for this one to be gone (restart.go)
 	if err := cmd.Start(); err != nil {
 		a.notice = "Yeniden başlatılamadı: " + err.Error()
 		return

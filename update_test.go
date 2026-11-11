@@ -12,8 +12,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -189,6 +191,45 @@ func TestDownloadChecks(t *testing.T) {
 	_ = srv
 }
 
+// TestUpdateDirBesideTheProgram: the download goes beside what it replaces, in a folder of this user alone,
+// so the swap is a rename on one filesystem (#233) and the checked file cannot be changed before it (#167).
+func TestUpdateDirBesideTheProgram(t *testing.T) {
+	priv, pub := testKey(t)
+	_, rel := releaseServer(t, priv, "v2.0.0", []byte("yeni"), nil)
+	root := t.TempDir()
+	exe := filepath.Join(root, "bin", "ryudit")
+	os.MkdirAll(filepath.Dir(exe), 0o755)
+	os.WriteFile(exe, []byte("eski"), 0o755)
+	dir, err := updateDir(exe, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(dir) != filepath.Dir(exe) {
+		t.Fatalf("not beside the program: %s", dir)
+	}
+	if st, _ := os.Stat(dir); runtime.GOOS != "windows" && st.Mode().Perm() != 0o700 {
+		t.Fatalf("open to others: %v", st.Mode())
+	}
+	file, _, err := download(context.Background(), rel, pub, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(file) != dir {
+		t.Fatalf("not in its folder: %s", file)
+	}
+	if _, err := installBinary(file, exe); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(exe); string(b) != "yeni" {
+		t.Fatal("not in place")
+	}
+	app := filepath.Join(root, "Applications", "ryudit.app")
+	os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755)
+	if dir, err := updateDir(filepath.Join(app, "Contents", "MacOS", "ryudit"), app); err != nil || filepath.Dir(dir) != filepath.Dir(app) {
+		t.Fatalf("a bundle's is beside the bundle: %s %v", dir, err)
+	}
+}
+
 func TestInstallBinaryAndRollback(t *testing.T) {
 	dir := t.TempDir()
 	exe := filepath.Join(dir, "ryudit")
@@ -210,15 +251,26 @@ func TestInstallBinaryAndRollback(t *testing.T) {
 	}
 	mark := filepath.Join(dir, "update-pending")
 	os.WriteFile(mark, []byte("v2.0.0\n"+exe+"\n"+old+"\n"), 0o644)
-	// a first start that is going on: nothing is taken back
-	if note := rollbackIfBroken(mark, false); note != "" {
-		t.Fatalf("rolled back a start that is fine: %q", note)
+	// the old copy, still running or started again, does not judge the new one's mark
+	if note := rollbackIfBroken(mark, "v1.0.0"); note != "" {
+		t.Fatalf("the old one rolled back: %q", note)
+	}
+	updateProved(mark, "v1.0.0")
+	if _, err := os.Stat(mark); err != nil {
+		t.Fatal("the old one took the new one's mark")
+	}
+	// the new one's first start stamps the mark and goes on, however the last session ended (#234)
+	if note := rollbackIfBroken(mark, "v2.0.0"); note != "" {
+		t.Fatalf("rolled back a first start: %q", note)
+	}
+	if b, _ := os.ReadFile(mark); !strings.HasSuffix(string(b), startedStamp+"\n") {
+		t.Fatalf("not stamped: %q", b)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "yeni" {
 		t.Fatal("changed")
 	}
-	// the next start finds the last one ended badly
-	note := rollbackIfBroken(mark, true)
+	// the next start finds the stamp and no proof: the first one died
+	note := rollbackIfBroken(mark, "v2.0.0")
 	if !strings.Contains(note, "önceki sürüme dönüldü") {
 		t.Fatalf("note %q", note)
 	}
@@ -231,11 +283,19 @@ func TestInstallBinaryAndRollback(t *testing.T) {
 	if _, err := os.Stat(mark); err == nil {
 		t.Fatal("the mark stayed")
 	}
-	// a start that proved itself takes the mark away
+	// a first start that proves itself takes the mark and the old program away at once
+	os.WriteFile(old, []byte("eski"), 0o755)
 	os.WriteFile(mark, []byte("v2.0.0\n"+exe+"\n"+old+"\n"), 0o644)
-	updateProved(mark)
+	rollbackIfBroken(mark, "v2.0.0")
+	updateProved(mark, "v2.0.0")
 	if _, err := os.Stat(mark); err == nil {
 		t.Fatal("proved, and the mark stayed")
+	}
+	if _, err := os.Stat(old); err == nil {
+		t.Fatal("proved, and the old program stayed")
+	}
+	if note := rollbackIfBroken(mark, "v2.0.0"); note != "" {
+		t.Fatalf("rolled back after the proof: %q", note)
 	}
 	// a program that cannot be replaced stays what it was
 	if _, err := installBinary(filepath.Join(dir, "yok"), exe); err == nil {
@@ -399,5 +459,35 @@ func TestWhatsNew(t *testing.T) {
 	tt.Frame()
 	if tt.HasText("Bu sürümde neler yeni: v3.0.0") {
 		t.Fatal("shown again")
+	}
+}
+
+// TestRestartWaitsForTheOneBefore: a restart's start carries the pid of the copy that is quitting, takes it off
+// its command line and waits for that copy to be gone before it asks for the one-instance lock (#232).
+func TestRestartWaitsForTheOneBefore(t *testing.T) {
+	args, pid := withoutRestartFlag([]string{"kitaplik", restartFlag + "4242", "--mcp"})
+	if pid != 4242 || !slices.Equal(args, []string{"kitaplik", "--mcp"}) {
+		t.Fatalf("%v %d", args, pid)
+	}
+	if again, _ := withoutRestartFlag(restartArgs()); slices.ContainsFunc(again, func(s string) bool { return strings.HasPrefix(s, restartFlag) }) {
+		t.Fatal("the flag twice")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("no sleep command")
+	}
+	cmd := exec.Command("sleep", "0.4")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go cmd.Wait() // its parent reaps it, as the leaving copy's own parent does
+	start := time.Now()
+	waitForExit(cmd.Process.Pid, 5*time.Second)
+	if d := time.Since(start); d < 300*time.Millisecond || d > 3*time.Second {
+		t.Fatalf("waited %v for a process of 0.4s", d)
+	}
+	start = time.Now()
+	waitForExit(os.Getpid(), 5*time.Second) // never for itself
+	if time.Since(start) > time.Second {
+		t.Fatal("waited for itself")
 	}
 }

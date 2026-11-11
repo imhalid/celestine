@@ -199,4 +199,8 @@ var trText = map[string]string{
 	"Shimmer": "Parıltı",
 	"While an agent (MCP) adds content to a page, a band of light sweeps across the window, brighter the more is added.": "Bir ajan (MCP) sayfaya içerik eklerken pencerenin üzerinden bir ışık şeridi geçer; ne kadar çok eklenirse o kadar parlak.",
 	"Try it": "Dene",
+	// updates (#231-#235)
+	"Could not update: the program is not inside a macOS .app": "Güncellenemedi: program bir macOS .app paketinin içinde değil",
+	"Could not update: ":                        "Güncellenemedi: ",
+	"the program's folder cannot be written to": "programın klasörüne yazılamıyor",
 }
