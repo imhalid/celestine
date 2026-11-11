@@ -13,6 +13,7 @@ function page(html, n, extraScript = "", noStore = false, scriptExtra = "") {
     "default-src 'none'",
     `script-src 'nonce-${n}' ${extraScript} ${scriptExtra}`.replace(/\s+/g, " ").trim(),
     "style-src 'unsafe-inline'",
+    "img-src 'self'",
     "connect-src 'self'",
     extraScript ? "frame-src https://challenges.cloudflare.com" : "frame-src 'none'",
     "base-uri 'none'",
@@ -46,7 +47,7 @@ export function privacyPage(env) {
   const n = nonce();
   const contact = env.CONTACT_EMAIL ? `<a href="mailto:${esc(env.CONTACT_EMAIL)}">${esc(env.CONTACT_EMAIL)}</a>` : "the address your invite came from";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Celestine — privacy</title><meta name="color-scheme" content="light dark"><style>
+<title>Celestine — privacy</title><link rel="icon" href="/icon.png"><meta name="color-scheme" content="light dark"><style>
 :root{--bg:#fbfaf7;--fg:#1d1c1a;--mut:#6b6862;--line:#e4e1da;--link:#1d1c1a}
 @media (prefers-color-scheme:dark){:root{--bg:#121212;--fg:#ecebe8;--mut:#9a978f;--line:#2a2a2a;--link:#ecebe8}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}

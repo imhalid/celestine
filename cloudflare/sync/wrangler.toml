@@ -10,7 +10,7 @@ bucket_name = "celestine-sync"
 [[d1_databases]]
 binding = "DB"
 database_name = "celestine"
-database_id = "2cc8a6d7-c7a1-4ddf-9d50-76a91cdc7296"
+database_id = "d5ad1d9a-3bed-4344-a7b9-0576f5848d82"
 
 # Used by `wrangler dev` (secrets from .dev.vars). The live Worker is deployed by deploy.sh, which sets the secrets:
 #   ADMIN_TOKEN        the administrator's key (the /admin page)

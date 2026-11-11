@@ -84,7 +84,7 @@
   <nav class="bar">
     <div class="inner">
       <a class="brand" href="/" aria-label="Celestine">
-        <span class="mark" aria-hidden="true"><i></i></span>Celestine
+        <img class="mark" src="/icon.png" alt="" width="24" height="24">Celestine
       </a>
       <div class="right">
         <span class="status">Early access</span>
@@ -163,8 +163,7 @@
   .bar { position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--hairline); background: color-mix(in oklab, var(--bg) 82%, transparent); backdrop-filter: saturate(1.4) blur(12px); }
   .bar .inner { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 24px; }
   .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
-  .mark { width: 24px; height: 24px; border-radius: 7px; background: var(--text); display: grid; place-items: center; }
-  .mark i { width: 3px; height: 12px; border-radius: 1px; background: var(--bg); animation: blink 1.05s steps(1) infinite; }
+  .mark { width: 24px; height: 24px; display: block; transform: scale(1.2); }
   .right { display: flex; align-items: center; gap: 14px; }
   .status { font-size: 13px; color: var(--muted); }
   .icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 999px; color: var(--text); background: var(--control); border: 1px solid var(--control-border); box-shadow: var(--control-shadow); cursor: pointer; transition: filter 0.2s, transform 0.15s var(--ease); }
@@ -220,7 +219,7 @@
   .wait .fine { margin-top: 2px; font-size: 12px; }
 
   @keyframes blink { 50% { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .tc, .mark i { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tc { animation: none; } }
 
   /* the waitlist, small, in the footer: the field and the button inside one rounded box, as ui.halid.dev's install line */
   .wait :global(.row) { display: flex; align-items: center; gap: 8px; background: var(--well); border: 1px solid var(--border); border-radius: 12px; padding: 4px 4px 4px 12px; transition: border-color 0.2s, box-shadow 0.2s; }

@@ -12,7 +12,7 @@
 #   cf d1 create --name celestine      (its id goes below, and in wrangler.toml)
 # The migrations (migrations/*.sql) are applied to the database first.
 set -e
-D1_ID=2cc8a6d7-c7a1-4ddf-9d50-76a91cdc7296
+D1_ID=d5ad1d9a-3bed-4344-a7b9-0576f5848d82
 DOMAIN=celestine.halid.dev
 here=$(cd "$(dirname "$0")" && pwd)
 (cd "$here" && npm run --silent build)
