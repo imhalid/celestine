@@ -24,8 +24,7 @@ Web (J), güncelleme (K), senkron (L) ve Android (M) için kalanlar kendi belgel
 - Web'de harf tuşlarıyla klavye komutlarının doğrulanması.
 
 **K — Güncelleme**
-- Release'ler imzasız çıkıyor: GitHub secrets (`RELEASE_KEY`, `UPDATE_PUBLIC_KEY`, `UPDATE_URL`, R2 anahtarları) tanımlı değil.
-  Bu yüzden programda manifest adresi ve açık anahtar yok, R2'ye manifest gitmiyor: kendiliğinden güncelleme fiilen çalışmıyor.
+- The pipeline is written and its setup is in [19](19-guncelleme.md) ("Setting it up"): keys, secrets, the R2 bucket and the Worker.
 - Üç işletim sisteminde gerçek bir güncelleme hiç denenmedi.
 
 **N4 — Dil**

@@ -5,3 +5,8 @@ compatibility_date = "2026-01-01"
 [[r2_buckets]]
 binding = "RELEASES"
 bucket_name = "ryudit-releases"
+
+# The address is in every release (-X main.updateURL=https://dl.ryudit.halid.dev/update.json): it stays.
+[[routes]]
+pattern = "dl.ryudit.halid.dev"
+custom_domain = true
