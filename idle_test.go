@@ -10,6 +10,11 @@ import (
 // slime's spring, the mizan's breath, the plain line, the marine's blink, and a preset's idleFrame. The pointer rests
 // over the page's scroll area, which asks for none either (#189).
 func TestIdleAsksNoFrames(t *testing.T) {
+	// The page's cover is chosen by the clock (its page's creation, the season): a busier one fills the window's
+	// scene sooner, and the window paints all of it, the caret too, more often than every five seconds. One
+	// landscape on one day, for the same window on any machine (#318).
+	sceneOf, coverNow = 0, func() time.Time { return time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC) }
+	defer func() { sceneOf, coverNow = -1, time.Now }()
 	for _, name := range []string{"Slime", "Mizan", "Line", "Marine", "Kawaii"} {
 		k := caretKind(-1)
 		for i := caretKind(0); i < caretCount(); i++ {
