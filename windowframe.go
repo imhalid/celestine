@@ -25,11 +25,11 @@ const (
 	frameR = 10
 )
 
-// frameStripH is the top edge's height with the tabs in it, and frameTabH a tab's; the tabs' row is centered on
-// macOS's window buttons (TrafficLightPosition), which are in line with it.
+// frameTopH is the top edge's height, the height of the window's own title bar's buttons and macOS's window
+// buttons, which are centered in it (TrafficLightPosition); frameTabH is a tab's.
 const (
-	frameStripH = 46
-	frameTabH   = 30
+	frameTopH = 42
+	frameTabH = 30
 )
 
 // frameMaterial is the material the main window shows in its frame.
@@ -38,7 +38,7 @@ const frameMaterial = mygo.VibrancyGlass
 // frameState is what a frame of the window knows of the window's frame.
 type frameState struct {
 	on    bool    // the frame is drawn
-	strip float32 // how far the top edge's strip of tabs is open, 0 to 1
+	strip float32 // how far the top edge's tabs are in, 0 to 1
 }
 
 // framed reports whether this frame of the window draws the frame: not in a browser's tab nor on a phone, where
@@ -60,34 +60,33 @@ func (a *app) frameColor(c *ui.Context) ui.Color {
 // frameTabs reports whether the top edge lists the panes: two or more of them.
 func (a *app) frameTabs() bool { return a.wframe.on && len(a.ps.states) > 1 }
 
-// lightsRoom is the room the card leaves at its top left for macOS's window buttons: none while the strip, where
-// they are then, is open.
-func (a *app) lightsRoom(c *ui.Context) float32 {
-	return a.titleBar(c).Left * (1 - a.wframe.strip)
-}
-
-// frameTop is the frame's top edge: thin, or the strip of the panes' tabs as it opens. It moves the window.
+// frameTop is the frame's top edge, which moves the window: after macOS's window buttons the sidebar's buttons
+// (fold, back, forward, the settings); the panes' tabs, coming in as the window is split; at the right end the side
+// panel's button, and on Linux and Windows the window's own controls.
 func (a *app) frameTop(c *ui.Context) {
 	p := a.wframe.strip
-	h := frameW + (frameStripH-frameW)*p
-	top := ui.Box(c.Key("frame-top")).FillWidth().Height(h).Shrink(0).Clip().DragWindow()
-	if p < 0.01 {
-		return
-	}
-	left := max(a.titleBar(c).Left-frameW+4, 4) // after macOS's window buttons
-	y := float32(frameStripH-frameTabH)/2 + 2
-	top.Children(func() {
-		ui.Row(c.Key("frame-tabs")).Absolute().Left(left).Right(4).Top(y).Height(frameTabH).Gap(4).AlignItems(ui.Center).
-			Opacity(p).Translate(0, -10*(1-p)).Children(func() {
-			if a.ps.layout == nil {
-				return
-			}
-			for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
-				if i := a.ps.index(tab.Pane.ID); i >= 0 {
-					a.frameTab(c, i, tab.Pane.ID)
-				}
-			}
+	left := max(a.titleBar(c).Left-frameW, 6) // after macOS's window buttons
+	ui.Row(c.Key("frame-top")).FillWidth().Height(frameTopH).Shrink(0).Padding(0, 4, 0, left).Gap(10).AlignItems(ui.Center).Label(locales.SidebarTopBar()).
+		DragWindow().Children(func() {
+		ui.Row(c.Key("frame-sidebar-buttons")).Gap(2).Shrink(0).AlignItems(ui.Center).Children(func() {
+			a.sidebarButtons(c, frameW+left+3*(24+2)-2, frameTopH-4)
 		})
+		tabs := ui.Row(c.Key("frame-tabs")).Grow(1).MinWidth(0).Height(frameTabH).Gap(4).AlignItems(ui.Center)
+		if p > 0.01 && a.ps.layout != nil {
+			tabs.Opacity(p).Translate(0, -8*(1-p)).Children(func() {
+				for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
+					if i := a.ps.index(tab.Pane.ID); i >= 0 {
+						a.frameTab(c, i, tab.Pane.ID)
+					}
+				}
+			})
+		}
+		if a.page != nil && !a.noPage() {
+			if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
+				a.togglePanel()
+			}
+		}
+		a.windowControls(c)
 	})
 }
 

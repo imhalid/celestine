@@ -62,27 +62,35 @@ func (a *app) branch(c *ui.Context) ui.Element {
 // sidebar is shown or not: right of the window's controls.
 func (a *app) sidebarButton(c *ui.Context) {
 	h := a.headerHeight(c) // in a line with the header, as high as it
-	ui.Row(c.Key("sidebar-button")).Absolute().Left(a.lightsRoom(c) + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
-		if a.barIcon(c, iconSidebar, locales.SidebarSidebar()) {
-			a.toggleSidebar()
-		}
-		// back and forward, faint when there is nowhere to go
-		for _, d := range []struct {
-			dir   int
-			glyph *ui.SVG
-			label string
-		}{{-1, iconBack, "Geri (⌘[)"}, {1, iconChevron, "İleri (⌘])"}} {
-			ui.Box(c.Key(d.label)).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(d.dir)]).Children(func() {
-				if a.barIcon(c, d.glyph, d.label) {
-					a.step(d.dir)
-				}
-			})
-		}
-		// the settings: a short menu, with the dialog of all of them at its end
-		if a.barIcon(c, iconSettings, locales.CommonSettings()) {
-			a.gearMenu(a.lightsRoom(c)+6+3*(24+2)-2, h-4)
-		}
+	left := a.titleBar(c).Left + 6
+	ui.Row(c.Key("sidebar-button")).Absolute().Left(left).Top((h - barBtn) / 2).Gap(2).Children(func() {
+		a.sidebarButtons(c, left+3*(24+2)-2, h-4)
 	})
+}
+
+// sidebarButtons are the sidebar's buttons: fold, back, forward, and the settings, whose menu opens at menuX,
+// menuY in the window. Without the window's frame they sit over the sidebar's top (sidebarButton); in it, in the
+// frame's top edge (windowframe.go).
+func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
+	if a.barIcon(c, iconSidebar, locales.SidebarSidebar()) {
+		a.toggleSidebar()
+	}
+	// back and forward, faint when there is nowhere to go
+	for _, d := range []struct {
+		dir   int
+		glyph *ui.SVG
+		label string
+	}{{-1, iconBack, "Geri (⌘[)"}, {1, iconChevron, "İleri (⌘])"}} {
+		ui.Box(c.Key(d.label)).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(d.dir)]).Children(func() {
+			if a.barIcon(c, d.glyph, d.label) {
+				a.step(d.dir)
+			}
+		})
+	}
+	// the settings: a short menu, with the dialog of all of them at its end
+	if a.barIcon(c, iconSettings, locales.CommonSettings()) {
+		a.gearMenu(menuX, menuY)
+	}
 }
 
 func (a *app) toggleSidebar() {
@@ -144,13 +152,13 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					}
 				})
 			} else {
-				ui.Box(c).Height(a.headerHeight(c)).DragWindow()
+				ui.Box(c).Height(a.contentTop(c)).DragWindow()
 			}
 			// the tree, and over it, while the page's history is open, the history's timeline: one fades as the other comes
 			under := ui.Column(c.Key("sidebar-tree")).FillWidth().Grow(1).MinHeight(0)
 			if fade > 0.005 {
 				under.Opacity(1 - fade).Disabled(history).DimDisabled(false)
-				defer a.tmTimeline(c, a.headerHeight(c), full, fade) // after the tree, over it
+				defer a.tmTimeline(c, a.contentTop(c), full, fade) // after the tree, over it
 			}
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {

@@ -92,7 +92,7 @@ func (a *app) tmDiffView(c *ui.Context, ox, aw, wh float32) {
 	}
 	rows := a.tmDiff(t.sel)
 	w := min(aw-tmBarsWidth()-48, float32(1100))
-	top := a.headerHeight(c) + 8
+	top := a.contentTop(c) + 8
 	half := (w - 1) / 2
 	card := ui.Column(c.Key("tm-diff-card")).Absolute().Left(ox+(aw-tmBarsWidth()-w)/2).Top(top).Size(w, wh-tmFootH-top-8).Translate(0, (1-t.in)*28).
 		Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)).Clip().Opacity(t.in).Label(locales.HistoryDifferences())

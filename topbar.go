@@ -36,7 +36,7 @@ func (a *app) header(c *ui.Context) {
 				return
 			}
 			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
-				ui.Box(c).Width(a.lightsRoom(c) + sidebarButtonsW)
+				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW)
 			}
 			if title := a.headerTitle(); title != "" {
 				ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).MinWidth(0)
@@ -52,6 +52,15 @@ func (a *app) header(c *ui.Context) {
 		})
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
 	})
+}
+
+// contentTop is where the sidebar, the panes and the side panel start: under the header, or in the window's
+// frame, which has no header in its card, at the card's top.
+func (a *app) contentTop(c *ui.Context) float32 {
+	if a.wframe.on {
+		return 0
+	}
+	return a.headerHeight(c)
 }
 
 // headerTitle is what the pane in use shows, as its tab says it.

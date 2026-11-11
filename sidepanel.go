@@ -74,7 +74,7 @@ func (a *app) sidePanel(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	p := a.page
-	top := a.headerHeight(c) + 10
+	top := a.contentTop(c) + 10
 	maxH := float32(560)
 	if a.winRect.H > 0 {
 		maxH = max(220, a.winRect.H-top-44) // the status bar stays clear

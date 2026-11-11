@@ -565,7 +565,7 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18 + frameW, Y: (headerH-14)/2 + frameW},
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
 			Vibrancy: frameMaterial, HideWindowButtons: ownWindowControls, Content: ui.View(a.view)} // the frame's glass (windowframe.go)
 		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
 			opts.Hidden, opts.DisableShadow = true, true
@@ -1040,7 +1040,9 @@ func (a *app) viewFrame(c *ui.Context) {
 			a.sidebarShown = a.sidebar(c)
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
-			a.header(c)
+			if !framed { // in the frame, its top edge has the header's buttons (windowframe.go)
+				a.header(c)
+			}
 			a.panesView(c, th)
 			if !framed && !a.settings.HideStatus { // in the frame, the status bar is its bottom edge
 				a.status(c)
@@ -1051,7 +1053,9 @@ func (a *app) viewFrame(c *ui.Context) {
 			a.drawer(c)
 		} else {
 			a.sidePanel(c)
-			a.sidebarButton(c)
+			if !framed {
+				a.sidebarButton(c)
+			}
 		}
 	}
 	root.Children(func() { // in the frame, the card; without it, the window

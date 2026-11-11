@@ -68,7 +68,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `views.go` | A collection's page: its views (a list grouped by date, a sortable table, a board of statuses on Ryugo's drag and drop), search, a new page |
 | `main.go` | The window (its own title bar), the page (title and MyGo's rich text editor), autosave |
 | `sidebar.go`, `topbar.go` | The sidebar, which folds on a spring (⌘\), a tree whose branches unfold and whose chevrons turn; the header row over the panes |
-| `windowframe.go` | The window's frame: the content a card inside it, with MyGo's material around it (Liquid Glass on macOS 26, Acrylic on Windows 11), a plain color on Linux; its top edge opens on a spring into the panes' tabs when there are two or more, its bottom edge is the status bar |
+| `windowframe.go` | The window's frame: the content a card inside it, with MyGo's material around it (Liquid Glass on macOS 26, Acrylic on Windows 11), a plain color on Linux. Its top edge is the top bar (the sidebar's buttons, the panes' tabs once the window is split, the side panel's button, the window's controls), its bottom edge the status bar; the card has no header |
 | `drag.go` | Dragging pages in the tree, as [Ryugo](https://github.com/imhalid/ryu-go)'s cards move: the row lifts, rows make room, the row it goes into glows, it glides into place |
 | `tables.go`, `tablemodel.go` | Tables: one object in the text, always a table (columns with a kind, alignment, width and a foot calculation); in the body a typed object. Markdown tables that come in are read as tables of ours |
 | `tablefn.go` | What a table does with its rows: sort by a column, a filter the page keeps, CSV in and out (and tab-separated text pasted from a spreadsheet) |
