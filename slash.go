@@ -57,7 +57,7 @@ type menuItem struct {
 func slashItems(q string) []struct{ kind, name, md string } {
 	var out []struct{ kind, name, md string }
 	for _, k := range blockKinds {
-		if q == "" || match(q, k.name) >= 0 || match(q, T(k.name)) >= 0 || strings.HasPrefix(k.md, q) {
+		if q == "" || match(q, names(k.name)) >= 0 || strings.HasPrefix(k.md, q) {
 			out = append(out, k)
 		}
 	}
@@ -143,7 +143,7 @@ func kindByID(id string) (struct{ kind, name, md string }, bool) {
 // slashBack is ← Geri, the first line of a menu that was gone into, as any other line.
 func (a *app) slashBack() menuItem {
 	s := &a.slash
-	return menuItem{title: "Geri", hint: viewTitle[s.view], glyph: iconBack, nav: true, back: true, run: func() {
+	return menuItem{title: "common_back", hint: msg(viewTitle[s.view]), glyph: iconBack, nav: true, back: true, run: func() {
 		a.doc.SetSelection(s.at, s.at)
 		a.enterView("")
 	}}
@@ -193,13 +193,13 @@ func (a *app) menuItems(q string) []menuItem {
 	nav := func(title, sub, view string, glyph *ui.SVG) {
 		out = append(out, menuItem{title: title, sub: sub, group: "~", glyph: glyph, nav: true, run: func() { a.enterView(view) }})
 	}
-	nav("Satırı biçimlendir…", "başlıklar, listeler, alıntılar", "format", iconFormat)
-	nav("Ekle…", "kod, ayırıcı, tablo, resim, not kutuları", "insert", iconInsert)
-	nav("Tarih ya da saat", "", "date", iconCalendar)
+	nav("slash_format", "slash_formatSub", "format", iconFormat)
+	nav("slash_insert", "slash_insertSub", "insert", iconInsert)
+	nav("slash_dateTime", "", "date", iconCalendar)
 	if len(a.choiceItems("")) > 0 {
-		nav("Özellik…", "sayfanın seçimleri", "prop", iconSettings)
+		nav("slash_property", "slash_propertySub", "prop", iconSettings)
 	}
-	nav("Bağlantı…", "sayfalar", "link", iconPage)
+	nav("slash_link", "slash_linkSub", "link", iconPage)
 	return out
 }
 
@@ -211,7 +211,7 @@ func (a *app) wikiItems(q string) []menuItem {
 	var out []menuItem
 	if d, err := time.Parse("2006-01-02", tq); err == nil {
 		ch := &chip{kind: "date", target: d.Format("2006-01-02")}
-		out = append(out, menuItem{title: shortDate(d), hint: "Tarih", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
+		out = append(out, menuItem{title: shortDate(d), hint: "slash_groupDate", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
 	}
 	exact, n := false, 0
 	for _, it := range a.places() {
@@ -228,7 +228,7 @@ func (a *app) wikiItems(q string) []menuItem {
 		out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 	}
 	if tq != "" && !exact && a.page != nil {
-		out = append(out, menuItem{title: "Yeni sayfa: " + tq, glyph: iconPlus, run: func() {
+		out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
 				a.fail(err)
 				return
@@ -244,27 +244,27 @@ func (a *app) wikiItems(q string) []menuItem {
 func (a *app) rawItems(q string) []menuItem {
 	var out []menuItem
 	if q == "" || match(q, "Resim") >= 0 {
-		out = append(out, menuItem{title: "Resim…", sub: "bir dosyadan", glyph: iconImage, group: "Ekle", run: a.chooseImage})
+		out = append(out, menuItem{title: "slash_image", sub: "slash_imageSub", glyph: iconImage, group: "slash_groupInsert", run: a.chooseImage})
 	}
 	if q == "" || match(q, "Sayfa göm") >= 0 || match(q, "embed") >= 0 {
-		out = append(out, menuItem{title: "Sayfa göm…", sub: "başka bir sayfanın metni", glyph: iconPage, group: "Ekle", nav: true, run: func() { a.enterView("embed") }})
+		out = append(out, menuItem{title: "slash_embed", sub: "slash_embedSub", glyph: iconPage, group: "slash_groupInsert", nav: true, run: func() { a.enterView("embed") }})
 	}
-	if q == "" || match(q, "Sorgu") >= 0 || match(q, "query") >= 0 {
-		out = append(out, menuItem{title: "Sorgu…", sub: locales.SlashThePagesSearchFinds(), glyph: iconSearch, group: "Ekle", nav: true, run: func() { a.enterView("query") }})
+	if q == "" || match(q, names("common_query")) >= 0 || match(q, "query") >= 0 {
+		out = append(out, menuItem{title: "query2", sub: locales.SlashThePagesSearchFinds(), glyph: iconSearch, group: "slash_groupInsert", nav: true, run: func() { a.enterView("query") }})
 	}
 	out = append(out, a.templateItems(q)...)
-	if q == "" || match(q, "Tablo") >= 0 {
-		out = append(out, menuItem{title: "Tablo", sub: "satırlar ve sütunlar", glyph: iconTable, group: "Ekle", run: a.chooseTable})
+	if q == "" || match(q, names("slash_table")) >= 0 {
+		out = append(out, menuItem{title: "slash_table", sub: "slash_tableSub", glyph: iconTable, group: "slash_groupInsert", run: a.chooseTable})
 	}
 	if q == "" || match(q, locales.SlashFootnote()) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
-		out = append(out, menuItem{title: locales.SlashFootnote(), sub: locales.SlashAMarkHereNote(), glyph: iconFootnote, group: "Ekle", run: a.chooseFootnote})
+		out = append(out, menuItem{title: locales.SlashFootnote(), sub: locales.SlashAMarkHereNote(), glyph: iconFootnote, group: "slash_groupInsert", run: a.chooseFootnote})
 	}
 	for _, r := range rawTemplates() {
 		r := r
 		if q != "" && match(q, r.name) < 0 {
 			continue
 		}
-		out = append(out, menuItem{title: r.name, sub: r.sub, glyph: r.glyph, group: "Ekle", run: func() { a.chooseRaw(r) }})
+		out = append(out, menuItem{title: r.name, sub: r.sub, glyph: r.glyph, group: "slash_groupInsert", run: func() { a.chooseRaw(r) }})
 	}
 	return out
 }
@@ -378,7 +378,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 			out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 		}
 		if tq != "" && !exact && a.page != nil {
-			out = append(out, menuItem{title: "Yeni sayfa: " + tq, glyph: iconPlus, run: func() {
+			out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 				if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
 					a.fail(err)
 					return
@@ -416,12 +416,12 @@ func (a *app) searchItems(q string) []menuItem {
 	// the kinds of line
 	for _, k := range slashItems(q) {
 		k := k
-		kinds = append(kinds, menuItem{title: k.name, group: "Satırı biçimlendir", glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
+		kinds = append(kinds, menuItem{title: k.name, group: "slash_groupFormat", glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
 	}
 	// dates
 	for _, d := range a.dayChoices(q) {
 		ch := &chip{kind: "date", target: d.d.Format("2006-01-02")}
-		days = append(days, menuItem{title: d.name, hint: shortDate(d.d), group: "Tarih", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
+		days = append(days, menuItem{title: d.name, hint: shortDate(d.d), group: "slash_groupDate", glyph: iconCalendar, run: func() { a.insertChip(start, ch) }})
 	}
 	// pages
 	exact, n := false, 0
@@ -436,7 +436,7 @@ func (a *app) searchItems(q string) []menuItem {
 			continue
 		}
 		title := it.title
-		pages = append(pages, menuItem{title: title, sub: it.sub, group: "Bağlantı", glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
+		pages = append(pages, menuItem{title: title, sub: it.sub, group: "link", glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 	}
 	// the page's choices
 	if p := a.page; p != nil {
@@ -451,7 +451,7 @@ func (a *app) searchItems(q string) []menuItem {
 					continue
 				}
 				id, o := pr.ID, o
-				props = append(props, menuItem{title: label, group: "Özellik", glyph: iconSettings, run: func() {
+				props = append(props, menuItem{title: label, group: "property2", glyph: iconSettings, run: func() {
 					a.dropQuery(start)
 					a.setValue(p, id, o)
 				}})
@@ -460,7 +460,7 @@ func (a *app) searchItems(q string) []menuItem {
 	}
 	// last, a page of what is typed, when none is called so
 	if tq != "" && !exact && a.page != nil {
-		fresh = append(fresh, menuItem{title: "Yeni sayfa: " + tq, group: "Yeni", glyph: iconPlus, run: func() {
+		fresh = append(fresh, menuItem{title: locales.SlashNewPageNamed(tq), group: "slash_groupNew", glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
 				a.fail(err)
 				return
@@ -702,7 +702,7 @@ func hasField(view string) bool {
 	return view == "date" || view == "link" || view == "embed" || view == "query"
 }
 
-var viewTitle = map[string]string{"format": "Satırı biçimlendir", "insert": "Ekle", "date": "Tarih ya da saat", "link": "Bağlantı", "embed": "Sayfa göm", "prop": "Özellik", "query": "Sorgu"}
+var viewTitle = map[string]string{"format": "slash_groupFormat", "insert": "slash_groupInsert", "date": "slash_dateTime", "link": "link", "embed": "Sayfa göm", "prop": "property2", "query": "common_query"}
 
 // slashView is the menu under the caret.
 func (a *app) slashView(c *ui.Context) {
@@ -757,16 +757,16 @@ func (a *app) slashView(c *ui.Context) {
 		it.run()
 		s.open = it.nav
 	}
-	m := &menuPanel{key: "slash", label: "Öneriler", pl: pl, items: items, sel: s.sel, selPtr: &s.sel, hoverSeen: &s.hseen, scroll: &s.scroll, choose: choose,
-		empty: map[string]string{"link": "Eşleşen sayfa yok", "embed": "Eşleşen sayfa yok", "date": "Eşleşen gün yok", "query": "Bir sorgu yaz: #etiket @todo …"}[s.view]}
+	m := &menuPanel{key: "slash", label: locales.SlashSuggestions(), pl: pl, items: items, sel: s.sel, selPtr: &s.sel, hoverSeen: &s.hseen, scroll: &s.scroll, choose: choose,
+		empty: map[string]string{"link": "common_noPageMatches", "embed": "common_noPageMatches", "date": "slash_noDays", "query": "writeAQueryTagTodo"}[s.view]}
 	if s.sign == "[[" {
-		m.empty = "Eşleşen sayfa yok"
+		m.empty = "common_noPageMatches"
 	}
 	if s.sign == "#" {
-		m.empty = "Henüz etiket yok"
+		m.empty = "slash_noTagsYet"
 	}
 	if m.empty == "" {
-		m.empty = "Eşleşen yok"
+		m.empty = "slash_noMatches"
 	}
 	m.head = func() {
 		if s.sign == "#" {
@@ -795,12 +795,12 @@ func (a *app) slashView(c *ui.Context) {
 			})
 			return
 		}
-		ui.Text(c, viewTitle[s.view]).FontSize(12.5).TextColor(cl.Muted).Grow(1) // the way back is the first line
+		ui.Text(c, msg(viewTitle[s.view])).FontSize(12.5).TextColor(cl.Muted).Grow(1) // the way back is the first line
 	}
 	if hasField(s.view) { // what is typed: a field of its own, the focus in it
 		m.field = func() {
 			ui.Icon(c, iconSearch).Width(15).Height(15).TextColor(cl.Muted)
-			ph := map[string]string{"link": "Sayfa ara…", "embed": "Gömülecek sayfa…", "date": "Yarın, 2026-11-10…", "query": "Sorgu…"}[s.view]
+			ph := msg(map[string]string{"link": "findAPage4", "embed": "slash_embedPlaceholder", "date": "slash_datePlaceholder", "query": "query2"}[s.view])
 			in := ui.TextInputBase(c.Key("slash-in"), &s.field).Label(ph).Placeholder(ph).PlaceholderColor(cl.Muted).
 				FontSize(14).Grow(1).FocusRing(false).AutoFocus()
 			a.fieldMenu(in, &s.field, fieldOpts{oneLine: true})

@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // A right click on the page's title opens the page's menu, the same as its row's in the sidebar (pageMenu); while
@@ -39,7 +40,7 @@ func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
 	a.fieldMenu(title, &a.title, fieldOpts{oneLine: true, editing: func() bool { return a.titleFocused }, more: more, changed: func() {
 		name := strings.TrimSpace(a.title)
 		if name == "" {
-			name = "Adsız"
+			name = locales.CommonUntitled()
 		}
 		if err := p.SetTitle(name); err != nil {
 			a.fail(err)

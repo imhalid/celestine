@@ -26,9 +26,9 @@ const (
 var fontRoles = []struct {
 	name, help, sample string
 }{
-	{"Uygulama yazı tipi", "Menüler, kenar çubuğu, başlıklar ve düğmeler.", "Kenar çubuğu · Ayarlar · Çöp"},
-	{"Editör yazı tipi", "Sayfanın metni. Boşsa uygulamanınki kullanılır.", "Pijamalı hasta yağız şoföre çabucak güvendi."},
-	{"Kod yazı tipi", "Kod blokları ve satır içi kod.", "func main() { fmt.Println(\"ışığı çöz\") }"},
+	{"appTypeface", "menusTheSidebarHeadingsAndButtons", "sidebarSettingsTrash"},
+	{"editorTypeface", "thePagesTextWhenEmptyThe", "theQuickBrownFoxJumpsOver"},
+	{"codeTypeface", "codeBlocksAndInlineCode", "funcMainFmtPrintlnHelloWorld"},
 }
 
 // Candidates for the presets: the first that is installed is taken.
@@ -207,17 +207,17 @@ func (a *app) hasFontStrict(name string) bool {
 // a sans, code in a monospace.
 func (a *app) fontPreset(kind string) bool {
 	switch kind {
-	case "Okuma":
+	case "reading":
 		if f := a.firstInstalled(serifFonts); f != "" {
 			a.setFont(fontEditor, f)
 			return true
 		}
-	case "Yazı":
+	case "writing":
 		if f := a.firstInstalled(sansFonts); f != "" {
 			a.setFont(fontEditor, f)
 			return true
 		}
-	case "Kod":
+	case "code":
 		if f := a.firstInstalled(monoFonts); f != "" {
 			a.setFont(fontEditor, f)
 			a.setFont(fontMono, f)
@@ -287,8 +287,8 @@ func (a *app) settingsFonts(c *ui.Context) {
 			ui.Column(c).Gap(10).Children(func() {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 					ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-						ui.Text(c, T(role.name)).FontSize(15).FontWeight(620).TextColor(cl.Text)
-						ui.Text(c, T(role.help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+						ui.Text(c, msg(role.name)).FontSize(15).FontWeight(620).TextColor(cl.Text)
+						ui.Text(c, msg(role.help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 					})
 					label := cur
 					switch {
@@ -300,7 +300,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 						label = locales.CommonSystem()
 					}
 					b := ui.Row(c.Key("fontbtn"+strconv.Itoa(ri))).Gap(6).Padding(6, 12).Radius(rad(8)).Background(cl.Fill).AlignItems(ui.Center).
-						Label(T(role.name) + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						Label(msg(role.name) + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					b.Children(func() {
 						ui.Text(c, label).FontSize(13).Font(a.stackOf(cur, ryugo.FontSans)).TextColor(cl.Text).MaxLines(1)
 						ui.Text(c, map[bool]string{true: "▴", false: "▾"}[a.fonts.open[ri]]).FontSize(11).TextColor(cl.Muted)
@@ -309,7 +309,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 						a.fonts.open[ri] = !a.fonts.open[ri]
 					}
 				})
-				ui.Text(c, T(role.sample)).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: "monospace", false: ryugo.FontSans}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
+				ui.Text(c, msg(role.sample)).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: "monospace", false: ryugo.FontSans}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
 				if !a.fonts.open[ri] {
 					return
 				}
@@ -328,7 +328,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 							ui.Text(c, locales.FontsScanningTypefaces()).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 						if cur != "" {
-							a.fontRow(c, r, "", "Varsayılan", false)
+							a.fontRow(c, r, "", "default", false)
 						}
 						for _, n := range rows {
 							a.fontRow(c, r, n, n, n == cur)
@@ -349,9 +349,9 @@ func (a *app) settingsFonts(c *ui.Context) {
 		func() {
 			settingRow(c, locales.FontsTypefacePresets(), locales.FontsReadingSerifWritingSans(), func() {
 				ui.Row(c).Gap(8).Children(func() {
-					for _, k := range []string{"Okuma", "Yazı", "Kod"} {
+					for _, k := range []string{"reading", "writing", "code"} {
 						k := k
-						if ryugo.Button(c.Key("fpreset"+k), T(k), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
+						if ryugo.Button(c.Key("fpreset"+k), msg(k), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
 							a.say(toastWarn, locales.FontsNoneFound(k))
 						}
 					}

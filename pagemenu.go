@@ -30,7 +30,7 @@ func (a *app) pageButtons(c *ui.Context) {
 		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: locales.CommonTimeLapse(), true: locales.CommonBackText()}[a.lapse.on]) {
 			a.toggleLapse()
 		}
-		if a.barButton(c, iconMore, "Sayfa menüsü") {
+		if a.barButton(c, iconMore, locales.PageMenu()) {
 			ww, wh := c.Size()
 			a.showContext(ww-24, wh-34, a.pageMenu(a.page, false)) // opens upward, from the bar
 		}
@@ -109,7 +109,7 @@ func (a *app) exportPage(p *Page) {
 	go func() {
 		defer a.guard()
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
-			Title:       "Dışa aktar",
+			Title:       locales.CommonExport(),
 			DefaultPath: safeFile(title) + ".md",
 			Filters:     []mygo.FileFilter{{Name: "Markdown", Extensions: []string{"md"}}},
 		})
@@ -161,14 +161,14 @@ func safeFile(s string) string {
 		return r
 	}, strings.TrimSpace(s))
 	if s == "" {
-		return "sayfa"
+		return "common_pages"
 	}
 	return s
 }
 
 // barButton is a small icon button for the status bar, as tall as its text.
 func (a *app) barButton(c *ui.Context, glyph *ui.SVG, label string) bool {
-	label = T(label) // its tip, in the window's language
+	label = msg(label) // its tip, in the window's language
 	t := c.Theme()
 	b := ui.Box(c).Width(22).Height(18).Radius(rad(5)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	ryugo.Tooltip(c, b, label)

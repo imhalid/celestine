@@ -67,10 +67,10 @@ func TestJournalStepDay(t *testing.T) {
 	// the commands are in the palette, under Git
 	have := map[string]string{}
 	for _, it := range a.commands() {
-		have[it.title] = it.cat
+		have[it.id] = it.cat
 	}
-	for _, n := range []string{"Önceki gün", "Sonraki gün", "Tarihe git"} {
-		if have[n] != "Git" {
+	for _, n := range []string{"previousDay", "nextDay", "common_goDate"} {
+		if have[n] != "common_go" {
 			t.Fatalf("%q: %q", n, have[n])
 		}
 	}

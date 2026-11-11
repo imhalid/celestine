@@ -66,11 +66,11 @@ func (a *app) fieldItems(el ui.Element, value *string, o fieldOpts) []menuItem {
 	if s < e && !o.secret {
 		sel := string(r[s:e])
 		out = append(out,
-			menuItem{title: "Kes", hint: "⌘X", glyph: iconCut, run: func() {
+			menuItem{title: "common_cut", hint: "⌘X", glyph: iconCut, run: func() {
 				a.copyText(sel)
 				set(string(r[:s])+string(r[e:]), s)
 			}},
-			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() {
+			menuItem{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() {
 				a.copyText(sel)
 				if a.fieldSels == nil {
 					a.fieldSels = map[*string]fieldSel{}
@@ -79,7 +79,7 @@ func (a *app) fieldItems(el ui.Element, value *string, o fieldOpts) []menuItem {
 			}})
 	}
 	out = append(out,
-		menuItem{title: "Yapıştır", hint: "⌘V", glyph: iconPaste, run: func() {
+		menuItem{title: "common_paste", hint: "⌘V", glyph: iconPaste, run: func() {
 			clip := a.readClip()
 			if o.oneLine {
 				clip = strings.Join(strings.Fields(clip), " ")
@@ -87,7 +87,7 @@ func (a *app) fieldItems(el ui.Element, value *string, o fieldOpts) []menuItem {
 			in := []rune(clip)
 			set(string(r[:s])+string(in)+string(r[e:]), s+len(in))
 		}},
-		menuItem{title: "Tümünü seç", hint: "⌘A", glyph: iconSelectAll, run: func() {
+		menuItem{title: "common_selectAllText", hint: "⌘A", glyph: iconSelectAll, run: func() {
 			if a.fieldSels == nil {
 				a.fieldSels = map[*string]fieldSel{}
 			}
@@ -102,7 +102,7 @@ func (a *app) textMenu(el ui.Element, text func() string, more func() []menuItem
 	el.ContextMenu(func(*ui.Menu) {
 		px, py, _ := el.PointerPosition()
 		b := el.LayoutBounds()
-		items := withMore([]menuItem{{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(text()) }}}, more)
+		items := withMore([]menuItem{{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(text()) }}}, more)
 		a.showContext(b.X+px, b.Y+py, items)
 	})
 	return el
@@ -139,12 +139,12 @@ func (a *app) editorItems(y float32) []menuItem {
 	if s < e {
 		md := strings.TrimSuffix(bodyMarkdown(doc.Text().Slice(s, e)), "\n")
 		out = append(out,
-			menuItem{title: "Kes", hint: "⌘X", glyph: iconCut, run: func() {
+			menuItem{title: "common_cut", hint: "⌘X", glyph: iconCut, run: func() {
 				a.copyText(md)
 				doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, richtext.Text{}); ed.Select(s, s) })
 				a.refocus = true
 			}},
-			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }},
+			menuItem{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }},
 			a.into(locales.PageCopyAs(), iconCopy, func() []menuItem {
 				return []menuItem{
 					{title: "Markdown", hint: "⇧⌘C", glyph: iconCopy, run: func() { a.copyAs("markdown") }},
@@ -160,7 +160,7 @@ func (a *app) editorItems(y float32) []menuItem {
 		}
 	}))
 	out = append(out,
-		menuItem{title: "Yapıştır", hint: "⌘V", glyph: iconPaste, run: func() {
+		menuItem{title: "common_paste", hint: "⌘V", glyph: iconPaste, run: func() {
 			if clip := a.readClip(); clip != "" {
 				if strings.Contains(clip, "\n") {
 					doc.Insert(importMarkdown(clip))
@@ -170,7 +170,7 @@ func (a *app) editorItems(y float32) []menuItem {
 			}
 			a.refocus = true
 		}},
-		menuItem{title: "Tümünü seç", hint: "⌘A", glyph: iconSelectAll, run: func() {
+		menuItem{title: "common_selectAllText", hint: "⌘A", glyph: iconSelectAll, run: func() {
 			doc.SetSelection(0, doc.Text().Len())
 			a.refocus = true
 		}})
@@ -178,8 +178,8 @@ func (a *app) editorItems(y float32) []menuItem {
 		for i, f := range []struct {
 			name, keys string
 			do         func()
-		}{{"Kalın", "⌘B", doc.ToggleBold}, {"İtalik", "⌘I", doc.ToggleItalic}, {"Altı çizili", "⌘U", doc.ToggleUnderline},
-			{"Üstü çizili", "", doc.ToggleStrikethrough}, {"Kod", "⌘E", doc.ToggleCode}} {
+		}{{"common_bold", "⌘B", doc.ToggleBold}, {"common_italic", "⌘I", doc.ToggleItalic}, {"common_underline", "⌘U", doc.ToggleUnderline},
+			{"common_strike", "", doc.ToggleStrikethrough}, {"code", "⌘E", doc.ToggleCode}} {
 			f := f
 			it := menuItem{title: f.name, hint: f.keys, glyph: iconFormat, run: func() { f.do(); a.refocus = true }}
 			if i == 0 {

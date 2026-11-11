@@ -4,7 +4,11 @@ package main
 // which knows nothing of the window. These are its names as the app has always used them, unqualified; new
 // code may as well write library.Page.
 
-import "github.com/imhalid/celestine/internal/library"
+import (
+	"github.com/imhalid/celestine/internal/library"
+
+	"github.com/imhalid/celestine/locales"
+)
 
 type BodyFormat = library.BodyFormat
 
@@ -85,7 +89,28 @@ const PropDate = library.PropDate
 const PropNumber = library.PropNumber
 const PropText = library.PropText
 
-var PropTypeName = library.PropTypeName
+// PropTypeName is the name of a kind of property, in the window's language.
+func PropTypeName(typ string) string {
+	switch typ {
+	case PropChoice:
+		return locales.PropsTypeChoice()
+	case PropText:
+		return locales.PropsTypeText()
+	case PropNumber:
+		return locales.PropsTypeNumber()
+	case PropDate:
+		return locales.PropsTypeDate()
+	case PropURL:
+		return locales.PropsTypeURL()
+	case PropPage:
+		return locales.PropsTypePage()
+	case PropTags:
+		return locales.PropsTypeTags()
+	case PropFile:
+		return locales.PropsTypeFile()
+	}
+	return typ
+}
 
 const PropURL = library.PropURL
 const PropPage = library.PropPage

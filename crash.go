@@ -145,12 +145,12 @@ func latestCrash(dir string) (text, path string) {
 func (a *app) crashFallback(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ui.Column(c.Key("crashed")).Fill().Padding(40).Gap(14).Justify(ui.Center).AlignItems(ui.Center).Background(c.Theme().Background).Children(func() {
-		ui.Text(c, "Bir hata oldu").FontSize(22).FontWeight(700).TextColor(cl.Text)
+		ui.Text(c, locales.SomethingWentWrong()).FontSize(22).FontWeight(700).TextColor(cl.Text)
 		ui.Text(c, a.crashText).FontSize(13).TextColor(cl.Muted).MaxWidth(560).Wrap()
 		if a.crashPath != "" {
 			a.textMenu(ui.Text(c, locales.AppLogAt(a.crashPath)).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return locales.AppLogAt(a.crashPath) }, nil)
 		}
-		if ryugo.Button(c.Key("crash-retry"), "Devam et", ryugo.ButtonOptions{}).Clicked() {
+		if ryugo.Button(c.Key("crash-retry"), locales.Continue2(), ryugo.ButtonOptions{}).Clicked() {
 			a.crashOpen = false
 			c.Invalidate()
 		}
@@ -164,9 +164,9 @@ func (a *app) crashView(c *ui.Context) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	title := "Beklenmedik bir hata oldu"
+	title := locales.AnUnexpectedErrorOccurred()
 	if a.crashPrev != "" || a.crashPath == "" && strings.HasPrefix(a.crashText, "Son oturum") {
-		title = "Son oturum beklenmedik kapandı"
+		title = locales.TheLastSessionEndedUnexpectedly()
 	}
 	ryugo.Dialog(c.Key("crash"), &a.crashOpen, ryugo.DialogOptions{Title: title, Width: 620}, func() {
 		ui.Column(c).FillWidth().Gap(12).Children(func() {
@@ -180,11 +180,11 @@ func (a *app) crashView(c *ui.Context) {
 				a.textMenu(ui.Text(c, a.crashPath).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Muted).Selectable().Wrap(), func() string { return a.crashPath }, nil)
 			}
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-				if ryugo.Button(c.Key("crash-copy"), "Kopyala", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("crash-copy"), locales.CommonCopy(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.copyText(a.crashText)
 					a.say(toastOK, locales.TheLogWasCopiedToThe())
 				}
-				if ryugo.Button(c.Key("crash-close"), "Kapat", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("crash-close"), locales.Close(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.crashOpen = false
 				}
 			})

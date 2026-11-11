@@ -73,7 +73,7 @@ func TestFramePanicSurvives(t *testing.T) {
 	if a.crashPath == "" {
 		t.Fatal("no log written")
 	}
-	if _, ok := tt.Find("Bir hata oldu"); !ok {
+	if _, ok := tt.Find(msg("somethingWentWrong")); !ok {
 		t.Fatalf("the window does not say: %v", tt.Texts())
 	}
 	// the same panic again is not written again
@@ -88,7 +88,7 @@ func TestFramePanicSurvives(t *testing.T) {
 	a.crashOpen = false
 	tt.Frame()
 	tt.Advance(50 * time.Millisecond)
-	if _, ok := tt.Find("Bir hata oldu"); ok {
+	if _, ok := tt.Find(msg("somethingWentWrong")); ok {
 		t.Fatal("still showing the fallback")
 	}
 }

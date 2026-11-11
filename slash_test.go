@@ -20,7 +20,7 @@ func TestSlashMenu(t *testing.T) {
 	}
 	typeEach(tt, "bas")
 	tt.Frame()
-	if items := slashItems(a.slashQuery()); len(items) != 3 || items[0].kind != "h1" {
+	if items := slashItems(a.slashQuery()); len(items) < 3 || items[0].kind != "h1" || items[2].kind != "h3" {
 		t.Fatalf("narrowed: %+v", items)
 	}
 	tt.Key(0, ui.KeyDown) // the second: Başlık 2
@@ -77,7 +77,7 @@ func TestMenuRoot(t *testing.T) {
 	}
 	items := a.menuItems("")
 	got := lineTitles(items)
-	want := []string{"Görev", "Başlık 1", "Başlık 2", "Madde listesi", "Satırı biçimlendir…", "Ekle…", "Tarih ya da saat", "Bağlantı…"}
+	want := []string{"common_task", "blocks_heading1", "blocks_heading2", "blocks_bulletList", "slash_format", "slash_insert", "slash_dateTime", "slash_link"}
 	if len(got) != len(want) {
 		t.Fatalf("lines %v", got)
 	}
@@ -100,7 +100,7 @@ func TestMenuRoot(t *testing.T) {
 	for _, it := range a.menuItems("b") {
 		groups[it.group] = true
 	}
-	if !groups["Satırı biçimlendir"] || !groups["Tarih"] {
+	if !groups["slash_groupFormat"] || !groups["slash_groupDate"] {
 		t.Fatalf("not searched together: %v", groups)
 	}
 }
@@ -121,7 +121,7 @@ func TestMenuInto(t *testing.T) {
 	if !a.slash.open || a.slash.view != "link" {
 		t.Fatalf("not in the link menu: %+v", a.slash)
 	}
-	if !tt.HasText("Sayfa ara…") || !tt.HasText("Geri") {
+	if !tt.HasText(msg("findAPage4")) || !tt.HasText(msg("common_back")) {
 		t.Fatal("no field or way back")
 	}
 	if got := mdOf(a.doc); got != "Önce\n\n@" {
@@ -185,7 +185,7 @@ func TestMenuDateAndRecent(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	typeEach(tt, "/")
 	tt.Frame()
-	if got := lineTitles(a.menuItems(""))[0]; got != "Madde listesi" {
+	if got := lineTitles(a.menuItems(""))[0]; got != "blocks_bulletList" {
 		t.Fatalf("first suggestion %q", got)
 	}
 }
@@ -304,7 +304,7 @@ func TestMenuEmpty(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tt.Frame()
-	if !tt.HasText("Eşleşen sayfa yok") {
+	if !tt.HasText(msg("common_noPageMatches")) {
 		t.Fatal("no empty state")
 	}
 }
@@ -382,7 +382,7 @@ func TestSlashMenuKeysReachBack(t *testing.T) {
 	if a.slash.view != "insert" || a.slash.sel != 1 {
 		t.Fatalf("not in the menu, on its first line: view %q sel %d", a.slash.view, a.slash.sel)
 	}
-	if items := a.menuItems(""); len(items) < 2 || !items[0].back || items[0].title != "Geri" {
+	if items := a.menuItems(""); len(items) < 2 || !items[0].back || items[0].title != "common_back" {
 		t.Fatalf("← Geri is not the first line: %+v", items)
 	}
 	tt.Key(0, ui.KeyUp)

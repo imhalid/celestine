@@ -148,7 +148,7 @@ func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page,
 func frontTags(meta map[string]string) []string {
 	var out []string
 	seen := map[string]bool{}
-	for _, key := range []string{"tags", "tag", "etiketler"} {
+	for _, key := range []string{"tags", "tag", "tags4"} {
 		for _, w := range strings.FieldsFunc(meta[key], func(r rune) bool { return r == ',' || r == ' ' || r == '\n' }) {
 			w = strings.TrimPrefix(strings.TrimSpace(w), "#")
 			w = strings.ReplaceAll(w, " ", "-")
@@ -271,7 +271,7 @@ func (a *app) pickImportFolder() {
 func (a *app) settingsImport(c *ui.Context) {
 	note := a.importNote
 	if note == "" {
-		note = "Obsidian kasası ya da .md dosyaları olan bir klasör: alt klasörleri koleksiyon, dosyaları sayfa olur. Klasöre dokunulmaz."
+		note = "anObsidianVaultOrAFolder"
 	}
 	settingRow(c, locales.BackupImportMarkdownFolder(), note, func() {
 		if ryugo.Button(c.Key("import-md"), locales.BackupChooseFolder(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {

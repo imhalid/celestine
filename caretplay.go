@@ -14,7 +14,7 @@ import (
 // words, for the carets that move letters or count words). Enter is a new line there, as in the text: the
 // field holds one line, and Enter clears it; past its width the first words go, so the line never scrolls.
 
-const tryText = "Buraya yaz, careti dene: kelime kelime "
+const tryText = "typeHereAndTryTheCaret"
 
 // caretTry is the playground's state.
 type caretTry struct {
@@ -54,7 +54,7 @@ func (a *app) caretPlayground(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ct := &a.caretTry
 	if !ct.seen {
-		ct.text, ct.was, ct.seen = T(tryText), T(tryText), true
+		ct.text, ct.was, ct.seen = msg(tryText), msg(tryText), true
 	}
 	size := a.fontSize()
 	ui.Column(c).FillWidth().Gap(6).Children(func() {

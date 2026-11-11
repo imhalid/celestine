@@ -906,7 +906,7 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		a.openToday()
 		return
 	}
-	p, err := c.NewPage(parent, "Adsız")
+	p, err := c.NewPage(parent, msg("common_untitled"))
 	if err != nil {
 		a.fail(err)
 		return
@@ -1125,11 +1125,11 @@ func (a *app) viewFrame(c *ui.Context) {
 			kind = *a.noticeTone
 		}
 		if undo := a.noticeUndo; undo != nil { // a setting changed: it is one click from taken back
-			a.toastOf(kind, T(a.notice), locales.CommonUndo2(), undo)
+			a.toastOf(kind, msg(a.notice), locales.CommonUndo2(), undo)
 		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
-			a.toastOf(kind, T(a.notice), locales.CommonOpen(), func() { a.open(pg) })
+			a.toastOf(kind, msg(a.notice), locales.CommonOpen(), func() { a.open(pg) })
 		} else {
-			a.toastOf(kind, T(a.notice), "", nil)
+			a.toastOf(kind, msg(a.notice), "", nil)
 		}
 		a.notice, a.noticePage, a.noticeUndo, a.noticeTone = "", nil, nil, nil
 	}
@@ -1208,7 +1208,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
-		Label: "Sayfa", Font: a.font, Theme: th,
+		Label: locales.Page(), Font: a.font, Theme: th,
 		Placeholder:  locales.AppWriteHeadingListTask(),
 		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
@@ -1371,7 +1371,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	if title.Changed() {
 		name := strings.TrimSpace(a.title)
 		if name == "" {
-			name = "Adsız"
+			name = locales.CommonUntitled()
 		}
 		if err := p.SetTitle(name); err != nil {
 			a.fail(err)
@@ -1715,7 +1715,7 @@ func (a *app) status(c *ui.Context) {
 			}
 			m.Children(func() {
 				a.pulseDot(c)
-				ui.Text(c, "MCP").FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
+				ui.Text(c, locales.Mcp()).FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
 			})
 			if m.Clicked() {
 				a.openSettings()

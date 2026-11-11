@@ -129,11 +129,11 @@ func TestTaskBoxRightClickMenu(t *testing.T) {
 	if !a.ctx.open || len(a.ctx.items) == 0 || len(a.ctx.items) != len(taskKinds)+1 {
 		t.Fatalf("no menu of kinds: open %v", a.ctx.open)
 	}
-	if m := tt.Menu(); len(m) == 0 || m[0] != T(a.ctx.items[0].title) {
+	if m := tt.Menu(); len(m) == 0 || m[0] != msg(a.ctx.items[0].title) {
 		t.Fatalf("the menu shown is not the app's: %v", m)
 	}
 	for _, it := range a.ctx.items {
-		if it.title == "Soru" {
+		if it.title == "question" {
 			it.run()
 		}
 	}

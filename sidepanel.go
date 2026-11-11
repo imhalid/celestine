@@ -88,7 +88,7 @@ func (a *app) sidePanel(c *ui.Context) {
 		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel) // over the content
 		ui.Row(c).FillWidth().Height(34).Padding(0, 8, 0, 14).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.CommonThisPage()).FontSize(11).FontWeight(650).TextColor(cl.Muted).Grow(1)
-			if a.iconButton(c, iconClose, "Paneli kapat") {
+			if a.iconButton(c, iconClose, locales.CloseThePanel()) {
 				a.togglePanel()
 			}
 		})

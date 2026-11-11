@@ -241,7 +241,7 @@ func (a *app) tasksView(c *ui.Context) {
 		ui.Text(c, locales.TasksCounts(open, done)).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
-			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{"Açık", "Tamamlanan", "Hepsi"}, ryugo.SegmentedOptions{Label: "Görevler", Size: ryugo.Sm})
+			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{locales.TasksOpen(), locales.TasksDone(), locales.TasksAll()}, ryugo.SegmentedOptions{Label: locales.CommonTasks(), Size: ryugo.Sm})
 			if a.taskFilter == 0 { // the open ones by their day
 				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{locales.TasksDueAll(), locales.TasksDueToday(), locales.TasksDueWeek(), locales.TasksDueLate()}, ryugo.SegmentedOptions{Label: locales.TasksDay(), Size: ryugo.Sm})
 			}
@@ -250,7 +250,7 @@ func (a *app) tasksView(c *ui.Context) {
 				opts := []ryugo.Option[string]{{Value: "", Label: locales.TasksAllKinds()}, {Value: "plain", Label: locales.TasksPlainTask() + "  ·  " + strconv.Itoa(kinds["plain"])}}
 				for _, tk := range taskKinds {
 					if kinds[tk.id] > 0 {
-						opts = append(opts, ryugo.Option[string]{Value: tk.id, Label: T(tk.name) + "  ·  " + strconv.Itoa(kinds[tk.id])})
+						opts = append(opts, ryugo.Option[string]{Value: tk.id, Label: msg(tk.name) + "  ·  " + strconv.Itoa(kinds[tk.id])})
 					}
 				}
 				ui.Box(c.Key("task-kind-wrap")).Width(176).Children(func() {
@@ -265,7 +265,7 @@ func (a *app) tasksView(c *ui.Context) {
 					}
 				}
 				ui.Box(c.Key("task-coll-wrap")).Width(176).Children(func() {
-					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: "Koleksiyon", Size: ryugo.Sm})
+					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: locales.Collection(), Size: ryugo.Sm})
 				})
 			}
 			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
@@ -365,7 +365,7 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 	folded := a.taskFolded[p]
 	c.Key("tgh:" + p.Dir)
 	head := ui.Row(c).FillWidth().Padding(2, 8, 2, 2).Gap(4).Radius(rad(8)).AlignItems(ui.Center).
-		Label("Sayfa: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		Label(locales.CommonPageLabel(p.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	if gap {
 		head.Margin(14, 0, 0, 0) // the room between two pages' tasks
 	}
@@ -409,7 +409,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 		on := k.done
 		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(locales.TasksTaskLabel(k.text))
 		if tk, ok := taskKindByID(k.kind); ok && !k.done { // its kind, in its color
-			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(T(tk.name))
+			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(msg(tk.name))
 		}
 		col, st := cl.Text, false
 		if k.done {

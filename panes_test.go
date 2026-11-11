@@ -151,7 +151,7 @@ func TestOpenInPaneMenus(t *testing.T) {
 	tt.Frame()
 	found := false
 	for _, it := range a.pageMenu(a.page, false) {
-		if it.title == "Yan bölmede aç" {
+		if it.title == "openInASidePane" {
 			found = true
 			it.run()
 		}
@@ -165,7 +165,7 @@ func TestOpenInPaneMenus(t *testing.T) {
 	}
 	found = false
 	for _, it := range a.collectionMenu(a.page.Coll) {
-		if it.title == "Yan bölmede aç" {
+		if it.title == "openInASidePane" {
 			found = true
 		}
 	}

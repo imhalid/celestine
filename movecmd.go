@@ -29,7 +29,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		}
 		sib := siblingsOf(p)
 		at := slices.Index(sib, p)
-		up := cmd("Sayfayı yukarı taşı (sırada)", "", iconBack, func() {
+		up := cmd("moveThePageUpInIts", "", iconBack, func() {
 			if err := a.lib.MovePage(p, p.Coll, p.Parent, at-1); err != nil {
 				a.fail(err)
 				return
@@ -39,7 +39,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		if at <= 0 {
 			up.off = locales.MoveAtTop()
 		}
-		down := cmd("Sayfayı aşağı taşı (sırada)", "", iconChevron, func() {
+		down := cmd("moveThePageDownInIts", "", iconChevron, func() {
 			if err := a.lib.MovePage(p, p.Coll, p.Parent, at+2); err != nil {
 				a.fail(err)
 				return
@@ -51,7 +51,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		}
 		out = append(out, up, down)
 		if p.Parent != nil {
-			out = append(out, cmd("Sayfayı üst sayfadan ayır", "", iconBack, func() {
+			out = append(out, cmd("takeThePageOutOfIts", "", iconBack, func() {
 				parent := p.Parent
 				idx := slices.Index(siblingsOf(parent), parent) + 1
 				if err := a.lib.MovePage(p, p.Coll, parent.Parent, idx); err != nil {
@@ -66,7 +66,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 			if c == p.Coll || c.Dynamic() || c.Journal {
 				continue
 			}
-			out = append(out, cmd("Sayfayı taşı: "+c.Name, "", iconStack, func() {
+			out = append(out, cmd("moveThePage: "+c.Name, "", iconStack, func() {
 				a.flush()
 				if err := a.lib.MovePage(p, c, nil, len(c.Pages)); err != nil {
 					a.fail(err)
@@ -79,12 +79,12 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 	}
 	if c := a.coll; c != nil {
 		out = append(out,
-			cmd("Koleksiyonu yukarı taşı", "", iconBack, func() {
+			cmd("moveTheCollectionUp", "", iconBack, func() {
 				if err := a.lib.MoveCollection(c, -1); err != nil {
 					a.fail(err)
 				}
 			}),
-			cmd("Koleksiyonu aşağı taşı", "", iconChevron, func() {
+			cmd("moveTheCollectionDown", "", iconChevron, func() {
 				if err := a.lib.MoveCollection(c, 1); err != nil {
 					a.fail(err)
 				}

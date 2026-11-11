@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // On a calendar by a date property, a page in an open day is dragged onto another day, which becomes its date; the
@@ -33,7 +35,7 @@ func TestCalendarDragToAnotherDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	from, ok := tt.Find("Aç: Dune")
+	from, ok := tt.Find(locales.ViewsOpenLabel("Dune"))
 	if !ok {
 		t.Fatalf("the day's card has no Dune: %v", tt.Texts())
 	}

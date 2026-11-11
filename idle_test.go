@@ -15,7 +15,7 @@ func TestIdleAsksNoFrames(t *testing.T) {
 	// landscape on one day, for the same window on any machine (#318).
 	sceneOf, coverNow = 0, func() time.Time { return time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC) }
 	defer func() { sceneOf, coverNow = -1, time.Now }()
-	for _, name := range []string{"Slime", "Mizan", "Line", "Marine", "Kawaii"} {
+	for _, name := range []string{"Slime", "Mizan", "line", "Marine", "Kawaii"} {
 		k := caretKind(-1)
 		for i := caretKind(0); i < caretCount(); i++ {
 			if caretName(i) == name {

@@ -18,7 +18,7 @@ func (a *app) emptyState(c *ui.Context, icon *ui.SVG, title, desc, action string
 			}
 		}
 	}
-	o.Title, o.Description = T(o.Title), T(o.Description)
+	o.Title, o.Description = msg(o.Title), msg(o.Description)
 	ui.Column(c.Key("empty-state")).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 		ryugo.EmptyState(c, o)
 		// a hint that teaches: the one key that leads to all the others

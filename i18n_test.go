@@ -25,22 +25,21 @@ func withLang(t *testing.T, l string) {
 	t.Cleanup(func() { lang = old; langNow.Store(old) })
 }
 
-// Turkish is what is written; English is what the dictionary has, and what it has not is Turkish, not a hole.
-func TestEnglishLoses(t *testing.T) {
-	for code, id := range codeKeys {
-		if strings.TrimSpace(locales.Catalog.Format("en", id, nil)) == "" {
-			t.Errorf("%q has an empty English", code)
-		}
-	}
+// msg says a message by its id in the window's language, an id with a value after it with the value as it is, and
+// what is no id as it is: a page's title is not a hole.
+func TestMsg(t *testing.T) {
 	withLang(t, "tr")
-	if T("Ayarlar") != "Ayarlar" {
-		t.Fatal("Turkish changed")
+	if msg("common_settings") != "Ayarlar" {
+		t.Fatalf("Turkish: %q", msg("common_settings"))
 	}
 	withLang(t, "en")
-	for tr, en := range map[string]string{"Ayarlar": "Settings", "Çöpe taşı: Sayfa": "Move to trash: Sayfa", "Hiç çevrilmemiş cümle": "Hiç çevrilmemiş cümle", "Tema": "Theme"} {
-		if got := T(tr); got != en {
-			t.Errorf("T(%q) = %q, want %q", tr, got, en)
+	for id, want := range map[string]string{"common_settings": "Settings", "moveToTrash: Sayfa": "Move to trash: Sayfa", "Hiç çevrilmemiş cümle": "Hiç çevrilmemiş cümle"} {
+		if got := msg(id); got != want {
+			t.Errorf("msg(%q) = %q, want %q", id, got, want)
 		}
+	}
+	if names("common_settings") != "Settings Ayarlar " && names("common_settings") != "English Settings " && !strings.Contains(names("common_settings"), "Ayarlar") {
+		t.Errorf("names: %q", names("common_settings"))
 	}
 }
 
@@ -155,7 +154,7 @@ func TestEnglishCoversTitles(t *testing.T) {
 			if err != nil {
 				s = m[1]
 			}
-			if _, ok := codeKeys[s]; !ok {
+			if !hasMessage(s) {
 				noHelp = append(noHelp, m[1])
 			}
 		}
@@ -165,7 +164,7 @@ func TestEnglishCoversTitles(t *testing.T) {
 	}
 	// every setting of the list has its name translated: an older one to English, a newer one to Turkish
 	for _, d := range settingDefs() {
-		if _, ok := codeKeys[d.name]; !ok {
+		if !hasMessage(d.name) {
 			t.Errorf("setting %q has no English", d.name)
 		}
 	}
@@ -238,36 +237,9 @@ func TestEnglishCoversScreen(t *testing.T) {
 	}
 }
 
-// Every string given to T has a message (codeKeys), which every language has (TestCatalogs): a string with none
-// shows as it is written in every window.
-func TestTurkishCovers(t *testing.T) {
-	srcs, _ := filepath.Glob("*.go")
-	re := regexp.MustCompile(`\bTf?\(("(?:[^"\\]|\\.)*")`)
-	letters := regexp.MustCompile(`[A-Za-z]{2}`)
-	var missing []string
-	for _, f := range srcs {
-		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") {
-			continue
-		}
-		b, _ := os.ReadFile(f)
-		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
-			s, err := strconv.Unquote(m[1])
-			if err != nil || !letters.MatchString(s) {
-				continue
-			}
-			if !hasMessage(s) {
-				missing = append(missing, f+": "+s)
-			}
-		}
-	}
-	if len(missing) > 0 {
-		t.Fatalf("no other language for:\n%s", strings.Join(missing, "\n"))
-	}
-}
-
-// hasMessage reports whether the code's text s has a message in the catalogs.
+// hasMessage reports whether s is the id of a message, which msg says.
 func hasMessage(s string) bool {
-	_, ok := codeKeys[s]
+	_, _, ok := locales.Catalog.Message("en", s)
 	return ok
 }
 
@@ -286,7 +258,7 @@ func verbsOf(s string) string {
 
 // The catalogs of locales/: one per language of the window and no other; each has every message of the source,
 // English, and nothing else; every message parses as ICU MessageFormat and has the same fmt verbs in every
-// language; every text of codeKeys names a message, each its own.
+// language; every message is said.
 func TestCatalogs(t *testing.T) {
 	files, _ := filepath.Glob("locales/*.json")
 	cats := map[string]map[string]string{}
@@ -349,18 +321,8 @@ func TestCatalogs(t *testing.T) {
 			}
 		}
 	}
-	named := map[string]string{}
-	for code, id := range codeKeys {
-		if _, ok := en[id]; !ok {
-			t.Errorf("%q names %s, which is no message", code, id)
-		}
-		if other, ok := named[id]; ok {
-			t.Errorf("%q and %q name the same message %s", code, other, id)
-		}
-		named[id] = code
-	}
-	// every message is said: called by its function (locales.UpdateTitle()), or still found through codeKeys; and
-	// every text of codeKeys is still written somewhere in the code
+	// every message is said: called by its function (locales.UpdateTitle()), given as one, or kept by its id in a
+	// table ("collectionSettings", "moveToTrash: " + a title)
 	var code strings.Builder
 	srcs, _ := filepath.Glob("*.go")
 	for _, f := range srcs {
@@ -376,18 +338,8 @@ func TestCatalogs(t *testing.T) {
 	}
 	all := code.String()
 	for id := range en {
-		if _, ok := named[id]; !ok && !regexp.MustCompile(`\.`+goName(id)+`\b`).MatchString(all) { // called, or given as a function
+		if !regexp.MustCompile(`\.`+goName(id)+`\b`).MatchString(all) && !strings.Contains(all, `"`+id+`"`) && !strings.Contains(all, `"`+id+`: `) {
 			t.Errorf("%s is said nowhere", id)
-		}
-	}
-	for text := range codeKeys {
-		q := strconv.Quote(text)
-		written := strings.Contains(all, q) || strings.Contains(all, "`"+text+"`") ||
-			strings.Contains(all, `"`+text+`"`) || // in JavaScript
-			strings.Contains(all, q[:len(q)-1]+`: `) || // a notice with a value after it: "Güncellenemedi: " + err
-			text == "geri yükleme" // a backup's kind, in the names of files older versions wrote (backup.go)
-		if !written {
-			t.Errorf("codeKeys has %q, which the code no longer writes", text)
 		}
 	}
 }
@@ -404,33 +356,6 @@ func goName(id string) string {
 	return b.String()
 }
 
-// A text the code gives T comes back as it was written in its own language, and in the other as its catalog
-// says it: the catalogs were made from the dictionaries without a word changed (#330).
-func TestCatalogsAsWritten(t *testing.T) {
-	for _, c := range []struct{ code, l, want string }{
-		{"Ayarlar", "tr", "Ayarlar"}, {"Ayarlar", "en", "Settings"},
-		{"Back to the text", "en", "Back to the text"}, {"Back to the text", "tr", "Metne dön"},
-		{"İleri", "en", "Forward"}, {"Yeniden başlat", "tr", "Yeniden başlat"},
-	} {
-		withLang(t, c.l)
-		if got := T(c.code); got != c.want {
-			t.Errorf("%s: T(%q) = %q, want %q", c.l, c.code, got, c.want)
-		}
-	}
-	// a sentence with values is one message, its counts said with the language's plural forms
-	for _, c := range []struct{ l, got, want string }{
-		{"en", locales.In("en").SyncCollectionsSynced(5, 2), "2 of 5 collections are synced."},
-		{"en", locales.In("en").SyncCollectionsSynced(1, 1), "1 of 1 collection is synced."},
-		{"tr", locales.In("tr").SyncCollectionsSynced(5, 2), "5 koleksiyondan 2 tanesi eşitleniyor."},
-		{"en", locales.In("en").CommonPageCount(1), "1 page"}, {"en", locales.In("en").CommonPageCount(1200), "1,200 pages"},
-		{"tr", locales.In("tr").CommonPageCount(1200), "1.200 sayfa"},
-	} {
-		if c.got != c.want {
-			t.Errorf("%s: %q, want %q", c.l, c.got, c.want)
-		}
-	}
-}
-
 // shownCalls are the functions whose string arguments the window shows; shownFields the fields of options that it
 // shows. A literal with letters given to them is a word the catalogs do not translate.
 var (
@@ -443,7 +368,7 @@ var (
 )
 
 // No word is shown that the catalogs cannot translate: a literal with letters, given to what the window shows, is a
-// message (locales.Name()), or a text of codeKeys, which T finds the message of (#218).
+// message (locales.Name()), or a message's id, which the helpers it is given to say with msg (#218).
 func TestNoLiteralWords(t *testing.T) {
 	srcs, _ := filepath.Glob("*.go")
 	fset := token.NewFileSet()

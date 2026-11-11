@@ -75,7 +75,7 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 		c.Key("trash-row")
 		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
-			Label("Çöp").Role(ui.RoleButton).Transition(rowMove)
+			Label(locales.CommonTrash()).Role(ui.RoleButton).Transition(rowMove)
 		switch {
 		case a.trashOpen:
 			r.Background(t.Selection)
@@ -108,7 +108,7 @@ func (a *app) trashView(c *ui.Context) {
 		ui.Text(c, locales.TrashThrownAwayPagesCollections()).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 8, 0)
 		if len(a.trashItems) == 0 {
-			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
+			a.emptyState(c, iconTrash, locales.TheTrashIsEmpty(), locales.ThePagesYouThrowAwayWait(), "", nil)
 			return
 		}
 		a.scrolled(c, "trash:96", nil, ui.Scroll(c).Grow(1), func() {
@@ -140,11 +140,11 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 		ui.Icon(c, glyph).Width(17).Height(17).TextColor(t.TextMuted)
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 			ui.Text(c, item.Title).FontSize(15).FontWeight(600).MaxLines(1)
-			from := "Koleksiyon"
+			from := "collection"
 			if item.Kind == "page" {
 				from = item.Where
 				if from == "" {
-					from = "Sayfa"
+					from = "page"
 				}
 			}
 			note := locales.TrashThrownAway(from, ago(item.Trashed, now))
@@ -179,7 +179,7 @@ func (a *app) tasksRow(c *ui.Context) {
 	}
 	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
 		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
-			Label("Görevler").Role(ui.RoleButton).Transition(rowMove)
+			Label(locales.CommonTasks()).Role(ui.RoleButton).Transition(rowMove)
 		switch {
 		case a.tasksOpen:
 			r.Background(t.Selection)

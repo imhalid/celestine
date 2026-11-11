@@ -203,7 +203,7 @@ var dayLights = []coverLight{
 
 var nightLights = []coverLight{
 	{"Alacakaranlık", hexRGB("#151b3e"), hexRGB("#3b326e"), hexRGB("#94557a"), hexRGB("#ffd9a8"), hexRGB("#5a4a78"), true, false, hexRGB("#6d5d93"), hexRGB("#2c2650")},
-	{"Gece", hexRGB("#060a1b"), hexRGB("#0f193a"), hexRGB("#1f2e58"), hexRGB("#f3f1e2"), hexRGB("#34406a"), true, false, hexRGB("#3a4672"), hexRGB("#141c3a")},
+	{"night", hexRGB("#060a1b"), hexRGB("#0f193a"), hexRGB("#1f2e58"), hexRGB("#f3f1e2"), hexRGB("#34406a"), true, false, hexRGB("#3a4672"), hexRGB("#141c3a")},
 	{"Mehtap", hexRGB("#0b1530"), hexRGB("#1b2d57"), hexRGB("#3a5585"), hexRGB("#fbf8e8"), hexRGB("#5a6e9a"), true, false, hexRGB("#6f83ad"), hexRGB("#26365e")},
 }
 

@@ -33,11 +33,11 @@ type taskKind struct {
 }
 
 var taskKinds = []taskKind{
-	{"star", "Yıldızlı görev", "*", "#f59f00", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
-	{"important", "Önemli görev", "!", "#f76707", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
-	{"question", "Soru", "?", "#7048e8", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
-	{"progress", "Süren görev", "/", "#1c7ed6", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M8 16 16 8"/>`)},
-	{"error", "Hatalı görev", "e", "#e03131", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="m9 9 6 6M15 9l-6 6"/>`)},
+	{"star", "starredTask", "*", "#f59f00", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
+	{"important", "importantTask", "!", "#f76707", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
+	{"question", "question", "?", "#7048e8", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
+	{"progress", "taskInProgress", "/", "#1c7ed6", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M8 16 16 8"/>`)},
+	{"error", "failedTask", "e", "#e03131", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="m9 9 6 6M15 9l-6 6"/>`)},
 }
 
 func init() {
@@ -531,7 +531,7 @@ func (a *app) taskBoxHits(c *ui.Context) {
 // taskKindMenu is the menu of the kinds a task can be, at x, y in the window: the one it is, ticked.
 func (a *app) taskKindMenu(at int, x, y float32) {
 	cur, _ := taskKindOf(a.doc.Text().ParagraphStyleAt(at))
-	items := []menuItem{{title: "Görev", glyph: kindIcon["tasks"], hint: tick(cur.id == ""), run: func() { a.setTaskKind(at, "") }}}
+	items := []menuItem{{title: "common_task", glyph: kindIcon["tasks"], hint: tick(cur.id == ""), run: func() { a.setTaskKind(at, "") }}}
 	for _, k := range taskKinds {
 		id := k.id
 		items = append(items, menuItem{title: k.name, glyph: k.icon, hint: tick(cur.id == id), run: func() { a.setTaskKind(at, id) }})

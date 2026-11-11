@@ -43,7 +43,7 @@ func TestCursorFX(t *testing.T) {
 func TestCursorFXStrike(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.SetSize(800, 500)
-	a.settings.CursorFX = "Rocket"
+	a.settings.CursorFX = "rocket"
 	tt.Move(400, 250)
 	tt.Advance(3 * time.Second)
 	r := a.cursor.fx.(*rocket)

@@ -396,7 +396,7 @@ func (a *app) acctRefresh() {
 				a.ac.me = &me
 			} else if strings.Contains(err.Error(), "oturum yok") { // the server no longer knows this computer
 				a.acctForget()
-				a.ac.err = "Oturum kapanmış: yeniden giriş yap."
+				a.ac.err = "signedOutSignInAgain"
 			}
 			return nil
 		})
@@ -428,8 +428,8 @@ func (a *app) acctForm(c *ui.Context) {
 	}
 	entered := false // Enter in any of the fields is the form's button
 	field := func(key, label string, v *string, opts ...func(*ryugo.InputOptions)) {
-		ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
-			o := ryugo.InputOptions{Label: T(label), Size: ryugo.Sm}
+		ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
+			o := ryugo.InputOptions{Label: msg(label), Size: ryugo.Sm}
 			for _, f := range opts {
 				f(&o)
 			}
@@ -439,7 +439,7 @@ func (a *app) acctForm(c *ui.Context) {
 		})
 	}
 	secret := func(o *ryugo.InputOptions) { o.Password = true }
-	note := func(s string) { ui.Text(c, T(s)).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap() }
+	note := func(s string) { ui.Text(c, msg(s)).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap() }
 	mode := a.ac.mode
 	if mode == "recovery" {
 		a.acctRecoveryStep(c)
@@ -452,34 +452,34 @@ func (a *app) acctForm(c *ui.Context) {
 		case "password":
 			note(locales.AccountInviteConfirmed(acctName(a.ac.user)))
 		case "reset":
-			note("Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.")
+			note("forgotYourPasswordSetANew")
 		}
 		switch mode {
 		case "invite":
-			note("Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.")
-			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = locales.AccountNameExampleCom() })
-			field("acct-code", "Erişim kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
+			note("ifYouWereApprovedFromThe")
+			field("acct-user", "email", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = locales.AccountNameExampleCom() })
+			field("acct-code", "accessCode", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
 		case "password":
-			field("acct-pass", "Şifre", &a.ac.pass, secret)
-			field("acct-pass2", "Şifre (tekrar)", &a.ac.pass2, secret)
-			note("Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.")
+			field("acct-pass", "account_password", &a.ac.pass, secret)
+			field("acct-pass2", "passwordAgain", &a.ac.pass2, secret)
+			note("yourPasswordNeverLeavesThisComputer")
 		case "reset":
-			field("acct-user", "E-posta", &a.ac.user)
-			field("acct-rec", "Kurtarma anahtarı", &a.ac.recKey, func(o *ryugo.InputOptions) { o.Placeholder = "XXXX-XXXX-…" })
-			field("acct-pw-new", "Yeni şifre", &a.ac.newPass, secret)
+			field("acct-user", "email", &a.ac.user)
+			field("acct-rec", "account_recoveryKey", &a.ac.recKey, func(o *ryugo.InputOptions) { o.Placeholder = "XXXX-XXXX-…" })
+			field("acct-pw-new", "account_newPassword", &a.ac.newPass, secret)
 		default:
-			field("acct-user", "E-posta", &a.ac.user)
-			field("acct-pass", "Şifre", &a.ac.pass, secret)
+			field("acct-user", "email", &a.ac.user)
+			field("acct-pass", "account_password", &a.ac.pass, secret)
 		}
 		if a.ac.err != "" {
-			ui.Text(c, T(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
+			ui.Text(c, serverError(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
 		}
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
-			label := map[string]string{"invite": "Devam", "password": "Hesabı aç", "login": "Giriş yap", "reset": "Şifreyi yenile"}[mode]
+			label := map[string]string{"invite": "continue", "password": "createAccount", "login": "account_sign", "reset": "setTheNewPassword"}[mode]
 			if a.ac.busy {
 				label = "…"
 			}
-			if (btn("acct-go", T(label), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}) || entered) && !a.ac.busy {
+			if (btn("acct-go", msg(label), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}) || entered) && !a.ac.busy {
 				a.acctSubmit()
 			}
 			switch mode {
@@ -541,25 +541,25 @@ func (a *app) acctSubmit() {
 	var key []byte
 	switch {
 	case user == "":
-		a.ac.err = "E-posta gerekli."
+		a.ac.err = "anEmailAddressIsNeeded"
 	case mode == "invite" && !strings.Contains(user, "@"):
-		a.ac.err = "E-posta adresi geçersiz."
+		a.ac.err = "thatEmailAddressIsntValid"
 	case mode == "invite" && code == "":
-		a.ac.err = "Erişim kodu gerekli."
+		a.ac.err = "anAccessCodeIsNeeded"
 	case mode == "invite":
 		a.acctRun(func(cl *acctClient) error { return cl.CheckInvite(user, code) }, func() {
 			a.ac.mode, a.ac.err, a.ac.pass, a.ac.pass2 = "password", "", "", ""
 		})
 	case mode == "password" && len(pass) < 8:
-		a.ac.err = "Şifre en az 8 karakter olsun."
+		a.ac.err = "thePasswordNeedsAtLeast8"
 	case mode == "password" && pass != a.ac.pass2:
-		a.ac.err = "Şifreler aynı değil."
+		a.ac.err = "thePasswordsAreNotTheSame"
 	case mode == "reset" && strings.TrimSpace(rec) == "":
-		a.ac.err = "Kurtarma anahtarı gerekli."
+		a.ac.err = "theRecoveryKeyIsNeeded"
 	case mode == "reset" && len(nw) < 8:
-		a.ac.err = "Yeni şifre en az 8 karakter olsun."
+		a.ac.err = "theNewPasswordNeedsAtLeast"
 	case mode == "login" && pass == "":
-		a.ac.err = "E-posta ve şifre gerekli."
+		a.ac.err = "anEmailAddressAndAPassword"
 	default:
 		a.acctRun(func(cl *acctClient) (err error) {
 			switch mode {
@@ -584,7 +584,7 @@ func (a *app) acctManage(c *ui.Context) {
 	}
 	errLine := func() {
 		if a.ac.err != "" {
-			ui.Text(c, T(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
+			ui.Text(c, serverError(a.ac.err)).FontSize(ryugo.FsSm).TextColor(cl.Up).Wrap()
 		}
 	}
 	settingGroup(c, "set-acct-me",
@@ -604,9 +604,9 @@ func (a *app) acctManage(c *ui.Context) {
 						key, err := base64.StdEncoding.DecodeString(s.SyncKey)
 						switch {
 						case err != nil || len(key) != 32:
-							a.ac.err = "Şifreleme anahtarı bu bilgisayarda yok: çıkış yapıp yeniden gir."
+							a.ac.err = "theEncryptionKeyIsNotOn"
 						case len(nw) < 8:
-							a.ac.err = "Yeni şifre en az 8 karakter olsun."
+							a.ac.err = "theNewPasswordNeedsAtLeast"
 						default:
 							a.acctRun(func(cl *acctClient) error { return cl.ChangePassword(s.SyncToken, s.AccountUser, old, nw, key) },
 								func() {
@@ -695,4 +695,24 @@ func (a *app) accountSection(c *ui.Context) {
 			})
 		})
 	})
+}
+
+// serverError is what the sync Worker said went wrong, in the window's language: it answers in Turkish
+// (cloudflare/sync/auth.js), or the app's own message id, or the system's words, which are said as they are.
+func serverError(s string) string {
+	switch s {
+	case "bu e-postayla açılmış bir hesap var: giriş yap":
+		return msg("thereIsAlreadyAnAccountWith")
+	case "e-posta adresi geçersiz":
+		return msg("thatEmailAddressIsntValid2")
+	case "e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş":
+		return msg("theEmailOrTheAccessCode")
+	case "e-posta ya da kurtarma anahtarı yanlış":
+		return msg("wrongEmailOrRecoveryKey")
+	case "e-posta ya da şifre yanlış":
+		return msg("wrongEmailOrPassword")
+	case "çok fazla deneme, sonra tekrar dene":
+		return msg("tooManyTriesTryAgainLater")
+	}
+	return msg(s)
 }

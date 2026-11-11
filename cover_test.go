@@ -65,7 +65,7 @@ func TestCover(t *testing.T) {
 	for _, it := range a.pageMenu(p, false) {
 		titles = append(titles, it.title)
 	}
-	if !contains(titles, "Kapak resmi ekle…") {
+	if !contains(titles, "page_addCover") {
 		t.Fatalf("menu: %v", titles)
 	}
 }

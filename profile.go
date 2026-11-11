@@ -197,7 +197,7 @@ func (a *app) syncProbe() {
 	}
 	remote, err := a.syncRemote()
 	if err != nil {
-		a.ac.probe = locales.CommonDidntWork(T(err.Error()))
+		a.ac.probe = locales.CommonDidntWork(serverError(err.Error()))
 		return
 	}
 	a.ac.probing, a.ac.probe = true, ""

@@ -15,9 +15,9 @@ func TestPaletteInEnglish(t *testing.T) {
 	seen := map[string]bool{}
 	var out []string
 	add := func(where, s string) {
-		if s != "" && turkish(T(s)) && !seen[s] && !strings.Contains(s, a.page.Title) && !strings.Contains(s, a.page.Coll.Name) {
+		if s != "" && turkish(msg(s)) && !seen[s] && !strings.Contains(s, a.page.Title) && !strings.Contains(s, a.page.Coll.Name) {
 			seen[s] = true
-			out = append(out, where+"\t"+T(s))
+			out = append(out, where+"\t"+msg(s))
 		}
 	}
 	for _, q := range []string{">", "@", "#", ":", "!", "?", "/", ">tema", ">yazı", ">set", ":set fontsize=18", ":e x", ":tema mor", ":zz", "#zz", ">dil", ">caret", ">profil"} {
@@ -36,7 +36,7 @@ func TestPaletteInEnglish(t *testing.T) {
 			add(where+" sub", it.sub)
 			add(where+" group", it.group)
 			if it.items != nil {
-				walk(where+">"+T(it.title), it.items())
+				walk(where+">"+msg(it.title), it.items())
 			}
 		}
 	}

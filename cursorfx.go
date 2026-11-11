@@ -39,7 +39,7 @@ var cursorPresets []cursorPreset
 
 func init() {
 	cursorPresets = []cursorPreset{
-		{"Rocket", func() cursorFX { return &rocket{} }},
+		{"rocket", func() cursorFX { return &rocket{} }},
 	}
 }
 

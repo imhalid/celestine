@@ -63,10 +63,10 @@ func TestPaletteContext(t *testing.T) {
 func TestSettingsSearchAndReset(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	res := searchDefs("yazi boyutu")
-	if len(res) == 0 || res[0].name != "Yazı boyutu" {
+	if len(res) == 0 || res[0].name != "common_fontSize" {
 		t.Fatalf("search: %v", res)
 	}
-	if len(searchDefs("autosave")) == 0 || searchDefs("autosave")[0].name != "Otomatik kayıt" {
+	if len(searchDefs("autosave")) == 0 || searchDefs("autosave")[0].name != "common_autosave" {
 		t.Fatal("the other language does not find it")
 	}
 	if len(a.changedDefs()) != 0 {
@@ -80,11 +80,11 @@ func TestSettingsSearchAndReset(t *testing.T) {
 	for _, d := range ch {
 		names[d.name] = true
 	}
-	if !names["Yazı boyutu"] || !names["Boşlukları göster"] || !names["Köşe yuvarlaklığı"] {
+	if !names["common_fontSize"] || !names["showSpaces"] || !names["common_cornerRoundness"] {
 		t.Fatalf("changed: %v", names)
 	}
 	for _, d := range ch {
-		if d.name == "Yazı boyutu" {
+		if d.name == "common_fontSize" {
 			d.reset(a)
 		}
 	}
@@ -119,7 +119,7 @@ func TestSettingsSearchAndReset(t *testing.T) {
 func TestProfiles(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	a.settings.Theme = 2
-	if !a.applyProfile("Kod") {
+	if !a.applyProfile("code") {
 		t.Fatal("no built-in profile")
 	}
 	if a.fontSize() != 14.5 || !a.settings.ShowSpaces || !a.settings.NoLigatures {
@@ -132,7 +132,7 @@ func TestProfiles(t *testing.T) {
 	a.setFontSize(23)
 	a.settings.Theme = 1
 	a.saveProfile("Benimki")
-	a.applyProfile("Yazar")
+	a.applyProfile("settings_profileWriter")
 	if a.fontSize() != 18 || a.settings.ShowSpaces {
 		t.Fatal("Yazar not applied")
 	}

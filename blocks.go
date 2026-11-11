@@ -114,7 +114,9 @@ func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
 		if lang, ok := strings.CutPrefix(st.ID, codeIDPrefix); ok {
 			label = lang
 		} else if kind, ok := strings.CutPrefix(st.ID, rawIDPrefix); ok {
-			label = rawNames[kind] + " · Markdown"
+			if name, ok := rawNames[kind]; ok {
+				label = name() + " · Markdown"
+			}
 		}
 		if !st.CodeBlock || !(strings.HasPrefix(st.ID, codeIDPrefix) || strings.HasPrefix(st.ID, rawIDPrefix)) {
 			continue

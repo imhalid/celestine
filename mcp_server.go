@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/imhalid/celestine/locales"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -287,7 +288,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				}
 				title := strings.TrimSpace(in.Title)
 				if title == "" {
-					title = "Adsız"
+					title = locales.CommonUntitled()
 				}
 				p, err := c.NewPage(parent, title)
 				if err != nil {
@@ -519,11 +520,11 @@ func (a *app) addCommandTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 // mcpCommandCats are the groups of commands an agent may run: moving about, the view, the text, a page,
 // a collection, the panes. The groups left out change where the library is kept, what it is sent to, how
 // the app updates, or ask for a file (Dosyalar ve senkron, Uygulama): they are the user's.
-var mcpCommandCats = map[string]bool{"Sayfa": true, "Koleksiyon": true, "Bölmeler": true, "Git": true, "Yazı": true, "Görünüm": true}
+var mcpCommandCats = map[string]bool{"page": true, "collection": true, "panes": true, "common_go": true, "writing": true, "common_appearance": true}
 
 // mcpCommandsAlso are commands of the groups left out that an agent may run too: they only do what their
 // title says, and cannot be turned to anything else.
-var mcpCommandsAlso = []string{"Şimdi eşitle", "Şimdi yedekle", "Kısayollar ve yardım", "Bu sürümde neler yeni", "Yeni sürümü denetle"}
+var mcpCommandsAlso = []string{"common_syncNow", "common_backUpNow", "shortcutsAndHelp", "whatsNewInThisVersion", "checkForUpdates"}
 
 // mcpMayRun says whether an agent may run the command it. A page thrown away can be put back from the
 // trash; a restore of a backup, the settings put back to their start, a file chosen in a dialog, the place
@@ -533,7 +534,7 @@ func mcpMayRun(it palItem) bool {
 		return true
 	}
 	for _, t := range mcpCommandsAlso {
-		if it.title == T(t) {
+		if it.id == t {
 			return true
 		}
 	}
@@ -541,7 +542,7 @@ func mcpMayRun(it palItem) bool {
 }
 
 // mcpReadOnlyCommands are commands of a page that change nothing, by their Turkish title.
-var mcpReadOnlyCommands = map[string]bool{"Sayfada bul": true}
+var mcpReadOnlyCommands = map[string]bool{"findInPage2": true}
 
 // mcpMayChange says why an agent may not run command it, or nil: a command of a page or a collection changes
 // the page or collection the window shows (a new page goes into it), and so needs what writing it needs
@@ -551,10 +552,10 @@ func (a *app) mcpMayChange(it palItem) error {
 	if name == "" {
 		name = it.fam
 	}
-	if it.cat != "Sayfa" && it.cat != "Koleksiyon" || mcpReadOnlyCommands[name] {
+	if it.cat != "page" && it.cat != "collection" || mcpReadOnlyCommands[name] {
 		return nil
 	}
-	if name == "Yeni koleksiyon" {
+	if name == "newCollection" {
 		if a.mcpAccess(nil) != mcpWrite {
 			return errors.New("agents may not make collections (Settings ▸ MCP)")
 		}
@@ -562,7 +563,7 @@ func (a *app) mcpMayChange(it palItem) error {
 	}
 	var c *Collection
 	switch {
-	case name == "Bugünün sayfası" || name == "Yeni günlük":
+	case name == "todaysPage" || name == "Yeni günlük":
 		for _, x := range a.lib.Collections {
 			if x.Journal {
 				c = x

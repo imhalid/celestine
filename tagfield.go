@@ -58,8 +58,8 @@ func (a *app) tagsField(c *ui.Context, key string, tags *[]string, placeholder, 
 			})
 			a.contextOn(chip, func() []menuItem {
 				return []menuItem{
-					{title: "Kopyala", glyph: iconCopy, run: func() { a.copyText(tag) }},
-					{title: "Sil", group: "~", glyph: iconTrash, danger: true, run: remove},
+					{title: "common_copy", glyph: iconCopy, run: func() { a.copyText(tag) }},
+					{title: "common_delete", group: "~", glyph: iconTrash, danger: true, run: remove},
 				}
 			})
 		}

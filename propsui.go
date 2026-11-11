@@ -327,7 +327,7 @@ func (a *app) setValue(p *Page, id, v string) {
 // propDialog adds a property, or changes or deletes one.
 func (a *app) propDialog(c *ui.Context) {
 	e := &a.prop
-	title := "Özellik ekle"
+	title := locales.CommonAddProperty()
 	if e.id != "" {
 		title = locales.PropsEditProperty()
 	}
@@ -337,9 +337,9 @@ func (a *app) propDialog(c *ui.Context) {
 			e.open = false
 		}
 		ui.Spacer(c)
-		label := "Ekle"
+		label := locales.SlashGroupInsert()
 		if e.id != "" {
-			label = "Kaydet"
+			label = locales.CommonSave()
 		}
 		if ryugo.Button(c.Key("prop-save"), label, ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.saveProp()
@@ -396,11 +396,11 @@ func (a *app) saveProp() {
 // to change, its value to clear, the property to delete from the collection.
 func (a *app) propRowMenu(p *Page, pr *Property) []menuItem {
 	id, coll := pr.ID, p.Coll
-	out := []menuItem{{title: "Özelliği düzenle…", glyph: iconEdit, run: func() { a.editProp(p, pr) }}}
+	out := []menuItem{{title: "props_editPropertyMenu", glyph: iconEdit, run: func() { a.editProp(p, pr) }}}
 	if p.Props[id] != "" {
-		out = append(out, menuItem{title: "Değeri temizle", glyph: iconClose, run: func() { a.setValue(p, id, "") }})
+		out = append(out, menuItem{title: "props_clearValue", glyph: iconClose, run: func() { a.setValue(p, id, "") }})
 	}
-	return append(out, menuItem{title: "Özelliği sil", group: "~", glyph: iconTrash, danger: true, run: func() {
+	return append(out, menuItem{title: "common_deleteProperty", group: "~", glyph: iconTrash, danger: true, run: func() {
 		a.removeProperty(coll, id)
 	}})
 }

@@ -88,13 +88,13 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, monthYear(month, false)).FontSize(20).FontWeight(680)
 			ui.Spacer(c)
-			if a.iconButton(c, iconBack, "Önceki ay") {
+			if a.iconButton(c, iconBack, locales.CommonPreviousMonth()) {
 				a.calMonth, a.calOpen = month.AddDate(0, -1, 0), false
 			}
 			if ryugo.Button(c.Key("cal-today"), locales.CommonToday(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 				a.calMonth, a.calOpen = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), false
 			}
-			if a.iconButton(c, iconChevron, "Sonraki ay") {
+			if a.iconButton(c, iconChevron, locales.CommonNextMonth()) {
 				a.calMonth, a.calOpen = month.AddDate(0, 1, 0), false
 			}
 		})
@@ -273,7 +273,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 						for _, p := range list {
 							p := p
 							row := ui.Row(c.Key("dc:"+p.Dir)).FillWidth().Height(30).Padding(0, 8).Gap(8).Radius(rad(7)).AlignItems(ui.Center).
-								Label("Aç: " + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+								Label(locales.ViewsOpenLabel(p.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 							if row.Hovered() {
 								row.Background(cl.Fill)
 							}
@@ -295,7 +295,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 					})
 				})
 				if a.canMakeOn(coll, field, d, now, list) {
-					if ryugo.Button(c.Key("day-make"), map[bool]string{true: "Bugünün sayfası", false: addToDayLabel(coll)}[coll.Journal],
+					if ryugo.Button(c.Key("day-make"), map[bool]string{true: "todaysPage", false: addToDayLabel(coll)}[coll.Journal],
 						ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.calOpen = false
 						a.makeOnDay(coll, field, d)
@@ -397,7 +397,7 @@ func (a *app) makeOnDay(coll *Collection, field string, d time.Time) {
 		a.openToday()
 		return
 	}
-	p, err := coll.NewPage(nil, "Adsız")
+	p, err := coll.NewPage(nil, msg("common_untitled"))
 	if err != nil {
 		a.fail(err)
 		return

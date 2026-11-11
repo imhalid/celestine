@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // The status bar's hints follow the caret: a heading's, a list item's, a selection's, an empty line's; the keys known
@@ -27,7 +29,7 @@ func TestHintsFollowTheBlock(t *testing.T) {
 			if h.key == "⌘P" || h.key == "⌘K" || h.key == "⌘F" || h.key == "[[" || h.what == "normal kip" {
 				t.Fatalf("a key known to all at %q: %+v", at, h)
 			}
-			out = append(out, h.what)
+			out = append(out, locales.Catalog.Format("en", h.what, nil)) // its English, as the hints were written
 		}
 		return out
 	}
@@ -70,7 +72,7 @@ func TestHintsFollowTheBlock(t *testing.T) {
 	// zoomed: zooming out comes first
 	a.zoomIn(strings.Index(a.doc.Text().String(), "one"))
 	tt.Frame()
-	if h := a.hints(); len(h) == 0 || h[0].what != "zoom out" {
+	if h := a.hints(); len(h) == 0 || h[0].what != "zoomOut2" {
 		t.Fatalf("while zoomed: %+v", h)
 	}
 }

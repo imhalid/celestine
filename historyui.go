@@ -145,13 +145,13 @@ func (a *app) historyView(c *ui.Context) {
 	}
 	cl := ryugo.From(c).Colors
 	now := a.clock()
-	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: T(map[bool]string{true: "Sunucudaki sürümler: ", false: "Sürüm geçmişi: "}[v.server]) + v.page.Title, Width: 940, Footer: func() {
+	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: msg(map[bool]string{true: "versionsOnTheServer", false: "versionHistory2"}[v.server]) + v.page.Title, Width: 940, Footer: func() {
 		hint := locales.HistoryHint()
 		if len(v.vers) == 0 {
 			hint = locales.HistoryNoCopies()
 		}
 		if v.server {
-			hint = "Sunucunun tuttuğu eski haller: en çok 10, 30 gün; bir hâle dönünce bu bilgisayardaki sayfa o olur ve eşitlenir."
+			hint = locales.TheEarlierStatesTheServerKeeps()
 		}
 		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
 		if !v.server {

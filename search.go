@@ -256,8 +256,8 @@ func (a *app) searchView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	hits := a.searchPages(a.searchQ, 80, a.links.stale)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, "Ara").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: "Kitaplıkta ara", Placeholder: locales.QuerySearchPagesTitlesText(), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
+		ui.Text(c, locales.CommonSearch()).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
+		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: locales.SearchTheLibrary(), Placeholder: locales.QuerySearchPagesTitlesText(), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
 		if a.searchFocus {
 			in.Focus()
 			a.searchFocus = false
@@ -277,9 +277,9 @@ func (a *app) searchView(c *ui.Context) {
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(2, 0, 4, 0)
 		if len(hits) == 0 {
 			if strings.TrimSpace(a.searchQ) == "" {
-				a.emptyState(c, iconSearch, "Kitaplıkta ara", "Sayfaların başlığında ve metninde ara; \"tam ifade\", VEYA, -kelime, başlık:, koleksiyon:, #etiket, @todo, @done, created:, modified: ve özellik:değer süzgeçleri de çalışır.", "", nil)
+				a.emptyState(c, iconSearch, locales.SearchTheLibrary(), locales.SearchThePagesTitlesAndText(), "", nil)
 			} else {
-				a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "Başka bir kelime dene ya da süzgeçleri kaldır.", "", nil)
+				a.emptyState(c, iconSearch, locales.CommonNoPageMatches(), locales.TryAnotherWordOrTakeThe(), "", nil)
 			}
 			return
 		}

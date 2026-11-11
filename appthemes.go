@@ -27,41 +27,41 @@ type appTheme struct {
 }
 
 var appThemes = []appTheme{
-	{name: "Varsayılan"},
-	{"Gece Yarısı",
+	{name: "default"},
+	{"midnight",
 		skinColors{bg: "#eef2ff", text: "#141a33", accent: "#3b5bdb", side: "#dde4fb", card: "#fafbff", line: "#c7d0f0"},
 		skinColors{bg: "#0a0f1e", text: "#e8edff", accent: "#5b8cff", side: "#060a15", card: "#131a30", line: "#222c4a"}},
-	{"Obsidyen",
+	{"obsidian",
 		skinColors{bg: "#f6f3fb", text: "#1d1530", accent: "#7c3aed", side: "#e8e2f2", card: "#fdfcff", line: "#d6cdea"},
 		skinColors{bg: "#0c0a11", text: "#eee9f7", accent: "#a45cff", side: "#07060b", card: "#16131e", line: "#2b2538"}},
-	{"Kor",
+	{"ember",
 		skinColors{bg: "#fbf3ec", text: "#2b1a10", accent: "#d9480f", side: "#f0e1d3", card: "#fffaf5", line: "#e0cbb8"},
 		skinColors{bg: "#120e0c", text: "#f3e8de", accent: "#ff6a2b", side: "#0b0807", card: "#1e1714", line: "#35271f"}},
-	{"Derin Deniz",
+	{"deepSea",
 		skinColors{bg: "#e8f6f5", text: "#0c2a2c", accent: "#0b8f86", side: "#d3ebea", card: "#f6fcfc", line: "#b6dad8"},
 		skinColors{bg: "#061518", text: "#d7f3f1", accent: "#1fe0d0", side: "#030d0f", card: "#0e2a2e", line: "#1a4046"}},
 	{"Aurora",
 		skinColors{bg: "#eef8f1", text: "#0f2a1b", accent: "#1a9b57", side: "#dcefe2", card: "#f9fdfa", line: "#c0dccb"},
 		skinColors{bg: "#08120d", text: "#def6e8", accent: "#42e08a", side: "#040a07", card: "#10201a", line: "#1d3629"}},
-	{"Mürekkep",
+	{"ink2",
 		skinColors{bg: "#f6f8fa", text: "#1f2328", accent: "#0969da", side: "#e8ecf1", card: "#ffffff", line: "#d0d7de"},
 		skinColors{bg: "#0b0e14", text: "#e6edf3", accent: "#58a6ff", side: "#06080c", card: "#141922", line: "#252d3a"}},
-	{"Kiraz",
+	{"cherry",
 		skinColors{bg: "#fbf0f1", text: "#3a1f27", accent: "#c4284f", side: "#f1dcdf", card: "#fff8f9", line: "#e3c6cb"},
 		skinColors{bg: "#150a0e", text: "#f8e3ea", accent: "#ff4f7b", side: "#0e0509", card: "#23111a", line: "#3a1c28"}},
-	{"Kehribar",
+	{"amber",
 		skinColors{bg: "#fcf6e6", text: "#2e2410", accent: "#b8860b", side: "#f1e6c8", card: "#fffbf0", line: "#e3d4a8"},
 		skinColors{bg: "#130f08", text: "#f5e9d0", accent: "#f7b928", side: "#0c0905", card: "#201a0e", line: "#382d19"}},
-	{"Grafit",
+	{"graphite",
 		skinColors{bg: "#f2f2f3", text: "#1c1c1f", accent: "#e8590c", side: "#e2e2e5", card: "#ffffff", line: "#cfcfd4"},
 		skinColors{bg: "#0e0e10", text: "#ededf0", accent: "#ff8a3d", side: "#080809", card: "#18181b", line: "#2b2b30"}},
 	{"Gruvbox",
 		skinColors{bg: "#fbf1c7", text: "#3c3836", accent: "#d65d0e", side: "#ebdbb2", card: "#fdf6d3", line: "#d5c4a1"},
 		skinColors{bg: "#1d2021", text: "#ebdbb2", accent: "#fabd2f", side: "#141617", card: "#282828", line: "#3c3836"}},
-	{"Sepya",
+	{"sepia",
 		skinColors{bg: "#f4ecd8", text: "#3b2c1b", accent: "#a0431f", side: "#e8dcbe", card: "#fbf5e6", line: "#d4c5a0"},
 		skinColors{bg: "#1a130d", text: "#ecdcc0", accent: "#e0954a", side: "#120d08", card: "#271d14", line: "#3e3022"}},
-	{"Orman",
+	{"forest",
 		skinColors{bg: "#eef3ec", text: "#1b2b20", accent: "#1f8a4c", side: "#dce8d9", card: "#f9fcf7", line: "#c4d6c0"},
 		skinColors{bg: "#0a130e", text: "#d9e8dd", accent: "#4fd18b", side: "#060c09", card: "#13211a", line: "#22382c"}},
 }
@@ -208,7 +208,7 @@ func (a *app) appThemePicker(c *ui.Context) {
 	ui.Column(c).Gap(14).Children(func() {
 		ui.Column(c).Gap(3).Children(func() {
 			ui.Text(c, locales.CommonColorTheme()).FontSize(15).FontWeight(620).TextColor(cl.Text)
-			ui.Text(c, locales.ThemesColorHelp(T(a.appTheme().name))).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			ui.Text(c, locales.ThemesColorHelp(msg(a.appTheme().name))).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 		})
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for i, th := range appThemes {

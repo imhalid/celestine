@@ -237,7 +237,7 @@ func (a *app) propLabel(p *Page, pr *Property) string {
 func propTypeOptions() []ryugo.Option[int] {
 	var out []ryugo.Option[int]
 	for i, t := range PropTypes {
-		out = append(out, ryugo.Option[int]{Value: i, Label: T(t.Name)})
+		out = append(out, ryugo.Option[int]{Value: i, Label: PropTypeName(t.Type)})
 	}
 	return out
 }

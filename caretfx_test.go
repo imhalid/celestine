@@ -45,7 +45,7 @@ func TestCaretTiles(t *testing.T) {
 	a.settingsOpen, a.settingsTab = true, 1
 	tt.Advance(900 * time.Millisecond)
 	for k := caretKind(0); k < caretCount(); k++ {
-		if !tt.HasText(T(caretName(k))) { // shown in the window's language: Line is Çizgi
+		if !tt.HasText(msg(caretName(k))) { // shown in the window's language: Line is Çizgi
 			t.Fatalf("no tile for %s: %v", caretName(k), tt.Texts())
 		}
 	}

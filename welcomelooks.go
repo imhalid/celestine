@@ -57,7 +57,7 @@ func (o welcomeOpening) progress(t float64) float64 {
 }
 
 var welcomeGrounds = []welcomeGround{
-	{"", "Gece", groundShader(meshLayer(`
+	{"", "night", groundShader(meshLayer(`
 func tint(i int) vec3 {
 	a := vec3(0.10, 0.56, 0.62) // deep teal
 	b := vec3(0.20, 0.20, 0.62) // midnight
@@ -73,13 +73,13 @@ func tint(i int) vec3 {
 	return b
 }
 `)), false},
-	{"tentakul", "Tentakül", groundShader(tentacleLayer), true},
-	{"bulut", "Bulut", groundShader(cloudLayer), true},
+	{"tentakul", "tentacles", groundShader(tentacleLayer), true},
+	{"bulut", "clouds", groundShader(cloudLayer), true},
 }
 
 var welcomeOpenings = []welcomeOpening{
-	{id: "", name: "Halka", sh: shader.MustCompile(ringOpening + fbmShader + ringShared), maxOffset: 40, ring: true, dur: 2.3, ease: easeOut}, // fast off, settling slowly (caretfx_nature.go)
-	{id: "portal", name: "Portal", sh: shader.MustCompile(portalOpening + ringShared), dur: 2.9},
+	{id: "", name: "ring", sh: shader.MustCompile(ringOpening + fbmShader + ringShared), maxOffset: 40, ring: true, dur: 2.3, ease: easeOut}, // fast off, settling slowly (caretfx_nature.go)
+	{id: "portal", name: "portal", sh: shader.MustCompile(portalOpening + ringShared), dur: 2.9},
 }
 
 // welcomeGroundLook is the ground chosen in the settings, or the first. CELESTINE_WELCOME_GROUND chooses one for a run

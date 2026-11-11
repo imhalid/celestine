@@ -106,7 +106,7 @@ func (a *app) palQuery() string {
 // commands are what the palette does, where the app is now.
 func (a *app) commands() []palItem {
 	cmd := func(title, keys string, glyph *ui.SVG, run func()) palItem {
-		return palItem{title: T(title), sub: locales.PaletteCommand(), kind: palCommand, id: title, keys: keys, glyph: glyph, run: run, cat: cmdCat(title), fam: cmdFam(title)}
+		return palItem{title: msg(title), sub: locales.PaletteCommand(), kind: palCommand, id: title, keys: keys, glyph: glyph, run: run, cat: cmdCat(title), fam: cmdFam(title)}
 	}
 	var out []palItem
 	ctxFrom := 0
@@ -120,11 +120,13 @@ func (a *app) commands() []palItem {
 		if !c.Dynamic() {
 			out = append(out, cmd(newPageLabel(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
 		}
-		out = append(out, cmd("Koleksiyon ayarları: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
+		out = append(out, cmd("collectionSettings: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
 		if !c.Journal {
 			for _, t := range c.AllTemplates() {
 				t := t
-				out = append(out, cmd("Şablondan yeni "+pageNoun(c)+": "+t.Name, "", iconTemplate, func() { a.newPageFrom(c, nil, t.Body) }))
+				it := cmd("palette_newFromTemplate: "+t.Name, "", iconTemplate, func() { a.newPageFrom(c, nil, t.Body) })
+				it.title = locales.PaletteNewFromTemplate(t.Name)
+				out = append(out, it)
 			}
 		}
 	}
@@ -134,28 +136,28 @@ func (a *app) commands() []palItem {
 			for _, f := range []struct {
 				name string
 				do   func()
-			}{{"Seçimi kalın yap", a.doc.ToggleBold}, {"Seçimi italik yap", a.doc.ToggleItalic}, {"Seçimin altını çiz", a.doc.ToggleUnderline},
-				{"Seçimin üstünü çiz", a.doc.ToggleStrikethrough}, {"Seçimi kod yap", a.doc.ToggleCode}} {
+			}{{"makeTheSelectionBold", a.doc.ToggleBold}, {"makeTheSelectionItalic", a.doc.ToggleItalic}, {"underlineTheSelection", a.doc.ToggleUnderline},
+				{"strikeTheSelectionThrough", a.doc.ToggleStrikethrough}, {"makeTheSelectionCode", a.doc.ToggleCode}} {
 				f := f
 				out = append(out, cmd(f.name, "", iconEditing, func() { f.do(); a.refocus = true }))
 			}
 		}
 		if p.Coll.SubPages {
-			out = append(out, cmd("Alt sayfa ekle: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
+			out = append(out, cmd("addASubPage: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
 		}
 		if _, ok := historyOf(p); ok {
-			out = append(out, cmd(map[bool]string{false: "Time-lapse", true: "Back to the text"}[a.lapse.on], "", iconLapse, a.toggleLapse))
+			out = append(out, cmd(map[bool]string{false: "common_timeLapse", true: "common_backText"}[a.lapse.on], "", iconLapse, a.toggleLapse))
 		}
-		out = append(out, cmd("Geri al", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
-		out = append(out, cmd("Yinele", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
-		out = append(out, cmd("Panodan tablo ekle (CSV)", "", iconKind, func() { a.pasteTable() }))
-		out = append(out, cmd("Çöpe taşı: "+p.Title, "", iconTrash, func() { a.trashPage(p) }))
+		out = append(out, cmd("common_undo2", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
+		out = append(out, cmd("redo", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
+		out = append(out, cmd("pasteATableCsv", "", iconKind, func() { a.pasteTable() }))
+		out = append(out, cmd("moveToTrash: "+p.Title, "", iconTrash, func() { a.trashPage(p) }))
 	}
 	mark()
 	if c := a.coll; c != nil {
 		for i := range c.Views {
 			v := c.Views[i]
-			out = append(out, cmd("Görünüm: "+v.Label, "", iconStack, func() {
+			out = append(out, cmd("view: "+v.Label, "", iconStack, func() {
 				if err := c.SetView(v.ID); err != nil {
 					a.fail(err)
 				}
@@ -166,8 +168,8 @@ func (a *app) commands() []palItem {
 	mark()
 	out = append(out, a.paneCommands(cmd)...)
 	out = append(out,
-		cmd("Görevler", "", iconTask, a.openTasks),
-		cmd("Ayarları dosyaya yaz", "", iconExport, func() {
+		cmd("common_tasks", "", iconTask, a.openTasks),
+		cmd("common_writeSettingsFile", "", iconExport, func() {
 			p := a.settingsFileOut()
 			if err := a.exportSettingsTo(p); err != nil {
 				a.say(toastErr, locales.CommonDidntWork(err.Error()))
@@ -175,45 +177,45 @@ func (a *app) commands() []palItem {
 				a.say(toastOK, locales.CommonSavedTo(p))
 			}
 		}),
-		cmd("Ayar dosyası oku…", "", iconExport, a.pickSettingsFile),
-		cmd("Hepsini varsayılana döndür", "", iconSettings, a.resetAllAsked),
-		cmd("Son kayıttan önceki hâle dön", "", iconBack, a.revertToBeforeSave),
-		cmd("Şimdi eşitle", "", iconSync, func() {
+		cmd("settings_readSettingsFile", "", iconExport, a.pickSettingsFile),
+		cmd("common_resetAllDefaults", "", iconSettings, a.resetAllAsked),
+		cmd("goBackToBeforeTheLast", "", iconBack, a.revertToBeforeSave),
+		cmd("common_syncNow", "", iconSync, func() {
 			if a.settings.SyncMode == "" {
 				a.say(toastWarn, locales.SyncIsOffSettingsSync())
 				return
 			}
 			a.syncNow()
 		}),
-		cmd("Yeni sürümü denetle", "", iconUpdate, func() { a.checkUpdate(true) }),
-		cmd("Bu sürümde neler yeni", "", iconUpdate, func() {
+		cmd("checkForUpdates", "", iconUpdate, func() { a.checkUpdate(true) }),
+		cmd("whatsNewInThisVersion", "", iconUpdate, func() {
 			a.updNotes, a.updOpen = true, true
 			if a.settings.UpdateNotes == "" {
 				a.settings.UpdateNotes = "Bu sürümün notu yok: sürüm " + version + "."
 			}
 		}),
-		cmd("Kısayollar ve yardım", "?", iconSearch, func() { a.kb.help = true }),
-		cmd("Klavye kipine geç (Esc)", "", iconSearch, a.kbEnter),
-		cmd("Şimdi yedekle", "", iconExport, func() { a.backupNow("elle", false) }),
-		cmd("Markdown olarak dışa aktar (klasör)", "", iconExport, func() {
+		cmd("shortcutsAndHelp", "?", iconSearch, func() { a.kb.help = true }),
+		cmd("enterTheKeyboardModeEsc", "", iconSearch, a.kbEnter),
+		cmd("common_backUpNow", "", iconExport, func() { a.backupNow("elle", false) }),
+		cmd("exportAsMarkdownFolder", "", iconExport, func() {
 			if st := a.store(); st != nil {
 				a.sayDone(a.exportLibrary(st))
 			} else {
 				a.say(toastInfo, locales.ThisLibraryIsAlreadyMadeOf())
 			}
 		}),
-		cmd("Markdown olarak dışa aktar (zip)", "", iconExport, func() {
+		cmd("exportAsMarkdownZip", "", iconExport, func() {
 			if st := a.store(); st != nil {
 				a.sayDone(a.exportZip(st))
 			} else {
 				a.say(toastInfo, locales.ThisLibraryIsAlreadyMadeOf())
 			}
 		}),
-		cmd("Çökme günlüğünü göster", "", iconSettings, a.showCrash),
-		cmd("İstatistikler", "", iconStats, a.openStats),
-		cmd("Hesap profili", "", iconUser, a.openProfile),
-		cmd("Markdown klasörü içe aktar…", "", iconExport, a.pickImportFolder),
-		cmd("Rastgele gün", "", iconCalendar, a.openRandomDay),
+		cmd("showTheCrashLog", "", iconSettings, a.showCrash),
+		cmd("common_statistics", "", iconStats, a.openStats),
+		cmd("accountProfile", "", iconUser, a.openProfile),
+		cmd("importAMarkdownFolder2", "", iconExport, a.pickImportFolder),
+		cmd("randomDay", "", iconCalendar, a.openRandomDay),
 	)
 	out = append(out, a.appPalette()...) // the app's commands, as the menu bar has them (appcmds.go)
 	// the settings, each a command; a theme or a caret is shown as it is passed over, and a ✓ is by the
@@ -229,12 +231,12 @@ func (a *app) commands() []palItem {
 			break
 		}
 		b := b
-		what := "günlük"
+		what := "common_daily"
 		if b.Label != "" {
 			what = b.Label
 		}
-		it := cmd("Yedekten geri yükle: "+dateTime(b.At, false)+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
-		it.title = T("Yedekten geri yükle") + ": " + dateTime(b.At, false) + " (" + T(strings.ReplaceAll(what, "-", " ")) + ")" // what it was taken for, in the window's language
+		it := cmd("restoreFromABackup: "+dateTime(b.At, false)+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
+		it.title = msg("restoreFromABackup") + ": " + dateTime(b.At, false) + " (" + backupKind(what) + ")" // what it was taken for, in the window's language
 		it.alias = "restore backup yedek"
 		out = append(out, it)
 	}
@@ -245,25 +247,25 @@ func (a *app) commands() []palItem {
 	sort.Strings(macroNames)
 	for _, n := range macroNames {
 		n := n
-		it := cmd("Makro: "+n, "", iconSettings, func() { a.runMacro(n) })
+		it := cmd("macro: "+n, "", iconSettings, func() { a.runMacro(n) })
 		it.alias = "macro"
 		out = append(out, it)
 	}
 	for _, n := range a.profileNames() {
 		n := n
-		it := cmd("Profil: "+n, "", iconSettings, func() { a.applyProfile(n) })
-		it.title = T("Profil") + ": " + T(n) // a built-in profile's name in the window's language; one's own as it was given
+		it := cmd("profile2: "+n, "", iconSettings, func() { a.applyProfile(n) })
+		it.title = msg("common_profile") + ": " + msg(n) // a built-in profile's name in the window's language; one's own as it was given
 		it.alias = "profile görünüm ayar paketi"
 		out = append(out, it)
 	}
-	for _, k := range []string{"Okuma", "Yazı", "Kod"} {
+	for _, k := range []string{"reading", "writing", "code"} {
 		k := k
-		it := cmd("Yazı tipi hazırı: "+k, "", iconSettings, func() {
+		it := cmd("typefacePreset: "+k, "", iconSettings, func() {
 			if !a.fontPreset(k) {
 				a.say(toastWarn, locales.FontsNoneFound(k))
 			}
 		})
-		it.title = T("Yazı tipi hazırı") + ": " + T(k) // both its parts in the window's language
+		it.title = msg("typefacePreset") + ": " + msg(k) // both its parts in the window's language
 		it.alias = "font preset serif sans mono ayar"
 		out = append(out, it)
 	}
@@ -445,10 +447,10 @@ func (a *app) paletteItems(q string) []palItem {
 			if crumb := Parents(h.page); crumb != "" {
 				sub += " › " + crumb
 			}
-			out = append(out, palItem{title: h.page.Title, sub: sub, group: "Metinde", snip: h.snip, glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
+			out = append(out, palItem{title: h.page.Title, sub: sub, group: "inTheText", snip: h.snip, glyph: iconSearch, to: place{"page", h.page.Dir}, run: func() { a.openFound(h) }})
 		}
 		query := strings.TrimSpace(q)
-		out = append(out, palItem{title: locales.PaletteSearchLibraryFor(query), sub: locales.PaletteCommand(), kind: palCommand, id: "Kitaplıkta ara", group: locales.PaletteMore(), keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
+		out = append(out, palItem{title: locales.PaletteSearchLibraryFor(query), sub: locales.PaletteCommand(), kind: palCommand, id: "searchTheLibrary", group: locales.PaletteMore(), keys: "⇧⌘F", glyph: iconSearch, run: func() { a.openSearch(query) }})
 	}
 	return out
 }
@@ -554,7 +556,7 @@ func (a *app) modeItems(mode byte, q string) []palItem {
 		if a.page == nil || a.doc == nil || a.noPage() {
 			out = append(out, palItem{title: locales.PaletteSearchPage(), sub: locales.PaletteNoPageOpen(), glyph: iconSearch, off: locales.PaletteOpenPageToSearch()})
 		} else {
-			out = append(out, palItem{title: "Sayfada ara: " + q, sub: "⌘F", glyph: iconSearch, run: func() {
+			out = append(out, palItem{title: locales.PaletteSearchPageFor(q), sub: "⌘F", glyph: iconSearch, run: func() {
 				a.openFind()
 				a.find.query, a.find.ver = q, 0
 			}})
@@ -740,14 +742,14 @@ func (a *app) paletteView(c *ui.Context) {
 					for i, it := range items {
 						h := it.group
 						if h == "" && a.palQuery() == "" {
-							h = "Son açılanlar"
+							h = "recentlyOpened"
 							if a.palCmds() {
-								h = "Komutlar"
+								h = "common_commands"
 							}
 						}
 						if h != "" && h != head {
 							head = h
-							ui.Text(c.Key("head:"+h), T(h)).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
+							ui.Text(c.Key("head:"+h), msg(h)).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
 						}
 						a.paletteRow(c, i, it)
 					}
@@ -777,13 +779,13 @@ func (a *app) palLabel() string {
 			return m.name()
 		}
 	}
-	return "Sayfa ara"
+	return "common_findPage"
 }
 
 func palPlaceholder(mode byte) string {
 	switch mode {
 	case '>':
-		return "Komut ya da ayar… (yazı boyutu 18) · ? yardım"
+		return "aCommandOrSettingFontSize"
 	case '#':
 		return "Etiket ara…"
 	case ':':
@@ -795,7 +797,7 @@ func palPlaceholder(mode byte) string {
 	case '?':
 		return "Bir kip seç…"
 	}
-	return "Sayfaya git… > komut · # etiket · : satır · / bul · ? yardım"
+	return "goToAPageCommandTag"
 }
 
 func (a *app) paletteRow(c *ui.Context, i int, it palItem) {

@@ -92,7 +92,7 @@ func (a *app) accelConflict(norm, forCmd string) string {
 	}
 	for cmd, k := range a.settings.Keys {
 		if k == norm && cmd != forCmd {
-			return locales.KeysTheCommand(T(cmd))
+			return locales.KeysTheCommand(msg(cmd))
 		}
 	}
 	return ""
@@ -231,7 +231,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 	for _, k := range cmds {
 		k := k
 		rows = append(rows, func() {
-			settingRow(c, T(k), a.settings.Keys[k], func() {
+			settingRow(c, msg(k), a.settings.Keys[k], func() {
 				if ryugo.Button(c.Key("key-del:"+k), locales.KeysRemove(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.unbindKey(k)
 				}
@@ -245,7 +245,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 	settingGroup(c, "set-key-new", func() {
 		settingRow(c, locales.KeysGiveCommandShortcut(), locales.KeysTypeCommandsNameKey(), func() {
 			ui.Column(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: locales.KeysCommandName()}), &a.keyCmd, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: locales.Command(), Size: ryugo.Sm, Placeholder: locales.KeysCommandName()}), &a.keyCmd, fieldOpts{oneLine: true})
 				a.fieldMenu(ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: locales.KeysKey(), Size: ryugo.Sm, Placeholder: "cmd+shift+y"}), &a.keyAccel, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("key-set"), locales.KeysAssign(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.bindKey(a.keyCmd, a.keyAccel); err != nil {
@@ -268,7 +268,7 @@ func (a *app) settingsKeys(c *ui.Context) {
 		mrows = append(mrows, func() {
 			var shown []string
 			for _, t := range a.settings.Macros[n] { // kept by what each command is, shown in the window's language
-				shown = append(shown, T(t))
+				shown = append(shown, msg(t))
 			}
 			settingRow(c, n, strings.Join(shown, " + "), func() {
 				ui.Row(c).Gap(6).Children(func() {
@@ -290,8 +290,8 @@ func (a *app) settingsKeys(c *ui.Context) {
 	settingGroup(c, "set-macro-new", func() {
 		settingRow(c, locales.KeysWriteMacro(), locales.KeysANameCommandsSeparated(), func() {
 			ui.Column(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: locales.KeysMacroName()}), &a.macroName, fieldOpts{oneLine: true})
-				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: locales.KeysTodaysPageTasks()}), &a.macroList, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: locales.KeysMacroName(), Size: ryugo.Sm, Placeholder: locales.KeysMacroName()}), &a.macroName, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: locales.CommonCommands(), Size: ryugo.Sm, Placeholder: locales.KeysTodaysPageTasks()}), &a.macroList, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("macro-save"), locales.CommonSave(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.saveMacro(a.macroName, a.macroList); err != nil {
 						a.say(toastErr, err.Error())

@@ -44,7 +44,7 @@ func TestPhoneLayout(t *testing.T) {
 	}
 	for _, it := range a.commands() {
 		switch it.title {
-		case T("Yan paneli aç/kapat"), T(locales.NewPaneThisScreen()), T("Yan bölmede aç: bu ekran"), T("Bölmeyi ayrı pencereye al"):
+		case msg("Yan paneli aç/kapat"), msg(locales.NewPaneThisScreen()), msg("Yan bölmede aç: bu ekran"), msg("Bölmeyi ayrı pencereye al"):
 			if it.off == "" {
 				t.Fatalf("%q is offered on a phone", it.title)
 			}

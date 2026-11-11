@@ -28,13 +28,13 @@ func fillMenu(m *ui.Menu, items []menuItem, chosen func()) {
 		}
 		if it.items != nil {
 			sub := it.items
-			mi := m.Submenu(T(it.title), func(sm *ui.Menu) { fillMenu(sm, sub(), chosen) })
+			mi := m.Submenu(msg(it.title), func(sm *ui.Menu) { fillMenu(sm, sub(), chosen) })
 			mi.Icon(menuIcon(it.glyph))
 			continue
 		}
-		mi := m.Item(T(it.title))
+		mi := m.Item(msg(it.title))
 		if it.sub != "" {
-			mi.Subtitle(T(it.sub))
+			mi.Subtitle(msg(it.sub))
 		}
 		if it.hint != "" {
 			mi.Trailing(it.hint)
@@ -82,7 +82,7 @@ func menuIcon(glyph *ui.SVG) ui.MenuIcon {
 // It reports whether an item was chosen in this frame.
 func menuAt(c *ui.Context, key, label string, at ui.Rect, open *bool, items []menuItem) (chosen bool) {
 	ui.Overlay(c, func() {
-		anchor := ui.Box(c.Key(key)).Absolute().Left(at.X).Top(at.Y).Size(max(at.W, 1), max(at.H, 1)).Label(T(label)).PassThrough()
+		anchor := ui.Box(c.Key(key)).Absolute().Left(at.X).Top(at.Y).Size(max(at.W, 1), max(at.H, 1)).Label(msg(label)).PassThrough()
 		anchor.PopoverMenuButton(func(m *ui.Menu) {
 			m.MaxWidth(menuW + 40)
 			fillMenu(m, items, func() { chosen = true })

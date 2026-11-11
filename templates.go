@@ -37,7 +37,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 		a.openToday()
 		return
 	}
-	p, err := c.NewPage(parent, "Adsız")
+	p, err := c.NewPage(parent, msg("common_untitled"))
 	if err != nil {
 		a.fail(err)
 		return
@@ -54,7 +54,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 // templateMenu is the menu of a collection's templates, for a page from each.
 func (a *app) templateMenu(c *Collection, parent *Page) []menuItem {
 	var out []menuItem
-	out = append(out, menuItem{title: "Boş sayfa", glyph: iconPage, run: func() { a.newPageFrom(c, parent, "") }})
+	out = append(out, menuItem{title: "templates_blankPage", glyph: iconPage, run: func() { a.newPageFrom(c, parent, "") }})
 	for _, t := range c.AllTemplates() {
 		t := t
 		out = append(out, menuItem{title: t.Name, sub: firstLine(t.Body), glyph: iconTemplate, run: func() { a.newPageFrom(c, parent, t.Body) }})
@@ -120,7 +120,7 @@ func (a *app) templateItems(q string) []menuItem {
 		if q != "" && match(q, "Şablon "+t.Name) < 0 && match(q, locales.TemplatesTemplateLabel(t.Name)) < 0 {
 			continue
 		}
-		out = append(out, menuItem{title: locales.TemplatesTemplateLabel(t.Name), sub: firstLine(t.Body), glyph: iconTemplate, group: "Şablonlar", run: func() { a.chooseTemplate(t) }})
+		out = append(out, menuItem{title: locales.TemplatesTemplateLabel(t.Name), sub: firstLine(t.Body), glyph: iconTemplate, group: "templates_group", run: func() { a.chooseTemplate(t) }})
 	}
 	return out
 }
@@ -143,7 +143,7 @@ func (a *app) csTemplates(c *ui.Context) {
 					drop = i
 				}
 			})
-			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: locales.TemplatesTheTemplatesText(), Placeholder: "## {{başlık}}\n\n- [ ] ", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
+			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: locales.TemplatesTheTemplatesText(), Placeholder: "baslik", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
 		})
 	}
 	if drop >= 0 {

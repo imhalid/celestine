@@ -55,6 +55,6 @@ func (a *app) windowControls(c *ui.Context) {
 		}
 		btn(iconMinimize, locales.WindowMinimize(), false, a.win.Minimize)
 		btn(iconMaximize, locales.WindowMaximize(), false, a.win.ToggleMaximize)
-		btn(iconWinClose, "Kapat", true, a.win.Close)
+		btn(iconWinClose, "close", true, a.win.Close)
 	})
 }

@@ -155,7 +155,7 @@ func TestFindInPage(t *testing.T) {
 func TestAppTheme(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	tt.Frame()
-	if a.appTheme().name != "Varsayılan" {
+	if a.appTheme().name != "default" {
 		t.Fatalf("the first theme is %s", a.appTheme().name)
 	}
 	blue, plainBg := a.theme.Link, a.pageBg
@@ -164,12 +164,12 @@ func TestAppTheme(t *testing.T) {
 	tt.Type("renk teması gece")
 	tt.Frame()
 	items := a.paletteItems(a.pal.query)
-	if len(items) == 0 || items[0].title != "Renk teması: "+locales.Midnight() {
+	if len(items) == 0 || items[0].title != msg("common_colorTheme")+": "+locales.Midnight() {
 		t.Fatalf("first: %+v", items)
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
-	if a.appTheme().name != "Gece Yarısı" || a.settings.AppTheme == 0 {
+	if a.appTheme().name != "midnight" || a.settings.AppTheme == 0 {
 		t.Fatalf("theme %s", a.appTheme().name)
 	}
 	if green := a.theme.Link; green == blue {

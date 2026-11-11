@@ -425,7 +425,7 @@ func (a *app) settingsBackup(c *ui.Context) {
 		rows = append(rows, func() {
 			what := locales.CommonDaily()
 			if b.Label != "" {
-				what = T(strings.ReplaceAll(b.Label, "-", " ")) // what it was taken for, as the file names it: elle, içe-aktarma
+				what = backupKind(b.Label) // what it was taken for, as the file names it: elle, içe-aktarma
 			}
 			settingRow(c, dateTime(b.At, true), what+" · "+fmt.Sprintf("%.1f MB", float64(b.Size)/1e6), func() {
 				if ryugo.Button(c.Key("restore:"+b.Path), locales.CommonRestore(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
@@ -436,4 +436,24 @@ func (a *app) settingsBackup(c *ui.Context) {
 	}
 	ui.Text(c, locales.BackupBackups()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	settingGroup(c, "set-backups", rows...)
+}
+
+// backupKind is what a backup was taken for, as its file's name says it (backupNow, backupBefore: elle,
+// içe-aktarma, güncelleme, senkron), in the window's language; a backup taken each day has none.
+func backupKind(label string) string {
+	switch strings.ReplaceAll(label, "-", " ") {
+	case "", "günlük":
+		return locales.BackupKindDaily()
+	case "elle":
+		return msg("byHand")
+	case "içe aktarma":
+		return msg("beforeAnImport")
+	case "güncelleme":
+		return msg("beforeAnUpdate")
+	case "geri yükleme":
+		return msg("beforeARestore")
+	case "senkron":
+		return locales.BackupKindSync()
+	}
+	return label
 }

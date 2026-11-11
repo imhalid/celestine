@@ -42,7 +42,7 @@ func TestPressWavesSetting(t *testing.T) {
 	}
 	a.settingsOpen, a.settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
-	title, ok := tt.Find(T("Press waves"))
+	title, ok := tt.Find(msg("common_pressWaves"))
 	if !ok {
 		t.Fatal("no Press waves row")
 	}

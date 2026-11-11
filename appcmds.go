@@ -47,10 +47,10 @@ func onePaneOff(a *app) string {
 func appCommands() []appCmd {
 	caret := func(a *app) int { _, c := a.doc.Selection(); return c }
 	return []appCmd{
-		{title: "Ayarlar", accel: "cmd+,", menu: "app", dots: true, glyph: iconSettings, run: (*app).toggleSettings},
-		{title: "Karşılama ekranını göster", glyph: iconSearch, run: (*app).welcomeAgain},
+		{title: "common_settings", accel: "cmd+,", menu: "app", dots: true, glyph: iconSettings, run: (*app).toggleSettings},
+		{title: "showTheWelcomeScreen", glyph: iconSearch, run: (*app).welcomeAgain},
 
-		{title: "Yeni sayfa", accel: "cmd+n", menu: "file", noPal: true, glyph: iconPlus, run: func(a *app) {
+		{title: "common_newPage", accel: "cmd+n", menu: "file", noPal: true, glyph: iconPlus, run: func(a *app) {
 			switch {
 			case a.coll != nil:
 				a.newPage(a.coll, nil)
@@ -60,27 +60,27 @@ func appCommands() []appCmd {
 				a.newPage(a.lib.Collections[0], nil)
 			}
 		}},
-		{title: "Yeni koleksiyon", accel: "cmd+shift+n", menu: "file", glyph: iconStack, run: func(a *app) {
-			if c, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
+		{title: "newCollection", accel: "cmd+shift+n", menu: "file", glyph: iconStack, run: func(a *app) {
+			if c, err := a.lib.NewCollection(msg("newCollection")); err == nil {
 				a.newPage(c, nil)
 			} else {
 				a.fail(err)
 			}
 		}},
-		{title: "Çöp", menu: "file", sep: true, glyph: iconTrash, run: (*app).openTrash},
-		{title: "Kaydet", accel: "cmd+s", menu: "file", glyph: iconExport, run: (*app).saveNow},
+		{title: "common_trash", menu: "file", sep: true, glyph: iconTrash, run: (*app).openTrash},
+		{title: "common_save", accel: "cmd+s", menu: "file", glyph: iconExport, run: (*app).saveNow},
 
-		{title: "Kenar çubuğunu aç/kapat", accel: "cmd+\\", menu: "view", glyph: iconSidebar, run: (*app).toggleSidebar},
-		{title: "Yan paneli aç/kapat", accel: "cmd+shift+\\", menu: "view", glyph: iconPanel, run: (*app).togglePanel, off: phoneOff},
-		{title: "Caret'i değiştir", accel: "cmd+shift+m", menu: "view", glyph: iconPage, run: func(a *app) { a.setCaret((a.caretKind + 1) % caretCount()) }},
-		{title: "Yazıyı büyüt", accel: "cmd+=", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(1) }},
-		{title: "Yazıyı küçült", accel: "cmd+-", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(-1) }},
-		{title: "Yazı boyutunu sıfırla", accel: "cmd+0", menu: "view", glyph: iconEditing, run: (*app).resetFont},
-		{title: "Yan bölmede aç: bu ekran", accel: "alt+cmd+enter", menu: "view", sep: true, glyph: iconPanel, run: (*app).openHereInSide, off: phoneOff},
-		{title: "Yeni bölme: bu ekran", menu: "view", glyph: iconPanel, run: (*app).newPaneHere, off: phoneOff},
-		{title: "Bölmeler arası geç", accel: "alt+cmd+right", menu: "view", glyph: iconPanel, run: (*app).nextPane, off: onePaneOff},
-		{title: "Bölmeyi kapat", accel: "alt+cmd+w", menu: "view", glyph: iconClose, run: (*app).closeThisPane, off: onePaneOff},
-		{title: "Bölmeyi ayrı pencereye al", menu: "view", glyph: iconPanel, run: (*app).tearOffPane, off: func(a *app) string {
+		{title: "toggleTheSidebar", accel: "cmd+\\", menu: "view", glyph: iconSidebar, run: (*app).toggleSidebar},
+		{title: "toggleTheSidePanel", accel: "cmd+shift+\\", menu: "view", glyph: iconPanel, run: (*app).togglePanel, off: phoneOff},
+		{title: "changeTheCaret", accel: "cmd+shift+m", menu: "view", glyph: iconPage, run: func(a *app) { a.setCaret((a.caretKind + 1) % caretCount()) }},
+		{title: "biggerText", accel: "cmd+=", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(1) }},
+		{title: "smallerText", accel: "cmd+-", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(-1) }},
+		{title: "resetTheFontSize", accel: "cmd+0", menu: "view", glyph: iconEditing, run: (*app).resetFont},
+		{title: "panes_openHereInSide", accel: "alt+cmd+enter", menu: "view", sep: true, glyph: iconPanel, run: (*app).openHereInSide, off: phoneOff},
+		{title: "newPaneThisScreen", menu: "view", glyph: iconPanel, run: (*app).newPaneHere, off: phoneOff},
+		{title: "switchPane", accel: "alt+cmd+right", menu: "view", glyph: iconPanel, run: (*app).nextPane, off: onePaneOff},
+		{title: "closeThePane", accel: "alt+cmd+w", menu: "view", glyph: iconClose, run: (*app).closeThisPane, off: onePaneOff},
+		{title: "moveThePaneToAWindow", menu: "view", glyph: iconPanel, run: (*app).tearOffPane, off: func(a *app) string {
 			switch {
 			case phone:
 				return locales.CommonNotPhone()
@@ -92,44 +92,44 @@ func appCommands() []appCmd {
 			return ""
 		}},
 
-		{title: "Bloğu yukarı taşı", accel: "cmd+shift+up", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, -1) }, off: noPageOff},
-		{title: "Bloğu aşağı taşı", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
-		{title: "Bloğu çoğalt", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
-		{title: "Katla / aç", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
-		{title: "Bloğa yakınlaş", accel: zoomInKey, menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
-		{title: "Uzaklaş", accel: zoomOutKey, menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
+		{title: "moveTheBlockUp", accel: "cmd+shift+up", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, -1) }, off: noPageOff},
+		{title: "moveTheBlockDown", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
+		{title: "duplicateTheBlock", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
+		{title: "foldUnfold", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
+		{title: "zoomIntoTheBlock", accel: zoomInKey, menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
+		{title: "zoomOut", accel: zoomOutKey, menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
 			if !a.zoomed() {
-				return "Sayfa bir bloğa yakınlaşmış değil"
+				return "thePageIsNotZoomedInto"
 			}
 			return ""
 		}},
-		{title: "Dosya ekle", menu: "block", dots: true, glyph: iconAttach, run: (*app).pickFileToAttach, off: noPageOff},
-		{title: "Blokları seç", menu: "block", glyph: iconStack, run: (*app).startBlockSel, off: noPageOff},
-		{title: "Blok menüsü", accel: "alt+cmd+.", menu: "block", dots: true, glyph: iconStack, run: (*app).openBlockMenu, off: noPageOff},
-		{title: "Bloğu yanda aç", menu: "block", glyph: iconPanel, run: (*app).openBlockBeside, off: noPageOff},
-		{title: "Markdown olarak kopyala", accel: "cmd+shift+c", menu: "block", sep: true, glyph: iconCopy, run: func(a *app) { a.copyAs("markdown") }, off: noPageOff},
-		{title: "Düz metin olarak kopyala", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("plain") }, off: noPageOff},
-		{title: "HTML olarak kopyala", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("html") }, off: noPageOff},
-		{title: "Markdown olarak yapıştır", accel: "alt+cmd+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("markdown") }, off: noPageOff},
-		{title: "Düz metin olarak yapıştır", accel: "cmd+shift+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("plain") }, off: noPageOff},
+		{title: "attachAFile", menu: "block", dots: true, glyph: iconAttach, run: (*app).pickFileToAttach, off: noPageOff},
+		{title: "selectBlocks", menu: "block", glyph: iconStack, run: (*app).startBlockSel, off: noPageOff},
+		{title: "common_blockMenu", accel: "alt+cmd+.", menu: "block", dots: true, glyph: iconStack, run: (*app).openBlockMenu, off: noPageOff},
+		{title: "openBlockBeside", menu: "block", glyph: iconPanel, run: (*app).openBlockBeside, off: noPageOff},
+		{title: "copyAsMarkdown", accel: "cmd+shift+c", menu: "block", sep: true, glyph: iconCopy, run: func(a *app) { a.copyAs("markdown") }, off: noPageOff},
+		{title: "copyAsPlainText", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("plain") }, off: noPageOff},
+		{title: "copyAsHtml", menu: "block", glyph: iconCopy, run: func(a *app) { a.copyAs("html") }, off: noPageOff},
+		{title: "pasteAsMarkdown", accel: "alt+cmd+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("markdown") }, off: noPageOff},
+		{title: "pasteAsPlainText", accel: "cmd+shift+v", menu: "block", glyph: iconPaste, run: func(a *app) { a.pasteAs("plain") }, off: noPageOff},
 
-		{title: "Sayfa ara", accel: "cmd+k", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openPalette},
-		{title: "Komutlar", accel: "cmd+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
-		{title: "Komutlar (⇧⌘P)", accel: "cmd+shift+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
-		{title: "Sayfada bul", accel: "cmd+f", menu: "go", dots: true, glyph: iconSearch, run: (*app).openFind, off: noPageOff},
-		{title: "Kitaplıkta ara", accel: "cmd+shift+f", menu: "go", dots: true, glyph: iconSearch, run: func(a *app) { a.openSearch(a.searchQ) }},
-		{title: "Bugünün sayfası", accel: "cmd+j", menu: "go", sep: true, glyph: iconCalendar, run: (*app).openToday},
-		{title: "Önceki gün", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(-1) }},
-		{title: "Sonraki gün", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(1) }},
-		{title: "Tarihe git", menu: "go", dots: true, glyph: iconCalendar, run: (*app).askDate},
-		{title: "Hızlı not", menu: "go", dots: true, glyph: iconPlus, run: (*app).showQuick, off: func(a *app) string {
+		{title: "common_findPage", accel: "cmd+k", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openPalette},
+		{title: "common_commands", accel: "cmd+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
+		{title: "commandsP", accel: "cmd+shift+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
+		{title: "findInPage2", accel: "cmd+f", menu: "go", dots: true, glyph: iconSearch, run: (*app).openFind, off: noPageOff},
+		{title: "searchTheLibrary", accel: "cmd+shift+f", menu: "go", dots: true, glyph: iconSearch, run: func(a *app) { a.openSearch(a.searchQ) }},
+		{title: "todaysPage", accel: "cmd+j", menu: "go", sep: true, glyph: iconCalendar, run: (*app).openToday},
+		{title: "previousDay", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(-1) }},
+		{title: "nextDay", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(1) }},
+		{title: "common_goDate", menu: "go", dots: true, glyph: iconCalendar, run: (*app).askDate},
+		{title: "common_quickNote", menu: "go", dots: true, glyph: iconPlus, run: (*app).showQuick, off: func(a *app) string {
 			if a.quick == nil {
 				return locales.CommandsThereNoQuickNote()
 			}
 			return ""
 		}},
-		{title: "Geri", accel: "cmd+[", menu: "go", glyph: iconBack, run: func(a *app) { a.step(-1) }},
-		{title: "İleri", accel: "cmd+]", menu: "go", glyph: iconChevron, run: func(a *app) { a.step(1) }},
+		{title: "common_back", accel: "cmd+[", menu: "go", glyph: iconBack, run: func(a *app) { a.step(-1) }},
+		{title: "forward", accel: "cmd+]", menu: "go", glyph: iconChevron, run: func(a *app) { a.step(1) }},
 	}
 }
 
@@ -207,7 +207,7 @@ func appAccels() map[string]string {
 	out := map[string]string{}
 	for _, c := range appCommands() {
 		if _, _, norm, ok := parseAccel(c.accel); ok {
-			out[norm] = strings.ToLower(T(c.title))
+			out[norm] = strings.ToLower(msg(c.title))
 		}
 	}
 	return out
@@ -238,10 +238,10 @@ func (a *app) appPalette() []palItem {
 		if keys == "" {
 			keys = accelLabel(cmd.accel)
 		}
-		if cmd.title == "Hızlı not" {
+		if cmd.title == "common_quickNote" {
 			keys = a.quickKeys()
 		}
-		it := palItem{title: T(cmd.title), sub: locales.PaletteCommand(), kind: palCommand, id: cmd.title, keys: keys, glyph: cmd.glyph, run: func() { cmd.run(a) }, cat: cmdCat(cmd.title), fam: cmdFam(cmd.title), name: cmd.title}
+		it := palItem{title: msg(cmd.title), sub: locales.PaletteCommand(), kind: palCommand, id: cmd.title, keys: keys, glyph: cmd.glyph, run: func() { cmd.run(a) }, cat: cmdCat(cmd.title), fam: cmdFam(cmd.title), name: cmd.title}
 		if cmd.off != nil {
 			it.off = cmd.off(a)
 		}
@@ -261,7 +261,7 @@ func (a *app) menuBarItems(group string) []*mygo.MenuItem {
 		if cmd.sep && len(out) > 0 {
 			out = append(out, mygo.Separator())
 		}
-		label := T(cmd.title)
+		label := msg(cmd.title)
 		if cmd.dots {
 			label += "…"
 		}

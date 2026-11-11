@@ -60,16 +60,16 @@ func TestAcctFormChecks(t *testing.T) {
 			t.Errorf("%s %q: error %q, busy %v; want %q", mode, user, a.ac.err, a.ac.busy, want)
 		}
 	}
-	check("login", "", "x", "", "", "", "E-posta gerekli.")
-	check("login", "ali@ornek.com", "", "", "", "", "E-posta ve şifre gerekli.")
-	check("invite", "ali", "", "RYU-AAAAAA", "", "", "E-posta adresi geçersiz.")
-	check("invite", "ali@ornek.com", "", " ", "", "", "Erişim kodu gerekli.")
-	check("password", "ali@ornek.com", "kısa", "RYU-AAAAAA", "", "", "Şifre en az 8 karakter olsun.")
-	check("reset", "ali@ornek.com", "", "", "", "yeni-parola", "Kurtarma anahtarı gerekli.")
-	check("reset", "ali@ornek.com", "", "", "AAAA-BBBB", "kısa", "Yeni şifre en az 8 karakter olsun.")
+	check("login", "", "x", "", "", "", "anEmailAddressIsNeeded")
+	check("login", "ali@ornek.com", "", "", "", "", "anEmailAddressAndAPassword")
+	check("invite", "ali", "", "RYU-AAAAAA", "", "", "thatEmailAddressIsntValid")
+	check("invite", "ali@ornek.com", "", " ", "", "", "anAccessCodeIsNeeded")
+	check("password", "ali@ornek.com", "kısa", "RYU-AAAAAA", "", "", "thePasswordNeedsAtLeast8")
+	check("reset", "ali@ornek.com", "", "", "", "yeni-parola", "theRecoveryKeyIsNeeded")
+	check("reset", "ali@ornek.com", "", "", "AAAA-BBBB", "kısa", "theNewPasswordNeedsAtLeast")
 	a.ac = acctUI{mode: "password", user: "ali@ornek.com", pass: "uzun-parola", pass2: "uzun-parolA", code: "RYU-AAAAAA"}
 	a.acctSubmit()
-	if a.ac.err != "Şifreler aynı değil." || a.ac.busy {
+	if a.ac.err != "thePasswordsAreNotTheSame" || a.ac.busy {
 		t.Errorf("two passwords: %q", a.ac.err)
 	}
 }

@@ -48,7 +48,7 @@ func TestMenuNaturalDay(t *testing.T) {
 	if got := days(""); len(got) != 4 {
 		t.Fatalf("named: %v", got)
 	}
-	if got := days("yarın"); len(got) != 1 || got[0] != "Yarın=2026-11-10" {
+	if got := days("yarın"); len(got) != 1 || got[0] != "dates_tomorrow=2026-11-10" {
 		t.Fatalf("a name and the same day said: %v", got)
 	}
 	if got := days("3 gün sonra"); len(got) != 1 || got[0] != "3 gün sonra=2026-11-12" {

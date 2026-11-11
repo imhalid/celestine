@@ -297,7 +297,7 @@ func (a *app) settingsText(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool) func() {
 		return func() {
 			on := *v
-			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(T(title)) })
+			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(msg(title)) })
 			if on != *v {
 				*v = on
 				a.saveSettings()
@@ -364,7 +364,7 @@ func (a *app) settingsText(c *ui.Context) {
 			settingRow(c, locales.CommonAlwaysShowFocusRing(), locales.EditorTheRowChosenWith(), func() { ryugo.Switch(c.Key("set-ring"), &ring, ryugo.SwitchOptions{}).Label(locales.EditorFocusRing()) })
 		},
 		func() {
-			settingRow(c, locales.CommonLightMode(), locales.EditorAPlainLineDrawn(), func() { ryugo.Switch(c.Key("set-lite"), &lite, ryugo.SwitchOptions{}).Label("Hafif mod") })
+			settingRow(c, locales.CommonLightMode(), locales.EditorAPlainLineDrawn(), func() { ryugo.Switch(c.Key("set-lite"), &lite, ryugo.SwitchOptions{}).Label(locales.CommonLightMode()) })
 		})
 	if focus != a.focusMode() {
 		a.settings.Focus = focus
@@ -393,7 +393,7 @@ func (a *app) settingsText(c *ui.Context) {
 	vim := a.settings.VimKeys
 	settingGroup(c, "set-vim", func() {
 		settingRow(c, locales.CommonVimMotions(), locales.EditorAfterEscHJ(), func() {
-			ryugo.Switch(c.Key("set-vim-sw"), &vim, ryugo.SwitchOptions{}).Label("Vim hareketleri")
+			ryugo.Switch(c.Key("set-vim-sw"), &vim, ryugo.SwitchOptions{}).Label(locales.CommonVimMotions())
 		})
 	})
 	if vim != a.settings.VimKeys {
@@ -401,10 +401,10 @@ func (a *app) settingsText(c *ui.Context) {
 		a.saveSettings()
 	}
 	settingGroup(c, "set-white",
-		toggle("set-sp", "Boşlukları göster", "Boşluk bir nokta, kırılmaz boşluk bir halka; satır sonundaki artık boşluklar uyarı renginde.", &a.settings.ShowSpaces),
-		toggle("set-tab", "Sekmeleri göster", "Sekme bir ok.", &a.settings.ShowTabs),
-		toggle("set-eol", "Paragraf sonlarını göster", "Her paragrafın sonunda ¶.", &a.settings.ShowBreaks),
-		toggle("set-code", "Kod bloklarında da", "Kod bloklarının içi de işaretlenir.", &a.settings.MarkCode),
+		toggle("set-sp", "showSpaces", "aSpaceIsADotA", &a.settings.ShowSpaces),
+		toggle("set-tab", "showTabs", "aTabIsAnArrow", &a.settings.ShowTabs),
+		toggle("set-eol", "showParagraphEnds", "aAtTheEndOfEach", &a.settings.ShowBreaks),
+		toggle("set-code", "inCodeBlocksToo", "theInsideOfCodeBlocksIs", &a.settings.MarkCode),
 	)
 }
 

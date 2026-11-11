@@ -27,7 +27,7 @@ func inkCaretOf(t *testing.T, name string) (*app, *ui.Tester, *inkCaret) {
 // The Ink caret: a letter leaves ink, a finished word is locked on with a tag, an erase dissolves into rose ink
 // and collapses a box; then it all fades, and the caret asks for no more frames.
 func TestInkCaret(t *testing.T) {
-	_, tt, g := inkCaretOf(t, "Ink")
+	_, tt, g := inkCaretOf(t, "ink")
 	typeEach(tt, "merhaba")
 	tt.Advance(30 * time.Millisecond)
 	if len(g.cells) == 0 || len(g.ripples) == 0 {
@@ -72,7 +72,7 @@ func TestInkCaret(t *testing.T) {
 
 // Lock-on is the brackets alone: a finished word is locked on and no ink is left.
 func TestLockOnCaret(t *testing.T) {
-	_, tt, g := inkCaretOf(t, "Lock-on")
+	_, tt, g := inkCaretOf(t, "lockOn")
 	typeEach(tt, "merhaba dünya ")
 	tt.Advance(30 * time.Millisecond)
 	if len(g.locks) == 0 {

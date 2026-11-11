@@ -40,22 +40,22 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 		return nil
 	}
 	items := open("Yazar değeri")
-	if has(items, "Özelliği düzenle…") == nil || has(items, "Tümünü seç") == nil {
+	if has(items, "props_editPropertyMenu") == nil || has(items, "common_selectAllText") == nil {
 		t.Fatalf("value's menu: %+v", items)
 	}
 	a.ctx.open = false
-	has(items, "Yapıştır").run()
+	has(items, "common_paste").run()
 	tt.Advance(100 * time.Millisecond)
 	if a.page.Props["yazar"] != "Herbert" {
 		t.Fatalf("pasted: %q", a.page.Props["yazar"])
 	}
-	if items := open("Özellik: Yazar"); has(items, "Özelliği sil") == nil {
+	if items := open("Özellik: Yazar"); has(items, "common_deleteProperty") == nil {
 		t.Fatalf("name's menu: %+v", items)
 	}
 	a.ctx.open = false
 	a.openCollection(coll)
 	tt.Advance(300 * time.Millisecond)
-	if items := open("Ara"); has(items, "Yapıştır") == nil {
+	if items := open("Ara"); has(items, "common_paste") == nil {
 		t.Fatalf("search's menu: %+v", items)
 	}
 }
@@ -82,13 +82,13 @@ func TestEditorOpensTheAppMenu(t *testing.T) {
 	for _, it := range a.ctx.items {
 		titles[it.title] = it.run
 	}
-	for _, want := range []string{"Kopyala", "Kes", "Yapıştır", "Kalın", "Dönüştür…", "Sil"} {
+	for _, want := range []string{"common_copy", "common_cut", "common_paste", "common_bold", "blocks_turnInto", "common_delete"} {
 		if _, ok := titles[want]; !ok {
 			t.Fatalf("no %q in %v", want, titles)
 		}
 	}
 	a.ctx.open = false
-	titles["Kopyala"]()
+	titles["common_copy"]()
 	if copied != "Birinci **kalın** satır" {
 		t.Fatalf("copied %q", copied)
 	}
@@ -100,7 +100,7 @@ func TestTagsFieldAndItsMenu(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.SetSize(1100, 700)
 	tt.Advance(300 * time.Millisecond)
-	if err := tt.Click("Özellik ekle"); err != nil {
+	if err := tt.Click(msg("common_addProperty")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)

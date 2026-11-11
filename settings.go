@@ -44,14 +44,14 @@ const (
 )
 
 var settingsSections = []settingsSection{
-	{"Görünüm", "Tema ve sayfanın genişliği", iconTheme},
-	{"Editör", "Yazı, satır aralığı ve caret", iconEditing},
-	{"Yazı tipi", "Uygulamanın, metnin ve kodun yazı tipleri", iconFont},
-	{"Durum çubuğu", "Altta neyin görüneceği", iconBar},
-	{"MCP", "Ajanların kitaplığa bağlanması", iconPlug},
-	{"Kitaplık", "Dosyalar ve nerede durdukları", iconLibrary},
-	{"Senkron", "Başka bilgisayarlarla eşitleme, şifreleme", iconSync},
-	{"Güncelleme", "Yeni sürümler ve sürüm notları", iconUpdate},
+	{"common_appearance", "themeAndThePagesWidth", iconTheme},
+	{"editor", "textLineSpacingAndCaret", iconEditing},
+	{"typeface", "theTypefacesOfTheAppThe", iconFont},
+	{"statusBar", "whatIsShownAtTheBottom", iconBar},
+	{"mcp", "agentsConnectingToTheLibrary", iconPlug},
+	{"common_library", "theFilesAndWhereTheyAre", iconLibrary},
+	{"sync4", "matchingOtherComputersEncryption", iconSync},
+	{"updates", "newVersionsAndReleaseNotes", iconUpdate},
 }
 
 // selSpring is the list's choice settling, and a tile picked.
@@ -114,8 +114,8 @@ func (a *app) settingsScreen(c *ui.Context) {
 				a.settingsChips(c)
 			}
 			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
-				ui.Text(c, T(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
-				ui.Text(c, T(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
+				ui.Text(c, msg(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
+				ui.Text(c, msg(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
 			a.scrolled(c, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
@@ -155,7 +155,7 @@ func (a *app) settingsChips(c *ui.Context) {
 			for i, s := range settingsSections {
 				i, sel := i, a.settingsTab == i
 				e := ui.Row(c.Key("schip:"+s.name)).Height(36).Padding(0, 14).Gap(7).Radius(rad(18)).AlignItems(ui.Center).Shrink(0).
-					Label(T(s.name)).Role(ui.RoleButton).Border(1, cl.Hairline)
+					Label(msg(s.name)).Role(ui.RoleButton).Border(1, cl.Hairline)
 				if sel {
 					e.Background(ryugo.Mix(cl.Card, cl.Accent, 0.22)).Border(1, cl.Accent.Alpha(0.5))
 				} else {
@@ -163,7 +163,7 @@ func (a *app) settingsChips(c *ui.Context) {
 				}
 				e.Children(func() {
 					ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(map[bool]ui.Color{true: cl.Accent, false: cl.Muted}[sel])
-					ui.Text(c, T(s.name)).FontSize(13.5).FontWeight(map[bool]int{true: 650, false: 540}[sel]).TextColor(cl.Text)
+					ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(map[bool]int{true: 650, false: 540}[sel]).TextColor(cl.Text)
 				})
 				if e.Clicked() {
 					a.settingsTab = i
@@ -182,7 +182,7 @@ func (a *app) settingsNav(c *ui.Context) {
 		for i, s := range settingsSections {
 			sel := a.settingsTab == i
 			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
-				Label(T(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Label(msg(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
 			hov := e.AnimateTo("hov", b2f(e.Hovered() && !sel), fadeQuick)
 			if on > 0.01 {
@@ -195,7 +195,7 @@ func (a *app) settingsNav(c *ui.Context) {
 			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsTab = i })
 			e.Children(func() {
 				ui.Icon(c, s.glyph).Width(16).Height(16).TextColor(ryugo.Mix(cl.Muted, cl.Accent, on))
-				ui.Text(c, T(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
+				ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
 			})
 			if e.Clicked() {
 				a.settingsTab = i
@@ -219,7 +219,7 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 
 // settingRow is a setting: what it is, and its control.
 func settingRow(c *ui.Context, title, help string, control func()) {
-	title, help = T(title), T(help)
+	title, help = msg(title), msg(help)
 	cl := ryugo.From(c).Colors
 	// its control under its name on a phone, and where the row is narrow (a small window): beside it, the name
 	// and its help would be squeezed into a column a word wide
@@ -262,7 +262,7 @@ func settingRowIn(c *ui.Context, cl ryugo.Colors, title, help string, narrow boo
 // button is; it lifts as the pointer comes, and the chosen one is ringed in
 // the accent. It reports a click.
 func choiceTile(c *ui.Context, key, label string, on bool, preview func()) bool {
-	label = T(label)
+	label = msg(label)
 	t := ryugo.From(c)
 	cl := t.Colors
 	e := ui.Column(c.Key(key)).Width(128).Gap(8).Padding(7, 7, 10, 7).Radius(rad(16)).AlignItems(ui.Center).
@@ -371,7 +371,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 				settingRow(c, title, help, func() {
 					v := *cur
 					ui.Box(c).Width(200).Children(func() {
-						ryugo.Select(c.Key(key), &v, opts, ryugo.SelectOptions{Label: T(title), Size: ryugo.Sm})
+						ryugo.Select(c.Key(key), &v, opts, ryugo.SelectOptions{Label: msg(title), Size: ryugo.Sm})
 					})
 					if v != *cur {
 						*cur = v
@@ -381,13 +381,13 @@ func (a *app) settingsAppearance(c *ui.Context) {
 			}
 			var grounds, openings []ryugo.Option[string]
 			for _, g := range welcomeGrounds {
-				grounds = append(grounds, ryugo.Option[string]{Value: g.id, Label: T(g.name)})
+				grounds = append(grounds, ryugo.Option[string]{Value: g.id, Label: msg(g.name)})
 			}
 			for _, o := range welcomeOpenings {
-				openings = append(openings, ryugo.Option[string]{Value: o.id, Label: T(o.name)})
+				openings = append(openings, ryugo.Option[string]{Value: o.id, Label: msg(o.name)})
 			}
-			look("set-welcome-ground", "Karşılamanın arka planı", "Yazıların altında, masaüstünün üstünde ne olacağı.", grounds, &a.settings.WelcomeGround)
-			look("set-welcome-open", "Açılış", "Başla'dan sonra uygulamanın penceresi nasıl gelir.", openings, &a.settings.WelcomeOpen)
+			look("set-welcome-ground", "theWelcomesGround", "whatIsUnderTheWordsOver", grounds, &a.settings.WelcomeGround)
+			look("set-welcome-open", "opening", "howTheAppsWindowComesAfter", openings, &a.settings.WelcomeOpen)
 			settingRow(c, locales.SettingsWelcomeScreen(), locales.SettingsShowsFirstRunsWelcome(), func() {
 				if ryugo.Button(c.Key("set-welcome-go"), locales.CommonRestart(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.welcomeAgain()
@@ -419,7 +419,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		func() {
 			ui.Column(c).FillWidth().Gap(14).Children(func() { // the whole width: the tiles wrap in it, not in a column one tile wide
 				ui.Column(c).Gap(3).Children(func() {
-					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
+					ui.Text(c, locales.Caret()).FontSize(15).FontWeight(620).TextColor(cl.Text)
 					ui.Text(c, locales.SettingsSlimeStretchesAsYou()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				a.caretPlayground(c) // over the tiles: a tile chosen is tried here at once, as it is in the text
@@ -451,7 +451,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 				v := a.settings.CursorFX
 				opts := []ryugo.Option[string]{{Value: "", Label: locales.CommonOff()}}
 				for _, p := range cursorPresets {
-					opts = append(opts, ryugo.Option[string]{Value: p.name, Label: T(p.name)})
+					opts = append(opts, ryugo.Option[string]{Value: p.name, Label: msg(p.name)})
 				}
 				ui.Box(c).Width(200).Children(func() {
 					ryugo.Select(c.Key("set-cursor-fx"), &v, opts, ryugo.SelectOptions{Label: locales.CommonCursorFx(), Size: ryugo.Sm})
@@ -491,7 +491,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
 		settingRow(c, locales.CommonAutomaticCover(), locales.SettingsEveryPageWithNo(), func() {
-			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
+			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label(locales.CommonAutomaticCover())
 		})
 	})
 	if auto != !a.settings.NoAutoCover {
@@ -539,7 +539,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool, invert bool) func() {
 		return func() {
 			on := *v != invert
-			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(T(title)) })
+			settingRow(c, title, help, func() { ryugo.Switch(c.Key(key), &on, ryugo.SwitchOptions{}).Label(msg(title)) })
 			if on != (*v != invert) {
 				*v = on != invert
 				a.saveSettings()
@@ -547,11 +547,11 @@ func (a *app) settingsStatus(c *ui.Context) {
 		}
 	}
 	settingGroup(c, "set-status",
-		toggle("set-saved", "Kaydetme durumu", "Kaydedildi, kaydediliyor…", &a.settings.HideSaved, true),
-		toggle("set-chars", "Harf sayısı", "Boşluklar ve satır sonları sayılmaz.", &a.settings.ShowChars, false),
-		toggle("set-hidebar", "Durum çubuğunu gizle", "Altta hiçbir şey çizilmez: odak modu. Yazı tipi ve tema düğmeleri ⌘P'den yine ulaşılır.", &a.settings.HideStatus, false),
-		toggle("set-pos", "Satır ve sütun", "Caret'in paragrafı ve içindeki yeri.", &a.settings.ShowPos, false),
-		toggle("set-hints", "Kısayol ipuçları", "Altta, şu an kullanılabilecek tuşlar yazılır.", &a.settings.HideHints, true),
+		toggle("set-saved", "saveStatus", "savedSaving", &a.settings.HideSaved, true),
+		toggle("set-chars", "letterCount", "spacesAndLineEndsAreNot", &a.settings.ShowChars, false),
+		toggle("set-hidebar", "hideTheStatusBar", "nothingIsDrawnAtTheBottom", &a.settings.HideStatus, false),
+		toggle("set-pos", "lineAndColumn", "theCaretsParagraphAndItsPlace", &a.settings.ShowPos, false),
+		toggle("set-hints", "shortcutHints", "theKeysThatCanBeUsed", &a.settings.HideHints, true),
 	)
 }
 
@@ -563,12 +563,12 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	}
 	row := func(label, text, key string) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(T(label))})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
 				})
 			})
 		}
@@ -576,15 +576,15 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	store, inFile := a.lib.FS.(*Store)
 	if !inFile {
 		settingGroup(c, "set-lib",
-			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
-			row("Ayar dosyası", a.settingsFile, "copy-settings"),
+			row("libraryFolder", a.lib.Root, "copy-root"),
+			row("settingsFile", a.settingsFile, "copy-settings"),
 			func() {
 				settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages), locales.SettingsAllPlainFilesThey(), func() {})
 			})
 		return
 	}
 	settingGroup(c, "set-lib",
-		row("Kitaplık dosyası", store.File, "copy-root"),
+		row("libraryFile", store.File, "copy-root"),
 		func() {
 			settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages),
 				locales.SettingsAllThisOneFile(), func() {})
@@ -593,7 +593,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		func() {
 			note := a.exportNote
 			if note == "" {
-				note = "Düz .md klasörü olarak, dosyanın yanına yazılır."
+				note = "asAFolderOfPlainMd"
 			}
 			settingRow(c, locales.SettingsExportAsMarkdown(), note, func() {
 				if ryugo.Button(c.Key("export-md"), locales.CommonExport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
@@ -642,20 +642,20 @@ func (a *app) settingsMCP(c *ui.Context) {
 	}
 	copyRow := func(label, text, key string) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(T(label))})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
 				})
 			})
 		}
 	}
 	settingGroup(c, "set-mcp-how",
-		copyRow("Adres", a.mcpURL(), "copy-url"),
-		copyRow("Claude Code'a eklemek için", a.mcpCommand(), "copy-cmd"),
-		copyRow("Stdio ile bağlanan bir ajan için", a.mcpStdioCommand(), "copy-stdio"),
+		copyRow("address", a.mcpURL(), "copy-url"),
+		copyRow("toAddItToClaudeCode", a.mcpCommand(), "copy-cmd"),
+		copyRow("forAnAgentThatConnectsOver", a.mcpStdioCommand(), "copy-stdio"),
 		a.mcpSetupRow(c),
 		func() {
 			settingRow(c, locales.SettingsKey(), locales.SettingsOnlyFromThisComputer(), func() {
@@ -742,9 +742,9 @@ func settingStack(c *ui.Context, title, help string, control func()) {
 	cl := ryugo.From(c).Colors
 	ui.Column(c).Gap(8).Children(func() {
 		ui.Column(c).Gap(3).Children(func() {
-			ui.Text(c, T(title)).FontSize(15).FontWeight(620).TextColor(cl.Text)
+			ui.Text(c, msg(title)).FontSize(15).FontWeight(620).TextColor(cl.Text)
 			if help != "" {
-				ui.Text(c, T(help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, msg(help)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			}
 		})
 		control()

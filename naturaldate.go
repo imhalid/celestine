@@ -117,8 +117,8 @@ func (a *app) dayChoices(q string) []namedDay {
 	today := a.clock()
 	tq := strings.TrimSpace(q)
 	var out []namedDay
-	for _, d := range []namedDay{{"Bugün", today}, {"Yarın", today.AddDate(0, 0, 1)}, {"Dün", today.AddDate(0, 0, -1)}, {"Gelecek hafta", today.AddDate(0, 0, 7)}} {
-		if q != "" && match(q, d.name) < 0 && match(q, T(d.name)) < 0 && !strings.HasPrefix(d.d.Format("2006-01-02"), tq) {
+	for _, d := range []namedDay{{"common_today", today}, {"dates_tomorrow", today.AddDate(0, 0, 1)}, {"common_yesterday", today.AddDate(0, 0, -1)}, {"dates_nextWeek", today.AddDate(0, 0, 7)}} {
+		if q != "" && match(q, names(d.name)) < 0 && !strings.HasPrefix(d.d.Format("2006-01-02"), tq) {
 			continue
 		}
 		out = append(out, d)

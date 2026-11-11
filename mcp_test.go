@@ -355,13 +355,13 @@ func TestMCPCommandsAllowed(t *testing.T) {
 		title string
 		ok    bool
 	}{
-		{"Yazıyı büyüt", true}, {"Ayarlar", true}, {"Çöpe taşı: Sayfa", true}, {"Şimdi eşitle", true},
-		{locales.CommonResetAllDefaults(), false}, {"Ayar dosyası oku…", false}, {"Markdown klasörü içe aktar…", false},
-		{T("Senkron") + ": " + T("sunucu"), false}, {"Güncelleme kanalı: Deneme (beta)", false}, {"MCP sunucusu: aç", false},
+		{"biggerText", true}, {"common_settings", true}, {"moveToTrash: Sayfa", true}, {"common_syncNow", true},
+		{locales.CommonResetAllDefaults(), false}, {"settings_readSettingsFile", false}, {"importAMarkdownFolder2", false},
+		{msg("sync4") + ": " + msg("server2"), false}, {"updateChannel: trialBeta", false}, {"common_mcpServer: on", false},
 	} {
 		var found *palItem
 		for _, it := range a.commands() {
-			if it.title == c.title {
+			if it.id == c.title || it.title == c.title {
 				it := it
 				found = &it
 			}

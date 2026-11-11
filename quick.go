@@ -221,7 +221,7 @@ func (q *quickNote) submit() {
 		return err
 	})
 	if err != nil {
-		q.said = "Olmadı: " + err.Error()
+		q.said = locales.CommonDidntWork(err.Error())
 		return
 	}
 	q.text, q.said = "", ""
@@ -234,7 +234,7 @@ func (q *quickNote) submit() {
 func newQuick(a *app) *quickNote {
 	q := &quickNote{a: a}
 	q.panel = mygo.NewWindow(mygo.WindowOptions{
-		Title:         "Hızlı not",
+		Title:         locales.CommonQuickNote(),
 		Panel:         true,
 		Hidden:        true,
 		Frameless:     true,

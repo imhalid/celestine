@@ -140,7 +140,7 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 		for _, q := range links {
 			q := q
 			row := ui.Column(c.Key("bl:"+q.Dir)).FillWidth().Padding(6, 8).Gap(2).Radius(rad(8)).
-				Label("Bağlantı: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Label(locales.CommonLinkLabel(q.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}

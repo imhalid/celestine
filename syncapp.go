@@ -675,12 +675,12 @@ func (a *app) settingsSync(c *ui.Context) {
 					id, name string
 					glyph    *ui.SVG
 					tone     ui.Color
-				}{{"", "Kapalı", iconClose, cl.Muted}, {"dir", "Klasör", iconLibrary, cl.Warn}, {"server", "Sunucu", iconSync, cl.Accent}} {
+				}{{"", "common_off", iconClose, cl.Muted}, {"dir", "folder", iconLibrary, cl.Warn}, {"server", "common_server", iconSync, cl.Accent}} {
 					v := ryugo.Soft
 					if mode == m.id {
 						v = ryugo.Solid
 					}
-					if ryugo.Button(c.Key("set-sync-mode:"+m.id), T(m.name), ryugo.ButtonOptions{Size: ryugo.Sm, Color: m.tone, Variant: v, Icon: m.glyph}).Clicked() {
+					if ryugo.Button(c.Key("set-sync-mode:"+m.id), msg(m.name), ryugo.ButtonOptions{Size: ryugo.Sm, Color: m.tone, Variant: v, Icon: m.glyph}).Clicked() {
 						mode = m.id
 					}
 				}
@@ -707,8 +707,8 @@ func (a *app) settingsSync(c *ui.Context) {
 	dir, url, token := s.SyncDir, s.SyncURL, s.SyncToken
 	field := func(key, label string, v *string, secret bool) func() {
 		return func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: T(label)}, func() {
-				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: T(label), Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
+			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
+				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: msg(label), Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
 				_ = secret
 				_ = in
 			})
@@ -716,10 +716,10 @@ func (a *app) settingsSync(c *ui.Context) {
 	}
 	rows := []func(){}
 	if s.SyncMode == "dir" {
-		rows = append(rows, field("sync-dir", "Klasör", &dir, false))
+		rows = append(rows, field("sync-dir", "folder", &dir, false))
 	} else {
 		if s.AccountUser == "" {
-			rows = append(rows, field("sync-url", "Sunucu adresi (https://…) — hesapsız, jetonla", &url, false), field("sync-token", "Bu cihazın jetonu", &token, true))
+			rows = append(rows, field("sync-url", "serverAddressHttpsWithoutAnAccount", &url, false), field("sync-token", "thisDevicesToken", &token, true))
 		}
 	}
 	if len(rows) > 0 {
@@ -737,7 +737,7 @@ func (a *app) settingsSync(c *ui.Context) {
 				settingRow(c, locales.SyncEndEndEncryption(), locales.SyncRequiredFilesAreEncrypted(), func() {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: locales.SyncPassphrase(), Size: ryugo.Sm, Placeholder: locales.SyncPassphrase()}), &a.sy.pass, fieldOpts{oneLine: true})
-						if ryugo.Button(c.Key("sync-setpass"), T(map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc]), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						if ryugo.Button(c.Key("sync-setpass"), msg(map[bool]string{true: "changeThePassphrase", false: "turnOnEncryption"}[enc]), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 							a.setSyncPassphrase(a.sy.pass)
 						}
 					})
@@ -811,13 +811,13 @@ func (a *app) settingsSync(c *ui.Context) {
 	// state
 	status := a.sy.status
 	if status == "" {
-		status = "henüz eşitlenmedi"
+		status = "common_notSyncedYet"
 	}
 	if a.sy.err != "" {
 		status += " · " + a.sy.err
 	}
 	settingGroup(c, "set-sync-state", func() {
-		settingRow(c, locales.SyncStateIs(T(status)), a.sy.result, func() {
+		settingRow(c, locales.SyncStateIs(msg(status)), a.sy.result, func() {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
 				if ryugo.Button(c.Key("sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 					a.syncNow()

@@ -44,37 +44,37 @@ var caretPresets []caretPreset
 
 func init() {
 	caretPresets = []caretPreset{
-		{"Line", func() caretFX { return lineCaret{} }}, // the default (savedCaret)
+		{"line", func() caretFX { return lineCaret{} }}, // the default (savedCaret)
 		{"CRT", func() caretFX { return newCRT() }},
 		{"Back-man", func() caretFX { return newBackman() }},
-		{"Portal", func() caretFX { return newPortal() }},
-		{"Hız iblisi", func() caretFX { return newSpeedDemon() }},
-		{"Meşale", func() caretFX { return newTorch() }},
+		{"portal", func() caretFX { return newPortal() }},
+		{"speedDemon", func() caretFX { return newSpeedDemon() }},
+		{"torch", func() caretFX { return newTorch() }},
 		{"Mario", func() caretFX { return newMario() }},
 		// games and creatures (caretfx_game.go)
 		{"Tamagotchi", func() caretFX { return newPet() }},
 		// nature (caretfx_nature.go)
-		{"Bitki", func() caretFX { return newPlant() }},
-		{"Ateş böceği", func() caretFX { return newFireflies() }},
+		{"plant", func() caretFX { return newPlant() }},
+		{"firefly", func() caretFX { return newFireflies() }},
 		// the writing itself (caretfx_mood.go)
-		{"Duygu yüzü", func() caretFX { return newMoodFace() }},
-		{"Noktalama", func() caretFX { return newPunct() }},
+		{"moodFace", func() caretFX { return newMoodFace() }},
+		{"punctuation", func() caretFX { return newPunct() }},
 		// cute (caretfx_cute.go)
 		{"Kawaii", func() caretFX { return newKawaii() }},
 		{"UwU", func() caretFX { return newUwu() }},
 		// the words (caretfx_repeat.go)
-		{"Tekrar", func() caretFX { return newRepeats() }},
+		{"echo", func() caretFX { return newRepeats() }},
 		// moving the letters (caretfx_letters.go)
-		{"Rüzgâr", func() caretFX { return newWind() }},
-		{"Jöle satır", func() caretFX { return newJellyLine() }},
+		{"wind", func() caretFX { return newWind() }},
+		{"jellyLine", func() caretFX { return newJellyLine() }},
 		// light (caretfx_light.go)
-		{"Neon tabela", func() caretFX { return newNeon() }},
+		{"neonSign", func() caretFX { return newNeon() }},
 		// more games (caretfx_arcade.go)
 		{"Robot", func() caretFX { return newRobot() }},
 		{"Marine", func() caretFX { return newMarine() }}, // Doom's spirit (caretfx_marine.go)
 		// after pastel.zig (caretfx_ink.go)
-		{"Ink", func() caretFX { return newInkCaret(true) }},
-		{"Lock-on", func() caretFX { return newInkCaret(false) }},
+		{"ink", func() caretFX { return newInkCaret(true) }},
+		{"lockOn", func() caretFX { return newInkCaret(false) }},
 	}
 }
 
@@ -212,8 +212,8 @@ func (s *sparks) draw(p *ui.Painter) {
 // legacyCarets are the carets as they were numbered before some were taken away, the
 // number saved in the settings then: 0 and 1 the slime and the mizan, the rest from 2.
 var legacyCarets = []string{"Slime", "Mizan", "Pacman", "Jöle (smear)", "Enerji", "Aurora", "CRT", "Neon", "Back-man",
-	"Shredder", "Portal", "Buharlaşma", "Harf pop", "Yükselen harfler", "Şimşek", "Havai fişek", "Örs kıvılcımı",
-	"Daktilo", "Piksel izi", "Yıldız tozu", "Hız iblisi", "Ateş başı", "Meşale"}
+	"Shredder", "portal", "Buharlaşma", "Harf pop", "Yükselen harfler", "Şimşek", "Havai fişek", "Örs kıvılcımı",
+	"Daktilo", "Piksel izi", "Yıldız tozu", "speedDemon", "Ateş başı", "torch"}
 
 // savedCaret is the caret the settings keep: by its name, or, in settings of before the
 // name was kept, by its old number. With none chosen, and for a caret that is no more, it

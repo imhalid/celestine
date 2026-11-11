@@ -80,7 +80,7 @@ func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
 		dir   int
 		glyph *ui.SVG
 		label string
-	}{{-1, iconBack, "Geri (⌘[)"}, {1, iconChevron, "İleri (⌘])"}} {
+	}{{-1, iconBack, "back2"}, {1, iconChevron, "forward2"}} {
 		ui.Box(c.Key(d.label)).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(d.dir)]).Children(func() {
 			if a.barIcon(c, d.glyph, d.label) {
 				a.step(d.dir)
@@ -169,8 +169,8 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					if a.iconButton(c, iconCollapseAll, locales.SidebarCollapseAll()) {
 						a.collapseAll()
 					}
-					if a.iconButton(c, iconPlus, "Yeni koleksiyon") {
-						if coll, err := a.lib.NewCollection("Yeni koleksiyon"); err == nil {
+					if a.iconButton(c, iconPlus, locales.NewCollection()) {
+						if coll, err := a.lib.NewCollection(msg("newCollection")); err == nil {
 							a.newPage(coll, nil)
 						} else {
 							a.fail(err)
@@ -303,13 +303,13 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 					pinHit = true
 					a.later(s.pin)
 				}
-			} else if a.revealButton(c, iconPin, "Sabitle: "+s.name, hover) {
+			} else if a.revealButton(c, iconPin, locales.SidebarPinLabel(s.name), hover) {
 				pinHit = true
 				a.later(s.pin)
 			}
 		}
 		if s.plus {
-			add = a.revealButton(c, iconPlus, "Ekle: "+s.name, hover)
+			add = a.revealButton(c, iconPlus, locales.SidebarAddLabel(s.name), hover)
 		}
 	})
 	switch x := s.item.(type) { // the keys' letters can press it
@@ -394,7 +394,7 @@ func (a *app) commitRename() {
 
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	tint := collTint(c, coll)
-	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: "Koleksiyon: " + coll.Name, glyph: collGlyph(coll), tint: &tint, name: coll.Name,
+	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: locales.CommonCollectionLabel(coll.Name), glyph: collGlyph(coll), tint: &tint, name: coll.Name,
 		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: !coll.Dynamic(), item: coll,
 		pin: func() { a.pinCollection(coll, !coll.Pinned) }, pinned: coll.Pinned,
 		menu: func() []menuItem { return a.collectionMenu(coll) }})
@@ -409,7 +409,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 }
 
 func (a *app) pageRow(c *ui.Context, p *Page) {
-	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: "Sayfa: " + p.Title, depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
+	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: locales.CommonPageLabel(p.Title), depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
 		selected: p == a.page && !a.noPage(), has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
 		menu: func() []menuItem { return a.pageMenu(p, true) }})
 	switch {
@@ -625,7 +625,7 @@ const sidebarButtonsW = 4*(24+2) + 6
 
 // barIcon is an icon button of the top bar: small, as the bar is.
 func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
-	label = T(label) // its tip, in the window's language
+	label = msg(label) // its tip, in the window's language
 	t := c.Theme()
 	b := ui.Box(c).Width(24).Height(barBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})

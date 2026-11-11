@@ -50,10 +50,11 @@ minutes are counted): `gofmt -l .` empty, `go vet ./...`,
   before anything is counted.
 - English is the project's language: new words shown in the app, comments, docs, commit messages, release
   notes, tags, issues and PRs are written in English. Only the conversation with the maintainer is in Turkish.
-- The app is English unless Turkish is chosen. Words shown go through `T("…")` (i18n.go), which finds the text's
-  message (`codeKeys`, i18n_keys.go) in the catalogs of `locales/` (`en.json` the source, `tr.json`): a new one is
-  written in English, added to both catalogs and to `codeKeys`, and `mygo generate` writes `locales/catalog_gen.go`
-  again (docs/24-i18n.md; phase 2, #331, calls the messages by name instead).
+- The app is English unless Turkish is chosen. Every word shown is a message of `locales/` (`en.json` the source,
+  `tr.json`; docs/24-i18n.md): a new one is written in English with its Turkish, added to both catalogs, and
+  `mygo generate` writes `locales/catalog_gen.go` again; the code calls it by its function (`locales.UpdateTitle()`),
+  or keeps its id in a table (a command's title, a setting's name) and says it with `msg(id)`. A sentence with values
+  is one message with named arguments and plurals; a notice tells its kind (`a.say(toastErr, …)`).
 - Comments are sentences that say what a thing is and why, in the voice of the ones around them; a
   declaration's comment starts with its name.
 - UI tests drive the real view with `ui.NewTester` (`newTestApp` in helpers_test.go). Shaders are off in tests

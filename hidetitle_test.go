@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestSplitTitle(t *testing.T) {
@@ -386,14 +387,14 @@ func TestCalendarView(t *testing.T) {
 	tt.Frame()
 	// Anna Karenina was made ten days before the 4th of November: a dot on
 	// that day, and its pages when the day is opened
-	if !tt.HasText("Ekim 2026") || !tt.HasText("Gün: 2026-10-25") || tt.HasText("Aç: Anna Karenina") {
+	if !tt.HasText("Ekim 2026") || !tt.HasText("Gün: 2026-10-25") || tt.HasText(locales.ViewsOpenLabel("Anna Karenina")) {
 		t.Fatalf("a quiet day with a dot: %v", tt.Texts())
 	}
 	if err := tt.Click("Gün: 2026-10-25"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	if !a.calOpen || !tt.HasText("Aç: Anna Karenina") || !tt.HasText("25 Ekim 2026, Pazar") {
+	if !a.calOpen || !tt.HasText(locales.ViewsOpenLabel("Anna Karenina")) || !tt.HasText("25 Ekim 2026, Pazar") {
 		t.Fatalf("the day did not open: %v", tt.Texts())
 	}
 	tt.Key(0, ui.KeyEscape)
@@ -637,7 +638,7 @@ func TestSettingsScreen(t *testing.T) {
 		t.Fatal("the settings did not open")
 	}
 	for _, s := range settingsSections {
-		if !tt.HasText(T(s.name)) {
+		if !tt.HasText(msg(s.name)) {
 			t.Fatalf("no %q in the list: %v", s.name, tt.Texts())
 		}
 	}

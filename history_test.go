@@ -330,7 +330,7 @@ func TestTimeLapse(t *testing.T) {
 		t.Fatal("Esc turned the time-lapse off")
 	}
 	// the page's button turns the colors off, and on
-	if err := tt.Click(T("Back to the text")); err != nil {
+	if err := tt.Click(msg("common_backText")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(100 * time.Millisecond)
@@ -340,7 +340,7 @@ func TestTimeLapse(t *testing.T) {
 	if _, ok := a.lapseSpans(0, []ui.Span{{Text: line}}); ok {
 		t.Fatal("colors with it off")
 	}
-	if err := tt.Click(T("Time-lapse")); err != nil {
+	if err := tt.Click(msg("common_timeLapse")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	for range 50 {
@@ -686,7 +686,7 @@ func TestHistoryFromThePageMenu(t *testing.T) {
 	tt.Frame()
 	found := false
 	for _, it := range a.pageMenu(p, true) {
-		if it.title == "Sürüm geçmişi…" {
+		if it.title == "page_versionHistory" {
 			found = true
 			it.run()
 		}

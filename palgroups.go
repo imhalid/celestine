@@ -10,36 +10,113 @@ import (
 // The commands of the palette, with nothing typed after ">": in groups under headings, and a family
 // of commands that differ by what comes after their ":" (Caret: …, Sayfayı taşı: …) as one line,
 // which opens to its members. Typed, every command is found by itself, as before.
-
-// cmdCats are the groups of the commands, in their order, each found by how its commands begin (in
-// Turkish, before they are translated); a "=" first is the whole title. The first that fits is it.
-var cmdCats = []struct {
-	name  string
-	start []string
-}{
-	{"Sayfa", []string{"Seçim", "Alt sayfa ekle", "Geri al", "Yinele", "Panodan tablo", "Çöpe taşı", "Sayfayı", "Bloğu", "Katla",
-		"Sayfada bul", "=Kaydet", "Yeni sayfa", "Yeni alt sayfa", "Yeni günlük", "Bugünün sayfası", "Hızlı not"}},
-	{"Koleksiyon", []string{"Koleksiyon", "Görünüm:", "Şablondan yeni", "Yeni koleksiyon"}},
-	{"Bölmeler", []string{"Yan bölmede aç", "Yeni bölme", "Bölme", "Kenar çubuğu", "Yan panel"}},
-	{"Git", []string{"=Görevler", "=İstatistikler", "=Hesap profili", "Rastgele gün", "=Önceki gün", "=Sonraki gün", "=Tarihe git", "=Ayarlar", "=Çöp", "Kitaplıkta ara", "=Geri", "=İleri"}},
-	{"Dosyalar ve senkron", []string{"Senkron", "Şimdi eşitle", "Şimdi yedekle", "Yedek", "Markdown", "Ayar", "Son kayıttan",
-		"Kayıt gecikmesi", "Otomatik kayıt", "Hepsini varsayılana"}},
-	{"Yazı", []string{"Yazı", "Sayfa genişliği", "Satır", "Paragraf aralığı", "İlk satır", "Tab uzunluğu", "Kod yazı tipi", "Ligatür"}},
-	{"Görünüm", []string{"Renk teması", "Tema", "Köşe", "Caret", "Cursor", "İmleç efekti", "Jöle", "Odak", "Otomatik kapak", "Kısayol ipuçları", "Dil",
-		"Profil", "Uygulama yazı tipi", "Sekmeleri göster", "Paragraf sonlarını", "Kod bloklarında"}},
-	{"Uygulama", nil}, // the rest
+// cmdCategory is the group of a command in the palette, by its id: the commands of the app and the settings; the
+// rest are the app's (cmdCat).
+var cmdCategory = map[string]string{
+	"settings_readSettingsFile": "filesAndSync", "newPaneThisScreen": "panes", "panes_settingsBeside": "panes", "panes_tasksBeside": "panes", "panes_trashBeside": "panes",
+	"accountProfile":             "common_go",
+	"addASubPage":                "page",
+	"appTypeface":                "common_appearance",
+	"biggerText":                 "writing",
+	"caret":                      "common_appearance",
+	"changeTheCaret":             "common_appearance",
+	"closeThePane":               "panes",
+	"codeTypeface":               "writing",
+	"collectionSettings":         "collection",
+	"common_alwaysShowFocusRing": "common_appearance",
+	"common_automaticCover":      "common_appearance",
+	"common_autosave":            "filesAndSync",
+	"common_back":                "common_go",
+	"common_backUpNow":           "filesAndSync",
+	"common_caretSleep":          "common_appearance",
+	"common_colorTheme":          "common_appearance",
+	"common_cornerRoundness":     "common_appearance",
+	"common_corners":             "common_appearance",
+	"common_cursorFx":            "common_appearance",
+	"common_firstLineIndent":     "writing",
+	"common_focusMode":           "common_appearance",
+	"common_fontSize":            "writing",
+	"common_fontWeight":          "writing",
+	"common_goDate":              "common_go",
+	"common_jellyEffect":         "common_appearance",
+	"common_language":            "common_appearance",
+	"common_ligatures":           "writing",
+	"common_lineLength":          "writing",
+	"common_lineSpacing":         "writing",
+	"common_newPage":             "page",
+	"common_pageWidth":           "writing",
+	"common_paragraphSpacing":    "writing",
+	"common_profile":             "common_appearance",
+	"common_quickNote":           "page",
+	"common_resetAllDefaults":    "filesAndSync",
+	"common_save":                "page",
+	"common_saveDelay":           "filesAndSync",
+	"common_settings":            "common_go",
+	"common_sidePanel":           "panes",
+	"common_statistics":          "common_go",
+	"common_syncNow":             "filesAndSync",
+	"common_tabWidth":            "writing",
+	"common_tasks":               "common_go",
+	"common_theme":               "common_appearance",
+	"common_trash":               "common_go",
+	"common_undo2":               "page",
+	"common_writeSettingsFile":   "filesAndSync",
+	"copyAsMarkdown":             "filesAndSync",
+	"duplicateTheBlock":          "page",
+	"exportAsMarkdownFolder":     "filesAndSync",
+	"exportAsMarkdownZip":        "filesAndSync",
+	"findInPage2":                "page",
+	"foldUnfold":                 "page",
+	"forward":                    "common_go",
+	"goBackToBeforeTheLast":      "filesAndSync",
+	"importAMarkdownFolder2":     "filesAndSync",
+	"moveTheBlockDown":           "page",
+	"moveTheBlockUp":             "page",
+	"moveThePageDownInIts":       "page",
+	"moveThePageUpInIts":         "page",
+	"moveThePaneToAWindow":       "panes",
+	"moveToTrash":                "page",
+	"newCollection":              "collection",
+	"nextDay":                    "common_go",
+	"openBlockBeside":            "page",
+	"openInASidePane":            "panes",
+	"pasteATableCsv":             "page",
+	"pasteAsMarkdown":            "filesAndSync",
+	"previousDay":                "common_go",
+	"randomDay":                  "common_go",
+	"redo":                       "page",
+	"resetTheFontSize":           "writing",
+	"restoreFromABackup":         "filesAndSync",
+	"searchTheLibrary":           "common_go",
+	"shortcutHints":              "common_appearance",
+	"showParagraphEnds":          "common_appearance",
+	"showTabs":                   "common_appearance",
+	"showWhitespaceInCodeBlocks": "common_appearance",
+	"sidebar":                    "panes",
+	"smallerText":                "writing",
+	"switchPane":                 "panes",
+	"sync4":                      "filesAndSync",
+	"syncInterval":               "filesAndSync",
+	"todaysPage":                 "page",
+	"toggleTheSidePanel":         "panes",
+	"toggleTheSidebar":           "panes",
+	"typefacePreset":             "writing",
 }
 
-// cmdCat is the group of a command, by its Turkish title.
-func cmdCat(title string) string {
-	for _, g := range cmdCats {
-		for _, s := range g.start {
-			if whole, ok := strings.CutPrefix(s, "="); ok && title == whole || !ok && strings.HasPrefix(title, s) {
-				return g.name
-			}
+// cmdCats are the palette's groups, in their order; app is the rest.
+var cmdCats = []string{"page", "collection", "panes", "common_go", "filesAndSync", "writing", "common_appearance", "app"}
+
+// cmdCat is the group of a command, by its id, or by the id before ": " ("collectionSettings: Books").
+func cmdCat(id string) string {
+	if c, ok := cmdCategory[id]; ok {
+		return c
+	}
+	if head, _, ok := strings.Cut(id, ": "); ok {
+		if c, ok := cmdCategory[head]; ok {
+			return c
 		}
 	}
-	return cmdCats[len(cmdCats)-1].name
+	return "app"
 }
 
 // cmdFam is the family of a command: what its Turkish title says before ": ", "" for none.
@@ -75,7 +152,7 @@ func (a *app) groupCommands(items []palItem) []palItem {
 			it = a.famItem(it, fams[key])
 		}
 		if it.boost > 0 { // for what is shown: the page, the collection, the selection
-			it.group = "Bu ekran"
+			it.group = "thisScreen"
 			here = append(here, it)
 			continue
 		}
@@ -88,9 +165,9 @@ func (a *app) groupCommands(items []palItem) []palItem {
 	}
 	out := here
 	for _, g := range cmdCats { // each group a line, which opens it
-		if n := len(byCat[g.name]); n > 0 {
-			name := g.name
-			out = append(out, palItem{title: T(name), keys: locales.PaletteOptions(n), glyph: catGlyph(byCat[name]), group: "Gruplar",
+		if n := len(byCat[g]); n > 0 {
+			name := g
+			out = append(out, palItem{title: msg(name), keys: locales.PaletteOptions(n), glyph: catGlyph(byCat[name]), group: "groups",
 				run: func() { a.pal = palette{open: true, query: ">", cat: name} }})
 		}
 	}
@@ -104,7 +181,7 @@ func catGlyph(items []palItem) *ui.SVG {
 
 // famItem is the line of a family of n commands, of which it is one: chosen, the palette shows them all.
 func (a *app) famItem(it palItem, n int) palItem {
-	name := T(it.fam)
+	name := msg(it.fam)
 	return palItem{title: name + "…", keys: locales.PaletteOptions(n), glyph: it.glyph, cat: it.cat, boost: it.boost,
 		run: func() { a.pal = palette{open: true, query: ">" + name + ": "} }}
 }

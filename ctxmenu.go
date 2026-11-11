@@ -24,7 +24,7 @@ func (a *app) showContext(x, y float32, items []menuItem) {
 	if phone { // a phone has one pane: what opens beside is not offered
 		kept := items[:0:0]
 		for _, it := range items {
-			if it.title != "Yan bölmede aç" {
+			if it.title != "openInASidePane" {
 				kept = append(kept, it)
 			}
 		}
@@ -81,58 +81,58 @@ func (a *app) contextView(c *ui.Context) {
 // title and the "…" of the bar (#267). inPlace is a row that turns into a field to rename the page; elsewhere the
 // page is opened and the caret put in its title.
 func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
-	out := []menuItem{{title: "Aç", glyph: iconPage, run: func() { a.open(p) }}, {title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"page", p.Dir}) }}}
+	out := []menuItem{{title: "common_open", glyph: iconPage, run: func() { a.open(p) }}, {title: "openInASidePane", glyph: iconPanel, run: func() { a.openInSide(place{"page", p.Dir}) }}}
 	if !p.Coll.Journal {
 		rename := func() { a.open(p); a.fresh = true }
 		if inPlace {
 			rename = func() { a.startRename(p, p.Title) }
 		}
-		out = append(out, menuItem{title: "Yeniden adlandır", glyph: iconEdit, run: rename})
+		out = append(out, menuItem{title: "common_rename", glyph: iconEdit, run: rename})
 	}
 	if p.Coll.SubPages {
-		out = append(out, menuItem{title: "Alt sayfa ekle", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
+		out = append(out, menuItem{title: "addASubPage", glyph: iconPlus, run: func() { a.newPage(p.Coll, p) }})
 	}
-	coverTitle := "Kapak resmi ekle…"
+	coverTitle := "page_addCover"
 	if p.ImageCover() {
 		coverTitle = "Kapak resmini değiştir…"
 	}
 	out = append(out, menuItem{title: coverTitle, group: "~", glyph: iconCover, run: func() { a.pickCover(p) }})
 	if a.coverKind(p) != coverKindNone {
-		out = append(out, menuItem{title: "Kapağı kaldır", glyph: iconTrash, run: func() { a.removeCover(p) }})
+		out = append(out, menuItem{title: "common_removeCover", glyph: iconTrash, run: func() { a.removeCover(p) }})
 	}
 	if p.Cover == CoverNone && !a.settings.NoAutoCover {
-		out = append(out, menuItem{title: "Otomatik kapağı geri getir", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
+		out = append(out, menuItem{title: "page_restoreAutoCover", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
 	}
 	if !p.Coll.Journal {
-		out = append(out, menuItem{title: "Çoğalt", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
+		out = append(out, menuItem{title: "duplicate2", glyph: iconDuplicate, run: func() { a.duplicatePage(p) }})
 	}
 	if a.settings.SyncMode == "server" && a.settings.SyncToken != "" && !p.Coll.Journal {
-		out = append(out, menuItem{title: "Sunucudaki sürümler…", glyph: iconHistory, run: func() { a.openServerHistory(p) }})
+		out = append(out, menuItem{title: "versionsOnTheServer2", glyph: iconHistory, run: func() { a.openServerHistory(p) }})
 	}
 	out = append(out,
-		menuItem{title: "Bağlantıyı kopyala", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
-		menuItem{title: "Markdown'u kopyala", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }})
+		menuItem{title: "page_copyLink", sub: "[[" + p.Title + "]]", group: "~", glyph: iconLink, run: func() { a.copyText("[[" + p.Title + "]]") }},
+		menuItem{title: "page_copyMarkdown", glyph: iconPage, run: func() { a.copyText(a.currentMarkdown(p)) }})
 	if _, ok := historyOf(p); ok { // the history is the page's room: the page is opened, then its history (#265)
-		out = append(out, menuItem{title: "Sürüm geçmişi…", glyph: iconHistory, run: func() { a.open(p); a.openTimeMachine(p) }})
+		out = append(out, menuItem{title: "page_versionHistory", glyph: iconHistory, run: func() { a.open(p); a.openTimeMachine(p) }})
 	}
 	out = append(out,
-		menuItem{title: "Dosya olarak dışa aktar…", glyph: iconExport, run: func() { a.exportPage(p) }},
-		menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
+		menuItem{title: "page_exportFile", glyph: iconExport, run: func() { a.exportPage(p) }},
+		menuItem{title: "moveToTrash", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
 	return out
 }
 
 // collectionMenu is what a collection offers.
 func (a *app) collectionMenu(coll *Collection) []menuItem {
 	out := []menuItem{
-		{title: "Aç", glyph: iconStack, run: func() { a.openCollection(coll) }},
-		{title: "Yan bölmede aç", glyph: iconPanel, run: func() { a.openInSide(place{"coll", coll.Dir}) }},
-		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
+		{title: "common_open", glyph: iconStack, run: func() { a.openCollection(coll) }},
+		{title: "openInASidePane", glyph: iconPanel, run: func() { a.openInSide(place{"coll", coll.Dir}) }},
+		{title: "common_rename", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
 		{title: newPageLabel(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
-		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
+		{title: "settings2", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
 		{title: map[bool]string{true: locales.CommandsChangeBanner(), false: locales.CommandsAddBanner()}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
-		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
-		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
-		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
+		{title: map[bool]string{true: "unpin", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
+		{title: "moveUp", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
+		{title: "moveDown", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
 	}
 	if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from its templates
 		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
@@ -141,7 +141,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		out = append(out, menuItem{title: locales.CommandsRemoveBanner(), glyph: iconCover, run: func() { a.removeBanner(coll) }})
 	}
 	if !coll.Journal { // the journal is not thrown away
-		out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})
+		out = append(out, menuItem{title: "moveToTrash", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})
 	}
 	return out
 }
@@ -149,8 +149,8 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 // trashMenu is what a page in the trash offers.
 func (a *app) trashMenu(item *TrashItem) []menuItem {
 	return []menuItem{
-		{title: "Geri yükle", glyph: iconRestore, run: func() { a.restore(item) }},
-		{title: "Kalıcı olarak sil", group: "~", glyph: iconTrash, danger: true, run: func() {
+		{title: "common_restore", glyph: iconRestore, run: func() { a.restore(item) }},
+		{title: "deleteForGood3", group: "~", glyph: iconTrash, danger: true, run: func() {
 			a.deleteForever(item)
 		}},
 	}

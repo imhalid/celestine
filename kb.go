@@ -78,7 +78,7 @@ func (a *app) kbMark(e ui.Element, key string, list bool, act func()) {
 
 // kbAnchor is the place the focus goes to when the keys are commands.
 func (a *app) kbAnchor(c *ui.Context) {
-	e := ui.Box(c.Key("kb-anchor")).Size(0, 0).Focusable().FocusRing(false).Label("Klavye kipi")
+	e := ui.Box(c.Key("kb-anchor")).Size(0, 0).Focusable().FocusRing(false).Label(locales.KeyboardMode())
 	if a.kb.park {
 		a.kb.park = false
 		e.Focus()
@@ -157,26 +157,26 @@ var leaderKeys = []struct {
 	name string
 	run  func(a *app)
 }{
-	{'s', "Ayarlar", func(a *app) { a.openSettings() }},
-	{'p', "Komutlar", func(a *app) { a.openCommands() }},
+	{'s', "common_settings", func(a *app) { a.openSettings() }},
+	{'p', "common_commands", func(a *app) { a.openCommands() }},
 	{'o', "Sayfa aç", func(a *app) { a.openPalette() }},
-	{'f', "Sayfada bul", func(a *app) { a.openFind() }},
-	{'/', "Kitaplıkta ara", func(a *app) { a.openSearch(a.searchQ) }},
-	{'t', "Görevler", func(a *app) { a.openTasks() }},
-	{'d', "Çöp", func(a *app) { a.openTrash() }},
-	{'j', "Bugünün sayfası", func(a *app) { a.openToday() }},
-	{'g', "Tarihe git", func(a *app) { a.askDate() }},
-	{'i', "İstatistikler", func(a *app) { a.openStats() }},
-	{'n', "Yeni sayfa", func(a *app) {
+	{'f', "findInPage2", func(a *app) { a.openFind() }},
+	{'/', "searchTheLibrary", func(a *app) { a.openSearch(a.searchQ) }},
+	{'t', "common_tasks", func(a *app) { a.openTasks() }},
+	{'d', "common_trash", func(a *app) { a.openTrash() }},
+	{'j', "todaysPage", func(a *app) { a.openToday() }},
+	{'g', "common_goDate", func(a *app) { a.askDate() }},
+	{'i', "common_statistics", func(a *app) { a.openStats() }},
+	{'n', "common_newPage", func(a *app) {
 		if c := a.currentColl(); c != nil {
 			a.newPage(c, nil)
 		}
 	}},
-	{'b', "Kenar çubuğu", func(a *app) { a.toggleSidebar() }},
-	{'w', "Bölmeler arası geç", func(a *app) { a.nextPane() }},
-	{'c', "Bölmeyi kapat", func(a *app) { a.closeThisPane() }},
-	{'v', "Yan bölmede aç", func(a *app) { a.openHereInSide() }},
-	{'k', "Kısayollar", func(a *app) { a.kb.help = true }},
+	{'b', "sidebar", func(a *app) { a.toggleSidebar() }},
+	{'w', "switchPane", func(a *app) { a.nextPane() }},
+	{'c', "closeThePane", func(a *app) { a.closeThisPane() }},
+	{'v', "openInASidePane", func(a *app) { a.openHereInSide() }},
+	{'k', "shortcuts", func(a *app) { a.kb.help = true }},
 }
 
 // kbKey reads the keys of the normal mode; it reports a key that it took.
@@ -624,7 +624,7 @@ func (a *app) colonItems(q string) []palItem {
 	case "tema", "theme":
 		var out []palItem
 		for _, it := range a.commands() {
-			if strings.HasPrefix(it.id, "Tema: ") && (arg == "" || match(arg, strings.TrimPrefix(it.id, "Tema: ")) >= 0 || match(arg, it.title) >= 0) {
+			if strings.HasPrefix(it.id, "common_theme: ") && (arg == "" || match(arg, names(strings.TrimPrefix(it.id, "common_theme: "))) >= 0 || match(arg, it.title) >= 0) {
 				out = append(out, it)
 			}
 		}
@@ -650,7 +650,7 @@ func (a *app) colonItems(q string) []palItem {
 var vimNames = map[string]string{
 	"fontsize": "yazı boyutu", "fs": "yazı boyutu", "lineheight": "satır aralığı", "lh": "satır aralığı", "width": "sayfa genişliği",
 	"textwidth": "sayfa genişliği", "autosave": "otomatik kayıt", "list": "boşlukları göster", "spaces": "boşlukları göster",
-	"tabs": "sekmeleri göster", "ligatures": "ligatürler", "indent": "ilk satır girintisi", "sidebar": "kenar çubuğu", "mcp": "mcp sunucusu",
+	"tabs": "sekmeleri göster", "ligatures": "ligatürler", "indent": "ilk satır girintisi", "sidebar": "sidebar3", "mcp": "mcp sunucusu",
 	"stats": "istatistik toplama", "backup": "günlük yedek", "jelly": "jöle efekti", "wobble": "parıltı", "cover": "otomatik kapak",
 	"weight": "yazı kalınlığı", "corner": "köşe yuvarlaklığı", "delay": "kayıt gecikmesi",
 }
@@ -663,7 +663,7 @@ func (a *app) setItems(name, val string) []palItem {
 	}
 	for _, d := range settingDefs() {
 		d := d
-		if match(want, d.name) < 200 && match(want, T(d.name)) < 200 && match(want, d.alias) < 200 { // every word of it, not letters in order: set nope=1 is no setting
+		if match(want, names(d.name)) < 200 && match(want, d.alias) < 200 { // every word of it, not letters in order: set nope=1 is no setting
 			continue
 		}
 		switch d.kind {
@@ -673,8 +673,8 @@ func (a *app) setItems(name, val string) []palItem {
 				continue
 			}
 			to, cur := d.clamp(v), d.val(a)
-			return []palItem{{title: locales.SettingsSetTo(T(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
-				run: a.undoable(locales.SettingsChanged(T(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}}
+			return []palItem{{title: locales.SettingsSetTo(msg(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
+				run: a.undoable(locales.SettingsChanged(msg(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}}
 		case setToggle:
 			on, ok := map[string]bool{"on": true, "off": false, "1": true, "0": false, "yes": true, "no": false, "aç": true, "kapat": false, "açık": true, "kapalı": false, "true": true, "false": false}[strings.ToLower(val)]
 			if !ok {
@@ -682,8 +682,8 @@ func (a *app) setItems(name, val string) []palItem {
 			}
 			was := d.on(a)
 			state := map[bool]string{true: locales.SettingsOn(), false: locales.SettingsOff()}[on]
-			return []palItem{{title: locales.SettingsSetTo(T(d.name), state), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
-				run: a.undoable(locales.SettingsChanged(T(d.name), state), func() { d.flip(a, was) }, func() { d.flip(a, on) })}}
+			return []palItem{{title: locales.SettingsSetTo(msg(d.name), state), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings,
+				run: a.undoable(locales.SettingsChanged(msg(d.name), state), func() { d.flip(a, was) }, func() { d.flip(a, on) })}}
 		}
 	}
 	return []palItem{{title: locales.PaletteNoSuchSetting(name, val), glyph: iconPage, off: locales.PaletteSettingMismatch()}}

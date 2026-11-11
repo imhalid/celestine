@@ -217,7 +217,7 @@ func (a *app) tagView(c *ui.Context) {
 				for _, q := range pages {
 					q := q
 					row := ui.Row(c.Key("tp:"+q.Dir)).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).
-						Label("Sayfa: " + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						Label(locales.CommonPageLabel(q.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					if row.Hovered() {
 						row.Background(t.SurfaceHover)
 					}
@@ -246,7 +246,7 @@ func (a *app) tagView(c *ui.Context) {
 // tagPill is a tag as a small button: its name and how many pages have it.
 func (a *app) tagPill(c *ui.Context, cl ryugo.Colors, ti tagInfo, on bool) {
 	pill := ui.Row(c.Key("tag:"+ti.key)).Padding(3, 9).Gap(6).Radius(rad(11)).AlignItems(ui.Center).
-		Label("Etiket: " + ti.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		Label(locales.TagsTagLabel(ti.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	hot := pill.AnimateTo("on", map[bool]float32{true: 1, false: 0}[on], fadeQuick)
 	if on || pill.Hovered() {
 		pill.Background(cl.Accent.Alpha(0.12 + 0.12*hot))
@@ -317,7 +317,7 @@ func (a *app) tagItems(q string) []menuItem {
 		}
 	}
 	if q != "" && !exact {
-		out = append(out, menuItem{title: "Yeni etiket: #" + q, group: "Yeni", glyph: iconPlus, run: func() { a.chooseTag(q) }})
+		out = append(out, menuItem{title: "Yeni etiket: #" + q, group: "slash_groupNew", glyph: iconPlus, run: func() { a.chooseTag(q) }})
 	}
 	return out
 }
@@ -389,7 +389,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 	}
 	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: locales.SidebarRenameTag(), Width: 420, Footer: func() {
 		ui.Spacer(c)
-		if ryugo.Button(c.Key("tag-rename-ok"), "Kaydet", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("tag-rename-ok"), locales.CommonSave(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.applyTagRename()
 		}
 	}}, func() {

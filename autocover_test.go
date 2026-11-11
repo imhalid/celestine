@@ -114,7 +114,7 @@ func TestAutoCoverKinds(t *testing.T) {
 	for _, it := range a.pageMenu(p, false) {
 		titles = append(titles, it.title)
 	}
-	if !contains(titles, "Otomatik kapağı geri getir") || contains(titles, "Kapağı kaldır") {
+	if !contains(titles, "page_restoreAutoCover") || contains(titles, "common_removeCover") {
 		t.Fatalf("menu of a page with none: %v", titles)
 	}
 	a.restoreAutoCover(p)

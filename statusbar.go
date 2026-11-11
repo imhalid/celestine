@@ -44,23 +44,23 @@ func (a *app) hints() []hint {
 	case a.lapse.on && (a.lapse.solo != 0 || a.lapse.lit != 0) && !a.pal.open:
 		return []hint{{"Esc", "back to the text"}}
 	case a.pal.open:
-		return []hint{{"↑↓", "seç"}, {"↵", "aç"}, {"Esc", "kapat"}, {">", "komutlar"}, {"#", "etiketler"}, {":", "satıra git"}}
+		return []hint{{"↑↓", "choose2"}, {"↵", "on"}, {"Esc", "off3"}, {">", "commands3"}, {"#", "tags4"}, {":", "goToALine"}}
 	case a.find.open:
-		return []hint{{"↵", "sonraki"}, {"⇧↵", "önceki"}, {"Esc", "kapat"}}
+		return []hint{{"↵", "next"}, {"⇧↵", "previous"}, {"Esc", "off3"}}
 	case a.slash.open:
-		return []hint{{"↑↓", "seç"}, {"↵", "ekle"}, {"Esc", "kapat"}}
+		return []hint{{"↑↓", "choose2"}, {"↵", "insert"}, {"Esc", "off3"}}
 	case a.kb.normal:
-		return []hint{{"f", "harf etiketleri"}, {"i", "yaz"}, {"j k", "gez"}, {"Space", "komutlar"}, {"?", "tüm kısayollar"}}
+		return []hint{{"f", "letterLabels"}, {"i", "write2"}, {"j k", "move2"}, {"Space", "commands3"}, {"?", "allShortcuts"}}
 	case a.settingsOpen:
-		return []hint{{"/", "ayar ara"}, {"Esc", "geri"}}
+		return []hint{{"/", "searchSettings2"}, {"Esc", "back3"}}
 	case a.statsScreen, a.profileScreen, a.trashOpen, a.tasksOpen, a.searchOpen, a.tag != "":
-		return []hint{{"Esc", "geri"}}
+		return []hint{{"Esc", "back3"}}
 	case a.coll != nil:
-		return []hint{{"⌘N", "yeni sayfa"}, {"⌘\\", "kenar çubuğu"}}
+		return []hint{{"⌘N", "newPage3"}, {"⌘\\", "sidebar3"}}
 	case a.page != nil && !a.noPage() && a.cellEd.open:
-		return []hint{{"Tab", "next cell"}, {"⇧Tab", "previous cell"}, {"↑↓", "row"}, {"↵", "keep"}}
+		return []hint{{"Tab", "nextCell"}, {"⇧Tab", "previousCell"}, {"↑↓", "row"}, {"↵", "keep"}}
 	case a.page != nil && !a.noPage() && a.titleFocused:
-		return []hint{{"↵", "into the text"}}
+		return []hint{{"↵", "intoTheText"}}
 	case a.page != nil && !a.noPage() && a.doc != nil && a.focused:
 		return a.editorHints() // the block the caret is in (blockhints.go)
 	}
@@ -82,7 +82,7 @@ func (a *app) statusHints(c *ui.Context) {
 				ui.Row(c).Padding(1, 5).Radius(rad(4)).Background(cl.Fill).Border(1, cl.Hairline).Children(func() {
 					ui.Text(c, h.key).FontSize(10.5).FontWeight(600).TextColor(cl.Text2).NoWrap()
 				})
-				ui.Text(c, T(h.what)).FontSize(11.5).TextColor(cl.Muted).NoWrap()
+				ui.Text(c, msg(h.what)).FontSize(11.5).TextColor(cl.Muted).NoWrap()
 			})
 		}
 	})

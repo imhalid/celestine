@@ -41,16 +41,16 @@ type gripState struct {
 
 // blockKinds are what a block can be turned into, in the menus.
 var blockKinds = []struct{ kind, name, md string }{
-	{"text", "Metin", ""},
-	{"h1", "Başlık 1", "#"},
-	{"h2", "Başlık 2", "##"},
-	{"h3", "Başlık 3", "###"},
-	{"bullets", "Madde listesi", "-"},
-	{"numbers", "Numaralı liste", "1."},
-	{"tasks", "Görev", "[]"},
-	{"quote", "Alıntı", ">"},
-	{"code", "Kod bloğu", "```"},
-	{"hr", "Ayırıcı", "---"},
+	{"text", "text", ""},
+	{"h1", "blocks_heading1", "#"},
+	{"h2", "blocks_heading2", "##"},
+	{"h3", "blocks_heading3", "###"},
+	{"bullets", "blocks_bulletList", "-"},
+	{"numbers", "blocks_numberedList", "1."},
+	{"tasks", "common_task", "[]"},
+	{"quote", "blocks_quote", ">"},
+	{"code", "blocks_codeBlock", "```"},
+	{"hr", "blocks_divider", "---"},
 }
 
 // paraAtY is the paragraph box at y in the editor, or false.
@@ -207,7 +207,7 @@ func (a *app) gripView(c *ui.Context) {
 		if t := a.doc.Text(); r.X-gripW*2-12 >= a.pageR.X && g.para <= t.Len() && (blockHasKids(t, g.para) || foldOf(t, g.para) != nil) {
 			folded := foldOf(t, g.para) != nil
 			ch := ui.Box(c.Key("fold-chevron")).Absolute().Left(r.X-gripW*2-10).Top(gy).Size(gripW, gripH).Radius(rad(5)).
-				AlignItems(ui.Center).Justify(ui.Center).Label(map[bool]string{true: "Aç", false: "Katla"}[folded]).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				AlignItems(ui.Center).Justify(ui.Center).Label(map[bool]string{true: "common_open", false: "blocks_fold"}[folded]).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if ch.Hovered() {
 				ch.Background(cl.Fill)
 			}
@@ -591,16 +591,16 @@ func (a *app) blockItems() []menuItem {
 	}
 	var fold []menuItem
 	if ch := foldOf(a.doc.Text(), at); ch != nil {
-		fold = []menuItem{{title: "Aç (katlı)", hint: "⌘/", glyph: iconFoldOpen, run: done(func() { a.unfold(ch) })}}
+		fold = []menuItem{{title: "blocks_unfold", hint: "⌘/", glyph: iconFoldOpen, run: done(func() { a.unfold(ch) })}}
 	} else if blockHasKids(a.doc.Text(), at) {
-		fold = []menuItem{{title: "Katla", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
+		fold = []menuItem{{title: "blocks_fold", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
 	}
 	return append(fold, []menuItem{
-		{title: "Dönüştür…", glyph: iconFormat, items: turn},
-		{title: "Çoğalt", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
-		{title: "Yukarı taşı", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
-		{title: "Aşağı taşı", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
-		{title: "Sil", group: "~", glyph: iconTrash, danger: true, run: done(func() { deleteBlock(a.doc, at) })},
+		{title: "blocks_turnInto", glyph: iconFormat, items: turn},
+		{title: "duplicate2", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
+		{title: "moveUp", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
+		{title: "moveDown", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
+		{title: "common_delete", group: "~", glyph: iconTrash, danger: true, run: done(func() { deleteBlock(a.doc, at) })},
 	}...)
 }
 

@@ -45,7 +45,7 @@ func (a *app) libStatsNow() libStats {
 
 // statTile is a figure and what it is of.
 func statTile(c *ui.Context, key, label, value string) {
-	label = T(label)
+	label = msg(label)
 	cl := ryugo.From(c).Colors
 	ui.Column(c.Key(key)).Grow(1).MinWidth(110).Padding(12, 14).Gap(2).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 		ui.Text(c, value).FontSize(22).FontWeight(700).TextColor(cl.Text).MaxLines(1)
@@ -55,7 +55,7 @@ func statTile(c *ui.Context, key, label, value string) {
 
 // statHead is a section's title and what it counts.
 func statHead(c *ui.Context, title, note string) {
-	title, note = T(title), T(note)
+	title, note = msg(title), msg(note)
 	cl := ryugo.From(c).Colors
 	ui.Column(c).FillWidth().Gap(2).Padding(14, 0, 0, 0).Children(func() {
 		ui.Text(c, title).FontSize(17).FontWeight(680).TextColor(cl.Text)
@@ -266,7 +266,7 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 			ui.Text(c, locales.StatsMostUsedCommands()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 			cmds := top(a.usage.Cmds, 8)
 			for i := range cmds { // kept by what the command is, shown in the window's language
-				cmds[i].Name = T(cmds[i].Name)
+				cmds[i].Name = msg(cmds[i].Name)
 			}
 			statList(c, "by-cmd", cmds, locales.StatsNoCommandsYet(), nil)
 		})
@@ -316,7 +316,7 @@ func (a *app) unusedFeatures(n int) []string {
 			continue
 		}
 		seen[id] = true
-		out = append(out, T(id))
+		out = append(out, msg(id))
 		if len(out) >= n {
 			break
 		}

@@ -97,14 +97,14 @@ func TestSearch(t *testing.T) {
 
 func TestTableViewSortsAndRemembers(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
-	if err := tt.Click("Tablo"); err != nil {
+	if err := tt.Click(msg("slash_table")); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
 	if coll.View().Type != "table" {
 		t.Fatal("the table is not shown")
 	}
-	if err := tt.Click("Oluşturulma"); err != nil { // Ryugo's table: the first click sorts up, oldest first
+	if err := tt.Click(msg("common_created")); err != nil { // Ryugo's table: the first click sorts up, oldest first
 		t.Fatal(err)
 	}
 	tt.Frame()

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -12,9 +11,8 @@ import (
 
 // The language of the window (docs/24-i18n.md). Its messages are in the catalogs of locales/, a JSON file per
 // language through MyGo's i18n package, English the source: locales/en.json has every message, and a language
-// that lacks one says it in English. The code still gives T the text as it writes it, the Turkish of the older
-// strings and the English of the newer ones; codeKeys (i18n_keys.go) names the message of each, until phase 2
-// (#331) calls the messages by name. A text with no message shows as it was written, not as a hole.
+// that lacks one says it in English. The code calls a message by its function (locales.UpdateTitle()); a table
+// that keeps a message by its id (a command's title, a setting's name) says it with msg(id).
 //
 // A message is added in locales/en.json and its translation in the other files; `mygo generate` (the mygo
 // command of the MyGo version go.mod requires) writes locales/catalog_gen.go again, and TestCatalogs checks that
@@ -58,23 +56,35 @@ func setLang(setting string) {
 	showLocale(lang)
 }
 
-// T is s in the language of the window: s is a text as the code writes it (codeKeys).
-func T(s string) string {
-	if id, ok := codeKeys[s]; ok {
+// msg is the message of id in the window's language: for the tables that keep a message by its id (a command's
+// title, a setting's name). What is no id, a page's title or what a user typed, is said as it is.
+func msg(id string) string {
+	if _, _, ok := locales.Catalog.Message(lang, id); ok {
 		return locales.Catalog.Format(lang, id, nil)
 	}
-	// a title with a name after it: "Çöpe taşı: Sayfa" → the part before is translated
-	if i := strings.Index(s, ": "); i > 0 {
-		if id, ok := codeKeys[s[:i]]; ok {
-			return locales.Catalog.Format(lang, id, nil) + s[i:]
+	// an id with a value after it: "collectionSettings: Books" says the id and keeps the value
+	if head, rest, ok := strings.Cut(id, ": "); ok {
+		if _, _, ok := locales.Catalog.Message(lang, head); ok {
+			return strings.TrimSuffix(locales.Catalog.Format(lang, head, nil), ": ") + ": " + rest
 		}
 	}
-	return s
+	return id
 }
 
-// Tf is T for a sentence with values in it: the format is translated, then filled. The catalogs keep the
-// formats of Go's fmt for now; phase 2 (#331) makes them messages with named arguments and plurals.
-func Tf(format string, a ...any) string { return fmt.Sprintf(T(format), a...) }
+// names are the words a message of id is found by, typed: its own in each language of the window, so that a
+// setting or a command is found by its Turkish name in the English window too.
+func names(id string) string {
+	var b strings.Builder
+	for _, l := range languages {
+		if _, _, ok := locales.Catalog.Message(l.code, id); ok {
+			b.WriteString(locales.Catalog.Format(l.code, id, nil) + " ")
+		}
+	}
+	if b.Len() == 0 {
+		return id
+	}
+	return b.String()
+}
 
 // langName is the language's name, in itself.
 func langName(code string) string {

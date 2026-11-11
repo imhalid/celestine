@@ -115,7 +115,7 @@ func (a *app) selectionBar(c *ui.Context) {
 			btn("sb-bold", iconBold, locales.SelectionBold(), f.Bold == richtext.FormatOn, a.doc.ToggleBold)
 			btn("sb-italic", iconItalic, locales.SelectionItalic(), f.Italic == richtext.FormatOn, a.doc.ToggleItalic)
 			btn("sb-strike", iconStrike, locales.SelectionStrike(), f.Strikethrough == richtext.FormatOn, a.doc.ToggleStrikethrough)
-			btn("sb-code", kindIcon["code"], "Kod", f.Code == richtext.FormatOn, a.doc.ToggleCode)
+			btn("sb-code", kindIcon["code"], "code", f.Code == richtext.FormatOn, a.doc.ToggleCode)
 			btn("sb-link", iconLink, locales.SelectionLink(), f.Link != "", func() {
 				if f.Link != "" {
 					a.doc.SetLink("")

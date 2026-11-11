@@ -99,8 +99,8 @@ func TestWelcomeLooks(t *testing.T) {
 		}
 		tt.Advance(300 * time.Millisecond)
 	}
-	pick(welcomeGrounds[0].name, locales.Clouds())
-	if a.settings.WelcomeGround != "bulut" || a.welcomeGroundLook().name != "Bulut" || a.welcomeOpeningLook().name != "Halka" {
+	pick(msg(welcomeGrounds[0].name), locales.Clouds())
+	if a.settings.WelcomeGround != "bulut" || a.welcomeGroundLook().name != "clouds" || a.welcomeOpeningLook().name != "ring" {
 		t.Fatalf("chosen: %q %q", a.settings.WelcomeGround, a.settings.WelcomeOpen)
 	}
 	a.settings.WelcomeGround, a.settings.WelcomeOpen = "yok", "yok"

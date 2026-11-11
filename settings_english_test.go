@@ -51,7 +51,7 @@ func TestSettingsInEnglish(t *testing.T) {
 	}
 	for tab := range settingsSections {
 		a.settingsTab = tab
-		look(T(settingsSections[tab].name))
+		look(msg(settingsSections[tab].name))
 	}
 	a.settingsTab = tabMCP
 	a.settings.Port = 0

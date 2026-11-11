@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/locales"
 )
 
 // A page's body is its own format, not Markdown: a list of paragraphs, each
@@ -242,9 +243,9 @@ func attachmentOf(o *bodyObj) *richtext.Attachment {
 			}
 			m.rows[i] = r[:len(m.cols)]
 		}
-		return &richtext.Attachment{Name: "Tablo", Data: &chip{kind: "table", tbl: m}}
+		return &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: m}}
 	case "query":
-		return &richtext.Attachment{Name: "Sorgu", Data: &chip{kind: "query", target: o.Q}}
+		return &richtext.Attachment{Name: locales.CommonQuery(), Data: &chip{kind: "query", target: o.Q}}
 	case "image":
 		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
 	}

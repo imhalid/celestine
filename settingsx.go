@@ -97,8 +97,8 @@ func searchDefs(q string) []settingDef {
 	}
 	var all []scored
 	for _, d := range settingDefs() {
-		s := match(q, T(d.name))
-		if s2 := max(match(q, d.name+" "+d.alias), match(q, T(d.name)+" "+d.alias)); s < 0 && s2 >= 0 {
+		s := max(match(q, msg(d.name)), match(q, names(d.name)))
+		if s2 := match(q, names(d.name)+" "+d.alias); s < 0 && s2 >= 0 {
 			s = s2 / 2
 		}
 		if s >= 0 {
@@ -142,10 +142,10 @@ var profileKeys = []string{"theme", "appTheme", "caretName", "jelly", "fontSize"
 
 // builtinProfiles are ways of writing that come with the app.
 var builtinProfiles = map[string]map[string]any{
-	"Yazar": {"fontSize": 18.0, "lineHeight": 1.7, "pageWidth": 680.0, "paraGap": 0.75, "indent": 0.0, "fontWeight": 400},
-	"Kod":   {"fontSize": 14.5, "lineHeight": 1.45, "pageWidth": 900.0, "paraGap": 0.3, "showSpaces": true, "showTabs": true, "noLigatures": true},
-	"Sıkı":  {"fontSize": 14.0, "lineHeight": 1.35, "pageWidth": 820.0, "paraGap": 0.3},
-	"Okuma": {"fontSize": 19.0, "lineHeight": 1.8, "pageWidth": 640.0, "paraGap": 0.9, "indent": 1.0},
+	"settings_profileWriter":  {"fontSize": 18.0, "lineHeight": 1.7, "pageWidth": 680.0, "paraGap": 0.75, "indent": 0.0, "fontWeight": 400},
+	"code":                    {"fontSize": 14.5, "lineHeight": 1.45, "pageWidth": 900.0, "paraGap": 0.3, "showSpaces": true, "showTabs": true, "noLigatures": true},
+	"settings_profileCompact": {"fontSize": 14.0, "lineHeight": 1.35, "pageWidth": 820.0, "paraGap": 0.3},
+	"reading":                 {"fontSize": 19.0, "lineHeight": 1.8, "pageWidth": 640.0, "paraGap": 0.9, "indent": 1.0},
 }
 
 // profileNames are the saved profiles and the built-in ones.
@@ -323,12 +323,12 @@ func (a *app) settingsTop(c *ui.Context) {
 		}
 	}
 	modes := func() {
-		for _, m := range []struct{ id, name string }{{"changed", "Değiştirilenler"}, {"profiles", "Profiller"}, {"keys", "Kısayollar"}, {"file", "Dosya"}} {
+		for _, m := range []struct{ id, name string }{{"changed", "changed"}, {"profiles", "profiles"}, {"keys", "shortcuts"}, {"file", "common_file"}} {
 			m := m
 			on := a.setMode == m.id
 			b := ui.Row(c.Key("set-mode:"+m.id)).Padding(7, 12).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[on]).
-				Label(T(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-			b.Children(func() { ui.Text(c, T(m.name)).FontSize(12.5).TextColor(cl.Text) })
+				Label(msg(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			b.Children(func() { ui.Text(c, msg(m.name)).FontSize(12.5).TextColor(cl.Text) })
 			if b.Clicked() {
 				a.setMode = map[bool]string{true: "", false: m.id}[on]
 				a.setSearch = ""
@@ -424,13 +424,13 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 	cl := ryugo.From(c).Colors
 	tab := tabOfField(d.fields[0])
-	where := T(settingsSections[tab].name) + " · ⌘P › " + T(d.name)
+	where := msg(settingsSections[tab].name) + " · ⌘P › " + msg(d.name)
 	settingRow(c, d.name, where, func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			switch d.kind {
 			case setToggle:
 				on := d.on(a)
-				ryugo.Switch(c.Key("sl:"+d.name), &on, ryugo.SwitchOptions{}).Label(T(d.name))
+				ryugo.Switch(c.Key("sl:"+d.name), &on, ryugo.SwitchOptions{}).Label(msg(d.name))
 				if on != d.on(a) {
 					d.flip(a, on)
 				}
@@ -441,23 +441,23 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 					d float64
 				}{{"−", -d.step}, {"+", d.step}} {
 					st := st
-					b := ui.Row(c.Key("sln:"+d.name+st.l)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(st.l + " " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+					b := ui.Row(c.Key("sln:"+d.name+st.l)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(st.l + " " + msg(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					b.Children(func() { ui.Text(c, st.l).FontSize(13).TextColor(cl.Text) })
 					if b.Clicked() {
 						d.put(a, d.clamp(d.val(a)+st.d))
 					}
 				}
 			default:
-				ui.Text(c, T(d.state(a))).FontSize(13).FontWeight(620).TextColor(cl.Text2)
+				ui.Text(c, msg(d.state(a))).FontSize(13).FontWeight(620).TextColor(cl.Text2)
 			}
 			if withReset || d.changed(a) {
-				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsResetLabel(T(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsResetLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				b.Children(func() { ui.Text(c, locales.SettingsResetDefault()).FontSize(12).TextColor(cl.Text2) })
 				if b.Clicked() {
 					d.reset(a)
 				}
 			}
-			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(T(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			g.Children(func() { ui.Text(c, locales.CommonGo()).FontSize(12).TextColor(cl.Text2) })
 			if g.Clicked() {
 				a.settingsTab, a.setSearch, a.setMode = tab, "", ""
@@ -477,11 +477,11 @@ func (a *app) settingsProfiles(c *ui.Context) {
 			if mine {
 				help = locales.SettingsSavedProfile()
 			}
-			settingRow(c, T(n), help, func() {
+			settingRow(c, msg(n), help, func() {
 				ui.Row(c).Gap(6).Children(func() {
 					if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.applyProfile(n)
-						a.say(toastOK, locales.SettingsProfileOn(T(n)))
+						a.say(toastOK, locales.SettingsProfileOn(msg(n)))
 					}
 					if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.deleteProfile(n)
@@ -494,7 +494,7 @@ func (a *app) settingsProfiles(c *ui.Context) {
 	settingGroup(c, "set-profile-new", func() {
 		settingRow(c, locales.SettingsSaveCurrentLookAs(), locales.SettingsThemeColorTypefacesSizes(), func() {
 			ui.Row(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: "Profil adı", Size: ryugo.Sm, Placeholder: locales.SettingsProfileName()}), &a.profName, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: locales.SettingsProfileName(), Size: ryugo.Sm, Placeholder: locales.SettingsProfileName()}), &a.profName, fieldOpts{oneLine: true})
 				if ryugo.Button(c.Key("prof-save"), locales.CommonSave(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.saveProfile(a.profName)
 					a.profName = ""

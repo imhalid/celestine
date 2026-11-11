@@ -83,10 +83,7 @@ func newPageLabel(c *Collection) string {
 	if c == nil || c.PageNoun == "" {
 		return locales.CommonNewPage()
 	}
-	if lang == "en" {
-		return "New " + c.PageNoun
-	}
-	return "Yeni " + c.PageNoun
+	return locales.CommonNewNoun(c.PageNoun)
 }
 
 // addToDayLabel is the calendar's button that makes a page on a day, by what the collection's pages are called.
@@ -94,10 +91,7 @@ func addToDayLabel(c *Collection) string {
 	if c == nil || c.PageNoun == "" {
 		return locales.CollectionAddPageThisDay()
 	}
-	if lang == "en" {
-		return "Add a " + c.PageNoun + " to this day"
-	}
-	return "Bu güne " + c.PageNoun + " ekle"
+	return locales.CalendarAddNounToDay(c.PageNoun)
 }
 
 // pageNoun is what a page of c is called: "sayfa" unless it says.
@@ -105,5 +99,5 @@ func pageNoun(c *Collection) string {
 	if c != nil && c.PageNoun != "" {
 		return c.PageNoun
 	}
-	return "sayfa"
+	return msg("common_pages")
 }

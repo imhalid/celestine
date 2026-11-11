@@ -963,6 +963,16 @@ func (msgs Messages) BackupImported(collections int, pages int, pictures int) st
 	return Catalog.Format(msgs.locale, "backup_imported", map[string]any{"collections": collections, "pages": pages, "pictures": pictures})
 }
 
+// BackupKindDaily says "daily"
+// in the language the app shows.
+func BackupKindDaily() string { return In(i18n.Locale()).BackupKindDaily() }
+
+// BackupKindDaily says "daily"
+// in the language of msgs.
+func (msgs Messages) BackupKindDaily() string {
+	return Catalog.Format(msgs.locale, "backup_kindDaily", nil)
+}
+
 // BackupKindSync says "before a sync"
 // in the language the app shows.
 //
@@ -1109,6 +1119,16 @@ func BlocksBlockHandle() string { return In(i18n.Locale()).BlocksBlockHandle() }
 // in the language of msgs.
 func (msgs Messages) BlocksBlockHandle() string {
 	return Catalog.Format(msgs.locale, "blocks_blockHandle", nil)
+}
+
+// BlocksBulletList says "Bulleted list"
+// in the language the app shows.
+func BlocksBulletList() string { return In(i18n.Locale()).BlocksBulletList() }
+
+// BlocksBulletList says "Bulleted list"
+// in the language of msgs.
+func (msgs Messages) BlocksBulletList() string {
+	return Catalog.Format(msgs.locale, "blocks_bulletList", nil)
 }
 
 // BlocksCodeBlock says "Code block"
@@ -1359,6 +1379,46 @@ func BlocksQuote() string { return In(i18n.Locale()).BlocksQuote() }
 // in the language of msgs.
 func (msgs Messages) BlocksQuote() string {
 	return Catalog.Format(msgs.locale, "blocks_quote", nil)
+}
+
+// BlocksRawCallout says "Callout"
+// in the language the app shows.
+func BlocksRawCallout() string { return In(i18n.Locale()).BlocksRawCallout() }
+
+// BlocksRawCallout says "Callout"
+// in the language of msgs.
+func (msgs Messages) BlocksRawCallout() string {
+	return Catalog.Format(msgs.locale, "blocks_rawCallout", nil)
+}
+
+// BlocksRawFootnote says "Footnote"
+// in the language the app shows.
+func BlocksRawFootnote() string { return In(i18n.Locale()).BlocksRawFootnote() }
+
+// BlocksRawFootnote says "Footnote"
+// in the language of msgs.
+func (msgs Messages) BlocksRawFootnote() string {
+	return Catalog.Format(msgs.locale, "blocks_rawFootnote", nil)
+}
+
+// BlocksRawMath says "Math"
+// in the language the app shows.
+func BlocksRawMath() string { return In(i18n.Locale()).BlocksRawMath() }
+
+// BlocksRawMath says "Math"
+// in the language of msgs.
+func (msgs Messages) BlocksRawMath() string {
+	return Catalog.Format(msgs.locale, "blocks_rawMath", nil)
+}
+
+// BlocksRawTable says "Table"
+// in the language the app shows.
+func BlocksRawTable() string { return In(i18n.Locale()).BlocksRawTable() }
+
+// BlocksRawTable says "Table"
+// in the language of msgs.
+func (msgs Messages) BlocksRawTable() string {
+	return Catalog.Format(msgs.locale, "blocks_rawTable", nil)
 }
 
 // BlocksSetProperty says "Set property…"
@@ -1623,6 +1683,16 @@ func (msgs Messages) ByHand() string {
 	return Catalog.Format(msgs.locale, "byHand", nil)
 }
 
+// CalendarAddNounToDay says "Add a {noun} to this day"
+// in the language the app shows.
+func CalendarAddNounToDay(noun string) string { return In(i18n.Locale()).CalendarAddNounToDay(noun) }
+
+// CalendarAddNounToDay says "Add a {noun} to this day"
+// in the language of msgs.
+func (msgs Messages) CalendarAddNounToDay(noun string) string {
+	return Catalog.Format(msgs.locale, "calendar_addNounToDay", map[string]any{"noun": noun})
+}
+
 // CalendarCloseDay says "Close the day"
 // in the language the app shows.
 func CalendarCloseDay() string { return In(i18n.Locale()).CalendarCloseDay() }
@@ -1771,16 +1841,6 @@ func Code() string { return In(i18n.Locale()).Code() }
 // in the language of msgs.
 func (msgs Messages) Code() string {
 	return Catalog.Format(msgs.locale, "code", nil)
-}
-
-// Code2 says "code"
-// in the language the app shows.
-func Code2() string { return In(i18n.Locale()).Code2() }
-
-// Code2 says "code"
-// in the language of msgs.
-func (msgs Messages) Code2() string {
-	return Catalog.Format(msgs.locale, "code2", nil)
 }
 
 // CodeBlocksAndInlineCode says "Code blocks and inline code."
@@ -1963,6 +2023,16 @@ func CollectionColor() string { return In(i18n.Locale()).CollectionColor() }
 // in the language of msgs.
 func (msgs Messages) CollectionColor() string {
 	return Catalog.Format(msgs.locale, "collection_color", nil)
+}
+
+// CollectionColorLabel says "Color: {name}"
+// in the language the app shows.
+func CollectionColorLabel(name string) string { return In(i18n.Locale()).CollectionColorLabel(name) }
+
+// CollectionColorLabel says "Color: {name}"
+// in the language of msgs.
+func (msgs Messages) CollectionColorLabel(name string) string {
+	return Catalog.Format(msgs.locale, "collection_colorLabel", map[string]any{"name": name})
 }
 
 // CollectionColumns says "Columns"
@@ -3175,6 +3245,16 @@ func (msgs Messages) CommonCollectStatistics() string {
 	return Catalog.Format(msgs.locale, "common_collectStatistics", nil)
 }
 
+// CommonCollectionLabel says "Collection: {name}"
+// in the language the app shows.
+func CommonCollectionLabel(name string) string { return In(i18n.Locale()).CommonCollectionLabel(name) }
+
+// CommonCollectionLabel says "Collection: {name}"
+// in the language of msgs.
+func (msgs Messages) CommonCollectionLabel(name string) string {
+	return Catalog.Format(msgs.locale, "common_collectionLabel", map[string]any{"name": name})
+}
+
 // CommonCollections says "collections"
 // in the language the app shows.
 func CommonCollections() string { return In(i18n.Locale()).CommonCollections() }
@@ -3373,16 +3453,6 @@ func CommonExport() string { return In(i18n.Locale()).CommonExport() }
 // in the language of msgs.
 func (msgs Messages) CommonExport() string {
 	return Catalog.Format(msgs.locale, "common_export", nil)
-}
-
-// CommonFailed says "Failed: "
-// in the language the app shows.
-func CommonFailed() string { return In(i18n.Locale()).CommonFailed() }
-
-// CommonFailed says "Failed: "
-// in the language of msgs.
-func (msgs Messages) CommonFailed() string {
-	return Catalog.Format(msgs.locale, "common_failed", nil)
 }
 
 // CommonFile says "File"
@@ -3585,16 +3655,6 @@ func (msgs Messages) CommonLineSpacing() string {
 	return Catalog.Format(msgs.locale, "common_lineSpacing", nil)
 }
 
-// CommonLink says "Link: "
-// in the language the app shows.
-func CommonLink() string { return In(i18n.Locale()).CommonLink() }
-
-// CommonLink says "Link: "
-// in the language of msgs.
-func (msgs Messages) CommonLink() string {
-	return Catalog.Format(msgs.locale, "common_link", nil)
-}
-
 // CommonLinkLabel says "Link: {title}"
 // in the language the app shows.
 func CommonLinkLabel(title string) string { return In(i18n.Locale()).CommonLinkLabel(title) }
@@ -3647,6 +3707,16 @@ func CommonName() string { return In(i18n.Locale()).CommonName() }
 // in the language of msgs.
 func (msgs Messages) CommonName() string {
 	return Catalog.Format(msgs.locale, "common_name", nil)
+}
+
+// CommonNewNoun says "New {noun}"
+// in the language the app shows.
+func CommonNewNoun(noun string) string { return In(i18n.Locale()).CommonNewNoun(noun) }
+
+// CommonNewNoun says "New {noun}"
+// in the language of msgs.
+func (msgs Messages) CommonNewNoun(noun string) string {
+	return Catalog.Format(msgs.locale, "common_newNoun", map[string]any{"noun": noun})
 }
 
 // CommonNewPage says "New page"
@@ -3747,6 +3817,16 @@ func CommonPageCount(count int) string { return In(i18n.Locale()).CommonPageCoun
 // in the language of msgs.
 func (msgs Messages) CommonPageCount(count int) string {
 	return Catalog.Format(msgs.locale, "common_pageCount", map[string]any{"count": count})
+}
+
+// CommonPageLabel says "Page: {title}"
+// in the language the app shows.
+func CommonPageLabel(title string) string { return In(i18n.Locale()).CommonPageLabel(title) }
+
+// CommonPageLabel says "Page: {title}"
+// in the language of msgs.
+func (msgs Messages) CommonPageLabel(title string) string {
+	return Catalog.Format(msgs.locale, "common_pageLabel", map[string]any{"title": title})
 }
 
 // CommonPageWidth says "Page width"
@@ -4429,6 +4509,16 @@ func (msgs Messages) DatesMinutes(m int) string {
 	return Catalog.Format(msgs.locale, "dates_minutes", map[string]any{"m": m})
 }
 
+// DatesNextWeek says "Next week"
+// in the language the app shows.
+func DatesNextWeek() string { return In(i18n.Locale()).DatesNextWeek() }
+
+// DatesNextWeek says "Next week"
+// in the language of msgs.
+func (msgs Messages) DatesNextWeek() string {
+	return Catalog.Format(msgs.locale, "dates_nextWeek", nil)
+}
+
 // DatesNotDayWriteTomorrow says "Not a date. Try tomorrow, friday, in 3 days or 2026-11-20."
 // in the language the app shows.
 func DatesNotDayWriteTomorrow() string { return In(i18n.Locale()).DatesNotDayWriteTomorrow() }
@@ -4457,6 +4547,16 @@ func DatesTheJournalHasNo() string { return In(i18n.Locale()).DatesTheJournalHas
 // in the language of msgs.
 func (msgs Messages) DatesTheJournalHasNo() string {
 	return Catalog.Format(msgs.locale, "dates_theJournalHasNo", nil)
+}
+
+// DatesTomorrow says "Tomorrow"
+// in the language the app shows.
+func DatesTomorrow() string { return In(i18n.Locale()).DatesTomorrow() }
+
+// DatesTomorrow says "Tomorrow"
+// in the language of msgs.
+func (msgs Messages) DatesTomorrow() string {
+	return Catalog.Format(msgs.locale, "dates_tomorrow", nil)
 }
 
 // Decrease says "decrease"
@@ -4961,16 +5061,6 @@ func (msgs Messages) ExportAsMarkdownZip() string {
 	return Catalog.Format(msgs.locale, "exportAsMarkdownZip", nil)
 }
 
-// Failed says "Failed"
-// in the language the app shows.
-func Failed() string { return In(i18n.Locale()).Failed() }
-
-// Failed says "Failed"
-// in the language of msgs.
-func (msgs Messages) Failed() string {
-	return Catalog.Format(msgs.locale, "failed", nil)
-}
-
 // FailedTask says "Failed task"
 // in the language the app shows.
 func FailedTask() string { return In(i18n.Locale()).FailedTask() }
@@ -5011,16 +5101,6 @@ func FindAPage4() string { return In(i18n.Locale()).FindAPage4() }
 // in the language of msgs.
 func (msgs Messages) FindAPage4() string {
 	return Catalog.Format(msgs.locale, "findAPage4", nil)
-}
-
-// FindInPage says "Find in page"
-// in the language the app shows.
-func FindInPage() string { return In(i18n.Locale()).FindInPage() }
-
-// FindInPage says "Find in page"
-// in the language of msgs.
-func (msgs Messages) FindInPage() string {
-	return Catalog.Format(msgs.locale, "findInPage", nil)
 }
 
 // FindInPage2 says "Find in page"
@@ -5391,16 +5471,6 @@ func Groups() string { return In(i18n.Locale()).Groups() }
 // in the language of msgs.
 func (msgs Messages) Groups() string {
 	return Catalog.Format(msgs.locale, "groups", nil)
-}
-
-// Heading2 says "heading"
-// in the language the app shows.
-func Heading2() string { return In(i18n.Locale()).Heading2() }
-
-// Heading2 says "heading"
-// in the language of msgs.
-func (msgs Messages) Heading2() string {
-	return Catalog.Format(msgs.locale, "heading2", nil)
 }
 
 // HeadingLevel says "heading level"
@@ -7411,16 +7481,6 @@ func (msgs Messages) Move2() string {
 	return Catalog.Format(msgs.locale, "move2", nil)
 }
 
-// Move3 says "move"
-// in the language the app shows.
-func Move3() string { return In(i18n.Locale()).Move3() }
-
-// Move3 says "move"
-// in the language of msgs.
-func (msgs Messages) Move3() string {
-	return Catalog.Format(msgs.locale, "move3", nil)
-}
-
 // MoveDown says "Move down"
 // in the language the app shows.
 func MoveDown() string { return In(i18n.Locale()).MoveDown() }
@@ -7809,6 +7869,16 @@ func Page() string { return In(i18n.Locale()).Page() }
 // in the language of msgs.
 func (msgs Messages) Page() string {
 	return Catalog.Format(msgs.locale, "page", nil)
+}
+
+// PageAddCover says "Add a cover image…"
+// in the language the app shows.
+func PageAddCover() string { return In(i18n.Locale()).PageAddCover() }
+
+// PageAddCover says "Add a cover image…"
+// in the language of msgs.
+func (msgs Messages) PageAddCover() string {
+	return Catalog.Format(msgs.locale, "page_addCover", nil)
 }
 
 // PageAddedTo says "Added “{page}” to “{collection}”"
@@ -8349,6 +8419,18 @@ func (msgs Messages) PaletteMore() string {
 	return Catalog.Format(msgs.locale, "palette_more", nil)
 }
 
+// PaletteNewFromTemplate says "New from template: {template}"
+// in the language the app shows.
+func PaletteNewFromTemplate(template string) string {
+	return In(i18n.Locale()).PaletteNewFromTemplate(template)
+}
+
+// PaletteNewFromTemplate says "New from template: {template}"
+// in the language of msgs.
+func (msgs Messages) PaletteNewFromTemplate(template string) string {
+	return Catalog.Format(msgs.locale, "palette_newFromTemplate", map[string]any{"template": template})
+}
+
 // PaletteNoPageOpen says "No page is open"
 // in the language the app shows.
 func PaletteNoPageOpen() string { return In(i18n.Locale()).PaletteNoPageOpen() }
@@ -8551,6 +8633,16 @@ func PaletteSearchPage() string { return In(i18n.Locale()).PaletteSearchPage() }
 // in the language of msgs.
 func (msgs Messages) PaletteSearchPage() string {
 	return Catalog.Format(msgs.locale, "palette_searchPage", nil)
+}
+
+// PaletteSearchPageFor says "Search the page: {query}"
+// in the language the app shows.
+func PaletteSearchPageFor(query string) string { return In(i18n.Locale()).PaletteSearchPageFor(query) }
+
+// PaletteSearchPageFor says "Search the page: {query}"
+// in the language of msgs.
+func (msgs Messages) PaletteSearchPageFor(query string) string {
+	return Catalog.Format(msgs.locale, "palette_searchPageFor", map[string]any{"query": query})
 }
 
 // PaletteSetExample says "e.g. set fontsize=18, set autosave=off"
@@ -8845,6 +8937,16 @@ func (msgs Messages) PanesOpenHereInSide() string {
 	return Catalog.Format(msgs.locale, "panes_openHereInSide", nil)
 }
 
+// PanesSettingsBeside says "Open beside: Settings"
+// in the language the app shows.
+func PanesSettingsBeside() string { return In(i18n.Locale()).PanesSettingsBeside() }
+
+// PanesSettingsBeside says "Open beside: Settings"
+// in the language of msgs.
+func (msgs Messages) PanesSettingsBeside() string {
+	return Catalog.Format(msgs.locale, "panes_settingsBeside", nil)
+}
+
 // PanesTags says "TAGS"
 // in the language the app shows.
 func PanesTags() string { return In(i18n.Locale()).PanesTags() }
@@ -8855,6 +8957,16 @@ func (msgs Messages) PanesTags() string {
 	return Catalog.Format(msgs.locale, "panes_tags", nil)
 }
 
+// PanesTasksBeside says "Open beside: Tasks"
+// in the language the app shows.
+func PanesTasksBeside() string { return In(i18n.Locale()).PanesTasksBeside() }
+
+// PanesTasksBeside says "Open beside: Tasks"
+// in the language of msgs.
+func (msgs Messages) PanesTasksBeside() string {
+	return Catalog.Format(msgs.locale, "panes_tasksBeside", nil)
+}
+
 // PanesThePageHasNo says "This page has no headings. Type # to add one."
 // in the language the app shows.
 func PanesThePageHasNo() string { return In(i18n.Locale()).PanesThePageHasNo() }
@@ -8863,6 +8975,16 @@ func PanesThePageHasNo() string { return In(i18n.Locale()).PanesThePageHasNo() }
 // in the language of msgs.
 func (msgs Messages) PanesThePageHasNo() string {
 	return Catalog.Format(msgs.locale, "panes_thePageHasNo", nil)
+}
+
+// PanesTrashBeside says "Open beside: Trash"
+// in the language the app shows.
+func PanesTrashBeside() string { return In(i18n.Locale()).PanesTrashBeside() }
+
+// PanesTrashBeside says "Open beside: Trash"
+// in the language of msgs.
+func (msgs Messages) PanesTrashBeside() string {
+	return Catalog.Format(msgs.locale, "panes_trashBeside", nil)
 }
 
 // ParagraphCopied says "Paragraph copied"
@@ -9183,6 +9305,86 @@ func PropsStatusAuthorDue() string { return In(i18n.Locale()).PropsStatusAuthorD
 // in the language of msgs.
 func (msgs Messages) PropsStatusAuthorDue() string {
 	return Catalog.Format(msgs.locale, "props_statusAuthorDue", nil)
+}
+
+// PropsTypeChoice says "Choice"
+// in the language the app shows.
+func PropsTypeChoice() string { return In(i18n.Locale()).PropsTypeChoice() }
+
+// PropsTypeChoice says "Choice"
+// in the language of msgs.
+func (msgs Messages) PropsTypeChoice() string {
+	return Catalog.Format(msgs.locale, "props_typeChoice", nil)
+}
+
+// PropsTypeDate says "Date"
+// in the language the app shows.
+func PropsTypeDate() string { return In(i18n.Locale()).PropsTypeDate() }
+
+// PropsTypeDate says "Date"
+// in the language of msgs.
+func (msgs Messages) PropsTypeDate() string {
+	return Catalog.Format(msgs.locale, "props_typeDate", nil)
+}
+
+// PropsTypeFile says "File"
+// in the language the app shows.
+func PropsTypeFile() string { return In(i18n.Locale()).PropsTypeFile() }
+
+// PropsTypeFile says "File"
+// in the language of msgs.
+func (msgs Messages) PropsTypeFile() string {
+	return Catalog.Format(msgs.locale, "props_typeFile", nil)
+}
+
+// PropsTypeNumber says "Number"
+// in the language the app shows.
+func PropsTypeNumber() string { return In(i18n.Locale()).PropsTypeNumber() }
+
+// PropsTypeNumber says "Number"
+// in the language of msgs.
+func (msgs Messages) PropsTypeNumber() string {
+	return Catalog.Format(msgs.locale, "props_typeNumber", nil)
+}
+
+// PropsTypePage says "Page"
+// in the language the app shows.
+func PropsTypePage() string { return In(i18n.Locale()).PropsTypePage() }
+
+// PropsTypePage says "Page"
+// in the language of msgs.
+func (msgs Messages) PropsTypePage() string {
+	return Catalog.Format(msgs.locale, "props_typePage", nil)
+}
+
+// PropsTypeTags says "Tags"
+// in the language the app shows.
+func PropsTypeTags() string { return In(i18n.Locale()).PropsTypeTags() }
+
+// PropsTypeTags says "Tags"
+// in the language of msgs.
+func (msgs Messages) PropsTypeTags() string {
+	return Catalog.Format(msgs.locale, "props_typeTags", nil)
+}
+
+// PropsTypeText says "Text"
+// in the language the app shows.
+func PropsTypeText() string { return In(i18n.Locale()).PropsTypeText() }
+
+// PropsTypeText says "Text"
+// in the language of msgs.
+func (msgs Messages) PropsTypeText() string {
+	return Catalog.Format(msgs.locale, "props_typeText", nil)
+}
+
+// PropsTypeURL says "Link"
+// in the language the app shows.
+func PropsTypeURL() string { return In(i18n.Locale()).PropsTypeURL() }
+
+// PropsTypeURL says "Link"
+// in the language of msgs.
+func (msgs Messages) PropsTypeURL() string {
+	return Catalog.Format(msgs.locale, "props_typeURL", nil)
 }
 
 // PropsValueLabel says "{name} value"
@@ -9737,16 +9939,6 @@ func SetTheNewPassword() string { return In(i18n.Locale()).SetTheNewPassword() }
 // in the language of msgs.
 func (msgs Messages) SetTheNewPassword() string {
 	return Catalog.Format(msgs.locale, "setTheNewPassword", nil)
-}
-
-// Setting says "Setting"
-// in the language the app shows.
-func Setting() string { return In(i18n.Locale()).Setting() }
-
-// Setting says "Setting"
-// in the language of msgs.
-func (msgs Messages) Setting() string {
-	return Catalog.Format(msgs.locale, "setting", nil)
 }
 
 // Settings2 says "Settings…"
@@ -10699,6 +10891,16 @@ func (msgs Messages) SidebarSettingsTrash() string {
 	return Catalog.Format(msgs.locale, "sidebarSettingsTrash", nil)
 }
 
+// SidebarAddLabel says "Add to: {name}"
+// in the language the app shows.
+func SidebarAddLabel(name string) string { return In(i18n.Locale()).SidebarAddLabel(name) }
+
+// SidebarAddLabel says "Add to: {name}"
+// in the language of msgs.
+func (msgs Messages) SidebarAddLabel(name string) string {
+	return Catalog.Format(msgs.locale, "sidebar_addLabel", map[string]any{"name": name})
+}
+
 // SidebarCollapseAll says "Collapse all"
 // in the language the app shows.
 func SidebarCollapseAll() string { return In(i18n.Locale()).SidebarCollapseAll() }
@@ -10749,6 +10951,16 @@ func SidebarNewName() string { return In(i18n.Locale()).SidebarNewName() }
 // in the language of msgs.
 func (msgs Messages) SidebarNewName() string {
 	return Catalog.Format(msgs.locale, "sidebar_newName", nil)
+}
+
+// SidebarPinLabel says "Pin: {name}"
+// in the language the app shows.
+func SidebarPinLabel(name string) string { return In(i18n.Locale()).SidebarPinLabel(name) }
+
+// SidebarPinLabel says "Pin: {name}"
+// in the language of msgs.
+func (msgs Messages) SidebarPinLabel(name string) string {
+	return Catalog.Format(msgs.locale, "sidebar_pinLabel", map[string]any{"name": name})
 }
 
 // SidebarRenameTag says "Rename tag"
@@ -10821,6 +11033,16 @@ func (msgs Messages) SlashAMarkHereNote() string {
 	return Catalog.Format(msgs.locale, "slash_aMarkHereNote", nil)
 }
 
+// SlashDatePlaceholder says "Tomorrow, 2026-11-10…"
+// in the language the app shows.
+func SlashDatePlaceholder() string { return In(i18n.Locale()).SlashDatePlaceholder() }
+
+// SlashDatePlaceholder says "Tomorrow, 2026-11-10…"
+// in the language of msgs.
+func (msgs Messages) SlashDatePlaceholder() string {
+	return Catalog.Format(msgs.locale, "slash_datePlaceholder", nil)
+}
+
 // SlashDateTime says "Date or time"
 // in the language the app shows.
 func SlashDateTime() string { return In(i18n.Locale()).SlashDateTime() }
@@ -10839,6 +11061,16 @@ func SlashEmbed() string { return In(i18n.Locale()).SlashEmbed() }
 // in the language of msgs.
 func (msgs Messages) SlashEmbed() string {
 	return Catalog.Format(msgs.locale, "slash_embed", nil)
+}
+
+// SlashEmbedPlaceholder says "Page to embed…"
+// in the language the app shows.
+func SlashEmbedPlaceholder() string { return In(i18n.Locale()).SlashEmbedPlaceholder() }
+
+// SlashEmbedPlaceholder says "Page to embed…"
+// in the language of msgs.
+func (msgs Messages) SlashEmbedPlaceholder() string {
+	return Catalog.Format(msgs.locale, "slash_embedPlaceholder", nil)
 }
 
 // SlashEmbedSub says "another page's text"
@@ -10991,6 +11223,46 @@ func (msgs Messages) SlashLinkSub() string {
 	return Catalog.Format(msgs.locale, "slash_linkSub", nil)
 }
 
+// SlashNewPageNamed says "New page: {title}"
+// in the language the app shows.
+func SlashNewPageNamed(title string) string { return In(i18n.Locale()).SlashNewPageNamed(title) }
+
+// SlashNewPageNamed says "New page: {title}"
+// in the language of msgs.
+func (msgs Messages) SlashNewPageNamed(title string) string {
+	return Catalog.Format(msgs.locale, "slash_newPageNamed", map[string]any{"title": title})
+}
+
+// SlashNoDays says "No matching days"
+// in the language the app shows.
+func SlashNoDays() string { return In(i18n.Locale()).SlashNoDays() }
+
+// SlashNoDays says "No matching days"
+// in the language of msgs.
+func (msgs Messages) SlashNoDays() string {
+	return Catalog.Format(msgs.locale, "slash_noDays", nil)
+}
+
+// SlashNoMatches says "No matches"
+// in the language the app shows.
+func SlashNoMatches() string { return In(i18n.Locale()).SlashNoMatches() }
+
+// SlashNoMatches says "No matches"
+// in the language of msgs.
+func (msgs Messages) SlashNoMatches() string {
+	return Catalog.Format(msgs.locale, "slash_noMatches", nil)
+}
+
+// SlashNoTagsYet says "No tags yet"
+// in the language the app shows.
+func SlashNoTagsYet() string { return In(i18n.Locale()).SlashNoTagsYet() }
+
+// SlashNoTagsYet says "No tags yet"
+// in the language of msgs.
+func (msgs Messages) SlashNoTagsYet() string {
+	return Catalog.Format(msgs.locale, "slash_noTagsYet", nil)
+}
+
 // SlashProperty says "Property…"
 // in the language the app shows.
 func SlashProperty() string { return In(i18n.Locale()).SlashProperty() }
@@ -11009,6 +11281,16 @@ func SlashPropertySub() string { return In(i18n.Locale()).SlashPropertySub() }
 // in the language of msgs.
 func (msgs Messages) SlashPropertySub() string {
 	return Catalog.Format(msgs.locale, "slash_propertySub", nil)
+}
+
+// SlashSuggestions says "Suggestions"
+// in the language the app shows.
+func SlashSuggestions() string { return In(i18n.Locale()).SlashSuggestions() }
+
+// SlashSuggestions says "Suggestions"
+// in the language of msgs.
+func (msgs Messages) SlashSuggestions() string {
+	return Catalog.Format(msgs.locale, "slash_suggestions", nil)
 }
 
 // SlashTable says "Table"
@@ -12799,6 +13081,16 @@ func (msgs Messages) TagsRemoveLabel(tag string) string {
 	return Catalog.Format(msgs.locale, "tags_removeLabel", map[string]any{"tag": tag})
 }
 
+// TagsTagLabel says "Tag: {name}"
+// in the language the app shows.
+func TagsTagLabel(name string) string { return In(i18n.Locale()).TagsTagLabel(name) }
+
+// TagsTagLabel says "Tag: {name}"
+// in the language of msgs.
+func (msgs Messages) TagsTagLabel(name string) string {
+	return Catalog.Format(msgs.locale, "tags_tagLabel", map[string]any{"name": name})
+}
+
 // TakeThePageOutOfIts says "Move the page out of its parent"
 // in the language the app shows.
 func TakeThePageOutOfIts() string { return In(i18n.Locale()).TakeThePageOutOfIts() }
@@ -12809,16 +13101,6 @@ func (msgs Messages) TakeThePageOutOfIts() string {
 	return Catalog.Format(msgs.locale, "takeThePageOutOfIts", nil)
 }
 
-// Task3 says "task"
-// in the language the app shows.
-func Task3() string { return In(i18n.Locale()).Task3() }
-
-// Task3 says "task"
-// in the language of msgs.
-func (msgs Messages) Task3() string {
-	return Catalog.Format(msgs.locale, "task3", nil)
-}
-
 // TaskInProgress says "Task in progress"
 // in the language the app shows.
 func TaskInProgress() string { return In(i18n.Locale()).TaskInProgress() }
@@ -12827,6 +13109,16 @@ func TaskInProgress() string { return In(i18n.Locale()).TaskInProgress() }
 // in the language of msgs.
 func (msgs Messages) TaskInProgress() string {
 	return Catalog.Format(msgs.locale, "taskInProgress", nil)
+}
+
+// TasksAll says "All"
+// in the language the app shows.
+func TasksAll() string { return In(i18n.Locale()).TasksAll() }
+
+// TasksAll says "All"
+// in the language of msgs.
+func (msgs Messages) TasksAll() string {
+	return Catalog.Format(msgs.locale, "tasks_all", nil)
 }
 
 // TasksAllCollections says "All collections"
@@ -12887,6 +13179,16 @@ func TasksDay() string { return In(i18n.Locale()).TasksDay() }
 // in the language of msgs.
 func (msgs Messages) TasksDay() string {
 	return Catalog.Format(msgs.locale, "tasks_day", nil)
+}
+
+// TasksDone says "Done"
+// in the language the app shows.
+func TasksDone() string { return In(i18n.Locale()).TasksDone() }
+
+// TasksDone says "Done"
+// in the language of msgs.
+func (msgs Messages) TasksDone() string {
+	return Catalog.Format(msgs.locale, "tasks_done", nil)
 }
 
 // TasksDueAll says "All"
@@ -13017,6 +13319,16 @@ func TasksNoneOpen() string { return In(i18n.Locale()).TasksNoneOpen() }
 // in the language of msgs.
 func (msgs Messages) TasksNoneOpen() string {
 	return Catalog.Format(msgs.locale, "tasks_noneOpen", nil)
+}
+
+// TasksOpen says "Open"
+// in the language the app shows.
+func TasksOpen() string { return In(i18n.Locale()).TasksOpen() }
+
+// TasksOpen says "Open"
+// in the language of msgs.
+func (msgs Messages) TasksOpen() string {
+	return Catalog.Format(msgs.locale, "tasks_open", nil)
 }
 
 // TasksPlainTask says "Plain task"
@@ -13613,18 +13925,6 @@ func ThereIsNoOtherDayIn() string { return In(i18n.Locale()).ThereIsNoOtherDayIn
 // in the language of msgs.
 func (msgs Messages) ThereIsNoOtherDayIn() string {
 	return Catalog.Format(msgs.locale, "thereIsNoOtherDayIn", nil)
-}
-
-// ThisCollectionShowsThePagesIts says "This collection shows the pages its query finds"
-// in the language the app shows.
-func ThisCollectionShowsThePagesIts() string {
-	return In(i18n.Locale()).ThisCollectionShowsThePagesIts()
-}
-
-// ThisCollectionShowsThePagesIts says "This collection shows the pages its query finds"
-// in the language of msgs.
-func (msgs Messages) ThisCollectionShowsThePagesIts() string {
-	return Catalog.Format(msgs.locale, "thisCollectionShowsThePagesIts", nil)
 }
 
 // ThisCollectionShowsThePagesIts2 says "This collection shows the pages its query finds: "
@@ -14581,16 +14881,6 @@ func (msgs Messages) Updates() string {
 	return Catalog.Format(msgs.locale, "updates", nil)
 }
 
-// VersionHistory says "Version history"
-// in the language the app shows.
-func VersionHistory() string { return In(i18n.Locale()).VersionHistory() }
-
-// VersionHistory says "Version history"
-// in the language of msgs.
-func (msgs Messages) VersionHistory() string {
-	return Catalog.Format(msgs.locale, "versionHistory", nil)
-}
-
 // VersionHistory2 says "Version history: "
 // in the language the app shows.
 func VersionHistory2() string { return In(i18n.Locale()).VersionHistory2() }
@@ -14653,6 +14943,16 @@ func (msgs Messages) View() string {
 	return Catalog.Format(msgs.locale, "view", nil)
 }
 
+// ViewsCardLabel says "Card: {title}"
+// in the language the app shows.
+func ViewsCardLabel(title string) string { return In(i18n.Locale()).ViewsCardLabel(title) }
+
+// ViewsCardLabel says "Card: {title}"
+// in the language of msgs.
+func (msgs Messages) ViewsCardLabel(title string) string {
+	return Catalog.Format(msgs.locale, "views_cardLabel", map[string]any{"title": title})
+}
+
 // ViewsChangeGroup says "Change the group"
 // in the language the app shows.
 func ViewsChangeGroup() string { return In(i18n.Locale()).ViewsChangeGroup() }
@@ -14691,6 +14991,16 @@ func ViewsCollapse() string { return In(i18n.Locale()).ViewsCollapse() }
 // in the language of msgs.
 func (msgs Messages) ViewsCollapse() string {
 	return Catalog.Format(msgs.locale, "views_collapse", nil)
+}
+
+// ViewsCollapseLabel says "Collapse: {title}"
+// in the language the app shows.
+func ViewsCollapseLabel(title string) string { return In(i18n.Locale()).ViewsCollapseLabel(title) }
+
+// ViewsCollapseLabel says "Collapse: {title}"
+// in the language of msgs.
+func (msgs Messages) ViewsCollapseLabel(title string) string {
+	return Catalog.Format(msgs.locale, "views_collapseLabel", map[string]any{"title": title})
 }
 
 // ViewsCollectionName says "Collection name"
@@ -14781,6 +15091,16 @@ func ViewsFilterCount(count int) string { return In(i18n.Locale()).ViewsFilterCo
 // in the language of msgs.
 func (msgs Messages) ViewsFilterCount(count int) string {
 	return Catalog.Format(msgs.locale, "views_filterCount", map[string]any{"count": count})
+}
+
+// ViewsFocusLabel says "Focus: {title}"
+// in the language the app shows.
+func ViewsFocusLabel(title string) string { return In(i18n.Locale()).ViewsFocusLabel(title) }
+
+// ViewsFocusLabel says "Focus: {title}"
+// in the language of msgs.
+func (msgs Messages) ViewsFocusLabel(title string) string {
+	return Catalog.Format(msgs.locale, "views_focusLabel", map[string]any{"title": title})
 }
 
 // ViewsHereNow says "here now"
@@ -15031,6 +15351,56 @@ func ViewsTryAgain() string { return In(i18n.Locale()).ViewsTryAgain() }
 // in the language of msgs.
 func (msgs Messages) ViewsTryAgain() string {
 	return Catalog.Format(msgs.locale, "views_tryAgain", nil)
+}
+
+// ViewsTypeBoard says "Board"
+// in the language the app shows.
+func ViewsTypeBoard() string { return In(i18n.Locale()).ViewsTypeBoard() }
+
+// ViewsTypeBoard says "Board"
+// in the language of msgs.
+func (msgs Messages) ViewsTypeBoard() string {
+	return Catalog.Format(msgs.locale, "views_typeBoard", nil)
+}
+
+// ViewsTypeCalendar says "Calendar"
+// in the language the app shows.
+func ViewsTypeCalendar() string { return In(i18n.Locale()).ViewsTypeCalendar() }
+
+// ViewsTypeCalendar says "Calendar"
+// in the language of msgs.
+func (msgs Messages) ViewsTypeCalendar() string {
+	return Catalog.Format(msgs.locale, "views_typeCalendar", nil)
+}
+
+// ViewsTypeGallery says "Gallery"
+// in the language the app shows.
+func ViewsTypeGallery() string { return In(i18n.Locale()).ViewsTypeGallery() }
+
+// ViewsTypeGallery says "Gallery"
+// in the language of msgs.
+func (msgs Messages) ViewsTypeGallery() string {
+	return Catalog.Format(msgs.locale, "views_typeGallery", nil)
+}
+
+// ViewsTypeList says "List"
+// in the language the app shows.
+func ViewsTypeList() string { return In(i18n.Locale()).ViewsTypeList() }
+
+// ViewsTypeList says "List"
+// in the language of msgs.
+func (msgs Messages) ViewsTypeList() string {
+	return Catalog.Format(msgs.locale, "views_typeList", nil)
+}
+
+// ViewsTypeTable says "Table"
+// in the language the app shows.
+func ViewsTypeTable() string { return In(i18n.Locale()).ViewsTypeTable() }
+
+// ViewsTypeTable says "Table"
+// in the language of msgs.
+func (msgs Messages) ViewsTypeTable() string {
+	return Catalog.Format(msgs.locale, "views_typeTable", nil)
 }
 
 // ViewsUntitledCollection says "Untitled collection"

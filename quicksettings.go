@@ -21,9 +21,9 @@ func tick(on bool) string {
 
 // quickSettings are the lines of the dropdown.
 func (a *app) quickSettings() []menuItem {
-	look := []string{"Sistem", "Açık", "Koyu"}
+	look := []string{"common_system", "common_light", "common_dark"}
 	return []menuItem{
-		a.into("Tema", iconTheme, func() []menuItem {
+		a.into("common_theme", iconTheme, func() []menuItem {
 			var out []menuItem
 			for i, name := range look {
 				i := i
@@ -34,7 +34,7 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
-		a.into("Renk teması", iconTheme, func() []menuItem {
+		a.into("common_colorTheme", iconTheme, func() []menuItem {
 			var out []menuItem
 			for i, t := range appThemes {
 				i := i
@@ -42,7 +42,7 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
-		a.into("Caret", iconEditing, func() []menuItem {
+		a.into("caret", iconEditing, func() []menuItem {
 			var out []menuItem
 			for k := caretKind(0); k < caretCount(); k++ {
 				k := k
@@ -50,19 +50,19 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
-		a.into("Cursor FX", iconEditing, func() []menuItem {
-			out := []menuItem{{title: "Kapalı", hint: tick(a.settings.CursorFX == ""), run: func() { a.settings.CursorFX = ""; a.saveSettingsSoon() }}}
+		a.into("common_cursorFx", iconEditing, func() []menuItem {
+			out := []menuItem{{title: "common_off", hint: tick(a.settings.CursorFX == ""), run: func() { a.settings.CursorFX = ""; a.saveSettingsSoon() }}}
 			for _, p := range cursorPresets {
 				name := p.name
 				out = append(out, menuItem{title: name, hint: tick(a.settings.CursorFX == name), run: func() { a.settings.CursorFX = name; a.saveSettingsSoon() }})
 			}
 			return out
 		}),
-		{title: "Jöle efekti", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
+		{title: "common_jellyEffect", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
 			a.settings.Jelly = !a.settings.Jelly
 			a.saveSettingsSoon()
 		}},
-		a.into("Köşeler", iconBar, func() []menuItem {
+		a.into("common_corners", iconBar, func() []menuItem {
 			var out []menuItem
 			for _, v := range []int{0, 50, 100, 150, 200} {
 				v := v
@@ -73,7 +73,7 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
-		{title: "Kenar çubuğu", hint: "⌘\\", glyph: iconSidebar, run: a.toggleSidebar},
-		{title: "Tüm ayarlar…", hint: "⌘,", group: "~", glyph: iconSettings, run: a.openSettings},
+		{title: "sidebar", hint: "⌘\\", glyph: iconSidebar, run: a.toggleSidebar},
+		{title: "allSettings", hint: "⌘,", group: "~", glyph: iconSettings, run: a.openSettings},
 	}
 }

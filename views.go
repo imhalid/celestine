@@ -52,7 +52,7 @@ func (a *app) collectionView(c *ui.Context) {
 						// its icon and the capsule that opens its settings, as Thymer's
 						ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 							ui.Icon(c, collGlyph(coll)).Width(20).Height(20).TextColor(collTint(c, coll))
-							if ryugo.Button(c.Key("coll-settings-btn"), "Koleksiyon ayarları", ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm}).Clicked() {
+							if ryugo.Button(c.Key("coll-settings-btn"), locales.CollectionSettings(), ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm}).Clicked() {
 								a.openCollSettings(coll, 0)
 							}
 						})
@@ -93,7 +93,7 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							was := sel
-							ryugo.Segmented(c.Key("views:"+coll.Dir), &sel, labels, ryugo.SegmentedOptions{Label: "Görünüm", Size: ryugo.Sm})
+							ryugo.Segmented(c.Key("views:"+coll.Dir), &sel, labels, ryugo.SegmentedOptions{Label: locales.CommonAppearance(), Size: ryugo.Sm})
 							if sel != was {
 								if err := coll.SetView(coll.Views[sel].ID); err != nil {
 									a.fail(err)
@@ -111,7 +111,7 @@ func (a *app) collectionView(c *ui.Context) {
 							}
 							a.fieldMenu(ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: locales.ViewsSearch(), Placeholder: locales.ViewsSearchPlaceholder(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.search, fieldOpts{oneLine: true}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
-								if ryugo.Button(c.Key("random-day"), "Rastgele gün", ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
+								if ryugo.Button(c.Key("random-day"), locales.RandomDay(), ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()
 								}
 							}
@@ -126,7 +126,7 @@ func (a *app) collectionView(c *ui.Context) {
 							}
 							label := newPageLabel(coll)
 							if coll.Journal {
-								label = "Bugünün sayfası"
+								label = locales.TodaysPage()
 							}
 							if coll.Dynamic() {
 								return // it has no pages to make
@@ -168,7 +168,7 @@ func (a *app) collectionView(c *ui.Context) {
 								case len(pages) == 0 && a.search != "":
 									a.emptyState(c, iconSearch, locales.ViewsNoMatchTitle(), locales.ViewsNoMatchHelp(a.search), locales.ViewsClearSearch(), func() { a.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
-									a.emptyState(c, iconSearch, "Sorguyla eşleşen sayfa yok", "Bu koleksiyon, sorgusunun bulduğu sayfaları gösterir: "+coll.Query, "", nil)
+									a.emptyState(c, iconSearch, locales.NoPageMatchesTheQuery(), msg("thisCollectionShowsThePagesIts2")+coll.Query, "", nil)
 								case len(pages) == 0:
 									a.emptyState(c, collGlyph(coll), locales.ViewsEmptyTitle(), locales.ViewsEmptyHelp(), "", nil)
 								case v.Type == "board":
@@ -597,11 +597,11 @@ type column struct {
 // tableColumns are the table's columns: the title, the collection's
 // properties, then where it is and when.
 func tableColumns(coll *Collection, v *View) []column {
-	cols := []column{{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
+	cols := []column{{label: "common_title", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
 	byKey := map[string]column{
 		"parent":   {label: locales.ViewsParent(), width: 150, cell: func(p *Page, _ time.Time) string { return Parents(p) }},
-		"created":  {label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
-		"modified": {label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
+		"created":  {label: "common_created", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
+		"modified": {label: "common_modified", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
 	}
 	for i := range coll.Properties {
 		pr := &coll.Properties[i]
@@ -835,7 +835,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		if id == "" {
 			id = col.label
 		}
-		rc := ryugo.Column[*Page]{ID: id, Title: col.label, Sortable: col.field != "", Width: col.width,
+		rc := ryugo.Column[*Page]{ID: id, Title: msg(col.label), Sortable: col.field != "", Width: col.width,
 			Value: func(p *Page) any { return pageSortValue(col, p) },
 			Cell: func(c *ui.Context, p *Page) {
 				if col.prop != nil && col.prop.Type == PropChoice {
@@ -953,7 +953,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		}
 	}
 	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
-		Key: func(p *Page) any { return p }, Label: "Sayfalar", Height: height + 2,
+		Key: func(p *Page) any { return p }, Label: locales.Pages(), Height: height + 2,
 		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
 		Pin:   true, // the title stays as the table is scrolled sideways
 		Group: groupOf, GroupLabel: groupLabel, Reorder: reorder,
@@ -1072,7 +1072,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 						head := ui.Row(c).Gap(8).Padding(0, 4, 0, 6).AlignItems(ui.Center)
 						head.Children(func() {
 							name := ui.Row(c.Key("colname:"+s)).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(rad(7)).Grow(1).MinWidth(0).
-								Label("Odakla: " + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+								Label(locales.ViewsFocusLabel(title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 							if name.Hovered() {
 								name.Background(cl.Fill)
 							}
@@ -1088,7 +1088,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 									a.boardFocus = id
 								}
 							}
-							if a.iconButton(c, iconFold, "Daralt: "+title) {
+							if a.iconButton(c, iconFold, locales.ViewsCollapseLabel(title)) {
 								a.foldColumn(coll, v, s, true)
 								a.boardOpened[id] = false
 							}
@@ -1109,7 +1109,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 									if len(v.Fields) > 0 && full {
 										ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() { a.fieldChips(c, p, v) })
 									}
-								}).Label("Kart: " + p.Title)
+								}).Label(locales.ViewsCardLabel(p.Title))
 								a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
 								a.kbMark(card, "b:"+p.Dir, true, func() { a.open(p) })
 								if card.Clicked() {

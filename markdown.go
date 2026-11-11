@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Reading and writing a page's Markdown without losing what richtext does
@@ -37,7 +38,8 @@ const (
 )
 
 // rawNames are what a raw block is called over it, in the editor.
-var rawNames = map[string]string{"table": "Tablo", "html": "HTML", "math": "Matematik", "footnote": "Dipnot", "callout": "Not kutusu"}
+var rawNames = map[string]func() string{"table": locales.BlocksRawTable, "html": func() string { return "HTML" }, "math": locales.BlocksRawMath,
+	"footnote": locales.BlocksRawFootnote, "callout": locales.BlocksRawCallout}
 
 // blockToken is the line a held block stands as while richtext reads or writes the rest. Its marks are of Unicode's
 // private use: a line typed as text never is one (#130).

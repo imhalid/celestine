@@ -104,9 +104,9 @@ func settingDefs() []settingDef {
 		return settingDef{name: name, alias: alias, fields: []string{field}, kind: setNumber, val: val, put: put, min: min, max: max, def: def, step: step, unit: unit, dec: dec}
 	}
 	return []settingDef{
-		{name: "Tema", alias: "theme görünüm açık koyu sistem", fields: []string{"theme"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "common_theme", alias: "theme görünüm açık koyu sistem", fields: []string{"theme"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
-			for i, n := range []string{"Sistem", "Açık", "Koyu"} {
+			for i, n := range []string{"common_system", "common_light", "common_dark"} {
 				i := i
 				out = append(out, settingChoice{name: n, current: a.settings.Theme%3 == i,
 					set:     func(a *app) { a.settings.Theme = i; a.saveSettings() },
@@ -114,7 +114,7 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
-		{name: "Renk teması", alias: "accent renk", fields: []string{"appTheme"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "common_colorTheme", alias: "accent renk", fields: []string{"appTheme"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for i, t := range appThemes {
 				i := i
@@ -124,7 +124,7 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
-		{name: "Caret", alias: "imleç", fields: []string{"caret", "caretName"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "caret", alias: "imleç", fields: []string{"caret", "caretName"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for k := caretKind(0); k < caretCount(); k++ {
 				k := k
@@ -134,40 +134,40 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
-		{name: "Cursor FX", alias: "mouse pointer fare imleç efekt effect trail", fields: []string{"cursorFx"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "common_cursorFx", alias: "mouse pointer fare imleç efekt effect trail", fields: []string{"cursorFx"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			out := []settingChoice{{name: locales.CommonOff(), current: a.settings.CursorFX == "",
 				set:     func(a *app) { a.settings.CursorFX = ""; a.saveSettings() },
 				preview: func(a *app) { a.settings.CursorFX = "" }}}
 			for _, p := range cursorPresets {
 				name := p.name
-				out = append(out, settingChoice{name: T(name), current: a.settings.CursorFX == name,
+				out = append(out, settingChoice{name: msg(name), current: a.settings.CursorFX == name,
 					set:     func(a *app) { a.settings.CursorFX = name; a.saveSettings() },
 					preview: func(a *app) { a.settings.CursorFX = name }})
 			}
 			return out
 		}},
-		{name: "Harf aralığı", alias: "letter spacing tracking harf aralığı", fields: []string{"letterSpacing"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "letterSpacing", alias: "letter spacing tracking harf aralığı", fields: []string{"letterSpacing"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for i, s := range letterSpacings {
 				i := i
-				out = append(out, settingChoice{name: T(s.name), current: a.settings.LetterSpacing == i,
+				out = append(out, settingChoice{name: msg(s.name), current: a.settings.LetterSpacing == i,
 					set: func(a *app) { a.settings.LetterSpacing = i; a.saveSettings() }})
 			}
 			return out
 		}},
-		{name: "İmleç yanıp sönmesi", alias: "imleç yanıp sönme blink cursor", fields: []string{"caretBlink"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "caretBlink", alias: "imleç yanıp sönme blink cursor", fields: []string{"caretBlink"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, o := range []struct {
 				name string
 				ms   int
 			}{{"Off", 0}, {"Slow", 1000}, {"Normal", 530}, {"Fast", 350}} {
 				o := o
-				out = append(out, settingChoice{name: T(o.name), current: a.settings.CaretBlink == o.ms,
+				out = append(out, settingChoice{name: msg(o.name), current: a.settings.CaretBlink == o.ms,
 					set: func(a *app) { a.settings.CaretBlink = o.ms; a.saveSettings() }})
 			}
 			return out
 		}},
-		{name: "Köşeler", alias: "köşe yuvarlaklığı radius", fields: []string{"corner"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "common_corners", alias: "köşe yuvarlaklığı radius", fields: []string{"corner"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, p := range []int{0, 50, 100, 150, 200} {
 				p := p
@@ -176,23 +176,23 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
-		{name: "Karşılamanın arka planı", alias: "welcome ground background onboarding karşılama", fields: []string{"welcomeGround"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "theWelcomesGround", alias: "welcome ground background onboarding karşılama", fields: []string{"welcomeGround"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, g := range welcomeGrounds {
 				id := g.id
-				out = append(out, settingChoice{name: T(g.name), current: a.settings.WelcomeGround == id, set: func(a *app) { a.settings.WelcomeGround = id; a.saveSettings() }})
+				out = append(out, settingChoice{name: msg(g.name), current: a.settings.WelcomeGround == id, set: func(a *app) { a.settings.WelcomeGround = id; a.saveSettings() }})
 			}
 			return out
 		}},
-		{name: "Açılış", alias: "welcome opening onboarding karşılama açılış", fields: []string{"welcomeOpen"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "opening", alias: "welcome opening onboarding karşılama açılış", fields: []string{"welcomeOpen"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, o := range welcomeOpenings {
 				id := o.id
-				out = append(out, settingChoice{name: T(o.name), current: a.settings.WelcomeOpen == id, set: func(a *app) { a.settings.WelcomeOpen = id; a.saveSettings() }})
+				out = append(out, settingChoice{name: msg(o.name), current: a.settings.WelcomeOpen == id, set: func(a *app) { a.settings.WelcomeOpen = id; a.saveSettings() }})
 			}
 			return out
 		}},
-		{name: "Dil", alias: "language english türkçe", fields: []string{"lang"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "common_language", alias: "language english türkçe", fields: []string{"lang"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, l := range []string{"en", "tr"} {
 				l := l
@@ -200,110 +200,110 @@ func settingDefs() []settingDef {
 			}
 			return out
 		}},
-		fontChoice("Uygulama yazı tipi", "app font arayüz", "fontApp", fontApp),
-		fontChoice("Editör yazı tipi", "editor font metin yazı tipi", "fontEditor", fontEditor),
-		fontChoice("Kod yazı tipi", "code monospace font", "fontMono", fontMono),
-		{name: "Odak modu", alias: "focus line paragraph satır paragraf", fields: []string{"focus"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		fontChoice("appTypeface", "app font arayüz", "fontApp", fontApp),
+		fontChoice("editorTypeface", "editor font metin yazı tipi", "fontEditor", fontEditor),
+		fontChoice("codeTypeface", "code monospace font", "fontMono", fontMono),
+		{name: "common_focusMode", alias: "focus line paragraph satır paragraf", fields: []string{"focus"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
-			for _, m := range []struct{ id, name string }{{"", "kapalı"}, {"line", "satır"}, {"paragraph", "paragraf"}} {
+			for _, m := range []struct{ id, name string }{{"", "off2"}, {"line", "settings_focusLine"}, {"paragraph", "settings_focusParagraph"}} {
 				m := m
 				out = append(out, settingChoice{name: m.name, current: a.focusMode() == m.id, set: func(a *app) { a.settings.Focus = m.id; a.saveSettings() }})
 			}
 			return out
 		}},
-		simple("Daktilo kaydırması", "typewriter scroll", "typewriter", func(s *Settings) *bool { return &s.Typewriter }, false),
-		simple("Odak halkasını her zaman göster", "focus ring keyboard halka", "alwaysRing", func(s *Settings) *bool { return &s.AlwaysRing }, false),
-		simple("Hafif mod", "light mode caret efekt kapat", "noCaretFx", func(s *Settings) *bool { return &s.NoCaretFX }, false),
-		num("Satır uzunluğu", "line length column hard wrap sütun karakter", "lineChars", 0, 120, 0, 5, " karakter", 0,
+		simple("common_typewriterScrolling", "typewriter scroll", "typewriter", func(s *Settings) *bool { return &s.Typewriter }, false),
+		simple("common_alwaysShowFocusRing", "focus ring keyboard halka", "alwaysRing", func(s *Settings) *bool { return &s.AlwaysRing }, false),
+		simple("common_lightMode", "light mode caret efekt kapat", "noCaretFx", func(s *Settings) *bool { return &s.NoCaretFX }, false),
+		num("common_lineLength", "line length column hard wrap sütun karakter", "lineChars", 0, 120, 0, 5, " karakter", 0,
 			func(a *app) float64 { return float64(a.settings.LineChars) }, func(a *app, v float64) { a.settings.LineChars = int(v); a.saveSettingsSoon() }),
-		num("Tab uzunluğu", "tab width space", "tabSpaces", 0, 8, 0, 1, " boşluk", 0,
+		num("common_tabWidth", "tab width space", "tabSpaces", 0, 8, 0, 1, "common_spaces", 0,
 			func(a *app) float64 { return float64(a.settings.TabSpaces) }, func(a *app, v float64) { a.settings.TabSpaces = int(v); a.saveSettingsSoon() }),
-		num("Caret uykusu", "caret sleep", "sleepSecs", 1, 60, 5, 1, " sn", 0,
+		num("common_caretSleep", "caret sleep", "sleepSecs", 1, 60, 5, 1, "common_s", 0,
 			func(a *app) float64 { return a.caretSleep().Seconds() }, func(a *app, v float64) { a.settings.SleepSecs = v; a.saveSettingsSoon() }),
-		simple("Vim hareketleri", "vim hjkl normal kip", "vimKeys", func(s *Settings) *bool { return &s.VimKeys }, false),
-		simple("Yeni sürümü denetle", "update güncelleme", "updateOff", func(s *Settings) *bool { return &s.UpdateOff }, true),
-		simple("Güncelleme sessiz mod", "update quiet", "updateQuiet", func(s *Settings) *bool { return &s.UpdateQuiet }, false),
-		simple("Kendiliğinden güncelle", "update auto kur", "updateAuto", func(s *Settings) *bool { return &s.UpdateAuto }, false),
-		{name: "Güncelleme kanalı", alias: "update channel beta deneme", fields: []string{"updateChannel"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		simple("common_vimMotions", "vim hjkl normal kip", "vimKeys", func(s *Settings) *bool { return &s.VimKeys }, false),
+		simple("checkForUpdates", "update güncelleme", "updateOff", func(s *Settings) *bool { return &s.UpdateOff }, true),
+		simple("quietUpdateMode", "update quiet", "updateQuiet", func(s *Settings) *bool { return &s.UpdateQuiet }, false),
+		simple("updateAutomatically", "update auto kur", "updateAuto", func(s *Settings) *bool { return &s.UpdateAuto }, false),
+		{name: "updateChannel", alias: "update channel beta deneme", fields: []string{"updateChannel"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			return []settingChoice{
-				{name: "Kararlı", current: a.settings.UpdateChannel != "beta", set: func(a *app) { a.settings.UpdateChannel = ""; a.saveSettings() }},
-				{name: "Deneme (beta)", current: a.settings.UpdateChannel == "beta", set: func(a *app) { a.settings.UpdateChannel = "beta"; a.saveSettings() }},
+				{name: "stable", current: a.settings.UpdateChannel != "beta", set: func(a *app) { a.settings.UpdateChannel = ""; a.saveSettings() }},
+				{name: "trialBeta", current: a.settings.UpdateChannel == "beta", set: func(a *app) { a.settings.UpdateChannel = "beta"; a.saveSettings() }},
 			}
 		}},
-		num("Güncelleme denetim sıklığı", "update hours saat", "updateHours", 1, 720, 24, 6, " sa", 0,
+		num("updateCheckInterval", "update hours saat", "updateHours", 1, 720, 24, 6, " sa", 0,
 			func(a *app) float64 { return a.updateEvery().Hours() },
 			func(a *app, v float64) { a.settings.UpdateHours = int(v); a.saveSettingsSoon() }),
-		{name: "Senkron", alias: "sync eşitle klasör sunucu", fields: []string{"syncMode"}, kind: setChoice, choices: func(a *app) []settingChoice {
+		{name: "sync4", alias: "sync eşitle klasör sunucu", fields: []string{"syncMode"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
-			for _, m := range []struct{ id, name string }{{"", "kapalı"}, {"dir", "klasör"}, {"server", "sunucu"}} {
+			for _, m := range []struct{ id, name string }{{"", "off2"}, {"dir", "folder2"}, {"server", "server2"}} {
 				m := m
 				out = append(out, settingChoice{name: m.name, current: a.settings.SyncMode == m.id, set: func(a *app) { a.settings.SyncMode = m.id; a.sy.tried = time.Time{}; a.saveSettings() }})
 			}
 			return out
 		}},
-		num("Senkron aralığı", "sync minutes dakika", "syncMinutes", 1, 1440, 5, 5, " dk", 0,
+		num("syncInterval", "sync minutes dakika", "syncMinutes", 1, 1440, 5, 5, " dk", 0,
 			func(a *app) float64 { return a.syncEvery().Minutes() },
 			func(a *app, v float64) { a.settings.SyncMinutes = int(v); a.saveSettingsSoon() }),
-		simple("İstatistik toplama", "stats analiz kullanım", "noStats", func(s *Settings) *bool { return &s.NoStats }, true),
-		simple("Günlük yedek", "backup yedekle", "noBackup", func(s *Settings) *bool { return &s.NoBackup }, true),
-		simple("Ligatürler", "ligature fi fl", "noLigatures", func(s *Settings) *bool { return &s.NoLigatures }, true),
-		simple("Aynı genişlikte rakamlar", "tabular numbers tnum", "tabularNums", func(s *Settings) *bool { return &s.TabularNums }, false),
-		num("Yazı kalınlığı", "weight bold kalın", "fontWeight", 300, 700, 400, 100, "", 0,
+		simple("common_collectStatistics", "stats analiz kullanım", "noStats", func(s *Settings) *bool { return &s.NoStats }, true),
+		simple("common_dailyBackup", "backup yedekle", "noBackup", func(s *Settings) *bool { return &s.NoBackup }, true),
+		simple("common_ligatures", "ligature fi fl", "noLigatures", func(s *Settings) *bool { return &s.NoLigatures }, true),
+		simple("common_tabularNumbers", "tabular numbers tnum", "tabularNums", func(s *Settings) *bool { return &s.TabularNums }, false),
+		num("common_fontWeight", "weight bold kalın", "fontWeight", 300, 700, 400, 100, "", 0,
 			func(a *app) float64 { return float64(a.fontWeight()) },
 			func(a *app, v float64) { a.settings.FontWeight = int(v); a.saveSettingsSoon() }),
-		tog("Jöle efekti", "caret jöle jelly", []string{"jelly"},
+		tog("common_jellyEffect", "caret jöle jelly", []string{"jelly"},
 			func(a *app) bool { return a.settings.Jelly },
 			func(a *app, v bool) { a.settings.Jelly = v; a.saveSettings() }),
-		simple("Shimmer", "parıltı ışık jöle sarsıntısı wobble shake shimmer", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
-		simple("Press waves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
-		simple("Otomatik kapak", "kapak cover", "noAutoCover", func(s *Settings) *bool { return &s.NoAutoCover }, true),
-		simple("Kelimeleri yazıldığı güne göre renklendir", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
-		simple("Otomatik kayıt", "autosave kaydet save", "noAutoSave", func(s *Settings) *bool { return &s.NoAutoSave }, true),
-		simple("Boşlukları göster", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),
-		simple("Sekmeleri göster", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),
-		simple("Paragraf sonlarını göster", "pilcrow satır sonu eol", "showBreaks", func(s *Settings) *bool { return &s.ShowBreaks }, false),
-		simple("Boşlukları yalnız seçimde göster", "whitespace selection boşluk seçim", "whiteInSel", func(s *Settings) *bool { return &s.WhiteInSel }, false),
-		simple("Kod bloklarında boşlukları göster", "kod code whitespace", "markCode", func(s *Settings) *bool { return &s.MarkCode }, false),
-		simple("Kısayol ipuçları", "keys shortcuts hints status kısayol ipucu", "hideHints", func(s *Settings) *bool { return &s.HideHints }, true),
-		simple("Durum çubuğunu gizle", "odak modu focus hide statusbar", "hideStatus", func(s *Settings) *bool { return &s.HideStatus }, false),
-		simple("Durum çubuğunda kaydetme durumu", "kaydedildi status", "hideSaved", func(s *Settings) *bool { return &s.HideSaved }, true),
-		simple("Durum çubuğunda harf sayısı", "karakter chars", "showChars", func(s *Settings) *bool { return &s.ShowChars }, false),
-		simple("Durum çubuğunda satır ve sütun", "line column konum", "showPos", func(s *Settings) *bool { return &s.ShowPos }, false),
-		tog("Kenar çubuğu", "sidebar", []string{"sidebarClosed"},
+		simple("common_shimmer", "parıltı ışık jöle sarsıntısı wobble shake shimmer", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
+		simple("common_pressWaves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
+		simple("common_automaticCover", "kapak cover", "noAutoCover", func(s *Settings) *bool { return &s.NoAutoCover }, true),
+		simple("common_colorWordsByDay", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
+		simple("common_autosave", "autosave kaydet save", "noAutoSave", func(s *Settings) *bool { return &s.NoAutoSave }, true),
+		simple("showSpaces", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),
+		simple("showTabs", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),
+		simple("showParagraphEnds", "pilcrow satır sonu eol", "showBreaks", func(s *Settings) *bool { return &s.ShowBreaks }, false),
+		simple("whiteSpaceOnlyInTheSelection", "whitespace selection boşluk seçim", "whiteInSel", func(s *Settings) *bool { return &s.WhiteInSel }, false),
+		simple("showWhitespaceInCodeBlocks", "kod code whitespace", "markCode", func(s *Settings) *bool { return &s.MarkCode }, false),
+		simple("shortcutHints", "keys shortcuts hints status kısayol ipucu", "hideHints", func(s *Settings) *bool { return &s.HideHints }, true),
+		simple("hideTheStatusBar", "odak modu focus hide statusbar", "hideStatus", func(s *Settings) *bool { return &s.HideStatus }, false),
+		simple("saveStatusInTheStatusBar", "kaydedildi status", "hideSaved", func(s *Settings) *bool { return &s.HideSaved }, true),
+		simple("letterCountInTheStatusBar", "karakter chars", "showChars", func(s *Settings) *bool { return &s.ShowChars }, false),
+		simple("lineAndColumnInTheStatus", "line column konum", "showPos", func(s *Settings) *bool { return &s.ShowPos }, false),
+		tog("sidebar", "sidebar", []string{"sidebarClosed"},
 			func(a *app) bool { return !a.settings.SidebarClosed },
 			func(a *app, v bool) {
 				if v == a.settings.SidebarClosed {
 					a.toggleSidebar()
 				}
 			}),
-		tog("Yan panel", "panel anahat outline", []string{"panelOpen"},
+		tog("common_sidePanel", "panel anahat outline", []string{"panelOpen"},
 			func(a *app) bool { return a.settings.PanelOpen },
 			func(a *app, v bool) {
 				if v != a.settings.PanelOpen {
 					a.togglePanel()
 				}
 			}),
-		tog("MCP sunucusu", "mcp ajan agent", []string{"mcp"},
+		tog("common_mcpServer", "mcp ajan agent", []string{"mcp"},
 			func(a *app) bool { return a.settings.MCP },
 			func(a *app, v bool) { a.setMCP(v) }),
-		num("Yazı boyutu", "font size punto", "fontSize", minFont, maxFont, 16.5, 0.5, " px", 1,
+		num("common_fontSize", "font size punto", "fontSize", minFont, maxFont, 16.5, 0.5, " px", 1,
 			func(a *app) float64 { return float64(a.fontSize()) }, func(a *app, v float64) { a.setFontSize(v) }),
-		num("Satır aralığı", "line height", "lineHeight", 1.2, 2.2, 1.55, 0.05, "", 2,
+		num("common_lineSpacing", "line height", "lineHeight", 1.2, 2.2, 1.55, 0.05, "", 2,
 			func(a *app) float64 { return float64(a.lineHeight()) },
 			func(a *app, v float64) { a.settings.LineHeight = v; a.saveSettingsSoon() }),
-		num("Sayfa genişliği", "genişlik width sütun", "pageWidth", 480, 1200, float64(columnMax), 20, " px", 0,
+		num("common_pageWidth", "genişlik width sütun", "pageWidth", 480, 1200, float64(columnMax), 20, " px", 0,
 			func(a *app) float64 { return float64(a.pageWidth()) },
 			func(a *app, v float64) { a.settings.PageWidth = v; a.saveSettingsSoon() }),
-		num("Paragraf aralığı", "paragraph spacing boşluk", "paraGap", 0, 2, defaultParaGap, 0.05, " em", 2,
+		num("common_paragraphSpacing", "paragraph spacing boşluk", "paraGap", 0, 2, defaultParaGap, 0.05, " em", 2,
 			func(a *app) float64 { return float64(a.paraGap()) },
 			func(a *app, v float64) { a.settings.ParaGap = &v; a.saveSettingsSoon() }),
-		num("İlk satır girintisi", "indent girinti", "indent", 0, 4, 0, 0.25, " em", 2,
+		num("common_firstLineIndent", "indent girinti", "indent", 0, 4, 0, 0.25, " em", 2,
 			func(a *app) float64 { return float64(a.firstIndent()) },
 			func(a *app, v float64) { a.settings.Indent = v; a.saveSettingsSoon() }),
-		num("Kayıt gecikmesi", "autosave delay bekleme", "saveAfter", 0.2, 30, defaultSaveAt, 0.5, " sn", 1,
+		num("common_saveDelay", "autosave delay bekleme", "saveAfter", 0.2, 30, defaultSaveAt, 0.5, "common_s", 1,
 			func(a *app) float64 { return a.saveAfter().Seconds() },
 			func(a *app, v float64) { a.settings.SaveAfter = v; a.saveSettingsSoon() }),
-		num("Köşe yuvarlaklığı", "corner radius", "corner", 0, 200, 100, 10, "%", 0,
+		num("common_cornerRoundness", "corner radius", "corner", 0, 200, 100, 10, "%", 0,
 			func(a *app) float64 { return float64(a.cornerPercent()) },
 			func(a *app, v float64) { p := int(v); a.settings.Corner = &p; a.saveSettingsSoon() }),
 	}
@@ -351,9 +351,9 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 			on := d.on(a)
 			state := map[bool]string{true: locales.SettingsOn(), false: locales.SettingsOff()}[on]
 			it := cmd(d.name, state, iconSettings, a.undoable(
-				locales.SettingsChanged(T(d.name), map[bool]string{true: locales.SettingsOff(), false: locales.SettingsOn()}[on]), func() { d.flip(a, on) }, func() { d.flip(a, !on) }))
-			it.title = T(d.name) + ": " + map[bool]string{true: locales.SettingsTurnOff(), false: locales.SettingsTurnOn()}[on]
-			it.id = d.name + ": " + map[bool]string{true: "kapat", false: "aç"}[on]
+				locales.SettingsChanged(msg(d.name), map[bool]string{true: locales.SettingsOff(), false: locales.SettingsOn()}[on]), func() { d.flip(a, on) }, func() { d.flip(a, !on) }))
+			it.title = msg(d.name) + ": " + map[bool]string{true: locales.SettingsTurnOff(), false: locales.SettingsTurnOn()}[on]
+			it.id = d.name + ": " + map[bool]string{true: "off3", false: "on"}[on]
 			it.sub, it.kind = locales.PaletteSetting(), palSetting
 			add(it)
 		case setNumber:
@@ -363,23 +363,23 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 				to    float64
 				ok    bool
 			}{
-				{"artır", d.clamp(cur + d.step), cur+d.step <= d.max+1e-9},
-				{"azalt", d.clamp(cur - d.step), cur-d.step >= d.min-1e-9},
-				{"varsayılan", d.def, cur != d.def},
+				{"increase", d.clamp(cur + d.step), cur+d.step <= d.max+1e-9},
+				{"decrease", d.clamp(cur - d.step), cur-d.step >= d.min-1e-9},
+				{"default2", d.def, cur != d.def},
 			}
 			for _, s := range steps {
 				s := s
-				it := cmd(d.name+": "+s.label, d.fmt(cur), iconSettings, a.undoable(locales.SettingsChanged(T(d.name), d.fmt(s.to)), func() { d.put(a, cur) }, func() { d.put(a, s.to) }))
-				it.title = T(d.name) + ": " + T(s.label)
+				it := cmd(d.name+": "+s.label, d.fmt(cur), iconSettings, a.undoable(locales.SettingsChanged(msg(d.name), d.fmt(s.to)), func() { d.put(a, cur) }, func() { d.put(a, s.to) }))
+				it.title = msg(d.name) + ": " + msg(s.label)
 				it.sub, it.kind = locales.PaletteSetting(), palSetting
 				if !s.ok {
 					switch s.label {
-					case "artır":
-						it.off = locales.SettingsAlreadyHighest(T(d.name), d.fmt(cur))
-					case "azalt":
-						it.off = locales.SettingsAlreadyLowest(T(d.name), d.fmt(cur))
+					case "increase":
+						it.off = locales.SettingsAlreadyHighest(msg(d.name), d.fmt(cur))
+					case "decrease":
+						it.off = locales.SettingsAlreadyLowest(msg(d.name), d.fmt(cur))
 					default:
-						it.off = locales.SettingsAlreadyDefault(T(d.name), d.fmt(cur))
+						it.off = locales.SettingsAlreadyDefault(msg(d.name), d.fmt(cur))
 					}
 				}
 				add(it)
@@ -395,12 +395,12 @@ func (a *app) settingCmds(cmd func(title, keys string, glyph *ui.SVG, run func()
 						was = func() { c.set(a) }
 					}
 				}
-				it := cmd(d.name+": "+ch.name, map[bool]string{true: "✓", false: ""}[ch.current], iconSettings, a.undoable(locales.SettingsChanged(T(d.name), T(ch.name)), func() {
+				it := cmd(d.name+": "+ch.name, map[bool]string{true: "✓", false: ""}[ch.current], iconSettings, a.undoable(locales.SettingsChanged(msg(d.name), msg(ch.name)), func() {
 					if was != nil {
 						was()
 					}
 				}, func() { ch.set(a) }))
-				it.title = T(d.name) + ": " + T(ch.name)
+				it.title = msg(d.name) + ": " + msg(ch.name)
 				it.sub, it.kind = locales.PaletteSetting(), palSetting
 				if ch.preview != nil {
 					pv := ch.preview
@@ -431,15 +431,15 @@ func (a *app) argItems(q string) []palItem {
 		if d.kind != setNumber {
 			continue
 		}
-		s := max(match(m[1], d.name+" "+d.alias), match(m[1], T(d.name)+" "+d.alias))
-		if s < 0 || match(m[1], d.name) < 0 && match(m[1], T(d.name)) < 0 && match(m[1], d.alias) < 0 {
+		s := match(m[1], names(d.name)+" "+d.alias)
+		if s < 0 || match(m[1], names(d.name)) < 0 && match(m[1], d.alias) < 0 {
 			continue
 		}
 		to, cur := d.clamp(v), d.val(a)
-		it := palItem{title: locales.SettingsSetTo(T(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 1000 + s,
-			run: a.undoable(locales.SettingsChanged(T(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}
+		it := palItem{title: locales.SettingsSetTo(msg(d.name), d.fmt(to)), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 1000 + s,
+			run: a.undoable(locales.SettingsChanged(msg(d.name), d.fmt(to)), func() { d.put(a, cur) }, func() { d.put(a, to) })}
 		if to != v {
-			it.title = locales.SettingsSetToClamped(T(d.name), d.fmt(to), d.fmt(d.min), d.fmt(d.max))
+			it.title = locales.SettingsSetToClamped(msg(d.name), d.fmt(to), d.fmt(d.min), d.fmt(d.max))
 		}
 		out = append(out, it)
 	}
@@ -451,7 +451,7 @@ func (a *app) argItems(q string) []palItem {
 func fontChoice(name, alias, field string, role fontRole) settingDef {
 	return settingDef{name: name, alias: alias, fields: []string{field}, kind: setChoice, choices: func(a *app) []settingChoice {
 		cur := *a.settings.fontField(role)
-		out := []settingChoice{{name: "varsayılan", current: cur == "",
+		out := []settingChoice{{name: "default2", current: cur == "",
 			set: func(a *app) { a.setFont(role, "") }}}
 		seen := map[string]bool{}
 		for _, list := range [][]string{a.settings.FontFavs, a.settings.FontLast, {cur}} {
@@ -491,7 +491,7 @@ func (a *app) fontNameItems(q string) []palItem {
 		low := fold(q)
 		pre := fold(d.name) // the name in Turkish, or in the window's language
 		if !strings.HasPrefix(low, pre+" ") {
-			if pre = fold(T(d.name)); !strings.HasPrefix(low, pre+" ") {
+			if pre = fold(msg(d.name)); !strings.HasPrefix(low, pre+" ") {
 				continue
 			}
 		}
@@ -503,8 +503,8 @@ func (a *app) fontNameItems(q string) []palItem {
 			if match(want, f.Name) >= 0 {
 				f := f
 				was := *a.settings.fontField(role)
-				out = append(out, palItem{title: locales.SettingsSetTo(T(d.name), f.Name), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 900 + match(want, f.Name),
-					run: a.undoable(locales.SettingsChanged(T(d.name), f.Name), func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) })})
+				out = append(out, palItem{title: locales.SettingsSetTo(msg(d.name), f.Name), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 900 + match(want, f.Name),
+					run: a.undoable(locales.SettingsChanged(msg(d.name), f.Name), func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) })})
 				if len(out) >= 8 {
 					return out
 				}

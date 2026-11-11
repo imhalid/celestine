@@ -54,7 +54,7 @@ func (a *app) editorHints() []hint {
 		}
 	}
 	if a.zoomed() {
-		add(a.cmdKey("Uzaklaş"), "zoom out")
+		add(a.cmdKey("zoomOut"), "zoomOut2")
 	}
 	anchor, caret := a.doc.Selection()
 	if anchor != caret { // a selection: its formats
@@ -69,59 +69,59 @@ func (a *app) editorHints() []hint {
 	st := t.ParagraphStyleAt(caret)
 	ps, pe := t.ParagraphRange(caret)
 	empty := strings.TrimSpace(t.Slice(ps, pe).String()) == ""
-	move := keyPair(a.cmdKey("Bloğu yukarı taşı"), a.cmdKey("Bloğu aşağı taşı"))
+	move := keyPair(a.cmdKey("moveTheBlockUp"), a.cmdKey("moveTheBlockDown"))
 	kids, folded := blockHasKids(t, caret), foldOf(t, caret) != nil
 	bs, be := blockRange(t, caret)
 	zoomable := kids && !(bs == 0 && be >= t.Len()) // zoomIn does not zoom into the whole page
 	foldHint := func() {
 		switch {
 		case folded:
-			add(a.cmdKey("Katla / aç"), "unfold")
+			add(a.cmdKey("foldUnfold"), "unfold")
 		case kids:
-			add(a.cmdKey("Katla / aç"), "fold")
+			add(a.cmdKey("foldUnfold"), "fold")
 		}
 	}
 	switch {
 	case st.Heading > 0:
 		if zoomable {
-			add(a.cmdKey("Bloğa yakınlaş"), "zoom into the section")
+			add(a.cmdKey("zoomIntoTheBlock"), "zoomIntoTheSection")
 		}
 		foldHint()
-		add("⌥⌘1–6", "heading level")
-		add("⌥⌘0", "plain text")
+		add("⌥⌘1–6", "headingLevel")
+		add("⌥⌘0", "plainText2")
 		add(move, "move")
 	case st.List != richtext.NoList && empty && st.Indent > 0: // ↵ on an empty item takes it a level out
 		add("↵", "outdent")
 	case st.List != richtext.NoList && empty: // and at the first level ends the list
-		add("↵", "end the list")
+		add("↵", "endTheList")
 	case st.Quote && empty:
-		add("↵", "end the quote")
+		add("↵", "endTheQuote")
 	case st.List != richtext.NoList:
 		add("Tab", "indent")
 		add("⇧Tab", "outdent")
 		if zoomable {
-			add(a.cmdKey("Bloğa yakınlaş"), "zoom into the item")
+			add(a.cmdKey("zoomIntoTheBlock"), "zoomIntoTheItem")
 		}
 		foldHint()
 		add(move, "move")
 	case st.CodeBlock && empty && ps > 0 && t.ParagraphStyleAt(ps-1).CodeBlock:
-		add("↵", "end the code")
+		add("↵", "endTheCode")
 	case st.CodeBlock:
 		add("Tab", "indent")
 		add("⇧Tab", "outdent")
 		add(move, "move")
-		add(a.cmdKey("Bloğu çoğalt"), "duplicate")
+		add(a.cmdKey("duplicateTheBlock"), "duplicate")
 	case empty:
-		add("/", "add a block")
+		add("/", "addABlock")
 		add("#", "heading")
 		add("-", "list")
 		add("[]", "task")
 		add("```", "code")
 	default:
 		add(move, "move")
-		add(a.cmdKey("Bloğu çoğalt"), "duplicate")
-		add("⇧⌘8", "bullet list")
-		add(a.cmdKey("Blok menüsü"), "block menu")
+		add(a.cmdKey("duplicateTheBlock"), "duplicate")
+		add("⇧⌘8", "bulletList")
+		add(a.cmdKey("common_blockMenu"), "blockMenu2")
 	}
 	return out
 }

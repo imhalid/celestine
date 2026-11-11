@@ -30,7 +30,7 @@ func TestAppCommandsAreOneList(t *testing.T) {
 			}
 		}
 		if c.menu != "" {
-			label := T(c.title)
+			label := msg(c.title)
 			if c.dots {
 				label += "…"
 			}
@@ -40,7 +40,7 @@ func TestAppCommandsAreOneList(t *testing.T) {
 			}
 		}
 		if !c.noPal {
-			if keys, ok := pal[T(c.title)]; !ok || c.accel != "" && keys != accelLabel(c.accel) {
+			if keys, ok := pal[msg(c.title)]; !ok || c.accel != "" && keys != accelLabel(c.accel) {
 				t.Fatalf("%s: not in the palette with %q (%q, %v)", c.title, accelLabel(c.accel), keys, ok)
 			}
 		}
@@ -69,11 +69,11 @@ func TestAppCommandsAreOneList(t *testing.T) {
 	}
 	// what cannot run now is dim in the palette and does not run
 	for _, it := range a.commands() {
-		if it.title == T("Bölmeyi kapat") && it.off == "" {
+		if it.title == msg("Bölmeyi kapat") && it.off == "" {
 			t.Fatal("closing the only pane is offered")
 		}
 	}
-	if a.runCommand(T("Bölmeyi kapat")) {
+	if a.runCommand(msg("Bölmeyi kapat")) {
 		t.Fatal("the only pane was closed")
 	}
 }
@@ -84,7 +84,7 @@ func TestAppCommandsInEnglish(t *testing.T) {
 	defer setLang("tr")
 	var missing []string
 	for _, c := range appCommands() {
-		if T(c.title) == c.title {
+		if msg(c.title) == c.title {
 			missing = append(missing, c.title)
 		}
 	}

@@ -25,14 +25,14 @@ func TestTitleRightClickMenu(t *testing.T) {
 		if !a.ctx.open {
 			t.Fatalf("no menu on the title at %v; platform menu %v", r, tt.Menu() != nil)
 		}
-		if m := tt.Menu(); len(m) == 0 || m[0] != T(a.ctx.items[0].title) {
+		if m := tt.Menu(); len(m) == 0 || m[0] != msg(a.ctx.items[0].title) {
 			t.Fatalf("the menu shown is not the app's: %v", m)
 		}
 		return a.ctx.items
 	}
 	run := func(items []menuItem, title string) {
 		for _, it := range items {
-			if it.title == title {
+			if it.title == title || msg(it.title) == title {
 				a.ctx.open = false
 				it.run()
 				tt.Frame()
@@ -41,7 +41,7 @@ func TestTitleRightClickMenu(t *testing.T) {
 		}
 		t.Fatalf("no %q in the menu", title)
 	}
-	r, _ := tt.Find("Başlık")
+	r, _ := tt.Find(msg("common_title"))
 	tt.ClickAt(r.X+20, r.Y+r.H/2) // into the title: it is being edited
 	tt.Frame()
 	items := open()
@@ -49,7 +49,7 @@ func TestTitleRightClickMenu(t *testing.T) {
 	for _, it := range items {
 		has[it.title] = true
 	}
-	if !has["Yapıştır"] || !has["Tümünü seç"] || !has["Çöpe taşı"] {
+	if !has["common_paste"] || !has["common_selectAllText"] || !has["moveToTrash"] {
 		t.Fatalf("items: %+v", items)
 	}
 	run(items, "Tümünü seç")
@@ -92,7 +92,7 @@ func TestTitleMenuIsThePageMenu(t *testing.T) {
 	}
 	a.refocus = true // the caret in the text, not the title
 	tt.Frame()
-	title := rightClick("Başlık")
+	title := rightClick(msg("common_title"))
 	a.ctx.open = false
 	tt.Frame()
 	if err := tt.RightClick("Sayfa: Sayfa"); err != nil || !a.ctx.open {
@@ -102,7 +102,7 @@ func TestTitleMenuIsThePageMenu(t *testing.T) {
 	if !slices.Equal(title, row) {
 		t.Fatalf("the title's menu %v, the row's %v", title, row)
 	}
-	if slices.Contains(title, "Yapıştır") || !slices.Contains(title, "Yeniden adlandır") {
+	if slices.Contains(title, "common_paste") || !slices.Contains(title, "common_rename") {
 		t.Fatalf("the title's menu: %v", title)
 	}
 }

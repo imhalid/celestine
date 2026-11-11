@@ -476,7 +476,7 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 				return
 			}
 			if a.page == nil {
-				a.emptyState(c, iconPage, "Bir sayfa seç", "Soldaki ağaçtan bir sayfa aç, koleksiyon satırındaki + ile de yenisini yaz.", "", nil)
+				a.emptyState(c, iconPage, locales.PickAPage(), locales.OpenAPageFromTheTree(), "", nil)
 				return
 			}
 			a.pageView(c, th)
@@ -552,9 +552,9 @@ func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 		return nil
 	}
 	return []palItem{
-		cmd("Yan bölmede aç: Ayarlar", "", iconSettings, func() { a.openInSide(place{kind: "settings"}) }),
-		cmd("Yan bölmede aç: Görevler", "", iconTask, func() { a.openInSide(place{kind: "tasks"}) }),
-		cmd("Yan bölmede aç: Çöp", "", iconTrash, func() { a.openInSide(place{kind: "trash"}) }),
+		cmd("panes_settingsBeside", "", iconSettings, func() { a.openInSide(place{kind: "settings"}) }),
+		cmd("panes_tasksBeside", "", iconTask, func() { a.openInSide(place{kind: "tasks"}) }),
+		cmd("panes_trashBeside", "", iconTrash, func() { a.openInSide(place{kind: "trash"}) }),
 	}
 }
 

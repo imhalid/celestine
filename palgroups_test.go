@@ -63,7 +63,7 @@ func TestPaletteOpensAGroup(t *testing.T) {
 	a.pal = palette{open: true, query: ">"}
 	var look palItem
 	for _, it := range a.commandItems("") {
-		if it.group == "Gruplar" && it.title == "Görünüm" {
+		if it.group == "groups" && it.title == msg("common_appearance") {
 			look = it
 		}
 	}
@@ -71,14 +71,14 @@ func TestPaletteOpensAGroup(t *testing.T) {
 		t.Fatal("no Görünüm group")
 	}
 	a.runItem(look)
-	if !a.pal.open || a.pal.cat != "Görünüm" {
+	if !a.pal.open || a.pal.cat != "common_appearance" {
 		t.Fatalf("not opened: %+v", a.pal)
 	}
 	items := a.commandItems("")
 	titles := map[string]bool{}
 	for _, it := range items {
 		titles[it.title] = true
-		if it.group != "Görünüm" {
+		if it.group != "common_appearance" {
 			t.Fatalf("%q under %q", it.title, it.group)
 		}
 	}

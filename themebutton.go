@@ -14,9 +14,9 @@ var (
 // look: it shows the one it goes to.
 func (a *app) themeButton(c *ui.Context) {
 	dark := ryugo.From(c).Dark
-	glyph, label := iconMoon, "Koyu temaya geç"
+	glyph, label := iconMoon, "switchToTheDarkTheme"
 	if dark {
-		glyph, label = iconSun, "Açık temaya geç"
+		glyph, label = iconSun, "switchToTheLightTheme"
 	}
 	if a.barButton(c, glyph, label) {
 		a.settings.Theme = map[bool]int{true: 1, false: 2}[dark] // 1 light, 2 dark

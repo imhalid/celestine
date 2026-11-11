@@ -130,7 +130,7 @@ func TestFontSettingsPage(t *testing.T) {
 	if len(fam) == 0 {
 		t.Skip("no fonts installed")
 	}
-	if err := tt.Click(T("Editör yazı tipi") + ": " + locales.FontsTheApps()); err != nil {
+	if err := tt.Click(msg("Editör yazı tipi") + ": " + locales.FontsTheApps()); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	_ = ryugo.FontSans

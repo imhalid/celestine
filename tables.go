@@ -69,7 +69,7 @@ func (a *app) tableAttachment(ch *chip) *richtext.Attachment {
 	for _, x := range ch.tw {
 		w += x
 	}
-	return &richtext.Attachment{Width: w + 2, Height: tableHeight(ch.tbl) + 2*tableGap, Name: "Tablo", Data: ch,
+	return &richtext.Attachment{Width: w + 2, Height: tableHeight(ch.tbl) + 2*tableGap, Name: locales.BlocksRawTable(), Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawTable(p, r, ch) }}
 }
 
@@ -1089,7 +1089,7 @@ func tablesIn(t richtext.Text) richtext.Text {
 	}
 	for k := len(all) - 1; k >= 0; k-- {
 		f := all[k]
-		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: "Tablo", Data: &chip{kind: "table", tbl: f.m}}}
+		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: f.m}}}
 		t = t.ReplaceString(f.s, f.e, string(richtext.ObjectReplacement), attrs)
 		t = t.FormatParagraphs(f.s, f.s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 	}
