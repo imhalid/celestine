@@ -406,18 +406,24 @@ func TestCheckUpdateSettings(t *testing.T) {
 	if a.updRel == nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") {
 		t.Fatalf("not shown: %v", tt.Texts())
 	}
-	for _, want := range []string{"Şimdi güncelle", "3 gün sonra hatırlat", "Bu sürümü atla", "hızlandı"} {
+	// the card at the top right says it, with update now and later; the badge at the top left too (updatepanel.go)
+	for _, want := range []string{locales.UpdateUpdateNow(), locales.UpdateLater(), locales.UpdateBadge()} {
 		if !tt.HasText(want) {
 			t.Errorf("no %q: %v", want, tt.Texts())
 		}
 	}
-	if err := tt.Click("Bu sürümü atla"); err != nil {
+	tt.Advance(time.Second) // the card unfolds first
+	if err := tt.Click(locales.UpdateLater()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if a.settings.UpdateSkip != "v9.0.0" || a.updOpen {
-		t.Fatalf("skip %q open %v", a.settings.UpdateSkip, a.updOpen)
+	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("later: open %v, release %v, no badge: %v", a.updOpen, a.updRel, tt.Texts())
 	}
+	if err := tt.Click(locales.UpdateBadge()); err != nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") { // the badge opens the card again
+		t.Fatalf("the badge: %v open %v", err, a.updOpen)
+	}
+	a.settings.UpdateSkip = "v9.0.0" // a version said no to, in the settings (updateui.go)
 	a.updRel = nil
 	a.settings.UpdateAt = 0
 	a.checkUpdate(false)

@@ -46,6 +46,10 @@ func (a *app) updateView(c *ui.Context) {
 		a.updNotes = true
 		a.updOpen = true
 	}
+	if !a.updNotes && !phone {
+		a.updateCard(c) // a waiting version has a card of its own at the top right (updatepanel.go)
+		return
+	}
 	if !a.updOpen {
 		return
 	}

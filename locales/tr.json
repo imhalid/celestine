@@ -1412,6 +1412,8 @@
   "update_address": "Güncelleme adresi",
   "update_auto": "Otomatik olarak indir ve kur",
   "update_autoHelp": "Yeni sürüm sormadan indirilir, imzası doğrulanır ve kurulur; ardından yeniden başlatman istenir.",
+  "update_badge": "Güncelleme var",
+  "update_badgeReady": "Güncellemek için yeniden başlat",
   "update_beta": "Beta sürümleri",
   "update_betaHelp": "Kararlı sürümlerin yanı sıra beta sürümlerinden de haberdar ol.",
   "update_cannotCheck": "Bu derleme güncellemeleri kontrol edemez.",

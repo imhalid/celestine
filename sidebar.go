@@ -91,6 +91,7 @@ func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
 	if a.barIcon(c, iconSettings, locales.CommonSettings()) {
 		a.gearMenu(menuX, menuY)
 	}
+	a.updateBadge(c) // a version that waits (updatepanel.go)
 }
 
 func (a *app) toggleSidebar() {

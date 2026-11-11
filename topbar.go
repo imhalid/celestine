@@ -36,7 +36,7 @@ func (a *app) header(c *ui.Context) {
 				return
 			}
 			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
-				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW)
+				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW + a.updBadgeRoom())
 			}
 			if title := a.headerTitle(); title != "" {
 				ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).MinWidth(0)
