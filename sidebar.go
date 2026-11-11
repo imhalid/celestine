@@ -354,7 +354,7 @@ func (a *app) startRename(item any, name string) {
 // renameField is the field of a row being renamed: Enter or leaving it
 // keeps the new name, Escape the old one.
 func (a *app) renameField(c *ui.Context) {
-	in := a.fieldMenu(ryugo.Input(c, &a.renameText, ryugo.InputOptions{Label: "Yeni ad", Size: ryugo.Sm}), &a.renameText, fieldOpts{oneLine: true}).Grow(1).AutoFocus()
+	in := a.fieldMenu(ryugo.Input(c, &a.renameText, ryugo.InputOptions{Label: locales.SidebarNewName(), Size: ryugo.Sm}), &a.renameText, fieldOpts{oneLine: true}).Grow(1).AutoFocus()
 	switch {
 	case in.Shortcut(0, ui.KeyEscape):
 		a.renaming = nil

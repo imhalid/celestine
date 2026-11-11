@@ -2,6 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -425,5 +428,70 @@ func TestCatalogsAsWritten(t *testing.T) {
 		if c.got != c.want {
 			t.Errorf("%s: %q, want %q", c.l, c.got, c.want)
 		}
+	}
+}
+
+// shownCalls are the functions whose string arguments the window shows; shownFields the fields of options that it
+// shows. A literal with letters given to them is a word the catalogs do not translate.
+var (
+	shownCalls  = map[string]bool{"Text": true, "Button": true, "MenuButton": true, "Label": true, "iconButton": true, "barButton": true, "barIcon": true, "settingRow": true, "settingStack": true, "statHead": true, "statTile": true, "emptyState": true, "Tooltip": true, "panelTitle": true, "menuAt": true, "Checkbox": true, "Subtitle": true, "Item": true, "Submenu": true, "say": true}
+	shownFields = map[string]bool{"Label": true, "Title": true, "Placeholder": true, "Help": true, "Description": true, "title": true, "sub": true, "off": true, "group": true}
+	// keyLike are the keys of elements and the names of files, which are not shown: "st-today", "collection.json"
+	keyLike = regexp.MustCompile(`^[a-z][a-z0-9:_.+\-]*$`)
+	// notWords are literals shown as they are in every language: names, signs, keys.
+	notWords = regexp.MustCompile(`^(Celestine|MCP|Markdown|Claude Code|JSON|CSV|HTML|URL|CRT|Mizan|Slime|Pacman|Back-man|Shredder|Portal|Aurora|Neon|Shimmer|Press waves|Cursor FX|Time-lapse|v\d.*|[^\pL]*|.*⌘.*|[A-Z]{1,4}|#.*|\[\[.*)$`)
+)
+
+// No word is shown that the catalogs cannot translate: a literal with letters, given to what the window shows, is a
+// message (locales.Name()), or a text of codeKeys, which T finds the message of (#218).
+func TestNoLiteralWords(t *testing.T) {
+	srcs, _ := filepath.Glob("*.go")
+	fset := token.NewFileSet()
+	letters := regexp.MustCompile(`\pL{2}`)
+	var found []string
+	check := func(f string, n ast.Node) {
+		bl, ok := n.(*ast.BasicLit)
+		if !ok || bl.Kind != token.STRING {
+			return
+		}
+		s, err := strconv.Unquote(bl.Value)
+		if err != nil || !letters.MatchString(s) || notWords.MatchString(strings.TrimSpace(s)) || keyLike.MatchString(s) || hasMessage(s) || hasMessage(strings.TrimSuffix(s, ": ")) {
+			return
+		}
+		found = append(found, fset.Position(bl.Pos()).String()+": "+s)
+	}
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") || strings.HasPrefix(f, "mcp") {
+			continue
+		}
+		af, err := parser.ParseFile(fset, f, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(af, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.CallExpr:
+				name := ""
+				switch fn := n.Fun.(type) {
+				case *ast.Ident:
+					name = fn.Name
+				case *ast.SelectorExpr:
+					name = fn.Sel.Name
+				}
+				if shownCalls[name] {
+					for _, arg := range n.Args {
+						check(f, arg)
+					}
+				}
+			case *ast.KeyValueExpr:
+				if k, ok := n.Key.(*ast.Ident); ok && shownFields[k.Name] {
+					check(f, n.Value)
+				}
+			}
+			return true
+		})
+	}
+	if len(found) > 0 {
+		t.Fatalf("%d words the catalogs cannot translate:\n%s", len(found), strings.Join(found, "\n"))
 	}
 }

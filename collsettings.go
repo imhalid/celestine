@@ -110,7 +110,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 	}}, func() {
 		cl := ryugo.From(c).Colors
 		was := cs.tab
-		ryugo.Tabs(c.Key("cs-tabs"), &cs.tab, []ryugo.Tab{{Label: "Genel"}, {Label: locales.CollectionProperties()}, {Label: locales.CollectionViews()}, {Label: "Sayfalar"}, {Label: "Kod"}}, ryugo.TabsOptions{Label: "Koleksiyon ayarları"})
+		ryugo.Tabs(c.Key("cs-tabs"), &cs.tab, []ryugo.Tab{{Label: locales.CollectionGeneral()}, {Label: locales.CollectionProperties()}, {Label: locales.CollectionViews()}, {Label: locales.CollectionPagesTab()}, {Label: locales.CollectionCodeTab()}}, ryugo.TabsOptions{Label: "Koleksiyon ayarları"})
 		if cs.tab == 4 && was != 4 {
 			cs.code = string(d.ConfigJSON())
 		}
@@ -158,7 +158,7 @@ func (a *app) csGeneral(c *ui.Context) {
 	d := &cs.draft
 	t := ryugo.From(c)
 	cl := t.Colors
-	ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonName()}, func() {
 		a.fieldMenu(ryugo.Input(c.Key("cs-name"), &d.Name, ryugo.InputOptions{Label: locales.CollectionTheCollectionsName()}), &d.Name, fieldOpts{oneLine: true})
 	})
 	if d.Dynamic() {
@@ -191,7 +191,7 @@ func (a *app) csGeneral(c *ui.Context) {
 			}
 		})
 	})
-	ryugo.Field(c, ryugo.FieldOptions{Label: "Renk"}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionColor()}, func() {
 		ui.Row(c).Gap(8).Children(func() {
 			for _, name := range collColors {
 				col, ok := colorOf(t, name)
@@ -308,7 +308,7 @@ func (a *app) tagField(c *ui.Context, key string, tags *[]string, placeholder st
 func (a *app) csPropEditor(c *ui.Context, p *Property) {
 	cs := &a.cs
 	ui.Column(c.Key("cs-prop-edit:" + p.ID)).FillWidth().Gap(10).Padding(12).Children(func() {
-		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
+		ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonName()}, func() {
 			a.fieldMenu(ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: locales.CommonThePropertysName(), Size: ryugo.Sm}), &p.Name, fieldOpts{oneLine: true})
 		})
 		if p.Type == PropChoice {
@@ -374,7 +374,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 			a.tagField(c, "cs-new-opts", &cs.newTags, locales.CollectionChoicesPlaceholder())
 		}
 		ui.Row(c).Gap(8).Children(func() { // as wide as their labels
-			if ryugo.Button(c.Key("cs-new-add"), "Ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Disabled: strings.TrimSpace(cs.newName) == ""}).Clicked() {
+			if ryugo.Button(c.Key("cs-new-add"), locales.CommonAdd(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Disabled: strings.TrimSpace(cs.newName) == ""}).Clicked() {
 				a.addDraftProp()
 			}
 			if ryugo.Button(c.Key("cs-new-cancel"), locales.CommonCancel(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
@@ -497,7 +497,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 	cs := &a.cs
 	d := &cs.draft
 	ui.Column(c.Key("cs-view-edit:" + v.ID)).FillWidth().Gap(12).Padding(12).Children(func() {
-		ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
+		ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonName()}, func() {
 			a.fieldMenu(ryugo.Input(c.Key("cs-view-name"), &v.Label, ryugo.InputOptions{Label: locales.CollectionTheViewsName(), Size: ryugo.Sm}), &v.Label, fieldOpts{oneLine: true})
 		})
 		switch v.Type {
@@ -536,7 +536,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 				if f == "" {
 					f = "created"
 				}
-				ryugo.Select(c.Key("cs-datefield"), &f, opts, ryugo.SelectOptions{Label: "Tarih", Size: ryugo.Sm})
+				ryugo.Select(c.Key("cs-datefield"), &f, opts, ryugo.SelectOptions{Label: locales.CollectionDateField(), Size: ryugo.Sm})
 				v.DateField = f
 			})
 		case "list", "gallery":
@@ -822,12 +822,12 @@ func toggleKey(keys []string, key string, on bool, all []string) []string {
 
 func (a *app) csPages(c *ui.Context) {
 	d := &a.cs.draft
-	ryugo.Switch(c.Key("cs-subpages"), &d.SubPages, ryugo.SwitchOptions{Label: "Alt sayfalar", Description: locales.CollectionAPageCanHave()})
+	ryugo.Switch(c.Key("cs-subpages"), &d.SubPages, ryugo.SwitchOptions{Label: locales.CollectionSubPages(), Description: locales.CollectionAPageCanHave()})
 	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionPageNounTitle(), Help: locales.CollectionPageNounHelp()}, func() {
 		a.fieldMenu(ryugo.Input(c.Key("cs-noun"), &d.PageNoun, ryugo.InputOptions{Label: locales.CollectionThePagesName(), Placeholder: "sayfa"}), &d.PageNoun, fieldOpts{oneLine: true})
 	})
 	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionNewPageTemplate(), Help: locales.CollectionTemplateHelp()}, func() {
-		a.fieldMenu(ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: locales.CollectionTemplate(), Placeholder: "## Notlar\n\n- [ ] ", Rows: 6, MaxRows: 14, Size: ryugo.Sm}), &d.Template, fieldOpts{})
+		a.fieldMenu(ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: locales.CollectionTemplate(), Placeholder: locales.CollectionTemplatePlaceholder(), Rows: 6, MaxRows: 14, Size: ryugo.Sm}), &d.Template, fieldOpts{})
 	})
 	a.csTemplates(c)
 }

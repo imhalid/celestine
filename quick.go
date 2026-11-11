@@ -174,7 +174,7 @@ func (q *quickNote) view(c *ui.Context) {
 		if q.mode == quickPage {
 			ph = locales.QuickPagePlaceholder()
 		}
-		area := a.fieldMenu(ryugo.Textarea(c.Key("quick-text"), &q.text, ryugo.TextareaOptions{Placeholder: ph, Label: "Not", Rows: 4, MaxRows: 4}), &q.text, fieldOpts{}).Bind(&q.input)
+		area := a.fieldMenu(ryugo.Textarea(c.Key("quick-text"), &q.text, ryugo.TextareaOptions{Placeholder: ph, Label: locales.QuickNote(), Rows: 4, MaxRows: 4}), &q.text, fieldOpts{}).Bind(&q.input)
 		if q.focusWanted {
 			area.Focus()
 			q.focusWanted = false
@@ -185,7 +185,7 @@ func (q *quickNote) view(c *ui.Context) {
 				s = locales.QuickKeys()
 			}
 			ui.Text(c, s).FontSize(12).TextColor(cl.Muted).Grow(1)
-			if ryugo.Button(c.Key("quick-add"), "Ekle", ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("quick-add"), locales.CommonAdd(), ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 				q.submit()
 			}
 		})

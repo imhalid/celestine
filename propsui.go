@@ -347,7 +347,7 @@ func (a *app) propDialog(c *ui.Context) {
 	}}, func() {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(14).Children(func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonName()}, func() {
 				in := a.fieldMenu(ryugo.Input(c.Key("prop-name-in"), &e.name, ryugo.InputOptions{Label: locales.CommonThePropertysName(), Placeholder: locales.PropsStatusAuthorDue()}), &e.name, fieldOpts{oneLine: true})
 				in.AutoFocus()
 				if in.Submitted() {

@@ -98,7 +98,7 @@ func searchDefs(q string) []settingDef {
 	var all []scored
 	for _, d := range settingDefs() {
 		s := match(q, T(d.name))
-		if s2 := match(q, d.name+" "+d.alias); s < 0 && s2 >= 0 {
+		if s2 := max(match(q, d.name+" "+d.alias), match(q, T(d.name)+" "+d.alias)); s < 0 && s2 >= 0 {
 			s = s2 / 2
 		}
 		if s >= 0 {

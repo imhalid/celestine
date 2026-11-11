@@ -158,9 +158,9 @@ func (a *app) journal() (*Collection, error) {
 	}
 	c.Icon, c.Journal, c.SubPages = "calendar", true, false
 	c.Views = []View{
-		{ID: "calendar", Label: "Calendar", Type: "calendar", Sort: "created", DateField: "created"},
-		{ID: "list", Label: "List", Type: "list", Sort: "created", Desc: true},
-		{ID: "table", Label: "Table", Type: "table", Sort: "created", Desc: true},
+		{ID: "calendar", Label: locales.JournalViewCalendar(), Type: "calendar", Sort: "created", DateField: "created"},
+		{ID: "list", Label: locales.JournalViewList(), Type: "list", Sort: "created", Desc: true},
+		{ID: "table", Label: locales.JournalViewTable(), Type: "table", Sort: "created", Desc: true},
 	}
 	c.ActiveView = "calendar"
 	if err := c.Save(); err != nil {

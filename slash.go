@@ -770,7 +770,7 @@ func (a *app) slashView(c *ui.Context) {
 	}
 	m.head = func() {
 		if s.sign == "#" {
-			ui.Text(c, "Etiket").FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Text(c, locales.SlashTag()).FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, "#").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})

@@ -166,7 +166,7 @@ func (a *app) findBar(c *ui.Context) {
 			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], locales.FindToggleReplace()) {
 				f.replace = !f.replace
 			}
-			in := a.fieldMenu(ryugo.Input(c.Key("find-in"), &f.query, ryugo.InputOptions{Label: "Sayfada bul", Placeholder: "Bul", PrefixIcon: iconSearch, Size: ryugo.Sm, Invalid: f.query != "" && len(f.matches) == 0}), &f.query, fieldOpts{oneLine: true})
+			in := a.fieldMenu(ryugo.Input(c.Key("find-in"), &f.query, ryugo.InputOptions{Label: locales.FindFindInPage(), Placeholder: locales.FindPlaceholder(), PrefixIcon: iconSearch, Size: ryugo.Sm, Invalid: f.query != "" && len(f.matches) == 0}), &f.query, fieldOpts{oneLine: true})
 			if f.focus {
 				in.Focus()
 				f.focus = false
@@ -188,10 +188,10 @@ func (a *app) findBar(c *ui.Context) {
 			if a.iconButton(c, iconBack, locales.FindPrevious()) {
 				a.stepMatch(-1)
 			}
-			if a.iconButton(c, iconChevron, "Sonraki (↵)") {
+			if a.iconButton(c, iconChevron, locales.FindNext()) {
 				a.stepMatch(1)
 			}
-			if a.iconButton(c, iconClose, "Kapat (Esc)") {
+			if a.iconButton(c, iconClose, locales.FindClose()) {
 				a.closeFind()
 			}
 		})

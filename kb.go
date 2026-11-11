@@ -539,7 +539,7 @@ func (a *app) kbView(c *ui.Context) {
 	if k.which {
 		ui.Overlay(c, func() {
 			ui.Column(c.Key("which")).Absolute().Right(18).Bottom(60).Padding(10, 14).Gap(4).Radius(rad(12)).Background(cl.Card).Border(1, cl.Hairline).Children(func() {
-				ui.Text(c, "Space").FontSize(12).FontWeight(700).TextColor(cl.Muted)
+				ui.Text(c, locales.KeysSpace()).FontSize(12).FontWeight(700).TextColor(cl.Muted)
 				for _, l := range leaderKeys {
 					ui.Row(c.Key("wk:" + string(l.key))).Gap(10).Children(func() {
 						ui.Text(c, string(l.key)).FontSize(13).FontWeight(700).Font(ryugo.FontMono).TextColor(cl.Accent).Width(14)
@@ -663,7 +663,7 @@ func (a *app) setItems(name, val string) []palItem {
 	}
 	for _, d := range settingDefs() {
 		d := d
-		if match(want, d.name) < 200 && match(want, d.alias) < 200 { // every word of it, not letters in order: set nope=1 is no setting
+		if match(want, d.name) < 200 && match(want, T(d.name)) < 200 && match(want, d.alias) < 200 { // every word of it, not letters in order: set nope=1 is no setting
 			continue
 		}
 		switch d.kind {

@@ -69,7 +69,7 @@ func (a *app) contextView(c *ui.Context) {
 		return
 	}
 	items := m.items
-	menuAt(c, "ctx-at", "Bağlam menüsü", ui.Rect{X: m.x, Y: m.y}, &m.open, items)
+	menuAt(c, "ctx-at", locales.CtxContextMenu(), ui.Rect{X: m.x, Y: m.y}, &m.open, items)
 	if !m.open {
 		m.items = nil
 	}

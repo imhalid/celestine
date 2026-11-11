@@ -91,16 +91,16 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 		ui.Spacer(c)
 		off := len(chosen) == 0
 		if a.bulk.tagging {
-			in := a.fieldMenu(ryugo.Input(c.Key("bulk-tag"), &a.bulk.tag, ryugo.InputOptions{Label: "Etiket", Placeholder: "etiket", PrefixIcon: iconTag, Size: ryugo.Sm}), &a.bulk.tag, fieldOpts{oneLine: true}).Width(150)
+			in := a.fieldMenu(ryugo.Input(c.Key("bulk-tag"), &a.bulk.tag, ryugo.InputOptions{Label: locales.BulkTag(), Placeholder: locales.BulkTagPlaceholder(), PrefixIcon: iconTag, Size: ryugo.Sm}), &a.bulk.tag, fieldOpts{oneLine: true}).Width(150)
 			if a.bulk.focus {
 				in.Focus()
 				a.bulk.focus = false
 			}
-			if in.Submitted() || ryugo.Button(c.Key("bulk-tag-ok"), "Ekle", ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+			if in.Submitted() || ryugo.Button(c.Key("bulk-tag-ok"), locales.CommonAdd(), ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 				a.bulkAddTag(chosen, a.bulk.tag)
 				a.bulk.tagging, a.bulk.tag = false, ""
 			}
-		} else if ryugo.Button(c.Key("bulk-tagb"), "Etiket ekle", ryugo.ButtonOptions{Icon: iconTag, Size: ryugo.Sm, Disabled: off}).Clicked() {
+		} else if ryugo.Button(c.Key("bulk-tagb"), locales.BulkAddTag(), ryugo.ButtonOptions{Icon: iconTag, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			a.bulk.tagging, a.bulk.focus = true, true
 		}
 		if ryugo.Button(c.Key("bulk-move"), locales.BlocksMove(), ryugo.ButtonOptions{Icon: iconMoveDown, Size: ryugo.Sm, Disabled: off}).Clicked() {
@@ -116,7 +116,7 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 		if ryugo.Button(c.Key("bulk-trash"), locales.BlocksThrowAway(), ryugo.ButtonOptions{Icon: iconTrash, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			a.bulkTrash(chosen)
 		}
-		if ryugo.Button(c.Key("bulk-done"), "Bitir", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("bulk-done"), locales.BulkDone(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.bulkClear()
 		}
 	})

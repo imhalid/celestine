@@ -395,7 +395,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 	}}, func() {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(10).Children(func() {
-			ryugo.Field(c, ryugo.FieldOptions{Label: "Yeni ad"}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: locales.SidebarNewName()}, func() {
 				in := a.fieldMenu(ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: locales.SidebarTheTagsNewName(), Placeholder: "fikir", PrefixIcon: iconTag}), &r.name, fieldOpts{oneLine: true})
 				in.AutoFocus()
 				if in.Submitted() {

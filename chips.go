@@ -493,7 +493,7 @@ func (a *app) dateEditView(c *ui.Context) {
 			return
 		}
 		panel := ui.Column(c.Key("date-edit")).Absolute().Left(left).Top(top).Width(260).Padding(8).
-			Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
+			Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(locales.BlocksDateLabel())
 		t.Shadows.ShadowPop.Apply(panel)
 		panel.Children(func() {
 			if ryugo.Button(c.Key("date-day"), locales.BlocksOpenDaysPage(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {

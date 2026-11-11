@@ -234,6 +234,7 @@ func (a *app) commands() []palItem {
 			what = b.Label
 		}
 		it := cmd("Yedekten geri yükle: "+dateTime(b.At, false)+" ("+what+")", "", iconExport, func() { a.restoreFrom(b) })
+		it.title = T("Yedekten geri yükle") + ": " + dateTime(b.At, false) + " (" + T(strings.ReplaceAll(what, "-", " ")) + ")" // what it was taken for, in the window's language
 		it.alias = "restore backup yedek"
 		out = append(out, it)
 	}
@@ -697,7 +698,7 @@ func (a *app) paletteView(c *ui.Context) {
 					a.pal.text = a.pal.query[1:]
 				}
 				ui.Text(c, sign).FontSize(15).FontWeight(700).TextColor(cl.Accent).Width(15).TextAlign(ui.Center)
-				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.text).Label("Ara ya da komut").
+				in := ui.TextInputBase(c.Key("palette-in"), &a.pal.text).Label(locales.PaletteInputLabel()).
 					Placeholder(palPlaceholder(mode)).PlaceholderColor(cl.Muted).
 					FontSize(14).Grow(1).FocusRing(false).AutoFocus()
 				a.fieldMenu(in, &a.pal.text, fieldOpts{oneLine: true, changed: func() {

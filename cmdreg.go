@@ -431,8 +431,8 @@ func (a *app) argItems(q string) []palItem {
 		if d.kind != setNumber {
 			continue
 		}
-		s := match(m[1], d.name+" "+d.alias)
-		if s < 0 || match(m[1], d.name) < 0 && match(m[1], d.alias) < 0 {
+		s := max(match(m[1], d.name+" "+d.alias), match(m[1], T(d.name)+" "+d.alias))
+		if s < 0 || match(m[1], d.name) < 0 && match(m[1], T(d.name)) < 0 && match(m[1], d.alias) < 0 {
 			continue
 		}
 		to, cur := d.clamp(v), d.val(a)
@@ -489,9 +489,11 @@ func (a *app) fontNameItems(q string) []palItem {
 			continue
 		}
 		low := fold(q)
-		pre := fold(d.name)
+		pre := fold(d.name) // the name in Turkish, or in the window's language
 		if !strings.HasPrefix(low, pre+" ") {
-			continue
+			if pre = fold(T(d.name)); !strings.HasPrefix(low, pre+" ") {
+				continue
+			}
 		}
 		want := strings.TrimSpace(low[len(pre)+1:])
 		if want == "" {
@@ -501,8 +503,8 @@ func (a *app) fontNameItems(q string) []palItem {
 			if match(want, f.Name) >= 0 {
 				f := f
 				was := *a.settings.fontField(role)
-				out = append(out, palItem{title: d.name + " → " + f.Name, sub: "Ayar", glyph: iconSettings, score: 900 + match(want, f.Name),
-					run: a.undoable(d.name+": "+f.Name, func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) })})
+				out = append(out, palItem{title: locales.SettingsSetTo(T(d.name), f.Name), sub: locales.PaletteSetting(), kind: palSetting, id: d.name, glyph: iconSettings, score: 900 + match(want, f.Name),
+					run: a.undoable(locales.SettingsChanged(T(d.name), f.Name), func() { a.setFont(role, was) }, func() { a.setFont(role, f.Name) })})
 				if len(out) >= 8 {
 					return out
 				}
