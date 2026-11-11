@@ -107,6 +107,7 @@ type app struct {
 	census     census                  // the sidebar's tree, counted once a frame (sidebar.go)
 	frameSeq   uint64                  // the frames built, counted
 	meter      frameMeter              // what CELESTINE_FRAMES counts (framemeter.go)
+	wframe     frameState              // the window's frame (windowframe.go)
 	caretDraws int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
@@ -986,10 +987,15 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.look = look
 	c.Key("look:" + look)
 	a.welcomeBackdrop(c, false) // the first opening's circles, under the app
-	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
 	framed := a.framed()
-	if framed { // the window's frame around the content, a card in it (windowframe.go)
-		root.Background(a.frameColor(c)).Padding(frameW)
+	a.wframe.on = framed
+	var root ui.Element
+	if framed { // the window's frame around the content, a card in it, the tabs above and the status bar under (windowframe.go)
+		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Background(a.frameColor(c)).Padding(0, frameW, 0, frameW)
+		a.wframe.strip = root.AnimateTo("frame-strip", map[bool]float32{true: 1}[a.frameTabs()], springSheet)
+	} else {
+		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+		a.wframe.strip = 0
 	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
@@ -1036,7 +1042,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
 			a.header(c)
 			a.panesView(c, th)
-			if !a.settings.HideStatus {
+			if !framed && !a.settings.HideStatus { // in the frame, the status bar is its bottom edge
 				a.status(c)
 			}
 			a.keepTree()
@@ -1050,7 +1056,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	root.Children(func() { // in the frame, the card; without it, the window
 		if framed {
-			ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Background(a.pageBg).Radius(rad(frameR)).Clip().Children(content)
+			a.frameTop(c)
+			ui.Row(c.Key("frame-card")).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Background(a.pageBg).Radius(rad(frameR)).Clip().Children(content)
+			a.frameBottom(c)
 		} else {
 			content()
 		}
@@ -1682,7 +1690,9 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 func (a *app) status(c *ui.Context) {
 	t := c.Theme()
 	state := a.savedText()
-	ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
+	if !a.wframe.on { // in the frame, the card's edge is the line
+		ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
+	}
 	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
 		a.statusHints(c)
 		// the MCP server on: a dot of the accent, which opens the settings

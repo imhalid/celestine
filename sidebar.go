@@ -61,9 +61,8 @@ func (a *app) branch(c *ui.Context) ui.Element {
 // sidebarButton is the sidebar's button, in the same place whether the
 // sidebar is shown or not: right of the window's controls.
 func (a *app) sidebarButton(c *ui.Context) {
-	tb := a.titleBar(c)
 	h := a.headerHeight(c) // in a line with the header, as high as it
-	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
+	ui.Row(c.Key("sidebar-button")).Absolute().Left(a.lightsRoom(c) + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
 		if a.barIcon(c, iconSidebar, locales.SidebarSidebar()) {
 			a.toggleSidebar()
 		}
@@ -81,7 +80,7 @@ func (a *app) sidebarButton(c *ui.Context) {
 		}
 		// the settings: a short menu, with the dialog of all of them at its end
 		if a.barIcon(c, iconSettings, locales.CommonSettings()) {
-			a.gearMenu(tb.Left+6+3*(24+2)-2, h-4)
+			a.gearMenu(a.lightsRoom(c)+6+3*(24+2)-2, h-4)
 		}
 	})
 }
