@@ -240,11 +240,3 @@ func propTypeOptions() []ryugo.Option[int] {
 	}
 	return out
 }
-
-func init() {
-	for tr, en := range map[string]string{"Sayfa": "Page", "Etiketler": "Tags", "Dosya": "File"} {
-		if _, ok := enText[tr]; !ok {
-			enText[tr] = en
-		}
-	}
-}

@@ -99,8 +99,6 @@ func addToDayLabel(c *Collection) string {
 	return "Bu güne " + c.PageNoun + " ekle"
 }
 
-func init() { enText["Bu güne sayfa ekle"] = "Add a page to this day" }
-
 // pageNoun is what a page of c is called: "sayfa" unless it says.
 func pageNoun(c *Collection) string {
 	if c != nil && c.PageNoun != "" {

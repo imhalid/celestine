@@ -1,13 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/i18n"
+	"github.com/imhalid/celestine/locales"
 )
 
 func withLang(t *testing.T, l string) {
@@ -18,9 +23,9 @@ func withLang(t *testing.T, l string) {
 
 // Turkish is what is written; English is what the dictionary has, and what it has not is Turkish, not a hole.
 func TestEnglishLoses(t *testing.T) {
-	for k, v := range enText {
-		if strings.TrimSpace(v) == "" {
-			t.Errorf("%q has an empty English", k)
+	for code, id := range codeKeys {
+		if strings.TrimSpace(locales.Catalog.Format("en", id, nil)) == "" {
+			t.Errorf("%q has an empty English", code)
 		}
 	}
 	withLang(t, "tr")
@@ -125,8 +130,7 @@ func TestEnglishCoversTitles(t *testing.T) {
 		}
 		b, _ := os.ReadFile(f)
 		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
-			_, tr := trText[m[1]] // written in English, its Turkish beside it
-			if _, ok := enText[m[1]]; !ok && !tr && !strings.HasSuffix(m[1], ": ") {
+			if !hasMessage(m[1]) && !strings.HasSuffix(m[1], ": ") {
 				missing = append(missing, m[1])
 			}
 		}
@@ -147,8 +151,7 @@ func TestEnglishCoversTitles(t *testing.T) {
 			if err != nil {
 				s = m[1]
 			}
-			_, tr := trText[s]
-			if _, ok := enText[s]; !ok && !tr {
+			if _, ok := codeKeys[s]; !ok {
 				noHelp = append(noHelp, m[1])
 			}
 		}
@@ -158,8 +161,7 @@ func TestEnglishCoversTitles(t *testing.T) {
 	}
 	// every setting of the list has its name translated: an older one to English, a newer one to Turkish
 	for _, d := range settingDefs() {
-		_, tr := trText[d.name]
-		if _, ok := enText[d.name]; !ok && !tr {
+		if _, ok := codeKeys[d.name]; !ok {
 			t.Errorf("setting %q has no English", d.name)
 		}
 	}
@@ -180,7 +182,7 @@ func TestEnglishCoversMessages(t *testing.T) {
 			if err != nil || !regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`).MatchString(s) {
 				continue
 			}
-			if _, ok := enText[s]; !ok {
+			if !hasMessage(s) {
 				missing = append(missing, s)
 			}
 		}
@@ -219,7 +221,7 @@ func TestEnglishCoversScreen(t *testing.T) {
 						if err != nil || !turkish.MatchString(s) {
 							continue
 						}
-						if _, ok := enText[s]; !ok && enText[strings.TrimSuffix(s, ": ")] == "" {
+						if !hasMessage(s) && !hasMessage(strings.TrimSuffix(s, ": ")) {
 							missing = append(missing, f+": "+s)
 						}
 					}
@@ -232,8 +234,8 @@ func TestEnglishCoversScreen(t *testing.T) {
 	}
 }
 
-// Every string given to T has its other language: a Turkish one its English in enText, an English one (as new
-// strings are written) its Turkish in trText. A string with neither shows in one language in both windows.
+// Every string given to T has a message (codeKeys), which every language has (TestCatalogs): a string with none
+// shows as it is written in every window.
 func TestTurkishCovers(t *testing.T) {
 	srcs, _ := filepath.Glob("*.go")
 	re := regexp.MustCompile(`\bTf?\(("(?:[^"\\]|\\.)*")`)
@@ -249,9 +251,7 @@ func TestTurkishCovers(t *testing.T) {
 			if err != nil || !letters.MatchString(s) {
 				continue
 			}
-			_, en := enText[s]
-			_, tr := trText[s]
-			if !en && !tr {
+			if !hasMessage(s) {
 				missing = append(missing, f+": "+s)
 			}
 		}
@@ -259,9 +259,115 @@ func TestTurkishCovers(t *testing.T) {
 	if len(missing) > 0 {
 		t.Fatalf("no other language for:\n%s", strings.Join(missing, "\n"))
 	}
-	for k := range trText {
-		if _, ok := enText[k]; ok {
-			t.Errorf("%q is in both enText and trText", k)
+}
+
+// hasMessage reports whether the code's text s has a message in the catalogs.
+func hasMessage(s string) bool {
+	_, ok := codeKeys[s]
+	return ok
+}
+
+// fmtVerbs are the verbs of Go's fmt in a message, which the catalogs keep until phase 2 (#331): the same in every
+// language, whatever their order ("%[2]d of %[1]d").
+var fmtVerbs = regexp.MustCompile(`%(?:\[\d+\])?[-+# 0]*\d*(?:\.\d+)?[a-zA-Z%]`)
+
+func verbsOf(s string) string {
+	var out []string
+	for _, v := range fmtVerbs.FindAllString(s, -1) {
+		out = append(out, regexp.MustCompile(`\[\d+\]`).ReplaceAllString(v, ""))
+	}
+	slices.Sort(out)
+	return strings.Join(out, " ")
+}
+
+// The catalogs of locales/: one per language of the window and no other; each has every message of the source,
+// English, and nothing else; every message parses as ICU MessageFormat and has the same fmt verbs in every
+// language; every text of codeKeys names a message, each its own.
+func TestCatalogs(t *testing.T) {
+	files, _ := filepath.Glob("locales/*.json")
+	cats := map[string]map[string]string{}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
 		}
+		m := map[string]string{}
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		tag := strings.TrimSuffix(filepath.Base(f), ".json")
+		if m["@@locale"] != tag {
+			t.Errorf("%s says it is %q", f, m["@@locale"])
+		}
+		for k := range m {
+			if strings.HasPrefix(k, "@") {
+				delete(m, k)
+			}
+		}
+		cats[tag] = m
+	}
+	var codes []string
+	for _, l := range languages {
+		codes = append(codes, l.code)
+		if cats[l.code] == nil {
+			t.Errorf("no catalog for %s", l.code)
+		}
+	}
+	for tag := range cats {
+		if !slices.Contains(codes, tag) {
+			t.Errorf("locales/%s.json is no language of the window", tag)
+		}
+	}
+	en := cats["en"]
+	for tag, m := range cats {
+		for id, msg := range m {
+			if _, ok := en[id]; !ok {
+				t.Errorf("%s: %s is not in the source", tag, id)
+				continue
+			}
+			if _, err := i18n.ParseMessage(msg); err != nil {
+				t.Errorf("%s: %s: %v", tag, id, err)
+			}
+			if verbsOf(msg) != verbsOf(en[id]) {
+				t.Errorf("%s: %s has the verbs %q, the source %q", tag, id, verbsOf(msg), verbsOf(en[id]))
+			}
+		}
+		for id := range en {
+			if _, ok := m[id]; !ok {
+				t.Errorf("%s lacks %s", tag, id)
+			}
+		}
+	}
+	named := map[string]string{}
+	for code, id := range codeKeys {
+		if _, ok := en[id]; !ok {
+			t.Errorf("%q names %s, which is no message", code, id)
+		}
+		if other, ok := named[id]; ok {
+			t.Errorf("%q and %q name the same message %s", code, other, id)
+		}
+		named[id] = code
+	}
+	if len(named) != len(en) {
+		t.Errorf("%d messages, %d named by the code", len(en), len(named))
+	}
+}
+
+// A text the code gives T comes back as it was written in its own language, and in the other as its catalog
+// says it: the catalogs were made from the dictionaries without a word changed (#330).
+func TestCatalogsAsWritten(t *testing.T) {
+	for _, c := range []struct{ code, l, want string }{
+		{"Ayarlar", "tr", "Ayarlar"}, {"Ayarlar", "en", "Settings"},
+		{"Discard the changes?", "en", "Discard the changes?"}, {"Discard the changes?", "tr", "Değişiklikler atılsın mı?"},
+		{"İleri ", "en", "Next"}, {"İleri", "en", "Forward"},
+	} {
+		withLang(t, c.l)
+		if got := T(c.code); got != c.want {
+			t.Errorf("%s: T(%q) = %q, want %q", c.l, c.code, got, c.want)
+		}
+	}
+	withLang(t, "en")
+	if got := Tf("%d koleksiyonun %d tanesi eşitleniyor.", 5, 2); got != "2 of 5 collections are synced." {
+		t.Errorf("Tf = %q", got)
 	}
 }

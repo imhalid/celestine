@@ -478,14 +478,3 @@ func sameDayAs(a, b time.Time) bool {
 	by, bm, bd := b.Local().Date()
 	return ay == by && am == bm && ad == bd
 }
-
-func init() {
-	for tr, en := range map[string]string{
-		"Kelimeleri yazıldığı güne göre renklendir": "Color words by the day they were written",
-		"Time-lapse: sayfanın kelimeleri yazıldıkları günün renginde durur (en eski soğuk, bugün sıcak); yazdıkça yeni kelimeler bugünün rengini alır. Yalnız geçmişi olan sayfalarda. Durum çubuğundaki v1 v2… bir günü aydınlatır; çift tıklayınca yalnız o günün kelimeleri kalır (Esc ile çıkılır).": "Time-lapse: a page's words stay in the color of the day they were written (the oldest cool, today warm); what you type takes today's color. Only on pages that have a history. v1 v2… in the status bar light a day; a double click leaves only that day's words (Esc leaves it).",
-	} {
-		if _, ok := enText[tr]; !ok {
-			enText[tr] = en
-		}
-	}
-}

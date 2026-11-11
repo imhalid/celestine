@@ -275,29 +275,3 @@ func (a *app) openServerHistory(p *Page) {
 		})
 	}()
 }
-
-func init() {
-	for tr, en := range map[string]string{
-		"Sunucu": "Server", "Kurtarma anahtarı": "Recovery key", "Profil": "Profile", "Hesap profili": "Account profile",
-		"Şifreni unuttun mu? Hesabı açarken gösterilen kurtarma anahtarıyla yeni bir şifre koyarsın; verin aynı kalır, diğer bilgisayarlarda yeniden giriş yapman gerekir.": "Forgot your password? Set a new one with the recovery key that was shown when the account was made; your data stays the same, and you sign in again on your other computers.",
-		"Şifremi unuttum": "I forgot my password", "Şifreyi yenile": "Set the new password", "Kurtarma anahtarı gerekli.": "The recovery key is needed.", "Kullanıcı adı gerekli.": "A username is needed.",
-		"Şifre en az 8 karakter olsun.": "The password needs at least 8 characters.",
-		"ad@ornek.com":                  "name@example.com",
-		"Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.": "Not signed in: your library is only on this computer.",
-		"Hesap yalnız sunucu üzerinden eşitleme içindir. Giriş yapmadan da her şey çalışır; dosyaların bu bilgisayarda, düz ve taşınabilir kalır.": "An account is only for syncing through the server. Everything works without signing in; your files stay on this computer, plain and portable.",
-		"Yükleniyor…": "Loading…", "Kullanılan yer": "Space used", "henüz eşitlenmedi": "not synced yet", "Eşitleme: ": "Sync: ",
-		"Bağlantıyı dene": "Try the connection", "Deneniyor…": "Trying…", "Olmadı: ": "It did not work: ", "Bağlantı tamam: %d dosya, %d ms.": "The connection is good: %d files, %d ms.",
-		"Bir sayfanın sunucudaki eski halleri: sayfanın menüsünde “Sunucudaki sürümler…”. Sunucu, bir sayfa değişirken önceki hâlini en çok 10 dakikada bir, 10 kopya ve 30 gün tutar; kopyalar kotandan düşer.": "The server's earlier states of a page: “Versions on the server…” in the page's menu. When a page changes the server keeps what it was, at most once in 10 minutes, 10 copies and 30 days; the copies count in your quota.",
-		"Göster": "Show", "Gizle": "Hide",
-		"Şifreni unutursan verini bununla geri alırsın (giriş ekranında “Şifremi unuttum”). Güvenli bir yere yaz; bunu bilen verini açabilir.": "If you forget your password you get your data back with this (“I forgot my password” on the sign-in screen). Keep it somewhere safe; whoever knows it can open your data.",
-		"Bu bilgisayar hesaptan çıkar; kitaplık burada kalır, eşitleme durur.":                                                                 "This computer signs out of the account; the library stays here, and syncing stops.",
-		"Sunucudaki sürümler…": "Versions on the server…", "Sunucudaki sürümler: ": "Versions on the server: ",
-		"Sunucudaki sürümler için sunucu hesabıyla eşitlemek gerekir":                                                     "Versions on the server need syncing through a server account",
-		"Sunucudaki sürümler getiriliyor…":                                                                                "Fetching the versions on the server…",
-		"Sunucunun tuttuğu eski haller: en çok 10, 30 gün; bir hâle dönünce bu bilgisayardaki sayfa o olur ve eşitlenir.": "The earlier states the server keeps: at most 10, for 30 days; going back to one makes the page on this computer that, and it is synced.",
-	} {
-		if _, ok := enText[tr]; !ok {
-			enText[tr] = en
-		}
-	}
-}

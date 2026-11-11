@@ -694,37 +694,3 @@ func (a *app) accountSection(c *ui.Context) {
 		})
 	})
 }
-
-func init() {
-	for tr, en := range map[string]string{
-		"Giriş yap": "Sign in", "Hesap aç": "Create account", "Hesabı aç": "Create account", "Kullanıcı adı": "Username", "Şifre": "Password",
-		"Davet kodu": "Invite code", "Kullanıcı adı ve şifre gerekli.": "A username and a password are needed.", "Davet kodu gerekli.": "An invite code is needed.",
-		"Davet kodum yok: bekleme listesine yazıl": "No invite code: join the waitlist",
-		"Şifren bu bilgisayardan çıkmaz; unutursan verini kimse geri getiremez. Hesabı açınca bir kurtarma anahtarı göstereceğiz: sakla.": "Your password never leaves this computer; if you forget it nobody can bring your data back. After the account is made we show a recovery key: keep it.",
-		"Hesap hazır.": "The account is ready.", "Hesap: ": "Account: ", "Çıkış yap": "Sign out", "Şifreyi değiştir": "Change password", "Değiştir": "Change", "Vazgeç": "Cancel",
-		"Diğer bilgisayarlarda yeniden giriş yapman gerekir. Verin aynı anahtarla kalır.": "You sign in again on your other computers. Your data keeps the same key.",
-		"Şimdiki şifre": "Current password", "Yeni şifre": "New password", "Yeni şifre en az 8 karakter olsun.": "The new password needs at least 8 characters.",
-		"Şifre değişti.": "Password changed.", "Cihazlar yükleniyor…": "Loading devices…", "Bu hesaba girmiş cihazlar": "Computers signed in to this account",
-		"bu cihaz": "this computer", "Çıkar": "Remove", "Hesabı sil": "Delete account", "Sil…": "Delete…", "Şifreni yaz": "Type your password",
-		"Hesabı kalıcı olarak sil": "Delete the account for good", "Hesap silindi.": "The account was deleted.",
-		"Hesap ve sunucudaki tüm dosyalar silinir; bu bilgisayardaki kitaplık kalır. Geri alınamaz.": "The account and every file on the server are deleted; the library on this computer stays. This cannot be undone.",
-		"Davetle hesap aç": "Open an account with an invite", "E-posta": "Email", "Erişim kodu": "Access code", "Devam": "Continue", "Geri": "Back",
-		"Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.": "If you were approved from the waitlist, an access code came to your email.",
-		"Davet doğrulandı: %s. Şimdi şifreni belirle.":                       "Invite confirmed: %s. Now set your password.", "Şifre (tekrar)": "Password (again)",
-		"Kodum yok: bekleme listesine yazıl": "No code: join the waitlist", "E-posta gerekli.": "An email address is needed.",
-		"E-posta adresi geçersiz.": "That email address isn't valid.", "Erişim kodu gerekli.": "An access code is needed.",
-		"Şifreler aynı değil.": "The passwords are not the same.", "E-posta ve şifre gerekli.": "An email address and a password are needed.",
-		"Sakladım, devam": "I kept it, continue",
-		"Hesabın açıldı. Bu kurtarma anahtarını bir yere yaz ya da kopyala: şifreni unutursan verine yalnız onunla ulaşırsın. Bir daha ancak Profil'den görünür.": "Your account is open. Write this recovery key down or copy it: if you forget your password it is the only way to your data. After this only the profile shows it.",
-		"e-posta ya da erişim kodu yanlış, ya da kodun süresi dolmuş": "The email or the access code is wrong, or the code has expired.",
-		"bu e-postayla açılmış bir hesap var: giriş yap":              "There is already an account with this email: sign in.",
-		"e-posta ya da şifre yanlış":                                  "Wrong email or password.", "e-posta ya da kurtarma anahtarı yanlış": "Wrong email or recovery key.",
-		"e-posta adresi geçersiz": "That email address isn't valid.", "çok fazla deneme, sonra tekrar dene": "Too many tries; try again later.",
-		"Oturum kapanmış: yeniden giriş yap.":                              "Signed out: sign in again.",
-		"Şifreleme anahtarı bu bilgisayarda yok: çıkış yapıp yeniden gir.": "The encryption key is not on this computer: sign out and in again.",
-	} {
-		if _, ok := enText[tr]; !ok {
-			enText[tr] = en
-		}
-	}
-}

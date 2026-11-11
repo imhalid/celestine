@@ -413,6 +413,8 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
 		os.Exit(runMCP(os.Args[2:]))
 	}
+	// MyGo's own words, menus and text engine speak the window's language, not the system's (i18n.go).
+	showLocale = func(tag string) { mygo.App.SetLocale(tag) }
 	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
 	// and goes, before it opens the library - two would write the same file, and each would take the other's mark
 	// of running for a crash (crash.go). --mcp goes with it, for the first to turn its MCP server on.

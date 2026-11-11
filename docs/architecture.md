@@ -85,7 +85,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `internal/library/appdir.go` | The name of the app's folders (`AppName`) |
 | `internal/library/format.go` | The library's format (`FormatVersion`), in the library file's meta or a folder's `.celestine-format` (not synced): an older one is brought up, a newer one is not opened, and the app says to update (`newerLibrary` in `main.go`) |
 | `keychain.go` | The settings' secrets (the sync key and token, the MCP token) in the system's keychain, the settings file when there is none |
-| `i18n.go`, `i18n_more.go`, `i18n_tr.go` | The language: the older strings written in Turkish with their English in `enText`, the new ones written in English with their Turkish in `trText`; English is the default. `TestTurkishCovers` and `TestSettingsInEnglish` check that nothing shows in the other language |
+| `i18n.go`, `i18n_keys.go`, `locales/`, `mygo.json` | The language (docs/24-i18n.md): a catalog per language in `locales/` (`en.json` the source, `tr.json`) through MyGo's i18n package, with the typed functions `mygo generate` writes (`catalog_gen.go`); `T` finds the message of a text as the code writes it in `codeKeys`; English is the default. `TestCatalogs`, `TestTurkishCovers` and `TestSettingsInEnglish` check that every language has every message and nothing shows in the other language |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
 | `blocks.go` | The divider and the code block at the third backtick, which richtext does not make |
 | `trash.go` | The trash: put back where it was, delete for good; a toast offers back what was just thrown away |

@@ -569,29 +569,3 @@ func Fragment(dst vec4, pos vec2) vec4 {
 	return out
 }
 `)
-
-func init() {
-	for tr, en := range map[string]string{
-		"Biçimi kendisi girer": "It formats itself",
-		"# başlık, - liste, [] görev: yazdıkça yapıya dönüşür, işaret görünmez.": "# heading, - list, [] task: as you type it becomes structure, and the mark is not shown.",
-		"Her şey ⌘P'de": "Everything is in ⌘P",
-		"Komutlar, ayarlar ve sayfalar tek bir kutuda; fare şart değil.": "Commands, settings and pages in one box; no mouse needed.",
-		"Senin kitaplığın": "Your library",
-		"Tek dosya, bu bilgisayarda; yedeği her gün alınır, eşitleme şifreli.": "One file, on this computer; backed up every day, and sync is encrypted.",
-		"Başla":                     "Start",
-		"Karşılama ekranını göster": "Show the welcome screen",
-		"Karşılama ekranı":          "Welcome screen", "Yeniden başlat": "Start again",
-		"İlk açılıştaki karşılamayı seçilen görünümle baştan gösterir.": "Shows the first run's welcome again, from the start, in the look chosen.",
-		"Karşılamanın arka planı": "The welcome's ground", "Açılış": "Opening", "Gece": "Night",
-		"Halka": "Ring", "Çizgiler": "Lines",
-		"Bulut": "Clouds", "Sistem": "System",
-		"Buz": "Ice", "Kristal": "Crystal", "Tentakül": "Tentacles", "Portal": "Portal", "Prizma": "Prism", "Patlama": "Burst", "Ufuk": "Horizon", "Cam": "Glass",
-		"Spektrum": "Spectrum",
-		"Yazıların altında, masaüstünün üstünde ne olacağı.": "What is under the words, over the desktop.",
-		"Başla'dan sonra uygulamanın penceresi nasıl gelir.": "How the app's window comes after Start.",
-	} {
-		if _, ok := enText[tr]; !ok {
-			enText[tr] = en
-		}
-	}
-}
