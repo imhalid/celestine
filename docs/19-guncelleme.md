@@ -35,7 +35,7 @@
    `go run ./scripts/release keygen` in a private folder writes `release.key` and prints the public key.
 2. GitHub secrets: `RELEASE_KEY` (the content of `release.key`), `UPDATE_PUBLIC_KEY` (the printed key),
    `UPDATE_URL` = `https://dl.celestine.halid.dev/update.json`.
-3. Cloudflare: `wrangler r2 bucket create celestine-releases`, then `wrangler deploy` in `cloudflare/update/` (the custom domain comes with it).
+3. Cloudflare: `cf r2 buckets create --name celestine-releases`, then `cloudflare/update/deploy.sh` (`cf deploy --prebuilt`; the custom domain comes with it). Done on 2026-11-11.
 4. An R2 API token (Object Read & Write on `celestine-releases`) in the dashboard; GitHub secrets `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
    `CLOUDFLARE_ACCOUNT_ID`.
 5. A tag. Copies built before this (v0.0.1-v0.0.4) have no address in them: they are updated by hand once.
