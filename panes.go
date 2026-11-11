@@ -359,7 +359,11 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 			a.withPane(a.ps.active, func() { a.paneColumn(c, th, a.ps.active, 1, false) })
 		})
 	} else if a.ps.layout == nil {
-		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch)
+		if a.wframe.on { // in the window's frame, a card of its own, as the Dock's areas are (windowframe.go)
+			el.Background(a.pageBg).Radius(rad(frameR)).Clip()
+		}
+		el.Children(func() {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
 		})
 	} else {

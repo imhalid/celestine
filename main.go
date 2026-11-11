@@ -1039,7 +1039,11 @@ func (a *app) viewFrame(c *ui.Context) {
 		if !phone { // on a phone the sidebar is a drawer over everything, built last (mobile.go)
 			a.sidebarShown = a.sidebar(c)
 		}
-		ui.Column(c).Grow(1).MinWidth(0).Children(func() { // the header, the content, the status bar: each a region of its own
+		col := ui.Column(c).Grow(1).MinWidth(0)
+		if framed { // in the window's frame, the gap after the sidebar's card, closing as it folds (windowframe.go)
+			col.Margin(0, 0, 0, min(a.sidebarShown, frameGap))
+		}
+		col.Children(func() { // the header, the content, the status bar: each a region of its own
 			if !framed { // in the frame, its top edge has the header's buttons (windowframe.go)
 				a.header(c)
 			}
@@ -1061,7 +1065,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	root.Children(func() { // in the frame, the card; without it, the window
 		if framed {
 			a.frameTop(c)
-			ui.Row(c.Key("frame-card")).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Background(a.pageBg).Radius(rad(frameR)).Clip().Children(content)
+			ui.Row(c.Key("frame-cards")).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(content) // no ground: each its own card
 			a.frameBottom(c)
 		} else {
 			content()

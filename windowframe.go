@@ -25,6 +25,9 @@ const (
 	frameR = 10
 )
 
+// frameGap is the room between the cards in the frame: the sidebar, the panes, the Dock's areas.
+const frameGap = 6
+
 // frameTopH is the top edge's height, the height of the window's own title bar's buttons and macOS's window
 // buttons, which are centered in it (TrafficLightPosition); frameTabH is a tab's.
 const (
