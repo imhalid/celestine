@@ -61,7 +61,7 @@ if [ "${OUT_RACE:-}" = failure ]; then
 fi
 
 if [ -s $R/test.json ]; then
-	failed=$(jq -r 'select(.Action=="fail" and .Test != null) | "\(.Package | sub(".*/ryudit"; "ryudit"))\t\(.Test)"' $R/test.json | sort -u)
+	failed=$(jq -r 'select(.Action=="fail" and .Test != null) | "\(.Package | sub(".*/celestine"; "celestine"))\t\(.Test)"' $R/test.json | sort -u)
 	echo
 	echo "## Tests"
 	echo

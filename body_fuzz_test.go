@@ -21,10 +21,10 @@ var bodySeeds = []string{
 	`[]`,
 	`[{"r":[{"t":"bir"}]}]`,
 	`[{"s":{"heading":1},"r":[{"t":"Başlık"}]},{"r":[{"t":"metin","i":true,"w":700}]},{},{}]`,
-	`[{"s":{"list":3,"checked":true,"id":"ryudit:task:star"},"r":[{"t":"iş"}]}]`,
+	`[{"s":{"list":3,"checked":true,"id":"celestine:task:star"},"r":[{"t":"iş"}]}]`,
 	`[{"r":[{"t":"￼","o":{"k":"page","target":"Öteki"}}]}]`,
 	`[{"r":[{"t":"￼","o":{"k":"future","what":[1,2]}}]}]`,
-	`[{"s":{"codeBlock":true,"id":"ryudit:code:go"},"r":[{"t":"x := 1"}]},{"s":{"codeBlock":true},"r":[{"t":"y"}]}]`,
+	`[{"s":{"codeBlock":true,"id":"celestine:code:go"},"r":[{"t":"x := 1"}]},{"s":{"codeBlock":true},"r":[{"t":"y"}]}]`,
 	`[{"r":[{"t":"a","w":400},{"t":""},{"t":"b","l":"https://x.y","u":true,"x":true,"c":true,"g":"m"}]}]`,
 }
 

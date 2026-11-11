@@ -1,12 +1,12 @@
-name = "ryudit-updates"
+name = "celestine-updates"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
 [[r2_buckets]]
 binding = "RELEASES"
-bucket_name = "ryudit-releases"
+bucket_name = "celestine-releases"
 
-# The address is in every release (-X main.updateURL=https://dl.ryudit.halid.dev/update.json): it stays.
+# The address is in every release (-X main.updateURL=https://dl.celestine.halid.dev/update.json): it stays.
 [[routes]]
-pattern = "dl.ryudit.halid.dev"
+pattern = "dl.celestine.halid.dev"
 custom_domain = true

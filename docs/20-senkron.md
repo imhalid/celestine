@@ -5,7 +5,7 @@
 **Tek ana yol: dosya düzeyinde, üç yollu eşitleme; uzak taraf bir `Remote` arayüzü.** Kitaplık küçük dosyalardan oluşan bir ağaç (bir sayfa =
 `page.json`'lu klasör); eşitleme birimi dosya. Uzak taraf iki türlü:
 
-- **Klasör** (`dirRemote`): iCloud, Dropbox, Syncthing gibi araçlar klasörü taşır; ryudit klasöre yazar/okur. Hesap gerekmez.
+- **Klasör** (`dirRemote`): iCloud, Dropbox, Syncthing gibi araçlar klasörü taşır; celestine klasöre yazar/okur. Hesap gerekmez.
 - **Sunucu** (`httpRemote`): `cloudflare/sync/worker.js` (Worker + R2). Cihaz başına bir jeton; `If-Match` ile yarış koşulu R2'de çözülür.
 
 Git ve Durable Objects (gerçek zamanlı) seçilmedi: Git yazar kitlesi için ağır, DO tek yazarlı ama bedeli ve karmaşıklığı fazla; ikisi de

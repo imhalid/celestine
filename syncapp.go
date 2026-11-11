@@ -694,7 +694,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	if s.SyncMode == "" {
 		ui.Text(c, T("Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.")).FontSize(13).TextColor(cl.Muted).Wrap()
 		if s.AccountUser == "" { // the way to sync: an account, made with an invite or signed in to
-			ui.Text(c, T("With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.")).FontSize(13).TextColor(cl.Text2).Wrap()
+			ui.Text(c, T("With a Celestine account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.")).FontSize(13).TextColor(cl.Text2).Wrap()
 			a.accountSection(c)
 		}
 		return

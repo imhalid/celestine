@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 func TestAcctKeys(t *testing.T) {
@@ -62,11 +62,11 @@ func validWrappedShape(s string) bool { return len(s) >= 20 && len(s) <= 400 }
 
 // The whole life of an account against a real Worker (wrangler dev, or the live one), left out unless asked for:
 //
-//	RYUDIT_SYNC_URL=http://localhost:8799 RYUDIT_ADMIN_TOKEN=… go test -run TestAccountLive -v
+//	CELESTINE_SYNC_URL=http://localhost:8799 CELESTINE_ADMIN_TOKEN=… go test -run TestAccountLive -v
 func TestAccountLive(t *testing.T) {
-	base, admin := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_ADMIN_TOKEN")
+	base, admin := os.Getenv("CELESTINE_SYNC_URL"), os.Getenv("CELESTINE_ADMIN_TOKEN")
 	if base == "" || admin == "" {
-		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
+		t.Skip("CELESTINE_SYNC_URL and CELESTINE_ADMIN_TOKEN are not set")
 	}
 	library.AllowHTTP = strings.HasPrefix(base, "http://")
 	defer func() { library.AllowHTTP = false }()
@@ -268,9 +268,9 @@ func TestAccountSettingsPage(t *testing.T) {
 
 // A forgotten password, and the versions the server keeps, against a real Worker (see TestAccountLive for how to run it).
 func TestAccountRecoveryAndVersionsLive(t *testing.T) {
-	base, admin := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_ADMIN_TOKEN")
+	base, admin := os.Getenv("CELESTINE_SYNC_URL"), os.Getenv("CELESTINE_ADMIN_TOKEN")
 	if base == "" || admin == "" {
-		t.Skip("RYUDIT_SYNC_URL and RYUDIT_ADMIN_TOKEN are not set")
+		t.Skip("CELESTINE_SYNC_URL and CELESTINE_ADMIN_TOKEN are not set")
 	}
 	library.AllowHTTP = strings.HasPrefix(base, "http://")
 	defer func() { library.AllowHTTP = false }()

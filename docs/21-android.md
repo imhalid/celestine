@@ -6,7 +6,7 @@ Yol 1 kuruldu: web sürümü bir WebView'da. Emülatörde (`-gpu host` ile; `swi
 ## Yapılan
 
 - `android/`: küçük bir Gradle projesi (Kotlin, minSdk 26, compileSdk 36). `MainActivity` bir WebView açar; `assets/web/` içindeki web sürümünü
-  `https://appassets.ryudit.local/` kökeninden sunar (`shouldInterceptRequest`: wasm doğru MIME türüyle yüklenir, sayfanın IndexedDB için bir kökeni olur).
+  `https://appassets.celestine.local/` kökeninden sunar (`shouldInterceptRequest`: wasm doğru MIME türüyle yüklenir, sayfanın IndexedDB için bir kökeni olur).
   "Paylaş" menüsünden gelen metin adrese `#share=` olarak eklenir. Geri tuşu uygulamanın kendi geçmişine (⌘[) gider. Sistem çubuklarının, kesik
   ekranın ve ekran klavyesinin boşluğu WebView'ı tutan görünümün dolgusu (Android 15+ kenardan kenara çizer).
 - `scripts/android.sh`: web sürümünü derler, `android/app/src/main/assets/web`'e kopyalar, Gradle'ı (JDK 17/21) çalıştırır; `install` ile adb'ye yükleyip başlatır.
@@ -29,7 +29,7 @@ sürüklüyordu; tarayıcının kendi kaydırması kapalı (`touch-action: none`
 Ekran klavyesi: MyGo'nun gizli `textarea`'sı metin alanı odaklanana kadar `inputmode=none`; bir dokunuştan sonra metin istediğinde odak
 dokunuşun sayıldığı süre içinde yeniden verilir, klavye açılır. Sayfa yakınlaşması kapalı (`user-scalable=no`). Betik `touchstart`'ı **iptal etmez**: iptal, tarayıcının "tap" hareketini de
 iptal eder ve Chrome klavyeyi o harekette gösterir (S21'de klavye bu yüzden açılmıyordu); kaymayı ve yakınlaşmayı tuvalin `touch-action: none`'ı
-engeller. Hata ayıklama derlemesinde sayfanın konsolu logcat'te (`ryudit` etiketi).
+engeller. Hata ayıklama derlemesinde sayfanın konsolu logcat'te (`celestine` etiketi).
 
 **Telefon düzeni** (`mobile.go`, tarayıcıda 760 DIP'ten dar pencere):
 - **Kenar çubuğu bir çekmece:** üst çubuktaki ☰ ile soldan kayarak gelir, arkası kararır; kararan yere, ✕'e dokunmak ya da bir sayfa/ekran açmak

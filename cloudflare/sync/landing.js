@@ -8,7 +8,7 @@ import { LANDING_JS, LANDING_CSS } from "./landing.gen.js";
 // landing.gen.js and put inline here: the CSP allows only this page's nonce'd script.
 export function landingHTML(n, site, contact, download, esc) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ryudit</title><meta name="description" content="Ryudit, a one-of-a-kind notes app: free to download, no account needed."><meta name="color-scheme" content="light dark">
+<title>Celestine</title><meta name="description" content="Celestine, a one-of-a-kind notes app: free to download, no account needed."><meta name="color-scheme" content="light dark">
 <style>${LANDING_CSS}</style></head><body>
 <div id="app" data-contact="${contact}" data-download="${esc(download)}"></div>
 <noscript>JavaScript is needed for this page.</noscript>

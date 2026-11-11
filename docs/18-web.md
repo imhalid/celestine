@@ -1,6 +1,6 @@
 # 18 — Web uygulaması (J)
 
-ryudit tarayıcıda çalışır (7 Kasım 2026'da derlendi, tarayıcıda yazıldı, kaydedildi, yenileyince yerindeydi; çevrimdışı da açılıyor).
+celestine tarayıcıda çalışır (7 Kasım 2026'da derlendi, tarayıcıda yazıldı, kaydedildi, yenileyince yerindeydi; çevrimdışı da açılıyor).
 
 ## Nasıl
 

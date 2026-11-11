@@ -33,13 +33,13 @@ import (
 // has nothing. Forget the password and the data is gone, unless the recovery key (the data key in words) was kept.
 
 // defaultServer is where accounts are opened and the waitlist is.
-const defaultServer = "https://ryudit.halid.dev"
+const defaultServer = "https://celestine.halid.dev"
 
 const acctIterations = 200_000
 
 // acctKeys makes, from the name and the password, the proof for the server and the key that seals the data key.
 func acctKeys(username, password string) (auth string, kek []byte, err error) {
-	master, err := pbkdf2.Key(sha256.New, password, []byte("ryudit/v1/"+strings.ToLower(strings.TrimSpace(username))), acctIterations, 32)
+	master, err := pbkdf2.Key(sha256.New, password, []byte("celestine/v1/"+strings.ToLower(strings.TrimSpace(username))), acctIterations, 32)
 	if err != nil {
 		return "", nil, err
 	}
@@ -55,7 +55,7 @@ func acctKeys(username, password string) (auth string, kek []byte, err error) {
 // and one way, so that the server, holding only its hash, cannot make the key from it.
 func recoveryAuth(key []byte) string {
 	m := hmac.New(sha256.New, key)
-	m.Write([]byte("ryudit/recovery-auth"))
+	m.Write([]byte("celestine/recovery-auth"))
 	return hex.EncodeToString(m.Sum(nil))
 }
 

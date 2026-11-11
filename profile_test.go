@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // A real library (it has settings of its own) with no account is not behind a sign-in: the app opens, and the account is

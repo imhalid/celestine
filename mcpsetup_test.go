@@ -14,7 +14,7 @@ import (
 func TestAddMCPServer(t *testing.T) {
 	dir := t.TempDir()
 	fresh := filepath.Join(dir, "Claude", "claude_desktop_config.json")
-	if changed, err := addMCPServer(fresh, "/opt/ryudit"); err != nil || !changed {
+	if changed, err := addMCPServer(fresh, "/opt/celestine"); err != nil || !changed {
 		t.Fatalf("a new file: %v %v", changed, err)
 	}
 	var conf struct {
@@ -25,29 +25,29 @@ func TestAddMCPServer(t *testing.T) {
 	}
 	b, _ := os.ReadFile(fresh)
 	json.Unmarshal(b, &conf)
-	if s := conf.MCPServers["ryudit"]; s.Command != "/opt/ryudit" || len(s.Args) != 1 || s.Args[0] != "mcp" {
+	if s := conf.MCPServers["celestine"]; s.Command != "/opt/celestine" || len(s.Args) != 1 || s.Args[0] != "mcp" {
 		t.Fatalf("written: %s", b)
 	}
-	if changed, err := addMCPServer(fresh, "/opt/ryudit"); err != nil || changed {
+	if changed, err := addMCPServer(fresh, "/opt/celestine"); err != nil || changed {
 		t.Fatalf("the second time: %v %v", changed, err)
 	}
 	// a file of the agent app's own, with another server and a setting of its own
 	own := filepath.Join(dir, "mcp.json")
 	os.WriteFile(own, []byte(`{"theme":"dark","mcpServers":{"other":{"command":"x"}}}`), 0o600)
-	if _, err := addMCPServer(own, "/opt/ryudit"); err != nil {
+	if _, err := addMCPServer(own, "/opt/celestine"); err != nil {
 		t.Fatal(err)
 	}
 	var kept map[string]any
 	b, _ = os.ReadFile(own)
 	json.Unmarshal(b, &kept)
 	servers, _ := kept["mcpServers"].(map[string]any)
-	if kept["theme"] != "dark" || servers["other"] == nil || servers["ryudit"] == nil {
+	if kept["theme"] != "dark" || servers["other"] == nil || servers["celestine"] == nil {
 		t.Fatalf("what was there is not kept: %s", b)
 	}
 	// not JSON: left alone
 	bad := filepath.Join(dir, "bad.json")
 	os.WriteFile(bad, []byte("{ not json"), 0o600)
-	if _, err := addMCPServer(bad, "/opt/ryudit"); err == nil {
+	if _, err := addMCPServer(bad, "/opt/celestine"); err == nil {
 		t.Fatal("a file that is not JSON was written over")
 	}
 	if b, _ := os.ReadFile(bad); string(b) != "{ not json" {

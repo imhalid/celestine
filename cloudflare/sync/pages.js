@@ -46,7 +46,7 @@ export function privacyPage(env) {
   const n = nonce();
   const contact = env.CONTACT_EMAIL ? `<a href="mailto:${esc(env.CONTACT_EMAIL)}">${esc(env.CONTACT_EMAIL)}</a>` : "the address your invite came from";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ryudit — privacy</title><meta name="color-scheme" content="light dark"><style>
+<title>Celestine — privacy</title><meta name="color-scheme" content="light dark"><style>
 :root{--bg:#fbfaf7;--fg:#1d1c1a;--mut:#6b6862;--line:#e4e1da;--link:#1d1c1a}
 @media (prefers-color-scheme:dark){:root{--bg:#121212;--fg:#ecebe8;--mut:#9a978f;--line:#2a2a2a;--link:#ecebe8}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -86,7 +86,7 @@ and the mark of a deleted file for 180 days, so your other computers learn of it
 your invite, your row on the waitlist and your address in the log are deleted.</li>
 <li>Only the waitlist, or anything else: write to ${contact}, and it is deleted, with your address in the log.</li>
 </ul>
-<footer><a href="/">Ryudit</a></footer>
+<footer><a href="/">Celestine</a></footer>
 </main></body></html>`;
   return page(html, n);
 }
@@ -97,7 +97,7 @@ your invite, your row on the waitlist and your address in the log are deleted.</
 export function adminPage() {
   const n = nonce();
   const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>Ryudit — yönetim</title>
+<meta name="robots" content="noindex"><title>Celestine — yönetim</title>
 <style>html,body{margin:0;height:100%;background:#141210}#panel{display:block;width:100vw;height:100vh;outline:none}</style></head>
 <body><canvas id="panel" tabindex="0"></canvas>
 <noscript>Bu panel JavaScript ve WebAssembly ister.</noscript>

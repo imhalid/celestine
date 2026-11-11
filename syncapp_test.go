@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 func syncApp(t *testing.T, remoteDir string) *app {
@@ -648,7 +648,7 @@ func folderSyncApp(t *testing.T, remoteDir string) *app {
 		t.Fatal(err)
 	}
 	a := newApp(lib)
-	a.settingsFile = filepath.Join(t.TempDir(), "ryudit", "settings.json")
+	a.settingsFile = filepath.Join(t.TempDir(), "celestine", "settings.json")
 	a.settings.SyncMode, a.settings.SyncDir = "dir", remoteDir
 	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
 	return a

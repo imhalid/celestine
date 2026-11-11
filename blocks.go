@@ -23,7 +23,7 @@ import (
 //     paragraph turns it into code at once. (richtext makes one only with
 //     Enter after "```".)
 
-const hrID = "ryudit:hr"
+const hrID = "celestine:hr"
 
 // typedTaskBox is a box of a kind of task typed at a line's start, and the space after it.
 var typedTaskBox = regexp.MustCompile(`^\[(.)\] $`)

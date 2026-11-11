@@ -32,7 +32,7 @@ const (
 // backupDir is where the backups are written.
 func backupDir() string {
 	if d, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(d, "ryudit", "backups")
+		return filepath.Join(d, "celestine", "backups")
 	}
 	return ""
 }

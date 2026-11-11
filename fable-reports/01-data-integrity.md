@@ -11,8 +11,8 @@ Back to the [index](README.md). Confidence words (reproduced, read, suspected, r
 - A page is `page.json`: `{"meta":{…},"body":[…]}`. The body is an array of paragraphs; `s` is MyGo's
   `richtext.ParagraphStyle` marshalled as it is, `r` the runs, `o` an object standing for one U+FFFC character
   (`body.go:25-56`).
-- There is no block tree. What richtext has no style for is encoded in the paragraph's `ID`: `ryudit:hr`,
-  `ryudit:code:<lang>`, `ryudit:raw:<kind>`, `ryudit:task:<kind>`.
+- There is no block tree. What richtext has no style for is encoded in the paragraph's `ID`: `celestine:hr`,
+  `celestine:code:<lang>`, `celestine:raw:<kind>`, `celestine:task:<kind>`.
 - `Page.Text()` is the Markdown view of the body (`bodyMarkdown`, `markdown.go:214`). Search, tags, tasks,
   backlinks and MCP read it. `Page.SaveText(md)` converts Markdown back into a body and saves it.
 - In the one-file library a write is `Store.WriteFile`: two checks, a version kept if none was taken in five
@@ -29,7 +29,7 @@ Back to the [index](README.md). Confidence words (reproduced, read, suspected, r
   journal page), `tags.go:404-413` (renaming a tag, for every page that has it), `mcp.go:414` and
   `mcp_server.go:312` (an agent's `update_page`). Each does `p.Text()`, edits lines, `p.SaveText(…)`.
 - What one `body → Markdown → body` drops, each observed:
-  - a done task's kind (`ryudit:task:star` is gone once the box is checked);
+  - a done task's kind (`celestine:task:star` is gone once the box is checked);
   - paragraph alignment and the app's own run mark `g`;
   - empty paragraphs between text (`[a, {}, {}, {}, b]` becomes `[a, b]`);
   - a code block's language when the block is inside a list or a quote, or indented;
@@ -123,7 +123,7 @@ Back to the [index](README.md). Confidence words (reproduced, read, suspected, r
 - (a) `\!` loses its backslash (`markdown.go:333-334`): `C:\!foo` becomes `C:!foo`.
 - (b) `[^` gains a backslash on every round trip (`markdown.go:195-200`): `split on [^ ]+` becomes `\[^ ]+`, then
   `\\[^ ]+`. With DATA-01 that is one backslash per ticked task.
-- (c) The sentinel `RYUDITBLOCK<n>X` (`markdown.go:41-43`) is plain text: a paragraph that says `RYUDITBLOCK0X`
+- (c) The sentinel `CELESTINEBLOCK<n>X` (`markdown.go:41-43`) is plain text: a paragraph that says `CELESTINEBLOCK0X`
   followed by a code block is exported as the code block twice.
 - (d) `[[_private]]` and `[[a*b*c]]` become links to `private` and `abc` with italics between, because chips are
   found after richtext has parsed inline marks (`chips.go:142-160`). Going out, the backlink index reads `\_private`

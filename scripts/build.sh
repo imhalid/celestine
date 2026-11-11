@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds ryudit for the five targets, as small as it goes without leaving a feature out, and writes
+# Builds celestine for the five targets, as small as it goes without leaving a feature out, and writes
 # the sizes of each next to the last build's, with a word when a size goes over the budget.
 #
 #   scripts/build.sh              all targets, into dist/
@@ -24,7 +24,7 @@ status=0
 for t in $TARGETS; do
 	os=${t%/*}; arch=${t#*/}
 	ext=""; [ "$os" = windows ] && ext=".exe"
-	out="dist/ryudit-$os-$arch$ext"
+	out="dist/celestine-$os-$arch$ext"
 	CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false ${SMALL:+-gcflags=all=-l} \
 		-ldflags="-s -w -X main.version=$VERSION ${LDFLAGS:-}" -o "$out" .
 	bytes=$(wc -c < "$out" | tr -d ' ')

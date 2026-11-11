@@ -1,5 +1,5 @@
 # A tag v1.2.3 makes a release: the five builds (scripts/build.sh, with its size budget), packaged
-# (scripts/package.sh: macOS as a zipped ryudit.app, Linux also as a .tar.gz with a .desktop file), a SHA256SUMS,
+# (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file), a SHA256SUMS,
 # a signed manifest, the GitHub release, and then the files on Cloudflare R2, from where the app's update check
 # reads them (cloudflare/update/worker.js). update.json goes up last: until it is there, no app is offered the version.
 #
@@ -55,7 +55,7 @@ jobs:
       - name: package
         run: |
           scripts/package.sh
-          (cd dist && sha256sum ryudit-* > SHA256SUMS && cat SHA256SUMS)
+          (cd dist && sha256sum celestine-* > SHA256SUMS && cat SHA256SUMS)
       - name: notes
         run: |
           prev=$(git describe --tags --abbrev=0 "$VERSION^" 2>/dev/null || true)
@@ -72,14 +72,14 @@ jobs:
         run: |
           echo "${{ secrets.RELEASE_KEY }}" > release.key
           go run ./scripts/release manifest -version "$VERSION" -base "$BASE" \
-            -notes release-notes.md -key release.key dist/ryudit-* > update.json
+            -notes release-notes.md -key release.key dist/celestine-* > update.json
           rm release.key
           cat update.json
       - name: github release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/ryudit-*
+            dist/celestine-*
             dist/SHA256SUMS
           body_path: release-notes.md
           prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
@@ -91,6 +91,6 @@ jobs:
           AWS_DEFAULT_REGION: auto
         run: |
           EP="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
-          for f in dist/ryudit-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://ryudit-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
+          for f in dist/celestine-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
           # the manifest last: once it is up, every app is offered the version
-          aws s3 cp update.json s3://ryudit-releases/update.json --endpoint-url "$EP" --content-type application/json
+          aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json

@@ -1,4 +1,4 @@
-# Ryudit review, November 2026
+# Celestine review, November 2026
 
 A file-by-file review of the repository at `main` (`6b22bf3`, plus the uncommitted page-history work of issue #71),
 made on 2026-11-09. It covers the library, sync and the Workers, MCP, the updater, the editor, the screens, the other
@@ -49,10 +49,10 @@ In the order they should be looked at. The first eight can lose a user's writing
 | 3 | Ticking a task in the Tasks view, a quick note, a tag rename and an agent's edit all rewrite the whole page through Markdown, which drops task kinds, alignment, empty lines, table filters, file chips | [DATA-01](01-data-integrity.md) | reproduced (conversion), re-checked (paths) |
 | 4 | A page file that cannot be read opens as an empty page; the first keystroke overwrites it, and opening it has already deleted its pictures | [DATA-03, DATA-04](01-data-integrity.md) | reproduced, re-checked |
 | 5 | Moving, dragging or duplicating a block loses dividers, task kinds and code languages | [DATA-05](01-data-integrity.md) | reproduced |
-| 6 | In a packaged app the default library is inside `ryudit.app`; an update or a reinstall leaves it behind or deletes it | [PLAT-01](07-platforms-release.md) | read, re-checked |
+| 6 | In a packaged app the default library is inside `celestine.app`; an update or a reinstall leaves it behind or deletes it | [PLAT-01](07-platforms-release.md) | read, re-checked |
 | 7 | Underline (⌘U) or a literal `<tag>` turns a paragraph, or a whole list, into a raw HTML block after one Markdown round trip | [DATA-02](01-data-integrity.md) | reproduced |
 | 8 | Web and Android: a slow IndexedDB read is taken for a first run, and the empty library is written over the real one | [PLAT-08](07-platforms-release.md) | read, re-checked |
-| 9 | `ryudit mcp` cannot read the token where a keychain exists, and writes a new plaintext token into the live library each time it tries | [SEC-01](03-security.md) | read, re-checked (ordering) |
+| 9 | `celestine mcp` cannot read the token where a keychain exists, and writes a new plaintext token into the live library each time it tries | [SEC-01](03-security.md) | read, re-checked (ordering) |
 | 10 | A Markdown comment can plant a file chip that opens any local path when clicked | [SEC-02](03-security.md) | read, re-checked (the open) |
 | 11 | "Restart" after an update quits the app without starting it; the download cannot be installed across filesystems | [PLAT-03, PLAT-04](07-platforms-release.md) | read, re-checked |
 | 12 | The palette rebuilds every command and reads the backup folder from disk on every frame (issue #16) | [PERF-01](04-performance.md) | read by two reviewers, re-checked |

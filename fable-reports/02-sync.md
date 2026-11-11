@@ -18,7 +18,7 @@ folder remote; no live server was contacted, so nothing is known about what is d
 - **Encryption.** One 32-byte data key. A file is AES-256-GCM with a random 96-bit nonce, no associated data
   (`sync.go:434-438`). A remote name is HMAC-SHA256(key, path). `_index` is the sealed map from opaque name to path.
 - **The key.** With an account: a random key made at registration, wrapped under a key derived from the password
-  with PBKDF2-HMAC-SHA256, 200 000 rounds, salt `"ryudit/v1/"+email`. With a passphrase: the key itself is PBKDF2 of
+  with PBKDF2-HMAC-SHA256, 200 000 rounds, salt `"celestine/v1/"+email`. With a passphrase: the key itself is PBKDF2 of
   the passphrase with a 16-byte salt kept in clear on the remote.
 - **What the server sees.** The e-mail, device names (the hostname), IPs, and per file a stable opaque name, its
   size, its write times. Not names, tree shape or content.
@@ -81,7 +81,7 @@ folder remote; no live server was contacted, so nothing is known about what is d
   an old index hides files, which then read as deleted (SYNC-03a).
 - What the "zero knowledge" claim holds against: a passive server and a leak of the database or the bucket. It does
   not hold for integrity against a server that acts.
-- Fix: seal with `AAD = "ryudit/file/v1\x00" + path`, and another label for the index; put a generation that only
+- Fix: seal with `AAD = "celestine/file/v1\x00" + path`, and another label for the index; put a generation that only
   grows inside the sealed index and refuse a lower one; optionally keep each file's plaintext hash in the index.
 
 ### SYNC-05 A new file at the same path on two devices: one is overwritten without a conflict copy
@@ -192,7 +192,7 @@ folder remote; no live server was contacted, so nothing is known about what is d
 
 ### SYNC-18 One key for three jobs
 - **Low.** Read. The data key is the AES key, the HMAC key of names and the HMAC key of the recovery proof, whose
-  message is `"ryudit/recovery-auth"`. A library file at that path is stored on the server under exactly the value
+  message is `"celestine/recovery-auth"`. A library file at that path is stored on the server under exactly the value
   `/api/recover` accepts. Derive three keys with HKDF and distinct labels.
 
 ### SYNC-19 Smaller points

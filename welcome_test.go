@@ -27,7 +27,7 @@ func TestWelcome(t *testing.T) {
 	a := welcomeApp(t)
 	tt := ui.NewTester(a.view, 560, 660)
 	tt.Advance(1500 * time.Millisecond)
-	if !a.wel.chosen || !tt.HasText("Başla") || !tt.HasText("Ryudit") {
+	if !a.wel.chosen || !tt.HasText("Başla") || !tt.HasText("Celestine") {
 		t.Fatalf("the welcome is not up: %v", tt.Texts())
 	}
 	if !a.modal() {

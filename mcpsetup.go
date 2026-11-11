@@ -17,12 +17,12 @@ import (
 )
 
 // Adding the app to the agents' apps in one click (Settings ▸ MCP): Claude Desktop and Cursor keep their MCP
-// servers in a JSON file, where the app writes itself in as "ryudit", this program with `mcp` over stdio (mcpbridge.go),
+// servers in a JSON file, where the app writes itself in as "celestine", this program with `mcp` over stdio (mcpbridge.go),
 // keeping whatever else the file holds; Claude Code is told with its own command. Nothing is written over a file
 // that is not JSON.
 
 // mcpServerName is the name the app has among an agent app's servers.
-const mcpServerName = "ryudit"
+const mcpServerName = "celestine"
 
 // agentApp is an app the server can be added to.
 type agentApp struct {
@@ -77,7 +77,7 @@ func addMCPServer(path, exe string) (bool, error) {
 		return false, err
 	}
 	// written whole or not at all: a half-written file would be the agent app's lost settings
-	tmp := path + ".ryudit-tmp"
+	tmp := path + ".celestine-tmp"
 	if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
 		return false, err
 	}

@@ -16,7 +16,7 @@ import (
 // update_collection; every page it may read as a resource; and a few prompts ready to use.
 
 // mcpHelp is what help answers: what the library is, what a page holds, and how to find pages.
-const mcpHelp = `Ryudit, a notes app: what an agent should know.
+const mcpHelp = `Celestine, a notes app: what an agent should know.
 
 LIBRARY. A library is collections; a collection is pages; a page can hold sub-pages (when its collection allows).
 A page is named by its folder from the library's root ("books/dune/notes"): the id every tool takes. Pages and
@@ -28,7 +28,7 @@ page, a file) and a body of blocks. You read and write the body as Markdown:
   - [!] important, - [/] in progress, - [?] question, - [*] star, - [e] error   kinds of tasks
   > quote     ` + "```lang" + ` code     ---  divider     [[Page title]]  a link to a page     [[2026-11-09]]  a day
   ` + "```query" + ` … ` + "```" + `  a live list of the pages a query finds
-  <!--ryudit:block …-->  a block Markdown cannot say: leave the line as it is, it comes back as the block
+  <!--celestine:block …-->  a block Markdown cannot say: leave the line as it is, it comes back as the block
 Write what the user means, in their library's own ways (its collections, properties, templates, tags).
 
 FINDING. search and query_pages take the query language: words a page must all have, "a phrase", a OR b,
@@ -163,13 +163,13 @@ func (a *app) addHelpTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				}
 				return nil
 			})
-			return userPrompt("A weekly review", "Write a review of my last seven days from my journal in Ryudit. Read each day's page with get_daily_note ("+
+			return userPrompt("A weekly review", "Write a review of my last seven days from my journal in Celestine. Read each day's page with get_daily_note ("+
 				strings.Join(days, ", ")+"; a day without a page is skipped), and the open tasks with list_tasks. Then say: what I did, what I left open, what keeps coming back, and three things to do next week. Do not change any page unless I ask."), nil
 		})
 }
 
 // pageURIPrefix is the start of a page's resource URI; its id follows.
-const pageURIPrefix = "ryudit://page/"
+const pageURIPrefix = "celestine://page/"
 
 // userPrompt is a prompt of one message from the user.
 func userPrompt(desc, text string) *mcp.GetPromptResult {

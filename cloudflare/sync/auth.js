@@ -42,11 +42,11 @@ export function normalizeCode(c) {
   const s = String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   return s.startsWith("RYU") ? s.slice(3) : s;
 }
-const codeHash = (c) => sha256hex("ryudit-invite:" + normalizeCode(c));
+const codeHash = (c) => sha256hex("celestine-invite:" + normalizeCode(c));
 const authHash = (salt, auth) => sha256hex(salt + ":" + auth);
 const validAuth = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
 const validRecovery = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
-const recoveryHash = (r) => sha256hex("ryudit-recovery:" + r);
+const recoveryHash = (r) => sha256hex("celestine-recovery:" + r);
 const validWrapped = (s) => typeof s === "string" && /^[A-Za-z0-9+/=_-]{20,400}$/.test(s);
 const validEmail = (s) => typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const validUser = (s) => typeof s === "string" && /^[a-z0-9][a-z0-9_.-]{2,31}$/.test(s);
@@ -105,7 +105,7 @@ async function sendMail(env, to, subject, text) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify({ from: env.MAIL_FROM || "Ryudit <onboarding@resend.dev>", to: [to], subject, text }),
+      body: JSON.stringify({ from: env.MAIL_FROM || "Celestine <onboarding@resend.dev>", to: [to], subject, text }),
     });
     if (!res.ok) return { sent: false, error: `mail ${res.status}` };
     return { sent: true };
@@ -115,10 +115,10 @@ async function sendMail(env, to, subject, text) {
 }
 function inviteMail(code, base) {
   return (
-    `Merhaba,\n\nRyudit bekleme listesinden seni onayladık. Erişim kodun:\n\n    ${code}\n\n` +
+    `Merhaba,\n\nCelestine bekleme listesinden seni onayladık. Erişim kodun:\n\n    ${code}\n\n` +
     `Uygulamayı aç, "Davetle hesap aç" ekranına bu e-posta adresini ve kodu yaz, sonra şifreni belirle. ` +
     `Kod yalnız bu e-posta adresiyle, ${CODE_DAYS} gün içinde ve bir kez kullanılır.\n\n` +
-    `Şifren sunucuya gönderilmez; unutursan verini kimse geri getiremez, kurtarma anahtarını sakla.\n\n— Ryudit\n${base}\n`
+    `Şifren sunucuya gönderilmez; unutursan verini kimse geri getiremez, kurtarma anahtarını sakla.\n\n— Celestine\n${base}\n`
   );
 }
 
@@ -214,7 +214,7 @@ export async function handleApi(request, env, url) {
     if (!(await turnstileOK(env, body.turnstile, where))) return fail(400, "Verification failed. Reload the page.");
     const name = String(body.name || "").trim().slice(0, 80);
     const r = await env.DB.prepare("INSERT OR IGNORE INTO waitlist(email,name,created_at) VALUES(?,?,?)").bind(email, name, now()).run();
-    if (r.meta.changes === 1 && env.ADMIN_EMAIL) await sendMail(env, env.ADMIN_EMAIL, "Ryudit bekleme listesi: yeni kayıt", `${email}${name ? " (" + name + ")" : ""}`);
+    if (r.meta.changes === 1 && env.ADMIN_EMAIL) await sendMail(env, env.ADMIN_EMAIL, "Celestine bekleme listesi: yeni kayıt", `${email}${name ? " (" + name + ")" : ""}`);
     return json({ ok: true });
   }
 
@@ -389,7 +389,7 @@ async function admin(request, env, path, method, body, bearer, url) {
       .map((r) => r.map(cell).join(","));
     await audit(env, `export waitlist rows=${rows.results.length}`);
     return new Response(lines.join("\r\n") + "\r\n", {
-      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="ryudit-waitlist.csv"', "cache-control": "no-store" },
+      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="celestine-waitlist.csv"', "cache-control": "no-store" },
     });
   }
   if (path === "/api/admin/waitlist" && method === "GET") {
@@ -448,7 +448,7 @@ async function admin(request, env, path, method, body, bearer, url) {
       env.DB.prepare("INSERT INTO invites(code_hash,waitlist_id,created_at,expires_at) VALUES(?,?,?,?)").bind(await codeHash(code), id, t, t + CODE_DAYS * DAY),
       env.DB.prepare("UPDATE waitlist SET status='approved',decided_at=? WHERE id=?").bind(t, id),
     ]);
-    const mail = await sendMail(env, w.email, "Ryudit davet kodun", inviteMail(code, base));
+    const mail = await sendMail(env, w.email, "Celestine davet kodun", inviteMail(code, base));
     await audit(env, `${m[2]} ${w.email} mail=${mail.sent}`);
     // the code is shown here once, whether or not the mail went: it is the fallback, and it cannot be read again
     return json({ ok: true, code, emailed: mail.sent, mailError: mail.error || "" });

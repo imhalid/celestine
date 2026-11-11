@@ -173,7 +173,7 @@ profile; the two failing tests were run alone.
 ### QA-15 Smaller hygiene points
 - `.gitignore` does not cover `release.key` (SEC-11), nor `update.json`, `release-notes.md`, `notes.md`.
 - `web/icon-256.png` and `icon-512.png` duplicate the ones in `assets/`.
-- `scripts/sync-mygo.sh:27`, `:37` does `git reset --hard origin/ryudit` and a force push in the fork checkout:
+- `scripts/sync-mygo.sh:27`, `:37` does `git reset --hard origin/celestine` and a force push in the fork checkout:
   local unpushed patch commits there are discarded without a check. Stop when the branch is ahead of its remote.
 - `store_js.go:219` returns a Turkish error from the library; `:40` has a `Now` field that is never used.
 - `time.Now()` appears in about 35 places in app code against the `a.clock()` rule (the table in
@@ -186,22 +186,22 @@ profile; the two failing tests were run alone.
 
 | What | Occurrences | Files |
 | --- | --- | --- |
-| `ryudit` in any case | 301 | 82 |
-| Module path `github.com/imhalid/ryudit` | 9 | 9 |
-| `RYUDIT_*` environment variables (7 names) | 35 | 7 |
+| `celestine` in any case | 301 | 82 |
+| Module path `github.com/imhalid/celestine` | 9 | 9 |
+| `CELESTINE_*` environment variables (7 names) | 35 | 7 |
 | Config and data folder joins in Go | 14 | 8 |
-| Bundle and application id `dev.halid.ryudit` | 5 | 4 |
+| Bundle and application id `dev.halid.celestine` | 5 | 4 |
 | `*.halid.dev` hosts | 14 | 8 |
-| Storage and cache keys (`"ryudit:`, `"ryudit-`) | 26 | 15 |
-| Dotfiles `.ryudit-*` | 12 | 10 |
+| Storage and cache keys (`"celestine:`, `"celestine-`) | 26 | 15 |
+| Dotfiles `.celestine-*` | 12 | 10 |
 | R2 buckets and Workers | 11 | 4 |
-| `ryudit://` resource URIs | 2 | 2 |
+| `celestine://` resource URIs | 2 | 2 |
 | Keychain service | 1 definition, 6 uses | 2 |
 
 - The ones that hold **data** and need a migration, not a rename: the config and data folder, the keychain service,
-  the IndexedDB database and key, `.ryudit-format`, the bundle id (macOS preferences, Android data), the update
-  file names installed copies ask for, the bucket names, and the encryption labels (`"ryudit/v1/"` in the KDF salt
-  and `"ryudit/recovery-auth"`, which must **not** change with the name or every account stops opening).
+  the IndexedDB database and key, `.celestine-format`, the bundle id (macOS preferences, Android data), the update
+  file names installed copies ask for, the bucket names, and the encryption labels (`"celestine/v1/"` in the KDF salt
+  and `"celestine/recovery-auth"`, which must **not** change with the name or every account stops opening).
 - Before the rename: put the name in one Go constant and one shell variable.
 
 ## Sound

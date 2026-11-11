@@ -20,5 +20,5 @@ ls -l "$APK"
 if [ "${1:-}" = install ]; then
 	ADB="${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb"
 	"$ADB" install -r "$APK"
-	"$ADB" shell am start -n dev.halid.ryudit/.MainActivity
+	"$ADB" shell am start -n dev.halid.celestine/.MainActivity
 fi

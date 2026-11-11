@@ -8,9 +8,10 @@ import keyring "github.com/zalando/go-keyring"
 // Service over D-Bus and Windows' Credential Manager.
 type osKeychain struct{}
 
-const keychainService = "ryudit"
+const keychainService = "celestine"
 
 func (osKeychain) Get(name string) (string, error) { return keyring.Get(keychainService, name) }
-func (osKeychain) Set(name, secret string) error   { return keyring.Set(keychainService, name, secret) }
-func (osKeychain) Delete(name string) error        { return keyring.Delete(keychainService, name) }
-func systemKeychain() secretKeeper                 { return osKeychain{} }
+
+func (osKeychain) Set(name, secret string) error { return keyring.Set(keychainService, name, secret) }
+func (osKeychain) Delete(name string) error      { return keyring.Delete(keychainService, name) }
+func systemKeychain() secretKeeper               { return osKeychain{} }

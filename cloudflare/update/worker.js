@@ -3,7 +3,7 @@
 //   GET /update.json          the manifest of the latest release (channel=beta for trials)
 //   GET /<version>/<file>     the release's files
 //   GET /download/<os-arch>   the latest release's file for darwin-arm64, windows-amd64, …: a redirect, for the site's buttons;
-//                             macOS's is the zipped ryudit.app, Linux's the .tar.gz beside the binary when the release has one
+//                             macOS's is the zipped celestine.app, Linux's the .tar.gz beside the binary when the release has one
 //
 // The release's workflow (.github/workflows/release.yml) puts the files and update.json in the bucket.
 // The Worker adds nothing and logs nothing of the user: the request is a version in the User-Agent, and
@@ -37,7 +37,7 @@ async function download(env, platform) {
   const asset = manifest.assets?.[platform];
   if (!asset?.url) return new Response("no build for " + platform, { status: 404 });
   let location = asset.url;
-  if (platform.startsWith("linux-") && (await env.RELEASES.head(`${manifest.version}/ryudit-${platform}.tar.gz`)))
+  if (platform.startsWith("linux-") && (await env.RELEASES.head(`${manifest.version}/celestine-${platform}.tar.gz`)))
     location += ".tar.gz";
   return new Response(null, { status: 302, headers: { location, "cache-control": "public, max-age=300" } });
 }

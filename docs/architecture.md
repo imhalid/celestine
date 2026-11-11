@@ -1,4 +1,4 @@
-# How ryudit is made
+# How celestine is made
 
 The technical notes that were the README: the page format, the library on disk, the MCP tools and the file-by-file layout. The README is now for people who use the app.
 
@@ -51,7 +51,7 @@ Turned on in the settings, the app serves its library to agents over MCP at
 `http://127.0.0.1:7457/mcp`, with a token; the settings show the line that adds it to Claude Code:
 
 ```bash
-claude mcp add --transport http ryudit http://127.0.0.1:7457/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http celestine http://127.0.0.1:7457/mcp --header "Authorization: Bearer <token>"
 ```
 
 Its tools: `list_collections`, `list_pages`, `read_page`, `search`, `create_collection`, `create_page`,
@@ -82,7 +82,8 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `update.go`, `updateui.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start; `scripts/release`, `cloudflare/update`, `.github/workflows/release.yml` |
 | `internal/library/sync.go`, `syncapp.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption, the server's change counter asked while the window is in front; a library file or a folder library (its state in the config folder); `cloudflare/sync` |
 | `internal/library/merge.go`, `syncbase.go` | A page changed on two devices merged block by block from its base (the page as last synced), kept in the library file's meta or a folder |
-| `internal/library/format.go` | The library's format (`FormatVersion`), in the library file's meta or a folder's `.ryudit-format` (not synced): an older one is brought up, a newer one is not opened, and the app says to update (`newerLibrary` in `main.go`) |
+| `internal/library/appdir.go` | The name of the app's folders (`AppName`) |
+| `internal/library/format.go` | The library's format (`FormatVersion`), in the library file's meta or a folder's `.celestine-format` (not synced): an older one is brought up, a newer one is not opened, and the app says to update (`newerLibrary` in `main.go`) |
 | `keychain.go` | The settings' secrets (the sync key and token, the MCP token) in the system's keychain, the settings file when there is none |
 | `i18n.go`, `i18n_more.go`, `i18n_tr.go` | The language: the older strings written in Turkish with their English in `enText`, the new ones written in English with their Turkish in `trText`; English is the default. `TestTurkishCovers` and `TestSettingsInEnglish` check that nothing shows in the other language |
 | `perf_test.go`, `scripts/build.sh` | Costs of a big library as a budget test; the build of the five targets with sizes and a budget |
@@ -98,7 +99,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `blockops.go`, `blockui.go`, `slash.go` | Blocks: a paragraph and what is under it; moving (⌘⇧↑↓), the grip with its menu and drag, the / menu |
 | `palette.go`, `find.go`, `nav.go`, `menu.go` | The palette (⌘K), finding in the page (⌘F), back and forward, the menu bar |
 | `mcp.go`, `mcp_server.go`, `mcp_extra.go`, `mcp_more.go`, `settings.go` | The MCP server, its tools, what agents may do with each collection, and the settings that turn it on |
-| `mcpbridge.go` | `ryudit mcp`: the server over stdio for agents that start one, carried to the app's own server (the app started, or its server turned on, when needed) |
+| `mcpbridge.go` | `celestine mcp`: the server over stdio for agents that start one, carried to the app's own server (the app started, or its server turned on, when needed) |
 | `agentedits.go` | What agents changed: each page kept as it was before their first write, a version before each write, and the status bar's one-click undo |
 | `fold.go`, `zoom.go` | Folding a block behind a chip, and zooming into one (what is above and below behind two chips); the file is always written whole, with the blocks' IDs kept |
 | `clipmodes.go` | Copy and paste as Markdown, plain text or HTML; ⌘C/⌘V inside the app keeping code languages, task kinds and dividers |

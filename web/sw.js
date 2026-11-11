@@ -3,7 +3,7 @@
 // asked of the network first, so that a new build is taken as soon as there is one. Nothing
 // else is fetched or kept: the library is in localStorage, not here. A new build has a new wasm name, and
 // with it a new cache: the old one is dropped.
-const CACHE = "ryudit-" + (self.registration ? new URL(self.location).searchParams.get("v") || "1" : "1");
+const CACHE = "celestine-" + (self.registration ? new URL(self.location).searchParams.get("v") || "1" : "1");
 // what the app is made of, kept at once when the worker comes: the page opens with no network even if
 // it was never asked for again (the wasm's name is the build's, given to the worker as ?v=)
 const PROGRAM = ["./", "wasm_exec.js", "touch.js", "manifest.webmanifest", "icon-256.png", "icon-512.png"];
@@ -13,7 +13,7 @@ self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(files)).catch(() => {}).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k.startsWith("ryudit-")).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k.startsWith("celestine-")).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", (e) => {
   const r = e.request;

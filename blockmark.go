@@ -12,14 +12,14 @@ import (
 // A block of a kind this version does not know (body.go) has nothing in Markdown to say it. In Markdown it is a
 // line of its own that no reader shows, an HTML comment holding the block as the file has it:
 //
-//	<!--ryudit:block eyJrIjoiYWktYW5zd2VyIn0-->
+//	<!--celestine:block eyJrIjoiYWktYW5zd2VyIn0-->
 //
 // and Markdown read in turns that line back into the block, as it was. So an agent that reads a page and writes
 // it back whole (MCP), or a page exported and imported again, keeps it.
 
-const blockMarkStart = "<!--ryudit:block "
+const blockMarkStart = "<!--celestine:block "
 
-var blockMark = regexp.MustCompile(`^<!--ryudit:block ([A-Za-z0-9+/]+)-->$`)
+var blockMark = regexp.MustCompile(`^<!--celestine:block ([A-Za-z0-9+/]+)-->$`)
 
 // blockMarkAsText puts the mark of the block in chip ch, at rune i of t, on a line of its own, as a raw HTML block.
 func blockMarkAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes) richtext.Text {

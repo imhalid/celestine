@@ -7,7 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // A page's body is its own format, not Markdown: a list of paragraphs, each
@@ -188,7 +188,7 @@ func bodyReadable(s string) error {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&paras); err != nil {
 		if strings.Contains(err.Error(), "unknown field") {
-			return errors.New("the page was written by a newer version of Ryudit: " + err.Error())
+			return errors.New("the page was written by a newer version of Celestine: " + err.Error())
 		}
 		return errors.New("the page's text is in a form this version cannot read: " + err.Error())
 	}

@@ -1,4 +1,4 @@
--- D1 schema of the account system (docs/22-hesap-ve-bekleme-listesi.md). Applied by deploy.sh (cf d1 migrations apply); `wrangler d1 migrations apply ryudit --local` for wrangler dev.
+-- D1 schema of the account system (docs/22-hesap-ve-bekleme-listesi.md). Applied by deploy.sh (cf d1 migrations apply); `wrangler d1 migrations apply celestine --local` for wrangler dev.
 CREATE TABLE IF NOT EXISTS waitlist (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   email      TEXT NOT NULL UNIQUE,

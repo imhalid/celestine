@@ -2,7 +2,7 @@
 //
 //	go run ./scripts/release keygen                       writes release.key (secret) and prints the public key
 //	go run ./scripts/release manifest -version v1.3.0 -base https://dl.example.com/v1.3.0 \
-//	    -notes notes.md -key release.key dist/ryudit-*    prints update.json
+//	    -notes notes.md -key release.key dist/celestine-*    prints update.json
 //
 // The secret key lives only where the release is made (a secret of the CI); the public key goes into the
 // program at the build: -X main.updateKey=<public key>.
@@ -72,7 +72,7 @@ func main() {
 			if strings.HasSuffix(name, ".tar.gz") {
 				continue
 			}
-			// ryudit-linux-amd64, ryudit-windows-amd64.exe, ryudit-darwin-arm64.zip
+			// celestine-linux-amd64, celestine-windows-amd64.exe, celestine-darwin-arm64.zip
 			parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), "-")
 			if len(parts) < 3 {
 				continue

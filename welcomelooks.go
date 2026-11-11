@@ -82,11 +82,11 @@ var welcomeOpenings = []welcomeOpening{
 	{id: "portal", name: "Portal", sh: shader.MustCompile(portalOpening + ringShared), dur: 2.9},
 }
 
-// welcomeGroundLook is the ground chosen in the settings, or the first. RYUDIT_WELCOME_GROUND chooses one for a run
-// alone, to look at it without changing the settings (RYUDIT_WELCOME=1 RYUDIT_WELCOME_GROUND=cizgiler).
+// welcomeGroundLook is the ground chosen in the settings, or the first. CELESTINE_WELCOME_GROUND chooses one for a run
+// alone, to look at it without changing the settings (CELESTINE_WELCOME=1 CELESTINE_WELCOME_GROUND=cizgiler).
 func (a *app) welcomeGroundLook() welcomeGround {
 	id := a.settings.WelcomeGround
-	if v, ok := os.LookupEnv("RYUDIT_WELCOME_GROUND"); ok {
+	if v, ok := os.LookupEnv("CELESTINE_WELCOME_GROUND"); ok {
 		id = v
 	}
 	for _, g := range welcomeGrounds {
@@ -97,10 +97,10 @@ func (a *app) welcomeGroundLook() welcomeGround {
 	return welcomeGrounds[0]
 }
 
-// welcomeOpeningLook is the opening chosen in the settings, or the first; RYUDIT_WELCOME_OPEN chooses one for a run.
+// welcomeOpeningLook is the opening chosen in the settings, or the first; CELESTINE_WELCOME_OPEN chooses one for a run.
 func (a *app) welcomeOpeningLook() welcomeOpening {
 	id := a.settings.WelcomeOpen
-	if v, ok := os.LookupEnv("RYUDIT_WELCOME_OPEN"); ok {
+	if v, ok := os.LookupEnv("CELESTINE_WELCOME_OPEN"); ok {
 		id = v
 	}
 	for _, o := range welcomeOpenings {

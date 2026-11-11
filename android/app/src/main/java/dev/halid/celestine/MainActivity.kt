@@ -1,4 +1,4 @@
-package dev.halid.ryudit
+package dev.halid.celestine
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -20,10 +20,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 
 /**
- * ryudit on Android: the web build (assets/web: index.html, the wasm, wasm_exec.js) in a WebView. The
+ * celestine on Android: the web build (assets/web: index.html, the wasm, wasm_exec.js) in a WebView. The
  * files are served from the assets under a made-up https origin, so that the wasm loads with its own
  * MIME type and the page has an origin for localStorage, where the library is kept (store_js.go).
- * A text shared to the app ("Ryudit'e ekle") is put on the page's address as #share=<text>.
+ * A text shared to the app ("Celestine'e ekle") is put on the page's address as #share=<text>.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -45,11 +45,11 @@ class MainActivity : Activity() {
             allowFileAccess = false
         }
         // a debug build: the page can be inspected from a computer (chrome://inspect), and what it writes to
-        // the console is in logcat, under "ryudit"
+        // the console is in logcat, under "celestine"
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
-                Log.d("ryudit", m.message())
+                Log.d("celestine", m.message())
                 return true
             }
         }
@@ -104,5 +104,5 @@ class MainActivity : Activity() {
         @Suppress("DEPRECATION") super.onBackPressed()
     }
 
-    companion object { const val HOST = "appassets.ryudit.local" }
+    companion object { const val HOST = "appassets.celestine.local" }
 }

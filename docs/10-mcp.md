@@ -27,12 +27,12 @@
 ## Bizim editör için [öneri]
 
 Karar: MCP bir eklenti değil; uygulamanın kendi işlemleri dışarıya açılır. Eklenti/kod araçları **yok**. Sunucu uygulamanın
-içinde (Streamable HTTP, `127.0.0.1`, token, varsayılan kapalı). Sonra yapılanlar (#40): `ryudit mcp` stdio köprüsü, koleksiyon başına
+içinde (Streamable HTTP, `127.0.0.1`, token, varsayılan kapalı). Sonra yapılanlar (#40): `celestine mcp` stdio köprüsü, koleksiyon başına
 erişim (Okur ve yazar / Yalnız okur / Göremez), `insert_under_heading`, `query_pages`, `get_daily_note`, `list_trash`, `restore_page`;
 her yazmadan önce sürüm ve durum çubuğunda "Ajan N sayfayı değiştirdi" ile tek tıkla geri alma. Kalanlar:
 
 1. **Eksik araçlar**: tema araçları (`list_themes`, `set_theme`, `create_theme`). `help`, `open_page`, `update_collection`,
-   sayfaların kaynak olarak okunması (`ryudit://page/<id>`) ve iki hazır istem (`summarize_page`, `weekly_review`) yapıldı (#68);
+   sayfaların kaynak olarak okunması (`celestine://page/<id>`) ve iki hazır istem (`summarize_page`, `weekly_review`) yapıldı (#68);
    Ayarlar ▸ MCP'den Claude Desktop, Cursor ve Claude Code'a tek tıkla eklenir (#67).
 2. **Güvenlik**: çöpe atma onay istesin (ayardan kapatılabilir); kalıcı silme MCP'de yok.
 3. **Görünürlük**: değişen satırda kısa bir vurgu ve bir "Ajan geçmişi" listesi.

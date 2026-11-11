@@ -13,8 +13,8 @@ uygulama hesapsız açılır ve çalışır.
   aynı alandan kullanıcı adıyla girer.
 - **Davet kodu:** `RYU-` + 6 karakter (ayrımı zor harfler yok, ≈30 bit), yalnız karması saklanır, tek kullanımlık, 14 gün, onaylanan e-postaya bağlı;
   deneme sınırlı, yanlış adres / yanlış kod / süresi dolmuş aynı cevabı verir.
-- E-posta **Resend** ile (`Ryudit <davet@resend.halid.dev>`, `MAIL_FROM`), adres `ryudit.halid.dev`, yönetici `ADMIN_TOKEN` sırrı. Kod `/admin`'de de bir kez görünür.
-- Sırlar depoda değil; dağıtım `cloudflare/sync/deploy.sh` (`RYUDIT_SYNC_SECRETS=… ./deploy.sh` sırlar değişince, `./deploy.sh` yalnız kod).
+- E-posta **Resend** ile (`Celestine <davet@resend.halid.dev>`, `MAIL_FROM`), adres `celestine.halid.dev`, yönetici `ADMIN_TOKEN` sırrı. Kod `/admin`'de de bir kez görünür.
+- Sırlar depoda değil; dağıtım `cloudflare/sync/deploy.sh` (`CELESTINE_SYNC_SECRETS=… ./deploy.sh` sırlar değişince, `./deploy.sh` yalnız kod).
 
 ## Uygulamada
 

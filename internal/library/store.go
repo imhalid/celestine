@@ -252,7 +252,7 @@ func moveLibrary(from, to string) bool {
 // writable is whether a file can be made in dir: the library's file and the
 // journal SQLite keeps beside it.
 func writable(dir string) bool {
-	f, err := os.CreateTemp(dir, ".ryudit-*")
+	f, err := os.CreateTemp(dir, ".celestine-*")
 	if err != nil {
 		return false
 	}
@@ -261,20 +261,20 @@ func writable(dir string) bool {
 	return true
 }
 
-// dataDir is the user's folder for the app's data: ~/.local/share/ryudit on
+// dataDir is the user's folder for the app's data: ~/.local/share/celestine on
 // Linux (or $XDG_DATA_HOME), the config folder elsewhere.
 func dataDir() string {
 	if runtime.GOOS == "linux" {
 		if d := os.Getenv("XDG_DATA_HOME"); d != "" {
-			return filepath.Join(d, "ryudit")
+			return filepath.Join(d, AppName)
 		}
 		if h, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(h, ".local", "share", "ryudit")
+			return filepath.Join(h, ".local", "share", AppName)
 		}
 		return ""
 	}
 	if d, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(d, "ryudit")
+		return filepath.Join(d, AppName)
 	}
 	return ""
 }

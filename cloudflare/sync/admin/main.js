@@ -109,7 +109,7 @@ async function csv() {
   if (!r.ok) throw new Error('HATA ' + r.status);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(await r.blob());
-  a.download = 'ryudit-waitlist-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.download = 'celestine-waitlist-' + new Date().toISOString().slice(0, 10) + '.csv';
   document.body.append(a);
   a.click();
   a.remove();
@@ -152,7 +152,7 @@ function header(ctx) {
   const { colors: c } = useTheme(ctx);
   const h = ctx.cutTop(12, 10);
   ctx.fillRect({ x: h.x, y: h.y + 2, w: 5, h: 5 }, c.accent);
-  const x = ctx.text('RYUDIT', h.x + 9, h.y + 1, { color: c.paper });
+  const x = ctx.text('CELESTINE', h.x + 9, h.y + 1, { color: c.paper });
   ctx.text('YÖNETİM · KONTROL MASASI', x + 10, h.y + 2, { color: c.muted, font: 'small' });
   const now = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   ctx.text(now, h.x + h.w - ctx.measureText(now), h.y + 1, { color: c.flame });
@@ -334,6 +334,6 @@ host = await createViewHost(document.getElementById('panel'), paint, {
   fonts: FONTS,
   pixelScale: 2,
   redraw: 'auto',
-  label: 'Ryudit yönetim paneli',
+  label: 'Celestine yönetim paneli',
 });
 if (app.tok) load();

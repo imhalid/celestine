@@ -8,7 +8,7 @@ import (
 )
 
 // TestMarkdownKept: what other tools write comes back as it was, after
-// ryudit reads and writes it - the promise of plain files.
+// celestine reads and writes it - the promise of plain files.
 func TestMarkdownKept(t *testing.T) {
 	for _, md := range []string{
 		"Merhaba! Nasılsın?",
@@ -120,8 +120,8 @@ func TestMarkdownEscapesAndImport(t *testing.T) {
 		t.Errorf("a backslash before ! lost: %q", got)
 	}
 	// a paragraph that says what the held blocks stand as is text
-	md := "RYUDITBLOCK0X\n\n```go\nx\n```"
-	if got := round(md); strings.Count(got, "```go") != 1 || !strings.Contains(got, "RYUDITBLOCK0X") {
+	md := "CELESTINEBLOCK0X\n\n```go\nx\n```"
+	if got := round(md); strings.Count(got, "```go") != 1 || !strings.Contains(got, "CELESTINEBLOCK0X") {
 		t.Errorf("the token is read as a block: %q", got)
 	}
 	// CRLF and a BOM

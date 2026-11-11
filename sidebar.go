@@ -138,7 +138,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			// the app's name, and a cross that closes it.
 			if phone {
 				ui.Row(c.Key("drawer-head")).FillWidth().Height(a.headerHeight(c)).Padding(0, 8, 0, 18).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, "ryudit").FontSize(17).FontWeight(720).TextColor(t.Text).Grow(1)
+					ui.Text(c, "celestine").FontSize(17).FontWeight(720).TextColor(t.Text).Grow(1)
 					if a.iconButton(c, iconClose, T("Çekmeceyi kapat")) {
 						a.drawerOpen = false
 					}

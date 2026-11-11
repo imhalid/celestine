@@ -254,7 +254,7 @@ func TestImageComesLater(t *testing.T) {
 func TestSettingsPrivate(t *testing.T) {
 	a, _ := newTestApp(t, "x")
 	dir := t.TempDir()
-	a.settingsFile = filepath.Join(dir, "ryudit", "settings.json")
+	a.settingsFile = filepath.Join(dir, "celestine", "settings.json")
 	a.settings.SyncKey = "gizli"
 	a.saveSettings()
 	fi, err := os.Stat(a.settingsFile)

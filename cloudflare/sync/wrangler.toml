@@ -1,20 +1,20 @@
-name = "ryudit-sync"
+name = "celestine-sync"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
 [[r2_buckets]]
 binding = "SYNC"
-bucket_name = "ryudit-sync"
+bucket_name = "celestine-sync"
 
 # the id is that of the live database; `wrangler dev --local` uses a local copy, whatever it says
 [[d1_databases]]
 binding = "DB"
-database_name = "ryudit"
+database_name = "celestine"
 database_id = "2cc8a6d7-c7a1-4ddf-9d50-76a91cdc7296"
 
 # Used by `wrangler dev` (secrets from .dev.vars). The live Worker is deployed by deploy.sh, which sets the secrets:
 #   ADMIN_TOKEN        the administrator's key (the /admin page)
-#   RESEND_API_KEY     mail; MAIL_FROM is its sender ("Ryudit <davet@resend.halid.dev>"); without a key the code is shown in /admin
+#   RESEND_API_KEY     mail; MAIL_FROM is its sender ("Celestine <davet@resend.halid.dev>"); without a key the code is shown in /admin
 #   TURNSTILE_SECRET   the bot check of the waitlist form; TURNSTILE_SITEKEY is its public half
 #   ADMIN_EMAIL, CONTACT_EMAIL   optional: told of a new signup / shown on the waitlist page
 #   DOWNLOAD_URL       the update Worker's /download (cloudflare/update), where the entry screen's buttons lead

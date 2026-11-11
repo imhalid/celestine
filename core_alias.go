@@ -4,7 +4,7 @@ package main
 // which knows nothing of the window. These are its names as the app has always used them, unqualified; new
 // code may as well write library.Page.
 
-import "github.com/imhalid/ryudit/internal/library"
+import "github.com/imhalid/celestine/internal/library"
 
 type BodyFormat = library.BodyFormat
 

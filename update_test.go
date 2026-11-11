@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 func TestVersionOrder(t *testing.T) {
@@ -146,7 +146,7 @@ func TestFetchSendsOnlyTheVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 	fetchRelease(context.Background(), srv.URL, "v1.0.0", "", "")
-	if ua := got.Get("User-Agent"); ua != "ryudit/v1.0.0" {
+	if ua := got.Get("User-Agent"); ua != "celestine/v1.0.0" {
 		t.Fatalf("user agent %q", ua)
 	}
 	if got.Get("Cookie") != "" || got.Get("Authorization") != "" {
@@ -197,7 +197,7 @@ func TestUpdateDirBesideTheProgram(t *testing.T) {
 	priv, pub := testKey(t)
 	_, rel := releaseServer(t, priv, "v2.0.0", []byte("yeni"), nil)
 	root := t.TempDir()
-	exe := filepath.Join(root, "bin", "ryudit")
+	exe := filepath.Join(root, "bin", "celestine")
 	os.MkdirAll(filepath.Dir(exe), 0o755)
 	os.WriteFile(exe, []byte("eski"), 0o755)
 	dir, err := updateDir(exe, "")
@@ -223,16 +223,16 @@ func TestUpdateDirBesideTheProgram(t *testing.T) {
 	if b, _ := os.ReadFile(exe); string(b) != "yeni" {
 		t.Fatal("not in place")
 	}
-	app := filepath.Join(root, "Applications", "ryudit.app")
+	app := filepath.Join(root, "Applications", "celestine.app")
 	os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755)
-	if dir, err := updateDir(filepath.Join(app, "Contents", "MacOS", "ryudit"), app); err != nil || filepath.Dir(dir) != filepath.Dir(app) {
+	if dir, err := updateDir(filepath.Join(app, "Contents", "MacOS", "celestine"), app); err != nil || filepath.Dir(dir) != filepath.Dir(app) {
 		t.Fatalf("a bundle's is beside the bundle: %s %v", dir, err)
 	}
 }
 
 func TestInstallBinaryAndRollback(t *testing.T) {
 	dir := t.TempDir()
-	exe := filepath.Join(dir, "ryudit")
+	exe := filepath.Join(dir, "celestine")
 	os.WriteFile(exe, []byte("eski"), 0o755)
 	nf := filepath.Join(dir, "yeni.part")
 	os.WriteFile(nf, []byte("yeni"), 0o644)
@@ -308,13 +308,13 @@ func TestInstallBinaryAndRollback(t *testing.T) {
 
 func TestInstallApp(t *testing.T) {
 	dir := t.TempDir()
-	app := filepath.Join(dir, "ryudit.app")
+	app := filepath.Join(dir, "celestine.app")
 	os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755)
-	os.WriteFile(filepath.Join(app, "Contents", "MacOS", "ryudit"), []byte("eski"), 0o755)
+	os.WriteFile(filepath.Join(app, "Contents", "MacOS", "celestine"), []byte("eski"), 0o755)
 	zp := filepath.Join(dir, "yeni.zip")
 	f, _ := os.Create(zp)
 	zw := zip.NewWriter(f)
-	w, _ := zw.CreateHeader(&zip.FileHeader{Name: "ryudit.app/Contents/MacOS/ryudit", Method: zip.Deflate})
+	w, _ := zw.CreateHeader(&zip.FileHeader{Name: "celestine.app/Contents/MacOS/celestine", Method: zip.Deflate})
 	w.Write([]byte("yeni"))
 	zw.Close()
 	f.Close()
@@ -322,17 +322,17 @@ func TestInstallApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "ryudit")); string(b) != "yeni" {
+	if b, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "celestine")); string(b) != "yeni" {
 		t.Fatalf("%q", b)
 	}
-	if b, _ := os.ReadFile(filepath.Join(old, "Contents", "MacOS", "ryudit")); string(b) != "eski" {
+	if b, _ := os.ReadFile(filepath.Join(old, "Contents", "MacOS", "celestine")); string(b) != "eski" {
 		t.Fatal("old bundle not kept")
 	}
 	// a zip with a path that climbs out is refused
 	evil := filepath.Join(dir, "evil.zip")
 	f, _ = os.Create(evil)
 	zw = zip.NewWriter(f)
-	w, _ = zw.Create("ryudit.app/../../kaçtı")
+	w, _ = zw.Create("celestine.app/../../kaçtı")
 	w.Write([]byte("x"))
 	zw.Close()
 	f.Close()
@@ -345,10 +345,10 @@ func TestInstallApp(t *testing.T) {
 }
 
 func TestAppBundleOf(t *testing.T) {
-	if got := appBundleOf("/Applications/ryudit.app/Contents/MacOS/ryudit"); got != "/Applications/ryudit.app" {
+	if got := appBundleOf("/Applications/celestine.app/Contents/MacOS/celestine"); got != "/Applications/celestine.app" {
 		t.Fatal(got)
 	}
-	if appBundleOf("/usr/local/bin/ryudit") != "" {
+	if appBundleOf("/usr/local/bin/celestine") != "" {
 		t.Fatal("a bundle where there is none")
 	}
 }

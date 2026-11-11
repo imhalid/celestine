@@ -3,7 +3,7 @@
 *.md.tmp
 
 # build output
-/ryudit
+/celestine
 *.test
 .DS_Store
 

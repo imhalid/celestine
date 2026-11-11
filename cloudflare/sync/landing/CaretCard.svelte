@@ -1,5 +1,5 @@
 <script>
-  // A card with one of Ryudit's carets in it, writing little notes and erasing them (writers.js). The page's ink is read
+  // A card with one of Celestine's carets in it, writing little notes and erasing them (writers.js). The page's ink is read
   // from the card itself, so it follows light and dark. App.svelte runs one frame loop for all the cards.
   import { onMount } from "svelte";
   import { createCard } from "./writers.js";

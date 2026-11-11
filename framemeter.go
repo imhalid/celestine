@@ -9,11 +9,11 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The frame meter: with RYUDIT_FRAMES=1 the app writes to its log, once a second while it draws, how many times the
+// The frame meter: with CELESTINE_FRAMES=1 the app writes to its log, once a second while it draws, how many times the
 // view was built and how many times the window was painted, and how long the views took. A window at rest should
 // show nothing at all (fable-reports/04-performance.md, "What to measure first").
 
-var frameMeterOn = os.Getenv("RYUDIT_FRAMES") == "1"
+var frameMeterOn = os.Getenv("CELESTINE_FRAMES") == "1"
 
 // frameMeter is what was counted since the last line.
 type frameMeter struct {

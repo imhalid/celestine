@@ -5,20 +5,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/imhalid/ryudit/internal/library"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // A test against the real Worker (cloudflare/sync/worker.js), left out unless it is asked for:
 //
-//	RYUDIT_SYNC_URL=http://localhost:8799 RYUDIT_SYNC_TOKEN=… go test -run TestWorkerLive -v
+//	CELESTINE_SYNC_URL=http://localhost:8799 CELESTINE_SYNC_TOKEN=… go test -run TestWorkerLive -v
 //
-// RYUDIT_SYNC_TOKEN is the device token of a real account made for tests (an invite, then a sign-in:
+// CELESTINE_SYNC_TOKEN is the device token of a real account made for tests (an invite, then a sign-in:
 // the token the app keeps for that device); the Worker knows no other kind of token. What the test writes
 // is deleted at the end, but a deletion leaves a tombstone, and a tombstone stays.
 func TestWorkerLive(t *testing.T) {
-	url, token := os.Getenv("RYUDIT_SYNC_URL"), os.Getenv("RYUDIT_SYNC_TOKEN")
+	url, token := os.Getenv("CELESTINE_SYNC_URL"), os.Getenv("CELESTINE_SYNC_TOKEN")
 	if url == "" || token == "" {
-		t.Skip("RYUDIT_SYNC_URL and RYUDIT_SYNC_TOKEN are not set")
+		t.Skip("CELESTINE_SYNC_URL and CELESTINE_SYNC_TOKEN are not set")
 	}
 	library.AllowHTTP = strings.HasPrefix(url, "http://") // a Worker on this machine (wrangler dev) is plain HTTP
 	defer func() { library.AllowHTTP = false }()

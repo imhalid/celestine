@@ -1,4 +1,4 @@
-module github.com/imhalid/ryudit
+module github.com/imhalid/celestine
 
 go 1.27.3
 

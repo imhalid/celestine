@@ -65,7 +65,7 @@
     bind:value
     {disabled}
     id="addr"
-    name="ryudit-addr"
+    name="celestine-addr"
     type="text"
     inputmode="email"
     autocapitalize="off"

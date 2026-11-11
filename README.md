@@ -1,10 +1,10 @@
-<p align="center"><img src="assets/icon-256.png" width="128" alt="Ryudit"></p>
+<p align="center"><img src="assets/icon-256.png" width="128" alt="Celestine"></p>
 
-# Ryudit
+# Celestine
 
 **The notes app you've been looking for.**
 
-Ryudit is a fast, native notes app for Mac, Windows and Linux. You write, and it stays out of your way: type `#` and a
+Celestine is a fast, native notes app for Mac, Windows and Linux. You write, and it stays out of your way: type `#` and a
 space and you have a heading, `-` and you have a list, `[]` and you have a task. The marks disappear as you type, so
 your page always looks finished.
 
@@ -29,15 +29,15 @@ your page always looks finished.
 ## Get it
 
 Download the latest version for your computer:
-[macOS (Apple silicon)](https://dl.ryudit.halid.dev/download/darwin-arm64),
-[macOS (Intel)](https://dl.ryudit.halid.dev/download/darwin-amd64),
-[Windows](https://dl.ryudit.halid.dev/download/windows-amd64),
-[Linux](https://dl.ryudit.halid.dev/download/linux-amd64) ([ARM](https://dl.ryudit.halid.dev/download/linux-arm64)).
+[macOS (Apple silicon)](https://dl.celestine.halid.dev/download/darwin-arm64),
+[macOS (Intel)](https://dl.celestine.halid.dev/download/darwin-amd64),
+[Windows](https://dl.celestine.halid.dev/download/windows-amd64),
+[Linux](https://dl.celestine.halid.dev/download/linux-amd64) ([ARM](https://dl.celestine.halid.dev/download/linux-arm64)).
 Versions starting with 0 are early previews. The app tells you when a new version is out and updates itself.
 
 The macOS app is not signed by Apple yet: the first time, right-click it and choose Open.
 
-Ryudit is invite-only for now. Join the waitlist at [ryudit.halid.dev](https://ryudit.halid.dev); when you are
+Celestine is invite-only for now. Join the waitlist at [celestine.halid.dev](https://celestine.halid.dev); when you are
 approved, an access code comes to your email, and you open your account with it in the app.
 
 ## A few keys to start with
@@ -56,7 +56,7 @@ On Windows and Linux, use Ctrl in place of ⌘.
 
 ## For developers
 
-Ryudit is written in Go. To run it from the source:
+Celestine is written in Go. To run it from the source:
 
 ```bash
 go run .

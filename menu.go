@@ -13,7 +13,7 @@ func (a *app) menu() *mygo.Menu {
 		return &mygo.MenuItem{Label: label, Submenu: items}
 	}
 	return mygo.NewMenu([]*mygo.MenuItem{
-		group("ryudit", "app", []*mygo.MenuItem{{Role: mygo.RoleAbout}, mygo.Separator()}, []*mygo.MenuItem{
+		group("celestine", "app", []*mygo.MenuItem{{Role: mygo.RoleAbout}, mygo.Separator()}, []*mygo.MenuItem{
 			mygo.Separator(),
 			{Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide},
 			mygo.Separator(),

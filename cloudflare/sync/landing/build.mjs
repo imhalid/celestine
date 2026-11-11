@@ -21,7 +21,7 @@ await build({
     emptyOutDir: true,
     cssCodeSplit: false,
     minify: true,
-    lib: { entry: join(here, "main.js"), formats: ["iife"], name: "ryuditLanding", fileName: () => "landing.js" },
+    lib: { entry: join(here, "main.js"), formats: ["iife"], name: "celestineLanding", fileName: () => "landing.js" },
   },
 });
 

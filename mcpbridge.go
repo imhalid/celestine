@@ -16,7 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// `ryudit mcp [library]` is the app's MCP server for an agent that speaks over stdio (as Claude Desktop and most
+// `celestine mcp [library]` is the app's MCP server for an agent that speaks over stdio (as Claude Desktop and most
 // agents start a server): it carries the agent's messages to the app's own server (mcp_server.go) and back. The app
 // is the only one writing the library, and the user sees what the agent writes at once. When the app is not
 // running it is started; when its server is off, it is turned on (the app is started, or reached, with --mcp).
@@ -24,26 +24,26 @@ import (
 // mcpWait is how long the bridge waits for the app's server to answer.
 const mcpWait = 30 * time.Second
 
-// runMCP is `ryudit mcp`: it returns the process's exit code.
+// runMCP is `celestine mcp`: it returns the process's exit code.
 func runMCP(args []string) int {
 	ctx := context.Background()
 	if !mcpReachable(args) {
 		exe, err := os.Executable()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "ryudit mcp:", err)
+			fmt.Fprintln(os.Stderr, "celestine mcp:", err)
 			return 1
 		}
 		// the app, or the running app it hands its command line to, turns its server on
 		cmd := exec.Command(exe, append([]string{mcpFlag}, args...)...)
 		if err := cmd.Start(); err != nil {
-			fmt.Fprintln(os.Stderr, "ryudit mcp: the app could not be started:", err)
+			fmt.Fprintln(os.Stderr, "celestine mcp: the app could not be started:", err)
 			return 1
 		}
 		go cmd.Wait()
 		deadline := time.Now().Add(mcpWait)
 		for !mcpReachable(args) {
 			if time.Now().After(deadline) {
-				fmt.Fprintln(os.Stderr, "ryudit mcp: the app's MCP server did not answer; turn it on in Settings ▸ MCP")
+				fmt.Fprintln(os.Stderr, "celestine mcp: the app's MCP server did not answer; turn it on in Settings ▸ MCP")
 				return 1
 			}
 			time.Sleep(300 * time.Millisecond)
@@ -51,11 +51,11 @@ func runMCP(args []string) int {
 	}
 	port, token, err := mcpSettings(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "ryudit mcp:", err)
+		fmt.Fprintln(os.Stderr, "celestine mcp:", err)
 		return 1
 	}
 	if err := mcpRelay(ctx, &mcp.StdioTransport{}, mcpClientTransport(port, token)); err != nil {
-		fmt.Fprintln(os.Stderr, "ryudit mcp:", err)
+		fmt.Fprintln(os.Stderr, "celestine mcp:", err)
 		return 1
 	}
 	return 0
@@ -122,7 +122,7 @@ func mcpReachable(args []string) bool {
 func mcpSettings(args []string) (int, string, error) {
 	a := &app{}
 	if dir, err := os.UserConfigDir(); err == nil {
-		a.settingsFile = filepath.Join(dir, "ryudit", "settings.json")
+		a.settingsFile = filepath.Join(dir, "celestine", "settings.json")
 	}
 	file := LibraryFile()
 	if len(args) > 0 {

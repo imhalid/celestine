@@ -1,6 +1,6 @@
 {
-  "name": "ryudit",
-  "short_name": "ryudit",
+  "name": "celestine",
+  "short_name": "celestine",
   "description": "Notes, pages and collections: native-feeling writing in the browser",
   "start_url": "./index.html",
   "scope": "./",

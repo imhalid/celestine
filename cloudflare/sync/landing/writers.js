@@ -1,4 +1,4 @@
-// The writers: carets of the app (Ryudit's caret set) placed about the screen, each writing a little note of its own,
+// The writers: carets of the app (Celestine's caret set) placed about the screen, each writing a little note of its own,
 // erasing it, and moving on. They react the way they do in the app: Mario hops at a space and a coin springs out, Kawaii
 // sparkles as it writes and squeezes its eyes shut with joy, UwU's face is > w < when quick and T w T while erasing, the
 // fireflies gather as the letters come and drift off at rest.
@@ -11,7 +11,7 @@ const FONT = `600 ${FONT_PX}px ui-monospace,"SF Mono",SFMono-Regular,Menlo,Conso
 
 // What they write: short notes, as one would in a notes app. Spaces, "!" and "?" make some of them react.
 const NOTES = [
-  "- [ ] buy milk", "## Ideas", "meeting notes", "what a good day!", "#ryudit", "> local-first",
+  "- [ ] buy milk", "## Ideas", "meeting notes", "what a good day!", "#celestine", "> local-first",
   "- [x] backup done", "ask Deniz?", "idea: flying blocks", "**bold** thought", "hello, world!",
   "notes, but alive", "TODO: sleep a bit", "tea or coffee?", "Nov 7 journal", "[[linked page]]",
   "uwu this is nice!", "plan: monday", "collection > list", "sync done!", "made with MyGo",

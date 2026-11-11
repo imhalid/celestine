@@ -32,8 +32,8 @@ type heldBlock struct {
 }
 
 const (
-	codeIDPrefix = "ryudit:code:" // a code block's first paragraph: its language after it
-	rawIDPrefix  = "ryudit:raw:"  // a raw block's first paragraph: its kind after it
+	codeIDPrefix = "celestine:code:" // a code block's first paragraph: its language after it
+	rawIDPrefix  = "celestine:raw:"  // a raw block's first paragraph: its kind after it
 )
 
 // rawNames are what a raw block is called over it, in the editor.
@@ -41,9 +41,9 @@ var rawNames = map[string]string{"table": "Tablo", "html": "HTML", "math": "Mate
 
 // blockToken is the line a held block stands as while richtext reads or writes the rest. Its marks are of Unicode's
 // private use: a line typed as text never is one (#130).
-func blockToken(i int) string { return "\uE000RYUDITBLOCK" + strconv.Itoa(i) + "\uE001" }
+func blockToken(i int) string { return "\uE000CELESTINEBLOCK" + strconv.Itoa(i) + "\uE001" }
 
-var tokenLine = regexp.MustCompile("^\uE000RYUDITBLOCK(\\d+)\uE001$")
+var tokenLine = regexp.MustCompile("^\uE000CELESTINEBLOCK(\\d+)\uE001$")
 
 var (
 	hrLine     = regexp.MustCompile(`^ {0,3}(?:(?:- *){3,}|(?:\* *){3,}|(?:_ *){3,})$`)

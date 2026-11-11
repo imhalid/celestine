@@ -1,4 +1,4 @@
-// ryudit: a block editor on MyGo's rich text editor, over a library of
+// celestine: a block editor on MyGo's rich text editor, over a library of
 // collections and pages kept as plain Markdown files (library.go). The
 // Markdown you type turns into structure as you type it and is never seen.
 // The caret is ours: Slime or Mizan.
@@ -105,7 +105,7 @@ type app struct {
 	caretTry   caretTry                // the caret's playground in the settings (caretplay.go)
 	census     census                  // the sidebar's tree, counted once a frame (sidebar.go)
 	frameSeq   uint64                  // the frames built, counted
-	meter      frameMeter              // what RYUDIT_FRAMES counts (framemeter.go)
+	meter      frameMeter              // what CELESTINE_FRAMES counts (framemeter.go)
 	caretDraws int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
@@ -387,7 +387,7 @@ func seedWelcome(lib *Library) (*Page, error) {
 	return p, p.SaveText(welcome)
 }
 
-// mcpFlag is the command line's word for the app to turn its MCP server on (`ryudit mcp` starts it, or the
+// mcpFlag is the command line's word for the app to turn its MCP server on (`celestine mcp` starts it, or the
 // running app is handed it).
 const mcpFlag = "--mcp"
 
@@ -409,7 +409,7 @@ var appIcon []byte
 var winIcon []byte
 
 func main() {
-	// `ryudit mcp`: the app's MCP server for an agent over stdio, by way of the app itself (mcpbridge.go)
+	// `celestine mcp`: the app's MCP server for an agent over stdio, by way of the app itself (mcpbridge.go)
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
 		os.Exit(runMCP(os.Args[2:]))
 	}
@@ -505,7 +505,7 @@ func main() {
 	}
 	keychain = systemKeychain()                     // the secrets of the settings, out of the file (keychain.go)
 	if dir, err := os.UserConfigDir(); err == nil { // the settings kept, not a test's
-		a.settingsFile, a.settings = filepath.Join(dir, "ryudit", "settings.json"), Settings{}
+		a.settingsFile, a.settings = filepath.Join(dir, "celestine", "settings.json"), Settings{}
 	}
 	if store != nil {
 		a.settingsStore = store
@@ -560,7 +560,7 @@ func main() {
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
-		opts := mygo.WindowOptions{Title: "ryudit", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
+		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
 		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
@@ -597,7 +597,7 @@ func main() {
 			a.dockHost.Sync() // the windows of the panes, as they were left
 		}
 		mygo.App.OnSecondInstance(func(args []string, _ string) {
-			if slices.Contains(args, mcpFlag) { // `ryudit mcp` found the server off: it is turned on
+			if slices.Contains(args, mcpFlag) { // `celestine mcp` found the server off: it is turned on
 				a.do(func() error {
 					if a.mcpServer == nil {
 						a.setMCP(true)
@@ -628,7 +628,7 @@ func main() {
 		}()
 		go func() { defer a.guard(); a.watch() }()
 		go func() { defer a.guard(); a.watchClipboard() }()
-		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `ryudit mcp`
+		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `celestine mcp`
 			a.setMCP(true)
 		}
 	})
@@ -680,7 +680,7 @@ func cannotOpen(store *Store, err error) {
 	mygo.App.WhenReady(func() {
 		mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageError,
-			Title:   "Ryudit",
+			Title:   "Celestine",
 			Message: T("The library could not be opened."),
 			Detail:  err.Error() + "\n\n" + T("Nothing in it was changed. A backup can be put in its place from the backups folder."),
 		})
@@ -691,7 +691,7 @@ func cannotOpen(store *Store, err error) {
 	}
 }
 
-// newerLibrary says, in a window, that the library was written by a newer Ryudit, and quits when it is closed: the
+// newerLibrary says, in a window, that the library was written by a newer Celestine, and quits when it is closed: the
 // app does not open the library, so that it does not write what it does not know (internal/library/format.go).
 // The settings are not read yet: the window speaks the language they have chosen all the same.
 func newerLibrary(store *Store) {
@@ -699,9 +699,9 @@ func newerLibrary(store *Store) {
 	mygo.App.WhenReady(func() {
 		mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageWarning,
-			Title:   "Ryudit",
-			Message: T("This library was written by a newer version of Ryudit."),
-			Detail:  T("Update Ryudit to open it. Nothing in the library was changed."),
+			Title:   "Celestine",
+			Message: T("This library was written by a newer version of Celestine."),
+			Detail:  T("Update Celestine to open it. Nothing in the library was changed."),
 		})
 		mygo.App.Quit()
 	})
@@ -721,7 +721,7 @@ func savedLang(store *Store) string {
 		data = store.Meta(SettingsKey)
 	}
 	if dir, err := os.UserConfigDir(); data == nil && err == nil {
-		data, _ = os.ReadFile(filepath.Join(dir, "ryudit", "settings.json"))
+		data, _ = os.ReadFile(filepath.Join(dir, "celestine", "settings.json"))
 	}
 	json.Unmarshal(data, &s)
 	return s.Lang

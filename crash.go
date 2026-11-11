@@ -24,7 +24,7 @@ const crashKeep = 20 // the logs that are kept
 // crashDir is where the logs are written.
 func crashDir() string {
 	if d, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(d, "ryudit", "crashes")
+		return filepath.Join(d, "celestine", "crashes")
 	}
 	return ""
 }
@@ -39,7 +39,7 @@ func crashLog(dir string, what any, stack []byte, now time.Time) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "ryudit %s · %s/%s · %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
+	fmt.Fprintf(&b, "celestine %s · %s/%s · %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	fmt.Fprintf(&b, "%s\n\n", now.Format(time.RFC3339))
 	fmt.Fprintf(&b, "panic: %v\n\n%s\n", what, stack)
 	path := filepath.Join(dir, "crash-"+now.Format("20060102-150405.000")+".log")

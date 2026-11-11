@@ -10,7 +10,7 @@
   let { contact = "", download = "" } = $props();
 
   // the builds, by the name the update server knows them by (cloudflare/update: /download/<os-arch>, which gives
-  // macOS a zipped ryudit.app and Linux a .tar.gz with its .desktop file)
+  // macOS a zipped celestine.app and Linux a .tar.gz with its .desktop file)
   const BUILDS = [
     { id: "darwin-arm64", os: "macOS", chip: "Apple silicon" },
     { id: "darwin-amd64", os: "macOS", chip: "Intel" },
@@ -30,17 +30,17 @@
   })();
   const others = BUILDS.filter((b) => b !== mine);
 
-  const NAME = "Ryudit";
+  const NAME = "Celestine";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let typed = $state(reduce ? NAME : "");
 
   // light or dark: the system's, until the toggle is used (then remembered in this browser)
-  const stored = (() => { try { return localStorage.getItem("ryudit-scheme"); } catch { return null; } })();
+  const stored = (() => { try { return localStorage.getItem("celestine-scheme"); } catch { return null; } })();
   let scheme = $state(stored === "light" || stored === "dark" ? stored : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   function toggle() {
     scheme = scheme === "dark" ? "light" : "dark";
     document.documentElement.dataset.scheme = scheme;
-    try { localStorage.setItem("ryudit-scheme", scheme); } catch {}
+    try { localStorage.setItem("celestine-scheme", scheme); } catch {}
   }
 
   const CARETS = [
@@ -83,8 +83,8 @@
 <div class="page">
   <nav class="bar">
     <div class="inner">
-      <a class="brand" href="/" aria-label="Ryudit">
-        <span class="mark" aria-hidden="true"><i></i></span>Ryudit
+      <a class="brand" href="/" aria-label="Celestine">
+        <span class="mark" aria-hidden="true"><i></i></span>Celestine
       </a>
       <div class="right">
         <span class="status">Early access</span>
@@ -129,7 +129,7 @@
     <section class="carets">
       <div class="head">
         <h2>Someone to write with</h2>
-        <p>Ryudit's carets answer what you type, each in its own way. Here they all are, live.</p>
+        <p>Celestine's carets answer what you type, each in its own way. Here they all are, live.</p>
       </div>
       <div class="grid">
         {#each CARETS as c (c.kind)}
@@ -147,7 +147,7 @@
         <p class="fine">Your email is only used to send your invite code, and is never shared.{contact}</p>
       </div>
       <div class="meta">
-        <span>Ryudit</span>
+        <span>Celestine</span>
         <span>Made with MyGo</span>
         <a href="/privacy">Privacy</a>
       </div>

@@ -145,7 +145,7 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 		return nil, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
-	req.Header.Set("User-Agent", "ryudit/"+current) // the only thing that is said: which version asks
+	req.Header.Set("User-Agent", "celestine/"+current) // the only thing that is said: which version asks
 	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	if resp.StatusCode != 200 {
 		return "", as, fmt.Errorf("indirme %d döndü", resp.StatusCode)
 	}
-	f, err := os.CreateTemp(dir, "ryudit-"+rel.Version+"-*.part") // a name of its own, made new: nothing left there is followed
+	f, err := os.CreateTemp(dir, "celestine-"+rel.Version+"-*.part") // a name of its own, made new: nothing left there is followed
 	if err != nil {
 		return "", as, err
 	}
@@ -296,7 +296,7 @@ func updateDir(exe, bundle string) (string, error) {
 	if bundle != "" {
 		target = bundle
 	}
-	dir, err := os.MkdirTemp(filepath.Dir(target), ".ryudit-update-")
+	dir, err := os.MkdirTemp(filepath.Dir(target), ".celestine-update-")
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", T("the program's folder cannot be written to"), err)
 	}
@@ -307,7 +307,7 @@ func updateDir(exe, bundle string) (string, error) {
 // the version and the path of the old program.
 func updateMark() string {
 	if d, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(d, "ryudit", "update-pending")
+		return filepath.Join(d, "celestine", "update-pending")
 	}
 	return ""
 }
@@ -331,7 +331,7 @@ func installBinary(newFile, exe string) (old string, err error) {
 }
 
 // installApp unpacks a zipped macOS .app beside the program's bundle and swaps the two; app is the
-// bundle's path (…/ryudit.app). The old bundle is kept as app.old.
+// bundle's path (…/celestine.app). The old bundle is kept as app.old.
 func installApp(zipFile, app string) (old string, err error) {
 	zr, err := zip.OpenReader(zipFile)
 	if err != nil {

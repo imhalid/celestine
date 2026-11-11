@@ -131,7 +131,7 @@ func TestRestoreUnsafeNote(t *testing.T) {
 }
 
 // "Export as Markdown" is Markdown: a folder for a collection, a .md for a page with its front matter, the
-// sub-pages in a folder beside it, the pictures beside the file; and what ryudit imports it reads back.
+// sub-pages in a folder beside it, the pictures beside the file; and what celestine imports it reads back.
 func TestExportMarkdownRoundTrip(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	c := a.lib.Collections[0]

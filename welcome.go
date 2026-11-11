@@ -17,7 +17,7 @@ import (
 // says "Başla". Pressed, the app's own window opens out of the button, a ring of light running over it (a
 // shader on the whole window, reveal below), and the colors go.
 //
-// On macOS that is three windows (a first run, or RYUDIT_WELCOME=1): the stage, frameless and clear, over the
+// On macOS that is three windows (a first run, or CELESTINE_WELCOME=1): the stage, frameless and clear, over the
 // whole display, which has the colors and the words; the app's window, built all along but hidden; and, for
 // the opening only, a frameless clear window just over the app's, in which the app is drawn inside the ring.
 // The app's window has its traffic lights from the moment it is made, and nothing takes them away, so it is
@@ -58,9 +58,9 @@ const (
 	welCorner = 9   // the opening window's corners, as the app's window has them (macOS)
 )
 
-// wantWelcome: the first run of a library that keeps its settings, or when asked (RYUDIT_WELCOME=1, or 0 for never).
+// wantWelcome: the first run of a library that keeps its settings, or when asked (CELESTINE_WELCOME=1, or 0 for never).
 func (a *app) wantWelcome() bool {
-	switch os.Getenv("RYUDIT_WELCOME") {
+	switch os.Getenv("CELESTINE_WELCOME") {
 	case "1":
 		return true
 	case "0": // a run without it, whatever the settings say
@@ -114,7 +114,7 @@ func (a *app) welcomeProgressAt(now time.Time) float64 {
 // shadow and no ground, so that only what the welcome draws is seen on the desktop.
 func (a *app) openStage() {
 	d := mygo.Screen.DisplayMatching(a.wel.win.Bounds()).Bounds
-	opts := mygo.WindowOptions{Title: "ryudit", X: d.X, Y: d.Y, Width: d.Width, Height: d.Height,
+	opts := mygo.WindowOptions{Title: "celestine", X: d.X, Y: d.Y, Width: d.Width, Height: d.Height,
 		Frameless: true, Transparent: true, DisableShadow: true, DisableResize: true, DisableMove: true,
 		DisableMinimize: true, DisableMaximize: true, DisableFullScreen: true, Content: ui.View(a.stageView)}
 	st := mygo.NewWindow(opts)
@@ -164,7 +164,7 @@ func (a *app) welcomeSkip(c *ui.Context) {
 // welcomeSeen keeps that the welcome was seen, so that it is not shown again; one asked for by the variable is a
 // look, not a first run.
 func (a *app) welcomeSeen() {
-	if os.Getenv("RYUDIT_WELCOME") != "1" {
+	if os.Getenv("CELESTINE_WELCOME") != "1" {
 		a.settings.WelcomeDone = true
 		a.saveSettings()
 	}
@@ -373,7 +373,7 @@ func (a *app) welcomeStart(c *ui.Context, from ui.Rect) {
 			n := a.welcomeOpeningLook().length()
 			a.fadeWindow(a.wel.stage, 1, 0, 0.15*n, 0.85*n)
 		}
-		op := mygo.NewWindow(mygo.WindowOptions{Title: "ryudit", X: w.X, Y: w.Y, Width: w.Width, Height: w.Height,
+		op := mygo.NewWindow(mygo.WindowOptions{Title: "celestine", X: w.X, Y: w.Y, Width: w.Width, Height: w.Height,
 			Frameless: true, Transparent: true, DisableShadow: true, DisableResize: true, CornerRadius: welCorner,
 			Content: ui.View(a.openingView)})
 		op.SetContentBounds(w)
@@ -447,7 +447,7 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 		stage := ui.Column(c.Key("welcome")).Absolute().Left(0).Top(0).Width(w).Height(h).AlignItems(ui.Center).Justify(ui.Center)
 		stage.Opacity(float32(1-min(1, prog*3))).Translate(0, float32(-24*prog))
 		stage.Children(func() {
-			rises(ui.Text(c.Key("w-head"), "Ryudit").FontSize(40).FontWeight(720).TextColor(cl.Text).TextAlign(ui.Center), welHead)
+			rises(ui.Text(c.Key("w-head"), "Celestine").FontSize(40).FontWeight(720).TextColor(cl.Text).TextAlign(ui.Center), welHead)
 			ui.Box(c.Key("w-gap1")).Height(10)
 			rises(ui.Text(c.Key("w-sub"), "The notes app you've been looking for.").FontSize(15.5).TextColor(cl.Text2).TextAlign(ui.Center), welHead+0.08)
 			ui.Box(c.Key("w-gap2")).Height(0) // Başla's box has its glow's room round it

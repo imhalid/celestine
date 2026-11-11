@@ -14,7 +14,7 @@ it; each top finding names the run that would settle it.
 | --- | --- | --- |
 | MCP server, `127.0.0.1:7457` | Any local process; a browser page through DNS rebinding | `Host` allow list, then a 192-bit bearer token compared in constant time |
 | MCP tools | Whoever has the token, and whatever text steers that agent | Per-collection access checked in every data tool; `run_command` is an allow list by group |
-| `ryudit mcp` (stdio bridge) | The agent that starts it | Reads the app's settings for port and token |
+| `celestine mcp` (stdio bridge) | The agent that starts it | Reads the app's settings for port and token |
 | Markdown in: import, a dropped file, paste, an agent's write | A file from anywhere | `importMarkdown`; picture paths confined to the page's folder |
 | `page.json` and `collection.json` from sync or a folder | Another device with the key; anyone who can write the folder | `SafeName` on remote names |
 | Update manifest and asset | The bucket, the Worker, the network | HTTPS, sha256, ed25519 over version and hash; fails closed with no key |
@@ -35,7 +35,7 @@ it; each top finding names the run that would settle it.
   the file the keychain was meant to keep clean, and at the app's next start that token is moved into the keychain,
   replacing the real one and breaking every HTTP client set up with it.
 - The test passes only because it has no keychain (`mcpbridge_test.go:59-76`).
-- To confirm: on macOS with MCP on, run `ryudit mcp`, send `initialize`, look for 401 and for a `token` in the
+- To confirm: on macOS with MCP on, run `celestine mcp`, send `initialize`, look for 401 and for a `token` in the
   settings row.
 - Fix: set the keychain before `runMCP`; make the bridge's read of the settings read-only (never a new token, never
   a save, the store opened read-only); exit non-zero with the HTTP status when the relay fails.
@@ -47,7 +47,7 @@ it; each top finding names the run that would settle it.
   (`images.go:50-62`) and links are allow-listed (`links.go:55-64`); this one path is not.
 - How a target gets there:
   - from `page.json` directly, which arrives by sync, a restored backup, or a folder library someone else can write;
-  - through Markdown: a line `<!--ryudit:block <base64>-->` becomes a chip of unknown kind carrying raw bytes
+  - through Markdown: a line `<!--celestine:block <base64>-->` becomes a chip of unknown kind carrying raw bytes
     (`blockmark.go:50-59`); it is written back as those bytes (`body.go:70-75`) and read again as a normal object
     (`body.go:59-67`, `:175-177`). So an agent's write, an imported vault, a dropped `.md` or a paste can carry
     `{"k":"file","target":"../../Applications/X.app","alias":"Invoice.pdf"}`. The label shown is the alias.
@@ -60,7 +60,7 @@ it; each top finding names the run that would settle it.
 
 ### SEC-03 The update is verified in one place and installed from another
 - **Medium.** Read.
-- Where: `update.go:248` accepts an existing `/tmp/ryudit-update` owned by anyone; `:260-261` creates the `.part`
+- Where: `update.go:248` accepts an existing `/tmp/celestine-update` owned by anyone; `:260-261` creates the `.part`
   file following symlinks; the hash is taken from the stream (`:270`); `installBinary` later renames the path, not
   the bytes that were checked (`:305-311`).
 - On a shared Linux machine another user can pre-create the folder and swap the file between the check and the
@@ -89,7 +89,7 @@ it; each top finding names the run that would settle it.
 - **Medium.** Read.
 - Where: `mcpbridge.go:107-118` is a bare TCP dial; `:57` then sends the token. When the app cannot bind the port it
   only records an error and turns MCP off (`mcp_server.go:39-42`).
-- A local process that binds 7457 first collects the token from the next `ryudit mcp` and uses it later against the
+- A local process that binds 7457 first collects the token from the next `celestine mcp` and uses it later against the
   real server.
 - Fix: have the server prove it holds the token before the token is sent (an HMAC of a nonce), or move the bridge
   to a unix socket or named pipe in a 0700 folder.
@@ -194,7 +194,7 @@ it; each top finding names the run that would settle it.
 
 ### SEC-18 The server can be turned on from outside the window, and stays on
 - **Low.** Read.
-- Where: `main.go:573-579`, `:604`: `--mcp`, sent by any `ryudit mcp` or any process that runs the binary, calls
+- Where: `main.go:573-579`, `:604`: `--mcp`, sent by any `celestine mcp` or any process that runs the binary, calls
   `setMCP(true)`, which saves the setting. "Off by default" holds only until some agent config starts the bridge.
 - Page text is returned to agents as it is, and nothing in the server's instructions says it is data, not
   instructions. `trash_page` asks nothing.
@@ -210,7 +210,7 @@ it; each top finding names the run that would settle it.
 ### SEC-20 Hardening the unpack and the fetch
 - **Low**, because the zip is signature-checked first. Read.
 - `update.go:330-338`: the traversal check is `HasPrefix(name, "..")` and the top folder is trimmed by string
-  prefix, so an entry `ryudit.app../x` lands one level outside the staging folder. Symlink entries are written as
+  prefix, so an entry `celestine.app../x` lands one level outside the staging folder. Symlink entries are written as
   regular files; there is no cap on unpacked size; the zip is never removed.
 - `HTTPSOnly` applies to the first URL only (`update.go:144`, `:242`); the default client follows a redirect to
   `http://`. Set `CheckRedirect`.
@@ -230,7 +230,7 @@ it; each top finding names the run that would settle it.
 - Android backs the WebView storage, with the notes and the sync secrets in plain text, up to the cloud: see
   PLAT-16.
 - On macOS the keychain library goes through `/usr/bin/security`, so items may be readable by any process of the
-  user without a prompt. Suspected; `security find-generic-password -s ryudit -w` from another terminal shows it.
+  user without a prompt. Suspected; `security find-generic-password -s celestine -w` from another terminal shows it.
 
 ## Grep inventory, root package, non-test
 

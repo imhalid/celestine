@@ -10,7 +10,7 @@ import (
 // The library is in the data folder, unless one is already beside the program (a portable copy) where it can be
 // written; never inside an app bundle, from which one is moved out, from the bundle an update left too (#230).
 func TestLibraryFileIn(t *testing.T) {
-	dir, data := t.TempDir(), filepath.Join(t.TempDir(), "ryudit")
+	dir, data := t.TempDir(), filepath.Join(t.TempDir(), "celestine")
 	if got := libraryFileIn(dir, data); got != filepath.Join(data, "kitaplik.db") {
 		t.Fatalf("a program's folder with no library: %s", got)
 	}
@@ -26,11 +26,11 @@ func TestLibraryFileIn(t *testing.T) {
 	}
 
 	apps := t.TempDir()
-	exe := filepath.Join(apps, "ryudit.app", "Contents", "MacOS")
+	exe := filepath.Join(apps, "celestine.app", "Contents", "MacOS")
 	os.MkdirAll(exe, 0o755)
 	os.WriteFile(filepath.Join(exe, "kitaplik.db"), []byte("pakette"), 0o644)
 	os.WriteFile(filepath.Join(exe, "kitaplik.db-wal"), []byte("günlük"), 0o644)
-	data2 := filepath.Join(t.TempDir(), "ryudit")
+	data2 := filepath.Join(t.TempDir(), "celestine")
 	got := libraryFileIn(exe, data2)
 	if got != filepath.Join(data2, "kitaplik.db") {
 		t.Fatalf("inside a bundle: %s", got)
@@ -46,10 +46,10 @@ func TestLibraryFileIn(t *testing.T) {
 	}
 
 	// an update: the new bundle is empty, the old one beside it holds the library
-	old := filepath.Join(apps, "ryudit.app.old", "Contents", "MacOS")
+	old := filepath.Join(apps, "celestine.app.old", "Contents", "MacOS")
 	os.MkdirAll(old, 0o755)
 	os.WriteFile(filepath.Join(old, "kitaplik.db"), []byte("eskide"), 0o644)
-	data3 := filepath.Join(t.TempDir(), "ryudit")
+	data3 := filepath.Join(t.TempDir(), "celestine")
 	if b, _ := os.ReadFile(libraryFileIn(exe, data3)); string(b) != "eskide" {
 		t.Fatal("the library in the bundle an update left was not taken")
 	}

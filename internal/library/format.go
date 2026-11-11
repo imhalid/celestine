@@ -16,7 +16,7 @@ const FormatVersion = 1
 // take for a collection and the sync leaves out (each device's app writes its own). A library in one file keeps
 // it in the file's meta, under FormatKey.
 const (
-	FormatFile = ".ryudit-format"
+	FormatFile = ".celestine-format"
 	FormatKey  = "format"
 )
 
@@ -28,7 +28,7 @@ type NewerFormatError struct {
 }
 
 func (e *NewerFormatError) Error() string {
-	return fmt.Sprintf("the library is in format %d, newer than this app's (%d): update Ryudit to open it", e.Library, e.App)
+	return fmt.Sprintf("the library is in format %d, newer than this app's (%d): update Celestine to open it", e.Library, e.App)
 }
 
 // metaKeeper is a disk that keeps small things beside its files: the library file (Store).

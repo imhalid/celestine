@@ -81,8 +81,8 @@ var trText = map[string]string{
 	"keep":                  "kaydet",
 	"into the text":         "metne geç",
 	// a library of a newer format (main.go)
-	"This library was written by a newer version of Ryudit.":        "Bu kitaplık Ryudit'in daha yeni bir sürümüyle yazılmış.",
-	"Update Ryudit to open it. Nothing in the library was changed.": "Açmak için Ryudit'i güncelle. Kitaplıkta hiçbir şey değiştirilmedi.",
+	"This library was written by a newer version of Celestine.":        "Bu kitaplık Celestine'in daha yeni bir sürümüyle yazılmış.",
+	"Update Celestine to open it. Nothing in the library was changed.": "Açmak için Celestine'i güncelle. Kitaplıkta hiçbir şey değiştirilmedi.",
 	// files and banners
 	"Drop the file on a page": "Dosyayı bir sayfaya bırak",
 	"Choose a file":           "Bir dosya seç",
@@ -194,7 +194,7 @@ var trText = map[string]string{
 	"Cancel":                                 "Vazgeç",
 	// sync
 	", %d merged": ", %d birleştirildi",
-	"With a Ryudit account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Ryudit hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",
+	"With a Celestine account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.": "Bir Celestine hesabıyla kitaplığın bilgisayarların arasında eşitlenir; her birinde, çıkmadan önce şifrelenir. Erken erişim süresince hesaplar davetle açılır.",
 	// the shimmer when an agent writes (#301)
 	"Shimmer": "Parıltı",
 	"While an agent (MCP) adds content to a page, a band of light sweeps across the window, brighter the more is added.": "Bir ajan (MCP) sayfaya içerik eklerken pencerenin üzerinden bir ışık şeridi geçer; ne kadar çok eklenirse o kadar parlak.",

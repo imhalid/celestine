@@ -1,4 +1,4 @@
-# ryudit
+# Celestine
 
 A notes app in Go: one binary, native UI on MyGo (`github.com/egoist/mygo`, replaced by the fork
 `github.com/imhalid/mygo` in `go.mod`) and the Ryugo kit (`github.com/imhalid/ryu-go`). docs/architecture.md has the
@@ -24,7 +24,7 @@ file-by-file table; `docs/` has the design notes (the older ones in Turkish; new
 
 ```sh
 go run . [library]                  # ./kitaplik by default, made and seeded when missing
-RYUDIT_WELCOME=1 go run .           # the first-run welcome, again
+CELESTINE_WELCOME=1 go run .           # the first-run welcome, again
 go test ./internal/library/         # the library alone: a second or two; run it after any library change
 go test -run 'Sync|Store' .         # the app's tests of an area
 go test ./...                       # everything: about four minutes, only before a release
@@ -58,8 +58,8 @@ minutes are counted): `gofmt -l .` empty, `go vet ./...`,
   where the CPU renderer is too slow (`welcomeShaders`).
 - A change to the library comes with a test in `internal/library/` when it can be made without the app.
 - Commits go to `main`: a one-line title that says what changed, then prose.
-- No work without an issue: before anything is changed, the work has an issue on imhalid/ryudit (open one first if
-  there is none, a fix found along the way too) and is on the Ryudit board. Every commit names its issue: `(#N)` at
+- No work without an issue: before anything is changed, the work has an issue on imhalid/celestine (open one first if
+  there is none, a fix found along the way too) and is on the Celestine board. Every commit names its issue: `(#N)` at
   the end of the title, and `Fixes #N` in the body of the one that finishes it. A finished issue is closed with a
   note of its commits. The issues and the board are where what was done and what is left are read.
 - Releases: a tag `vX.Y.Z` pushed to GitHub runs `.github/workflows/release.yml` (tests, the five builds, the
@@ -67,7 +67,7 @@ minutes are counted): `gofmt -l .` empty, `go vet ./...`,
   Versions go up one at a time from v0.0.1; the gate passes before a tag.
 - A local checkout of Ryugo beside this one is used through a `go.work` (ignored by git).
 - MyGo is followed, not forked away from: `go.mod` requires MyGo itself. When the app needs a change MyGo has
-  not taken yet, it is a small, general patch on the `ryudit` branch of imhalid/mygo (MyGo's newest release or
+  not taken yet, it is a small, general patch on the `celestine` branch of imhalid/mygo (MyGo's newest release or
   main and the patches), a pull request to MyGo at once, and `go.mod` replaces MyGo with that branch until MyGo
   takes it in. `scripts/sync-mygo.sh` puts the patches on MyGo's newest release (or main), drops those MyGo took,
   points `go.mod` at the branch (or at MyGo itself when none is left) and runs the gate. Whatever the app can do

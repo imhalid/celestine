@@ -13,7 +13,7 @@ import (
 // it is one object (tables.go); in the file it is a fenced block the app
 // writes itself:
 //
-//	```ryudit-table
+//	```celestine-table
 //	[{"name":"Ad"},{"name":"Sayı","kind":"number","align":2,"calc":"sum"}]
 //	["elma","3"]
 //	["armut","12"]
@@ -21,7 +21,7 @@ import (
 //
 // the columns on the first line, each row on a line of its own.
 
-const tableLang = "ryudit-table"
+const tableLang = "celestine-table"
 
 // Column kinds and calculations.
 const (

@@ -15,7 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// The bridge of `ryudit mcp` carries an agent's messages to the app's server and back: an agent on one side lists
+// The bridge of `celestine mcp` carries an agent's messages to the app's server and back: an agent on one side lists
 // the app's tools and calls one, through it.
 func TestMCPBridge(t *testing.T) {
 	a, _ := newTestApp(t, "")
@@ -76,11 +76,11 @@ func TestMCPSettingsAndFlag(t *testing.T) {
 	if _, _, err := mcpSettings([]string{filepath.Join(dir, "none.db")}); err == nil {
 		t.Fatal("a library that is not there was read")
 	}
-	args, on := withoutMCPFlag([]string{"ryudit", mcpFlag, "k.db"})
-	if !on || !slices.Equal(args, []string{"ryudit", "k.db"}) {
+	args, on := withoutMCPFlag([]string{"celestine", mcpFlag, "k.db"})
+	if !on || !slices.Equal(args, []string{"celestine", "k.db"}) {
 		t.Fatalf("flag: %v %v", args, on)
 	}
-	if _, on := withoutMCPFlag([]string{"ryudit"}); on {
+	if _, on := withoutMCPFlag([]string{"celestine"}); on {
 		t.Fatal("a flag that was not there")
 	}
 }

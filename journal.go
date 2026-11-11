@@ -88,7 +88,7 @@ func pad(n, width int) string {
 // journalDayKey is the meta key of the day a page of the journal is for, as a date: the day it was made, in the
 // zone it was made in. Read from Created in the zone of the moment, a late evening page moved to another day after a
 // journey, and a second page was made for today (#144). Not a property's id: those have no colon.
-const journalDayKey = "ryudit:day"
+const journalDayKey = "celestine:day"
 
 // dayOf is the day a page of the journal is for: its day as kept, or, for a page that has none, the day it was made.
 func dayOf(p *Page) time.Time {

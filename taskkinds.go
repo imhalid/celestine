@@ -22,7 +22,7 @@ import (
 // Checked, a box turns over on its X axis - its face goes, its back comes, done - and confetti bursts
 // from it; unchecked it turns back, without the confetti.
 
-const taskIDPrefix = "ryudit:task:"
+const taskIDPrefix = "celestine:task:"
 
 type taskKind struct {
 	id, name string

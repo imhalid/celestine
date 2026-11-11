@@ -61,7 +61,7 @@ func storage() js.Value {
 const idbCode = `(function(){
   if (window.__idb || !window.indexedDB) return;
   let db = null, opening = null;
-  const open = () => db ? Promise.resolve(db) : (opening = opening || new Promise((res, rej) => { const r = indexedDB.open('ryudit', 1); r.onupgradeneeded = () => r.result.createObjectStore('lib'); r.onsuccess = () => { db = r.result; res(db); }; r.onerror = () => rej(r.error); }));
+  const open = () => db ? Promise.resolve(db) : (opening = opening || new Promise((res, rej) => { const r = indexedDB.open('celestine', 1); r.onupgradeneeded = () => r.result.createObjectStore('lib'); r.onsuccess = () => { db = r.result; res(db); }; r.onerror = () => rej(r.error); }));
   const put = (d, k, v) => new Promise((res, rej) => { const t = d.transaction('lib', 'readwrite'); t.objectStore('lib').put(v, k); t.oncomplete = () => res(true); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
   window.__idb = {
     get: async (k) => { const d = await open(); return await new Promise((res, rej) => { const q = d.transaction('lib').objectStore('lib').get(k); q.onsuccess = () => res(q.result === undefined ? null : q.result); q.onerror = () => rej(q.error); }); },
@@ -130,13 +130,13 @@ func OpenStore(file string) (*Store, error) {
 	raw, found := "", false
 	if h := idb(); !h.IsUndefined() {
 		var err error
-		if raw, found, err = idbGet(h, "ryudit:"+file); err != nil {
+		if raw, found, err = idbGet(h, "celestine:"+file); err != nil {
 			return nil, err
 		}
 	}
 	if !found { // a library of before IndexedDB, or a browser without it
 		if st := storage(); !st.IsUndefined() {
-			if v := st.Call("getItem", "ryudit:"+file); v.Type() == js.TypeString {
+			if v := st.Call("getItem", "celestine:"+file); v.Type() == js.TypeString {
 				raw, found = v.String(), true
 			}
 		}
@@ -195,7 +195,7 @@ func (s *Store) flushLocked() {
 		Nodes map[string]*jnode `json:"nodes"`
 		Meta  map[string]string `json:"meta"`
 	}{s.node, s.meta})
-	key := "ryudit:" + s.File
+	key := "celestine:" + s.File
 	if h := idb(); !h.IsUndefined() {
 		if s.before != "" { // once: the library as it was read, before it is first written over
 			h.Call("put", key+":before", s.before)

@@ -267,17 +267,17 @@ func (a *app) mcpURL() string { return fmt.Sprintf("http://127.0.0.1:%d/mcp", a.
 func (a *app) mcpStdioCommand() string {
 	exe, err := os.Executable()
 	if err != nil {
-		exe = "ryudit"
+		exe = "celestine"
 	}
 	if strings.ContainsAny(exe, " \t") {
 		exe = strconv.Quote(exe)
 	}
-	return "claude mcp add ryudit -- " + exe + " mcp"
+	return "claude mcp add celestine -- " + exe + " mcp"
 }
 
 // mcpCommand is the line that adds the server to Claude Code.
 func (a *app) mcpCommand() string {
-	return fmt.Sprintf("claude mcp add --transport http ryudit %s --header \"Authorization: Bearer %s\"", a.mcpURL(), a.settings.Token)
+	return fmt.Sprintf("claude mcp add --transport http celestine %s --header \"Authorization: Bearer %s\"", a.mcpURL(), a.settings.Token)
 }
 
 // do runs fn on the library, holding the app's lock, and asks for a frame.

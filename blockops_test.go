@@ -229,35 +229,35 @@ func TestBlockOpsKeepIDs(t *testing.T) {
 	newDoc := func() *richtext.Document {
 		return richtext.NewDocument(richtext.TextOf(para("a", ""), para("", hrID), para("yıldız", star), para("b", "")))
 	}
-	const start = "a# | #ryudit:hr | yıldız#ryudit:task:star | b#"
+	const start = "a# | #celestine:hr | yıldız#celestine:task:star | b#"
 
 	d := newDoc()
 	d.SetSelection(at(d, ""), at(d, ""))
 	moveBlock(d, -1)
-	if got := sig(d); got != "#ryudit:hr | a# | yıldız#ryudit:task:star | b#" {
+	if got := sig(d); got != "#celestine:hr | a# | yıldız#celestine:task:star | b#" {
 		t.Fatalf("divider up: %s", got)
 	}
 	d = newDoc()
 	d.SetSelection(at(d, "yıldız"), at(d, "yıldız"))
 	moveBlock(d, 1)
-	if got := sig(d); got != "a# | #ryudit:hr | b# | yıldız#ryudit:task:star" {
+	if got := sig(d); got != "a# | #celestine:hr | b# | yıldız#celestine:task:star" {
 		t.Fatalf("task down: %s", got)
 	}
 	d = newDoc()
 	s, e := blockRange(d.Text(), at(d, ""))
 	moveBlockTo(d, s, e, d.Text().Len()+1)
-	if got := sig(d); got != "a# | yıldız#ryudit:task:star | b# | #ryudit:hr" {
+	if got := sig(d); got != "a# | yıldız#celestine:task:star | b# | #celestine:hr" {
 		t.Fatalf("divider dragged to the end: %s", got)
 	}
 	d = newDoc()
 	s, e = blockRange(d.Text(), at(d, "yıldız"))
 	moveBlockTo(d, s, e, 0)
-	if got := sig(d); got != "yıldız#ryudit:task:star | a# | #ryudit:hr | b#" {
+	if got := sig(d); got != "yıldız#celestine:task:star | a# | #celestine:hr | b#" {
 		t.Fatalf("task dragged to the top: %s", got)
 	}
 	d = newDoc()
 	duplicateBlock(d, at(d, "yıldız"))
-	if got := sig(d); got != "a# | #ryudit:hr | yıldız#ryudit:task:star | yıldız#ryudit:task:star | b#" {
+	if got := sig(d); got != "a# | #celestine:hr | yıldız#celestine:task:star | yıldız#celestine:task:star | b#" {
 		t.Fatalf("task copied: %s", got)
 	}
 	if d = newDoc(); sig(d) != start {

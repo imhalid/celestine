@@ -9,14 +9,14 @@ import (
 )
 
 func TestCrashLogWritten(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "ryudit", "crashes")
+	dir := filepath.Join(t.TempDir(), "celestine", "crashes")
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	path := crashLog(dir, "boom", []byte("goroutine 1 [running]:\nmain.x()"), now)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"ryudit " + version, "panic: boom", "main.x()", "2026-11-07T12:00:00Z"} {
+	for _, want := range []string{"celestine " + version, "panic: boom", "main.x()", "2026-11-07T12:00:00Z"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("no %q in\n%s", want, b)
 		}
@@ -35,7 +35,7 @@ func TestCrashLogWritten(t *testing.T) {
 
 // A session that does not end cleanly is told at the next start, with the log it left.
 func TestUncleanSession(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "ryudit", "crashes")
+	dir := filepath.Join(t.TempDir(), "celestine", "crashes")
 	now := time.Now()
 	if unclean, _ := markRunning(dir, now); unclean {
 		t.Fatal("first start unclean")

@@ -8,7 +8,7 @@ the sources, the scripts and the docs.
 
 ## How each target is made
 
-- **Desktop**: five targets built without cgo from one Linux runner. `scripts/package.sh` makes `ryudit.app` in a
+- **Desktop**: five targets built without cgo from one Linux runner. `scripts/package.sh` makes `celestine.app` in a
   zip for macOS and a tarball for Linux. `scripts/release` signs a manifest (`version + "\n" + sha256`, ed25519).
 - **Release**: a tag `v*` runs `.github/workflows/release.yml`: tests, builds, packages, signs when the key secret
   is set, uploads to R2 when those secrets are set, publishes a GitHub release. `cloudflare/update` serves the
@@ -27,17 +27,17 @@ the sources, the scripts and the docs.
 - **High.** Read; re-checked. Not exercised with a packaged app.
 - Where: `internal/library/store.go:162-178`. `LibraryFile()` is `kitaplik.db` in the executable's folder whenever
   that folder is writable, and the data folder only when it is not.
-- `scripts/package.sh:29` puts the binary at `ryudit.app/Contents/MacOS/ryudit`. A `.app` the user owns is
-  writable, so the library is `ryudit.app/Contents/MacOS/kitaplik.db`. No Go file treats a bundle specially.
+- `scripts/package.sh:29` puts the binary at `celestine.app/Contents/MacOS/celestine`. A `.app` the user owns is
+  writable, so the library is `celestine.app/Contents/MacOS/kitaplik.db`. No Go file treats a bundle specially.
 - What follows:
   - An in-app update swaps the bundle (`update.go:365-375`). The new bundle has no library, the app opens a fresh
-    seeded one, and the real one sits in `ryudit.app.old`, which the updater removes a day later. The pre-update
+    seeded one, and the real one sits in `celestine.app.old`, which the updater removes a day later. The pre-update
     backup in the config folder is the only copy left.
   - Replacing the app by hand, the normal way to install a new version, deletes the library with it.
   - An unsigned, quarantined app runs translocated from a read-only path, so the first runs use the data folder;
     once quarantine is cleared the app switches to an empty file inside the bundle.
   - Writing into `Contents/MacOS` breaks any future code signature.
-  - On Linux the tarball's README says `install -Dm755 ryudit ~/.local/bin/ryudit` (`scripts/package.sh:82`), so
+  - On Linux the tarball's README says `install -Dm755 celestine ~/.local/bin/celestine` (`scripts/package.sh:82`), so
     the library and its journal land in `~/.local/bin`.
 - Fix: "beside the program" only for a portable layout the user chose, which is a `kitaplik.db` already there;
   otherwise always the data folder, and never inside an app bundle. Add a one-time move of a library found inside a
@@ -84,7 +84,7 @@ the sources, the scripts and the docs.
   never writes `running`, so the next start looks clean and nothing is ever rolled back. With SEC-04 a wrong-platform
   binary lands here.
 - (3) The old file's removal is scheduled with a 24-hour timer (`update.go:423`): a process that lives less than a
-  day never removes `ryudit.app.old`, a second bundle left in `/Applications`.
+  day never removes `celestine.app.old`, a second bundle left in `/Applications`.
 - Fix: the new version writes its own "first start of X began" stamp before anything can fail; roll back only when
   that stamp exists without a "proved" stamp; delete the old file at the first start after proving.
 
@@ -164,7 +164,7 @@ the sources, the scripts and the docs.
 ### PLAT-14 Android: text shared to the app is dropped
 - **Medium.** Read.
 - `MainActivity.kt:95-96` builds `…/index.html#share=<text>`; the manifest declares the `SEND` filter; no Go code
-  reads `location.hash`. Ryudit appears in every app's share sheet, opens, and does nothing with the text.
+  reads `location.hash`. Celestine appears in every app's share sheet, opens, and does nothing with the text.
 - With the default launch mode a share starts a second activity, a second WebView holding its own copy of the
   library over the same key; whichever writes last replaces the other's edits (suspected, follows from the
   whole-blob writes).

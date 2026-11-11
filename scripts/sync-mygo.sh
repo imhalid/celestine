@@ -1,6 +1,6 @@
 #!/bin/sh
-# Brings ryudit to the newest MyGo: the fork's ryudit branch (MyGo and the few patches the app needs, each also a
-# pull request to MyGo) is put on top of MyGo's newest release or main, pushed, and ryudit's go.mod points at it.
+# Brings celestine to the newest MyGo: the fork's celestine branch (MyGo and the few patches the app needs, each also a
+# pull request to MyGo) is put on top of MyGo's newest release or main, pushed, and celestine's go.mod points at it.
 # Then the gate runs. Nothing is committed: look, then commit go.mod and go.sum.
 #
 #   scripts/sync-mygo.sh            onto MyGo's newest release tag
@@ -16,17 +16,17 @@ MYGO=${MYGO:-../mygo}
 [ -d "$MYGO/.git" ] || { echo "no fork at $MYGO: git clone git@github.com:imhalid/mygo.git $MYGO"; exit 1; }
 git -C "$MYGO" remote get-url upstream >/dev/null 2>&1 || git -C "$MYGO" remote add upstream https://github.com/egoist/mygo.git
 git -C "$MYGO" fetch -q upstream --tags
-git -C "$MYGO" fetch -q origin ryudit
+git -C "$MYGO" fetch -q origin celestine
 if [ "${1:-}" = main ]; then
 	onto=upstream/main
 else
 	onto=$(git -C "$MYGO" describe --tags --abbrev=0 --match 'v*' upstream/main)
 fi
 echo "putting the patches on $onto"
-git -C "$MYGO" checkout -q ryudit
-git -C "$MYGO" reset -q --hard origin/ryudit
+git -C "$MYGO" checkout -q celestine
+git -C "$MYGO" reset -q --hard origin/celestine
 git -C "$MYGO" rebase --empty=drop "$onto"
-git -C "$MYGO" log --oneline "$onto"..ryudit
+git -C "$MYGO" log --oneline "$onto"..celestine
 commit=$(git -C "$MYGO" rev-parse HEAD)
 export GOWORK=off
 if [ "$commit" = "$(git -C "$MYGO" rev-parse "$onto")" ]; then
@@ -34,7 +34,7 @@ if [ "$commit" = "$(git -C "$MYGO" rev-parse "$onto")" ]; then
 	go mod edit -dropreplace=github.com/egoist/mygo
 	go get github.com/egoist/mygo@"$commit"
 else
-	git -C "$MYGO" push -q --force-with-lease origin ryudit
+	git -C "$MYGO" push -q --force-with-lease origin celestine
 	version=$(git -C "$MYGO" describe --tags --abbrev=0 "$onto" 2>/dev/null || echo "")
 	case "$version" in
 	v*) go mod edit -require=github.com/egoist/mygo@"$version" ;;
@@ -48,4 +48,4 @@ go vet ./...
 go test ./...
 for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null .; done
 GOOS=js GOARCH=wasm go build -o /dev/null .
-echo "ryudit builds on MyGo $onto with its patches: commit go.mod and go.sum"
+echo "celestine builds on MyGo $onto with its patches: commit go.mod and go.sum"

@@ -1,4 +1,4 @@
-// The server of Ryudit: a Cloudflare Worker over an R2 bucket (the files) and a D1 database (the accounts).
+// The server of Celestine: a Cloudflare Worker over an R2 bucket (the files) and a D1 database (the accounts).
 //
 //   /files…  synchronization: it keeps files, not meaning; with end-to-end encryption on, all it holds is opaque
 //            names and sealed bytes. The protocol is that of sync.go's httpRemote:
