@@ -107,9 +107,11 @@ func TestPerfBudget(t *testing.T) {
 	t0 = time.Now()
 	ls := a.libraryStats()
 	health := time.Since(t0)
-	// a key in the text, and the frames it makes: the same keys in a library of ten pages and in the big one, by turns,
-	// both warmed up first; what is held is that a key costs about the same in any library (#203, issue #70)
-	sa, stt := keyTester(t, 10)
+	// a key in the text, and the frames it makes: the same keys in a library of a hundred pages and in the big one, by
+	// turns, both warmed up first; what is held is that a key costs about the same in any library (#203, issue #70).
+	// A hundred pages fill the sidebar as the big library's do: one of ten leaves it half empty, and its key is
+	// cheaper than any real library's by the rows it does not build (#320).
+	sa, stt := keyTester(t, 100)
 	warm(a, tt)
 	var bigKeys, smallKeys []time.Duration
 	for i := 0; i < 21; i++ {
@@ -121,7 +123,7 @@ func TestPerfBudget(t *testing.T) {
 	t.Logf("%d pages: open %v, first frame %v, search %v, index %v, palette %v, library figures %v, a key %v, memory +%.0f MB",
 		n, open.Round(time.Millisecond), first.Round(time.Millisecond), find.Round(time.Millisecond), index.Round(time.Millisecond),
 		pal.Round(time.Millisecond), health.Round(time.Millisecond), key.Round(100*time.Microsecond), mem)
-	t.Logf("a key in a library of 10 pages: %v", smallKey.Round(100*time.Microsecond))
+	t.Logf("a key in a library of 100 pages: %v", smallKey.Round(100*time.Microsecond))
 	_ = ls
 
 	// budgets, per thousand pages; generous, so that a slow machine does not fail them and a real
