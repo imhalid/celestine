@@ -213,7 +213,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 	ui.Row(c).FillWidth().Gap(18).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
 			ui.Text(c, locales.StatsCollections()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
-			statList(c, "by-coll", top(a.writtenIn(false), 6), "Henüz yok.", nil)
+			statList(c, "by-coll", top(a.writtenIn(false), 6), locales.StatsNoneYet(), nil)
 		})
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
 			ui.Text(c, locales.StatsMostWrittenPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
@@ -223,7 +223,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 					rows = append(rows, count{p.Title, e.N})
 				}
 			}
-			statList(c, "by-page", rows, "Henüz yok.", func(r count) {
+			statList(c, "by-page", rows, locales.StatsNoneYet(), func(r count) {
 				for _, e := range top(a.writtenIn(true), 12) {
 					if p := a.pageAt(e.Name); p != nil && p.Title == r.Name {
 						a.open(p)
@@ -274,7 +274,7 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 					rows = append(rows, count{p.Title, e.N})
 				}
 			}
-			statList(c, "by-open", rows, "Henüz yok.", func(r count) {
+			statList(c, "by-open", rows, locales.StatsNoneYet(), func(r count) {
 				for _, e := range top(a.usage.Opens, 16) {
 					if p := a.pageAt(e.Name); p != nil && p.Title == r.Name {
 						a.open(p)

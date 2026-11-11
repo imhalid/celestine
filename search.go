@@ -3,7 +3,6 @@ package main
 import (
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -268,11 +267,11 @@ func (a *app) searchView(c *ui.Context) {
 		switch {
 		case strings.TrimSpace(a.searchQ) == "":
 		case len(hits) == 0:
-			sub = "Eşleşen sayfa yok."
+			sub = locales.SearchNoMatches()
 		default:
-			sub = strconv.Itoa(len(hits)) + " sayfa"
+			sub = locales.CommonPageCount(len(hits))
 			if len(hits) == 80 {
-				sub = "İlk 80 sayfa"
+				sub = locales.SearchFirst80()
 			}
 		}
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(2, 0, 4, 0)
@@ -289,7 +288,7 @@ func (a *app) searchView(c *ui.Context) {
 				for _, h := range hits {
 					h := h
 					row := ui.Column(c.Key("sr:"+h.page.Dir)).FillWidth().Padding(8, 10).Gap(3).Radius(rad(8)).
-						Label("Sonuç: " + h.page.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+						Label(locales.SearchResultLabel(h.page.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					if row.Hovered() {
 						row.Background(t.SurfaceHover)
 					}

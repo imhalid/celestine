@@ -76,9 +76,9 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 	cl := ryugo.From(c).Colors
 	chosen := a.bulkPages(pages)
 	ui.Row(c.Key("bulk-bar")).FillWidth().Gap(8).Padding(6, 10).Radius(rad(12)).AlignItems(ui.Center).Wrap().Background(cl.Accent.Alpha(0.1)).Border(1, cl.Accent.Alpha(0.3)).Children(func() {
-		msg := strconv.Itoa(len(chosen)) + " seçili"
+		msg := locales.BulkSelectedCount(len(chosen))
 		if len(chosen) == 0 {
-			msg = "Satırlara tıklayarak seç"
+			msg = locales.BulkClickRows()
 		}
 		ui.Text(c, msg).FontSize(13).FontWeight(650).TextColor(cl.Text).Padding(0, 6)
 		if ryugo.Button(c.Key("bulk-all"), locales.CommonSelectAll(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {

@@ -466,7 +466,7 @@ func main() {
 		}
 		restored, rerr := applyRestore(backupDir(), file, time.Now()) // a backup chosen before the last quit is put in place first
 		if rerr != nil {
-			restored = "Geri yükleme olmadı: " + rerr.Error()
+			restored = locales.AppRestoreFailed(rerr.Error())
 		}
 		restoreNote = restored
 		if _, serr := os.Stat(file); serr != nil {
@@ -533,7 +533,7 @@ func main() {
 	if unclean {
 		a.crashPrev, a.crashOpen = prevLog, true
 		if prevLog == "" {
-			a.crashText = "Son oturum bir hata günlüğü bırakmadan kapandı (uygulama zorla kapatılmış ya da bilgisayar kapanmış olabilir)."
+			a.crashText = locales.AppClosedWithoutLog()
 		} else if b, err := os.ReadFile(prevLog); err == nil {
 			a.crashText, a.crashPath = string(b), prevLog
 		}

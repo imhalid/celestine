@@ -163,7 +163,7 @@ func (a *app) findBar(c *ui.Context) {
 	bar.Transition(findDrop) // it comes down from above, in a breath, and goes up again
 	bar.Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], "Değiştir’i aç/kapat") {
+			if a.iconButton(c, map[bool]*ui.SVG{true: iconChevronDown, false: iconChevron}[f.replace], locales.FindToggleReplace()) {
 				f.replace = !f.replace
 			}
 			in := a.fieldMenu(ryugo.Input(c.Key("find-in"), &f.query, ryugo.InputOptions{Label: "Sayfada bul", Placeholder: "Bul", PrefixIcon: iconSearch, Size: ryugo.Sm, Invalid: f.query != "" && len(f.matches) == 0}), &f.query, fieldOpts{oneLine: true})
@@ -185,7 +185,7 @@ func (a *app) findBar(c *ui.Context) {
 				count = strconv.Itoa(f.cur+1) + "/" + strconv.Itoa(len(f.matches))
 			}
 			ui.Text(c, count).FontSize(12.5).TextColor(cl.Muted).Width(48)
-			if a.iconButton(c, iconBack, "Önceki (⇧↵)") {
+			if a.iconButton(c, iconBack, locales.FindPrevious()) {
 				a.stepMatch(-1)
 			}
 			if a.iconButton(c, iconChevron, "Sonraki (↵)") {

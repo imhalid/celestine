@@ -83,7 +83,7 @@ func (a *app) quickCollection() *Collection {
 // journal, or a page of its own; it says what it did.
 func (a *app) captureNote(mode int, text string) (string, error) {
 	if strings.TrimSpace(text) == "" {
-		return "", errors.New("boş not")
+		return "", errors.New(locales.QuickErrEmpty())
 	}
 	if mode == quickPage {
 		return a.captureAsPage(text)
@@ -108,14 +108,14 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 	a.takeOutside(p) // the page, if it is open, shows it
 	a.linksStale()
 	a.noticePage = p
-	return "Günlüğe eklendi", nil
+	return locales.QuickAddedToJournal(), nil
 }
 
 // captureAsPage makes a page of the note: its first line is the title.
 func (a *app) captureAsPage(text string) (string, error) {
 	c := a.quickCollection()
 	if c == nil {
-		return "", errors.New("sayfa eklenecek koleksiyon yok")
+		return "", errors.New(locales.QuickErrNoCollection())
 	}
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	title := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(lines[0]), "#- "))
@@ -139,7 +139,7 @@ func (a *app) captureAsPage(text string) (string, error) {
 	}
 	a.linksStale()
 	a.noticePage = p
-	return "“" + title + "” sayfası eklendi: " + c.Name, nil
+	return locales.QuickPageAdded(title, c.Name), nil
 }
 
 // view is the panel.
@@ -166,13 +166,13 @@ func (q *quickNote) view(c *ui.Context) {
 	}
 	ui.Column(c).Fill().Padding(16).Gap(12).Children(func() {
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-			ryugo.Segmented(c.Key("quick-mode"), &q.mode, []string{"Günlüğe", "Yeni sayfa"}, ryugo.SegmentedOptions{Label: "Nereye", Size: ryugo.Sm})
+			ryugo.Segmented(c.Key("quick-mode"), &q.mode, []string{locales.QuickToJournal(), locales.QuickNewPage()}, ryugo.SegmentedOptions{Label: locales.QuickWhere(), Size: ryugo.Sm})
 			ui.Text(c, where).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(1)
 			ui.Text(c, locales.CommonQuickNote()).FontSize(12.5).FontWeight(620).TextColor(cl.Muted)
 		})
-		ph := "Günlüğe bir not… [] ile görev, her satır bir madde"
+		ph := locales.QuickJournalPlaceholder()
 		if q.mode == quickPage {
-			ph = "İlk satır başlık olur…"
+			ph = locales.QuickPagePlaceholder()
 		}
 		area := a.fieldMenu(ryugo.Textarea(c.Key("quick-text"), &q.text, ryugo.TextareaOptions{Placeholder: ph, Label: "Not", Rows: 4, MaxRows: 4}), &q.text, fieldOpts{}).Bind(&q.input)
 		if q.focusWanted {
@@ -182,7 +182,7 @@ func (q *quickNote) view(c *ui.Context) {
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 			s := q.said
 			if s == "" {
-				s = "⌘↵ ekle   esc kapat"
+				s = locales.QuickKeys()
 			}
 			ui.Text(c, s).FontSize(12).TextColor(cl.Muted).Grow(1)
 			if ryugo.Button(c.Key("quick-add"), "Ekle", ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
@@ -201,7 +201,7 @@ func (q *quickNote) where() string {
 		return ""
 	}
 	if c := q.a.journalColl(); c != nil {
-		return "→ " + c.Name + ", bugün"
+		return locales.QuickTarget(c.Name)
 	}
 	return ""
 }

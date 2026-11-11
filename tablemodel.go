@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // A table is data, not text: columns that have a kind (text, number, date,
@@ -33,12 +35,38 @@ const (
 
 var tableKinds = []string{kindText, kindNumber, kindDate, kindCheck}
 
-var kindNames = map[string]string{kindText: "Metin", kindNumber: "Sayı", kindDate: "Tarih", kindCheck: "Onay"}
+// kindName is the name of a column's kind, in the window's language.
+func kindName(k string) string {
+	switch k {
+	case kindNumber:
+		return locales.TablesKindNumber()
+	case kindDate:
+		return locales.TablesKindDate()
+	case kindCheck:
+		return locales.TablesKindCheck()
+	}
+	return locales.TablesKindText()
+}
 
 // calcs are what a column's foot can say, in the order a button goes through them.
 var calcs = []string{"", "sum", "avg", "count", "min", "max"}
 
-var calcNames = map[string]string{"": "Hesap yok", "sum": "Toplam", "avg": "Ortalama", "count": "Sayı", "min": "En küçük", "max": "En büyük"}
+// calcName is the name of what a column's bottom row works out, in the window's language.
+func calcName(k string) string {
+	switch k {
+	case "sum":
+		return locales.TablesCalcSum()
+	case "avg":
+		return locales.TablesCalcAvg()
+	case "count":
+		return locales.TablesCalcCount()
+	case "min":
+		return locales.TablesCalcMin()
+	case "max":
+		return locales.TablesCalcMax()
+	}
+	return locales.TablesCalcNone()
+}
 
 type tableCol struct {
 	Name  string  `json:"name"`
@@ -58,7 +86,7 @@ type tableModel struct {
 func newTable(ncols, nrows int) *tableModel {
 	m := &tableModel{}
 	for c := 0; c < ncols; c++ {
-		m.cols = append(m.cols, tableCol{Name: "Sütun " + strconv.Itoa(c+1)})
+		m.cols = append(m.cols, tableCol{Name: locales.TablesColumnN(c + 1)})
 	}
 	for r := 0; r < nrows; r++ {
 		m.rows = append(m.rows, make([]string, ncols))
@@ -119,7 +147,7 @@ func (m *tableModel) delRow(row int) {
 // addCol puts an empty column after col (-1: first).
 func (m *tableModel) addCol(after int) {
 	after = max(-1, min(after, len(m.cols)-1))
-	m.cols = append(m.cols[:after+1], append([]tableCol{{Name: "Sütun " + strconv.Itoa(len(m.cols)+1)}}, m.cols[after+1:]...)...)
+	m.cols = append(m.cols[:after+1], append([]tableCol{{Name: locales.TablesColumnN(len(m.cols) + 1)}}, m.cols[after+1:]...)...)
 	for i, r := range m.rows {
 		m.rows[i] = append(r[:after+1], append([]string{""}, r[after+1:]...)...)
 	}

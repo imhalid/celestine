@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Images: a picture in a page is a file beside the page's index.md - in the
@@ -155,7 +157,7 @@ func (a *app) withImages(p *Page, t richtext.Text) richtext.Text {
 }
 
 // notImage says a thing is not a picture.
-const notImage = "Bu bir resim değil: png, jpg, gif, webp ya da svg olmalı."
+func notImage() string { return locales.PageNotImage() }
 
 // addImage puts the picture in data in the open page, in a paragraph of its
 // own after the caret's line: the file is made beside the page, and its
@@ -163,14 +165,14 @@ const notImage = "Bu bir resim değil: png, jpg, gif, webp ya da svg olmalı."
 func (a *app) addImage(name string, data []byte) error {
 	p := a.page
 	if p == nil || a.doc == nil {
-		return fmt.Errorf("açık sayfa yok")
+		return errors.New(locales.PageNoOpenPage())
 	}
 	ext := imageExt(data)
 	if ext == "" {
-		return fmt.Errorf("%s", notImage)
+		return errors.New(notImage())
 	}
 	if _, err := ui.DecodeImage(data); err != nil {
-		return fmt.Errorf("%s", notImage)
+		return errors.New(notImage())
 	}
 	stem := "resim-" + a.clock().Format("20060102-150405")
 	ref := stem + ext
@@ -234,7 +236,7 @@ func (a *app) pickImage() {
 	go func() {
 		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:   "Resim seç",
+			Title:   locales.PageChooseImage(),
 			Filters: []mygo.FileFilter{{Name: "Resimler", Extensions: []string{"png", "jpg", "jpeg", "gif", "webp", "svg"}}},
 		})
 		if err != nil || len(paths) == 0 {
@@ -349,7 +351,7 @@ func (a *app) lightboxView(c *ui.Context) {
 	k := min(1, min((ww-80)/iw, (wh-120)/ih))
 	w, h := iw*k, ih*k
 	ui.Overlay(c, func() {
-		back := ui.Box(c.Key("lb-back")).Absolute().Left(0).Top(0).Size(ww, wh).Background(ui.Hex("#000000").Alpha(0.72)).Cursor(ui.CursorPointer).Label("Resmi kapat").Role(ui.RoleButton)
+		back := ui.Box(c.Key("lb-back")).Absolute().Left(0).Top(0).Size(ww, wh).Background(ui.Hex("#000000").Alpha(0.72)).Cursor(ui.CursorPointer).Label(locales.PageCloseImage()).Role(ui.RoleButton)
 		back.Opacity(back.AnimateTo("in", 1, fadeQuick))
 		ui.Box(c.Key("lb-img")).Absolute().Left((ww-w)/2).Top((wh-h)/2-14).Size(w, h).PassThrough().Draw(func(p *ui.Painter, r ui.Rect) {
 			p.Clip(r, rad(12), func() { p.Image(lb.src, r, ui.Contain) })

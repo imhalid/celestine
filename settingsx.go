@@ -24,7 +24,7 @@ func defaultsApp() *app { return &app{caretKind: caretLine()} } // the caret not
 func (d settingDef) state(a *app) string {
 	switch d.kind {
 	case setToggle:
-		return map[bool]string{true: "açık", false: "kapalı"}[d.on(a)]
+		return map[bool]string{true: locales.SettingsOn(), false: locales.SettingsOff()}[d.on(a)]
 	case setNumber:
 		return d.fmt(d.val(a))
 	}

@@ -152,11 +152,16 @@ var (
 	iconCallout = icon(`<rect x="4.5" y="5.5" width="15" height="13" rx="3"/><path d="M12 9v4M12 15.4v.1"/>`)
 )
 
-var rawTemplates = []rawTemplate{
-	{"callout", "Not kutusu", "[!note]", []string{"> [!note] Not", "> Metni buraya yaz."}, 1, iconCallout},
-	{"callout", "Bilgi kutusu", "[!info]", []string{"> [!info] Bilgi", "> Metni buraya yaz."}, 1, iconCallout},
-	{"callout", "İpucu kutusu", "[!tip]", []string{"> [!tip] İpucu", "> Metni buraya yaz."}, 1, iconCallout},
-	{"callout", "Uyarı kutusu", "[!warning]", []string{"> [!warning] Uyarı", "> Metni buraya yaz."}, 1, iconCallout},
+// rawTemplates are the raw blocks of the menus, their names and their words in the window's language: the words go
+// into the page as they are.
+func rawTemplates() []rawTemplate {
+	here := "> " + locales.BlocksWriteHere()
+	return []rawTemplate{
+		{"callout", locales.BlocksNoteBox(), "[!note]", []string{"> [!note] " + locales.BlocksNoteTitle(), here}, 1, iconCallout},
+		{"callout", locales.BlocksInfoBox(), "[!info]", []string{"> [!info] " + locales.BlocksInfoTitle(), here}, 1, iconCallout},
+		{"callout", locales.BlocksTipBox(), "[!tip]", []string{"> [!tip] " + locales.BlocksTipTitle(), here}, 1, iconCallout},
+		{"callout", locales.BlocksWarningBox(), "[!warning]", []string{"> [!warning] " + locales.BlocksWarningTitle(), here}, 1, iconCallout},
+	}
 }
 
 // insertRaw puts a raw block at start (the empty line the caret is on, or

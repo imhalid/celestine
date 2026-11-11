@@ -334,7 +334,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 							a.fontRow(c, r, n, n, n == cur)
 						}
 						if more > 0 {
-							ui.Text(c, "… "+strconv.Itoa(more)+" yazı tipi daha: aramayla bul").FontSize(11.5).TextColor(cl.Muted).Padding(6, 8)
+							ui.Text(c, locales.FontsMore(more)).FontSize(11.5).TextColor(cl.Muted).Padding(6, 8)
 						}
 						if ready && len(rows) == 0 {
 							ui.Text(c, locales.FontsNoTypefaceMatches()).FontSize(12).TextColor(cl.Muted).Padding(8)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -44,7 +45,7 @@ func embedsIn(t richtext.Text) richtext.Text {
 
 // embedAttachment is the card of an embed.
 func (a *app) embedAttachment(ch *chip) *richtext.Attachment {
-	return &richtext.Attachment{Width: a.pageWidth(), Height: embedH, Name: "Gömülü sayfa: " + ch.target, Data: ch,
+	return &richtext.Attachment{Width: a.pageWidth(), Height: embedH, Name: locales.BlocksEmbeddedPage(ch.target), Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawEmbed(p, r, ch) }}
 }
 
@@ -102,11 +103,11 @@ func (a *app) drawEmbed(p *ui.Painter, r ui.Rect, ch *chip) {
 	head := ui.Span{Text: ch.target, Size: size, Weight: 680, Color: cl.Accent}
 	if target == nil {
 		head.Color = cl.Muted
-		head.Text = ch.target + "  ·  böyle bir sayfa yok"
+		head.Text = locales.BlocksEmbedMissing(ch.target)
 	}
 	p.RichText(r.X+16, r.Y+10, r.W-90, head)
 	if target != nil {
-		open := ui.Span{Text: "aç ↗", Size: 12, Color: cl.Muted}
+		open := ui.Span{Text: locales.BlocksEmbedOpen(), Size: 12, Color: cl.Muted}
 		w, _ := p.MeasureText(0, open)
 		p.RichText(r.X+r.W-w-14, r.Y+12, w+2, open)
 	}

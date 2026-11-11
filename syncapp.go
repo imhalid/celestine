@@ -122,7 +122,7 @@ func (a *app) syncRemote() (Remote, error) {
 		r = DirRemote{Root: a.settings.SyncDir}
 	case "server":
 		if a.settings.SyncURL == "" || a.settings.SyncToken == "" {
-			return nil, errors.New("sunucu adresi ya da jeton yok")
+			return nil, errors.New(locales.SyncErrNoServer())
 		}
 		r = NewHTTPRemote(a.settings.SyncURL, a.settings.SyncToken)
 	default:
@@ -130,11 +130,11 @@ func (a *app) syncRemote() (Remote, error) {
 	}
 	// end-to-end encryption is not a choice: nothing leaves this computer before a passphrase has made the key
 	if a.settings.SyncKey == "" {
-		return nil, errors.New("önce bir parola yaz: eşitleme şifresiz çalışmaz")
+		return nil, errors.New(locales.SyncErrNoPassphrase())
 	}
 	key, err := base64.StdEncoding.DecodeString(a.settings.SyncKey)
 	if err != nil {
-		return nil, errors.New("şifreleme anahtarı bozuk")
+		return nil, errors.New(locales.SyncErrKeyBroken())
 	}
 	return NewEncRemote(r, key)
 }
@@ -615,7 +615,7 @@ func (a *app) resolveConflict(name string, use bool) error {
 		}
 		main := mainOfConflict(name)
 		if main == "" {
-			return errors.New("asıl dosya bulunamadı")
+			return errors.New(locales.SyncErrOriginalMissing())
 		}
 		if err := st.WriteFile(filepath.Join(root, filepath.FromSlash(main)), b); err != nil {
 			return err

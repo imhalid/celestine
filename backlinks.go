@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -135,7 +136,7 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 	cl := t.Colors
 	box.Children(func() {
 		ui.Box(c.Key("bl-line")).FillWidth().Height(1).Background(cl.Hairline).Margin(0, 0, 10, 0)
-		ui.Text(c, strconv.Itoa(len(links))+" sayfa bu sayfaya bağlanıyor").FontSize(12).FontWeight(650).TextColor(cl.Muted).Padding(0, 6, 4, 6)
+		ui.Text(c, locales.PageBacklinkCount(len(links))).FontSize(12).FontWeight(650).TextColor(cl.Muted).Padding(0, 6, 4, 6)
 		for _, q := range links {
 			q := q
 			row := ui.Column(c.Key("bl:"+q.Dir)).FillWidth().Padding(6, 8).Gap(2).Radius(rad(8)).

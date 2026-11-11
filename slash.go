@@ -57,7 +57,7 @@ type menuItem struct {
 func slashItems(q string) []struct{ kind, name, md string } {
 	var out []struct{ kind, name, md string }
 	for _, k := range blockKinds {
-		if q == "" || match(q, k.name) >= 0 || strings.HasPrefix(k.md, q) {
+		if q == "" || match(q, k.name) >= 0 || match(q, T(k.name)) >= 0 || strings.HasPrefix(k.md, q) {
 			out = append(out, k)
 		}
 	}
@@ -259,7 +259,7 @@ func (a *app) rawItems(q string) []menuItem {
 	if q == "" || match(q, locales.SlashFootnote()) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
 		out = append(out, menuItem{title: locales.SlashFootnote(), sub: locales.SlashAMarkHereNote(), glyph: iconFootnote, group: "Ekle", run: a.chooseFootnote})
 	}
-	for _, r := range rawTemplates {
+	for _, r := range rawTemplates() {
 		r := r
 		if q != "" && match(q, r.name) < 0 {
 			continue

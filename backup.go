@@ -229,12 +229,12 @@ func applyRestore(dir, file string, now time.Time) (string, error) {
 	src := strings.TrimSpace(string(b))
 	tmp := file + ".restoring"
 	if err := gunzipFile(src, tmp); err != nil {
-		return "", fmt.Errorf("yedek açılamadı: %w", err)
+		return "", fmt.Errorf("%s: %w", locales.BackupErrOpen(), err)
 	}
 	test, err := OpenStore(tmp) // a file that does not open is not put in place
 	if err != nil {
 		os.Remove(tmp)
-		return "", fmt.Errorf("yedek bir kitaplık değil: %w", err)
+		return "", fmt.Errorf("%s: %w", locales.BackupErrNotLibrary(), err)
 	}
 	test.Close()
 	kept := ""
@@ -255,7 +255,7 @@ func applyRestore(dir, file string, now time.Time) (string, error) {
 	if err := os.Rename(tmp, file); err != nil {
 		return "", err
 	}
-	return "Yedek geri yüklendi: " + filepath.Base(src) + "; önceki dosya: " + filepath.Base(kept), nil
+	return locales.BackupRestored(filepath.Base(src), filepath.Base(kept)), nil
 }
 
 // zipDir writes the folder as a zip.

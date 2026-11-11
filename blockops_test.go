@@ -108,7 +108,7 @@ func TestDuplicateDeleteTurn(t *testing.T) {
 
 // Ekle… puts in a table and a callout as raw blocks: written as Markdown, read back as they are.
 func TestInsertRawBlocks(t *testing.T) {
-	for _, r := range rawTemplates {
+	for _, r := range rawTemplates() {
 		a, tt := newTestApp(t, "Önce\n")
 		tt.Frame()
 		n := a.doc.Text().Len()

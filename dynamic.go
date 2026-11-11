@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -40,7 +41,7 @@ func (a *app) saveSearchButton(c *ui.Context) {
 	if strings.TrimSpace(a.searchQ) == "" {
 		return
 	}
-	if ryugo.Button(c.Key("search-save"), "Koleksiyon olarak kaydet", ryugo.ButtonOptions{Icon: iconSearch, Size: ryugo.Sm}).Clicked() {
+	if ryugo.Button(c.Key("search-save"), locales.QuerySaveAsCollection(), ryugo.ButtonOptions{Icon: iconSearch, Size: ryugo.Sm}).Clicked() {
 		a.saveSearch(a.searchQ)
 	}
 }

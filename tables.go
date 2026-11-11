@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -156,7 +157,7 @@ func footText(col tableCol, v string) string {
 	if col.Kind == kindCheck {
 		return v
 	}
-	return strings.ToLower(calcNames[col.Calc]) + " " + v
+	return strings.ToLower(calcName(col.Calc)) + " " + v
 }
 
 // shownText is what a cell says: a date as the day reads, the rest as written.
@@ -359,7 +360,7 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 			}
 			spans := []ui.Span{{Text: v, Size: size * 0.92, Weight: 620, Color: th.Text}}
 			if col.Kind != kindCheck {
-				spans = append([]ui.Span{{Text: strings.ToLower(calcNames[col.Calc]) + " ", Size: size * 0.8, Color: th.TextMuted}}, spans...)
+				spans = append([]ui.Span{{Text: strings.ToLower(calcName(col.Calc)) + " ", Size: size * 0.8, Color: th.TextMuted}}, spans...)
 			}
 			a.placeText(p, cell, spans, col.Align, tableFootH)
 		}
@@ -390,7 +391,7 @@ func (a *app) drawFilterStrip(p *ui.Painter, strip ui.Rect, ch *chip, shown int,
 	a.tableHits = append(a.tableHits, tableHit{strip, ch, -2, 0})
 	a.placeText(p, ui.Rect{X: strip.X, Y: strip.Y, W: strip.W - 26, H: strip.H}, label, 0, strip.H)
 	if words != "" {
-		count := []ui.Span{{Text: itoa(shown) + "/" + itoa(len(m.rows)) + " satır", Size: size * 0.8, Color: th.TextMuted}}
+		count := []ui.Span{{Text: locales.TablesRowsShown(shown, len(m.rows)), Size: size * 0.8, Color: th.TextMuted}}
 		lw, _ := p.MeasureText(4000, label...)
 		cwid, _ := p.MeasureText(4000, count...)
 		if lw+cwid+2*tablePadX+30 <= strip.W { // the count only where the words leave room
@@ -758,7 +759,7 @@ func (a *app) cellEditView(c *ui.Context) {
 	box := ui.Rect{X: r.X, Y: r.Y, W: max(r.W, tw+2*11+12), H: r.H}
 	ui.Overlay(c, func() {
 		in := ui.TextInputBase(c.Key("cell-in:"+strconv.Itoa(ce.row)+":"+strconv.Itoa(ce.col)), &ce.text).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
-			Label("Hücre").FontSize(a.fontSize()*0.95).Padding(0, 11).Background(cl.Card).Radius(rad(3)).Border(1.5, cl.Accent).FocusRing(false).CaretWidth(0)
+			Label(locales.TablesCell()).FontSize(a.fontSize()*0.95).Padding(0, 11).Background(cl.Card).Radius(rad(3)).Border(1.5, cl.Accent).FocusRing(false).CaretWidth(0)
 		a.fieldMenu(in, &ce.text, fieldOpts{oneLine: true})
 		a.wheelToPage(in)
 		if ce.fresh {
@@ -877,21 +878,21 @@ func (a *app) cellEditView(c *ui.Context) {
 					}
 				}
 				row, ci := ce.row, ce.col
-				btn(iconRowAdd, "Alta satır ekle", false, func(m *tableModel) { m.addRow(row) })
-				btn(iconColAdd, "Sağa sütun ekle", false, func(m *tableModel) { m.addCol(ci) })
-				btn(iconRowDel, "Satırı sil", true, func(m *tableModel) { m.delRow(row) })
-				btn(iconColDel, "Sütunu sil", true, func(m *tableModel) { m.delCol(ci) })
-				btn(iconKind, "Sütun türü: "+kindNames[col.Kind], false, func(m *tableModel) { m.setKind(ci, nextOf(tableKinds, m.cols[ci].Kind)) })
+				btn(iconRowAdd, locales.TablesAddRowBelow(), false, func(m *tableModel) { m.addRow(row) })
+				btn(iconColAdd, locales.TablesAddColumnRight(), false, func(m *tableModel) { m.addCol(ci) })
+				btn(iconRowDel, locales.TablesDeleteRow(), true, func(m *tableModel) { m.delRow(row) })
+				btn(iconColDel, locales.TablesDeleteColumn(), true, func(m *tableModel) { m.delCol(ci) })
+				btn(iconKind, locales.TablesColumnKind(kindName(col.Kind)), false, func(m *tableModel) { m.setKind(ci, nextOf(tableKinds, m.cols[ci].Kind)) })
 				btn(iconAlign, "Hizalama", false, func(m *tableModel) { m.cols[ci].Align = (m.cols[ci].Align + 1) % 3 })
-				btn(iconCalc, "Alt satır: "+calcNames[col.Calc], false, func(m *tableModel) { m.cols[ci].Calc = m.cols[ci].nextCalc() })
-				sortLabel := "Bu sütuna göre sırala"
+				btn(iconCalc, locales.TablesFooter(calcName(col.Calc)), false, func(m *tableModel) { m.cols[ci].Calc = m.cols[ci].nextCalc() })
+				sortLabel := locales.TablesSortBy()
 				if ce.ch.tbl.sortedAsc(ci) {
-					sortLabel = "Bu sütuna göre sırala (azalan)"
+					sortLabel = locales.TablesSortByDesc()
 				}
 				btn(iconSort, sortLabel, false, func(m *tableModel) { m.toggleSort(ci) })
 				filterLabel := "Filtrele"
 				if ce.ch.tbl.Filter != "" {
-					filterLabel = "Filtreyi düzenle"
+					filterLabel = locales.TablesEditFilter()
 				}
 				fb := ui.Box(c.Key("cell-filter")).Size(26, 26).Radius(rad(7)).Center().Label(filterLabel).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				ryugo.Tooltip(c, fb, filterLabel)
@@ -908,7 +909,7 @@ func (a *app) cellEditView(c *ui.Context) {
 					})
 					a.cellEd = cellEdit{open: true, ch: nc, row: -2, text: strings.TrimSpace(nc.tbl.Filter), fresh: true}
 				}
-				btn(iconCopy, "CSV olarak kopyala", false, nil)
+				btn(iconCopy, locales.TablesCopyCSV(), false, nil)
 				// undo and redo, faint when there is nothing to go back or forward to
 				history := func(glyph *ui.SVG, label string, can bool, run func()) {
 					b := ui.Box(c.Key(label)).Size(26, 26).Radius(rad(7)).Center().Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).

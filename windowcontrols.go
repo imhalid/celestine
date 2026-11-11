@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -52,8 +53,8 @@ func (a *app) windowControls(c *ui.Context) {
 				do()
 			}
 		}
-		btn(iconMinimize, "Küçült", false, a.win.Minimize)
-		btn(iconMaximize, "Büyüt", false, a.win.ToggleMaximize)
+		btn(iconMinimize, locales.WindowMinimize(), false, a.win.Minimize)
+		btn(iconMaximize, locales.WindowMaximize(), false, a.win.ToggleMaximize)
 		btn(iconWinClose, "Kapat", true, a.win.Close)
 	})
 }

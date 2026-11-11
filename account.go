@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -94,7 +95,7 @@ func unwrapDataKey(kek []byte, s string) ([]byte, error) {
 	}
 	key, err := g.Open(nil, raw[:g.NonceSize()], raw[g.NonceSize():], nil)
 	if err != nil {
-		return nil, errors.New("şifre çözülemedi") // the server said the proof was good, so this is a damaged blob
+		return nil, errors.New(locales.AccountErrDecrypt()) // the server said the proof was good, so this is a damaged blob
 	}
 	return key, nil
 }
@@ -161,7 +162,7 @@ func (c *acctClient) call(method, path, token string, in, out any) error {
 		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
 			return errors.New(e.Error)
 		}
-		return fmt.Errorf("sunucu %d döndü", resp.StatusCode)
+		return errors.New(locales.AccountErrServer(strconv.Itoa(resp.StatusCode)))
 	}
 	if out != nil {
 		return json.Unmarshal(raw, out)

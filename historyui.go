@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -147,9 +146,9 @@ func (a *app) historyView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	now := a.clock()
 	ryugo.Dialog(c.Key("history"), &v.open, ryugo.DialogOptions{Title: T(map[bool]string{true: "Sunucudaki sürümler: ", false: "Sürüm geçmişi: "}[v.server]) + v.page.Title, Width: 940, Footer: func() {
-		hint := "Sayfanın bir süre önceki halleri; her 5 dakikada bir yeni kopya tutulur."
+		hint := locales.HistoryHint()
 		if len(v.vers) == 0 {
-			hint = "Henüz kopya yok: sayfa değiştikçe burada birikir."
+			hint = locales.HistoryNoCopies()
 		}
 		if v.server {
 			hint = "Sunucunun tuttuğu eski haller: en çok 10, 30 gün; bir hâle dönünce bu bilgisayardaki sayfa o olur ve eşitlenir."
@@ -181,7 +180,7 @@ func (a *app) historyView(c *ui.Context) {
 					for i, ver := range v.vers {
 						i, ver := i, ver
 						row := ui.Column(c.Key("hv:"+strconv.FormatInt(ver.ID, 10))).FillWidth().Padding(7, 10).Radius(rad(9)).Gap(1).
-							Label("Sürüm: " + dateTime(ver.At, false)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+							Label(locales.HistoryVersionLabel(dateTime(ver.At, false))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case i == v.sel:
 							row.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Card, cl.Accent, 0.26), To: ryugo.Mix(cl.Card, cl.Accent, 0.14)}).Border(1, cl.Accent.Alpha(0.4))
@@ -229,7 +228,7 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []DiffOp) {
 		ui.Text(c, locales.HistoryThisVersionSameAs()).FontSize(13).TextColor(cl.Muted).Padding(8, 4)
 		return
 	}
-	ui.Text(c, strconv.Itoa(adds)+" satır geri gelir, "+strconv.Itoa(dels)+" satır gider").FontSize(12).FontWeight(600).TextColor(cl.Muted).Padding(0, 4, 6, 4)
+	ui.Text(c, locales.HistoryDiffCounts(adds, dels)).FontSize(12).FontWeight(600).TextColor(cl.Muted).Padding(0, 4, 6, 4)
 	const edge = 2
 	for i := 0; i < len(ops); {
 		if ops[i].Kind == '=' {
@@ -241,7 +240,7 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []DiffOp) {
 				for k := i; k < i+edge; k++ {
 					a.diffRow(c, cl, k, ops[k])
 				}
-				ui.Text(c.Key("skip"+strconv.Itoa(i)), fmt.Sprintf("⋯ %d satır aynı", j-i-2*edge)).FontSize(11.5).TextColor(cl.Muted.Alpha(0.8)).Padding(3, 4)
+				ui.Text(c.Key("skip"+strconv.Itoa(i)), locales.HistorySameLines(j-i-2*edge)).FontSize(11.5).TextColor(cl.Muted.Alpha(0.8)).Padding(3, 4)
 				for k := j - edge; k < j; k++ {
 					a.diffRow(c, cl, k, ops[k])
 				}
@@ -311,7 +310,7 @@ func (a *app) saveNamedVersion() {
 	v := &a.vhist
 	name := strings.TrimSpace(v.label)
 	if name == "" {
-		name = "Sakladığım sürüm"
+		name = locales.HistoryKeptVersion()
 	}
 	h, ok := historyOf(v.page)
 	if !ok {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -33,10 +33,10 @@ func (a *app) setCover(p *Page, data []byte) error {
 func checkImage(data []byte) (string, error) {
 	ext := imageExt(data)
 	if ext == "" {
-		return "", fmt.Errorf("%s", notImage)
+		return "", errors.New(notImage())
 	}
 	if _, err := decodeCheck(data); err != nil {
-		return "", fmt.Errorf("%s", notImage)
+		return "", errors.New(notImage())
 	}
 	return ext, nil
 }
@@ -115,7 +115,7 @@ func (a *app) pickCover(p *Page) {
 	go func() {
 		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:   "Kapak resmi seç",
+			Title:   locales.PageChooseCover(),
 			Filters: []mygo.FileFilter{{Name: "Resimler", Extensions: []string{"png", "jpg", "jpeg", "gif", "webp", "svg"}}},
 		})
 		if err != nil || len(paths) == 0 {

@@ -166,7 +166,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, locales.SidebarCollections()).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
-					if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
+					if a.iconButton(c, iconCollapseAll, locales.SidebarCollapseAll()) {
 						a.collapseAll()
 					}
 					if a.iconButton(c, iconPlus, "Yeni koleksiyon") {

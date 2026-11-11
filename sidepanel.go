@@ -111,7 +111,7 @@ func panelTitle(c *ui.Context, cl ryugo.Colors, s string) {
 
 func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 	ui.Column(c.Key("panel-outline")).FillWidth().Gap(1).Children(func() {
-		panelTitle(c, cl, "İÇİNDEKİLER")
+		panelTitle(c, cl, locales.PanesContents())
 		hs := a.outline()
 		if len(hs) == 0 {
 			ui.Text(c, locales.PanesThePageHasNo()).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
@@ -142,7 +142,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 	links := a.linksTo(p, a.clock(), false)
 	ui.Column(c.Key("panel-links")).FillWidth().Gap(1).Children(func() {
-		panelTitle(c, cl, "BAĞLANANLAR")
+		panelTitle(c, cl, locales.PanesLinkedFrom())
 		if len(links) == 0 {
 			ui.Text(c, locales.PanesNothingLinksThisPage()).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
 			return
@@ -172,24 +172,24 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 func (a *app) panelInfo(c *ui.Context, cl ryugo.Colors, p *Page) {
 	words, chars := a.docStats()
 	rows := [][2]string{
-		{"Koleksiyon", p.Coll.Name},
-		{"Oluşturuldu", shortDate(p.Created)},
-		{"Değiştirildi", ago(p.Modified, a.clock())},
-		{"Kelime", strconv.Itoa(words)},
-		{"Harf", strconv.Itoa(chars)},
-		{"Okuma süresi", readingTime(words)},
+		{locales.PanesInfoCollection(), p.Coll.Name},
+		{locales.PanesInfoCreated(), shortDate(p.Created)},
+		{locales.PanesInfoModified(), ago(p.Modified, a.clock())},
+		{locales.PanesInfoWords(), strconv.Itoa(words)},
+		{locales.PanesInfoChars(), strconv.Itoa(chars)},
+		{locales.PanesInfoReading(), readingTime(words)},
 	}
 	if n := len(a.linksTo(p, a.clock(), false)); n > 0 {
-		rows = append(rows, [2]string{"Geri bağlantı", strconv.Itoa(n)})
+		rows = append(rows, [2]string{locales.PanesInfoBacklinks(), strconv.Itoa(n)})
 	}
 	if n := len(p.Children); n > 0 {
-		rows = append(rows, [2]string{"Alt sayfa", strconv.Itoa(n)})
+		rows = append(rows, [2]string{locales.PanesInfoChildren(), strconv.Itoa(n)})
 	}
 	if p.Parent != nil {
-		rows = append(rows, [2]string{"Üst sayfa", p.Parent.Title})
+		rows = append(rows, [2]string{locales.PanesInfoParent(), p.Parent.Title})
 	}
 	ui.Column(c.Key("panel-info")).FillWidth().Gap(1).Children(func() {
-		panelTitle(c, cl, "BİLGİ")
+		panelTitle(c, cl, locales.PanesInfo())
 		for _, r := range rows {
 			if r[1] == "" {
 				continue

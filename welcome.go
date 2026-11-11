@@ -450,7 +450,7 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 		stage.Children(func() {
 			rises(ui.Text(c.Key("w-head"), "Celestine").FontSize(40).FontWeight(720).TextColor(cl.Text).TextAlign(ui.Center), welHead)
 			ui.Box(c.Key("w-gap1")).Height(10)
-			rises(ui.Text(c.Key("w-sub"), "The notes app you've been looking for.").FontSize(15.5).TextColor(cl.Text2).TextAlign(ui.Center), welHead+0.08)
+			rises(ui.Text(c.Key("w-sub"), locales.WelcomeTagline()).FontSize(15.5).TextColor(cl.Text2).TextAlign(ui.Center), welHead+0.08)
 			ui.Box(c.Key("w-gap2")).Height(0) // Başla's box has its glow's room round it
 			glow, b := a.welcomeButton(c)
 			rises(glow, welButton)

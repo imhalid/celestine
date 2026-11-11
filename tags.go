@@ -200,9 +200,9 @@ func (a *app) tagView(c *ui.Context) {
 				a.tagRen = tagRename{open: true, key: a.tag, name: name}
 			}
 		})
-		sub := strconv.Itoa(len(pages)) + " sayfa bu etiketi taşıyor"
+		sub := locales.TagsPagesWithTag(len(pages))
 		if len(pages) == 0 {
-			sub = "Bu etiketi taşıyan sayfa yok."
+			sub = locales.TagsNoPages()
 		}
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
 		if len(all) > 1 {
@@ -273,7 +273,7 @@ func (a *app) panelTags(c *ui.Context, cl ryugo.Colors) {
 		all[ti.key] = ti
 	}
 	ui.Column(c.Key("panel-tags")).FillWidth().Gap(4).Children(func() {
-		panelTitle(c, cl, "ETİKETLER")
+		panelTitle(c, cl, locales.PanesTags())
 		ui.Row(c).FillWidth().Wrap().Gap(6).Children(func() {
 			for _, n := range names {
 				ti, ok := all[tagKey(n)]
@@ -311,7 +311,7 @@ func (a *app) tagItems(q string) []menuItem {
 		}
 		exact = exact || ti.key == tagKey(q)
 		name := ti.name
-		out = append(out, menuItem{title: "#" + name, hint: strconv.Itoa(len(ti.pages)) + " sayfa", glyph: iconTag, run: func() { a.chooseTag(name) }})
+		out = append(out, menuItem{title: "#" + name, hint: locales.CommonPageCount(len(ti.pages)), glyph: iconTag, run: func() { a.chooseTag(name) }})
 		if len(out) == 8 {
 			break
 		}
@@ -351,7 +351,7 @@ type tagRename struct {
 func (a *app) renameTag(key, newName string) (int, error) {
 	newName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(newName), "#"))
 	if newName == "" || !tagWord.MatchString(" #"+newName) || !tagQuery.MatchString(newName) || tagWord.FindStringSubmatch(" #" + newName)[2] != newName {
-		return 0, errors.New("etiket harfle başlar; harf, rakam, - _ / içerir")
+		return 0, errors.New(locales.TagsErrInvalid())
 	}
 	a.flush()
 	a.linksStale()

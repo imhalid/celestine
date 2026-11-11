@@ -23,7 +23,7 @@ func (a *app) propTags(c *ui.Context, p *Page, pr *Property, key string) {
 	tags := SplitTags(p.Props[pr.ID])
 	before := strings.Join(tags, ", ")
 	ui.Box(c.Key("prop-val:" + key)).Grow(1).MinWidth(0).Children(func() {
-		a.tagsField(c, "prop-tags:"+key, &tags, locales.PropsAddTag(), pr.Name+" değeri")
+		a.tagsField(c, "prop-tags:"+key, &tags, locales.PropsAddTag(), locales.PropsValueLabel(pr.Name))
 	})
 	if now := strings.Join(tags, ", "); now != before {
 		a.setValue(p, pr.ID, now)
@@ -36,7 +36,7 @@ func (a *app) propPageLink(c *ui.Context, p *Page, pr *Property, key string) {
 	t := c.Theme()
 	target := a.lib.PageAt(p.Props[pr.ID])
 	kc := c.Key("prop-val:" + key)
-	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(pr.Name + " değeri").Cursor(ui.CursorPointer).FocusRing(false)
+	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(locales.PropsValueLabel(pr.Name)).Cursor(ui.CursorPointer).FocusRing(false)
 	a.contextOn(tr, func() []menuItem { return a.propRowMenu(p, pr) })
 	open := ui.Local(tr, "open", func() bool { return false })
 	query := ui.Local(tr, "query", func() string { return "" })
@@ -108,7 +108,7 @@ func (a *app) propFile(c *ui.Context, p *Page, pr *Property, key string) {
 	name := p.Props[pr.ID]
 	file := filepath.Join(p.Dir, name)
 	kc := c.Key("prop-val:" + key)
-	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(pr.Name + " değeri").Cursor(ui.CursorPointer).FocusRing(false)
+	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(locales.PropsValueLabel(pr.Name)).Cursor(ui.CursorPointer).FocusRing(false)
 	a.contextOn(tr, func() []menuItem { return a.propRowMenu(p, pr) })
 	open := ui.Local(tr, "open", func() bool { return false })
 	if tr.Clicked() {

@@ -238,12 +238,12 @@ func (a *app) tasksView(c *ui.Context) {
 	}
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, locales.CommonTasks()).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		ui.Text(c, strconv.Itoa(open)+" açık, "+strconv.Itoa(done)+" tamamlandı  ·  sayfalardaki - [ ] satırları").
+		ui.Text(c, locales.TasksCounts(open, done)).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
 			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{"Açık", "Tamamlanan", "Hepsi"}, ryugo.SegmentedOptions{Label: "Görevler", Size: ryugo.Sm})
 			if a.taskFilter == 0 { // the open ones by their day
-				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{"Hepsi", "Bugün", "Bu hafta", "Gecikmiş"}, ryugo.SegmentedOptions{Label: locales.TasksDay(), Size: ryugo.Sm})
+				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{locales.TasksDueAll(), locales.TasksDueToday(), locales.TasksDueWeek(), locales.TasksDueLate()}, ryugo.SegmentedOptions{Label: locales.TasksDay(), Size: ryugo.Sm})
 			}
 			ui.Spacer(c)
 			if len(kinds) > 1 || a.taskKindF != "" {
@@ -307,11 +307,11 @@ func (a *app) noTasks(c *ui.Context, none bool) {
 	o := ryugo.EmptyStateOptions{Icon: iconTask, Title: locales.TasksNoTaskFitsThis(), Description: locales.TasksLoosenFilterTheyShow()}
 	switch {
 	case none:
-		o.Title, o.Description = "Henüz görev yok", "Bir sayfada [] yazınca görev olur; burada hepsi, sayfalarına göre durur."
+		o.Title, o.Description = locales.TasksEmptyTitle(), locales.TasksEmptyHelp()
 	case a.taskFilter == 1:
-		o.Title, o.Description = "Tamamlanan görev yok", "Bir görevi işaretleyince buraya gelir."
+		o.Title, o.Description = locales.TasksNoneDone(), locales.TasksNoneDoneHelp()
 	case a.taskFilter == 0 && a.taskDue == 0 && a.taskColl == "" && a.taskKindF == "" && strings.TrimSpace(a.taskQuery) == "":
-		o.Title, o.Description = "Açık görev kalmadı", "Hepsi tamam."
+		o.Title, o.Description = locales.TasksNoneOpen(), locales.TasksAllDone()
 	}
 	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0 || a.taskKindF != "") {
 		o.Action = func() {
@@ -376,7 +376,7 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 	var fold ui.Element
 	head.Children(func() {
 		fold = ui.Box(c.Key("tgh-fold")).Size(26, 26).Shrink(0).Radius(rad(7)).Center().Cursor(ui.CursorPointer).
-			Label(map[bool]string{true: "Görevleri aç: ", false: "Görevleri kapat: "}[folded] + p.Title).Role(ui.RoleButton)
+			Label(map[bool]string{true: locales.TasksUnfoldLabel(p.Title), false: locales.TasksFoldLabel(p.Title)}[folded]).Role(ui.RoleButton)
 		if fold.Hovered() {
 			fold.Background(cl.Fill)
 		}

@@ -59,14 +59,14 @@ func (a *app) collectionView(c *ui.Context) {
 						c.Key("coll-name:" + coll.Dir)
 						name := ui.TextInputBase(c, &a.collName).Label(locales.ViewsCollectionName()).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 						a.fieldMenu(name, &a.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
-							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), "Adsız koleksiyon")); err != nil {
+							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), locales.ViewsUntitledCollection())); err != nil {
 								a.fail(err)
 							}
 						}})
 						if name.Changed() {
 							n := strings.TrimSpace(a.collName)
 							if n == "" {
-								n = "Adsız koleksiyon"
+								n = locales.ViewsUntitledCollection()
 							}
 							if err := coll.Rename(n); err != nil {
 								a.fail(err)
@@ -116,7 +116,7 @@ func (a *app) collectionView(c *ui.Context) {
 								}
 							}
 							if v.Type == "list" || v.Type == "table" {
-								if ryugo.Button(c.Key("bulk-on"), map[bool]string{true: "Seçimi bitir", false: "Seç"}[a.bulk.on], ryugo.ButtonOptions{Icon: iconTask, Size: ryugo.Sm}).Clicked() {
+								if ryugo.Button(c.Key("bulk-on"), map[bool]string{true: locales.ViewsDoneSelecting(), false: locales.ViewsSelect()}[a.bulk.on], ryugo.ButtonOptions{Icon: iconTask, Size: ryugo.Sm}).Clicked() {
 									if a.bulk.on {
 										a.bulkClear()
 									} else {
@@ -166,11 +166,11 @@ func (a *app) collectionView(c *ui.Context) {
 								case len(pages) == 0 && len(v.Filters) > 0 && a.search == "":
 									a.emptyState(c, iconFilter, locales.ViewsNoPageMeetsThis(), locales.ViewsTheViewShowsOnly(), locales.ViewsEditFilters(), func() { a.editViewFilters(coll, v) })
 								case len(pages) == 0 && a.search != "":
-									a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "“"+a.search+"” bu koleksiyonda bir sayfayla eşleşmiyor.", "Aramayı temizle", func() { a.search = "" })
+									a.emptyState(c, iconSearch, locales.ViewsNoMatchTitle(), locales.ViewsNoMatchHelp(a.search), locales.ViewsClearSearch(), func() { a.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
 									a.emptyState(c, iconSearch, "Sorguyla eşleşen sayfa yok", "Bu koleksiyon, sorgusunun bulduğu sayfaları gösterir: "+coll.Query, "", nil)
 								case len(pages) == 0:
-									a.emptyState(c, collGlyph(coll), "Bu koleksiyon boş", "Aşağıdaki satırla ilk sayfayı yaz.", "", nil)
+									a.emptyState(c, collGlyph(coll), locales.ViewsEmptyTitle(), locales.ViewsEmptyHelp(), "", nil)
 								case v.Type == "board":
 									a.boardView(c, coll, v, pages)
 								case v.Type == "table":
@@ -599,7 +599,7 @@ type column struct {
 func tableColumns(coll *Collection, v *View) []column {
 	cols := []column{{label: "Başlık", field: "title", cell: func(p *Page, _ time.Time) string { return p.Title }}}
 	byKey := map[string]column{
-		"parent":   {label: "Üst sayfa", width: 150, cell: func(p *Page, _ time.Time) string { return Parents(p) }},
+		"parent":   {label: locales.ViewsParent(), width: 150, cell: func(p *Page, _ time.Time) string { return Parents(p) }},
 		"created":  {label: "Oluşturulma", field: "created", width: 140, cell: func(p *Page, _ time.Time) string { return shortDate(p.Created) }},
 		"modified": {label: "Değiştirilme", field: "modified", width: 130, cell: func(p *Page, now time.Time) string { return ago(p.Modified, now) }},
 	}
@@ -698,10 +698,10 @@ const layoutSettle = 400 * time.Millisecond
 
 // tableLabels are the table's words.
 var tableLabels = ryugo.TableLabels{
-	Search: "Ara", Selected: "%d seçili", Clear: "Temizle",
-	SelectRow: "Satırı seç", SelectAll: "Hepsini seç", Details: "Ayrıntı",
-	NoRows: "Sayfa yok", LoadError: "Sayfalar okunamadı", TryAgain: "Yeniden dene",
-	Pagination: ryugo.PaginationLabels{Group: "Sayfalar", Of: "/", Previous: "Önceki sayfa", Next: "Sonraki sayfa", Page: "Sayfa", Current: "geçerli"},
+	Search: locales.ViewsSearch(), Selected: locales.ViewsSelectedFormat(), Clear: locales.ViewsClear(),
+	SelectRow: locales.ViewsSelectRow(), SelectAll: locales.ViewsSelectAll(), Details: locales.ViewsDetails(),
+	NoRows: locales.ViewsNoRows(), LoadError: locales.ViewsLoadError(), TryAgain: locales.ViewsTryAgain(),
+	Pagination: ryugo.PaginationLabels{Group: locales.ViewsPages(), Of: "/", Previous: locales.ViewsPreviousPage(), Next: locales.ViewsNextPage(), Page: locales.ViewsPage(), Current: locales.ViewsCurrent()},
 }
 
 // pagesCalc is what a table's foot says under column col for rows: the sum, the mean, the least or the most of a
@@ -745,7 +745,7 @@ func pagesCalc(calc string, col column, rows []*Page) string {
 
 // footName is what a calculation of a table's foot is called, in the window's language.
 func footName(calc string) string {
-	return T(map[string]string{"sum": "Toplam", "avg": "Ortalama", "min": "En küçük", "max": "En büyük", "count": "Adet"}[calc])
+	return calcName(calc)
 }
 
 // tableOf is the state of the table of view v of collection coll.
@@ -1050,7 +1050,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 					}
 					title := s
 					if s == "" {
-						title = pr.Name + " yok"
+						title = locales.ViewsNoValue(pr.Name)
 					}
 					s := s
 					id := coll.Dir + "|" + v.ID + "|" + s
@@ -1154,13 +1154,13 @@ func cardLookOf(v *View) cardLook {
 // chosen.
 func (a *app) boardCardMenu(c *ui.Context, coll *Collection, pr *Property, p *Page) []menuItem {
 	items := a.pageMenu(p, false)
-	move := a.into("Grubu değiştir", iconBoard, func() []menuItem {
+	move := a.into(locales.ViewsChangeGroup(), iconBoard, func() []menuItem {
 		var out []menuItem
 		for _, s := range append([]string{""}, pr.Options...) {
 			s := s
 			title := s
 			if s == "" {
-				title = pr.Name + " yok"
+				title = locales.ViewsNoValue(pr.Name)
 			}
 			tone := columnTone(c, s)
 			it := menuItem{title: title, dot: &tone, run: func() {
@@ -1172,7 +1172,7 @@ func (a *app) boardCardMenu(c *ui.Context, coll *Collection, pr *Property, p *Pa
 				}
 			}}
 			if p.Value(pr) == s {
-				it.hint = "şimdi burada"
+				it.hint = locales.ViewsHereNow()
 			}
 			out = append(out, it)
 		}

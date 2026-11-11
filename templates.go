@@ -117,10 +117,10 @@ func (a *app) templateItems(q string) []menuItem {
 	var out []menuItem
 	for _, t := range a.page.Coll.AllTemplates() {
 		t := t
-		if q != "" && match(q, "Şablon "+t.Name) < 0 {
+		if q != "" && match(q, "Şablon "+t.Name) < 0 && match(q, locales.TemplatesTemplateLabel(t.Name)) < 0 {
 			continue
 		}
-		out = append(out, menuItem{title: "Şablon: " + t.Name, sub: firstLine(t.Body), glyph: iconTemplate, group: "Şablonlar", run: func() { a.chooseTemplate(t) }})
+		out = append(out, menuItem{title: locales.TemplatesTemplateLabel(t.Name), sub: firstLine(t.Body), glyph: iconTemplate, group: "Şablonlar", run: func() { a.chooseTemplate(t) }})
 	}
 	return out
 }
@@ -150,6 +150,6 @@ func (a *app) csTemplates(c *ui.Context) {
 		d.Templates = append(d.Templates[:drop], d.Templates[drop+1:]...)
 	}
 	if ryugo.Button(c.Key("cs-tpl-add"), locales.TemplatesAddTemplate(), ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
-		d.Templates = append(d.Templates, NamedTemplate{Name: "Yeni şablon"})
+		d.Templates = append(d.Templates, NamedTemplate{Name: locales.TemplatesNewTemplate()})
 	}
 }

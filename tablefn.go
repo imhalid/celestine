@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // What a table can do with its rows: sort them by a column, show only those
@@ -187,7 +189,7 @@ func tableFromCSV(s string) *tableModel {
 			name = strings.TrimSpace(recs[0][c])
 		}
 		if name == "" {
-			name = "Sütun " + itoa(c+1)
+			name = locales.TablesColumnN(c + 1)
 		}
 		m.cols = append(m.cols, tableCol{Name: name})
 	}

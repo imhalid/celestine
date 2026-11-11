@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestTasksOf(t *testing.T) {
@@ -251,7 +252,7 @@ func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
 	a.tasksOpen, a.coll = true, nil
 	tt.Frame()
 	tt.Advance(500 * time.Millisecond)
-	if !tt.HasText("4000 açık, 0 tamamlandı") && !tt.HasText("4000 açık, 0 tamamlandı  ·  sayfalardaki - [ ] satırları") {
+	if !tt.HasText(locales.TasksCounts(4000, 0)) {
 		t.Fatalf("not 4000 tasks: %v", tt.Texts()[:min(8, len(tt.Texts()))])
 	}
 	built := 0

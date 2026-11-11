@@ -103,7 +103,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 	key := p.Dir + "|" + pr.ID
 	ui.Row(c.Key("prop-row:" + key)).Gap(8).AlignItems(ui.Center).Children(func() {
 		name := ui.Row(c.Key("prop-name:"+pr.ID)).Width(propNameW).Shrink(0).Height(propRowH).Padding(0, 6).Radius(rad(6)).
-			AlignItems(ui.Center).Label("Özellik: " + pr.Name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			AlignItems(ui.Center).Label(locales.CollectionPropertyLabel(pr.Name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		if name.Hovered() {
 			name.Background(t.SurfaceHover)
 		}
@@ -135,7 +135,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 func (a *app) propChoice(c *ui.Context, p *Page, pr *Property, key string) {
 	t := c.Theme()
 	kc := c.Key("prop-val:" + key)
-	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(pr.Name + " değeri").Cursor(ui.CursorPointer).FocusRing(false)
+	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(locales.PropsValueLabel(pr.Name)).Cursor(ui.CursorPointer).FocusRing(false)
 	a.contextOn(tr, func() []menuItem { return a.propRowMenu(p, pr) })
 	open := ui.Local(tr, "open", func() bool { return false })
 	if tr.Clicked() {
@@ -179,7 +179,7 @@ func (a *app) propDate(c *ui.Context, p *Page, pr *Property, key string) {
 		d, _ = time.Parse("2006-01-02", v)
 	}
 	kc := c.Key("prop-val:" + key)
-	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(pr.Name + " değeri").Cursor(ui.CursorPointer).FocusRing(false)
+	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(locales.PropsValueLabel(pr.Name)).Cursor(ui.CursorPointer).FocusRing(false)
 	a.contextOn(tr, func() []menuItem { return a.propRowMenu(p, pr) })
 	open := ui.Local(tr, "open", func() bool { return false })
 	month := ui.Local(tr, "month", func() time.Time { return time.Time{} })
@@ -282,7 +282,7 @@ func (a *app) propText(c *ui.Context, p *Page, pr *Property, key string) {
 	var in ui.Element
 	cell.Children(func() {
 		in = ui.TextInputBase(kc, buf).Grow(1).MinWidth(0).Placeholder(locales.CommonEmpty()).PlaceholderColor(t.TextMuted.Alpha(0.5)).
-			TextColor(t.Text).FontSize(propFs).FocusRing(false).Label(pr.Name + " değeri")
+			TextColor(t.Text).FontSize(propFs).FocusRing(false).Label(locales.PropsValueLabel(pr.Name))
 		a.fieldMenu(in, buf, fieldOpts{oneLine: true, changed: func() { a.commitValue(p, pr.ID, key, *buf) }, more: func() []menuItem { return a.propRowMenu(p, pr) }})
 	})
 	propCell(c, cell, cell.Hovered() || in.Focused())
@@ -328,7 +328,7 @@ func (a *app) propDialog(c *ui.Context) {
 	e := &a.prop
 	title := "Özellik ekle"
 	if e.id != "" {
-		title = "Özelliği düzenle"
+		title = locales.PropsEditProperty()
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
 		if e.id != "" && ryugo.Button(c.Key("prop-delete"), locales.CommonDeleteProperty(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
@@ -359,7 +359,7 @@ func (a *app) propDialog(c *ui.Context) {
 				})
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {
-				ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonChoices(), Help: "Sırası panonun sütunları olur."}, func() {
+				ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonChoices(), Help: locales.CollectionChoicesHelp()}, func() {
 					tags := CleanOptions(strings.Split(e.options, ","))
 					before := strings.Join(tags, ",")
 					a.tagsField(c, "prop-options", &tags, locales.CommonTypeChoice(), locales.CommonAddChoice())

@@ -147,7 +147,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 					from = "Sayfa"
 				}
 			}
-			note := from + "  ·  " + ago(item.Trashed, now) + " atıldı"
+			note := locales.TrashThrownAway(from, ago(item.Trashed, now))
 			if !item.Trashed.IsZero() {
 				note += "  ·  " + locales.TrashDeletedIn(trashDaysLeft(item, now))
 			}

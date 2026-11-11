@@ -158,7 +158,7 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 	inMonth := d.Month() == month.Month()
 	canMake := a.canMakeOn(coll, field, d, now, list)
 	cell := ui.Column(c.Key("day:"+key)).Grow(1).Basis(0).MinWidth(0).Height(calRow).Padding(8).Gap(6).Radius(rad(10)).Border(1, cl.Hairline).
-		Label("Gün: " + key).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		Label(locales.CalendarDayLabel(key)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	switch {
 	case today:
 		cell.Background(ryugo.Mix(cl.Card, cl.Accent, 0.09)).Border(1, cl.Accent.Alpha(0.6))
@@ -264,7 +264,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 			ui.Column(c.Key("day-card-in")).Width(to.W).Height(to.H).Padding(10).Gap(6).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
 					ui.Text(c, formatDay("D MMMM YYYY, dddd", d)).FontSize(13).FontWeight(650).Grow(1).MaxLines(1)
-					if a.iconButton(c, iconClose, "Günü kapat") {
+					if a.iconButton(c, iconClose, locales.CalendarCloseDay()) {
 						a.calOpen = false
 					}
 				})

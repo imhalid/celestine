@@ -112,11 +112,11 @@ func (a *app) selectionBar(c *ui.Context) {
 					fn()
 				}
 			}
-			btn("sb-bold", iconBold, "Kalın (⌘B)", f.Bold == richtext.FormatOn, a.doc.ToggleBold)
-			btn("sb-italic", iconItalic, "İtalik (⌘I)", f.Italic == richtext.FormatOn, a.doc.ToggleItalic)
-			btn("sb-strike", iconStrike, "Üstü çizili", f.Strikethrough == richtext.FormatOn, a.doc.ToggleStrikethrough)
+			btn("sb-bold", iconBold, locales.SelectionBold(), f.Bold == richtext.FormatOn, a.doc.ToggleBold)
+			btn("sb-italic", iconItalic, locales.SelectionItalic(), f.Italic == richtext.FormatOn, a.doc.ToggleItalic)
+			btn("sb-strike", iconStrike, locales.SelectionStrike(), f.Strikethrough == richtext.FormatOn, a.doc.ToggleStrikethrough)
 			btn("sb-code", kindIcon["code"], "Kod", f.Code == richtext.FormatOn, a.doc.ToggleCode)
-			btn("sb-link", iconLink, "Bağlantı (⌘K)", f.Link != "", func() {
+			btn("sb-link", iconLink, locales.SelectionLink(), f.Link != "", func() {
 				if f.Link != "" {
 					a.doc.SetLink("")
 					return

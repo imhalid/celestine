@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -38,7 +39,7 @@ type importStats struct {
 }
 
 func (s importStats) String() string {
-	return fmt.Sprintf("%d koleksiyon, %d sayfa, %d resim içe alındı", s.Collections, s.Pages, s.Pictures)
+	return locales.BackupImported(s.Collections, s.Pages, s.Pictures)
 }
 
 // mdFiles are the .md files under dir, hidden folders left out.
@@ -68,7 +69,7 @@ func (a *app) importMarkdown(root string) (importStats, error) {
 	var st importStats
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
-		return st, fmt.Errorf("klasör değil: %s", root)
+		return st, errors.New(locales.BackupErrNotFolder(root))
 	}
 	groups := map[string][]string{} // a collection's name, to its files
 	var order []string
@@ -88,7 +89,7 @@ func (a *app) importMarkdown(root string) (importStats, error) {
 		}
 	}
 	if len(order) == 0 {
-		return st, fmt.Errorf("klasörde .md dosyası yok: %s", root)
+		return st, errors.New(locales.BackupErrNoMarkdown(root))
 	}
 	for _, name := range order {
 		c, err := a.lib.NewCollection(name)
@@ -231,7 +232,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 		if name := bring(strings.TrimSpace(ref)); name != "" {
 			return "![" + strings.TrimSuffix(filepath.Base(ref), filepath.Ext(ref)) + "](" + name + ")"
 		}
-		return "*(resim yok: " + ref + ")*"
+		return locales.BackupMissingPicture(ref)
 	})
 	body = embedMD.ReplaceAllStringFunc(body, func(m string) string {
 		sm := embedMD.FindStringSubmatch(m)

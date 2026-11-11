@@ -145,7 +145,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 func (a *app) applyCode() {
 	cs := &a.cs
 	if err := cs.draft.SetConfig([]byte(cs.code)); err != nil {
-		cs.err = "JSON okunamadı: " + err.Error()
+		cs.err = locales.CollectionJsonUnreadable(err.Error())
 		return
 	}
 	cs.err = ""
@@ -166,14 +166,14 @@ func (a *app) csGeneral(c *ui.Context) {
 			a.fieldMenu(ryugo.Input(c.Key("cs-query"), &d.Query, ryugo.InputOptions{Label: "Sorgu", Placeholder: "#fikir koleksiyon:Notlar"}), &d.Query, fieldOpts{oneLine: true})
 		})
 	}
-	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionDescription(), Help: "Koleksiyonun sayfasında adının altında görünür."}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionDescription(), Help: locales.CollectionDescriptionHelp()}, func() {
 		a.fieldMenu(ryugo.Input(c.Key("cs-desc"), &d.Description, ryugo.InputOptions{Label: locales.CollectionDescription(), Placeholder: locales.CollectionWhatThisCollectionFor()}), &d.Description, fieldOpts{oneLine: true})
 	})
 	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionIcon()}, func() {
 		ui.Row(c).Wrap().Gap(6).Children(func() {
 			for _, ic := range collIcons {
 				b := ui.Box(c.Key("cs-icon:"+ic.Name)).Size(34, 34).Radius(rad(8)).AlignItems(ui.Center).Justify(ui.Center).
-					Label("İkon: " + map[bool]string{true: "yığın", false: ic.Name}[ic.Name == ""]).Role(ui.RoleButton)
+					Label(locales.CollectionIconLabel(map[bool]string{true: locales.CollectionIconStack(), false: ic.Name}[ic.Name == ""])).Role(ui.RoleButton)
 				switch {
 				case d.Icon == ic.Name:
 					b.Background(cl.Accent.Alpha(0.16)).Border(1.5, cl.Accent)
@@ -211,7 +211,7 @@ func (a *app) csGeneral(c *ui.Context) {
 		})
 	})
 	if cs.coll.Journal { // how the days are titled: here and nowhere else
-		ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionTheDaysTitle(), Help: "Günlerin sayfaları bu biçimle adlandırılır; başlık sayfada yazılmaz, yalnız buradan değişir. YYYY yıl, MM ay, D gün, MMMM ay adı, dddd gün adı."}, func() {
+		ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionTheDaysTitle(), Help: locales.CollectionDayTitleHelp()}, func() {
 			ui.Column(c).Gap(8).Children(func() {
 				ui.Row(c).Wrap().Gap(6).Children(func() {
 					for _, f := range journalFormats {
@@ -244,7 +244,13 @@ func (a *app) csGeneral(c *ui.Context) {
 // ---- Properties ----
 
 // builtins are the properties every page has.
-var builtins = []struct{ name, kind string }{{"Başlık", "Metin"}, {"Oluşturulma", "Tarih"}, {"Değiştirilme", "Tarih"}, {"Üst sayfa", "Sayfa"}}
+var builtins = []struct {
+	key        string
+	name, kind func() string
+}{
+	{"title", locales.CollectionPropTitle, locales.CollectionKindText}, {"created", locales.CollectionPropCreated, locales.CollectionKindDate},
+	{"modified", locales.CollectionPropModified, locales.CollectionKindDate}, {"parent", locales.CollectionPropParent, locales.CollectionKindPage},
+}
 
 func (a *app) csProperties(c *ui.Context) {
 	cs := &a.cs
@@ -254,11 +260,11 @@ func (a *app) csProperties(c *ui.Context) {
 	ui.Column(c).FillWidth().Gap(6).Children(func() {
 		for _, b := range builtins {
 			b := b
-			ui.Row(c.Key("cs-builtin:"+b.name)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(rad(12)).AlignItems(ui.Center).
-				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label(locales.CollectionBuiltInLabel(b.name)).Children(func() {
+			ui.Row(c.Key("cs-builtin:"+b.key)).FillWidth().Height(48).Padding(0, 12, 0, 10).Gap(10).Radius(rad(12)).AlignItems(ui.Center).
+				Background(cl.Card).Border(1, cl.Hairline).Opacity(0.55).Label(locales.CollectionBuiltInLabel(b.name())).Children(func() {
 				ui.Icon(c, iconLock).Width(15).Height(15).TextColor(cl.Muted)
-				ui.Text(c, b.name).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
-				ui.Text(c, "· "+b.kind).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1)
+				ui.Text(c, b.name()).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
+				ui.Text(c, locales.CollectionBuiltInKind(b.kind())).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1)
 			})
 		}
 	})
@@ -266,7 +272,7 @@ func (a *app) csProperties(c *ui.Context) {
 		a.sortList(c, "cs-props", &cs.propList, sortOpts{
 			n:        len(d.Properties),
 			id:       func(i int) string { return d.Properties[i].ID },
-			label:    func(i int) string { return "Özellik: " + d.Properties[i].Name },
+			label:    func(i int) string { return locales.CollectionPropertyLabel(d.Properties[i].Name) },
 			selected: cs.prop,
 			content: func(i int) {
 				p := d.Properties[i]
@@ -306,7 +312,7 @@ func (a *app) csPropEditor(c *ui.Context, p *Property) {
 			a.fieldMenu(ryugo.Input(c.Key("cs-prop-name"), &p.Name, ryugo.InputOptions{Label: locales.CommonThePropertysName(), Size: ryugo.Sm}), &p.Name, fieldOpts{oneLine: true})
 		})
 		if p.Type == PropChoice {
-			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonChoices(), Help: "Sırası panonun sütunları olur."}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonChoices(), Help: locales.CollectionChoicesHelp()}, func() {
 				a.tagField(c, "cs-prop-opts", &p.Options, "Seçenek yaz, ↵")
 			})
 		}
@@ -341,7 +347,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 			ui.Column(c).Gap(2).Children(func() {
 				for _, sp := range sugg {
 					b := ui.Row(c.Key("cs-sugg:"+sp.from+":"+sp.p.ID)).Height(32).Gap(8).Padding(0, 10).Radius(rad(8)).AlignItems(ui.Center).
-						Label("Öneri: " + sp.p.Name).Role(ui.RoleButton)
+						Label(locales.CollectionSuggestionLabel(sp.p.Name)).Role(ui.RoleButton)
 					if b.Hovered() {
 						b.Background(cl.Fill)
 					}
@@ -365,7 +371,7 @@ func (a *app) csAddProperty(c *ui.Context) {
 		}
 		ryugo.Select(c.Key("cs-new-type"), &cs.newType, propTypeOptions(), ryugo.SelectOptions{Label: locales.CollectionTheNewPropertysType(), Size: ryugo.Sm})
 		if PropTypes[cs.newType].Type == PropChoice {
-			a.tagField(c, "cs-new-opts", &cs.newTags, "Seçenek yaz, ↵: Yapılacak, Sürüyor, Bitti")
+			a.tagField(c, "cs-new-opts", &cs.newTags, locales.CollectionChoicesPlaceholder())
 		}
 		ui.Row(c).Gap(8).Children(func() { // as wide as their labels
 			if ryugo.Button(c.Key("cs-new-add"), "Ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Disabled: strings.TrimSpace(cs.newName) == ""}).Clicked() {
@@ -459,7 +465,7 @@ func (a *app) csViews(c *ui.Context) {
 // csAddView is the menu adding a view to the draft.
 func (a *app) csAddView(c *ui.Context, d *Collection, hasChoice bool) {
 	cs := &a.cs
-	ryugo.MenuButton(c.Key("cs-add-view"), "Görünüm ekle", ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus}, func(m *ryugo.MenuList) {
+	ryugo.MenuButton(c.Key("cs-add-view"), locales.CollectionAddView(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus}, func(m *ryugo.MenuList) {
 		for _, vt := range viewTypes {
 			if vt.Type == "board" && !hasChoice {
 				continue
@@ -496,7 +502,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 		})
 		switch v.Type {
 		case "table":
-			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionColumns(), Help: "Başlık hep ilk sütun."}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionColumns(), Help: locales.CollectionColumnsHelp()}, func() {
 				ui.Column(c).Gap(6).Children(func() {
 					for _, col := range allColumns(d) {
 						on := slices.Contains(viewColumns(d, v), col.key)
@@ -519,7 +525,7 @@ func (a *app) csViewEditor(c *ui.Context, v *View) {
 			})
 			a.csTableCalcs(c, d, v)
 		case "calendar":
-			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionWhichDayGoes(), Help: "Sayfalar takvimde bu tarihin gününde görünür."}, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionWhichDayGoes(), Help: locales.CollectionCalendarDayHelp()}, func() {
 				opts := []ryugo.Option[string]{{Value: "created", Label: locales.CollectionDayMade()}, {Value: "modified", Label: locales.CollectionDayChanged()}}
 				for _, p := range d.Properties {
 					if p.Type == PropDate {
@@ -741,10 +747,10 @@ func filterOpName(op, typ string) string {
 // csViewFields is what a list's rows or a board's or gallery's cards show: the start of the text, and which
 // properties.
 func (a *app) csViewFields(c *ui.Context, d *Collection, v *View) {
-	ryugo.Field(c, ryugo.FieldOptions{Label: map[bool]string{true: "Kartlarda", false: "Satırlarda"}[v.Type != "list"]}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: map[bool]string{true: locales.CollectionOnCards(), false: locales.CollectionOnRows()}[v.Type != "list"]}, func() {
 		ui.Column(c).Gap(6).Children(func() {
 			show := !v.NoExcerpt
-			ryugo.Checkbox(c.Key("cs-excerpt"), &show, "Metnin başı", ryugo.CheckOptions{})
+			ryugo.Checkbox(c.Key("cs-excerpt"), &show, locales.CollectionExcerpt(), ryugo.CheckOptions{})
 			v.NoExcerpt = !show
 			for _, p := range d.Properties {
 				if v.Type == "board" && p.ID == v.GroupBy {
@@ -773,7 +779,7 @@ func allColumns(c *Collection) []colChoice {
 	for _, p := range c.Properties {
 		out = append(out, colChoice{"prop:" + p.ID, p.Name})
 	}
-	return append(out, colChoice{"parent", "Üst sayfa"}, colChoice{"created", "Oluşturulma"}, colChoice{"modified", "Değiştirilme"})
+	return append(out, colChoice{"parent", locales.CollectionPropParent()}, colChoice{"created", locales.CollectionPropCreated()}, colChoice{"modified", locales.CollectionPropModified()})
 }
 
 func allKeys(c *Collection) []string {
@@ -817,10 +823,10 @@ func toggleKey(keys []string, key string, on bool, all []string) []string {
 func (a *app) csPages(c *ui.Context) {
 	d := &a.cs.draft
 	ryugo.Switch(c.Key("cs-subpages"), &d.SubPages, ryugo.SwitchOptions{Label: "Alt sayfalar", Description: locales.CollectionAPageCanHave()})
-	ryugo.Field(c, ryugo.FieldOptions{Label: "Bir sayfaya ne denir?", Help: "“Yeni sayfa” yerine “Yeni Tarif” gibi."}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionPageNounTitle(), Help: locales.CollectionPageNounHelp()}, func() {
 		a.fieldMenu(ryugo.Input(c.Key("cs-noun"), &d.PageNoun, ryugo.InputOptions{Label: locales.CollectionThePagesName(), Placeholder: "sayfa"}), &d.PageNoun, fieldOpts{oneLine: true})
 	})
-	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionNewPageTemplate(), Help: "Yeni bir sayfa bu Markdown ile başlar."}, func() {
+	ryugo.Field(c, ryugo.FieldOptions{Label: locales.CollectionNewPageTemplate(), Help: locales.CollectionTemplateHelp()}, func() {
 		a.fieldMenu(ryugo.Textarea(c.Key("cs-template"), &d.Template, ryugo.TextareaOptions{Label: locales.CollectionTemplate(), Placeholder: "## Notlar\n\n- [ ] ", Rows: 6, MaxRows: 14, Size: ryugo.Sm}), &d.Template, fieldOpts{})
 	})
 	a.csTemplates(c)
