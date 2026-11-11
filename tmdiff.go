@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -94,11 +95,11 @@ func (a *app) tmDiffView(c *ui.Context, ox, aw, wh float32) {
 	top := a.headerHeight(c) + 8
 	half := (w - 1) / 2
 	card := ui.Column(c.Key("tm-diff-card")).Absolute().Left(ox+(aw-tmBarsWidth()-w)/2).Top(top).Size(w, wh-tmFootH-top-8).Translate(0, (1-t.in)*28).
-		Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)).Clip().Opacity(t.in).Label(T("Differences"))
+		Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)).Clip().Opacity(t.in).Label(locales.HistoryDifferences())
 	th.Shadows.ShadowPop.Apply(card)
 	card.Children(func() {
 		ui.Row(c.Key("tm-diff-head")).FillWidth().Height(38).AlignItems(ui.Center).Children(func() {
-			for k, s := range []string{a.tmWhen(t.sel), T("Now")} {
+			for k, s := range []string{a.tmWhen(t.sel), locales.HistoryNow()} {
 				ui.Text(c.Key("tm-diff-side:"+itoa(k)), s).Width(half).Padding(0, 16).FontSize(13).FontWeight(650).TextColor(cl.Text2).MaxLines(1)
 				if k == 0 {
 					ui.Box(c).Width(1).Height(38).Background(cl.Hairline)
@@ -111,7 +112,7 @@ func (a *app) tmDiffView(c *ui.Context, ox, aw, wh float32) {
 			differs = differs || r.same == 0 && r.left != r.right
 		}
 		if !differs {
-			ui.Text(c.Key("tm-diff-none"), T("This copy is the same as the page now.")).FillWidth().Padding(28, 16).TextAlign(ui.Center).
+			ui.Text(c.Key("tm-diff-none"), locales.HistoryThisCopySameAs()).FillWidth().Padding(28, 16).TextAlign(ui.Center).
 				FontSize(13).TextColor(cl.Muted)
 			return
 		}

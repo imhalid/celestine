@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The commands of the palette, with nothing typed after ">": in groups under headings, and a family
@@ -82,7 +83,7 @@ func (a *app) groupCommands(items []palItem) []palItem {
 		byCat[it.cat] = append(byCat[it.cat], it)
 	}
 	if c := a.pal.cat; c != "" { // a group opened: its commands, and the way back
-		back := palItem{title: T("Bütün gruplar"), glyph: iconBack, group: c, run: func() { a.pal = palette{open: true, query: ">"} }}
+		back := palItem{title: locales.PaletteAllGroups(), glyph: iconBack, group: c, run: func() { a.pal = palette{open: true, query: ">"} }}
 		return append([]palItem{back}, byCat[c]...)
 	}
 	out := here

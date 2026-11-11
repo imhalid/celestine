@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -370,7 +371,7 @@ func (a *app) lapseView(c *ui.Context) {
 		if !l.busy {
 			a.startLapse()
 		}
-		ui.Text(c, T("Reading the versions…")).TextColor(t.TextMuted).Padding(8, 0)
+		ui.Text(c, locales.HistoryReadingVersions()).TextColor(t.TextMuted).Padding(8, 0)
 		return
 	}
 	dark := ryugo.From(c).Dark
@@ -380,7 +381,7 @@ func (a *app) lapseView(c *ui.Context) {
 	if lh == 0 {
 		lh = 1.6
 	}
-	ui.Column(c.Key("lapse")).FillWidth().Gap(size*0.75).Padding(2, 0, 24, 0).Label(T("Time-lapse")).Children(func() {
+	ui.Column(c.Key("lapse")).FillWidth().Gap(size*0.75).Padding(2, 0, 24, 0).Label(locales.CommonTimeLapse()).Children(func() {
 		var words []int
 		para := 0
 		flush := func() {
@@ -450,7 +451,7 @@ func (a *app) lapseChips(c *ui.Context) {
 			})
 			day := weekdayDate(l.days[k-1])
 			if sameDayAs(l.days[k-1], a.clock()) {
-				day = T("Today")
+				day = locales.HistoryToday()
 			}
 			ryugo.Tooltip(c, chip, Tf("%s · %d words", day, l.sizes[k-1]))
 			switch {

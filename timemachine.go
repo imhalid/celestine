@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -135,11 +136,11 @@ func (a *app) tmLines(i int) []tmLine {
 // tmWhen is when the copy at place i was written: Now for the page; today's copies by the hour, as Today 14:05.
 func (a *app) tmWhen(i int) string {
 	if i <= 0 { // the page now, or as it was while a restore is shown
-		return T("Today (Now)")
+		return locales.HistoryTodayNow()
 	}
 	at := a.tm.vers[i-1].At
 	if sameDay(at, a.clock()) {
-		return T("Today") + " " + at.Format("15:04")
+		return locales.HistoryToday() + " " + at.Format("15:04")
 	}
 	return dateTime(at, true)
 }
@@ -223,7 +224,7 @@ func (a *app) timeMachineView(c *ui.Context) {
 	t.noReveal = c.Preferences().ReduceMotion
 	ui.Overlay(c, func() {
 		// it has the keys while it is open, not the editor under it
-		back := ui.Box(c.Key("tm-back")).Absolute().Left(ox).Top(0).Size(aw, wh).Label(T("Page history")).Role(ui.RoleDialog).
+		back := ui.Box(c.Key("tm-back")).Absolute().Left(ox).Top(0).Size(aw, wh).Label(locales.HistoryPageHistory()).Role(ui.RoleDialog).
 			Focusable().FocusRing(false).Focus()
 		// It comes in and goes out in a moment: the ground fades, the copies rise into place. Only what the GPU does
 		// to a layer moves (where it is, how large, how clear): each copy is drawn once (Cache) and laid out once.
@@ -255,7 +256,7 @@ func (a *app) timeMachineView(c *ui.Context) {
 			a.tmBars(c, ww, wh)
 		}
 		if len(t.vers) == 0 {
-			ui.Text(c.Key("tm-none"), T("No copies of this page are kept yet: one is kept when it is written over, every few minutes.")).Absolute().
+			ui.Text(c.Key("tm-none"), locales.HistoryNoCopiesThisPage()).Absolute().
 				Left(ox + 40).Top(24).Width(aw - tmBarsWidth() - 80).TextAlign(ui.Center).FontSize(ryugo.FsSm).TextColor(cl.Muted).PassThrough()
 		}
 		a.tmFoot(c, ox, aw, wh)
@@ -348,7 +349,7 @@ func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 		card := ui.Column(c.Key("tm-card:"+itoa(i))).Absolute().Left(cx0-lw/2).Top(cy0+ty-lh/2).Size(lw, lh).
 			Background(a.bg(c)).Border(1, cl.Hairline).Radius(th.R(ryugo.RadiusPop)/max(sc, 0.2)).Clip().
 			TransformOrigin(0.5, 0.5).Scale(sc, sc).Translate(0, (1-t.in)*36).Opacity(op * t.in).ZIndex(z).Cache().
-			Label(T("Page history: ") + a.tmWhen(i)).Role(ui.RoleButton)
+			Label(locales.HistoryPageHistory2() + a.tmWhen(i)).Role(ui.RoleButton)
 		th.Shadows.ShadowPop.Apply(card)
 		if shown {
 			revealEffect(card, rp, true, lw, lh, th.R(ryugo.RadiusPop)/sc, cl)
@@ -441,7 +442,7 @@ func (a *app) tmPage(c *ui.Context, i int, lw, lh float32, shape bool) {
 				}
 				c.Key("tm-ed:" + itoa(i))
 				richtext.EditorBase(c, a.tmDoc(i), richtext.EditorOptions{
-					Label: T("Page history: ") + a.tmWhen(i), Font: a.font, Theme: a.theme, ReadOnly: true,
+					Label: locales.HistoryPageHistory2() + a.tmWhen(i), Font: a.font, Theme: a.theme, ReadOnly: true,
 					Spans:        func(_ int, _ richtext.ParagraphStyle, spans []ui.Span) []ui.Span { return spaced(spans) },
 					SpansVersion: a.settings.LetterSpacing*100 + a.settings.AppTheme,
 				}).FillWidth().Height(lh).FocusRing(false).PassThrough() // a click goes to the page: it brings it to the front
@@ -506,9 +507,9 @@ func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 		label := ""
 		switch {
 		case i == 0:
-			label = T("Now")
+			label = locales.HistoryNow()
 		case i == 1 && sameDay(t.vers[0].At, a.clock()):
-			label = T("Today")
+			label = locales.HistoryToday()
 		case i == 1 || !sameDay(t.vers[i-1].At, t.vers[i-2].At):
 			label = dayMonth(t.vers[i-1].At)
 		}
@@ -533,27 +534,27 @@ func (a *app) tmFoot(c *ui.Context, ox, aw, wh float32) {
 	n := len(t.vers)
 	ui.Row(c.Key("tm-foot")).Absolute().Left(ox).Width(aw-tmBarsWidth()).Top(wh-tmFootH+16).Justify(ui.Center).Translate(0, (1-t.in)*20).Opacity(t.in).Children(func() {
 		bar := ui.Row(c.Key("tm-tools")).Padding(6, 6, 6, 14).Gap(8).AlignItems(ui.Center).
-			Radius(th.R(ryugo.RadiusControl)+4).Background(cl.Card).Border(1, cl.Hairline).Label(T("Page history"))
+			Radius(th.R(ryugo.RadiusControl)+4).Background(cl.Card).Border(1, cl.Hairline).Label(locales.HistoryPageHistory())
 		th.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			ui.Text(c.Key("tm-when"), a.tmWhen(t.sel)).FontSize(14).FontWeight(650).TextColor(cl.Text).MinWidth(170)
-			if ryugo.Button(c.Key("tm-older"), T("Older"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.busy() {
+			if ryugo.Button(c.Key("tm-older"), locales.HistoryOlder(), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel >= n}).Clicked() && !t.busy() {
 				t.sel = min(t.sel+1, n)
 			}
-			if ryugo.Button(c.Key("tm-newer"), T("Newer"), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.busy() {
+			if ryugo.Button(c.Key("tm-newer"), locales.HistoryNewer(), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.busy() {
 				t.sel = max(t.sel-1, 0)
 			}
-			label := T("Show the differences") // in its place, side by side with the page now (tmdiff.go)
+			label := locales.HistoryShowDifferences() // in its place, side by side with the page now (tmdiff.go)
 			if t.diff && t.sel > 0 {
-				label = T("Show the page")
+				label = locales.HistoryShowPage()
 			}
 			if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 && !t.busy() {
 				t.diff = !t.diff
 			}
-			if ryugo.Button(c.Key("tm-cancel"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.busy() {
+			if ryugo.Button(c.Key("tm-cancel"), locales.CommonCancel2(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.busy() {
 				t.closing = true
 			}
-			if ryugo.Button(c.Key("tm-restore"), T("Restore"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Disabled: t.sel == 0}).Clicked() && !t.busy() {
+			if ryugo.Button(c.Key("tm-restore"), locales.HistoryRestore(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Disabled: t.sel == 0}).Clicked() && !t.busy() {
 				a.tmPutBack()
 			}
 		})

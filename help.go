@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -76,7 +77,7 @@ func (a *app) helpView(c *ui.Context) {
 						}
 					})
 				}
-				ui.Text(c, T("Fare olmadan her şey: Esc ile normal kipe geç, f ile harf etiketlerini aç, ya da ⌘P'ye ne istediğini yaz.")).FontSize(12.5).TextColor(cl.Muted).Wrap()
+				ui.Text(c, locales.HelpEverythingWithoutMousePress()).FontSize(12.5).TextColor(cl.Muted).Wrap()
 			})
 		})
 	})

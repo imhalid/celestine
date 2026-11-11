@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -80,7 +81,7 @@ func collTint(c *ui.Context, coll *Collection) ui.Color {
 // newPageLabel is "New page", or "New Recipe" when the collection's pages are called so, in the window's language.
 func newPageLabel(c *Collection) string {
 	if c == nil || c.PageNoun == "" {
-		return T("Yeni sayfa")
+		return locales.CommonNewPage()
 	}
 	if lang == "en" {
 		return "New " + c.PageNoun
@@ -91,7 +92,7 @@ func newPageLabel(c *Collection) string {
 // addToDayLabel is the calendar's button that makes a page on a day, by what the collection's pages are called.
 func addToDayLabel(c *Collection) string {
 	if c == nil || c.PageNoun == "" {
-		return T("Bu güne sayfa ekle")
+		return locales.CollectionAddPageThisDay()
 	}
 	if lang == "en" {
 		return "Add a " + c.PageNoun + " to this day"

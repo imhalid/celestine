@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -265,7 +266,7 @@ func (a *app) codeCopyView(c *ui.Context) {
 			start := b.Start
 			btn := ui.Box(c.Key("code-copy:"+strconv.Itoa(start))).Absolute().Left(r.X+r.W-codeCopyW-4).Top(r.Y+b.Top+2).
 				Size(codeCopyW, codeCopyW).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
-				Label(T("Copy the code")).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Label(locales.BlocksCopyCode()).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			tone := cl.Muted.Alpha(0.55)
 			if btn.Hovered() {
 				btn.Background(cl.Fill)
@@ -274,7 +275,7 @@ func (a *app) codeCopyView(c *ui.Context) {
 			btn.Children(func() { ui.Icon(c, iconCopy).Width(14).Height(14).TextColor(tone) })
 			if btn.Clicked() {
 				a.copyText(codeBlockText(text, start))
-				a.notice = T("The code was copied.")
+				a.notice = locales.BlocksTheCodeWasCopied()
 			}
 		}
 	})

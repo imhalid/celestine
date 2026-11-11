@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -63,7 +64,7 @@ func (a *app) sidebarButton(c *ui.Context) {
 	tb := a.titleBar(c)
 	h := a.headerHeight(c) // in a line with the header, as high as it
 	ui.Row(c.Key("sidebar-button")).Absolute().Left(tb.Left + 6).Top((h - barBtn) / 2).Gap(2).Children(func() {
-		if a.barIcon(c, iconSidebar, "Kenar çubuğu (⌘\\)") {
+		if a.barIcon(c, iconSidebar, locales.SidebarSidebar()) {
 			a.toggleSidebar()
 		}
 		// back and forward, faint when there is nowhere to go
@@ -79,7 +80,7 @@ func (a *app) sidebarButton(c *ui.Context) {
 			})
 		}
 		// the settings: a short menu, with the dialog of all of them at its end
-		if a.barIcon(c, iconSettings, "Ayarlar") {
+		if a.barIcon(c, iconSettings, locales.CommonSettings()) {
 			a.gearMenu(tb.Left+6+3*(24+2)-2, h-4)
 		}
 	})
@@ -139,7 +140,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			if phone {
 				ui.Row(c.Key("drawer-head")).FillWidth().Height(a.headerHeight(c)).Padding(0, 8, 0, 18).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, "celestine").FontSize(17).FontWeight(720).TextColor(t.Text).Grow(1)
-					if a.iconButton(c, iconClose, T("Çekmeceyi kapat")) {
+					if a.iconButton(c, iconClose, locales.CommonCloseDrawer()) {
 						a.drawerOpen = false
 					}
 				})
@@ -154,7 +155,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			}
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, T("KOLEKSİYONLAR")).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+					ui.Text(c, locales.SidebarCollections()).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
 					if a.iconButton(c, iconCollapseAll, "Hepsini kapat") {
 						a.collapseAll()
 					}
@@ -283,7 +284,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
 			c.Key("pin:" + s.key)
 			if s.pinned {
-				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(T("Sabitlemeyi kaldır: ") + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(locales.SidebarUnpin() + s.name).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 				if b.Hovered() {
 					b.Background(t.SurfacePressed)
 				}

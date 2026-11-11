@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -21,6 +22,6 @@ func (a *app) emptyState(c *ui.Context, icon *ui.SVG, title, desc, action string
 	ui.Column(c.Key("empty-state")).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 		ryugo.EmptyState(c, o)
 		// a hint that teaches: the one key that leads to all the others
-		ui.Text(c.Key("empty-hint"), T("⌘P komutlar · ⌘K sayfa ara · ? kısayollar (Esc ile normal kip)")).FontSize(12).TextColor(ryugo.From(c).Colors.Muted)
+		ui.Text(c.Key("empty-hint"), locales.PagePCommandsKFind()).FontSize(12).TextColor(ryugo.From(c).Colors.Muted)
 	})
 }

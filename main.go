@@ -30,6 +30,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 	"github.com/imhalid/ryu-go/dockwin"
 )
@@ -519,7 +520,7 @@ func main() {
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
 	if len(lib.Damaged) > 0 { // left out, and left as they are on disk
-		a.notice = T("Some collections could not be read and are not shown; their folders are left as they are: ") + strings.Join(lib.Damaged, "; ")
+		a.notice = locales.AppSomeCollectionsCouldNot() + strings.Join(lib.Damaged, "; ")
 	}
 	if empty {
 		a.markPristine()
@@ -683,8 +684,8 @@ func cannotOpen(store *Store, err error) {
 		mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageError,
 			Title:   "Celestine",
-			Message: T("The library could not be opened."),
-			Detail:  err.Error() + "\n\n" + T("Nothing in it was changed. A backup can be put in its place from the backups folder."),
+			Message: locales.AppTheLibraryCouldNot(),
+			Detail:  err.Error() + "\n\n" + locales.AppNothingWasChangedBackup(),
 		})
 		mygo.App.Quit()
 	})
@@ -702,8 +703,8 @@ func newerLibrary(store *Store) {
 		mygo.Dialog.Message(mygo.MessageOptions{
 			Type:    mygo.MessageWarning,
 			Title:   "Celestine",
-			Message: T("This library was written by a newer version of Celestine."),
-			Detail:  T("Update Celestine to open it. Nothing in the library was changed."),
+			Message: locales.AppThisLibraryWasWritten(),
+			Detail:  locales.AppUpdateCelestineOpenNothing(),
 		})
 		mygo.App.Quit()
 	})
@@ -1095,9 +1096,9 @@ func (a *app) viewFrame(c *ui.Context) {
 			kind = *a.noticeTone
 		}
 		if undo := a.noticeUndo; undo != nil { // a setting changed: it is one click from taken back
-			a.toastOf(kind, T(a.notice), T("Geri al"), undo)
+			a.toastOf(kind, T(a.notice), locales.CommonUndo2(), undo)
 		} else if pg := a.noticePage; pg != nil { // a note put away: the page it went to is one click away
-			a.toastOf(kind, T(a.notice), T("Aç"), func() { a.open(pg) })
+			a.toastOf(kind, T(a.notice), locales.CommonOpen(), func() { a.open(pg) })
 		} else {
 			a.toastOf(kind, T(a.notice), "", nil)
 		}
@@ -1105,7 +1106,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	if item := a.trashed; item != nil {
 		a.trashed = nil
-		a.toastAction(Tf("“%s” çöpe taşındı", item.Title), T("Geri al"), func() { a.restore(item) })
+		a.toastAction(Tf("“%s” çöpe taşındı", item.Title), locales.CommonUndo2(), func() { a.restore(item) })
 		a.loadTrash()
 	}
 	a.toastView(c)
@@ -1172,14 +1173,14 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		return
 	}
 	if p.Unreadable != "" { // shown, not edited: the editor would save what it shows over the file
-		ui.Text(c, T("This page could not be read, so it opens read-only and nothing is written over its file. Its history may hold an earlier copy to restore.")+"\n"+p.Unreadable).FontSize(13).TextColor(ryugo.From(c).Colors.Warn).Wrap().FillWidth().Padding(0, 0, 8, 0)
+		ui.Text(c, locales.AppThisPageCouldNot()+"\n"+p.Unreadable).FontSize(13).TextColor(ryugo.From(c).Colors.Warn).Wrap().FillWidth().Padding(0, 0, 8, 0)
 	}
 	c.Key("body:" + p.Dir)
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: "Sayfa", Font: a.font, Theme: th,
-		Placeholder:  T("Yaz…  # başlık · - liste · [] görev · > alıntı"),
+		Placeholder:  locales.AppWriteHeadingListTask(),
 		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
@@ -1307,7 +1308,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, a.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(T("Başlık")).Selectable().Wrap().FillWidth().TextColor(ink)
+		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, a.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(locales.CommonTitle()).Selectable().Wrap().FillWidth().TextColor(ink)
 		a.titleMenu(ttl, p, false)
 		a.titleRoom(c, ttl)
 		a.titleFocused = false
@@ -1320,7 +1321,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	size := a.titleSize(a.title, a.titleW)
 	_, textH := a.titleLayout(a.title, size, a.titleW).Size()
 	before := a.title
-	title := ui.TextAreaBase(c, &a.title).Label(T("Başlık")).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
+	title := ui.TextAreaBase(c, &a.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
 		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
 	a.titleMenu(title, p, true)
 	a.titleRoom(c, title)
@@ -1676,8 +1677,8 @@ func (a *app) status(c *ui.Context) {
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {
 			m := ui.Row(c.Key("mcp-status")).Gap(5).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
-				Label(T("MCP açık: ayarlar")).Role(ui.RoleButton)
-			ryugo.Tooltip(c, m, T("MCP sunucusu açık · ")+a.mcpURL())
+				Label(locales.AppMcpSettings()).Role(ui.RoleButton)
+			ryugo.Tooltip(c, m, locales.AppMcpServer()+a.mcpURL())
 			if m.Hovered() {
 				m.Background(t.SurfaceHover)
 			}

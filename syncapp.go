@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -116,7 +117,7 @@ func (a *app) syncRemote() (Remote, error) {
 	switch a.settings.SyncMode {
 	case "dir":
 		if strings.TrimSpace(a.settings.SyncDir) == "" {
-			return nil, errors.New(T("klasör seçilmemiş"))
+			return nil, errors.New(locales.SyncNoFolderChosen())
 		}
 		r = DirRemote{Root: a.settings.SyncDir}
 	case "server":
@@ -273,7 +274,7 @@ func (a *app) syncNow() {
 	fsys, root := a.syncFS()
 	remote, err := a.syncRemote()
 	if err != nil {
-		a.sy.err, a.sy.status = err.Error(), T("senkron ayarlı değil")
+		a.sy.err, a.sy.status = err.Error(), locales.SyncSyncNotSetUp()
 		return
 	}
 	a.flush()
@@ -288,7 +289,7 @@ func (a *app) syncNow() {
 	} else if backupDir != "" {
 		a.sy.backedUp = now
 	}
-	a.sy.busy, a.sy.status, a.sy.last = true, T("eşitleniyor…"), a.clock()
+	a.sy.busy, a.sy.status, a.sy.last = true, locales.SyncSyncing(), a.clock()
 	skip := a.syncSkip()
 	state := a.loadSyncState()
 	state.ForRemote(a.syncRemoteID())
@@ -313,7 +314,7 @@ func (a *app) syncNow() {
 			a.saveSyncState(state)
 			switch {
 			case err != nil:
-				a.sy.err, a.sy.status = err.Error(), T("çevrimdışı")
+				a.sy.err, a.sy.status = err.Error(), locales.SyncOffline()
 			default:
 				a.sy.err, a.sy.at, a.sy.result = "", time.Now(), syncSummary(res)
 				a.sy.status = Tf("Eşit %s", a.sy.at.Format("15:04"))
@@ -333,7 +334,7 @@ func (a *app) syncNow() {
 				// told only when something came, or clashed: what was sent is not news, and passes run a moment
 				// after every pause in the typing
 				if res.Pulled+res.Removed+res.Merged+len(res.Conflicts) > 0 {
-					a.notice = T("Senkron: ") + syncSummary(res)
+					a.notice = locales.SyncSync() + syncSummary(res)
 					tone := toastOK
 					if len(res.Conflicts) > 0 {
 						tone = toastWarn
@@ -431,7 +432,7 @@ func (a *app) askChanges() {
 // syncSummary is what a pass did, in the window's language.
 func syncSummary(r SyncResult) string {
 	if r.Pushed+r.Pulled+r.Deleted+r.Removed+r.Held+r.Merged+len(r.Conflicts) == 0 && len(r.Errors) == 0 {
-		return T("Eşit: değişiklik yok")
+		return locales.SyncInSyncNoChanges()
 	}
 	s := Tf("%d gönderildi, %d alındı", r.Pushed, r.Pulled)
 	if r.Merged > 0 {
@@ -666,7 +667,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	s := &a.settings
 	mode := s.SyncMode
 	modeRow := func() {
-		settingRow(c, "Nereye", "Bir klasör (iCloud, Dropbox, Syncthing bırakınca onu taşır) ya da kendi sunucun (cloudflare/sync/worker.js).", func() {
+		settingRow(c, locales.CommonWhere(), locales.SyncAFolderIcloudDropbox(), func() {
 			// each a button of its own color and mark, the one in use filled
 			ui.Row(c).Gap(6).Wrap().Children(func() {
 				for _, m := range []struct {
@@ -692,9 +693,9 @@ func (a *app) settingsSync(c *ui.Context) {
 		a.saveSettings()
 	}
 	if s.SyncMode == "" {
-		ui.Text(c, T("Senkron kapalı: kitaplık yalnız bu bilgisayarda. Dosyalar düz ve taşınabilir; her gün yedeği alınır.")).FontSize(13).TextColor(cl.Muted).Wrap()
+		ui.Text(c, locales.SyncSyncOffLibraryOnly()).FontSize(13).TextColor(cl.Muted).Wrap()
 		if s.AccountUser == "" { // the way to sync: an account, made with an invite or signed in to
-			ui.Text(c, T("With a Celestine account your library syncs across your computers, encrypted on each before it leaves. Accounts are by invite during early access.")).FontSize(13).TextColor(cl.Text2).Wrap()
+			ui.Text(c, locales.SyncWithCelestineAccountYour()).FontSize(13).TextColor(cl.Text2).Wrap()
 			a.accountSection(c)
 		}
 		return
@@ -732,9 +733,9 @@ func (a *app) settingsSync(c *ui.Context) {
 	if s.AccountUser == "" { // with an account the key is the account's: nothing to type
 		settingGroup(c, "set-sync-enc",
 			func() {
-				settingRow(c, "Uçtan uca şifreleme", "Şart: dosyalar bu bilgisayarda şifrelenir, adları da gizlenir; sunucu ya da klasör yalnız anlamsız bloklar görür. Parola olmadan eşitleme başlamaz. Parolayı ve kurtarma anahtarını kaybedersen veri kurtarılamaz.", func() {
+				settingRow(c, locales.SyncEndEndEncryption(), locales.SyncRequiredFilesAreEncrypted(), func() {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: T("Parola"), Size: ryugo.Sm, Placeholder: T("Parola")}), &a.sy.pass, fieldOpts{oneLine: true})
+						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: locales.SyncPassphrase(), Size: ryugo.Sm, Placeholder: locales.SyncPassphrase()}), &a.sy.pass, fieldOpts{oneLine: true})
 						if ryugo.Button(c.Key("sync-setpass"), T(map[bool]string{true: "Parolayı değiştir", false: "Şifrelemeyi aç"}[enc]), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 							a.setSyncPassphrase(a.sy.pass)
 						}
@@ -743,16 +744,16 @@ func (a *app) settingsSync(c *ui.Context) {
 			},
 			func() {
 				if !enc {
-					ui.Text(c, T("Parola yazılmadı: eşitleme çalışmaz.")).FontSize(12.5).TextColor(cl.Warn)
+					ui.Text(c, locales.SyncNoPassphraseYetSync()).FontSize(12.5).TextColor(cl.Warn)
 					return
 				}
-				ui.Text(c, T("Şifreleme açık.")).FontSize(12.5).TextColor(cl.Muted)
+				ui.Text(c, locales.SyncEncryption()).FontSize(12.5).TextColor(cl.Muted)
 			})
 	}
 	if a.sy.recovery != "" && a.ac.mode != "recovery" { // the account's step shows it, then this
 		settingGroup(c, "set-sync-recovery", func() {
-			settingRow(c, "Kurtarma anahtarı: bir yere yaz", a.sy.recovery, func() {
-				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
+			settingRow(c, locales.SyncRecoveryKeyWriteDown(), a.sy.recovery, func() {
+				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
 			})
 		})
 	}
@@ -769,7 +770,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		rows2 = append(rows2, func() {
 			now := on
 			settingRow(c, co.Name, "", func() {
-				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label(T("Eşitle: ") + co.Name)
+				ryugo.Switch(c.Key("sync-coll:"+co.Dir), &now, ryugo.SwitchOptions{}).Label(locales.SyncSync2() + co.Name)
 			})
 			if now != on {
 				var out []string
@@ -796,8 +797,8 @@ func (a *app) settingsSync(c *ui.Context) {
 			}
 		}
 		settingGroup(c, "set-sync-colls-head", func() {
-			settingRow(c, "Hangi koleksiyonlar eşitlensin", Tf("%d koleksiyonun %d tanesi eşitleniyor.", len(rows2), len(rows2)-off), func() {
-				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: T("Gizle"), false: T("Seç…")}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconStack}).Clicked() {
+			settingRow(c, locales.SyncWhichCollectionsSync(), Tf("%d koleksiyonun %d tanesi eşitleniyor.", len(rows2), len(rows2)-off), func() {
+				if ryugo.Button(c.Key("sync-colls-show"), map[bool]string{true: locales.CommonHide(), false: locales.SyncChoose()}[a.sy.showColls], ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconStack}).Clicked() {
 					a.sy.showColls = !a.sy.showColls
 				}
 			})
@@ -815,12 +816,12 @@ func (a *app) settingsSync(c *ui.Context) {
 		status += " · " + a.sy.err
 	}
 	settingGroup(c, "set-sync-state", func() {
-		settingRow(c, T("Durum: ")+T(status), a.sy.result, func() {
+		settingRow(c, locales.SyncState()+T(status), a.sy.result, func() {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
-				if ryugo.Button(c.Key("sync-now"), T("Şimdi eşitle"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
+				if ryugo.Button(c.Key("sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 					a.syncNow()
 				}
-				if ryugo.Button(c.Key("sync-probe"), T("Bağlantıyı dene"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Down, Variant: ryugo.Soft, Icon: iconPlug}).Clicked() {
+				if ryugo.Button(c.Key("sync-probe"), locales.CommonTryConnection(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Down, Variant: ryugo.Soft, Icon: iconPlug}).Clicked() {
 					a.syncProbe()
 				}
 			})
@@ -828,7 +829,7 @@ func (a *app) settingsSync(c *ui.Context) {
 		if a.ac.probe != "" || a.ac.probing {
 			msg := a.ac.probe
 			if a.ac.probing {
-				msg = T("Deneniyor…")
+				msg = locales.CommonTrying()
 			}
 			ui.Text(c, msg).FontSize(13).TextColor(cl.Muted).Wrap()
 		}
@@ -836,14 +837,14 @@ func (a *app) settingsSync(c *ui.Context) {
 	if a.sy.held > 0 {
 		settingGroup(c, "set-sync-held", func() {
 			settingRow(c, Tf("%d dosya uzakta yok; bu bilgisayarda duruyor", a.sy.held),
-				"Sunucu ya da klasör listesini kaybetmiş olabilir. Başka bir cihazda gerçekten sildiysen uygula; emin değilsen bekle.", func() {
+				locales.SyncTheRemoteMayHave(), func() {
 					ui.Row(c).Gap(8).Children(func() {
 						// the way the guard is for: the remote lost them, and these are the copies to keep (#147)
-						if ryugo.Button(c.Key("sync-resend"), T("Send mine up again"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
+						if ryugo.Button(c.Key("sync-resend"), locales.SyncSendMineUpAgain(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 							a.sy.resend = true
 							a.syncNow()
 						}
-						if ryugo.Button(c.Key("sync-allow"), T("Silmeleri uygula"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
+						if ryugo.Button(c.Key("sync-allow"), locales.SyncApplyDeletions(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
 							a.sy.allow = true
 							a.syncNow()
 						}
@@ -852,19 +853,19 @@ func (a *app) settingsSync(c *ui.Context) {
 		})
 	}
 	if files := a.conflictFiles(); len(files) > 0 {
-		ui.Text(c, T("Çakışmalar: iki cihazda da değişen dosyalar; ikisi de saklandı")).FontSize(13).FontWeight(620).TextColor(cl.Warn)
+		ui.Text(c, locales.SyncConflictsFilesThatChanged()).FontSize(13).FontWeight(620).TextColor(cl.Warn)
 		var rows3 []func()
 		for _, f := range files {
 			f := f
 			rows3 = append(rows3, func() {
 				settingRow(c, mainOfConflict(f), f, func() {
 					ui.Row(c).Gap(6).Children(func() {
-						if ryugo.Button(c.Key("cf-use:"+f), T("Bunu kullan"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft, Icon: iconCheck}).Clicked() {
+						if ryugo.Button(c.Key("cf-use:"+f), locales.SyncUseThis(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft, Icon: iconCheck}).Clicked() {
 							if err := a.resolveConflict(f, true); err != nil {
 								a.notice = "Olmadı: " + err.Error()
 							}
 						}
-						if ryugo.Button(c.Key("cf-drop:"+f), T("Sil"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
+						if ryugo.Button(c.Key("cf-drop:"+f), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Soft, Icon: iconTrash}).Clicked() {
 							if err := a.resolveConflict(f, false); err != nil {
 								a.notice = "Olmadı: " + err.Error()
 							}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -455,7 +456,7 @@ func (a *app) acctForm(c *ui.Context) {
 		switch mode {
 		case "invite":
 			note("Bekleme listesinden onaylandıysan e-postana bir erişim kodu geldi.")
-			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = T("ad@ornek.com") })
+			field("acct-user", "E-posta", &a.ac.user, func(o *ryugo.InputOptions) { o.Placeholder = locales.AccountNameExampleCom() })
 			field("acct-code", "Erişim kodu", &a.ac.code, func(o *ryugo.InputOptions) { o.Placeholder = "RYU-XXXXXX" })
 		case "password":
 			field("acct-pass", "Şifre", &a.ac.pass, secret)
@@ -482,19 +483,19 @@ func (a *app) acctForm(c *ui.Context) {
 			}
 			switch mode {
 			case "login":
-				if btn("acct-forgot", T("Şifremi unuttum"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+				if btn("acct-forgot", locales.AccountIForgotMyPassword(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					a.ac.mode, a.ac.err = "reset", ""
 				}
 			case "invite":
-				if btn("acct-wait", T("Kodum yok: bekleme listesine yazıl"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+				if btn("acct-wait", locales.AccountNoCodeJoinWaitlist(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					c.OpenURL(strings.TrimSuffix(a.acctServer(), "/") + "/#waitlist")
 				}
 			case "password":
-				if btn("acct-back", T("Geri"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+				if btn("acct-back", locales.CommonBack(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					a.ac.mode, a.ac.err, a.ac.pass, a.ac.pass2 = "invite", "", "", ""
 				}
 			case "reset":
-				if btn("acct-back", T("Giriş yap"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
+				if btn("acct-back", locales.AccountSign(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}) {
 					a.ac.mode, a.ac.err = "login", ""
 				}
 			}
@@ -509,7 +510,7 @@ func (a *app) acctWays(c *ui.Context, mode string) {
 	sel := slices.Index(ways, mode)
 	// its track a step deeper than the well: the settings' group it is in is the well's color, and the track would
 	// not show on it
-	ryugo.Segmented(c.Key("acct-ways"), &sel, []string{T("Davetle hesap aç"), T("Giriş yap")}, ryugo.SegmentedOptions{Label: T("Account"), Size: ryugo.Sm}).
+	ryugo.Segmented(c.Key("acct-ways"), &sel, []string{locales.AccountOpenAccountWithInvite(), locales.AccountSign()}, ryugo.SegmentedOptions{Label: locales.AccountAccount(), Size: ryugo.Sm}).
 		Background(ryugo.From(c).Colors.WellStrong)
 	if ways[sel] != mode {
 		a.ac.mode, a.ac.err = ways[sel], ""
@@ -521,11 +522,11 @@ func (a *app) acctWays(c *ui.Context, mode string) {
 func (a *app) acctRecoveryStep(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ui.Column(c).Gap(10).FillWidth().Children(func() {
-		ui.Text(c, T("Hesabın açıldı. Bu kurtarma anahtarını bir yere yaz ya da kopyala: şifreni unutursan verine yalnız onunla ulaşırsın. Bir daha ancak Profil'den görünür.")).FontSize(13).TextColor(cl.Text2).Wrap()
+		ui.Text(c, locales.AccountYourAccountOpenWrite()).FontSize(13).TextColor(cl.Text2).Wrap()
 		ui.Text(c, a.sy.recovery).FontSize(15).FontWeight(600).TextColor(cl.Text).Selectable().Wrap()
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ryugo.CopyButton(c.Key("copy-recovery-step"), a.sy.recovery, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
-			if ryugo.Button(c.Key("acct-kept"), T("Sakladım, devam"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
+			ryugo.CopyButton(c.Key("copy-recovery-step"), a.sy.recovery, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
+			if ryugo.Button(c.Key("acct-kept"), locales.AccountIKeptContinue(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 				a.ac.mode = "login"
 			}
 		})
@@ -587,17 +588,17 @@ func (a *app) acctManage(c *ui.Context) {
 	}
 	settingGroup(c, "set-acct-me",
 		func() {
-			settingRow(c, "Şifreyi değiştir", "Diğer bilgisayarlarda yeniden giriş yapman gerekir. Verin aynı anahtarla kalır.", func() {
-				if btn("acct-pw-open", map[bool]string{true: T("Vazgeç"), false: T("Değiştir")}[a.ac.showPass], ryugo.ButtonOptions{Size: ryugo.Sm}) {
+			settingRow(c, locales.AccountChangePassword(), locales.AccountYouSignAgainYour(), func() {
+				if btn("acct-pw-open", map[bool]string{true: locales.CommonCancel(), false: locales.CommonChange()}[a.ac.showPass], ryugo.ButtonOptions{Size: ryugo.Sm}) {
 					a.ac.showPass, a.ac.err = !a.ac.showPass, ""
 				}
 			})
 			if a.ac.showPass {
 				ui.Column(c).Gap(8).FillWidth().Children(func() {
-					a.fieldMenu(ryugo.Input(c.Key("acct-pw-old"), &a.ac.pass, ryugo.InputOptions{Label: T("Şimdiki şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şimdiki şifre")}), &a.ac.pass, fieldOpts{oneLine: true, secret: true})
-					a.fieldMenu(ryugo.Input(c.Key("acct-pw-new"), &a.ac.newPass, ryugo.InputOptions{Label: T("Yeni şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Yeni şifre")}), &a.ac.newPass, fieldOpts{oneLine: true, secret: true})
+					a.fieldMenu(ryugo.Input(c.Key("acct-pw-old"), &a.ac.pass, ryugo.InputOptions{Label: locales.AccountCurrentPassword(), Size: ryugo.Sm, Password: true, Placeholder: locales.AccountCurrentPassword()}), &a.ac.pass, fieldOpts{oneLine: true, secret: true})
+					a.fieldMenu(ryugo.Input(c.Key("acct-pw-new"), &a.ac.newPass, ryugo.InputOptions{Label: locales.AccountNewPassword(), Size: ryugo.Sm, Password: true, Placeholder: locales.AccountNewPassword()}), &a.ac.newPass, fieldOpts{oneLine: true, secret: true})
 					errLine()
-					if btn("acct-pw-go", T("Şifreyi değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm}) && !a.ac.busy {
+					if btn("acct-pw-go", locales.AccountChangePassword(), ryugo.ButtonOptions{Size: ryugo.Sm}) && !a.ac.busy {
 						old, nw := a.ac.pass, a.ac.newPass
 						key, err := base64.StdEncoding.DecodeString(s.SyncKey)
 						switch {
@@ -619,21 +620,21 @@ func (a *app) acctManage(c *ui.Context) {
 		},
 		func() {
 			if a.ac.me == nil || len(a.ac.me.Devices) == 0 {
-				ui.Text(c, T("Cihazlar yükleniyor…")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, locales.AccountLoadingDevices()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				return
 			}
 			ui.Column(c).Gap(8).FillWidth().Children(func() {
-				ui.Text(c, T("Bu hesaba girmiş cihazlar")).FontSize(15).FontWeight(620).TextColor(cl.Text)
+				ui.Text(c, locales.AccountComputersSignedThisAccount()).FontSize(15).FontWeight(620).TextColor(cl.Text)
 				for _, d := range a.ac.me.Devices {
 					d := d
 					ui.Row(c.Key("acct-dev:" + d.ID)).Gap(10).AlignItems(ui.Center).FillWidth().Children(func() {
 						name := d.Name
 						if d.Current {
-							name += " · " + T("bu cihaz")
+							name += " · " + locales.AccountThisDevice()
 						}
 						ui.Text(c, name).FontSize(13).TextColor(cl.Text).Grow(1)
 						ui.Text(c, time.Unix(d.Seen, 0).Format("2006-01-02 15:04")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-						if !d.Current && btn("acct-devrm:"+d.ID, T("Çıkar"), ryugo.ButtonOptions{Size: ryugo.Sm}) {
+						if !d.Current && btn("acct-devrm:"+d.ID, locales.AccountRemove(), ryugo.ButtonOptions{Size: ryugo.Sm}) {
 							cl, token := newAcctClient(a.acctServer()), s.SyncToken
 							a.acctRun(func(*acctClient) error { return cl.RemoveDevice(token, d.ID) }, func() { a.ac.meAt = time.Time{} })
 						}
@@ -642,15 +643,15 @@ func (a *app) acctManage(c *ui.Context) {
 			})
 		},
 		func() {
-			settingRow(c, "Hesabı sil", "Hesap ve sunucudaki tüm dosyalar silinir; bu bilgisayardaki kitaplık kalır. Geri alınamaz.", func() {
-				if btn("acct-del-open", map[bool]string{true: T("Vazgeç"), false: T("Sil…")}[a.ac.confirm], ryugo.ButtonOptions{Size: ryugo.Sm}) {
+			settingRow(c, locales.AccountDeleteAccount(), locales.AccountTheAccountEveryFile(), func() {
+				if btn("acct-del-open", map[bool]string{true: locales.CommonCancel(), false: locales.AccountDelete()}[a.ac.confirm], ryugo.ButtonOptions{Size: ryugo.Sm}) {
 					a.ac.confirm, a.ac.err = !a.ac.confirm, ""
 				}
 			})
 			if a.ac.confirm {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).FillWidth().Children(func() {
-					a.fieldMenu(ryugo.Input(c.Key("acct-del-pass"), &a.ac.delPass, ryugo.InputOptions{Label: T("Şifre"), Size: ryugo.Sm, Password: true, Placeholder: T("Şifreni yaz")}), &a.ac.delPass, fieldOpts{oneLine: true, secret: true})
-					if btn("acct-del-go", T("Hesabı kalıcı olarak sil"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up}) && !a.ac.busy {
+					a.fieldMenu(ryugo.Input(c.Key("acct-del-pass"), &a.ac.delPass, ryugo.InputOptions{Label: locales.AccountPassword(), Size: ryugo.Sm, Password: true, Placeholder: locales.AccountTypeYourPassword()}), &a.ac.delPass, fieldOpts{oneLine: true, secret: true})
+					if btn("acct-del-go", locales.AccountDeleteAccountForGood(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up}) && !a.ac.busy {
 						pw := a.ac.delPass
 						a.acctRun(func(cl *acctClient) error { return cl.DeleteAccount(s.SyncToken, s.AccountUser, pw) },
 							func() { a.acctForget(); a.notice = "Hesap silindi." })
@@ -682,12 +683,12 @@ func (a *app) accountSection(c *ui.Context) {
 		if a.ac.me != nil {
 			help = humanBytes(a.ac.me.Bytes) + " / " + humanBytes(a.ac.me.Quota)
 		}
-		settingRow(c, T("Hesap: ")+s.AccountUser, help, func() {
+		settingRow(c, locales.AccountAccount2()+s.AccountUser, help, func() {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
-				if ryugo.Button(c.Key("acct-profile"), T("Profil"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconUser}).Clicked() {
+				if ryugo.Button(c.Key("acct-profile"), locales.CommonProfile(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconUser}).Clicked() {
 					a.openProfile()
 				}
-				if ryugo.Button(c.Key("acct-out"), T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconSignOut, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft}).Clicked() {
+				if ryugo.Button(c.Key("acct-out"), locales.AccountSignOut(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconSignOut, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft}).Clicked() {
 					a.acctSignOut()
 				}
 			})

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -29,7 +30,7 @@ func (a *app) askView(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ryugo.Dialog(c.Key("ask"), &q.open, ryugo.DialogOptions{Title: q.title, Width: 420, Footer: func() {
 		ui.Spacer(c)
-		if ryugo.Button(c.Key("ask-no"), T("Cancel"), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
+		if ryugo.Button(c.Key("ask-no"), locales.CommonCancel2(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
 			q.open = false
 		}
 		if ryugo.Button(c.Key("ask-yes"), q.action, ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Solid}).Clicked() {
@@ -52,7 +53,7 @@ func (a *app) askView(c *ui.Context) {
 // undoSettings puts up text with a button that brings the settings back to before: what changes many settings at
 // once (all back to their defaults, a profile) can be taken back as one change can (#217).
 func (a *app) undoSettings(text string, before Settings) {
-	a.toastAction(text, T("Undo"), func() {
+	a.toastAction(text, locales.CommonUndo(), func() {
 		a.settings = before
 		a.caretKind = a.savedCaret()
 		setLang(a.settings.Lang)

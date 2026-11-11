@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // The journal: a page for each day, in a collection every library has,
@@ -318,7 +320,7 @@ func (a *app) stepDay(n int) {
 }
 
 // askDate opens the palette's commands with "Tarihe git " in it, for the day to be written after it.
-func (a *app) askDate() { a.pal = palette{open: true, query: ">" + T("Tarihe git") + " "} }
+func (a *app) askDate() { a.pal = palette{open: true, query: ">" + locales.CommonGoDate() + " "} }
 
 // goDate is how a day to go to is asked in the palette: the command's name in either language, then the day.
 var goDate = regexp.MustCompile(`^(?:tarihe git|tarih|go to date|go to|date)\s+(.+)$`)
@@ -332,11 +334,11 @@ func (a *app) dateItems(q string) []palItem {
 	}
 	d, ok := parseNaturalDay(m[1], a.clock())
 	if !ok {
-		return []palItem{{title: T("Tarihe git") + ": " + m[1], glyph: iconCalendar, score: 1000, off: T("Bu bir gün değil: yarın, cuma, 3 gün sonra, 2026-11-20 gibi yaz.")}}
+		return []palItem{{title: locales.CommonGoDate() + ": " + m[1], glyph: iconCalendar, score: 1000, off: locales.DatesNotDayWriteTomorrow()}}
 	}
-	it := palItem{title: T("Tarihe git") + ": " + shortDate(d), sub: formatDay("dddd", d), glyph: iconCalendar, score: 1000, run: func() { a.openDay(d) }}
+	it := palItem{title: locales.CommonGoDate() + ": " + shortDate(d), sub: formatDay("dddd", d), glyph: iconCalendar, score: 1000, run: func() { a.openDay(d) }}
 	if c := a.journalColl(); (c == nil || a.journalPage(c, d) == nil) && !sameDay(d, a.clock()) {
-		it.off = T("Günlükte o güne sayfa yok")
+		it.off = locales.DatesTheJournalHasNo()
 	}
 	return []palItem{it}
 }

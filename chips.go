@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -64,7 +65,7 @@ func (ch *chip) markdown() string {
 // label is what the chip says.
 func (ch *chip) label() string {
 	if ch.kind == unknownKind {
-		return T("A block of a newer version")
+		return locales.BlocksABlockNewerVersion()
 	}
 	if ch.kind == "fold" {
 		return "⋯ " + strconv.Itoa(ch.lines) + " satır"
@@ -72,11 +73,11 @@ func (ch *chip) label() string {
 	if ch.kind == "zoom" {
 		switch {
 		case ch.top && ch.lines == 1:
-			return "↑ " + T("1 line above · zoom out")
+			return "↑ " + locales.BlocksN1LineAboveZoom()
 		case ch.top:
 			return "↑ " + Tf("%d lines above · zoom out", ch.lines)
 		case ch.lines == 1:
-			return "↓ " + T("1 line below · zoom out")
+			return "↓ " + locales.BlocksN1LineBelowZoom()
 		}
 		return "↓ " + Tf("%d lines below · zoom out", ch.lines)
 	}
@@ -403,7 +404,7 @@ func (a *app) clickChip(x, y float32) bool {
 			return true
 		}
 		if h.ch.kind == unknownKind {
-			a.notice = T("This block was made by a newer version of the app: update the app to see it. It is kept as it is.")
+			a.notice = locales.BlocksThisBlockWasMade()
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it
@@ -501,7 +502,7 @@ func (a *app) dateEditView(c *ui.Context) {
 			Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label("Tarih")
 		t.Shadows.ShadowPop.Apply(panel)
 		panel.Children(func() {
-			if ryugo.Button(c.Key("date-day"), T("Günün sayfasını aç"), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
+			if ryugo.Button(c.Key("date-day"), locales.BlocksOpenDaysPage(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPage}).Clicked() {
 				d.open = false
 				a.openDay(d.cal)
 				return

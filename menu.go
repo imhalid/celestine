@@ -1,6 +1,9 @@
 package main
 
-import "github.com/egoist/mygo"
+import (
+	"github.com/egoist/mygo"
+	"github.com/imhalid/celestine/locales"
+)
 
 // The menu bar, where a Mac user looks first: every command with its
 // shortcut, made from the app's list of commands (appcmds.go). In the app the
@@ -19,11 +22,11 @@ func (a *app) menu() *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleQuit},
 		}),
-		group(T("Dosya"), "file", nil, []*mygo.MenuItem{mygo.Separator(), {Role: mygo.RoleClose}}),
+		group(locales.CommonFile(), "file", nil, []*mygo.MenuItem{mygo.Separator(), {Role: mygo.RoleClose}}),
 		{Role: mygo.RoleEditMenu},
-		group(T("Görünüm"), "view", nil, []*mygo.MenuItem{mygo.Separator(), {Role: mygo.RoleToggleFullScreen}}),
-		group(T("Blok"), "block", nil, nil),
-		group(T("Git"), "go", nil, nil),
+		group(locales.CommonAppearance(), "view", nil, []*mygo.MenuItem{mygo.Separator(), {Role: mygo.RoleToggleFullScreen}}),
+		group(locales.CommandsBlock(), "block", nil, nil),
+		group(locales.CommonGo(), "go", nil, nil),
 		{Role: mygo.RoleWindowMenu},
 	})
 }

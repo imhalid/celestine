@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 	"github.com/imhalid/ryu-go/dockwin"
 )
@@ -40,7 +41,7 @@ func (a *app) host() ryugo.DockHost {
 // paneKinds is the one kind of area the Dock knows: a pane of the app, built in its own state.
 func (a *app) paneKinds(th *richtext.Theme) []ryugo.DockKind {
 	n := a.paneCount()
-	return []ryugo.DockKind{{Kind: "pane", Title: T("Bölme"), Icon: iconPanel, Build: func(c *ui.Context, p *ryugo.Pane) {
+	return []ryugo.DockKind{{Kind: "pane", Title: locales.CommonPane(), Icon: iconPanel, Build: func(c *ui.Context, p *ryugo.Pane) {
 		if i := a.ps.index(p.ID); i >= 0 {
 			a.withPane(i, func() { a.paneColumn(c, th, i, n, true) })
 		}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -56,7 +57,7 @@ func (a *app) collectionView(c *ui.Context) {
 							}
 						})
 						c.Key("coll-name:" + coll.Dir)
-						name := ui.TextInputBase(c, &a.collName).Label(T("Koleksiyon adı")).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
+						name := ui.TextInputBase(c, &a.collName).Label(locales.ViewsCollectionName()).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
 						a.fieldMenu(name, &a.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
 							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), "Adsız koleksiyon")); err != nil {
 								a.fail(err)
@@ -102,7 +103,7 @@ func (a *app) collectionView(c *ui.Context) {
 							if n := len(v.Filters); n > 0 { // the view's filters, which its settings change
 								label := Tf("%d filters", n)
 								if n == 1 {
-									label = T("1 filter")
+									label = locales.ViewsN1Filter()
 								}
 								if ryugo.Button(c.Key("view-filters"), label, ryugo.ButtonOptions{Icon: iconFilter, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 									a.editViewFilters(coll, v)
@@ -134,7 +135,7 @@ func (a *app) collectionView(c *ui.Context) {
 								a.newPage(coll, nil)
 							}
 							if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from the other templates
-								if ryugo.Button(c.Key("tpl-menu"), T("Şablondan yeni sayfa"), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+								if ryugo.Button(c.Key("tpl-menu"), locales.ViewsNewPageFromTemplate(), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 									ww, _ := c.Size()
 									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
 								}
@@ -163,7 +164,7 @@ func (a *app) collectionView(c *ui.Context) {
 								case v.Type == "calendar": // a month shows even with nothing in it
 									a.calendarView(c, coll, v, pages)
 								case len(pages) == 0 && len(v.Filters) > 0 && a.search == "":
-									a.emptyState(c, iconFilter, T("No page meets this view's filters"), T("The view shows only the pages that meet its filters."), T("Edit filters"), func() { a.editViewFilters(coll, v) })
+									a.emptyState(c, iconFilter, locales.ViewsNoPageMeetsThis(), locales.ViewsTheViewShowsOnly(), locales.ViewsEditFilters(), func() { a.editViewFilters(coll, v) })
 								case len(pages) == 0 && a.search != "":
 									a.emptyState(c, iconSearch, "Eşleşen sayfa yok", "“"+a.search+"” bu koleksiyonda bir sayfayla eşleşmiyor.", "Aramayı temizle", func() { a.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
@@ -351,7 +352,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		folded := slices.Contains(v.Collapsed, s)
 		c.Key("lgroup:" + s)
 		head := ui.Row(c).Gap(7).AlignItems(ui.Center).Padding(14, 8, 4, 8).Radius(rad(6)).Transition(rowEnter).
-			Label(map[bool]string{true: T("Expand: "), false: T("Collapse: ")}[folded] + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			Label(map[bool]string{true: locales.ViewsExpand(), false: locales.ViewsCollapse()}[folded] + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		head.Children(func() {
 			glyph := iconChevronDown
 			if folded {
@@ -394,7 +395,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 	}
 	items := &ms.items
 	ryugo.Sortable(c.Key("manual:"+key), ms.list, items, ryugo.SortableOptions{
-		Label: func(i int) string { return T("Sırala: ") + (*items)[i].Title },
+		Label: func(i int) string { return locales.ViewsSort() + (*items)[i].Title },
 		Key:   func(i int) any { return (*items)[i] },
 	}, func(p *Page) {
 		// the whole row is what is dragged: nothing in it takes the pointer but its arrow, which opens the page (as
@@ -410,7 +411,7 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 					ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(1)
 				}
 			})
-			open := ryugo.Button(c.Key("open:"+p.Dir), T("Aç: ")+p.Title, ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
+			open := ryugo.Button(c.Key("open:"+p.Dir), locales.ViewsOpen()+p.Title, ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
 			a.contextOn(open, func() []menuItem { return a.pageMenu(p, false) })
 			if open.Clicked() {
 				a.open(p)
@@ -453,7 +454,7 @@ func samePages(a, b []*Page) bool {
 func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
 	t := c.Theme()
 	c.Key("list:" + p.Dir)
-	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Transition(rowEnter)
+	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(locales.ViewsOpen() + p.Title).Role(ui.RoleButton).Transition(rowEnter)
 	a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -502,7 +503,7 @@ func (a *app) galleryView(c *ui.Context, v *View, pages []*Page) {
 		for _, p := range pages {
 			c.Key("gal:" + p.Dir)
 			card := ui.Column(c).Width(galleryCard).Gap(8).Padding(8).Radius(rad(12)).Border(1, cl.Border).
-				Label(T("Aç: ") + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
+				Label(locales.ViewsOpen() + p.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
 			if card.Hovered() {
 				card.Background(t.SurfaceHover)
 			} else {
@@ -1200,7 +1201,7 @@ func columnTone(c *ui.Context, name string) ui.Color {
 func (a *app) boardStrip(c *ui.Context, coll *Collection, v *View, s, title string, n int, id string) {
 	cl := ryugo.From(c).Colors
 	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(rad(18)).AlignItems(ui.Center).
-		Background(cl.Well).Border(1, cl.WellBorder).Label(T("Aç: ") + title).Role(ui.RoleButton).Shrink(0)
+		Background(cl.Well).Border(1, cl.WellBorder).Label(locales.ViewsOpen() + title).Role(ui.RoleButton).Shrink(0)
 	if b.Hovered() {
 		b.Background(cl.Fill)
 	}

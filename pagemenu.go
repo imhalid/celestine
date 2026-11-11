@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -26,7 +27,7 @@ func (a *app) pageButtons(c *ui.Context) {
 		if !phone && a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") { // a phone has no side panel
 			a.togglePanel()
 		}
-		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: T("Time-lapse"), true: T("Back to the text")}[a.lapse.on]) {
+		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: locales.CommonTimeLapse(), true: locales.CommonBackText()}[a.lapse.on]) {
 			a.toggleLapse()
 		}
 		if a.barButton(c, iconMore, "Sayfa menüsü") {

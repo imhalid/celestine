@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/locales"
 	"testing"
 	"time"
 
@@ -69,7 +70,7 @@ func TestMarineStaysInTheField(t *testing.T) {
 	}
 	a.settingsOpen, a.settingsTab = true, 1
 	tt.Advance(900 * time.Millisecond)
-	if err := tt.Click(T("Careti dene")); err != nil {
+	if err := tt.Click(locales.EditorTryCaret()); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 90; i++ {
@@ -77,7 +78,7 @@ func TestMarineStaysInTheField(t *testing.T) {
 		tt.Advance(20 * time.Millisecond)
 	}
 	tt.Advance(200 * time.Millisecond)
-	field, ok := tt.Find(T("Careti dene"))
+	field, ok := tt.Find(locales.EditorTryCaret())
 	g := a.fxNamed("Marine").(*marine)
 	if !ok || g.drawn.W == 0 {
 		t.Fatalf("no field %v or no marine %v", ok, g.drawn)

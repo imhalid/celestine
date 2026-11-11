@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The app's commands, in one list: the menu bar is made from it (menu.go), the window takes their keys
@@ -29,7 +30,7 @@ type appCmd struct {
 // noPageOff is why a command of the page cannot run: there is no page.
 func noPageOff(a *app) string {
 	if a.page == nil || a.doc == nil || a.noPage() {
-		return T("Açık sayfa yok")
+		return locales.CommandsNoPageOpen()
 	}
 	return ""
 }
@@ -37,7 +38,7 @@ func noPageOff(a *app) string {
 // onePaneOff is why a command of the panes cannot run: there is one pane.
 func onePaneOff(a *app) string {
 	if a.paneCount() < 2 {
-		return T("Tek bölme var")
+		return locales.CommandsThereOnePane()
 	}
 	return ""
 }
@@ -82,11 +83,11 @@ func appCommands() []appCmd {
 		{title: "Bölmeyi ayrı pencereye al", menu: "view", glyph: iconPanel, run: (*app).tearOffPane, off: func(a *app) string {
 			switch {
 			case phone:
-				return T("Telefonda yok")
+				return locales.CommonNotPhone()
 			case a.dockHost == nil:
-				return T("Burada ayrı pencere açılamıyor")
+				return locales.CommandsNoWindowOwnCan()
 			case a.activeElsewhere():
-				return T("Bu bölme zaten ayrı bir pencerede")
+				return locales.CommandsThisPaneWindowOwn()
 			}
 			return ""
 		}},
@@ -123,7 +124,7 @@ func appCommands() []appCmd {
 		{title: "Tarihe git", menu: "go", dots: true, glyph: iconCalendar, run: (*app).askDate},
 		{title: "Hızlı not", menu: "go", dots: true, glyph: iconPlus, run: (*app).showQuick, off: func(a *app) string {
 			if a.quick == nil {
-				return T("Burada hızlı not paneli yok")
+				return locales.CommandsThereNoQuickNote()
 			}
 			return ""
 		}},

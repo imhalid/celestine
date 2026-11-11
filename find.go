@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -196,14 +197,14 @@ func (a *app) findBar(c *ui.Context) {
 		})
 		if f.replace {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 32).Children(func() {
-				in := a.fieldMenu(ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: T("Şununla değiştir"), Placeholder: T("Şununla değiştir"), Size: ryugo.Sm}), &f.with, fieldOpts{oneLine: true})
+				in := a.fieldMenu(ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: locales.QueryReplaceWith(), Placeholder: locales.QueryReplaceWith(), Size: ryugo.Sm}), &f.with, fieldOpts{oneLine: true})
 				if in.Submitted() {
 					a.replaceMatch(false)
 				}
-				if ryugo.Button(c.Key("replace-one"), T("Değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
+				if ryugo.Button(c.Key("replace-one"), locales.CommonChange(), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
 					a.replaceMatch(false)
 				}
-				if ryugo.Button(c.Key("replace-all"), T("Tümünü değiştir"), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
+				if ryugo.Button(c.Key("replace-all"), locales.QueryReplaceAll(), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
 					a.replaceMatch(true)
 				}
 			})

@@ -406,7 +406,7 @@ func goName(id string) string {
 func TestCatalogsAsWritten(t *testing.T) {
 	for _, c := range []struct{ code, l, want string }{
 		{"Ayarlar", "tr", "Ayarlar"}, {"Ayarlar", "en", "Settings"},
-		{"Discard the changes?", "en", "Discard the changes?"}, {"Discard the changes?", "tr", "Değişiklikler atılsın mı?"},
+		{"Back to the text", "en", "Back to the text"}, {"Back to the text", "tr", "Metne dön"},
 		{"İleri", "en", "Forward"}, {"Yeniden başlat", "tr", "Yeniden başlat"},
 	} {
 		withLang(t, c.l)

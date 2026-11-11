@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/locales"
 	"strings"
 	"testing"
 	"time"
@@ -103,7 +104,7 @@ func TestCodeBlockCopy(t *testing.T) {
 	copied := ""
 	a.clipText = func(s string) { copied = s }
 	tt.Advance(200 * time.Millisecond)
-	if err := tt.Click(T("Copy the code")); err != nil {
+	if err := tt.Click(locales.BlocksCopyCode()); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()

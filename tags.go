@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -195,7 +196,7 @@ func (a *app) tagView(c *ui.Context) {
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
 			ui.Text(c, "#"+name).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0).Grow(1).MaxLines(1)
-			if ryugo.Button(c.Key("tag-rename-open"), T("Yeniden adlandır"), ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("tag-rename-open"), locales.CommonRename(), ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
 				a.tagRen = tagRename{open: true, key: a.tag, name: name}
 			}
 		})
@@ -386,7 +387,7 @@ func (a *app) tagRenameView(c *ui.Context) {
 	if !r.open {
 		return
 	}
-	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: T("Etiketi yeniden adlandır"), Width: 420, Footer: func() {
+	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: locales.SidebarRenameTag(), Width: 420, Footer: func() {
 		ui.Spacer(c)
 		if ryugo.Button(c.Key("tag-rename-ok"), "Kaydet", ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.applyTagRename()
@@ -395,13 +396,13 @@ func (a *app) tagRenameView(c *ui.Context) {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(10).Children(func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: "Yeni ad"}, func() {
-				in := a.fieldMenu(ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: T("Etiketin yeni adı"), Placeholder: "fikir", PrefixIcon: iconTag}), &r.name, fieldOpts{oneLine: true})
+				in := a.fieldMenu(ryugo.Input(c.Key("tag-rename-in"), &r.name, ryugo.InputOptions{Label: locales.SidebarTheTagsNewName(), Placeholder: "fikir", PrefixIcon: iconTag}), &r.name, fieldOpts{oneLine: true})
 				in.AutoFocus()
 				if in.Submitted() {
 					a.applyTagRename()
 				}
 			})
-			ui.Text(c, T("Var olan bir etiketin adını yazarsan ikisi birleşir. Sayfalardaki #etiket yazıları değişir.")).FontSize(12.5).TextColor(cl.Muted).Wrap()
+			ui.Text(c, locales.SidebarIfYouTypeName()).FontSize(12.5).TextColor(cl.Muted).Wrap()
 			if r.err != "" {
 				ui.Text(c, r.err).FontSize(12.5).TextColor(cl.Up).Wrap()
 			}

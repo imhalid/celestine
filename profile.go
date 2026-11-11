@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -44,7 +45,7 @@ func (a *app) profileView(c *ui.Context) {
 	if in {
 		a.acctRefresh()
 	}
-	title, sub := T("Profil"), T("Giriş yapılmadı: kitaplığın yalnız bu bilgisayarda.")
+	title, sub := locales.CommonProfile(), locales.AccountNotSignedYourLibrary()
 	initial := "?"
 	if in {
 		title, initial = s.AccountUser, strings.ToUpper(string([]rune(s.AccountUser)[:1]))
@@ -67,7 +68,7 @@ func (a *app) profileView(c *ui.Context) {
 				ui.Column(c.Key("prof-body")).FillWidth().MaxWidth(viewMax).Gap(14).Padding(0, 4, 40, 0).Children(func() {
 					if !in {
 						settingGroup(c, "prof-in", func() {
-							ui.Text(c, T("Hesap yalnız sunucu üzerinden eşitleme içindir. Giriş yapmadan da her şey çalışır; dosyaların bu bilgisayarda, düz ve taşınabilir kalır.")).FontSize(13).TextColor(cl.Muted).Wrap()
+							ui.Text(c, locales.AccountAnAccountOnlyFor()).FontSize(13).TextColor(cl.Muted).Wrap()
 						}, func() { a.acctForm(c) })
 						return
 					}
@@ -76,8 +77,8 @@ func (a *app) profileView(c *ui.Context) {
 					a.profileRecovery(c, cl)
 					a.acctManage(c)
 					settingGroup(c, "prof-out", func() {
-						settingRow(c, "Çıkış yap", "Bu bilgisayar hesaptan çıkar; kitaplık burada kalır, eşitleme durur.", func() {
-							if ryugo.Button(c.Key("acct-out"), T("Çıkış yap"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						settingRow(c, locales.AccountSignOut(), locales.AccountThisComputerSignsOut(), func() {
+							if ryugo.Button(c.Key("acct-out"), locales.AccountSignOut(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 								a.acctSignOut()
 							}
 						})
@@ -101,14 +102,14 @@ func (a *app) profileAccount(c *ui.Context, cl ryugo.Colors) {
 	s := &a.settings
 	settingGroup(c, "prof-acct",
 		func() {
-			settingRow(c, "Kullanıcı adı", "", func() { ui.Text(c, s.AccountUser).FontSize(14).TextColor(cl.Text) })
+			settingRow(c, locales.AccountUsername(), "", func() { ui.Text(c, s.AccountUser).FontSize(14).TextColor(cl.Text) })
 		},
 		func() {
-			settingRow(c, "Sunucu", "", func() { ui.Text(c, a.acctHost()).FontSize(14).TextColor(cl.Text) })
+			settingRow(c, locales.CommonServer(), "", func() { ui.Text(c, a.acctHost()).FontSize(14).TextColor(cl.Text) })
 		},
 		func() {
 			if a.ac.me == nil {
-				ui.Text(c, T("Yükleniyor…")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+				ui.Text(c, locales.AccountLoading()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				return
 			}
 			me := a.ac.me
@@ -118,7 +119,7 @@ func (a *app) profileAccount(c *ui.Context, cl ryugo.Colors) {
 			}
 			ui.Column(c).FillWidth().Gap(6).Children(func() {
 				ui.Row(c).FillWidth().Children(func() {
-					ui.Text(c, T("Kullanılan yer")).FontSize(15).FontWeight(620).TextColor(cl.Text).Grow(1)
+					ui.Text(c, locales.AccountSpaceUsed()).FontSize(15).FontWeight(620).TextColor(cl.Text).Grow(1)
 					ui.Text(c, humanBytes(me.Bytes)+" / "+humanBytes(me.Quota)).FontSize(13).TextColor(cl.Muted)
 				})
 				col := cl.Accent
@@ -136,19 +137,19 @@ func (a *app) profileAccount(c *ui.Context, cl ryugo.Colors) {
 func (a *app) profileSync(c *ui.Context, cl ryugo.Colors) {
 	status := a.sy.status
 	if status == "" {
-		status = T("henüz eşitlenmedi")
+		status = locales.CommonNotSyncedYet()
 	}
 	if a.sy.err != "" {
 		status += " · " + a.sy.err
 	}
 	settingGroup(c, "prof-sync",
 		func() {
-			settingRow(c, T("Eşitleme: ")+status, a.sy.result, func() {
+			settingRow(c, locales.AccountSync()+status, a.sy.result, func() {
 				ui.Row(c).Gap(8).Children(func() {
-					if ryugo.Button(c.Key("prof-sync-now"), T("Şimdi eşitle"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+					if ryugo.Button(c.Key("prof-sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.syncNow()
 					}
-					if ryugo.Button(c.Key("prof-probe"), T("Bağlantıyı dene"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("prof-probe"), locales.CommonTryConnection(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.syncProbe()
 					}
 				})
@@ -156,13 +157,13 @@ func (a *app) profileSync(c *ui.Context, cl ryugo.Colors) {
 			if a.ac.probe != "" || a.ac.probing {
 				msg := a.ac.probe
 				if a.ac.probing {
-					msg = T("Deneniyor…")
+					msg = locales.CommonTrying()
 				}
 				ui.Text(c, msg).FontSize(13).TextColor(cl.Muted).Wrap()
 			}
 		},
 		func() {
-			ui.Text(c, T("Bir sayfanın sunucudaki eski halleri: sayfanın menüsünde “Sunucudaki sürümler…”. Sunucu, bir sayfa değişirken önceki hâlini en çok 10 dakikada bir, 10 kopya ve 30 gün tutar; kopyalar kotandan düşer.")).FontSize(13).TextColor(cl.Muted).Wrap()
+			ui.Text(c, locales.AccountTheServersEarlierStates()).FontSize(13).TextColor(cl.Muted).Wrap()
 		})
 }
 
@@ -173,8 +174,8 @@ func (a *app) profileRecovery(c *ui.Context, cl ryugo.Colors) {
 		return
 	}
 	settingGroup(c, "prof-rec", func() {
-		settingRow(c, "Kurtarma anahtarı", "Şifreni unutursan verini bununla geri alırsın (giriş ekranında “Şifremi unuttum”). Güvenli bir yere yaz; bunu bilen verini açabilir.", func() {
-			if ryugo.Button(c.Key("prof-rec-show"), map[bool]string{true: T("Gizle"), false: T("Göster")}[a.ac.showRec], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		settingRow(c, locales.AccountRecoveryKey(), locales.AccountIfYouForgetYour(), func() {
+			if ryugo.Button(c.Key("prof-rec-show"), map[bool]string{true: locales.CommonHide(), false: locales.AccountShow()}[a.ac.showRec], ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 				a.ac.showRec = !a.ac.showRec
 			}
 		})
@@ -182,7 +183,7 @@ func (a *app) profileRecovery(c *ui.Context, cl ryugo.Colors) {
 			rec := RecoveryKey(key)
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Padding(8, 0, 0, 0).Children(func() {
 				ui.Text(c, rec).FontSize(13.5).FontWeight(600).TextColor(cl.Text).Wrap().Grow(1)
-				ryugo.CopyButton(c.Key("copy-recovery-prof"), rec, ryugo.CopyOptions{Label: T("Kopyala: kurtarma anahtarı")})
+				ryugo.CopyButton(c.Key("copy-recovery-prof"), rec, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
 			})
 		}
 	})
@@ -196,7 +197,7 @@ func (a *app) syncProbe() {
 	}
 	remote, err := a.syncRemote()
 	if err != nil {
-		a.ac.probe = T("Olmadı: ") + T(err.Error())
+		a.ac.probe = locales.CommonFailed() + T(err.Error())
 		return
 	}
 	a.ac.probing, a.ac.probe = true, ""
@@ -208,7 +209,7 @@ func (a *app) syncProbe() {
 		a.do(func() error {
 			a.ac.probing = false
 			if err != nil {
-				a.ac.probe = T("Olmadı: ") + err.Error()
+				a.ac.probe = locales.CommonFailed() + err.Error()
 				return nil
 			}
 			n := 0

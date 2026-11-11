@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -307,17 +308,17 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		func() {
 			ui.Column(c).Gap(14).Children(func() {
 				ui.Column(c).Gap(3).Children(func() {
-					ui.Text(c, T("Tema")).FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, T("Sistemin görünümünü izler ya da hep açık ya da koyu olur.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, locales.CommonTheme()).FontSize(15).FontWeight(620).TextColor(cl.Text)
+					ui.Text(c, locales.SettingsFollowsSystemsLookOr()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				ui.Row(c).Gap(14).Wrap().Children(func() {
-					if choiceTile(c, "tile-sys", "Sistem", theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
+					if choiceTile(c, "tile-sys", locales.CommonSystem(), theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
 						theme = 0
 					}
-					if choiceTile(c, "tile-light", "Açık", theme == 1, func() { mock(c, false, 112) }) {
+					if choiceTile(c, "tile-light", locales.CommonLight(), theme == 1, func() { mock(c, false, 112) }) {
 						theme = 1
 					}
-					if choiceTile(c, "tile-dark", "Koyu", theme == 2, func() { mock(c, true, 112) }) {
+					if choiceTile(c, "tile-dark", locales.CommonDark(), theme == 2, func() { mock(c, true, 112) }) {
 						theme = 2
 					}
 				})
@@ -330,9 +331,9 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-accent", func() { a.appThemePicker(c) })
 	w := float64(a.pageWidth())
 	settingGroup(c, "set-width", func() {
-		settingRow(c, "Sayfa genişliği", "Metin sütununun genişliği.", func() {
+		settingRow(c, locales.CommonPageWidth(), locales.SettingsTheWidthTextColumn(), func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-width-s"), &w, 520, 1100, ryugo.SliderOptions{Label: T("Sayfa genişliği"), Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
+				ryugo.Slider(c.Key("set-width-s"), &w, 520, 1100, ryugo.SliderOptions{Label: locales.CommonPageWidth(), Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
 			})
 		})
 	})
@@ -342,9 +343,9 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	corner := float64(a.cornerPercent())
 	settingGroup(c, "set-corner", func() {
-		settingRow(c, "Köşeler", "Bütün köşeler tek bir ölçüden hesaplanır: 0 köşeli, 100 tasarımın kendisi, 200 iki kat yuvarlak.", func() {
+		settingRow(c, locales.CommonCorners(), locales.SettingsAllCornersAreWorked(), func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: T("Köşe yuvarlaklığı"), Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
+				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: locales.CommonCornerRoundness(), Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
 			})
 		})
 	})
@@ -355,8 +356,8 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	waves := !a.settings.NoWaves
 	settingGroup(c, "set-waves", func() {
-		settingRow(c, "Press waves", "A pressed button sends a wave through itself from where it was pressed. With less motion in the system's settings, none goes.", func() {
-			ryugo.Switch(c.Key("set-waves-sw"), &waves, ryugo.SwitchOptions{}).Label(T("Press waves"))
+		settingRow(c, locales.CommonPressWaves(), locales.SettingsAPressedButtonSends(), func() {
+			ryugo.Switch(c.Key("set-waves-sw"), &waves, ryugo.SwitchOptions{}).Label(locales.CommonPressWaves())
 		})
 	})
 	if waves != !a.settings.NoWaves {
@@ -387,21 +388,21 @@ func (a *app) settingsAppearance(c *ui.Context) {
 			}
 			look("set-welcome-ground", "Karşılamanın arka planı", "Yazıların altında, masaüstünün üstünde ne olacağı.", grounds, &a.settings.WelcomeGround)
 			look("set-welcome-open", "Açılış", "Başla'dan sonra uygulamanın penceresi nasıl gelir.", openings, &a.settings.WelcomeOpen)
-			settingRow(c, "Karşılama ekranı", "İlk açılıştaki karşılamayı seçilen görünümle baştan gösterir.", func() {
-				if ryugo.Button(c.Key("set-welcome-go"), T("Yeniden başlat"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.SettingsWelcomeScreen(), locales.SettingsShowsFirstRunsWelcome(), func() {
+				if ryugo.Button(c.Key("set-welcome-go"), locales.CommonRestart(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.welcomeAgain()
 				}
 			})
 		})
 	})
 	settingGroup(c, "set-lang", func() {
-		settingRow(c, "Dil", "Arayüzün dili. Menüler yeniden başlatınca değişir. Metin düzeltmeniz bundan ayrıdır.", func() {
+		settingRow(c, locales.CommonLanguage(), locales.SettingsTheLanguageInterfaceMenus(), func() {
 			was := a.settings.Lang
 			if was != "tr" { // nothing chosen is English
 				was = "en"
 			}
 			lang := was
-			choiceBar(c, "set-lang-bar", T("Dil"), []string{"en", "tr"}, []string{langName("en"), langName("tr")}, &lang)
+			choiceBar(c, "set-lang-bar", locales.CommonLanguage(), []string{"en", "tr"}, []string{langName("en"), langName("tr")}, &lang)
 			if lang != was {
 				a.settings.Lang = lang
 				setLang(lang)
@@ -419,7 +420,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 			ui.Column(c).FillWidth().Gap(14).Children(func() { // the whole width: the tiles wrap in it, not in a column one tile wide
 				ui.Column(c).Gap(3).Children(func() {
 					ui.Text(c, "Caret").FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, T("Slime yazarken esner; Mizan yazma hızını gösterir; Diğerleri hazır ayarlar: her biri olduğu gibi gelir. Beş saniye durursa uyur. ⌘⇧M ile değişir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, locales.SettingsSlimeStretchesAsYou()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
 				a.caretPlayground(c) // over the tiles: a tile chosen is tried here at once, as it is in the text
 				ui.Row(c).FillWidth().Gap(14).Wrap().Children(func() {
@@ -434,7 +435,9 @@ func (a *app) settingsEditor(c *ui.Context) {
 		},
 		func() {
 			on := a.settings.Jelly
-			settingRow(c, "Jöle efekti", "Her caret yolda uzar, yaylanarak yerine oturur. Slime zaten jöledir.", func() { ryugo.Switch(c.Key("set-jelly"), &on, ryugo.SwitchOptions{}).Label(T("Jöle efekti")) })
+			settingRow(c, locales.CommonJellyEffect(), locales.SettingsEveryCaretStretchesWay(), func() {
+				ryugo.Switch(c.Key("set-jelly"), &on, ryugo.SwitchOptions{}).Label(locales.CommonJellyEffect())
+			})
 			if on != a.settings.Jelly {
 				a.settings.Jelly = on
 				a.saveSettings()
@@ -444,14 +447,14 @@ func (a *app) settingsEditor(c *ui.Context) {
 			if phone {
 				return
 			}
-			settingRow(c, "Cursor FX", "An effect that goes with the mouse pointer. The pointer itself stays as it is, and clicks land as they would.", func() {
+			settingRow(c, locales.CommonCursorFx(), locales.SettingsAnEffectThatGoes(), func() {
 				v := a.settings.CursorFX
-				opts := []ryugo.Option[string]{{Value: "", Label: T("Kapalı")}}
+				opts := []ryugo.Option[string]{{Value: "", Label: locales.CommonOff()}}
 				for _, p := range cursorPresets {
 					opts = append(opts, ryugo.Option[string]{Value: p.name, Label: T(p.name)})
 				}
 				ui.Box(c).Width(200).Children(func() {
-					ryugo.Select(c.Key("set-cursor-fx"), &v, opts, ryugo.SelectOptions{Label: T("Cursor FX"), Size: ryugo.Sm})
+					ryugo.Select(c.Key("set-cursor-fx"), &v, opts, ryugo.SelectOptions{Label: locales.CommonCursorFx(), Size: ryugo.Sm})
 				})
 				if v != a.settings.CursorFX {
 					a.settings.CursorFX = v
@@ -465,29 +468,29 @@ func (a *app) settingsEditor(c *ui.Context) {
 	fs, lh := float64(a.fontSize()), float64(a.lineHeight())
 	settingGroup(c, "set-type",
 		func() {
-			settingRow(c, "Yazı boyutu", "", func() {
+			settingRow(c, locales.CommonFontSize(), "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-font"), &fs, 13, 24, ryugo.SliderOptions{Label: T("Yazı boyutu"), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
+					ryugo.Slider(c.Key("set-font"), &fs, 13, 24, ryugo.SliderOptions{Label: locales.CommonFontSize(), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
 				})
 			})
 		},
 		func() {
-			settingRow(c, "Satır aralığı", "", func() {
+			settingRow(c, locales.CommonLineSpacing(), "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-lh"), &lh, 1.3, 2, ryugo.SliderOptions{Label: T("Satır aralığı"), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
+					ryugo.Slider(c.Key("set-lh"), &lh, 1.3, 2, ryugo.SliderOptions{Label: locales.CommonLineSpacing(), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
 				})
 			})
 		},
 		func() { // how it reads, as it is set
 			ui.Column(c).Gap(6).Children(func() {
-				ui.Text(c, T("Önizleme")).FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Muted)
-				ui.Text(c, T("Bir fikir, bir sayfa. Yazdıkça çizgiler kendiliğinden biçime girer: başlık, liste, görev. Satırın aralığı ve harflerin boyu böyle okunur.")).
+				ui.Text(c, locales.SettingsPreview()).FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Muted)
+				ui.Text(c, locales.SettingsOneIdeaOnePage()).
 					FontSize(float32(fs)).LineHeight(float32(lh)).TextColor(cl.Text)
 			})
 		})
 	auto := !a.settings.NoAutoCover
 	settingGroup(c, "set-cover", func() {
-		settingRow(c, "Otomatik kapak", "Kapağı olmayan her sayfa, kendi tohumundan üretilen bir manzara alır: dağlar, göl, sahil, orman, şehir, Japon bahçesi, mercan resifi, balonlar, kuzey ışıkları, uzay… Açık temada gündüzün bir saati, koyuda gece ve bugünün ayı; mevsim de bugünün. Bulutlar, kuşlar, trenler, balıklar yavaşça kıpırdar. Sayfada Kapağı kaldır dersen o sayfa kapaksız kalır.", func() {
+		settingRow(c, locales.CommonAutomaticCover(), locales.SettingsEveryPageWithNo(), func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label("Otomatik kapak")
 		})
 	})
@@ -497,8 +500,8 @@ func (a *app) settingsEditor(c *ui.Context) {
 	}
 	lapse := !a.settings.NoLapse
 	settingGroup(c, "set-lapse", func() {
-		settingRow(c, "Kelimeleri yazıldığı güne göre renklendir", "Time-lapse: sayfanın kelimeleri yazıldıkları günün renginde durur (en eski soğuk, bugün sıcak); yazdıkça yeni kelimeler bugünün rengini alır. Yalnız geçmişi olan sayfalarda. Durum çubuğundaki v1 v2… bir günü aydınlatır; çift tıklayınca yalnız o günün kelimeleri kalır (Esc ile çıkılır).", func() {
-			ryugo.Switch(c.Key("set-lapse-sw"), &lapse, ryugo.SwitchOptions{}).Label(T("Kelimeleri yazıldığı güne göre renklendir"))
+		settingRow(c, locales.CommonColorWordsByDay(), locales.SettingsTimeLapsePagesWords(), func() {
+			ryugo.Switch(c.Key("set-lapse-sw"), &lapse, ryugo.SwitchOptions{}).Label(locales.CommonColorWordsByDay())
 		})
 	})
 	if lapse != !a.settings.NoLapse {
@@ -507,12 +510,12 @@ func (a *app) settingsEditor(c *ui.Context) {
 	}
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
-		settingRow(c, "Shimmer", "While an agent (MCP) adds content to a page, a band of light sweeps across the window, brighter the more is added.", func() {
+		settingRow(c, locales.CommonShimmer(), locales.SettingsWhileAgentMcpAdds(), func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				if ryugo.Button(c.Key("set-wobble-try"), T("Try it"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("set-wobble-try"), locales.SettingsTry(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.shimmer(400)
 				}
-				ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label(T("Shimmer"))
+				ryugo.Switch(c.Key("set-wobble-sw"), &shake, ryugo.SwitchOptions{}).Label(locales.CommonShimmer())
 			})
 		})
 	})
@@ -565,7 +568,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: T("Kopyala") + ": " + T(label)})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopy() + ": " + T(label)})
 				})
 			})
 		}
@@ -576,7 +579,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			row("Kitaplık klasörü", a.lib.Root, "copy-root"),
 			row("Ayar dosyası", a.settingsFile, "copy-settings"),
 			func() {
-				settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages), "Hepsi düz dosya: başka bir editörle de açılır.", func() {})
+				settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages), locales.SettingsAllPlainFilesThey(), func() {})
 			})
 		return
 	}
@@ -584,7 +587,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		row("Kitaplık dosyası", store.File, "copy-root"),
 		func() {
 			settingRow(c, Tf("%d koleksiyon, %d sayfa", len(a.lib.Collections), pages),
-				"Hepsi bu tek dosyada; ayarlar ve MCP anahtarı da. Dosyayı uygulamanın yanında taşıman yeter.", func() {})
+				locales.SettingsAllThisOneFile(), func() {})
 		},
 		func() { a.settingsImport(c) },
 		func() {
@@ -592,15 +595,15 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			if note == "" {
 				note = "Düz .md klasörü olarak, dosyanın yanına yazılır."
 			}
-			settingRow(c, "Markdown olarak dışa aktar", note, func() {
-				if ryugo.Button(c.Key("export-md"), T("Dışa aktar"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.SettingsExportAsMarkdown(), note, func() {
+				if ryugo.Button(c.Key("export-md"), locales.CommonExport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.exportNote = a.exportLibrary(store)
 				}
 			})
 		},
 		func() {
-			settingRow(c, "Markdown olarak zip", "Aynısı tek bir .zip dosyası: başka bir bilgisayara taşımak ya da arşivlemek için.", func() {
-				if ryugo.Button(c.Key("export-zip"), T("Zip yaz"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.SettingsMarkdownAsZip(), locales.SettingsTheSameAsSingle(), func() {
+				if ryugo.Button(c.Key("export-zip"), locales.SettingsWriteZip(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.exportNote = a.exportZip(store)
 				}
 			})
@@ -624,15 +627,15 @@ func (a *app) settingsMCP(c *ui.Context) {
 	cl := t.Colors
 	on := a.settings.MCP
 	settingGroup(c, "set-mcp", func() {
-		settingRow(c, "MCP sunucusu", "Açıkken ajanlar (Claude Code ya da başka bir MCP istemcisi) bu kitaplığa bağlanır: koleksiyon ve sayfa oluşturur, okur, düzenler, taşır. Yaptıkları pencerede anında görünür.", func() {
-			ryugo.Switch(c.Key("mcp-switch"), &on, ryugo.SwitchOptions{}).Label(T("MCP sunucusunu aç"))
+		settingRow(c, locales.CommonMcpServer(), locales.SettingsWhenAgentsClaudeCode(), func() {
+			ryugo.Switch(c.Key("mcp-switch"), &on, ryugo.SwitchOptions{}).Label(locales.SettingsTurnMcpServer())
 		})
 	})
 	if on != a.settings.MCP {
 		a.setMCP(on)
 	}
 	if a.mcpErr != "" {
-		ui.Text(c, T("Açılamadı: ")+a.mcpErr).FontSize(ryugo.FsSm).TextColor(cl.Up)
+		ui.Text(c, locales.SettingsCouldNotOpen()+a.mcpErr).FontSize(ryugo.FsSm).TextColor(cl.Up)
 	}
 	if !a.settings.MCP {
 		return
@@ -644,7 +647,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: T("Kopyala") + ": " + T(label)})
+					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopy() + ": " + T(label)})
 				})
 			})
 		}
@@ -655,8 +658,8 @@ func (a *app) settingsMCP(c *ui.Context) {
 		copyRow("Stdio ile bağlanan bir ajan için", a.mcpStdioCommand(), "copy-stdio"),
 		a.mcpSetupRow(c),
 		func() {
-			settingRow(c, "Anahtar", "Yalnız bu bilgisayardan, anahtarla bağlanılır.", func() {
-				if ryugo.Button(c.Key("new-token"), T("Anahtarı yenile"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.SettingsKey(), locales.SettingsOnlyFromThisComputer(), func() {
+				if ryugo.Button(c.Key("new-token"), locales.SettingsMakeNewKey(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.settings.Token = newToken()
 					a.saveSettings()
 				}
@@ -668,7 +671,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 // settingsMCPAccess is what agents may do with each collection: not see it, read it, or read and write it; and with
 // the others, new ones among them.
 func (a *app) settingsMCPAccess(c *ui.Context) {
-	opts := []ryugo.Option[string]{{Value: mcpWrite, Label: T("Okur ve yazar")}, {Value: mcpRead, Label: T("Yalnız okur")}, {Value: mcpOff, Label: T("Göremez")}}
+	opts := []ryugo.Option[string]{{Value: mcpWrite, Label: locales.SettingsReadsWrites()}, {Value: mcpRead, Label: locales.SettingsReadsOnly()}, {Value: mcpOff, Label: locales.SettingsDoesntSee()}}
 	row := func(key, name string) func() {
 		return func() {
 			v := mcpWrite
@@ -691,12 +694,12 @@ func (a *app) settingsMCPAccess(c *ui.Context) {
 		}
 	}
 	rows := []func(){func() {
-		ui.Text(c, T("Ajanların koleksiyonlarla ne yapabileceği. Göremediği koleksiyon ajana hiç görünmez.")).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted).Wrap()
+		ui.Text(c, locales.SettingsWhatAgentsMayDo()).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted).Wrap()
 	}}
 	for _, coll := range a.lib.Collections {
 		rows = append(rows, row(filepath.Base(coll.Dir), coll.Name))
 	}
-	rows = append(rows, row("*", T("Diğerleri ve yeni koleksiyonlar")))
+	rows = append(rows, row("*", locales.SettingsTheOthersNewOnes()))
 	settingGroup(c, "set-mcp-access", rows...)
 }
 
@@ -713,10 +716,10 @@ func (a *app) settingsQuick(c *ui.Context) {
 		a.quickKeyDraft = cur
 	}
 	settingGroup(c, "set-quick", func() {
-		settingStack(c, "Hızlı not tuşu", "Her yerden paneli açar. Örnek: CmdOrCtrl+Alt+N, Alt+Shift+Space. Wayland'da masaüstü onay isteyebilir.", func() {
+		settingStack(c, locales.SettingsQuickNoteKey(), locales.SettingsOpensPanelFromAnywhere(), func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				in := a.fieldMenu(ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: T("Hızlı not tuşu"), Size: ryugo.Sm}), &a.quickKeyDraft, fieldOpts{oneLine: true}).Width(190)
-				apply := ryugo.Button(c.Key("set-quick-ok"), T("Uygula"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
+				in := a.fieldMenu(ryugo.Input(c.Key("set-quick-in"), &a.quickKeyDraft, ryugo.InputOptions{Label: locales.SettingsQuickNoteKey(), Size: ryugo.Sm}), &a.quickKeyDraft, fieldOpts{oneLine: true}).Width(190)
+				apply := ryugo.Button(c.Key("set-quick-ok"), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if apply && a.quick != nil {
 					if err := a.quick.setShortcut(strings.TrimSpace(a.quickKeyDraft)); err != nil {
 						a.quickKeyErr = err.Error()

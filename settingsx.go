@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -74,7 +75,7 @@ func (a *app) changedDefs() []settingDef {
 // resetAllAsked asks, then puts every setting back to its default, with a way back: the language, the sync and
 // the MCP server go back too.
 func (a *app) resetAllAsked() {
-	a.ask(T("Reset all settings?"), T("Every setting goes back to its default: the language, the look, the sync and the MCP server too."), T("Reset all"), func() {
+	a.ask(locales.SettingsResetAllSettings(), locales.SettingsEverySettingGoesBack(), locales.SettingsResetAll(), func() {
 		before := a.settings
 		a.undoSettings(Tf("%d ayar varsayılana döndü", a.resetAll()), before)
 	})
@@ -289,7 +290,7 @@ func (a *app) settingsFileOut() string {
 func (a *app) pickSettingsFile() {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak ayar dosyası")})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.SettingsTheSettingsFileImport()})
 		if err != nil || len(paths) == 0 {
 			return
 		}
@@ -312,7 +313,7 @@ func (a *app) settingsTop(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	search := func() {
 		q := a.setSearch
-		in := ui.TextInputBase(c.Key("set-search"), &q).Label(T("Ayarlarda ara")).Placeholder(T("Ayarlarda ara…")).PlaceholderColor(cl.Muted).
+		in := ui.TextInputBase(c.Key("set-search"), &q).Label(locales.SettingsSearchSettings()).Placeholder(locales.SettingsSearchSettings2()).PlaceholderColor(cl.Muted).
 			FontSize(13).Padding(7, 11).Radius(rad(9)).Background(cl.Card).Border(1, cl.Hairline).Grow(1).FocusRing(false)
 		a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
 		if phone {
@@ -362,7 +363,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 	case strings.TrimSpace(a.setSearch) != "":
 		res := searchDefs(a.setSearch)
 		if len(res) == 0 {
-			ui.Text(c, T("Eşleşen ayar yok.")).FontSize(13).TextColor(cl.Muted)
+			ui.Text(c, locales.SettingsNoSettingMatches()).FontSize(13).TextColor(cl.Muted)
 			return true
 		}
 		var rows []func()
@@ -375,10 +376,10 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 	case a.setMode == "changed":
 		ch := a.changedDefs()
 		if len(ch) == 0 {
-			ui.Text(c, T("Hiçbir ayar değişmemiş: hepsi varsayılan.")).FontSize(13).TextColor(cl.Muted)
+			ui.Text(c, locales.SettingsNothingHasChangedAll()).FontSize(13).TextColor(cl.Muted)
 			return true
 		}
-		if ryugo.Button(c.Key("reset-all"), T("Hepsini varsayılana döndür")+" ("+strconv.Itoa(len(ch))+")", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("reset-all"), locales.CommonResetAllDefaults()+" ("+strconv.Itoa(len(ch))+")", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.resetAllAsked()
 		}
 		var rows []func()
@@ -397,8 +398,8 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 	case a.setMode == "file":
 		settingGroup(c, "set-file",
 			func() {
-				settingRow(c, "Ayarları dosyaya yaz", "Görünüm ve yazı ayarları JSON olarak yazılır; parolalar, jetonlar ve bu bilgisayara ait konumlar yazılmaz. Başka bir bilgisayara taşımak için.", func() {
-					if ryugo.Button(c.Key("set-export"), T("Dışa aktar"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				settingRow(c, locales.CommonWriteSettingsFile(), locales.SettingsTheLookWritingSettings(), func() {
+					if ryugo.Button(c.Key("set-export"), locales.CommonExport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						p := a.settingsFileOut()
 						if err := a.exportSettingsTo(p); err != nil {
 							a.notice = "Olmadı: " + err.Error()
@@ -409,8 +410,8 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 				})
 			},
 			func() {
-				settingRow(c, "Ayar dosyası oku", "Dosyadakiler ayarlanır; yazılmayanlar olduğu gibi kalır.", func() {
-					if ryugo.Button(c.Key("set-import"), T("İçe aktar…"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				settingRow(c, locales.SettingsReadSettingsFile(), locales.SettingsWhatFileSetWhat(), func() {
+					if ryugo.Button(c.Key("set-import"), locales.SettingsImport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.pickSettingsFile()
 					}
 				})
@@ -451,14 +452,14 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 				ui.Text(c, T(d.state(a))).FontSize(13).FontWeight(620).TextColor(cl.Text2)
 			}
 			if withReset || d.changed(a) {
-				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(T("Varsayılana dön") + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-				b.Children(func() { ui.Text(c, T("Varsayılana dön")).FontSize(12).TextColor(cl.Text2) })
+				b := ui.Row(c.Key("slr:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsResetDefault() + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				b.Children(func() { ui.Text(c, locales.SettingsResetDefault()).FontSize(12).TextColor(cl.Text2) })
 				if b.Clicked() {
 					d.reset(a)
 				}
 			}
-			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(T("Git") + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-			g.Children(func() { ui.Text(c, T("Git")).FontSize(12).TextColor(cl.Text2) })
+			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.CommonGo() + ": " + T(d.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			g.Children(func() { ui.Text(c, locales.CommonGo()).FontSize(12).TextColor(cl.Text2) })
 			if g.Clicked() {
 				a.settingsTab, a.setSearch, a.setMode = tab, "", ""
 			}
@@ -473,17 +474,17 @@ func (a *app) settingsProfiles(c *ui.Context) {
 		n := n
 		_, mine := a.settings.Profiles[n]
 		rows = append(rows, func() {
-			help := T("Hazır profil")
+			help := locales.SettingsBuiltProfile()
 			if mine {
-				help = T("Kayıtlı profil")
+				help = locales.SettingsSavedProfile()
 			}
 			settingRow(c, n, help, func() {
 				ui.Row(c).Gap(6).Children(func() {
-					if ryugo.Button(c.Key("prof-use:"+n), T("Uygula"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+					if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.applyProfile(n)
 						a.notice = "Profil: " + n
 					}
-					if mine && ryugo.Button(c.Key("prof-del:"+n), T("Sil"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.deleteProfile(n)
 					}
 				})
@@ -492,10 +493,10 @@ func (a *app) settingsProfiles(c *ui.Context) {
 	}
 	settingGroup(c, "set-profiles", rows...)
 	settingGroup(c, "set-profile-new", func() {
-		settingRow(c, "Şimdikini profil olarak kaydet", "Tema, renk, yazı tipleri, boyutlar, caret ve boşluk gösterimi bir ad altında saklanır; ⌘P'de “Profil: ad” ile geçilir.", func() {
+		settingRow(c, locales.SettingsSaveCurrentLookAs(), locales.SettingsThemeColorTypefacesSizes(), func() {
 			ui.Row(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: "Profil adı", Size: ryugo.Sm, Placeholder: T("Profil adı")}), &a.profName, fieldOpts{oneLine: true})
-				if ryugo.Button(c.Key("prof-save"), T("Kaydet"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				a.fieldMenu(ryugo.Input(c.Key("prof-name"), &a.profName, ryugo.InputOptions{Label: "Profil adı", Size: ryugo.Sm, Placeholder: locales.SettingsProfileName()}), &a.profName, fieldOpts{oneLine: true})
+				if ryugo.Button(c.Key("prof-save"), locales.CommonSave(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.saveProfile(a.profName)
 					a.profName = ""
 				}

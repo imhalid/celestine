@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -108,13 +109,13 @@ func (a *app) statsView(c *ui.Context) {
 		ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
 			ui.Row(c).FillWidth().MaxWidth(viewMax).Gap(12).AlignItems(ui.Center).Padding(2, 0, 0, 0).Children(func() {
 				ui.Column(c).Grow(1).Gap(4).Children(func() {
-					ui.Text(c, T("İstatistikler")).FontSize(32).FontWeight(720).TextColor(cl.Text)
-					ui.Text(c, T("Yazım ve kullanım. Hepsi bu bilgisayarda kalır, hiçbir yere gönderilmez.")).FontSize(ryugo.FsMd).TextColor(cl.Muted)
+					ui.Text(c, locales.CommonStatistics()).FontSize(32).FontWeight(720).TextColor(cl.Text)
+					ui.Text(c, locales.StatsWritingUseAllStays()).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 				})
 				on := !a.settings.NoStats
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, "Topla").FontSize(13).TextColor(cl.Muted)
-					ryugo.Switch(c.Key("stats-on"), &on, ryugo.SwitchOptions{}).Label(T("İstatistik toplama"))
+					ryugo.Switch(c.Key("stats-on"), &on, ryugo.SwitchOptions{}).Label(locales.CommonCollectStatistics())
 				})
 				if on != !a.settings.NoStats {
 					a.settings.NoStats = !on
@@ -127,12 +128,12 @@ func (a *app) statsView(c *ui.Context) {
 				ui.Column(c.Key("stats-body")).FillWidth().MaxWidth(viewMax).Gap(12).Padding(0, 4, 40, 0).Children(func() {
 					if a.statCacheAt.IsZero() && !a.statLoading { // the screen first, then the figures: opening is never the wait
 						a.statLoading = true
-						ui.Text(c, T("Hesaplanıyor…")).FontSize(13).TextColor(cl.Muted)
+						ui.Text(c, locales.StatsCalculating()).FontSize(13).TextColor(cl.Muted)
 						c.Invalidate()
 						return
 					}
 					if a.settings.NoStats {
-						ui.Text(c, T("İstatistik toplama kapalı: yeni bir şey sayılmıyor. Aşağıdakiler önceden toplananlardır.")).FontSize(13).TextColor(cl.Warn)
+						ui.Text(c, locales.StatsStatisticsAreOffNothing()).FontSize(13).TextColor(cl.Warn)
 					}
 					a.statsWriting(c, cl, s, weekFrom, now)
 					a.statsUse(c, cl, now, weekFrom)
@@ -145,21 +146,21 @@ func (a *app) statsView(c *ui.Context) {
 }
 
 func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekFrom, now time.Time) {
-	statHead(c, "Yazım", "Sayılan, her kayıtta sayfaya eklenen kelimelerdir; silinenler düşmez, taşınan ve içe aktarılan metin yazılmış sayılmaz.")
+	statHead(c, locales.StatsWriting(), "Sayılan, her kayıtta sayfaya eklenen kelimelerdir; silinenler düşmez, taşınan ve içe aktarılan metin yazılmış sayılmaz.")
 	ui.Row(c.Key("st-tiles")).FillWidth().Gap(10).Wrap().Children(func() {
-		statTile(c, "st-today", "bugün", strconv.Itoa(s.today))
-		statTile(c, "st-week", "bu hafta", strconv.Itoa(s.week))
-		statTile(c, "st-month", "bu ay", strconv.Itoa(s.month))
-		statTile(c, "st-streak", "gün üst üste", strconv.Itoa(s.streak))
-		statTile(c, "st-best", "en iyi gün", strconv.Itoa(s.best))
-		statTile(c, "st-total", "toplam", strconv.Itoa(s.total))
+		statTile(c, "st-today", locales.StatsToday(), strconv.Itoa(s.today))
+		statTile(c, "st-week", locales.StatsThisWeek(), strconv.Itoa(s.week))
+		statTile(c, "st-month", locales.StatsThisMonth(), strconv.Itoa(s.month))
+		statTile(c, "st-streak", locales.StatsDaysRow(), strconv.Itoa(s.streak))
+		statTile(c, "st-best", locales.StatsBestDay(), strconv.Itoa(s.best))
+		statTile(c, "st-total", locales.StatsTotal(), strconv.Itoa(s.total))
 	})
 	goal := a.settings.WriteGoal
 	if goal > 0 {
 		frac := float32(min(s.today, goal)) / float32(goal)
 		ui.Column(c.Key("goal")).FillWidth().Gap(5).Children(func() {
 			ui.Row(c).Children(func() {
-				ui.Text(c, T("Günlük hedef: ")+strconv.Itoa(s.today)+" / "+strconv.Itoa(goal)+T(" kelime")).FontSize(13).TextColor(cl.Text2).Grow(1)
+				ui.Text(c, locales.StatsDailyGoal()+strconv.Itoa(s.today)+" / "+strconv.Itoa(goal)+locales.StatsWords()).FontSize(13).TextColor(cl.Text2).Grow(1)
 				switch {
 				case s.today >= goal:
 					ui.Text(c, "tamam").FontSize(12.5).FontWeight(650).TextColor(cl.Down)
@@ -176,37 +177,37 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 		})
 	}
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, T("Günlük hedef (kelime)")).FontSize(13).TextColor(cl.Muted).Grow(1)
+		ui.Text(c, locales.StatsDailyGoalWords()).FontSize(13).TextColor(cl.Muted).Grow(1)
 		g := goal
-		a.countField(c, "write-goal", &g, T("Günlük hedef")).Width(130)
+		a.countField(c, "write-goal", &g, locales.StatsDailyGoal2()).Width(130)
 		if g != a.settings.WriteGoal {
 			a.settings.WriteGoal = g
 			a.saveSettings()
 		}
 	})
 	a.writingChart(c, cl, s)
-	statHead(c, "Yıl", "Her kare bir gün; koyu olan çok yazılandır.")
+	statHead(c, locales.StatsYear(), "Her kare bir gün; koyu olan çok yazılandır.")
 	a.yearHeat(c, cl, now)
 	grid, best, hi := a.hourGrid()
-	statHead(c, "Hangi saatlerde yazıyorum", "Gün ve saate göre yazılan kelime.")
+	statHead(c, locales.StatsWhenDoIWrite(), "Gün ve saate göre yazılan kelime.")
 	a.hourHeat(c, cl, grid, hi)
 	if hi > 0 {
 		ui.Text(c, Tf("Most fruitful: around %s %02d:00 (%d words).", dayName((firstWeekday()+time.Weekday(best[0]))%7, false), best[1], hi)).FontSize(13).TextColor(cl.Text2)
 	} else {
-		ui.Text(c, T("Henüz saat verisi yok: yazdıkça burada birikir.")).FontSize(13).TextColor(cl.Muted)
+		ui.Text(c, locales.StatsNoHourlyDataYet()).FontSize(13).TextColor(cl.Muted)
 	}
 	ses := a.writingSessions()
 	long, wpm, avg := sessionStats(ses)
-	statHead(c, "Yazma oturumları", "Beş dakikadan uzun bir ara oturumu bitirir. Hız, en az yarım dakikalık oturumlardan hesaplanır.")
+	statHead(c, locales.StatsWritingSessions(), "Beş dakikadan uzun bir ara oturumu bitirir. Hız, en az yarım dakikalık oturumlardan hesaplanır.")
 	ui.Row(c.Key("ses-tiles")).FillWidth().Gap(10).Wrap().Children(func() {
-		statTile(c, "ses-n", "oturum", strconv.Itoa(len(ses)))
+		statTile(c, "ses-n", locales.StatsSessions(), strconv.Itoa(len(ses)))
 		statTile(c, "ses-long", "en uzun oturum"+map[bool]string{true: " (" + strconv.Itoa(long.Words) + " kelime)", false: ""}[long.Secs > 0], map[bool]string{true: duration(long.Secs), false: "—"}[long.Secs > 0])
-		statTile(c, "ses-wpm", "ortalama hız", map[bool]string{true: strconv.Itoa(int(wpm)) + " kelime/dk", false: "—"}[wpm > 0])
-		statTile(c, "ses-avg", "ortalama süre", map[bool]string{true: strconv.FormatFloat(avg, 'f', 1, 64) + " dk", false: "—"}[avg > 0])
+		statTile(c, "ses-wpm", locales.StatsAverageSpeed(), map[bool]string{true: strconv.Itoa(int(wpm)) + " kelime/dk", false: "—"}[wpm > 0])
+		statTile(c, "ses-avg", locales.StatsAverageLength(), map[bool]string{true: strconv.FormatFloat(avg, 'f', 1, 64) + " dk", false: "—"}[avg > 0])
 	})
-	statHead(c, "Nerede yazıyorum", "")
+	statHead(c, locales.StatsWhereIWrite(), "")
 	if tags := top(a.sumBy(func(u *dayUse) map[string]int { return u.Tags }), 6); len(tags) > 0 {
-		ui.Text(c, T("Etiketler")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+		ui.Text(c, locales.CommonTags()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		statList(c, "by-tag", tags, "", nil)
 	}
 	ui.Row(c).FillWidth().Gap(18).Children(func() {
@@ -215,7 +216,7 @@ func (a *app) statsWriting(c *ui.Context, cl ryugo.Colors, s writingStats, weekF
 			statList(c, "by-coll", top(a.writtenIn(false), 6), "Henüz yok.", nil)
 		})
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
-			ui.Text(c, T("En çok yazılan sayfalar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+			ui.Text(c, locales.StatsMostWrittenPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 			var rows []count
 			for _, e := range top(a.writtenIn(true), 6) {
 				if p := a.pageAt(e.Name); p != nil {
@@ -247,7 +248,7 @@ func (a *app) pageAt(dir string) *Page {
 }
 
 func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) {
-	statHead(c, "Kullanım", "Uygulamanın açık olup bir şey yaptığın süre: son işlemden bir dakika sonra sayılmaz.")
+	statHead(c, locales.StatsUse(), "Uygulamanın açık olup bir şey yaptığın süre: son işlemden bir dakika sonra sayılmaz.")
 	opened := func(u *dayUse) int { return u.Opened }
 	created := func(u *dayUse) int { return u.Created }
 	deleted := func(u *dayUse) int { return u.Deleted }
@@ -262,11 +263,11 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 	})
 	ui.Row(c).FillWidth().Gap(18).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
-			ui.Text(c, T("En çok kullanılan komutlar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+			ui.Text(c, locales.StatsMostUsedCommands()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 			statList(c, "by-cmd", top(a.usage.Cmds, 8), "Henüz komut çalıştırmadın.", nil)
 		})
 		ui.Column(c).Grow(1).MinWidth(0).Gap(6).Children(func() {
-			ui.Text(c, T("En çok açılan sayfalar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+			ui.Text(c, locales.StatsMostOpenedPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 			var rows []count
 			for _, e := range top(a.usage.Opens, 8) {
 				if p := a.pageAt(e.Name); p != nil {
@@ -290,11 +291,11 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 		}
 	}
 	if len(timed) > 0 {
-		ui.Text(c, T("En çok vakit geçirilen sayfalar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+		ui.Text(c, locales.StatsPagesYouSpentMost()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		statList(c, "by-time", timed, "", nil)
 	}
 	if un := a.unusedFeatures(6); len(un) > 0 {
-		ui.Text(c, T("Hiç kullanmadığın: ")+strings.Join(un, " · ")).FontSize(12.5).TextColor(cl.Muted).Wrap()
+		ui.Text(c, locales.StatsNeverUsed()+strings.Join(un, " · ")).FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
 }
 
@@ -321,21 +322,21 @@ func (a *app) unusedFeatures(n int) []string {
 
 func (a *app) statsLibrary(c *ui.Context, cl ryugo.Colors) {
 	l := a.libStatsNow()
-	statHead(c, "Kitaplık", "")
+	statHead(c, locales.CommonLibrary(), "")
 	ui.Row(c.Key("lib-tiles")).FillWidth().Gap(10).Wrap().Children(func() {
-		statTile(c, "lib-coll", "koleksiyon", strconv.Itoa(l.Collections))
-		statTile(c, "lib-pages", "sayfa", strconv.Itoa(l.Pages))
-		statTile(c, "lib-words", "kelime", strconv.Itoa(l.Words))
-		statTile(c, "lib-tags", "etiket", strconv.Itoa(l.Tags))
-		statTile(c, "lib-links", "bağlantı", strconv.Itoa(l.Links))
-		statTile(c, "lib-tasks", "görev", strconv.Itoa(l.Tasks))
+		statTile(c, "lib-coll", locales.CommonCollections(), strconv.Itoa(l.Collections))
+		statTile(c, "lib-pages", locales.CommonPages(), strconv.Itoa(l.Pages))
+		statTile(c, "lib-words", locales.StatsWords2(), strconv.Itoa(l.Words))
+		statTile(c, "lib-tags", locales.CommonTags2(), strconv.Itoa(l.Tags))
+		statTile(c, "lib-links", locales.StatsLinks(), strconv.Itoa(l.Links))
+		statTile(c, "lib-tasks", locales.StatsTasks(), strconv.Itoa(l.Tasks))
 	})
 	if l.Oldest != nil && l.Newest != nil {
-		ui.Text(c, T("En eski değişiklik: ")+l.Oldest.Title+" ("+shortDate(l.Oldest.Modified)+") · "+T("en yeni: ")+l.Newest.Title+" ("+dateTime(l.Newest.Modified, false)+")").FontSize(12.5).TextColor(cl.Muted).Wrap()
+		ui.Text(c, locales.StatsOldestChange()+l.Oldest.Title+" ("+shortDate(l.Oldest.Modified)+") · "+locales.StatsNewest()+l.Newest.Title+" ("+dateTime(l.Newest.Modified, false)+")").FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
-	ui.Text(c, T("En büyük sayfalar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+	ui.Text(c, locales.StatsBiggestPages()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	statList(c, "big-pages", l.Biggest, "Sayfa yok.", nil)
-	statHead(c, "Kitaplık sağlığı", "Temizlik önerisi: tıklayınca sayfa açılır.")
+	statHead(c, locales.StatsLibraryHealth(), "Temizlik önerisi: tıklayınca sayfa açılır.")
 	health := func(key, title string, pages []*Page) {
 		if len(pages) == 0 {
 			ui.Text(c, title+": yok ✓").FontSize(13).TextColor(cl.Down)
@@ -366,20 +367,20 @@ func (a *app) statsLibrary(c *ui.Context, cl ryugo.Colors) {
 	health("orph", "Yetim sayfa (ne bağlanan ne bağlanılan)", l.Orphans)
 	health("empty", "Boş sayfa", l.Empty)
 	if len(l.Broken) == 0 {
-		ui.Text(c, T("Kırık [[bağlantı]]: yok ✓")).FontSize(13).TextColor(cl.Down)
+		ui.Text(c, locales.StatsBrokenLinksNone()).FontSize(13).TextColor(cl.Down)
 	} else {
-		ui.Text(c, T("Kırık [[bağlantı]] bulunan sayfa: ")+strconv.Itoa(len(l.Broken))).FontSize(13).FontWeight(620).TextColor(cl.Warn)
+		ui.Text(c, locales.StatsPagesWithBrokenLink()+strconv.Itoa(len(l.Broken))).FontSize(13).FontWeight(620).TextColor(cl.Warn)
 		statList(c, "broken", l.Broken, "", nil)
 	}
 	if len(l.Dupes) == 0 {
-		ui.Text(c, T("Aynı başlıklı sayfa: yok ✓")).FontSize(13).TextColor(cl.Down)
+		ui.Text(c, locales.StatsPagesWithSameTitle()).FontSize(13).TextColor(cl.Down)
 	} else {
-		ui.Text(c, T("Aynı başlıklı sayfalar: ")+strings.Join(l.Dupes, ", ")).FontSize(13).TextColor(cl.Warn).Wrap()
+		ui.Text(c, locales.StatsPagesWithSameTitle2()+strings.Join(l.Dupes, ", ")).FontSize(13).TextColor(cl.Warn).Wrap()
 	}
 }
 
 func (a *app) statsData(c *ui.Context, cl ryugo.Colors) {
-	statHead(c, "Veri", "Rakamlar düz JSON/CSV olarak her an dışa aktarılır; hiçbiri ağa gitmez, senkronizasyon açılsa bile ayrı bir seçenek olmadan gönderilmez.")
+	statHead(c, locales.StatsData(), "Rakamlar düz JSON/CSV olarak her an dışa aktarılır; hiçbiri ağa gitmez, senkronizasyon açılsa bile ayrı bir seçenek olmadan gönderilmez.")
 	ui.Row(c.Key("stats-actions")).FillWidth().Gap(8).Wrap().Children(func() {
 		if ryugo.Button(c.Key("st-csv"), "CSV olarak dışa aktar", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.notice = a.exportStatsCSV()
@@ -404,7 +405,7 @@ func (a *app) statsData(c *ui.Context, cl ryugo.Colors) {
 			}
 		}
 	})
-	ui.Text(c, T("Nasıl sayılıyor: kelime, boşlukla ayrılmış parçadır; yalnız kayıtta sayfaya eklenen artış sayılır (yazarken silip yeniden yazmak iki kez sayılabilir). Kullanım süresi son işlemden bir dakika sonra durur. Saat, bilgisayarın saatidir.")).FontSize(12).TextColor(cl.Muted).Wrap()
+	ui.Text(c, locales.StatsHowCountedWordPiece()).FontSize(12).TextColor(cl.Muted).Wrap()
 }
 
 // writeWeekSummary puts the week's summary at the end of today's page of the journal.
@@ -433,7 +434,7 @@ func (a *app) yearHeat(c *ui.Context, cl ryugo.Colors, now time.Time) {
 	for d := start; !d.After(now); d = d.AddDate(0, 0, 1) {
 		hi = max(hi, a.writtenOn(d))
 	}
-	ui.Box(c.Key("year-heat")).FillWidth().Height(7*14 + 2).Label(T("Yıllık yazı ısı haritası")).Draw(func(p *ui.Painter, r ui.Rect) {
+	ui.Box(c.Key("year-heat")).FillWidth().Height(7*14 + 2).Label(locales.StatsYearlyWritingHeatMap()).Draw(func(p *ui.Painter, r ui.Rect) {
 		cell := min(float32(13), (r.W-52*2)/53)
 		col := 0
 		for d := start; !d.After(now); d = d.AddDate(0, 0, 1) {
@@ -453,7 +454,7 @@ func (a *app) yearHeat(c *ui.Context, cl ryugo.Colors, now time.Time) {
 
 // hourHeat draws the weekday by hour grid.
 func (a *app) hourHeat(c *ui.Context, cl ryugo.Colors, grid [7][24]int, hi int) {
-	ui.Box(c.Key("hour-heat")).FillWidth().Height(7*18 + 22).Label(T("Saat ve güne göre yazılan kelime")).Draw(func(p *ui.Painter, r ui.Rect) {
+	ui.Box(c.Key("hour-heat")).FillWidth().Height(7*18 + 22).Label(locales.StatsWordsWrittenByHour()).Draw(func(p *ui.Painter, r ui.Rect) {
 		left := float32(34)
 		cell := (r.W - left) / 24
 		heads := weekdayHeads(false)

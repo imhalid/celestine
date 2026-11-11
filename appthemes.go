@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -206,8 +207,8 @@ func (a *app) appThemePicker(c *ui.Context) {
 	dark := ryugo.From(c).Dark
 	ui.Column(c).Gap(14).Children(func() {
 		ui.Column(c).Gap(3).Children(func() {
-			ui.Text(c, T("Renk teması")).FontSize(15).FontWeight(620).TextColor(cl.Text)
-			ui.Text(c, T("Bütün arayüzün rengi: sayfa, kenar çubuğu, alanlar, çizgiler ve vurgu. ")+T(a.appTheme().name)+T(" seçili.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			ui.Text(c, locales.CommonColorTheme()).FontSize(15).FontWeight(620).TextColor(cl.Text)
+			ui.Text(c, locales.ThemesTheColorWholeInterface()+T(a.appTheme().name)+locales.ThemesIsSelected()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 		})
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for i, th := range appThemes {

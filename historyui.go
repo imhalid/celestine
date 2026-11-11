@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -156,21 +157,21 @@ func (a *app) historyView(c *ui.Context) {
 		ui.Text(c, hint).FontSize(12.5).TextColor(cl.Muted).Grow(1).MaxLines(2)
 		if !v.server {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				in := a.fieldMenu(ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: T("Sürümün adı"), Placeholder: T("Şu hâli adla sakla…"), Size: ryugo.Sm}), &v.label, fieldOpts{oneLine: true}).Width(190)
+				in := a.fieldMenu(ryugo.Input(c.Key("hist-name"), &v.label, ryugo.InputOptions{Label: locales.HistoryTheVersionsName(), Placeholder: locales.HistoryKeepThisAsNamed(), Size: ryugo.Sm}), &v.label, fieldOpts{oneLine: true}).Width(190)
 				keep := ryugo.Button(c.Key("hist-keep"), "Sakla", ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()
 				if keep {
 					a.saveNamedVersion()
 				}
 			})
 		}
-		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), T("Bu sürüme dön"), ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+		if len(v.vers) > 0 && ryugo.Button(c.Key("hist-back"), locales.HistoryGoBackThisVersion(), ryugo.ButtonOptions{Icon: iconRestore, Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.putBackVersion()
 		}
 	}}, func() {
 		if len(v.vers) == 0 {
 			ui.Column(c).FillWidth().Height(200).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
 				ui.Icon(c, iconHistory).Width(34).Height(34).TextColor(cl.Muted.Alpha(0.6))
-				ui.Text(c, T("Bu sayfanın kopyası yok")).TextColor(cl.Muted)
+				ui.Text(c, locales.HistoryThisPageHasNo()).TextColor(cl.Muted)
 			})
 			return
 		}
@@ -225,7 +226,7 @@ func (a *app) diffRows(c *ui.Context, cl ryugo.Colors, ops []DiffOp) {
 		}
 	}
 	if adds+dels == 0 {
-		ui.Text(c, T("Bu sürüm sayfanın şimdiki halinin aynısı.")).FontSize(13).TextColor(cl.Muted).Padding(8, 4)
+		ui.Text(c, locales.HistoryThisVersionSameAs()).FontSize(13).TextColor(cl.Muted).Padding(8, 4)
 		return
 	}
 	ui.Text(c, strconv.Itoa(adds)+" satır geri gelir, "+strconv.Itoa(dels)+" satır gider").FontSize(12).FontWeight(600).TextColor(cl.Muted).Padding(0, 4, 6, 4)

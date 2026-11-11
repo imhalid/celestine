@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/egoist/mygo"
+	"github.com/imhalid/celestine/locales"
 )
 
 // A file in the text: any file that is not a picture, put in the page as a chip with its name, the file itself
@@ -16,7 +17,7 @@ import (
 func (a *app) addFileFrom(src string) {
 	p := a.page
 	if p == nil || a.doc == nil || a.noPage() {
-		a.notice = T("Drop the file on a page")
+		a.notice = locales.PageDropFilePage()
 		return
 	}
 	data, err := os.ReadFile(src)
@@ -37,7 +38,7 @@ func (a *app) addFileFrom(src string) {
 func (a *app) pickFileToAttach() {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("Choose a file")})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.CommonChooseFile()})
 		if err != nil || len(paths) == 0 {
 			return
 		}

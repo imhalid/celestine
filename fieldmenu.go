@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The app's own menu on every text: MyGo gives a text input, a selectable text and the editor a
@@ -144,18 +145,18 @@ func (a *app) editorItems(y float32) []menuItem {
 				a.refocus = true
 			}},
 			menuItem{title: "Kopyala", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }},
-			a.into(T("Copy as"), iconCopy, func() []menuItem {
+			a.into(locales.PageCopyAs(), iconCopy, func() []menuItem {
 				return []menuItem{
 					{title: "Markdown", hint: "⇧⌘C", glyph: iconCopy, run: func() { a.copyAs("markdown") }},
-					{title: T("Plain text"), glyph: iconCopy, run: func() { a.copyAs("plain") }},
+					{title: locales.PagePlainText(), glyph: iconCopy, run: func() { a.copyAs("plain") }},
 					{title: "HTML", glyph: iconCopy, run: func() { a.copyAs("html") }},
 				}
 			}))
 	}
-	out = append(out, a.into(T("Paste as"), iconPaste, func() []menuItem {
+	out = append(out, a.into(locales.PagePasteAs(), iconPaste, func() []menuItem {
 		return []menuItem{
 			{title: "Markdown", hint: "⌥⌘V", glyph: iconPaste, run: func() { a.pasteAs("markdown") }},
-			{title: T("Plain text"), hint: "⇧⌘V", glyph: iconPaste, run: func() { a.pasteAs("plain") }},
+			{title: locales.PagePlainText(), hint: "⇧⌘V", glyph: iconPaste, run: func() { a.pasteAs("plain") }},
 		}
 	}))
 	out = append(out,

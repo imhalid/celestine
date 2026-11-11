@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -74,11 +75,11 @@ func (a *app) selectionBar(c *ui.Context) {
 	}
 	ui.Overlay(c, func() {
 		bar := ui.Row(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Height(h).Padding(selPad).Gap(2).AlignItems(ui.Center).Clip().
-			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(T("Biçim çubuğu")).KeepFocus()
+			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(locales.SelectionFormatBar()).KeepFocus()
 		tth.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
 			if b.link {
-				in := a.fieldMenu(ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: T("Bağlantı adresi"), Placeholder: T("Adres yapıştır, ↵"), PrefixIcon: iconLink, Size: ryugo.Sm}), &b.url, fieldOpts{oneLine: true}).
+				in := a.fieldMenu(ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: locales.SelectionLinkAddress(), Placeholder: locales.SelectionPasteAddress(), PrefixIcon: iconLink, Size: ryugo.Sm}), &b.url, fieldOpts{oneLine: true}).
 					Grow(1).MinWidth(0).AutoFocus()
 				switch {
 				case in.Shortcut(0, ui.KeyEscape):

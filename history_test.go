@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/locales"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -360,7 +361,7 @@ func TestTimeMachine(t *testing.T) {
 	a.openTimeMachine(a.page)
 	tt.Frame()
 	tt.Advance(700 * time.Millisecond)
-	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(T("Page history: ")+T("Today (Now)")) {
+	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(locales.HistoryPageHistory2()+locales.HistoryTodayNow()) {
 		t.Fatalf("not open: %+v %v", a.tm.open, tt.Texts())
 	}
 	tt.Key(0, ui.KeyLeft)
@@ -495,10 +496,10 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if want := []int{101, 91, 81, 70, 61}; !slices.Equal(got, want) { // the 10th (the page now) … the 7th, with none … the 6th
 		t.Fatalf("the days are %v, not %v", got, want)
 	}
-	if a.sidebarShown < 100 || !tt.HasText(T("copies of")) || !tt.HasText(a.page.Title) {
+	if a.sidebarShown < 100 || !tt.HasText(locales.HistoryCopies()) || !tt.HasText(a.page.Title) {
 		t.Fatalf("no timeline in the sidebar (%v wide): %v", a.sidebarShown, tt.Texts())
 	}
-	if err := tt.Click(T("Page history: ") + shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local))); err != nil {
+	if err := tt.Click(locales.HistoryPageHistory2() + shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local))); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -514,12 +515,12 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if a.tm.sel != 1 {
 		t.Fatalf("↑ is not newer: at %d", a.tm.sel)
 	}
-	if err := tt.Click(T("Page history: ") + "7 Nov 2026"); err == nil && a.tm.sel != 1 {
+	if err := tt.Click(locales.HistoryPageHistory2() + "7 Nov 2026"); err == nil && a.tm.sel != 1 {
 		t.Fatalf("a day with no copy chose one: at %d", a.tm.sel)
 	}
 	tt.Key(0, ui.KeyEscape)
 	settle()
-	if a.tm.open || tt.HasText(T("copies of")) || a.sidebarShown > 1 {
+	if a.tm.open || tt.HasText(locales.HistoryCopies()) || a.sidebarShown > 1 {
 		t.Fatalf("after Esc: open %v, the sidebar %v wide, %v", a.tm.open, a.sidebarShown, tt.Texts())
 	}
 }
@@ -609,11 +610,11 @@ func TestTimeMachineDifferences(t *testing.T) {
 	a.openTimeMachine(a.page)
 	tt.Frame()
 	tt.Key(0, ui.KeyDown)
-	if err := tt.Click(T("Show the differences")); err != nil {
+	if err := tt.Click(locales.HistoryShowDifferences()); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()
-	if !a.tm.diff || a.vhist.open || !tt.HasText(T("Show the page")) || !tt.HasText(T("Now")) {
+	if !a.tm.diff || a.vhist.open || !tt.HasText(locales.HistoryShowPage()) || !tt.HasText(locales.HistoryNow()) {
 		t.Fatalf("the differences are not in the history: diff %v, dialog %v, %v", a.tm.diff, a.vhist.open, tt.Texts())
 	}
 	rows := a.tmDiff(1)
@@ -625,7 +626,7 @@ func TestTimeMachineDifferences(t *testing.T) {
 	if a.tm.sel != 2 || !a.tm.diff {
 		t.Fatalf("↓ in the differences: at %d, diff %v", a.tm.sel, a.tm.diff)
 	}
-	if err := tt.Click(T("Show the page")); err != nil || a.tm.diff {
+	if err := tt.Click(locales.HistoryShowPage()); err != nil || a.tm.diff {
 		t.Fatal("not back to the stack", err)
 	}
 	rows = tmDiffRows("a\nb\nc\nd\ne\nf\ng\nh\nold\n", "a\nb\nc\nd\ne\nf\ng\nh\nnew\nmore\n")
@@ -640,7 +641,7 @@ func TestTimeMachineComesAndGoes(t *testing.T) {
 	a, tt := lapsePage(t)
 	a.openTimeMachine(a.page)
 	tt.Frame()
-	if !tt.HasText(T("Page history: ")+T("Today (Now)")) || !tt.HasText(T("Restore")) {
+	if !tt.HasText(locales.HistoryPageHistory2()+locales.HistoryTodayNow()) || !tt.HasText(locales.HistoryRestore()) {
 		t.Fatalf("the first frame is not the history: %v", tt.Texts())
 	}
 	tt.Advance(60 * time.Millisecond)
@@ -661,7 +662,7 @@ func TestTimeMachineComesAndGoes(t *testing.T) {
 	for range 30 {
 		tt.Advance(16 * time.Millisecond)
 	}
-	if a.tm.open || tt.HasText(T("Restore")) {
+	if a.tm.open || tt.HasText(locales.HistoryRestore()) {
 		t.Fatalf("half a second after Esc it is still there: open %v", a.tm.open)
 	}
 	if _, ok := tt.Find("Sayfa"); !ok {

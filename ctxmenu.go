@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The context menu, the one for the whole app: a right click on a row of the tree, a page in a list or on a board,
@@ -128,7 +129,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: "Yeniden adlandır", glyph: iconEdit, run: func() { a.startRename(coll, coll.Name) }},
 		{title: newPageLabel(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "Ayarlar…", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
-		{title: map[bool]string{true: T("Change banner…"), false: T("Add banner…")}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
+		{title: map[bool]string{true: locales.CommandsChangeBanner(), false: locales.CommandsAddBanner()}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
 		{title: map[bool]string{true: "Sabitlemeyi kaldır", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
 		{title: "Yukarı taşı", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
 		{title: "Aşağı taşı", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
@@ -137,7 +138,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
 	}
 	if coll.Banner != "" {
-		out = append(out, menuItem{title: T("Remove banner"), glyph: iconCover, run: func() { a.removeBanner(coll) }})
+		out = append(out, menuItem{title: locales.CommandsRemoveBanner(), glyph: iconCover, run: func() { a.removeBanner(coll) }})
 	}
 	if !coll.Journal { // the journal is not thrown away
 		out = append(out, menuItem{title: "Çöpe taşı", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -46,11 +47,11 @@ func (a *app) propsSection(c *ui.Context, p *Page) {
 			a.propRow(c, p, &coll.Properties[i])
 		}
 		ui.Row(c).Gap(2).Padding(2, 0, 0, 0).Children(func() {
-			if a.quietButton(c.Key("add-prop"), iconPlus, T("Özellik ekle")) {
+			if a.quietButton(c.Key("add-prop"), iconPlus, locales.CommonAddProperty()) {
 				a.prop = propEdit{open: true, coll: coll}
 			}
 			if a.coverKind(p) == coverKindNone { // a cover is one click away, beside it
-				if a.quietButton(c.Key("add-cover"), iconCover, T("Kapak resmi ekle")) {
+				if a.quietButton(c.Key("add-cover"), iconCover, locales.PropsAddCoverImage()) {
 					a.pickCover(p)
 				}
 			}
@@ -93,7 +94,7 @@ func propCell(c *ui.Context, e ui.Element, hot bool) ui.Element {
 
 // propEmpty is what a value without one shows: a faint "Boş".
 func propEmpty(c *ui.Context) {
-	ui.Text(c, T("Boş")).FontSize(propFs).TextColor(c.Theme().TextMuted.Alpha(0.5)).NoWrap()
+	ui.Text(c, locales.CommonEmpty()).FontSize(propFs).TextColor(c.Theme().TextMuted.Alpha(0.5)).NoWrap()
 }
 
 // propRow is a property of page p: its name, and its value to change.
@@ -159,7 +160,7 @@ func (a *app) propChoice(c *ui.Context, p *Page, pr *Property, key string) {
 		})
 	})
 	ryugo.Menu(kc, tr, open, func(m *ryugo.MenuList) {
-		if m.Item(T("Boş"), ryugo.ItemOptions{Checkable: true, Checked: v == ""}) && v != "" {
+		if m.Item(locales.CommonEmpty(), ryugo.ItemOptions{Checkable: true, Checked: v == ""}) && v != "" {
 			a.setValue(p, pr.ID, "")
 		}
 		for _, o := range pr.Options {
@@ -202,7 +203,7 @@ func (a *app) propDate(c *ui.Context, p *Page, pr *Property, key string) {
 			a.setValue(p, pr.ID, day.Format("2006-01-02"))
 			*open = false
 		})
-		if !d.IsZero() && a.quietButton(c.Key("prop-date-clear"), iconClose, T("Tarihi kaldır")) {
+		if !d.IsZero() && a.quietButton(c.Key("prop-date-clear"), iconClose, locales.PropsRemoveDate()) {
 			a.setValue(p, pr.ID, "")
 			*open = false
 		}
@@ -218,10 +219,10 @@ func (a *app) miniCalendar(c *ui.Context, month *time.Time, chosen time.Time, pi
 		ui.Row(c).AlignItems(ui.Center).Gap(2).Padding(0, 0, 4, 4).Children(func() {
 			ui.Text(c, monthYear(first, false)).FontSize(13.5).FontWeight(600).TextColor(t.Text)
 			ui.Spacer(c)
-			if a.iconButton(c.Key("cal-prev"), iconChevronBack, T("Önceki ay")) {
+			if a.iconButton(c.Key("cal-prev"), iconChevronBack, locales.CommonPreviousMonth()) {
 				*month = first.AddDate(0, -1, 0)
 			}
-			if a.iconButton(c.Key("cal-next"), iconChevron, T("Sonraki ay")) {
+			if a.iconButton(c.Key("cal-next"), iconChevron, locales.CommonNextMonth()) {
 				*month = first.AddDate(0, 1, 0)
 			}
 		})
@@ -280,7 +281,7 @@ func (a *app) propText(c *ui.Context, p *Page, pr *Property, key string) {
 	cell := ui.Row(kc).Cursor(ui.CursorText)
 	var in ui.Element
 	cell.Children(func() {
-		in = ui.TextInputBase(kc, buf).Grow(1).MinWidth(0).Placeholder(T("Boş")).PlaceholderColor(t.TextMuted.Alpha(0.5)).
+		in = ui.TextInputBase(kc, buf).Grow(1).MinWidth(0).Placeholder(locales.CommonEmpty()).PlaceholderColor(t.TextMuted.Alpha(0.5)).
 			TextColor(t.Text).FontSize(propFs).FocusRing(false).Label(pr.Name + " değeri")
 		a.fieldMenu(in, buf, fieldOpts{oneLine: true, changed: func() { a.commitValue(p, pr.ID, key, *buf) }, more: func() []menuItem { return a.propRowMenu(p, pr) }})
 	})
@@ -330,7 +331,7 @@ func (a *app) propDialog(c *ui.Context) {
 		title = "Özelliği düzenle"
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
-		if e.id != "" && ryugo.Button(c.Key("prop-delete"), T("Özelliği sil"), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if e.id != "" && ryugo.Button(c.Key("prop-delete"), locales.CommonDeleteProperty(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			a.removeProperty(e.coll, e.id)
 			e.open = false
 		}
@@ -346,22 +347,22 @@ func (a *app) propDialog(c *ui.Context) {
 		cl := ryugo.From(c).Colors
 		ui.Column(c).Gap(14).Children(func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: "Ad"}, func() {
-				in := a.fieldMenu(ryugo.Input(c.Key("prop-name-in"), &e.name, ryugo.InputOptions{Label: T("Özelliğin adı"), Placeholder: T("Durum, Yazar, Bitiş…")}), &e.name, fieldOpts{oneLine: true})
+				in := a.fieldMenu(ryugo.Input(c.Key("prop-name-in"), &e.name, ryugo.InputOptions{Label: locales.CommonThePropertysName(), Placeholder: locales.PropsStatusAuthorDue()}), &e.name, fieldOpts{oneLine: true})
 				in.AutoFocus()
 				if in.Submitted() {
 					a.saveProp()
 				}
 			})
 			if e.id == "" {
-				ryugo.Field(c, ryugo.FieldOptions{Label: T("Tür")}, func() {
-					ryugo.Select(c.Key("prop-type"), &e.typ, propTypeOptions(), ryugo.SelectOptions{Label: T("Tür")})
+				ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonKind()}, func() {
+					ryugo.Select(c.Key("prop-type"), &e.typ, propTypeOptions(), ryugo.SelectOptions{Label: locales.CommonKind()})
 				})
 			}
 			if e.typ >= 0 && PropTypes[e.typ].Type == PropChoice {
-				ryugo.Field(c, ryugo.FieldOptions{Label: T("Seçenekler"), Help: "Sırası panonun sütunları olur."}, func() {
+				ryugo.Field(c, ryugo.FieldOptions{Label: locales.CommonChoices(), Help: "Sırası panonun sütunları olur."}, func() {
 					tags := CleanOptions(strings.Split(e.options, ","))
 					before := strings.Join(tags, ",")
-					a.tagsField(c, "prop-options", &tags, T("Seçenek yaz, ↵"), T("Seçenek ekle"))
+					a.tagsField(c, "prop-options", &tags, locales.CommonTypeChoice(), locales.CommonAddChoice())
 					if now := strings.Join(tags, ","); now != before {
 						e.options = now
 					}
@@ -417,7 +418,7 @@ func (a *app) removeProperty(coll *Collection, id string) {
 		a.fail(err)
 		return
 	}
-	a.toastAction(T("Property deleted"), T("Undo"), func() {
+	a.toastAction(locales.PropsPropertyDeleted(), locales.CommonUndo(), func() {
 		coll.Properties = before
 		coll.Normalize()
 		if err := coll.Save(); err != nil {

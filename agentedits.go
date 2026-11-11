@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -136,8 +137,8 @@ func (a *app) agentStatus(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c.Key("agent-edits")).Gap(4).AlignItems(ui.Center).Children(func() {
 		b := ui.Row(c.Key("agent-undo")).Padding(2, 6).Radius(rad(6)).AlignItems(ui.Center).
-			Label(T("Ajanın değişikliklerini geri al")).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-		ryugo.Tooltip(c, b, T("Ajanın değişikliklerini geri al"))
+			Label(locales.McpTakeBackAgentsChanges()).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		ryugo.Tooltip(c, b, locales.McpTakeBackAgentsChanges())
 		if b.Hovered() {
 			b.Background(t.SurfaceHover)
 		}
@@ -147,7 +148,7 @@ func (a *app) agentStatus(c *ui.Context) {
 		if b.Clicked() {
 			a.undoAgent()
 		}
-		k := ui.Box(c.Key("agent-keep")).Padding(2, 4).Radius(rad(6)).Label(T("Ajanın değişikliklerini tut")).
+		k := ui.Box(c.Key("agent-keep")).Padding(2, 4).Radius(rad(6)).Label(locales.McpKeepAgentsChanges()).
 			Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		if k.Hovered() {
 			k.Background(t.SurfaceHover)

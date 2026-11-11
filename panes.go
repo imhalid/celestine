@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -319,28 +320,28 @@ func (a *app) syncPanes() {
 func (a *app) paneTitle() string {
 	switch {
 	case a.settingsOpen:
-		return T("Ayarlar")
+		return locales.CommonSettings()
 	case a.statsScreen:
-		return T("İstatistikler")
+		return locales.CommonStatistics()
 	case a.profileScreen:
-		return T("Profil")
+		return locales.CommonProfile()
 	case a.trashOpen:
-		return T("Çöp")
+		return locales.CommonTrash()
 	case a.tag != "":
 		return "#" + a.tag
 	case a.tasksOpen:
-		return T("Görevler")
+		return locales.CommonTasks()
 	case a.searchOpen:
-		return T("Ara")
+		return locales.CommonSearch()
 	case a.coll != nil:
 		return a.coll.Name
 	case a.page != nil && !a.noPage():
 		if a.page.Title != "" {
 			return a.page.Title
 		}
-		return T("Adsız")
+		return locales.CommonUntitled()
 	}
-	return T("Boş")
+	return locales.CommonEmpty()
 }
 
 // panesView builds the panes, each in its own state, and gives the use to the one the user went to.

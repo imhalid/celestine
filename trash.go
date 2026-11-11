@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -85,7 +86,7 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 		}
 		r.Children(func() {
 			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, T("Çöp")).FontSize(13.5).Grow(1)
+			ui.Text(c, locales.CommonTrash()).FontSize(13.5).Grow(1)
 			if n := len(a.trashItems); n > 0 {
 				ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
 			}
@@ -103,8 +104,8 @@ func (a *app) trashView(c *ui.Context) {
 	t := c.Theme()
 	now := a.clock()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, T("Çöp")).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		ui.Text(c, T("Atılan sayfalar ve koleksiyonlar 30 gün burada durur; geri yüklenince eski yerlerine dönerler, sonra kalıcı olarak silinirler.")).
+		ui.Text(c, locales.CommonTrash()).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
+		ui.Text(c, locales.TrashThrownAwayPagesCollections()).
 			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 8, 0)
 		if len(a.trashItems) == 0 {
 			a.emptyState(c, iconTrash, "Çöp boş", "Çöpe attığın sayfalar burada bekler; geri yüklemezsen orada kalır.", "", nil)
@@ -123,7 +124,7 @@ func (a *app) trashView(c *ui.Context) {
 func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	t := c.Theme()
 	c.Key("trash:" + item.Dir)
-	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label(T("Çöpteki: ") + item.Title)
+	row := ui.Row(c).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).Transition(rowEnter).Label(locales.TrashInTrash() + item.Title)
 	a.contextOn(row, func() []menuItem { return a.trashMenu(item) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -152,10 +153,10 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 			}
 			ui.Text(c, note).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 		})
-		if ryugo.Button(c.Key("restore:"+item.Dir), T("Geri yükle"), ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("restore:"+item.Dir), locales.CommonRestore(), ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
 		}
-		if ryugo.Button(c.Key("delete:"+item.Dir), T("Kalıcı olarak sil: ")+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+		if ryugo.Button(c.Key("delete:"+item.Dir), locales.TrashDeleteForGood()+item.Title, ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 			a.deleteForever(item)
 		}
 	})
@@ -189,7 +190,7 @@ func (a *app) tasksRow(c *ui.Context) {
 		}
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, T("Görevler")).FontSize(13.5).Grow(1)
+			ui.Text(c, locales.CommonTasks()).FontSize(13.5).Grow(1)
 			switch {
 			case late > 0:
 				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(late+today), ryugo.ToneUp)
@@ -207,7 +208,7 @@ func (a *app) tasksRow(c *ui.Context) {
 // deleteForever asks, then deletes item from the trash for good: a page and its sub-pages, or a collection, with no
 // way back.
 func (a *app) deleteForever(item *TrashItem) {
-	a.ask(T("Delete for good?"), Tf("“%s” and everything in it are deleted, and cannot be brought back.", item.Title), T("Delete for good"), func() {
+	a.ask(locales.TrashDeleteForGood2(), Tf("“%s” and everything in it are deleted, and cannot be brought back.", item.Title), locales.TrashDeleteForGood3(), func() {
 		if err := a.lib.DeleteForever(item); err != nil {
 			a.fail(err)
 		}

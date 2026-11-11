@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/locales"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ func TestPhoneLayout(t *testing.T) {
 	if a.sidebarShown != 0 || a.drawerOpen {
 		t.Fatalf("the drawer is open at the start: %v %v", a.sidebarShown, a.drawerOpen)
 	}
-	if err := tt.Click(T("Menü")); err != nil {
+	if err := tt.Click(locales.MobileMenu()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)

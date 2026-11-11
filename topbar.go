@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -28,7 +29,7 @@ func (a *app) header(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	t := c.Theme()
 	h := a.headerHeight(c)
-	ui.Column(c.Key("header")).FillWidth().Height(h).Label(T("Üst çubuk")).Background(a.pageBg).Children(func() {
+	ui.Column(c.Key("header")).FillWidth().Height(h).Label(locales.SidebarTopBar()).Background(a.pageBg).Children(func() {
 		ui.Row(c).FillWidth().Grow(1).AlignItems(ui.Center).Padding(0, 8, 0, 14).Gap(6).DragWindow().Children(func() {
 			if phone {
 				a.phoneHeader(c)
@@ -43,7 +44,7 @@ func (a *app) header(c *ui.Context) {
 				ui.Box(c).Grow(1)
 			}
 			if a.page != nil && !a.noPage() {
-				if a.iconButton(c, iconPanel, T("Yan panel")+" (⇧⌘\\)") {
+				if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
 					a.togglePanel()
 				}
 			}

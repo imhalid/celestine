@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -80,13 +81,13 @@ func (a *app) sidePanel(c *ui.Context) {
 	}
 	full := a.panelWidth()
 	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Radius(rad(ryugo.RadiusControl+4)).
-		Background(cl.Card).Border(1, cl.Hairline).Clip().Label(T("Yan panel"))
+		Background(cl.Card).Border(1, cl.Hairline).Clip().Label(locales.CommonSidePanel())
 	t.Shadows.ShadowPop.Apply(card)
 	card.Transition(panelFloat)
 	card.Children(func() {
 		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel) // over the content
 		ui.Row(c).FillWidth().Height(34).Padding(0, 8, 0, 14).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, T("Bu sayfa")).FontSize(11).FontWeight(650).TextColor(cl.Muted).Grow(1)
+			ui.Text(c, locales.CommonThisPage()).FontSize(11).FontWeight(650).TextColor(cl.Muted).Grow(1)
 			if a.iconButton(c, iconClose, "Paneli kapat") {
 				a.togglePanel()
 			}
@@ -113,7 +114,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 		panelTitle(c, cl, "İÇİNDEKİLER")
 		hs := a.outline()
 		if len(hs) == 0 {
-			ui.Text(c, T("Sayfada başlık yok. # ile başlık yaz.")).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			ui.Text(c, locales.PanesThePageHasNo()).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
 			return
 		}
 		least := 6
@@ -123,7 +124,7 @@ func (a *app) panelOutline(c *ui.Context, cl ryugo.Colors) {
 		for i, h := range hs {
 			h := h
 			row := ui.Row(c.Key("ol:"+strconv.Itoa(i))).FillWidth().Height(28).Padding(0, 6, 0, 6+float32(h.level-least)*12).AlignItems(ui.Center).
-				Radius(7).Label(T("Başlık: ") + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				Radius(7).Label(locales.PanesHeading() + h.text).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}
@@ -143,12 +144,12 @@ func (a *app) panelLinks(c *ui.Context, cl ryugo.Colors, p *Page) {
 	ui.Column(c.Key("panel-links")).FillWidth().Gap(1).Children(func() {
 		panelTitle(c, cl, "BAĞLANANLAR")
 		if len(links) == 0 {
-			ui.Text(c, T("Bu sayfaya bağlanan yok. [[ ile bağlantı kur.")).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
+			ui.Text(c, locales.PanesNothingLinksThisPage()).FontSize(12.5).TextColor(cl.Muted).Padding(2, 6).Wrap()
 			return
 		}
 		for _, q := range links {
 			q := q
-			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label(T("Bağlantı: ") + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			row := ui.Column(c.Key("pl:"+q.Dir)).FillWidth().Padding(5, 6).Radius(rad(7)).Label(locales.CommonLink() + q.Title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			if row.Hovered() {
 				row.Background(cl.Fill)
 			}

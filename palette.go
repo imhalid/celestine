@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -718,7 +719,7 @@ func (a *app) paletteView(c *ui.Context) {
 			a.scrolled(c, "palette:704", nil, ui.Scroll(c).MaxHeight(300), func() {
 				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
-						ui.Text(c, T("Eşleşen bir şey yok.")).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
+						ui.Text(c, locales.PaletteNothingMatches()).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
 						return
 					}
 					head := ""

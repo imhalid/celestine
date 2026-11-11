@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -57,8 +58,8 @@ func (a *app) caretPlayground(c *ui.Context) {
 	}
 	size := a.fontSize()
 	ui.Column(c).FillWidth().Gap(6).Children(func() {
-		ui.Text(c, T("Burada dene")).FontSize(13).FontWeight(620).TextColor(cl.Text2)
-		in := ui.TextInputBase(c.Key("caret-try"), &ct.text).Label(T("Careti dene")).FontSize(size).Padding(0, 14).
+		ui.Text(c, locales.EditorTryHere()).FontSize(13).FontWeight(620).TextColor(cl.Text2)
+		in := ui.TextInputBase(c.Key("caret-try"), &ct.text).Label(locales.EditorTryCaret()).FontSize(size).Padding(0, 14).
 			FillWidth().Height(size*2.6).Background(cl.Card).Radius(rad(12)).Border(1, cl.Hairline).FocusRing(false).CaretWidth(0)
 		a.fieldMenu(in, &ct.text, fieldOpts{oneLine: true})
 		if in.Submitted() { // Enter: a new line in the text, here a clean field, with the caret's Enter
@@ -103,7 +104,7 @@ func (a *app) caretPlayground(c *ui.Context) {
 			a.paintCaret(p, cr, cw, r, k, focused && anchor != caret)
 			a.nearFn, a.wordsFn = nil, nil
 		})
-		ui.Text(c, T("Boşluk, Enter, silme ve hızlı yazma, her caret kendi tepkisini verir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+		ui.Text(c, locales.EditorASpaceEnterErasing()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -228,22 +229,22 @@ func (a *app) settingsKeys(c *ui.Context) {
 		k := k
 		rows = append(rows, func() {
 			settingRow(c, k, a.settings.Keys[k], func() {
-				if ryugo.Button(c.Key("key-del:"+k), T("Kaldır"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("key-del:"+k), locales.KeysRemove(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.unbindKey(k)
 				}
 			})
 		})
 	}
 	if len(rows) > 0 {
-		ui.Text(c, T("Kendi kısayolların")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+		ui.Text(c, locales.KeysYourShortcuts()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		settingGroup(c, "set-keys", rows...)
 	}
 	settingGroup(c, "set-key-new", func() {
-		settingRow(c, "Komuta kısayol ver", "Komutun adını ve tuşu yaz: örn. “Şimdi yedekle” ve cmd+shift+y. Uygulamanın ve sistemin tuşları verilmez.", func() {
+		settingRow(c, locales.KeysGiveCommandShortcut(), locales.KeysTypeCommandsNameKey(), func() {
 			ui.Column(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: T("Komut adı")}), &a.keyCmd, fieldOpts{oneLine: true})
-				a.fieldMenu(ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: T("Tuş"), Size: ryugo.Sm, Placeholder: "cmd+shift+y"}), &a.keyAccel, fieldOpts{oneLine: true})
-				if ryugo.Button(c.Key("key-set"), T("Ata"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				a.fieldMenu(ryugo.Input(c.Key("key-cmd"), &a.keyCmd, ryugo.InputOptions{Label: "Komut", Size: ryugo.Sm, Placeholder: locales.KeysCommandName()}), &a.keyCmd, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("key-accel"), &a.keyAccel, ryugo.InputOptions{Label: locales.KeysKey(), Size: ryugo.Sm, Placeholder: "cmd+shift+y"}), &a.keyAccel, fieldOpts{oneLine: true})
+				if ryugo.Button(c.Key("key-set"), locales.KeysAssign(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.bindKey(a.keyCmd, a.keyAccel); err != nil {
 						a.notice = err.Error()
 					} else {
@@ -264,10 +265,10 @@ func (a *app) settingsKeys(c *ui.Context) {
 		mrows = append(mrows, func() {
 			settingRow(c, n, strings.Join(a.settings.Macros[n], " + "), func() {
 				ui.Row(c).Gap(6).Children(func() {
-					if ryugo.Button(c.Key("macro-run:"+n), T("Çalıştır"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("macro-run:"+n), locales.KeysRun(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.runMacro(n)
 					}
-					if ryugo.Button(c.Key("macro-del:"+n), T("Sil"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("macro-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						delete(a.settings.Macros, n)
 						a.saveSettings()
 					}
@@ -276,15 +277,15 @@ func (a *app) settingsKeys(c *ui.Context) {
 		})
 	}
 	if len(mrows) > 0 {
-		ui.Text(c, T("Makrolar")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+		ui.Text(c, locales.KeysMacros()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		settingGroup(c, "set-macros", mrows...)
 	}
 	settingGroup(c, "set-macro-new", func() {
-		settingRow(c, "Makro yaz", "Bir ad ve + ile ayrılmış komutlar: örn. “Günlük görev” için “Bugünün sayfası + Görevler”. ⌘P'de “Makro: ad” olarak çıkar.", func() {
+		settingRow(c, locales.KeysWriteMacro(), locales.KeysANameCommandsSeparated(), func() {
 			ui.Column(c).Gap(6).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: T("Makro adı")}), &a.macroName, fieldOpts{oneLine: true})
-				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: T("Bugünün sayfası + Görevler")}), &a.macroList, fieldOpts{oneLine: true})
-				if ryugo.Button(c.Key("macro-save"), T("Kaydet"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				a.fieldMenu(ryugo.Input(c.Key("macro-name"), &a.macroName, ryugo.InputOptions{Label: "Makro adı", Size: ryugo.Sm, Placeholder: locales.KeysMacroName()}), &a.macroName, fieldOpts{oneLine: true})
+				a.fieldMenu(ryugo.Input(c.Key("macro-list"), &a.macroList, ryugo.InputOptions{Label: "Komutlar", Size: ryugo.Sm, Placeholder: locales.KeysTodaysPageTasks()}), &a.macroList, fieldOpts{oneLine: true})
+				if ryugo.Button(c.Key("macro-save"), locales.CommonSave(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					if err := a.saveMacro(a.macroName, a.macroList); err != nil {
 						a.notice = err.Error()
 					} else {

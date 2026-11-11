@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -22,7 +23,7 @@ func (a *app) propTags(c *ui.Context, p *Page, pr *Property, key string) {
 	tags := SplitTags(p.Props[pr.ID])
 	before := strings.Join(tags, ", ")
 	ui.Box(c.Key("prop-val:" + key)).Grow(1).MinWidth(0).Children(func() {
-		a.tagsField(c, "prop-tags:"+key, &tags, T("Add a tag, ↵"), pr.Name+" değeri")
+		a.tagsField(c, "prop-tags:"+key, &tags, locales.PropsAddTag(), pr.Name+" değeri")
 	})
 	if now := strings.Join(tags, ", "); now != before {
 		a.setValue(p, pr.ID, now)
@@ -65,11 +66,11 @@ func (a *app) propPageLink(c *ui.Context, p *Page, pr *Property, key string) {
 					a.open(target)
 				}
 			}
-			if p.Props[pr.ID] != "" && a.quietButton(c.Key("prop-page-clear"), iconClose, T("Remove the link")) {
+			if p.Props[pr.ID] != "" && a.quietButton(c.Key("prop-page-clear"), iconClose, locales.PropsRemoveLink()) {
 				a.setValue(p, pr.ID, "")
 				*open = false
 			}
-			in := a.fieldMenu(ryugo.Input(c.Key("prop-page-q"), query, ryugo.InputOptions{Label: T("Find a page"), Placeholder: T("Find a page…"), PrefixIcon: iconSearch, Size: ryugo.Sm}), query, fieldOpts{oneLine: true})
+			in := a.fieldMenu(ryugo.Input(c.Key("prop-page-q"), query, ryugo.InputOptions{Label: locales.PropsFindPage(), Placeholder: locales.PropsFindPage2(), PrefixIcon: iconSearch, Size: ryugo.Sm}), query, fieldOpts{oneLine: true})
 			in.AutoFocus()
 			hits := pagesTitled(a.lib, *query, p, 8)
 			for _, h := range hits {
@@ -131,19 +132,19 @@ func (a *app) propFile(c *ui.Context, p *Page, pr *Property, key string) {
 	})
 	ryugo.Popover(kc, tr, open, func() {
 		ui.Column(c).Gap(4).Width(240).Children(func() {
-			if a.quietButton(c.Key("prop-file-open"), iconAttach, T("Open the file")) {
+			if a.quietButton(c.Key("prop-file-open"), iconAttach, locales.PropsOpenFile()) {
 				*open = false
 				go mygo.Shell.OpenPath(file)
 			}
-			if a.quietButton(c.Key("prop-file-show"), iconLibrary, T("Show in its folder")) {
+			if a.quietButton(c.Key("prop-file-show"), iconLibrary, locales.PropsShowFolder()) {
 				*open = false
 				go mygo.Shell.ShowItemInFolder(file)
 			}
-			if a.quietButton(c.Key("prop-file-pick"), iconPlus, T("Choose another…")) {
+			if a.quietButton(c.Key("prop-file-pick"), iconPlus, locales.PropsChooseAnother()) {
 				*open = false
 				a.pickPropFile(p, pr)
 			}
-			if a.quietButton(c.Key("prop-file-clear"), iconClose, T("Remove the file")) {
+			if a.quietButton(c.Key("prop-file-clear"), iconClose, locales.PropsRemoveFile()) {
 				*open = false
 				a.setPropFile(p, pr, "")
 			}
@@ -155,7 +156,7 @@ func (a *app) propFile(c *ui.Context, p *Page, pr *Property, key string) {
 func (a *app) pickPropFile(p *Page, pr *Property) {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("Choose a file")})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.CommonChooseFile()})
 		if err != nil || len(paths) == 0 {
 			return
 		}

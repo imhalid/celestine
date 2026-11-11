@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -147,7 +148,7 @@ func (a *app) crashFallback(c *ui.Context) {
 		ui.Text(c, "Bir hata oldu").FontSize(22).FontWeight(700).TextColor(cl.Text)
 		ui.Text(c, a.crashText).FontSize(13).TextColor(cl.Muted).MaxWidth(560).Wrap()
 		if a.crashPath != "" {
-			a.textMenu(ui.Text(c, T("Günlük: ")+a.crashPath).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return T("Günlük: ") + a.crashPath }, nil)
+			a.textMenu(ui.Text(c, locales.AppLog()+a.crashPath).FontSize(12).Font(ryugo.FontMono).TextColor(cl.Muted).MaxWidth(560).Wrap().Selectable(), func() string { return locales.AppLog() + a.crashPath }, nil)
 		}
 		if ryugo.Button(c.Key("crash-retry"), "Devam et", ryugo.ButtonOptions{}).Clicked() {
 			a.crashOpen = false
@@ -169,7 +170,7 @@ func (a *app) crashView(c *ui.Context) {
 	}
 	ryugo.Dialog(c.Key("crash"), &a.crashOpen, ryugo.DialogOptions{Title: title, Width: 620}, func() {
 		ui.Column(c).FillWidth().Gap(12).Children(func() {
-			ui.Text(c, T("Kitaplığına dokunulmadı. Günlük yalnız bu bilgisayarda durur, hiçbir yere gönderilmez.")).FontSize(13).TextColor(cl.Muted).Wrap()
+			ui.Text(c, locales.AppYourLibraryWasNot()).FontSize(13).TextColor(cl.Muted).Wrap()
 			a.scrolled(c, "crash-scroll", nil, ui.Scroll(c.Key("crash-scroll")).MaxHeight(260), func() {
 				ui.Box(c).FillWidth().Padding(10, 12).Radius(rad(8)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 					a.textMenu(ui.Text(c, a.crashText).FontSize(11.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().Wrap(), func() string { return a.crashText }, nil)

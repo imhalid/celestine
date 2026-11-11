@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -129,26 +130,26 @@ func (a *app) templateItems(q string) []menuItem {
 func (a *app) csTemplates(c *ui.Context) {
 	d := &a.cs.draft
 	cl := ryugo.From(c).Colors
-	ui.Text(c, T("Başka şablonlar")).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text)
-	ui.Text(c, T("Her biri adıyla seçilir: “Yeni sayfa” düğmesinin yanındaki oktan, paletten ve / menüsünden. {{başlık}}, {{tarih}}, {{saat}} kullanılabilir.")).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
+	ui.Text(c, locales.TemplatesOtherTemplates()).FontSize(ryugo.FsSm).FontWeight(620).TextColor(cl.Text)
+	ui.Text(c, locales.TemplatesEachChosenByName()).FontSize(ryugo.FsSm).TextColor(cl.Muted).Wrap()
 	drop := -1
 	for i := range d.Templates {
 		i := i
 		t := &d.Templates[i]
 		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				a.fieldMenu(ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: T("Şablonun adı"), Placeholder: T("Toplantı notu"), Size: ryugo.Sm}), &t.Name, fieldOpts{oneLine: true}).Grow(1)
-				if ryugo.Button(c.Key("cs-tpl-del"), T("Şablonu sil"), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+				a.fieldMenu(ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: locales.TemplatesTheTemplatesName(), Placeholder: locales.TemplatesMeetingNotes(), Size: ryugo.Sm}), &t.Name, fieldOpts{oneLine: true}).Grow(1)
+				if ryugo.Button(c.Key("cs-tpl-del"), locales.TemplatesDeleteTemplate(), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
 					drop = i
 				}
 			})
-			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: T("Şablonun metni"), Placeholder: "## {{başlık}}\n\n- [ ] ", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
+			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: locales.TemplatesTheTemplatesText(), Placeholder: "## {{başlık}}\n\n- [ ] ", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
 		})
 	}
 	if drop >= 0 {
 		d.Templates = append(d.Templates[:drop], d.Templates[drop+1:]...)
 	}
-	if ryugo.Button(c.Key("cs-tpl-add"), T("Şablon ekle"), ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
+	if ryugo.Button(c.Key("cs-tpl-add"), locales.TemplatesAddTemplate(), ryugo.ButtonOptions{Icon: iconPlus, Size: ryugo.Sm}).Clicked() {
 		d.Templates = append(d.Templates, NamedTemplate{Name: "Yeni şablon"})
 	}
 }

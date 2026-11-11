@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/imhalid/celestine/locales"
 	"image/png"
 	"math"
 	"os"
@@ -369,11 +370,11 @@ func TestListGroupedByChoice(t *testing.T) {
 		}
 		return r.Y
 	}
-	if !(y(T("Collapse: ")+"Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y(T("Collapse: ")+"Okundu") &&
-		y(T("Collapse: ")+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(T("Collapse: ")+Tf("No %s", "Durum")) && y(T("Collapse: ")+Tf("No %s", "Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
+	if !(y(locales.ViewsCollapse()+"Okunacak") < y("Aç: Anna Karenina") && y("Aç: Anna Karenina") < y(locales.ViewsCollapse()+"Okundu") &&
+		y(locales.ViewsCollapse()+"Okundu") < y("Aç: Dune") && y("Aç: Dune") < y(locales.ViewsCollapse()+Tf("No %s", "Durum")) && y(locales.ViewsCollapse()+Tf("No %s", "Durum")) < y("Aç: Yüzyıllık Yalnızlık")) {
 		t.Fatalf("the groups are not in the options' order: %v", tt.Texts())
 	}
-	if err := tt.Click(T("Collapse: ") + "Okundu"); err != nil {
+	if err := tt.Click(locales.ViewsCollapse() + "Okundu"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
@@ -448,19 +449,19 @@ func TestViewFiltersShown(t *testing.T) {
 	}
 	v.Filters = []Filter{{Prop: "title", Op: "is", Value: "nothing"}}
 	tt.Advance(400 * time.Millisecond)
-	if !tt.HasText(T("No page meets this view's filters")) {
+	if !tt.HasText(locales.ViewsNoPageMeetsThis()) {
 		t.Fatalf("no word that the filters leave nothing: %v", tt.Texts())
 	}
 	v.Filters = []Filter{{Prop: "title", Op: "contains", Value: "dune"}}
 	tt.Advance(400 * time.Millisecond)
-	if err := tt.Click(T("1 filter")); err != nil {
+	if err := tt.Click(locales.ViewsN1Filter()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if !a.cs.open || a.cs.tab != 2 || a.cs.view != v.ID || !tt.HasText(T("Add filter")) {
+	if !a.cs.open || a.cs.tab != 2 || a.cs.view != v.ID || !tt.HasText(locales.CollectionAddFilter()) {
 		t.Fatalf("the view's settings are not open at its filters: open %v tab %d view %q", a.cs.open, a.cs.tab, a.cs.view)
 	}
-	if err := tt.Click(T("Add filter")); err != nil {
+	if err := tt.Click(locales.CollectionAddFilter()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()

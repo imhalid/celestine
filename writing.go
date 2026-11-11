@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -118,7 +119,7 @@ func (a *app) writingChart(c *ui.Context, cl ryugo.Colors, s writingStats) {
 	goal := a.settings.WriteGoal
 	hi = max(hi, goal)
 	now := startOfDay(a.clock())
-	box := ui.Box(c.Key("chart")).FillWidth().Height(150).Label(T("Son 30 günde yazılan kelimeler"))
+	box := ui.Box(c.Key("chart")).FillWidth().Height(150).Label(locales.EditorWordsWrittenLast30())
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		const gap = 3
 		w := (r.W - gap*29) / 30

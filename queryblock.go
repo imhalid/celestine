@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -61,7 +62,7 @@ func queryHeight(n int) float32 {
 // queryAttachment is the block of a query, as tall as its results were when it was made.
 func (a *app) queryAttachment(ch *chip) *richtext.Attachment {
 	n := len(a.queryHits(ch.target))
-	return &richtext.Attachment{Width: a.pageWidth(), Height: queryHeight(n), Name: T("Sorgu") + ": " + ch.target, Data: ch,
+	return &richtext.Attachment{Width: a.pageWidth(), Height: queryHeight(n), Name: locales.CommonQuery() + ": " + ch.target, Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawQuery(p, r, ch) }}
 }
 
@@ -95,9 +96,9 @@ func (a *app) drawQuery(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(r, cl.WellBorder, rad(12))
 	p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2}, cl.Well, rad(11))
 	size := a.fontSize() * 0.88
-	count := strconv.Itoa(len(hits)) + " " + T("sayfa")
+	count := strconv.Itoa(len(hits)) + " " + locales.CommonPages()
 	if len(hits) > queryRows {
-		count = strconv.Itoa(queryRows) + "+ " + T("sayfa")
+		count = strconv.Itoa(queryRows) + "+ " + locales.CommonPages()
 	}
 	cw, _ := p.MeasureText(0, ui.Span{Text: count, Size: 12})
 	p.RichText(r.X+r.W-cw-14, r.Y+12, cw+2, ui.Span{Text: count, Size: 12, Color: cl.Muted})
@@ -107,12 +108,12 @@ func (a *app) drawQuery(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(ui.Rect{X: r.X + 12, Y: r.Y + queryHeadH - 3, W: r.W - 24, H: 1}, cl.Hairline, 0)
 	y := r.Y + queryHeadH
 	if len(hits) == 0 {
-		p.RichText(r.X+16, y+5, r.W-32, ui.Span{Text: T("Eşleşen sayfa yok"), Size: size, Color: cl.Muted})
+		p.RichText(r.X+16, y+5, r.W-32, ui.Span{Text: locales.CommonNoPageMatches(), Size: size, Color: cl.Muted})
 		return
 	}
 	for i, h := range hits {
 		if i == queryRows {
-			p.RichText(r.X+16, y+5, r.W-32, ui.Span{Text: T("ve daha fazlası: aramada aç ↗"), Size: 12, Color: cl.Muted})
+			p.RichText(r.X+16, y+5, r.W-32, ui.Span{Text: locales.QueryAndMoreOpenSearch(), Size: 12, Color: cl.Muted})
 			break
 		}
 		where := h.page.Coll.Name
@@ -145,7 +146,7 @@ func queriesIn(t richtext.Text) richtext.Text {
 			e = e2
 		}
 		q := strings.TrimSpace(strings.Join(strings.Fields(strings.Join(lines, " ")), " "))
-		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: T("Sorgu"), Data: &chip{kind: "query", target: q}}}
+		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: locales.CommonQuery(), Data: &chip{kind: "query", target: q}}}
 		t = t.ReplaceString(s, e, string(richtext.ObjectReplacement), attrs)
 		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 	}
@@ -172,5 +173,5 @@ func (a *app) queryItems(q string) []menuItem {
 		return nil
 	}
 	n := len(a.searchList(tq, 0, false))
-	return []menuItem{{title: tq, hint: strconv.Itoa(n) + " " + T("sayfa"), glyph: iconSearch, run: func() { a.insertQuery(start, tq) }}}
+	return []menuItem{{title: tq, hint: strconv.Itoa(n) + " " + locales.CommonPages(), glyph: iconSearch, run: func() { a.insertQuery(start, tq) }}}
 }

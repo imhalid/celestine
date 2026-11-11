@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -249,14 +250,14 @@ func (a *app) rawItems(q string) []menuItem {
 		out = append(out, menuItem{title: "Sayfa göm…", sub: "başka bir sayfanın metni", glyph: iconPage, group: "Ekle", nav: true, run: func() { a.enterView("embed") }})
 	}
 	if q == "" || match(q, "Sorgu") >= 0 || match(q, "query") >= 0 {
-		out = append(out, menuItem{title: "Sorgu…", sub: T("aramanın bulduğu sayfalar, canlı"), glyph: iconSearch, group: "Ekle", nav: true, run: func() { a.enterView("query") }})
+		out = append(out, menuItem{title: "Sorgu…", sub: locales.SlashThePagesSearchFinds(), glyph: iconSearch, group: "Ekle", nav: true, run: func() { a.enterView("query") }})
 	}
 	out = append(out, a.templateItems(q)...)
 	if q == "" || match(q, "Tablo") >= 0 {
 		out = append(out, menuItem{title: "Tablo", sub: "satırlar ve sütunlar", glyph: iconTable, group: "Ekle", run: a.chooseTable})
 	}
-	if q == "" || match(q, T("Footnote")) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
-		out = append(out, menuItem{title: T("Footnote"), sub: T("a mark here, its note at the end"), glyph: iconFootnote, group: "Ekle", run: a.chooseFootnote})
+	if q == "" || match(q, locales.SlashFootnote()) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
+		out = append(out, menuItem{title: locales.SlashFootnote(), sub: locales.SlashAMarkHereNote(), glyph: iconFootnote, group: "Ekle", run: a.chooseFootnote})
 	}
 	for _, r := range rawTemplates {
 		r := r
@@ -776,7 +777,7 @@ func (a *app) slashView(c *ui.Context) {
 			return
 		}
 		if s.sign == "[[" {
-			ui.Text(c, T("Sayfaya bağla")).FontSize(12.5).TextColor(cl.Muted).Grow(1)
+			ui.Text(c, locales.SlashLinkPage()).FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, "[[ ]]").FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})
@@ -788,7 +789,7 @@ func (a *app) slashView(c *ui.Context) {
 				title = "Sonuçlar"
 			}
 			ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
-			ui.Text(c, T("bu menü")).FontSize(11.5).TextColor(cl.Muted)
+			ui.Text(c, locales.SlashThisMenu()).FontSize(11.5).TextColor(cl.Muted)
 			ui.Box(c.Key("sign")).Padding(1, 7).Radius(rad(5)).Background(cl.Fill).Children(func() {
 				ui.Text(c, s.sign).FontSize(12.5).FontWeight(650).TextColor(cl.Accent)
 			})

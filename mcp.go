@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // The MCP server: turned on in the settings, the app serves its library to
@@ -215,9 +217,9 @@ func (a *app) keepDamagedSettings(data []byte, err error) {
 			where = name
 		}
 	}
-	a.notice = T("The settings could not be read, so the defaults are in use: ") + err.Error()
+	a.notice = locales.McpTheSettingsCouldNot() + err.Error()
 	if where != "" {
-		a.notice += T(". What was there is kept as ") + where
+		a.notice += locales.McpWhatWasThereKept() + where
 	}
 }
 

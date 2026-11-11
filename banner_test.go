@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/imhalid/celestine/locales"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,7 +30,7 @@ func TestCollectionBanner(t *testing.T) {
 		t.Fatalf("collection.json: %s", data)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if r, ok := tt.Find(T("Banner")); !ok || r.H != bannerH {
+	if r, ok := tt.Find(locales.PageBanner()); !ok || r.H != bannerH {
 		t.Fatalf("no banner on the page: %+v %v", r, ok)
 	}
 	a.openCollSettings(coll, 0) // the settings keep it

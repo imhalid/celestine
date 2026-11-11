@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/locales"
 	"os"
 	"strings"
 	"testing"
@@ -24,7 +25,7 @@ func TestCollSettings(t *testing.T) {
 	if !a.asking.open || !a.cs.open {
 		t.Fatal("changes let go without asking")
 	}
-	if err := tt.Click(T("Discard")); err != nil {
+	if err := tt.Click(locales.CollectionDiscard()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(time.Second)

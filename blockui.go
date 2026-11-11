@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -196,7 +197,7 @@ func (a *app) gripView(c *ui.Context) {
 	gy := r.Y + g.top + max(0, (line-gripH)/2)
 	ui.Overlay(c, func() {
 		grip := ui.Box(c.Key("grip")).Absolute().Left(r.X-gripW-8).Top(gy).Size(gripW, gripH).Radius(rad(5)).
-			AlignItems(ui.Center).Justify(ui.Center).Label(T("Blok tutamağı")).Role(ui.RoleButton).Cursor(ui.CursorGrab)
+			AlignItems(ui.Center).Justify(ui.Center).Label(locales.BlocksBlockHandle()).Role(ui.RoleButton).Cursor(ui.CursorGrab)
 		g.hover = grip.Hovered()
 		if g.hover || g.menu {
 			grip.Background(cl.Fill)
@@ -553,7 +554,7 @@ func (a *app) blockGhost(c *ui.Context) {
 		gripDots(c, cl.Muted)
 		ui.Text(c, first).FontSize(14).TextColor(cl.Text).MaxLines(1)
 		if g.from[1] > e {
-			ui.Text(c, T("+ altındakiler")).FontSize(12).TextColor(cl.Muted)
+			ui.Text(c, locales.BlocksThoseBelow()).FontSize(12).TextColor(cl.Muted)
 		}
 	})
 }
@@ -612,5 +613,5 @@ func (a *app) modal() bool {
 // blockMenu is the menu of a block, MyGo's drawn in the window (popmenu.go), under its grip (the span at): its kinds
 // to turn it into are a submenu.
 func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
-	menuAt(c, "block-at", "Blok menüsü", at, &a.grip.menu, a.blockItems())
+	menuAt(c, "block-at", locales.CommonBlockMenu(), at, &a.grip.menu, a.blockItems())
 }

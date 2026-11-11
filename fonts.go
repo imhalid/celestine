@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -292,11 +293,11 @@ func (a *app) settingsFonts(c *ui.Context) {
 					label := cur
 					switch {
 					case label == "" && r == fontMono:
-						label = T("Sistem (tek aralıklı)")
+						label = locales.FontsSystemMonospaced()
 					case label == "" && r == fontEditor:
-						label = T("Uygulamanınki")
+						label = locales.FontsTheApps()
 					case label == "":
-						label = T("Sistem")
+						label = locales.CommonSystem()
 					}
 					b := ui.Row(c.Key("fontbtn"+strconv.Itoa(ri))).Gap(6).Padding(6, 12).Radius(rad(8)).Background(cl.Fill).AlignItems(ui.Center).
 						Label(T(role.name) + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
@@ -313,7 +314,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 					return
 				}
 				q := a.fonts.query[ri]
-				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label(T("Yazı tipi ara")).Placeholder(T("Yazı tipi ara…")).PlaceholderColor(cl.Muted).
+				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label(locales.FontsSearchTypefaces()).Placeholder(locales.FontsSearchTypefaces2()).PlaceholderColor(cl.Muted).
 					FontSize(13).Padding(7, 10).Radius(rad(8)).Background(cl.Card).Border(1, cl.Hairline).FocusRing(false)
 				a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.fonts.query[ri] = q }})
 				if in.Changed() {
@@ -324,7 +325,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 				a.scrolled(c, "fontlist"+strconv.Itoa(ri), nil, ui.Scroll(c.Key("fontlist"+strconv.Itoa(ri))).MaxHeight(260), func() {
 					ui.Column(c).FillWidth().Gap(1).Children(func() {
 						if !ready {
-							ui.Text(c, T("Yazı tipleri taranıyor…")).FontSize(12).TextColor(cl.Muted).Padding(8)
+							ui.Text(c, locales.FontsScanningTypefaces()).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 						if cur != "" {
 							a.fontRow(c, r, "", "Varsayılan", false)
@@ -336,7 +337,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 							ui.Text(c, "… "+strconv.Itoa(more)+" yazı tipi daha: aramayla bul").FontSize(11.5).TextColor(cl.Muted).Padding(6, 8)
 						}
 						if ready && len(rows) == 0 {
-							ui.Text(c, T("Eşleşen yazı tipi yok.")).FontSize(12).TextColor(cl.Muted).Padding(8)
+							ui.Text(c, locales.FontsNoTypefaceMatches()).FontSize(12).TextColor(cl.Muted).Padding(8)
 						}
 					})
 				})
@@ -346,7 +347,7 @@ func (a *app) settingsFonts(c *ui.Context) {
 	// the shape of the letters
 	settingGroup(c, "set-font-presets",
 		func() {
-			settingRow(c, "Hazır yazı tipleri", "Okuma serif, yazı sans, kod tek aralıklı; bilgisayarda olanlardan ilki seçilir.", func() {
+			settingRow(c, locales.FontsTypefacePresets(), locales.FontsReadingSerifWritingSans(), func() {
 				ui.Row(c).Gap(8).Children(func() {
 					for _, k := range []string{"Okuma", "Yazı", "Kod"} {
 						k := k
@@ -362,17 +363,17 @@ func (a *app) settingsFonts(c *ui.Context) {
 	weight := float64(a.fontWeight())
 	settingGroup(c, "set-font-detail",
 		func() {
-			settingRow(c, "Ligatürler", "fi, fl gibi harf çiftleri tek harf olarak çizilir. Kod yazarken kapatmak işe yarar.", func() { ryugo.Switch(c.Key("set-liga"), &lig, ryugo.SwitchOptions{}).Label(T("Ligatürler")) })
+			settingRow(c, locales.CommonLigatures(), locales.FontsPairsLikeFiFl(), func() { ryugo.Switch(c.Key("set-liga"), &lig, ryugo.SwitchOptions{}).Label(locales.CommonLigatures()) })
 		},
 		func() {
-			settingRow(c, "Aynı genişlikte rakamlar", "Rakamların hepsi aynı genişliktedir: sütunlar ve tablolar hizalı durur.", func() {
-				ryugo.Switch(c.Key("set-tnum"), &tab, ryugo.SwitchOptions{}).Label(T("Aynı genişlikte rakamlar"))
+			settingRow(c, locales.CommonTabularNumbers(), locales.FontsAllDigitsHaveSame(), func() {
+				ryugo.Switch(c.Key("set-tnum"), &tab, ryugo.SwitchOptions{}).Label(locales.CommonTabularNumbers())
 			})
 		},
 		func() {
-			settingRow(c, "Yazı kalınlığı", "Editör metninin kalınlığı; yazı tipinde o kalınlık yoksa en yakını çizilir.", func() {
+			settingRow(c, locales.CommonFontWeight(), locales.FontsTheWeightEditorsText(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-weight"), &weight, 300, 700, ryugo.SliderOptions{Label: T("Yazı kalınlığı"), Step: 100, Format: func(v float64) string { return strconv.Itoa(int(v)) }})
+					ryugo.Slider(c.Key("set-weight"), &weight, 300, 700, ryugo.SliderOptions{Label: locales.CommonFontWeight(), Step: 100, Format: func(v float64) string { return strconv.Itoa(int(v)) }})
 				})
 			})
 		})

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/imhalid/celestine/locales"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -38,7 +39,7 @@ func (a *app) copyAs(kind string) {
 	case "html":
 		a.copyText(withoutChips(src).HTML())
 	}
-	a.notice = map[string]string{"markdown": T("Copied as Markdown."), "plain": T("Copied as plain text."), "html": T("Copied as HTML.")}[kind]
+	a.notice = map[string]string{"markdown": locales.BlocksCopiedAsMarkdown(), "plain": locales.BlocksCopiedAsPlainText(), "html": locales.BlocksCopiedAsHtml()}[kind]
 	a.refocus = true
 }
 

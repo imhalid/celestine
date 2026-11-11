@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The settings as one list, which the palette reads: every setting of the settings screen is a command,
@@ -134,7 +135,7 @@ func settingDefs() []settingDef {
 			return out
 		}},
 		{name: "Cursor FX", alias: "mouse pointer fare imleç efekt effect trail", fields: []string{"cursorFx"}, kind: setChoice, choices: func(a *app) []settingChoice {
-			out := []settingChoice{{name: T("Kapalı"), current: a.settings.CursorFX == "",
+			out := []settingChoice{{name: locales.CommonOff(), current: a.settings.CursorFX == "",
 				set:     func(a *app) { a.settings.CursorFX = ""; a.saveSettings() },
 				preview: func(a *app) { a.settings.CursorFX = "" }}}
 			for _, p := range cursorPresets {

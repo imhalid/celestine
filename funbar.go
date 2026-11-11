@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // The app's own scroll bar, for every scroll area, in place of MyGo's (whose thumb is always a pill
@@ -137,7 +138,7 @@ func (a *app) barStrip(c *ui.Context, key string, b *funBar) {
 		b.hover, b.drag = false, false
 		return
 	}
-	s := ui.Box(c.Key(key + ":bar")).Absolute().Cursor(ui.CursorDefault).Label(T("Kaydırma çubuğu")).Role(ui.RoleSlider)
+	s := ui.Box(c.Key(key + ":bar")).Absolute().Cursor(ui.CursorDefault).Label(locales.ThemesScrollBar()).Role(ui.RoleSlider)
 	if b.horiz {
 		s.Left(0).Bottom(0).Height(funBarStrip).Width(b.view)
 	} else {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -71,15 +72,15 @@ func (a *app) saveNow() {
 func (a *app) savedText() string {
 	switch {
 	case a.saveErr != "":
-		return T("could not save: ") + a.saveErr
+		return locales.EditorCouldNotSave() + a.saveErr
 	case a.dirty && a.settings.NoAutoSave:
-		return T("kaydedilmedi")
+		return locales.EditorNotSaved()
 	case a.dirty:
-		return T("kaydediliyor…")
+		return locales.EditorSaving()
 	case !a.savedAt.IsZero():
-		return T("kaydedildi") + " " + a.savedAt.Format("15:04")
+		return locales.EditorSaved() + " " + a.savedAt.Format("15:04")
 	}
-	return T("kaydedildi")
+	return locales.EditorSaved()
 }
 
 // whiteMarks reports whether any white space is shown.
@@ -237,18 +238,18 @@ func (a *app) settingsText(c *ui.Context) {
 	ind := float64(a.firstIndent())
 	settingGroup(c, "set-space",
 		func() {
-			settingRow(c, "Paragraf aralığı", "İki paragraf arasındaki boşluk, yazı boyutunun katı olarak.", func() {
+			settingRow(c, locales.CommonParagraphSpacing(), locales.EditorTheRoomBetweenTwo(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-gap"), &gap, 0, 1.5, ryugo.SliderOptions{Label: T("Paragraf aralığı"), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) + " em" }})
+					ryugo.Slider(c.Key("set-gap"), &gap, 0, 1.5, ryugo.SliderOptions{Label: locales.CommonParagraphSpacing(), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) + " em" }})
 				})
 			})
 		},
 		func() {
-			settingRow(c, "İlk satır girintisi", "Basılı yazıdaki gibi paragrafın ilk satırı içeriden başlar; başlık, liste ve alıntıdan sonrakine uygulanmaz.", func() {
+			settingRow(c, locales.CommonFirstLineIndent(), locales.EditorAsPrintFirstLine(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-indent"), &ind, 0, 3, ryugo.SliderOptions{Label: T("İlk satır girintisi"), Step: 0.25, Format: func(v float64) string {
+					ryugo.Slider(c.Key("set-indent"), &ind, 0, 3, ryugo.SliderOptions{Label: locales.CommonFirstLineIndent(), Step: 0.25, Format: func(v float64) string {
 						if v == 0 {
-							return T("yok")
+							return locales.CommonNone()
 						}
 						return strconv.FormatFloat(v, 'f', 2, 64) + " em"
 					}})
@@ -269,18 +270,18 @@ func (a *app) settingsText(c *ui.Context) {
 	after := a.saveAfter().Seconds()
 	settingGroup(c, "set-save",
 		func() {
-			settingRow(c, "Otomatik kayıt", "Kapalıyken sayfa ⌘S ile kaydedilir; sayfa değişirken ve uygulama kapanırken yazılan yine kaydedilir, hiçbir şey kaybolmaz.", func() {
-				ryugo.Switch(c.Key("set-autosave"), &auto, ryugo.SwitchOptions{}).Label(T("Otomatik kayıt"))
+			settingRow(c, locales.CommonAutosave(), locales.EditorWhenOffPageSaved(), func() {
+				ryugo.Switch(c.Key("set-autosave"), &auto, ryugo.SwitchOptions{}).Label(locales.CommonAutosave())
 			})
 		},
 		func() {
 			if !auto {
-				ui.Text(c, T("Kayıt elle: kaydedilmemiş sayfada durum çubuğu “kaydedilmedi” der.")).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted)
+				ui.Text(c, locales.EditorSavingByHandUnsaved()).FontSize(ryugo.FsSm).TextColor(ryugo.From(c).Colors.Muted)
 				return
 			}
-			settingRow(c, "Kayıt gecikmesi", "Son yazıdan bu kadar sonra kaydedilir.", func() {
+			settingRow(c, locales.CommonSaveDelay(), locales.EditorItSavedThisLong(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: T("Kayıt gecikmesi"), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + T(" sn") }})
+					ryugo.Slider(c.Key("set-after"), &after, 0.5, 10, ryugo.SliderOptions{Label: locales.CommonSaveDelay(), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + locales.CommonS() }})
 				})
 			})
 		})
@@ -305,11 +306,11 @@ func (a *app) settingsText(c *ui.Context) {
 	}
 	chars := float64(a.settings.LineChars)
 	settingGroup(c, "set-linechars", func() {
-		settingRow(c, "Satır uzunluğu", "Metin sütunu en çok bu kadar karakter genişliğinde olur (okunaklı satır 60–80 karakterdir); 0 sayfa genişliği kadar.", func() {
+		settingRow(c, locales.CommonLineLength(), locales.EditorTheTextColumnAt(), func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-linechars-s"), &chars, 0, 120, ryugo.SliderOptions{Label: T("Satır uzunluğu"), Step: 5, Format: func(v float64) string {
+				ryugo.Slider(c.Key("set-linechars-s"), &chars, 0, 120, ryugo.SliderOptions{Label: locales.CommonLineLength(), Step: 5, Format: func(v float64) string {
 					if v < 20 {
-						return T("sayfa kadar")
+						return locales.EditorAsWideAsPage()
 					}
 					return Tf("%d karakter", int(v))
 				}})
@@ -331,39 +332,39 @@ func (a *app) settingsText(c *ui.Context) {
 	ring := a.settings.AlwaysRing
 	settingGroup(c, "set-focus",
 		func() {
-			settingRow(c, "Odak modu", "Satır ya da paragraf: caret'in bulunduğu kalır, sayfanın geri kalanı silikleşir.", func() {
-				choiceBar(c, "set-focus-bar", T("Odak modu"), []string{"", "line", "paragraph"}, []string{T("Kapalı"), T("Satır"), T("Paragraf")}, &focus)
+			settingRow(c, locales.CommonFocusMode(), locales.EditorLineOrParagraphOne(), func() {
+				choiceBar(c, "set-focus-bar", locales.CommonFocusMode(), []string{"", "line", "paragraph"}, []string{locales.CommonOff(), locales.CommonLine(), locales.EditorParagraph()}, &focus)
 			})
 		},
 		func() {
-			settingRow(c, "Daktilo kaydırması", "Yazdığın satır pencerenin ortasında kalır, sayfa altından kayar.", func() {
-				ryugo.Switch(c.Key("set-typewriter"), &typewriter, ryugo.SwitchOptions{}).Label(T("Daktilo kaydırması"))
+			settingRow(c, locales.CommonTypewriterScrolling(), locales.EditorTheLineYouWrite(), func() {
+				ryugo.Switch(c.Key("set-typewriter"), &typewriter, ryugo.SwitchOptions{}).Label(locales.CommonTypewriterScrolling())
 			})
 		},
 		func() {
-			settingRow(c, "Tab uzunluğu", "Tab'ın yazdığı boşluk sayısı; 0 gerçek bir sekme karakteridir.", func() {
+			settingRow(c, locales.CommonTabWidth(), locales.EditorHowManySpacesTab(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-tabs"), &tabs, 0, 8, ryugo.SliderOptions{Label: T("Tab uzunluğu"), Step: 1, Format: func(v float64) string {
+					ryugo.Slider(c.Key("set-tabs"), &tabs, 0, 8, ryugo.SliderOptions{Label: locales.CommonTabWidth(), Step: 1, Format: func(v float64) string {
 						if v == 0 {
-							return T("sekme")
+							return locales.EditorTab()
 						}
-						return strconv.Itoa(int(v)) + T(" boşluk")
+						return strconv.Itoa(int(v)) + locales.CommonSpaces()
 					}})
 				})
 			})
 		},
 		func() {
-			settingRow(c, "Caret uykusu", "Yazmadan bu kadar durunca caret uyur.", func() {
+			settingRow(c, locales.CommonCaretSleep(), locales.EditorTheCaretDozesOff(), func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: T("Caret uykusu"), Step: 1, Format: func(v float64) string { return strconv.Itoa(int(v)) + T(" sn") }})
+					ryugo.Slider(c.Key("set-sleep"), &sleep, 1, 60, ryugo.SliderOptions{Label: locales.CommonCaretSleep(), Step: 1, Format: func(v float64) string { return strconv.Itoa(int(v)) + locales.CommonS() }})
 				})
 			})
 		},
 		func() {
-			settingRow(c, "Odak halkasını her zaman göster", "Klavyeyle seçilen satır, normal kipte olmasan da çerçevelenir.", func() { ryugo.Switch(c.Key("set-ring"), &ring, ryugo.SwitchOptions{}).Label(T("Odak halkası")) })
+			settingRow(c, locales.CommonAlwaysShowFocusRing(), locales.EditorTheRowChosenWith(), func() { ryugo.Switch(c.Key("set-ring"), &ring, ryugo.SwitchOptions{}).Label(locales.EditorFocusRing()) })
 		},
 		func() {
-			settingRow(c, "Hafif mod", "Seçili caret ne olursa olsun efektsiz, düz bir çizgi çizilir.", func() { ryugo.Switch(c.Key("set-lite"), &lite, ryugo.SwitchOptions{}).Label("Hafif mod") })
+			settingRow(c, locales.CommonLightMode(), locales.EditorAPlainLineDrawn(), func() { ryugo.Switch(c.Key("set-lite"), &lite, ryugo.SwitchOptions{}).Label("Hafif mod") })
 		})
 	if focus != a.focusMode() {
 		a.settings.Focus = focus
@@ -391,7 +392,7 @@ func (a *app) settingsText(c *ui.Context) {
 	}
 	vim := a.settings.VimKeys
 	settingGroup(c, "set-vim", func() {
-		settingRow(c, "Vim hareketleri", "Esc ile normal kipe geçince metinde h j k l, w b e, 0 $, gg G, x, dd, yy, p, o O, A I çalışır; i ile yazmaya dönülür. Kapalıyken normal kipte yalnız listeler, harf etiketleri (f), leader (Space) ve komutlar vardır.", func() {
+		settingRow(c, locales.CommonVimMotions(), locales.EditorAfterEscHJ(), func() {
 			ryugo.Switch(c.Key("set-vim-sw"), &vim, ryugo.SwitchOptions{}).Label("Vim hareketleri")
 		})
 	})

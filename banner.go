@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 // A collection's banner: a picture across the top of its page, above its icon and name. It is a file in the
@@ -60,7 +61,7 @@ func (a *app) pickBanner(coll *Collection) {
 	go func() {
 		defer a.guard()
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-			Title:   T("Choose a banner"),
+			Title:   locales.PageChooseBanner(),
 			Filters: []mygo.FileFilter{{Name: "Resimler", Extensions: []string{"png", "jpg", "jpeg", "gif", "webp", "svg"}}},
 		})
 		if err != nil || len(paths) == 0 {
@@ -93,5 +94,5 @@ func (a *app) bannerView(c *ui.Context, coll *Collection) {
 		return
 	}
 	ui.Box(c.Key("banner:"+coll.Dir)).FillWidth().Height(bannerH).Radius(rad(12)).Clip().Shrink(0).Margin(0, 0, 6, 0).
-		Label(T("Banner")).Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, 12, func() { pt.Image(src, r, ui.Cover) }) })
+		Label(locales.PageBanner()).Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, 12, func() { pt.Image(src, r, ui.Cover) }) })
 }

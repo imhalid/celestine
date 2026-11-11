@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -90,7 +91,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 			if a.iconButton(c, iconBack, "Önceki ay") {
 				a.calMonth, a.calOpen = month.AddDate(0, -1, 0), false
 			}
-			if ryugo.Button(c.Key("cal-today"), T("Bugün"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			if ryugo.Button(c.Key("cal-today"), locales.CommonToday(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 				a.calMonth, a.calOpen = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), false
 			}
 			if a.iconButton(c, iconChevron, "Sonraki ay") {

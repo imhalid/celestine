@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -397,13 +398,13 @@ func (a *app) settingsBackup(c *ui.Context) {
 	list := backups(dir)
 	settingGroup(c, "set-backup",
 		func() {
-			settingRow(c, "Günlük yedek", "Her gün ilk açılışta kitaplığın sıkıştırılmış bir kopyası alınır; son 7 gün ve 4 hafta kalır. İçe aktarma, geri yükleme ve güncellemeden önce de bir tane alınır.", func() {
-				ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label(T("Günlük yedek"))
+			settingRow(c, locales.CommonDailyBackup(), locales.BackupACompressedCopyLibrary(), func() {
+				ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label(locales.CommonDailyBackup())
 			})
 		},
 		func() {
-			settingRow(c, "Yedek klasörü", dir, func() {
-				if ryugo.Button(c.Key("backup-now"), T("Şimdi yedekle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.BackupBackupFolder(), dir, func() {
+				if ryugo.Button(c.Key("backup-now"), locales.CommonBackUpNow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.backupNow("elle", false)
 				}
 			})
@@ -422,17 +423,17 @@ func (a *app) settingsBackup(c *ui.Context) {
 		}
 		b := b
 		rows = append(rows, func() {
-			what := T("günlük")
+			what := locales.CommonDaily()
 			if b.Label != "" {
 				what = T(strings.ReplaceAll(b.Label, "-", " ")) // what it was taken for, as the file names it: elle, içe-aktarma
 			}
 			settingRow(c, dateTime(b.At, true), what+" · "+fmt.Sprintf("%.1f MB", float64(b.Size)/1e6), func() {
-				if ryugo.Button(c.Key("restore:"+b.Path), T("Geri yükle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				if ryugo.Button(c.Key("restore:"+b.Path), locales.CommonRestore(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.restoreFrom(b)
 				}
 			})
 		})
 	}
-	ui.Text(c, T("Yedekler")).FontSize(13).FontWeight(620).TextColor(cl.Muted)
+	ui.Text(c, locales.BackupBackups()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	settingGroup(c, "set-backups", rows...)
 }

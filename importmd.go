@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -246,7 +247,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 func (a *app) pickImportFolder() {
 	go func() {
 		defer a.guard()
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: T("İçe aktarılacak Markdown klasörü"), Directory: true})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.BackupTheMarkdownFolderImport(), Directory: true})
 		if err != nil || len(paths) == 0 {
 			return
 		}
@@ -271,8 +272,8 @@ func (a *app) settingsImport(c *ui.Context) {
 	if note == "" {
 		note = "Obsidian kasası ya da .md dosyaları olan bir klasör: alt klasörleri koleksiyon, dosyaları sayfa olur. Klasöre dokunulmaz."
 	}
-	settingRow(c, "Markdown klasörü içe aktar", note, func() {
-		if ryugo.Button(c.Key("import-md"), T("Klasör seç…"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+	settingRow(c, locales.BackupImportMarkdownFolder(), note, func() {
+		if ryugo.Button(c.Key("import-md"), locales.BackupChooseFolder(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.pickImportFolder()
 		}
 	})

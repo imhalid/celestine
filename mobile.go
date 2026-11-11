@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -67,7 +68,7 @@ func pageMargin() float32 {
 // phoneOff is why a command of the panes or the panel cannot run: a phone has one pane and no panel.
 func phoneOff(a *app) string {
 	if phone {
-		return T("Telefonda yok")
+		return locales.CommonNotPhone()
 	}
 	return ""
 }
@@ -78,7 +79,7 @@ func (a *app) drawer(c *ui.Context) {
 	if a.drawerOpen {
 		open = 1
 	}
-	veil := ui.Box(c.Key("drawer-veil")).Absolute().Left(0).Top(0).Right(0).Bottom(0).Label(T("Çekmeceyi kapat"))
+	veil := ui.Box(c.Key("drawer-veil")).Absolute().Left(0).Top(0).Right(0).Bottom(0).Label(locales.CommonCloseDrawer())
 	k := veil.AnimateTo("open", open, springSheet)
 	if k < 0.01 && !a.drawerOpen {
 		veil.Hidden(true)
@@ -105,11 +106,11 @@ func (a *app) drawerWidth() float32 {
 func (a *app) phoneHeader(c *ui.Context) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
-	if a.iconButton(c, iconSidebar, T("Menü")) {
+	if a.iconButton(c, iconSidebar, locales.MobileMenu()) {
 		a.drawerOpen = !a.drawerOpen
 	}
 	ui.Box(c.Key("phone-back")).Opacity(map[bool]float32{true: 1, false: 0.35}[a.canStep(-1)]).Children(func() {
-		if a.iconButton(c, iconBack, T("Geri")) {
+		if a.iconButton(c, iconBack, locales.CommonBack()) {
 			a.step(-1)
 		}
 	})
@@ -119,10 +120,10 @@ func (a *app) phoneHeader(c *ui.Context) {
 		ui.Box(c).Grow(1)
 	}
 	_ = cl
-	if a.iconButton(c, iconSearch, T("Sayfa ara")) {
+	if a.iconButton(c, iconSearch, locales.CommonFindPage()) {
 		a.openPalette()
 	}
-	if a.iconButton(c, iconMore, T("Komutlar")) {
+	if a.iconButton(c, iconMore, locales.CommonCommands()) {
 		a.openCommands()
 	}
 }

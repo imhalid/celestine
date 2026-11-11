@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -257,13 +258,13 @@ func (a *app) searchView(c *ui.Context) {
 	hits := a.searchPages(a.searchQ, 80, a.links.stale)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, "Ara").FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: "Kitaplıkta ara", Placeholder: T("Sayfaların başlığında ve metninde ara…"), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
+		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: "Kitaplıkta ara", Placeholder: locales.QuerySearchPagesTitlesText(), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
 		if a.searchFocus {
 			in.Focus()
 			a.searchFocus = false
 		}
 		ui.Row(c).Children(func() { a.saveSearchButton(c) })
-		sub := T("Her kelimeyi içeren sayfalar. \"tam ifade\", VEYA, -kelime, (…), başlık:, koleksiyon:, #etiket, @todo, @done, @today, created:>2026-11-01, özellik:değer yazabilirsin.")
+		sub := locales.QueryPagesWithEveryWord()
 		switch {
 		case strings.TrimSpace(a.searchQ) == "":
 		case len(hits) == 0:

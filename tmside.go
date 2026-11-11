@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -114,16 +115,16 @@ func (a *app) tmTimeline(c *ui.Context, top, full, k float32) {
 	t := &a.tm
 	live := t.open && !t.busy()
 	cl := ryugo.From(c).Colors
-	col := ui.Column(c.Key("tm-side")).Absolute().Left(0).Top(top).Bottom(0).Width(full).Opacity(k).Label(T("Timeline"))
+	col := ui.Column(c.Key("tm-side")).Absolute().Left(0).Top(top).Bottom(0).Width(full).Opacity(k).Label(locales.HistoryTimeline())
 	if !live { // on its way out: only to look at
 		col.Disabled(true).DimDisabled(false)
 	}
 	col.Children(func() {
 		ui.Row(c.Key("tm-side-head")).Padding(4, 14, 8, 18).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, itoa(s.n)).FontSize(12).FontWeight(650).TextColor(cl.Text2).Padding(1, 7).Radius(rad(7)).Background(cl.Fill)
-			of := T("copies of")
+			of := locales.HistoryCopies()
 			if s.n == 1 {
-				of = T("copy of")
+				of = locales.HistoryCopy()
 			}
 			ui.Text(c, of).FontSize(13).TextColor(cl.Muted)
 			ui.Text(c, s.title).FontSize(13).FontWeight(620).TextColor(cl.Text).MaxLines(1).Grow(1).MinWidth(0)
@@ -157,7 +158,7 @@ func (a *app) tmDayRow(c *ui.Context, cl ryugo.Colors, i int, letters [7]string,
 		ink, faint, line = cl.Accent, cl.Accent, cl.Accent.Alpha(0.5)
 	}
 	row := ui.Row(c.Key("tm-row:"+d.day.Format("2006-01-02"))).FillWidth().Height(tmRowH).Padding(0, tmPadR, 0, tmPadL).Gap(tmGap).
-		AlignItems(ui.Center).Radius(rad(7)).Label(T("Page history: ") + shortDate(d.day)).Role(ui.RoleButton)
+		AlignItems(ui.Center).Radius(rad(7)).Label(locales.HistoryPageHistory2() + shortDate(d.day)).Role(ui.RoleButton)
 	w := row.LayoutBounds().W
 	per, shown := tmDots(w, d.n)
 	at := -1 // the dot under the pointer

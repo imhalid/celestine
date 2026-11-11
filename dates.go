@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/i18n"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Dates and times in the window's language, from MyGo's i18n package: the names of the months and the days,
@@ -102,13 +103,13 @@ func ago(t, now time.Time) string {
 func dateGroup(t, now time.Time) string {
 	switch {
 	case sameDay(t, now) || t.After(now): // a clock ahead, a file touched elsewhere: today
-		return T("Bugün")
+		return locales.CommonToday()
 	case sameDay(t, now.AddDate(0, 0, -1)):
-		return T("Dün")
+		return locales.CommonYesterday()
 	case now.Sub(t) < 7*24*time.Hour:
-		return T("Son 7 gün")
+		return locales.DatesLast7Days()
 	case now.Sub(t) < 30*24*time.Hour:
-		return T("Son 30 gün")
+		return locales.DatesLast30Days()
 	case t.Year() == now.Year():
 		return monthYear(t, true)
 	}
@@ -119,11 +120,11 @@ func dateGroup(t, now time.Time) string {
 func duration(secs int) string {
 	switch {
 	case secs >= 3600:
-		return strconv.Itoa(secs/3600) + " " + T("sa") + " " + strconv.Itoa(secs%3600/60) + " " + T("dk")
+		return strconv.Itoa(secs/3600) + " " + locales.DatesH() + " " + strconv.Itoa(secs%3600/60) + " " + locales.DatesMin()
 	case secs >= 60:
-		return strconv.Itoa(secs/60) + " " + T("dk")
+		return strconv.Itoa(secs/60) + " " + locales.DatesMin()
 	}
-	return strconv.Itoa(secs) + " " + T("sn")
+	return strconv.Itoa(secs) + " " + locales.DatesS()
 }
 
 // daysBetween is how many calendar days lie from a to b.

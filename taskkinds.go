@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Kinds of task: a task can be a star, important, a question, in progress or an error, each with its own
@@ -516,7 +517,7 @@ func (a *app) taskBoxHits(c *ui.Context) {
 			}
 			at := b.Start
 			hit := ui.Box(c.Key("taskbox:"+strconv.Itoa(at))).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
-				Cursor(ui.CursorPointer).Role(ui.RoleCheckBox).Label(T("Görev"))
+				Cursor(ui.CursorPointer).Role(ui.RoleCheckBox).Label(locales.CommonTask())
 			if hit.Clicked() {
 				a.doc.ToggleChecked(at)
 			}

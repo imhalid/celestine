@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/locales"
 )
 
 // Folding. richtext has no paragraph that is not shown, so a block folded
@@ -217,6 +218,6 @@ func (a *app) keepHidden(prev, now richtext.Text, caret int) bool {
 		at := min(caret+shift, full.Len())
 		ed.Select(at, at)
 	})
-	a.notice = T("The lines it held were put back, not deleted.")
+	a.notice = locales.BlocksTheLinesHeldWere()
 	return true
 }

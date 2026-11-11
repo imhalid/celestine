@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/shader"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -500,7 +501,7 @@ func (a *app) welcomeButton(c *ui.Context) (glow, button ui.Element) {
 	})
 	glow.Children(func() {
 		button = ui.Box(c.Key("w-go")).Width(bw).Height(bh).Radius(bh / 2).AlignItems(ui.Center).Justify(ui.Center).
-			Role(ui.RoleButton).Label(T("Başla")).Cursor(ui.CursorPointer)
+			Role(ui.RoleButton).Label(locales.WelcomeStart()).Cursor(ui.CursorPointer)
 		hover, down = button.Hovered(), button.Pressed()
 		if hover {
 			c.AnimationFrame()
@@ -511,7 +512,7 @@ func (a *app) welcomeButton(c *ui.Context) (glow, button ui.Element) {
 				scale = 0.97
 			}
 			ui.Row(c.Key("w-go-label")).AlignItems(ui.Center).Gap(8).Scale(scale, scale).Children(func() {
-				ui.Text(c, T("Başla")).FontSize(16).FontWeight(680).TextColor(ui.RGB(255, 255, 255))
+				ui.Text(c, locales.WelcomeStart()).FontSize(16).FontWeight(680).TextColor(ui.RGB(255, 255, 255))
 				ui.Icon(c, iconArrowRight).Width(16).Height(16).TextColor(ui.RGB(255, 255, 255))
 			})
 		})

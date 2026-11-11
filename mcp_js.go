@@ -2,14 +2,18 @@
 
 package main
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/egoist/mygo/ui"
+
+	"github.com/imhalid/celestine/locales"
+)
 
 // In a browser the app cannot listen on a port: there is no MCP server (mcp_server.go), and the setting says so.
 
 func (a *app) setMCP(on bool) {
 	a.settings.MCP = false
 	if on {
-		a.mcpErr = T("Tarayıcıda MCP sunucusu açılamaz")
+		a.mcpErr = locales.McpABrowserCannotRun()
 	}
 }
 

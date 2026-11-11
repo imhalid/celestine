@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -93,16 +94,16 @@ func (a *app) addToAgentApp(ag agentApp) (string, error) {
 	if ag.file == nil { // Claude Code: its command, when it is there
 		claude, err := exec.LookPath("claude")
 		if err != nil {
-			return "", errors.New(T("Claude Code is not installed here: copy the command above into a terminal instead."))
+			return "", errors.New(locales.McpClaudeCodeNotInstalled())
 		}
 		out, err := exec.Command(claude, "mcp", "add", "--scope", "user", mcpServerName, "--", exe, "mcp").CombinedOutput()
 		if err != nil && strings.Contains(strings.ToLower(string(out)), "already exists") {
-			return T("Claude Code already has it."), nil
+			return locales.McpClaudeCodeAlreadyHas(), nil
 		}
 		if err != nil {
 			return "", fmt.Errorf("claude mcp add: %s", strings.TrimSpace(string(out)))
 		}
-		return T("Added to Claude Code."), nil
+		return locales.McpAddedClaudeCode(), nil
 	}
 	path, err := ag.file()
 	if err != nil {
@@ -121,7 +122,7 @@ func (a *app) addToAgentApp(ag agentApp) (string, error) {
 // mcpSetupRow is the settings' row of the buttons that add the app to the agents' apps.
 func (a *app) mcpSetupRow(c *ui.Context) func() {
 	return func() {
-		settingRow(c, "Add to an agent app", "Writes the app into the app's own list of servers (over stdio), keeping what else it has; then restart that app.", func() {
+		settingRow(c, locales.McpAddAgentApp(), locales.McpWritesAppIntoApps(), func() {
 			ui.Row(c).Gap(6).Children(func() {
 				for _, ag := range agentApps {
 					if ryugo.Button(c.Key("mcp-add:"+ag.name), ag.name, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
