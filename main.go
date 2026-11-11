@@ -140,7 +140,7 @@ type app struct {
 	updKey      string      // a test's key for releases
 	updBusy     atomic.Bool // a check or a download goes on
 	updErr      string      // what the last check said, when it failed
-	updState    string      // "indiriliyor…", "hazır"
+	updState    updateState // where an update the user asked for is
 	updRel      *Release    // the newer version found
 	updAuto     bool        // a check found a release and the settings say to put it in place
 	updNotes    bool        // the dialog shows the notes of the version installed, not a new one

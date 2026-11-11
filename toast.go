@@ -62,6 +62,12 @@ func noticeKind(s string) toastKind {
 	return toastInfo
 }
 
+// say puts up text, a message already in the window's language, as a notice of kind: the kind is told, not read
+// from the words, which noticeKind can do in Turkish only.
+func (a *app) say(kind toastKind, text string) {
+	a.notice, a.noticeTone = text, &kind
+}
+
 // A toastItem is a toast up.
 type toastItem struct {
 	id      int

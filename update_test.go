@@ -271,7 +271,7 @@ func TestInstallBinaryAndRollback(t *testing.T) {
 	}
 	// the next start finds the stamp and no proof: the first one died
 	note := rollbackIfBroken(mark, "v2.0.0")
-	if !strings.Contains(note, "önceki sürüme dönüldü") {
+	if !strings.Contains(note, "the previous version is back") {
 		t.Fatalf("note %q", note)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "eski" {
@@ -402,7 +402,7 @@ func TestCheckUpdateSettings(t *testing.T) {
 	a.settings.UpdateAt = 0
 	a.checkUpdate(false)
 	wait()
-	if a.updRel == nil || !a.updOpen || !tt.HasText("Sürüm v9.0.0 hazır") {
+	if a.updRel == nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") {
 		t.Fatalf("not shown: %v", tt.Texts())
 	}
 	for _, want := range []string{"Şimdi güncelle", "3 gün sonra hatırlat", "Bu sürümü atla", "hızlandı"} {
@@ -435,7 +435,7 @@ func TestCheckUpdateSettings(t *testing.T) {
 func TestNoURLSaysSo(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	a.checkUpdate(true)
-	if !strings.Contains(a.notice, "adresi ayarlanmamış") {
+	if !strings.Contains(a.notice, "güncellemeleri denetleyemez") {
 		t.Fatalf("%q", a.notice)
 	}
 }
@@ -448,7 +448,7 @@ func TestWhatsNew(t *testing.T) {
 	a.settings.UpdateFor, a.settings.UpdateNotes = "v3.0.0", "- yeni şeyler"
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	if !tt.HasText("Bu sürümde neler yeni: v3.0.0") {
+	if !tt.HasText("3.0.0 sürümünde neler var") {
 		t.Fatalf("%v", tt.Texts())
 	}
 	tt.Click("Tamam")
@@ -457,7 +457,7 @@ func TestWhatsNew(t *testing.T) {
 		t.Fatal("not marked as seen")
 	}
 	tt.Frame()
-	if tt.HasText("Bu sürümde neler yeni: v3.0.0") {
+	if tt.HasText("3.0.0 sürümünde neler var") {
 		t.Fatal("shown again")
 	}
 }

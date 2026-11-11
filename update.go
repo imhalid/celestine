@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // Updating. The app asks a manifest - a small JSON that a release puts on a server of its own, Cloudflare
@@ -66,11 +68,11 @@ func SignAsset(priv ed25519.PrivateKey, version, sha string) string {
 func verifyAsset(pubB64, version, sha, sigB64 string) error {
 	pub, err := base64.StdEncoding.DecodeString(pubB64)
 	if err != nil || len(pub) != ed25519.PublicKeySize {
-		return errors.New("güncelleme anahtarı geçersiz: imzasız güncelleme kurulmaz")
+		return errors.New(locales.UpdateErrKey())
 	}
 	sig, err := base64.StdEncoding.DecodeString(sigB64)
 	if err != nil || !ed25519.Verify(ed25519.PublicKey(pub), sigText(version, sha), sig) {
-		return errors.New("imza doğrulanamadı")
+		return errors.New(locales.UpdateErrSignature())
 	}
 	return nil
 }
@@ -152,11 +154,11 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("güncelleme sunucusu %d döndü", resp.StatusCode)
+		return nil, errors.New(locales.UpdateErrServer(strconv.Itoa(resp.StatusCode)))
 	}
 	var rel Release
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&rel); err != nil {
-		return nil, fmt.Errorf("güncelleme bilgisi okunamadı: %w", err)
+		return nil, fmt.Errorf("%s: %w", locales.UpdateErrUnreadable(), err)
 	}
 	if rel.Channel == "beta" && channel != "beta" {
 		return nil, nil // a trial is for those who asked for trials
@@ -165,7 +167,7 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 		return nil, nil
 	}
 	if _, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]; !ok {
-		return nil, fmt.Errorf("%s için bu sürümde dosya yok", runtime.GOOS+"/"+runtime.GOARCH)
+		return nil, errors.New(locales.UpdateErrNoBuildFor(runtime.GOOS + "/" + runtime.GOARCH))
 	}
 	return &rel, nil
 }
@@ -176,7 +178,7 @@ func (a *app) checkUpdate(force bool) {
 	u := a.updateURLOf()
 	if u == "" || a.updBusy.Swap(true) {
 		if force && u == "" {
-			a.notice = "Güncelleme adresi ayarlanmamış (Ayarlar ▸ Güncelleme)."
+			a.say(toastWarn, locales.UpdateCannotCheck())
 		}
 		return
 	}
@@ -203,12 +205,12 @@ func (a *app) checkUpdate(force bool) {
 			case err != nil:
 				a.updErr = err.Error()
 				if force {
-					a.notice = "Güncelleme denetlenemedi: " + err.Error()
+					a.say(toastErr, locales.UpdateCheckFailed(err.Error()))
 				}
 			case rel == nil:
 				a.updErr = ""
 				if force {
-					a.notice = "Güncelsin: " + version
+					a.say(toastOK, locales.UpdateUpToDate(shownVersion(version)))
 				}
 			default:
 				a.updErr, a.updRel = "", rel
@@ -231,6 +233,15 @@ func (a *app) updateEvery() time.Duration {
 	return 24 * time.Hour
 }
 
+// An updateState is where an update the user asked for is.
+type updateState int
+
+const (
+	updIdle        updateState = iota // none, or it failed
+	updDownloading                    // downloading, checking and putting it in place
+	updReady                          // in place: a restart opens it
+)
+
 // ---- downloading and putting in place ----
 
 // download takes the release's asset for this system into a new file in dir, checking its size, hash and
@@ -239,13 +250,13 @@ func (a *app) updateEvery() time.Duration {
 func download(ctx context.Context, rel *Release, pubKey, dir string) (string, Asset, error) {
 	as, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]
 	if !ok {
-		return "", as, errors.New("bu sistem için dosya yok")
+		return "", as, errors.New(locales.UpdateErrNoBuild())
 	}
 	if err := HTTPSOnly(as.URL); err != nil {
 		return "", as, err
 	}
 	if as.SHA256 == "" || as.Sig == "" {
-		return "", as, errors.New("imzasız güncelleme kurulmaz")
+		return "", as, errors.New(locales.UpdateErrUnsigned())
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", as.URL, nil)
 	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
@@ -254,7 +265,7 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", as, fmt.Errorf("indirme %d döndü", resp.StatusCode)
+		return "", as, errors.New(locales.UpdateErrDownload(strconv.Itoa(resp.StatusCode)))
 	}
 	f, err := os.CreateTemp(dir, "celestine-"+rel.Version+"-*.part") // a name of its own, made new: nothing left there is followed
 	if err != nil {
@@ -274,11 +285,11 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	}
 	if as.Size > 0 && n != as.Size {
 		os.Remove(tmp)
-		return "", as, fmt.Errorf("dosya boyutu tutmadı: %d, olması gereken %d", n, as.Size)
+		return "", as, errors.New(locales.UpdateErrSize(int(n), int(as.Size)))
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, as.SHA256) {
 		os.Remove(tmp)
-		return "", as, errors.New("sağlama toplamı tutmadı: dosya bozuk ya da değiştirilmiş")
+		return "", as, errors.New(locales.UpdateErrChecksum())
 	}
 	if err := verifyAsset(pubKey, rel.Version, as.SHA256, as.Sig); err != nil {
 		os.Remove(tmp)
@@ -298,7 +309,7 @@ func updateDir(exe, bundle string) (string, error) {
 	}
 	dir, err := os.MkdirTemp(filepath.Dir(target), ".celestine-update-")
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", T("the program's folder cannot be written to"), err)
+		return "", fmt.Errorf("%s: %w", locales.UpdateErrFolder(), err)
 	}
 	return dir, nil
 }
@@ -345,7 +356,7 @@ func installApp(zipFile, app string) (old string, err error) {
 		name := filepath.Clean(f.Name)
 		if strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
 			os.RemoveAll(staging)
-			return "", errors.New("zip'te geçersiz yol: " + f.Name)
+			return "", errors.New(locales.UpdateErrZipPath(f.Name))
 		}
 		if root == "" {
 			root = strings.Split(name, string(filepath.Separator))[0]
@@ -439,7 +450,7 @@ func rollbackIfBroken(mark, cur string) string {
 		os.Rename(target+".failed", target)
 		return ""
 	}
-	return "Sürüm " + ver + " açılışta düştü: önceki sürüme dönüldü."
+	return "version " + ver + " died at its first start: the previous version is back"
 }
 
 // updateProved says the update works, twenty seconds into its first start or at a quit that came sooner: the
@@ -462,7 +473,7 @@ func (a *app) startUpdate() {
 	exe, err := os.Executable()
 	if err != nil {
 		a.updBusy.Store(false)
-		a.notice = "Güncellenemedi: " + err.Error()
+		a.say(toastErr, locales.UpdateFailed(err.Error()))
 		return
 	}
 	exe, _ = filepath.EvalSymlinks(exe)
@@ -470,18 +481,18 @@ func (a *app) startUpdate() {
 	if as := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]; as.Kind == "app-zip" {
 		if bundle = appBundleOf(exe); bundle == "" {
 			a.updBusy.Store(false)
-			a.notice = T("Could not update: the program is not inside a macOS .app")
+			a.say(toastErr, locales.UpdateFailed(locales.UpdateErrNotInApp()))
 			return
 		}
 	}
 	dir, err := updateDir(exe, bundle)
 	if err != nil {
 		a.updBusy.Store(false)
-		a.notice = T("Could not update: ") + err.Error()
+		a.say(toastErr, locales.UpdateFailed(err.Error()))
 		return
 	}
 	pub := a.updateKeyOf()
-	a.updState = "indiriliyor…"
+	a.updState = updDownloading
 	a.backupBefore("güncelleme")
 	go func() {
 		defer a.guard()
@@ -502,9 +513,9 @@ func (a *app) startUpdate() {
 		}
 		a.do(func() error {
 			if err != nil {
-				a.updState = ""
+				a.updState = updIdle
 				a.updErr = err.Error()
-				a.notice = "Güncellenemedi: " + err.Error()
+				a.say(toastErr, locales.UpdateFailed(err.Error()))
 				return nil
 			}
 			if m := updateMark(); m != "" {
@@ -512,7 +523,7 @@ func (a *app) startUpdate() {
 			}
 			a.settings.UpdateNotes, a.settings.UpdateFor = rel.Notes, rel.Version
 			a.saveSettings()
-			a.updState = "hazır"
+			a.updState = updReady
 			a.updOpen = true
 			return nil
 		})

@@ -292,19 +292,26 @@ func TestCatalogs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := map[string]string{}
-		if err := json.Unmarshal(b, &m); err != nil {
+		raw := map[string]json.RawMessage{}
+		if err := json.Unmarshal(b, &raw); err != nil {
 			t.Fatalf("%s: %v", f, err)
 		}
 		tag := strings.TrimSuffix(filepath.Base(f), ".json")
+		m := map[string]string{}
+		for k, v := range raw {
+			var s string
+			if strings.HasPrefix(k, "@") && k != "@@locale" {
+				continue // a message's description and placeholders
+			}
+			if err := json.Unmarshal(v, &s); err != nil {
+				t.Errorf("%s: %s is not a string", f, k)
+			}
+			m[k] = s
+		}
 		if m["@@locale"] != tag {
 			t.Errorf("%s says it is %q", f, m["@@locale"])
 		}
-		for k := range m {
-			if strings.HasPrefix(k, "@") {
-				delete(m, k)
-			}
-		}
+		delete(m, "@@locale")
 		cats[tag] = m
 	}
 	var codes []string

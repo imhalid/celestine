@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
@@ -18,13 +19,13 @@ import (
 func (a *app) restartApp() {
 	exe, err := os.Executable()
 	if err != nil {
-		a.notice = "Yeniden başlatılamadı: " + err.Error()
+		a.say(toastErr, locales.UpdateRestartFailed(err.Error()))
 		return
 	}
 	a.flush()
 	cmd := exec.Command(exe, restartArgs()...) // it waits for this one to be gone (restart.go)
 	if err := cmd.Start(); err != nil {
-		a.notice = "Yeniden başlatılamadı: " + err.Error()
+		a.say(toastErr, locales.UpdateRestartFailed(err.Error()))
 		return
 	}
 	go func() {
@@ -48,18 +49,18 @@ func (a *app) updateView(c *ui.Context) {
 	if !a.updOpen {
 		return
 	}
-	title, notes := "Yeni sürüm hazır", ""
+	title, notes := locales.UpdateNewVersion(), ""
 	if a.updRel != nil {
-		title, notes = "Sürüm "+a.updRel.Version+" hazır", a.updRel.Notes
+		title, notes = locales.UpdateVersionAvailable(shownVersion(a.updRel.Version)), a.updRel.Notes
 	}
 	if a.updNotes {
-		title, notes = "Bu sürümde neler yeni: "+version, a.settings.UpdateNotes
+		title, notes = locales.UpdateWhatsNew(shownVersion(version)), a.settings.UpdateNotes
 	}
 	open := a.updOpen
 	ryugo.Dialog(c.Key("update"), &open, ryugo.DialogOptions{Title: title, Width: 560}, func() {
 		ui.Column(c).FillWidth().Gap(12).Children(func() {
 			if a.updRel != nil && !a.updNotes {
-				ui.Text(c, T("Şimdiki sürüm: ")+version+" · "+map[bool]string{true: a.updRel.Date, false: ""}[a.updRel.Date != ""]).FontSize(12.5).TextColor(cl.Muted)
+				ui.Text(c, releasedLine(a.updRel.Date)).FontSize(12.5).TextColor(cl.Muted)
 			}
 			if strings.TrimSpace(notes) != "" {
 				a.scrolled(c, "upd-notes", nil, ui.Scroll(c.Key("upd-notes")).MaxHeight(240), func() {
@@ -67,39 +68,39 @@ func (a *app) updateView(c *ui.Context) {
 					a.textMenu(ui.Text(c, s).FontSize(13).TextColor(cl.Text2).Wrap().Selectable(), func() string { return s }, nil)
 				})
 			} else {
-				ui.Text(c, T("Sürüm notu yok.")).FontSize(13).TextColor(cl.Muted)
+				ui.Text(c, locales.UpdateNoNotes()).FontSize(13).TextColor(cl.Muted)
 			}
 			if a.updErr != "" {
 				ui.Text(c, a.updErr).FontSize(12.5).TextColor(cl.Up).Wrap()
 			}
-			ui.Text(c, T("Kitaplığına dokunulmaz, güncellemeden önce yedeği alınır; açılışta düşerse önceki sürüme dönülür.")).FontSize(12).TextColor(cl.Muted).Wrap()
+			ui.Text(c, locales.UpdateSafety()).FontSize(12).TextColor(cl.Muted).Wrap()
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 				switch {
 				case a.updNotes:
-					if ryugo.Button(c.Key("upd-ok"), "Tamam", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
+					if ryugo.Button(c.Key("upd-ok"), locales.CommonOk(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 						open = false
 					}
-				case a.updState == "hazır":
-					if ryugo.Button(c.Key("upd-restart"), "Yeniden başlat", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
+				case a.updState == updReady:
+					if ryugo.Button(c.Key("upd-restart"), locales.UpdateRestart(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 						a.restartApp()
 					}
-					if ryugo.Button(c.Key("upd-later2"), "Sonra", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("upd-later2"), locales.UpdateLater(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						open = false
 					}
-				case a.updState != "":
-					ui.Text(c, a.updState).FontSize(13).TextColor(cl.Muted)
+				case a.updState == updDownloading:
+					ui.Text(c, locales.UpdateDownloading()).FontSize(13).TextColor(cl.Muted)
 				default:
-					if ryugo.Button(c.Key("upd-skip"), "Bu sürümü atla", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && a.updRel != nil {
+					if ryugo.Button(c.Key("upd-skip"), locales.UpdateSkip(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && a.updRel != nil {
 						a.settings.UpdateSkip = a.updRel.Version
 						a.saveSettings()
 						open = false
 					}
-					if ryugo.Button(c.Key("upd-snooze"), "3 gün sonra hatırlat", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("upd-snooze"), locales.UpdateRemindLater(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.settings.UpdateSnooze = time.Now().Add(72 * time.Hour).Unix()
 						a.saveSettings()
 						open = false
 					}
-					if ryugo.Button(c.Key("upd-now"), "Şimdi güncelle", ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
+					if ryugo.Button(c.Key("upd-now"), locales.UpdateUpdateNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 						a.startUpdate()
 					}
 				}
@@ -124,48 +125,54 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	beta := a.settings.UpdateChannel == "beta"
 	auto := a.settings.UpdateAuto
 	url := a.updateURLOf()
-	status := T("Sürüm ") + version
+	status := locales.UpdateStatus(shownVersion(version))
 	switch {
 	case a.updRel != nil:
-		status += T(" · yeni sürüm: ") + a.updRel.Version
+		status = locales.UpdateStatusAvailable(shownVersion(version), shownVersion(a.updRel.Version))
 	case a.updErr != "":
-		status += T(" · son denetim olmadı: ") + a.updErr
+		status = locales.UpdateStatusFailed(shownVersion(version), a.updErr)
 	case a.settings.UpdateAt > 0:
-		status += T(" · son denetim: ") + dateTime(time.Unix(a.settings.UpdateAt, 0), false)
+		status = locales.UpdateStatusChecked(shownVersion(version), dateTime(time.Unix(a.settings.UpdateAt, 0), false))
 	}
 	settingGroup(c, "set-update",
 		func() {
-			settingRow(c, "Yeni sürümü denetle", "Yalnız bu sürümün numarası sorulur: kitaplığından hiçbir şey gönderilmez. Kapalıyken uygulama ağa hiç çıkmaz (çevrimdışı mod).", func() {
-				ryugo.Switch(c.Key("set-upd-on"), &check, ryugo.SwitchOptions{}).Label(T("Yeni sürümü denetle"))
+			settingRow(c, locales.UpdateCheck(), locales.UpdateCheckHelp(), func() {
+				ryugo.Switch(c.Key("set-upd-on"), &check, ryugo.SwitchOptions{}).Label(locales.UpdateCheck())
 			})
 		},
 		func() {
-			settingRow(c, "Durum", status, func() {
+			settingRow(c, locales.UpdateStatusTitle(), status, func() {
 				ui.Row(c).Gap(8).Children(func() {
-					if ryugo.Button(c.Key("upd-check"), T("Şimdi denetle"), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					if ryugo.Button(c.Key("upd-check"), locales.UpdateCheckNow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.checkUpdate(true)
 					}
-					if a.updRel != nil && ryugo.Button(c.Key("upd-show"), T("Yeni sürümü göster"), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
+					if a.updRel != nil && ryugo.Button(c.Key("upd-show"), locales.UpdateShowNew(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
 						a.updNotes, a.updOpen = false, true
 					}
 				})
 			})
 		},
 		func() {
-			settingRow(c, "Sessiz mod", "Yeni sürüm iletişim kutusuyla çıkmaz, yalnız burada görünür.", func() { ryugo.Switch(c.Key("set-upd-quiet"), &quiet, ryugo.SwitchOptions{}).Label("Sessiz mod") })
-		},
-		func() {
-			settingRow(c, "Deneme sürümleri", "Kararlı sürümlere ek olarak beta sürümleri de bildirilir.", func() {
-				ryugo.Switch(c.Key("set-upd-beta"), &beta, ryugo.SwitchOptions{}).Label(T("Deneme sürümleri"))
+			settingRow(c, locales.UpdateQuiet(), locales.UpdateQuietHelp(), func() {
+				ryugo.Switch(c.Key("set-upd-quiet"), &quiet, ryugo.SwitchOptions{}).Label(locales.UpdateQuiet())
 			})
 		},
 		func() {
-			settingRow(c, "Kendiliğinden indir ve kur", "Bulunan sürüm sorulmadan indirilir, imzası doğrulanır ve yerine konur; açmak için yeniden başlatman istenir.", func() {
-				ryugo.Switch(c.Key("set-upd-auto"), &auto, ryugo.SwitchOptions{}).Label(T("Kendiliğinden kur"))
+			settingRow(c, locales.UpdateBeta(), locales.UpdateBetaHelp(), func() {
+				ryugo.Switch(c.Key("set-upd-beta"), &beta, ryugo.SwitchOptions{}).Label(locales.UpdateBeta())
 			})
 		},
 		func() {
-			settingRow(c, "Güncelleme adresi", map[bool]string{true: url, false: "Ayarlanmamış: bu sürüm bir adres olmadan derlenmiş."}[url != ""], func() {})
+			settingRow(c, locales.UpdateAuto(), locales.UpdateAutoHelp(), func() {
+				ryugo.Switch(c.Key("set-upd-auto"), &auto, ryugo.SwitchOptions{}).Label(locales.UpdateAuto())
+			})
+		},
+		func() {
+			shown := url
+			if shown == "" {
+				shown = locales.UpdateNoAddress()
+			}
+			settingRow(c, locales.UpdateAddress(), shown, func() {})
 		})
 	if check != !a.settings.UpdateOff {
 		a.settings.UpdateOff = !check
@@ -185,8 +192,8 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	}
 	if a.settings.UpdateSkip != "" {
 		settingGroup(c, "set-upd-skip", func() {
-			settingRow(c, "Atlanan sürüm: "+a.settings.UpdateSkip, "Bu sürüm bir daha bildirilmez; daha yenisi çıkınca haber verilir.", func() {
-				if ryugo.Button(c.Key("upd-unskip"), "Yeniden bildir", ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+			settingRow(c, locales.UpdateSkipped(shownVersion(a.settings.UpdateSkip)), locales.UpdateSkippedHelp(), func() {
+				if ryugo.Button(c.Key("upd-unskip"), locales.UpdateUnskip(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 					a.settings.UpdateSkip = ""
 					a.saveSettings()
 				}
@@ -194,3 +201,15 @@ func (a *app) settingsUpdate(c *ui.Context) {
 		})
 	}
 }
+
+// releasedLine is the line under the title of the dialog of a new version: when it came out, as the window writes a
+// date, and the version in use.
+func releasedLine(date string) string {
+	if d, err := time.Parse("2006-01-02", date); err == nil {
+		return locales.UpdateReleasedYouHave(shortDate(d), shownVersion(version))
+	}
+	return locales.UpdateYouHave(shownVersion(version))
+}
+
+// shownVersion is a version as a sentence says it, after "Version": its number, without the tag's "v".
+func shownVersion(v string) string { return strings.TrimPrefix(v, "v") }
