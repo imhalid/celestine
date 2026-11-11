@@ -18,7 +18,8 @@ import (
 func withLang(t *testing.T, l string) {
 	old := lang
 	lang = l
-	t.Cleanup(func() { lang = old })
+	langNow.Store(l)
+	t.Cleanup(func() { lang = old; langNow.Store(old) })
 }
 
 // Turkish is what is written; English is what the dictionary has, and what it has not is Turkish, not a hole.
@@ -43,7 +44,7 @@ func TestEnglishLoses(t *testing.T) {
 // The language is English unless Turkish is chosen, whatever the system's is.
 func TestLangDefault(t *testing.T) {
 	old := lang
-	defer func() { lang = old }()
+	defer setLang(old)
 	t.Setenv("LANG", "tr_TR.UTF-8") // the system's language does not choose it
 	setLang("")
 	if lang != "en" {
@@ -87,7 +88,7 @@ func TestEnglishUI(t *testing.T) {
 	if a.settings.Lang != "en" {
 		t.Fatal("the command did not set it")
 	}
-	lang = "en"
+	withLang(t, "en")
 	runCmd(t, a, ">language", "Language: Türkçe")
 	if a.settings.Lang != "tr" || lang != "tr" {
 		t.Fatal("back to Turkish failed")
@@ -348,9 +349,49 @@ func TestCatalogs(t *testing.T) {
 		}
 		named[id] = code
 	}
-	if len(named) != len(en) {
-		t.Errorf("%d messages, %d named by the code", len(en), len(named))
+	// every message is said: called by its function (locales.UpdateTitle()), or still found through codeKeys; and
+	// every text of codeKeys is still written somewhere in the code
+	var code strings.Builder
+	srcs, _ := filepath.Glob("*.go")
+	for _, f := range srcs {
+		if !strings.HasSuffix(f, "_test.go") && f != "i18n_keys.go" {
+			b, _ := os.ReadFile(f)
+			code.Write(b)
+		}
 	}
+	// the Worker's errors come to the app in Turkish and are said through T (account.go)
+	for _, f := range []string{"cloudflare/sync/auth.js", "cloudflare/sync/worker.js"} {
+		b, _ := os.ReadFile(f)
+		code.Write(b)
+	}
+	all := code.String()
+	for id := range en {
+		if _, ok := named[id]; !ok && !strings.Contains(all, "."+goName(id)+"(") {
+			t.Errorf("%s is said nowhere", id)
+		}
+	}
+	for text := range codeKeys {
+		q := strconv.Quote(text)
+		written := strings.Contains(all, q) || strings.Contains(all, "`"+text+"`") ||
+			strings.Contains(all, `"`+text+`"`) || // in JavaScript
+			strings.Contains(all, q[:len(q)-1]+`: `) || // a notice with a value after it: "Güncellenemedi: " + err
+			text == "geri yükleme" // a backup's kind, in the names of files older versions wrote (backup.go)
+		if !written {
+			t.Errorf("codeKeys has %q, which the code no longer writes", text)
+		}
+	}
+}
+
+// goName is the name of the function of message id in locales/catalog_gen.go, as mygo generate makes it: every
+// part between _ begun with a capital.
+func goName(id string) string {
+	var b strings.Builder
+	for _, w := range strings.Split(id, "_") {
+		if w != "" {
+			b.WriteString(strings.ToUpper(w[:1]) + w[1:])
+		}
+	}
+	return b.String()
 }
 
 // A text the code gives T comes back as it was written in its own language, and in the other as its catalog
@@ -359,7 +400,7 @@ func TestCatalogsAsWritten(t *testing.T) {
 	for _, c := range []struct{ code, l, want string }{
 		{"Ayarlar", "tr", "Ayarlar"}, {"Ayarlar", "en", "Settings"},
 		{"Discard the changes?", "en", "Discard the changes?"}, {"Discard the changes?", "tr", "Değişiklikler atılsın mı?"},
-		{"İleri ", "en", "Next"}, {"İleri", "en", "Forward"},
+		{"İleri", "en", "Forward"}, {"Yeniden başlat", "tr", "Yeniden başlat"},
 	} {
 		withLang(t, c.l)
 		if got := T(c.code); got != c.want {

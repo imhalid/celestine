@@ -13,9 +13,7 @@ import (
 // In English the settings' Library tab of a one-file library, with backups of each kind, has no Turkish left: its
 // buttons, its notes, the backups' kinds; and the bar's tips are English too (#285).
 func TestLibrarySettingsInEnglish(t *testing.T) {
-	was := lang
-	lang = "en"
-	defer func() { lang = was }()
+	withLang(t, "en")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // the backups are written here, not among the computer's
 	st, _ := storeAt(t)
 	lib, _ := OpenLibraryIn(st, StoreRoot)

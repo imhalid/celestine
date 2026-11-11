@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -28,8 +30,19 @@ type language struct {
 // languages are the window's languages, in the order the settings offer them.
 var languages = []language{{"en", "English", false}, {"tr", "Türkçe", false}}
 
-// lang is the code of the window's language.
+// lang is the code of the window's language. It is set by setLang (and withLang in tests), which also keep
+// langNow, the copy other goroutines read.
 var lang = "tr"
+
+// langNow is lang for any goroutine: the language MyGo's i18n package says the typed messages of locales/ in.
+var langNow atomic.Value
+
+func init() {
+	langNow.Store(lang)
+	// the messages of locales/ (locales.Name()) and MyGo's own words follow the window's language, not the
+	// system's: this replaces the function package mygo set at its init, which runs before this one
+	i18n.SetLocaleFunc(func() string { return langNow.Load().(string) })
+}
 
 // showLocale tells MyGo the window's language, so that its own words, menus and text engine follow it: set by
 // main to mygo.App.SetLocale, which also keeps it; tests leave it alone.
@@ -41,6 +54,7 @@ func setLang(setting string) {
 	if i := slices.IndexFunc(languages, func(l language) bool { return l.code == setting }); i >= 0 {
 		lang = setting
 	}
+	langNow.Store(lang)
 	showLocale(lang)
 }
 
