@@ -14,7 +14,7 @@ func TestSidebarEdgeDrag(t *testing.T) {
 	if w := a.sidebarWidth(); w != sidebarW {
 		t.Fatalf("starts at %v", w)
 	}
-	x := a.sidebarWidth() - 2
+	x := frameW + a.sidebarWidth() - 2 // the sidebar starts inside the window's frame (windowframe.go)
 	tt.Press(x, 300)
 	tt.Move(x+60, 300)
 	tt.Move(x+120, 300)

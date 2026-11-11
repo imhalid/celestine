@@ -36,7 +36,7 @@ func TestDamagedSettingsKept(t *testing.T) {
 // off; the setting is what Ryugo's Root is given (frameTheme).
 func TestPressWavesSetting(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	tt.SetSize(1000, 2400)
+	tt.SetSize(1000+2*frameW, 2400) // the content 1000 wide inside the window's frame (windowframe.go)
 	if a.settings.NoWaves {
 		t.Fatal("the waves start off")
 	}

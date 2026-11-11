@@ -564,8 +564,8 @@ func main() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18, Y: (headerH - 14) / 2},
-			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: 18 + frameW, Y: (headerH-14)/2 + frameW},
+			Vibrancy: frameMaterial, HideWindowButtons: ownWindowControls, Content: ui.View(a.view)} // the frame's glass (windowframe.go)
 		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
 			opts.Hidden, opts.DisableShadow = true, true
 			a.wel.clear = true
@@ -987,6 +987,10 @@ func (a *app) viewFrame(c *ui.Context) {
 	c.Key("look:" + look)
 	a.welcomeBackdrop(c, false) // the first opening's circles, under the app
 	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+	framed := a.framed()
+	if framed { // the window's frame around the content, a card in it (windowframe.go)
+		root.Background(a.frameColor(c)).Padding(frameW)
+	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.shake(c, root)
 	// the sync's asks rest while nobody is here
@@ -1024,7 +1028,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	if c.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
 		a.newPage(a.page.Coll, nil)
 	}
-	root.Children(func() {
+	content := func() { // the sidebar, the header, the panes and the status bar
 		a.kbAnchor(c)
 		if !phone { // on a phone the sidebar is a drawer over everything, built last (mobile.go)
 			a.sidebarShown = a.sidebar(c)
@@ -1042,6 +1046,13 @@ func (a *app) viewFrame(c *ui.Context) {
 		} else {
 			a.sidePanel(c)
 			a.sidebarButton(c)
+		}
+	}
+	root.Children(func() { // in the frame, the card; without it, the window
+		if framed {
+			ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Stretch).Background(a.pageBg).Radius(rad(frameR)).Clip().Children(content)
+		} else {
+			content()
 		}
 	})
 	a.collDragView(c)

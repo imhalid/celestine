@@ -145,13 +145,13 @@ func TestPageScrollsBelowTheHeader(t *testing.T) {
 	a.settings.NoAutoCover = true // a page with no cover: its title lies where it did
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
-	if a.scrollR.Y != headerH || a.barInset != 0 {
+	if a.scrollR.Y != frameW+headerH || a.barInset != 0 { // the header starts inside the window's frame (windowframe.go)
 		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header", a.scrollR.Y, a.barInset)
 	}
 	if a.topSpace != pageTop-barH+8 {
 		t.Fatalf("the page starts %v below the header, not %v", a.topSpace, pageTop-barH+8)
 	}
-	tt.Wheel(a.editorR.X+100, headerH+10, 0, 300) // just below the header
+	tt.Wheel(a.editorR.X+100, frameW+headerH+10, 0, 300) // just below the header
 	tt.Advance(300 * time.Millisecond)
 	if a.pageScroll.Y < 100 {
 		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
