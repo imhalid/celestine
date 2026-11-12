@@ -22,7 +22,7 @@
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
-import { changelogPage } from "./changelog.js";
+import { changelogPage, bannerImage } from "./changelog.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
 import ICON from "./icon.bin"; // the app's icon (assets/icon-256.png), the pages' favicon and mark
@@ -106,6 +106,7 @@ async function handle(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/icon.png") return new Response(ICON, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
   if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
   if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
+  if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);

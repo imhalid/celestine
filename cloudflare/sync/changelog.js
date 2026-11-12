@@ -4,9 +4,12 @@
 // minutes, so the bucket is read once in that time, not at every visit. The app's "what's new" note links here.
 //
 // The file has no issue numbers, no addresses and no internal work (scripts/release/changelog.go); this page adds
-// none. It is plain HTML with no script, in the entry screen's tokens (landing/app.css): a
-// timeline, each release with its date and version on the left, and on the right its title, its badges, a summary and
+// none. It is plain HTML with no script, in the entry screen's tokens (landing/app.css): a watercolor banner
+// (banner.bin, made for the page), on the left a rail of bars, one for each release and as long as it is big, the
+// way the app's page history draws its copies, and on the right each release: its title, its badges, a summary and
 // its changes in two folding boxes (<details>), the new and improved and the fixes.
+
+import BANNER from "./banner.bin"; // the banner, a WebP (made with an image model from the app's icon, in watercolor)
 
 const CACHE_SECONDS = 300;
 const SHOWN = 10; // the changes a box shows before "Show n more"
@@ -42,6 +45,14 @@ export async function changelogPage(request, env, ctx) {
   });
   if (cache && data) ctx?.waitUntil?.(cache.put(key, res.clone()));
   return res;
+}
+
+// BANNER_V changes the banner's address when the picture changes, so no browser keeps the old one for its day.
+const BANNER_V = (BANNER.byteLength || BANNER.length || 0).toString(36);
+
+// bannerImage answers GET /changelog/banner.webp. A new banner comes with a deploy, so a day's cache is enough.
+export function bannerImage() {
+  return new Response(BANNER, { headers: { "content-type": "image/webp", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
 }
 
 // shortDate is "Nov 11, 2026" for "2026-11-11", read as a day, not an instant.
@@ -80,8 +91,25 @@ function lede(r) {
   return `<p class="lede">Celestine ${v} brings ${parts.join(" and ")}.</p>`;
 }
 
+// size is how many changes a release has, for the length of its bar.
+const size = (r) => (r.features?.length || 0) + (r.fixes?.length || 0);
+
+// railHTML is the rail of releases: a bar for each, its version and date before it, its length by how much it changed
+// (on a square root, so a big release does not dwarf the rest), as the app's page history draws its copies. A bar
+// grows a little under the pointer, its neighbours less.
+function railHTML(releases) {
+  const most = Math.max(1, ...releases.map(size));
+  const rows = releases.map((r, i) => {
+    const len = r.first ? 0.55 : 0.28 + 0.72 * Math.sqrt(size(r) / most);
+    const v = esc(r.version.replace(/^v/, ""));
+    return `<li><a class="bar${i === 0 ? " now" : ""}" href="#${esc(r.version)}" style="--len:${len.toFixed(3)}" title="Version ${v} on ${shortDate(r.date)}"><span class="lbl"><b>${v}</b><time datetime="${esc(r.date)}">${shortDate(r.date)}</time></span><span class="track"><span class="line"></span></span></a></li>`;
+  });
+  return `<nav class="rail" aria-label="Releases"><ol>${rows.join("")}</ol></nav>`;
+}
+
 function releaseHTML(r, i) {
   const id = esc(r.version);
+  const v = esc(r.version.replace(/^v/, ""));
   const badges = [
     i === 0 ? `<span class="badge latest"><i></i>Latest</span>` : "",
     r.prerelease ? `<span class="badge pre">Preview</span>` : `<span class="badge">Stable</span>`,
@@ -89,29 +117,10 @@ function releaseHTML(r, i) {
   ].join("");
   const open = i < OPEN;
   return `<article class="release" id="${id}">
-<div class="when"><time datetime="${esc(r.date)}">${shortDate(r.date)}</time><a class="ver" href="#${id}">${esc(r.version.replace(/^v/, ""))}</a></div>
-<div class="body"><h2>${esc(r.title || r.version)}</h2><div class="badges">${badges}</div>${lede(r)}
-${boxHTML("New and improved", r.features, open)}${boxHTML("Fixes", r.fixes, open)}</div></article>`;
+<p class="kicker"><a href="#${id}">${v}</a><span>·</span><time datetime="${esc(r.date)}">${shortDate(r.date)}</time></p>
+<h2>${esc(r.title || r.version)}</h2><div class="badges">${badges}</div>${lede(r)}
+${boxHTML("New and improved", r.features, open)}${boxHTML("Fixes", r.fixes, open)}</article>`;
 }
-
-// SKY is the banner: a sky at dusk over hills, with stars and a crescent, drawn here so the page needs no picture.
-const SKY = `<svg class="sky" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-<defs>
-<linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sky-top)"/><stop offset=".62" stop-color="var(--sky-mid)"/><stop offset="1" stop-color="var(--sky-low)"/></linearGradient>
-<radialGradient id="glow" cx=".78" cy=".3" r=".35"><stop offset="0" stop-color="var(--glow)" stop-opacity=".55"/><stop offset="1" stop-color="var(--glow)" stop-opacity="0"/></radialGradient>
-<mask id="moon"><rect width="1200" height="260" fill="#fff"/><circle cx="948" cy="66" r="25" fill="#000"/></mask>
-</defs>
-<rect width="1200" height="260" fill="url(#dusk)"/><rect width="1200" height="260" fill="url(#glow)"/>
-<g fill="var(--star)">${[
-  [60, 40, 1.4], [140, 92, 1], [210, 30, 1.8], [300, 70, 1.1], [372, 22, 1.3], [430, 110, .9], [512, 48, 1.6], [590, 88, 1], [655, 26, 1.2],
-  [720, 64, 1.7], [800, 30, 1], [860, 112, 1.2], [1030, 40, 1.5], [1090, 96, 1], [1150, 26, 1.3], [258, 132, .9], [690, 130, .8], [1000, 140, .9],
-  [96, 150, .8], [560, 150, .8], [1170, 150, .9], [35, 100, 1], [470, 20, 1], [1110, 60, 1.1],
-].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>
-<path d="M930 30 l2 7 7 2 -7 2 -2 7 -2 -7 -7 -2 7 -2z M330 46 l1.4 5 5 1.4 -5 1.4 -1.4 5 -1.4 -5 -5 -1.4 5 -1.4z" fill="var(--star)"/>
-<circle cx="932" cy="76" r="27" fill="var(--moon)" mask="url(#moon)"/>
-<path d="M0 205 C120 170 230 180 330 196 S560 160 700 176 S960 150 1200 184 V260 H0Z" fill="var(--hill-far)"/>
-<path d="M0 232 C160 200 300 214 420 226 S700 196 860 214 S1080 204 1200 222 V260 H0Z" fill="var(--hill-near)"/>
-</svg>`;
 
 // changelogHTML is the page for a list of releases, newest first.
 export function changelogHTML(releases) {
@@ -128,29 +137,24 @@ export function changelogHTML(releases) {
   --text:light-dark(oklch(23% .004 286),oklch(96% .003 286));
   --body:light-dark(oklch(34% .006 286),oklch(84% .005 286));
   --muted:light-dark(oklch(53% .008 286),oklch(66% .007 286));
+  --faint:light-dark(oklch(80% .006 286),oklch(36% .006 286));
   --line:light-dark(oklch(0% 0 0 / 9%),oklch(100% 0 0 / 11%));
-  --accent:light-dark(oklch(54% .19 256),oklch(70% .16 256));
+  --accent:light-dark(oklch(58% .17 256),oklch(72% .14 256));
   --ok:light-dark(oklch(52% .14 150),oklch(76% .14 150));
   --pre:light-dark(oklch(56% .14 60),oklch(80% .12 70));
   --ink:light-dark(oklch(25% .02 270),oklch(94% .01 270));
   --on-ink:light-dark(oklch(98% 0 0),oklch(18% .01 270));
   --shadow:0 1px 2px light-dark(oklch(0% 0 0 / 5%),oklch(0% 0 0 / 50%)),0 10px 30px light-dark(oklch(0% 0 0 / 7%),oklch(0% 0 0 / 45%));
-  --sky-top:light-dark(oklch(47% .12 275),oklch(18% .06 275));
-  --sky-mid:light-dark(oklch(72% .09 300),oklch(32% .08 295));
-  --sky-low:light-dark(oklch(88% .06 55),oklch(48% .09 20));
-  --glow:light-dark(oklch(97% .04 90),oklch(85% .08 80));
-  --star:light-dark(oklch(99% .01 90),oklch(96% .03 90));
-  --moon:light-dark(oklch(98% .03 90),oklch(93% .06 90));
-  --hill-far:light-dark(oklch(62% .06 300),oklch(22% .04 290));
-  --hill-near:light-dark(oklch(45% .06 290),oklch(14% .03 285));
+  --ease:cubic-bezier(.2,.8,.2,1);
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
 html,body{margin:0;background:var(--bg)}
 body{color:var(--text);font:15px/1.6 var(--font);-webkit-font-smoothing:antialiased}
 ::selection{background:color-mix(in oklab,var(--accent) 28%,transparent)}
 a{color:inherit}
-.wrap{max-width:62rem;margin:0 auto;padding:0 16px}
-.nav{position:sticky;top:12px;z-index:5;display:flex;align-items:center;gap:8px;margin:12px auto 0;max-width:62rem;padding:7px 7px 7px 16px;border-radius:999px;
+.wrap{max-width:64rem;margin:0 auto;padding:0 16px}
+.nav{position:sticky;top:12px;z-index:5;display:flex;align-items:center;gap:8px;margin:12px auto 0;max-width:64rem;padding:7px 7px 7px 16px;border-radius:999px;
   background:color-mix(in oklab,var(--card) 78%,transparent);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4)}
 .brand{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-weight:600;letter-spacing:-.01em;margin-right:auto}
 .brand img{width:24px;height:24px;border-radius:6px}
@@ -158,18 +162,33 @@ a{color:inherit}
 .nav .link:hover,.nav .link[aria-current]{color:var(--text)}
 .nav .dl{background:var(--ink);color:var(--on-ink);text-decoration:none;font-size:14px;font-weight:600;padding:8px 16px;border-radius:999px;box-shadow:inset 0 1px 0 oklch(100% 0 0 / 18%),0 1px 2px oklch(0% 0 0 / 20%)}
 .nav .dl:hover{opacity:.9}
-.banner{position:relative;margin:16px 0 8px;border-radius:22px;overflow:hidden;height:250px;-webkit-mask-image:linear-gradient(#000 78%,transparent);mask-image:linear-gradient(#000 78%,transparent)}
-.sky{position:absolute;inset:0;width:100%;height:100%;display:block}
-.banner h1{position:absolute;left:28px;top:26px;margin:0;color:#fff;font-size:clamp(1.9rem,4.6vw,2.6rem);line-height:1.1;letter-spacing:-.03em;text-shadow:0 1px 18px oklch(20% .08 280 / 45%)}
-.banner p{position:absolute;left:28px;top:calc(26px + clamp(1.9rem,4.6vw,2.6rem) * 1.1 + 6px);margin:0;max-width:30rem;color:oklch(100% 0 0 / 88%);font-size:15px;text-shadow:0 1px 12px oklch(20% .08 280 / 50%)}
-.release{display:grid;grid-template-columns:10rem 1fr;column-gap:28px}
-.when{position:sticky;top:84px;align-self:start;padding-top:44px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
-time{color:var(--muted);font-size:13.5px}
-.ver{font-size:13px;font-weight:700;text-decoration:none;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-variant-numeric:tabular-nums;box-shadow:0 1px 2px light-dark(oklch(0% 0 0 / 4%),oklch(0% 0 0 / 40%))}
-.ver:hover{border-color:var(--accent);color:var(--accent)}
-.body{position:relative;border-left:1px solid var(--line);padding:40px 0 36px 32px;min-width:0}
-.body::before{content:"";position:absolute;left:-5px;top:56px;width:9px;height:9px;border-radius:50%;background:var(--text);box-shadow:0 0 0 4px var(--bg)}
-.release:first-child .body::before{background:var(--accent);box-shadow:0 0 0 4px var(--bg),0 0 0 7px color-mix(in oklab,var(--accent) 25%,transparent)}
+.banner{position:relative;margin:16px 0 0;height:300px;border-radius:22px;overflow:hidden;background:#f7f4f1 url(/changelog/banner.webp?v=${BANNER_V}) center 54%/cover no-repeat;
+  -webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
+@media (prefers-color-scheme:dark){.banner{filter:brightness(.82) saturate(.95)}}
+.banner h1{position:absolute;left:30px;top:28px;margin:0;color:oklch(24% .03 265);font-size:clamp(1.9rem,4.6vw,2.7rem);line-height:1.1;letter-spacing:-.03em}
+.banner p{position:absolute;left:30px;top:calc(28px + clamp(1.9rem,4.6vw,2.7rem) * 1.1 + 6px);margin:0;max-width:22rem;color:oklch(36% .03 265);font-size:15px}
+.page{display:grid;grid-template-columns:15.5rem 1fr;column-gap:40px;margin-top:8px}
+.rail{position:sticky;top:84px;align-self:start;padding:34px 0 24px}
+.rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.bar{display:grid;grid-template-columns:8.6rem 1fr;align-items:center;column-gap:14px;padding:6px 8px;border-radius:8px;text-decoration:none;color:var(--muted);transition:background-color .2s var(--ease)}
+.bar:hover{background:var(--well)}
+.lbl{display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lbl b{font-size:13px;font-weight:600;color:var(--text);min-width:2.6rem;text-align:right}
+.lbl time{font-size:12.5px;color:var(--muted)}
+.track{display:block;height:10px;position:relative}
+.line{position:absolute;left:0;top:50%;height:6px;margin-top:-3px;width:calc(var(--len) * 100%);border-radius:6px;background:var(--faint);transform-origin:left center;
+  transition:transform .25s var(--ease),background-color .2s var(--ease)}
+.bar.now .line{background:var(--accent)}
+.bar:hover .line,.bar:focus-visible .line{transform:scale(1.12,1.35);background:var(--muted)}
+.bar.now:hover .line{background:var(--accent)}
+.rail li:has(+ li .bar:hover) .line,.rail li:has(.bar:hover) + li .line{transform:scale(1.05,1.15)}
+.bar:hover .lbl b{color:var(--accent)}
+main{min-width:0}
+.release{padding:36px 0 34px;border-bottom:1px solid var(--line)}
+.release:last-child{border-bottom:0}
+.kicker{display:flex;gap:8px;align-items:center;margin:0 0 6px;color:var(--muted);font-size:13px}
+.kicker a{font-weight:600;color:var(--text);text-decoration:none;font-variant-numeric:tabular-nums}
+.kicker a::before{content:"v";color:var(--muted);font-weight:500}
 h2{margin:0 0 10px;font-size:clamp(1.45rem,3vw,1.85rem);line-height:1.2;letter-spacing:-.025em;text-wrap:balance}
 .badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;line-height:1;padding:5px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--card)}
@@ -193,25 +212,29 @@ h2{margin:0 0 10px;font-size:clamp(1.45rem,3vw,1.85rem);line-height:1.2;letter-s
 .more[open]>summary{display:none}
 .more ul{padding-top:2px}
 .empty{padding:48px 0;color:var(--muted)}
-footer{display:flex;gap:18px;padding:28px 0 56px 0;margin-left:calc(10rem + 28px);border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+footer{display:flex;gap:18px;padding:28px 0 56px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
 footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-@media (max-width:720px){
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.line{transition:none}}
+@media (max-width:760px){
   .nav{margin:10px 10px 0;top:10px}.nav .link.opt{display:none}
-  .banner{height:200px;border-radius:18px}.banner h1,.banner p{left:20px}.banner p{font-size:14px;max-width:16rem}
-  .release{grid-template-columns:1fr}
-  .when{position:static;flex-direction:row;align-items:center;padding-top:28px;gap:10px}
-  .body{border-left:0;padding:12px 0 24px}.body::before{display:none}
-  .box ul{padding-left:28px}
-  footer{margin-left:0}
+  .banner{height:200px;border-radius:18px;background-position:88% 55%}.banner h1,.banner p{left:20px}.banner p{font-size:14px;max-width:13rem}
+  .page{grid-template-columns:1fr}
+  .rail{position:static;padding:18px 0 4px;overflow-x:auto}
+  .rail ol{flex-direction:row;align-items:flex-end;gap:2px;min-height:110px}
+  .bar{display:flex;flex-direction:column-reverse;align-items:center;gap:8px;padding:6px 4px}
+  .lbl{flex-direction:column;align-items:center;gap:0}.lbl b{min-width:0;text-align:center}.lbl time{display:none}
+  .track{width:44px;height:72px}
+  .line{left:50%;top:auto;bottom:0;margin:0 0 0 -3px;width:6px;height:calc(var(--len) * 100%);transform-origin:center bottom}
+  .release{padding:24px 0}
 }
 </style></head><body>
 <nav class="nav"><a class="brand" href="/"><img src="/icon.png" alt="">Celestine</a><a class="link" href="/changelog" aria-current="page">Changelog</a><a class="link opt" href="/privacy">Privacy</a><a class="dl" href="/">Download</a></nav>
 <div class="wrap">
-<div class="banner">${SKY}<h1>Changelog</h1><p>What came with each version of Celestine. The app updates itself.</p></div>
-<main>
+<div class="banner" role="img" aria-label="A watercolor landscape at dawn, two blue crystals standing in a meadow"><h1>Changelog</h1><p>What came with each version of Celestine. The app updates itself.</p></div>
+<div class="page">${releases.length ? railHTML(releases) : "<div></div>"}<main>
 ${list}
-</main>
+</main></div>
 <footer><a href="/">Celestine</a><a href="/privacy">Privacy</a></footer>
 </div></body></html>`;
 }
