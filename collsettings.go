@@ -835,14 +835,6 @@ func (a *app) csPages(c *ui.Context) {
 	a.csTemplates(c)
 }
 
-func itoa(n int) string {
-	s := ""
-	for n > 0 {
-		s = string(rune('0'+n%10)) + s
-		n /= 10
-	}
-	if s == "" {
-		return "0"
-	}
-	return s
-}
+// itoa writes n in decimal, as strconv.Itoa does: a key made of it is the number's own, a negative one too (the page
+// history keys the copy of the page as it was with -1, #377).
+func itoa(n int) string { return strconv.Itoa(n) }

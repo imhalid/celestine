@@ -117,3 +117,13 @@ func TestViewOptions(t *testing.T) {
 		t.Fatal("not unfolded")
 	}
 }
+
+// TestItoaNegative checks that itoa writes a negative number as it is: the page history keys the copy of the page as
+// it was with -1, and "0" for it was the front copy's key (#377).
+func TestItoaNegative(t *testing.T) {
+	for n, want := range map[int]string{-1: "-1", 0: "0", 7: "7", 120: "120", -35: "-35"} {
+		if got := itoa(n); got != want {
+			t.Errorf("itoa(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
