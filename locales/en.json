@@ -1613,8 +1613,6 @@
   "@update_badge": {"description": "The chip at the top right while a new version waits."},
   "update_badgeReady": "Restart to update",
   "@update_badgeReady": {"description": "The chip once the new version is in place."},
-  "update_chipRestart": "Restart needed",
-  "@update_chipRestart": {"description": "The chip at the top right once the new version is in place: a click restarts."},
   "update_beta": "Beta versions",
   "update_betaHelp": "Get notified about beta versions as well as stable ones.",
   "update_cannotCheck": "This build can't check for updates.",

@@ -41,18 +41,16 @@ func (a *app) updChipShown() bool {
 	return !phone && (a.updRel != nil || a.updState != updIdle) && !a.updPanelOpen() && !a.updNotes
 }
 
-// The chip's colors: green while the version comes in, for white words on it in light and in dark; and gray once
-// it is in place, waiting only for a restart.
+// The chip's green while the version comes in: its own, for white words on it in light and in dark. Once the
+// version is in place the chip is soft, as a soft button is: a step off the header toward the text.
 var (
 	updGreen400 = ui.RGB(74, 205, 112)
 	updGreen600 = ui.RGB(30, 146, 72)
-	updGray400  = ui.RGB(158, 162, 170)
-	updGray600  = ui.RGB(112, 116, 126)
 )
 
 // updateChip is the chip of a waiting version, in the header's right end, by the side panel's button. It unfolds
 // from the top down once the card is closed. A click updates where it is: it turns green, a ring in place of its
-// mark fills as the version comes in and the chip fills with it; once the version is in place it is gray and says
+// mark fills as the version comes in and the chip fills with it; once the version is in place it is soft and says
 // restart, and a click restarts.
 func (a *app) updateChip(c *ui.Context) {
 	if !a.updChipShown() {
@@ -74,7 +72,7 @@ func (a *app) updateChip(c *ui.Context) {
 	case busy:
 		label = locales.UpdateDownloading()
 	case ready:
-		label = locales.UpdateChipRestart()
+		label = locales.UpdateRestart()
 	}
 	const h = 22
 	b := ui.Row(c.Key("upd-chip")).Height(h).Padding(0, 10, 0, 6).Gap(5).AlignItems(ui.Center).Radius(h/2).
@@ -86,8 +84,11 @@ func (a *app) updateChip(c *ui.Context) {
 	g := b.AnimateTo("green", map[bool]float32{true: 1}[busy], springSheet)
 	q := b.AnimateTo("gray", map[bool]float32{true: 1}[ready], springSheet)
 	cl := ryugo.From(c).Colors
-	top := cl.ColorAccent400.Mix(updGreen400, g).Mix(updGray400, q)
-	bottom := cl.ColorAccent600.Mix(updGreen600, g).Mix(updGray600, q)
+	t := c.Theme()
+	soft := ryugo.Mix(t.Surface, t.Text, 0.09)
+	top := cl.ColorAccent400.Mix(updGreen400, g).Mix(soft, q)
+	bottom := cl.ColorAccent600.Mix(updGreen600, g).Mix(soft, q)
+	ink := white.Mix(cl.Text2, q) // its words: white on the color, the text's on the soft
 	f := a.updProg.frac()
 	hover := b.Hovered() && !busy
 	b.Draw(func(p *ui.Painter, r ui.Rect) {
@@ -114,9 +115,10 @@ func (a *app) updateChip(c *ui.Context) {
 		}
 		// the gloss: a light on its upper half, as on glass
 		gloss := ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H*0.5 - 1}
-		p.FillGradient(gloss, ui.LinearGradient{From: white.Alpha(0.34), To: white.Alpha(0.04), Angle: 180}, h/2-1)
-		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55), h/2, 1)
-		p.Line(r.X+h/2, r.Y+1.5, r.X+r.W-h/2, r.Y+1.5, 1, white.Alpha(0.45)) // its top edge catches the light
+		lit := 1 - q // the soft chip has no gloss, and a hairline for its edge
+		p.FillGradient(gloss, ui.LinearGradient{From: white.Alpha(0.34 * lit), To: white.Alpha(0.04 * lit), Angle: 180}, h/2-1)
+		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55).Mix(cl.Hairline, q), h/2, 1)
+		p.Line(r.X+h/2, r.Y+1.5, r.X+r.W-h/2, r.Y+1.5, 1, white.Alpha(0.45*lit)) // its top edge catches the light
 		// the light runs while it waits; between two passes the chip asks for no frame
 		if updShaders && k >= 1 && !busy && !ready {
 			if t := p.Now().Sub(a.updChipAt) % (updSweep + updRest); t < updSweep {
@@ -141,9 +143,13 @@ func (a *app) updateChip(c *ui.Context) {
 		if busy {
 			a.updRing(c, f)
 		} else {
-			ui.Icon(c, iconUpdate).Width(13).Height(13).TextColor(white)
+			ic := iconUpdate
+			if ready {
+				ic = iconRestart
+			}
+			ui.Icon(c, ic).Width(13).Height(13).TextColor(ink)
 		}
-		ui.Text(c, label).FontSize(11.5).FontWeight(680).TextColor(white).NoWrap()
+		ui.Text(c, label).FontSize(11.5).FontWeight(680).TextColor(ink).NoWrap()
 	})
 	if b.Clicked() {
 		switch a.updState {

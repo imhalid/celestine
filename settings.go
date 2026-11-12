@@ -27,6 +27,7 @@ var (
 	iconPlug    = icon(`<path d="M9 4v5M15 4v5M6.5 9h11v2.5a5.5 5.5 0 0 1-11 0zM12 17v3.5"/>`)
 	iconSync    = icon(`<path d="M5 9a7 7 0 0 1 12-3l2 2M19 15a7 7 0 0 1-12 3l-2-2M19 4v4h-4M5 20v-4h4"/>`)
 	iconUpdate  = icon(`<path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/>`)
+	iconRestart = icon(`<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3L19.5 9M19.5 4.5V9H15"/>`)
 	iconFont    = icon(`<path d="M5 19 11 5h2l6 14M7.5 14h9"/>`)
 	iconLibrary = icon(`<path d="M4.5 7.5a1.5 1.5 0 0 1 1.5-1.5h4l1.8 2H18a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z"/>`)
 )
