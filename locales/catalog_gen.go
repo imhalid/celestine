@@ -14340,13 +14340,13 @@ func (msgs Messages) UpdateAutoHelp() string {
 // UpdateBadge says "Update available"
 // in the language the app shows.
 //
-// The badge at the top left while a new version waits.
+// The chip at the top right while a new version waits.
 func UpdateBadge() string { return In(i18n.Locale()).UpdateBadge() }
 
 // UpdateBadge says "Update available"
 // in the language of msgs.
 //
-// The badge at the top left while a new version waits.
+// The chip at the top right while a new version waits.
 func (msgs Messages) UpdateBadge() string {
 	return Catalog.Format(msgs.locale, "update_badge", nil)
 }
@@ -14354,13 +14354,13 @@ func (msgs Messages) UpdateBadge() string {
 // UpdateBadgeReady says "Restart to update"
 // in the language the app shows.
 //
-// The badge once the new version is in place.
+// The chip once the new version is in place.
 func UpdateBadgeReady() string { return In(i18n.Locale()).UpdateBadgeReady() }
 
 // UpdateBadgeReady says "Restart to update"
 // in the language of msgs.
 //
-// The badge once the new version is in place.
+// The chip once the new version is in place.
 func (msgs Messages) UpdateBadgeReady() string {
 	return Catalog.Format(msgs.locale, "update_badgeReady", nil)
 }

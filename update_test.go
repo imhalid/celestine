@@ -406,23 +406,29 @@ func TestCheckUpdateSettings(t *testing.T) {
 	if a.updRel == nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") {
 		t.Fatalf("not shown: %v", tt.Texts())
 	}
-	// the card at the top right says it, with update now and later; the badge at the top left too (updatepanel.go)
-	for _, want := range []string{locales.UpdateUpdateNow(), locales.UpdateLater(), locales.UpdateBadge()} {
+	// the card at the top right says it, with update now and later; no chip while it is open (updatepanel.go)
+	for _, want := range []string{locales.UpdateUpdateNow(), locales.UpdateLater()} {
 		if !tt.HasText(want) {
 			t.Errorf("no %q: %v", want, tt.Texts())
 		}
+	}
+	if tt.HasText(locales.UpdateBadge()) {
+		t.Errorf("a chip beside the card: %v", tt.Texts())
 	}
 	tt.Advance(time.Second) // the card unfolds first
 	if err := tt.Click(locales.UpdateLater()); err != nil {
 		t.Fatal(err)
 	}
+	tt.Advance(time.Second) // later: the card goes, and the chip unfolds in the header
+	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) || tt.HasText("9.0.0 sürümü çıktı") {
+		t.Fatalf("later: open %v, release %v: %v", a.updOpen, a.updRel, tt.Texts())
+	}
+	a.updState = updDownloading // what a click on it starts: it says so where it is
 	tt.Advance(100 * time.Millisecond)
-	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) {
-		t.Fatalf("later: open %v, release %v, no badge: %v", a.updOpen, a.updRel, tt.Texts())
+	if !tt.HasText(locales.UpdateDownloading()) || tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("downloading: %v", tt.Texts())
 	}
-	if err := tt.Click(locales.UpdateBadge()); err != nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") { // the badge opens the card again
-		t.Fatalf("the badge: %v open %v", err, a.updOpen)
-	}
+	a.updState = updIdle
 	a.settings.UpdateSkip = "v9.0.0" // a version said no to, in the settings (updateui.go)
 	a.updRel = nil
 	a.settings.UpdateAt = 0

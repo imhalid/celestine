@@ -143,7 +143,7 @@ type app struct {
 	updBusy     atomic.Bool // a check or a download goes on
 	updErr      string      // what the last check said, when it failed
 	updState    updateState // where an update the user asked for is
-	updBadgeAt  time.Time   // when the badge's light was first drawn: its passes are timed from it (updatepanel.go)
+	updChipAt   time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
 	updPanelAt  time.Time   // when the update card began to open
 	updRel      *Release    // the newer version found
 	updAuto     bool        // a check found a release and the settings say to put it in place

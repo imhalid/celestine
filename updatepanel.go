@@ -10,13 +10,13 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// A new version comes in two ways (#379). A badge at the window's top left, with the sidebar's buttons, says one
-// waits: glossy, in the accent's gradient as a button is, a light running over it now and then. And a small card
-// opens at the top right, as a toast does, unfolding from the top down behind a lit edge (updPanelShader): the new
-// version, a line, and update now or later. The badge opens the card again once it is closed. The dialog of
-// "what's new", after an update, stays a dialog (updateui.go).
+// A new version comes as a small card at the top right, as a toast does, unfolding from the top down behind a lit
+// edge (updPanelShader): the new version, a line, and update now or later (#379). Later closes it, and a chip
+// unfolds in its place in the header's right end: glossy, in the accent's gradient as a button is, a light running
+// over it now and then. A click on the chip updates where it is: it turns green, and a light runs along it while the
+// version comes in. The dialog of "what's new", after an update, stays a dialog (updateui.go).
 
-// white and black are the lights and shades the badge and the panel's header are drawn with.
+// white and black are the lights and shades the chip and the card are drawn with.
 var (
 	white = ui.RGB(255, 255, 255)
 	black = ui.RGB(0, 0, 0)
@@ -25,7 +25,7 @@ var (
 // updShaders is false in tests: the tester draws on the CPU, where a shader over a panel takes seconds a frame.
 var updShaders = !testing.Testing()
 
-// The badge's light: one pass of updSweep, then updRest before the next.
+// The chip's light: one pass of updSweep, then updRest before the next.
 const (
 	updSweep = 1400 * time.Millisecond
 	updRest  = 2600 * time.Millisecond
@@ -36,60 +36,124 @@ func (a *app) updPanelOpen() bool {
 	return a.updOpen && !a.updNotes && (a.updRel != nil || a.updState != updIdle)
 }
 
-// updateBadge is the badge of a waiting version; a click opens the panel.
-func (a *app) updateBadge(c *ui.Context) {
-	if a.updRel == nil && a.updState != updReady {
+// updChipShown reports whether the chip is shown: a version waits, or is on its way in, and its card is closed.
+func (a *app) updChipShown() bool {
+	return !phone && (a.updRel != nil || a.updState != updIdle) && !a.updPanelOpen() && !a.updNotes
+}
+
+// The chip's green, while the version comes in and once it is in place: its own, for white words on it in light
+// and in dark.
+var (
+	updGreen400 = ui.RGB(74, 205, 112)
+	updGreen600 = ui.RGB(30, 146, 72)
+)
+
+// updateChip is the chip of a waiting version, in the header's right end, by the side panel's button. It unfolds
+// as the card does once the card is closed. A click updates: the chip turns green where it is and a light runs
+// along it while the version comes in; once it is in place, a click restarts.
+func (a *app) updateChip(c *ui.Context) {
+	if !a.updChipShown() {
+		a.updChipAt = time.Time{}
 		return
 	}
+	if a.updChipAt.IsZero() {
+		a.updChipAt = c.Now()
+	}
+	since := c.Now().Sub(a.updChipAt)
+	k := float32(min(since.Seconds()/updChipUnfold.Seconds(), 1))
+	k = 1 - (1-k)*(1-k)*(1-k)
+	if k < 1 {
+		c.AnimationFrame()
+	}
 	cl := ryugo.From(c).Colors
+	busy := a.updState == updDownloading
 	label := locales.UpdateBadge()
-	if a.updState == updReady {
+	switch a.updState {
+	case updDownloading:
+		label = locales.UpdateDownloading()
+	case updReady:
 		label = locales.UpdateBadgeReady()
 	}
 	const h = 22
-	b := ui.Row(c.Key("upd-badge")).Height(h).Padding(0, 10, 0, 7).Gap(5).AlignItems(ui.Center).Radius(h/2).
-		Role(ui.RoleButton).Label(label).Cursor(ui.CursorPointer).Shrink(0).
-		Shadow(0, 2, 8, -1, cl.Accent.Alpha(0.45))
-	hover := b.Hovered()
+	b := ui.Row(c.Key("upd-chip")).Height(h).Padding(0, 10, 0, 7).Gap(5).AlignItems(ui.Center).Radius(h / 2).
+		Role(ui.RoleButton).Label(label).Shrink(0)
+	if !busy {
+		b.Cursor(ui.CursorPointer)
+	}
+	// g is how green it is: 0 while it waits, 1 once the update is asked for, turning on a spring
+	g := b.AnimateTo("green", map[bool]float32{true: 1}[a.updState != updIdle], springSheet)
+	top, bottom := cl.ColorAccent400.Mix(updGreen400, g), cl.ColorAccent600.Mix(updGreen600, g)
+	b.Shadow(0, 2, 8, -1, bottom.Alpha(0.45))
+	hover := b.Hovered() && !busy
 	b.Draw(func(p *ui.Painter, r ui.Rect) {
-		top, bottom := cl.ColorAccent400, cl.ColorAccent600
+		top, bottom := top, bottom
 		if hover {
 			top, bottom = top.Mix(white, 0.12), bottom.Mix(white, 0.08)
 		}
-		// the body: the accent, lighter at the top, as a button's face
+		// the body: lighter at the top, as a button's face
 		p.FillGradient(r, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
 		// the gloss: a light on its upper half, as on glass
 		gloss := ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H*0.5 - 1}
 		p.FillGradient(gloss, ui.LinearGradient{From: white.Alpha(0.38), To: white.Alpha(0.04), Angle: 180}, h/2-1)
 		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55), h/2, 1)
 		p.Line(r.X+h/2, r.Y+1.5, r.X+r.W-h/2, r.Y+1.5, 1, white.Alpha(0.45)) // its top edge catches the light
-		// the light runs while it runs; between two passes the badge asks for no frame
-		if updShaders {
-			if t := p.Now().Sub(a.updBadgeAt) % (updSweep + updRest); t < updSweep {
+		// the progress: a capsule of light going along it, as the size is not told yet (#323)
+		if busy {
+			t := float32(p.Now().Sub(a.updChipAt).Seconds()) / 1.1
+			t -= float32(int(t))
+			w := r.W * 0.4
+			x0, x1 := max(r.X+(r.W+w)*t-w, r.X+1), min(r.X+(r.W+w)*t, r.X+r.W-1)
+			if x1 > x0 {
+				p.FillGradient(ui.Rect{X: x0, Y: r.Y + 2, W: x1 - x0, H: r.H - 4},
+					ui.LinearGradient{From: white.Alpha(0.05), To: white.Alpha(0.42), Angle: 90}, h/2-2)
+			}
+			if updShaders {
+				p.AnimationFrame()
+			}
+			return
+		}
+		// the light runs while it runs; between two passes the chip asks for no frame
+		if updShaders && k >= 1 {
+			if t := p.Now().Sub(a.updChipAt) % (updSweep + updRest); t < updSweep {
 				p.AnimationFrame()
 			} else {
 				p.After(updSweep + updRest - t)
 			}
 		}
 	})
-	if updShaders {
-		if a.updBadgeAt.IsZero() {
-			a.updBadgeAt = c.Now()
-		}
-		t := c.Now().Sub(a.updBadgeAt) % (updSweep + updRest)
+	switch {
+	case k < 1 && updShaders: // it unfolds from the top down, as the card did
+		b.Disabled(true).DimDisabled(false)
+		b.Effect(updPanelShader.Effect(shader.Options{
+			Uniforms:        map[string]any{"Open": k, "Radius": float32(h / 2), "Time": float32(since.Seconds()), "Tone": bottom},
+			MaxSampleOffset: ui.Point{X: 8, Y: 8},
+		}))
+	case k < 1:
+		b.Disabled(true).DimDisabled(false).Opacity(k)
+	case updShaders && !busy:
+		t := since % (updSweep + updRest)
 		b.Effect(updBadgeShader.Effect(shader.Options{Uniforms: map[string]any{
 			"Head": float32(t.Seconds() / updSweep.Seconds()), "Radius": float32(h / 2)}}))
 	}
 	b.Children(func() {
 		ui.Icon(c, iconUpdate).Width(13).Height(13).TextColor(cl.OnAccent)
-		ui.Text(c, label).FontSize(11.5).FontWeight(680).TextColor(cl.OnAccent).NoWrap()
+		ui.Text(c, label).FontSize(11.5).FontWeight(680).TextColor(white).NoWrap()
 	})
 	if b.Clicked() {
-		a.updNotes, a.updOpen = false, true
+		switch a.updState {
+		case updIdle:
+			a.updErr = ""
+			a.startUpdate()
+		case updReady:
+			a.restartApp()
+		}
 	}
 }
 
-// updBadgeShader runs a light over the badge: a slanted band of white from its left to past its right as Head goes
+// updChipUnfold is how long the chip takes to open: a little quicker than the card, as it is smaller.
+var updChipUnfold = 700 * time.Millisecond
+
+// updBadgeShader runs a light over the chip: a slanted band of white from its left to past its right as Head goes
 // from 0 to 1, brightest at its middle, and nothing past 1.
 var updBadgeShader = shader.MustCompile(`package main
 
@@ -179,7 +243,7 @@ func (a *app) updateCard(c *ui.Context) {
 // updUnfold is how long the card takes to open: long enough that its lit edge is seen running down.
 var updUnfold = 900 * time.Millisecond
 
-// updMark is the card's mark: a round badge of the accent's gradient, glossy as the badge, with the update's sign.
+// updMark is the card's mark: a round badge of the accent's gradient, glossy as the chip, with the update's sign.
 func (a *app) updMark(c *ui.Context, cl ryugo.Colors) {
 	m := ui.Box(c.Key("upd-card-mark")).Width(28).Height(28).Radius(14).AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
 		Shadow(0, 2, 6, -1, cl.Accent.Alpha(0.45))
@@ -221,7 +285,7 @@ func (a *app) updCardActions(c *ui.Context, cl ryugo.Colors) {
 		bar.Draw(func(p *ui.Painter, r ui.Rect) { // a light going along it: the size is not told yet (#323)
 			t := float32(p.Now().Sub(a.updPanelAt).Seconds())
 			x := (t*0.8 - float32(int(t*0.8))) * (r.W + 60)
-			p.FillGradient(ui.Rect{X: r.X + x - 60, Y: r.Y, W: 60, H: r.H}, ui.LinearGradient{From: cl.Accent.Alpha(0), To: cl.Accent, Angle: 90}, 2)
+			p.FillGradient(ui.Rect{X: r.X + x - 60, Y: r.Y, W: 60, H: r.H}, ui.LinearGradient{From: updGreen600.Alpha(0), To: updGreen400, Angle: 90}, 2) // green while it comes in
 			if updShaders {
 				p.AnimationFrame()
 			}
@@ -238,7 +302,7 @@ func (a *app) updCardActions(c *ui.Context, cl ryugo.Colors) {
 			a.startUpdate()
 		}
 		if ryugo.Button(c.Key("upd-card-later"), locales.UpdateLater(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
-			a.updOpen = false // the badge stays, and opens the card again
+			a.updOpen = false // the chip unfolds in its place
 		}
 	}
 }
@@ -297,15 +361,3 @@ func LayerEffect(pos vec2) vec4 {
 	return col + vec4(light, max(max(light.r, light.g), light.b))*0.9
 }
 `)
-
-// updBadgeRoom is the room the badge takes beside the sidebar's buttons, for the header to leave it: its words, its
-// mark and its margins.
-func (a *app) updBadgeRoom() float32 {
-	switch {
-	case a.updState == updReady:
-		return float32(len([]rune(locales.UpdateBadgeReady())))*6.4 + 42
-	case a.updRel != nil:
-		return float32(len([]rune(locales.UpdateBadge())))*6.4 + 42
-	}
-	return 0
-}

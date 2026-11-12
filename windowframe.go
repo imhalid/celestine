@@ -84,6 +84,7 @@ func (a *app) frameTop(c *ui.Context) {
 				}
 			})
 		}
+		a.updateChip(c) // a version that waits (updatepanel.go)
 		if a.page != nil && !a.noPage() {
 			if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
 				a.togglePanel()

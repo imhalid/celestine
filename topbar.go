@@ -36,13 +36,14 @@ func (a *app) header(c *ui.Context) {
 				return
 			}
 			if a.sidebarShown < 1 { // the sidebar's buttons are here, over the header: their room
-				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW + a.updBadgeRoom())
+				ui.Box(c).Width(a.titleBar(c).Left + sidebarButtonsW)
 			}
 			if title := a.headerTitle(); title != "" {
 				ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).MinWidth(0)
 			} else {
 				ui.Box(c).Grow(1)
 			}
+			a.updateChip(c) // a version that waits (updatepanel.go)
 			if a.page != nil && !a.noPage() {
 				if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
 					a.togglePanel()
