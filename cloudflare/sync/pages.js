@@ -65,7 +65,7 @@ The app asks the update server now and then whether there is a new version; that
 <li>Your email address, the name if you gave one, when you signed up, and whether an invite was sent.</li>
 <li>For an invite: a hash of the code (not the code itself), when it was made and when it expires or was used. The code is emailed to you through Resend.</li>
 </ul>
-<p>The address is used only to send your invite, and is never shared or sold. A bot check by Cloudflare Turnstile guards the form.</p>
+<p>The address is used only to send your invite, and is never shared or sold.</p>
 <h2>An account for sync</h2>
 <ul>
 <li>Your email address as the account's name, when it was made, its quota, how much it uses, and whether it is active.</li>
