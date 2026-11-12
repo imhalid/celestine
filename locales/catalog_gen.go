@@ -6615,6 +6615,16 @@ func (msgs Messages) KeysANameCommandsSeparated() string {
 	return Catalog.Format(msgs.locale, "keys_aNameCommandsSeparated", nil)
 }
 
+// KeysAllShortcuts says "All shortcuts"
+// in the language the app shows.
+func KeysAllShortcuts() string { return In(i18n.Locale()).KeysAllShortcuts() }
+
+// KeysAllShortcuts says "All shortcuts"
+// in the language of msgs.
+func (msgs Messages) KeysAllShortcuts() string {
+	return Catalog.Format(msgs.locale, "keys_allShortcuts", nil)
+}
+
 // KeysAssign says "Assign"
 // in the language the app shows.
 func KeysAssign() string { return In(i18n.Locale()).KeysAssign() }

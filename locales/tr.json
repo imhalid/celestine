@@ -652,6 +652,7 @@
   "keep": "kaydet",
   "keyboardMode": "Klavye kipi",
   "keys_aNameCommandsSeparated": "Bir ad, sonra + ile ayrılmış komutlar: örn. “Günlük görev” ve “Bugünün sayfası + Görevler”. ⌘P'de “Makro: ad” olarak çıkar.",
+  "keys_allShortcuts": "Bütün kısayollar",
   "keys_assign": "Ata",
   "keys_bold": "kalın",
   "keys_browserAddress": "tarayıcı: adres çubuğu",

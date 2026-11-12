@@ -30,3 +30,16 @@ func TestSyncFolderPicker(t *testing.T) {
 		t.Fatalf("no picker: %v", tt.Texts())
 	}
 }
+
+// TestShortcutsListed: the Shortcuts page lists the app's shortcuts, not only one's own (#412).
+func TestShortcutsListed(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.openSettings()
+	tt.Frame()
+	a.setMode = "keys"
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText(locales.KeysAllShortcuts()) || !tt.HasText(locales.HelpBoldItalic()) || !tt.HasText("⌘B ⌘I ⌘U") {
+		t.Fatalf("no shortcuts: %v", tt.Texts())
+	}
+}

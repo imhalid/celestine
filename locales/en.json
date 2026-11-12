@@ -726,6 +726,7 @@
   "keep": "save",
   "keyboardMode": "Keyboard mode",
   "keys_aNameCommandsSeparated": "A name, then commands separated by +, e.g. “Daily tasks” and “Today's page + Tasks”. It shows up in ⌘P as “Macro: name”.",
+  "keys_allShortcuts": "All shortcuts",
   "keys_assign": "Assign",
   "keys_bold": "bold",
   "keys_browserAddress": "browser: address bar",
