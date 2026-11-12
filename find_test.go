@@ -90,6 +90,7 @@ func TestLongPageCoverGoesWhenScrolled(t *testing.T) {
 	}
 	b.WriteString("Bizans sırları\n")
 	a, tt := newTestApp(t, b.String())
+	a.settings.AutoCover = true // a made cover, off by default
 	tt.SetSize(1100, 800)
 	tt.Advance(500 * time.Millisecond)
 	a.gotoPos(strings.Index(a.doc.Text().String(), "Bizans"))

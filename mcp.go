@@ -122,14 +122,14 @@ type Settings struct {
 	PanelOpen     bool           `json:"panelOpen,omitempty"`
 	SidebarWidth  int            `json:"sidebarWidth,omitempty"` // dragged at its edge; 0 is the design's own
 	PanelWidth    int            `json:"panelWidth,omitempty"`
-	Writing       map[string]int `json:"writing,omitempty"`     // the words written, by day (writing.go)
-	WriteGoal     int            `json:"writeGoal,omitempty"`   // the words to write in a day
-	NoAutoCover   bool           `json:"noAutoCover,omitempty"` // pages with no cover of their own show no made one (autocover.go)
-	NoLapse       bool           `json:"noLapse,omitempty"`     // the words are not colored by the day they were written (lapseui.go)
-	NoWobble      bool           `json:"noWobble,omitempty"`    // the window does not shake when an agent writes (wobble.go)
-	NoWaves       bool           `json:"noWaves,omitempty"`     // a pressed button sends no wave through itself (Ryugo's Options.Waves)
-	Corner        *int           `json:"corner,omitempty"`      // how round the corners are, in percent (radius.go)
-	QuickKey      string         `json:"quickKey,omitempty"`    // the quick note's global key
+	Writing       map[string]int `json:"writing,omitempty"`   // the words written, by day (writing.go)
+	WriteGoal     int            `json:"writeGoal,omitempty"` // the words to write in a day
+	AutoCover     bool           `json:"autoCover,omitempty"` // pages with no cover of their own show a made one (autocover.go); off by default
+	NoLapse       bool           `json:"noLapse,omitempty"`   // the words are not colored by the day they were written (lapseui.go)
+	NoWobble      bool           `json:"noWobble,omitempty"`  // the window does not shake when an agent writes (wobble.go)
+	NoWaves       bool           `json:"noWaves,omitempty"`   // a pressed button sends no wave through itself (Ryugo's Options.Waves)
+	Corner        *int           `json:"corner,omitempty"`    // how round the corners are, in percent (radius.go)
+	QuickKey      string         `json:"quickKey,omitempty"`  // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`
 	TreeOpen      []string       `json:"treeOpen,omitempty"`
 }

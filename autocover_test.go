@@ -93,6 +93,10 @@ func TestMoonPhase(t *testing.T) {
 func TestAutoCoverKinds(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	p := a.page
+	if a.coverKind(p) != coverKindNone {
+		t.Fatalf("off by default, a page with no cover: kind %d", a.coverKind(p))
+	}
+	a.settings.AutoCover = true
 	if a.coverKind(p) != coverKindAuto || a.coverBandOf(p) != autoFullH {
 		t.Fatalf("a page with no cover: kind %d, band %v", a.coverKind(p), a.coverBandOf(p))
 	}
@@ -131,7 +135,7 @@ func TestAutoCoverKinds(t *testing.T) {
 	}
 	a.removeCover(p)
 	a.restoreAutoCover(p)
-	a.settings.NoAutoCover = true
+	a.settings.AutoCover = false
 	if a.coverKind(p) != coverKindNone {
 		t.Fatal("the setting off still gives a made cover")
 	}

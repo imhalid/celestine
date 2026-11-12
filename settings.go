@@ -514,14 +514,14 @@ func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 					FontSize(float32(fs)).LineHeight(float32(lh)).TextColor(cl.Text)
 			})
 		})
-	auto := !a.settings.NoAutoCover
+	auto := a.settings.AutoCover
 	settingGroup(c, "set-cover", func() {
 		settingRow(c, locales.CommonAutomaticCover(), locales.SettingsEveryPageWithNo(), func() {
 			ryugo.Switch(c.Key("set-autocover"), &auto, ryugo.SwitchOptions{}).Label(locales.CommonAutomaticCover())
 		})
 	})
-	if auto != !a.settings.NoAutoCover {
-		a.settings.NoAutoCover = !auto
+	if auto != a.settings.AutoCover {
+		a.settings.AutoCover = auto
 		a.saveSettings()
 	}
 	lapse := !a.settings.NoLapse

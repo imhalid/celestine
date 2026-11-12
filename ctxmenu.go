@@ -103,7 +103,7 @@ func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	if a.coverKind(p) != coverKindNone {
 		out = append(out, menuItem{title: "common_removeCover", glyph: iconTrash, run: func() { a.removeCover(p) }})
 	}
-	if p.Cover == CoverNone && !a.settings.NoAutoCover {
+	if p.Cover == CoverNone && a.settings.AutoCover {
 		out = append(out, menuItem{title: "page_restoreAutoCover", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
 	}
 	if !p.Coll.Journal {

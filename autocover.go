@@ -70,7 +70,7 @@ func (a *app) coverKind(p *Page) int {
 		return coverKindNone
 	case p.ImageCover():
 		return coverKindImage
-	case p.Cover == CoverNone || a.settings.NoAutoCover:
+	case p.Cover == CoverNone || !a.settings.AutoCover:
 		return coverKindNone
 	}
 	return coverKindAuto

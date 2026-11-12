@@ -260,7 +260,7 @@ func settingDefs() []settingDef {
 			func(a *app, v bool) { a.settings.Jelly = v; a.saveSettings() }),
 		simple("common_shimmer", "parıltı ışık jöle sarsıntısı wobble shake shimmer", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
 		simple("common_pressWaves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
-		simple("common_automaticCover", "kapak cover", "noAutoCover", func(s *Settings) *bool { return &s.NoAutoCover }, true),
+		simple("common_automaticCover", "kapak cover", "autoCover", func(s *Settings) *bool { return &s.AutoCover }, false),
 		simple("common_colorWordsByDay", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
 		simple("common_autosave", "autosave kaydet save", "noAutoSave", func(s *Settings) *bool { return &s.NoAutoSave }, true),
 		simple("showSpaces", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),

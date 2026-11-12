@@ -142,7 +142,6 @@ func TestLongPageScrollsAsAWhole(t *testing.T) {
 // below it as it did; a collection too, and the views with a head of their own leave no room above it.
 func TestPageScrollsBelowTheHeader(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
-	a.settings.NoAutoCover = true // a page with no cover: its title lies where it did
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
 	if a.scrollR.Y != frameTopH || a.barInset != 0 { // in the window's frame the card has no header: the page starts under its top edge (windowframe.go)
