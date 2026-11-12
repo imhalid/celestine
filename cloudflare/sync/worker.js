@@ -22,7 +22,7 @@
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
-import { changelogPage, bannerImage } from "./changelog.js";
+import { changelogPage, bannerImage, schemeScript } from "./changelog.js";
 import { landingImage } from "./landing.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
@@ -110,6 +110,7 @@ async function handle(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
   if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage(false);
   if (request.method === "GET" && url.pathname === "/changelog/banner-dark.webp") return bannerImage(true);
+  if (request.method === "GET" && url.pathname === "/changelog/scheme.js") return schemeScript();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);

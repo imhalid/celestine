@@ -39,7 +39,7 @@ export async function changelogPage(request, env, ctx) {
   const res = new Response(changelogHTML(data?.releases || []), {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
       "x-frame-options": "DENY",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
@@ -60,6 +60,34 @@ export function bannerImage(dark) {
   return new Response(dark ? BANNER_DARK : BANNER, {
     headers: { "content-type": "image/webp", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" },
   });
+}
+
+// SCHEME_JS is the page's one script, served at /changelog/scheme.js: the light or dark scheme the visitor chose here
+// or on the entry screen (the same "celestine-scheme" in localStorage), set before anything is drawn, and the toggle
+// in the top bar that changes it, as the entry screen's does.
+const SCHEME_JS = `(() => {
+  const root = document.documentElement;
+  try { const s = localStorage.getItem("celestine-scheme"); if (s === "light" || s === "dark") root.dataset.scheme = s; } catch {}
+  const now = () => root.dataset.scheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  addEventListener("DOMContentLoaded", () => {
+    const b = document.querySelector(".icon");
+    if (!b) return;
+    const label = () => b.setAttribute("aria-label", now() === "dark" ? "Switch to light" : "Switch to dark");
+    label();
+    b.hidden = false;
+    b.addEventListener("click", () => {
+      const s = now() === "dark" ? "light" : "dark";
+      root.dataset.scheme = s;
+      try { localStorage.setItem("celestine-scheme", s); } catch {}
+      label();
+    });
+  });
+})();
+`;
+
+// schemeScript answers GET /changelog/scheme.js.
+export function schemeScript() {
+  return new Response(SCHEME_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
 }
 
 // shortDate is "Nov 11, 2026" for "2026-11-11", read as a day, not an instant.
@@ -136,7 +164,7 @@ export function changelogHTML(releases) {
     : `<p class="empty">No releases yet. The first one will be listed here.</p>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Changelog — Celestine</title><link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png">
-<meta name="description" content="What is new in each version of Celestine."><meta name="color-scheme" content="light dark"><style>
+<meta name="description" content="What is new in each version of Celestine."><meta name="color-scheme" content="light dark"><script src="/changelog/scheme.js"></script><style>
 :root{color-scheme:light dark;
   --bg:light-dark(oklch(98.5% .002 286),oklch(9% .004 286));
   --card:light-dark(oklch(100% 0 0),oklch(15% .004 286));
@@ -153,36 +181,54 @@ export function changelogHTML(releases) {
   --on-ink:light-dark(oklch(98% 0 0),oklch(18% .01 270));
   --shadow:0 1px 2px light-dark(oklch(0% 0 0 / 5%),oklch(0% 0 0 / 50%)),0 10px 30px light-dark(oklch(0% 0 0 / 7%),oklch(0% 0 0 / 45%));
   --ease:cubic-bezier(.2,.8,.2,1);
+  --control:linear-gradient(180deg,light-dark(oklch(100% 0 0),oklch(35% .003 286)),light-dark(oklch(94.5% .005 286),oklch(28% .004 286)));
+  --control-border:light-dark(oklch(0% 0 0 / 10%),oklch(100% 0 0 / 8%));
+  --control-shadow:inset 0 1px light-dark(oklch(100% 0 0 / 50%),oklch(100% 0 0 / 8%)),0 1px 2px light-dark(oklch(0% 0 0 / 6%),oklch(0% 0 0 / 40%));
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif}
+html[data-scheme=light]{color-scheme:light}
+html[data-scheme=dark]{color-scheme:dark}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:84px}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
 html,body{margin:0;background:var(--bg)}
 body{color:var(--text);font:15px/1.6 var(--font);-webkit-font-smoothing:antialiased}
 ::selection{background:color-mix(in oklab,var(--accent) 28%,transparent)}
 a{color:inherit}
 .wrap{max-width:64rem;margin:0 auto;padding:0 16px}
-.nav{position:sticky;top:12px;z-index:5;display:flex;align-items:center;gap:8px;margin:12px auto 0;max-width:64rem;padding:7px 7px 7px 16px;border-radius:999px;
-  background:color-mix(in oklab,var(--card) 78%,transparent);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4)}
-.brand{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-weight:600;letter-spacing:-.01em;margin-right:auto}
-.brand img{width:24px;height:24px;border-radius:6px}
-.nav .link{color:var(--muted);text-decoration:none;font-size:14px;padding:6px 10px;border-radius:999px}
-.nav .link:hover,.nav .link[aria-current]{color:var(--text)}
-.nav .dl{background:var(--ink);color:var(--on-ink);text-decoration:none;font-size:14px;font-weight:600;padding:8px 16px;border-radius:999px;box-shadow:inset 0 1px 0 oklch(100% 0 0 / 18%),0 1px 2px oklch(0% 0 0 / 20%)}
-.nav .dl:hover{opacity:.9}
+/* the top bar, the entry screen's own (landing/App.svelte): the name, the changelog, "Early access" and the toggle */
+.topbar{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);background:color-mix(in oklab,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px)}
+.topbar .inner{width:min(1180px,100%);margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 24px}
+.brand{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text);text-decoration:none}
+.brand img{width:24px;height:24px;display:block;transform:scale(1.2)}
+.right{display:flex;align-items:center;gap:14px}
+.status{font-size:13px;color:var(--muted)}
+.link{font-size:13.5px;color:var(--text);text-decoration:none;padding:6px 10px;border-radius:999px;transition:background-color .2s}
+.link:hover{background:var(--well)}
+.icon{width:32px;height:32px;display:grid;place-items:center;padding:0;border-radius:999px;color:var(--text);background:var(--control);border:1px solid var(--control-border);box-shadow:var(--control-shadow);cursor:pointer;transition:filter .2s,transform .15s var(--ease)}
+.icon[hidden]{display:none}
+.icon:hover{filter:brightness(1.06)}.icon:active{transform:translateY(1px)}
+.icon .moon{display:none}
+html[data-scheme=dark] .icon .moon{display:block}html[data-scheme=dark] .icon .sun{display:none}
+@media (prefers-color-scheme:dark){html:not([data-scheme=light]) .icon .moon{display:block}html:not([data-scheme=light]) .icon .sun{display:none}}
 .banner{position:relative;margin:16px 0 0;height:300px;border-radius:22px;overflow:hidden;background:#f7f4f1 url(/changelog/banner.webp?v=${BANNER_V}) center 54%/cover no-repeat;
   -webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
 .intro{position:absolute;left:32px;top:30px;max-width:24rem;display:flex;flex-direction:column;gap:8px}
 .banner h1{margin:0;color:oklch(24% .03 265);font-size:clamp(1.9rem,4.6vw,2.75rem);line-height:1.05;letter-spacing:-.035em}
 .banner p{margin:0;color:oklch(34% .03 265);font-size:15.5px;line-height:1.45;max-width:21rem;text-wrap:balance}
+/* the night banner: in the dark scheme, chosen with the toggle or the system's */
+html[data-scheme=dark] .banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
+html[data-scheme=dark] .banner::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,oklch(12% .05 270 / 70%) 0%,oklch(12% .05 270 / 35%) 32%,transparent 55%)}
+html[data-scheme=dark] .intro{z-index:1}
+html[data-scheme=dark] .banner h1{color:oklch(98% .01 255);text-shadow:0 0 24px oklch(70% .15 255 / 55%),0 1px 2px oklch(10% .05 270 / 60%)}
+html[data-scheme=dark] .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px oklch(10% .05 270 / 80%)}
 @media (prefers-color-scheme:dark){
-  .banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
-  .banner::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,oklch(12% .05 270 / 70%) 0%,oklch(12% .05 270 / 35%) 32%,transparent 55%)}
-  .intro{z-index:1}
-  .wrap .banner h1{color:oklch(98% .01 255);text-shadow:0 0 24px oklch(70% .15 255 / 55%),0 1px 2px oklch(10% .05 270 / 60%)}
-  .wrap .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px oklch(10% .05 270 / 80%)}
+  html:not([data-scheme=light]) .banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
+  html:not([data-scheme=light]) .banner::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,oklch(12% .05 270 / 70%) 0%,oklch(12% .05 270 / 35%) 32%,transparent 55%)}
+  html:not([data-scheme=light]) .intro{z-index:1}
+  html:not([data-scheme=light]) .banner h1{color:oklch(98% .01 255);text-shadow:0 0 24px oklch(70% .15 255 / 55%),0 1px 2px oklch(10% .05 270 / 60%)}
+  html:not([data-scheme=light]) .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px oklch(10% .05 270 / 80%)}
 }
 .page{display:grid;grid-template-columns:15.5rem 1fr;column-gap:40px;margin-top:8px}
-.rail{position:sticky;top:84px;align-self:start;padding:34px 0 24px}
+.rail{position:sticky;top:72px;align-self:start;padding:34px 0 24px}
 .rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .bar{display:grid;grid-template-columns:8.6rem 1fr;align-items:center;column-gap:14px;padding:6px 8px;border-radius:8px;text-decoration:none;color:var(--muted);transition:background-color .2s var(--ease)}
 .bar:hover{background:var(--well)}
@@ -230,8 +276,9 @@ footer{display:flex;gap:18px;padding:28px 0 56px;border-top:1px solid var(--line
 footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.line{transition:none}}
+@media (max-width:480px){.status{display:none}}
 @media (max-width:760px){
-  .nav{margin:10px 10px 0;top:10px}.nav .link.opt{display:none}
+  .topbar .inner{padding:0 16px}
   .banner{height:200px;border-radius:18px;background-position:88% 55%}.intro{left:20px;top:22px;max-width:13.5rem}.banner p{font-size:14px}
   .page{grid-template-columns:1fr}
   .rail{position:static;padding:18px 0 4px;overflow-x:auto}
@@ -243,7 +290,9 @@ footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text
   .release{padding:24px 0}
 }
 </style></head><body>
-<nav class="nav"><a class="brand" href="/"><img src="/icon.png" alt="">Celestine</a><a class="link" href="/changelog" aria-current="page">Changelog</a><a class="link opt" href="/privacy">Privacy</a><a class="dl" href="/">Download</a></nav>
+<nav class="topbar"><div class="inner"><a class="brand" href="/" aria-label="Celestine"><img src="/icon.png" alt="" width="24" height="24">Celestine</a>
+<div class="right"><a class="link" href="/changelog" aria-current="page">Changelog</a><span class="status">Early access</span>
+<button class="icon" type="button" aria-label="Switch scheme" hidden><svg class="moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg><svg class="sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button></div></div></nav>
 <div class="wrap">
 <div class="banner" role="img" aria-label="A watercolor landscape at dawn, two blue crystals standing in a meadow"><div class="intro"><h1>Changelog</h1><p>What came with each version of Celestine. The app updates itself.</p></div></div>
 <div class="page">${releases.length ? railHTML(releases) : "<div></div>"}<main>
