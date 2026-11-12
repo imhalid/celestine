@@ -9961,6 +9961,26 @@ func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
 }
 
+// SettingsSidebarCard says "Sidebar background"
+// in the language the app shows.
+func SettingsSidebarCard() string { return In(i18n.Locale()).SettingsSidebarCard() }
+
+// SettingsSidebarCard says "Sidebar background"
+// in the language of msgs.
+func (msgs Messages) SettingsSidebarCard() string {
+	return Catalog.Format(msgs.locale, "settings_sidebarCard", nil)
+}
+
+// SettingsSidebarCardHelp says "On, the sidebar is a card of its own, as the page is. Off, it lies on the window's ground."
+// in the language the app shows.
+func SettingsSidebarCardHelp() string { return In(i18n.Locale()).SettingsSidebarCardHelp() }
+
+// SettingsSidebarCardHelp says "On, the sidebar is a card of its own, as the page is. Off, it lies on the window's ground."
+// in the language of msgs.
+func (msgs Messages) SettingsSidebarCardHelp() string {
+	return Catalog.Format(msgs.locale, "settings_sidebarCardHelp", nil)
+}
+
 // SettingsAPressedButtonSends says "Buttons ripple out from where you press them. Off when Reduce motion is on in your system settings."
 // in the language the app shows.
 func SettingsAPressedButtonSends() string { return In(i18n.Locale()).SettingsAPressedButtonSends() }

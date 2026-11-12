@@ -365,6 +365,16 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.NoWaves = !waves
 		a.saveSettings()
 	}
+	card := !a.settings.NoSidebarCard
+	settingGroup(c, "set-sidebar-card", func() {
+		settingRow(c, locales.SettingsSidebarCard(), locales.SettingsSidebarCardHelp(), func() {
+			ryugo.Switch(c.Key("set-sidebar-card-sw"), &card, ryugo.SwitchOptions{}).Label(locales.SettingsSidebarCard())
+		})
+	})
+	if card == a.settings.NoSidebarCard {
+		a.settings.NoSidebarCard = !card
+		a.saveSettings()
+	}
 	settingGroup(c, "set-welcome", func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
 			// a list each: there are too many looks for a bar of buttons

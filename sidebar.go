@@ -95,6 +95,10 @@ func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
 	}
 }
 
+// sideOnGround reports whether the sidebar lies on the window frame's ground without a card of its own: in the
+// frame, when the settings say so (NoSidebarCard).
+func (a *app) sideOnGround() bool { return a.wframe.on && a.settings.NoSidebarCard }
+
 func (a *app) toggleSidebar() {
 	a.sidebarClosed = !a.sidebarClosed
 	a.settings.SidebarClosed = a.sidebarClosed
@@ -114,9 +118,11 @@ func (a *app) sidebar(c *ui.Context) float32 {
 		target = 0
 	}
 	sb := ui.Column(c).Clip()
-	if a.wframe.on { // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
+	switch {
+	case a.sideOnGround(): // no card: it lies on the frame's ground (NoSidebarCard)
+	case a.wframe.on: // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
 		frameCard(c, sb, t.Surface.Alpha(sidebarGlass), rad(frameR), 1)
-	} else {
+	default:
 		sb.Background(t.Surface)
 	}
 	if history {

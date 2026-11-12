@@ -89,6 +89,7 @@ type Settings struct {
 	AlwaysRing    bool                      `json:"alwaysRing,omitempty"`    // the row the keys are on is ringed, in the normal mode or not (kb.go)
 	LineChars     int                       `json:"lineChars,omitempty"`     // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
 	HideStatus    bool                      `json:"hideStatus,omitempty"`    // the status bar is not shown at all
+	NoSidebarCard bool                      `json:"noSidebarCard,omitempty"` // in the window's frame the sidebar has no card: it lies on the frame's ground
 	Panes         string                    `json:"panes,omitempty"`         // the panes of the window: the Dock's tree and what each shows (panes.go)
 	HideHints     bool                      `json:"hideHints,omitempty"`     // the keys to use are not written at the left of the status bar
 	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)

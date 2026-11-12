@@ -265,6 +265,7 @@ func settingDefs() []settingDef {
 		simple("whiteSpaceOnlyInTheSelection", "whitespace selection boşluk seçim", "whiteInSel", func(s *Settings) *bool { return &s.WhiteInSel }, false),
 		simple("showWhitespaceInCodeBlocks", "kod code whitespace", "markCode", func(s *Settings) *bool { return &s.MarkCode }, false),
 		simple("shortcutHints", "keys shortcuts hints status kısayol ipucu", "hideHints", func(s *Settings) *bool { return &s.HideHints }, true),
+		simple("settings_sidebarCard", "kenar çubuğu sidebar zemin arka plan background kart card", "noSidebarCard", func(s *Settings) *bool { return &s.NoSidebarCard }, true),
 		simple("hideTheStatusBar", "odak modu focus hide statusbar", "hideStatus", func(s *Settings) *bool { return &s.HideStatus }, false),
 		simple("saveStatusInTheStatusBar", "kaydedildi status", "hideSaved", func(s *Settings) *bool { return &s.HideSaved }, true),
 		simple("letterCountInTheStatusBar", "karakter chars", "showChars", func(s *Settings) *bool { return &s.ShowChars }, false),

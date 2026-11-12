@@ -1099,6 +1099,8 @@
   "setTheNewPassword": "Set new password",
   "settings2": "Settings…",
   "settingsFile": "Settings file",
+  "settings_sidebarCard": "Sidebar background",
+  "settings_sidebarCardHelp": "On, the sidebar is a card of its own, as the page is. Off, it lies on the window's ground.",
   "settings_aPressedButtonSends": "Buttons ripple out from where you press them. Off when Reduce motion is on in your system settings.",
   "settings_allCornersAreWorked": "All corners follow one value: 0 is square, 100 is the original design, 200 is twice as round.",
   "settings_allPlainFilesThey": "All plain files, so you can open them in other editors too.",

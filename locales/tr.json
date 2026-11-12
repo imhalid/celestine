@@ -982,6 +982,8 @@
   "setTheNewPassword": "Şifreyi yenile",
   "settings2": "Ayarlar…",
   "settingsFile": "Ayar dosyası",
+  "settings_sidebarCard": "Kenar çubuğu zemini",
+  "settings_sidebarCardHelp": "Açıkken kenar çubuğu, sayfa gibi kendi kartında durur. Kapalıyken pencerenin zemininde durur.",
   "settings_aPressedButtonSends": "Basılan düğmede, bastığın yerden bir dalga yayılır. Sistem ayarlarında hareket azaltılmışsa dalga olmaz.",
   "settings_allCornersAreWorked": "Bütün köşeler tek bir değere göre ayarlanır: 0 köşeli, 100 özgün tasarım, 200 iki kat yuvarlak.",
   "settings_allPlainFilesThey": "Hepsi düz dosya; başka editörlerde de açabilirsin.",
