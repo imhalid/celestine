@@ -66,7 +66,9 @@ func (a *app) updateChip(c *ui.Context) {
 	// it takes its place in the header as the card closes, unseen, and a moment later opens there from the left
 	since := c.Now().Sub(a.updChipAt) - updChipDelay
 	k := float32(0)
-	if since < 0 {
+	if fx.still { // reduced motion: it is there at once, and its light does not run
+		since, k = updChipUnfold, 1
+	} else if since < 0 {
 		c.After(-since)
 	} else {
 		k = float32(min(since.Seconds()/updChipUnfold.Seconds(), 1))
@@ -119,9 +121,7 @@ func (a *app) updateChip(c *ui.Context) {
 			if f != 0 {
 				p.FillGradient(part, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
 			}
-			if updShaders {
-				p.AnimationFrame()
-			}
+			p.AnimationFrame() // the fill follows the download whatever is drawn with shaders
 		} else { // the body: lighter at the top, as a button's face
 			p.FillGradient(r, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
 		}
@@ -133,12 +133,12 @@ func (a *app) updateChip(c *ui.Context) {
 		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55).Mix(cl.Hairline, q), h/2, 1)
 	})
 	switch {
-	case k < 1 && updShaders: // it opens from the left, behind a lit edge with a glow trailing it
+	case k < 1 && updShaders && shadersOn(): // it opens from the left, behind a lit edge with a glow trailing it
 		b.Disabled(true).DimDisabled(false)
 		b.Effect(updChipShader.Effect(shader.Options{Uniforms: map[string]any{"Open": k}}))
 	case k < 1:
 		b.Disabled(true).DimDisabled(false).Opacity(k)
-	case updShaders && !busy && !ready:
+	case updShaders && shadersOn() && !busy && !ready:
 		// the light runs while it waits. Its place is a uniform of the effect, set as the view is built, so a pass asks
 		// for frames that build it (a painter's frame would paint the light where it was); between two passes the chip
 		// asks for none.
@@ -313,6 +313,9 @@ func (a *app) updateCard(c *ui.Context) {
 	}
 	k := float32(min(c.Now().Sub(a.updPanelAt).Seconds()/updUnfold.Seconds(), 1))
 	k = 1 - (1-k)*(1-k)*(1-k) // out of the edge quickly, settling slowly
+	if fx.still {             // reduced motion: it is there at once
+		k = 1
+	}
 	if k < 1 {
 		c.AnimationFrame()
 	}
@@ -324,11 +327,12 @@ func (a *app) updateCard(c *ui.Context) {
 			top = frameTopH + 10
 		}
 		card := ui.Column(c.Key("upd-card")).Absolute().Right(16).Top(top).Width(updCardW).
-			Radius(r).Background(cl.Card).Border(1, cl.Hairline).Clip().Role(ui.RoleDialog).Label(a.updTitle()).
+			// a faint tint and a light border of the accent: a notice, set apart from the content under it (#398)
+			Radius(r).Background(ryugo.Mix(cl.Card, cl.Accent, 0.06)).Border(1, cl.Accent.Alpha(0.28)).Clip().Role(ui.RoleDialog).Label(a.updTitle()).
 			Shadow(0, 2, 6, 0, black.Alpha(0.10)) // small and plain: inside what the unfolding effect draws, no colored glow
 		if k < 1 {
 			card.Disabled(true).DimDisabled(false)
-			if updShaders {
+			if updShaders && shadersOn() {
 				card.Effect(updPanelShader.Effect(shader.Options{
 					Uniforms:        map[string]any{"Open": k, "Radius": r, "Time": float32(c.Now().Sub(a.updPanelAt).Seconds()), "Tone": cl.Accent},
 					MaxSampleOffset: ui.Point{X: 8, Y: 8},

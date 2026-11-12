@@ -357,6 +357,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.Corner = &v
 		a.saveSettingsSoon()
 	}
+	a.settingsMotion(c) // reduce motion, the shader effects (motion.go)
 	waves := !a.settings.NoWaves
 	settingGroup(c, "set-waves", func() {
 		settingRow(c, locales.CommonPressWaves(), locales.SettingsAPressedButtonSends(), func() {

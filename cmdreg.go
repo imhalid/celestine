@@ -214,6 +214,8 @@ func settingDefs() []settingDef {
 		simple("common_typewriterScrolling", "typewriter scroll", "typewriter", func(s *Settings) *bool { return &s.Typewriter }, false),
 		simple("common_alwaysShowFocusRing", "focus ring keyboard halka", "alwaysRing", func(s *Settings) *bool { return &s.AlwaysRing }, false),
 		simple("common_lightMode", "light mode caret efekt kapat", "noCaretFx", func(s *Settings) *bool { return &s.NoCaretFX }, false),
+		simple("settings_reduceMotion", "reduce motion animation still hareket animasyon azalt", "reduceMotion", func(s *Settings) *bool { return &s.ReduceMotion }, false),
+		simple("settings_shaderEffects", "shader effects gpu glass light efekt cam ışık", "noShaders", func(s *Settings) *bool { return &s.NoShaders }, true),
 		num("common_lineLength", "line length column hard wrap sütun karakter", "lineChars", 0, 120, 0, 5, " karakter", 0,
 			func(a *app) float64 { return float64(a.settings.LineChars) }, func(a *app, v float64) { a.settings.LineChars = int(v); a.saveSettingsSoon() }),
 		num("common_tabWidth", "tab width space", "tabSpaces", 0, 8, 0, 1, "common_spaces", 0,

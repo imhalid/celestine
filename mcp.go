@@ -81,6 +81,8 @@ type Settings struct {
 	TabSpaces     int                       `json:"tabSpaces,omitempty"`     // a Tab writes this many spaces; 0 a tab
 	SleepSecs     float64                   `json:"sleepSecs,omitempty"`     // seconds at rest before the caret dozes: 5 when not set
 	NoCaretFX     bool                      `json:"noCaretFx,omitempty"`     // a plain caret, whatever caret is chosen: light mode
+	ReduceMotion  bool                      `json:"reduceMotion,omitempty"`  // animations go to their end at once, as the system's Reduce Motion (motion.go)
+	NoShaders     bool                      `json:"noShaders,omitempty"`     // the shader effects are off, for a slow computer (motion.go)
 	LetterSpacing int                       `json:"letterSpacing,omitempty"` // how far apart the letters are: a step of letterSpacings
 	CaretBlink    int                       `json:"caretBlink,omitempty"`    // the caret blinks, on and off this many ms each, once still; 0: it does not
 	WhiteInSel    bool                      `json:"whiteInSel,omitempty"`    // the white space is shown only in the selection

@@ -141,7 +141,7 @@ func revealScale(p float32) float32 {
 // revealEffect lays the sweep at p on a card: over (the copy) or under (the page as it was); w by h is its room and radius its
 // corners, in that room.
 func revealEffect(card ui.Element, p float32, over bool, w, h, radius float32, cl ryugo.Colors) {
-	if !revealDraws {
+	if !revealDraws || !shadersOn() {
 		return
 	}
 	env := smoothstepf(0, 0.12, p) * (1 - smoothstepf(0.88, 1, p)) // the lens and light come up and die away

@@ -9927,6 +9927,46 @@ func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
 }
 
+// SettingsReduceMotion says "Reduce motion"
+// in the language the app shows.
+func SettingsReduceMotion() string { return In(i18n.Locale()).SettingsReduceMotion() }
+
+// SettingsReduceMotion says "Reduce motion"
+// in the language of msgs.
+func (msgs Messages) SettingsReduceMotion() string {
+	return Catalog.Format(msgs.locale, "settings_reduceMotion", nil)
+}
+
+// SettingsReduceMotionHelp says "Animations go straight to their end, and the caret, the welcome and the notices don't move. On by itself when the sys…"
+// in the language the app shows.
+func SettingsReduceMotionHelp() string { return In(i18n.Locale()).SettingsReduceMotionHelp() }
+
+// SettingsReduceMotionHelp says "Animations go straight to their end, and the caret, the welcome and the notices don't move. On by itself when the sys…"
+// in the language of msgs.
+func (msgs Messages) SettingsReduceMotionHelp() string {
+	return Catalog.Format(msgs.locale, "settings_reduceMotionHelp", nil)
+}
+
+// SettingsShaderEffects says "Shader effects"
+// in the language the app shows.
+func SettingsShaderEffects() string { return In(i18n.Locale()).SettingsShaderEffects() }
+
+// SettingsShaderEffects says "Shader effects"
+// in the language of msgs.
+func (msgs Messages) SettingsShaderEffects() string {
+	return Catalog.Format(msgs.locale, "settings_shaderEffects", nil)
+}
+
+// SettingsShaderEffectsHelp says "The light and glass effects drawn on the graphics card. Turn them off on a slow computer: everything still works, onl…"
+// in the language the app shows.
+func SettingsShaderEffectsHelp() string { return In(i18n.Locale()).SettingsShaderEffectsHelp() }
+
+// SettingsShaderEffectsHelp says "The light and glass effects drawn on the graphics card. Turn them off on a slow computer: everything still works, onl…"
+// in the language of msgs.
+func (msgs Messages) SettingsShaderEffectsHelp() string {
+	return Catalog.Format(msgs.locale, "settings_shaderEffectsHelp", nil)
+}
+
 // SettingsSidebarCard says "Sidebar background"
 // in the language the app shows.
 func SettingsSidebarCard() string { return In(i18n.Locale()).SettingsSidebarCard() }

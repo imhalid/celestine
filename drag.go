@@ -392,6 +392,9 @@ func cloud(t *ryugo.Tokens, e ui.Element, over float32) {
 	accent := t.Colors.ColorAccent500
 	e.Draw(func(p *ui.Painter, r ui.Rect) {
 		s := float64(p.Now().UnixMilli()%1_000_000) / 1000
+		if stillNow() { // reduced motion: the blots stay where they are
+			s = 0
+		}
 		for i := range 3 {
 			k := float64(i)*17.3 + 3.1
 			cx := 0.5 + 0.42*noise(s*0.22+k)

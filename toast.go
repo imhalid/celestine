@@ -123,7 +123,7 @@ func (a *app) toastView(c *ui.Context) {
 	live := a.toasts.items[:0]
 	for _, t := range a.toasts.items {
 		out := toastOut
-		if !toastShaders {
+		if !toastShaders || !shadersOn() {
 			out = 0
 		}
 		if t.goneAt.IsZero() || now.Sub(t.goneAt).Seconds() < out {
@@ -163,7 +163,7 @@ func (a *app) toastView(c *ui.Context) {
 		steps[i] = st
 	}
 	switch {
-	case (moving || going) && toastShaders: // the light is set as the view is built, so its frames build it
+	case (moving || going) && toastShaders && shadersOn(): // the light is set as the view is built, so its frames build it
 		c.AnimationFrame()
 	case going: // no light: a toast going is gone at the next frame
 		c.After(16 * time.Millisecond)
@@ -199,7 +199,7 @@ func (a *app) toastOne(c *ui.Context, t *toastItem, in, beam, out float64, cl ry
 		p.FillRadialGradient(b, ui.RadialGradient{Center: ui.Point{X: 0.001, Y: 0.001}, Radius: b.W * 0.8, Oklab: true,
 			Stops: []ui.GradientStop{{Color: tint, At: 0}, {Color: tint.Alpha(0), At: 1}}}, r)
 	})
-	if toastShaders && (in < 1 || beam < 1 || out > 0) {
+	if toastShaders && shadersOn() && (in < 1 || beam < 1 || out > 0) {
 		card.Effect(toastShader.Effect(shader.Options{
 			Uniforms: map[string]any{"In": float32(in), "Beam": float32(beam), "Out": float32(out), "Radius": r,
 				"Time": float32(c.Now().Sub(t.at).Seconds()), "Tone": tone},

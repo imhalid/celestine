@@ -116,7 +116,7 @@ func (a *app) shake(c *ui.Context, root ui.Element) {
 		w.on = false
 	}
 	a.wobMu.Unlock()
-	if !w.on || c.Preferences().ReduceMotion {
+	if !w.on || fx.still || !shadersOn() {
 		return
 	}
 	c.AnimationFrame()

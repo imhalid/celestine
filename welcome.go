@@ -107,6 +107,9 @@ func (a *app) welcomeProgressAt(now time.Time) float64 {
 	if a.wel.goAt.IsZero() {
 		return 0
 	}
+	if fx.still { // reduced motion: the window is there at once
+		return 1
+	}
 	o := a.welcomeOpeningLook()
 	return o.progress(now.Sub(a.wel.goAt).Seconds() / o.length())
 }
@@ -255,7 +258,7 @@ func (a *app) welcomeBackdrop(c *ui.Context, onStage bool) {
 		if win[2] == 0 { // the app's own window: all of it
 			win = []float32{0, 0, r.W, r.H}
 		}
-		if !welcomeShaders {
+		if !welcomeShaders || !shadersOn() {
 			return
 		}
 		// the steps are timed by the paint's own frame: the view is built again only now and then (welcomeView)
@@ -299,7 +302,7 @@ func (a *app) welcomeRoot(c *ui.Context, root ui.Element) {
 	}
 	o := a.wel.origin
 	radius := a.welcomeRadius(c, prog)
-	if welcomeShaders {
+	if welcomeShaders && shadersOn() {
 		w, h := c.Size()
 		look := a.welcomeOpeningLook()
 		root.Effect(look.sh.Effect(shader.Options{
@@ -483,7 +486,7 @@ func (a *app) welcomeButton(c *ui.Context) (glow, button ui.Element) {
 	var hover, down bool
 	glow = ui.Box(c.Key("w-go-glow")).Width(bw + 2*pad).Height(bh + 2*pad).AlignItems(ui.Center).Justify(ui.Center)
 	glow.Draw(func(p *ui.Painter, r ui.Rect) {
-		if !welcomeShaders {
+		if !welcomeShaders || !shadersOn() {
 			return
 		}
 		hv, dn := float32(0), float32(0)

@@ -960,6 +960,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frame = c.Invalidate
 	a.frameSeq++
+	a.motionFrame(c) // reduced motion, and the shader effects on or off (motion.go)
 	a.updatePhone(c)
 	a.keepSettings(c)
 	a.statTick()
@@ -1595,7 +1596,7 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	if a.caretBlinkOff(p, anchor, caret) { // the off half of a blink
 		return
 	}
-	if anchor != caret || a.settings.NoCaretFX { // over a selection, or with the effects off, a plain caret: the jelly would hide what is selected
+	if anchor != caret || a.settings.NoCaretFX || fx.still { // over a selection, with the effects off or reduced motion, a plain caret: the jelly would hide what is selected
 		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
 		return
 	}

@@ -458,6 +458,10 @@ func (a *app) drawConfetti(p *ui.Painter) {
 	if len(fx.bits) == 0 {
 		return
 	}
+	if stillNow() { // reduced motion: no confetti
+		fx.bits = fx.bits[:0]
+		return
+	}
 	now := p.Now()
 	keep := fx.bits[:0]
 	for _, b := range fx.bits {

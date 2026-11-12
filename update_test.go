@@ -650,3 +650,51 @@ func TestHelloWaitsForTheWindow(t *testing.T) {
 		t.Fatalf("a late frame moved the wave %v", a.hello.run-before)
 	}
 }
+
+// TestUpdateReducedMotion: with reduced motion the update flow goes through without waiting on any motion: the card is
+// there and answers at once, the chip comes at once after Later, and after an update the note shows at once with no
+// wave (#399).
+func TestUpdateReducedMotion(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settings.ReduceMotion = true
+	a.updRel, a.updOpen = &Release{Version: "v9.0.0"}, true
+	tt.Frame()
+	if err := tt.Click(locales.UpdateLater()); err != nil { // no unfolding to wait for
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.updOpen || !tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("later: open %v: %v", a.updOpen, tt.Texts())
+	}
+
+	old := version
+	version = "v3.0.0"
+	defer func() { version = old }()
+	b, tb := newTestApp(t, "x\n")
+	b.settings.ReduceMotion = true
+	b.settings.UpdateFor = "v3.0.0"
+	tb.Frame()
+	tb.Frame()
+	if !tb.HasText(locales.UpdateWhatsNew("3.0.0")) || b.hello.run < helloWave {
+		t.Fatalf("hello: run %v: %v", b.hello.run, tb.Texts())
+	}
+}
+
+// TestUpdateWithoutShaders: with the shader effects off, the card unfolds as a fade and the flow goes through (#397).
+func TestUpdateWithoutShaders(t *testing.T) {
+	oldShaders := updShaders
+	updShaders = true // as in the app: only the setting turns them off
+	defer func() { updShaders = oldShaders }()
+	a, tt := newTestApp(t, "x\n")
+	a.settings.NoShaders = true
+	a.updRel, a.updOpen = &Release{Version: "v9.0.0"}, true
+	tt.Frame()
+	tt.Advance(updUnfold + 100*time.Millisecond)
+	if err := tt.Click(locales.UpdateLater()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(updChipDelay + updChipUnfold + 100*time.Millisecond)
+	if !tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("no chip: %v", tt.Texts())
+	}
+}

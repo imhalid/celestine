@@ -62,6 +62,10 @@ func (a *app) helloTick(c *ui.Context) {
 		return
 	}
 	now := c.Now()
+	if fx.still { // reduced motion: no wave, and the note is there at once
+		h.going, h.run = true, helloWave
+		return
+	}
 	if !h.going {
 		h.warm++
 		if h.warm >= helloWarm && now.Sub(h.at) >= helloDelay {
@@ -82,7 +86,7 @@ func (a *app) helloRoot(c *ui.Context, root ui.Element) {
 		return
 	}
 	c.AnimationFrame()
-	if !updShaders {
+	if !updShaders || !shadersOn() { // with the shader effects off the note still rises on the wave's clock
 		return
 	}
 	t := float32(1) // warm: the end, where the window is as it is
@@ -137,7 +141,8 @@ func (a *app) updateHello(c *ui.Context) {
 			bottom = a.statusH + in
 		}
 		card := ui.Column(c.Key("upd-hello")).Absolute().Right(16).Bottom(bottom).Width(updCardW).Radius(r).
-			Background(cl.Card).Border(1, cl.Hairline).Shadow(0, 6, 18, -6, black.Alpha(0.18)).
+			// a faint green tint and a light green border, as the update's card has the accent's: a notice (#398)
+			Background(ryugo.Mix(cl.Card, updGreen400, 0.07)).Border(1, updGreen400.Alpha(0.35)).Shadow(0, 6, 18, -6, black.Alpha(0.18)).
 			Role(ui.RoleDialog).Label(locales.UpdateWhatsNew(shownVersion(version))).
 			Translate(0, 24*(1-k)).Opacity(k)
 		card.Children(func() {
