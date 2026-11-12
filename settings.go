@@ -114,13 +114,15 @@ func (a *app) settingsScreen(c *ui.Context) {
 			if phone {
 				a.settingsChips(c)
 			}
-			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Transition(viewSwap).Children(func() {
+			// A section comes at once, its head and its settings: the bar over them stays, and a move under it only
+			// delays what was asked for.
+			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
 				ui.Text(c, msg(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
 				ui.Text(c, msg(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
 			a.scrolled(c, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
-				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Transition(viewSwap).Children(func() {
+				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Children(func() {
 					if a.settingsExtra(c) {
 						return
 					}
