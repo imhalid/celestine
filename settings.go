@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -586,7 +587,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	for _, co := range a.lib.Collections {
 		pages += len(co.All())
 	}
-	row := func(label, text, key string) func() {
+	row := func(label, text, key string, more ...func()) func() { // more: buttons after its copy
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -594,6 +595,9 @@ func (a *app) settingsLibrary(c *ui.Context) {
 						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(monoStack).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
+					for _, m := range more {
+						m()
+					}
 				})
 			})
 		}
@@ -609,7 +613,12 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		return
 	}
 	settingGroup(c, "set-lib",
-		row("libraryFile", store.File, "copy-root"),
+		// where it is, not its file's name, which says nothing to a user (#408)
+		row("libraryFolder", filepath.Dir(store.File), "copy-root", func() {
+			if ryugo.Button(c.Key("lib-show"), locales.PropsShowFolder(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				go mygo.Shell.ShowItemInFolder(store.File)
+			}
+		}),
 		func() {
 			settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages),
 				locales.SettingsAllThisOneFile(), func() {})

@@ -7119,16 +7119,6 @@ func (msgs Messages) LetterSpacing() string {
 	return Catalog.Format(msgs.locale, "letterSpacing", nil)
 }
 
-// LibraryFile says "Library file"
-// in the language the app shows.
-func LibraryFile() string { return In(i18n.Locale()).LibraryFile() }
-
-// LibraryFile says "Library file"
-// in the language of msgs.
-func (msgs Messages) LibraryFile() string {
-	return Catalog.Format(msgs.locale, "libraryFile", nil)
-}
-
 // LibraryFolder says "Library folder"
 // in the language the app shows.
 func LibraryFolder() string { return In(i18n.Locale()).LibraryFolder() }
