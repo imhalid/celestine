@@ -176,6 +176,10 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 // checkUpdate asks in the background, when the settings allow it and it is time; the answer is kept for
 // the window to show.
 func (a *app) checkUpdate(force bool) {
+	if updTrial { // CELESTINE_UPDATE=1 finds a version every time (updtrial.go)
+		a.trialCheck()
+		return
+	}
 	u := a.updateURLOf()
 	if u == "" || a.updBusy.Swap(true) {
 		if force && u == "" {
@@ -501,6 +505,10 @@ func (a *app) startUpdate() {
 	if rel == nil || a.updBusy.Swap(true) {
 		return
 	}
+	if updTrial { // the trial plays a download and replaces nothing (updtrial.go)
+		a.trialInstall()
+		return
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		a.updBusy.Store(false)
@@ -572,5 +580,8 @@ func appBundleOf(exe string) string {
 
 // whatsNew reports whether this is the first start of a version that was installed by an update: its notes are shown.
 func (a *app) whatsNew() bool {
+	if updTrialRestarted { // the restart of the update trial, as an update's first start (updtrial.go)
+		return true
+	}
 	return a.settings.UpdateFor != "" && a.settings.UpdateFor == version && a.settings.UpdateSeen != version
 }

@@ -1614,6 +1614,8 @@
   "update_beta": "Beta versions",
   "update_betaHelp": "Get notified about beta versions as well as stable ones.",
   "update_cannotCheck": "This build can't check for updates.",
+  "update_changelog": "Read the full changelog",
+  "@update_changelog": {"description": "The link to the changelog on the website, in the note shown once after an update."},
   "update_check": "Check for updates",
   "update_checkFailed": "Couldn't check for updates: {error}",
   "@update_checkFailed": {"placeholders": {"error": {"type": "String"}}},

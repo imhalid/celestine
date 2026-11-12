@@ -145,6 +145,9 @@ type app struct {
 	updState    updateState // where an update the user asked for is
 	updChipAt   time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
 	updPanelAt  time.Time   // when the update card began to open
+	updEase     updEase     // the chip's fill as it is drawn, following the download smoothly
+	hello       helloState  // the note of the version just installed, at its first start (updhello.go)
+	statusH     float32     // the status bar's height, as it was laid out
 	updProg     updProgress // how far the download is
 	updRel      *Release    // the newer version found
 	updAuto     bool        // a check found a release and the settings say to put it in place
@@ -996,6 +999,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.wframe.strip = 0
 	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
+	a.helloRoot(c, root)   // the first start after an update: a wave of light up the window (updhello.go)
 	a.shake(c, root)
 	// the sync's asks rest while nobody is here
 	a.activity(root)
@@ -1699,7 +1703,9 @@ func (a *app) status(c *ui.Context) {
 	if !a.wframe.on { // in the frame, the card's edge is the line
 		ui.Box(c.Key("status-line")).FillWidth().Height(1).Background(ryugo.From(c).Colors.Hairline) // the page ends here
 	}
-	ui.Row(c).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12).Children(func() {
+	bar := ui.Row(c.Key("status-bar")).Padding(3, 16, 3, 10).Justify(ui.End).AlignItems(ui.Center).Gap(12)
+	a.statusH = bar.LayoutBounds().H // last frame's: what the notes at the window's bottom keep clear of (updhello.go)
+	bar.Children(func() {
 		a.statusHints(c)
 		// the MCP server on: a dot of the accent, which opens the settings
 		if a.mcpServer != nil {

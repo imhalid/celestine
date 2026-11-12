@@ -14381,6 +14381,22 @@ func (msgs Messages) UpdateCannotCheck() string {
 	return Catalog.Format(msgs.locale, "update_cannotCheck", nil)
 }
 
+// UpdateChangelog says "Read the full changelog"
+// in the language the app shows.
+//
+// The link to the changelog on the website, in the note shown once after an
+// update.
+func UpdateChangelog() string { return In(i18n.Locale()).UpdateChangelog() }
+
+// UpdateChangelog says "Read the full changelog"
+// in the language of msgs.
+//
+// The link to the changelog on the website, in the note shown once after an
+// update.
+func (msgs Messages) UpdateChangelog() string {
+	return Catalog.Format(msgs.locale, "update_changelog", nil)
+}
+
 // UpdateCheck says "Check for updates"
 // in the language the app shows.
 func UpdateCheck() string { return In(i18n.Locale()).UpdateCheck() }

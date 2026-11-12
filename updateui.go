@@ -23,6 +23,9 @@ func (a *app) restartApp() {
 		return
 	}
 	a.flush()
+	if updTrial { // the trial's restart shows its "what's new", as an update's does (updtrial.go)
+		os.Setenv("CELESTINE_UPDATE", "restarted")
+	}
 	cmd := exec.Command(exe, restartArgs()...) // it waits for this one to be gone (restart.go)
 	if err := cmd.Start(); err != nil {
 		a.say(toastErr, locales.UpdateRestartFailed(err.Error()))
@@ -43,8 +46,15 @@ func (a *app) updateView(c *ui.Context) {
 		a.startUpdate()
 	}
 	if a.whatsNew() && !a.updOpen && !a.modal() {
-		a.updNotes = true
-		a.updOpen = true
+		if phone {
+			a.updNotes = true
+			a.updOpen = true
+		} else { // on the desktop, a wave over the window and a note at its bottom right instead (updhello.go)
+			a.startHello(c)
+		}
+	}
+	if !phone {
+		a.updateHello(c)
 	}
 	if !a.updNotes && !phone {
 		a.updateCard(c) // a waiting version has a card of its own at the top right (updatepanel.go)
@@ -113,8 +123,12 @@ func (a *app) updateView(c *ui.Context) {
 	})
 	if !open {
 		if a.updNotes {
-			a.settings.UpdateSeen = version
-			a.saveSettings()
+			if updTrialRestarted { // the trial's "what's new" is shown once and saves nothing
+				updTrialRestarted = false
+			} else {
+				a.settings.UpdateSeen = version
+				a.saveSettings()
+			}
 			a.updNotes = false
 		}
 		a.updOpen = false

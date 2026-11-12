@@ -1416,6 +1416,7 @@
   "update_beta": "Beta sürümleri",
   "update_betaHelp": "Kararlı sürümlerin yanı sıra beta sürümlerinden de haberdar ol.",
   "update_cannotCheck": "Bu derleme güncellemeleri kontrol edemez.",
+  "update_changelog": "Tüm değişiklikleri oku",
   "update_check": "Güncellemeleri kontrol et",
   "update_checkFailed": "Güncellemeler kontrol edilemedi: {error}",
   "update_checkHelp": "Yalnızca bu sürümün numarası gönderilir, kitaplığından hiçbir şey gönderilmez. Kapalıyken uygulama güncelleme kontrolü için internete bağlanmaz.",

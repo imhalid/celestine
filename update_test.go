@@ -419,11 +419,12 @@ func TestCheckUpdateSettings(t *testing.T) {
 	if err := tt.Click(locales.UpdateLater()); err != nil {
 		t.Fatal(err)
 	}
-	tt.Advance(time.Second) // later: the card goes, and the chip unfolds in the header
+	tt.Advance(updChipDelay + time.Second) // later: the card goes, and a moment later the chip opens in the header
 	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) || tt.HasText("9.0.0 sürümü çıktı") {
 		t.Fatalf("later: open %v, release %v: %v", a.updOpen, a.updRel, tt.Texts())
 	}
 	a.updState = updDownloading // what a click on it starts: it says so where it is
+	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText(locales.UpdateDownloading()) || tt.HasText(locales.UpdateBadge()) {
 		t.Fatalf("downloading: %v", tt.Texts())
@@ -460,16 +461,18 @@ func TestWhatsNew(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.UpdateFor, a.settings.UpdateNotes = "v3.0.0", "- yeni şeyler"
 	tt.Frame()
-	tt.Advance(100 * time.Millisecond)
-	if !tt.HasText(locales.UpdateWhatsNew("3.0.0")) {
+	tt.Advance(helloDelay + helloRise + 500*time.Millisecond)
+	// on the desktop no dialog: a note at the bottom right, with what changed and the changelog (updhello.go)
+	if !tt.HasText(locales.UpdateWhatsNew("3.0.0")) || !tt.HasText("yeni şeyler") || a.updOpen {
 		t.Fatalf("%v", tt.Texts())
 	}
-	tt.Click("Tamam")
-	tt.Advance(100 * time.Millisecond)
-	if a.settings.UpdateSeen != "v3.0.0" || a.updOpen {
+	if a.settings.UpdateSeen != "v3.0.0" {
 		t.Fatal("not marked as seen")
 	}
-	tt.Frame()
+	if err := tt.Click(locales.Close()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(100 * time.Millisecond)
 	if tt.HasText(locales.UpdateWhatsNew("3.0.0")) {
 		t.Fatal("shown again")
 	}
@@ -502,5 +505,148 @@ func TestRestartWaitsForTheOneBefore(t *testing.T) {
 	waitForExit(os.Getpid(), 5*time.Second) // never for itself
 	if time.Since(start) > time.Second {
 		t.Fatal("waited for itself")
+	}
+}
+
+// TestUpdateTrial: with the trial on (CELESTINE_UPDATE=1) a check finds a version one patch above this one whatever
+// the settings say, Update now plays a download to the restart, and nothing is saved to the settings (#392).
+func TestUpdateTrial(t *testing.T) {
+	oldVer, oldTime := version, trialTime
+	version, updTrial, trialTime = "v1.0.0", true, 40*time.Millisecond
+	defer func() { version, updTrial, trialTime = oldVer, false, oldTime }()
+	a, tt := newTestApp(t, "x\n")
+	a.settings.UpdateOff, a.settings.UpdateSkip = true, "v1.0.1"
+	a.settings.UpdateSnooze = time.Now().Add(time.Hour).Unix()
+	wait := func() {
+		time.Sleep(20 * time.Millisecond)
+		for i := 0; i < 300 && a.updBusy.Load(); i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
+		time.Sleep(30 * time.Millisecond)
+		tt.Frame()
+	}
+	a.checkUpdate(false)
+	wait()
+	if a.updRel == nil || a.updRel.Version != "v1.0.1" || !a.updOpen || !tt.HasText(locales.UpdateVersionAvailable("1.0.1")) {
+		t.Fatalf("no trial version: %v, open %v: %v", a.updRel, a.updOpen, tt.Texts())
+	}
+	tt.Advance(time.Second) // the card unfolds first
+	if err := tt.Click(locales.UpdateUpdateNow()); err != nil {
+		t.Fatal(err)
+	}
+	if a.updState == updIdle { // downloading, or, the trial's download being short, already in place
+		t.Fatalf("not downloading: %v", a.updState)
+	}
+	wait()
+	if a.updState != updReady || !tt.HasText(locales.UpdateRestart()) {
+		t.Fatalf("not ready: %v: %v", a.updState, tt.Texts())
+	}
+	if a.settings.UpdateAt != 0 || a.settings.UpdateFor != "" {
+		t.Fatalf("the trial saved: checked at %d, installed %q", a.settings.UpdateAt, a.settings.UpdateFor)
+	}
+}
+
+// TestUpdateChipLightBuilds: the light running over the chip is a uniform of its effect, set as the view is built, so a
+// pass of it asks for frames that build the view; frames that only paint left it where it was, and it crawled along
+// as often as something else built the view (#392). The chip comes a second after the card closed, opens, and its
+// light first runs a second after that; between two passes the chip asks for no frame.
+func TestUpdateChipLightBuilds(t *testing.T) {
+	oldShaders, oldMeter := updShaders, frameMeterOn
+	updShaders, frameMeterOn = true, true
+	defer func() { updShaders, frameMeterOn = oldShaders, oldMeter }()
+	a, tt := newTestApp(t, "x\n")
+	a.updRel = &Release{Version: "v9.0.0"} // a version waits and its card is closed: the chip shows
+	builds := func(d time.Duration) int {
+		a.meter.mu.Lock()
+		a.meter.since, a.meter.views = time.Now(), 0
+		a.meter.mu.Unlock()
+		for end := tt.Now().Add(d); tt.Now().Before(end); {
+			tt.Advance(16 * time.Millisecond)
+		}
+		a.meter.mu.Lock()
+		defer a.meter.mu.Unlock()
+		return a.meter.views
+	}
+	tt.Frame()
+	if n := builds(updChipDelay / 2); n > 2 { // a moment after the card closed it waits, unseen in its place
+		t.Errorf("%d views built while the chip waits to open", n)
+	}
+	tt.Advance(updChipDelay/2 + updChipUnfold + 50*time.Millisecond) // it opens
+	if !tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("no chip: %v", tt.Texts())
+	}
+	if n := builds(updShimmerDelay / 2); n > 2 { // the light waits a moment after it opened
+		t.Errorf("%d views built before the first pass of the light", n)
+	}
+	pass := func() time.Duration {
+		return (tt.Now().Sub(a.updChipAt) - updChipDelay - updChipUnfold - updShimmerDelay) % (updSweep + updRest)
+	}
+	for pass() < 0 || pass() >= updSweep/4 { // to the start of a pass
+		tt.Advance(50 * time.Millisecond)
+	}
+	if n := builds(updSweep / 2); n < 20 {
+		t.Errorf("%d views built in half a pass of the light: it does not run", n)
+	}
+	for pass() < updSweep+100*time.Millisecond { // past the pass
+		tt.Advance(50 * time.Millisecond)
+	}
+	if n := builds(updRest / 2); n > 2 {
+		t.Errorf("%d views built between two passes: it should rest", n)
+	}
+}
+
+// TestUpdateCardBar: while it downloads, the card's bar says how far it is; once the version is in place, the card is
+// ready to restart at once (#392).
+func TestUpdateCardBar(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.updRel, a.updOpen, a.updState = &Release{Version: "v9.0.0"}, true, updDownloading
+	a.updProg.size.Store(100)
+	a.updProg.got.Store(42)
+	tt.Frame()
+	tt.Advance(updUnfold + 100*time.Millisecond)
+	if !tt.HasText("42%") || tt.HasText(locales.UpdateRestart()) {
+		t.Fatalf("downloading: %v", tt.Texts())
+	}
+	a.updProg.got.Store(100)
+	a.updState = updReady
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	if tt.HasText("100%") || !tt.HasText(locales.UpdateRestart()) {
+		t.Fatalf("ready: %v", tt.Texts())
+	}
+}
+
+// TestHelloSummary: the note after an update says a few lines of what changed, a list's items kept apart (#392).
+func TestHelloSummary(t *testing.T) {
+	if got := helloSummary("- Faster search\n- A new look\n\n- Fixes\n- More"); got != "Faster search · A new look · Fixes" {
+		t.Errorf("summary: %q", got)
+	}
+	if got := helloSummary("  "); got != locales.UpdateNoNotes() {
+		t.Errorf("no notes: %q", got)
+	}
+}
+
+// TestHelloWaitsForTheWindow: the wave after an update starts only once the window has drawn a few frames and a moment
+// has gone, and its clock moves a frame's time at most, so a restarted window shows it from its start (#392).
+func TestHelloWaitsForTheWindow(t *testing.T) {
+	old := version
+	version = "v3.0.0"
+	defer func() { version = old }()
+	a, tt := newTestApp(t, "x\n")
+	a.settings.UpdateFor = "v3.0.0"
+	tt.Frame()
+	tt.Frame()
+	if a.hello.at.IsZero() || a.hello.going {
+		t.Fatalf("hello: %+v", a.hello)
+	}
+	tt.Advance(helloDelay + 200*time.Millisecond)
+	if !a.hello.going || a.hello.run <= 0 || a.hello.run > 200*time.Millisecond+helloStep {
+		t.Fatalf("the wave's clock: going %v, at %v", a.hello.going, a.hello.run)
+	}
+	a.hello.last = a.hello.last.Add(-2 * time.Second) // a frame that came two seconds late
+	before := a.hello.run
+	tt.Frame()
+	if a.hello.run-before > helloStep {
+		t.Fatalf("a late frame moved the wave %v", a.hello.run-before)
 	}
 }
