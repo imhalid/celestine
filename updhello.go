@@ -11,8 +11,8 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The first start after an update says so without a dialog (#392): a wave of light runs up the window from its bottom,
-// as through glass (updHelloShader), so the app feels new and clean, and a small note rises at the bottom right: the
+// The first start after an update says so without a dialog (#392): the window comes up frosted, and a wave of glass
+// sweeps it clear from its bottom left corner (updHelloShader, #417), so the app feels new and clean, and a small note rises at the bottom right: the
 // version, a few words of what changed, and a link to the changelog on the website. Closed, it does not come again.
 
 // A helloState is the note of the version just installed: when its first frame was, its words, whether it was closed;
@@ -34,7 +34,7 @@ type helloState struct {
 // helloWave, its clock moving at most helloStep a frame; the note rises with it, in helloRise.
 var (
 	helloDelay = 600 * time.Millisecond
-	helloWave  = 2300 * time.Millisecond
+	helloWave  = 2000 * time.Millisecond
 	helloRise  = 450 * time.Millisecond
 	helloStep  = 34 * time.Millisecond
 )
@@ -78,7 +78,7 @@ func (a *app) helloTick(c *ui.Context) {
 }
 
 // helloRoot runs the wave over the window's content, root, while it goes; before it, it draws the wave's shader at its
-// end, where it changes nothing, so that it is ready when the wave starts.
+// start, the window frosted, so that it is ready when the wave starts and the wave starts from what was seen.
 func (a *app) helloRoot(c *ui.Context, root ui.Element) {
 	a.helloTick(c)
 	h := &a.hello
@@ -89,21 +89,23 @@ func (a *app) helloRoot(c *ui.Context, root ui.Element) {
 	if !updShaders || !shadersOn() { // with the shader effects off the note still rises on the wave's clock
 		return
 	}
-	t := float32(1) // warm: the end, where the window is as it is
+	t := float32(0) // warm: the start, the window frosted as the version that was, until the wave sweeps it clear
 	if h.going {
 		t = float32(h.run.Seconds() / helloWave.Seconds())
 	}
-	e := 1 - (1-t)*(1-t) // out fast, slowing as it reaches the far corners
+	e := t * t * (3 - 2*t) // in slowly, through the middle, and slowing as it leaves
 	w, ht := c.Size()
 	dark := float32(0)
 	if c.Theme().Dark {
 		dark = 1
 	}
-	reach := float32(1.1)*hypot(w/2, ht+40) + 200 // past the far corners, with room for the curls
+	// the arc's center is beyond the bottom left corner; its front starts there and ends a band's width past the top right
+	ox, oy := -0.3*w, ht+0.3*ht
+	reach := hypot(w-ox, oy) + 260
 	root.Effect(updHelloShader.Effect(shader.Options{
-		Uniforms: map[string]any{"Origin": []float32{w / 2, ht + 40}, "Radius": e * reach, "Prog": t,
+		Uniforms: map[string]any{"Origin": []float32{ox, oy}, "Radius": e * reach, "Prog": t,
 			"Time": float32(h.run.Seconds()), "Dark": dark, "Size": []float32{w, ht}},
-		MaxSampleOffset: ui.Point{X: 40, Y: 40},
+		MaxSampleOffset: ui.Point{X: 96, Y: 96},
 	}))
 }
 
@@ -199,15 +201,15 @@ func helloSummary(notes string) string {
 	return s
 }
 
-// updHelloShader is the wave of the first start after an update, made as the welcome's ring opening is
-// (welcomelooks.go): its front is not a circle but noise bent by noise, reaching out in tongues and curling back, what
-// is near it turned a little round the origin so the curls wind, flowing all the while. Just behind the front the
-// window bulges as under one lens and splits into its colors, the red and blue apart from the green; a light runs along
-// the front in four colors (blue, violet, pink, peach), in a softer glow, with a trail of wisps behind it, tinting the
-// window in light (Dark 0) and adding light in dark. Where it meets the window's edges, the content there stretches a
-// little toward them, as under the bevel of a glass. All of it dies away as it passes the far corners. Origin is below
-// the window's bottom middle, Radius how far the front is, Prog how far the wave is, 0 to 1, over a window of Size.
-var updHelloShader = shader.MustCompile(helloShader + fbmShader + ringShared)
+// updHelloShader is the wave of the first start after an update (#417): a transition from the version before to the one
+// just installed, as a snapshot bent into the next. One smooth arc sweeps the window from beyond its bottom left corner
+// to past its top right. Ahead of it the window is frosted, blurred and a little dimmed, as the version that was; behind
+// it the window is clear. Between them a band bends the content as thick glass does, pushing it outward from the arc's
+// center, blurring it, most along the way the wave goes, and splitting its colors; an iridescent rim runs on the front
+// (cyan, blue, violet, pink, gold going round it), in a glow, and the window's own edges glow faintly in the same
+// colors while it passes. Light is added in dark (Dark 1) and tints the window in light. Origin is the arc's center,
+// Radius how far its front is, Prog how far the wave is, 0 to 1, over a window of Size.
+var updHelloShader = shader.MustCompile(helloShader)
 
 const helloShader = `package main
 
@@ -223,92 +225,80 @@ func line(d float, at float, w float) float {
 	return exp(-t * t)
 }
 
-// curled is the distance from the origin the front is measured on: the place turned round the origin near the
-// front, then pushed by noise that is itself pushed by noise (as the welcome's ring)
-func curled(p vec2, r float, life float, t float) float {
-	l := length(p)
-	near := exp(-((l-r)/260)*((l-r)/260))
-	tw := 0.9 * near * life * (0.6 + 0.4*sin(atan2(p.y, p.x)*3+t*0.7))
-	c := cos(tw)
-	s := sin(tw)
-	p = vec2(c*p.x-s*p.y, s*p.x+c*p.y)
-	q := p / 170
-	w1 := vec2(fbm(q+vec2(0, t*0.35)), fbm(q+vec2(5.2, 1.3)-t*0.25)) - 0.5
-	w2 := vec2(fbm(q*2.1+w1*2.6+vec2(1.7, 9.2)), fbm(q*2.1+w1*2.6+vec2(8.3, 2.8))) - 0.5
-	w3 := vec2(noise(q*6+w2*4+vec2(t*0.5, 0)), noise(q*6+w2*4+vec2(3.3, -t*0.5))) - 0.5
-	warp := (w1 + w2*0.8 + w3*0.35) * 190 * life * (0.35 + 0.65*near)
-	return length(p + warp)
-}
-
-// aurora is the light's color along the front: blue, violet, pink and peach going round it, flowing
-func aurora(u float) vec3 {
-	u = fract(u) * 4
-	c0 := vec3(80, 140, 255) / 255
-	c1 := vec3(160, 110, 255) / 255
-	c2 := vec3(255, 110, 180) / 255
-	c3 := vec3(255, 190, 140) / 255
+// iris is the rim's color, going round: cyan, blue, violet, pink, gold
+func iris(u float) vec3 {
+	u = fract(u) * 5
+	c0 := vec3(90, 230, 255) / 255
+	c1 := vec3(80, 130, 255) / 255
+	c2 := vec3(170, 100, 255) / 255
+	c3 := vec3(255, 100, 190) / 255
+	c4 := vec3(255, 215, 120) / 255
 	if u < 1 {
 		return mix(c0, c1, u)
 	} else if u < 2 {
 		return mix(c1, c2, u-1)
 	} else if u < 3 {
 		return mix(c2, c3, u-2)
+	} else if u < 4 {
+		return mix(c3, c4, u-3)
 	}
-	return mix(c3, c0, u-3)
+	return mix(c4, c0, u-4)
+}
+
+// frost is the window at p blurred over a disk of radius r, stretched along dir, with its red and blue drawn split
+// apart by split: a spiral of taps, each read three times
+func frost(p vec2, r float, dir vec2, split vec2) vec4 {
+	lo := vec2(0.5)
+	hi := Size - 0.5 // read inside the window: past its edges there is nothing, and it would show as a pale band
+	if r < 0.6 {
+		g := layerSample(clamp(p, lo, hi))
+		return vec4(layerSample(clamp(p-split, lo, hi)).r, g.g, layerSample(clamp(p+split, lo, hi)).b, g.a)
+	}
+	side := vec2(-dir.y, dir.x)
+	sum := vec4(0)
+	for i := 0; i < 22; i++ {
+		f := float(i) + 0.5
+		k := sqrt(f / 22) * r
+		a := f * 2.39996
+		o := dir*cos(a)*k*1.5 + side*sin(a)*k*0.8
+		g := layerSample(clamp(p+o, lo, hi))
+		sum += vec4(layerSample(clamp(p+o-split, lo, hi)).r, g.g, layerSample(clamp(p+o+split, lo, hi)).b, g.a)
+	}
+	return sum / 22
 }
 
 func LayerEffect(pos vec2) vec4 {
 	rel := pos - Origin
-	d0 := length(rel)
-	dir := rel / max(d0, 0.001)
-	live := 1 - smoothstep(0.55, 1.0, Prog)
-	curl := sin(min(Prog*1.3, 1)*3.14159*0.5+0.6) * live // strongest early, gone at the end
-	d := curled(rel, Radius, curl, Time)
-	edge := Radius
+	d := length(rel)
+	dir := rel / max(d, 0.001)
+	live := 1 - smoothstep(0.88, 1.0, Prog) // all of it gone as the front leaves the far corner
 
-	// the lens: just behind the front the window bulges outward and splits into its colors; at the front itself and
-	// ahead of it, it is as it is, so there is no seam
-	s := edge - d
-	bulge := smoothstep(0, 26, s) * exp(-max(s, 0)/120) * live
-	stretch := exp(-max(-s, 0)/30) * step(s, 0) * live // ahead, a little pulled toward the front
-	off := dir * (bulge*24 - stretch*5)
-	split := dir * bulge * 7
-	// the window's edges: the content there leans toward them as the wave passes, as under a glass's bevel
-	e := min(min(pos.x, Size.x-pos.x), min(pos.y, Size.y-pos.y))
-	toEdge := vec2(0, -1)
-	if e == pos.x {
-		toEdge = vec2(1, 0)
-	} else if e == Size.x-pos.x {
-		toEdge = vec2(-1, 0)
-	} else if e == pos.y {
-		toEdge = vec2(0, 1)
-	}
-	off += toEdge * exp(-e/14) * line(d, edge-40, 120) * 6 * live
-	lo := vec2(0.5)
-	hi := Size - 0.5 // read inside the window: past its edges there is nothing, and it would show as a pale band
-	r := layerSample(clamp(pos-off-split, lo, hi))
-	g := layerSample(clamp(pos-off, lo, hi))
-	b := layerSample(clamp(pos-off+split, lo, hi))
-	col := vec4(r.r, g.g, b.b, g.a)
+	// s is how far behind the front pos is: ahead (s < 0) the version that was, frosted; behind it, clear
+	s := Radius - d
+	band := line(s, 70, 95) * smoothstep(-30, 10, s) // the glass, just behind the front
+	ahead := 1 - smoothstep(-24, 18, s)
+	blur := ahead*7 + band*26
+	off := dir * band * 34 // the glass pushes the content outward, away from the arc's center
+	split := dir * (band*8 + ahead*1.2)
+	col := frost(pos-off, blur*live, dir, split*live)
+	col.rgb *= 1 - ahead*0.14*live // the version that was, a little dimmer
 
-	// the light along the curled front, its colors spread, in a glow, and a trail of wisps behind it
-	at := edge - 10
+	// the rim on the front, its colors split a little, in a glow; and the window's edges, in the same colors
 	ang := atan2(dir.y, dir.x)
-	tint := aurora(ang*0.6 + Time*0.25)
-	rim := vec3(line(d, at+2.6, 3.2), line(d, at, 3.0), line(d, at-2.6, 3.2))
-	glow := line(d, at, 28)
-	smoke := fbm(rel/90 + vec2(Time*0.4, 0))
-	trail := line(d, at-70, 60) * smoothstep(0.45, 0.75, smoke)
-	inner := line(d, at-30, 45) // the rings of color just behind the front
-	band := (glow*0.55 + trail*0.18 + inner*0.5) * live
+	tint := iris(ang*1.4 + s*0.002 + Time*0.3)
+	rim := vec3(line(s, 3.5, 3.2), line(s, 1, 3.0), line(s, -1.5, 3.2))
+	glow := line(s, 10, 30)*0.7 + band*0.28
+	e := min(min(pos.x, Size.x-pos.x), min(pos.y, Size.y-pos.y))
+	etint := iris((pos.x+pos.y)/(Size.x+Size.y)*1.5 + Time*0.25)
+	frame := exp(-e/7) * sin(min(Prog/0.92, 1)*3.14159) * 0.85
 	if Dark > 0.5 { // screen: it adds light, so it glows
-		light := (rim*tint*1.2 + tint*band*0.6) * live
+		light := (rim*tint*1.3 + tint*glow*0.75 + etint*frame) * live
 		return vec4(col.rgb+light*(col.a-col.rgb*0.5), col.a)
 	}
-	// light: the rings tint the window, and the rim is a thin bright line of color
-	k := min(band, 1) * 0.7
-	out := mix(col.rgb, col.rgb*mix(vec3(1), tint, 0.85), k)
-	out = mix(out, tint*col.a, min(max(max(rim.r, rim.g), rim.b)*0.7*live, 1))
+	// light: the glow tints the window, the rim and the edges are thin lines of color
+	out := mix(col.rgb, col.rgb*mix(vec3(1), tint, 0.8), min(glow, 1)*0.75*live)
+	out = mix(out, tint*col.a, min(max(max(rim.r, rim.g), rim.b)*0.8*live, 1))
+	out = mix(out, etint*col.a, min(frame*0.7*live, 1))
 	return vec4(out, col.a)
 }
 `
