@@ -1490,8 +1490,6 @@
   "tasks_allDone": "All done.",
   "tasks_allKinds": "All kinds",
   "tasks_clearFilters": "Clear filters",
-  "tasks_counts": "{open} open, {done} done  ·  the - [ ] lines in your pages",
-  "@tasks_counts": {"placeholders": {"open": {"type": "int"}, "done": {"type": "int"}}},
   "tasks_day": "Day",
   "tasks_done": "Done",
   "tasks_dueAll": "All",

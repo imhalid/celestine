@@ -9,7 +9,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
-	"github.com/imhalid/celestine/locales"
 )
 
 func TestTasksOf(t *testing.T) {
@@ -37,7 +36,7 @@ func TestTaskView(t *testing.T) {
 	if !a.tasksOpen || !tt.HasText("ilk görev") || !tt.HasText("öteki görev") || tt.HasText("yapılmış") {
 		t.Fatalf("view: open %v %v", a.tasksOpen, tt.Texts())
 	}
-	if !tt.HasText("2 açık, 1 tamamlandı") {
+	if !tt.HasText("Açık 2/3") || !tt.HasText("Tamamlanan 1/3") { // the stats beside the title
 		t.Fatalf("count: %v", tt.Texts())
 	}
 	// ticked in a page that is not open: its file
@@ -82,6 +81,43 @@ func TestTaskView(t *testing.T) {
 	}
 	if a.here().kind != "tasks" {
 		t.Fatalf("here %v", a.here())
+	}
+}
+
+// TestTickingKeepsTheOrder: ticking a task off writes its page, which changes it last, and its tasks stay where
+// they were in the view; opened again, the view sorts the pages as they are then.
+func TestTickingKeepsTheOrder(t *testing.T) {
+	a, tt := newTestApp(t, "- [ ] ilk görev\n")
+	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other.SaveText("- [ ] öteki görev\n")
+	other.Modified = a.page.Modified.Add(time.Hour) // changed last: first
+	a.openTasks()
+	tt.Frame()
+	pages := func() []*Page {
+		var out []*Page
+		for _, k := range a.allTasks(true) {
+			if len(out) == 0 || out[len(out)-1] != k.page {
+				out = append(out, k.page)
+			}
+		}
+		return out
+	}
+	before := pages()
+	if len(before) != 2 || before[0] != other {
+		t.Fatalf("not the one changed last first: %v", before)
+	}
+	for _, k := range a.allTasks(true) {
+		if k.page == a.page {
+			a.toggleTask(k)
+		}
+	}
+	a.page.Modified = other.Modified.Add(time.Hour) // as the save makes it, whatever the clock
+	if after := pages(); after[0] != before[0] || after[1] != before[1] {
+		t.Fatalf("ticked, the order changed: %v, was %v", after, before)
+	}
+	a.openTasks()
+	if again := pages(); again[0] != a.page {
+		t.Fatalf("opened again, not the one changed last first: %v", again)
 	}
 }
 
@@ -252,7 +288,7 @@ func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
 	a.tasksOpen, a.coll = true, nil
 	tt.Frame()
 	tt.Advance(500 * time.Millisecond)
-	if !tt.HasText(locales.TasksCounts(4000, 0)) {
+	if !tt.HasText("4000") { // the open ones, beside the title
 		t.Fatalf("not 4000 tasks: %v", tt.Texts()[:min(8, len(tt.Texts()))])
 	}
 	built := 0

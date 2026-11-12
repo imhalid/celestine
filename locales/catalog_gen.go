@@ -13277,16 +13277,6 @@ func (msgs Messages) TasksClearFilters() string {
 	return Catalog.Format(msgs.locale, "tasks_clearFilters", nil)
 }
 
-// TasksCounts says "{open} open, {done} done  ·  the - [ ] lines in your pages"
-// in the language the app shows.
-func TasksCounts(open int, done int) string { return In(i18n.Locale()).TasksCounts(open, done) }
-
-// TasksCounts says "{open} open, {done} done  ·  the - [ ] lines in your pages"
-// in the language of msgs.
-func (msgs Messages) TasksCounts(open int, done int) string {
-	return Catalog.Format(msgs.locale, "tasks_counts", map[string]any{"open": open, "done": done})
-}
-
 // TasksDay says "Day"
 // in the language the app shows.
 func TasksDay() string { return In(i18n.Locale()).TasksDay() }

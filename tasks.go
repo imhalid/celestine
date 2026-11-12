@@ -83,21 +83,40 @@ func tasksOf(p *Page, body string) []taskItem {
 	return out
 }
 
-// allTasks is every task, the pages changed last first, each page's in the order of its text. It is
-// sorted when the index of links is made, not for each frame: 20000 tasks.
+// allTasks is every task, each page's in the order of its text, the pages in the order they had when the
+// task view was opened: those changed last first, and a page that changes while the view is open (a task
+// ticked off in it) stays where it was; one new to the view comes first. It is sorted when the index of links
+// is made, not for each frame: 20000 tasks.
 func (a *app) allTasks(force bool) []taskItem {
 	a.linksTo(nil, a.clock(), force)
-	if a.links.sorted == nil && len(a.links.tasks) > 0 {
-		out := append([]taskItem{}, a.links.tasks...)
+	l := &a.links
+	if l.sorted == nil && len(l.tasks) > 0 {
+		out := append([]taskItem{}, l.tasks...)
+		rank := func(p *Page) int {
+			if r, ok := l.taskRank[p]; ok {
+				return r
+			}
+			return -1
+		}
 		sort.SliceStable(out, func(i, j int) bool {
-			if out[i].page != out[j].page {
-				return out[i].page.Modified.After(out[j].page.Modified)
+			pi, pj := out[i].page, out[j].page
+			if pi != pj {
+				if ri, rj := rank(pi), rank(pj); ri != rj {
+					return ri < rj
+				}
+				return pi.Modified.After(pj.Modified)
 			}
 			return out[i].line < out[j].line
 		})
-		a.links.sorted = out
+		l.taskRank = map[*Page]int{}
+		for _, k := range out {
+			if _, ok := l.taskRank[k.page]; !ok {
+				l.taskRank[k.page] = len(l.taskRank)
+			}
+		}
+		l.sorted = out
 	}
-	return a.links.sorted
+	return l.sorted
 }
 
 // openTask opens the page of task k with the caret in the task's line.
@@ -139,6 +158,7 @@ func (a *app) openTasks() {
 	a.flush()
 	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.settingsOpen = true, "", nil, false, false, false
 	a.statsScreen, a.profileScreen = false, false
+	a.links.taskRank, a.links.sorted = nil, nil // the pages as they are now, the changed last first
 	a.linksStale()
 	a.visit()
 }
@@ -210,16 +230,12 @@ func taskParagraph(tx richtext.Text, p *Page, t taskItem) (int, bool) {
 
 // tasksView is the view: a filter, and the tasks under their pages.
 func (a *app) tasksView(c *ui.Context) {
-	t := c.Theme()
 	cl := ryugo.From(c).Colors
 	all := a.allTasks(a.links.stale) // a tick shows at once
-	open, done := 0, 0
+	now := a.clock()
+	var st taskStats
 	for _, k := range all {
-		if k.done {
-			done++
-		} else {
-			open++
-		}
+		st.count(k, now)
 	}
 	// the collections that have tasks, and the kinds the tasks are, to choose among
 	colls := map[*Collection]int{}
@@ -237,9 +253,10 @@ func (a *app) tasksView(c *ui.Context) {
 		a.taskColl = "" // that collection has no tasks now
 	}
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
-		ui.Text(c, locales.CommonTasks()).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		ui.Text(c, locales.TasksCounts(open, done)).
-			FontSize(13.5).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
+		ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Padding(2, 0, 4, 0).Children(func() {
+			ui.Text(c, locales.CommonTasks()).FontSize(32).FontWeight(720).Grow(1)
+			a.taskStatBars(c, cl, st)
+		})
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
 			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{locales.TasksOpen(), locales.TasksDone(), locales.TasksAll()}, ryugo.SegmentedOptions{Label: locales.CommonTasks(), Size: ryugo.Sm})
 			if a.taskFilter == 0 { // the open ones by their day
@@ -271,7 +288,6 @@ func (a *app) tasksView(c *ui.Context) {
 			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
 		})
 		q := fold(strings.TrimSpace(a.taskQuery))
-		now := a.clock()
 		var shown []taskItem
 		for _, k := range all {
 			switch {
@@ -291,15 +307,124 @@ func (a *app) tasksView(c *ui.Context) {
 		// 20000 tasks are 20000 rows: only those in view are built (ui.List), the pages' heads and
 		// their tasks in one list
 		rows := taskRows(shown, a.taskFolded)
-		a.taskList.Key = func(i int) any { return rows[i].key() }
-		ui.List(c.Key("tasks-list"), a.taskList, len(rows), func(i int) {
-			if r := rows[i]; r.head {
-				a.taskHead(c, cl, r, i > 0)
-			} else {
-				a.taskRow(c, cl, r.task)
+		a.taskList.Key = func(i int) any {
+			if i == len(rows) {
+				return "end"
 			}
-		}).Grow(1)
+			return rows[i].key()
+		}
+		a.scrolledList(c, "tasks-list", nil, ui.Box(c.Key("tasks-wrap")).FillWidth().Grow(1).MinHeight(0), func() ui.Element {
+			return ui.List(c.Key("tasks-list"), a.taskList, len(rows)+1, func(i int) {
+				switch {
+				case i == len(rows): // the room under the last task
+					ui.Box(c.Key("tasks-end")).FillWidth().Height(taskEndRoom)
+				case rows[i].head:
+					a.taskHead(c, cl, rows[i], i > 0)
+				default:
+					a.taskRow(c, cl, rows[i].task)
+				}
+			}).Fill()
+		})
 	})
+}
+
+// taskEndRoom is the room under the last task, so that it does not end at the window's edge.
+const taskEndRoom = 56
+
+// taskStats are how many tasks there are, open and done, and of the open ones how many are of today and late.
+type taskStats struct{ open, done, today, late int }
+
+// count counts task k in, on the day of now.
+func (s *taskStats) count(k taskItem, now time.Time) {
+	if k.done {
+		s.done++
+		return
+	}
+	s.open++
+	if !k.due.IsZero() {
+		today := startOfDay(now)
+		switch {
+		case sameDay(k.due, today):
+			s.today++
+		case k.due.Before(today):
+			s.late++
+		}
+	}
+}
+
+// taskStatBars are the small stats beside the title: the open and the done tasks, of all of them, and the
+// open ones of today and late, of the open ones, each a card of ticks in a bright color of its own, the same in
+// both themes. A click on one shows those.
+func (a *app) taskStatBars(c *ui.Context, cl ryugo.Colors, s taskStats) {
+	all, open := max(1, s.open+s.done), max(1, s.open)
+	stats := []struct {
+		key, label string
+		n, of      int
+		col        ui.Color
+		filter     int
+		due        int
+	}{
+		{"open", locales.TasksOpen(), s.open, all, ui.Hex("#3b82f6"), 0, 0},
+		{"done", locales.TasksDone(), s.done, all, ui.Hex("#84cc16"), 1, 0},
+		{"today", locales.TasksDueToday(), s.today, open, ui.Hex("#f59e0b"), 0, 1},
+		{"late", locales.TasksDueLate(), s.late, open, ui.Hex("#f43f5e"), 0, 3},
+	}
+	ui.Row(c.Key("task-stats")).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
+		for _, st := range stats {
+			on := a.taskFilter == st.filter && (st.filter != 0 || a.taskDue == st.due)
+			a.taskStatCard(c, cl, st.key, st.label, st.n, st.of, st.col, on, func() { a.taskFilter, a.taskDue = st.filter, st.due })
+		}
+	})
+}
+
+// taskStatTicks is how many ticks a stat's bar has.
+const taskStatTicks = 18
+
+// taskStatCard is one stat: a small card, its name and n of of on it, over an inset well of ticks, as many in its
+// color as n is of of. The card is tinted in the color, and a border in it says the list shows those; a click
+// shows them.
+func (a *app) taskStatCard(c *ui.Context, cl ryugo.Colors, key, label string, n, of int, col ui.Color, on bool, show func()) {
+	card := ui.Column(c.Key("task-stat:"+key)).Width(138).Padding(5, 5, 5, 5).Gap(4).Radius(rad(11)).
+		Background(mix(cl.Card, col, 0.07)).Border(1, col.Alpha(0.16)).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.05)).
+		Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label + " " + strconv.Itoa(n) + "/" + strconv.Itoa(of))
+	switch {
+	case on: // the border keeps its width, so that the ticks inside stay where they are
+		card.Border(1, col.Alpha(0.85))
+	case card.Hovered():
+		card.Border(1, col.Alpha(0.4))
+	}
+	lit := 0
+	if n > 0 {
+		lit = max(1, int(float64(n)/float64(max(1, of))*taskStatTicks+0.5))
+	}
+	card.Children(func() {
+		ui.Row(c).FillWidth().Padding(1, 5, 0, 5).AlignItems(ui.Center).Gap(6).Children(func() {
+			ui.Text(c, label).FontSize(12).FontWeight(560).TextColor(cl.Text2).MaxLines(1).Grow(1).MinWidth(0)
+			ui.Row(c).AlignItems(ui.Baseline).Children(func() {
+				ui.Text(c, strconv.Itoa(n)).FontSize(13).FontWeight(700).TextColor(cl.Text).FontFeatures("tnum")
+				ui.Text(c, "/"+strconv.Itoa(of)).FontSize(11).TextColor(cl.Muted).FontFeatures("tnum")
+			})
+		})
+		well := ui.Box(c.Key("ticks")).FillWidth().Height(20).Radius(rad(6)).Background(mix(cl.Well, col, 0.06))
+		well.DrawOver(func(p *ui.Painter, r ui.Rect) {
+			// on whole pixels, the run of ticks centered: a tick between two pixels looks wider than the others
+			const padX, padY = 7, 5
+			pitch := float32(int((r.W - 2*padX) / taskStatTicks))
+			w := max(2, float32(int(pitch*0.46+0.5)))
+			x0 := float32(int(r.X + (r.W-pitch*taskStatTicks)/2 + float32(int((pitch-w)/2)) + 0.5))
+			y, h := float32(int(r.Y+padY+0.5)), float32(int(r.H-2*padY+0.5))
+			for i := range taskStatTicks {
+				tc := cl.Muted.Alpha(0.2)
+				if i < lit {
+					tc = mix(col, ui.RGBA(255, 255, 255, 1), 0.12*float64(i)/taskStatTicks)
+				}
+				p.Fill(ui.Rect{X: x0 + float32(i)*pitch, Y: y, W: w, H: h}, tc, w/2)
+			}
+		})
+	})
+	if card.Clicked() {
+		show()
+	}
 }
 
 // noTasks says there are no tasks to show: none at all, or none with the filters.

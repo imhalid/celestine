@@ -23,6 +23,7 @@ type linkIndex struct {
 	tagNames map[string]string   // and as it was first written
 	tasks    []taskItem          // the tasks of every page (tasks.go)
 	sorted   []taskItem          // and sorted for their view, until the index is made again
+	taskRank map[*Page]int       // where each page's tasks stood when sorted last: ticking one keeps them there (allTasks)
 	pages    map[*Page]*pageIdx  // what was read of each page, kept while its file is as it was
 	plain    map[*Page]*plainIdx // the text of a page, plain, for the search (search.go), made when asked for
 	built    time.Time
