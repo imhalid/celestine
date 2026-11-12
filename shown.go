@@ -81,11 +81,18 @@ func (a *app) paraOfBox(b richtext.ParagraphBox) (s, e int, para richtext.Paragr
 // edgeFades lays a soft fade over each edge of a sideways scroll that has more
 // beyond it - at the right while there is more to the right, at the left once it
 // is scrolled - so that what is cut at the edge reads as going on, not as cut.
-// They let the pointer through. s is the scroll's state (TrackScroll); the page's
-// own background is what they fade to.
+// They let the pointer through. s is the scroll's state (TrackScroll). Each starts
+// at the edge in the page's own background, so that nothing marks where it begins,
+// turns to it with a little of the theme's accent, and fades out: the cards going
+// under it take the theme's color, not a dark shadow's.
 func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
 	const w = 60
 	bg := a.bg(c)
+	tint := bg
+	if acc := c.Theme().Accent; acc != (ui.Color{}) {
+		tint = mix(bg, acc, 0.16)
+	}
+	stops := []ui.GradientStop{{Color: bg, At: 0}, {Color: tint.Alpha(0.85), At: 0.3}, {Color: tint.Alpha(0), At: 1}}
 	for _, side := range []struct {
 		key  string
 		on   bool
@@ -93,11 +100,9 @@ func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
 	}{{"fade-left", s.X > 1, true}, {"fade-right", s.X < s.MaxX-1, false}} {
 		e := ui.Box(c.Key(side.key)).Absolute().Top(0).Bottom(0).Width(w).PassThrough()
 		if side.left {
-			e.Left(0)
-			e.LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, From: bg, To: bg.Alpha(0)})
+			e.Left(0).LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, Stops: stops})
 		} else {
-			e.Right(0)
-			e.LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, From: bg.Alpha(0), To: bg})
+			e.Right(0).LinearGradient(ui.LinearGradient{Angle: 270, Oklab: true, Stops: stops})
 		}
 		e.Opacity(e.AnimateTo("o", map[bool]float32{true: 1, false: 0}[side.on], fadeQuick))
 	}
