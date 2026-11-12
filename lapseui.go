@@ -422,7 +422,7 @@ func (a *app) lapseChips(c *ui.Context) {
 	if l.on && l.page != a.page { // another page is open: its editor
 		*l = lapseState{}
 	}
-	if !l.on || len(l.days) == 0 {
+	if !l.on || len(l.days) == 0 || a.noPage() { // only with the page's editor: not over the settings or another screen (#411)
 		return
 	}
 	dark := ryugo.From(c).Dark
