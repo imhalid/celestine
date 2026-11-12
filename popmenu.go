@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The context menus (ctxmenu.go) and a block's menu (blockui.go) are MyGo's menus drawn in the window
@@ -77,6 +78,14 @@ func menuIcon(glyph *ui.SVG) ui.MenuIcon {
 	return ic
 }
 
+// menuPanelLook gives MyGo's menu panels, and their submenus', the app's own menu look, the / menu's
+// (menupanel.go) on a lighter step: the theme's surface and hairline. MyGo's own is the theme's background, pure
+// black in the dark.
+func menuPanelLook(c *ui.Context) func(ui.Element) {
+	cl := ryugo.From(c).Colors
+	return func(panel ui.Element) { panel.Background(cl.Surface).Border(1, cl.Hairline) }
+}
+
 // menuAt draws MyGo's menu of items at the box at in the window, below it (above where the window has no room),
 // while *open: an anchor of its own, so the menu opens from anywhere the app asks, not only from a click on it.
 // It reports whether an item was chosen in this frame.
@@ -86,7 +95,7 @@ func menuAt(c *ui.Context, key, label string, at ui.Rect, open *bool, items []me
 		anchor.PopoverMenuButton(func(m *ui.Menu) {
 			m.MaxWidth(menuW + 40)
 			fillMenu(m, items, func() { chosen = true })
-		}, ui.PopoverMenuButtonOptions{Open: open})
+		}, ui.PopoverMenuButtonOptions{Open: open, Panel: menuPanelLook(c)})
 	})
 	return chosen
 }
