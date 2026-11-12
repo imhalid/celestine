@@ -171,10 +171,16 @@ a{color:inherit}
 .nav .dl:hover{opacity:.9}
 .banner{position:relative;margin:16px 0 0;height:300px;border-radius:22px;overflow:hidden;background:#f7f4f1 url(/changelog/banner.webp?v=${BANNER_V}) center 54%/cover no-repeat;
   -webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
-@media (prefers-color-scheme:dark){.banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
-  .wrap .banner h1{color:oklch(97% .01 265)}.wrap .banner p{color:oklch(86% .02 265)}}
-.banner h1{position:absolute;left:30px;top:28px;margin:0;color:oklch(24% .03 265);font-size:clamp(1.9rem,4.6vw,2.7rem);line-height:1.1;letter-spacing:-.03em}
-.banner p{position:absolute;left:30px;top:calc(28px + clamp(1.9rem,4.6vw,2.7rem) * 1.1 + 6px);margin:0;max-width:22rem;color:oklch(36% .03 265);font-size:15px}
+.intro{position:absolute;left:32px;top:30px;max-width:24rem;display:flex;flex-direction:column;gap:8px}
+.banner h1{margin:0;color:oklch(24% .03 265);font-size:clamp(1.9rem,4.6vw,2.75rem);line-height:1.05;letter-spacing:-.035em}
+.banner p{margin:0;color:oklch(34% .03 265);font-size:15.5px;line-height:1.45;max-width:21rem;text-wrap:balance}
+@media (prefers-color-scheme:dark){
+  .banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
+  .banner::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,oklch(12% .05 270 / 70%) 0%,oklch(12% .05 270 / 35%) 32%,transparent 55%)}
+  .intro{z-index:1}
+  .wrap .banner h1{color:oklch(98% .01 255);text-shadow:0 0 24px oklch(70% .15 255 / 55%),0 1px 2px oklch(10% .05 270 / 60%)}
+  .wrap .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px oklch(10% .05 270 / 80%)}
+}
 .page{display:grid;grid-template-columns:15.5rem 1fr;column-gap:40px;margin-top:8px}
 .rail{position:sticky;top:84px;align-self:start;padding:34px 0 24px}
 .rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
@@ -226,7 +232,7 @@ footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.line{transition:none}}
 @media (max-width:760px){
   .nav{margin:10px 10px 0;top:10px}.nav .link.opt{display:none}
-  .banner{height:200px;border-radius:18px;background-position:88% 55%}.banner h1,.banner p{left:20px}.banner p{font-size:14px;max-width:13rem}
+  .banner{height:200px;border-radius:18px;background-position:88% 55%}.intro{left:20px;top:22px;max-width:13.5rem}.banner p{font-size:14px}
   .page{grid-template-columns:1fr}
   .rail{position:static;padding:18px 0 4px;overflow-x:auto}
   .rail ol{flex-direction:row;align-items:flex-end;gap:2px;min-height:110px}
@@ -239,7 +245,7 @@ footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text
 </style></head><body>
 <nav class="nav"><a class="brand" href="/"><img src="/icon.png" alt="">Celestine</a><a class="link" href="/changelog" aria-current="page">Changelog</a><a class="link opt" href="/privacy">Privacy</a><a class="dl" href="/">Download</a></nav>
 <div class="wrap">
-<div class="banner" role="img" aria-label="A watercolor landscape at dawn, two blue crystals standing in a meadow"><h1>Changelog</h1><p>What came with each version of Celestine. The app updates itself.</p></div>
+<div class="banner" role="img" aria-label="A watercolor landscape at dawn, two blue crystals standing in a meadow"><div class="intro"><h1>Changelog</h1><p>What came with each version of Celestine. The app updates itself.</p></div></div>
 <div class="page">${releases.length ? railHTML(releases) : "<div></div>"}<main>
 ${list}
 </main></div>
