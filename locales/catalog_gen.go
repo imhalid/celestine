@@ -2005,16 +2005,6 @@ func (msgs Messages) CollectionChoicesPlaceholder() string {
 	return Catalog.Format(msgs.locale, "collection_choicesPlaceholder", nil)
 }
 
-// CollectionCodeTab says "Code"
-// in the language the app shows.
-func CollectionCodeTab() string { return In(i18n.Locale()).CollectionCodeTab() }
-
-// CollectionCodeTab says "Code"
-// in the language of msgs.
-func (msgs Messages) CollectionCodeTab() string {
-	return Catalog.Format(msgs.locale, "collection_codeTab", nil)
-}
-
 // CollectionColor says "Color"
 // in the language the app shows.
 func CollectionColor() string { return In(i18n.Locale()).CollectionColor() }
@@ -2369,18 +2359,6 @@ func (msgs Messages) CollectionIsNotEmpty() string {
 	return Catalog.Format(msgs.locale, "collection_isNotEmpty", nil)
 }
 
-// CollectionJsonUnreadable says "Couldn't read the JSON: {error}"
-// in the language the app shows.
-func CollectionJsonUnreadable(error string) string {
-	return In(i18n.Locale()).CollectionJsonUnreadable(error)
-}
-
-// CollectionJsonUnreadable says "Couldn't read the JSON: {error}"
-// in the language of msgs.
-func (msgs Messages) CollectionJsonUnreadable(error string) string {
-	return Catalog.Format(msgs.locale, "collection_jsonUnreadable", map[string]any{"error": error})
-}
-
 // CollectionKindDate says "Date"
 // in the language the app shows.
 func CollectionKindDate() string { return In(i18n.Locale()).CollectionKindDate() }
@@ -2693,18 +2671,6 @@ func CollectionTemplatePlaceholder() string { return In(i18n.Locale()).Collectio
 // in the language of msgs.
 func (msgs Messages) CollectionTemplatePlaceholder() string {
 	return Catalog.Format(msgs.locale, "collection_templatePlaceholder", nil)
-}
-
-// CollectionTheCollectionsCollectionJson says "The collection's collection.json file. Changes apply when you switch tabs or press Save."
-// in the language the app shows.
-func CollectionTheCollectionsCollectionJson() string {
-	return In(i18n.Locale()).CollectionTheCollectionsCollectionJson()
-}
-
-// CollectionTheCollectionsCollectionJson says "The collection's collection.json file. Changes apply when you switch tabs or press Save."
-// in the language of msgs.
-func (msgs Messages) CollectionTheCollectionsCollectionJson() string {
-	return Catalog.Format(msgs.locale, "collection_theCollectionsCollectionJson", nil)
 }
 
 // CollectionTheCollectionsName says "Collection name"

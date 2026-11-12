@@ -11,7 +11,7 @@ import (
 )
 
 // A collection's settings, as Thymer has them: a dialog (not a sheet along
-// the window's edge: the window's controls are there) with tabs - General, Properties, Views, Pages, Code - working on a
+// the window's edge: the window's controls are there) with tabs - General, Properties, Views, Pages - working on a
 // draft of the collection. Kaydet keeps it, Vazgeç (or closing) goes back to
 // how it was.
 
@@ -33,14 +33,13 @@ type collSettings struct {
 	adding  bool     // the form for a new property is open
 	newType int
 
-	code    string // the Code tab's JSON
-	closed  bool   // what closing does is done: the panel only slides away
-	discard bool   // closing was asked about, and its changes are let go
+	closed  bool // what closing does is done: the panel only slides away
+	discard bool // closing was asked about, and its changes are let go
 }
 
-// changed says whether the draft, or the Code tab's JSON, differs from the collection as it was.
+// changed says whether the draft differs from the collection as it was.
 func (cs *collSettings) changed() bool {
-	return string(cs.draft.ConfigJSON()) != string(cs.orig) || cs.code != string(cs.orig)
+	return string(cs.draft.ConfigJSON()) != string(cs.orig)
 }
 
 func (a *app) openCollSettings(c *Collection, tab int) {
@@ -48,7 +47,6 @@ func (a *app) openCollSettings(c *Collection, tab int) {
 	*cs = collSettings{open: true, coll: c, tab: tab, orig: c.ConfigJSON()}
 	cs.draft.SetConfig(cs.orig)
 	cs.draft.Dir = c.Dir
-	cs.code = string(cs.orig)
 }
 
 // endCollSettings closes the panel: kept if saved, else as it was. The
@@ -109,14 +107,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 		}
 	}}, func() {
 		cl := ryugo.From(c).Colors
-		was := cs.tab
-		ryugo.Tabs(c.Key("cs-tabs"), &cs.tab, []ryugo.Tab{{Label: locales.CollectionGeneral()}, {Label: locales.CollectionProperties()}, {Label: locales.CollectionViews()}, {Label: locales.CollectionPagesTab()}, {Label: locales.CollectionCodeTab()}}, ryugo.TabsOptions{Label: locales.CollectionSettings()})
-		if cs.tab == 4 && was != 4 {
-			cs.code = string(d.ConfigJSON())
-		}
-		if was == 4 && cs.tab != 4 {
-			a.applyCode()
-		}
+		ryugo.Tabs(c.Key("cs-tabs"), &cs.tab, []ryugo.Tab{{Label: locales.CollectionGeneral()}, {Label: locales.CollectionProperties()}, {Label: locales.CollectionViews()}, {Label: locales.CollectionPagesTab()}}, ryugo.TabsOptions{Label: locales.CollectionSettings()})
 		ui.Column(c).Gap(16).Padding(16, 0, 8, 0).Children(func() {
 			switch cs.tab {
 			case 0:
@@ -127,28 +118,12 @@ func (a *app) collSettingsView(c *ui.Context) {
 				a.csViews(c)
 			case 3:
 				a.csPages(c)
-			case 4:
-				ui.Text(c, locales.CollectionTheCollectionsCollectionJson()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-				a.fieldMenu(ryugo.Textarea(c.Key("cs-code"), &cs.code, ryugo.TextareaOptions{Label: "collection.json", Rows: 14, MaxRows: 24, Size: ryugo.Sm}), &cs.code, fieldOpts{}).Font(ryugo.FontMono)
-				if ryugo.Button(c.Key("cs-code-apply"), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.applyCode()
-				}
 			}
 			if cs.err != "" {
 				ui.Text(c, cs.err).FontSize(ryugo.FsSm).TextColor(cl.Up)
 			}
 		})
 	})
-}
-
-// applyCode takes the Code tab's JSON into the draft.
-func (a *app) applyCode() {
-	cs := &a.cs
-	if err := cs.draft.SetConfig([]byte(cs.code)); err != nil {
-		cs.err = locales.CollectionJsonUnreadable(err.Error())
-		return
-	}
-	cs.err = ""
 }
 
 // ---- General ----

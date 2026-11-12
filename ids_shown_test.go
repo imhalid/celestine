@@ -50,7 +50,7 @@ func TestNoIDShown(t *testing.T) {
 	look("tasks", tt.Texts())
 	a.tasksOpen = false
 	a.openCollSettings(a.page.Coll, 0)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 4; i++ {
 		a.cs.tab = i
 		frame()
 		look("collsettings", tt.Texts())

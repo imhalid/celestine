@@ -1114,8 +1114,8 @@ func (c *Collection) SetConfig(data []byte) error {
 	c.Name, c.Icon, c.Color, c.Description, c.PageNoun, c.Template, c.Templates = fresh.Name, fresh.Icon, fresh.Color, fresh.Description, fresh.PageNoun, fresh.Template, fresh.Templates
 	c.SubPages, c.Views, c.Properties, c.ActiveView = fresh.SubPages, fresh.Views, fresh.Properties, fresh.ActiveView
 	c.Query = fresh.Query
-	c.JournalFormat, c.Banner = fresh.JournalFormat, fresh.Banner // c.Pinned and c.Order are the sidebar's, not the code tab's
-	// c.Journal stays as it is: the code tab does not take it away
+	c.JournalFormat, c.Banner = fresh.JournalFormat, fresh.Banner // c.Pinned and c.Order are the sidebar's, not the settings'
+	// c.Journal stays as it is: the settings do not take it away
 	if c.Name == "" {
 		c.Name = "Adsız koleksiyon"
 	}
