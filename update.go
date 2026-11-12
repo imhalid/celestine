@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/imhalid/celestine/locales"
@@ -244,10 +245,30 @@ const (
 
 // ---- downloading and putting in place ----
 
+// updProgress is how far a download is: the bytes come in, and the bytes it has, 0 when that is not told. The
+// download writes it and the chip reads it, each on its own goroutine.
+type updProgress struct{ got, size atomic.Int64 }
+
+// Write counts the bytes as they come in.
+func (u *updProgress) Write(b []byte) (int, error) {
+	u.got.Add(int64(len(b)))
+	return len(b), nil
+}
+
+// frac is how far it is, 0 to 1, or -1 when its size is not told.
+func (u *updProgress) frac() float32 {
+	n := u.size.Load()
+	if n <= 0 {
+		return -1
+	}
+	return float32(min(float64(u.got.Load())/float64(n), 1))
+}
+
 // download takes the release's asset for this system into a new file in dir, checking its size, hash and
 // signature. dir is the caller's own (updateDir): beside the program, so the file is renamed into place on one
-// filesystem, and closed to anyone else, so what was checked is what is put in place.
-func download(ctx context.Context, rel *Release, pubKey, dir string) (string, Asset, error) {
+// filesystem, and closed to anyone else, so what was checked is what is put in place. prog, when given, counts it
+// as it comes.
+func download(ctx context.Context, rel *Release, pubKey, dir string, prog *updProgress) (string, Asset, error) {
 	as, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]
 	if !ok {
 		return "", as, errors.New(locales.UpdateErrNoBuild())
@@ -277,7 +298,17 @@ func download(ctx context.Context, rel *Release, pubKey, dir string) (string, As
 	if as.Size > 0 {
 		limit = as.Size + 1
 	}
-	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(resp.Body, limit))
+	var w io.Writer = io.MultiWriter(f, h)
+	if prog != nil {
+		size := as.Size
+		if size <= 0 {
+			size = resp.ContentLength
+		}
+		prog.got.Store(0)
+		prog.size.Store(size)
+		w = io.MultiWriter(f, h, prog)
+	}
+	n, err := io.Copy(w, io.LimitReader(resp.Body, limit))
 	f.Close()
 	if err != nil {
 		os.Remove(tmp)
@@ -500,7 +531,7 @@ func (a *app) startUpdate() {
 		defer os.RemoveAll(dir)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		file, _, err := download(ctx, rel, pub, dir)
+		file, _, err := download(ctx, rel, pub, dir, &a.updProg)
 		var old, target string
 		if err == nil {
 			if bundle != "" {
@@ -523,8 +554,7 @@ func (a *app) startUpdate() {
 			}
 			a.settings.UpdateNotes, a.settings.UpdateFor = rel.Notes, rel.Version
 			a.saveSettings()
-			a.updState = updReady
-			a.updOpen = true
+			a.updState = updReady // the card, if it is open, says restart; else the chip does
 			return nil
 		})
 	}()

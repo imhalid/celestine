@@ -160,7 +160,7 @@ func TestDownloadChecks(t *testing.T) {
 	file := []byte("yeni program baytları")
 	srv, rel := releaseServer(t, priv, "v2.0.0", file, nil)
 	dir := t.TempDir()
-	path, _, err := download(context.Background(), rel, pub, dir)
+	path, _, err := download(context.Background(), rel, pub, dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestDownloadChecks(t *testing.T) {
 		a := r.Assets[key]
 		mut(&a)
 		r.Assets[key] = a
-		if p, _, err := download(context.Background(), &r, pubKey, t.TempDir()); err == nil {
+		if p, _, err := download(context.Background(), &r, pubKey, t.TempDir(), nil); err == nil {
 			t.Errorf("%s: accepted (%s)", name, p)
 		}
 	}
@@ -211,7 +211,7 @@ func TestUpdateDirBesideTheProgram(t *testing.T) {
 	if st, _ := os.Stat(dir); runtime.GOOS != "windows" && st.Mode().Perm() != 0o700 {
 		t.Fatalf("open to others: %v", st.Mode())
 	}
-	file, _, err := download(context.Background(), rel, pub, dir)
+	file, _, err := download(context.Background(), rel, pub, dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14365,6 +14365,22 @@ func (msgs Messages) UpdateBadgeReady() string {
 	return Catalog.Format(msgs.locale, "update_badgeReady", nil)
 }
 
+// UpdateChipRestart says "Restart needed"
+// in the language the app shows.
+//
+// The chip at the top right once the new version is in place: a click
+// restarts.
+func UpdateChipRestart() string { return In(i18n.Locale()).UpdateChipRestart() }
+
+// UpdateChipRestart says "Restart needed"
+// in the language of msgs.
+//
+// The chip at the top right once the new version is in place: a click
+// restarts.
+func (msgs Messages) UpdateChipRestart() string {
+	return Catalog.Format(msgs.locale, "update_chipRestart", nil)
+}
+
 // UpdateBeta says "Beta versions"
 // in the language the app shows.
 func UpdateBeta() string { return In(i18n.Locale()).UpdateBeta() }

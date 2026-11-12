@@ -41,16 +41,19 @@ func (a *app) updChipShown() bool {
 	return !phone && (a.updRel != nil || a.updState != updIdle) && !a.updPanelOpen() && !a.updNotes
 }
 
-// The chip's green, while the version comes in and once it is in place: its own, for white words on it in light
-// and in dark.
+// The chip's colors: green while the version comes in, for white words on it in light and in dark; and gray once
+// it is in place, waiting only for a restart.
 var (
 	updGreen400 = ui.RGB(74, 205, 112)
 	updGreen600 = ui.RGB(30, 146, 72)
+	updGray400  = ui.RGB(158, 162, 170)
+	updGray600  = ui.RGB(112, 116, 126)
 )
 
 // updateChip is the chip of a waiting version, in the header's right end, by the side panel's button. It unfolds
-// as the card does once the card is closed. A click updates: the chip turns green where it is and a light runs
-// along it while the version comes in; once it is in place, a click restarts.
+// from the top down once the card is closed. A click updates where it is: it turns green, a ring in place of its
+// mark fills as the version comes in and the chip fills with it; once the version is in place it is gray and says
+// restart, and a click restarts.
 func (a *app) updateChip(c *ui.Context) {
 	if !a.updChipShown() {
 		a.updChipAt = time.Time{}
@@ -65,55 +68,57 @@ func (a *app) updateChip(c *ui.Context) {
 	if k < 1 {
 		c.AnimationFrame()
 	}
-	cl := ryugo.From(c).Colors
-	busy := a.updState == updDownloading
+	busy, ready := a.updState == updDownloading, a.updState == updReady
 	label := locales.UpdateBadge()
-	switch a.updState {
-	case updDownloading:
+	switch {
+	case busy:
 		label = locales.UpdateDownloading()
-	case updReady:
-		label = locales.UpdateBadgeReady()
+	case ready:
+		label = locales.UpdateChipRestart()
 	}
 	const h = 22
-	b := ui.Row(c.Key("upd-chip")).Height(h).Padding(0, 10, 0, 7).Gap(5).AlignItems(ui.Center).Radius(h / 2).
-		Role(ui.RoleButton).Label(label).Shrink(0)
+	b := ui.Row(c.Key("upd-chip")).Height(h).Padding(0, 10, 0, 6).Gap(5).AlignItems(ui.Center).Radius(h/2).
+		Role(ui.RoleButton).Label(label).Shrink(0).Shadow(0, 1, 2, 0, black.Alpha(0.16))
 	if !busy {
 		b.Cursor(ui.CursorPointer)
 	}
-	// g is how green it is: 0 while it waits, 1 once the update is asked for, turning on a spring
-	g := b.AnimateTo("green", map[bool]float32{true: 1}[a.updState != updIdle], springSheet)
-	top, bottom := cl.ColorAccent400.Mix(updGreen400, g), cl.ColorAccent600.Mix(updGreen600, g)
-	b.Shadow(0, 2, 8, -1, bottom.Alpha(0.45))
+	// g is how green it is and q how gray, each turning on a spring as the update goes on
+	g := b.AnimateTo("green", map[bool]float32{true: 1}[busy], springSheet)
+	q := b.AnimateTo("gray", map[bool]float32{true: 1}[ready], springSheet)
+	cl := ryugo.From(c).Colors
+	top := cl.ColorAccent400.Mix(updGreen400, g).Mix(updGray400, q)
+	bottom := cl.ColorAccent600.Mix(updGreen600, g).Mix(updGray600, q)
+	f := a.updProg.frac()
 	hover := b.Hovered() && !busy
 	b.Draw(func(p *ui.Painter, r ui.Rect) {
 		top, bottom := top, bottom
 		if hover {
 			top, bottom = top.Mix(white, 0.12), bottom.Mix(white, 0.08)
 		}
-		// the body: lighter at the top, as a button's face
-		p.FillGradient(r, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
-		// the gloss: a light on its upper half, as on glass
-		gloss := ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H*0.5 - 1}
-		p.FillGradient(gloss, ui.LinearGradient{From: white.Alpha(0.38), To: white.Alpha(0.04), Angle: 180}, h/2-1)
-		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55), h/2, 1)
-		p.Line(r.X+h/2, r.Y+1.5, r.X+r.W-h/2, r.Y+1.5, 1, white.Alpha(0.45)) // its top edge catches the light
-		// the progress: a capsule of light going along it, as the size is not told yet (#323)
-		if busy {
-			t := float32(p.Now().Sub(a.updChipAt).Seconds()) / 1.1
-			t -= float32(int(t))
-			w := r.W * 0.4
-			x0, x1 := max(r.X+(r.W+w)*t-w, r.X+1), min(r.X+(r.W+w)*t, r.X+r.W-1)
-			if x1 > x0 {
-				p.FillGradient(ui.Rect{X: x0, Y: r.Y + 2, W: x1 - x0, H: r.H - 4},
-					ui.LinearGradient{From: white.Alpha(0.05), To: white.Alpha(0.42), Angle: 90}, h/2-2)
+		if busy { // the track: the green, dimmed; what has come in fills it from the left
+			p.FillGradient(r, ui.LinearGradient{From: top.Mix(black, 0.32), To: bottom.Mix(black, 0.32), Angle: 180, Oklab: true}, h/2)
+			part := ui.Rect{X: r.X, Y: r.Y, W: r.W * f, H: r.H}
+			if f < 0 { // the size is not told: a part of it runs along
+				t := float32(p.Now().Sub(a.updChipAt).Seconds()) / 1.2
+				t -= float32(int(t))
+				part = ui.Rect{X: r.X + r.W*1.4*t - r.W*0.4, Y: r.Y, W: r.W * 0.4, H: r.H}
 			}
+			p.Clip(r, h/2, func() {
+				p.FillGradient(part, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, 0)
+			})
 			if updShaders {
 				p.AnimationFrame()
 			}
-			return
+		} else { // the body: lighter at the top, as a button's face
+			p.FillGradient(r, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
 		}
-		// the light runs while it runs; between two passes the chip asks for no frame
-		if updShaders && k >= 1 {
+		// the gloss: a light on its upper half, as on glass
+		gloss := ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H*0.5 - 1}
+		p.FillGradient(gloss, ui.LinearGradient{From: white.Alpha(0.34), To: white.Alpha(0.04), Angle: 180}, h/2-1)
+		p.Stroke(r, bottom.Mix(black, 0.25).Alpha(0.55), h/2, 1)
+		p.Line(r.X+h/2, r.Y+1.5, r.X+r.W-h/2, r.Y+1.5, 1, white.Alpha(0.45)) // its top edge catches the light
+		// the light runs while it waits; between two passes the chip asks for no frame
+		if updShaders && k >= 1 && !busy && !ready {
 			if t := p.Now().Sub(a.updChipAt) % (updSweep + updRest); t < updSweep {
 				p.AnimationFrame()
 			} else {
@@ -122,33 +127,90 @@ func (a *app) updateChip(c *ui.Context) {
 		}
 	})
 	switch {
-	case k < 1 && updShaders: // it unfolds from the top down, as the card did
+	case k < 1 && updShaders: // it unfolds from the top down, behind a thin lit edge
 		b.Disabled(true).DimDisabled(false)
-		b.Effect(updPanelShader.Effect(shader.Options{
-			Uniforms:        map[string]any{"Open": k, "Radius": float32(h / 2), "Time": float32(since.Seconds()), "Tone": bottom},
-			MaxSampleOffset: ui.Point{X: 8, Y: 8},
-		}))
+		b.Effect(updChipShader.Effect(shader.Options{Uniforms: map[string]any{"Open": k}}))
 	case k < 1:
 		b.Disabled(true).DimDisabled(false).Opacity(k)
-	case updShaders && !busy:
+	case updShaders && !busy && !ready:
 		t := since % (updSweep + updRest)
 		b.Effect(updBadgeShader.Effect(shader.Options{Uniforms: map[string]any{
 			"Head": float32(t.Seconds() / updSweep.Seconds()), "Radius": float32(h / 2)}}))
 	}
 	b.Children(func() {
-		ui.Icon(c, iconUpdate).Width(13).Height(13).TextColor(cl.OnAccent)
+		if busy {
+			a.updRing(c, f)
+		} else {
+			ui.Icon(c, iconUpdate).Width(13).Height(13).TextColor(white)
+		}
 		ui.Text(c, label).FontSize(11.5).FontWeight(680).TextColor(white).NoWrap()
 	})
 	if b.Clicked() {
 		switch a.updState {
 		case updIdle:
 			a.updErr = ""
+			a.updProg.got.Store(0)
+			a.updProg.size.Store(0)
 			a.startUpdate()
 		case updReady:
 			a.restartApp()
 		}
 	}
 }
+
+// updRing is the chip's mark while the version comes in: a small ring that fills from the top as f goes to 1, or
+// a part of it turning while the size is not told (f < 0).
+func (a *app) updRing(c *ui.Context, f float32) {
+	ring := ui.Box(c.Key("upd-ring")).Width(13).Height(13).Shrink(0)
+	ring.Draw(func(p *ui.Painter, r ui.Rect) {
+		cx, cy, rr := r.X+r.W/2, r.Y+r.H/2, r.W/2-1.5
+		p.StrokePath((&ui.Path{}).Circle(cx, cy, rr), 2, white.Alpha(0.3))
+		from, to := float32(0), f
+		if f < 0 {
+			t := float32(p.Now().Sub(a.updChipAt).Seconds()) * 1.4
+			from = t - float32(int(t))
+			to = from + 0.3
+		}
+		arc := ringFromTop(cx, cy, rr)
+		if to > 1 { // past the top: the part from the start too
+			p.StrokePath(ringFromTop(cx, cy, rr).Trim(0, to-1), 2, white)
+			to = 1
+		}
+		if to > from {
+			p.StrokePath(arc.Trim(from, to), 2, white)
+		}
+	})
+}
+
+// ringFromTop is a circle that starts at its top and goes clockwise, so a trim of it fills as a clock's hand goes.
+func ringFromTop(cx, cy, r float32) *ui.Path {
+	const k = 0.5522847498
+	p := &ui.Path{}
+	p.MoveTo(cx, cy-r)
+	p.CubeTo(cx+r*k, cy-r, cx+r, cy-r*k, cx+r, cy)
+	p.CubeTo(cx+r, cy+r*k, cx+r*k, cy+r, cx, cy+r)
+	p.CubeTo(cx-r*k, cy+r, cx-r, cy+r*k, cx-r, cy)
+	p.CubeTo(cx-r, cy-r*k, cx-r*k, cy-r, cx, cy-r)
+	return p
+}
+
+// updChipShader unfolds the chip from the top down as Open goes from 0 to 1, behind a thin white edge. Nothing is
+// drawn past the chip itself: no glow around it.
+var updChipShader = shader.MustCompile(`package main
+
+var Open float
+
+func LayerEffect(pos vec2) vec4 {
+	sz := rectSize()
+	col := layerSample(pos)
+	edge := -3 + (sz.y+6)*Open
+	shown := smoothstep(edge+1.5, edge-1.5, pos.y)
+	d := (pos.y - edge) / 1.4
+	line := exp(-d*d) * (1 - smoothstep(0.8, 1.0, Open)) * col.a * 0.85
+	out := col * shown
+	return vec4(out.rgb+vec3(line), max(out.a, line))
+}
+`)
 
 // updChipUnfold is how long the chip takes to open: a little quicker than the card, as it is smaller.
 var updChipUnfold = 700 * time.Millisecond
@@ -167,9 +229,9 @@ func LayerEffect(pos vec2) vec4 {
 		return col
 	}
 	u := pos.x - (pos.y-sz.y*0.5)*0.9 // slanted
-	head := -24 + (sz.x+48)*Head
-	d := (u - head) / 9
-	band := exp(-d*d) * 0.75
+	head := -40 + (sz.x+80)*Head
+	d := (u - head) / 15
+	band := exp(-d*d) * 0.55
 	tail := exp(-max(head-u, 0)/36) * step(u, head) * 0.12 // a little light left behind it
 	light := (band + tail) * col.a
 	return vec4(mix(col.rgb, vec3(col.a), light), col.a)

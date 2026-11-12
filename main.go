@@ -145,6 +145,7 @@ type app struct {
 	updState    updateState // where an update the user asked for is
 	updChipAt   time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
 	updPanelAt  time.Time   // when the update card began to open
+	updProg     updProgress // how far the download is
 	updRel      *Release    // the newer version found
 	updAuto     bool        // a check found a release and the settings say to put it in place
 	updNotes    bool        // the dialog shows the notes of the version installed, not a new one
