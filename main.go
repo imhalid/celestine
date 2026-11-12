@@ -738,7 +738,7 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
 	radiusScale = float32(a.cornerPercent()) / 100
 	// Ryugo's theme, its components' tokens, for the appearance; a pressed button's wave as the settings say
-	opts := ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale(), Waves: !a.settings.NoWaves}
+	opts := ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale(), Waves: !a.settings.NoWaves && !fx.still}
 	tok := ryugo.Root(c, opts)
 	if a.appTheme().colors(tok.Dark).bg != "" { // and in the app's theme: the same appearance, in its colors
 		opts.Mode, opts.Accent = map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], a.accentOf(tok.Dark)

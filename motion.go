@@ -34,27 +34,48 @@ func (a *app) motionFrame(c *ui.Context) {
 	}
 }
 
-// settingsMotion is the appearance's section of motion: reduce motion, and the shader effects.
+// settingsMotion is the appearance's section of motion: reduce motion, and the shader effects. With reduced motion the
+// shaders do not run whatever is set, so their switch is not shown (#405).
 func (a *app) settingsMotion(c *ui.Context) {
 	still := a.settings.ReduceMotion
 	effects := !a.settings.NoShaders
-	settingGroup(c, "set-motion",
-		func() {
-			settingRow(c, locales.SettingsReduceMotion(), locales.SettingsReduceMotionHelp(), func() {
-				ryugo.Switch(c.Key("set-motion-still"), &still, ryugo.SwitchOptions{}).Label(locales.SettingsReduceMotion())
-			})
-		},
-		func() {
+	rows := []func(){func() {
+		settingRow(c, locales.SettingsReduceMotion(), locales.SettingsReduceMotionHelp(), func() {
+			ryugo.Switch(c.Key("set-motion-still"), &still, ryugo.SwitchOptions{}).Label(locales.SettingsReduceMotion())
+		})
+	}}
+	if !fx.still {
+		rows = append(rows, func() {
 			settingRow(c, locales.SettingsShaderEffects(), locales.SettingsShaderEffectsHelp(), func() {
 				ryugo.Switch(c.Key("set-motion-shaders"), &effects, ryugo.SwitchOptions{}).Label(locales.SettingsShaderEffects())
 			})
 		})
+	}
+	settingGroup(c, "set-motion", rows...)
 	if still != a.settings.ReduceMotion {
 		a.settings.ReduceMotion = still
 		a.saveSettings()
 	}
 	if effects == a.settings.NoShaders {
 		a.settings.NoShaders = !effects
+		a.saveSettings()
+	}
+}
+
+// settingsWaves is the switch of the waves a pressed button sends; with reduced motion they are not sent whatever is
+// set, and the switch is not shown (#405).
+func (a *app) settingsWaves(c *ui.Context) {
+	if fx.still {
+		return
+	}
+	waves := !a.settings.NoWaves
+	settingGroup(c, "set-waves", func() {
+		settingRow(c, locales.CommonPressWaves(), locales.SettingsAPressedButtonSends(), func() {
+			ryugo.Switch(c.Key("set-waves-sw"), &waves, ryugo.SwitchOptions{}).Label(locales.CommonPressWaves())
+		})
+	})
+	if waves != !a.settings.NoWaves {
+		a.settings.NoWaves = !waves
 		a.saveSettings()
 	}
 }

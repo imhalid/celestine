@@ -6,8 +6,8 @@ import (
 	"github.com/imhalid/celestine/locales"
 )
 
-// TestReducedMotionCaret: with reduced motion the gear's menu has no caret list, and the editor's caret card folds to a
-// line that says why (#402).
+// TestReducedMotionCaret: with reduced motion the gear's menu has no caret list, the editor has no caret card, and the
+// switches of the shaders and the ripple are not shown (#402, #405).
 func TestReducedMotionCaret(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	has := func() bool {
@@ -30,8 +30,13 @@ func TestReducedMotionCaret(t *testing.T) {
 	if has() {
 		t.Fatal("a caret list with reduced motion")
 	}
-	if !tt.HasText(locales.SettingsCaretStill()) || tt.HasText(msg(caretName(caretSlime))) {
+	if tt.HasText(msg(caretName(caretSlime))) {
 		t.Fatalf("the caret card: %v", tt.Texts())
+	}
+	a.settingsTab = 0
+	tt.Frame()
+	if !tt.HasText(locales.SettingsReduceMotion()) || tt.HasText(locales.SettingsShaderEffects()) || tt.HasText(locales.CommonPressWaves()) {
+		t.Fatalf("the motion's switches: %v", tt.Texts())
 	}
 }
 

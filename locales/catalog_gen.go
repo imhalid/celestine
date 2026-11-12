@@ -9927,16 +9927,6 @@ func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
 }
 
-// SettingsCaretStill says "Carets aren't used while Reduce motion is on: the caret is a plain line."
-// in the language the app shows.
-func SettingsCaretStill() string { return In(i18n.Locale()).SettingsCaretStill() }
-
-// SettingsCaretStill says "Carets aren't used while Reduce motion is on: the caret is a plain line."
-// in the language of msgs.
-func (msgs Messages) SettingsCaretStill() string {
-	return Catalog.Format(msgs.locale, "settings_caretStill", nil)
-}
-
 // SettingsReduceMotion says "Reduce motion"
 // in the language the app shows.
 func SettingsReduceMotion() string { return In(i18n.Locale()).SettingsReduceMotion() }

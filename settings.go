@@ -365,16 +365,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.saveSettingsSoon()
 	}
 	a.settingsMotion(c) // reduce motion, the shader effects (motion.go)
-	waves := !a.settings.NoWaves
-	settingGroup(c, "set-waves", func() {
-		settingRow(c, locales.CommonPressWaves(), locales.SettingsAPressedButtonSends(), func() {
-			ryugo.Switch(c.Key("set-waves-sw"), &waves, ryugo.SwitchOptions{}).Label(locales.CommonPressWaves())
-		})
-	})
-	if waves != !a.settings.NoWaves {
-		a.settings.NoWaves = !waves
-		a.saveSettings()
-	}
+	a.settingsWaves(c)
 	card := !a.settings.NoSidebarCard
 	settingGroup(c, "set-sidebar-card", func() {
 		settingRow(c, locales.SettingsSidebarCard(), locales.SettingsSidebarCardHelp(), func() {
@@ -436,9 +427,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 func (a *app) settingsEditor(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	caret := int(a.caretKind)
-	if fx.still { // reduced motion: the caret is plain, and the jelly and the pointer's effect do not move; the card folds (#402)
-		settingGroup(c, "set-caret", func() { settingRow(c, locales.Caret(), locales.SettingsCaretStill(), func() {}) })
-	} else {
+	if !fx.still { // reduced motion: the caret is plain, and the jelly and the pointer's effect do not move: no card (#402, #405)
 		a.settingsCaret(c, cl, &caret)
 	}
 	if caret != int(a.caretKind) {

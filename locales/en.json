@@ -1095,7 +1095,6 @@
   "setTheNewPassword": "Set new password",
   "settings2": "Settings…",
   "settingsFile": "Settings file",
-  "settings_caretStill": "Carets aren't used while Reduce motion is on: the caret is a plain line.",
   "settings_reduceMotion": "Reduce motion",
   "settings_reduceMotionHelp": "Animations go straight to their end, and the caret, the welcome and the notices don't move. On by itself when the system asks for less motion.",
   "settings_shaderEffects": "Shader effects",
