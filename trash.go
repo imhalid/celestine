@@ -76,17 +76,11 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 		c.Key("trash-row")
 		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTrash()).Role(ui.RoleButton).Transition(rowMove)
-		switch {
-		case a.trashOpen:
-			r.Background(t.Selection)
-		case r.Hovered():
-			r.Background(t.SurfaceHover)
-		default:
-			r.Background(t.Surface.Alpha(0))
-		}
+		st := navRowState(a.trashOpen, r.Hovered())
+		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
-			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, locales.CommonTrash()).FontSize(13.5).Grow(1)
+			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(iconC)
+			ui.Text(c, locales.CommonTrash()).FontSize(14).TextColor(textC).Grow(1)
 			if n := len(a.trashItems); n > 0 {
 				ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
 			}
@@ -164,8 +158,18 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 
 // tasksRow is the task view's row, above the trash's, with how many tasks are late
 // or due today: thousands open say nothing, a day's say what is to be done.
+// navRowState is the state of a row of the sidebar that opens a screen (Tasks, Trash): open while it shows.
+func navRowState(open, hovered bool) rowState {
+	switch {
+	case open:
+		return rowOpen
+	case hovered:
+		return rowHover
+	}
+	return rowRest
+}
+
 func (a *app) tasksRow(c *ui.Context) {
-	t := c.Theme()
 	late, today := 0, 0
 	start := startOfDay(a.clock())
 	for _, k := range a.links.tasks {
@@ -180,17 +184,11 @@ func (a *app) tasksRow(c *ui.Context) {
 	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
 		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTasks()).Role(ui.RoleButton).Transition(rowMove)
-		switch {
-		case a.tasksOpen:
-			r.Background(t.Selection)
-		case r.Hovered():
-			r.Background(t.SurfaceHover)
-		default:
-			r.Background(t.Surface.Alpha(0))
-		}
+		st := navRowState(a.tasksOpen, r.Hovered())
+		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
-			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(t.TextMuted)
-			ui.Text(c, locales.CommonTasks()).FontSize(13.5).Grow(1)
+			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(iconC)
+			ui.Text(c, locales.CommonTasks()).FontSize(14).TextColor(textC).Grow(1)
 			switch {
 			case late > 0:
 				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(late+today), ryugo.ToneUp)

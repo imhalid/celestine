@@ -44,7 +44,9 @@ var (
 )
 
 // branch is the column of a collection's or a page's children: clipped as
-// it unfolds and folds, but not while rows are dragged out of it and in.
+// it unfolds and folds, but not while rows are dragged out of it and in. The
+// clip reaches a little past its sides and its foot, so that the open row's
+// shadow is not cut off at them, and only its square corners left showing.
 func (a *app) branch(c *ui.Context) ui.Element {
 	e := ui.Column(c)
 	if a.drag.settle {
@@ -53,7 +55,7 @@ func (a *app) branch(c *ui.Context) ui.Element {
 		e.Transition(branch)
 	}
 	if !a.moving() {
-		e.Clip()
+		e.ClipInset(-2, -12, -10, -12, 0)
 	}
 	return e
 }
@@ -167,7 +169,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			}
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, locales.SidebarCollections()).FontSize(11).FontWeight(650).TextColor(t.TextMuted).Grow(1)
+					ui.Text(c, locales.SidebarCollections()).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(t.TextMuted).Grow(1)
 					if a.iconButton(c, iconCollapseAll, locales.SidebarCollapseAll()) {
 						a.collapseAll()
 					}
@@ -230,6 +232,43 @@ type rowSpec struct {
 	menu       func() []menuItem // what a right click offers
 }
 
+// rowState is how a row of the sidebar stands: at rest, under the pointer, or the one open.
+type rowState int
+
+const (
+	rowRest rowState = iota
+	rowHover
+	rowOpen
+)
+
+// sideRowLook gives a row of the sidebar the look of its state, and returns its words' and its icon's colors. At
+// rest the row is bare and its words a step toward the muted. Under the pointer the ground lifts a breath. The open
+// row is a plain chip a step above the sidebar, lit from the top (a line of light inside its upper edge, a rim that
+// fades from it downward) and with a soft shadow under it; its words full, no color of its own.
+func sideRowLook(c *ui.Context, r ui.Element, st rowState) (text, icon ui.Color) {
+	t := c.Theme()
+	none := t.Text.Alpha(0)
+	switch st {
+	case rowOpen:
+		if t.Dark {
+			r.Background(ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.075)).
+				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.10), To: ui.RGBA(255, 255, 255, 0.025), Angle: 180}).
+				InsetShadow(0, 1, 0, 0, ui.RGBA(255, 255, 255, 0.05)).
+				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.10))
+		} else {
+			r.Background(ui.RGB(255, 255, 255)).
+				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: ui.RGBA(0, 0, 0, 0.04), To: ui.RGBA(0, 0, 0, 0.09), Angle: 180}).
+				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.025)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.025))
+		}
+		return t.Text, t.Text
+	case rowHover:
+		r.Background(t.Text.Alpha(0.04)).Border(1, none)
+		return t.Text, ryugo.Mix(t.TextMuted, t.Text, 0.85)
+	}
+	r.Background(none).Border(1, none)
+	return ryugo.Mix(t.TextMuted, t.Text, 0.6), ryugo.Mix(t.TextMuted, t.Text, 0.75)
+}
+
 // treeRow is a row of the tree: its chevron, icon and name - a field when
 // it is being renamed - and a + that shows while the row is hovered. A right
 // click opens its menu. It reports a click on the row, the chevron and the +.
@@ -268,30 +307,33 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 			a.collDrag(r, x)
 		}
 	}
+	st := rowRest
 	switch {
-	case renaming:
-		r.Background(a.pageBg).Border(1, t.Accent)
 	case s.selected:
-		r.Background(ryugo.Mix(t.Surface, ryugo.From(c).Colors.Accent, 0.24)) // a tint, not the loud selection color
+		st = rowOpen
 	case hover:
-		r.Background(t.SurfaceHover)
-	default:
-		r.Background(t.Surface.Alpha(0)) // a color to fade from
+		st = rowHover
+	}
+	textC, iconC := sideRowLook(c, r, st)
+	if renaming {
+		r.Background(a.pageBg).Border(1, t.Accent)
 	}
 	r.Children(func() {
 		chev = a.chevron(c, s.has, s.open)
-		tint := t.TextMuted
-		if s.tint != nil {
-			tint = *s.tint
+		if s.tint != nil { // a collection's own color
+			iconC = *s.tint
 		}
-		ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(tint)
+		ui.Icon(c, s.glyph).Width(15).Height(15).TextColor(iconC)
 		if renaming {
 			a.renameField(c)
 			return
 		}
-		tx := ui.Text(c, s.name).FontSize(13.5).MaxLines(1).Grow(1)
-		if s.strong {
-			tx.FontWeight(620)
+		tx := ui.Text(c, s.name).FontSize(14).MaxLines(1).Grow(1).TextColor(textC)
+		switch {
+		case s.strong: // a collection: a heading of the tree
+			tx.FontWeight(600)
+		case st == rowOpen:
+			tx.FontWeight(540)
 		}
 		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
 			c.Key("pin:" + s.key)
