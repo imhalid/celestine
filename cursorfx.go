@@ -70,7 +70,7 @@ func (a *app) cursorFXView(c *ui.Context, root ui.Element) {
 	if a.settings.CursorFX != s.name {
 		s.name, s.fx, s.last = a.settings.CursorFX, cursorFXNamed(a.settings.CursorFX), time.Time{}
 	}
-	if s.fx == nil || phone {
+	if s.fx == nil || phone || fx.still { // reduced motion: no effect follows the pointer (#402)
 		return
 	}
 	x, y, over := root.PointerPosition()

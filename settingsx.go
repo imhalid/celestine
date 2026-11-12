@@ -128,7 +128,8 @@ func tabOfField(f string) int {
 		return tabLibrary
 	case f == "hideSaved" || f == "showChars" || f == "showPos" || f == "hideStatus":
 		return tabStatus
-	case f == "theme" || f == "appTheme" || f == "pageWidth" || f == "corner" || f == "lang":
+	case f == "theme" || f == "appTheme" || f == "pageWidth" || f == "corner" || f == "lang" ||
+		f == "reduceMotion" || f == "noShaders" || f == "noWaves" || f == "noSidebarCard":
 		return tabAppearance
 	}
 	return tabEditor
@@ -372,12 +373,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 			ui.Text(c, locales.SettingsNoSettingMatches()).FontSize(13).TextColor(cl.Muted)
 			return true
 		}
-		var rows []func()
-		for _, d := range res {
-			d := d
-			rows = append(rows, func() { a.settingLine(c, d, false) })
-		}
-		settingGroup(c, "set-found", rows...)
+		a.settingLines(c, "set-found", res, false)
 		return true
 	case a.setMode == "changed":
 		ch := a.changedDefs()
@@ -388,12 +384,7 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 		if ryugo.Button(c.Key("reset-all"), locales.SettingsResetAllCount(len(ch)), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			a.resetAllAsked()
 		}
-		var rows []func()
-		for _, d := range ch {
-			d := d
-			rows = append(rows, func() { a.settingLine(c, d, true) })
-		}
-		settingGroup(c, "set-changed", rows...)
+		a.settingLines(c, "set-changed", ch, true)
 		return true
 	case a.setMode == "profiles":
 		a.settingsProfiles(c)
@@ -427,11 +418,38 @@ func (a *app) settingsExtra(c *ui.Context) bool {
 	return false
 }
 
+// settingLines is a list of settings grouped by their section (#403): each section's name over a card of its own, the
+// sections in the order of their first setting in defs, so the best match stays at the top. key names the cards.
+func (a *app) settingLines(c *ui.Context, key string, defs []settingDef, withReset bool) {
+	cl := ryugo.From(c).Colors
+	var tabs []int
+	by := map[int][]settingDef{}
+	for _, d := range defs {
+		tab := tabOfField(d.fields[0])
+		if _, ok := by[tab]; !ok {
+			tabs = append(tabs, tab)
+		}
+		by[tab] = append(by[tab], d)
+	}
+	ui.Column(c).FillWidth().Gap(18).Children(func() {
+		for _, tab := range tabs {
+			ui.Column(c).FillWidth().Gap(8).Children(func() {
+				ui.Text(c, msg(settingsSections[tab].name)).FontSize(ryugo.FsSm).FontWeight(650).TextColor(cl.Muted).Margin(0, 0, 0, 6)
+				var rows []func()
+				for _, d := range by[tab] {
+					rows = append(rows, func() { a.settingLine(c, d, withReset) })
+				}
+				settingGroup(c, key+"-"+itoa(tab), rows...)
+			})
+		}
+	})
+}
+
 // settingLine is a setting in a list, with a control that is enough, where it is, and its way back.
 func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 	cl := ryugo.From(c).Colors
 	tab := tabOfField(d.fields[0])
-	where := msg(settingsSections[tab].name) + " · ⌘P › " + msg(d.name)
+	where := "⌘P › " + msg(d.name) // its section is the heading over its card
 	settingRow(c, d.name, where, func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			switch d.kind {

@@ -1,6 +1,9 @@
 package main
 
-import "strconv"
+import (
+	"slices"
+	"strconv"
+)
 
 // The settings' dropdown: the gear at the top left opens a short menu of the
 // settings one reaches for most - the look, the color, the caret, the corners -
@@ -19,10 +22,11 @@ func tick(on bool) string {
 	return ""
 }
 
-// quickSettings are the lines of the dropdown.
+// quickSettings are the lines of the dropdown. With reduced motion the caret is plain whatever is chosen, so its list is
+// not one of them (#402).
 func (a *app) quickSettings() []menuItem {
 	look := []string{"common_system", "common_light", "common_dark"}
-	return []menuItem{
+	items := []menuItem{
 		a.into("common_theme", iconTheme, func() []menuItem {
 			var out []menuItem
 			for i, name := range look {
@@ -72,4 +76,8 @@ func (a *app) quickSettings() []menuItem {
 		{title: "sidebar", hint: "⌘\\", glyph: iconSidebar, run: a.toggleSidebar},
 		{title: "allSettings", hint: "⌘,", group: "~", glyph: iconSettings, run: a.openSettings},
 	}
+	if fx.still {
+		items = slices.DeleteFunc(items, func(m menuItem) bool { return m.title == "caret" })
+	}
+	return items
 }

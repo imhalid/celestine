@@ -213,7 +213,8 @@ func settingGroup(c *ui.Context, key string, rows ...func()) {
 	ui.Column(c.Key(key)).FillWidth().Radius(rad(16)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
 		for i, r := range rows {
 			if i > 0 {
-				ui.Box(c.Key(key + "-d" + strconv.Itoa(i))).FillWidth().Height(1).Background(cl.Hairline)
+				// a line between two rows, inset as the rows are, of the text's color: the hairline is lost on a dark well
+				ui.Box(c.Key(key+"-d"+strconv.Itoa(i))).Height(1).Margin(0, 18).AlignSelf(ui.Stretch).Background(cl.Text.Alpha(0.09))
 			}
 			ui.Column(c.Key(key+"-r"+strconv.Itoa(i))).FillWidth().Padding(14, 18).Children(r)
 		}
@@ -429,6 +430,20 @@ func (a *app) settingsAppearance(c *ui.Context) {
 func (a *app) settingsEditor(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	caret := int(a.caretKind)
+	if fx.still { // reduced motion: the caret is plain, and the jelly and the pointer's effect do not move; the card folds (#402)
+		settingGroup(c, "set-caret", func() { settingRow(c, locales.Caret(), locales.SettingsCaretStill(), func() {}) })
+	} else {
+		a.settingsCaret(c, cl, &caret)
+	}
+	if caret != int(a.caretKind) {
+		a.setCaret(caretKind(caret))
+	}
+	a.settingsEditorRest(c, cl)
+}
+
+// settingsCaret is the caret's card: the caret, chosen on tiles and tried over them, the jelly and the pointer's
+// effect. caret is the one chosen.
+func (a *app) settingsCaret(c *ui.Context, cl ryugo.Colors, caret *int) {
 	settingGroup(c, "set-caret",
 		func() {
 			ui.Column(c).FillWidth().Gap(14).Children(func() { // the whole width: the tiles wrap in it, not in a column one tile wide
@@ -440,8 +455,8 @@ func (a *app) settingsEditor(c *ui.Context) {
 				ui.Row(c).FillWidth().Gap(14).Wrap().Children(func() {
 					for k := caretKind(0); k < caretCount(); k++ {
 						k := k
-						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), caret == int(k), func() { a.caretMock(c, k) }) {
-							caret = int(k)
+						if choiceTile(c, "tile-caret"+itoa(int(k)+1), caretName(k), *caret == int(k), func() { a.caretMock(c, k) }) {
+							*caret = int(k)
 						}
 					}
 				})
@@ -476,9 +491,10 @@ func (a *app) settingsEditor(c *ui.Context) {
 				}
 			})
 		})
-	if caret != int(a.caretKind) {
-		a.setCaret(caretKind(caret))
-	}
+}
+
+// settingsEditorRest is the editor's section under the caret's card: the type, the cover and the rest.
+func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 	fs, lh := float64(a.fontSize()), float64(a.lineHeight())
 	settingGroup(c, "set-type",
 		func() {

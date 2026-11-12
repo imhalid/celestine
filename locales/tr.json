@@ -979,6 +979,7 @@
   "setTheNewPassword": "Şifreyi yenile",
   "settings2": "Ayarlar…",
   "settingsFile": "Ayar dosyası",
+  "settings_caretStill": "Hareketi azalt açıkken imleçler kullanılamaz: imleç düz bir çizgidir.",
   "settings_reduceMotion": "Hareketi azalt",
   "settings_reduceMotionHelp": "Animasyonlar doğrudan sonlarına gider; imleç, karşılama ve bildirimler hareket etmez. Sistem daha az hareket istediğinde kendiliğinden açıktır.",
   "settings_shaderEffects": "Shader efektleri",
