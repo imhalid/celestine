@@ -140,9 +140,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	check := !a.settings.UpdateOff
 	quiet := a.settings.UpdateQuiet
-	beta := a.settings.UpdateChannel == "beta"
 	auto := a.settings.UpdateAuto
-	url := a.updateURLOf()
 	status := locales.UpdateStatus(shownVersion(version))
 	switch {
 	case a.updRel != nil:
@@ -176,21 +174,9 @@ func (a *app) settingsUpdate(c *ui.Context) {
 			})
 		},
 		func() {
-			settingRow(c, locales.UpdateBeta(), locales.UpdateBetaHelp(), func() {
-				ryugo.Switch(c.Key("set-upd-beta"), &beta, ryugo.SwitchOptions{}).Label(locales.UpdateBeta())
-			})
-		},
-		func() {
 			settingRow(c, locales.UpdateAuto(), locales.UpdateAutoHelp(), func() {
 				ryugo.Switch(c.Key("set-upd-auto"), &auto, ryugo.SwitchOptions{}).Label(locales.UpdateAuto())
 			})
-		},
-		func() {
-			shown := url
-			if shown == "" {
-				shown = locales.UpdateNoAddress()
-			}
-			settingRow(c, locales.UpdateAddress(), shown, func() {})
 		})
 	if check != !a.settings.UpdateOff {
 		a.settings.UpdateOff = !check
@@ -198,10 +184,6 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	}
 	if quiet != a.settings.UpdateQuiet {
 		a.settings.UpdateQuiet = quiet
-		a.saveSettings()
-	}
-	if beta != (a.settings.UpdateChannel == "beta") {
-		a.settings.UpdateChannel = map[bool]string{true: "beta", false: ""}[beta]
 		a.saveSettings()
 	}
 	if auto != a.settings.UpdateAuto {

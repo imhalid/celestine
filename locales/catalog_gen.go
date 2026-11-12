@@ -11409,16 +11409,6 @@ func (msgs Messages) SpeedDemon() string {
 	return Catalog.Format(msgs.locale, "speedDemon", nil)
 }
 
-// Stable says "Stable"
-// in the language the app shows.
-func Stable() string { return In(i18n.Locale()).Stable() }
-
-// Stable says "Stable"
-// in the language of msgs.
-func (msgs Messages) Stable() string {
-	return Catalog.Format(msgs.locale, "stable", nil)
-}
-
 // StarredTask says "Starred task"
 // in the language the app shows.
 func StarredTask() string { return In(i18n.Locale()).StarredTask() }
@@ -14193,16 +14183,6 @@ func (msgs Messages) TrashThrownAwayPagesCollections() string {
 	return Catalog.Format(msgs.locale, "trash_thrownAwayPagesCollections", nil)
 }
 
-// TrialBeta says "Beta"
-// in the language the app shows.
-func TrialBeta() string { return In(i18n.Locale()).TrialBeta() }
-
-// TrialBeta says "Beta"
-// in the language of msgs.
-func (msgs Messages) TrialBeta() string {
-	return Catalog.Format(msgs.locale, "trialBeta", nil)
-}
-
 // TryAnotherWordOrTakeThe says "Try another word, or remove the filters."
 // in the language the app shows.
 func TryAnotherWordOrTakeThe() string { return In(i18n.Locale()).TryAnotherWordOrTakeThe() }
@@ -14313,16 +14293,6 @@ func (msgs Messages) UpdateAutomatically() string {
 	return Catalog.Format(msgs.locale, "updateAutomatically", nil)
 }
 
-// UpdateChannel says "Update channel"
-// in the language the app shows.
-func UpdateChannel() string { return In(i18n.Locale()).UpdateChannel() }
-
-// UpdateChannel says "Update channel"
-// in the language of msgs.
-func (msgs Messages) UpdateChannel() string {
-	return Catalog.Format(msgs.locale, "updateChannel", nil)
-}
-
 // UpdateCheckInterval says "Update check interval"
 // in the language the app shows.
 func UpdateCheckInterval() string { return In(i18n.Locale()).UpdateCheckInterval() }
@@ -14331,16 +14301,6 @@ func UpdateCheckInterval() string { return In(i18n.Locale()).UpdateCheckInterval
 // in the language of msgs.
 func (msgs Messages) UpdateCheckInterval() string {
 	return Catalog.Format(msgs.locale, "updateCheckInterval", nil)
-}
-
-// UpdateAddress says "Update address"
-// in the language the app shows.
-func UpdateAddress() string { return In(i18n.Locale()).UpdateAddress() }
-
-// UpdateAddress says "Update address"
-// in the language of msgs.
-func (msgs Messages) UpdateAddress() string {
-	return Catalog.Format(msgs.locale, "update_address", nil)
 }
 
 // UpdateAuto says "Download and install automatically"
@@ -14389,26 +14349,6 @@ func UpdateBadgeReady() string { return In(i18n.Locale()).UpdateBadgeReady() }
 // The chip once the new version is in place.
 func (msgs Messages) UpdateBadgeReady() string {
 	return Catalog.Format(msgs.locale, "update_badgeReady", nil)
-}
-
-// UpdateBeta says "Beta versions"
-// in the language the app shows.
-func UpdateBeta() string { return In(i18n.Locale()).UpdateBeta() }
-
-// UpdateBeta says "Beta versions"
-// in the language of msgs.
-func (msgs Messages) UpdateBeta() string {
-	return Catalog.Format(msgs.locale, "update_beta", nil)
-}
-
-// UpdateBetaHelp says "Get notified about beta versions as well as stable ones."
-// in the language the app shows.
-func UpdateBetaHelp() string { return In(i18n.Locale()).UpdateBetaHelp() }
-
-// UpdateBetaHelp says "Get notified about beta versions as well as stable ones."
-// in the language of msgs.
-func (msgs Messages) UpdateBetaHelp() string {
-	return Catalog.Format(msgs.locale, "update_betaHelp", nil)
 }
 
 // UpdateCannotCheck says "This build can't check for updates."
@@ -14681,16 +14621,6 @@ func UpdateNewUpdate() string { return In(i18n.Locale()).UpdateNewUpdate() }
 // in the language of msgs.
 func (msgs Messages) UpdateNewUpdate() string {
 	return Catalog.Format(msgs.locale, "update_newUpdate", nil)
-}
-
-// UpdateNoAddress says "Not set: this build was made without one."
-// in the language the app shows.
-func UpdateNoAddress() string { return In(i18n.Locale()).UpdateNoAddress() }
-
-// UpdateNoAddress says "Not set: this build was made without one."
-// in the language of msgs.
-func (msgs Messages) UpdateNoAddress() string {
-	return Catalog.Format(msgs.locale, "update_noAddress", nil)
 }
 
 // UpdateNoNotes says "No release notes for this version."

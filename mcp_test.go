@@ -357,7 +357,7 @@ func TestMCPCommandsAllowed(t *testing.T) {
 	}{
 		{"biggerText", true}, {"common_settings", true}, {"moveToTrash: Sayfa", true}, {"common_syncNow", true},
 		{locales.CommonResetAllDefaults(), false}, {"settings_readSettingsFile", false}, {"importAMarkdownFolder2", false},
-		{msg("sync4") + ": " + msg("server2"), false}, {"updateChannel: trialBeta", false}, {"common_mcpServer: on", false},
+		{msg("sync4") + ": " + msg("server2"), false}, {"common_mcpServer: on", false},
 	} {
 		var found *palItem
 		for _, it := range a.commands() {
