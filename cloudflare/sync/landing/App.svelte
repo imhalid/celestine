@@ -232,6 +232,14 @@
     -webkit-mask-image: linear-gradient(transparent, #000 45%); mask-image: linear-gradient(transparent, #000 45%); }
   :global(html[data-scheme="dark"]) .foot::before { background-image: var(--foot-dark); }
   @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .foot::before { background-image: var(--foot-dark); } }
+  /* on a phone the pictures sit under the words, not behind them: the hero's is tall enough that its crystals, which stand
+     58% of the way down the picture, clear the download button; the footer's is a band of its own below the waitlist */
+  @media (max-width: 640px) {
+    .hero { padding-bottom: 330px; }
+    .foot { padding-bottom: 300px; }
+    .foot::before { top: auto; height: 300px; background-position: right bottom;
+      -webkit-mask-image: linear-gradient(transparent, #000 30%); mask-image: linear-gradient(transparent, #000 30%); }
+  }
   .meta a { text-decoration: none; } .meta a:hover { color: var(--text); }
   .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 24px; }
   .meta a { color: inherit; }
