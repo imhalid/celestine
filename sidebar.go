@@ -253,27 +253,29 @@ const (
 )
 
 // sideRowLook gives a row of the sidebar the look of its state, and returns its words' and its icon's colors. At
-// rest the row is bare and its words a step toward the muted. Under the pointer the ground lifts a breath. The open
-// row is a plain chip a step above the sidebar, lit from the top (a line of light inside its upper edge, a rim that
-// fades from it downward) and with a soft shadow under it; its words full, no color of its own.
+// rest the row is bare and its words a step toward the muted. Under the pointer the ground takes a light tint of the
+// theme's accent. The open row is a chip a step above the sidebar, tinted a little with the accent, lit from the top
+// (a line of light inside its upper edge, a rim that fades from it downward) and with a soft shadow under it; its
+// words full, its icon the accent.
 func sideRowLook(c *ui.Context, r ui.Element, st rowState) (text, icon ui.Color) {
 	t := c.Theme()
+	accent := ryugo.From(c).Colors.Accent
 	none := t.Text.Alpha(0)
 	switch st {
 	case rowOpen:
 		if t.Dark {
-			r.Background(ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.075)).
+			r.Background(ryugo.Mix(ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.06), accent, 0.14)).
 				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.10), To: ui.RGBA(255, 255, 255, 0.025), Angle: 180}).
 				InsetShadow(0, 1, 0, 0, ui.RGBA(255, 255, 255, 0.05)).
 				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.10))
 		} else {
-			r.Background(ui.RGB(255, 255, 255)).
-				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: ui.RGBA(0, 0, 0, 0.04), To: ui.RGBA(0, 0, 0, 0.09), Angle: 180}).
+			r.Background(ryugo.Mix(ui.RGB(255, 255, 255), accent, 0.07)).
+				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: accent.Alpha(0.10), To: accent.Alpha(0.18), Angle: 180}).
 				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.025)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.025))
 		}
-		return t.Text, t.Text
+		return t.Text, accent
 	case rowHover:
-		r.Background(t.Text.Alpha(0.04)).Border(1, none)
+		r.Background(accent.Alpha(map[bool]float32{false: 0.07, true: 0.12}[t.Dark])).Border(1, none)
 		return t.Text, ryugo.Mix(t.TextMuted, t.Text, 0.85)
 	}
 	r.Background(none).Border(1, none)
