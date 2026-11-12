@@ -9,8 +9,10 @@
 # made all the same, on GitHub alone: the builds do not check for updates, and nothing goes to R2.
 #
 # A v0.x tag, or one with a "-" (v1.2.0-beta.1), is a prerelease. The notes, on GitHub and in the app's "what's
-# new" alike, are the commits since the tag before. changelog.json, every release with its changes grouped and without
-# issue numbers (scripts/release changelog), goes to R2 last: the site's /changelog reads it there, with no deploy.
+# new" alike, are the commits since the tag before. changelog.json, every release with its changes, the new apart from
+# the fixes and without issue numbers (scripts/release changelog), goes to R2 last: the site's /changelog reads it
+# there, with no deploy. An annotated tag gives the release its title and summary on that page:
+#   git tag -a v1.2.0 -m "Quieter sync" -m "Sync asks the server less, and ..."
 name: release
 on:
   push:

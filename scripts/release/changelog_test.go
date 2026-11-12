@@ -32,26 +32,39 @@ func TestCleanTitle(t *testing.T) {
 	}
 }
 
-// TestGroupTitles puts the titles with no area and the areas of one change first, then the areas by size.
-func TestGroupTitles(t *testing.T) {
-	got := groupTitles([]string{
+// TestSortChanges parts the titles into the new and the fixed, keeps their order, and shows a title once.
+func TestSortChanges(t *testing.T) {
+	features, fixes := sortChanges([]string{
 		"Sync: one (#1)",
 		"A headline of its own (#2)",
-		"Tables: alpha (#3)",
-		"Sync: two (#4)",
+		"Tables: the wheel no longer scrolls the cell (#3)",
 		"Tests: hidden (#5)",
 		"Sync: one (#6)",
-		"Paste: Markdown comes in as blocks (#7)",
-		"Tables: beta (#8)",
-		"Tables: gamma (#9)",
+		"Pages: a body that is not JSON is refused (#7)",
+		"open_page takes a path (#8)",
 	})
-	want := []group{
-		{Area: "", Items: []string{"A headline of its own", "Paste: Markdown comes in as blocks"}},
-		{Area: "Tables", Items: []string{"Alpha", "Beta", "Gamma"}},
-		{Area: "Sync", Items: []string{"One", "Two"}},
+	wantF := []change{{"Sync", "One"}, {"", "A headline of its own"}, {"", "open_page takes a path"}}
+	wantX := []change{{"Tables", "The wheel no longer scrolls the cell"}, {"Pages", "A body that is not JSON is refused"}}
+	if !reflect.DeepEqual(features, wantF) || !reflect.DeepEqual(fixes, wantX) {
+		t.Errorf("sortChanges = %+v, %+v\nwant %+v, %+v", features, fixes, wantF, wantX)
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("groupTitles = %+v\nwant %+v", got, want)
+}
+
+// TestMadeTitle names a release by its biggest areas.
+func TestMadeTitle(t *testing.T) {
+	for _, c := range []struct {
+		in   []change
+		want string
+	}{
+		{nil, "Smaller fixes and improvements"},
+		{[]change{{"", "x"}}, "Improvements"},
+		{[]change{{"Sync", "a"}}, "Sync"},
+		{[]change{{"Sync", "a"}, {"Tables", "b"}, {"Tables", "c"}}, "Tables and Sync"},
+		{[]change{{"A", "1"}, {"B", "1"}, {"B", "2"}, {"C", "1"}, {"C", "2"}, {"C", "3"}, {"D", "1"}}, "C, B and A"},
+	} {
+		if got := madeTitle(c.in); got != c.want {
+			t.Errorf("madeTitle(%v) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
 
@@ -60,7 +73,8 @@ func TestGroupTitles(t *testing.T) {
 func TestBuildChangelog(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 11, d, 12, 0, 0, 0, time.UTC) }
 	tags := []tag{
-		{"v1.0.0", day(5)}, {"v0.9.0", day(1)}, {"v1.0.0-beta.1", day(3)}, {"nightly", day(4)}, {"v1.0.1", day(6)},
+		{Name: "v1.0.0", Date: day(5), Subject: "v1.0.0"}, {Name: "v0.9.0", Date: day(1)}, {Name: "v1.0.0-beta.1", Date: day(3)},
+		{Name: "nightly", Date: day(4)}, {Name: "v1.0.1", Date: day(6), Subject: "Quieter sync", Body: "Sync asks less.\n"},
 	}
 	asked := map[string]bool{}
 	titles := func(prev, cur string) ([]string, error) {
@@ -83,19 +97,24 @@ func TestBuildChangelog(t *testing.T) {
 			t.Errorf("the titles of %s were not asked for", r)
 		}
 	}
-	first, beta, stable := c.Releases[3], c.Releases[2], c.Releases[0]
-	if !first.First || !first.Prerelease || len(first.Groups) != 0 {
-		t.Errorf("v0.9.0 = %+v, want the first release, a prerelease, no groups", first)
+	first, beta, one, stable := c.Releases[3], c.Releases[2], c.Releases[1], c.Releases[0]
+	if !first.First || !first.Prerelease || first.Title != "The first release" || len(first.Features) != 0 {
+		t.Errorf("v0.9.0 = %+v, want the first release, a prerelease, no changes", first)
 	}
 	if !beta.Prerelease || stable.Prerelease || stable.Date != "2026-11-06" {
 		t.Errorf("beta %+v, stable %+v", beta, stable)
 	}
-	if want := []group{{Area: "", Items: []string{"Sync: in v1.0.1"}}}; !reflect.DeepEqual(stable.Groups, want) {
-		t.Errorf("v1.0.1's groups %+v, want %+v", stable.Groups, want)
+	// the annotation names a release; one that repeats the tag's name does not
+	if stable.Title != "Quieter sync" || stable.Summary != "Sync asks less." || one.Title != "Sync" || one.Summary != "" {
+		t.Errorf("titles %q %q, %q %q", stable.Title, stable.Summary, one.Title, one.Summary)
 	}
-	// a release with no changes the page shows still has a list, not null, for the page's script
-	b, _ := json.Marshal(release{Groups: groupTitles([]string{"CI: x (#1)"})})
-	if string(b) != `{"version":"","date":"","prerelease":false,"groups":[]}` {
+	if want := []change{{"Sync", "In v1.0.1"}}; !reflect.DeepEqual(stable.Features, want) {
+		t.Errorf("v1.0.1's changes %+v, want %+v", stable.Features, want)
+	}
+	// a release with no changes the page shows still has lists, not null, for the page
+	f, x := sortChanges([]string{"CI: x (#1)"})
+	b, _ := json.Marshal(release{Features: f, Fixes: x})
+	if string(b) != `{"version":"","date":"","prerelease":false,"title":"","features":[],"fixes":[]}` {
 		t.Errorf("an empty release is %s", b)
 	}
 }

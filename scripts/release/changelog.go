@@ -16,27 +16,35 @@ type changelog struct {
 	Releases  []release `json:"releases"`
 }
 
-// release is one version on the page: its number, the day it was tagged, whether it is a prerelease, and its
-// changes in groups. First marks the first release, whose changes are not listed (they are the whole app).
+// release is one version on the page: its number, the day it was tagged, whether it is a prerelease, a title and a
+// summary, and its changes, the new and improved apart from the fixes. First marks the first release, whose changes
+// are not listed (they are the whole app).
 type release struct {
-	Version    string  `json:"version"`
-	Date       string  `json:"date"`
-	Prerelease bool    `json:"prerelease"`
-	First      bool    `json:"first,omitempty"`
-	Groups     []group `json:"groups"`
+	Version    string   `json:"version"`
+	Date       string   `json:"date"`
+	Prerelease bool     `json:"prerelease"`
+	First      bool     `json:"first,omitempty"`
+	Title      string   `json:"title"`
+	Summary    string   `json:"summary,omitempty"`
+	Features   []change `json:"features"`
+	Fixes      []change `json:"fixes"`
 }
 
-// group is the changes of one area ("Sync", "Tables"), as the commit titles name it before their colon. A title
-// with no area is in the group with an empty Area, shown first.
-type group struct {
-	Area  string   `json:"area"`
-	Items []string `json:"items"`
+// change is one commit title as the page shows it: its area ("Sync", "Page history"), when the title names one
+// before its colon, and what changed.
+type change struct {
+	Area string `json:"area,omitempty"`
+	Text string `json:"text"`
 }
 
-// tag is a version tag and when it was made.
+// tag is a version tag, when it was made, and what its annotation says: the release's title on its first line and
+// a summary after it (git tag -a v1.2.0 -m "Title" -m "Summary"). A light tag, or an annotation that only repeats
+// the tag's name, says nothing.
 type tag struct {
-	Name string
-	Date time.Time
+	Name    string
+	Date    time.Time
+	Subject string
+	Body    string
 }
 
 // versionTag is a release tag: v1.2.3, or v1.2.0-beta.1.
@@ -136,60 +144,61 @@ func cleanTitle(s string) (area, text string) {
 	return area, s
 }
 
-// groupTitles groups a release's commit titles by area: the titles with no area first, then the areas with the most
-// changes, and in each group the titles in the order they were made (the oldest first). An area with one change is
-// not a group of its own: its title joins the first group whole ("Gear menu: its choices …"). A title seen twice is
-// shown once.
-func groupTitles(titles []string) []group {
-	byArea := map[string]*group{}
-	var order []string
-	seen := map[string]bool{}
+// fixWords mark a change as a fix: what no longer happens, what is kept or survives now, what was wrong.
+var fixWords = regexp.MustCompile(`(?i)\b(no longer|fix(es|ed)?|is refused|survives?|crash(es)?|freez(e|es|ing)|no blink|damaged|cannot be read|not dropped|not replaced|not lost|stale|wrong|broken)\b`)
+
+// sortChanges cleans a release's commit titles and parts them into what is new or better and what was fixed, each
+// in the order they were made (the oldest first). A title seen twice is shown once.
+func sortChanges(titles []string) (features, fixes []change) {
+	features, fixes = []change{}, []change{}
+	seen := map[change]bool{}
 	for _, t := range titles {
 		area, text := cleanTitle(t)
-		if text == "" || seen[area+"\x00"+text] {
+		if text == "" {
 			continue
 		}
-		seen[area+"\x00"+text] = true
-		g := byArea[area]
-		if g == nil {
-			g = &group{Area: area}
-			byArea[area] = g
-			order = append(order, area)
+		c := change{area, capital(text)}
+		if seen[c] {
+			continue
 		}
-		g.Items = append(g.Items, text)
-	}
-	sort.SliceStable(order, func(i, j int) bool {
-		a, b := order[i], order[j]
-		if (a == "") != (b == "") {
-			return a == ""
-		}
-		return len(byArea[a].Items) > len(byArea[b].Items)
-	})
-	lead := group{}
-	if g := byArea[""]; g != nil {
-		for _, t := range g.Items {
-			lead.Items = append(lead.Items, capital(t))
+		seen[c] = true
+		if fixWords.MatchString(text) {
+			fixes = append(fixes, c)
+		} else {
+			features = append(features, c)
 		}
 	}
-	var rest []group
-	for _, a := range order {
-		g := byArea[a]
-		switch {
-		case a == "":
-		case len(g.Items) == 1:
-			lead.Items = append(lead.Items, a+": "+g.Items[0])
-		default:
-			for i, t := range g.Items {
-				g.Items[i] = capital(t)
-			}
-			rest = append(rest, *g)
+	return features, fixes
+}
+
+// madeTitle is a release's title when its tag gives none: the areas with the most changes ("Page history, Sync and
+// Tables"), or with no areas named, a plain one.
+func madeTitle(changes []change) string {
+	count := map[string]int{}
+	var order []string
+	for _, c := range changes {
+		if c.Area == "" {
+			continue
 		}
+		if count[c.Area] == 0 {
+			order = append(order, c.Area)
+		}
+		count[c.Area]++
 	}
-	out := []group{}
-	if len(lead.Items) > 0 {
-		out = append(out, lead)
+	sort.SliceStable(order, func(i, j int) bool { return count[order[i]] > count[order[j]] })
+	if len(order) > 3 {
+		order = order[:3]
 	}
-	return append(out, rest...)
+	switch len(order) {
+	case 0:
+		if len(changes) == 0 {
+			return "Smaller fixes and improvements"
+		}
+		return "Improvements"
+	case 1:
+		return order[0]
+	}
+	return strings.Join(order[:len(order)-1], ", ") + " and " + order[len(order)-1]
 }
 
 // capital gives a title a capital first letter, unless it starts with a name as the app writes it (open_page).
@@ -208,15 +217,20 @@ func buildChangelog(tags []tag, titles func(prev, t string) ([]string, error), n
 	tags = sortTags(tags)
 	c := changelog{Generated: now.UTC().Format(time.RFC3339), Releases: []release{}}
 	for i, t := range tags {
-		r := release{Version: t.Name, Date: t.Date.Format("2006-01-02"), Prerelease: isPrerelease(t.Name), Groups: []group{}}
+		r := release{Version: t.Name, Date: t.Date.Format("2006-01-02"), Prerelease: isPrerelease(t.Name), Features: []change{}, Fixes: []change{}}
 		if i == 0 {
 			r.First = true
+			r.Title = "The first release"
 		} else {
 			ts, err := titles(tags[i-1].Name, t.Name)
 			if err != nil {
 				return c, err
 			}
-			r.Groups = groupTitles(ts)
+			r.Features, r.Fixes = sortChanges(ts)
+			r.Title = madeTitle(append(append([]change{}, r.Features...), r.Fixes...))
+		}
+		if subj := strings.TrimSpace(t.Subject); subj != "" && subj != t.Name {
+			r.Title, r.Summary = subj, strings.TrimSpace(t.Body)
 		}
 		c.Releases = append(c.Releases, r)
 	}
@@ -229,21 +243,27 @@ func buildChangelog(tags []tag, titles func(prev, t string) ([]string, error), n
 
 // gitTags lists the repository's tags and when each was made (an annotated tag's own date, a light one's commit's).
 func gitTags() ([]tag, error) {
-	out, err := exec.Command("git", "for-each-ref", "refs/tags", "--format=%(refname:short) %(creatordate:iso-strict)").Output()
+	// a record of each tag, ended by a NUL: name, date, kind, the annotation's subject and its body
+	out, err := exec.Command("git", "for-each-ref", "refs/tags",
+		"--format=%(refname:short)%09%(creatordate:iso-strict)%09%(objecttype)%09%(contents:subject)%09%(contents:body)%00").Output()
 	if err != nil {
 		return nil, fmt.Errorf("git for-each-ref: %w", err)
 	}
 	var tags []tag
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		name, date, ok := strings.Cut(line, " ")
-		if !ok {
+	for _, rec := range strings.Split(string(out), "\x00") {
+		f := strings.SplitN(strings.TrimLeft(rec, "\n"), "\t", 5)
+		if len(f) < 5 {
 			continue
 		}
-		d, err := time.Parse(time.RFC3339, date)
+		d, err := time.Parse(time.RFC3339, f[1])
 		if err != nil {
-			return nil, fmt.Errorf("the date of %s: %w", name, err)
+			return nil, fmt.Errorf("the date of %s: %w", f[0], err)
 		}
-		tags = append(tags, tag{name, d})
+		t := tag{Name: f[0], Date: d}
+		if f[2] == "tag" { // a light tag's "subject" is its commit's title, not a word about the release
+			t.Subject, t.Body = f[3], f[4]
+		}
+		tags = append(tags, t)
 	}
 	return tags, nil
 }
