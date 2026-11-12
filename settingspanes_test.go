@@ -35,19 +35,6 @@ func TestSyncFolderPicker(t *testing.T) {
 	}
 }
 
-// TestShortcutsListed: the Shortcuts page lists the app's shortcuts, not only one's own (#412).
-func TestShortcutsListed(t *testing.T) {
-	a, tt := newTestApp(t, "x\n")
-	a.openSettings()
-	tt.Frame()
-	a.setMode = "keys"
-	tt.Frame()
-	tt.Frame()
-	if !tt.HasText(locales.KeysAllShortcuts()) || !tt.HasText(locales.HelpBoldItalic()) || !tt.HasText("⌘B ⌘I ⌘U") {
-		t.Fatalf("no shortcuts: %v", tt.Texts())
-	}
-}
-
 // TestBackupsInSettings: a backup in the list can be looked at and deleted, the delete on a second click; Back up now
 // rests after a backup; and a backup opens as a library to look at (#409).
 func TestBackupsInSettings(t *testing.T) {

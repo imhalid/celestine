@@ -6715,16 +6715,6 @@ func (msgs Messages) KeysANameCommandsSeparated() string {
 	return Catalog.Format(msgs.locale, "keys_aNameCommandsSeparated", nil)
 }
 
-// KeysAllShortcuts says "All shortcuts"
-// in the language the app shows.
-func KeysAllShortcuts() string { return In(i18n.Locale()).KeysAllShortcuts() }
-
-// KeysAllShortcuts says "All shortcuts"
-// in the language of msgs.
-func (msgs Messages) KeysAllShortcuts() string {
-	return Catalog.Format(msgs.locale, "keys_allShortcuts", nil)
-}
-
 // KeysAssign says "Assign"
 // in the language the app shows.
 func KeysAssign() string { return In(i18n.Locale()).KeysAssign() }
@@ -12485,11 +12475,11 @@ func (msgs Messages) SyncIsOffSettingsSync() string {
 	return Catalog.Format(msgs.locale, "syncIsOffSettingsSync", nil)
 }
 
-// SyncAFolderIcloudDropbox says "A folder, which iCloud, Dropbox, or Syncthing then syncs, or a server of your own (cloudflare/sync/worker.js)."
+// SyncAFolderIcloudDropbox says "A folder, which iCloud, Dropbox, or Syncthing then syncs, or a sync server."
 // in the language the app shows.
 func SyncAFolderIcloudDropbox() string { return In(i18n.Locale()).SyncAFolderIcloudDropbox() }
 
-// SyncAFolderIcloudDropbox says "A folder, which iCloud, Dropbox, or Syncthing then syncs, or a server of your own (cloudflare/sync/worker.js)."
+// SyncAFolderIcloudDropbox says "A folder, which iCloud, Dropbox, or Syncthing then syncs, or a sync server."
 // in the language of msgs.
 func (msgs Messages) SyncAFolderIcloudDropbox() string {
 	return Catalog.Format(msgs.locale, "sync_aFolderIcloudDropbox", nil)

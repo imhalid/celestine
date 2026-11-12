@@ -302,27 +302,4 @@ func (a *app) settingsKeys(c *ui.Context) {
 			})
 		})
 	})
-	a.settingsAllKeys(c)
-}
-
-// settingsAllKeys lists every shortcut of the app, by where it is used, as the help sheet has them (helpGroups): what
-// is there to be pressed, under one's own keys and macros (#412).
-func (a *app) settingsAllKeys(c *ui.Context) {
-	cl := ryugo.From(c).Colors
-	ui.Text(c, locales.KeysAllShortcuts()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
-	for gi, g := range a.helpGroups() {
-		ui.Column(c).FillWidth().Gap(8).Children(func() {
-			ui.Text(c, g.title).FontSize(ryugo.FsSm).FontWeight(650).TextColor(cl.Muted).Margin(0, 0, 0, 6)
-			rows := make([]func(), 0, len(g.rows))
-			for _, r := range g.rows {
-				rows = append(rows, func() {
-					ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Children(func() {
-						ui.Text(c, r[1]).FontSize(13.5).TextColor(cl.Text).Grow(1).MinWidth(0).Wrap()
-						ui.Text(c, r[0]).FontSize(12.5).FontWeight(650).Font(monoStack).TextColor(cl.Accent).NoWrap()
-					})
-				})
-			}
-			settingGroup(c, "set-allkeys-"+itoa(gi), rows...)
-		})
-	}
 }
