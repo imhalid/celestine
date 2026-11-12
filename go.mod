@@ -3,7 +3,7 @@ module github.com/imhalid/celestine
 go 1.27.4
 
 require (
-	github.com/egoist/mygo v0.8.4-0.20261110212913-ec11ad71a4f8
+	github.com/egoist/mygo v0.9.0
 	github.com/imhalid/ryu-go v0.1.1-0.20261111185211-2d3528eb8308
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/zalando/go-keyring v0.2.8
@@ -36,3 +36,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/egoist/mygo => github.com/imhalid/mygo v0.8.4-0.20261111204958-693d36c0674c
