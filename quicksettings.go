@@ -58,10 +58,6 @@ func (a *app) quickSettings() []menuItem {
 			}
 			return out
 		}),
-		{title: "common_jellyEffect", hint: tick(a.settings.Jelly), glyph: iconEditing, run: func() {
-			a.settings.Jelly = !a.settings.Jelly
-			a.saveSettingsSoon()
-		}},
 		a.into("common_corners", iconBar, func() []menuItem {
 			var out []menuItem
 			for _, v := range []int{0, 50, 100, 150, 200} {
