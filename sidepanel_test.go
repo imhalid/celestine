@@ -40,3 +40,33 @@ func TestSidePanel(t *testing.T) {
 		t.Fatal("not closed by the key")
 	}
 }
+
+// TestPageInfo: the side panel has no button at the window's top right; the page menu's "Page info", at the
+// bottom right, opens it and leaves it open (#384).
+func TestPageInfo(t *testing.T) {
+	a, tt := newTestApp(t, "# Bir\n\nmetin\n")
+	tt.SetSize(1100, 800)
+	tt.Frame()
+	buttons := 0
+	for _, e := range tt.AccessAll() {
+		if e.Name == "Yan panel (⇧⌘\\)" {
+			buttons++
+		}
+	}
+	if buttons != 1 { // the status bar's, beside the page menu
+		t.Fatalf("side panel buttons: %d", buttons)
+	}
+	for range 2 {
+		if err := tt.Click("Sayfa menüsü"); err != nil {
+			t.Fatal(err)
+		}
+		tt.Advance(100 * time.Millisecond)
+		if err := tt.Click("Sayfa bilgisi"); err != nil {
+			t.Fatal(err, tt.Texts())
+		}
+		tt.Advance(600 * time.Millisecond)
+		if !a.settings.PanelOpen || !tt.HasText("İÇİNDEKİLER") || !tt.HasText("BİLGİ") {
+			t.Fatalf("not shown: %v", tt.Texts())
+		}
+	}
+}

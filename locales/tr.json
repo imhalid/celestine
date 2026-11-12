@@ -798,6 +798,7 @@
   "page_dropFilePage": "Dosyayı bir sayfaya bırak",
   "page_exportFile": "Dosya olarak dışa aktar…",
   "page_linkMissingAt": "Bağlantının gittiği sayfa yok: {path}",
+  "page_info": "Sayfa bilgisi",
   "page_menu": "Sayfa menüsü",
   "page_noOpenPage": "açık sayfa yok",
   "page_notImage": "Bu bir resim değil: png, jpg, gif, webp ya da svg olmalı.",

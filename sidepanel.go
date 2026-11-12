@@ -20,11 +20,19 @@ import (
 var (
 	iconPanel   = icon(`<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M14.5 4.5v15"/>`)
 	iconOutline = icon(`<path d="M5 6.5h14M8 11h11M11 15.5h8M11 20h5"/>`)
+	iconInfo    = icon(`<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".9"/>`)
 )
 
 func (a *app) togglePanel() {
 	a.settings.PanelOpen = !a.settings.PanelOpen
 	a.saveSettings()
+}
+
+// showPanel opens the side panel, the page's info, and leaves it open if it is: the page menu's "Page info".
+func (a *app) showPanel() {
+	if !a.settings.PanelOpen {
+		a.togglePanel()
+	}
 }
 
 // heading is a line of the outline: where it is, how deep, what it says.

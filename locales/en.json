@@ -893,6 +893,7 @@
   "page_exportFile": "Export as a file…",
   "page_linkMissingAt": "The linked page doesn't exist: {path}",
   "@page_linkMissingAt": {"placeholders": {"path": {"type": "String"}}},
+  "page_info": "Page info",
   "page_menu": "Page menu",
   "page_noOpenPage": "no page is open",
   "page_notImage": "This isn't an image: it must be png, jpg, gif, webp or svg.",

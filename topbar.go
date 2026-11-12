@@ -44,11 +44,6 @@ func (a *app) header(c *ui.Context) {
 				ui.Box(c).Grow(1)
 			}
 			a.updateChip(c) // a version that waits (updatepanel.go)
-			if a.page != nil && !a.noPage() {
-				if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
-					a.togglePanel()
-				}
-			}
 			a.windowControls(c)
 		})
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)

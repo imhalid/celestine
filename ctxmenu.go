@@ -82,6 +82,9 @@ func (a *app) contextView(c *ui.Context) {
 // page is opened and the caret put in its title.
 func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	out := []menuItem{{title: "common_open", glyph: iconPage, run: func() { a.open(p) }}, {title: "openInASidePane", glyph: iconPanel, run: func() { a.openInSide(place{"page", p.Dir}) }}}
+	if !phone { // a phone has no side panel
+		out = append(out, menuItem{title: "page_info", glyph: iconInfo, run: func() { a.open(p); a.showPanel() }})
+	}
 	if !p.Coll.Journal {
 		rename := func() { a.open(p); a.fresh = true }
 		if inPlace {

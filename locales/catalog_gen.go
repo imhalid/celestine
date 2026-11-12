@@ -8103,6 +8103,16 @@ func (msgs Messages) PageLinkMissingAt(path string) string {
 	return Catalog.Format(msgs.locale, "page_linkMissingAt", map[string]any{"path": path})
 }
 
+// PageInfo says "Page info"
+// in the language the app shows.
+func PageInfo() string { return In(i18n.Locale()).PageInfo() }
+
+// PageInfo says "Page info"
+// in the language of msgs.
+func (msgs Messages) PageInfo() string {
+	return Catalog.Format(msgs.locale, "page_info", nil)
+}
+
 // PageMenu says "Page menu"
 // in the language the app shows.
 func PageMenu() string { return In(i18n.Locale()).PageMenu() }
