@@ -183,7 +183,7 @@ func (a *app) settingsNav(c *ui.Context) {
 	cl := t.Colors
 	ui.Column(c.Key("set-nav")).Width(190).Padding(4, 0, 12, 0).Gap(2).Shrink(0).Children(func() {
 		for i, s := range settingsSections {
-			sel := a.settingsTab == i
+			sel := a.settingsTab == i && strings.TrimSpace(a.setSearch) == "" && a.setMode == "" // none over a search or a list
 			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
 				Label(msg(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
@@ -195,16 +195,22 @@ func (a *app) settingsNav(c *ui.Context) {
 				e.Background(cl.Fill.Alpha(hov))
 			}
 			e.Translate(2*on, 0)
-			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsTab = i })
+			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsGo(i) })
 			e.Children(func() {
 				ui.Icon(c, s.glyph).Width(16).Height(16).TextColor(ryugo.Mix(cl.Muted, cl.Accent, on))
 				ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
 			})
 			if e.Clicked() {
-				a.settingsTab = i
+				a.settingsGo(i)
 			}
 		}
 	})
+}
+
+// settingsGo shows the section i: a search's words are cleared and a list (Changed, Profiles and the others) closed,
+// as they stand in a section's place (#404).
+func (a *app) settingsGo(i int) {
+	a.settingsTab, a.setSearch, a.setMode = i, "", ""
 }
 
 // settingGroup is a card of settings, a line between them.

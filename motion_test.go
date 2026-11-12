@@ -49,3 +49,29 @@ func TestSettingsSearchGrouped(t *testing.T) {
 		t.Fatal("reduce motion is not in Appearance")
 	}
 }
+
+// TestSettingsNavClearsSearch: a section clicked during a search or a list shows the section, the search's words
+// cleared and the list closed (#404).
+func TestSettingsNavClearsSearch(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.openSettings()
+	tt.Frame()
+	a.setSearch = "motion"
+	tt.Frame()
+	if err := tt.Click(msg("editor")); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.setSearch != "" || a.settingsTab != 1 || tt.HasText("motion") {
+		t.Fatalf("search %q tab %d: %v", a.setSearch, a.settingsTab, tt.Texts())
+	}
+	a.setMode = "changed"
+	tt.Frame()
+	if err := tt.Click(msg("common_appearance")); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.setMode != "" || a.settingsTab != 0 {
+		t.Fatalf("mode %q tab %d", a.setMode, a.settingsTab)
+	}
+}
