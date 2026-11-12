@@ -7,13 +7,21 @@ import { LANDING_JS, LANDING_CSS } from "./landing.gen.js";
 // scheme, at night for the dark one (App.svelte draws it from --hero and --hero-dark)
 import HERO from "./hero.bin";
 import HERO_DARK from "./hero-dark.bin";
+// the footer's picture, a still lake with the crystals on its far shore, the same way (--foot and --foot-dark)
+import FOOT from "./foot.bin";
+import FOOT_DARK from "./foot-dark.bin";
 
 // heroV is a picture's address suffix: it changes when the picture does, so no browser keeps the old one for its day.
 const heroV = (b) => (b.byteLength || b.length || 0).toString(36);
 
-// heroImage answers GET /hero.webp and /hero-dark.webp. A new picture comes with a deploy.
-export function heroImage(dark) {
-  return new Response(dark ? HERO_DARK : HERO, {
+// PICTURES are the entry screen's pictures by their address. A new picture comes with a deploy.
+const PICTURES = { "/hero.webp": HERO, "/hero-dark.webp": HERO_DARK, "/foot.webp": FOOT, "/foot-dark.webp": FOOT_DARK };
+
+// landingImage answers GET of one of PICTURES, or gives null for another address.
+export function landingImage(path) {
+  const b = PICTURES[path];
+  if (!b) return null;
+  return new Response(b, {
     headers: { "content-type": "image/webp", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" },
   });
 }
@@ -23,7 +31,7 @@ export function heroImage(dark) {
 export function landingHTML(n, site, contact, download, esc) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Celestine</title><link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png"><meta name="description" content="Celestine, a one-of-a-kind notes app: free to download, no account needed."><meta name="color-scheme" content="light dark">
-<style>:root{--hero:url(/hero.webp?v=${heroV(HERO)});--hero-dark:url(/hero-dark.webp?v=${heroV(HERO_DARK)})}${LANDING_CSS}</style></head><body>
+<style>:root{--hero:url(/hero.webp?v=${heroV(HERO)});--hero-dark:url(/hero-dark.webp?v=${heroV(HERO_DARK)});--foot:url(/foot.webp?v=${heroV(FOOT)});--foot-dark:url(/foot-dark.webp?v=${heroV(FOOT_DARK)})}${LANDING_CSS}</style></head><body>
 <div id="app" data-contact="${contact}" data-download="${esc(download)}"></div>
 <noscript>JavaScript is needed for this page.</noscript>
 ${site ? `<div class="cf-turnstile" data-sitekey="${esc(site)}" data-appearance="interaction-only"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}

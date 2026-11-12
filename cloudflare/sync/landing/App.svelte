@@ -87,6 +87,7 @@
         <img class="mark" src="/icon.png" alt="" width="24" height="24">Celestine
       </a>
       <div class="right">
+        <a class="link" href="/changelog">Changelog</a>
         <span class="status">Early access</span>
         <button class="icon" type="button" onclick={toggle} aria-label={scheme === "dark" ? "Switch to light" : "Switch to dark"}>
           {#if scheme === "dark"}
@@ -121,7 +122,6 @@
           {#each others as b, i (b.id)}<a href={href(b)} download>{b.os} ({b.chip})</a>{i < others.length - 1 ? ", " : ""}{/each}
         </p>
       {/if}
-      <p class="fine">No account needed: your notes stay on your computer, in one file of their own.</p>
     </section>
 
     <div class="rule" aria-hidden="true"></div>
@@ -149,6 +149,7 @@
       <div class="meta">
         <span>Celestine</span>
         <span>Made with MyGo</span>
+        <a href="/changelog">Changelog</a>
         <a href="/privacy">Privacy</a>
       </div>
     </footer>
@@ -166,6 +167,10 @@
   .mark { width: 24px; height: 24px; display: block; transform: scale(1.2); }
   .right { display: flex; align-items: center; gap: 14px; }
   .status { font-size: 13px; color: var(--muted); }
+  .link { font-size: 13.5px; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 999px; transition: background-color 0.2s; }
+  .link:hover { background: var(--well); }
+  .link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  @media (max-width: 480px) { .status { display: none; } }
   .icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 999px; color: var(--text); background: var(--control); border: 1px solid var(--control-border); box-shadow: var(--control-shadow); cursor: pointer; transition: filter 0.2s, transform 0.15s var(--ease); }
   .icon:hover { filter: brightness(var(--control-hover)); }
   .icon:active { transform: translateY(1px); }
@@ -183,8 +188,8 @@
     -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   :global(html[data-scheme="dark"]) .hero::before { background-image: var(--hero-dark); }
   @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero::before { background-image: var(--hero-dark); } }
-  :global(html[data-scheme="dark"]) .hero .lead, :global(html[data-scheme="dark"]) .hero .fine { color: oklch(86% .03 260); }
-  @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero .lead, :global(html:not([data-scheme="light"])) .hero .fine { color: oklch(86% .03 260); } }
+  :global(html[data-scheme="dark"]) .hero .lead { color: oklch(86% .03 260); }
+  @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero .lead { color: oklch(86% .03 260); } }
   .badge { font-size: 13px; color: var(--muted); background: var(--well); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
   h1 { margin: 22px 0 0; display: flex; align-items: center; font-size: clamp(56px, 10vw, 104px); line-height: 1; font-weight: 700; letter-spacing: -0.05em; color: var(--text); min-height: 1em; }
   .tc { display: inline-block; width: 0.07em; height: 0.78em; margin-left: 0.06em; border-radius: 2px; background: var(--accent); animation: blink 1.05s steps(1) infinite; }
@@ -220,8 +225,15 @@
   .head p { margin: 10px 0 0; font-size: 16px; line-height: 1.5; color: var(--muted); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 
-  .foot { padding: 28px 24px; font-size: 13px; color: var(--muted); }
-  .meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 24px; }
+  .foot { position: relative; isolation: isolate; padding: 28px 24px clamp(150px, 22vw, 280px); font-size: 13px; color: var(--muted); }
+  /* the footer's picture: a still lake with the two crystals on its far shore, at dawn or at night as the scheme is
+     (--foot, set by landing.js), melting into the page at the top; the waitlist sits on its quiet left */
+  .foot::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--foot) right bottom / cover no-repeat;
+    -webkit-mask-image: linear-gradient(transparent, #000 45%); mask-image: linear-gradient(transparent, #000 45%); }
+  :global(html[data-scheme="dark"]) .foot::before { background-image: var(--foot-dark); }
+  @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .foot::before { background-image: var(--foot-dark); } }
+  .meta a { text-decoration: none; } .meta a:hover { color: var(--text); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 24px; }
   .meta a { color: inherit; }
   .wait { max-width: 460px; }
   .wait > p:first-child { margin: 0 0 10px; line-height: 1.5; }
