@@ -34,6 +34,6 @@ export function landingHTML(n, site, contact, download, esc) {
 <style>:root{--hero:url(/hero.webp?v=${heroV(HERO)});--hero-dark:url(/hero-dark.webp?v=${heroV(HERO_DARK)});--foot:url(/foot.webp?v=${heroV(FOOT)});--foot-dark:url(/foot-dark.webp?v=${heroV(FOOT_DARK)})}${LANDING_CSS}</style></head><body>
 <div id="app" data-contact="${contact}" data-download="${esc(download)}"></div>
 <noscript>JavaScript is needed for this page.</noscript>
-${site ? `<div class="cf-turnstile" data-sitekey="${esc(site)}" data-appearance="interaction-only"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
+${site ? `<div class="cf-turnstile" data-sitekey="${esc(site)}" data-appearance="interaction-only" data-execution="execute"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 <script nonce="${n}">${LANDING_JS}</script></body></html>`;
 }

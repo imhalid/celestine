@@ -22,6 +22,23 @@
     if (frame && !reduce) frame.animate([{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(5px)" }, { transform: "translateX(-3px)" }, { transform: "translateX(0)" }], { duration: 320, easing: "ease-out" });
   }
 
+  // botCheck is the token of Cloudflare's bot check (Turnstile). The check does not run when the page opens
+  // (data-execution="execute" in landing.js), so nobody sees its box while reading: it runs here, when an address is
+  // sent, and shows itself only if it needs a click.
+  async function botCheck() {
+    const el = document.querySelector(".cf-turnstile");
+    const ts = window.turnstile;
+    if (!el || !ts) return "";
+    let t = ts.getResponse(el);
+    if (t) return t;
+    try { ts.execute(el); } catch {}
+    for (let i = 0; i < 300 && !t; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      t = ts.getResponse(el);
+    }
+    return t || "";
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (phase === "sending") return;
@@ -29,8 +46,8 @@
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { fail("Enter a valid email address."); input?.focus(); return; }
     phase = "sending";
     try {
-      const t = document.querySelector("[name=cf-turnstile-response]");
-      const r = await fetch("/api/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim(), turnstile: t ? t.value : "" }) });
+      const t = await botCheck();
+      const r = await fetch("/api/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim(), turnstile: t }) });
       const j = await r.json().catch(() => ({}));
       if (r.ok) { phase = "done"; return; }
       if (window.turnstile) window.turnstile.reset();
