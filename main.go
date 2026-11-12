@@ -106,7 +106,7 @@ type app struct {
 	caretTry   caretTry                // the caret's playground in the settings (caretplay.go)
 	census     census                  // the sidebar's tree, counted once a frame (sidebar.go)
 	frameSeq   uint64                  // the frames built, counted
-	meter      frameMeter              // what CELESTINE_FRAMES counts (framemeter.go)
+	meter      frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
 	wframe     frameState              // the window's frame (windowframe.go)
 	caretDraws int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
 
@@ -344,6 +344,7 @@ func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex()}
 	a.paneState = newPaneState()
 	a.histAt, a.grip.para = -1, -1
+	a.meter.hud.Store(debugOnStart)
 	a.loadSettings()
 	a.propBuf = map[string]*string{}
 	a.boardOpened = map[string]bool{}
@@ -947,7 +948,7 @@ func (a *app) view(c *ui.Context) {
 			}()
 		}
 	}()
-	if frameMeterOn {
+	if frameMeterOn || a.meter.hud.Load() {
 		t0 := time.Now()
 		defer func() { a.meter.mu.Lock(); a.meterView(time.Since(t0)); a.meter.mu.Unlock() }()
 	}

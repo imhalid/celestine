@@ -15734,3 +15734,99 @@ func ZoomOut2() string { return In(i18n.Locale()).ZoomOut2() }
 func (msgs Messages) ZoomOut2() string {
 	return Catalog.Format(msgs.locale, "zoomOut2", nil)
 }
+
+// DebugToggle says "Turn debug mode on or off"
+// in the language the app shows.
+func DebugToggle() string { return In(i18n.Locale()).DebugToggle() }
+
+// DebugToggle says "Turn debug mode on or off"
+// in the language of msgs.
+func (msgs Messages) DebugToggle() string {
+	return Catalog.Format(msgs.locale, "debug_toggle", nil)
+}
+
+// DebugTitle says "Debug mode"
+// in the language the app shows.
+func DebugTitle() string { return In(i18n.Locale()).DebugTitle() }
+
+// DebugTitle says "Debug mode"
+// in the language of msgs.
+func (msgs Messages) DebugTitle() string {
+	return Catalog.Format(msgs.locale, "debug_title", nil)
+}
+
+// DebugFps says "{fps} fps"
+// in the language the app shows.
+func DebugFps(fps int) string { return In(i18n.Locale()).DebugFps(fps) }
+
+// DebugFps says "{fps} fps"
+// in the language of msgs.
+func (msgs Messages) DebugFps(fps int) string {
+	return Catalog.Format(msgs.locale, "debug_fps", map[string]any{"fps": fps})
+}
+
+// DebugFrame says "frame {last} · avg {avg} · max {worst} ms"
+// in the language the app shows.
+func DebugFrame(last string, avg string, worst string) string {
+	return In(i18n.Locale()).DebugFrame(last, avg, worst)
+}
+
+// DebugFrame says "frame {last} · avg {avg} · max {worst} ms"
+// in the language of msgs.
+func (msgs Messages) DebugFrame(last string, avg string, worst string) string {
+	return Catalog.Format(msgs.locale, "debug_frame", map[string]any{"last": last, "avg": avg, "worst": worst})
+}
+
+// DebugBuild says "build {last} · avg {avg} · max {worst} ms"
+// in the language the app shows.
+func DebugBuild(last string, avg string, worst string) string {
+	return In(i18n.Locale()).DebugBuild(last, avg, worst)
+}
+
+// DebugBuild says "build {last} · avg {avg} · max {worst} ms"
+// in the language of msgs.
+func (msgs Messages) DebugBuild(last string, avg string, worst string) string {
+	return Catalog.Format(msgs.locale, "debug_build", map[string]any{"last": last, "avg": avg, "worst": worst})
+}
+
+// DebugSlow says "{count, plural, one {# slow frame} other {# slow frames}} (over {ms} ms)"
+// in the language the app shows.
+func DebugSlow(count int, ms string) string { return In(i18n.Locale()).DebugSlow(count, ms) }
+
+// DebugSlow says "{count, plural, one {# slow frame} other {# slow frames}} (over {ms} ms)"
+// in the language of msgs.
+func (msgs Messages) DebugSlow(count int, ms string) string {
+	return Catalog.Format(msgs.locale, "debug_slow", map[string]any{"count": count, "ms": ms})
+}
+
+// DebugBuildsPaints says "{builds} builds · {paints} paints in 2 s"
+// in the language the app shows.
+func DebugBuildsPaints(builds int, paints int) string {
+	return In(i18n.Locale()).DebugBuildsPaints(builds, paints)
+}
+
+// DebugBuildsPaints says "{builds} builds · {paints} paints in 2 s"
+// in the language of msgs.
+func (msgs Messages) DebugBuildsPaints(builds int, paints int) string {
+	return Catalog.Format(msgs.locale, "debug_buildsPaints", map[string]any{"builds": builds, "paints": paints})
+}
+
+// DebugRows says "{count, plural, one {# sidebar row} other {# sidebar rows}}"
+// in the language the app shows.
+func DebugRows(count int) string { return In(i18n.Locale()).DebugRows(count) }
+
+// DebugRows says "{count, plural, one {# sidebar row} other {# sidebar rows}}"
+// in the language of msgs.
+func (msgs Messages) DebugRows(count int) string {
+	return Catalog.Format(msgs.locale, "debug_rows", map[string]any{"count": count})
+}
+
+// DebugHeap says "heap {mb} MB · {gc} GC"
+// in the language the app shows.
+func DebugHeap(mb string, gc int) string { return In(i18n.Locale()).DebugHeap(mb, gc) }
+
+// DebugHeap says "heap {mb} MB · {gc} GC"
+// in the language of msgs.
+func (msgs Messages) DebugHeap(mb string, gc int) string {
+	return Catalog.Format(msgs.locale, "debug_heap", map[string]any{"mb": mb, "gc": gc})
+}

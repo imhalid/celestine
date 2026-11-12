@@ -1774,5 +1774,21 @@
   "zoomIntoTheItem": "zoom into the item",
   "zoomIntoTheSection": "zoom into the section",
   "zoomOut": "Zoom out",
-  "zoomOut2": "zoom out"
+  "zoomOut2": "zoom out",
+  "debug_toggle": "Turn debug mode on or off",
+  "debug_title": "Debug mode",
+  "debug_fps": "{fps} fps",
+  "@debug_fps": {"placeholders": {"fps": {"type": "int"}}},
+  "debug_frame": "frame {last} · avg {avg} · max {worst} ms",
+  "@debug_frame": {"placeholders": {"last": {"type": "String"}, "avg": {"type": "String"}, "worst": {"type": "String"}}},
+  "debug_build": "build {last} · avg {avg} · max {worst} ms",
+  "@debug_build": {"placeholders": {"last": {"type": "String"}, "avg": {"type": "String"}, "worst": {"type": "String"}}},
+  "debug_slow": "{count, plural, one {# slow frame} other {# slow frames}} (over {ms} ms)",
+  "@debug_slow": {"placeholders": {"count": {"type": "int"}, "ms": {"type": "String"}}},
+  "debug_buildsPaints": "{builds} builds · {paints} paints in 2 s",
+  "@debug_buildsPaints": {"placeholders": {"builds": {"type": "int"}, "paints": {"type": "int"}}},
+  "debug_rows": "{count, plural, one {# sidebar row} other {# sidebar rows}}",
+  "@debug_rows": {"placeholders": {"count": {"type": "int"}}},
+  "debug_heap": "heap {mb} MB · {gc} GC",
+  "@debug_heap": {"placeholders": {"mb": {"type": "String"}, "gc": {"type": "int"}}}
 }

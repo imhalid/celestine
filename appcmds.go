@@ -49,6 +49,7 @@ func appCommands() []appCmd {
 	return []appCmd{
 		{title: "common_settings", accel: "cmd+,", menu: "app", dots: true, glyph: iconSettings, run: (*app).toggleSettings},
 		{title: "showTheWelcomeScreen", glyph: iconSearch, run: (*app).welcomeAgain},
+		{title: "debug_toggle", glyph: iconSettings, run: (*app).toggleDebug},
 
 		{title: "common_newPage", accel: "cmd+n", menu: "file", noPal: true, glyph: iconPlus, run: func(a *app) {
 			switch {

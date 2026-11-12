@@ -1544,5 +1544,14 @@
   "zoomIntoTheItem": "maddeye yakınlaş",
   "zoomIntoTheSection": "bölüme yakınlaş",
   "zoomOut": "Uzaklaş",
-  "zoomOut2": "uzaklaş"
+  "zoomOut2": "uzaklaş",
+  "debug_toggle": "Hata ayıklama modunu aç veya kapat",
+  "debug_title": "Hata ayıklama modu",
+  "debug_fps": "{fps} fps",
+  "debug_frame": "kare {last} · ort {avg} · maks {worst} ms",
+  "debug_build": "kurulum {last} · ort {avg} · maks {worst} ms",
+  "debug_slow": "{count, plural, one {# yavaş kare} other {# yavaş kare}} ({ms} ms üstü)",
+  "debug_buildsPaints": "2 sn'de {builds} kurulum · {paints} boyama",
+  "debug_rows": "{count, plural, one {# kenar çubuğu satırı} other {# kenar çubuğu satırı}}",
+  "debug_heap": "heap {mb} MB · {gc} GC"
 }
