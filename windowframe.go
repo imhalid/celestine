@@ -115,7 +115,7 @@ func (a *app) frameTop(c *ui.Context) {
 	ui.Row(c.Key("frame-top")).FillWidth().Height(frameTopH).Shrink(0).Padding(0, 4, 0, left).Gap(10).AlignItems(ui.Center).Label(locales.SidebarTopBar()).
 		DragWindow().Children(func() {
 		ui.Row(c.Key("frame-sidebar-buttons")).Gap(2).Shrink(0).AlignItems(ui.Center).Children(func() {
-			a.sidebarButtons(c, frameW+left+3*(24+2)-2, frameTopH-4)
+			a.sidebarButtons(c, frameW+left+3*(barBtnW+2)-2, frameTopH-4)
 		})
 		tabs := ui.Row(c.Key("frame-tabs")).Grow(1).MinWidth(0).Height(frameTabH).Gap(4).AlignItems(ui.Center)
 		if p > 0.01 && a.ps.layout != nil {

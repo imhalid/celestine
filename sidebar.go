@@ -64,7 +64,7 @@ func (a *app) sidebarButton(c *ui.Context) {
 	h := a.headerHeight(c) // in a line with the header, as high as it
 	left := a.titleBar(c).Left + 6
 	ui.Row(c.Key("sidebar-button")).Absolute().Left(left).Top((h - barBtn) / 2).Gap(2).Children(func() {
-		a.sidebarButtons(c, left+3*(24+2)-2, h-4)
+		a.sidebarButtons(c, left+3*(barBtnW+2)-2, h-4)
 	})
 }
 
@@ -619,17 +619,22 @@ func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 	return b.Clicked()
 }
 
-// barBtn is the size of a button in the top bar, which is as low as the status bar.
-const barBtn = 20
+// barBtn is the height of a button in the top bar, and barBtnW its width; barGlyph is its icon's size, as large
+// as macOS's window buttons beside it look.
+const (
+	barBtn   = 24
+	barBtnW  = 28
+	barGlyph = 17
+)
 
 // sidebarButtonsW is the room of the sidebar's buttons: four of them, and their gaps and margin.
-const sidebarButtonsW = 4*(24+2) + 6
+const sidebarButtonsW = 4*(barBtnW+2) + 6
 
 // barIcon is an icon button of the top bar: small, as the bar is.
 func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
 	label = msg(label) // its tip, in the window's language
 	t := c.Theme()
-	b := ui.Box(c).Width(24).Height(barBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
+	b := ui.Box(c).Width(barBtnW).Height(barBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
 	ryugo.Tooltip(c, b, label)
 	if b.Hovered() {
@@ -637,7 +642,7 @@ func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
 	} else {
 		b.Background(t.SurfaceHover.Alpha(0))
 	}
-	b.Children(func() { ui.Icon(c, glyph).Width(14).Height(14).TextColor(t.TextMuted) })
+	b.Children(func() { ui.Icon(c, glyph).Width(barGlyph).Height(barGlyph).TextColor(t.TextMuted) })
 	return b.Clicked()
 }
 
