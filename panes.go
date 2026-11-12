@@ -344,6 +344,29 @@ func (a *app) paneTitle() string {
 	return locales.CommonEmpty()
 }
 
+// paneGlyph is the icon of what the pane in use shows, beside its title on its tab.
+func (a *app) paneGlyph() *ui.SVG {
+	switch {
+	case a.settingsOpen:
+		return iconSettings
+	case a.statsScreen:
+		return iconStats
+	case a.profileScreen:
+		return iconUser
+	case a.trashOpen:
+		return iconTrash
+	case a.tag != "":
+		return iconTag
+	case a.tasksOpen:
+		return iconTask
+	case a.searchOpen:
+		return iconSearch
+	case a.coll != nil:
+		return iconStack
+	}
+	return iconPage
+}
+
 // panesView builds the panes, each in its own state, and gives the use to the one the user went to.
 // One pane fills the window; two or more are Ryugo's Dock: areas the user splits, resizes, stacks as
 // tabs and closes.

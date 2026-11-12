@@ -107,8 +107,8 @@ const sidebarGlass = 0.82
 func (a *app) frameTabs() bool { return a.wframe.on && len(a.ps.states) > 1 }
 
 // frameTop is the frame's top edge, which moves the window: after macOS's window buttons the sidebar's buttons
-// (fold, back, forward, the settings); the panes' tabs, coming in as the window is split; at the right end the side
-// panel's button, and on Linux and Windows the window's own controls.
+// (fold, back, forward, the settings); the panes' tabs, coming in as the window is split; at the right end, on Linux
+// and Windows, the window's own controls. The side panel is opened from the page's menu ("Page info").
 func (a *app) frameTop(c *ui.Context) {
 	p := a.wframe.strip
 	left := max(a.titleBar(c).Left-frameW, 6) // after macOS's window buttons
@@ -120,19 +120,20 @@ func (a *app) frameTop(c *ui.Context) {
 		tabs := ui.Row(c.Key("frame-tabs")).Grow(1).MinWidth(0).Height(frameTabH).Gap(4).AlignItems(ui.Center)
 		if p > 0.01 && a.ps.layout != nil {
 			tabs.Opacity(p).Translate(0, -8*(1-p)).Children(func() {
-				for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
-					if i := a.ps.index(tab.Pane.ID); i >= 0 {
-						a.frameTab(c, i, tab.Pane.ID)
+				// The tabs stand together, a strip of their own sunk in the frame's ground, so they read as tabs
+				// and not as words on the edge; the one in use is lifted out of it.
+				t := c.Theme()
+				ui.Row(c.Key("frame-tab-group")).MinWidth(0).Shrink(1).Height(frameTabH+6).Padding(3).Gap(2).AlignItems(ui.Center).
+					Radius(rad(11)).Background(t.Text.Alpha(0.05)).Border(1, t.Border.Alpha(0.55)).Children(func() {
+					for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
+						if i := a.ps.index(tab.Pane.ID); i >= 0 {
+							a.frameTab(c, i, tab.Pane.ID)
+						}
 					}
-				}
+				})
 			})
 		}
 		a.updateChip(c) // a version that waits (updatepanel.go)
-		if a.page != nil && !a.noPage() {
-			if a.iconButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") {
-				a.togglePanel()
-			}
-		}
 		a.windowControls(c)
 	})
 }
@@ -146,12 +147,14 @@ func (a *app) frameTab(c *ui.Context, i int, id string) {
 	a.withPane(i, func() { title = a.paneTitle() })
 	used := i == a.ps.active
 	tab := ui.Row(c.Key("frame-tab:"+id)).Height(frameTabH).MaxWidth(240).MinWidth(0).Shrink(1).
-		Padding(0, 6, 0, 12).Gap(4).AlignItems(ui.Center).Radius(rad(9)).Label(title).Role(ui.RoleTab)
+		Padding(0, 6, 0, 10).Gap(6).AlignItems(ui.Center).Radius(rad(8)).Label(title).Role(ui.RoleTab)
 	switch {
 	case used:
-		tab.Background(a.pageBg).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.12))
+		tab.Background(a.pageBg).Border(1, t.Border.Alpha(0.7)).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.14))
 	case tab.Hovered():
-		tab.Background(t.Text.Alpha(0.06))
+		tab.Background(t.Text.Alpha(0.07)).Border(1, t.Text.Alpha(0))
+	default:
+		tab.Border(1, t.Text.Alpha(0))
 	}
 	closed := false
 	tab.Children(func() {
@@ -159,6 +162,9 @@ func (a *app) frameTab(c *ui.Context, i int, id string) {
 		if used {
 			col = t.Text
 		}
+		var glyph *ui.SVG // what the pane shows, at a glance
+		a.withPane(i, func() { glyph = a.paneGlyph() })
+		ui.Icon(c, glyph).Size(13, 13).TextColor(col).Shrink(0)
 		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).MinWidth(0).Grow(1)
 		x := ui.Box(c.Key("close")).Size(18, 18).Radius(9).Center().Shrink(0).Label(locales.CloseThePane() + ": " + title).Role(ui.RoleButton)
 		x.Opacity(x.AnimateTo("shown", map[bool]float32{true: 1}[used || tab.Hovered()], springSheet))
