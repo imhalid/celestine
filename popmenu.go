@@ -78,13 +78,24 @@ func menuIcon(glyph *ui.SVG) ui.MenuIcon {
 	return ic
 }
 
-// menuPanelLook gives MyGo's menu panels, and their submenus', the app's own menu look, the / menu's
-// (menupanel.go) on a lighter step: the theme's surface and hairline. MyGo's own is the theme's background, pure
-// black in the dark.
+// menuPanelLook gives MyGo's menu panels, and their submenus', the app's own menu look: a layer above what they
+// open over, and a faint line around them (#394). The theme's surface is the sidebar's and the cards' color, so in
+// the dark the panel takes a step toward the text from it; in the light the surface is already the lightest there
+// is. The line is the text's color, barely there, so it reads on any theme. MyGo's own is the theme's background,
+// pure black in the dark.
 func menuPanelLook(c *ui.Context) func(ui.Element) {
-	cl := ryugo.From(c).Colors
-	return func(panel ui.Element) { panel.Background(cl.Surface).Border(1, cl.Hairline) }
+	tk := ryugo.From(c)
+	cl := tk.Colors
+	bg, line := cl.Surface, cl.Text.Alpha(0.1)
+	if tk.Dark {
+		bg, line = ryugo.Mix(cl.Surface, cl.Text, 0.07), cl.Text.Alpha(0.09)
+	}
+	return func(panel ui.Element) { panel.Background(bg).Border(1, line) }
 }
+
+// menuRowLook makes the rows of MyGo's menus slimmer than the theme's (#394): less room above and below the
+// label, the same at its sides.
+func menuRowLook(row ui.Element) { row.Padding(4, 8) }
 
 // menuAt draws MyGo's menu of items at the box at in the window, below it (above where the window has no room),
 // while *open: an anchor of its own, so the menu opens from anywhere the app asks, not only from a click on it.
@@ -95,7 +106,7 @@ func menuAt(c *ui.Context, key, label string, at ui.Rect, open *bool, items []me
 		anchor.PopoverMenuButton(func(m *ui.Menu) {
 			m.MaxWidth(menuW + 40)
 			fillMenu(m, items, func() { chosen = true })
-		}, ui.PopoverMenuButtonOptions{Open: open, Panel: menuPanelLook(c)})
+		}, ui.PopoverMenuButtonOptions{Open: open, Panel: menuPanelLook(c), Item: menuRowLook})
 	})
 	return chosen
 }
