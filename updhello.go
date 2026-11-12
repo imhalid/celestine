@@ -140,14 +140,14 @@ func (a *app) updateHello(c *ui.Context) {
 		case !a.settings.HideStatus:
 			bottom = a.statusH + in
 		}
-		card := ui.Column(c.Key("upd-hello")).Absolute().Right(16).Bottom(bottom).Width(updCardW).Radius(r).
-			// a faint green tint and a light green border, as the update's card has the accent's: a notice (#398)
-			Background(ryugo.Mix(cl.Card, updGreen400, 0.07)).Border(1, updGreen400.Alpha(0.35)).Shadow(0, 6, 18, -6, black.Alpha(0.18)).
+		card := ui.Column(c.Key("upd-hello")).Absolute().Right(16).Bottom(bottom).Width(helloW).Radius(r).
+			// a faint tint and a light border of the theme's accent, as the update's card has: a notice (#398, #400)
+			Background(ryugo.Mix(cl.Card, cl.Accent, 0.06)).Border(1, cl.Accent.Alpha(0.28)).Shadow(0, 6, 18, -6, black.Alpha(0.18)).
 			Role(ui.RoleDialog).Label(locales.UpdateWhatsNew(shownVersion(version))).
 			Translate(0, 24*(1-k)).Opacity(k)
 		card.Children(func() {
 			ui.Row(c).FillWidth().Gap(11).AlignItems(ui.Start).Padding(12, 10, 12, 12).Children(func() {
-				a.updMark(c, cl, updReady, "upd-hello")
+				updBadge(c, cl.ColorAccent400, cl.ColorAccent600, iconCheck, "upd-hello") // installed
 				ui.Column(c).Grow(1).MinWidth(0).Gap(4).Children(func() {
 					ui.Text(c, locales.UpdateWhatsNew(shownVersion(version))).FontSize(13.5).FontWeight(680).TextColor(cl.Text).Wrap()
 					ui.Text(c, helloSummary(a.hello.notes)).FontSize(12).TextColor(cl.Text2).Wrap()
@@ -173,6 +173,9 @@ func (a *app) updateHello(c *ui.Context) {
 		})
 	})
 }
+
+// helloW is the note's width: wider than the update's card, for a few words of what changed.
+const helloW = 300
 
 // helloSummary is a few words of what changed: the notes' first lines as plain text, cut at a sentence's length; or,
 // with no notes, that there are none.

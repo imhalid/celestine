@@ -1442,6 +1442,7 @@
   "update_failed": "Güncellenemedi: {error}",
   "update_later": "Sonra",
   "update_newVersion": "Yeni bir sürüm var",
+  "update_newUpdate": "Yeni güncelleme var",
   "update_noAddress": "Ayarlanmamış: bu derleme bir adres olmadan yapılmış.",
   "update_noNotes": "Bu sürüm için sürüm notu yok.",
   "update_quiet": "Sessiz mod",

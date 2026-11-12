@@ -14673,6 +14673,16 @@ func (msgs Messages) UpdateNewVersion() string {
 	return Catalog.Format(msgs.locale, "update_newVersion", nil)
 }
 
+// UpdateNewUpdate says "New update available"
+// in the language the app shows.
+func UpdateNewUpdate() string { return In(i18n.Locale()).UpdateNewUpdate() }
+
+// UpdateNewUpdate says "New update available"
+// in the language of msgs.
+func (msgs Messages) UpdateNewUpdate() string {
+	return Catalog.Format(msgs.locale, "update_newUpdate", nil)
+}
+
 // UpdateNoAddress says "Not set: this build was made without one."
 // in the language the app shows.
 func UpdateNoAddress() string { return In(i18n.Locale()).UpdateNoAddress() }

@@ -145,6 +145,7 @@ type app struct {
 	updState    updateState // where an update the user asked for is
 	updChipAt   time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
 	updPanelAt  time.Time   // when the update card began to open
+	updHeldAt   time.Time   // when the pointer was last on the update card: it stays updStay from then (updatepanel.go)
 	updEase     updEase     // the chip's fill as it is drawn, following the download smoothly
 	hello       helloState  // the note of the version just installed, at its first start (updhello.go)
 	statusH     float32     // the status bar's height, as it was laid out

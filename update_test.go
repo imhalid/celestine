@@ -403,7 +403,7 @@ func TestCheckUpdateSettings(t *testing.T) {
 	a.settings.UpdateAt = 0
 	a.checkUpdate(false)
 	wait()
-	if a.updRel == nil || !a.updOpen || !tt.HasText("9.0.0 sürümü çıktı") {
+	if a.updRel == nil || !a.updOpen || !tt.HasText(locales.UpdateNewUpdate()) {
 		t.Fatalf("not shown: %v", tt.Texts())
 	}
 	// the card at the top right says it, with update now and later; no chip while it is open (updatepanel.go)
@@ -420,7 +420,7 @@ func TestCheckUpdateSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(updChipDelay + time.Second) // later: the card goes, and a moment later the chip opens in the header
-	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) || tt.HasText("9.0.0 sürümü çıktı") {
+	if a.updOpen || a.updRel == nil || !tt.HasText(locales.UpdateBadge()) || tt.HasText(locales.UpdateUpdateNow()) {
 		t.Fatalf("later: open %v, release %v: %v", a.updOpen, a.updRel, tt.Texts())
 	}
 	a.updState = updDownloading // what a click on it starts: it says so where it is
@@ -527,7 +527,7 @@ func TestUpdateTrial(t *testing.T) {
 	}
 	a.checkUpdate(false)
 	wait()
-	if a.updRel == nil || a.updRel.Version != "v1.0.1" || !a.updOpen || !tt.HasText(locales.UpdateVersionAvailable("1.0.1")) {
+	if a.updRel == nil || a.updRel.Version != "v1.0.1" || !a.updOpen || !tt.HasText(locales.UpdateNewUpdate()) {
 		t.Fatalf("no trial version: %v, open %v: %v", a.updRel, a.updOpen, tt.Texts())
 	}
 	tt.Advance(time.Second) // the card unfolds first
@@ -692,6 +692,26 @@ func TestUpdateWithoutShaders(t *testing.T) {
 	tt.Advance(updUnfold + 100*time.Millisecond)
 	if err := tt.Click(locales.UpdateLater()); err != nil {
 		t.Fatal(err)
+	}
+	tt.Advance(updChipDelay + updChipUnfold + 100*time.Millisecond)
+	if !tt.HasText(locales.UpdateBadge()) {
+		t.Fatalf("no chip: %v", tt.Texts())
+	}
+}
+
+// TestUpdateCardGoesByItself: the card of a waiting version goes to the header by itself a few seconds after it opened,
+// as Later puts it; once it downloads it stays (#400).
+func TestUpdateCardGoesByItself(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.updRel, a.updOpen = &Release{Version: "v9.0.0"}, true
+	tt.Frame()
+	tt.Advance(updUnfold + updStay/2)
+	if !a.updOpen {
+		t.Fatal("the card went too soon")
+	}
+	tt.Advance(updStay)
+	if a.updOpen {
+		t.Fatal("the card stays")
 	}
 	tt.Advance(updChipDelay + updChipUnfold + 100*time.Millisecond)
 	if !tt.HasText(locales.UpdateBadge()) {

@@ -1651,6 +1651,7 @@
   "@update_failed": {"placeholders": {"error": {"type": "String"}}},
   "update_later": "Later",
   "update_newVersion": "A new version is available",
+  "update_newUpdate": "New update available",
   "@update_newVersion": {"description": "The update dialog's title before the version is known."},
   "update_noAddress": "Not set: this build was made without one.",
   "update_noNotes": "No release notes for this version.",

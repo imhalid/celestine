@@ -328,7 +328,7 @@ func (a *app) updateCard(c *ui.Context) {
 		}
 		card := ui.Column(c.Key("upd-card")).Absolute().Right(16).Top(top).Width(updCardW).
 			// a faint tint and a light border of the accent: a notice, set apart from the content under it (#398)
-			Radius(r).Background(ryugo.Mix(cl.Card, cl.Accent, 0.06)).Border(1, cl.Accent.Alpha(0.28)).Clip().Role(ui.RoleDialog).Label(a.updTitle()).
+			Radius(r).Background(ryugo.Mix(cl.Card, cl.Accent, 0.06)).Border(1, cl.Accent.Alpha(0.28)).Clip().Role(ui.RoleDialog).Label(a.updTitle(a.updState)).
 			Shadow(0, 2, 6, 0, black.Alpha(0.10)) // small and plain: inside what the unfolding effect draws, no colored glow
 		if k < 1 {
 			card.Disabled(true).DimDisabled(false)
@@ -342,38 +342,53 @@ func (a *app) updateCard(c *ui.Context) {
 			}
 		}
 		card.Children(func() { a.updCardBody(c, cl, a.updState, "upd-card") })
+		a.updCardStay(c, card, k)
 	})
 }
 
-// updCardW is the card's width.
-const updCardW = 300
+// updStay is how long the card of a waiting version stays once open, with the pointer off it, before it goes to the
+// header as Later puts it (#400).
+var updStay = 4 * time.Second
 
-// updCardBody is what the card holds, as it is in state st: its mark, title and line, and what can be done. key names
-// its elements.
+// updCardStay puts the open card away by itself, as Later does, when it has stayed updStay with the pointer off it: a
+// notice, it does not keep its place on the screen. Only the card of a waiting version goes; once it downloads or is
+// ready, it stays.
+func (a *app) updCardStay(c *ui.Context, card ui.Element, k float32) {
+	if card.Hovered() {
+		a.updHeldAt = c.Now()
+	}
+	if k < 1 || a.updState != updIdle {
+		return
+	}
+	from := a.updPanelAt.Add(updUnfold)
+	if a.updHeldAt.After(from) {
+		from = a.updHeldAt
+	}
+	if left := updStay - c.Now().Sub(from); left > 0 {
+		c.After(left)
+		return
+	}
+	a.updOpen = false // the chip opens in its place
+	c.AnimationFrame()
+}
+
+// updCardW is the card's width: a notice, small.
+const updCardW = 264
+
+// updCardBody is what the card holds, as it is in state st: its mark and a title that says it all, with no version or
+// date (#400), and what can be done. Later is how it is put away. key names its elements.
 func (a *app) updCardBody(c *ui.Context, cl ryugo.Colors, st updateState, key string) {
-	ui.Row(c).FillWidth().Gap(11).AlignItems(ui.Start).Padding(12, 10, 0, 12).Children(func() {
+	ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Padding(10, 12, 0, 10).Children(func() {
 		a.updMark(c, cl, st, key)
-		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-			ui.Text(c, a.updTitle()).FontSize(13.5).FontWeight(680).TextColor(cl.Text).Wrap()
-			ui.Text(c, a.updCardLine(st)).FontSize(12).TextColor(cl.Muted).Wrap()
+		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
+			ui.Text(c, a.updTitle(st)).FontSize(13).FontWeight(650).TextColor(cl.Text).Wrap()
+			if a.updErr != "" && st != updDownloading && st != updReady {
+				ui.Text(c, a.updErr).FontSize(11.5).TextColor(cl.Muted).Wrap()
+			}
 		})
-		// the close button keeps its place while it downloads, unseen, so the card does not move as its state changes
-		x := ui.Box(c.Key(key + "-close")).Width(22).Height(22).Radius(11).AlignItems(ui.Center).Justify(ui.Center).Shrink(0)
-		if st == updDownloading {
-			x.Opacity(0).Disabled(true)
-		} else {
-			x.Role(ui.RoleButton).Label(locales.Close()).Cursor(ui.CursorPointer)
-			if x.Hovered() {
-				x.Background(cl.Fill)
-			}
-			if x.Clicked() {
-				a.updOpen = false
-			}
-		}
-		x.Children(func() { ui.Icon(c, iconClose).Width(13).Height(13).TextColor(cl.Muted) })
 	})
-	ui.Row(c).FillWidth().Padding(10, 12, 12, 12).Children(func() { // as tall in each state, so the wave's copy fits
-		ui.Row(c).Grow(1).Height(28).Gap(8).AlignItems(ui.Center).Justify(ui.End).Children(func() {
+	ui.Row(c).FillWidth().Padding(8, 10, 10, 10).Children(func() { // as tall in each state, so the card does not move
+		ui.Row(c).Grow(1).Height(26).Gap(6).AlignItems(ui.Center).Justify(ui.End).Children(func() {
 			a.updCardActions(c, cl, st, key)
 		})
 	})
@@ -389,37 +404,32 @@ func (a *app) updMark(c *ui.Context, cl ryugo.Colors, st updateState, key string
 	if st == updReady {
 		from, to, ic = updGreen400, updGreen600, iconRestart
 	}
-	m := ui.Box(c.Key(key + "-mark")).Width(28).Height(28).Radius(14).AlignItems(ui.Center).Justify(ui.Center).Shrink(0)
+	updBadge(c, from, to, ic, key)
+}
+
+// updBadge is a notice's round mark, from at its top to to at its bottom, with a gloss on its upper half and the icon
+// ic in white.
+func updBadge(c *ui.Context, from, to ui.Color, ic *ui.SVG, key string) {
+	const d = 24
+	m := ui.Box(c.Key(key + "-mark")).Width(d).Height(d).Radius(d / 2).AlignItems(ui.Center).Justify(ui.Center).Shrink(0)
 	m.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.FillGradient(r, ui.LinearGradient{From: from, To: to, Angle: 180, Oklab: true}, 14)
-		p.Clip(r, 14, func() { // the gloss on its upper half follows the circle and fades out, with no edge of its own
+		p.FillGradient(r, ui.LinearGradient{From: from, To: to, Angle: 180, Oklab: true}, d/2)
+		p.Clip(r, d/2, func() { // the gloss on its upper half follows the circle and fades out, with no edge of its own
 			p.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H * 0.55}, ui.LinearGradient{From: white.Alpha(0.3), To: white.Alpha(0), Angle: 180}, 0)
 		})
 	})
-	m.Children(func() { ui.Icon(c, ic).Width(15).Height(15).TextColor(white) })
+	m.Children(func() { ui.Icon(c, ic).Width(13).Height(13).TextColor(white) })
 }
 
-// updTitle is the card's title: the version that waits.
-func (a *app) updTitle() string {
-	if a.updRel == nil {
-		return locales.UpdateNewVersion()
-	}
-	return locales.UpdateVersionAvailable(shownVersion(a.updRel.Version))
-}
-
-// updCardLine is the line under the title in state st: when the version came out, or where the update is.
-func (a *app) updCardLine(st updateState) string {
-	switch {
-	case st == updDownloading:
+// updTitle is the card's title in state st: that there is an update, that it comes in, or that it is ready.
+func (a *app) updTitle(st updateState) string {
+	switch st {
+	case updDownloading:
 		return locales.UpdateDownloading()
-	case st == updReady:
+	case updReady:
 		return locales.UpdateBadgeReady()
-	case a.updErr != "":
-		return a.updErr
-	case a.updRel != nil:
-		return releasedLine(a.updRel.Date)
 	}
-	return ""
+	return locales.UpdateNewUpdate()
 }
 
 // updCardActions are what can be done in state st: update now or later; while it downloads, how far; once in place,
