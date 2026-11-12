@@ -319,7 +319,14 @@ func (a *app) settingsTop(c *ui.Context) {
 			in.FillWidth().Padding(10, 12)
 		}
 		if in.Changed() {
-			a.setSearch = q
+			if a.setSlash { // the text of the / that focused it comes after the key: not a search
+				q = strings.TrimSuffix(q, "/")
+			}
+			a.setSearch, a.setSlash = q, false
+		}
+		if a.setFocus || !c.FocusTakesText() && c.Shortcut(0, ui.KeySlash) { // / as the status bar says
+			a.setFocus, a.setSlash = false, true
+			in.Focus()
 		}
 	}
 	modes := func() {
@@ -457,8 +464,8 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 					d.reset(a)
 				}
 			}
-			g := ui.Row(c.Key("slg:"+d.name)).Padding(4, 10).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-			g.Children(func() { ui.Text(c, locales.CommonGo()).FontSize(12).TextColor(cl.Text2) })
+			g := ui.Row(c.Key("slg:"+d.name)).Padding(5, 9).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+			g.Children(func() { ui.Icon(c, iconArrowRight).Width(14).Height(14).TextColor(cl.Text2) })
 			if g.Clicked() {
 				a.settingsTab, a.setSearch, a.setMode = tab, "", ""
 			}

@@ -663,3 +663,33 @@ func TestKbOtherViews(t *testing.T) {
 		}
 	}
 }
+
+// TestSettingsSlashSearch: / on the settings screen puts the keys in their search, from the keys' mode or from no
+// field at all, and the / itself is not typed into it.
+func TestSettingsSlashSearch(t *testing.T) {
+	for _, normal := range []bool{false, true} {
+		k := newKbd(t, "x\n")
+		if normal { // the keys' mode, then Space s
+			k.press("esc", "space", "s")
+		} else {
+			k.a.openSettings()
+		}
+		k.frames()
+		if !k.a.settingsOpen || k.a.kb.normal != normal {
+			t.Fatalf("normal %v: settings %v, keys' mode %v", normal, k.a.settingsOpen, k.a.kb.normal)
+		}
+		k.tt.TypeKey(0, ui.KeySlash, "/")
+		k.frames()
+		k.frames()
+		if !k.tt.Focused(locales.SettingsSearchSettings()) {
+			t.Fatalf("normal %v: / did not focus the search", normal)
+		}
+		if k.a.find.open || k.a.setSearch != "" {
+			t.Fatalf("normal %v: find %v, search %q", normal, k.a.find.open, k.a.setSearch)
+		}
+		k.write("font")
+		if k.a.setSearch != "font" {
+			t.Fatalf("normal %v: typed %q", normal, k.a.setSearch)
+		}
+	}
+}

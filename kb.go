@@ -314,6 +314,8 @@ func (a *app) kbKeys(c *ui.Context) {
 		a.stepDay(-n)
 	case r == ']':
 		a.stepDay(n)
+	case r == '/' && a.settingsOpen: // the settings have no page to find in: their search
+		a.setFocus = true
 	case r == '/':
 		a.openFind()
 	case r == ':':

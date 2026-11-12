@@ -155,6 +155,8 @@ type app struct {
 	macroName   string
 	macroList   string
 	setSearch   string             // the search of the settings
+	setFocus    bool               // the settings' search takes the keys in the next frame (/)
+	setSlash    bool               // the / that focused the settings' search is still to come as text
 	setMode     string             // the settings' special page: "changed", "profiles", "file"
 	profName    string             // the name being typed for a profile
 	charW       map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
