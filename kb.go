@@ -533,7 +533,7 @@ func (a *app) kbView(c *ui.Context) {
 				}
 				ui.Row(c.Key("hint:"+strconv.Itoa(i))).Absolute().Left(max(t.r.X, 0)).Top(max(t.r.Y, 0)).Padding(1, 5).Radius(rad(5)).
 					Background(cl.Warn).Border(1, cl.Text.Alpha(0.5)).Children(func() {
-					ui.Text(c, strings.ToUpper(t.label)).FontSize(12).FontWeight(750).TextColor(ui.Hex("#1b1b1f")).Font(ryugo.FontMono)
+					ui.Text(c, strings.ToUpper(t.label)).FontSize(12).FontWeight(750).TextColor(ui.Hex("#1b1b1f")).Font(monoStack)
 				})
 			}
 		})
@@ -544,7 +544,7 @@ func (a *app) kbView(c *ui.Context) {
 				ui.Text(c, locales.KeysSpace()).FontSize(12).FontWeight(700).TextColor(cl.Muted)
 				for _, l := range leaderKeys {
 					ui.Row(c.Key("wk:" + string(l.key))).Gap(10).Children(func() {
-						ui.Text(c, string(l.key)).FontSize(13).FontWeight(700).Font(ryugo.FontMono).TextColor(cl.Accent).Width(14)
+						ui.Text(c, string(l.key)).FontSize(13).FontWeight(700).Font(monoStack).TextColor(cl.Accent).Width(14)
 						ui.Text(c, l.name).FontSize(13).TextColor(cl.Text)
 					})
 				}

@@ -76,6 +76,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `editing.go` | How the text is set and kept: paragraph spacing, first-line indent, autosave on/off and its delay, ⌘S, ⌘= ⌘− ⌘0, and the white space drawn over the text |
 | `cmdreg.go` | The settings as one list the palette reads: every setting is a command (toggle, number, choice), commands with a value ("yazı boyutu 18"), and the test that holds `Settings` and the commands together |
 | `fonts.go` | The typefaces: app, editor and code, from the families installed, each in its own letters and applied when chosen, with presets, stars and a fallback |
+| `fontsbuiltin.go` | The typefaces the app comes with, embedded and registered at start: Geist (variable, with its italics) and Departure Mono, the defaults when no family is chosen (`assets/fonts`, OFL) |
 | `crash.go` | The crash log: a panic in a frame, a goroutine or the program is written to the config folder; the next start tells of a session that ended badly |
 | `backup.go` | Backups of the library's file (daily, before an import or an update, by hand), pruning, restore at the next start, zip export |
 | `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |

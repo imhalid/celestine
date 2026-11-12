@@ -72,7 +72,7 @@ func (a *app) helpView(c *ui.Context) {
 						ui.Text(c, g.title).FontSize(13).FontWeight(680).TextColor(cl.Muted)
 						for ri, r := range g.rows {
 							ui.Row(c.Key("hr"+itoa(gi)+":"+itoa(ri))).FillWidth().Gap(12).Padding(2, 0).Children(func() {
-								ui.Text(c, r[0]).FontSize(12.5).FontWeight(650).Font(ryugo.FontMono).TextColor(cl.Accent).Width(150)
+								ui.Text(c, r[0]).FontSize(12.5).FontWeight(650).Font(monoStack).TextColor(cl.Accent).Width(150)
 								ui.Text(c, r[1]).FontSize(13).TextColor(cl.Text).Grow(1)
 							})
 						}

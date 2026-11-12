@@ -75,7 +75,7 @@ func (a *app) collectionView(c *ui.Context) {
 						if coll.Dynamic() {
 							ui.Row(c).Gap(6).AlignItems(ui.Center).Margin(-4, 0, 4, 0).Children(func() {
 								ui.Icon(c, iconSearch).Width(14).Height(14).TextColor(t.TextMuted)
-								ui.Text(c, coll.Query).FontSize(13.5).Font(ryugo.FontMono).TextColor(t.TextMuted)
+								ui.Text(c, coll.Query).FontSize(13.5).Font(monoStack).TextColor(t.TextMuted)
 							})
 						}
 						if coll.Description != "" {

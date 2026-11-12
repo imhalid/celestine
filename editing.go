@@ -412,7 +412,7 @@ func (a *app) settingsText(c *ui.Context) {
 func (a *app) charsWidth(n int) float32 {
 	f := ui.Font{Family: a.font.Family, Size: a.fontSize(), Weight: a.fontWeight(), Features: a.fontFeatures()}
 	if f.Family == "" {
-		f.Family = ryugo.FontSans
+		f.Family = sansStack
 	}
 	key := f.Family + "|" + strconv.FormatFloat(float64(f.Size), 'f', 1, 32) + "|" + strconv.Itoa(f.Weight) + "|" + strconv.Itoa(n)
 	if w, ok := a.charW[key]; ok {

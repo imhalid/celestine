@@ -211,7 +211,7 @@ func (a *app) cellSpans(md string, size float32, weight int, th *ui.Theme, accen
 		}
 		sp.Italic, sp.Strikethrough = at.Italic, at.Strikethrough
 		if at.Code {
-			sp.Font, sp.Background, sp.Radius = "monospace", th.Text.Alpha(0.09), 4
+			sp.Font, sp.Background, sp.Radius = a.monoFont(), th.Text.Alpha(0.09), 4
 		}
 		if at.Link != "" || accented {
 			sp.Color = accent

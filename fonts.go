@@ -113,14 +113,14 @@ func (a *app) stackOf(name, def string) string {
 }
 
 // appFont, editorFont and monoFont are the stacks the window is drawn in.
-func (a *app) appFont() string { return a.stackOf(a.fontChosen(fontApp), ryugo.FontSans) }
+func (a *app) appFont() string { return a.stackOf(a.fontChosen(fontApp), sansStack) }
 func (a *app) editorFont() string {
 	if n := a.fontChosen(fontEditor); n != "" {
 		return a.stackOf(n, a.appFont())
 	}
 	return a.appFont()
 }
-func (a *app) monoFont() string { return a.stackOf(a.fontChosen(fontMono), "monospace") }
+func (a *app) monoFont() string { return a.stackOf(a.fontChosen(fontMono), monoStack) }
 
 // fontFeatures are the OpenType features the settings ask for, for the text.
 func (a *app) fontFeatures() string {
@@ -302,14 +302,14 @@ func (a *app) settingsFonts(c *ui.Context) {
 					b := ui.Row(c.Key("fontbtn"+strconv.Itoa(ri))).Gap(6).Padding(6, 12).Radius(rad(8)).Background(cl.Fill).AlignItems(ui.Center).
 						Label(msg(role.name) + ": " + label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 					b.Children(func() {
-						ui.Text(c, label).FontSize(13).Font(a.stackOf(cur, ryugo.FontSans)).TextColor(cl.Text).MaxLines(1)
+						ui.Text(c, label).FontSize(13).Font(a.stackOf(cur, sansStack)).TextColor(cl.Text).MaxLines(1)
 						ui.Text(c, map[bool]string{true: "▴", false: "▾"}[a.fonts.open[ri]]).FontSize(11).TextColor(cl.Muted)
 					})
 					if b.Clicked() {
 						a.fonts.open[ri] = !a.fonts.open[ri]
 					}
 				})
-				ui.Text(c, msg(role.sample)).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: "monospace", false: ryugo.FontSans}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
+				ui.Text(c, msg(role.sample)).FontSize(15).Font(a.stackOf(cur, map[bool]string{true: monoStack, false: sansStack}[r == fontMono])).TextColor(cl.Text2).MaxLines(1)
 				if !a.fonts.open[ri] {
 					return
 				}
@@ -402,9 +402,9 @@ func (a *app) fontRow(c *ui.Context, r fontRole, name, label string, on bool) {
 		e.Background(cl.Fill)
 	}
 	e.Children(func() {
-		f := ryugo.FontSans
+		f := sansStack
 		if name != "" {
-			f = a.stackOf(name, ryugo.FontSans)
+			f = a.stackOf(name, sansStack)
 		}
 		ui.Text(c, label).FontSize(14).Font(f).TextColor(cl.Text).MaxLines(1).Grow(1)
 		if on {

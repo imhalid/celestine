@@ -579,7 +579,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.From(c).R(ryugo.RadiusControl)-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
+						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(monoStack).TextColor(cl.Text2).Selectable().MaxLines(1), func() string { return text }, nil)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
 				})
@@ -658,7 +658,7 @@ func (a *app) settingsMCP(c *ui.Context) {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(ryugo.FontMono).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
+						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(monoStack).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
 					})
 					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
 				})
