@@ -4,10 +4,10 @@
 // minutes, so the bucket is read once in that time, not at every visit. The app's "what's new" note links here.
 //
 // The file has no issue numbers, no addresses and no internal work (scripts/release/changelog.go); this page adds
-// none. It is plain HTML with no script, in the entry screen's tokens (landing/app.css): a watercolor banner
-// (banner.bin, made for the page), on the left a rail of bars, one for each release and as long as it is big, the
-// way the app's page history draws its copies, and on the right each release: its title, its badges, a summary and
-// its changes in two folding boxes (<details>), the new and improved and the fixes.
+// none. It is plain HTML with two small scripts (the scheme's and the rail's), in the entry screen's tokens
+// (landing/app.css): a watercolor banner (banner.bin, made for the page), on the left a rail of the releases, each
+// with its version and its day (the year once above them), the one being read bright, and on the right each release:
+// its title, its badges, a summary and its changes in two folding boxes (<details>), the new and improved and the fixes.
 
 // the banner, two WebPs made with an image model from the app's icon, in watercolor: at dawn for the light theme, the
 // same scene at night for the dark one
@@ -77,24 +77,67 @@ const SCHEME_JS = `(() => {
     b.hidden = false;
     b.addEventListener("click", () => {
       const s = now() === "dark" ? "light" : "dark";
-      root.dataset.scheme = s;
+      const apply = () => { root.dataset.scheme = s; label(); };
+      // a view transition: the page cross-fades to the other scheme; with none in the browser, or reduced motion asked
+      // for, it changes at once
+      if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply);
+      else apply();
       try { localStorage.setItem("celestine-scheme", s); } catch {}
-      label();
     });
   });
 })();
 `;
+
+// RAIL_JS makes the rail follow the page: the release being read (the last whose top has passed a line a third of the
+// way down the window, and the last one at the page's end) is "on", and each row has its distance from it in --d, which
+// the CSS turns into brightness and room. Without it the rail is as it was, every row alike.
+const RAIL_JS = `(() => {
+  const rail = document.querySelector(".rail");
+  const rows = [...document.querySelectorAll(".rail li:not(.year)")];
+  const rels = [...document.querySelectorAll("main .release")];
+  if (!rail || !rows.length || rows.length !== rels.length) return;
+  let on = -1, queued = false;
+  const update = () => {
+    queued = false;
+    const line = innerHeight * 0.35;
+    let i = 0;
+    for (let k = 0; k < rels.length; k++) if (rels[k].getBoundingClientRect().top <= line) i = k;
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) i = rels.length - 1;
+    if (i === on) return;
+    on = i;
+    rows.forEach((li, k) => { li.style.setProperty("--d", Math.abs(k - i)); li.classList.toggle("on", k === i); });
+  };
+  const ask = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+  addEventListener("scroll", ask, { passive: true });
+  addEventListener("resize", ask);
+  update();
+  rail.classList.add("live");
+})();
+`;
+
+// railScript answers GET /changelog/rail.js.
+export function railScript() {
+  return new Response(RAIL_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
+}
 
 // schemeScript answers GET /changelog/scheme.js.
 export function schemeScript() {
   return new Response(SCHEME_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
 }
 
-// shortDate is "Nov 11, 2026" for "2026-11-11", read as a day, not an instant.
+// shortDate is "Nov 11, 2026" for "2026-11-11" and "Nov 09, 2026" for "2026-11-09" (the day always has two digits, so the
+// dates in the rail stay as long as one another), read as a day, not an instant.
 function shortDate(d) {
   const t = new Date(d + "T12:00:00Z");
   if (isNaN(t)) return esc(d);
-  return t.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+  return t.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit", timeZone: "UTC" });
+}
+
+// dayDate is "Nov 09" for "2026-11-09": a row of the rail has no year, the year is written once above its rows.
+function dayDate(d) {
+  const t = new Date(d + "T12:00:00Z");
+  if (isNaN(t)) return esc(d);
+  return t.toLocaleDateString("en-US", { month: "short", day: "2-digit", timeZone: "UTC" });
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -126,18 +169,15 @@ function lede(r) {
   return `<p class="lede">Celestine ${v} brings ${parts.join(" and ")}.</p>`;
 }
 
-// size is how many changes a release has, for the length of its bar.
-const size = (r) => (r.features?.length || 0) + (r.fixes?.length || 0);
-
-// railHTML is the rail of releases: a bar for each, its version and date before it, its length by how much it changed
-// (on a square root, so a big release does not dwarf the rest), as the app's page history draws its copies. A bar
-// grows a little under the pointer, its neighbours less.
+// railHTML is the rail of releases: a row for each, its version and its day, under the year of the rows below it.
 function railHTML(releases) {
-  const most = Math.max(1, ...releases.map(size));
-  const rows = releases.map((r, i) => {
-    const len = r.first ? 0.55 : 0.28 + 0.72 * Math.sqrt(size(r) / most);
+  let year = "";
+  const rows = releases.map((r) => {
     const v = esc(r.version.replace(/^v/, ""));
-    return `<li><a class="bar${i === 0 ? " now" : ""}" href="#${esc(r.version)}" style="--len:${len.toFixed(3)}" title="Version ${v} on ${shortDate(r.date)}"><span class="lbl"><b>${v}</b><time datetime="${esc(r.date)}">${shortDate(r.date)}</time></span><span class="track"><span class="line"></span></span></a></li>`;
+    const y = esc(String(r.date).slice(0, 4));
+    const head = y !== year ? `<li class="year" aria-hidden="true">${y}</li>` : ""; // the year, once above the rows that have it
+    year = y;
+    return `${head}<li><a class="bar" href="#${esc(r.version)}" title="Version ${v} on ${shortDate(r.date)}"><span class="lbl"><b>${v}</b><time datetime="${esc(r.date)}">${dayDate(r.date)}</time></span></a></li>`;
   });
   return `<nav class="rail" aria-label="Releases"><ol>${rows.join("")}</ol></nav>`;
 }
@@ -164,7 +204,7 @@ export function changelogHTML(releases) {
     : `<p class="empty">No releases yet. The first one will be listed here.</p>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Changelog — Celestine</title><link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png">
-<meta name="description" content="What is new in each version of Celestine."><meta name="color-scheme" content="light dark"><script src="/changelog/scheme.js"></script><style>
+<meta name="description" content="What is new in each version of Celestine."><meta name="color-scheme" content="light dark"><script src="/changelog/scheme.js?v=${SCHEME_JS.length.toString(36)}"></script><script src="/changelog/rail.js?v=${RAIL_JS.length.toString(36)}" defer></script><style>
 :root{color-scheme:light dark;
   --bg:light-dark(oklch(98.5% .002 286),oklch(9% .004 286));
   --card:light-dark(oklch(100% 0 0),oklch(15% .004 286));
@@ -184,7 +224,8 @@ export function changelogHTML(releases) {
   --control:linear-gradient(180deg,light-dark(oklch(100% 0 0),oklch(35% .003 286)),light-dark(oklch(94.5% .005 286),oklch(28% .004 286)));
   --control-border:light-dark(oklch(0% 0 0 / 10%),oklch(100% 0 0 / 8%));
   --control-shadow:inset 0 1px light-dark(oklch(100% 0 0 / 50%),oklch(100% 0 0 / 8%)),0 1px 2px light-dark(oklch(0% 0 0 / 6%),oklch(0% 0 0 / 40%));
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif}
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 html[data-scheme=light]{color-scheme:light}
 html[data-scheme=dark]{color-scheme:dark}
 *{box-sizing:border-box}
@@ -227,23 +268,26 @@ html[data-scheme=dark] .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px
   html:not([data-scheme=light]) .banner h1{color:oklch(98% .01 255);text-shadow:0 0 24px oklch(70% .15 255 / 55%),0 1px 2px oklch(10% .05 270 / 60%)}
   html:not([data-scheme=light]) .banner p{color:oklch(90% .03 260);text-shadow:0 1px 10px oklch(10% .05 270 / 80%)}
 }
-.page{display:grid;grid-template-columns:15.5rem 1fr;column-gap:40px;margin-top:8px}
+.page{display:grid;grid-template-columns:max-content 1fr;column-gap:56px;margin-top:8px}
 .rail{position:sticky;top:72px;align-self:start;padding:34px 0 24px}
-.rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.bar{display:grid;grid-template-columns:8.6rem 1fr;align-items:center;column-gap:14px;padding:6px 8px;border-radius:8px;text-decoration:none;color:var(--muted);transition:background-color .2s var(--ease)}
-.bar:hover{background:var(--well)}
-.lbl{display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.lbl b{font-size:13px;font-weight:600;color:var(--text);min-width:2.6rem;text-align:right}
-.lbl time{font-size:12.5px;color:var(--muted)}
-.track{display:block;height:10px;position:relative}
-.line{position:absolute;left:0;top:50%;height:6px;margin-top:-3px;width:calc(var(--len) * 100%);border-radius:6px;background:var(--faint);transform-origin:left center;
-  transition:transform .25s var(--ease),background-color .2s var(--ease)}
-.bar.now .line{background:var(--accent)}
-.bar:hover .line,.bar:focus-visible .line{transform:scale(1.12,1.35);background:var(--muted)}
-.bar.now:hover .line{background:var(--accent)}
-.rail li:has(+ li .bar:hover) .line,.rail li:has(.bar:hover) + li .line{transform:scale(1.05,1.15)}
+.rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+/* the rail that follows the page (rail.js): the release being read is bright and pushes the rows around it away, the rest
+   dim the further they are */
+.rail li{transition:opacity .35s var(--ease),margin .4s var(--ease)}
+.rail.live li:not(.year){opacity:max(.28,calc(.62 - (var(--d) - 1) * .12))}
+.rail.live li.on{opacity:1;margin-block:12px}
+.rail.live li.on time{color:var(--text)}
+.rail .year{font:600 13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);text-box-trim:trim-both;text-box-edge:ex alphabetic}
+.bar{display:block;text-decoration:none;color:var(--muted)}
+.lbl{display:flex;align-items:center;gap:12px;white-space:nowrap;font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* the labels' boxes are trimmed to the x-height and the baseline, so they sit centered on the bar, not off by the line's leading */
+.lbl b,.lbl time{text-box-trim:trim-both;text-box-edge:ex alphabetic}
+.lbl b{font-size:13px;font-weight:600;color:var(--text);min-width:5ch;text-align:right}
+.lbl time{font-size:13px;color:var(--muted)}
 .bar:hover .lbl b{color:var(--accent)}
 main{min-width:0}
+/* the light and dark switch (scheme.js) is a view transition: the old page fades into the new one */
+::view-transition-group(root){animation-duration:.45s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
 .release{padding:36px 0 34px;border-bottom:1px solid var(--line)}
 .release:last-child{border-bottom:0}
 .kicker{display:flex;gap:8px;align-items:center;margin:0 0 6px;color:var(--muted);font-size:13px}
@@ -275,18 +319,17 @@ h2{margin:0 0 10px;font-size:clamp(1.45rem,3vw,1.85rem);line-height:1.2;letter-s
 footer{display:flex;gap:18px;padding:28px 0 56px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
 footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--text)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.line{transition:none}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.rail li{transition:none}}
 @media (max-width:480px){.status{display:none}}
 @media (max-width:760px){
   .topbar .inner{padding:0 16px}
   .banner{height:200px;border-radius:18px;background-position:88% 55%}.intro{left:20px;top:22px;max-width:13.5rem}.banner p{font-size:14px}
   .page{grid-template-columns:1fr}
   .rail{position:static;padding:18px 0 4px;overflow-x:auto}
-  .rail ol{flex-direction:row;align-items:flex-end;gap:2px;min-height:110px}
-  .bar{display:flex;flex-direction:column-reverse;align-items:center;gap:8px;padding:6px 4px}
-  .lbl{flex-direction:column;align-items:center;gap:0}.lbl b{min-width:0;text-align:center}.lbl time{display:none}
-  .track{width:44px;height:72px}
-  .line{left:50%;top:auto;bottom:0;margin:0 0 0 -3px;width:6px;height:calc(var(--len) * 100%);transform-origin:center bottom}
+  .rail ol{flex-direction:row;align-items:center;gap:18px}
+  .rail .year{display:none}
+  .rail.live li.on{margin-block:0}
+  .lbl b{min-width:0;text-align:center}.lbl time{display:none}
   .release{padding:24px 0}
 }
 </style></head><body>
