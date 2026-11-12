@@ -9,7 +9,10 @@
 // way the app's page history draws its copies, and on the right each release: its title, its badges, a summary and
 // its changes in two folding boxes (<details>), the new and improved and the fixes.
 
-import BANNER from "./banner.bin"; // the banner, a WebP (made with an image model from the app's icon, in watercolor)
+// the banner, two WebPs made with an image model from the app's icon, in watercolor: at dawn for the light theme, the
+// same scene at night for the dark one
+import BANNER from "./banner.bin";
+import BANNER_DARK from "./banner-dark.bin";
 
 const CACHE_SECONDS = 300;
 const SHOWN = 10; // the changes a box shows before "Show n more"
@@ -47,12 +50,16 @@ export async function changelogPage(request, env, ctx) {
   return res;
 }
 
-// BANNER_V changes the banner's address when the picture changes, so no browser keeps the old one for its day.
-const BANNER_V = (BANNER.byteLength || BANNER.length || 0).toString(36);
+// bannerV is a picture's address suffix: it changes when the picture does, so no browser keeps the old one for its day.
+const bannerV = (b) => (b.byteLength || b.length || 0).toString(36);
+const BANNER_V = bannerV(BANNER);
+const BANNER_DARK_V = bannerV(BANNER_DARK);
 
-// bannerImage answers GET /changelog/banner.webp. A new banner comes with a deploy, so a day's cache is enough.
-export function bannerImage() {
-  return new Response(BANNER, { headers: { "content-type": "image/webp", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
+// bannerImage answers GET /changelog/banner.webp and /changelog/banner-dark.webp. A new banner comes with a deploy.
+export function bannerImage(dark) {
+  return new Response(dark ? BANNER_DARK : BANNER, {
+    headers: { "content-type": "image/webp", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" },
+  });
 }
 
 // shortDate is "Nov 11, 2026" for "2026-11-11", read as a day, not an instant.
@@ -164,7 +171,8 @@ a{color:inherit}
 .nav .dl:hover{opacity:.9}
 .banner{position:relative;margin:16px 0 0;height:300px;border-radius:22px;overflow:hidden;background:#f7f4f1 url(/changelog/banner.webp?v=${BANNER_V}) center 54%/cover no-repeat;
   -webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
-@media (prefers-color-scheme:dark){.banner{filter:brightness(.82) saturate(.95)}}
+@media (prefers-color-scheme:dark){.banner{background-color:#0b1026;background-image:url(/changelog/banner-dark.webp?v=${BANNER_DARK_V})}
+  .wrap .banner h1{color:oklch(97% .01 265)}.wrap .banner p{color:oklch(86% .02 265)}}
 .banner h1{position:absolute;left:30px;top:28px;margin:0;color:oklch(24% .03 265);font-size:clamp(1.9rem,4.6vw,2.7rem);line-height:1.1;letter-spacing:-.03em}
 .banner p{position:absolute;left:30px;top:calc(28px + clamp(1.9rem,4.6vw,2.7rem) * 1.1 + 6px);margin:0;max-width:22rem;color:oklch(36% .03 265);font-size:15px}
 .page{display:grid;grid-template-columns:15.5rem 1fr;column-gap:40px;margin-top:8px}

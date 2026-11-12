@@ -106,7 +106,8 @@ async function handle(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/icon.png") return new Response(ICON, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
   if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
   if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
-  if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage();
+  if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage(false);
+  if (request.method === "GET" && url.pathname === "/changelog/banner-dark.webp") return bannerImage(true);
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);
