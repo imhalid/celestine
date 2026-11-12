@@ -10,6 +10,7 @@
 //                          for it often (it is one small read) and lists the files only when it moved
 //   /api/…   accounts: waitlist, registration with an invite code, login, devices (auth.js)
 //   /        the waitlist page;  /privacy  what is kept;  /admin  the administrator's page (pages.js)
+//   /changelog  every release, from the releases bucket's changelog.json (changelog.js)
 //
 // Every device has a token, "Authorization: Bearer <token>"; it leads to an account, and an account's files are
 // under its own prefix ("u<id>/"). Every write is checked by R2 itself (onlyIf on the object's etag), so that two
@@ -21,6 +22,7 @@
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
+import { changelogPage } from "./changelog.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
 import ICON from "./icon.bin"; // the app's icon (assets/icon-256.png), the pages' favicon and mark
@@ -79,11 +81,11 @@ export default {
     for (const [id, n] of refund) await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(n, Number(id)).run();
     console.log(`versions deleted for ${refund.size} accounts`);
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     let res;
     try {
-      res = await handle(request, env);
+      res = await handle(request, env, ctx);
     } catch (e) {
       console.error(e);
       res = new Response("error", { status: 500 });
@@ -94,7 +96,7 @@ export default {
   },
 };
 
-async function handle(request, env) {
+async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === "/") return waitlistPage(env);
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
@@ -103,6 +105,7 @@ async function handle(request, env) {
   if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_WASM_PATH) return asset(ADMIN_WASM, "application/wasm");
   if (request.method === "GET" && url.pathname === "/icon.png") return new Response(ICON, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
   if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
+  if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);

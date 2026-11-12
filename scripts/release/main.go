@@ -1,8 +1,10 @@
-// Command release makes what a release needs: a key pair, and the manifest the app reads, signed.
+// Command release makes what a release needs: a key pair, the manifest the app reads, signed, and the changelog the
+// site shows (changelog.go).
 //
 //	go run ./scripts/release keygen                       writes release.key (secret) and prints the public key
 //	go run ./scripts/release manifest -version v1.3.0 -base https://dl.example.com/v1.3.0 \
 //	    -notes notes.md -key release.key dist/celestine-*    prints update.json
+//	go run ./scripts/release changelog                    prints changelog.json, every release from the git tags
 //
 // The secret key lives only where the release is made (a secret of the CI); the public key goes into the
 // program at the build: -X main.updateKey=<public key>.
@@ -34,7 +36,7 @@ type asset struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "keygen | manifest")
+		fmt.Fprintln(os.Stderr, "keygen | manifest | changelog")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
@@ -99,8 +101,17 @@ func main() {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		check(enc.Encode(out))
+	case "changelog":
+		tags, err := gitTags()
+		check(err)
+		c, err := buildChangelog(tags, gitTitles, time.Now())
+		check(err)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		check(enc.Encode(c))
 	default:
-		fmt.Fprintln(os.Stderr, "keygen | manifest")
+		fmt.Fprintln(os.Stderr, "keygen | manifest | changelog")
 		os.Exit(2)
 	}
 }

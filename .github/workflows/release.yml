@@ -9,7 +9,8 @@
 # made all the same, on GitHub alone: the builds do not check for updates, and nothing goes to R2.
 #
 # A v0.x tag, or one with a "-" (v1.2.0-beta.1), is a prerelease. The notes, on GitHub and in the app's "what's
-# new" alike, are the commits since the tag before.
+# new" alike, are the commits since the tag before. changelog.json, every release with its changes grouped and without
+# issue numbers (scripts/release changelog), goes to R2 last: the site's /changelog reads it there, with no deploy.
 name: release
 on:
   push:
@@ -67,6 +68,11 @@ jobs:
             git log --no-merges --format='- %s' -40 "$VERSION" >> release-notes.md
           fi
           cat release-notes.md
+      - name: changelog
+        run: |
+          # every release from the tags, for the site's /changelog (cloudflare/sync/changelog.js)
+          go run ./scripts/release changelog > changelog.json
+          head -c 2000 changelog.json
       - name: manifest
         if: env.SIGNED == 'true'
         run: |
@@ -94,3 +100,5 @@ jobs:
           for f in dist/celestine-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
           # the manifest last: once it is up, every app is offered the version
           aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
+          # the site's changelog after it, so the page never names a version that is not offered yet
+          aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"

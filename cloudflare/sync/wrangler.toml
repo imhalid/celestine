@@ -6,6 +6,11 @@ compatibility_date = "2026-01-01"
 binding = "SYNC"
 bucket_name = "celestine-sync"
 
+# the releases, read for the /changelog page only (changelog.js): the release workflow writes changelog.json there
+[[r2_buckets]]
+binding = "RELEASES"
+bucket_name = "celestine-releases"
+
 # the id is that of the live database; `wrangler dev --local` uses a local copy, whatever it says
 [[d1_databases]]
 binding = "DB"
