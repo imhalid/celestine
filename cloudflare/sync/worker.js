@@ -23,6 +23,7 @@
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
 import { changelogPage, bannerImage } from "./changelog.js";
+import { heroImage } from "./landing.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
 import ICON from "./icon.bin"; // the app's icon (assets/icon-256.png), the pages' favicon and mark
@@ -105,6 +106,8 @@ async function handle(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_WASM_PATH) return asset(ADMIN_WASM, "application/wasm");
   if (request.method === "GET" && url.pathname === "/icon.png") return new Response(ICON, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
   if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
+  if (request.method === "GET" && url.pathname === "/hero.webp") return heroImage(false);
+  if (request.method === "GET" && url.pathname === "/hero-dark.webp") return heroImage(true);
   if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
   if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage(false);
   if (request.method === "GET" && url.pathname === "/changelog/banner-dark.webp") return bannerImage(true);

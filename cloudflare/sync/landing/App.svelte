@@ -175,7 +175,16 @@
   .frame { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
 
   /* the hero */
-  .hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: clamp(64px, 12vh, 128px) 24px clamp(56px, 10vh, 104px); }
+  .hero { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: clamp(64px, 12vh, 128px) 24px clamp(200px, 30vw, 340px); }
+  /* the picture behind it: two blue crystals in a meadow, at dawn or at night as the scheme is (--hero, set by landing.js),
+     fading into the page at the bottom */
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--hero) center bottom / cover no-repeat;
+    -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
+  :global(html[data-scheme="dark"]) .hero::before { background-image: var(--hero-dark); }
+  @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero::before { background-image: var(--hero-dark); } }
+  :global(html[data-scheme="dark"]) .hero .lead, :global(html[data-scheme="dark"]) .hero .fine { color: oklch(86% .03 260); }
+  @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero .lead, :global(html:not([data-scheme="light"])) .hero .fine { color: oklch(86% .03 260); } }
   .badge { font-size: 13px; color: var(--muted); background: var(--well); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
   h1 { margin: 22px 0 0; display: flex; align-items: center; font-size: clamp(56px, 10vw, 104px); line-height: 1; font-weight: 700; letter-spacing: -0.05em; color: var(--text); min-height: 1em; }
   .tc { display: inline-block; width: 0.07em; height: 0.78em; margin-left: 0.06em; border-radius: 2px; background: var(--accent); animation: blink 1.05s steps(1) infinite; }
