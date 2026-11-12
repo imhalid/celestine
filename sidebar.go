@@ -17,6 +17,11 @@ import (
 const (
 	barH    = 24
 	indentW = 14
+	// rowBtn is a button at a row's end (its pin, its +), and rowBtnGap the room between two of them, the row's own gap.
+	rowBtn    = 22
+	rowBtnGap = 5
+	// rowFadeW is how far a row's title fades out before the buttons that come over its end.
+	rowFadeW = 14
 )
 
 // rowH is a row of the tree: taller on a phone, for a finger (updatePhone).
@@ -276,7 +281,7 @@ func sideRowLook(c *ui.Context, r ui.Element, st rowState) (text, icon ui.Color)
 }
 
 // treeRow is a row of the tree: its chevron, icon and name - a field when
-// it is being renamed - and a + that shows while the row is hovered. A right
+// it is being renamed - and a + that shows over its end while the row is hovered. A right
 // click opens its menu. It reports a click on the row, the chevron and the +.
 func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	t := c.Theme()
@@ -334,33 +339,59 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 			a.renameField(c)
 			return
 		}
-		tx := ui.Text(c, s.name).FontSize(14).MaxLines(1).Grow(1).TextColor(textC)
+		tx := ui.Text(c, s.name).FontSize(14).MaxLines(1).Grow(1).MinWidth(0).TextColor(textC)
 		switch {
 		case s.strong: // a collection: a heading of the tree
 			tx.FontWeight(600)
 		case st == rowOpen:
 			tx.FontWeight(540)
 		}
-		if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
-			c.Key("pin:" + s.key)
-			if s.pinned {
-				b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(locales.SidebarUnpinLabel(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-				if b.Hovered() {
-					b.Background(t.SurfacePressed)
-				}
-				b.Children(func() { ui.Icon(c, iconPinned).Width(15).Height(15).TextColor(ryugo.From(c).Colors.Accent) })
-				if b.Clicked() {
+		n := 0 // the buttons at the row's end
+		if s.pin != nil {
+			n++
+		}
+		if s.plus {
+			n++
+		}
+		if n == 0 {
+			return
+		}
+		endW := float32(n)*rowBtn + float32(n-1)*rowBtnGap
+		if s.pinned { // a pin that always shows keeps its room, and the + beside it
+			ui.Box(c).Width(endW).Height(rowBtn)
+		} else { // the title runs under the buttons and fades out as they come in
+			k := tx.AnimateTo("reveal", map[bool]float32{true: 1}[hover], fadeQuick)
+			if w := tx.Bounds().W; k > 0.005 && w > endW {
+				end := 1 - (endW-5)/w // the buttons' left edge, less the row's gap
+				from := max(end-rowFadeW/w, 0)
+				black := ui.RGB(0, 0, 0)
+				tx.MaskLinearGradient(ui.LinearGradient{Angle: 90, Stops: []ui.GradientStop{
+					{Color: black, At: from}, {Color: black.Alpha(1 - k), At: end}, {Color: black.Alpha(1 - k), At: 1}}})
+			}
+		}
+		// The buttons lie over the row's end rather than in its line, so they keep no room from the title.
+		ui.Row(c.Key("end:" + s.key)).Absolute().Top(0).Bottom(0).Right(6).Gap(rowBtnGap).AlignItems(ui.Center).Children(func() {
+			if s.pin != nil { // pinned: its pin shows and takes it off; not: it shows as the row is hovered
+				c.Key("pin:" + s.key)
+				if s.pinned {
+					b := ui.Box(c).Width(rowBtn).Height(rowBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(locales.SidebarUnpinLabel(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+					if b.Hovered() {
+						b.Background(t.SurfacePressed)
+					}
+					b.Children(func() { ui.Icon(c, iconPinned).Width(15).Height(15).TextColor(ryugo.From(c).Colors.Accent) })
+					if b.Clicked() {
+						pinHit = true
+						a.later(s.pin)
+					}
+				} else if a.revealButton(c, iconPin, locales.SidebarPinLabel(s.name), hover) {
 					pinHit = true
 					a.later(s.pin)
 				}
-			} else if a.revealButton(c, iconPin, locales.SidebarPinLabel(s.name), hover) {
-				pinHit = true
-				a.later(s.pin)
 			}
-		}
-		if s.plus {
-			add = a.revealButton(c, iconPlus, locales.SidebarAddLabel(s.name), hover)
-		}
+			if s.plus {
+				add = a.revealButton(c, iconPlus, locales.SidebarAddLabel(s.name), hover)
+			}
+		})
 	})
 	switch x := s.item.(type) { // the keys' letters can press it
 	case *Page:
@@ -694,15 +725,23 @@ func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
 	return b.Clicked()
 }
 
-// revealButton is an icon button that fades in while its row is hovered.
+// revealButton is an icon button that fades in while its row is hovered. Its icon is a step from the muted toward
+// the text, to be seen over the row's words; under the pointer it gets a light ground of the theme's accent, and
+// its icon the accent itself, the same on a row at rest, hovered or open.
 func (a *app) revealButton(c *ui.Context, glyph *ui.SVG, label string, shown bool) bool {
 	t := c.Theme()
-	b := ui.Box(c).Width(22).Height(22).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton)
+	accent := ryugo.From(c).Colors.Accent
+	b := ui.Box(c).Width(rowBtn).Height(rowBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).
+		Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
+	ink := ryugo.Mix(t.TextMuted, t.Text, 0.7)
 	if b.Hovered() {
-		b.Background(t.SurfacePressed)
+		b.Background(accent.Alpha(0.14))
+		ink = accent
+	} else {
+		b.Background(accent.Alpha(0))
 	}
 	b.Opacity(b.AnimateTo("shown", map[bool]float32{true: 1, false: 0}[shown], fadeQuick))
-	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(t.TextMuted) })
+	b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(ink) })
 	return b.Clicked()
 }
 
