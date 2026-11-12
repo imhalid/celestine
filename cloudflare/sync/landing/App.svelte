@@ -3,7 +3,7 @@
   // its caret and one line on what it is, the download for the visitor's computer and the others under it; below a hatched
   // rule, the app's carets each in a card, writing their little notes; a footer, where the waitlist of sync is, quietly: the
   // app needs no account, and sync is by invite. Light or dark as the system has it, or as the toggle says.
-  import { onMount } from "svelte";
+  import { onMount, flushSync } from "svelte";
   import SignupForm from "./SignupForm.svelte";
   import CaretCard from "./CaretCard.svelte";
 
@@ -37,10 +37,14 @@
   // light or dark: the system's, until the toggle is used (then remembered in this browser)
   const stored = (() => { try { return localStorage.getItem("celestine-scheme"); } catch { return null; } })();
   let scheme = $state(stored === "light" || stored === "dark" ? stored : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  // the switch is a view transition: the page cross-fades from one scheme to the other (app.css times it), and where the
+  // browser has none, or reduced motion is asked for, it changes at once
   function toggle() {
-    scheme = scheme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.scheme = scheme;
-    try { localStorage.setItem("celestine-scheme", scheme); } catch {}
+    const next = scheme === "dark" ? "light" : "dark";
+    const apply = () => { scheme = next; document.documentElement.dataset.scheme = next; flushSync(); };
+    if (document.startViewTransition && !reduce) document.startViewTransition(apply);
+    else apply();
+    try { localStorage.setItem("celestine-scheme", next); } catch {}
   }
 
   const CARETS = [
@@ -102,7 +106,6 @@
 
   <main class="frame">
     <section class="hero">
-      <span class="badge">Free <span aria-hidden="true">·</span> early access</span>
       <h1 aria-label={NAME}><span aria-hidden="true">{typed}</span><span class="tc" aria-hidden="true"></span></h1>
       <p class="lead">A one-of-a-kind notes app, built with MyGo.</p>
       <div class="get">
@@ -142,7 +145,7 @@
 
     <footer class="foot">
       <div class="wait" id="waitlist">
-        <p>Sync across your computers, encrypted end to end, is by invite while it is young. Leave your email and an invite code comes when there is room.</p>
+        <p>Join the waitlist for sync: your notes on all your computers, encrypted end to end. It is by invite while it is young; leave your email and an invite code comes when there is room.</p>
         <SignupForm id="waitlist-form" prompt="" placeholder="you@example.com" label="Join the waitlist" kbd={false} />
         <p class="fine">Your email is only used to send your invite code, and is never shared.{contact}</p>
       </div>
@@ -190,8 +193,7 @@
   @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero::before { background-image: var(--hero-dark); } }
   :global(html[data-scheme="dark"]) .hero .lead { color: oklch(86% .03 260); }
   @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .hero .lead { color: oklch(86% .03 260); } }
-  .badge { font-size: 13px; color: var(--muted); background: var(--well); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
-  h1 { margin: 22px 0 0; display: flex; align-items: center; font-size: clamp(56px, 10vw, 104px); line-height: 1; font-weight: 700; letter-spacing: -0.05em; color: var(--text); min-height: 1em; }
+  h1 { margin: 0; display: flex; align-items: center; font-size: clamp(56px, 10vw, 104px); line-height: 1; font-weight: 700; letter-spacing: -0.05em; color: var(--text); min-height: 1em; }
   .tc { display: inline-block; width: 0.07em; height: 0.78em; margin-left: 0.06em; border-radius: 2px; background: var(--accent); animation: blink 1.05s steps(1) infinite; }
   .lead { margin: 18px 0 0; font-size: clamp(18px, 2.3vw, 24px); line-height: 1.35; letter-spacing: -0.015em; color: var(--muted); max-width: 30ch; }
   .fine { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); max-width: 52ch; }
@@ -243,9 +245,21 @@
   .meta a { text-decoration: none; } .meta a:hover { color: var(--text); }
   .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 24px; }
   .meta a { color: inherit; }
+  /* on a wide screen the links sit at the bottom of the footer, on its picture, in a light colour (on a phone they stay
+     in the flow, above the picture's band, where a light colour would not be seen) */
+  @media (min-width: 641px) {
+    .meta { position: absolute; left: 24px; bottom: 22px; margin: 0; color: oklch(100% 0 0 / 0.92); text-shadow: 0 1px 8px oklch(38% 0.1 275 / 0.55); }
+    :global(html[data-scheme="dark"]) .meta { color: oklch(88% 0.03 260 / 0.8); text-shadow: none; }
+    .meta a:hover { color: #fff; }
+  }
+  @media (min-width: 641px) and (prefers-color-scheme: dark) {
+    :global(html:not([data-scheme="light"])) .meta { color: oklch(88% 0.03 260 / 0.8); text-shadow: none; }
+  }
+  /* the field's message line holds a place only when it has something to say, so the note under the field sits close to it */
+  .wait :global(.msg:empty) { display: none; }
   .wait { max-width: 460px; }
   .wait > p:first-child { margin: 0 0 10px; line-height: 1.5; }
-  .wait .fine { margin-top: 2px; font-size: 12px; }
+  .wait .fine { margin-top: 8px; font-size: 12px; }
 
   @keyframes blink { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .tc { animation: none; } }

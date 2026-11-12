@@ -31,3 +31,5 @@ body{color:var(--text);font:15px/1.5 var(--font-sans);-webkit-font-smoothing:ant
 ::selection{background:color-mix(in oklab,var(--accent) 28%,transparent)}
 .cf-turnstile{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:5}
 noscript{display:block;padding:48px 24px;text-align:center;color:var(--muted)}
+/* the light and dark switch is a view transition (the toggle): the old page fades into the new one */
+::view-transition-group(root){animation-duration:.45s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
