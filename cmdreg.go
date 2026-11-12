@@ -243,6 +243,13 @@ func settingDefs() []settingDef {
 			func(a *app, v float64) { a.settings.SyncMinutes = int(v); a.saveSettingsSoon() }),
 		simple("common_collectStatistics", "stats analiz kullanım", "noStats", func(s *Settings) *bool { return &s.NoStats }, true),
 		simple("common_dailyBackup", "backup yedekle", "noBackup", func(s *Settings) *bool { return &s.NoBackup }, true),
+		{name: "backup_every", alias: "backup daily weekly monthly yedek günlük haftalık aylık", fields: []string{"backupEvery"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, e := range []struct{ v, name string }{{"", "backup_everyDay"}, {"week", "backup_everyWeek"}, {"month", "backup_everyMonth"}} {
+				out = append(out, settingChoice{name: e.name, current: a.settings.BackupEvery == e.v, set: func(a *app) { a.settings.BackupEvery = e.v; a.saveSettings() }})
+			}
+			return out
+		}},
 		simple("common_ligatures", "ligature fi fl", "noLigatures", func(s *Settings) *bool { return &s.NoLigatures }, true),
 		simple("common_tabularNumbers", "tabular numbers tnum", "tabularNums", func(s *Settings) *bool { return &s.TabularNums }, false),
 		num("common_fontWeight", "weight bold kalın", "fontWeight", 300, 700, 400, 100, "", 0,

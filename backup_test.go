@@ -123,11 +123,25 @@ func TestBackupPrune(t *testing.T) {
 			t.Errorf("%d backups of %s", n, d)
 		}
 	}
-	if daily < backupDays || daily > backupDays+backupWeeks+1 {
+	if daily < backupDays || daily > backupDays+backupWeeks+backupMonths+1 {
 		t.Fatalf("%d daily backups kept", daily)
 	}
-	if now.Sub(oldest) > time.Duration(backupDays+7*backupWeeks)*24*time.Hour {
+	if now.Sub(oldest) > time.Duration(backupDays+7*backupWeeks+31*backupMonths)*24*time.Hour {
 		t.Fatalf("too old: %v", oldest)
+	}
+	months := map[string]int{} // before the weeks, one a month
+	for _, b := range all {
+		if b.Label == "" && now.Sub(b.At) > time.Duration(backupDays+7*backupWeeks)*24*time.Hour {
+			months[b.At.Format("200601")]++
+		}
+	}
+	for m, n := range months {
+		if n != 1 {
+			t.Errorf("%d backups of the month %s", n, m)
+		}
+	}
+	if len(months) == 0 {
+		t.Error("no monthly backup kept before the weeks")
 	}
 	// the last seven days are all there
 	for d := 0; d < backupDays; d++ {
@@ -159,6 +173,22 @@ func TestBackupDailyDue(t *testing.T) {
 	}
 	if !dailyDue(dir, now.AddDate(0, 0, 1)) {
 		t.Fatal("not due tomorrow")
+	}
+}
+
+// TestBackupDue: a weekly backup is due once a week, a monthly once a month (#409).
+func TestBackupDue(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.Local)                 // a Wednesday
+	touchBackup(t, dir, time.Date(2026, 11, 9, 9, 0, 0, 0, time.Local), "") // Monday of the same week
+	if backupDue(dir, now, "week") || !backupDue(dir, now, "") {
+		t.Fatal("the week's is taken, the day's is not")
+	}
+	if !backupDue(dir, now.AddDate(0, 0, 7), "week") {
+		t.Fatal("not due the next week")
+	}
+	if backupDue(dir, now, "month") || !backupDue(dir, time.Date(2026, 12, 1, 9, 0, 0, 0, time.Local), "month") {
+		t.Fatal("the month's")
 	}
 }
 

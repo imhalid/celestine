@@ -1,8 +1,12 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -41,5 +45,67 @@ func TestShortcutsListed(t *testing.T) {
 	tt.Frame()
 	if !tt.HasText(locales.KeysAllShortcuts()) || !tt.HasText(locales.HelpBoldItalic()) || !tt.HasText("⌘B ⌘I ⌘U") {
 		t.Fatalf("no shortcuts: %v", tt.Texts())
+	}
+}
+
+// TestBackupsInSettings: a backup in the list can be looked at and deleted, the delete on a second click; Back up now
+// rests after a backup; and a backup opens as a library to look at (#409).
+func TestBackupsInSettings(t *testing.T) {
+	st := testStore(t)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	a := newApp(lib)
+	a.backupDir = filepath.Join(t.TempDir(), "b")
+	tt := ui.NewTester(a.view, 900, 1400)
+	a.backupBefore("x")
+	list := backups(a.backupDir)
+	if len(list) != 1 {
+		t.Fatalf("%d backups", len(list))
+	}
+	v, err := openBackupView(list[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.lib.Collections) == 0 {
+		t.Fatal("the backup opened with no collections")
+	}
+	dir := v.dir
+	v.close()
+	if _, err := os.Stat(dir); err == nil {
+		t.Fatal("its folder stays after it closed")
+	}
+
+	settingsAt(t, a, "common_library")
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText(locales.BackupPreview()) {
+		t.Fatalf("no preview: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.CommonDelete()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if _, err := os.Stat(list[0].Path); err != nil || !tt.HasText(locales.BackupDeleteSure()) {
+		t.Fatalf("deleted at the first click, or not asked: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.BackupDeleteSure()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if _, err := os.Stat(list[0].Path); err == nil {
+		t.Fatal("not deleted at the second click")
+	}
+
+	if err := tt.Click(locales.CommonBackUpNow()); err != nil {
+		t.Fatal(err)
+	}
+	at := a.bk.handAt
+	for i := 0; i < 200 && a.backupBusy.Load(); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	tt.Frame()
+	tt.Click(locales.CommonBackUpNow()) // resting: nothing
+	tt.Frame()
+	if at.IsZero() || a.bk.handAt != at {
+		t.Fatalf("the button did not rest: %v %v", at, a.bk.handAt)
 	}
 }

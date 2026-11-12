@@ -841,11 +841,11 @@ func (msgs Messages) Back3() string {
 	return Catalog.Format(msgs.locale, "back3", nil)
 }
 
-// BackupACompressedCopyLibrary says "A compressed copy of the library is made the first time you open the app each day; the last 7 daily and 4 weekly copi…"
+// BackupACompressedCopyLibrary says "A compressed copy of the library is made the first time you open the app each day, week or month, as chosen; the last…"
 // in the language the app shows.
 func BackupACompressedCopyLibrary() string { return In(i18n.Locale()).BackupACompressedCopyLibrary() }
 
-// BackupACompressedCopyLibrary says "A compressed copy of the library is made the first time you open the app each day; the last 7 daily and 4 weekly copi…"
+// BackupACompressedCopyLibrary says "A compressed copy of the library is made the first time you open the app each day, week or month, as chosen; the last…"
 // in the language of msgs.
 func (msgs Messages) BackupACompressedCopyLibrary() string {
 	return Catalog.Format(msgs.locale, "backup_aCompressedCopyLibrary", nil)
@@ -879,6 +879,106 @@ func BackupBackupFolder() string { return In(i18n.Locale()).BackupBackupFolder()
 // in the language of msgs.
 func (msgs Messages) BackupBackupFolder() string {
 	return Catalog.Format(msgs.locale, "backup_backupFolder", nil)
+}
+
+// BackupEvery says "Backup every"
+// in the language the app shows.
+func BackupEvery() string { return In(i18n.Locale()).BackupEvery() }
+
+// BackupEvery says "Backup every"
+// in the language of msgs.
+func (msgs Messages) BackupEvery() string {
+	return Catalog.Format(msgs.locale, "backup_every", nil)
+}
+
+// BackupEveryDay says "Every day"
+// in the language the app shows.
+func BackupEveryDay() string { return In(i18n.Locale()).BackupEveryDay() }
+
+// BackupEveryDay says "Every day"
+// in the language of msgs.
+func (msgs Messages) BackupEveryDay() string {
+	return Catalog.Format(msgs.locale, "backup_everyDay", nil)
+}
+
+// BackupEveryWeek says "Every week"
+// in the language the app shows.
+func BackupEveryWeek() string { return In(i18n.Locale()).BackupEveryWeek() }
+
+// BackupEveryWeek says "Every week"
+// in the language of msgs.
+func (msgs Messages) BackupEveryWeek() string {
+	return Catalog.Format(msgs.locale, "backup_everyWeek", nil)
+}
+
+// BackupEveryMonth says "Every month"
+// in the language the app shows.
+func BackupEveryMonth() string { return In(i18n.Locale()).BackupEveryMonth() }
+
+// BackupEveryMonth says "Every month"
+// in the language of msgs.
+func (msgs Messages) BackupEveryMonth() string {
+	return Catalog.Format(msgs.locale, "backup_everyMonth", nil)
+}
+
+// BackupPreview says "Preview"
+// in the language the app shows.
+func BackupPreview() string { return In(i18n.Locale()).BackupPreview() }
+
+// BackupPreview says "Preview"
+// in the language of msgs.
+func (msgs Messages) BackupPreview() string {
+	return Catalog.Format(msgs.locale, "backup_preview", nil)
+}
+
+// BackupPreviewTitle says "Backup of {date}"
+// in the language the app shows.
+func BackupPreviewTitle(date string) string { return In(i18n.Locale()).BackupPreviewTitle(date) }
+
+// BackupPreviewTitle says "Backup of {date}"
+// in the language of msgs.
+func (msgs Messages) BackupPreviewTitle(date string) string {
+	return Catalog.Format(msgs.locale, "backup_previewTitle", map[string]any{"date": date})
+}
+
+// BackupReadOnly says "Read only: nothing here is saved."
+// in the language the app shows.
+func BackupReadOnly() string { return In(i18n.Locale()).BackupReadOnly() }
+
+// BackupReadOnly says "Read only: nothing here is saved."
+// in the language of msgs.
+func (msgs Messages) BackupReadOnly() string {
+	return Catalog.Format(msgs.locale, "backup_readOnly", nil)
+}
+
+// BackupNoPages says "This backup has no pages."
+// in the language the app shows.
+func BackupNoPages() string { return In(i18n.Locale()).BackupNoPages() }
+
+// BackupNoPages says "This backup has no pages."
+// in the language of msgs.
+func (msgs Messages) BackupNoPages() string {
+	return Catalog.Format(msgs.locale, "backup_noPages", nil)
+}
+
+// BackupDeleteSure says "Sure? Delete"
+// in the language the app shows.
+func BackupDeleteSure() string { return In(i18n.Locale()).BackupDeleteSure() }
+
+// BackupDeleteSure says "Sure? Delete"
+// in the language of msgs.
+func (msgs Messages) BackupDeleteSure() string {
+	return Catalog.Format(msgs.locale, "backup_deleteSure", nil)
+}
+
+// BackupDeleted says "The backup of {date} is deleted."
+// in the language the app shows.
+func BackupDeleted(date string) string { return In(i18n.Locale()).BackupDeleted(date) }
+
+// BackupDeleted says "The backup of {date} is deleted."
+// in the language of msgs.
+func (msgs Messages) BackupDeleted(date string) string {
+	return Catalog.Format(msgs.locale, "backup_deleted", map[string]any{"date": date})
 }
 
 // BackupBackups says "Backups"
@@ -3351,11 +3451,11 @@ func (msgs Messages) CommonDaily() string {
 	return Catalog.Format(msgs.locale, "common_daily", nil)
 }
 
-// CommonDailyBackup says "Daily backup"
+// CommonDailyBackup says "Automatic backup"
 // in the language the app shows.
 func CommonDailyBackup() string { return In(i18n.Locale()).CommonDailyBackup() }
 
-// CommonDailyBackup says "Daily backup"
+// CommonDailyBackup says "Automatic backup"
 // in the language of msgs.
 func (msgs Messages) CommonDailyBackup() string {
 	return Catalog.Format(msgs.locale, "common_dailyBackup", nil)

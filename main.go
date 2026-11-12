@@ -200,8 +200,9 @@ type app struct {
 	sessLast    time.Time
 	backupDir   string // where the backups go, when not the config folder's (a test's)
 	backupBusy  atomic.Bool
-	crashDir    string // where the logs go, when not the config folder's (a test's)
-	crashMsg    string // the panic last written, and when: the same one is not written over and over
+	bk          backupUI // the backups' settings: the last by hand, a delete asked (backup.go)
+	crashDir    string   // where the logs go, when not the config folder's (a test's)
+	crashMsg    string   // the panic last written, and when: the same one is not written over and over
 	crashAt     time.Time
 	crashPath   string                   // its log
 	crashText   string                   // what it said

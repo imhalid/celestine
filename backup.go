@@ -18,16 +18,18 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// Backups of the library's file. Once a day, at the first start, a snapshot of it - a consistent copy,
-// made while the app goes on - is written, compressed, to the config folder; the last seven days and
-// four weeks are kept. One is taken before the big operations too (an import, an update, a restore),
-// and by hand. A restore is put away and made at the next start, with the file it replaces kept beside.
+// Backups of the library's file. Once a day, a week or a month, as the settings say, at the first start in it, a
+// snapshot of it - a consistent copy, made while the app goes on - is written, compressed, to the config folder; the
+// last seven days, four weeks and six months are kept. One is taken before the big operations too (an import, an
+// update, a restore), and by hand. A restore is put away and made at the next start, with the file it replaces kept
+// beside. A backup can be looked at in a window of its own (backupview.go), and deleted.
 
 const (
-	backupDays  = 7 // days of backups kept, the newest of each
-	backupWeeks = 4 // and weeks before, the newest of each
-	backupPre   = 5 // the ones taken before an operation, newest kept
-	backupExt   = ".db.gz"
+	backupDays   = 7 // days of backups kept, the newest of each
+	backupWeeks  = 4 // and weeks before, the newest of each
+	backupMonths = 6 // and months before, the newest of each: a monthly backup's
+	backupPre    = 5 // the ones taken before an operation, newest kept
+	backupExt    = ".db.gz"
 )
 
 // backupDir is where the backups are written.
@@ -151,25 +153,37 @@ func gunzipFile(src, dst string) error {
 }
 
 // dailyDue reports whether no daily backup was taken today.
-func dailyDue(dir string, now time.Time) bool {
-	y, m, d := now.Date()
+func dailyDue(dir string, now time.Time) bool { return backupDue(dir, now, "") }
+
+// backupDue reports whether no backup of the schedule was taken in now's day, week or month: every is "" (each
+// day), "week" or "month" (#409).
+func backupDue(dir string, now time.Time, every string) bool {
+	period := func(t time.Time) string {
+		switch every {
+		case "week":
+			y, w := t.ISOWeek()
+			return fmt.Sprint(y, "w", w)
+		case "month":
+			return t.Format("200601")
+		}
+		return t.Format("20060102")
+	}
+	p := period(now)
 	for _, b := range backups(dir) {
-		if b.Label == "" {
-			by, bm, bd := b.At.Date()
-			if by == y && bm == m && bd == d {
-				return false
-			}
+		if b.Label == "" && period(b.At) == p {
+			return false
 		}
 	}
 	return true
 }
 
 // pruneBackups keeps the newest daily backup of each of the last backupDays days, the newest of each of
-// the backupWeeks weeks before them, and the newest backupPre of those taken before an operation or by hand.
+// the backupWeeks weeks before them and of the backupMonths months before those, and the newest backupPre of those
+// taken before an operation or by hand.
 func pruneBackups(dir string, now time.Time) {
 	all := backups(dir)
 	keep := map[string]bool{}
-	days, weeks := map[string]bool{}, map[string]bool{}
+	days, weeks, months := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	pre := map[string]int{} // by label: the sync's backups, taken often, do not push out one before an import or by hand
 	y0, m0, d0 := now.Date()
 	today := time.Date(y0, m0, d0, 0, 0, 0, 0, now.Location())
@@ -195,6 +209,10 @@ func pruneBackups(dir string, now time.Time) {
 			k := fmt.Sprint(yr, "-", wk)
 			if !weeks[k] {
 				weeks[k], keep[b.Path] = true, true
+			}
+		case age < backupDays+7*backupWeeks+31*backupMonths:
+			if k := b.At.Format("200601"); !months[k] {
+				months[k], keep[b.Path] = true, true
 			}
 		}
 	}
@@ -339,12 +357,13 @@ func (a *app) backupNow(label string, quiet bool) {
 	}()
 }
 
-// backupDaily takes the day's backup, if none was, a moment after the start.
+// backupDaily takes the backup of the schedule - the day's, the week's or the month's - if none was, a moment after
+// the start.
 func (a *app) backupDaily() {
 	if a.settings.NoBackup || a.store() == nil {
 		return
 	}
-	if dailyDue(a.backupDirOf(), time.Now()) {
+	if backupDue(a.backupDirOf(), time.Now(), a.settings.BackupEvery) {
 		a.backupNow("", true)
 	}
 }
@@ -390,21 +409,51 @@ func (a *app) exportZip(store *Store) (string, bool) {
 	return locales.CommonSavedTo(zipPath), true
 }
 
-// settingsBackup is the settings' group of the backups.
+// backupUI is the backups' settings as they are used: when the last one by hand was taken, and the one whose delete was
+// asked, for a moment.
+type backupUI struct {
+	handAt time.Time
+	del    string
+	delAt  time.Time
+}
+
+// backupRest is how long Back up now rests after a backup: one a second is no use (#409).
+const backupRest = 60 * time.Second
+
+// backupConfirm is how long a delete asked waits for its second click.
+const backupConfirm = 4 * time.Second
+
+// settingsBackup is the settings' group of the backups: on or off and how often, the folder and a backup by hand,
+// and the list, each to look at, restore or delete.
 func (a *app) settingsBackup(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	dir := a.backupDirOf()
 	on := !a.settings.NoBackup
+	every := a.settings.BackupEvery
 	list := backups(dir)
+	now := c.Now()
 	settingGroup(c, "set-backup",
 		func() {
 			settingRow(c, locales.CommonDailyBackup(), locales.BackupACompressedCopyLibrary(), func() {
-				ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label(locales.CommonDailyBackup())
+				ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+					if on {
+						opts := []ryugo.Option[string]{{Value: "", Label: locales.BackupEveryDay()}, {Value: "week", Label: locales.BackupEveryWeek()},
+							{Value: "month", Label: locales.BackupEveryMonth()}}
+						ryugo.Select(c.Key("set-backup-every"), &every, opts, ryugo.SelectOptions{Label: locales.BackupEvery(), Size: ryugo.Sm}).Width(140)
+					}
+					ryugo.Switch(c.Key("set-backup-on"), &on, ryugo.SwitchOptions{}).Label(locales.CommonDailyBackup())
+				})
 			})
 		},
 		func() {
 			settingRow(c, locales.BackupBackupFolder(), dir, func() {
-				if ryugo.Button(c.Key("backup-now"), locales.CommonBackUpNow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				rest := a.bk.handAt.Add(backupRest).Sub(now)
+				b := ryugo.Button(c.Key("backup-now"), locales.CommonBackUpNow(), ryugo.ButtonOptions{Size: ryugo.Sm})
+				if rest > 0 || a.backupBusy.Load() { // resting after one: it comes back by itself
+					b.Disabled(true)
+					c.After(max(rest, 100*time.Millisecond))
+				} else if b.Clicked() {
+					a.bk.handAt = now
 					a.backupNow("elle", false)
 				}
 			})
@@ -413,29 +462,63 @@ func (a *app) settingsBackup(c *ui.Context) {
 		a.settings.NoBackup = !on
 		a.saveSettings()
 	}
+	if every != a.settings.BackupEvery {
+		a.settings.BackupEvery = every
+		a.saveSettings()
+	}
 	if len(list) == 0 {
 		return
+	}
+	if a.bk.del != "" && now.Sub(a.bk.delAt) >= backupConfirm { // not clicked again: not deleted
+		a.bk.del = ""
 	}
 	rows := []func(){}
 	for i, b := range list {
 		if i >= 12 {
 			break
 		}
-		b := b
 		rows = append(rows, func() {
 			what := locales.CommonDaily()
 			if b.Label != "" {
 				what = backupKind(b.Label) // what it was taken for, as the file names it: elle, içe-aktarma
 			}
 			settingRow(c, dateTime(b.At, true), what+" · "+fmt.Sprintf("%.1f MB", float64(b.Size)/1e6), func() {
-				if ryugo.Button(c.Key("restore:"+b.Path), locales.CommonRestore(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.restoreFrom(b)
-				}
+				ui.Row(c).Gap(6).Children(func() {
+					if ryugo.Button(c.Key("preview:"+b.Path), locales.BackupPreview(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						a.previewBackup(b)
+					}
+					if ryugo.Button(c.Key("restore:"+b.Path), locales.CommonRestore(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						a.restoreFrom(b)
+					}
+					asked := a.bk.del == b.Path
+					label, opts := locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}
+					if asked { // the second click deletes: a file gone is gone
+						label, opts.Color, opts.Variant = locales.BackupDeleteSure(), cl.Up, ryugo.Solid
+						c.After(a.bk.delAt.Add(backupConfirm).Sub(now))
+					}
+					if ryugo.Button(c.Key("delete:"+b.Path), label, opts).Clicked() {
+						if asked {
+							a.deleteBackup(b)
+						} else {
+							a.bk.del, a.bk.delAt = b.Path, now
+						}
+					}
+				})
 			})
 		})
 	}
 	ui.Text(c, locales.BackupBackups()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 	settingGroup(c, "set-backups", rows...)
+}
+
+// deleteBackup removes a backup's file, and says so.
+func (a *app) deleteBackup(b Backup) {
+	a.bk.del = ""
+	if err := os.Remove(b.Path); err != nil {
+		a.say(toastErr, locales.CommonDidntWork(err.Error()))
+		return
+	}
+	a.say(toastOK, locales.BackupDeleted(dateTime(b.At, false)))
 }
 
 // backupKind is what a backup was taken for, as its file's name says it (backupNow, backupBefore: elle,
