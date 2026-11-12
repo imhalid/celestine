@@ -79,7 +79,7 @@ and the mark of a deleted file for 180 days, so your other computers learn of it
 <ul>
 <li>To limit abuse, attempts are counted by IP address (and by account) for an hour or so; the counts are deleted within a few hours.</li>
 <li>A short log of what happened (a signup, an invite, an account made, recovered or deleted) names the address it concerns.</li>
-<li>The server runs on Cloudflare, which keeps its own short request logs.</li>
+<li>The server runs on a hosting provider's network, which keeps its own short request logs.</li>
 </ul>
 <h2>Having it deleted</h2>
 <ul>
