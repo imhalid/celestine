@@ -232,18 +232,8 @@ type app struct {
 	noticePage    *Page       // the page the notice is about, to open from it
 	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al
 	noticeTone    *toastKind  // the notice's kind, which a.say tells; none is news
-	tagHits       []tagHit    // the tags drawn this frame; a click is against the last's
-	tagSeen       []tagHit
-	linkHits      []linkHit // the links drawn this frame, and the last frame's (links.go)
-	linkSeen      []linkHit
 	hoverTag      string
-	coverHover    bool     // the pointer is in the cover band
-	picHits       []picHit // the pictures drawn this frame, and the last frame's (images.go)
-	picSeen       []picHit
-	tableHits     []tableHit // the cells of the tables drawn this frame, and the last frame's (tables.go)
-	tableSeen     []tableHit
-	borderHits    []colBorder // the borders between columns, drawn and seen
-	borderSeen    []colBorder
+	coverHover    bool // the pointer is in the cover band
 	hoverBorder   borderKey
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)

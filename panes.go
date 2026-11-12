@@ -98,6 +98,19 @@ type paneState struct {
 	profileScreen bool    // the profile is shown, instead of a page (profile.go)
 	caretWin      ui.Rect // the caret in the window, last drawn
 	find          finder  // finding in the page (find.go)
+
+	// What the pane's text drew this frame, and the last frame's, where a click is tested: each pane its own,
+	// or a click in one is tested against what another drew (#390).
+	tagHits    []tagHit // the tags (tags.go)
+	tagSeen    []tagHit
+	linkHits   []linkHit // the links (links.go)
+	linkSeen   []linkHit
+	picHits    []picHit // the pictures (images.go)
+	picSeen    []picHit
+	tableHits  []tableHit // the cells of the tables (tables.go)
+	tableSeen  []tableHit
+	borderHits []colBorder // the borders between columns
+	borderSeen []colBorder
 }
 
 // newPaneState is a pane with nothing in it: its scrolls and lists are its own.
