@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -663,6 +664,31 @@ func (a *app) syncBadge(c *ui.Context) {
 }
 
 // settingsSync is the settings' section of synchronization.
+// The marks of the sync's modes (#406): off, a cloud struck through; a folder, a folder with an arrow into it; a
+// server, a server's two units.
+var (
+	iconSyncOff    = icon(`<path d="M7.5 18.5h10a3.5 3.5 0 0 0 1-6.85A6 6 0 0 0 7.2 9.2 4.7 4.7 0 0 0 7.5 18.5Z"/><path d="M4 4l16 16"/>`)
+	iconSyncFolder = icon(`<path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l1.8 2H19a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17Z"/><path d="M9 13.25h6m-2-2 2 2-2 2"/>`)
+	iconServer     = icon(`<rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M7.5 7.75h.01M7.5 16.25h.01M11 7.75h5M11 16.25h5"/>`)
+)
+
+// pickSyncDir opens the system's folder picker, at the folder typed (from), and makes the one chosen the sync's.
+func (a *app) pickSyncDir(from string) {
+	go func() {
+		defer a.guard()
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Title: locales.BackupChooseFolder(), Directory: true, DefaultPath: from})
+		if err != nil || len(paths) == 0 {
+			return
+		}
+		a.do(func() error {
+			a.settings.SyncDir = paths[0]
+			a.sy.tried = time.Time{}
+			a.saveSettings()
+			return nil
+		})
+	}()
+}
+
 func (a *app) settingsSync(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	s := &a.settings
@@ -675,7 +701,7 @@ func (a *app) settingsSync(c *ui.Context) {
 					id, name string
 					glyph    *ui.SVG
 					tone     ui.Color
-				}{{"", "common_off", iconClose, cl.Muted}, {"dir", "folder", iconLibrary, cl.Warn}, {"server", "common_server", iconSync, cl.Accent}} {
+				}{{"", "common_off", iconSyncOff, cl.Muted}, {"dir", "folder", iconSyncFolder, cl.Warn}, {"server", "common_server", iconServer, cl.Accent}} {
 					v := ryugo.Soft
 					if mode == m.id {
 						v = ryugo.Solid
@@ -715,8 +741,19 @@ func (a *app) settingsSync(c *ui.Context) {
 		}
 	}
 	rows := []func(){}
-	if s.SyncMode == "dir" {
-		rows = append(rows, field("sync-dir", "folder", &dir, false))
+	if s.SyncMode == "dir" { // typed, or chosen in the system's picker (#406)
+		rows = append(rows, func() {
+			ryugo.Field(c, ryugo.FieldOptions{Label: msg("folder")}, func() {
+				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Grow(1).MinWidth(0).Children(func() {
+						a.fieldMenu(ryugo.Input(c.Key("sync-dir"), &dir, ryugo.InputOptions{Label: msg("folder"), Size: ryugo.Sm}), &dir, fieldOpts{oneLine: true})
+					})
+					if ryugo.Button(c.Key("sync-dir-pick"), locales.BackupChooseFolder(), ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconLibrary}).Clicked() {
+						a.pickSyncDir(dir)
+					}
+				})
+			})
+		})
 	} else {
 		if s.AccountUser == "" {
 			rows = append(rows, field("sync-url", "serverAddressHttpsWithoutAnAccount", &url, false), field("sync-token", "thisDevicesToken", &token, true))
