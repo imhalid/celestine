@@ -6,6 +6,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
@@ -67,6 +68,9 @@ var panelFloat = ui.ElementTransition{
 
 // sidePanel is the panel: a small card that floats over the page at its right, under the title bar,
 // as tall as what it holds up to the window's height. It takes no room from the text.
+// sidePanelGlass is how much of the card's color covers the blurred page under the side panel.
+const sidePanelGlass = 0.8
+
 func (a *app) sidePanel(c *ui.Context) {
 	if !(a.settings.PanelOpen && a.page != nil && !a.noPage()) {
 		return
@@ -80,9 +84,10 @@ func (a *app) sidePanel(c *ui.Context) {
 		maxH = max(220, a.winRect.H-top-44) // the status bar stays clear
 	}
 	full := a.panelWidth()
-	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Radius(rad(ryugo.RadiusControl+4)).
-		Background(cl.Card).Border(1, cl.Hairline).Clip().Label(locales.CommonSidePanel())
-	t.Shadows.ShadowPop.Apply(card)
+	// frosted glass over the page: the page behind it blurred, under a tint of the card, lit from the top
+	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Material(glass.Blur{Radius: 24}).
+		Clip().Label(locales.CommonSidePanel())
+	frameCard(c, card, cl.Card.Alpha(sidePanelGlass), rad(ryugo.RadiusControl+4), 1.6)
 	card.Transition(panelFloat)
 	card.Children(func() {
 		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel) // over the content

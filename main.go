@@ -571,7 +571,7 @@ func main() {
 		a.menuBar = true
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
-			Vibrancy: frameMaterial, HideWindowButtons: ownWindowControls, Content: ui.View(a.view)} // the frame's glass (windowframe.go)
+			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
 		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
 			opts.Hidden, opts.DisableShadow = true, true
 			a.wel.clear = true
@@ -996,7 +996,8 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.wframe.on = framed
 	var root ui.Element
 	if framed { // the window's frame around the content, a card in it, the tabs above and the status bar under (windowframe.go)
-		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Background(a.frameColor(c)).Padding(0, frameW, 0, frameW)
+		g := frameGroundOf(c)
+		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Draw(func(p *ui.Painter, r ui.Rect) { g.paint(p, r) }).Padding(0, frameW, 0, frameW)
 		a.wframe.strip = root.AnimateTo("frame-strip", map[bool]float32{true: 1}[a.frameTabs()], springSheet)
 	} else {
 		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)

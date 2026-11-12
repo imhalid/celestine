@@ -361,7 +361,8 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	} else if a.ps.layout == nil {
 		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch)
 		if a.wframe.on { // in the window's frame, a card of its own, as the Dock's areas are (windowframe.go)
-			el.Background(a.pageBg).Radius(rad(frameR)).Clip()
+			frameCard(c, el, a.pageBg, rad(frameR), 1)
+			el.Clip()
 		}
 		el.Children(func() {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })

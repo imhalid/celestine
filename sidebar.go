@@ -111,9 +111,11 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	if closed {
 		target = 0
 	}
-	sb := ui.Column(c).Background(t.Surface).Clip()
-	if a.wframe.on { // in the window's frame, a card of its own (windowframe.go)
-		sb.Radius(rad(frameR))
+	sb := ui.Column(c).Clip()
+	if a.wframe.on { // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
+		frameCard(c, sb, t.Surface.Alpha(sidebarGlass), rad(frameR), 1)
+	} else {
+		sb.Background(t.Surface)
 	}
 	if history {
 		a.tmSide = tmSideState{days: a.tm.days, n: len(a.tm.vers), sel: a.tm.sel, title: a.tm.page.Title}

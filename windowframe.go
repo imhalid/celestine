@@ -3,16 +3,15 @@ package main
 import (
 	"runtime"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The window's frame. The content is a card inside the window, its corners rounded, and around it the window shows
-// MyGo's material: Liquid Glass on macOS 26 (the popover material before it), Acrylic on Windows 11. Linux has no
-// material: there the frame is a plain color a step off the sidebar's. The material is the window's
-// (WindowOptions.Vibrancy); the app draws only what is on it.
+// The window's frame. The content is a card inside the window, its corners rounded, and around it the frame's own
+// ground: a soft gradient from top to bottom with a tint toward the right, in the colors of the theme in use, the
+// same on every platform (frameGround). A material of the window's would show what is behind it, near black over dark
+// windows.
 //
 // Its sides are thin. Its bottom edge holds the status bar. Its top edge is thin while one pane shows; with two or
 // more it grows down on a spring and lists the panes as tabs, the one in use lit. macOS's window buttons cannot
@@ -35,9 +34,6 @@ const (
 	frameTabH = 30
 )
 
-// frameMaterial is the material the main window shows in its frame.
-const frameMaterial = mygo.VibrancyGlass
-
 // frameState is what a frame of the window knows of the window's frame.
 type frameState struct {
 	on    bool    // the frame is drawn
@@ -45,20 +41,67 @@ type frameState struct {
 }
 
 // framed reports whether this frame of the window draws the frame: not in a browser's tab nor on a phone, where
-// the window is the screen, and not while the first opening's stage reveals the app.
+// the window is the screen. The first opening reveals the app framed already, in the opening's window too, so
+// that nothing moves when it hands over to the app's window (welcome.go).
 func (a *app) framed() bool {
-	return runtime.GOOS != "js" && !phone && !a.wel.on
+	return runtime.GOOS != "js" && !phone
 }
 
-// frameColor is the frame's ground: clear where the window's material shows through it, else a step off the
-// sidebar's surface toward the text, so that the frame shows beside the sidebar too, in light and in dark.
-func (a *app) frameColor(c *ui.Context) ui.Color {
-	if c.Vibrancy() {
-		return ui.Transparent
-	}
-	t := c.Theme()
-	return ryugo.Mix(t.Surface, t.Text, 0.08)
+// frameGround is the frame's ground: a gradient from top through mid and low to bottom, and a tint toward the
+// right over it.
+type frameGround struct {
+	top, mid, low, bottom, tint ui.Color
 }
+
+// frameGroundOf is the frame's ground in c's theme, so that it goes with the color theme in use: a step off the
+// sidebar's surface toward the text, lit at the top with the theme's accent and fading out of it downward, and the
+// accent faintly again toward the right; in light and in dark alike, as the theme's colors are.
+func frameGroundOf(c *ui.Context) frameGround {
+	t := c.Theme()
+	base := ryugo.Mix(t.Surface, t.Text, 0.06)
+	return frameGround{
+		top:    ryugo.Mix(base, t.Accent, 0.16),
+		mid:    ryugo.Mix(base, t.Accent, 0.07),
+		low:    base,
+		bottom: ryugo.Mix(base, t.Text, 0.04),
+		tint:   t.Accent.Alpha(0.10),
+	}
+}
+
+// paint paints the ground over r: the gradient in three steps, top to mid over the top 38%, mid to low over the
+// next 32%, low to bottom over the rest, and the tint from clear at 35% of the width to itself at the right.
+func (g frameGround) paint(p *ui.Painter, r ui.Rect) {
+	h1, h2 := r.H*0.38, r.H*0.32
+	p.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: h1 + 1}, ui.LinearGradient{From: g.top, To: g.mid, Angle: 180}, 0)
+	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1, W: r.W, H: h2 + 1}, ui.LinearGradient{From: g.mid, To: g.low, Angle: 180}, 0)
+	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1 + h2, W: r.W, H: r.H - h1 - h2}, ui.LinearGradient{From: g.low, To: g.bottom, Angle: 180}, 0)
+	clear := g.tint
+	clear.A = 0
+	p.FillGradient(r, ui.LinearGradient{From: clear, To: g.tint, Angle: 90, Start: 0.35, End: 1}, 0)
+}
+
+// frameCard gives el the look of a card on the frame's ground: its fill, lit faintly from the top and fading to
+// itself a little way down (a sheen), a rim a step toward the text, and a soft shadow, two layers, a tight one under
+// the edge and a wide one beneath; lift is how much it stands off, 1 for a card in the frame, more for one floating
+// over another. fill may be translucent, as the sidebar's, to let the ground's tint through.
+func frameCard(c *ui.Context, el ui.Element, fill ui.Color, radius, lift float32) {
+	t := c.Theme()
+	sheen, rim, shade := float32(0.06), t.Text.Alpha(0.07), float32(0.08)
+	if t.Dark {
+		sheen, rim, shade = 0.05, t.Text.Alpha(0.09), 0.32
+	}
+	a := float32(fill.A) / 255
+	top := ryugo.Mix(fill.Alpha(1), t.Text, sheen).Alpha(a)
+	el.Radius(radius).Border(1, rim).
+		Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, min(1, shade*0.6*lift))).
+		Shadow(0, 6*lift, 22*lift, -4, ui.RGBA(0, 0, 0, min(1, shade*lift))).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			p.FillGradient(r, ui.LinearGradient{From: top, To: fill, Angle: 180, End: 0.45}, radius)
+		})
+}
+
+// sidebarGlass is how much of the sidebar's surface covers the frame's ground under it.
+const sidebarGlass = 0.82
 
 // frameTabs reports whether the top edge lists the panes: two or more of them.
 func (a *app) frameTabs() bool { return a.wframe.on && len(a.ps.states) > 1 }
