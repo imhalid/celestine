@@ -315,6 +315,9 @@ func (a *app) settingsTop(c *ui.Context) {
 		q := a.setSearch
 		in := ui.TextInputBase(c.Key("set-search"), &q).Label(locales.SettingsSearchSettings()).Placeholder(locales.SettingsSearchSettings2()).PlaceholderColor(cl.Muted).
 			FontSize(13).Padding(7, 11).Radius(rad(9)).Background(cl.Card).Border(1, cl.Hairline).Grow(1).FocusRing(false)
+		if in.Focused() { // its own ring: a border of the accent while it has the focus (#410)
+			in.Border(1, cl.Accent.Alpha(0.7))
+		}
 		a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
 		if phone {
 			in.FillWidth().Padding(10, 12)
