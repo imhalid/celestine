@@ -188,8 +188,6 @@ type app struct {
 	vimReg      richtext.Text      // what dd and yy took, for p
 	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
 	winW, winH  float32            // the window's size, last frame
-	tourAt      int                // the step of the tour
-	tourOff     bool               // the tour is put off for this session
 	wel         welcomeState       // the first opening (welcome.go)
 	winOnce     sync.Once          // the window coming forward and going behind, in order (windowEvent)
 	winEv       chan bool
@@ -1163,7 +1161,6 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.noAlignKeys(c) // after the user's own keys, which may take Ctrl+E
 	a.kbView(c)
 	a.welcomeView(c, false)
-	a.tourView(c)
 	a.updateView(c)
 	a.collSettingsView(c)
 	a.propDialog(c)

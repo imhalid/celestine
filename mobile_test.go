@@ -12,7 +12,6 @@ func TestPhoneLayout(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
 	defer func() { phone = false; rowH = 30 }()
 	a.forcePhone = true
-	a.settings.TourDone = true
 	tt.SetSize(390, 844)
 	tt.Advance(300 * time.Millisecond)
 	if !phone || rowH != 42 {

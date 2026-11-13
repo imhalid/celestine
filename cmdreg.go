@@ -82,7 +82,6 @@ var settingsApart = map[string]string{
 	"updateNotes":   "the notes of the version installed",
 	"updateFor":     "and its number",
 	"updateSeen":    "the notes shown",
-	"tourDone":      "the first-run tour was shown",
 	"welcomeDone":   "the first opening was seen",
 	"treeSaved":     "where the sidebar's tree was left",
 	"treeOpen":      "where the sidebar's tree was left",

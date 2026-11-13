@@ -9,7 +9,7 @@ import (
 )
 
 // The help: every shortcut on one page (? in the normal mode, ⌘⇧/ or the command), grouped by where it is
-// used; and a short tour, the first time the app is opened, that says where the rest is.
+// used.
 
 type helpGroup struct {
 	title string
@@ -79,56 +79,6 @@ func (a *app) helpView(c *ui.Context) {
 					})
 				}
 				ui.Text(c, locales.HelpEverythingWithoutMousePress()).FontSize(12.5).TextColor(cl.Muted).Wrap()
-			})
-		})
-	})
-}
-
-// ---- the tour ----
-
-// tourSteps are the steps of the tour, each a title and a body, said in the window's language when shown.
-var tourSteps = []struct{ title, body func() string }{
-	{locales.HelpTourWrite, locales.HelpTourWriteBody},
-	{locales.HelpTourPalette, locales.HelpTourPaletteBody},
-	{locales.HelpTourKeyboard, locales.HelpTourKeyboardBody},
-	{locales.HelpTourLibrary, locales.HelpTourLibraryBody},
-}
-
-// tourView is the first-run tour, a card with four steps, which is not shown again once it is closed.
-func (a *app) tourView(c *ui.Context) {
-	if a.settings.TourDone || a.tourOff || a.modal() || a.settingsFile == "" && a.settingsStore == nil { // a library with no settings of its own is a test's, or a scratch one
-		return
-	}
-	cl := ryugo.From(c).Colors
-	step := min(a.tourAt, len(tourSteps)-1)
-	ui.Overlay(c, func() {
-		card := ui.Column(c.Key("tour")).Absolute()
-		if phone { // as wide as the screen, over the bottom
-			card.Left(12).Right(12).Bottom(20)
-		} else {
-			card.Right(20).Bottom(46).Width(340)
-		}
-		card.Padding(16, 18).Gap(8).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline).Children(func() {
-			ui.Text(c, locales.HelpTourStep(step+1, len(tourSteps))).FontSize(11.5).TextColor(cl.Muted)
-			ui.Text(c, tourSteps[step].title()).FontSize(16).FontWeight(700).TextColor(cl.Text)
-			ui.Text(c, tourSteps[step].body()).FontSize(13).TextColor(cl.Text2).Wrap()
-			ui.Row(c).Gap(8).Justify(ui.End).Padding(6, 0, 0, 0).Children(func() {
-				if ryugo.Button(c.Key("tour-skip"), locales.HelpTourDontShow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.settings.TourDone = true
-					a.saveSettings()
-				}
-				label := locales.HelpTourNext()
-				if step == len(tourSteps)-1 {
-					label = locales.HelpTourDone()
-				}
-				if ryugo.Button(c.Key("tour-next"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
-					if step == len(tourSteps)-1 {
-						a.settings.TourDone = true
-						a.saveSettings()
-					} else {
-						a.tourAt++
-					}
-				}
 			})
 		})
 	})

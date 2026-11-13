@@ -97,30 +97,6 @@ func TestEnglishUI(t *testing.T) {
 	}
 }
 
-// The tour shows once a real library has settings, and not again after it is closed.
-func TestTour(t *testing.T) {
-	withLang(t, "tr")
-	a, tt := newTestApp(t, "x\n")
-	a.settingsFile = t.TempDir() + "/s.json"
-	a.settings.AccountUser = "ali@ornek.com" // the sign-in comes before the tour (TestLoginGate)
-	tt.Frame()
-	tt.Advance(100 * time.Millisecond)
-	if !tt.HasText("Yaz") || !tt.HasText("Bir daha gösterme") {
-		t.Fatalf("no tour: %v", tt.Texts())
-	}
-	tt.Click("İleri")
-	tt.Advance(100 * time.Millisecond)
-	if !tt.HasText("Her şey ⌘P'de") {
-		t.Fatalf("not the next step: %v", tt.Texts())
-	}
-	tt.Click("Bir daha gösterme")
-	tt.Advance(100 * time.Millisecond)
-	tt.Frame()
-	if tt.HasText("Bir daha gösterme") || !a.settings.TourDone {
-		t.Fatal("the tour did not close")
-	}
-}
-
 // Every title of a row of the settings and every heading of the statistics has its English: a row that is
 // added with no translation fails here, so that the English window does not fill with Turkish.
 func TestEnglishCoversTitles(t *testing.T) {

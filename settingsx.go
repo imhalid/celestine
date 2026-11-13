@@ -235,7 +235,7 @@ func (a *app) deleteProfile(name string) {
 
 // secretKeys are never exported nor imported: they belong to this computer.
 var secretKeys = []string{"token", "port", "mcp", "mcpAccess", "updateUrl", "updateAuto", "syncToken", "syncKey", "accountUser", "accountAsked", "syncDir", "syncUrl", "syncMode", "writing", "recentCmds", "recent", "treeOpen", "treeSaved",
-	"updateAt", "updateSnooze", "updateSkip", "updateNotes", "updateFor", "updateSeen", "tourDone", "welcomeDone", "quickKey", "sidebarClosed", "panelOpen"}
+	"updateAt", "updateSnooze", "updateSkip", "updateNotes", "updateFor", "updateSeen", "welcomeDone", "quickKey", "sidebarClosed", "panelOpen"}
 
 // exportSettingsTo writes the portable settings as JSON.
 func (a *app) exportSettingsTo(path string) error {
