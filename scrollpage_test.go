@@ -146,13 +146,20 @@ func TestPageScrollsBelowTheHeader(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
-	if a.scrollR.Y < frameTopH || a.scrollR.Y > frameTopH+1 || a.barInset != 0 { // in the window's frame the page starts below the header/buttons, never under them (windowframe.go)
-		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header", a.scrollR.Y, a.barInset)
+	// in the window's frame the page starts below the header and the buttons, never under them (windowframe.go): on macOS
+	// its pane's bar is the room the card keeps under the window's buttons; where the window draws its own controls the
+	// bar is in the card, under the top edge (panebar.go)
+	top := float32(frameTopH)
+	if ownWindowControls {
+		top += a.paneBarH()
+	}
+	if a.scrollR.Y < top || a.scrollR.Y > top+1 || a.barInset != 0 {
+		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header and its pane's bar (%v)", a.scrollR.Y, a.barInset, top)
 	}
 	if a.topSpace != pageTop-barH+8 {
 		t.Fatalf("the page starts %v below the header, not %v", a.topSpace, pageTop-barH+8)
 	}
-	tt.Wheel(a.editorR.X+100, frameTopH+10, 0, 300) // just below the top edge
+	tt.Wheel(a.editorR.X+100, top+10, 0, 300) // just below the top edge, and the pane's bar
 	tt.Advance(300 * time.Millisecond)
 	if a.pageScroll.Y < 100 {
 		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
