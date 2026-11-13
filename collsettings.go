@@ -211,7 +211,6 @@ func (a *app) csGeneral(c *ui.Context) {
 				ui.Text(c, locales.CollectionTodayIs(formatDay(d.JournalFormat, a.clock()))).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			})
 		})
-		ui.Text(c, locales.CollectionTheJournalEveryLibrary()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 		return
 	}
 }

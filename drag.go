@@ -229,6 +229,13 @@ func (a *app) aimTree() {
 	if d.page == nil {
 		return
 	}
+	// the journal holds days and a dynamic collection a query's pages: a page of another collection is not
+	// dropped in them, as the Move menu does not offer them (#482)
+	defer func() {
+		if t := d.target; t != nil && t.coll != d.page.Coll && (t.coll.Journal || t.coll.Dynamic()) {
+			d.target = nil
+		}
+	}()
 	// the dragged rows: the page and its sub-pages showing under it
 	d.from, d.n = -1, 0
 	for j, e := range a.rows {

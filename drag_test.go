@@ -191,3 +191,20 @@ func TestClickAfterDrag(t *testing.T) {
 		t.Fatalf("the click after a drag was swallowed: open %v", a.page.Title)
 	}
 }
+
+// TestDragNotIntoJournal: a page of another collection dropped on the journal stays where it was: the journal holds
+// days, as the Move menu has it (#482).
+func TestDragNotIntoJournal(t *testing.T) {
+	lib, ps, one, two := dragLibrary(t)
+	two.Journal = true
+	if err := two.Save(); err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1180, 900)
+	tt.Advance(time.Second)
+	dragTo(t, a, tt, ps["A"], rowOf(a, two), 0.5)
+	if ps["A"].Coll != one || len(two.Pages) != 0 {
+		t.Fatalf("the page went into the journal: in %s, journal %v", ps["A"].Coll.Name, order(two.Pages))
+	}
+}

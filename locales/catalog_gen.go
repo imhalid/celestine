@@ -2793,18 +2793,6 @@ func (msgs Messages) CollectionTheDaysTitle() string {
 	return Catalog.Format(msgs.locale, "collection_theDaysTitle", nil)
 }
 
-// CollectionTheJournalEveryLibrary says "Every library has a journal, where the pages for each day are kept. It can't be moved to the trash."
-// in the language the app shows.
-func CollectionTheJournalEveryLibrary() string {
-	return In(i18n.Locale()).CollectionTheJournalEveryLibrary()
-}
-
-// CollectionTheJournalEveryLibrary says "Every library has a journal, where the pages for each day are kept. It can't be moved to the trash."
-// in the language of msgs.
-func (msgs Messages) CollectionTheJournalEveryLibrary() string {
-	return Catalog.Format(msgs.locale, "collection_theJournalEveryLibrary", nil)
-}
-
 // CollectionTheNewPropertysName says "New property name"
 // in the language the app shows.
 func CollectionTheNewPropertysName() string { return In(i18n.Locale()).CollectionTheNewPropertysName() }
