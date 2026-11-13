@@ -397,6 +397,45 @@ func TestSlashMenuKeysReachBack(t *testing.T) {
 	}
 }
 
+// TestSlashMenuArrows: → goes into the submenu chosen and ← back out of it while nothing is typed; on a line that
+// opens no menu → is the caret's (#492).
+func TestSlashMenuArrows(t *testing.T) {
+	a, tt := newTestApp(t, "")
+	tt.SetSize(900, 600)
+	typeEach(tt, "/")
+	tt.Advance(200 * time.Millisecond)
+	items := a.menuItems("")
+	sub, plain := -1, -1
+	for i, it := range items {
+		if it.nav && sub < 0 {
+			sub = i
+		}
+		if !it.nav && !it.back && plain < 0 {
+			plain = i
+		}
+	}
+	if sub < 0 || plain < 0 {
+		t.Fatalf("no submenu and plain line in %d lines", len(items))
+	}
+	a.slash.sel = plain
+	tt.Key(0, ui.KeyRight)
+	tt.Advance(100 * time.Millisecond)
+	if a.slash.view != "" {
+		t.Fatalf("→ on a plain line opened %q", a.slash.view)
+	}
+	a.slash.sel = sub
+	tt.Key(0, ui.KeyRight)
+	tt.Advance(200 * time.Millisecond)
+	if a.slash.view == "" || !a.slash.open {
+		t.Fatalf("→ did not open the submenu: view %q open %v", a.slash.view, a.slash.open)
+	}
+	tt.Key(0, ui.KeyLeft)
+	tt.Advance(200 * time.Millisecond)
+	if a.slash.view != "" || !a.slash.open {
+		t.Fatalf("← did not come back: view %q open %v", a.slash.view, a.slash.open)
+	}
+}
+
 // A line made by into is a submenu of MyGo's menu, and a line chosen in it runs (#305).
 func TestContextSubmenu(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")

@@ -19,6 +19,7 @@ type kbd struct {
 
 func newKbd(t *testing.T, src string) *kbd {
 	a, tt := newTestApp(t, src)
+	a.settings.EscNormal = true // the keyboard mode is what these test: Esc enters it
 	tt.SetSize(1100, 800)
 	tt.Frame()
 	return &kbd{t, a, tt}
@@ -716,5 +717,26 @@ func TestKbVimEmptyLastLineDD(t *testing.T) {
 	}
 	if gotLines := strings.Count(got, "\n"); gotLines != beforeLines-1 {
 		t.Fatalf("dd on empty last line did not delete the empty line: before=%q (%d newlines) after=%q (%d newlines)", before, beforeLines, got, gotLines)
+	}
+}
+
+// TestEscStaysInText: by default Esc in the text does not enter the keyboard mode, so letters typed after it are
+// text; with Vim's motions on it does (#492, #207).
+func TestEscStaysInText(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1100, 800)
+	tt.Frame()
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(80 * time.Millisecond)
+	tt.Frame()
+	if a.kb.normal {
+		t.Fatal("Esc entered the keyboard mode")
+	}
+	a.settings.VimKeys = true
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(80 * time.Millisecond)
+	tt.Frame()
+	if !a.kb.normal {
+		t.Fatal("with Vim's motions Esc did not enter the keyboard mode")
 	}
 }

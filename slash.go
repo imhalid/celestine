@@ -602,6 +602,18 @@ func (a *app) editorKey(key ui.Key, mods ui.Modifiers) bool {
 		} else {
 			s.open = false
 		}
+	case ui.KeyRight: // into the menu chosen, as ↵; on any other line → is the caret's (#492)
+		items := a.menuItems(a.slashQuery())
+		if len(items) == 0 || !items[min(s.sel, len(items)-1)].nav {
+			return false
+		}
+		items[min(s.sel, len(items)-1)].run()
+		s.open = true
+	case ui.KeyLeft: // back a menu, when nothing is typed in it; with a word typed, ← moves in it
+		if s.view == "" || a.slashQuery() != "" {
+			return false
+		}
+		a.enterView("")
 	case ui.KeyEnter:
 		items := a.menuItems(a.slashQuery())
 		s.open = false

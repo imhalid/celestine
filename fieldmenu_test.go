@@ -49,7 +49,8 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 	if a.page.Props["yazar"] != "Herbert" {
 		t.Fatalf("pasted: %q", a.page.Props["yazar"])
 	}
-	if items := open("Özellik: Yazar"); has(items, "common_deleteProperty") == nil {
+	// the collection's property is deleted in its settings, not from a page (#487)
+	if items := open("Özellik: Yazar"); has(items, "props_editPropertyMenu") == nil || has(items, "common_deleteProperty") != nil {
 		t.Fatalf("name's menu: %+v", items)
 	}
 	a.ctx.open = false

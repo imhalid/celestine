@@ -98,6 +98,7 @@ type Settings struct {
 	HideHints     bool                      `json:"hideHints,omitempty"`     // the keys to use are not written at the left of the status bar
 	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
 	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
+	EscNormal     bool                      `json:"escNormal,omitempty"`     // Esc in the text enters the normal mode, as with VimKeys; off, Esc leaves the text alone (#492, #207)
 	TourDone      bool                      `json:"tourDone,omitempty"`      // the first-run tour was shown or skipped (help.go)
 	WelcomeDone   bool                      `json:"welcomeDone,omitempty"`   // the first opening was seen (welcome.go)
 	WelcomeGround string                    `json:"welcomeGround,omitempty"` // the look of the welcome's ground, and of its opening (welcomelooks.go)

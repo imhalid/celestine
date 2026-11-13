@@ -130,6 +130,7 @@ func TestJournalGoToDate(t *testing.T) {
 // In the normal mode, [ and ] go to the day before and after.
 func TestJournalKeys(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
+	a.settings.EscNormal = true // Esc into the normal mode
 	tt.SetSize(1100, 800)
 	now := time.Date(2026, 11, 9, 10, 0, 0, 0, time.Local)
 	journalDays(t, a, now, "2026-11-03", "2026-11-06")

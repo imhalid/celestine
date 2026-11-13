@@ -1138,9 +1138,11 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.contextView(c)
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
-		// Esc, in the text or on a screen that has nothing to close: the keys are commands. The settings
-		// and the figures have their own Esc, which goes back.
-		if !a.settingsOpen && !a.statsScreen && !a.profileScreen && !lapseEsc && c.Shortcut(0, ui.KeyEscape) {
+		// Esc, in the text or on a screen that has nothing to close: the keys are commands, when the settings say
+		// so (Vim's motions, or Esc enters the keyboard mode): a writer's Esc by habit, then letters typed, made a
+		// new page and an undo (#492, #207). The settings and the figures have their own Esc, which goes back.
+		escNormal := a.settings.EscNormal || a.settings.VimKeys
+		if escNormal && !a.settingsOpen && !a.statsScreen && !a.profileScreen && !lapseEsc && c.Shortcut(0, ui.KeyEscape) {
 			a.kbEnter()
 		}
 	}
@@ -1270,7 +1272,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: locales.Page(), Font: a.font, Theme: th,
-		Placeholder:  locales.AppWriteHeadingListTask(),
+		Placeholder:  locales.AppEditorPlaceholder(),
 		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
 		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
 		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)

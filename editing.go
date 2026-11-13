@@ -390,6 +390,16 @@ func (a *app) settingsText(c *ui.Context) {
 		a.settings.NoCaretFX = lite
 		a.saveSettings()
 	}
+	esc := a.settings.EscNormal
+	settingGroup(c, "set-esc-normal", func() {
+		settingRow(c, locales.SettingsEscNormal(), locales.SettingsEscNormalHelp(), func() {
+			ryugo.Switch(c.Key("set-esc-normal-sw"), &esc, ryugo.SwitchOptions{}).Label(locales.SettingsEscNormal())
+		})
+	})
+	if esc != a.settings.EscNormal {
+		a.settings.EscNormal = esc
+		a.saveSettings()
+	}
 	vim := a.settings.VimKeys
 	settingGroup(c, "set-vim", func() {
 		settingRow(c, locales.CommonVimMotions(), locales.EditorAfterEscHJ(), func() {

@@ -52,6 +52,7 @@ type settingDef struct {
 // settingsApart are the fields of Settings that are not settings to change by a command, and why.
 var settingsApart = map[string]string{
 	"sidebarWidth":  "dragged at the sidebar's edge",
+	"sidebarName":   "a name typed in the settings, not turned on or off",
 	"updateChannel": "trial versions are the maintainer's, set in the settings file: not shown (#407)",
 	"panelWidth":    "dragged at the side panel's edge",
 	"port":          "the MCP server's port: typed in its own settings",
@@ -229,6 +230,7 @@ func settingDefsFor(macOS bool) []settingDef {
 		num("common_caretSleep", "caret sleep", "sleepSecs", 1, 60, 5, 1, "common_s", 0,
 			func(a *app) float64 { return a.caretSleep().Seconds() }, func(a *app, v float64) { a.settings.SleepSecs = v; a.saveSettingsSoon() }),
 		simple("common_vimMotions", "vim hjkl normal kip", "vimKeys", func(s *Settings) *bool { return &s.VimKeys }, false),
+		simple("settings_escNormal", "esc escape normal kip keyboard klavye", "escNormal", func(s *Settings) *bool { return &s.EscNormal }, false),
 		simple("checkForUpdates", "update güncelleme", "updateOff", func(s *Settings) *bool { return &s.UpdateOff }, true),
 		simple("quietUpdateMode", "update quiet", "updateQuiet", func(s *Settings) *bool { return &s.UpdateQuiet }, false),
 		simple("updateAutomatically", "update auto kur", "updateAuto", func(s *Settings) *bool { return &s.UpdateAuto }, false),

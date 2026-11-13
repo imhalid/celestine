@@ -781,14 +781,14 @@ func (msgs Messages) AppUpdateCelestineOpenNothing() string {
 	return Catalog.Format(msgs.locale, "app_updateCelestineOpenNothing", nil)
 }
 
-// AppWriteHeadingListTask says "Write…  # heading · - list · [] task · > quote"
+// AppEditorPlaceholder says "Write, or type / or @ to add a block"
 // in the language the app shows.
-func AppWriteHeadingListTask() string { return In(i18n.Locale()).AppWriteHeadingListTask() }
+func AppEditorPlaceholder() string { return In(i18n.Locale()).AppEditorPlaceholder() }
 
-// AppWriteHeadingListTask says "Write…  # heading · - list · [] task · > quote"
+// AppEditorPlaceholder says "Write, or type / or @ to add a block"
 // in the language of msgs.
-func (msgs Messages) AppWriteHeadingListTask() string {
-	return Catalog.Format(msgs.locale, "app_writeHeadingListTask", nil)
+func (msgs Messages) AppEditorPlaceholder() string {
+	return Catalog.Format(msgs.locale, "app_editorPlaceholder", nil)
 }
 
 // AppYourLibraryWasNot says "Your library wasn't touched. The log stays on this computer and is never sent anywhere."
@@ -10259,6 +10259,26 @@ func SettingsSidebarNamePlaceholder() string {
 // in the language of msgs.
 func (msgs Messages) SettingsSidebarNamePlaceholder() string {
 	return Catalog.Format(msgs.locale, "settings_sidebarNamePlaceholder", nil)
+}
+
+// SettingsEscNormal says "Esc enters keyboard mode"
+// in the language the app shows.
+func SettingsEscNormal() string { return In(i18n.Locale()).SettingsEscNormal() }
+
+// SettingsEscNormal says "Esc enters keyboard mode"
+// in the language of msgs.
+func (msgs Messages) SettingsEscNormal() string {
+	return Catalog.Format(msgs.locale, "settings_escNormal", nil)
+}
+
+// SettingsEscNormalHelp says "Esc in the text takes you to keyboard mode, where letters are commands. Off, Esc leaves the text as it is; keyboard m…"
+// in the language the app shows.
+func SettingsEscNormalHelp() string { return In(i18n.Locale()).SettingsEscNormalHelp() }
+
+// SettingsEscNormalHelp says "Esc in the text takes you to keyboard mode, where letters are commands. Off, Esc leaves the text as it is; keyboard m…"
+// in the language of msgs.
+func (msgs Messages) SettingsEscNormalHelp() string {
+	return Catalog.Format(msgs.locale, "settings_escNormalHelp", nil)
 }
 
 // SettingsAPressedButtonSends says "Buttons ripple out from where you press them. Off when Reduce motion is on in your system settings."
