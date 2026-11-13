@@ -365,6 +365,71 @@ func TestDemoMarine(t *testing.T) {
 	}
 }
 
+// TestDemoToast films a toast coming: the window's bottom right for three seconds, from a moment before the toast
+// is put up to its light's last turn round its edge. The toast's shader is on, which the tests turn off; the clock
+// moves only by a frame, so the CPU renderer's slowness does not change the timing. Run with DEMO=dir:
+// dir/toast.mp4. Its going (toastOut) does not fit these seconds.
+func TestDemoToast(t *testing.T) {
+	dir := os.Getenv("DEMO")
+	if dir == "" {
+		t.Skip()
+	}
+	toastShaders = true
+	t.Cleanup(func() { toastShaders = false })
+	setLang("en")
+	t.Cleanup(func() { setLang("tr") })
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed(lib); err != nil {
+		t.Fatal(err)
+	}
+	p, err := lib.Collections[0].NewPage(nil, "Notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp(lib)
+	a.open(p)
+	a.settings.Theme = 2
+	tt := ui.NewTester(a.view, demoW, demoH)
+	tt.SetScale(demoScale)
+	tt.Advance(500 * time.Millisecond)
+
+	const (
+		w, h  = 480.0, 270.0 // the part filmed, in points
+		secs  = 3
+		start = 6 // the frame the toast is put up on
+	)
+	ow, oh := int(w*demoScale), int(h*demoScale)
+	cmd := exec.Command("ffmpeg", "-y", "-loglevel", "error",
+		"-f", "rawvideo", "-pix_fmt", "rgba", "-s", fmt.Sprintf("%dx%d", ow, oh), "-r", fmt.Sprint(demoFPS), "-i", "-",
+		"-c:v", "libx264", "-preset", "slow", "-crf", "14", "-pix_fmt", "yuv420p", "-movflags", "+faststart", filepath.Join(dir, "toast.mp4"))
+	cmd.Stderr = os.Stderr
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	buf := image.NewRGBA(image.Rect(0, 0, ow, oh))
+	for n := range secs * demoFPS {
+		if n == start {
+			a.toastOf(toastOK, "Page moved to the trash", "Undo", func() {})
+		}
+		tt.Advance(time.Second / demoFPS)
+		crop(buf, tt.Image(), (demoW-w)*demoScale, (demoH-h)*demoScale, w*demoScale, h*demoScale)
+		if _, err := in.Write(buf.Pix); err != nil {
+			t.Fatal(err)
+		}
+	}
+	in.Close()
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestDemoCaretSurvey films each caret for a moment, close: run with
 // DEMO_SURVEY=dir to choose the ones a video shows.
 func TestDemoCaretSurvey(t *testing.T) {
