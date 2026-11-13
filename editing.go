@@ -400,6 +400,16 @@ func (a *app) settingsText(c *ui.Context) {
 		a.settings.EscNormal = esc
 		a.saveSettings()
 	}
+	previews := !a.settings.NoLinkPreviews
+	settingGroup(c, "set-link-previews", func() {
+		settingRow(c, locales.SettingsLinkPreviews(), locales.SettingsLinkPreviewsHelp(), func() {
+			ryugo.Switch(c.Key("set-link-previews-sw"), &previews, ryugo.SwitchOptions{}).Label(locales.SettingsLinkPreviews())
+		})
+	})
+	if previews == a.settings.NoLinkPreviews {
+		a.settings.NoLinkPreviews = !previews
+		a.saveSettings()
+	}
 	vim := a.settings.VimKeys
 	settingGroup(c, "set-vim", func() {
 		settingRow(c, locales.CommonVimMotions(), locales.EditorAfterEscHJ(), func() {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -24,7 +25,13 @@ type selBar struct {
 	link    bool   // asking for a link's address
 	url     string // what was typed
 	linkSel [2]int // what the link is for
+	// what was typed as the last frame had it, and since when: the page is asked for once the typing rests (#495)
+	urlWas string
+	urlAt  time.Time
 }
+
+// linkTypeRest is how long the address typed rests before its page is asked for.
+const linkTypeRest = 350 * time.Millisecond
 
 var (
 	iconBold   = icon(`<path d="M8 5h5a3.2 3.2 0 0 1 0 6.4H8zM8 11.4h5.8a3.3 3.3 0 0 1 0 6.6H8z"/>`)
@@ -64,35 +71,40 @@ func (a *app) selectionBar(c *ui.Context) {
 	f := a.doc.Formatting()
 	w := float32(5*selBtn + 2*selPad + 4*2)
 	ww, _ := c.Size()
-	if b.link { // the field is as wide as the room: never past the window
-		w = min(280, ww-16)
-	}
 	h := float32(selBtn + 2*selPad)
+	full := h // the bar with the preview of the link typed, under the field
+	var page *linkInfo
+	address := strings.TrimSpace(b.url)
+	if b.link { // the field is as wide as the room: never past the window
+		w = min(340, ww-16)
+		h = 38
+		full = h
+		if b.url != b.urlWas {
+			b.urlWas, b.urlAt = b.url, c.Now()
+		}
+		if rest := linkTypeRest - c.Now().Sub(b.urlAt); rest > 0 {
+			c.After(rest)
+		} else if host := linkHost(address); strings.Contains(host, ".") {
+			page = a.linkPage(address, true)
+		}
+		if page != nil {
+			full += 63
+		}
+	}
 	left := max(8, min(x-8, ww-w-8))
-	top := y - h - 10
+	top := y - full - 10
 	if top < a.scrollR.Y+a.barInset+4 {
 		top = y + cb.r.H + 10
 	}
 	ui.Overlay(c, func() {
+		if b.link {
+			a.linkField(c, b, page, address, left, top, w, h)
+			return
+		}
 		bar := ui.Row(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Height(h).Padding(selPad).Gap(2).AlignItems(ui.Center).Clip().
 			Radius(tth.R(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline).Label(locales.SelectionFormatBar()).KeepFocus()
 		tth.Shadows.ShadowPop.Apply(bar)
 		bar.Children(func() {
-			if b.link {
-				in := a.fieldMenu(ryugo.Input(c.Key("selbar-url"), &b.url, ryugo.InputOptions{Label: locales.SelectionLinkAddress(), Placeholder: locales.SelectionPasteAddress(), PrefixIcon: iconLink, Size: ryugo.Sm}), &b.url, fieldOpts{oneLine: true}).
-					Grow(1).MinWidth(0).AutoFocus()
-				switch {
-				case in.Shortcut(0, ui.KeyEscape):
-					b.link = false
-					a.refocus = true
-				case in.Submitted():
-					a.doc.SetSelection(b.linkSel[0], b.linkSel[1])
-					a.doc.SetLink(strings.TrimSpace(b.url))
-					b.link = false
-					a.refocus = true
-				}
-				return
-			}
 			btn := func(key string, glyph *ui.SVG, label string, on bool, fn func()) {
 				e := ui.Box(c.Key(key)).Size(selBtn, selBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).
 					Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 100 * 1e6, Colors: true})
@@ -124,5 +136,52 @@ func (a *app) selectionBar(c *ui.Context) {
 				b.link, b.url, b.linkSel = true, "", [2]int{s, e}
 			})
 		})
+	})
+}
+
+// linkField is the bar asking for a link's address (#495): the field in the bar's own look, a key cap that says ↵
+// sets it, and under it, once the typing rests on a web address, its page's icon, title and picture as they come.
+func (a *app) linkField(c *ui.Context, b *selBar, page *linkInfo, address string, left, top, w, h float32) {
+	tth := ryugo.From(c)
+	cl := tth.Colors
+	box := ui.Column(c.Key("selbar")).Absolute().Left(left).Top(top).Width(w).Clip().
+		Radius(tth.R(ryugo.RadiusControl)+2).Background(cl.Card).Border(1, cl.Hairline).Label(locales.SelectionFormatBar()).KeepFocus().
+		Transition(ui.ElementTransition{Duration: 160 * time.Millisecond, Size: true})
+	tth.Shadows.ShadowPop.Apply(box)
+	box.Children(func() {
+		ui.Row(c.Key("selbar-link")).Height(h).Padding(0, 8, 0, 12).Gap(9).AlignItems(ui.Center).Children(func() {
+			ui.Box(c.Key("selbar-link-icon")).Width(15).Height(15).Draw(func(p *ui.Painter, r ui.Rect) {
+				if webLink(address) && page != nil {
+					a.drawLinkIcon(p, r, address, cl.Muted)
+					return
+				}
+				p.Icon(iconLink, r, cl.Muted)
+			})
+			field := ui.TextInputBase(c.Key("selbar-url"), &b.url).Grow(1).MinWidth(0).FontSize(13.5).TextColor(cl.Text).
+				Placeholder(locales.SelectionPasteAddress()).PlaceholderColor(cl.Muted).FocusRing(false).Label(locales.SelectionLinkAddress())
+			in := a.fieldMenu(field, &b.url, fieldOpts{oneLine: true}).AutoFocus()
+			if address != "" { // the key that sets it
+				ui.Box(c.Key("selbar-enter")).Height(20).Padding(0, 6).Radius(rad(5)).Background(cl.Fill).Border(1, cl.Hairline).
+					AlignItems(ui.Center).Justify(ui.Center).Transition(rowEnter).Children(func() {
+					ui.Text(c, "↵").FontSize(12).TextColor(cl.Text2)
+				})
+			}
+			switch {
+			case in.Shortcut(0, ui.KeyEscape):
+				b.link = false
+				a.refocus = true
+			case in.Submitted():
+				a.doc.SetSelection(b.linkSel[0], b.linkSel[1])
+				a.doc.SetLink(address)
+				b.link = false
+				a.refocus = true
+			}
+		})
+		if page != nil {
+			ui.Box(c.Key("selbar-link-line")).Height(1).Background(cl.Hairline)
+			ui.Column(c.Key("selbar-link-page")).Height(62).Justify(ui.Center).Transition(rowEnter).Children(func() {
+				a.linkPreview(c, address, page, w, false)
+			})
+		}
 	})
 }

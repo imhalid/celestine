@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -44,9 +45,43 @@ func spaced(spans []ui.Span) []ui.Span {
 	return spans
 }
 
+// linkRoom leaves the room of its icon before each web link of paragraph p (linkcards.go): its first span, the
+// spans being the runs of the paragraph.
+func (a *app) linkRoom(p int, spans []ui.Span) {
+	if !linkIcons || a.doc == nil {
+		return
+	}
+	t := a.doc.Text()
+	if p >= t.ParagraphCount() {
+		return
+	}
+	at, end := t.ParagraphRange(p)
+	prev := ""
+	for i := range spans {
+		if at >= end {
+			break
+		}
+		attrs := t.AttributesAt(at)
+		link := attrs.Link
+		if attrs.Attachment != nil {
+			link = ""
+		}
+		if link != prev && link != "" {
+			size := spans[i].Size
+			if size == 0 {
+				size = a.font.Size
+			}
+			spans[i].PaddingLeft = linkIconPad(link, size)
+		}
+		prev = link
+		at += utf8.RuneCountInString(spans[i].Text)
+	}
+}
+
 // editorSpans are paragraph p's spans as the page editor draws them: spaced, and a block of code's colored.
 func (a *app) editorSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	spans = spaced(spans)
+	a.linkRoom(p, spans)
 	if st.List == richtext.Tasks && st.Checked {
 		for i := range spans { // a fold's chip on a task done is not struck through (#494)
 			if spans[i].Text == string(richtext.ObjectReplacement) {

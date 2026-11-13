@@ -22,20 +22,29 @@ type linkHit struct {
 	url string
 }
 
-// linkSpan is a run of a paragraph that links: the runes it takes.
+// linkSpan is a run of a paragraph that links: the runes it takes, and whether it starts its link, which a run
+// before it with the same address does not (the room of a web link's icon is before its first, linkRoom).
 type linkSpan struct {
 	from, to int
 	url      string
+	first    bool
 }
 
 // linkSpans are the links of a paragraph.
 func linkSpans(p richtext.Paragraph) []linkSpan {
 	var out []linkSpan
-	pos := 0
+	pos, prev := 0, ""
 	for _, r := range p.Runs {
 		n := utf8.RuneCountInString(r.Text)
-		if r.Attributes.Link != "" && n > 0 && r.Attributes.Attachment == nil {
-			out = append(out, linkSpan{pos, pos + n, r.Attributes.Link})
+		link := r.Attributes.Link
+		if r.Attributes.Attachment != nil {
+			link = ""
+		}
+		if link != "" && n > 0 {
+			out = append(out, linkSpan{pos, pos + n, link, link != prev})
+		}
+		if n > 0 {
+			prev = link
 		}
 		pos += n
 	}

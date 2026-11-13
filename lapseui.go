@@ -138,7 +138,10 @@ func (a *app) spansVersion() int {
 		v += l.ver * 100000
 	}
 	v += a.tasks.ver * 7919 // a task's line being drawn through it (strikeSpans)
-	if a.grip.dragging {    // the block dragged, drawn faded (blockSpans)
+	if !linkIcons {         // no room before links for their icons (linkcards.go)
+		v += 1 << 40
+	}
+	if a.grip.dragging { // the block dragged, drawn faded (blockSpans)
 		v = -v - 1
 	}
 	return v

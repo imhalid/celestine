@@ -146,8 +146,22 @@ func layoutParagraph(p richtext.Paragraph, w float32, base ui.Font, th *richtext
 	}
 	width := max(w-left-right, 1)
 	var spans []ui.Span
+	prev := ""
 	for _, r := range p.Runs {
-		spans = append(spans, spanOf(r.Text, r.Attributes, st, size, width, th))
+		s := spanOf(r.Text, r.Attributes, st, size, width, th)
+		link := r.Attributes.Link
+		if r.Attributes.Attachment != nil {
+			link = ""
+		}
+		if link != prev && link != "" { // the room of its icon, as the editor's spans leave it (linkRoom)
+			ls := s.Size
+			if ls == 0 {
+				ls = size
+			}
+			s.PaddingLeft = linkIconPad(link, ls)
+		}
+		prev = link
+		spans = append(spans, s)
 	}
 	f := base
 	switch {

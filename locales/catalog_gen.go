@@ -981,21 +981,21 @@ func (msgs Messages) BackupSelectedOnly() string {
 	return Catalog.Format(msgs.locale, "backup_selectedOnly", nil)
 }
 
-// BackupRestorePages says "{count, plural, =1{Restore 1 page} other{Restore {count} pages}}"
+// BackupRestorePages says "{count, plural, one{Restore {count} page} other{Restore {count} pages}}"
 // in the language the app shows.
 func BackupRestorePages(count int) string { return In(i18n.Locale()).BackupRestorePages(count) }
 
-// BackupRestorePages says "{count, plural, =1{Restore 1 page} other{Restore {count} pages}}"
+// BackupRestorePages says "{count, plural, one{Restore {count} page} other{Restore {count} pages}}"
 // in the language of msgs.
 func (msgs Messages) BackupRestorePages(count int) string {
 	return Catalog.Format(msgs.locale, "backup_restorePages", map[string]any{"count": count})
 }
 
-// BackupRestoredPages says "{count, plural, =1{1 page restored into the library} other{{count} pages restored into the library}}"
+// BackupRestoredPages says "{count, plural, one{{count} page restored into the library} other{{count} pages restored into the library}}"
 // in the language the app shows.
 func BackupRestoredPages(count int) string { return In(i18n.Locale()).BackupRestoredPages(count) }
 
-// BackupRestoredPages says "{count, plural, =1{1 page restored into the library} other{{count} pages restored into the library}}"
+// BackupRestoredPages says "{count, plural, one{{count} page restored into the library} other{{count} pages restored into the library}}"
 // in the language of msgs.
 func (msgs Messages) BackupRestoredPages(count int) string {
 	return Catalog.Format(msgs.locale, "backup_restoredPages", map[string]any{"count": count})
@@ -10195,6 +10195,26 @@ func SettingsSidebarNamePlaceholder() string {
 // in the language of msgs.
 func (msgs Messages) SettingsSidebarNamePlaceholder() string {
 	return Catalog.Format(msgs.locale, "settings_sidebarNamePlaceholder", nil)
+}
+
+// SettingsLinkPreviews says "Link previews"
+// in the language the app shows.
+func SettingsLinkPreviews() string { return In(i18n.Locale()).SettingsLinkPreviews() }
+
+// SettingsLinkPreviews says "Link previews"
+// in the language of msgs.
+func (msgs Messages) SettingsLinkPreviews() string {
+	return Catalog.Format(msgs.locale, "settings_linkPreviews", nil)
+}
+
+// SettingsLinkPreviewsHelp says "A web link shows its site's icon in the text, and its page's picture and title when the pointer rests on it. Each sit…"
+// in the language the app shows.
+func SettingsLinkPreviewsHelp() string { return In(i18n.Locale()).SettingsLinkPreviewsHelp() }
+
+// SettingsLinkPreviewsHelp says "A web link shows its site's icon in the text, and its page's picture and title when the pointer rests on it. Each sit…"
+// in the language of msgs.
+func (msgs Messages) SettingsLinkPreviewsHelp() string {
+	return Catalog.Format(msgs.locale, "settings_linkPreviewsHelp", nil)
 }
 
 // SettingsEscNormal says "Esc enters keyboard mode"

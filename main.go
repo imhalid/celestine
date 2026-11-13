@@ -282,6 +282,7 @@ type app struct {
 	ctx           ctxMenu   // the context menu (ctxmenu.go)
 	frame         func()    // asks for a frame that builds the view
 	links         linkIndex // who links to whom (backlinks.go)
+	web           webLinks  // the web pages links go to, as far as they are known (linkcards.go)
 	hoverCh       *chip     // the chip the pointer is over
 	dateEdit      dateEdit  // the calendar a date chip opens
 
@@ -1269,6 +1270,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	c.Key("body:" + p.Dir)
 	a.refreshQueries()
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
+	linkIcons = !a.settings.NoLinkPreviews                         // the room of a link's icon, as well (linkcards.go)
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: locales.Page(), Font: a.font, Theme: th,
@@ -1312,7 +1314,9 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
 	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
 	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
-	if x, y, over := a.textPointer(ed); over {
+	x, y, over := a.textPointer(ed)
+	a.hoverLink(c, a.editorR.X+x, a.editorR.Y+y, over) // its card, after a moment (linkcards.go)
+	if over {
 		a.edPtr = ui.Point{X: x, Y: y} // where a right click opens the menu
 		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
 			a.hoverTag = key

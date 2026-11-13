@@ -47,64 +47,65 @@ type Settings struct {
 	LineHeight float64 `json:"lineHeight,omitempty"` // 1.55
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
 	// how the text is set and kept (editing.go)
-	ParaGap       *float64                  `json:"paraGap,omitempty"`       // the room between paragraphs, in ems: 0.55 when not set
-	Indent        float64                   `json:"indent,omitempty"`        // the first line's indent, in ems
-	NoAutoSave    bool                      `json:"noAutoSave,omitempty"`    // the page is saved by ⌘S, not by itself
-	SaveAfter     float64                   `json:"saveAfter,omitempty"`     // seconds of stillness before it saves by itself: 0.7 when not set
-	ShowSpaces    bool                      `json:"showSpaces,omitempty"`    // white space shown over the text: spaces
-	ShowTabs      bool                      `json:"showTabs,omitempty"`      // tabs
-	ShowBreaks    bool                      `json:"showBreaks,omitempty"`    // and where a paragraph ends
-	MarkCode      bool                      `json:"markCode,omitempty"`      // in blocks of code, too
-	UpdateURL     string                    `json:"updateUrl,omitempty"`     // the manifest of releases, when not the program's (update.go)
-	UpdateOff     bool                      `json:"updateOff,omitempty"`     // no asking for a new version at all: nothing leaves the computer
-	UpdateQuiet   bool                      `json:"updateQuiet,omitempty"`   // a new version is shown in the settings only, not in a dialog
-	UpdateAuto    bool                      `json:"updateAuto,omitempty"`    // a new version is downloaded and put in place when it is found
-	UpdateChannel string                    `json:"updateChannel,omitempty"` // "beta" for trial versions too
-	UpdateHours   int                       `json:"updateHours,omitempty"`   // hours between two checks: 24 when not set
-	UpdateAt      int64                     `json:"updateAt,omitempty"`      // when it last asked, unix seconds
-	UpdateSnooze  int64                     `json:"updateSnooze,omitempty"`  // not before this: "remind me in three days"
-	UpdateSkip    string                    `json:"updateSkip,omitempty"`    // the version that was said no to
-	UpdateNotes   string                    `json:"updateNotes,omitempty"`   // the notes of the version that was put in place
-	UpdateFor     string                    `json:"updateFor,omitempty"`     // and its number
-	UpdateSeen    string                    `json:"updateSeen,omitempty"`    // the version whose notes were shown
-	SyncMode      string                    `json:"syncMode,omitempty"`      // "" off, "dir" a folder, "server" a server of one's own (sync.go)
-	SyncDir       string                    `json:"syncDir,omitempty"`       // the folder, for "dir"
-	SyncURL       string                    `json:"syncUrl,omitempty"`       // the server's address
-	SyncToken     string                    `json:"syncToken,omitempty"`     // this device's token
-	SyncKey       string                    `json:"syncKey,omitempty"`       // the key of end-to-end encryption, base64: "" when it is off
-	AccountUser   string                    `json:"accountUser,omitempty"`   // the account this computer is signed in to (account.go)
-	SyncOff       []string                  `json:"syncOff,omitempty"`       // collections (their folders) that stay here
-	SyncMinutes   int                       `json:"syncMinutes,omitempty"`   // minutes between two syncs: 5 when not set
-	Profiles      map[string]map[string]any `json:"profiles,omitempty"`      // looks and ways of writing saved under a name (settingsx.go)
-	Focus         string                    `json:"focus,omitempty"`         // "line" or "paragraph": the rest of the page is veiled (focus.go)
-	Typewriter    bool                      `json:"typewriter,omitempty"`    // the caret's line stays in the middle of the window
-	TabSpaces     int                       `json:"tabSpaces,omitempty"`     // a Tab writes this many spaces; 0 a tab
-	SleepSecs     float64                   `json:"sleepSecs,omitempty"`     // seconds at rest before the caret dozes: 5 when not set
-	NoCaretFX     bool                      `json:"noCaretFx,omitempty"`     // a plain caret, whatever caret is chosen: light mode
-	ReduceMotion  bool                      `json:"reduceMotion,omitempty"`  // animations go to their end at once, as the system's Reduce Motion (motion.go)
-	NoShaders     bool                      `json:"noShaders,omitempty"`     // the shader effects are off, for a slow computer (motion.go)
-	LetterSpacing int                       `json:"letterSpacing,omitempty"` // how far apart the letters are: a step of letterSpacings
-	CaretBlink    int                       `json:"caretBlink,omitempty"`    // the caret blinks, on and off this many ms each, once still; 0: it does not
-	WhiteInSel    bool                      `json:"whiteInSel,omitempty"`    // the white space is shown only in the selection
-	Keys          map[string]string         `json:"keys,omitempty"`          // a command (its title) to a key of its own (keys.go)
-	Macros        map[string][]string       `json:"macros,omitempty"`        // a name to the commands it runs one after another
-	AlwaysRing    bool                      `json:"alwaysRing,omitempty"`    // the row the keys are on is ringed, in the normal mode or not (kb.go)
-	LineChars     int                       `json:"lineChars,omitempty"`     // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
-	HideStatus    bool                      `json:"hideStatus,omitempty"`    // the status bar is not shown at all
-	SidebarCard   bool                      `json:"sidebarCard,omitempty"`   // in the window's frame the sidebar has a card of its own; without, it lies on the frame's ground (#489)
-	SidebarName   string                    `json:"sidebarName,omitempty"`   // the name over the sidebar's list, "" none (#489)
-	Glass         bool                      `json:"glass,omitempty"`         // experimental macOS Liquid Glass window/panel background (off by default)
-	Panes         string                    `json:"panes,omitempty"`         // the panes of the window: the Dock's tree and what each shows (panes.go)
-	HideHints     bool                      `json:"hideHints,omitempty"`     // the keys to use are not written at the left of the status bar
-	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
-	VimKeys       bool                      `json:"vimKeys,omitempty"`       // the motions of Vim in the normal mode (vim.go)
-	EscNormal     bool                      `json:"escNormal,omitempty"`     // Esc in the text enters the normal mode, as with VimKeys; off, Esc leaves the text alone (#492, #207)
-	WelcomeDone   bool                      `json:"welcomeDone,omitempty"`   // the first opening was seen (welcome.go)
-	WelcomeGround string                    `json:"welcomeGround,omitempty"` // the look of the welcome's ground, and of its opening (welcomelooks.go)
-	WelcomeOpen   string                    `json:"welcomeOpen,omitempty"`
-	NoStats       bool                      `json:"noStats,omitempty"`     // no figures of writing and use are kept (stats.go)
-	NoBackup      bool                      `json:"noBackup,omitempty"`    // no backup of the library by itself once a day (backup.go)
-	BackupEvery   string                    `json:"backupEvery,omitempty"` // how often it is taken: "" each day, "week", "month"
+	ParaGap        *float64                  `json:"paraGap,omitempty"`        // the room between paragraphs, in ems: 0.55 when not set
+	Indent         float64                   `json:"indent,omitempty"`         // the first line's indent, in ems
+	NoAutoSave     bool                      `json:"noAutoSave,omitempty"`     // the page is saved by ⌘S, not by itself
+	SaveAfter      float64                   `json:"saveAfter,omitempty"`      // seconds of stillness before it saves by itself: 0.7 when not set
+	ShowSpaces     bool                      `json:"showSpaces,omitempty"`     // white space shown over the text: spaces
+	ShowTabs       bool                      `json:"showTabs,omitempty"`       // tabs
+	ShowBreaks     bool                      `json:"showBreaks,omitempty"`     // and where a paragraph ends
+	MarkCode       bool                      `json:"markCode,omitempty"`       // in blocks of code, too
+	UpdateURL      string                    `json:"updateUrl,omitempty"`      // the manifest of releases, when not the program's (update.go)
+	UpdateOff      bool                      `json:"updateOff,omitempty"`      // no asking for a new version at all: nothing leaves the computer
+	UpdateQuiet    bool                      `json:"updateQuiet,omitempty"`    // a new version is shown in the settings only, not in a dialog
+	UpdateAuto     bool                      `json:"updateAuto,omitempty"`     // a new version is downloaded and put in place when it is found
+	UpdateChannel  string                    `json:"updateChannel,omitempty"`  // "beta" for trial versions too
+	UpdateHours    int                       `json:"updateHours,omitempty"`    // hours between two checks: 24 when not set
+	UpdateAt       int64                     `json:"updateAt,omitempty"`       // when it last asked, unix seconds
+	UpdateSnooze   int64                     `json:"updateSnooze,omitempty"`   // not before this: "remind me in three days"
+	UpdateSkip     string                    `json:"updateSkip,omitempty"`     // the version that was said no to
+	UpdateNotes    string                    `json:"updateNotes,omitempty"`    // the notes of the version that was put in place
+	UpdateFor      string                    `json:"updateFor,omitempty"`      // and its number
+	UpdateSeen     string                    `json:"updateSeen,omitempty"`     // the version whose notes were shown
+	SyncMode       string                    `json:"syncMode,omitempty"`       // "" off, "dir" a folder, "server" a server of one's own (sync.go)
+	SyncDir        string                    `json:"syncDir,omitempty"`        // the folder, for "dir"
+	SyncURL        string                    `json:"syncUrl,omitempty"`        // the server's address
+	SyncToken      string                    `json:"syncToken,omitempty"`      // this device's token
+	SyncKey        string                    `json:"syncKey,omitempty"`        // the key of end-to-end encryption, base64: "" when it is off
+	AccountUser    string                    `json:"accountUser,omitempty"`    // the account this computer is signed in to (account.go)
+	SyncOff        []string                  `json:"syncOff,omitempty"`        // collections (their folders) that stay here
+	SyncMinutes    int                       `json:"syncMinutes,omitempty"`    // minutes between two syncs: 5 when not set
+	Profiles       map[string]map[string]any `json:"profiles,omitempty"`       // looks and ways of writing saved under a name (settingsx.go)
+	Focus          string                    `json:"focus,omitempty"`          // "line" or "paragraph": the rest of the page is veiled (focus.go)
+	Typewriter     bool                      `json:"typewriter,omitempty"`     // the caret's line stays in the middle of the window
+	TabSpaces      int                       `json:"tabSpaces,omitempty"`      // a Tab writes this many spaces; 0 a tab
+	SleepSecs      float64                   `json:"sleepSecs,omitempty"`      // seconds at rest before the caret dozes: 5 when not set
+	NoCaretFX      bool                      `json:"noCaretFx,omitempty"`      // a plain caret, whatever caret is chosen: light mode
+	ReduceMotion   bool                      `json:"reduceMotion,omitempty"`   // animations go to their end at once, as the system's Reduce Motion (motion.go)
+	NoShaders      bool                      `json:"noShaders,omitempty"`      // the shader effects are off, for a slow computer (motion.go)
+	LetterSpacing  int                       `json:"letterSpacing,omitempty"`  // how far apart the letters are: a step of letterSpacings
+	CaretBlink     int                       `json:"caretBlink,omitempty"`     // the caret blinks, on and off this many ms each, once still; 0: it does not
+	WhiteInSel     bool                      `json:"whiteInSel,omitempty"`     // the white space is shown only in the selection
+	Keys           map[string]string         `json:"keys,omitempty"`           // a command (its title) to a key of its own (keys.go)
+	Macros         map[string][]string       `json:"macros,omitempty"`         // a name to the commands it runs one after another
+	AlwaysRing     bool                      `json:"alwaysRing,omitempty"`     // the row the keys are on is ringed, in the normal mode or not (kb.go)
+	LineChars      int                       `json:"lineChars,omitempty"`      // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
+	HideStatus     bool                      `json:"hideStatus,omitempty"`     // the status bar is not shown at all
+	SidebarCard    bool                      `json:"sidebarCard,omitempty"`    // in the window's frame the sidebar has a card of its own; without, it lies on the frame's ground (#489)
+	SidebarName    string                    `json:"sidebarName,omitempty"`    // the name over the sidebar's list, "" none (#489)
+	Glass          bool                      `json:"glass,omitempty"`          // experimental macOS Liquid Glass window/panel background (off by default)
+	Panes          string                    `json:"panes,omitempty"`          // the panes of the window: the Dock's tree and what each shows (panes.go)
+	HideHints      bool                      `json:"hideHints,omitempty"`      // the keys to use are not written at the left of the status bar
+	Lang           string                    `json:"lang,omitempty"`           // "tr", "en"; "" the system's (i18n.go)
+	VimKeys        bool                      `json:"vimKeys,omitempty"`        // the motions of Vim in the normal mode (vim.go)
+	EscNormal      bool                      `json:"escNormal,omitempty"`      // Esc in the text enters the normal mode, as with VimKeys; off, Esc leaves the text alone (#492, #207)
+	NoLinkPreviews bool                      `json:"noLinkPreviews,omitempty"` // web links have no icon nor card, and no site is asked for them (#495)
+	WelcomeDone    bool                      `json:"welcomeDone,omitempty"`    // the first opening was seen (welcome.go)
+	WelcomeGround  string                    `json:"welcomeGround,omitempty"`  // the look of the welcome's ground, and of its opening (welcomelooks.go)
+	WelcomeOpen    string                    `json:"welcomeOpen,omitempty"`
+	NoStats        bool                      `json:"noStats,omitempty"`     // no figures of writing and use are kept (stats.go)
+	NoBackup       bool                      `json:"noBackup,omitempty"`    // no backup of the library by itself once a day (backup.go)
+	BackupEvery    string                    `json:"backupEvery,omitempty"` // how often it is taken: "" each day, "week", "month"
 	// the typefaces (fonts.go): by family; "" is the default
 	FontApp     string   `json:"fontApp,omitempty"`
 	FontEditor  string   `json:"fontEditor,omitempty"`

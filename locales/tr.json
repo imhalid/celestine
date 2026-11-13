@@ -1006,6 +1006,8 @@
   "settings_sidebarName": "Kenar çubuğu adı",
   "settings_sidebarNameHelp": "Koleksiyon listesinin üstünde duran bir ad. Boşsa hiçbir şey yazmaz.",
   "settings_sidebarNamePlaceholder": "Yok",
+  "settings_linkPreviews": "Bağlantı önizlemeleri",
+  "settings_linkPreviewsHelp": "Bir web bağlantısı metinde sitesinin simgesini, imleç üzerinde durunca da sayfasının görselini ve başlığını gösterir. Her siteye bunlar bir kez sorulur.",
   "settings_escNormal": "Esc klavye kipine geçer",
   "settings_escNormalHelp": "Metinde Esc seni harflerin komut olduğu klavye kipine götürür. Kapalıyken Esc metne dokunmaz; klavye kipi üst çubukta. Vim hareketleri açıkken Esc her zaman geçer.",
   "settings_resetThis": "“{setting}” ayarını sıfırla",

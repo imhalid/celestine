@@ -144,10 +144,11 @@ func (a *app) tearOffPane() {
 }
 
 // textOverlays are what is drawn over the text of the pane in use: the caret, the bar of a selection,
-// the gutter and the grip of a block, the / menu, a date being set, a table's cell being written.
+// a link's card, the gutter and the grip of a block, the / menu, a date being set, a table's cell being written.
 func (a *app) textOverlays(c *ui.Context) {
 	a.caretView(c)
 	a.selectionBar(c)
+	a.linkCardView(c)
 	a.gutterView(c)
 	a.taskBoxHits(c)
 	a.gripView(c)

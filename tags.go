@@ -117,9 +117,13 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 			continue
 		}
 		l, left := layoutParagraph(para, r.W, a.font, a.theme)
-		for _, lk := range links { // where the links are, to be clicked
+		for _, lk := range links { // where the links are, to be clicked, and the icons of the web's before them
 			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
-				a.linkHits = append(a.linkHits, linkHit{ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, lk.url})
+				at := ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}
+				a.linkHits = append(a.linkHits, linkHit{at, lk.url})
+				if lk.first && linkIconPad(lk.url, a.font.Size) > 0 {
+					a.drawLinkIcon(p, linkIconBox(at, a.font.Size), lk.url, th.Muted)
+				}
 			}
 		}
 		for _, sp := range spans {
