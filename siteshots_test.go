@@ -491,7 +491,7 @@ var detailScenes = []siteScene{
 		s.page()
 		s.park()
 		a, b := s.block(t, "Freeze the feature list"), s.block(t, "Do we ship Windows on the first day?")
-		s.crop(t, "tasks", a.X-24, a.Y-12, 520, b.Y+b.H-a.Y+20, detailScale)
+		s.crop(t, "tasks", a.X-24, a.Y-12, 520, b.Y+b.H-a.Y+9, detailScale)
 	}},
 	{"properties", func(t *testing.T, s *siteShot) {
 		s.page()
