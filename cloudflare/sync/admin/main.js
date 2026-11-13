@@ -1,10 +1,11 @@
-// The admin panel of the sync Worker, drawn with synth-ui on a canvas: the waitlist by status, the accounts and the
-// log, behind the admin key. It talks to /api/admin/* (auth.js) as the panel before it did. The page loads this as
-// a module from the Worker itself (no script of another site on the page that holds the key); the backend's
+// The admin panel of the sync Worker, drawn with synth-ui on a canvas: a dashboard of Cloudflare's and the app's
+// figures (dash.js), the waitlist by status, the accounts and the log, behind the admin key. It talks to
+// /api/admin/* (auth.js) as the panel before it did. The page loads this as a module from the Worker itself (no script of another site on the page that holds the key); the backend's
 // WebAssembly is fetched beside it.
 import { Palette } from '@synth-ui/core';
 import { createViewHost } from '@synth-ui/backend';
-import { THEME_COLORS, button, card, sheet, statusLine, tabs, textField, useTheme } from '@synth-ui/widgets';
+import { THEME_COLORS, button, card, sheet, statusLine, tabs, textField, tooltip, useTheme } from '@synth-ui/widgets';
+import { DASH_RANGES, drawDash } from './dash.js';
 import { FONTS } from './fonts.js';
 import { badge, cellText, codeTiles, secretField, table } from './ui.js';
 
@@ -14,9 +15,11 @@ const palette = new Palette([
   ['okbg', '#1D3021'],
   ['bad', '#E5605A'],
   ['badbg', '#3A1C19'],
+  ['blue', '#6CA6D9'],
 ]);
 
 const TABS = [
+  ['dash', 'GÖSTERGE'],
   ['pending', 'BEKLEYENLER'],
   ['approved', 'ONAYLANANLAR'],
   ['rejected', 'REDDEDİLENLER'],
@@ -38,6 +41,8 @@ const app = {
   form: { email: '', name: '' },
   key: { text: '' },
   confirm: null, // {text, label, run}
+  dash: { range: '24h', cf: null, fig: null, loading: false }, // the dashboard's range and what was read for it
+  tip: '', // the tooltip of what is under the pointer (the dashboard's charts)
 };
 let host;
 
@@ -75,12 +80,13 @@ async function api(path, method = 'GET', body) {
   return j;
 }
 
-// load reads the tab shown.
-async function load() {
+// load reads the tab shown; `fresh` asks the dashboard's figures of Cloudflare again, not from the Worker's minute of memory.
+async function load(fresh = false) {
   const [tab] = TABS[app.tab];
   app.loading = true;
   app.error = '';
   redraw();
+  if (tab === 'dash') return loadDash(fresh);
   try {
     const path = tab === 'users' ? 'users' : tab === 'audit' ? 'audit' : 'waitlist?status=' + tab;
     app.rows = await api(path);
@@ -89,6 +95,28 @@ async function load() {
   } catch (e) {
     app.error = e.message;
   }
+  app.loading = false;
+  redraw();
+}
+
+// loadDash reads the dashboard's two sets of figures: the app's, and Cloudflare's, which may fail on their own.
+async function loadDash(fresh) {
+  const d = app.dash;
+  const range = d.range;
+  d.loading = true;
+  try {
+    const [cf, fig] = await Promise.all([
+      api('cloudflare?range=' + range + (fresh ? '&fresh=1' : '')).catch((e) => ({ error: e.message })),
+      api('figures?range=' + range),
+    ]);
+    if (range === d.range) Object.assign(d, { cf, fig });
+    app.rows = [];
+    app.loaded = 'dash';
+    app.at = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    app.error = e.message;
+  }
+  d.loading = false;
   app.loading = false;
   redraw();
 }
@@ -144,8 +172,9 @@ function paint(ctx) {
   ctx.inset(14, 10, 14, 8);
   header(ctx);
   if (!app.tok) login(ctx);
-  else desk(ctx);
+  else app.tip = desk(ctx);
   confirmSheet(ctx);
+  tooltip(ctx, { text: app.tip || undefined, delay: 0 });
 }
 
 function header(ctx) {
@@ -183,7 +212,9 @@ function desk(ctx) {
   // the status line at the foot
   const foot = ctx.cutBottom(10, 6);
   const [, title] = TABS[app.tab];
-  const text = app.error ? 'BAĞLANTI YOK · ' + app.error : app.loading ? 'OKUNUYOR…' : `${title} · ${app.rows.length} SATIR · GÜNCELLENDİ ${app.at}`;
+  const rangeName = DASH_RANGES.find((r) => r.value === app.dash.range).label;
+  const what = TABS[app.tab][0] === 'dash' ? rangeName : `${app.rows.length} SATIR`;
+  const text = app.error ? 'BAĞLANTI YOK · ' + app.error : app.loading ? 'OKUNUYOR…' : `${title} · ${what} · GÜNCELLENDİ ${app.at}`;
   statusLine(ctx, { text, message: app.message, key: 'status', color: app.error ? c.accent : c.muted }, foot);
   // the tabs, and the way out
   const top = ctx.cutTop(13, 8);
@@ -197,6 +228,14 @@ function desk(ctx) {
   if (app.code) codeCard(ctx);
   const tab = TABS[app.tab][0];
   if (tab === 'pending') addCard(ctx);
+  if (tab === 'dash')
+    return drawDash(ctx, app.dash, {
+      range: (r) => {
+        app.dash.range = r;
+        load();
+      },
+      refresh: () => load(true),
+    });
   if (tab !== 'users' && tab !== 'audit') {
     const bar = ctx.cutTop(12, 6);
     if (button(ctx, { label: 'LİSTEYİ CSV İNDİR', h: 12 }, { x: bar.x + bar.w - 104, y: bar.y, w: 104, h: 12 }).clicked) csv().catch((e) => say(e.message));

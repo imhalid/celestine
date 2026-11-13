@@ -20,6 +20,8 @@ database_id = "d5ad1d9a-3bed-4344-a7b9-0576f5848d82"
 
 # Used by `wrangler dev` (secrets from .dev.vars). The live Worker is deployed by deploy.sh, which sets the secrets:
 #   ADMIN_TOKEN        the administrator's key (the /admin page)
+#   CF_ANALYTICS_TOKEN, CF_ACCOUNT_ID   optional: the admin panel's dashboard (analytics.js) reads Cloudflare's figures
+#                      with this API token, which can only read analytics (Account Analytics: Read, Zone Analytics: Read)
 #   RESEND_API_KEY     mail; MAIL_FROM is its sender ("Celestine <davet@resend.halid.dev>"); without a key the code is shown in /admin
 #   TURNSTILE_SECRET   the bot check of the waitlist form (its public half, TURNSTILE_SITEKEY, is the site Worker's)
 #   ADMIN_EMAIL        optional: told of a new signup

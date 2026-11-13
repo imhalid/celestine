@@ -2,6 +2,8 @@
 // See docs/22-hesap-ve-bekleme-listesi.md. The password never reaches this server: the app derives from it
 // an "auth" value (what proves who one is) and a key that seals the data key ("wrapped"); the server keeps a
 // hash of the first and the sealed bytes of the second, and cannot open either.
+import { RANGES, appFigures, cloudflareFigures } from "./analytics.js";
+
 const enc = new TextEncoder();
 const DAY = 86400;
 export const DEFAULT_QUOTA = 200 * 1024 * 1024;
@@ -478,6 +480,17 @@ async function admin(request, env, path, method, body, bearer, url) {
     }
     await audit(env, `${m[2]} ${u.username}`);
     return json({ ok: true });
+  }
+  // the dashboard (analytics.js): Cloudflare's figures, read with a token that stays here, and the app's own
+  if ((path === "/api/admin/cloudflare" || path === "/api/admin/figures") && method === "GET") {
+    const range = url.searchParams.get("range") || "24h";
+    if (!RANGES[range]) return fail(400, "bad request");
+    if (path === "/api/admin/figures") return json(await appFigures(env, range));
+    try {
+      return json(await cloudflareFigures(env, range, url.searchParams.has("fresh")));
+    } catch (e) {
+      return fail(502, String(e.message || e));
+    }
   }
   if (path === "/api/admin/audit" && method === "GET") {
     const rows = await env.DB.prepare("SELECT at,what FROM audit ORDER BY id DESC LIMIT 100").all();

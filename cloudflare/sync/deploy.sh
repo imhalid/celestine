@@ -12,6 +12,8 @@
 #   cf r2 buckets create --name celestine-sync
 #   cf d1 create --name celestine      (its id goes below, and in wrangler.toml)
 # The migrations (migrations/*.sql) are applied to the database first.
+# The admin panel's dashboard (analytics.js) reads Cloudflare's figures when secrets.json also has CF_ANALYTICS_TOKEN
+# (an API token that can only read analytics) and CF_ACCOUNT_ID.
 set -e
 D1_ID=d5ad1d9a-3bed-4344-a7b9-0576f5848d82
 DOMAIN=celestine.halid.dev
