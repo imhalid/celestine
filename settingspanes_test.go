@@ -96,3 +96,52 @@ func TestBackupsInSettings(t *testing.T) {
 		t.Fatalf("the button did not rest: %v %v", at, a.bk.handAt)
 	}
 }
+
+// TestBackupViewSearchAndRestore: the backup's window finds pages by the words of their text, shows the ones picked
+// alone, and restores them into the library, into the collection of their name (#496).
+func TestBackupViewSearchAndRestore(t *testing.T) {
+	st := testStore(t)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	coll := lib.Collections[0]
+	other, _ := coll.NewPage(nil, "İkinci")
+	other.SaveText("baharat her şeydir\n")
+	a := newApp(lib)
+	a.backupDir = filepath.Join(t.TempDir(), "b")
+	a.backupBefore("x")
+	v, err := openBackupView(backups(a.backupDir)[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.close()
+	v.app = a
+	tt := ui.NewTester(v.view, 1000, 700)
+	tt.Frame()
+	v.query = "baharat"
+	tt.Frame()
+	row := func(title string) bool { return tt.HasText(locales.BackupPickPage(title)) } // the list's, not the page shown
+	if !row("İkinci") || row("Birinci") {
+		t.Fatalf("the search by the text: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.BackupPickPage("İkinci")); err != nil {
+		t.Fatal(err)
+	}
+	v.query, v.only = "", true
+	tt.Frame()
+	if !row("İkinci") || row("Birinci") {
+		t.Fatalf("the picked alone: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.BackupRestorePages(1)); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	n := 0
+	for _, p := range coll.All() {
+		if p.Title == "İkinci" {
+			if body, _ := p.Text(); body == "baharat her şeydir\n" {
+				n++
+			}
+		}
+	}
+	if n != 2 || len(lib.Collections) != 1 {
+		t.Fatalf("restored: %d copies with the text, %d collections", n, len(lib.Collections))
+	}
+}

@@ -951,6 +951,66 @@ func (msgs Messages) BackupReadOnly() string {
 	return Catalog.Format(msgs.locale, "backup_readOnly", nil)
 }
 
+// BackupSearch says "Search the backup"
+// in the language the app shows.
+func BackupSearch() string { return In(i18n.Locale()).BackupSearch() }
+
+// BackupSearch says "Search the backup"
+// in the language of msgs.
+func (msgs Messages) BackupSearch() string {
+	return Catalog.Format(msgs.locale, "backup_search", nil)
+}
+
+// BackupAllCollections says "All collections"
+// in the language the app shows.
+func BackupAllCollections() string { return In(i18n.Locale()).BackupAllCollections() }
+
+// BackupAllCollections says "All collections"
+// in the language of msgs.
+func (msgs Messages) BackupAllCollections() string {
+	return Catalog.Format(msgs.locale, "backup_allCollections", nil)
+}
+
+// BackupSelectedOnly says "Selected only"
+// in the language the app shows.
+func BackupSelectedOnly() string { return In(i18n.Locale()).BackupSelectedOnly() }
+
+// BackupSelectedOnly says "Selected only"
+// in the language of msgs.
+func (msgs Messages) BackupSelectedOnly() string {
+	return Catalog.Format(msgs.locale, "backup_selectedOnly", nil)
+}
+
+// BackupRestorePages says "{count, plural, =1{Restore 1 page} other{Restore {count} pages}}"
+// in the language the app shows.
+func BackupRestorePages(count int) string { return In(i18n.Locale()).BackupRestorePages(count) }
+
+// BackupRestorePages says "{count, plural, =1{Restore 1 page} other{Restore {count} pages}}"
+// in the language of msgs.
+func (msgs Messages) BackupRestorePages(count int) string {
+	return Catalog.Format(msgs.locale, "backup_restorePages", map[string]any{"count": count})
+}
+
+// BackupRestoredPages says "{count, plural, =1{1 page restored into the library} other{{count} pages restored into the library}}"
+// in the language the app shows.
+func BackupRestoredPages(count int) string { return In(i18n.Locale()).BackupRestoredPages(count) }
+
+// BackupRestoredPages says "{count, plural, =1{1 page restored into the library} other{{count} pages restored into the library}}"
+// in the language of msgs.
+func (msgs Messages) BackupRestoredPages(count int) string {
+	return Catalog.Format(msgs.locale, "backup_restoredPages", map[string]any{"count": count})
+}
+
+// BackupPickPage says "Pick “{page}” to restore"
+// in the language the app shows.
+func BackupPickPage(page string) string { return In(i18n.Locale()).BackupPickPage(page) }
+
+// BackupPickPage says "Pick “{page}” to restore"
+// in the language of msgs.
+func (msgs Messages) BackupPickPage(page string) string {
+	return Catalog.Format(msgs.locale, "backup_pickPage", map[string]any{"page": page})
+}
+
 // BackupNoPages says "This backup has no pages."
 // in the language the app shows.
 func BackupNoPages() string { return In(i18n.Locale()).BackupNoPages() }
