@@ -8985,6 +8985,26 @@ func (msgs Messages) Panes() string {
 	return Catalog.Format(msgs.locale, "panes", nil)
 }
 
+// PanesBar says "Pane bar"
+// in the language the app shows.
+func PanesBar() string { return In(i18n.Locale()).PanesBar() }
+
+// PanesBar says "Pane bar"
+// in the language of msgs.
+func (msgs Messages) PanesBar() string {
+	return Catalog.Format(msgs.locale, "panes_bar", nil)
+}
+
+// PanesClosePage says "Close the page"
+// in the language the app shows.
+func PanesClosePage() string { return In(i18n.Locale()).PanesClosePage() }
+
+// PanesClosePage says "Close the page"
+// in the language of msgs.
+func (msgs Messages) PanesClosePage() string {
+	return Catalog.Format(msgs.locale, "panes_closePage", nil)
+}
+
 // PanesContents says "CONTENTS"
 // in the language the app shows.
 func PanesContents() string { return In(i18n.Locale()).PanesContents() }
@@ -9003,6 +9023,16 @@ func PanesHeadingLabel(text string) string { return In(i18n.Locale()).PanesHeadi
 // in the language of msgs.
 func (msgs Messages) PanesHeadingLabel(text string) string {
 	return Catalog.Format(msgs.locale, "panes_headingLabel", map[string]any{"text": text})
+}
+
+// PanesMenu says "Page menu"
+// in the language the app shows.
+func PanesMenu() string { return In(i18n.Locale()).PanesMenu() }
+
+// PanesMenu says "Page menu"
+// in the language of msgs.
+func (msgs Messages) PanesMenu() string {
+	return Catalog.Format(msgs.locale, "panes_menu", nil)
 }
 
 // PanesInfo says "INFO"

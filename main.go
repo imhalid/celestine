@@ -109,6 +109,8 @@ type app struct {
 	frameSeq      uint64                  // the frames built, counted
 	frameNow      time.Time               // the window's time this frame (c.Now): what the app's own animations are timed by
 	barLeft       float32                 // where macOS's window buttons end, as the frame's top edge last read it (frameTop)
+	topLeftR      ui.Rect                 // where the window's top-left buttons are, the sidebar's (frameTop): a pane's bar starts after them
+	paneDrag      paneDragState           // a pane carried by its bar (panebar.go)
 	edBuilt       map[uint64]uint64       // the frame each editor (by its element) was last built in (editorIsNew)
 	meter         frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
 	wframe        frameState              // the window's frame (windowframe.go)
@@ -1125,6 +1127,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		}
 	})
 	a.collDragView(c)
+	a.paneDragView(c)         // a pane carried by its bar (panebar.go)
 	if !a.activeElsewhere() { // the pane in use is in a window of its own, which draws these (panewin.go)
 		a.textOverlays(c)
 	}

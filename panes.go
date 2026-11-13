@@ -409,6 +409,7 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
 		})
 	} else {
+		a.unstackPanes() // side by side, never on top of each other: the panes have no tabs (panebar.go)
 		a.ps.ensureIDs()
 		for i, id := range a.ps.ids { // the tab of each area says what its pane shows
 			if p := a.ps.layout.FindPane(id); p != nil {
@@ -475,9 +476,8 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 			a.topSpace, topPad = topPad, 0
 		}
 		a.headDragR = ui.Rect{}
-		if h := a.noTabHeaderHeight(); h > 0 { // keeps scrolled content clear of traffic lights and top-left buttons
-			hd := ui.Box(c.Key("pane-head-drag")).FillWidth().Height(h).DragWindow()
-			a.headDragR = hd.LayoutBounds()
+		if h := a.paneBarH(); h > 0 { // its bar: its title, its menu and close; held, it moves the pane or the window (panebar.go)
+			a.paneBar(c, col, i, h)
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 		defer func() { a.pageR = pageRow.LayoutBounds() }()

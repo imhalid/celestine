@@ -155,8 +155,9 @@ func (a *app) syncGlassTint(c *ui.Context) {
 	}
 }
 
-// frameTabs reports whether the top edge lists the panes: two or more of them.
-func (a *app) frameTabs() bool { return a.wframe.on && len(a.ps.states) > 1 }
+// frameTabs reports whether the top edge lists the panes. It no longer does: each pane's card has its bar, with its
+// title, menu and close (panebar.go, #468), so the cards stay at the window's top however many panes there are.
+func (a *app) frameTabs() bool { return false }
 
 // noTabHeaderHeight is the room kept at the top of the sidebar's and the page's cards on macOS while the window has
 // one pane: the cards rise to the window's top, round the window's buttons and the sidebar's, and what is in them
@@ -196,6 +197,7 @@ func (a *app) frameTop(c *ui.Context) {
 			ui.Box(c.Key("frame-drag-top")).Absolute().Left(0).Right(0).Top(0).Height(frameW).DragWindow()
 		}
 		btns := ui.Row(c.Key("frame-top-left")).Height(frameTopH).AlignItems(ui.Center).Shrink(0)
+		a.topLeftR = btns.LayoutBounds()
 		if !ownWindowControls {
 			btns.Padding(0, 0, 0, left)
 			if p <= 0.01 {
@@ -207,74 +209,14 @@ func (a *app) frameTop(c *ui.Context) {
 				a.sidebarButtons(c, frameW+left+3*barBtnW, frameTopH-4)
 			})
 		})
-		tabs := ui.Row(c.Key("frame-tabs")).Grow(1).MinWidth(0).Height(frameTabH).Gap(4).AlignItems(ui.Center)
-		if p > 0.01 && a.ps.layout != nil {
-			tabs.Opacity(p).Translate(0, -8*(1-p)).Children(func() {
-				// The tabs stand together, a strip of their own sunk in the frame's ground, so they read as tabs
-				// and not as words on the edge; the one in use is lifted out of it.
-				t := c.Theme()
-				ui.Row(c.Key("frame-tab-group")).MinWidth(0).Shrink(1).Height(frameTabH+6).Padding(3).Gap(2).AlignItems(ui.Center).
-					Radius(rad(11)).Background(t.Text.Alpha(0.05)).Border(1, t.Border.Alpha(0.55)).Children(func() {
-					for _, tab := range a.ps.layout.Tabs("") { // in the Dock's order: its areas, and each area's stack
-						if i := a.ps.index(tab.Pane.ID); i >= 0 {
-							a.frameTab(c, i, tab.Pane.ID)
-						}
-					}
-				})
-			})
-		} else if !ownWindowControls {
-			tabs.PassThrough()
+		// the room between, where the panes' tabs were: each pane has a bar of its own now (panebar.go)
+		space := ui.Box(c.Key("frame-space")).Grow(1).MinWidth(0).Height(frameTopH)
+		if !ownWindowControls {
+			space.PassThrough()
 		}
 		a.updateChip(c) // a version that waits (updatepanel.go)
 		a.windowControls(c)
 	})
-}
-
-// frameTab is pane i's tab, the Dock's pane id: what it shows, lit while it is the one in use, with its close
-// button while it is or the pointer is over it. A click shows the pane in its area and puts it in use; the close
-// button closes it as the Dock's own tab would (Layout.ClosePane), and the panes follow (syncPanes).
-func (a *app) frameTab(c *ui.Context, i int, id string) {
-	t := c.Theme()
-	var title string
-	a.withPane(i, func() { title = a.paneTitle() })
-	used := i == a.ps.active
-	tab := ui.Row(c.Key("frame-tab:"+id)).Height(frameTabH).MaxWidth(240).MinWidth(0).Shrink(1).
-		Padding(0, 6, 0, 10).Gap(6).AlignItems(ui.Center).Radius(rad(8)).Label(title).Role(ui.RoleTab)
-	switch {
-	case used:
-		tab.Background(a.pageBg).Border(1, t.Border.Alpha(0.7)).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.14))
-	case tab.Hovered():
-		tab.Background(t.Text.Alpha(0.07)).Border(1, t.Text.Alpha(0))
-	default:
-		tab.Border(1, t.Text.Alpha(0))
-	}
-	closed := false
-	tab.Children(func() {
-		col := t.TextMuted
-		if used {
-			col = t.Text
-		}
-		var glyph *ui.SVG // what the pane shows, at a glance
-		a.withPane(i, func() { glyph = a.paneGlyph() })
-		ui.Icon(c, glyph).Size(13, 13).TextColor(col).Shrink(0)
-		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).TruncateMiddle().MinWidth(0).Grow(1)
-		x := ui.Box(c.Key("close")).Size(18, 18).Radius(9).Center().Shrink(0).Label(locales.CloseThePane() + ": " + title).Role(ui.RoleButton)
-		x.Opacity(x.AnimateTo("shown", map[bool]float32{true: 1}[used || tab.Hovered()], springSheet))
-		if x.Hovered() {
-			x.Background(t.Text.Alpha(0.08))
-		}
-		x.Children(func() { ui.Icon(c, iconWinClose).Size(11, 11).TextColor(t.TextMuted) })
-		closed = x.Clicked()
-	})
-	switch {
-	case closed:
-		a.flush()
-		a.ps.layout.ClosePane(id)
-		c.Invalidate()
-	case tab.Clicked():
-		a.ps.layout.ShowPane(id)
-		a.usePane(i)
-	}
 }
 
 // frameBottom is the frame's bottom edge: the status bar, on the frame's ground, or a thin edge without it.

@@ -11,40 +11,70 @@ import (
 	"github.com/imhalid/celestine/locales"
 )
 
-// Split, the window's frame lists the panes as tabs in its top edge, and the Dock's areas have no headers of
-// their own; a tab puts its pane in use, its close button closes it, and with one pane left the strip folds.
-func TestFrameTabs(t *testing.T) {
-	a, tt := newTestApp(t, "Birinci\n")
+// TestPaneBar (#468): split, the frame's top edge has no tabs and the cards stay at the window's top; each pane has a
+// bar with its page's menu and a close button, and its title only once the page's own big title has scrolled away.
+// The close button closes its pane; alone, a pane's close button closes its page, and its collection is shown.
+func TestPaneBar(t *testing.T) {
+	a, tt := newTestApp(t, longPage())
 	tt.SetSize(1200, 700)
 	tt.Advance(300 * time.Millisecond)
-	if a.wframe.strip != 0 {
-		t.Fatalf("one pane, and the strip is open: %v", a.wframe.strip)
-	}
 	second, err := a.page.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
 	}
+	second.SaveText(longPage())
 	a.openInSide(place{"page", second.Dir})
 	tt.Advance(900 * time.Millisecond)
-	if a.paneCount() != 2 || a.wframe.strip < 0.99 {
-		t.Fatalf("panes %d, strip %v", a.paneCount(), a.wframe.strip)
+	if a.paneCount() != 2 || a.wframe.strip != 0 {
+		t.Fatalf("panes %d, the tabs' strip %v", a.paneCount(), a.wframe.strip)
 	}
 	if _, ok := tt.Find("Maximize"); ok {
-		t.Fatal("an area has its header under the strip")
+		t.Fatal("an area has the Dock's own header")
 	}
-	if err := tt.Click(a.ps.states[0].page.Title); err != nil {
+	bars := 0
+	for _, s := range tt.Texts() {
+		if s == locales.PanesBar() {
+			bars++
+		}
+	}
+	if bars != 2 {
+		t.Fatalf("%d pane bars, want 2: %v", bars, tt.Texts())
+	}
+	// the title is in the bar once the page has scrolled under it
+	titles := func() int { // the sidebar's row has it too, and the page's own title
+		n := 0
+		for _, s := range tt.Texts() {
+			if s == "İkinci" {
+				n++
+			}
+		}
+		return n
+	}
+	unscrolled := titles()
+	r := a.panesR
+	tt.Wheel(r.X+r.W*3/4, r.Y+300, 0, 600)
+	tt.Advance(600 * time.Millisecond)
+	if a.pageScroll.Y < a.headH {
+		t.Fatalf("the page did not scroll past its title: %v < %v", a.pageScroll.Y, a.headH)
+	}
+	if titles() != unscrolled+1 {
+		t.Fatalf("scrolled, the bar does not say the page's title: %d of it, %d before", titles(), unscrolled)
+	}
+	// closing the second pane by its bar
+	if err := tt.Click(locales.CloseThePane()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(900 * time.Millisecond)
+	if a.paneCount() != 1 {
+		t.Fatalf("after its X: panes %d", a.paneCount())
+	}
+	// alone, the X closes the page: its collection is shown
+	if err := tt.Click(locales.PanesClosePage()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if a.ps.active != 0 {
-		t.Fatalf("the first tab did not put its pane in use: %d", a.ps.active)
-	}
-	if err := tt.Click(locales.CloseThePane() + ": İkinci"); err != nil {
-		t.Fatal(err)
-	}
-	tt.Advance(900 * time.Millisecond)
-	if a.paneCount() != 1 || a.wframe.strip > 0.01 {
-		t.Fatalf("after closing: panes %d, strip %v", a.paneCount(), a.wframe.strip)
+	if !a.noPage() || a.coll == nil || a.coll != second.Coll {
+		t.Fatalf("the page is still shown (%v), or not its collection (%v)", !a.noPage(), a.coll)
 	}
 }
 
@@ -53,8 +83,8 @@ func rectsOverlap(a, b ui.Rect) bool {
 }
 
 // With no tabs and the sidebar folded, the pane card rises to frameW on macOS while keeping initial page
-// content and the Settings nav list clear of traffic lights and top-left buttons, and opening a second pane
-// animates smoothly instead of jumping frameTopH pixels.
+// content and the Settings nav list clear of traffic lights and top-left buttons, and a second pane opened
+// keeps the cards at the top.
 func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci paragraf\n")
 	tt.SetTitleBar(ui.TitleBar{Left: 84, Height: frameTopH})
@@ -94,6 +124,7 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	}
 
 	a.settingsOpen = true
+	tt.Frame() // set from outside a frame: a window at rest draws none of its own
 	tt.Advance(200 * time.Millisecond)
 	navApp, ok := tt.Find(locales.CommonAppearance())
 	if !ok {
@@ -123,12 +154,9 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.openInSide(place{"page", second.Dir})
-		tt.Advance(60 * time.Millisecond)
-		if a.wframe.strip <= 0.01 || a.wframe.strip >= 0.99 {
-			t.Fatalf("expected strip mid-animation, got %v", a.wframe.strip)
-		}
-		if a.panesR.Y != frameTopH { // the cards go under the top edge at once while the tabs come in (TestSplitKeepsThePaneStill)
-			t.Fatalf("with the tabs coming in, the panes start at %v, not under the top edge (%v)", a.panesR.Y, frameTopH)
+		tt.Advance(600 * time.Millisecond)
+		if a.panesR.Y != frameW { // split, the cards stay at the window's top: the panes have bars, not tabs (#468)
+			t.Fatalf("split, the panes start at %v, not at the window's top (%v)", a.panesR.Y, frameW)
 		}
 	}
 }
@@ -379,9 +407,9 @@ func TestFrameTabLongTitleMiddleTruncates(t *testing.T) {
 	}
 }
 
-// TestSplitKeepsThePaneStill: while the window splits and the tabs come in, the new pane's page keeps its place and
-// its height every frame, so nothing in it moves and its scroll bar does not show (#450): the cards' top edges change
-// at once, not on the tabs' spring, which the Dock would follow a frame late.
+// TestSplitKeepsThePaneStill: while the window splits, the new pane's page keeps its place and its height every
+// frame, so nothing in it moves and its scroll bar does not show (#450): the cards stay at the window's top, each
+// with its bar (#468), and nothing moves on a spring the Dock would follow a frame late.
 func TestSplitKeepsThePaneStill(t *testing.T) {
 	if ownWindowControls { // the cards rise only beside macOS's own window buttons: elsewhere the frame is as it was
 		t.Skip("the window draws its own controls: the cards do not rise")
@@ -412,7 +440,41 @@ func TestSplitKeepsThePaneStill(t *testing.T) {
 			t.Fatalf("frame %d (tabs %.2f): the pane's page is at %v, it was at %v", i, a.wframe.strip, r, first)
 		}
 	}
-	if a.wframe.strip < 0.95 {
-		t.Fatalf("the tabs did not come in: %.2f", a.wframe.strip)
+}
+
+// TestPaneBarDrag (#468): a pane's bar held and carried over another pane's compass moves the pane there: let go
+// on the left arm of the first pane, the second goes before it.
+func TestPaneBarDrag(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1400, 800)
+	tt.Advance(300 * time.Millisecond)
+	second, err := a.page.Coll.NewPage(nil, "İkinci")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.SaveText("Öteki\n")
+	a.openInSide(place{"page", second.Dir})
+	tt.Advance(900 * time.Millisecond)
+	before := a.ps.layout.PaneIDs()
+	if len(before) != 2 {
+		t.Fatalf("panes %v", before)
+	}
+	r0, r1 := a.ps.rects[before[0]], a.ps.rects[before[1]]
+	x, y := r0.X+r0.W/2-(compassTileOf()+4), r0.Y+r0.H/2 // the compass's left arm, over the first pane
+	holdTo(tt, r1.X+r1.W/2, r1.Y+12, x, y)               // from the middle of the second pane's bar
+	if !a.paneDrag.active || a.carry.drop == nil {
+		t.Fatal("the bar held and moved does not carry its pane")
+	}
+	tt.Release(x, y)
+	tt.Advance(600 * time.Millisecond)
+	if after := a.ps.layout.PaneIDs(); len(after) != 2 || after[0] != before[1] || after[1] != before[0] {
+		t.Fatalf("panes %v, then %v: the second did not go before the first", before, after)
+	}
+	if a.carry.drop != nil || a.paneDrag.active {
+		t.Fatal("still carried after it was let go")
 	}
 }
+
+// compassTileOf is the side of one of the Dock's compass targets (Ryugo's compassTile): the middle of the left arm is
+// that and a gap left of the compass's middle.
+func compassTileOf() float32 { return 30 }

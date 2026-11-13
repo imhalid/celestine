@@ -217,7 +217,7 @@ func (a *app) aim() {
 	switch {
 	case d.page != nil && a.carryDock(place{"page", d.page.Dir}, d.page.Title, iconPage, d.pos): // over the panes: the Dock's, not the tree's
 		d.target = nil
-	case d.page == nil && !a.cdrag.active:
+	case d.page == nil && !a.cdrag.active && !a.paneDrag.active: // nor a pane carried by its bar (panebar.go)
 		a.dropCarry()
 	}
 }

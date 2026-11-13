@@ -369,7 +369,8 @@ func holdTo(tt *ui.Tester, x0, y0, x1, y1 float32) {
 	}
 }
 
-// A page let go on the compass's middle over a pane becomes a tab of that pane's area; a collection
+// A page let go on the compass's middle over a pane opens in a pane beside it, never on top of it (the panes have no
+// tabs to show one under another by, #468); a collection
 // dragged over the panes and let go on the window's bottom edge target opens in a pane along it; let go
 // back over the sidebar, nothing opens and the Dock goes again.
 func TestDragIntoDock(t *testing.T) {
@@ -398,8 +399,8 @@ func TestDragIntoDock(t *testing.T) {
 	if len(ids) != 2 {
 		t.Fatalf("Dock panes %v", ids)
 	}
-	if ar, _ := a.ps.layout.Windows[0].Root, 0; !ar.IsArea() || len(ar.Panes) != 2 {
-		t.Fatalf("not tabs of one area: %+v", ar)
+	if ar := a.ps.layout.Windows[0].Root; ar.IsArea() || len(ar.Children) != 2 {
+		t.Fatalf("not two areas side by side: %+v", ar)
 	}
 	// a collection, onto the bottom edge
 	coll := first.Coll
