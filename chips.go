@@ -128,6 +128,9 @@ func (a *app) attachment(ch *chip) *richtext.Attachment {
 	if ch.kind == "date" || ch.kind == "file" {
 		w += chipIcon + 4
 	}
+	if n, _ := foldTasks(ch); n > 0 {
+		w += chipIcon + 4
+	}
 	return &richtext.Attachment{Width: w, Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawChip(p, r, ch) }}
 }
 
@@ -319,9 +322,69 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 		p.Fill(ui.Rect{X: ic.X + 2.5, Y: ic.Y + 7, W: ic.W - 6, H: 1.1}, text, 0)
 		x += chipIcon + 4
 	}
+	if n, done := foldTasks(ch); n > 0 {
+		drawTaskRing(p, x+chipIcon/2, r.Y+r.H/2, chipIcon/2-1.5, n, done, cl.Muted.Alpha(0.55), cl.Down)
+		x += chipIcon + 4
+	}
 	span := ui.Span{Text: ch.label(), Size: chipSize, Weight: 520, Color: text}
 	_, h := p.MeasureText(r.W, span)
 	p.RichText(x, r.Y+(r.H-h)/2, r.X+r.W-x, span)
+}
+
+// foldTasks is how many of the lines a fold's chip holds are tasks, and how many of them are done: 0 for any other
+// chip.
+func foldTasks(ch *chip) (n, done int) {
+	if ch.kind != "fold" || ch.hidden == nil {
+		return 0, 0
+	}
+	for _, para := range ch.hidden.Paragraphs() {
+		if para.Style.List == richtext.Tasks {
+			n++
+			if para.Style.Checked {
+				done++
+			}
+		}
+	}
+	return n, done
+}
+
+// drawTaskRing is the ring of a folded task's sub-tasks, round cx, cy (#494): a dash for each, going green as it is
+// done, from the top clockwise; past ten, one ring, green as far as the share done.
+func drawTaskRing(p *ui.Painter, cx, cy, radius float32, n, done int, rest, green ui.Color) {
+	arc := func(from, to float64, c ui.Color) {
+		path := &ui.Path{}
+		steps := max(2, int((to-from)/0.12))
+		for i := 0; i <= steps; i++ {
+			ang := from + (to-from)*float64(i)/float64(steps) - math.Pi/2
+			x, y := cx+radius*f32(math.Cos(ang)), cy+radius*f32(math.Sin(ang))
+			if i == 0 {
+				path.MoveTo(x, y)
+			} else {
+				path.LineTo(x, y)
+			}
+		}
+		p.StrokePath(path.Cap(ui.RoundCap), 1.7, c)
+	}
+	whole := 2 * math.Pi
+	if n > 10 {
+		arc(0, whole, rest)
+		if done > 0 {
+			arc(0, whole*float64(done)/float64(n), green)
+		}
+		return
+	}
+	gap := 0.5
+	if n == 1 {
+		gap = 0
+	}
+	each := whole / float64(n)
+	for i := 0; i < n; i++ {
+		c := rest
+		if i < done {
+			c = green
+		}
+		arc(float64(i)*each+gap/2, float64(i+1)*each-gap/2, c)
+	}
 }
 
 // pageTitled is the page titled title (any case), in the open page's

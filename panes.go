@@ -42,14 +42,15 @@ type paneState struct {
 	searchOpen    bool // the search over the whole library is shown (search.go)
 	searchQ       string
 	searchFocus   bool
-	taskDue       int            // 0 any day, 1 today, 2 this week, 3 late
-	taskFilter    int            // 0 open, 1 done, 2 all
-	taskList      *ui.ListState  // the list of tasks, a row for each in view (tasks.go)
-	taskQuery     string         // what is typed in the tasks' search
-	taskColl      string         // the collection the tasks are of (its Dir), "" all of them
-	taskKindF     string         // the kind of the tasks shown (taskkinds.go): its id, "plain", or "" any
-	taskFolded    map[*Page]bool // the pages whose tasks are folded away
-	tag           string         // the tag (its key) whose pages are shown, instead of a page (tags.go)
+	taskDue       int                  // 0 any day, 1 today, 2 this week, 3 late
+	taskFilter    int                  // 0 open, 1 done, 2 all
+	taskList      *ui.ListState        // the list of tasks, a row for each in view (tasks.go)
+	taskQuery     string               // what is typed in the tasks' search
+	taskColl      string               // the collection the tasks are of (its Dir), "" all of them
+	taskKindF     string               // the kind of the tasks shown (taskkinds.go): its id, "plain", or "" any
+	taskFolded    map[*Page]bool       // the pages whose tasks are folded away
+	taskLeaving   map[string]time.Time // tasks just done in the open ones, going out (taskRow): by taskKey, since when
+	tag           string               // the tag (its key) whose pages are shown, instead of a page (tags.go)
 	colDrag       colDragState
 	cellEd        cellEdit
 	titleCaret    titleCaretSpec // where the caret in the title is, to draw it (the title is an input)

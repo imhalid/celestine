@@ -47,6 +47,7 @@ func TestTaskView(t *testing.T) {
 	if body, _ := other.Text(); !strings.Contains(body, "- [x] öteki görev") {
 		t.Fatalf("file: %q", body)
 	}
+	tt.Advance(time.Second) // it goes out of the open ones, its letters flying off (#494)
 	if tt.HasText("öteki görev") {
 		t.Fatal("a done task stays in the open list")
 	}

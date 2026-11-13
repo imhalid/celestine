@@ -47,6 +47,16 @@ func spaced(spans []ui.Span) []ui.Span {
 // editorSpans are paragraph p's spans as the page editor draws them: spaced, and a block of code's colored.
 func (a *app) editorSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	spans = spaced(spans)
+	if st.List == richtext.Tasks && st.Checked {
+		for i := range spans { // a fold's chip on a task done is not struck through (#494)
+			if spans[i].Text == string(richtext.ObjectReplacement) {
+				spans[i].Strikethrough = false
+			}
+		}
+		if out, ok := a.strikeSpans(p, st, spans); ok { // its line still being drawn
+			return out
+		}
+	}
 	if a.grip.dragging && p >= a.grip.paras[0] && p <= a.grip.paras[1] { // the block dragged (blockui.go)
 		return a.blockSpans(p, spans)
 	}

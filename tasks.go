@@ -290,7 +290,10 @@ func (a *app) tasksView(c *ui.Context) {
 		q := fold(strings.TrimSpace(a.taskQuery))
 		var shown []taskItem
 		for _, k := range all {
+			_, leaving := a.taskLeaving[taskKey(k)]
 			switch {
+			case leaving && a.taskFilter == 0 && k.done: // just done: it stays while it goes out (#494)
+				shown = append(shown, k)
 			case a.taskFilter != 2 && (a.taskFilter == 0) == k.done:
 			case a.taskFilter == 0 && !dueMatches(k, a.taskDue, now):
 			case a.taskColl != "" && k.page.Coll.Dir != a.taskColl:
@@ -524,9 +527,27 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 }
 
 // taskRow is one task: its box, its words (a click goes to its line), its day.
+// taskKey is what a task is known by between frames: its page and its line.
+func taskKey(k taskItem) string { return k.page.Dir + ":" + strconv.Itoa(k.line) }
+
+// taskLeave is how long a task just done takes to go out of the open ones: its letters fly off one after another,
+// then its row closes (#494).
+const taskLeave = 650 * time.Millisecond
+
 func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
-	c.Key("tk:" + k.page.Dir + ":" + strconv.Itoa(k.line))
+	c.Key("tk:" + taskKey(k))
 	row := ui.Row(c).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(rad(8)).AlignItems(ui.Center)
+	leave := float32(-1) // how far it has gone out, 0 to 1; -1 when it is not going
+	if t0, ok := a.taskLeaving[taskKey(k)]; ok {
+		if leave = float32(c.Now().Sub(t0)) / float32(taskLeave); leave >= 1 || stillNow() {
+			delete(a.taskLeaving, taskKey(k))
+			leave = 1
+		}
+		c.Invalidate()
+		if close := smooth(0.6, 1, float64(leave)); close > 0 { // the row closes as the last letters go
+			row.MaxHeight(f32(34 * (1 - close))).Clip().Opacity(f32(1 - close))
+		}
+	}
 	if row.Hovered() {
 		row.Background(cl.Fill.Alpha(0.5))
 	}
@@ -542,6 +563,21 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 		}
 		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label(locales.TasksGoToLineLabel(k.text)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		body.Children(func() {
+			if leave >= 0 { // its letters fly off, from the first, up and away, fading
+				ui.Row(c.Key("fly")).Grow(1).MinWidth(0).Clip().Children(func() {
+					rs := []rune(k.text)
+					for i, r := range rs {
+						if r == ' ' { // a space alone is drawn as nothing: one that does not break keeps its width
+							r = '\u00a0'
+						}
+						at := float64(leave)*1.6 - 0.6*float64(i)/float64(max(len(rs), 1))
+						e := smooth(0, 1, at)
+						ui.Text(c.Key(i), string(r)).FontSize(14).TextColor(cl.Muted).NoWrap().
+							Translate(f32(e*18), f32(-e*14)).Opacity(f32(1 - e))
+					}
+				})
+				return
+			}
 			tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
 			if st {
 				tx.Strikethrough()
@@ -565,6 +601,12 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 			a.openTask(k)
 		}
 		if on != k.done {
+			if on && a.taskFilter == 0 && !stillNow() { // done in the open ones: it goes out, not at once
+				if a.taskLeaving == nil {
+					a.taskLeaving = map[string]time.Time{}
+				}
+				a.taskLeaving[taskKey(k)] = c.Now()
+			}
 			a.toggleTask(k)
 		}
 	})

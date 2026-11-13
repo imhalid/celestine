@@ -137,7 +137,8 @@ func (a *app) spansVersion() int {
 	if l := &a.lapse; l.on && l.page == a.page {
 		v += l.ver * 100000
 	}
-	if a.grip.dragging { // the block dragged, drawn faded (blockSpans)
+	v += a.tasks.ver * 7919 // a task's line being drawn through it (strikeSpans)
+	if a.grip.dragging {    // the block dragged, drawn faded (blockSpans)
 		v = -v - 1
 	}
 	return v

@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // Kinds of task: a task can be a star, important, a question, in progress or an error, each with its own
@@ -234,7 +235,8 @@ func markTaskKinds(t richtext.Text, lines []string) {
 
 const (
 	taskFlip     = 520 * time.Millisecond
-	taskConfetti = 1200 * time.Millisecond
+	taskConfetti = 800 * time.Millisecond
+	taskStrike   = 420 * time.Millisecond // the line drawn through a task done, left to right (#494)
 )
 
 // taskFx is what the boxes remember between frames: the state each task was last seen in, to know
@@ -245,6 +247,12 @@ type taskFx struct {
 	seen  map[int]bool // checked, by the paragraph's start
 	flips map[int]taskTurn
 	bits  []confettiBit
+	// striking are the tasks just checked whose line is being drawn through them, by paragraph (from 0): richtext's
+	// strike is held back and the text fades to muted as the line passes (editorSpans, drawStrike); ver changes
+	// while they draw, so that the editor asks for their spans again
+	striking map[int]time.Time
+	strikeK  map[int]float32 // how far each one's line is, as last drawn
+	ver      int
 }
 
 type taskTurn struct {
@@ -312,6 +320,32 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 		}
 		if was, ok := fx.seen[b.Start]; ok && same && was != st.Checked {
 			fx.flips[b.Start] = taskTurn{t0: now, checked: st.Checked, color: color}
+			if st.Checked {
+				// the confetti with the click, not half a turn after it, which felt late (#494)
+				fx.flips[b.Start] = taskTurn{t0: now, checked: true, color: color, burst: true}
+				a.burstConfetti(float64(box.X+box.W/2), float64(box.Y+box.H/2), color, now)
+				if fx.striking == nil {
+					fx.striking = map[int]time.Time{}
+				}
+				fx.striking[b.Index] = now
+			} else {
+				delete(fx.striking, b.Index)
+			}
+		}
+		if t0, ok := fx.striking[b.Index]; ok {
+			if k := float32(now.Sub(t0)) / float32(taskStrike); k < 1 && st.Checked {
+				busy = true
+				fx.ver++
+				if fx.strikeK == nil {
+					fx.strikeK = map[int]float32{}
+				}
+				fx.strikeK[b.Index] = max(k, 0)
+				a.drawStrike(p, r, b, k)
+			} else {
+				delete(fx.striking, b.Index)
+				delete(fx.strikeK, b.Index)
+				fx.ver++ // richtext's strike, back for good
+			}
 		}
 		fx.seen[b.Start] = st.Checked
 		// richtext's box, covered
@@ -330,11 +364,6 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 				grow = f32(math.Sin(ang)) * 0.22
 				first := ang < math.Pi/2 // the side it turns from
 				back = first != turn.checked
-				if turn.checked && !turn.burst && k > 0.55 {
-					turn.burst = true
-					fx.flips[b.Start] = turn
-					a.burstConfetti(float64(box.X+box.W/2), float64(box.Y+box.H/2), color, now)
-				}
 			}
 		}
 		w := box.W * (1 + grow)
@@ -349,6 +378,46 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 	if busy || len(fx.bits) > 0 {
 		p.AnimationFrame()
 	}
+}
+
+// drawStrike draws the line through the task of paragraph box b as far as k (0 to 1) of its lines' length, from the
+// left, in the muted color of a task done; r is the editor's box.
+func (a *app) drawStrike(p *ui.Painter, r ui.Rect, b richtext.ParagraphBox, k float32) {
+	s, e, para := a.paraOfBox(b)
+	if e-s > maxCaretParagraph {
+		return
+	}
+	l, left := longMemo.layout(a.doc, s, e-s, para, a.editorR.W, a.font, a.theme)
+	lines := l.Lines()
+	total := float32(0)
+	for _, ln := range lines {
+		total += ln.Rect.W
+	}
+	reach := total * f32(easeInOut(float64(k)))
+	thick := max(1, a.font.Size/14)
+	for _, ln := range lines {
+		if reach <= 0 {
+			break
+		}
+		w := min(ln.Rect.W, reach)
+		reach -= ln.Rect.W
+		y := r.Y + b.Top + ln.Baseline - ln.Ascent*0.32 // through the middle of the small letters
+		p.Fill(ui.Rect{X: r.X + left + ln.Rect.X, Y: y - thick/2, W: w, H: thick}, a.theme.Muted, thick/2)
+	}
+}
+
+// strikeSpans is the spans of a task done whose line is still being drawn (drawStrike): no strike of richtext's yet,
+// and the text fading from its color to the muted one as the line passes; false when it is not being drawn.
+func (a *app) strikeSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) ([]ui.Span, bool) {
+	if _, ok := a.tasks.striking[p]; !ok || !st.Checked || a.theme == nil {
+		return spans, false
+	}
+	ink := ryugo.Mix(a.theme.Text, a.theme.Muted, min(1, a.tasks.strikeK[p]))
+	for i := range spans {
+		spans[i].Strikethrough = false
+		spans[i].Color = ink
+	}
+	return spans, true
 }
 
 func easeInOut(k float64) float64 {
@@ -441,12 +510,13 @@ func (a *app) drawTaskBack(p *ui.Painter, at ui.Rect, color, mark ui.Color) {
 func (a *app) burstConfetti(x, y float64, color ui.Color, now time.Time) {
 	colors := []ui.Color{color, ui.Hex("#ff6b6b"), ui.Hex("#ffd43b"), ui.Hex("#51cf66"), ui.Hex("#339af0"), ui.Hex("#cc5de8"), color}
 	r := splitmix(uint64(now.UnixNano()))
-	for i := 0; i < 64; i++ {
-		ang := -math.Pi/2 + r.in(-1.2, 1.2)
-		sp := r.in(260, 620)
+	// a small burst, close to the box: a few bits that rise a little and fall, not a shower over the window (#494)
+	for i := 0; i < 26; i++ {
+		ang := -math.Pi/2 + r.in(-1.0, 1.0)
+		sp := r.in(150, 330)
 		a.tasks.bits = append(a.tasks.bits, confettiBit{
 			x: x, y: y, vx: math.Cos(ang) * sp, vy: math.Sin(ang) * sp,
-			rot: r.in(0, math.Pi), vr: r.in(-8, 8), w: r.in(6, 10), h: r.in(3.5, 5.5),
+			rot: r.in(0, math.Pi), vr: r.in(-8, 8), w: r.in(4, 7), h: r.in(2.5, 4),
 			color: colors[i%len(colors)], t0: now,
 		})
 	}
