@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/egoist/mygo v0.9.0
-	github.com/imhalid/ryu-go v0.1.1-0.20261111185211-2d3528eb8308
+	github.com/imhalid/ryu-go v0.1.1-0.20261113212951-19791c09ff02
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.6

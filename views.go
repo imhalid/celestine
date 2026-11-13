@@ -1000,8 +1000,9 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: locales.Pages(), Height: height + 2,
 		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
-		Pin:   true, // the title stays as the table is scrolled sideways
-		Group: groupOf, GroupLabel: groupLabel, Reorder: reorder,
+		Pin:     true, // the title stays as the table is scrolled sideways
+		Striped: true, // every other row tinted, so a row is followed across
+		Group:   groupOf, GroupLabel: groupLabel, Reorder: reorder,
 		Open: func(p *Page) {
 			if a.bulk.on {
 				a.bulkToggle(p) // chosen, not opened; the table's own choice follows, or it would be taken back below
