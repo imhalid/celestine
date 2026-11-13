@@ -382,14 +382,18 @@ func calDayAt(pt ui.Point, grid ui.Rect, colW float32, start time.Time, weeks in
 // calDragGhost is the page being dragged: its title on a little card under the pointer.
 func (a *app) calDragGhost(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	d := &a.calDrag
+	// the page and the place taken now: the overlay is built after the view, by when a drop may have let the page go
+	p, pos := a.calDrag.page, a.calDrag.pos
+	if p == nil {
+		return
+	}
 	ui.Overlay(c, func() {
-		ghost := ui.Row(c.Key("cal-ghost")).Absolute().Left(d.pos.X+10).Top(d.pos.Y-14).Height(30).Padding(0, 10).Gap(8).
+		ghost := ui.Row(c.Key("cal-ghost")).Absolute().Left(pos.X+10).Top(pos.Y-14).Height(30).Padding(0, 10).Gap(8).
 			AlignItems(ui.Center).Radius(rad(8)).Background(cl.Card).Border(1, cl.Accent.Alpha(0.6))
 		ryugo.From(c).Shadows.ShadowPop.Apply(ghost)
 		ghost.Children(func() {
 			ui.Icon(c, iconPage).Width(14).Height(14).TextColor(cl.Accent)
-			ui.Text(c, d.page.Title).FontSize(13).MaxLines(1)
+			ui.Text(c, p.Title).FontSize(13).MaxLines(1)
 		})
 	})
 }
