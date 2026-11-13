@@ -67,7 +67,9 @@ minutes are counted): `gofmt -l .` empty, `go vet ./...`,
   note of its commits. The issues and the board are where what was done and what is left are read.
 - Releases: a tag `vX.Y.Z` pushed to GitHub runs `.github/workflows/release.yml` (tests, the five builds, the
   GitHub release, notes from the commits since the tag before). A `v0.x` tag, or one with a "-", is a prerelease.
-  Versions go up one at a time from v0.0.1; the gate passes before a tag.
+  Versions go up one at a time from v0.0.1; the gate passes before a tag. A commit the nightly tested whole (its
+  status `celestine/tests`) is not tested again by the release: to release a fix, run the nightly on it by hand
+  (`gh workflow run nightly.yml`) and tag it once that passed (#465).
 - A local checkout of Ryugo beside this one is used through a `go.work` (ignored by git).
 - MyGo is followed, not forked away from: `go.mod` requires MyGo itself. When the app needs a change MyGo has
   not taken yet, it is a small, general patch on the `celestine` branch of imhalid/mygo (MyGo's newest release or

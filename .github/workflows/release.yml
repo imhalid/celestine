@@ -13,12 +13,17 @@
 # the fixes and without issue numbers (scripts/release changelog), goes to R2 last: the site's /changelog reads it
 # there, with no deploy. An annotated tag gives the release its title and summary on that page:
 #   git tag -a v1.2.0 -m "Quieter sync" -m "Sync asks the server less, and ..."
+#
+# The tests run here only for a commit the nightly has not tested whole: one it has (its status celestine/tests,
+# nightly.yml) is not tested again, and the release is its builds alone (#465). To release a fix quickly, run the
+# nightly on it by hand (`gh workflow run nightly.yml`) and tag it once that passed.
 name: release
 on:
   push:
     tags: ["v*"]
 permissions:
   contents: write
+  statuses: read # whether the nightly tested the commit (tested already)
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,11 +36,26 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
+      - name: tested already
+        id: tested
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # the nightly's mark on this very commit: what it tested is not run again
+          state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/statuses" \
+            --jq '[.[] | select(.context == "celestine/tests")][0].state // ""' 2>/dev/null || true)
+          if [ "$state" = success ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "The nightly tested $GITHUB_SHA whole: its tests are not run again."
+          else
+            echo "The nightly has not tested $GITHUB_SHA: the tests run here."
+          fi
       - name: format and vet
         run: |
           test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
           go vet ./...
       - name: test
+        if: steps.tested.outputs.ok != 'true'
         run: go test -timeout 20m ./...
       - name: update address
         if: env.SIGNED == 'true'

@@ -7,6 +7,10 @@
 # Each run that checks something opens an issue, labelled nightly, with what it found (scripts/nightly-report.sh): the
 # commits it tested, each step, the failed tests, the slowest, the performance figures, the vulnerabilities. One where
 # everything passed is closed at once, a record; one where something failed stays open.
+#
+# A commit whose format, vet, builds and tests all passed is marked so (a commit status, celestine/tests), and a
+# release of it does not run the tests again (release.yml, #465). Run by hand, it is how a fix is tested before its
+# tag: `gh workflow run nightly.yml`, then the tag once it passed.
 name: nightly
 on:
   schedule:
@@ -16,6 +20,7 @@ permissions:
   contents: read
   issues: write
   actions: read
+  statuses: write # the mark on a commit it tested (the commit marked as tested)
 concurrency:
   group: nightly
   cancel-in-progress: true
@@ -129,6 +134,18 @@ jobs:
             gh issue close "$url" --repo "$GITHUB_REPOSITORY" --comment "Everything passed: kept as a record."
           fi
           echo "bad=$bad" >> "$GITHUB_ENV"
+      - name: the commit marked as tested
+        # what a release would check again: the format, vet, the builds and every test passed on this commit, so a
+        # release of it skips its own test run (release.yml). Performance and govulncheck are not what a release
+        # checks, and do not hold the mark back.
+        if: always() && steps.new.outputs.run == 'true' && steps.fmt.outcome == 'success' && steps.build.outcome == 'success' && steps.test.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$(git rev-parse HEAD)" \
+            -f state=success -f context=celestine/tests \
+            -f description="Format, vet, the builds and every test passed (nightly)" -f target_url="$RUN_URL"
       - name: the run's own colour
         if: always() && steps.new.outputs.run == 'true'
         run: test -z "${bad:-}"
