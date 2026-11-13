@@ -196,6 +196,10 @@ func TestProfileScreen(t *testing.T) {
 	}
 
 	a.settings.AccountUser, a.settings.SyncToken, a.ac.meAt = "ali", "tok", time.Now() // no call to a server
+	// nor a pass toward sync.example.com: its failure comes when the name fails to resolve, at once here, late on a
+	// slow runner, and its long words then move the screen under a click on its way, which is lost (the release's
+	// test run). A pass tried just now waits minutes for the next.
+	a.sy.tried = a.clock()
 	a.settings.SyncMode, a.settings.SyncURL = "server", "https://sync.example.com"
 	a.settings.SyncKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 	a.ac.me = &AcctMe{Username: "ali", Bytes: 5 << 20, Quota: 200 << 20, Devices: []DeviceInfo{{ID: "aaaaaaaaaaaa", Name: "MacBook", Seen: 1, Current: true}, {ID: "bbbbbbbbbbbb", Name: "Telefon", Seen: 1}}}
@@ -214,19 +218,9 @@ func TestProfileScreen(t *testing.T) {
 	if tt.HasText(rec) {
 		t.Fatal("the recovery key is on the screen unasked")
 	}
-	// the pass to sync.example.com fails, away from the window, and its words come on the screen when it does: they
-	// move what is under them, so a click made as they come lands where the button was. It waits for the pass.
-	for i := 0; i < 200; i++ {
-		a.mu.Lock()
-		done := !a.sy.busy && !a.sy.tried.IsZero()
-		a.mu.Unlock()
-		if done {
-			break
-		}
-		tt.Advance(50 * time.Millisecond)
+	if err := tt.Click("Göster"); err != nil {
+		t.Fatalf("the recovery key's Show cannot be clicked: %v", err)
 	}
-	tt.Frame()
-	tt.Click("Göster")
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
 	if !tt.HasText(rec) {
