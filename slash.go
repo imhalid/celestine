@@ -784,7 +784,7 @@ func (a *app) slashView(c *ui.Context) {
 			return
 		}
 		if s.view == "" { // the title and the sign
-			title := "Öneriler"
+			title := locales.SlashSuggestions()
 			if q != "" {
 				title = "Sonuçlar"
 			}
