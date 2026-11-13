@@ -148,7 +148,10 @@ type app struct {
 	sidebarShown  float32 // its width this frame, on the way to open or closed
 
 	theme *richtext.Theme // the editor's, resolved: what locate lays paragraphs out with
-	font  ui.Font
+	// ryugoOwn are Ryugo's own colors in the window's appearance, before the app's color theme is put on them:
+	// what the Default theme's tile shows, whichever theme is chosen (#484)
+	ryugoOwn ryugo.Colors
+	font     ui.Font
 
 	caretKind caretKind
 	jelly     *slime
@@ -776,6 +779,7 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	// Ryugo's theme, its components' tokens, for the appearance; a pressed button's wave as the settings say
 	opts := ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale(), Waves: !a.settings.NoWaves && !fx.still}
 	tok := ryugo.Root(c, opts)
+	a.ryugoOwn = tok.Colors
 	if a.appTheme().colors(tok.Dark).bg != "" { // and in the app's theme: the same appearance, in its colors
 		opts.Mode, opts.Accent = map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], a.accentOf(tok.Dark)
 		tok = ryugo.Root(c, opts)

@@ -224,7 +224,8 @@ func (a *app) appThemePicker(c *ui.Context) {
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for i, th := range appThemes {
 				p := th.colors(dark)
-				if choiceTile(c, "theme-tile:"+th.name, th.name, a.settings.AppTheme%len(appThemes) == i, func() { themeMock(c, p, dark, cl) }) {
+				// the Default tile in Ryugo's own colors, not the window's, which another theme has painted over
+				if choiceTile(c, "theme-tile:"+th.name, th.name, a.settings.AppTheme%len(appThemes) == i, func() { themeMock(c, p, dark, a.ryugoOwn) }) {
 					a.setAppTheme(i)
 				}
 			}

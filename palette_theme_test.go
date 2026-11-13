@@ -173,3 +173,33 @@ func TestAppThemeWellAlphaAndSurface(t *testing.T) {
 		}
 	}
 }
+
+// TestDefaultThemeTileKeepsItsColors: the Default theme's tile shows Ryugo's own colors whichever theme is chosen,
+// not the window's, which the chosen theme paints (#484).
+func TestDefaultThemeTileKeepsItsColors(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.Frame()
+	own := a.ryugoOwn
+	for i := range appThemes {
+		if i == 0 {
+			continue
+		}
+		a.setAppTheme(i)
+		tt.Frame()
+		if a.ryugoOwn != own {
+			t.Fatalf("theme %s changed the Default tile's colors: %v, was %v", appThemes[i].name, a.ryugoOwn.Bg, own.Bg)
+		}
+	}
+	if win := ryugoColorsNow(a, tt); win.Bg == own.Bg {
+		t.Fatal("the window should be in the chosen theme's colors, not Ryugo's own")
+	}
+}
+
+// ryugoColorsNow are the colors the window is drawn in this frame.
+func ryugoColorsNow(a *app, tt *ui.Tester) ryugo.Colors {
+	var got ryugo.Colors
+	view := a.view
+	tt2 := ui.NewTester(func(c *ui.Context) { view(c); got = ryugo.From(c).Colors }, 400, 300)
+	tt2.Frame()
+	return got
+}
