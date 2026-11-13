@@ -191,6 +191,7 @@ type Page struct {
 	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
 	Manual   int               // its place in a view in its own order (sort "manual"), from 1; 0: not yet placed
 	Cover    string            // the picture across its top: a file of its folder (cover.go)
+	Own      []Property        // its own properties, besides its collection's: added on it alone (#487)
 	Dir      string
 	Coll     *Collection
 	Parent   *Page
@@ -456,6 +457,10 @@ func (p *Page) Save(body string) error {
 	}
 	if p.Cover != "" {
 		meta["cover"] = p.Cover
+	}
+	if len(p.Own) > 0 {
+		own, _ := json.Marshal(p.Own)
+		meta["properties"] = string(own)
 	}
 	src, err := JoinPageChecked(meta, body)
 	if err != nil {

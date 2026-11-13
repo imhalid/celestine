@@ -38,17 +38,18 @@ func TestAskAndUndo(t *testing.T) {
 		t.Fatal("the reset was not undone")
 	}
 
-	coll := a.lib.Collections[0]
-	if _, err := coll.AddProperty("Durum", "text", nil); err != nil {
+	p, _ = a.lib.Collections[0].NewPage(nil, "Özellikli")
+	if _, err := p.AddProperty("Durum", "text", nil); err != nil {
 		t.Fatal(err)
 	}
-	a.removeProperty(coll, "durum")
-	if coll.Prop("durum") != nil {
+	p.SetValue("durum", "açık")
+	a.removePageProperty(p, "durum")
+	if p.Prop("durum") != nil || p.Props["durum"] != "" {
 		t.Fatal("not removed")
 	}
 	undoLast(t, a)
-	if coll.Prop("durum") == nil {
-		t.Fatal("the property was not brought back")
+	if p.Prop("durum") == nil || p.Props["durum"] != "açık" {
+		t.Fatal("the property was not brought back with its value")
 	}
 }
 

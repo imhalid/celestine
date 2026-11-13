@@ -12,14 +12,15 @@ import (
 )
 
 // The page's properties section, under its title, as Thymer's: a row per
-// property of its collection - its name, its value to change - and
-// "+ Özellik ekle", which adds one to every page of the collection. A
-// property's name opens it to rename it, change its options or delete it.
+// property of its collection, then of its own - its name, its value to change - and
+// "+ Add property", which adds one to this page alone (#487); the collection's are added in its settings. A
+// property's name opens it to rename it, change its options or, one of the page's own, delete it.
 
 // propEdit is the property dialog: a new property, or one to change.
 type propEdit struct {
 	open    bool
 	coll    *Collection
+	page    *Page  // set for a property of this page alone
 	id      string // "" for a new one
 	name    string
 	typ     int // index in PropTypes
@@ -43,12 +44,12 @@ var iconChevronBack = icon(`<path d="M14.5 6.5 9 12l5.5 5.5"/>`)
 func (a *app) propsSection(c *ui.Context, p *Page) {
 	coll := p.Coll
 	ui.Column(c).Gap(1).Padding(0, 0, 14, 0).Children(func() {
-		for i := range coll.Properties {
-			a.propRow(c, p, &coll.Properties[i])
+		for _, pr := range p.Properties() {
+			a.propRow(c, p, pr)
 		}
 		ui.Row(c).Gap(2).Padding(2, 0, 0, 0).Children(func() {
 			if a.quietButton(c.Key("add-prop"), iconPlus, locales.CommonAddProperty()) {
-				a.prop = propEdit{open: true, coll: coll}
+				a.prop = propEdit{open: true, coll: coll, page: p}
 			}
 			if a.coverKind(p) == coverKindNone { // a cover is one click away, beside it
 				if a.quietButton(c.Key("add-cover"), iconCover, locales.PropsAddCoverImage()) {
@@ -131,7 +132,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 	})
 }
 
-// propChoice is a choice's value, a soft pill, which opens the menu of its options.
+// propChoice is a choice's value, a badge tinted with the option's color, which opens the menu of its options.
 func (a *app) propChoice(c *ui.Context, p *Page, pr *Property, key string) {
 	t := c.Theme()
 	kc := c.Key("prop-val:" + key)
@@ -145,18 +146,19 @@ func (a *app) propChoice(c *ui.Context, p *Page, pr *Property, key string) {
 	hot := tr.Hovered() || tr.FocusVisible() || *open
 	propCell(c, tr, hot)
 	v := p.Value(pr)
-	pill := ryugo.From(c).Colors.Fill
-	if hot { // the cell is the pill's color then: one step past it
-		pill = t.SurfacePressed
+	tone := columnTone(c, v) // the option's color, as its column's on the board
+	tint := tone.Alpha(0.16)
+	if hot { // on the cell's fill: a step stronger
+		tint = tone.Alpha(0.26)
 	}
 	tr.Children(func() {
 		if v == "" {
 			propEmpty(c)
 			return
 		}
-		ui.Box(c).Height(20).Padding(0, 8).Radius(ryugo.RadiusPill).AlignItems(ui.Center).
-			Background(pill).Children(func() {
-			ui.Text(c, v).FontSize(13).FontWeight(500).TextColor(t.Text).NoWrap()
+		ui.Row(c).Height(20).Padding(0, 9).Radius(ryugo.RadiusPill).AlignItems(ui.Center).Justify(ui.Center).
+			Background(tint).Children(func() {
+			ui.Text(c, v).FontSize(12.5).FontWeight(560).TextColor(t.Text).NoWrap()
 		})
 	})
 	ryugo.Menu(kc, tr, open, func(m *ryugo.MenuList) {
@@ -285,6 +287,9 @@ func (a *app) propText(c *ui.Context, p *Page, pr *Property, key string) {
 			TextColor(t.Text).FontSize(propFs).FocusRing(false).Label(locales.PropsValueLabel(pr.Name))
 		a.fieldMenu(in, buf, fieldOpts{oneLine: true, changed: func() { a.commitValue(p, pr.ID, key, *buf) }, more: func() []menuItem { return a.propRowMenu(p, pr) }})
 	})
+	if pr.Type == PropNumber { // a number takes what a number is made of, and nothing else as it is typed (#487)
+		*buf = numberOnly(*buf)
+	}
 	propCell(c, cell, cell.Hovered() || in.Focused())
 	if a.propErr == key {
 		cell.Border(1, ryugo.From(c).Colors.Up)
@@ -301,6 +306,25 @@ func (a *app) propText(c *ui.Context, p *Page, pr *Property, key string) {
 		a.propEditing = ""
 		a.commitValue(p, pr.ID, key, *buf)
 	}
+}
+
+// numberOnly is s with only what a number is written with: digits, a sign before them and one decimal mark,
+// a point or a comma.
+func numberOnly(s string) string {
+	var b strings.Builder
+	mark := false
+	for i, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+		case (r == '-' || r == '+') && i == 0:
+		case (r == '.' || r == ',') && !mark:
+			mark = true
+		default:
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // commitValue writes a typed value; one that doesn't fit stays, marked.
@@ -332,8 +356,8 @@ func (a *app) propDialog(c *ui.Context) {
 		title = locales.PropsEditProperty()
 	}
 	ryugo.Dialog(c.Key("prop-dialog"), &e.open, ryugo.DialogOptions{Title: title, Width: 440, Footer: func() {
-		if e.id != "" && ryugo.Button(c.Key("prop-delete"), locales.CommonDeleteProperty(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-			a.removeProperty(e.coll, e.id)
+		if e.id != "" && e.page != nil && ryugo.Button(c.Key("prop-delete"), locales.CommonDeleteProperty(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+			a.removePageProperty(e.page, e.id)
 			e.open = false
 		}
 		ui.Spacer(c)
@@ -369,6 +393,9 @@ func (a *app) propDialog(c *ui.Context) {
 					}
 				})
 			}
+			if e.id != "" && e.page == nil { // the collection's: every page of it has it, and its settings take it away
+				ui.Text(c, locales.PropsCollectionsProperty(e.coll.Name)).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+			}
 			if e.err != "" {
 				ui.Text(c, e.err).FontSize(ryugo.FsSm).TextColor(cl.Up)
 			}
@@ -380,9 +407,14 @@ func (a *app) saveProp() {
 	e := &a.prop
 	opts := strings.Split(e.options, ",")
 	var err error
-	if e.id == "" {
+	switch {
+	case e.page != nil && e.id == "":
+		_, err = e.page.AddProperty(e.name, PropTypes[max(e.typ, 0)].Type, opts)
+	case e.page != nil:
+		err = e.page.EditProperty(e.id, e.name, opts)
+	case e.id == "":
 		_, err = e.coll.AddProperty(e.name, PropTypes[max(e.typ, 0)].Type, opts)
-	} else {
+	default:
 		err = e.coll.EditProperty(e.id, e.name, opts)
 	}
 	if err != nil {
@@ -393,36 +425,54 @@ func (a *app) saveProp() {
 }
 
 // propRowMenu is what a property's row offers on a right click, after its text's lines: the property
-// to change, its value to clear, the property to delete from the collection.
+// to change, its value to clear and, one of the page's own, the property to delete. The collection's are
+// deleted in its settings, not from one of its pages (#487).
 func (a *app) propRowMenu(p *Page, pr *Property) []menuItem {
-	id, coll := pr.ID, p.Coll
+	id := pr.ID
 	out := []menuItem{{title: "props_editPropertyMenu", glyph: iconEdit, run: func() { a.editProp(p, pr) }}}
 	if p.Props[id] != "" {
 		out = append(out, menuItem{title: "props_clearValue", glyph: iconClose, run: func() { a.setValue(p, id, "") }})
 	}
+	if !p.IsOwn(id) {
+		return out
+	}
 	return append(out, menuItem{title: "common_deleteProperty", group: "~", glyph: iconTrash, danger: true, run: func() {
-		a.removeProperty(coll, id)
+		a.removePageProperty(p, id)
 	}})
 }
 
-// editProp opens the dialog of property pr.
+// editProp opens the dialog of property pr: the page's own, or its collection's.
 func (a *app) editProp(p *Page, pr *Property) {
 	a.prop = propEdit{open: true, coll: p.Coll, id: pr.ID, name: pr.Name, options: strings.Join(pr.Options, ", ")}
+	if p.IsOwn(pr.ID) {
+		a.prop.page = p
+	}
 	a.prop.typ = slices.IndexFunc(PropTypes, func(x struct{ Type, Name string }) bool { return x.Type == pr.Type })
 }
 
-// removeProperty takes property id away from collection coll, with a way back: its values stay in the pages, so
-// putting the property back brings them back (#217).
-func (a *app) removeProperty(coll *Collection, id string) {
-	before := slices.Clone(coll.Properties)
-	if err := coll.RemoveProperty(id); err != nil {
+// removePageProperty takes page p's own property id away, with a way back that brings its value too.
+func (a *app) removePageProperty(p *Page, id string) {
+	own, value := slices.Clone(p.Own), p.Props[id]
+	if p == a.page {
+		a.flush()
+	}
+	if err := p.RemoveProperty(id); err != nil {
 		a.fail(err)
 		return
 	}
 	a.toastAction(locales.PropsPropertyDeleted(), locales.CommonUndo(), func() {
-		coll.Properties = before
-		coll.Normalize()
-		if err := coll.Save(); err != nil {
+		p.Own = own
+		if value != "" {
+			p.Props[id] = value
+		}
+		if p == a.page {
+			a.flush()
+		}
+		body, err := p.Body()
+		if err == nil {
+			err = p.Save(body)
+		}
+		if err != nil {
 			a.fail(err)
 		}
 	})

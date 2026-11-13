@@ -101,7 +101,7 @@ func frontMatterOf(p *Page) string {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		if pr := p.Coll.Prop(k); pr != nil && pr.Type == PropTags { // tags as a list, as other tools write them
+		if pr := p.Prop(k); pr != nil && pr.Type == PropTags { // tags as a list, as other tools write them
 			seq := &yaml.Node{Kind: yaml.SequenceNode, Style: yaml.FlowStyle}
 			for _, tag := range SplitTags(p.Props[k]) {
 				seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: tag, Style: quoteStyle(tag)})

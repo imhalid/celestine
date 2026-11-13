@@ -2479,16 +2479,6 @@ func (msgs Messages) CollectionKindPage() string {
 	return Catalog.Format(msgs.locale, "collection_kindPage", nil)
 }
 
-// CollectionKindText says "Text"
-// in the language the app shows.
-func CollectionKindText() string { return In(i18n.Locale()).CollectionKindText() }
-
-// CollectionKindText says "Text"
-// in the language of msgs.
-func (msgs Messages) CollectionKindText() string {
-	return Catalog.Format(msgs.locale, "collection_kindText", nil)
-}
-
 // CollectionLarge says "Large"
 // in the language the app shows.
 func CollectionLarge() string { return In(i18n.Locale()).CollectionLarge() }
@@ -2627,16 +2617,6 @@ func CollectionPropParent() string { return In(i18n.Locale()).CollectionPropPare
 // in the language of msgs.
 func (msgs Messages) CollectionPropParent() string {
 	return Catalog.Format(msgs.locale, "collection_propParent", nil)
-}
-
-// CollectionPropTitle says "Title"
-// in the language the app shows.
-func CollectionPropTitle() string { return In(i18n.Locale()).CollectionPropTitle() }
-
-// CollectionPropTitle says "Title"
-// in the language of msgs.
-func (msgs Messages) CollectionPropTitle() string {
-	return Catalog.Format(msgs.locale, "collection_propTitle", nil)
 }
 
 // CollectionProperties says "Properties"
@@ -9471,6 +9451,18 @@ func PropsPropertyDeleted() string { return In(i18n.Locale()).PropsPropertyDelet
 // in the language of msgs.
 func (msgs Messages) PropsPropertyDeleted() string {
 	return Catalog.Format(msgs.locale, "props_propertyDeleted", nil)
+}
+
+// PropsCollectionsProperty says "A property of “{collection}”: every page of it has it. Delete it in the collection’s settings."
+// in the language the app shows.
+func PropsCollectionsProperty(collection string) string {
+	return In(i18n.Locale()).PropsCollectionsProperty(collection)
+}
+
+// PropsCollectionsProperty says "A property of “{collection}”: every page of it has it. Delete it in the collection’s settings."
+// in the language of msgs.
+func (msgs Messages) PropsCollectionsProperty(collection string) string {
+	return Catalog.Format(msgs.locale, "props_collectionsProperty", map[string]any{"collection": collection})
 }
 
 // PropsRemoveDate says "Remove date"

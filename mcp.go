@@ -443,10 +443,10 @@ func (a *app) setValues(p *Page, vs map[string]string) error {
 		a.flush()
 	}
 	for name, v := range vs {
-		pr := p.Coll.PropNamed(name)
+		pr := p.PropNamed(name) // the collection's or the page's own
 		if pr == nil {
 			var names []string
-			for _, x := range p.Coll.Properties {
+			for _, x := range p.Properties() {
 				names = append(names, x.Name)
 			}
 			return fmt.Errorf("%s has no property %q (it has: %s; add_property adds one)", p.Coll.Name, name, strings.Join(names, ", "))

@@ -217,12 +217,12 @@ func (a *app) csGeneral(c *ui.Context) {
 
 // ---- Properties ----
 
-// builtins are the properties every page has.
+// builtins are the properties every page has, but its title: that is the page's name, not one of them (#487).
 var builtins = []struct {
 	key        string
 	name, kind func() string
 }{
-	{"title", locales.CollectionPropTitle, locales.CollectionKindText}, {"created", locales.CollectionPropCreated, locales.CollectionKindDate},
+	{"created", locales.CollectionPropCreated, locales.CollectionKindDate},
 	{"modified", locales.CollectionPropModified, locales.CollectionKindDate}, {"parent", locales.CollectionPropParent, locales.CollectionKindPage},
 }
 

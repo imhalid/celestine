@@ -1,6 +1,7 @@
 package library
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -54,7 +55,7 @@ type Property struct {
 }
 
 // reserved are the front matter keys of the page itself.
-var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover"}
+var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover", "properties"}
 
 // Prop is the property id, or nil.
 func (c *Collection) Prop(id string) *Property {
@@ -98,13 +99,10 @@ func (c *Collection) AddPropertyDraft(name, typ string, options []string) (*Prop
 	if c.PropNamed(name) != nil {
 		return nil, fmt.Errorf("%s already has %q", c.Name, name)
 	}
-	id := Slug(name)
-	if id == "" {
-		id = "ozellik"
-	}
-	for base, n := id, 2; c.Prop(id) != nil || slices.Contains(reserved, id); n++ {
-		id = base + "-" + strconv.Itoa(n)
-	}
+	pages := c.All()
+	id := freeID(name, func(id string) bool {
+		return c.Prop(id) != nil || slices.ContainsFunc(pages, func(p *Page) bool { return ownProp(p.Own, id) != nil })
+	})
 	c.Properties = append(c.Properties, Property{ID: id, Name: name, Type: typ, Options: CleanOptions(options)})
 	c.Normalize()
 	return c.Prop(id), nil
@@ -135,6 +133,129 @@ func (c *Collection) RemoveProperty(id string) error {
 	c.Properties = slices.DeleteFunc(c.Properties, func(p Property) bool { return p.ID == id })
 	c.Normalize()
 	return c.Save()
+}
+
+// freeID is the id of a new property named name: its slug, numbered past those taken and the page's own keys.
+func freeID(name string, taken func(string) bool) string {
+	id := Slug(name)
+	if id == "" {
+		id = "ozellik"
+	}
+	for base, n := id, 2; taken(id) || slices.Contains(reserved, id); n++ {
+		id = base + "-" + strconv.Itoa(n)
+	}
+	return id
+}
+
+// ownProp is the property id among a page's own, or nil.
+func ownProp(own []Property, id string) *Property {
+	for i := range own {
+		if own[i].ID == id {
+			return &own[i]
+		}
+	}
+	return nil
+}
+
+// ---- a page's own properties (#487) ----
+
+// Properties are the properties page p has: its collection's, then its own.
+func (p *Page) Properties() []*Property {
+	var out []*Property
+	if p.Coll != nil {
+		for i := range p.Coll.Properties {
+			out = append(out, &p.Coll.Properties[i])
+		}
+	}
+	for i := range p.Own {
+		out = append(out, &p.Own[i])
+	}
+	return out
+}
+
+// Prop is property id of page p, its collection's or its own, or nil.
+func (p *Page) Prop(id string) *Property {
+	if p.Coll != nil {
+		if pr := p.Coll.Prop(id); pr != nil {
+			return pr
+		}
+	}
+	return ownProp(p.Own, id)
+}
+
+// PropNamed is the property of page p named name (any case), or with that id, or nil.
+func (p *Page) PropNamed(name string) *Property {
+	if p.Coll != nil {
+		if pr := p.Coll.PropNamed(name); pr != nil {
+			return pr
+		}
+	}
+	for i := range p.Own {
+		if strings.EqualFold(p.Own[i].Name, name) || p.Own[i].ID == name {
+			return &p.Own[i]
+		}
+	}
+	return nil
+}
+
+// IsOwn reports whether property id is page p's own, not its collection's.
+func (p *Page) IsOwn(id string) bool {
+	return (p.Coll == nil || p.Coll.Prop(id) == nil) && ownProp(p.Own, id) != nil
+}
+
+// AddProperty adds a property to page p alone, and writes it. Its id is one no property of the collection has,
+// nor a value the page keeps, so that it starts empty.
+func (p *Page) AddProperty(name, typ string, options []string) (*Property, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("a property needs a name")
+	}
+	if !slices.ContainsFunc(PropTypes, func(t struct{ Type, Name string }) bool { return t.Type == typ }) {
+		return nil, fmt.Errorf("no kind of property %q", typ)
+	}
+	if p.PropNamed(name) != nil {
+		return nil, fmt.Errorf("%s already has %q", p.Title, name)
+	}
+	id := freeID(name, func(id string) bool { _, kept := p.Props[id]; return p.Prop(id) != nil || kept })
+	p.Own = append(p.Own, Property{ID: id, Name: name, Type: typ, Options: CleanOptions(options)})
+	return ownProp(p.Own, id), p.saveMeta()
+}
+
+// EditProperty renames page p's own property id and, for a choice, gives it options.
+func (p *Page) EditProperty(id, name string, options []string) error {
+	pr := ownProp(p.Own, id)
+	if pr == nil {
+		return fmt.Errorf("%s has no property %q of its own", p.Title, id)
+	}
+	if name = strings.TrimSpace(name); name != "" {
+		if q := p.PropNamed(name); q != nil && q.ID != id {
+			return fmt.Errorf("%s already has %q", p.Title, name)
+		}
+		pr.Name = name
+	}
+	if pr.Type == PropChoice && options != nil {
+		pr.Options = CleanOptions(options)
+	}
+	return p.saveMeta()
+}
+
+// RemoveProperty takes page p's own property id away, and its value with it.
+func (p *Page) RemoveProperty(id string) error {
+	if ownProp(p.Own, id) == nil {
+		return nil
+	}
+	p.Own = slices.DeleteFunc(p.Own, func(pr Property) bool { return pr.ID == id })
+	delete(p.Props, id)
+	return p.saveMeta()
+}
+
+// saveMeta writes page p with the body it has.
+func (p *Page) saveMeta() error {
+	body, err := p.Body()
+	if err != nil {
+		return err
+	}
+	return p.Save(body)
 }
 
 func CleanOptions(options []string) []string {
@@ -244,6 +365,10 @@ func (p *Page) ReadMeta(meta map[string]string) {
 	fmt.Sscan(meta["rank"], &p.Rank)
 	fmt.Sscan(meta["manualrank"], &p.Manual)
 	p.Cover = meta["cover"]
+	p.Own = nil
+	if own := meta["properties"]; own != "" {
+		json.Unmarshal([]byte(own), &p.Own) // one that cannot be read is none: the page is still read
+	}
 	p.Props = map[string]string{}
 	for k, v := range meta {
 		if !slices.Contains(reserved, k) {
@@ -266,9 +391,9 @@ func (p *Page) Value(pr *Property) string {
 // takes one of its options (any case) or nothing; a number, a number; a
 // date, a day as 2006-01-02.
 func (p *Page) SetValue(id, v string) error {
-	pr := p.Coll.Prop(id)
+	pr := p.Prop(id)
 	if pr == nil {
-		return fmt.Errorf("%s has no property %q", p.Coll.Name, id)
+		return fmt.Errorf("%s has no property %q", p.Title, id)
 	}
 	v = strings.TrimSpace(v)
 	switch pr.Type {
@@ -283,7 +408,9 @@ func (p *Page) SetValue(id, v string) error {
 		if v == p.Value(pr) {
 			return nil
 		}
-		return p.Coll.MoveOnBoard(p, pr.ID, v, len(p.Coll.Column(pr.ID, v)))
+		if p.Coll.Prop(id) != nil { // the collection's choice has a board, with the page's place in it
+			return p.Coll.MoveOnBoard(p, pr.ID, v, len(p.Coll.Column(pr.ID, v)))
+		}
 	case PropNumber:
 		if _, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64); v != "" && err != nil {
 			return fmt.Errorf("%s is a number", pr.Name)
@@ -308,11 +435,7 @@ func (p *Page) SetValue(id, v string) error {
 		p.Props = map[string]string{}
 	}
 	p.Props[id] = v
-	body, err := p.Body()
-	if err != nil {
-		return err
-	}
-	return p.Save(body)
+	return p.saveMeta()
 }
 
 // Column is the pages whose choice id is v ("": none of its options), in

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,7 +172,7 @@ func TestBoardDrag(t *testing.T) {
 	}
 }
 
-// TestPropertyOnPage adds a choice from the page and gives the page a value.
+// TestPropertyOnPage adds a choice from the page, to that page alone (#487), and gives the page a value.
 func TestPropertyOnPage(t *testing.T) {
 	a, tt := newTestApp(t, "gövde")
 	if tt.HasText("Durum") {
@@ -191,8 +192,8 @@ func TestPropertyOnPage(t *testing.T) {
 	}
 	tt.Advance(400 * time.Millisecond)
 	coll := a.page.Coll
-	if pr := coll.Prop("durum"); pr == nil || len(pr.Options) != 3 || a.prop.open {
-		t.Fatalf("added: %+v", coll.Properties)
+	if pr := a.page.Prop("durum"); pr == nil || len(pr.Options) != 3 || a.prop.open || coll.Prop("durum") != nil {
+		t.Fatalf("added: %+v, the collection's %+v", a.page.Own, coll.Properties)
 	}
 	if err := tt.Click("Durum değeri"); err != nil {
 		t.Fatal(err, tt.Texts())
@@ -281,5 +282,37 @@ func TestBoardCardSize(t *testing.T) {
 	}
 	if !tt.HasText("Çöl gezegeni Arrakis.") {
 		t.Fatal("a large card does not show the start of its text")
+	}
+}
+
+// TestNumberPropertyRefusesLetters: a number takes digits, a sign and one decimal mark as it is typed, and nothing
+// else (#487); a choice's value is drawn as a badge. SHOT=file.png draws the properties.
+func TestNumberPropertyRefusesLetters(t *testing.T) {
+	a, tt := newTestApp(t, "gövde")
+	p := a.page
+	if _, err := p.AddProperty("Sayfa sayısı", PropNumber, nil); err != nil {
+		t.Fatal(err)
+	}
+	mood, _ := p.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Bitti"})
+	p.SetValue(mood.ID, "Bitti")
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click("Sayfa sayısı değeri"); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Type("rr1a1,5,x")
+	tt.Frame()
+	if got := *a.propBuf[p.Dir+"|sayfa-sayisi"]; got != "11,5" {
+		t.Fatalf("typed: %q", got)
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if p.Props["sayfa-sayisi"] != "11,5" || a.propErr != "" {
+		t.Fatalf("value %q, error %q", p.Props["sayfa-sayisi"], a.propErr)
+	}
+	if file := os.Getenv("SHOT"); file != "" {
+		f, _ := os.Create(file)
+		png.Encode(f, tt.Image())
+		f.Close()
 	}
 }
