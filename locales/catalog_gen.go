@@ -14531,6 +14531,16 @@ func (msgs Messages) TrashRestored(page string) string {
 	return Catalog.Format(msgs.locale, "trash_restored", map[string]any{"page": page})
 }
 
+// TrashRestoreAlone says "Restore “{page}” without its collection"
+// in the language the app shows.
+func TrashRestoreAlone(page string) string { return In(i18n.Locale()).TrashRestoreAlone(page) }
+
+// TrashRestoreAlone says "Restore “{page}” without its collection"
+// in the language of msgs.
+func (msgs Messages) TrashRestoreAlone(page string) string {
+	return Catalog.Format(msgs.locale, "trash_restoreAlone", map[string]any{"page": page})
+}
+
 // TrashThrownAway says "{from}  ·  deleted {when}"
 // in the language the app shows.
 func TrashThrownAway(from string, when string) string {

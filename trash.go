@@ -70,6 +70,16 @@ func (a *app) restore(item *TrashItem) {
 	}
 }
 
+// restoreOutOf puts page p of collection item back without the collection, and says so.
+func (a *app) restoreOutOf(item *TrashItem, p *Page) {
+	if _, _, err := a.lib.RestoreOutOf(item, p); err != nil {
+		a.fail(err)
+		return
+	}
+	a.loadTrash()
+	a.say(toastOK, locales.TrashRestored(p.Title))
+}
+
 // trashRow is the trash's row at the foot of the sidebar, with how much is in it.
 func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they scroll with it
 	t := c.Theme()
@@ -180,9 +190,13 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 				if open {
 					ui.Column(c.Key("trash-pages:"+item.Dir)).Gap(3).Padding(4, 0, 2, 15).Transition(rowEnter).Children(func() {
 						for _, p := range ps {
-							ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, float32(p.Depth())*14).Children(func() {
+							ui.Row(c.Key("trash-page:"+p.Dir)).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, float32(p.Depth())*14).Children(func() {
 								ui.Icon(c, iconPage).Width(12).Height(12).TextColor(t.TextMuted)
-								ui.Text(c, p.Title).FontSize(13).TextColor(t.Text).MaxLines(1)
+								ui.Text(c, p.Title).FontSize(13).TextColor(t.Text).MaxLines(1).Shrink(1).MinWidth(0)
+								// the page alone, out of the collection: restoring the collection brings them all
+								if a.iconButton(c.Key("restore-alone"), iconRestore, locales.TrashRestoreAlone(p.Title)) {
+									a.restoreOutOf(item, p)
+								}
 							})
 						}
 					})

@@ -1432,6 +1432,7 @@
   "trash_inTrashLabel": "Çöpte: {title}",
   "trash_moved": "“{page}” çöpe taşındı",
   "trash_restored": "“{page}” geri yüklendi",
+  "trash_restoreAlone": "“{page}” sayfasını koleksiyonu olmadan geri yükle",
   "trash_thrownAway": "{from}  ·  {when} atıldı",
   "trash_thrownAwayPagesCollections": "Silinen sayfalar ve koleksiyonlar 30 gün burada kalır, sonra kalıcı olarak silinir. Geri yüklediğinde eski yerine döner.",
   "tryAnotherWordOrTakeThe": "Başka bir kelime dene ya da filtreleri kaldır.",

@@ -120,7 +120,7 @@ func TestTrashUndoAndView(t *testing.T) {
 }
 
 // TestTrashShowsCollectionPages: a collection in the trash says how many pages went with it, and unfolds them by
-// that line (#481).
+// that line; each comes back alone by its button (#481).
 func TestTrashShowsCollectionPages(t *testing.T) {
 	a, tt, coll := viewsLibrary(t)
 	if _, err := a.lib.TrashCollection(coll); err != nil {
@@ -142,5 +142,14 @@ func TestTrashShowsCollectionPages(t *testing.T) {
 		if !tt.HasText(title) {
 			t.Fatalf("%s not shown under the collection: %v", title, tt.Texts())
 		}
+	}
+	// one of them back alone, to the collection there is; the collection stays in the trash without it
+	other, _ := a.lib.NewCollection("Gelen")
+	if err := tt.Click(locales.TrashRestoreAlone("Anna Karenina")); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(300 * time.Millisecond)
+	if len(other.Pages) != 1 || other.Pages[0].Title != "Anna Karenina" || len(a.trashItems) != 1 || len(a.trashPages[a.trashItems[0].Dir]) != 3 {
+		t.Fatalf("restored alone: %d pages in Gelen, %d items", len(other.Pages), len(a.trashItems))
 	}
 }

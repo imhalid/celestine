@@ -802,6 +802,32 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 			return nil, nil, errors.New("no collection to put the page back in")
 		}
 	}
+	return l.restorePage(item, coll, parent)
+}
+
+// RestoreOutOf brings page p, one of those collection item holds in the trash (TrashedPages), back without the
+// collection: to the end of the first collection that takes pages, its sub-pages with it. The collection stays in
+// the trash, without it (#481).
+func (l *Library) RestoreOutOf(item *TrashItem, p *Page) (*Collection, *Page, error) {
+	defer PagesChanged()
+	if item.Kind != "collection" || !strings.HasPrefix(p.Dir, item.Dir+string(filepath.Separator)) {
+		return nil, nil, errors.New(p.Title + " is not in that collection in the trash")
+	}
+	var coll *Collection
+	for _, c := range l.Collections {
+		if !c.Journal && !c.Dynamic() {
+			coll = c
+			break
+		}
+	}
+	if coll == nil {
+		return nil, nil, errors.New("no collection to put the page back in")
+	}
+	return l.restorePage(&TrashItem{Kind: "page", Title: p.Title, From: filepath.Base(p.Dir), Dir: p.Dir}, coll, nil)
+}
+
+// restorePage moves the page folder of item into coll, under parent or at its top, and reads it there.
+func (l *Library) restorePage(item *TrashItem, coll *Collection, parent *Page) (*Collection, *Page, error) {
 	if parent != nil && !coll.SubPages {
 		parent = nil
 	}

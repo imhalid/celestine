@@ -97,3 +97,44 @@ func TestTrashedPages(t *testing.T) {
 		t.Fatalf("trashed pages %v", titles)
 	}
 }
+
+// TestRestoreOutOfTrashedCollection: a page of a collection in the trash comes back alone, its sub-pages and text
+// with it, to a collection that takes pages; the collection stays in the trash without it (#481).
+func TestRestoreOutOfTrashedCollection(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	inbox, _ := lib.NewCollection("Inbox")
+	notes, _ := lib.NewCollection("Notes")
+	a, _ := notes.NewPage(nil, "A")
+	a.SaveText("bir\n")
+	notes.NewPage(a, "A child")
+	notes.NewPage(nil, "B")
+	item, err := lib.TrashCollection(notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trashed := lib.TrashedPages(item)
+	coll, p, err := lib.RestoreOutOf(item, trashed[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if coll != inbox || p.Title != "A" || len(p.Children) != 1 || p.Coll != inbox {
+		t.Fatalf("back: %v %+v", coll.Name, p)
+	}
+	if body, _ := p.Text(); body != "bir\n" {
+		t.Fatalf("its text: %q", body)
+	}
+	left := lib.TrashedPages(item)
+	if len(left) != 1 || left[0].Title != "B" || len(lib.Trash()) != 1 {
+		t.Fatalf("left in the trash: %d pages, %d items", len(left), len(lib.Trash()))
+	}
+	again, _ := OpenLibrary(lib.Root)
+	if len(again.Collections) != 1 || len(again.Collections[0].Pages) != 1 {
+		t.Fatal("not on the disk")
+	}
+	if _, _, err := lib.RestoreOutOf(item, p); err == nil {
+		t.Fatal("a page out of the trash was taken for one in it")
+	}
+}

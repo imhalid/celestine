@@ -1628,6 +1628,8 @@
   "@trash_moved": {"placeholders": {"page": {"type": "String"}}},
   "trash_restored": "Restored “{page}”",
   "@trash_restored": {"placeholders": {"page": {"type": "String"}}},
+  "trash_restoreAlone": "Restore “{page}” without its collection",
+  "@trash_restoreAlone": {"placeholders": {"page": {"type": "String"}}},
   "trash_thrownAway": "{from}  ·  deleted {when}",
   "@trash_thrownAway": {"placeholders": {"from": {"type": "String"}, "when": {"type": "String"}}},
   "trash_thrownAwayPagesCollections": "Deleted pages and collections stay here for 30 days, then they're deleted for good. Restore one to put it back where it was.",
