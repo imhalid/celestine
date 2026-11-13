@@ -405,8 +405,8 @@ func TestSiteShots(t *testing.T) {
 				a.noSound = true
 				a.clock = func() time.Time { return siteDay }
 				a.settings.Theme = map[string]int{"light": 1, "dark": 2}[theme]
-				a.settings.NoLapse = true       // words colored by day only in the picture of the time-lapse
-				a.settings.NoSidebarCard = true // the sidebar lies on the frame's ground, with no card of its own
+				a.settings.NoLapse = true      // words colored by day only in the picture of the time-lapse
+				a.settings.SidebarCard = false // the sidebar lies on the frame's ground, with no card of its own
 				tt := ui.NewTester(a.view, shotW, shotH)
 				tt.SetScale(workScale)
 				a.clipRead = tt.Clipboard

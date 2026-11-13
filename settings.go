@@ -371,15 +371,27 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	a.settingsMotion(c) // reduce motion, the shader effects (motion.go)
 	a.settingsWaves(c)
-	card := !a.settings.NoSidebarCard
+	card := a.settings.SidebarCard
 	settingGroup(c, "set-sidebar-card", func() {
 		settingRow(c, locales.SettingsSidebarCard(), locales.SettingsSidebarCardHelp(), func() {
 			ryugo.Switch(c.Key("set-sidebar-card-sw"), &card, ryugo.SwitchOptions{}).Label(locales.SettingsSidebarCard())
 		})
 	})
-	if card == a.settings.NoSidebarCard {
-		a.settings.NoSidebarCard = !card
+	if card != a.settings.SidebarCard {
+		a.settings.SidebarCard = card
 		a.saveSettings()
+	}
+	name := a.settings.SidebarName
+	settingGroup(c, "set-sidebar-name", func() {
+		settingRow(c, locales.SettingsSidebarName(), locales.SettingsSidebarNameHelp(), func() {
+			ui.Box(c).Width(220).Children(func() {
+				a.fieldMenu(ryugo.Input(c.Key("set-sidebar-name-in"), &name, ryugo.InputOptions{Label: locales.SettingsSidebarName(), Placeholder: locales.SettingsSidebarNamePlaceholder(), Size: ryugo.Sm}), &name, fieldOpts{oneLine: true})
+			})
+		})
+	})
+	if name != a.settings.SidebarName {
+		a.settings.SidebarName = name
+		a.saveSettingsSoon()
 	}
 	if runtime.GOOS == "darwin" {
 		glassOn := a.settings.Glass

@@ -10229,6 +10229,38 @@ func (msgs Messages) SettingsSidebarCardHelp() string {
 	return Catalog.Format(msgs.locale, "settings_sidebarCardHelp", nil)
 }
 
+// SettingsSidebarName says "Sidebar name"
+// in the language the app shows.
+func SettingsSidebarName() string { return In(i18n.Locale()).SettingsSidebarName() }
+
+// SettingsSidebarName says "Sidebar name"
+// in the language of msgs.
+func (msgs Messages) SettingsSidebarName() string {
+	return Catalog.Format(msgs.locale, "settings_sidebarName", nil)
+}
+
+// SettingsSidebarNameHelp says "A name over the list of collections. Empty, there is none."
+// in the language the app shows.
+func SettingsSidebarNameHelp() string { return In(i18n.Locale()).SettingsSidebarNameHelp() }
+
+// SettingsSidebarNameHelp says "A name over the list of collections. Empty, there is none."
+// in the language of msgs.
+func (msgs Messages) SettingsSidebarNameHelp() string {
+	return Catalog.Format(msgs.locale, "settings_sidebarNameHelp", nil)
+}
+
+// SettingsSidebarNamePlaceholder says "None"
+// in the language the app shows.
+func SettingsSidebarNamePlaceholder() string {
+	return In(i18n.Locale()).SettingsSidebarNamePlaceholder()
+}
+
+// SettingsSidebarNamePlaceholder says "None"
+// in the language of msgs.
+func (msgs Messages) SettingsSidebarNamePlaceholder() string {
+	return Catalog.Format(msgs.locale, "settings_sidebarNamePlaceholder", nil)
+}
+
 // SettingsAPressedButtonSends says "Buttons ripple out from where you press them. Off when Reduce motion is on in your system settings."
 // in the language the app shows.
 func SettingsAPressedButtonSends() string { return In(i18n.Locale()).SettingsAPressedButtonSends() }
@@ -11187,16 +11219,6 @@ func SidebarCollapseAll() string { return In(i18n.Locale()).SidebarCollapseAll()
 // in the language of msgs.
 func (msgs Messages) SidebarCollapseAll() string {
 	return Catalog.Format(msgs.locale, "sidebar_collapseAll", nil)
-}
-
-// SidebarCollections says "COLLECTIONS"
-// in the language the app shows.
-func SidebarCollections() string { return In(i18n.Locale()).SidebarCollections() }
-
-// SidebarCollections says "COLLECTIONS"
-// in the language of msgs.
-func (msgs Messages) SidebarCollections() string {
-	return Catalog.Format(msgs.locale, "sidebar_collections", nil)
 }
 
 // SidebarIfYouTypeName says "If you use the name of an existing tag, the two are merged, and the #tags in your pages are updated."

@@ -80,8 +80,9 @@ func (a *app) restoreOutOf(item *TrashItem, p *Page) {
 	a.say(toastOK, locales.TrashRestored(p.Title))
 }
 
-// trashRow is the trash's row at the foot of the sidebar, with how much is in it.
-func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they scroll with it
+// trashRow is the foot of the sidebar, under its list: the tasks and the trash side by side, each with how much is in
+// it. It stays at the bottom, as short as the list is (#489).
+func (a *app) trashRow(c *ui.Context) {
 	t := c.Theme()
 	if a.trashItems == nil {
 		a.loadTrash()
@@ -89,17 +90,16 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 			a.trashItems = []*TrashItem{}
 		}
 	}
-	ui.Box(c.Key("nav-divider")).Height(1).Background(t.Border.Alpha(0.6)).Margin(12, 12, 0, 12)
-	a.tasksRow(c)
-	ui.Row(c).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-		c.Key("trash-row")
-		r := ui.Row(c).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
+	ui.Box(c.Key("nav-divider")).Height(1).Background(t.Border.Alpha(0.6)).Margin(0, 12, 0, 12)
+	ui.Row(c.Key("trash-row")).Padding(6, 8, 10, 8).Gap(4).AlignItems(ui.Center).Children(func() {
+		a.tasksRow(c)
+		r := ui.Row(c.Key("trash-btn")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTrash()).Role(ui.RoleButton).Transition(rowMove)
 		st := navRowState(a.trashOpen, r.Hovered())
 		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(iconC)
-			ui.Text(c, locales.CommonTrash()).FontSize(14).TextColor(textC).Grow(1)
+			ui.Text(c, locales.CommonTrash()).FontSize(14).TextColor(textC).MaxLines(1).Grow(1).MinWidth(0)
 			if n := len(a.trashItems); n > 0 {
 				ryugo.Badge(c, strconv.Itoa(n), ryugo.ToneNeutral)
 			}
@@ -108,7 +108,6 @@ func (a *app) trashRow(c *ui.Context) { // after the tasks, in the list: they sc
 		if r.Clicked() {
 			a.openTrash()
 		}
-		r.Grow(1)
 	})
 }
 
@@ -212,7 +211,7 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 	})
 }
 
-// tasksRow is the task view's row, above the trash's, with how many tasks are late
+// tasksRow is the task view's button, beside the trash's, with how many tasks are late
 // or due today: thousands open say nothing, a day's say what is to be done.
 // navRowState is the state of a row of the sidebar that opens a screen (Tasks, Trash): open while it shows.
 func navRowState(open, hovered bool) rowState {
@@ -237,14 +236,14 @@ func (a *app) tasksRow(c *ui.Context) {
 			today++
 		}
 	}
-	ui.Row(c.Key("tasks-row-wrap")).Padding(6, 8, 0, 8).Children(func() {
-		r := ui.Row(c.Key("tasks-row")).FillWidth().Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
+	{
+		r := ui.Row(c.Key("tasks-row")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTasks()).Role(ui.RoleButton).Transition(rowMove)
 		st := navRowState(a.tasksOpen, r.Hovered())
 		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(iconC)
-			ui.Text(c, locales.CommonTasks()).FontSize(14).TextColor(textC).Grow(1)
+			ui.Text(c, locales.CommonTasks()).FontSize(14).TextColor(textC).MaxLines(1).Grow(1).MinWidth(0)
 			switch {
 			case late > 0:
 				ryugo.Badge(c.Key("due-badge"), strconv.Itoa(late+today), ryugo.ToneUp)
@@ -256,7 +255,7 @@ func (a *app) tasksRow(c *ui.Context) {
 		if r.Clicked() {
 			a.openTasks()
 		}
-	})
+	}
 }
 
 // deleteForever asks, then deletes item from the trash for good: a page and its sub-pages, or a collection, with no

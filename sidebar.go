@@ -101,8 +101,8 @@ func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
 }
 
 // sideOnGround reports whether the sidebar lies on the window frame's ground without a card of its own: in the
-// frame, when the settings say so (NoSidebarCard).
-func (a *app) sideOnGround() bool { return a.wframe.on && a.settings.NoSidebarCard }
+// frame, unless the settings give it a card (SidebarCard): a card behind it looked heavy (#489).
+func (a *app) sideOnGround() bool { return a.wframe.on && !a.settings.SidebarCard }
 
 func (a *app) toggleSidebar() {
 	a.sidebarClosed = !a.sidebarClosed
@@ -129,7 +129,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 		sideAlpha = 0.42
 	}
 	switch {
-	case a.sideOnGround(): // no card: it lies on the frame's ground (NoSidebarCard)
+	case a.sideOnGround(): // no card: it lies on the frame's ground
 	case a.wframe.on: // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
 		frameCard(c, sb, t.Surface.Alpha(sideAlpha), rad(frameR), 1)
 	default:
@@ -189,7 +189,12 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			}
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, locales.SidebarCollections()).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(t.TextMuted).Grow(1)
+					// no COLLECTIONS over the list: a name of the user's own, if they gave one (#489)
+					if name := strings.TrimSpace(a.settings.SidebarName); name != "" {
+						ui.Text(c, name).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(t.TextMuted).MaxLines(1).Grow(1)
+					} else {
+						ui.Spacer(c)
+					}
 					if a.iconButton(c, iconCollapseAll, locales.SidebarCollapseAll()) {
 						a.collapseAll()
 					}
@@ -225,10 +230,10 @@ func (a *app) sidebar(c *ui.Context) float32 {
 							}
 						}
 					})
-					a.trashRow(c) // the tasks and the trash: the end of the list, not fixed under it
 					a.aim()
 					a.ghost(c)
 				})
+				a.trashRow(c) // the tasks and the trash, side by side, at the bottom whatever the list's length (#489)
 			})
 		})
 	})

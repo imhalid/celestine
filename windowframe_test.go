@@ -142,8 +142,8 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	if !ownWindowControls && a.sidebarR.Y != a.panesR.Y {
 		t.Fatalf("sidebar card top (%v) != pane card top (%v)", a.sidebarR.Y, a.panesR.Y)
 	}
-	if collHdr, ok := tt.Find(locales.SidebarCollections()); ok && rectsOverlap(topLeft, collHdr) {
-		t.Fatalf("top-left chrome %+v overlaps sidebar Collections header %+v", topLeft, collHdr)
+	if collHdr, ok := tt.Find(locales.SidebarCollapseAll()); ok && rectsOverlap(topLeft, collHdr) {
+		t.Fatalf("top-left chrome %+v overlaps the sidebar's head %+v", topLeft, collHdr)
 	}
 	a.toggleSidebar()
 	tt.Advance(1200 * time.Millisecond)

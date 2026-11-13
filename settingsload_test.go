@@ -70,14 +70,14 @@ func TestPressWavesSetting(t *testing.T) {
 	}
 }
 
-// TestSidebarCardSetting: in the window's frame the sidebar is a card, and the setting of its background takes the
-// card away, leaving it on the frame's ground (#381).
+// TestSidebarCardSetting: in the window's frame the sidebar lies on the frame's ground, and the setting of its
+// background gives it a card (#381, #489).
 func TestSidebarCardSetting(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1000+2*frameW+frameGap, 2400)
 	tt.Advance(100 * time.Millisecond)
-	if !a.wframe.on || a.sideOnGround() || a.settings.NoSidebarCard {
-		t.Fatalf("framed %v, on the ground %v, no card %v", a.wframe.on, a.sideOnGround(), a.settings.NoSidebarCard)
+	if !a.wframe.on || !a.sideOnGround() || a.settings.SidebarCard {
+		t.Fatalf("framed %v, on the ground %v, card %v", a.wframe.on, a.sideOnGround(), a.settings.SidebarCard)
 	}
 	a.settingsOpen, a.settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
@@ -85,13 +85,13 @@ func TestSidebarCardSetting(t *testing.T) {
 	if !ok {
 		t.Fatal("no Sidebar background row")
 	}
-	for dy := float32(0); dy <= 40 && !a.settings.NoSidebarCard; dy += 8 {
-		for x := float32(990); x > title.X+title.W && !a.settings.NoSidebarCard; x -= 6 {
+	for dy := float32(0); dy <= 40 && !a.settings.SidebarCard; dy += 8 {
+		for x := float32(990); x > title.X+title.W && !a.settings.SidebarCard; x -= 6 {
 			tt.ClickAt(x, title.Y+title.H/2+dy)
 			tt.Advance(50 * time.Millisecond)
 		}
 	}
-	if !a.settings.NoSidebarCard || !a.sideOnGround() {
-		t.Fatalf("the switch: no card %v, on the ground %v", a.settings.NoSidebarCard, a.sideOnGround())
+	if !a.settings.SidebarCard || a.sideOnGround() {
+		t.Fatalf("the switch: card %v, on the ground %v", a.settings.SidebarCard, a.sideOnGround())
 	}
 }
