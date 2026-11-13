@@ -383,6 +383,9 @@ func TestFrameTabLongTitleMiddleTruncates(t *testing.T) {
 // its height every frame, so nothing in it moves and its scroll bar does not show (#450): the cards' top edges change
 // at once, not on the tabs' spring, which the Dock would follow a frame late.
 func TestSplitKeepsThePaneStill(t *testing.T) {
+	if ownWindowControls { // the cards rise only beside macOS's own window buttons: elsewhere the frame is as it was
+		t.Skip("the window draws its own controls: the cards do not rise")
+	}
 	a, tt := newTestApp(t, longPage())
 	tt.SetSize(900, 600)
 	a.wframe.on = true
