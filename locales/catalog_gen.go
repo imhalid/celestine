@@ -10281,6 +10281,38 @@ func (msgs Messages) SettingsEscNormalHelp() string {
 	return Catalog.Format(msgs.locale, "settings_escNormalHelp", nil)
 }
 
+// SettingsResetThis says "Reset “{setting}”"
+// in the language the app shows.
+func SettingsResetThis(setting string) string { return In(i18n.Locale()).SettingsResetThis(setting) }
+
+// SettingsResetThis says "Reset “{setting}”"
+// in the language of msgs.
+func (msgs Messages) SettingsResetThis(setting string) string {
+	return Catalog.Format(msgs.locale, "settings_resetThis", map[string]any{"setting": setting})
+}
+
+// SettingsProfileInUse says "In use"
+// in the language the app shows.
+func SettingsProfileInUse() string { return In(i18n.Locale()).SettingsProfileInUse() }
+
+// SettingsProfileInUse says "In use"
+// in the language of msgs.
+func (msgs Messages) SettingsProfileInUse() string {
+	return Catalog.Format(msgs.locale, "settings_profileInUse", nil)
+}
+
+// SettingsApplyProfile says "Apply “{profile}”"
+// in the language the app shows.
+func SettingsApplyProfile(profile string) string {
+	return In(i18n.Locale()).SettingsApplyProfile(profile)
+}
+
+// SettingsApplyProfile says "Apply “{profile}”"
+// in the language of msgs.
+func (msgs Messages) SettingsApplyProfile(profile string) string {
+	return Catalog.Format(msgs.locale, "settings_applyProfile", map[string]any{"profile": profile})
+}
+
 // SettingsAPressedButtonSends says "Buttons ripple out from where you press them. Off when Reduce motion is on in your system settings."
 // in the language the app shows.
 func SettingsAPressedButtonSends() string { return In(i18n.Locale()).SettingsAPressedButtonSends() }
@@ -10299,26 +10331,6 @@ func SettingsAllCornersAreWorked() string { return In(i18n.Locale()).SettingsAll
 // in the language of msgs.
 func (msgs Messages) SettingsAllCornersAreWorked() string {
 	return Catalog.Format(msgs.locale, "settings_allCornersAreWorked", nil)
-}
-
-// SettingsAllPlainFilesThey says "All plain files, so you can open them in other editors too."
-// in the language the app shows.
-func SettingsAllPlainFilesThey() string { return In(i18n.Locale()).SettingsAllPlainFilesThey() }
-
-// SettingsAllPlainFilesThey says "All plain files, so you can open them in other editors too."
-// in the language of msgs.
-func (msgs Messages) SettingsAllPlainFilesThey() string {
-	return Catalog.Format(msgs.locale, "settings_allPlainFilesThey", nil)
-}
-
-// SettingsAllThisOneFile says "Everything is in this one file, including settings and the MCP key. To take it with you, just copy the file along wit…"
-// in the language the app shows.
-func SettingsAllThisOneFile() string { return In(i18n.Locale()).SettingsAllThisOneFile() }
-
-// SettingsAllThisOneFile says "Everything is in this one file, including settings and the MCP key. To take it with you, just copy the file along wit…"
-// in the language of msgs.
-func (msgs Messages) SettingsAllThisOneFile() string {
-	return Catalog.Format(msgs.locale, "settings_allThisOneFile", nil)
 }
 
 // SettingsAlreadyDefault says "{setting} is already at its default ({value})"
@@ -10473,16 +10485,6 @@ func (msgs Messages) SettingsFocusParagraph() string {
 	return Catalog.Format(msgs.locale, "settings_focusParagraph", nil)
 }
 
-// SettingsFollowsSystemsLookOr says "Match the system, or stay light or dark."
-// in the language the app shows.
-func SettingsFollowsSystemsLookOr() string { return In(i18n.Locale()).SettingsFollowsSystemsLookOr() }
-
-// SettingsFollowsSystemsLookOr says "Match the system, or stay light or dark."
-// in the language of msgs.
-func (msgs Messages) SettingsFollowsSystemsLookOr() string {
-	return Catalog.Format(msgs.locale, "settings_followsSystemsLookOr", nil)
-}
-
 // SettingsGoLabel says "Go to {setting}"
 // in the language the app shows.
 func SettingsGoLabel(setting string) string { return In(i18n.Locale()).SettingsGoLabel(setting) }
@@ -10521,18 +10523,6 @@ func SettingsKey() string { return In(i18n.Locale()).SettingsKey() }
 // in the language of msgs.
 func (msgs Messages) SettingsKey() string {
 	return Catalog.Format(msgs.locale, "settings_key", nil)
-}
-
-// SettingsLibraryCounts says "{collections, plural, one {# collection} other {# collections}}, {pages, plural, one {# page} other {# pages}}"
-// in the language the app shows.
-func SettingsLibraryCounts(collections int, pages int) string {
-	return In(i18n.Locale()).SettingsLibraryCounts(collections, pages)
-}
-
-// SettingsLibraryCounts says "{collections, plural, one {# collection} other {# collections}}, {pages, plural, one {# page} other {# pages}}"
-// in the language of msgs.
-func (msgs Messages) SettingsLibraryCounts(collections int, pages int) string {
-	return Catalog.Format(msgs.locale, "settings_libraryCounts", map[string]any{"collections": collections, "pages": pages})
 }
 
 // SettingsMakeNewKey says "Make a new key"
@@ -14267,16 +14257,6 @@ func (msgs Messages) ThemeAndThePagesWidth() string {
 	return Catalog.Format(msgs.locale, "themeAndThePagesWidth", nil)
 }
 
-// ThemesColorHelp says "The color of the whole interface: page, sidebar, fields, lines and accent. {theme} is selected."
-// in the language the app shows.
-func ThemesColorHelp(theme string) string { return In(i18n.Locale()).ThemesColorHelp(theme) }
-
-// ThemesColorHelp says "The color of the whole interface: page, sidebar, fields, lines and accent. {theme} is selected."
-// in the language of msgs.
-func (msgs Messages) ThemesColorHelp(theme string) string {
-	return Catalog.Format(msgs.locale, "themes_colorHelp", map[string]any{"theme": theme})
-}
-
 // ThemesScrollBar says "Scroll bar"
 // in the language the app shows.
 func ThemesScrollBar() string { return In(i18n.Locale()).ThemesScrollBar() }
@@ -14775,14 +14755,34 @@ func (msgs Messages) UpdateBadgeReady() string {
 	return Catalog.Format(msgs.locale, "update_badgeReady", nil)
 }
 
-// UpdateCannotCheck says "This build can't check for updates."
+// UpdateCannotCheck says "This build was made by hand, without an update address: new versions are on the releases page."
 // in the language the app shows.
 func UpdateCannotCheck() string { return In(i18n.Locale()).UpdateCannotCheck() }
 
-// UpdateCannotCheck says "This build can't check for updates."
+// UpdateCannotCheck says "This build was made by hand, without an update address: new versions are on the releases page."
 // in the language of msgs.
 func (msgs Messages) UpdateCannotCheck() string {
 	return Catalog.Format(msgs.locale, "update_cannotCheck", nil)
+}
+
+// UpdateLocalBuild says "Version {version}, a local build: it does not check for updates. New versions are on the releases page."
+// in the language the app shows.
+func UpdateLocalBuild(version string) string { return In(i18n.Locale()).UpdateLocalBuild(version) }
+
+// UpdateLocalBuild says "Version {version}, a local build: it does not check for updates. New versions are on the releases page."
+// in the language of msgs.
+func (msgs Messages) UpdateLocalBuild(version string) string {
+	return Catalog.Format(msgs.locale, "update_localBuild", map[string]any{"version": version})
+}
+
+// UpdateReleases says "Releases"
+// in the language the app shows.
+func UpdateReleases() string { return In(i18n.Locale()).UpdateReleases() }
+
+// UpdateReleases says "Releases"
+// in the language of msgs.
+func (msgs Messages) UpdateReleases() string {
+	return Catalog.Format(msgs.locale, "update_releases", nil)
 }
 
 // UpdateChangelog says "Read the full changelog"
@@ -16185,14 +16185,14 @@ func (msgs Messages) SettingsGlassHelp() string {
 	return Catalog.Format(msgs.locale, "settings_glassHelp", nil)
 }
 
-// SettingsGlassRestart says "Turned on, it shows after the app is restarted; turned off, it goes at once."
+// SettingsNeedsRestart says "Needs a restart"
 // in the language the app shows.
-func SettingsGlassRestart() string { return In(i18n.Locale()).SettingsGlassRestart() }
+func SettingsNeedsRestart() string { return In(i18n.Locale()).SettingsNeedsRestart() }
 
-// SettingsGlassRestart says "Turned on, it shows after the app is restarted; turned off, it goes at once."
+// SettingsNeedsRestart says "Needs a restart"
 // in the language of msgs.
-func (msgs Messages) SettingsGlassRestart() string {
-	return Catalog.Format(msgs.locale, "settings_glassRestart", nil)
+func (msgs Messages) SettingsNeedsRestart() string {
+	return Catalog.Format(msgs.locale, "settings_needsRestart", nil)
 }
 
 // CommonInvalidAttachmentName says "Invalid attachment name: {name}"

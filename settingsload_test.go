@@ -95,3 +95,23 @@ func TestSidebarCardSetting(t *testing.T) {
 		t.Fatalf("the switch: card %v, on the ground %v", a.settings.SidebarCard, a.sideOnGround())
 	}
 }
+
+// TestSettingResetIcon: a setting not as it came has an icon beside its name that puts it back; one as it came has
+// none (#497).
+func TestSettingResetIcon(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1100, 4600)
+	a.settings.ShowSpaces = true
+	a.settingsOpen, a.settingsTab = true, 1
+	tt.Advance(900 * time.Millisecond)
+	if _, ok := tt.Find(locales.SettingsResetThis(msg("showTabs"))); ok {
+		t.Fatal("a reset icon on a setting as it came")
+	}
+	if err := tt.Click(locales.SettingsResetThis(msg("showSpaces"))); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(100 * time.Millisecond)
+	if a.settings.ShowSpaces {
+		t.Fatal("not put back")
+	}
+}

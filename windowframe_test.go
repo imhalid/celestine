@@ -298,12 +298,13 @@ func TestGlassSyncAndToggle(t *testing.T) {
 		t.Fatalf("expected empty glassTint outside darwin, got %q", a.glassTint)
 	}
 
-	// Settings shows the Liquid Glass restart note only on darwin.
+	// Settings shows the Liquid Glass restart badge only on darwin, Glass turned on since the window was made (#497).
+	a.settings.Glass, a.glassAtLaunch = true, false
 	a.settingsTab = 0
 	a.openSettings()
 	tt.SetSize(900, 1400)
 	tt.Advance(200 * time.Millisecond)
-	if hasNote := tt.HasText(locales.SettingsGlassRestart()); runtime.GOOS == "darwin" && !hasNote {
+	if hasNote := tt.HasText(locales.SettingsNeedsRestart()); runtime.GOOS == "darwin" && !hasNote {
 		t.Fatalf("missing Liquid Glass restart note in Settings (has glass=%v)", tt.HasText(locales.SettingsGlass()))
 	} else if runtime.GOOS != "darwin" && hasNote {
 		t.Fatal("unexpected Liquid Glass restart note outside darwin")

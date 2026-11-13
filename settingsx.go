@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -496,28 +498,14 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 
 func (a *app) settingsProfiles(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	var rows []func()
-	for _, n := range a.profileNames() {
-		n := n
-		_, mine := a.settings.Profiles[n]
-		rows = append(rows, func() {
-			help := locales.SettingsBuiltProfile()
-			if mine {
-				help = locales.SettingsSavedProfile()
+	// a card for each, told apart by its color and letter, saying what it changes and whether it is on now (#497)
+	settingGroup(c, "set-profiles", func() {
+		ui.Row(c).FillWidth().Wrap().Gap(12).AlignItems(ui.Start).Children(func() {
+			for _, n := range a.profileNames() {
+				a.profileCard(c, cl, n)
 			}
-			settingRow(c, msg(n), help, func() {
-				ui.Row(c).Gap(6).Children(func() {
-					if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
-						a.applyProfile(n) // its notice, with Undo, is its own
-					}
-					if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-						a.deleteProfile(n)
-					}
-				})
-			})
 		})
-	}
-	settingGroup(c, "set-profiles", rows...)
+	})
 	settingGroup(c, "set-profile-new", func() {
 		settingRow(c, locales.SettingsSaveCurrentLookAs(), locales.SettingsThemeColorTypefacesSizes(), func() {
 			ui.Row(c).Gap(6).Children(func() {
@@ -527,6 +515,123 @@ func (a *app) settingsProfiles(c *ui.Context) {
 					a.profName = ""
 				}
 			})
+		})
+	})
+}
+
+// profileOf is the values profile name sets: the user's of that name, else the built-in one.
+func (a *app) profileOf(name string) map[string]any {
+	if p, ok := a.settings.Profiles[name]; ok {
+		return p
+	}
+	return builtinProfiles[name]
+}
+
+// profileChanges is what a profile sets, in words, a few: each value by its setting's name.
+func profileChanges(prof map[string]any) []string {
+	byField := map[string]settingDef{}
+	for _, d := range settingDefs() {
+		for _, f := range d.fields {
+			byField[f] = d
+		}
+	}
+	keys := make([]string, 0, len(prof))
+	for k := range prof {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var out []string
+	for _, k := range keys {
+		d, ok := byField[k]
+		if !ok {
+			continue
+		}
+		switch v := prof[k].(type) {
+		case bool:
+			if v != (d.kind == setToggle && strings.HasPrefix(k, "no")) { // a "no…" field set false is the thing on
+				out = append(out, msg(d.name))
+			}
+		case float64:
+			out = append(out, msg(d.name)+" "+d.fmt(v))
+		case int:
+			out = append(out, msg(d.name)+" "+d.fmt(float64(v)))
+		}
+	}
+	return out
+}
+
+// profileOn reports whether every value profile prof sets is the setting's now.
+func (a *app) profileOn(prof map[string]any) bool {
+	data, _ := json.Marshal(a.settings)
+	var now map[string]any
+	json.Unmarshal(data, &now)
+	for k, v := range prof {
+		got, ok := now[k]
+		if !ok { // left out of the file: its zero
+			switch v.(type) {
+			case bool:
+				got = false
+			default:
+				got = 0.0
+			}
+		}
+		if fmt.Sprint(got) != fmt.Sprint(v) {
+			return false
+		}
+	}
+	return len(prof) > 0
+}
+
+// profileCard is profile n: its letter in its color, its name, whether it is on, what it changes, and its buttons.
+func (a *app) profileCard(c *ui.Context, cl ryugo.Colors, n string) {
+	prof := a.profileOf(n)
+	_, mine := a.settings.Profiles[n]
+	name := msg(n)
+	tone := columnTone(c, name)
+	on := a.profileOn(prof)
+	card := ui.Column(c.Key("prof:"+n)).Width(236).Gap(10).Padding(14).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline)
+	if on {
+		card.Border(1.5, tone)
+	}
+	card.Children(func() {
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			letter := "·"
+			if r := []rune(strings.TrimSpace(name)); len(r) > 0 {
+				letter = strings.ToUpper(string(r[0]))
+			}
+			ui.Box(c).Size(30, 30).Radius(rad(9)).Center().Background(tone.Alpha(0.16)).Children(func() {
+				ui.Text(c, letter).FontSize(15).FontWeight(700).TextColor(tone)
+			})
+			ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
+				ui.Text(c, name).FontSize(14.5).FontWeight(640).TextColor(cl.Text).MaxLines(1)
+				kind := locales.SettingsBuiltProfile()
+				if mine {
+					kind = locales.SettingsSavedProfile()
+				}
+				ui.Text(c, kind).FontSize(ryugo.FsXs).TextColor(cl.Muted).MaxLines(1)
+			})
+			if on {
+				ryugo.Badge(c.Key("on"), locales.SettingsProfileInUse(), ryugo.ToneDown)
+			}
+		})
+		ui.Row(c).Wrap().Gap(5).Children(func() {
+			changes := profileChanges(prof)
+			for i, ch := range changes {
+				if i == 6 {
+					ryugo.Badge(c.Key("more"), "+"+strconv.Itoa(len(changes)-6), ryugo.ToneNeutral)
+					break
+				}
+				ryugo.Badge(c.Key(i), ch, ryugo.ToneNeutral)
+			}
+		})
+		ui.Row(c).Gap(6).Children(func() {
+			if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).
+				Label(locales.SettingsApplyProfile(name)).Clicked() {
+				a.applyProfile(n) // its notice, with Undo, is its own
+			}
+			if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+				a.deleteProfile(n)
+			}
 		})
 	})
 }

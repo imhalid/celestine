@@ -366,14 +366,10 @@ func TestProfileNoticeSaysItsName(t *testing.T) {
 	tt.Frame()
 	before := len(a.toasts.items)
 	a.notice = ""
-	// Compact's Apply: its row's name, where the first row's Apply is beside the first row's name
-	first, ok1 := tt.Find(msg("code"))
-	apply, ok2 := tt.Find(locales.CommonApply())
-	compact, ok3 := tt.Find(msg("settings_profileCompact"))
-	if !ok1 || !ok2 || !ok3 {
-		t.Fatalf("the profiles are not listed: %v", tt.Texts())
+	// Compact's Apply, on its card
+	if err := tt.Click(locales.SettingsApplyProfile(msg("settings_profileCompact"))); err != nil {
+		t.Fatalf("the profiles are not listed: %v %v", err, tt.Texts())
 	}
-	tt.ClickAt(apply.X+apply.W/2, compact.Y+(apply.Y-first.Y)+apply.H/2)
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
 	added := a.toasts.items[before:]

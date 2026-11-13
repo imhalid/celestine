@@ -41,6 +41,9 @@ var (
 	updateKey = ""
 )
 
+// releasesPage is where the versions are, for a build that cannot check for them itself.
+const releasesPage = "https://github.com/imhalid/celestine/releases"
+
 // A Release is the manifest.
 type Release struct {
 	Version string           `json:"version"`

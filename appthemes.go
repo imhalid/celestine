@@ -217,10 +217,7 @@ func (a *app) appThemePicker(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	dark := ryugo.From(c).Dark
 	ui.Column(c).Gap(14).Children(func() {
-		ui.Column(c).Gap(3).Children(func() {
-			ui.Text(c, locales.CommonColorTheme()).FontSize(15).FontWeight(620).TextColor(cl.Text)
-			ui.Text(c, locales.ThemesColorHelp(msg(a.appTheme().name))).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-		})
+		settingTitle(c, cl, locales.CommonColorTheme()) // the tiles say what each is: no line under it (#497)
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for i, th := range appThemes {
 				p := th.colors(dark)

@@ -108,6 +108,15 @@ func (a *app) closeSettings() {
 // in groups. A setting changed is seen at once, as the window it is made in is the window.
 func (a *app) settingsScreen(c *ui.Context) {
 	cl := ryugo.From(c).Colors
+	rowReset = a.rowResets() // each row of a setting not as it came gets its way back (settingRow)
+	defer func() {
+		rowReset = nil
+		if run := rowResetRun; run != nil { // after the rows: a row that wrote its control's value back would undo it
+			rowResetRun = nil
+			run()
+			c.Invalidate()
+		}
+	}()
 	ui.Row(c).Fill().MaxWidth(viewMax).Gap(20).AlignItems(ui.Stretch).Children(func() {
 		if !phone { // on a phone the sections are a row of chips over the section (settingsChips)
 			a.settingsNav(c)
@@ -249,11 +258,51 @@ func settingRow(c *ui.Context, title, help string, control func()) {
 // settingNarrow is the width under which a setting's control goes under its name.
 const settingNarrow = 430
 
+// rowReset is, while the settings screen is built, the way back to its default of each setting that is not as it
+// came, by the title its row shows: a small icon beside that title runs it (#497).
+var rowReset map[string]func()
+
+// rowResetRun is the way back clicked in this frame, run once the screen is built.
+var rowResetRun func()
+
+// rowResets are the ways back of the settings that are changed now, by their titles as shown.
+func (a *app) rowResets() map[string]func() {
+	out := map[string]func(){}
+	for _, d := range a.changedDefs() {
+		d := d
+		out[msg(d.name)] = func() { d.reset(a) }
+	}
+	return out
+}
+
+// settingTitle is a setting's name, with the icon that puts it back to its default when it is not as it came.
+func settingTitle(c *ui.Context, cl ryugo.Colors, title string) {
+	reset := rowReset[title]
+	if reset == nil {
+		ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+		return
+	}
+	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+		b := ui.Box(c.Key("reset:"+title)).Size(20, 20).Radius(rad(6)).Center().Role(ui.RoleButton).Cursor(ui.CursorPointer).
+			Label(locales.SettingsResetThis(title)).Tooltip(locales.SettingsResetThis(title))
+		ink := cl.Muted
+		if b.Hovered() {
+			b.Background(cl.Fill)
+			ink = cl.Text
+		}
+		b.Children(func() { ui.Icon(c, iconRestore).Width(13).Height(13).TextColor(ink) })
+		if b.Clicked() {
+			rowResetRun = reset
+		}
+	})
+}
+
 func settingRowIn(c *ui.Context, cl ryugo.Colors, title, help string, narrow bool, control func()) {
 	if narrow {
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
 			ui.Column(c).FillWidth().Gap(3).Children(func() {
-				ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+				settingTitle(c, cl, title)
 				if help != "" {
 					ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				}
@@ -264,7 +313,7 @@ func settingRowIn(c *ui.Context, cl ryugo.Colors, title, help string, narrow boo
 	}
 	ui.Row(c).Gap(20).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-			ui.Text(c, title).FontSize(15).FontWeight(620).TextColor(cl.Text)
+			settingTitle(c, cl, title)
 			if help != "" {
 				ui.Text(c, help).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 			}
@@ -322,10 +371,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-theme",
 		func() {
 			ui.Column(c).Gap(14).Children(func() {
-				ui.Column(c).Gap(3).Children(func() {
-					ui.Text(c, locales.CommonTheme()).FontSize(15).FontWeight(620).TextColor(cl.Text)
-					ui.Text(c, locales.SettingsFollowsSystemsLookOr()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-				})
+				settingTitle(c, cl, locales.CommonTheme()) // the tiles say what each is: no line under it (#497)
 				ui.Row(c).Gap(14).Wrap().Children(func() {
 					if choiceTile(c, "tile-sys", locales.CommonSystem(), theme == 0, func() { ui.Row(c).Children(func() { mock(c, false, 56); mock(c, true, 56) }) }) {
 						theme = 0
@@ -401,9 +447,11 @@ func (a *app) settingsAppearance(c *ui.Context) {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 						ui.Text(c, locales.SettingsGlass()).FontSize(15).FontWeight(620).TextColor(cl.Text)
 						ryugo.Badge(c, locales.SettingsExperimental(), ryugo.ToneWarn)
+						if glassOn && !a.glassAtLaunch { // turned on since the window was made: it comes with a restart (#497)
+							ryugo.Badge(c.Key("glass-restart"), locales.SettingsNeedsRestart(), ryugo.ToneUp)
+						}
 					})
 					ui.Text(c, locales.SettingsGlassHelp()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
-					ui.Text(c, locales.SettingsGlassRestart()).FontSize(ryugo.FsXs).TextColor(cl.Muted)
 				})
 				ryugo.Switch(c.Key("set-glass-sw"), &glassOn, ryugo.SwitchOptions{}).Label(locales.SettingsGlass())
 			})
@@ -665,10 +713,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 
 func (a *app) settingsLibrary(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	pages := 0
-	for _, co := range a.lib.Collections {
-		pages += len(co.All())
-	}
+	// no count of the collections and pages under the folder: the sidebar shows them (#497)
 	row := func(label, text, key string, more ...func()) func() { // more: buttons after its copy
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
@@ -688,10 +733,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 	if !inFile {
 		settingGroup(c, "set-lib",
 			row("libraryFolder", a.lib.Root, "copy-root"),
-			row("settingsFile", a.settingsFile, "copy-settings"),
-			func() {
-				settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages), locales.SettingsAllPlainFilesThey(), func() {})
-			})
+			row("settingsFile", a.settingsFile, "copy-settings"))
 		return
 	}
 	settingGroup(c, "set-lib",
@@ -701,10 +743,6 @@ func (a *app) settingsLibrary(c *ui.Context) {
 				go a.runShellOpen(store.File, true)
 			}
 		}),
-		func() {
-			settingRow(c, locales.SettingsLibraryCounts(len(a.lib.Collections), pages),
-				locales.SettingsAllThisOneFile(), func() {})
-		},
 		func() { a.settingsImport(c) },
 		func() {
 			note := a.exportNote

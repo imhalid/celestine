@@ -364,6 +364,8 @@ type app struct {
 	going      bool     // going back or forward: no new place in the history
 	menuBar    bool     // the menu bar has the shortcuts, not the window
 	pageBg     ui.Color // the page's background this frame (bg)
+	// glassAtLaunch is the Glass setting as the window was made with it: turned on since, it shows after a restart
+	glassAtLaunch bool
 }
 
 func newApp(lib *Library) *app {
@@ -372,6 +374,7 @@ func newApp(lib *Library) *app {
 	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
 	a.loadSettings()
+	a.glassAtLaunch = a.settings.Glass
 	a.propBuf = map[string]*string{}
 	a.boardOpened = map[string]bool{}
 	for _, c := range lib.Collections {

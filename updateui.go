@@ -142,6 +142,10 @@ func (a *app) settingsUpdate(c *ui.Context) {
 	case a.settings.UpdateAt > 0:
 		status = locales.UpdateStatusChecked(shownVersion(version), dateTime(time.Unix(a.settings.UpdateAt, 0), false))
 	}
+	local := a.updateURLOf() == "" // a build made by hand, with no address to ask: it says so, and where releases are (#497)
+	if local {
+		status = locales.UpdateLocalBuild(shownVersion(version))
+	}
 	settingGroup(c, "set-update",
 		func() {
 			settingRow(c, locales.UpdateCheck(), locales.UpdateCheckHelp(), func() {
@@ -151,6 +155,12 @@ func (a *app) settingsUpdate(c *ui.Context) {
 		func() {
 			settingRow(c, locales.UpdateStatusTitle(), status, func() {
 				ui.Row(c).Gap(8).Children(func() {
+					if local {
+						if ryugo.Button(c.Key("upd-releases"), locales.UpdateReleases(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+							go a.runShellOpen(releasesPage, false)
+						}
+						return
+					}
 					if ryugo.Button(c.Key("upd-check"), locales.UpdateCheckNow(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.checkUpdate(true)
 					}
