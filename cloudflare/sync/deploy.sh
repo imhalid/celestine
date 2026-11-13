@@ -1,13 +1,14 @@
 #!/bin/sh
-# Deploys the Worker with `cf deploy --prebuilt` (wrangler is only used for `wrangler dev`).
+# Deploys the Worker with `cf deploy --prebuilt` (wrangler is only used for `wrangler dev`). It hands the site's paths
+# to the site Worker, celestine-site (its own repository and deploy.sh), through the service binding SITE: that Worker
+# is deployed first.
 #
 #   CELESTINE_SYNC_SECRETS=/path/secrets.json ./deploy.sh          the first time, and when a secret changes
 #   ./deploy.sh                                                  code only: the deployed secrets stay as they are
 #
-# secrets.json is {"ADMIN_TOKEN": "…", "TURNSTILE_SECRET": "…", "TURNSTILE_SITEKEY": "…", "RESEND_API_KEY": "…",
-# "MAIL_FROM": "Celestine <davet@resend.halid.dev>", "ADMIN_EMAIL": "…", "CONTACT_EMAIL": "…",
-# "DOWNLOAD_URL": "https://<the update Worker>/download"}, kept outside the
-# repository; each key in it becomes a secret of the Worker. Before the first deploy:
+# secrets.json is {"ADMIN_TOKEN": "…", "TURNSTILE_SECRET": "…", "RESEND_API_KEY": "…",
+# "MAIL_FROM": "Celestine <davet@resend.halid.dev>", "ADMIN_EMAIL": "…"}, kept outside the repository; each key in it
+# becomes a secret of the Worker. (TURNSTILE_SITEKEY, CONTACT_EMAIL and DOWNLOAD_URL are the site Worker's now.) Before the first deploy:
 #   cf r2 buckets create --name celestine-sync
 #   cf d1 create --name celestine      (its id goes below, and in wrangler.toml)
 # The migrations (migrations/*.sql) are applied to the database first.
@@ -40,8 +41,8 @@ const fs = require("fs");
 const modules = Object.fromEntries(fs.readdirSync(process.env.HERE_JS).map((f) => [f, { type: f.endsWith(".bin") ? "data" : "esm" }]));
 const triggers = JSON.parse(process.env.CRONS || "[]").map((schedule) => ({ type: "scheduled", schedule }));
 if (!triggers.length) throw new Error("no [triggers] crons in wrangler.toml");
-// RELEASES: the bucket of the update Worker, where /changelog reads changelog.json (changelog.js)
-const env = { SYNC: { type: "r2", name: "celestine-sync" }, RELEASES: { type: "r2", name: "celestine-releases" }, DB: { type: "d1", name: "celestine" } };
+// SITE: the site Worker, which answers every path outside the API (worker.js: site)
+const env = { SYNC: { type: "r2", name: "celestine-sync" }, DB: { type: "d1", name: "celestine" }, SITE: { type: "service", service: "celestine-site" } };
 // the secrets: those of the file, or with none, those the deployed version has, named without a value to be kept
 const given = process.env.SECRETS ? JSON.parse(fs.readFileSync(process.env.SECRETS, "utf8")) : null;
 const unset = Object.keys(given || {}).filter((k) => !given[k] || /^BURAYA_|^TODO/.test(given[k]));

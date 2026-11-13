@@ -9,8 +9,10 @@
 //   GET    /changes        { "changes": <n> }: the account's change counter, bumped by every PUT and DELETE; a device asks
 //                          for it often (it is one small read) and lists the files only when it moved
 //   /api/…   accounts: waitlist, registration with an invite code, login, devices (auth.js)
-//   /        the waitlist page;  /privacy  what is kept;  /admin  the administrator's page (pages.js)
-//   /changelog  every release, from the releases bucket's changelog.json (changelog.js)
+//   /admin   the administrator's page (pages.js)
+//   anything else is the site's (the entry screen, /privacy, /changelog, their pictures): the site Worker, celestine-site,
+//            in a repository of its own, answers it through the service binding SITE. This Worker keeps the domain, so the
+//            app's addresses (the protocol above, the /changelog it links to) stay where they were.
 //
 // Every device has a token, "Authorization: Bearer <token>"; it leads to an account, and an account's files are
 // under its own prefix ("u<id>/"). Every write is checked by R2 itself (onlyIf on the object's etag), so that two
@@ -21,13 +23,9 @@
 // than TOMB_DAYS is dropped when the files are listed: a device that was away longer than that has, for
 // the files it deletes or keeps, the same outcome as with the tombstone.
 import { handleApi, userOfToken } from "./auth.js";
-import { waitlistPage, adminPage, privacyPage } from "./pages.js";
-import { changelogPage, bannerImage, schemeScript, railScript } from "./changelog.js";
-import { ogImage } from "./og.js";
-import { landingImage } from "./landing.js";
+import { adminPage } from "./pages.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
-import ICON from "./icon.bin"; // the app's icon (assets/icon-256.png), the pages' favicon and mark
 
 const MAX_BYTES = 50 * 1024 * 1024; // a file larger than this is refused (413)
 const TOMB_DAYS = 180;
@@ -87,7 +85,7 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     let res;
     try {
-      res = await handle(request, env, ctx);
+      res = await handle(request, env);
     } catch (e) {
       console.error(e);
       res = new Response("error", { status: 500 });
@@ -98,27 +96,25 @@ export default {
   },
 };
 
-async function handle(request, env, ctx) {
+async function handle(request, env) {
   const url = new URL(request.url);
-  if (request.method === "GET" && url.pathname === "/") return waitlistPage(env);
   if (request.method === "GET" && url.pathname === "/admin") return adminPage();
   // the admin panel's module and the WebAssembly it draws with (admin/build.mjs): nothing secret, the key stays the page's
   if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_JS_PATH) return asset(ADMIN_JS, "text/javascript; charset=utf-8");
   if (request.method === "GET" && url.pathname === "/admin/" + ADMIN_WASM_PATH) return asset(ADMIN_WASM, "application/wasm");
-  if (request.method === "GET" && url.pathname === "/icon.png") return new Response(ICON, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
-  if (request.method === "GET" && url.pathname === "/privacy") return privacyPage(env);
-  if (request.method === "GET" && /^\/(hero|foot)(-dark)?\.webp$/.test(url.pathname)) return landingImage(url.pathname);
-  if (request.method === "GET" && url.pathname === "/changelog") return changelogPage(request, env, ctx);
-  if (request.method === "GET" && url.pathname === "/changelog/banner.webp") return bannerImage(false);
-  if (request.method === "GET" && url.pathname === "/changelog/banner-dark.webp") return bannerImage(true);
-  if (request.method === "GET" && url.pathname === "/changelog/scheme.js") return schemeScript();
-  if (request.method === "GET" && url.pathname === "/changelog/rail.js") return railScript();
-  if (request.method === "GET" && url.pathname === "/og.jpg") return ogImage();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);
-  if (!/^\/files(\/|$)/.test(url.pathname)) return new Response("not found", { status: 404 });
-  return files(request, env, url);
+  if (/^\/files(\/|$)/.test(url.pathname)) return files(request, env, url);
+  if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return new Response("not found", { status: 404 });
+  return site(request, env);
+}
+
+// site hands a request to the site Worker (SITE, a service binding to celestine-site) and gives back what it answers.
+// Without the binding (a `wrangler dev` of this Worker alone) the site's paths are a 404.
+async function site(request, env) {
+  if (!env.SITE) return new Response("not found", { status: 404 });
+  return env.SITE.fetch(request);
 }
 
 // Puts what the file is, before it is written over, among its versions (see VERSIONS). It never fails the write: a version that cannot be kept

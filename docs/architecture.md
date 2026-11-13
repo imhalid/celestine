@@ -82,7 +82,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `backup.go`, `backupview.go` | Backups of the library's file (daily, before an import or an update, by hand), pruning, restore at the next start, zip export, and backup preview window |
 | `stats.go`, `statsscreen.go` | What is written and used, by the day, kept on this computer; the statistics screen, the library's health, CSV/JSON out |
 | `kb.go`, `vim.go`, `help.go` | The keyboard's normal mode (Esc), rows chosen with j k, letters on everything that can be pressed (f), the leader (Space), marks, the command line (:), Vim's motions as a setting, the page of shortcuts and the first-run tour |
-| `update.go`, `update_other.go`, `update_windows.go`, `updateui.go`, `updatepanel.go`, `updhello.go`, `updtrial.go`, `version.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start, the sidebar update panel, hello/trial dialogs, and version info; `scripts/release` (`changelog.go`), `cloudflare/update`, `.github/workflows/release.yml`; each release also writes `changelog.json` (`scripts/release changelog`), which the site's `/changelog` draws (`cloudflare/sync/changelog.js`) |
+| `update.go`, `update_other.go`, `update_windows.go`, `updateui.go`, `updatepanel.go`, `updhello.go`, `updtrial.go`, `version.go` | Updates: a signed manifest, a check of sha256 and ed25519, the file put in place, a rollback when the new version does not start, the sidebar update panel, hello/trial dialogs, and version info; `scripts/release` (`changelog.go`), `cloudflare/update`, `.github/workflows/release.yml`; each release also writes `changelog.json` (`scripts/release changelog`), which the site's `/changelog` draws (`changelog.js` of the `celestine-site` repository) |
 | `internal/library/sync.go`, `syncapp.go`, `account.go`, `profile.go` | Synchronization: three-way by file, conflict copies, tombstones, a folder or a server as the remote, end-to-end encryption, the server's change counter asked while the window is in front; account sign-in/registration and profile screen; `cloudflare/sync` |
 | `internal/library/merge.go`, `internal/library/syncbase.go` | A page changed on two devices merged block by block from its base (the page as last synced), kept in the library file's meta or a folder |
 | `internal/library/appdir.go` | The name of the app's folders (`AppName`) |
@@ -118,7 +118,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `slime.go`, `mizan.go` | The two carets |
 | `web/` | Web / PWA shell assets: manifest, icons, service worker (`sw.js`), and touch helpers (`touch.js`) |
 | `android/` | Android Kotlin/Gradle wrapper project (`app/`, `build.gradle.kts`, Gradle scripts) |
-| `cloudflare/` | Cloudflare Workers/Pages backends (`cloudflare/sync` account/sync/auth/site API and `cloudflare/update` release manifest/downloads) |
+| `cloudflare/` | Cloudflare Workers (`cloudflare/sync`: the sync, account and admin API at celestine.halid.dev, which hands every other path to the site Worker of the `celestine-site` repository through a service binding; `cloudflare/update`: the release manifest and downloads) |
 | `scripts/` | Build, packaging, release/changelog (`scripts/build.sh`, `scripts/package.sh`, `scripts/release/`, `scripts/winicon/`), and platform helper scripts |
 | `docs/` | What is still to do, decisions in force and open problems (Turkish); 00-OKU-BENI.md is the index |
 | `prototypes/slime-md` | The caret prototype |

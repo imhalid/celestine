@@ -26,8 +26,6 @@ node_modules/
 /go.work
 /go.work.sum
 
-# the entry screen, built from cloudflare/sync/landing by `npm run build`
-cloudflare/sync/landing.gen.js
 # the admin panel, built from cloudflare/sync/admin by `npm run build`
 cloudflare/sync/admin.gen.js
 cloudflare/sync/admin.bin

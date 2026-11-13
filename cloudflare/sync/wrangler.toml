@@ -6,10 +6,11 @@ compatibility_date = "2026-01-01"
 binding = "SYNC"
 bucket_name = "celestine-sync"
 
-# the releases, read for the /changelog page only (changelog.js): the release workflow writes changelog.json there
-[[r2_buckets]]
-binding = "RELEASES"
-bucket_name = "celestine-releases"
+# the site Worker (the celestine-site repository), which answers every path that is not the API's (worker.js: site);
+# `wrangler dev -c wrangler.toml -c <a celestine-site checkout>/wrangler.toml` runs both, with the binding between them
+[[services]]
+binding = "SITE"
+service = "celestine-site"
 
 # the id is that of the live database; `wrangler dev --local` uses a local copy, whatever it says
 [[d1_databases]]
@@ -20,9 +21,8 @@ database_id = "d5ad1d9a-3bed-4344-a7b9-0576f5848d82"
 # Used by `wrangler dev` (secrets from .dev.vars). The live Worker is deployed by deploy.sh, which sets the secrets:
 #   ADMIN_TOKEN        the administrator's key (the /admin page)
 #   RESEND_API_KEY     mail; MAIL_FROM is its sender ("Celestine <davet@resend.halid.dev>"); without a key the code is shown in /admin
-#   TURNSTILE_SECRET   the bot check of the waitlist form; TURNSTILE_SITEKEY is its public half
-#   ADMIN_EMAIL, CONTACT_EMAIL   optional: told of a new signup / shown on the waitlist page
-#   DOWNLOAD_URL       the update Worker's /download (cloudflare/update), where the entry screen's buttons lead
+#   TURNSTILE_SECRET   the bot check of the waitlist form (its public half, TURNSTILE_SITEKEY, is the site Worker's)
+#   ADMIN_EMAIL        optional: told of a new signup
 
 # the daily pass that deletes the old tombstones (worker.js: scheduled)
 [triggers]
