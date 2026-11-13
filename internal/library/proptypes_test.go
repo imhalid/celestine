@@ -1,6 +1,7 @@
 package library
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,5 +54,17 @@ func TestPropTypes(t *testing.T) {
 		if v.Match(books, dune) != want {
 			t.Errorf("tag filter %q: %v", op, !want)
 		}
+	}
+}
+
+// TestDefaultViewsEnglish: a new collection's views are named in English, the project's language; the app
+// shows them in the window's (#490).
+func TestDefaultViewsEnglish(t *testing.T) {
+	var got []string
+	for _, v := range defaultViews() {
+		got = append(got, v.Label)
+	}
+	if fmt.Sprint(got) != "[List Table Calendar]" {
+		t.Fatalf("default views %v", got)
 	}
 }

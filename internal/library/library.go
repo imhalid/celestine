@@ -126,9 +126,9 @@ type View struct {
 // defaultViews are the views a collection starts with.
 func defaultViews() []View {
 	return []View{
-		{ID: "list", Label: "Liste", Type: "list", Sort: "modified", Desc: true},
-		{ID: "table", Label: "Tablo", Type: "table", Sort: "title"},
-		{ID: "calendar", Label: "Takvim", Type: "calendar", Sort: "created", DateField: "created"},
+		{ID: "list", Label: "List", Type: "list", Sort: "modified", Desc: true},
+		{ID: "table", Label: "Table", Type: "table", Sort: "title"},
+		{ID: "calendar", Label: "Calendar", Type: "calendar", Sort: "created", DateField: "created"},
 	}
 }
 

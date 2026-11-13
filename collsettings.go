@@ -90,7 +90,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 		}
 	}
 	d := &cs.draft
-	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / Ayarlar", Width: 560, Fixed: true, Footer: func() {
+	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / " + locales.CommonSettings(), Width: 560, Fixed: true, Footer: func() {
 		if !cs.coll.Journal { // beside the buttons that close it, on the other side
 			if ryugo.Button(c.Key("cs-trash"), locales.CollectionMoveCollectionTrash(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
 				coll := cs.coll
@@ -405,10 +405,35 @@ func (a *app) sharedProps(name string) []sharedProp {
 
 // ---- Views ----
 
+// viewTypes are the kinds of view, each with its name in the window's language and that name's message id.
 var viewTypes = []struct {
 	Type string
 	Name func() string
-}{{"list", locales.ViewsTypeList}, {"table", locales.ViewsTypeTable}, {"board", locales.ViewsTypeBoard}, {"calendar", locales.ViewsTypeCalendar}, {"gallery", locales.ViewsTypeGallery}}
+	id   string
+}{
+	{"list", locales.ViewsTypeList, "views_typeList"}, {"table", locales.ViewsTypeTable, "views_typeTable"}, {"board", locales.ViewsTypeBoard, "views_typeBoard"},
+	{"calendar", locales.ViewsTypeCalendar, "views_typeCalendar"}, {"gallery", locales.ViewsTypeGallery, "views_typeGallery"},
+}
+
+// viewLabel is what a view is called in the window: the name it was given, or, while that is still its type's
+// name in one of the window's languages ("Liste", which collections made in Turkish keep, or "List"), its type's
+// name in the window's language, so that an English window does not show a Turkish "Liste".
+func viewLabel(v View) string {
+	for _, vt := range viewTypes {
+		if vt.Type != v.Type {
+			continue
+		}
+		if v.Label == "" {
+			return vt.Name()
+		}
+		for _, l := range languages {
+			if locales.Catalog.Format(l.code, vt.id, nil) == v.Label {
+				return vt.Name()
+			}
+		}
+	}
+	return v.Label
+}
 
 func (a *app) csViews(c *ui.Context) {
 	cs := &a.cs
@@ -418,11 +443,11 @@ func (a *app) csViews(c *ui.Context) {
 	a.sortList(c, "cs-views", &cs.viewList, sortOpts{
 		n:        len(d.Views),
 		id:       func(i int) string { return d.Views[i].ID },
-		label:    func(i int) string { return msg("view: " + d.Views[i].Label) },
+		label:    func(i int) string { return msg("view: " + viewLabel(d.Views[i])) },
 		selected: cs.view,
 		content: func(i int) {
 			v := d.Views[i]
-			ui.Text(c, v.Label).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
+			ui.Text(c, viewLabel(v)).FontSize(ryugo.FsMd).FontWeight(600).TextColor(cl.Text).MaxLines(1).Shrink(0)
 			for _, vt := range viewTypes {
 				if vt.Type == v.Type {
 					ui.Text(c, "· "+vt.Name()).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(1).Shrink(0)

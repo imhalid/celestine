@@ -177,7 +177,7 @@ func (a *app) commands() []palItem {
 	if c := a.coll; c != nil {
 		for i := range c.Views {
 			v := c.Views[i]
-			it := cmd("view: "+v.Label, "", iconStack, func() {
+			it := cmd("view: "+viewLabel(v), "", iconStack, func() {
 				if err := c.SetView(v.ID); err != nil {
 					a.fail(err)
 				}

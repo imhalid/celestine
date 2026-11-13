@@ -87,7 +87,7 @@ func (a *app) collectionView(c *ui.Context) {
 							sel := 0
 							labels := make([]string, len(coll.Views))
 							for i := range coll.Views {
-								labels[i] = coll.Views[i].Label
+								labels[i] = viewLabel(coll.Views[i])
 								if &coll.Views[i] == v {
 									sel = i
 								}
@@ -113,6 +113,12 @@ func (a *app) collectionView(c *ui.Context) {
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), locales.RandomDay(), ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()
+								}
+							}
+							if v.Type == "table" { // the columns shown, and a property to add
+								if b := ryugo.Button(c.Key("columns"), locales.CollectionColumns(), ryugo.ButtonOptions{Icon: iconTable, Size: ryugo.Sm}); b.Clicked() {
+									r := b.LayoutBounds()
+									a.showContext(r.X, r.Y+r.H+4, a.columnsMenu(coll, v))
 								}
 							}
 							if v.Type == "list" || v.Type == "table" {
@@ -179,9 +185,6 @@ func (a *app) collectionView(c *ui.Context) {
 									a.galleryView(c, v, pages)
 								default:
 									a.listView(c, coll, v, pages)
-								}
-								if !coll.Journal && !coll.Dynamic() { // its one new page is today's, above
-									a.newPageRow(c, coll)
 								}
 							})
 						}()
@@ -309,25 +312,57 @@ func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) 
 		a.manualList(c, coll, v, pages)
 		return
 	}
-	t := c.Theme()
 	now := a.clock()
-	last := ""
-	seen := map[string]int{} // a group coming again (an order not by date) gets a key of its own
+	// the pages by the day they were changed (or made), each day a card of rows under its heading; by title, one card
+	type dayGroup struct {
+		label string
+		pages []*Page
+	}
+	var groups []dayGroup
 	for _, p := range pages {
+		label := ""
 		if v.Sort != "title" {
 			when := p.Modified
 			if v.Sort == "created" {
 				when = p.Created
 			}
-			if g := dateGroup(when, now); g != last {
-				last = g
-				seen[g]++
-				c.Key(fmt.Sprintf("group:%s:%d", g, seen[g]))
-				ui.Text(c, g).FontSize(12).FontWeight(650).TextColor(t.TextMuted).Padding(14, 8, 4, 8).Transition(rowEnter)
-			}
+			label = dateGroup(when, now)
 		}
-		a.listRow(c, v, p, now)
+		if len(groups) == 0 || groups[len(groups)-1].label != label {
+			groups = append(groups, dayGroup{label: label})
+		}
+		groups[len(groups)-1].pages = append(groups[len(groups)-1].pages, p)
 	}
+	seen := map[string]int{} // a group coming again (an order not by date) gets a key of its own
+	for _, g := range groups {
+		seen[g.label]++
+		key := fmt.Sprintf("group:%s:%d", g.label, seen[g.label])
+		if g.label != "" {
+			listHeading(c, key, g.label, len(g.pages))
+		}
+		listCard(c, key, func() {
+			for i, p := range g.pages {
+				a.listRow(c, v, p, now, i > 0)
+			}
+		})
+	}
+}
+
+// listHeading is the heading over a card of the list: what its pages share (a day, a choice), and how many they are.
+func listHeading(c *ui.Context, key, title string, n int) {
+	t := c.Theme()
+	ui.Row(c.Key(key+":head")).Gap(6).AlignItems(ui.Center).Padding(18, 6, 8, 6).Transition(rowEnter).Children(func() {
+		ui.Text(c, title).FontSize(12).FontWeight(650).TextColor(t.TextMuted)
+		ui.Text(c, strconv.Itoa(n)).FontSize(12).FontFeatures("tnum").TextColor(t.TextMuted.Alpha(0.6))
+	})
+}
+
+// listCard holds a group of the list's rows on a card of its own, so a day reads as one thing and the rows as its
+// lines (#490).
+func listCard(c *ui.Context, key string, rows func()) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c.Key(key+":card")).FillWidth().Padding(4).Background(cl.Card).Border(1, cl.Hairline).Radius(rad(12)).
+		Transition(rowEnter).Children(rows)
 }
 
 // listGroups shows the pages under the options of choice pr, in the options' order, those with none last; each
@@ -351,7 +386,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		}
 		folded := slices.Contains(v.Collapsed, s)
 		c.Key("lgroup:" + s)
-		head := ui.Row(c).Gap(7).AlignItems(ui.Center).Padding(14, 8, 4, 8).Radius(rad(6)).Transition(rowEnter).
+		head := ui.Row(c).Gap(7).AlignItems(ui.Center).Padding(18, 6, 8, 6).Radius(rad(6)).Transition(rowEnter).
 			Label(map[bool]string{true: locales.ViewsExpand(), false: locales.ViewsCollapse()}[folded] + title).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		head.Children(func() {
 			glyph := iconChevronDown
@@ -369,9 +404,11 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		if folded {
 			continue
 		}
-		for _, p := range group {
-			a.listRow(c, v, p, now)
-		}
+		listCard(c, "lgroup:"+s, func() {
+			for i, p := range group {
+				a.listRow(c, v, p, now, i > 0)
+			}
+		})
 	}
 }
 
@@ -451,10 +488,14 @@ func samePages(a, b []*Page) bool {
 
 // listRow is page p's row in a list: its title, the properties the view shows, when it changed, the start of its
 // text and its cover.
-func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
+func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time, divider bool) {
 	t := c.Theme()
+	cl := ryugo.From(c).Colors
+	if divider { // a hairline between the rows of a card, in from its edges
+		ui.Box(c.Key("div:"+p.Dir)).Height(1).Margin(0, 12).Background(cl.Hairline).Transition(rowEnter)
+	}
 	c.Key("list:" + p.Dir)
-	row := ui.Row(c).Padding(8, 10).AlignItems(ui.Center).Radius(rad(8)).Label(locales.ViewsOpenLabel(p.Title)).Role(ui.RoleButton).Transition(rowEnter)
+	row := ui.Row(c).Padding(10, 10).Gap(12).AlignItems(ui.Center).Radius(rad(9)).Label(locales.ViewsOpenLabel(p.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(rowEnter)
 	a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
@@ -466,18 +507,22 @@ func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time) {
 	}
 	row.Children(func() {
 		a.bulkMark(c, p)
-		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
+		// the page's mark on a soft tile, the same place in every row for the eye to run down
+		ui.Box(c).Size(30, 30).Shrink(0).Radius(rad(8)).Background(ryugo.Mix(cl.Card, cl.Text, 0.05)).Center().Children(func() {
+			ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
+		})
+		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, p.Title).FontSize(15).FontWeight(620).MaxLines(1).Grow(1)
+				ui.Text(c, p.Title).FontSize(14.5).FontWeight(600).MaxLines(1).Grow(1)
 				a.fieldChips(c, p, v)
 				when := p.Modified
 				if v.Sort == "created" {
 					when = p.Created
 				}
-				ui.Text(c, ago(when, now)).FontSize(12).TextColor(t.TextMuted)
+				ui.Text(c, ago(when, now)).FontSize(12).FontFeatures("tnum").TextColor(t.TextMuted).Shrink(0)
 			})
 			if ex := p.Excerpt(); ex != "" && !v.NoExcerpt {
-				ui.Text(c, ex).FontSize(13.5).TextColor(t.TextMuted).MaxLines(2)
+				ui.Text(c, ex).FontSize(13).TextColor(t.TextMuted).MaxLines(1).Ellipsis("…")
 			}
 		})
 		if p.ImageCover() {
@@ -905,7 +950,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			}
 		}
 	}
-	head, row := ryugo.TableSize(ryugo.Md)
+	head, row := ryugo.TableSize(ryugo.From(c).Size) // the size the table takes from the theme: a fixed one left a strip under the rows
 	from := min(tu.st.Page*tablePageSize, len(pages))
 	shown := pages[from:min(from+tablePageSize, len(pages))]
 	lines := len(shown)
@@ -928,7 +973,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		height += row
 	}
 	if len(pages) > tablePageSize {
-		height += ryugo.PaginationHeight(c, ryugo.Md) + 10 // the pages under the table, and the gap
+		height += ryugo.PaginationHeight(c, ryugo.From(c).Size) + 10 // the pages under the table, and the gap
 	}
 	var groupOf func(p *Page) string
 	var groupLabel func(key string, rows []*Page) string
@@ -1230,22 +1275,40 @@ func (a *app) foldColumn(coll *Collection, v *View, s string, fold bool) {
 	}
 }
 
-// newPageRow is the last row of a view: a new page in the collection.
-func (a *app) newPageRow(c *ui.Context, coll *Collection) {
-	t := c.Theme()
-	row := ui.Row(c).Padding(10).Gap(8).Radius(rad(8)).AlignItems(ui.Center)
-	if row.Hovered() {
-		row.Background(t.SurfaceHover)
+var iconDice = icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><circle cx="9" cy="9" r=".8"/><circle cx="15" cy="9" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="9" cy="15" r=".8"/><circle cx="15" cy="15" r=".8"/>`)
+
+// columnsMenu is the table's menu of columns: every column the collection has, a check on those the view shows;
+// a click shows or hides one, kept in the view. Its last line adds a property to the collection (#490).
+func (a *app) columnsMenu(coll *Collection, v *View) []menuItem {
+	var items []menuItem
+	for _, col := range allColumns(coll) {
+		key, name := col.key, col.label
+		on := slices.Contains(viewColumns(coll, v), key) && !slices.Contains(v.Hidden, columnID(key))
+		it := menuItem{title: name, run: func() { a.showColumn(coll, v, key, !on) }}
+		if on {
+			it.glyph = iconCheck
+		}
+		items = append(items, it)
 	}
-	row.Children(func() {
-		// the plus is a mark of its own, in the middle of the line: as a character it sat on the text's baseline,
-		// lower than the words
-		ui.Icon(c, iconPlus).Width(14).Height(14).TextColor(t.TextMuted)
-		ui.Text(c, newPageLabel(coll)).FontSize(13.5).TextColor(t.TextMuted)
-	})
-	if row.Clicked() {
-		a.newPage(coll, nil)
-	}
+	return append(items, menuItem{title: locales.CommonAddProperty(), glyph: iconPlus, run: func() { a.openCollSettings(coll, 1) }})
 }
 
-var iconDice = icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><circle cx="9" cy="9" r=".8"/><circle cx="15" cy="9" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="9" cy="15" r=".8"/><circle cx="15" cy="15" r=".8"/>`)
+// columnID is the table's ID of the column of key: its field, or for the parent, which sorts by nothing, its title.
+func columnID(key string) string {
+	if key == "parent" {
+		return locales.ViewsParent()
+	}
+	return key
+}
+
+// showColumn shows or hides the column of key in view v, and saves the collection: the view's own columns are
+// what it shows, and a column shown is no longer among those hidden by the table.
+func (a *app) showColumn(coll *Collection, v *View, key string, on bool) {
+	v.Columns = toggleKey(viewColumns(coll, v), key, on, allKeys(coll))
+	if on {
+		v.Hidden = slices.DeleteFunc(slices.Clone(v.Hidden), func(id string) bool { return id == columnID(key) })
+	}
+	if err := coll.Save(); err != nil {
+		a.fail(err)
+	}
+}

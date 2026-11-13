@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -60,5 +61,41 @@ func TestCalendarDragToAnotherDay(t *testing.T) {
 	}
 	if a.calDrag.page != nil || a.coll != coll || a.calOpen {
 		t.Fatalf("the drop left a page held %v, opened a page (collection %v), or the day open %v", a.calDrag.page, a.coll, a.calOpen)
+	}
+}
+
+// TestCalendarDaySwitchCloses: choosing another day while one is open closes the open one first, and the new
+// one opens as it goes, instead of the card jumping across the month (#490).
+func TestCalendarDaySwitchCloses(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	if err := coll.SetView("calendar"); err != nil {
+		t.Fatal(err)
+	}
+	a.calMonth = time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
+	a.openCollection(coll)
+	a.calMonth = time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
+	tt.Frame()
+	tt.Frame()
+	if err := tt.Click("Gün: 2026-10-25"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(600 * time.Millisecond)
+	if !a.calOpen {
+		t.Fatal("the first day did not open")
+	}
+	next := time.Date(2026, 10, 2, 0, 0, 0, 0, time.Local)
+	a.openCalDay(next)
+	tt.Frame()
+	if a.calOpen || !sameDay(a.calNext, next) || !sameDay(a.calDay, time.Date(2026, 10, 25, 0, 0, 0, 0, time.Local)) {
+		t.Fatalf("the open day should close first: open %v next %v day %v", a.calOpen, a.calNext, a.calDay)
+	}
+	tt.Advance(800 * time.Millisecond)
+	if !a.calOpen || !sameDay(a.calDay, next) || !a.calNext.IsZero() {
+		t.Fatalf("the next day did not open: open %v next %v day %v", a.calOpen, a.calNext, a.calDay)
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(600 * time.Millisecond)
+	if a.calOpen {
+		t.Fatal("Esc did not close the day")
 	}
 }

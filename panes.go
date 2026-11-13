@@ -89,6 +89,7 @@ type paneState struct {
 	settingsTab   int       // the settings' tab
 	calDay        time.Time // the day open on the calendar, and whether it is
 	calOpen       bool
+	calNext       time.Time // the day to open once the open one has closed: one day goes before the next comes
 	calGrid       ui.Rect
 	calDrag       calDrag   // a page being dragged to another day (calendarview.go)
 	calMonth      time.Time // the month the calendar view shows

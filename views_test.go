@@ -638,3 +638,76 @@ func TestViewPagesKept(t *testing.T) {
 		t.Fatalf("the dynamic collection: %v", got)
 	}
 }
+
+// TestViewLabelInWindowLanguage: a view that still has its type's name, in any of the window's languages, is
+// shown by its type's name in the window's language; a name of its own is shown as it is (#490).
+func TestViewLabelInWindowLanguage(t *testing.T) {
+	defer setLang(lang)
+	setLang("en")
+	for _, c := range []struct {
+		v    View
+		want string
+	}{
+		{View{Type: "list", Label: "Liste"}, "List"},
+		{View{Type: "table", Label: "Table"}, "Table"},
+		{View{Type: "calendar", Label: "Takvim"}, "Calendar"},
+		{View{Type: "board", Label: "Pano"}, "Board"},
+		{View{Type: "list", Label: ""}, "List"},
+		{View{Type: "table", Label: "Reading list"}, "Reading list"},
+		{View{Type: "board", Label: "Tablo"}, "Tablo"}, // another type's name is a name of its own
+	} {
+		if got := viewLabel(c.v); got != c.want {
+			t.Errorf("en %q (%s) = %q, want %q", c.v.Label, c.v.Type, got, c.want)
+		}
+	}
+	setLang("tr")
+	if got := viewLabel(View{Type: "list", Label: "List"}); got != "Liste" {
+		t.Errorf("tr List = %q, want Liste", got)
+	}
+}
+
+// TestColumnsMenu: the table's Columns menu checks the columns the view shows; hiding one takes it out of the
+// view's columns, and showing it again brings it back, even when the table itself had hidden it (#490).
+func TestColumnsMenu(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	if err := tt.Click("Tablo"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	v := coll.View()
+	shown := func(key string) bool {
+		for _, it := range a.columnsMenu(coll, v) {
+			if it.title == columnName(coll, key) {
+				return it.glyph == iconCheck
+			}
+		}
+		t.Fatalf("no %s in the menu", key)
+		return false
+	}
+	if !shown("created") {
+		t.Fatal("created should be shown at first")
+	}
+	a.showColumn(coll, v, "created", false)
+	if shown("created") || slices.Contains(viewColumns(coll, v), "created") {
+		t.Fatalf("created still shown: %v", viewColumns(coll, v))
+	}
+	v.Hidden = append(v.Hidden, "created")
+	a.showColumn(coll, v, "created", true)
+	if !shown("created") || slices.Contains(v.Hidden, "created") {
+		t.Fatalf("created not back: columns %v hidden %v", viewColumns(coll, v), v.Hidden)
+	}
+	items := a.columnsMenu(coll, v)
+	if items[len(items)-1].title != locales.CommonAddProperty() {
+		t.Fatal("the menu does not end with Add a property")
+	}
+}
+
+// columnName is the name the Columns menu gives the column of key.
+func columnName(coll *Collection, key string) string {
+	for _, col := range allColumns(coll) {
+		if col.key == key {
+			return col.label
+		}
+	}
+	return key
+}

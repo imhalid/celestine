@@ -60,11 +60,14 @@ func TestViewShots(t *testing.T) {
 		png.Encode(f, tt.Image())
 		f.Close()
 	}
-	tt.Advance(100 * time.Millisecond)
+	tt.Advance(time.Second) // settled: the rows have come in and the pill has slid
 	save("list")
 	tt.Click("Tablo")
-	tt.Advance(100 * time.Millisecond)
+	tt.Advance(time.Second)
 	save("table")
+	tt.Click("Takvim")
+	tt.Advance(time.Second)
+	save("calendar")
 	tt.Click("Pano")
 	tt.Advance(time.Second)
 	save("board")
