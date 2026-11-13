@@ -214,6 +214,18 @@ func TestProfileScreen(t *testing.T) {
 	if tt.HasText(rec) {
 		t.Fatal("the recovery key is on the screen unasked")
 	}
+	// the pass to sync.example.com fails, away from the window, and its words come on the screen when it does: they
+	// move what is under them, so a click made as they come lands where the button was. It waits for the pass.
+	for i := 0; i < 200; i++ {
+		a.mu.Lock()
+		done := !a.sy.busy && !a.sy.tried.IsZero()
+		a.mu.Unlock()
+		if done {
+			break
+		}
+		tt.Advance(50 * time.Millisecond)
+	}
+	tt.Frame()
 	tt.Click("Göster")
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
