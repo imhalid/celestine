@@ -297,3 +297,38 @@ func TestPalettePlaceholdersAndLabels(t *testing.T) {
 		}
 	}
 }
+
+// TestPaletteOverDialog: ⌘P with the collection's settings open shows the palette over them: it takes the keys,
+// and its line runs (#483).
+func TestPaletteOverDialog(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	a.openCollSettings(coll, 0)
+	tt.Advance(500 * time.Millisecond)
+	if !a.cs.open {
+		t.Fatal("the settings did not open")
+	}
+	a.openCommands() // ⌘P from the menu bar, which the dialog does not hold
+	tt.Advance(300 * time.Millisecond)
+	if !a.pal.open {
+		t.Fatal("⌘P did not open the palette")
+	}
+	tt.Type("çöp")
+	tt.Frame()
+	if a.pal.text != "çöp" {
+		t.Fatalf("the palette did not take the keys: %q", a.pal.text)
+	}
+	in, ok := tt.Find(locales.PaletteInputLabel())
+	if !ok {
+		t.Fatal("no palette field")
+	}
+	tt.ClickAt(in.X+in.W/2, in.Y+in.H/2) // the click lands on the palette, not the dialog under it
+	tt.Frame()
+	if !a.pal.open {
+		t.Fatal("a click on the palette's field closed it")
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if !a.trashOpen {
+		t.Fatalf("the palette's line did not run over the dialog: open %v cs %v lines %v", a.pal.open, a.cs.open, len(a.palLines()))
+	}
+}

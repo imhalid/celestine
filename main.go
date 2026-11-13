@@ -1132,7 +1132,6 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.textOverlays(c)
 	}
 	a.contextView(c)
-	a.paletteView(c)
 	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
 		// Esc, in the text or on a screen that has nothing to close: the keys are commands. The settings
 		// and the figures have their own Esc, which goes back.
@@ -1163,6 +1162,8 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.crashView(c)
 	a.frameMeterView(c)
 	a.askView(c)
+	// the palette over the dialogs: ⌘P with one open shows it above them, not behind (#483)
+	a.paletteView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
 		a.cellEd.open = false
 	}
