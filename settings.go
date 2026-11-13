@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -687,7 +686,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		// where it is, not its file's name, which says nothing to a user (#408)
 		row("libraryFolder", filepath.Dir(store.File), "copy-root", func() {
 			if ryugo.Button(c.Key("lib-show"), locales.PropsShowFolder(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-				go mygo.Shell.ShowItemInFolder(store.File)
+				go a.runShellOpen(store.File, true)
 			}
 		}),
 		func() {
