@@ -357,7 +357,6 @@ type app struct {
 	chipHits   []chipHit    // the chips drawn this frame (chips.go)
 	chipSeen   []chipHit    // and last frame, for a click
 	slash      slashMenu    // the / menu (slash.go)
-	grip       gripState    // the grip of the block under the pointer (blockui.go)
 	tasks      taskFx       // the task boxes: what turns, and the confetti (taskkinds.go)
 	cs         collSettings // a collection\'s settings (collsettings.go)
 	hist       []place      // where the app went, and where it is in that (nav.go)
@@ -370,7 +369,7 @@ type app struct {
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing()}
 	a.paneState = newPaneState()
-	a.histAt, a.grip.para = -1, -1
+	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
 	a.loadSettings()
 	a.propBuf = map[string]*string{}

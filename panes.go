@@ -100,6 +100,9 @@ type paneState struct {
 	profileScreen bool    // the profile is shown, instead of a page (profile.go)
 	caretWin      ui.Rect // the caret in the window, last drawn
 	find          finder  // finding in the page (find.go)
+	// grip is the grip of the block under the pointer and the block dragged by it (blockui.go): each pane its own,
+	// or a drag in one opens room in the other's text too (#480).
+	grip gripState
 
 	// What the pane's text drew this frame, and the last frame's, where a click is tested: each pane its own,
 	// or a click in one is tested against what another drew (#390).
@@ -117,7 +120,7 @@ type paneState struct {
 
 // newPaneState is a pane with nothing in it: its scrolls and lists are its own.
 func newPaneState() paneState {
-	return paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: new(ui.ListState)}
+	return paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: new(ui.ListState), grip: gripState{para: -1}}
 }
 
 // paneSet is the panes of the window: one, or two side by side. The pane in use has its state in

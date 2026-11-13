@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -592,5 +593,64 @@ func TestRestoreTagPaneColdIndex(t *testing.T) {
 	b.restorePaneLayout()
 	if b.tag != "fikir" {
 		t.Fatalf("active restored pane tag = %q, want %q", b.tag, "fikir")
+	}
+}
+
+// TestBlockDragLeavesOtherPane: with one page in two panes, a block dragged in one opens room in that pane's text
+// alone; the other stays still, and shows the block moved once it is dropped (#480).
+func TestBlockDragLeavesOtherPane(t *testing.T) {
+	a, tt := newTestApp(t, "Bir\n\nİki\n\nÜç\n\nDört\n")
+	tt.SetSize(1400, 800)
+	tt.Frame()
+	a.openInSide(place{"page", a.page.Dir})
+	tt.Advance(400 * time.Millisecond)
+	if a.paneCount() != 2 || a.ps.active != 1 {
+		t.Fatalf("panes %d, active %d", a.paneCount(), a.ps.active)
+	}
+	tops := func(bs []richtext.ParagraphBox) []float32 {
+		var out []float32
+		for _, b := range bs {
+			out = append(out, b.Top)
+		}
+		return out
+	}
+	still := tops(a.ps.states[0].boxes)
+	r := a.editorR
+	var before float32
+	for _, b := range a.boxes {
+		if b.Index == 2 {
+			before = b.Top
+		}
+	}
+	b0 := a.boxes[0]
+	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	y1 := r.Y + before + 2
+	tt.Press(x0, y0)
+	for k := 1; k <= 10; k++ {
+		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
+		tt.Frame()
+	}
+	tt.Advance(500 * time.Millisecond)
+	if !a.grip.dragging || a.grip.toIdx != 2 {
+		t.Fatalf("aim: dragging %v, toIdx %d", a.grip.dragging, a.grip.toIdx)
+	}
+	other := a.ps.states[0]
+	if other.grip.dragging || len(other.grip.rooms) != 0 {
+		t.Fatalf("the other pane drags too: %v, rooms %v", other.grip.dragging, other.grip.rooms)
+	}
+	if got := tops(other.boxes); !slices.Equal(got, still) {
+		t.Fatalf("the other pane's text moved: %v, was %v", got, still)
+	}
+	tt.Release(x0, y1+1)
+	tt.Advance(400 * time.Millisecond)
+	if got := mdOf(a.doc); got != "İki\n\nBir\n\nÜç\n\nDört" || a.ps.states[0].doc != a.doc {
+		t.Fatalf("dropped: %q", got)
 	}
 }
