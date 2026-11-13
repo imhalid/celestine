@@ -90,7 +90,7 @@ func (a *app) collSettingsView(c *ui.Context) {
 		}
 	}
 	d := &cs.draft
-	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / " + locales.CommonSettings(), Width: 560, Fixed: true, Footer: func() {
+	ryugo.Dialog(c.Key("coll-settings"), &cs.open, ryugo.DialogOptions{Title: d.Name + " / " + locales.CommonSettings(), Width: 720, Fixed: true, Footer: func() {
 		if !cs.coll.Journal { // beside the buttons that close it, on the other side
 			if ryugo.Button(c.Key("cs-trash"), locales.CollectionMoveCollectionTrash(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Icon: iconTrash}).Clicked() {
 				coll := cs.coll
