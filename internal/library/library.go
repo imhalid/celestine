@@ -695,9 +695,35 @@ func (l *Library) Trash() []*TrashItem {
 	return out
 }
 
+// TrashedPages are the pages a collection in the trash holds, in the order of its tree, read from the trash: what
+// the trash shows under it, so that what went with a collection can be seen before it is restored or deleted (#481).
+// They are to be read, not changed. Anything else than a collection holds none here.
+func (l *Library) TrashedPages(item *TrashItem) []*Page {
+	if item.Kind != "collection" || item.Dir == "" {
+		return nil
+	}
+	c := &Collection{FS: l.FS, Dir: item.Dir}
+	c.Pages = ReadPages(item.Dir, c, nil)
+	return c.All()
+}
+
+// restoreCollectionOf brings back from the trash the collection whose folder was dir, the latest to go if there
+// are several; nil when none is there.
+func (l *Library) restoreCollectionOf(dir string) (*Collection, error) {
+	for _, it := range l.Trash() { // the latest first
+		if it.Kind == "collection" && filepath.Base(filepath.ToSlash(it.From)) == dir {
+			c, _, err := l.Restore(it)
+			return c, err
+		}
+	}
+	return nil, nil
+}
+
 // Restore puts item back where it was: a collection back in the library, a
 // page under the page or in the collection it was in - if that is gone,
-// the top of its collection, else of the first one. It returns what came back.
+// the top of its collection, brought back from the trash if it is there,
+// else of the first collection that takes pages (not the journal). It
+// returns what came back.
 func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	defer PagesChanged()
 	if item.From != "" && !SafeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
@@ -743,15 +769,29 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 			}
 		}
 	}
-	if coll == nil { // gone too: its collection's top, or the first one's
+	if coll == nil { // gone too: its collection's top, brought back from the trash if it is there, or another's
 		first := strings.Split(filepath.ToSlash(item.From), "/")[0]
 		for _, c := range l.Collections {
 			if filepath.Base(c.Dir) == first {
 				coll = c
 			}
 		}
-		if coll == nil && len(l.Collections) > 0 {
-			coll = l.Collections[0]
+		if coll == nil {
+			// its collection went to the trash after it: the collection comes back first, and the page into it,
+			// instead of into whichever collection is first (#481)
+			if c, err := l.restoreCollectionOf(first); err != nil {
+				return nil, nil, err
+			} else if c != nil {
+				coll = c
+			}
+		}
+		if coll == nil { // gone for good: the first collection that takes pages, never the journal's days (#482)
+			for _, c := range l.Collections {
+				if !c.Journal && !c.Dynamic() {
+					coll = c
+					break
+				}
+			}
 		}
 		if coll == nil {
 			return nil, nil, errors.New("no collection to put the page back in")

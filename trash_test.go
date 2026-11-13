@@ -3,8 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // TestRestoreOnDisk: a page thrown away goes back under its page, its
@@ -113,5 +116,31 @@ func TestTrashUndoAndView(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if len(page.Children) != 1 || len(a.trashItems) != 0 || !tt.HasText("Çöp boş") {
 		t.Fatalf("restored from the view: %d, %v", len(page.Children), tt.Texts())
+	}
+}
+
+// TestTrashShowsCollectionPages: a collection in the trash says how many pages went with it, and unfolds them by
+// that line (#481).
+func TestTrashShowsCollectionPages(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	if _, err := a.lib.TrashCollection(coll); err != nil {
+		t.Fatal(err)
+	}
+	a.lib.Collections = slices.DeleteFunc(a.lib.Collections, func(c *Collection) bool { return c == coll })
+	a.coll, a.page = nil, nil
+	a.openTrash()
+	tt.Advance(500 * time.Millisecond)
+	n := locales.CommonPageCount(4)
+	if !tt.HasText(n) || tt.HasText("Yüzyıllık Yalnızlık") {
+		t.Fatalf("no folded count of the pages: %v", tt.Texts())
+	}
+	if err := tt.Click(n); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	for _, title := range []string{"Dune", "Notlar: Dune", "Anna Karenina", "Yüzyıllık Yalnızlık"} {
+		if !tt.HasText(title) {
+			t.Fatalf("%s not shown under the collection: %v", title, tt.Texts())
+		}
 	}
 }

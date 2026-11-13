@@ -267,7 +267,9 @@ type app struct {
 	ptags         []string           // the open page's tags, for the side panel
 	ptagsVer      uint64
 	ptagsDoc      *richtext.Document
-	trashItems    []*TrashItem // what is in it, read when it opens and changes
+	trashItems    []*TrashItem       // what is in it, read when it opens and changes
+	trashPages    map[string][]*Page // the pages each collection in it holds, by its folder in the trash (trash.go)
+	trashUnfold   map[string]bool    // the collections in it whose pages are shown
 	clock         func() time.Time
 	look          string          // the light or dark and the color theme the window was last drawn in
 	afterView     []func()        // what waits for the view to be built

@@ -14,7 +14,16 @@ import (
 // page or collection just thrown away is also offered back by a toast.
 
 // loadTrash reads what is in the trash.
-func (a *app) loadTrash() { a.trashItems = a.lib.Trash() }
+func (a *app) loadTrash() {
+	a.trashItems = a.lib.Trash()
+	// what each collection took with it, read once here and not in every frame
+	a.trashPages = map[string][]*Page{}
+	for _, it := range a.trashItems {
+		if ps := a.lib.TrashedPages(it); len(ps) > 0 {
+			a.trashPages[it.Dir] = ps
+		}
+	}
+}
 
 // purgeTrash deletes what has been in the trash for trashDays: at the start, after a sync, when the trash is opened.
 func (a *app) purgeTrash() {
@@ -150,6 +159,35 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 				note += "  ·  " + locales.TrashDeletedIn(trashDaysLeft(item, now))
 			}
 			ui.Text(c, note).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
+			if ps := a.trashPages[item.Dir]; len(ps) > 0 { // what went with the collection: its count, which unfolds the pages (#481)
+				open := a.trashUnfold[item.Dir]
+				glyph := iconChevron
+				if open {
+					glyph = iconChevronDown
+				}
+				fold := ui.Row(c.Key("trash-fold:" + item.Dir)).Gap(4).AlignItems(ui.Center).Cursor(ui.CursorPointer).Role(ui.RoleButton).
+					Label(locales.CommonPageCount(len(ps)))
+				fold.Children(func() {
+					ui.Icon(c, glyph).Width(11).Height(11).TextColor(t.TextMuted)
+					ui.Text(c, locales.CommonPageCount(len(ps))).FontSize(12.5).FontWeight(560).TextColor(t.TextMuted)
+				})
+				if fold.Clicked() {
+					if a.trashUnfold == nil {
+						a.trashUnfold = map[string]bool{}
+					}
+					a.trashUnfold[item.Dir] = !open
+				}
+				if open {
+					ui.Column(c.Key("trash-pages:"+item.Dir)).Gap(3).Padding(4, 0, 2, 15).Transition(rowEnter).Children(func() {
+						for _, p := range ps {
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, float32(p.Depth())*14).Children(func() {
+								ui.Icon(c, iconPage).Width(12).Height(12).TextColor(t.TextMuted)
+								ui.Text(c, p.Title).FontSize(13).TextColor(t.Text).MaxLines(1)
+							})
+						}
+					})
+				}
+			}
 		})
 		if ryugo.Button(c.Key("restore:"+item.Dir), locales.CommonRestore(), ryugo.ButtonOptions{Icon: iconRestore, Size: ryugo.Sm}).Clicked() {
 			a.restore(item)
