@@ -2,6 +2,8 @@
 # (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file), a SHA256SUMS,
 # a signed manifest, the GitHub release, and then the files on Cloudflare R2, from where the app's update check
 # reads them (cloudflare/update/worker.js). update.json goes up last: until it is there, no app is offered the version.
+# Then the dmg job, on macOS, makes celestine-macos.dmg from the two darwin zips (scripts/dmg.sh) and adds it to
+# the release and to R2: the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
 #
 # Secrets: RELEASE_KEY (the secret key of `go run ./scripts/release keygen`), UPDATE_PUBLIC_KEY (its public
 # half, which goes into the program), UPDATE_URL (the Worker's address, https://…/update.json; the files are served
@@ -79,6 +81,12 @@ jobs:
         run: |
           scripts/package.sh
           (cd dist && sha256sum celestine-* > SHA256SUMS && cat SHA256SUMS)
+      - name: darwin zips for the dmg job
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin
+          path: dist/celestine-darwin-*.zip
+          retention-days: 1
       - name: notes
         run: |
           prev=$(git describe --tags --abbrev=0 "$VERSION^" 2>/dev/null || true)
@@ -127,3 +135,29 @@ jobs:
           aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
           # the site's changelog after it, so the page never names a version that is not offered yet
           aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"
+  dmg:
+    needs: build
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+      R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.RELEASE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: darwin, path: dist }
+      - name: dmg
+        run: scripts/dmg.sh
+      - name: add to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$VERSION" dist/celestine-macos.dmg --clobber
+      - name: upload to R2
+        if: env.R2 == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          aws s3 cp dist/celestine-macos.dmg "s3://celestine-releases/$VERSION/celestine-macos.dmg" \
+            --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
