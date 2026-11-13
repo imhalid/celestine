@@ -44,7 +44,7 @@ const modules = Object.fromEntries(fs.readdirSync(process.env.HERE_JS).map((f) =
 const triggers = JSON.parse(process.env.CRONS || "[]").map((schedule) => ({ type: "scheduled", schedule }));
 if (!triggers.length) throw new Error("no [triggers] crons in wrangler.toml");
 // SITE: the site Worker, which answers every path outside the API (worker.js: site)
-const env = { SYNC: { type: "r2", name: "celestine-sync" }, DB: { type: "d1", name: "celestine" }, SITE: { type: "service", service: "celestine-site" } };
+const env = { SYNC: { type: "r2", name: "celestine-sync" }, DB: { type: "d1", name: "celestine" }, SITE: { type: "worker", worker: "celestine-site" } };
 // the secrets: those of the file, or with none, those the deployed version has, named without a value to be kept
 const given = process.env.SECRETS ? JSON.parse(fs.readFileSync(process.env.SECRETS, "utf8")) : null;
 const unset = Object.keys(given || {}).filter((k) => !given[k] || /^BURAYA_|^TODO/.test(given[k]));
