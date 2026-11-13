@@ -8,7 +8,7 @@
 # and writes what the builds read: in the Dock's shape for macOS and the window (icon-*.png, icon.icns), filling
 # its square for Windows (icon-win.png, icon.ico, and the .syso through scripts/winicon), for the web, the
 # Android launcher (its ground in values/ic_launcher_background.xml is the paper tone) and the site's favicon
-# (icon.bin of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
+# (static/icon.png of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
 #
 #   scripts/icons.sh
 set -eu
@@ -55,7 +55,7 @@ cp assets/icon-512.png web/icon-512.png
 cp assets/icon-256.png android/app/src/main/assets/web/icon-256.png
 cp assets/icon-512.png android/app/src/main/assets/web/icon-512.png
 site=${CELESTINE_SITE:-../celestine-site}
-if [ -d "$site" ]; then cp assets/icon-256.png "$site/icon.bin"; else echo "no site checkout at $site: its icon.bin is left as it is" >&2; fi
+if [ -d "$site/static" ]; then cp assets/icon-256.png "$site/static/icon.png"; else echo "no site checkout at $site: its icon is left as it is" >&2; fi
 
 # Android: the legacy icon fills its square with rounded corners; the adaptive one's foreground is the picture
 # within the middle 60%, which every launcher's mask leaves whole, on the paper ground

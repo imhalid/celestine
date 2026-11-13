@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// changelog is what the site's /changelog page reads (changelog.js of the celestine-site repository): every release, newest first.
+// changelog is what the site's /changelog page reads (src/routes/changelog of the celestine-site repository): every release, newest first.
 type changelog struct {
 	Generated string    `json:"generated"`
 	Releases  []release `json:"releases"`

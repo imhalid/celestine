@@ -92,7 +92,7 @@ jobs:
           cat release-notes.md
       - name: changelog
         run: |
-          # every release from the tags, for the site's /changelog (changelog.js of the celestine-site repository)
+          # every release from the tags, for the site's /changelog (src/routes/changelog of the celestine-site repository)
           go run ./scripts/release changelog > changelog.json
           head -c 2000 changelog.json
       - name: manifest
