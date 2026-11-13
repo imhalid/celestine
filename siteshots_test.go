@@ -509,7 +509,7 @@ var detailScenes = []siteScene{
 		s.page()
 		s.park()
 		a := s.blockAt(t, at(s.a.doc, "Where people come from")+len("Where people come from")+1)
-		s.crop(t, "table-block", a.X-16, a.Y-16, 480, a.H+32, detailScale)
+		s.crop(t, "table-block", a.X-16, a.Y-3, 480, a.H+19, detailScale)
 	}},
 	{"grip", func(t *testing.T, s *siteShot) {
 		s.page()
@@ -560,7 +560,7 @@ var detailScenes = []siteScene{
 		s.park()
 		a, z := s.block(t, "func ready(b Build) bool {"), s.block(t, "}")
 		a.H = z.Y + z.H - a.Y
-		s.crop(t, "code", a.X-20, a.Y-20, 560, a.H+40, detailScale)
+		s.crop(t, "code", a.X-20, a.Y-18, 560, a.H+28, detailScale)
 	}},
 	{"toast", func(t *testing.T, s *siteShot) {
 		s.page()
@@ -587,7 +587,7 @@ var detailScenes = []siteScene{
 			}
 		}
 		s.park()
-		s.crop(t, "statusbar-lapse", shotW-520, shotH-44, 520, 44, detailScale)
+		s.crop(t, "statusbar-lapse", shotW-520, shotH-34, 520, 34, detailScale)
 	}},
 }
 
@@ -607,7 +607,7 @@ func caretShot(name string) siteScene {
 		}
 		s.tt.Advance(120 * time.Millisecond)
 		r, _ := s.tt.TextCaret()
-		s.crop(t, "caret-"+name, r.X-300, r.Y-50, 420, 110, detailScale)
+		s.crop(t, "caret-"+name, r.X-300, r.Y-52, 420, 88, detailScale)
 	}}
 }
 
