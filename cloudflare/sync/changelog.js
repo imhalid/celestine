@@ -13,6 +13,7 @@
 // same scene at night for the dark one
 import BANNER from "./banner.bin";
 import BANNER_DARK from "./banner-dark.bin";
+import { ogTags } from "./og.js";
 
 const CACHE_SECONDS = 300;
 const SHOWN = 10; // the changes a box shows before "Show n more"
@@ -67,8 +68,15 @@ export function bannerImage(dark) {
 // in the top bar that changes it, as the entry screen's does.
 const SCHEME_JS = `(() => {
   const root = document.documentElement;
-  try { const s = localStorage.getItem("celestine-scheme"); if (s === "light" || s === "dark") root.dataset.scheme = s; } catch {}
-  const now = () => root.dataset.scheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  // dark unless light was chosen (the system's scheme is not asked)
+  try { root.dataset.scheme = localStorage.getItem("celestine-scheme") === "light" ? "light" : "dark"; } catch { root.dataset.scheme = "dark"; }
+  const now = () => root.dataset.scheme;
+  // the banner of the scheme in use is preloaded at once, the other one when the page is idle, so it is there at a switch
+  const banners = { light: "/changelog/banner.webp?v=${BANNER_V}", dark: "/changelog/banner-dark.webp?v=${BANNER_DARK_V}" };
+  const pre = document.createElement("link");
+  pre.rel = "preload"; pre.as = "image"; pre.setAttribute("fetchpriority", "high"); pre.href = banners[now()];
+  document.head.append(pre);
+  addEventListener("load", () => (window.requestIdleCallback || ((f) => setTimeout(f, 600)))(() => { new Image().src = banners[now() === "dark" ? "light" : "dark"]; }));
   addEventListener("DOMContentLoaded", () => {
     const b = document.querySelector(".icon");
     if (!b) return;
@@ -204,7 +212,7 @@ export function changelogHTML(releases) {
     : `<p class="empty">No releases yet. The first one will be listed here.</p>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Changelog — Celestine</title><link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png">
-<meta name="description" content="What is new in each version of Celestine."><meta name="color-scheme" content="light dark"><script src="/changelog/scheme.js?v=${SCHEME_JS.length.toString(36)}"></script><script src="/changelog/rail.js?v=${RAIL_JS.length.toString(36)}" defer></script><style>
+<meta name="description" content="What is new in each version of Celestine.">${ogTags("Changelog — Celestine", "What is new in each version of Celestine.", "/changelog")}<meta name="color-scheme" content="light dark"><script src="/changelog/scheme.js?v=${SCHEME_JS.length.toString(36)}"></script><script src="/changelog/rail.js?v=${RAIL_JS.length.toString(36)}" defer></script><style>
 :root{color-scheme:light dark;
   --bg:light-dark(oklch(98.5% .002 286),oklch(9% .004 286));
   --card:light-dark(oklch(100% 0 0),oklch(15% .004 286));

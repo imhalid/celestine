@@ -23,6 +23,7 @@
 import { handleApi, userOfToken } from "./auth.js";
 import { waitlistPage, adminPage, privacyPage } from "./pages.js";
 import { changelogPage, bannerImage, schemeScript, railScript } from "./changelog.js";
+import { ogImage } from "./og.js";
 import { landingImage } from "./landing.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
@@ -112,6 +113,7 @@ async function handle(request, env, ctx) {
   if (request.method === "GET" && url.pathname === "/changelog/banner-dark.webp") return bannerImage(true);
   if (request.method === "GET" && url.pathname === "/changelog/scheme.js") return schemeScript();
   if (request.method === "GET" && url.pathname === "/changelog/rail.js") return railScript();
+  if (request.method === "GET" && url.pathname === "/og.jpg") return ogImage();
   if (url.pathname.startsWith("/api/")) return (await handleApi(request, env, url)) || new Response("not found", { status: 404 });
   if (/^\/versions\//.test(url.pathname)) return versions(request, env, url);
   if (url.pathname === "/changes") return changes(request, env);

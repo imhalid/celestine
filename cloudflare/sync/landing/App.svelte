@@ -34,9 +34,9 @@
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let typed = $state(reduce ? NAME : "");
 
-  // light or dark: the system's, until the toggle is used (then remembered in this browser)
+  // light or dark: dark, until the toggle is used (then remembered in this browser)
   const stored = (() => { try { return localStorage.getItem("celestine-scheme"); } catch { return null; } })();
-  let scheme = $state(stored === "light" || stored === "dark" ? stored : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  let scheme = $state(stored === "light" ? "light" : "dark");
   // the switch is a view transition: the page cross-fades from one scheme to the other (app.css times it), and where the
   // browser has none, or reduced motion is asked for, it changes at once
   function toggle() {
@@ -235,9 +235,10 @@
   :global(html[data-scheme="dark"]) .foot::before { background-image: var(--foot-dark); }
   @media (prefers-color-scheme: dark) { :global(html:not([data-scheme="light"])) .foot::before { background-image: var(--foot-dark); } }
   /* on a phone the pictures sit under the words, not behind them: the hero's is tall enough that its crystals, which stand
-     58% of the way down the picture, clear the download button; the footer's is a band of its own below the waitlist */
+     75% of the way down the picture, clear the download button with room to spare; the footer's is a band of its own below
+     the waitlist */
   @media (max-width: 640px) {
-    .hero { padding-bottom: 330px; }
+    .hero { padding-bottom: 230px; }
     .foot { padding-bottom: 300px; }
     .foot::before { top: auto; height: 300px; background-position: right bottom;
       -webkit-mask-image: linear-gradient(transparent, #000 30%); mask-image: linear-gradient(transparent, #000 30%); }
