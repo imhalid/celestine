@@ -91,7 +91,7 @@ func (a *app) vimKey(r rune, n int) bool {
 	_, caret := d.Selection()
 	rs := []rune(t.String())
 	total := len(rs)
-	ps, pe := t.ParagraphRange(min(caret, max(total-1, 0)))
+	ps, pe := t.ParagraphRange(caret)
 	put := func(i int) {
 		i = min(max(i, 0), total)
 		d.SetSelection(i, i)
@@ -197,7 +197,7 @@ func (a *app) vimPair(first, second rune) bool {
 	d := a.doc
 	t := d.Text()
 	_, caret := d.Selection()
-	ps, pe := t.ParagraphRange(min(caret, max(t.Len()-1, 0)))
+	ps, pe := t.ParagraphRange(caret)
 	a.vimReg = t.Slice(ps, pe)
 	if first == 'd' {
 		a.kb.again.r, a.kb.again.n, a.kb.again.pair = 'd', 1, "dd"

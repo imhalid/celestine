@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 	"unicode/utf8"
 
@@ -99,16 +100,29 @@ type app struct {
 	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
 	ps        paneSet // the panes of the window (panes.go)
 
-	bars       map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
-	titles     titleIdx                // the pages by their titles, for the chips (chips.go)
-	nearFn     func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
-	wordsFn    caretText               // and the words round it
-	caretTry   caretTry                // the caret's playground in the settings (caretplay.go)
-	census     census                  // the sidebar's tree, counted once a frame (sidebar.go)
-	frameSeq   uint64                  // the frames built, counted
-	meter      frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
-	wframe     frameState              // the window's frame (windowframe.go)
-	caretDraws int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
+	bars          map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
+	titles        titleIdx                // the pages by their titles, for the chips (chips.go)
+	nearFn        func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	wordsFn       caretText               // and the words round it
+	caretTry      caretTry                // the caret's playground in the settings (caretplay.go)
+	census        census                  // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq      uint64                  // the frames built, counted
+	frameNow      time.Time               // the window's time this frame (c.Now): what the app's own animations are timed by
+	barLeft       float32                 // where macOS's window buttons end, as the frame's top edge last read it (frameTop)
+	edBuilt       map[uint64]uint64       // the frame each editor (by its element) was last built in (editorIsNew)
+	meter         frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
+	wframe        frameState              // the window's frame (windowframe.go)
+	glassTint     string                  // last CSS rgba() tint applied to macOS Liquid Glass
+	glassBg       ui.Color                // the page background glassTint was made from
+	glassDark     bool                    // and whether the window was dark
+	glassHasTint  bool                    // whether glassBg and glassDark are those of the last tint made
+	glassTintRuns int                     // counts glassTint() string builds for verifying per-frame skip
+	caretDraws    int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
+	caretFB       caretFallback           // cached editor CaretRect fallback for oversized paragraphs (#213)
+	caretFBReads  int                     // CaretRect fallback evaluations, for verifying no per-frame layout (#213)
+	noSound       bool                    // no sound is heard, whatever the settings say: in tests (sound.go)
+	soundAt       map[soundKind]time.Time // when each sound was last heard, so a burst of notices chimes once
+	soundPlay     func(soundKind)         // a test hears the sounds here instead
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
 	drawerOpen bool  // on a phone, the sidebar is open over the page
@@ -221,10 +235,12 @@ type app struct {
 	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
 	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
 	unsavedAt   time.Time
-	daysStamped bool       // the journal's pages have their days kept (stampDays)
-	storeErr    string     // the library store's last write error, as shown
-	notice      string     // a toast to show
-	trashed     *TrashItem // just thrown away: a toast offers it back
+	shellOpen   func(string, bool) // test seam for opening/revealing attached files (path, reveal)
+	runOnUI     func(func())       // UI-thread dispatcher when the event loop is active (#173)
+	daysStamped bool               // the journal's pages have their days kept (stampDays)
+	storeErr    string             // the library store's last write error, as shown
+	notice      string             // a toast to show
+	trashed     *TrashItem         // just thrown away: a toast offers it back
 
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings
@@ -274,33 +290,37 @@ type app struct {
 	settingsStore *Store
 	// inKeychain is each secret of the settings the keychain holds, as it was put there (keychain.go)
 	inKeychain    map[string]string
-	importNote    string                  // what the last import said, in the settings
-	embedCache    map[string][]string     // the first lines of the pages embedded (embed.go)
-	queryCache    map[string]queryResult  // what the query blocks found (queryblock.go)
-	ctxCache      map[string][]seg        // the lines that link to a page (backlinks.go)
-	chipW         map[string]float32      // how wide the text of each chip is (chips.go)
-	autoCovers    map[uint64]*autoCover   // the patterns made for the covers of the pages shown lately (autocover.go)
-	tables        map[string]*tableUI     // the state of each collection table, by collection and view (views.go)
-	sortLists     map[string]*manualState // each list in its own order, by collection and view (views.go)
+	importNote    string                             // what the last import said, in the settings
+	embedCache    map[string][]string                // the first lines of the pages embedded (embed.go)
+	queryCache    map[string]queryResult             // what the query blocks found (queryblock.go)
+	queryDocs     map[*richtext.Document]*docQueries // query block attachments tracked per document (queryblock.go)
+	queryVer      int                                // incremented when dynamic query block heights change (spansVersion)
+	ctxCache      map[string][]seg                   // the lines that link to a page (backlinks.go)
+	chipW         map[string]float32                 // how wide the text of each chip is (chips.go)
+	autoCovers    map[uint64]*autoCover              // the patterns made for the covers of the pages shown lately (autocover.go)
+	tables        map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
+	sortLists     map[string]*manualState            // each list in its own order, by collection and view (views.go)
 	writingSaved  time.Time
-	exportNote    string                    // what the last export said, in the settings
-	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
-	images        map[string]ui.ImageSource // the pictures read, by their file (images.go)
-	imageMiss     map[string]time.Time      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
-	clipText      func(string)              // the clipboard to write; the system's when nil
-	clipRead      func() string             // and to read
-	ownClip       ownClip                   // the blocks of the last copy in the editor (clipmodes.go)
-	carry         dockCarry                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
-	panesR        ui.Rect                   // where the panes were, last frame
-	prewarming    bool                      // the pages are being read away from the window (prewarm.go)
-	fieldSels     map[*string]fieldSel      // a selection the menu of a field left, to set on it (fieldmenu.go)
-	edPtr         ui.Point                  // the pointer over the page's text, last frame
-	cellBar       ui.Rect                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
-	tagDrafts     map[string]*string        // what is typed in the fields of tags and numbers (tagfield.go)
-	countEditing  string                    // the number field being typed in
-	tagPop        map[string]bool           // a field of tags whose last was taken away with ⌫
-	clipImage     func() []byte             // the clipboard's picture; the system's when nil
-	outlineOf     []heading                 // the page's headings, for the side panel
+	exportNote    string                                    // what the last export said, in the settings
+	docUse        []*Page                                   // the pages whose texts are kept, the longest unused first (touchDoc)
+	images        map[string]ui.ImageSource                 // the pictures read, by their file (images.go)
+	imageMiss     map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
+	clipText      func(string)                              // the clipboard to write; the system's when nil
+	clipWrite     func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
+	clipRead      func() string                             // and to read
+	ownClip       ownClip                                   // the blocks of the last copy in the editor (clipmodes.go)
+	carry         dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
+	panesR        ui.Rect                                   // where the panes were, last frame
+	sidebarR      ui.Rect                                   // where the sidebar was, last frame
+	prewarming    bool                                      // the pages are being read away from the window (prewarm.go)
+	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
+	edPtr         ui.Point                                  // the pointer over the page's text, last frame
+	cellBar       ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
+	tagDrafts     map[string]*string                        // what is typed in the fields of tags and numbers (tagfield.go)
+	countEditing  string                                    // the number field being typed in
+	tagPop        map[string]bool                           // a field of tags whose last was taken away with ⌫
+	clipImage     func() []byte                             // the clipboard's picture; the system's when nil
+	outlineOf     []heading                                 // the page's headings, for the side panel
 	outlineVer    uint64
 	outlineDoc    *richtext.Document
 	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
@@ -341,7 +361,7 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex()}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing()}
 	a.paneState = newPaneState()
 	a.histAt, a.grip.para = -1, -1
 	a.meter.hud.Store(debugOnStart)
@@ -412,6 +432,7 @@ var appIcon []byte
 var winIcon []byte
 
 func main() {
+	keychain = systemKeychain() // the secrets of the settings, out of the file (keychain.go); also needed by `celestine mcp` (#165)
 	// `celestine mcp`: the app's MCP server for an agent over stdio, by way of the app itself (mcpbridge.go)
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
 		os.Exit(runMCP(os.Args[2:]))
@@ -421,11 +442,12 @@ func main() {
 	// One copy of the app at a time: a second one hands its command line to the first, which comes to the front,
 	// and goes, before it opens the library - two would write the same file, and each would take the other's mark
 	// of running for a crash (crash.go). --mcp goes with it, for the first to turn its MCP server on.
-	// A restart waits for the copy before it to be gone first (restart.go).
+	// A rollback start carries the pid of the copy that restored it and is exiting, takes the flag off its
+	// command line, and waits for that copy to exit before taking the single-instance lock (#338).
 	var leaving int
 	if len(os.Args) > 1 {
 		var rest []string
-		rest, leaving = withoutRestartFlag(os.Args[1:])
+		rest, leaving = withoutRollbackFlag(os.Args[1:])
 		os.Args = append(os.Args[:1:1], rest...)
 	}
 	waitForExit(leaving, 15*time.Second)
@@ -436,13 +458,16 @@ func main() {
 	// unproved puts the old program back and starts it (update.go).
 	if note := rollbackIfBroken(updateMark(), version); note != "" {
 		if exe, err := os.Executable(); err == nil {
-			exec.Command(exe, restartArgs()...).Start()
+			exec.Command(exe, rollbackArgs()...).Start()
 		}
 		log.Println(note)
 		os.Exit(0)
 	}
 	var mcpOn bool
 	os.Args, mcpOn = withoutMCPFlag(os.Args)
+	if len(os.Args) > 1 {
+		os.Args = append(os.Args[:1:1], withoutUpdateRestartedFlag(os.Args[1:])...)
+	}
 	// The library is a file of its own, next to the program: nothing else
 	// opens it, and the two move together. A folder named on the command line
 	// is a library of plain files, as before; the first time, a folder
@@ -465,7 +490,9 @@ func main() {
 		if arg != "" {
 			file, _ = filepath.Abs(arg)
 		}
-		restored, rerr := applyRestore(backupDir(), file, time.Now()) // a backup chosen before the last quit is put in place first
+		bdir := backupDir()
+		hardenBackupDir(bdir)                                  // tighten existing backups once on startup (#179)
+		restored, rerr := applyRestore(bdir, file, time.Now()) // a backup chosen before the last quit is put in place first
 		if rerr != nil {
 			restored, restoreKind = locales.AppRestoreFailed(rerr.Error()), toastErr
 		}
@@ -530,6 +557,7 @@ func main() {
 		a.markPristine()
 	}
 	a.wel.on = a.wantWelcome()                              // the first opening, if it is one
+	go func() { defer a.guard(); clearOpenedCopies() }()    // the copies a session that ended badly left
 	a.purgeTrash()                                          // what has been in the trash trashDays is deleted for good
 	a.prewarm()                                             // the pages' text, read away from the window
 	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
@@ -555,6 +583,7 @@ func main() {
 		a.saveUsage()
 		a.mu.Unlock()
 		a.syncAtQuit(6 * time.Second) // what was written since the last pass goes up before the app goes
+		clearOpenedCopies()           // the copies of the one-file library's files that were opened
 		markClean(crashDir())
 		updateProved(updateMark(), version) // a first start that ended as it should has proved itself too
 	})
@@ -570,6 +599,10 @@ func main() {
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
+		if a.settings.Glass && runtime.GOOS == "darwin" {
+			opts.Transparent = true
+			opts.Vibrancy = mygo.VibrancyGlass
+		}
 		if a.wel.on && runtime.GOOS == "darwin" { // the first opening: the window waits, hidden, under the stage (welcome.go)
 			opts.Hidden, opts.DisableShadow = true, true
 			a.wel.clear = true
@@ -590,6 +623,7 @@ func main() {
 					w.SetOpacity(0)
 					w.Show()
 					a.fadeWindow(w, 0, 1, 0, 0.22)
+					a.playStartupSound()
 				})
 			}
 			w.OnReadyToShow(show)
@@ -599,20 +633,13 @@ func main() {
 			a.win = w
 		}
 		a.invalidate = w.Invalidate
+		a.runOnUI = mygo.RunOnMain
 		if runtime.GOOS != "js" { // a browser has one window: the panes stay in it
 			a.newDockHost(w)
 			a.dockHost.Sync() // the windows of the panes, as they were left
 		}
 		mygo.App.OnSecondInstance(func(args []string, _ string) {
-			if slices.Contains(args, mcpFlag) { // `celestine mcp` found the server off: it is turned on
-				a.do(func() error {
-					if a.mcpServer == nil {
-						a.setMCP(true)
-					}
-					return nil
-				})
-			}
-			a.bringToFront()
+			a.handleSecondInstance(args)
 		})
 		w.OnClosed(mygo.App.Quit) // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(a.windowIn)     // back from another device: what it wrote comes
@@ -626,17 +653,22 @@ func main() {
 		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
 			a.quick = newQuick(a)
 		}
-		go func() { // the day's backup, a moment after the start, when the window is up
+		go func() { // the day's backup, a moment after the start, when the window is up, then periodic update checks (#327)
 			defer a.guard()
 			time.Sleep(4 * time.Second)
 			a.do(func() error { a.backupDaily(); return nil })
 			time.Sleep(4 * time.Second)
 			a.do(func() error { a.checkUpdate(false); return nil })
+			tk := time.NewTicker(time.Hour)
+			defer tk.Stop()
+			for range tk.C {
+				a.do(func() error { a.checkUpdate(false); return nil })
+			}
 		}()
 		go func() { defer a.guard(); a.watch() }()
 		go func() { defer a.guard(); a.watchClipboard() }()
-		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `celestine mcp`
-			a.setMCP(true)
+		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `celestine mcp` (do not persist --mcp, #182)
+			a.startMCP(true, a.settings.MCP)
 		}
 	})
 	if err := mygo.App.Run(); err != nil {
@@ -860,6 +892,7 @@ func (a *app) docFor(p *Page) *richtext.Document {
 			a.sweepPictures(p, body)
 		}
 		doc = richtext.NewDocument(a.parsePage(p, body))
+		doc.SetSelection(0, 0) // a page read starts where it is read from, not after its last letter (#454)
 		a.docs[p] = doc
 	}
 	a.touchDoc(p)
@@ -891,6 +924,7 @@ func (a *app) touchDoc(p *Page) {
 		if q := a.docUse[i]; shown[q] {
 			i++
 		} else {
+			delete(a.queryDocs, a.docs[q])
 			delete(a.docs, q)
 			a.docUse = slices.Delete(a.docUse, i, i+1)
 		}
@@ -963,6 +997,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frame = c.Invalidate
 	a.frameSeq++
+	a.frameNow = c.Now()
 	a.motionFrame(c) // reduced motion, and the shader effects on or off (motion.go)
 	a.updatePhone(c)
 	a.keepSettings(c)
@@ -981,6 +1016,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 
 	a.pageBg = a.bg(c)
+	a.syncGlassTint(c)
 	// A new look (light or dark, or another color theme) is a new tree: what was there
 	// would take each color over a moment of its own - the sidebar, the inputs, the
 	// boxes of a checkbox, each at its own pace - and the change would show in pieces.
@@ -993,13 +1029,24 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.welcomeBackdrop(c, false) // the first opening's circles, under the app
 	framed := a.framed()
 	a.wframe.on = framed
+	useGlass := a.settings.Glass && c.Vibrancy()
+	if useGlass {
+		c.Root().Background(ui.Transparent)
+	}
 	var root ui.Element
 	if framed { // the window's frame around the content, a card in it, the tabs above and the status bar under (windowframe.go)
-		g := frameGroundOf(c)
-		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Draw(func(p *ui.Painter, r ui.Rect) { g.paint(p, r) }).Padding(0, frameW, 0, frameW)
+		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Padding(0, frameW, 0, frameW)
+		if !useGlass {
+			g := frameGroundOf(c)
+			root.Draw(func(p *ui.Painter, r ui.Rect) { g.paint(p, r) })
+		}
 		a.wframe.strip = root.AnimateTo("frame-strip", map[bool]float32{true: 1}[a.frameTabs()], springSheet)
 	} else {
-		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(a.pageBg)
+		bg := a.pageBg
+		if useGlass {
+			bg = ui.Transparent
+		}
+		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(bg)
 		a.wframe.strip = 0
 	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
@@ -1171,11 +1218,11 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).Grow(1)
 		a.scrolled(c, "page-scroll:"+p.Dir, a.pageScroll, sc, func() {
 			if a.topSpace > 0 {
-				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace)
+				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace).DragWindow()
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
-			if _, y, over := wrap.PointerPosition(); over && a.coverKind(p) != coverKindNone {
+			if _, y, over := wrap.PointerPosition(); over && !a.modal() && a.coverKind(p) != coverKindNone {
 				a.coverHover = y < a.coverBandOf(p)
 			} else {
 				a.coverHover = false
@@ -1209,6 +1256,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		ui.Text(c, locales.AppThisPageCouldNot()+"\n"+p.Unreadable).FontSize(13).TextColor(ryugo.From(c).Colors.Warn).Wrap().FillWidth().Padding(0, 0, 8, 0)
 	}
 	c.Key("body:" + p.Dir)
+	a.refreshQueries()
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
@@ -1228,11 +1276,15 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	// this editor's paragraphs, read right after it is built: with the page open in two panes, each pane's are its
 	// own, laid out at its width, and its height is worked out from them (#190)
 	a.boxes = a.doc.VisibleParagraphs()
-	if !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() && !a.kb.normal {
-		ed.AutoFocus()
+	// a new editor (another page, another look) takes the keyboard, as AutoFocus would give it, but the page stays where
+	// it is: AutoFocus scrolls the editor into view, which for a text taller than the window puts its top at the
+	// window's and the title out of sight, a moment after the page opened at its top. The caret is brought into view, if
+	// it must be, by revealCaret.
+	if a.editorIsNew(ed) && !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() && !a.kb.normal {
+		ed.Focus(ui.FocusOptions{PreventScroll: true})
 	}
 	if a.refocus {
-		ed.Focus()
+		ed.Focus(ui.FocusOptions{PreventScroll: true})
 		a.refocus = false
 	}
 	a.focused = ed.Focused()
@@ -1244,6 +1296,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.tableKeys(c)
 	a.edPressed = ed.Pressed()
 	a.trackGrip(ed)
+	a.settleRooms(ed) // the hole a block dropped left, shutting (blockui.go)
 	a.hoverCh, a.hoverTag = nil, ""
 	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
 	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
@@ -1562,9 +1615,21 @@ func (a *app) revealCaret(cr ui.Rect) {
 	}
 }
 
+// caretFallback caches CaretRect layout lookups for oversized paragraphs whose runes fail direct positioning.
+type caretFallback struct {
+	doc   *richtext.Document
+	ver   uint64
+	spans int
+	font  ui.Font
+	at    int
+	w     float32
+	r     ui.Rect
+}
+
+// drawCaret paints the custom caret over the editor, falling back to cached CaretRect on oversized paragraphs (#213).
 func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
-	a.caretDraws++
 	if !a.focused {
+		a.caretDraws++
 		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same.
 		// Only the caret's place is needed, so it is the editor's own (CaretRect), not laid out again (#306).
 		if a.revealWant && a.find.open {
@@ -1579,7 +1644,39 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	_, caret := a.doc.Selection()
 	cb, ok := a.locateRune(caret, r.W)
 	if !ok {
-		return
+		b, hasBox := a.boxAt(caret)
+		if !hasBox && !a.revealWant {
+			return
+		}
+		if hasBox && a.scrollR.H > 0 && !a.revealWant && (r.Y+b.Top+b.Height <= a.scrollR.Y || r.Y+b.Top >= a.scrollR.Y+a.scrollR.H) {
+			return
+		}
+		ver, spans := a.doc.Version(), a.spansVersion()
+		var cr ui.Rect
+		fb := &a.caretFB
+		if fb.doc == a.doc && fb.ver == ver && fb.spans == spans && fb.font == a.font && fb.at == caret && fb.w == r.W {
+			cr = fb.r
+		} else {
+			var cok bool
+			cr, cok = a.doc.CaretRect()
+			if !cok {
+				return
+			}
+			a.caretFBReads++
+			*fb = caretFallback{doc: a.doc, ver: ver, spans: spans, font: a.font, at: caret, w: r.W, r: cr}
+		}
+		para, top := 0, cr.Y
+		if hasBox {
+			para, top = b.Start, b.Top
+		} else if a.doc != nil {
+			s, _ := a.doc.Text().ParagraphRange(caret)
+			para = s
+		}
+		cw := cr.H * 0.5
+		if cw < 1 {
+			cw = a.font.Size * 0.5
+		}
+		cb = caretBox{r: cr, full: cr, cw: cw, top: top, para: para}
 	}
 	// scrolled: the caret went with its paragraph, the text under it the
 	// same - the jelly goes with it and is not kicked
@@ -1595,6 +1692,10 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	cr.Y += r.Y
 	a.caretWin = cr
 	a.revealCaret(cr)
+	if a.scrollR.H > 0 && (cr.Y+cr.H <= a.scrollR.Y || cr.Y >= a.scrollR.Y+a.scrollR.H) {
+		return
+	}
+	a.caretDraws++
 	anchor, caret := a.doc.Selection()
 	if a.caretBlinkOff(p, anchor, caret) { // the off half of a blink
 		return
@@ -1856,6 +1957,19 @@ func (a *app) docStats() (words, chars int) {
 		a.statWords, a.statChars, a.statsVer = len(strings.Fields(s)), len([]rune(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), string(richtext.ObjectReplacement), ""))), v
 	}
 	return a.statWords, a.statChars
+}
+
+// handleSecondInstance handles command-line arguments forwarded from another launch.
+func (a *app) handleSecondInstance(args []string) {
+	if slices.Contains(args, mcpFlag) { // `celestine mcp` found the server off: it is turned on without persisting (#182)
+		a.do(func() error {
+			if a.mcpServer == nil {
+				a.startMCP(true, false)
+			}
+			return nil
+		})
+	}
+	a.bringToFront()
 }
 
 // bringToFront is the app started again while it runs: its window comes to the front, out of the Dock if it was

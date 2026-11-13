@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/egoist/mygo/ui"
@@ -103,19 +104,108 @@ func frameCard(c *ui.Context, el ui.Element, fill ui.Color, radius, lift float32
 // sidebarGlass is how much of the sidebar's surface covers the frame's ground under it.
 const sidebarGlass = 0.82
 
+// glassTint formats a CSS rgba() tint from bg for macOS Liquid Glass (NSGlassEffectView.tintColor),
+// keeping the glass translucent while carrying the active theme's hue.
+func glassTint(bg ui.Color, dark bool) string {
+	alpha := 0.48
+	if dark {
+		alpha = 0.56
+	}
+	return fmt.Sprintf("rgba(%d, %d, %d, %.2f)", bg.R, bg.G, bg.B, alpha)
+}
+
+// setGlass persists the macOS Liquid Glass preference (applied on next launch so the window keeps its
+// launch vibrancy/transparency state) and clears any cached theme tint when turned off.
+func (a *app) setGlass(on bool) {
+	a.settings.Glass = on
+	a.saveSettings()
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	if !on && (a.glassTint != "" || a.glassHasTint) {
+		a.glassTint = ""
+		a.glassHasTint = false
+		if a.wel.win != nil {
+			a.wel.win.SetVibrancyTint("")
+		}
+		if a.quick != nil && a.quick.panel != nil {
+			a.quick.panel.SetVibrancyTint("")
+		}
+	}
+}
+
+// syncGlassTint tints the main window's and the quick note's glass with the page's background. The tint is made
+// again only when that background changes (another theme, light or dark, a custom colour), not every frame.
+func (a *app) syncGlassTint(c *ui.Context) {
+	if !a.settings.Glass || runtime.GOOS != "darwin" {
+		return
+	}
+	dark := ryugo.From(c).Dark
+	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark {
+		return
+	}
+	tint := glassTint(a.pageBg, dark)
+	a.glassTintRuns++
+	a.glassTint, a.glassBg, a.glassDark, a.glassHasTint = tint, a.pageBg, dark, true
+	if a.wel.win != nil {
+		a.wel.win.SetVibrancyTint(tint)
+	}
+	if a.quick != nil && a.quick.panel != nil {
+		a.quick.panel.SetVibrancyTint(tint)
+	}
+}
+
 // frameTabs reports whether the top edge lists the panes: two or more of them.
 func (a *app) frameTabs() bool { return a.wframe.on && len(a.ps.states) > 1 }
+
+// noTabHeaderHeight is the room kept at the top of the sidebar's and the page's cards on macOS while the window has
+// one pane: the cards rise to the window's top, round the window's buttons and the sidebar's, and what is in them
+// starts, and scrolls, below those. With the panes' tabs it is none: the cards are under the top edge again.
+//
+// It changes at once, not on the tabs' spring: the Dock places its areas a frame late, and cards moving on a spring
+// would grow and shrink under it while the window splits, their scroll bars showing. What is in a card does not move
+// either way; only the card's top edge does.
+func (a *app) noTabHeaderHeight() float32 {
+	if a.wframe.on && !ownWindowControls && !a.frameTabs() {
+		return frameTopH - frameW
+	}
+	return 0
+}
 
 // frameTop is the frame's top edge, which moves the window: after macOS's window buttons the sidebar's buttons
 // (fold, back, forward, the settings); the panes' tabs, coming in as the window is split; at the right end, on Linux
 // and Windows, the window's own controls. The side panel is opened from the page's menu ("Page info").
 func (a *app) frameTop(c *ui.Context) {
 	p := a.wframe.strip
-	left := max(a.titleBar(c).Left-frameW, 6) // after macOS's window buttons
-	ui.Row(c.Key("frame-top")).FillWidth().Height(frameTopH).Shrink(0).Padding(0, 4, 0, left).Gap(10).AlignItems(ui.Center).Label(locales.SidebarTopBar()).
-		DragWindow().Children(func() {
-		ui.Row(c.Key("frame-sidebar-buttons")).Gap(2).Shrink(0).AlignItems(ui.Center).Children(func() {
-			a.sidebarButtons(c, frameW+left+3*(barBtnW+2)-2, frameTopH-4)
+	a.barLeft = a.titleBar(c).Left
+	left := max(a.barLeft-frameW+barLead, 6) // after macOS's window buttons, with room between
+	row := ui.Row(c.Key("frame-top")).FillWidth().Height(frameTopH).Shrink(0).Padding(0, 4, 0, 0).Gap(10).AlignItems(ui.Center).Label(locales.SidebarTopBar())
+	if ownWindowControls {
+		row.Padding(0, 4, 0, left).DragWindow()
+	} else {
+		topGap := frameTopH - a.noTabHeaderHeight() // where the cards start: see noTabHeaderHeight
+		row.Margin(0, 0, -(frameTopH - topGap), 0).ZIndex(1)
+		if p > 0.01 {
+			row.DragWindow()
+		} else {
+			row.PassThrough()
+		}
+	}
+	row.Children(func() {
+		if !ownWindowControls && p <= 0.01 {
+			ui.Box(c.Key("frame-drag-top")).Absolute().Left(0).Right(0).Top(0).Height(frameW).DragWindow()
+		}
+		btns := ui.Row(c.Key("frame-top-left")).Height(frameTopH).AlignItems(ui.Center).Shrink(0)
+		if !ownWindowControls {
+			btns.Padding(0, 0, 0, left)
+			if p <= 0.01 {
+				btns.DragWindow()
+			}
+		}
+		btns.Children(func() {
+			ui.Row(c.Key("frame-sidebar-buttons")).Shrink(0).AlignItems(ui.Center).Children(func() {
+				a.sidebarButtons(c, frameW+left+3*barBtnW, frameTopH-4)
+			})
 		})
 		tabs := ui.Row(c.Key("frame-tabs")).Grow(1).MinWidth(0).Height(frameTabH).Gap(4).AlignItems(ui.Center)
 		if p > 0.01 && a.ps.layout != nil {
@@ -132,6 +222,8 @@ func (a *app) frameTop(c *ui.Context) {
 					}
 				})
 			})
+		} else if !ownWindowControls {
+			tabs.PassThrough()
 		}
 		a.updateChip(c) // a version that waits (updatepanel.go)
 		a.windowControls(c)
@@ -165,7 +257,7 @@ func (a *app) frameTab(c *ui.Context, i int, id string) {
 		var glyph *ui.SVG // what the pane shows, at a glance
 		a.withPane(i, func() { glyph = a.paneGlyph() })
 		ui.Icon(c, glyph).Size(13, 13).TextColor(col).Shrink(0)
-		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).MinWidth(0).Grow(1)
+		ui.Text(c, title).FontSize(12.5).FontWeight(560).TextColor(col).MaxLines(1).TruncateMiddle().MinWidth(0).Grow(1)
 		x := ui.Box(c.Key("close")).Size(18, 18).Radius(9).Center().Shrink(0).Label(locales.CloseThePane() + ": " + title).Role(ui.RoleButton)
 		x.Opacity(x.AnimateTo("shown", map[bool]float32{true: 1}[used || tab.Hovered()], springSheet))
 		if x.Hovered() {

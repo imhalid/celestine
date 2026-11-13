@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ const (
 	tabLibrary
 	tabSync
 	tabUpdate
+	tabSounds
 )
 
 var settingsSections = []settingsSection{
@@ -54,6 +56,7 @@ var settingsSections = []settingsSection{
 	{"common_library", "theFilesAndWhereTheyAre", iconLibrary},
 	{"sync4", "matchingOtherComputersEncryption", iconSync},
 	{"updates", "newVersionsAndReleaseNotes", iconUpdate},
+	{"common_sounds", "sounds_blurb", iconSound},
 }
 
 // selSpring is the list's choice settling, and a tile picked.
@@ -142,6 +145,8 @@ func (a *app) settingsScreen(c *ui.Context) {
 						a.settingsSync(c)
 					case tabUpdate:
 						a.settingsUpdate(c)
+					case tabSounds:
+						a.settingsSounds(c)
 					default:
 						a.settingsLibrary(c)
 					}
@@ -377,6 +382,25 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.settings.NoSidebarCard = !card
 		a.saveSettings()
 	}
+	if runtime.GOOS == "darwin" {
+		glassOn := a.settings.Glass
+		settingGroup(c, "set-glass", func() {
+			ui.Row(c).Gap(20).AlignItems(ui.Center).Children(func() {
+				ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
+					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Text(c, locales.SettingsGlass()).FontSize(15).FontWeight(620).TextColor(cl.Text)
+						ryugo.Badge(c, locales.SettingsExperimental(), ryugo.ToneWarn)
+					})
+					ui.Text(c, locales.SettingsGlassHelp()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+					ui.Text(c, locales.SettingsGlassRestart()).FontSize(ryugo.FsXs).TextColor(cl.Muted)
+				})
+				ryugo.Switch(c.Key("set-glass-sw"), &glassOn, ryugo.SwitchOptions{}).Label(locales.SettingsGlass())
+			})
+		})
+		if glassOn != a.settings.Glass {
+			a.setGlass(glassOn)
+		}
+	}
 	settingGroup(c, "set-welcome", func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
 			// a list each: there are too many looks for a bar of buttons
@@ -561,6 +585,53 @@ func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 	}
 }
 
+// settingsSounds is the Sounds tab: the switch for all of them, the chord of the window opening (off by default), and
+// a Try button for each sound.
+func (a *app) settingsSounds(c *ui.Context) {
+	snd := !a.settings.NoSound
+	settingGroup(c, "set-sound-main", func() {
+		settingRow(c, locales.CommonSounds(), locales.SettingsSoundsSub(), func() {
+			ryugo.Switch(c.Key("set-sound-main-sw"), &snd, ryugo.SwitchOptions{}).Label(locales.CommonSounds())
+		})
+	})
+	if snd != !a.settings.NoSound {
+		a.settings.NoSound = !snd
+		a.saveSettings()
+	}
+	playRow := func(key, title, sub string, kind soundKind) func() {
+		return func() {
+			settingRow(c, title, sub, func() {
+				if ryugo.Button(c.Key(key), locales.SettingsTry(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.playSoundPreview(kind)
+				}
+			})
+		}
+	}
+	chord := a.settings.StartChord // the window's chord is its own choice, off by default
+	startRow := func() {
+		settingRow(c, locales.SoundsStartup(), locales.SoundsStartupSub(), func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				if ryugo.Button(c.Key("try-sound-startup"), locales.SettingsTry(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+					a.playSoundPreview(soundStartup)
+				}
+				ryugo.Switch(c.Key("set-sound-startup-sw"), &chord, ryugo.SwitchOptions{}).Label(locales.SoundsStartup())
+			})
+		})
+	}
+	settingGroup(c, "set-sound-list",
+		startRow,
+		playRow("try-sound-welcome", locales.SoundsWelcome(), locales.SoundsWelcomeSub(), soundWelcome),
+		playRow("try-sound-info", locales.SoundsInfo(), locales.SoundsInfoSub(), soundInfo),
+		playRow("try-sound-ok", locales.SoundsOk(), locales.SoundsOkSub(), soundOK),
+		playRow("try-sound-warn", locales.SoundsWarn(), locales.SoundsWarnSub(), soundWarn),
+		playRow("try-sound-err", locales.SoundsErr(), locales.SoundsErrSub(), soundErr),
+	)
+	if chord != a.settings.StartChord {
+		a.settings.StartChord = chord
+		a.saveSettings()
+	}
+}
+
 func (a *app) settingsStatus(c *ui.Context) {
 	toggle := func(key, title, help string, v *bool, invert bool) func() {
 		return func() {
@@ -659,37 +730,47 @@ func (a *app) exportLibrary(store *Store) (string, bool) {
 func (a *app) settingsMCP(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
-	on := a.settings.MCP
+	wasOn := a.settings.MCP || a.mcpServer != nil
+	on := wasOn
 	settingGroup(c, "set-mcp", func() {
 		settingRow(c, locales.CommonMcpServer(), locales.SettingsWhenAgentsClaudeCode(), func() {
 			ryugo.Switch(c.Key("mcp-switch"), &on, ryugo.SwitchOptions{}).Label(locales.SettingsTurnMcpServer())
 		})
 	})
-	if on != a.settings.MCP {
+	if on != wasOn {
 		a.setMCP(on)
 	}
 	if a.mcpErr != "" {
 		ui.Text(c, locales.SettingsCouldNotOpenErr(a.mcpErr)).FontSize(ryugo.FsSm).TextColor(cl.Up)
 	}
-	if !a.settings.MCP {
+	if !wasOn {
 		return
 	}
-	copyRow := func(label, text, key string) func() {
+	copyRow := func(label, text, key string, concealed bool) func() {
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Grow(1).MinWidth(0).Padding(8, 10).Radius(rad(ryugo.RadiusControl-2)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
-						a.textMenu(ui.Text(c, text).FontSize(12.5).Font(monoStack).TextColor(cl.Text2).Selectable(), func() string { return text }, nil)
+						tx := ui.Text(c, text).FontSize(12.5).Font(monoStack).TextColor(cl.Text2)
+						if concealed {
+							a.secretTextMenu(tx, func() string { return text }, nil)
+						} else {
+							a.textMenu(tx.Selectable(), func() string { return text }, nil)
+						}
 					})
-					ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
+					if concealed {
+						a.secretCopyButton(c, key, text, locales.CommonCopyLabel(msg(label)))
+					} else {
+						ryugo.CopyButton(c.Key(key), text, ryugo.CopyOptions{Label: locales.CommonCopyLabel(msg(label))})
+					}
 				})
 			})
 		}
 	}
 	settingGroup(c, "set-mcp-how",
-		copyRow("address", a.mcpURL(), "copy-url"),
-		copyRow("toAddItToClaudeCode", a.mcpCommand(), "copy-cmd"),
-		copyRow("forAnAgentThatConnectsOver", a.mcpStdioCommand(), "copy-stdio"),
+		copyRow("address", a.mcpURL(), "copy-url", false),
+		copyRow("toAddItToClaudeCode", a.mcpCommand(), "copy-cmd", true),
+		copyRow("forAnAgentThatConnectsOver", a.mcpStdioCommand(), "copy-stdio", false),
 		a.mcpSetupRow(c),
 		func() {
 			settingRow(c, locales.SettingsKey(), locales.SettingsOnlyFromThisComputer(), func() {

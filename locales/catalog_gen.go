@@ -3361,6 +3361,16 @@ func (msgs Messages) CommonCommands() string {
 	return Catalog.Format(msgs.locale, "common_commands", nil)
 }
 
+// CommonCopied says "Copied"
+// in the language the app shows.
+func CommonCopied() string { return In(i18n.Locale()).CommonCopied() }
+
+// CommonCopied says "Copied"
+// in the language of msgs.
+func (msgs Messages) CommonCopied() string {
+	return Catalog.Format(msgs.locale, "common_copied", nil)
+}
+
 // CommonCopy says "Copy"
 // in the language the app shows.
 func CommonCopy() string { return In(i18n.Locale()).CommonCopy() }
@@ -4153,6 +4163,16 @@ func CommonSidePanel() string { return In(i18n.Locale()).CommonSidePanel() }
 // in the language of msgs.
 func (msgs Messages) CommonSidePanel() string {
 	return Catalog.Format(msgs.locale, "common_sidePanel", nil)
+}
+
+// CommonSounds says "Sounds"
+// in the language the app shows.
+func CommonSounds() string { return In(i18n.Locale()).CommonSounds() }
+
+// CommonSounds says "Sounds"
+// in the language of msgs.
+func (msgs Messages) CommonSounds() string {
+	return Catalog.Format(msgs.locale, "common_sounds", nil)
 }
 
 // CommonSpaces says " spaces"
@@ -7465,6 +7485,16 @@ func (msgs Messages) McpSettingsUnreadableKept(error string, path string) string
 	return Catalog.Format(msgs.locale, "mcp_settingsUnreadableKept", map[string]any{"error": error, "path": path})
 }
 
+// McpStartedOutside says "MCP server turned on from outside the app (for this session only)."
+// in the language the app shows.
+func McpStartedOutside() string { return In(i18n.Locale()).McpStartedOutside() }
+
+// McpStartedOutside says "MCP server turned on from outside the app (for this session only)."
+// in the language of msgs.
+func (msgs Messages) McpStartedOutside() string {
+	return Catalog.Format(msgs.locale, "mcp_startedOutside", nil)
+}
+
 // McpTakeBackAgentsChanges says "Undo the agent's changes"
 // in the language the app shows.
 func McpTakeBackAgentsChanges() string { return In(i18n.Locale()).McpTakeBackAgentsChanges() }
@@ -8093,6 +8123,48 @@ func (msgs Messages) PageExportFile() string {
 	return Catalog.Format(msgs.locale, "page_exportFile", nil)
 }
 
+// PageExportOverwriteAction says "Overwrite"
+// in the language the app shows.
+func PageExportOverwriteAction() string { return In(i18n.Locale()).PageExportOverwriteAction() }
+
+// PageExportOverwriteAction says "Overwrite"
+// in the language of msgs.
+func (msgs Messages) PageExportOverwriteAction() string {
+	return Catalog.Format(msgs.locale, "page_exportOverwriteAction", nil)
+}
+
+// PageExportOverwriteBody says "Files with these names already exist in this folder: {files}"
+// in the language the app shows.
+func PageExportOverwriteBody(files string) string {
+	return In(i18n.Locale()).PageExportOverwriteBody(files)
+}
+
+// PageExportOverwriteBody says "Files with these names already exist in this folder: {files}"
+// in the language of msgs.
+func (msgs Messages) PageExportOverwriteBody(files string) string {
+	return Catalog.Format(msgs.locale, "page_exportOverwriteBody", map[string]any{"files": files})
+}
+
+// PageExportOverwriteTitle says "Overwrite existing attachments?"
+// in the language the app shows.
+func PageExportOverwriteTitle() string { return In(i18n.Locale()).PageExportOverwriteTitle() }
+
+// PageExportOverwriteTitle says "Overwrite existing attachments?"
+// in the language of msgs.
+func (msgs Messages) PageExportOverwriteTitle() string {
+	return Catalog.Format(msgs.locale, "page_exportOverwriteTitle", nil)
+}
+
+// PageExportSkipExisting says "Skip existing"
+// in the language the app shows.
+func PageExportSkipExisting() string { return In(i18n.Locale()).PageExportSkipExisting() }
+
+// PageExportSkipExisting says "Skip existing"
+// in the language of msgs.
+func (msgs Messages) PageExportSkipExisting() string {
+	return Catalog.Format(msgs.locale, "page_exportSkipExisting", nil)
+}
+
 // PageLinkMissingAt says "The linked page doesn't exist: {path}"
 // in the language the app shows.
 func PageLinkMissingAt(path string) string { return In(i18n.Locale()).PageLinkMissingAt(path) }
@@ -8151,6 +8223,16 @@ func PageNotPageType(name string) string { return In(i18n.Locale()).PageNotPageT
 // in the language of msgs.
 func (msgs Messages) PageNotPageType(name string) string {
 	return Catalog.Format(msgs.locale, "page_notPageType", map[string]any{"name": name})
+}
+
+// PageOpenedCopy says "A copy is open: what you change in it isn’t saved in the library."
+// in the language the app shows.
+func PageOpenedCopy() string { return In(i18n.Locale()).PageOpenedCopy() }
+
+// PageOpenedCopy says "A copy is open: what you change in it isn’t saved in the library."
+// in the language of msgs.
+func (msgs Messages) PageOpenedCopy() string {
+	return Catalog.Format(msgs.locale, "page_openedCopy", nil)
 }
 
 // PagePCommandsKFind says "⌘P commands · ⌘K find a page · ? shortcuts (Esc for normal mode)"
@@ -8647,6 +8729,56 @@ func PaletteParagraphFromOne() string { return In(i18n.Locale()).PaletteParagrap
 // in the language of msgs.
 func (msgs Messages) PaletteParagraphFromOne() string {
 	return Catalog.Format(msgs.locale, "palette_paragraphFromOne", nil)
+}
+
+// PalettePlaceholderFind says "Search this page…"
+// in the language the app shows.
+func PalettePlaceholderFind() string { return In(i18n.Locale()).PalettePlaceholderFind() }
+
+// PalettePlaceholderFind says "Search this page…"
+// in the language of msgs.
+func (msgs Messages) PalettePlaceholderFind() string {
+	return Catalog.Format(msgs.locale, "palette_placeholderFind", nil)
+}
+
+// PalettePlaceholderHelp says "Choose a mode…"
+// in the language the app shows.
+func PalettePlaceholderHelp() string { return In(i18n.Locale()).PalettePlaceholderHelp() }
+
+// PalettePlaceholderHelp says "Choose a mode…"
+// in the language of msgs.
+func (msgs Messages) PalettePlaceholderHelp() string {
+	return Catalog.Format(msgs.locale, "palette_placeholderHelp", nil)
+}
+
+// PalettePlaceholderLine says "Paragraph number…"
+// in the language the app shows.
+func PalettePlaceholderLine() string { return In(i18n.Locale()).PalettePlaceholderLine() }
+
+// PalettePlaceholderLine says "Paragraph number…"
+// in the language of msgs.
+func (msgs Messages) PalettePlaceholderLine() string {
+	return Catalog.Format(msgs.locale, "palette_placeholderLine", nil)
+}
+
+// PalettePlaceholderRecent says "Recent commands…"
+// in the language the app shows.
+func PalettePlaceholderRecent() string { return In(i18n.Locale()).PalettePlaceholderRecent() }
+
+// PalettePlaceholderRecent says "Recent commands…"
+// in the language of msgs.
+func (msgs Messages) PalettePlaceholderRecent() string {
+	return Catalog.Format(msgs.locale, "palette_placeholderRecent", nil)
+}
+
+// PalettePlaceholderTags says "Search tags…"
+// in the language the app shows.
+func PalettePlaceholderTags() string { return In(i18n.Locale()).PalettePlaceholderTags() }
+
+// PalettePlaceholderTags says "Search tags…"
+// in the language of msgs.
+func (msgs Messages) PalettePlaceholderTags() string {
+	return Catalog.Format(msgs.locale, "palette_placeholderTags", nil)
 }
 
 // PaletteRecentlyUsed says "Recently used"
@@ -10887,6 +11019,16 @@ func (msgs Messages) SettingsWhileAgentMcpAdds() string {
 	return Catalog.Format(msgs.locale, "settings_whileAgentMcpAdds", nil)
 }
 
+// SettingsSoundsSub says "Soft chimes for notifications, errors, and the opening screen."
+// in the language the app shows.
+func SettingsSoundsSub() string { return In(i18n.Locale()).SettingsSoundsSub() }
+
+// SettingsSoundsSub says "Soft chimes for notifications, errors, and the opening screen."
+// in the language of msgs.
+func (msgs Messages) SettingsSoundsSub() string {
+	return Catalog.Format(msgs.locale, "settings_soundsSub", nil)
+}
+
 // SettingsWriteZip says "Export zip"
 // in the language the app shows.
 func SettingsWriteZip() string { return In(i18n.Locale()).SettingsWriteZip() }
@@ -11607,6 +11749,136 @@ func StatsCleared() string { return In(i18n.Locale()).StatsCleared() }
 // in the language of msgs.
 func (msgs Messages) StatsCleared() string {
 	return Catalog.Format(msgs.locale, "stats_cleared", nil)
+}
+
+// SoundsBlurb says "Notification chimes and cinematic startup music"
+// in the language the app shows.
+func SoundsBlurb() string { return In(i18n.Locale()).SoundsBlurb() }
+
+// SoundsBlurb says "Notification chimes and cinematic startup music"
+// in the language of msgs.
+func (msgs Messages) SoundsBlurb() string {
+	return Catalog.Format(msgs.locale, "sounds_blurb", nil)
+}
+
+// SoundsErr says "Error"
+// in the language the app shows.
+func SoundsErr() string { return In(i18n.Locale()).SoundsErr() }
+
+// SoundsErr says "Error"
+// in the language of msgs.
+func (msgs Messages) SoundsErr() string {
+	return Catalog.Format(msgs.locale, "sounds_err", nil)
+}
+
+// SoundsErrSub says "Low tone when something fails"
+// in the language the app shows.
+func SoundsErrSub() string { return In(i18n.Locale()).SoundsErrSub() }
+
+// SoundsErrSub says "Low tone when something fails"
+// in the language of msgs.
+func (msgs Messages) SoundsErrSub() string {
+	return Catalog.Format(msgs.locale, "sounds_errSub", nil)
+}
+
+// SoundsInfo says "Notification"
+// in the language the app shows.
+func SoundsInfo() string { return In(i18n.Locale()).SoundsInfo() }
+
+// SoundsInfo says "Notification"
+// in the language of msgs.
+func (msgs Messages) SoundsInfo() string {
+	return Catalog.Format(msgs.locale, "sounds_info", nil)
+}
+
+// SoundsInfoSub says "Soft chime for general notices"
+// in the language the app shows.
+func SoundsInfoSub() string { return In(i18n.Locale()).SoundsInfoSub() }
+
+// SoundsInfoSub says "Soft chime for general notices"
+// in the language of msgs.
+func (msgs Messages) SoundsInfoSub() string {
+	return Catalog.Format(msgs.locale, "sounds_infoSub", nil)
+}
+
+// SoundsOk says "Done"
+// in the language the app shows.
+func SoundsOk() string { return In(i18n.Locale()).SoundsOk() }
+
+// SoundsOk says "Done"
+// in the language of msgs.
+func (msgs Messages) SoundsOk() string {
+	return Catalog.Format(msgs.locale, "sounds_ok", nil)
+}
+
+// SoundsOkSub says "Ascending chime when an action succeeds"
+// in the language the app shows.
+func SoundsOkSub() string { return In(i18n.Locale()).SoundsOkSub() }
+
+// SoundsOkSub says "Ascending chime when an action succeeds"
+// in the language of msgs.
+func (msgs Messages) SoundsOkSub() string {
+	return Catalog.Format(msgs.locale, "sounds_okSub", nil)
+}
+
+// SoundsStartup says "App startup"
+// in the language the app shows.
+func SoundsStartup() string { return In(i18n.Locale()).SoundsStartup() }
+
+// SoundsStartup says "App startup"
+// in the language of msgs.
+func (msgs Messages) SoundsStartup() string {
+	return Catalog.Format(msgs.locale, "sounds_startup", nil)
+}
+
+// SoundsStartupSub says "Cinematic chord motif when the window opens"
+// in the language the app shows.
+func SoundsStartupSub() string { return In(i18n.Locale()).SoundsStartupSub() }
+
+// SoundsStartupSub says "Cinematic chord motif when the window opens"
+// in the language of msgs.
+func (msgs Messages) SoundsStartupSub() string {
+	return Catalog.Format(msgs.locale, "sounds_startupSub", nil)
+}
+
+// SoundsWarn says "Warning"
+// in the language the app shows.
+func SoundsWarn() string { return In(i18n.Locale()).SoundsWarn() }
+
+// SoundsWarn says "Warning"
+// in the language of msgs.
+func (msgs Messages) SoundsWarn() string {
+	return Catalog.Format(msgs.locale, "sounds_warn", nil)
+}
+
+// SoundsWarnSub says "Gentle double tone for warnings"
+// in the language the app shows.
+func SoundsWarnSub() string { return In(i18n.Locale()).SoundsWarnSub() }
+
+// SoundsWarnSub says "Gentle double tone for warnings"
+// in the language of msgs.
+func (msgs Messages) SoundsWarnSub() string {
+	return Catalog.Format(msgs.locale, "sounds_warnSub", nil)
+}
+
+// SoundsWelcome says "Welcome screen"
+// in the language the app shows.
+func SoundsWelcome() string { return In(i18n.Locale()).SoundsWelcome() }
+
+// SoundsWelcome says "Welcome screen"
+// in the language of msgs.
+func (msgs Messages) SoundsWelcome() string {
+	return Catalog.Format(msgs.locale, "sounds_welcome", nil)
+}
+
+// SoundsWelcomeSub says "Ambient swell on the first-run screen"
+// in the language the app shows.
+func SoundsWelcomeSub() string { return In(i18n.Locale()).SoundsWelcomeSub() }
+
+// SoundsWelcomeSub says "Ambient swell on the first-run screen"
+// in the language of msgs.
+func (msgs Messages) SoundsWelcomeSub() string {
+	return Catalog.Format(msgs.locale, "sounds_welcomeSub", nil)
 }
 
 // StatsCollect says "Collect"
@@ -14669,6 +14941,16 @@ func (msgs Messages) UpdateErrZipPath(path string) string {
 	return Catalog.Format(msgs.locale, "update_errZipPath", map[string]any{"path": path})
 }
 
+// UpdateErrZipTooLarge says "the update package is too large"
+// in the language the app shows.
+func UpdateErrZipTooLarge() string { return In(i18n.Locale()).UpdateErrZipTooLarge() }
+
+// UpdateErrZipTooLarge says "the update package is too large"
+// in the language of msgs.
+func (msgs Messages) UpdateErrZipTooLarge() string {
+	return Catalog.Format(msgs.locale, "update_errZipTooLarge", nil)
+}
+
 // UpdateFailed says "Couldn't update: {error}"
 // in the language the app shows.
 func UpdateFailed(error string) string { return In(i18n.Locale()).UpdateFailed(error) }
@@ -14783,16 +15065,6 @@ func UpdateRestart() string { return In(i18n.Locale()).UpdateRestart() }
 // A button: restart the app into the downloaded version.
 func (msgs Messages) UpdateRestart() string {
 	return Catalog.Format(msgs.locale, "update_restart", nil)
-}
-
-// UpdateRestartFailed says "Couldn't restart: {error}"
-// in the language the app shows.
-func UpdateRestartFailed(error string) string { return In(i18n.Locale()).UpdateRestartFailed(error) }
-
-// UpdateRestartFailed says "Couldn't restart: {error}"
-// in the language of msgs.
-func (msgs Messages) UpdateRestartFailed(error string) string {
-	return Catalog.Format(msgs.locale, "update_restartFailed", map[string]any{"error": error})
 }
 
 // UpdateSafety says "Your library won't be touched. It's backed up first, and if the new version doesn't start, the previous one comes back."
@@ -15819,4 +16091,56 @@ func DebugHeap(mb string, gc int) string { return In(i18n.Locale()).DebugHeap(mb
 // in the language of msgs.
 func (msgs Messages) DebugHeap(mb string, gc int) string {
 	return Catalog.Format(msgs.locale, "debug_heap", map[string]any{"mb": mb, "gc": gc})
+}
+
+// SettingsExperimental says "Experimental"
+// in the language the app shows.
+func SettingsExperimental() string { return In(i18n.Locale()).SettingsExperimental() }
+
+// SettingsExperimental says "Experimental"
+// in the language of msgs.
+func (msgs Messages) SettingsExperimental() string {
+	return Catalog.Format(msgs.locale, "settings_experimental", nil)
+}
+
+// SettingsGlass says "Liquid Glass"
+// in the language the app shows.
+func SettingsGlass() string { return In(i18n.Locale()).SettingsGlass() }
+
+// SettingsGlass says "Liquid Glass"
+// in the language of msgs.
+func (msgs Messages) SettingsGlass() string {
+	return Catalog.Format(msgs.locale, "settings_glass", nil)
+}
+
+// SettingsGlassHelp says "Translucent macOS glass background tinted to the active theme."
+// in the language the app shows.
+func SettingsGlassHelp() string { return In(i18n.Locale()).SettingsGlassHelp() }
+
+// SettingsGlassHelp says "Translucent macOS glass background tinted to the active theme."
+// in the language of msgs.
+func (msgs Messages) SettingsGlassHelp() string {
+	return Catalog.Format(msgs.locale, "settings_glassHelp", nil)
+}
+
+// SettingsGlassRestart says "Turned on, it shows after the app is restarted; turned off, it goes at once."
+// in the language the app shows.
+func SettingsGlassRestart() string { return In(i18n.Locale()).SettingsGlassRestart() }
+
+// SettingsGlassRestart says "Turned on, it shows after the app is restarted; turned off, it goes at once."
+// in the language of msgs.
+func (msgs Messages) SettingsGlassRestart() string {
+	return Catalog.Format(msgs.locale, "settings_glassRestart", nil)
+}
+
+// CommonInvalidAttachmentName says "Invalid attachment name: {name}"
+// in the language the app shows.
+func CommonInvalidAttachmentName(name string) string {
+	return In(i18n.Locale()).CommonInvalidAttachmentName(name)
+}
+
+// CommonInvalidAttachmentName says "Invalid attachment name: {name}"
+// in the language of msgs.
+func (msgs Messages) CommonInvalidAttachmentName(name string) string {
+	return Catalog.Format(msgs.locale, "common_invalidAttachmentName", map[string]any{"name": name})
 }

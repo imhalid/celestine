@@ -35,6 +35,7 @@ var (
 // importStats is what an import made.
 type importStats struct {
 	Collections, Pages, Pictures int
+	noWalk                       bool              // single dropped file: look only beside it (#178)
 	byName                       map[string]string // the files of the vault by their name, read once: a picture is looked for in it, not by walking the vault again
 }
 
@@ -55,7 +56,7 @@ func mdFiles(dir string) []string {
 			}
 			return nil
 		}
-		if strings.EqualFold(filepath.Ext(d.Name()), ".md") && !strings.HasPrefix(d.Name(), ".") {
+		if strings.EqualFold(filepath.Ext(d.Name()), ".md") && !strings.HasPrefix(d.Name(), ".") && d.Type()&os.ModeSymlink == 0 {
 			out = append(out, p)
 		}
 		return nil
@@ -198,7 +199,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 				break
 			}
 		}
-		if src == "" { // an Obsidian embed names the file only: it is anywhere in the vault
+		if src == "" && !st.noWalk { // an Obsidian embed names the file only: it is anywhere in the vault
 			if st.byName == nil {
 				st.byName = map[string]string{}
 				filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

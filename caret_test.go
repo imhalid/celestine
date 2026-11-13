@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"math"
 	"strings"
 	"testing"
@@ -59,6 +60,7 @@ func testLibrary(t *testing.T, src string) *Library {
 func newTestApp(t *testing.T, src string) (*app, *ui.Tester) {
 	t.Helper()
 	a := newApp(testLibrary(t, src))
+	a.noSound = true
 	tt := ui.NewTester(a.view, 900, 1400)
 	a.clipRead = tt.Clipboard // the app reads the clipboard the editor does: the Tester's, not the system's
 	tt.Advance(50 * time.Millisecond)
@@ -247,5 +249,93 @@ func TestCaretRectMatchesEditor(t *testing.T) {
 	}
 	if checked < n/2 {
 		t.Fatalf("only %d of %d places checked", checked, n)
+	}
+}
+
+func TestLongParagraphCaretDraws(t *testing.T) {
+	prefix := "ilk paragraf\n\n"
+	longText := prefix + strings.Repeat("kelime ", 6000) + "\n\nson"
+	a, tt := newTestApp(t, longText)
+	// Place caret inside the oversized (> maxCaretParagraph) second paragraph.
+	wantPara := len([]rune("ilk paragraf\n"))
+	caretPos := wantPara + 10
+	a.doc.SetSelection(caretPos, caretPos)
+	a.setCaret(caretMizan) // block-style caret relies on caretPara and caretTop
+	tt.Frame()
+	tt.Frame()
+
+	if !a.focused {
+		t.Fatal("editor is not focused")
+	}
+	if a.caretFBReads != 1 {
+		t.Fatalf("expected 1 CaretRect fallback evaluation on steady state, got %d", a.caretFBReads)
+	}
+	if a.caretWin.H <= 0 {
+		t.Fatalf("caret not positioned on oversized paragraph: %+v", a.caretWin)
+	}
+	if a.caretPara != wantPara {
+		t.Fatalf("caretPara = %d, want %d", a.caretPara, wantPara)
+	}
+	if b, ok := a.boxAt(caretPos); !ok || a.caretTop != a.editorR.Y+b.Top {
+		t.Fatalf("caretTop = %v, want %v (box ok=%v)", a.caretTop, a.editorR.Y+b.Top, ok)
+	}
+
+	// Verify pixels change around caretWin when toggled off via CaretBlink vs painted on.
+	cr := a.caretWin
+	region := image.Rect(max(0, int(cr.X)-6), max(0, int(cr.Y)-6), int(cr.X+cr.W)+16, int(cr.Y+cr.H)+6)
+	withCaret := *tt.Image()
+	withCaret.Pix = append([]byte(nil), withCaret.Pix...)
+
+	// Repeated idle/blink frames with unchanged text/caret must reuse cached fallback without relayout.
+	a.settings.CaretBlink = 0
+	tt.Frame()
+	tt.Frame()
+	if a.caretFBReads != 1 {
+		t.Fatalf("CaretRect fallback re-ran on unchanged frames: reads=%d", a.caretFBReads)
+	}
+
+	// Scroll caret out of the visible viewport: offscreen caret must not draw.
+	beforeScrollDraws := a.caretDraws
+	a.pageScroll.Y = cr.Y + 500
+	tt.Frame()
+	if a.caretDraws != beforeScrollDraws {
+		t.Fatalf("expected no caret draw when scrolled out of view, draws %d -> %d", beforeScrollDraws, a.caretDraws)
+	}
+	// Reset scroll and move caret back to 0 (outside region) to compare painted caret pixels in region.
+	a.pageScroll.Y = 0
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	withoutCaret := tt.Image()
+	if pixelsDiffer(&withCaret, withoutCaret, region, image.Rectangle{}) < 4 {
+		t.Fatalf("expected painted caret pixels inside %v", region)
+	}
+}
+
+// TestPageOpensWithCaretAtStart: a page read from its file starts with the caret before its first letter, not after
+// its last (#454); a page come back to keeps the caret where it was left.
+func TestPageOpensWithCaretAtStart(t *testing.T) {
+	a, tt := newTestApp(t, sample)
+	tt.Frame()
+	if _, c := a.doc.Selection(); c != 0 {
+		t.Fatalf("the first page opens with the caret at %d of %d", c, a.doc.Text().Len())
+	}
+	first := a.page
+	a.doc.SetSelection(5, 5)
+	other, err := first.Coll.NewPage(nil, "Other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.SaveText("alpha\n\nbeta\n\ngamma"); err != nil {
+		t.Fatal(err)
+	}
+	a.open(other)
+	tt.Frame()
+	if _, c := a.doc.Selection(); c != 0 {
+		t.Fatalf("another page opens with the caret at %d of %d", c, a.doc.Text().Len())
+	}
+	a.open(first)
+	tt.Frame()
+	if _, c := a.doc.Selection(); c != 5 {
+		t.Fatalf("back to the first page, the caret is at %d, not where it was left (5)", c)
 	}
 }

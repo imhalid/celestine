@@ -99,10 +99,20 @@ func (a *app) fieldItems(el ui.Element, value *string, o fieldOpts) []menuItem {
 // textMenu gives a text that can be selected, not changed, the app's menu: its text to copy, and
 // what the place offers.
 func (a *app) textMenu(el ui.Element, text func() string, more func() []menuItem) ui.Element {
+	return a.textMenuWith(el, text, a.copyText, more)
+}
+
+// secretTextMenu attaches the text's copy context menu using concealed copySecret.
+func (a *app) secretTextMenu(el ui.Element, text func() string, more func() []menuItem) ui.Element {
+	return a.textMenuWith(el, text, func(s string) { a.copySecret(s) }, more)
+}
+
+// textMenuWith attaches a copy-first context menu to el using copyFn for the Copy item and more for extra actions.
+func (a *app) textMenuWith(el ui.Element, text func() string, copyFn func(string), more func() []menuItem) ui.Element {
 	el.ContextMenu(func(*ui.Menu) {
 		px, py, _ := el.PointerPosition()
 		b := el.LayoutBounds()
-		items := withMore([]menuItem{{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(text()) }}}, more)
+		items := withMore([]menuItem{{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { copyFn(text()) }}}, more)
 		a.showContext(b.X+px, b.Y+py, items)
 	})
 	return el
@@ -163,7 +173,7 @@ func (a *app) editorItems(y float32) []menuItem {
 		menuItem{title: "common_paste", hint: "⌘V", glyph: iconPaste, run: func() {
 			if clip := a.readClip(); clip != "" {
 				if strings.Contains(clip, "\n") {
-					doc.Insert(importMarkdown(clip))
+					doc.Insert(a.parse(clip))
 				} else {
 					doc.InsertText(clip)
 				}

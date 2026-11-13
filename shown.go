@@ -108,15 +108,23 @@ func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
 	}
 }
 
-// locateRune is locateAt for the rune at in the page's editor, its paragraph from the text's table: the caret is
-// found every frame, and on a long page reading its paragraph from the start of the text was a part of each (#314).
-func (a *app) locateRune(at int, w float32) (caretBox, bool) {
+// boxAt returns the laid-out paragraph box holding rune at, or false if none covers it.
+func (a *app) boxAt(at int) (richtext.ParagraphBox, bool) {
 	boxes := a.boxes
 	for i, b := range boxes {
 		if b.Start <= at && (i+1 == len(boxes) || at < boxes[i+1].Start) {
-			s, e, para := a.paraOfBox(b)
-			return locateIn(a.doc, at, b, s, e, para, w, a.font, a.theme)
+			return b, true
 		}
+	}
+	return richtext.ParagraphBox{}, false
+}
+
+// locateRune is locateAt for the rune at in the page's editor, its paragraph from the text's table: the caret is
+// found every frame, and on a long page reading its paragraph from the start of the text was a part of each (#314).
+func (a *app) locateRune(at int, w float32) (caretBox, bool) {
+	if b, ok := a.boxAt(at); ok {
+		s, e, para := a.paraOfBox(b)
+		return locateIn(a.doc, at, b, s, e, para, w, a.font, a.theme)
 	}
 	return caretBox{}, false
 }
@@ -136,4 +144,23 @@ func (a *app) chipInText(ch *chip) bool {
 		}
 	}
 	return false
+}
+
+// editorIsNew is whether the editor ed appears this frame: it was not built in the frame before (another page, the
+// page come back to, another look). It is what AutoFocus asks, for a focus that does not scroll (draw).
+func (a *app) editorIsNew(ed ui.Element) bool {
+	if a.edBuilt == nil {
+		a.edBuilt = map[uint64]uint64{}
+	}
+	id := ed.ID()
+	last, seen := a.edBuilt[id]
+	a.edBuilt[id] = a.frameSeq
+	if len(a.edBuilt) > 32 { // the editors of pages left long ago
+		for k, f := range a.edBuilt {
+			if f+1 < a.frameSeq {
+				delete(a.edBuilt, k)
+			}
+		}
+	}
+	return !seen || last+1 < a.frameSeq
 }

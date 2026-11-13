@@ -130,6 +130,8 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 		glyph := iconPage
 		if item.Kind == "collection" {
 			glyph = iconStack
+		} else if item.Kind == "files" {
+			glyph = iconAttach
 		}
 		ui.Icon(c, glyph).Width(17).Height(17).TextColor(t.TextMuted)
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
@@ -140,6 +142,8 @@ func (a *app) trashItemRow(c *ui.Context, item *TrashItem, now time.Time) {
 				if from == "" {
 					from = "page"
 				}
+			} else if item.Kind == "files" && item.Where != "" { // a page's files: the page they were taken from
+				from = item.Where
 			}
 			note := locales.TrashThrownAway(from, ago(item.Trashed, now))
 			if !item.Trashed.IsZero() {

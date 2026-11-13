@@ -111,8 +111,11 @@ func (a *app) writeUsage(data []byte) {
 		return
 	}
 	if f := a.usageFile(); f != "" {
-		os.MkdirAll(filepath.Dir(f), 0o755)
-		os.WriteFile(f, data, 0o644)
+		dir := filepath.Dir(f)
+		os.MkdirAll(dir, 0o700)
+		hardenPrivateDir(dir)
+		os.WriteFile(f, data, 0o600)
+		_ = os.Chmod(f, 0o600)
 	}
 }
 
@@ -578,13 +581,16 @@ func (a *app) exportStatsCSV() (string, bool) {
 	dir := filepath.Dir(a.settingsFile)
 	if a.settingsFile == "" {
 		dir = os.TempDir()
+	} else {
+		os.MkdirAll(dir, 0o700)
+		hardenPrivateDir(dir)
 	}
-	os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "istatistik-"+a.clock().Format("20060102-150405")+".csv")
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return locales.CommonDidntWork(err.Error()), false
 	}
+	_ = os.Chmod(path, 0o600)
 	w := csv.NewWriter(f)
 	w.Write([]string{"gün", "kelime", "kullanım_sn", "açılan", "yeni", "silinen", "arama"})
 	for _, r := range a.dayRows() {
@@ -610,12 +616,15 @@ func (a *app) exportStatsJSON() (string, bool) {
 	dir := filepath.Dir(a.settingsFile)
 	if a.settingsFile == "" {
 		dir = os.TempDir()
+	} else {
+		os.MkdirAll(dir, 0o700)
+		hardenPrivateDir(dir)
 	}
-	os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "istatistik-"+a.clock().Format("20060102-150405")+".json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return locales.CommonDidntWork(err.Error()), false
 	}
+	_ = os.Chmod(path, 0o600)
 	return locales.StatsWrittenTo(path), true
 }
 

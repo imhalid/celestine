@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -106,7 +107,6 @@ func pagesTitled(lib *Library, q string, but *Page, limit int) []*Page {
 func (a *app) propFile(c *ui.Context, p *Page, pr *Property, key string) {
 	t := c.Theme()
 	name := p.Props[pr.ID]
-	file := filepath.Join(p.Dir, name)
 	kc := c.Key("prop-val:" + key)
 	tr := ui.ButtonBase(kc).Role(ui.RolePopUpButton).Label(locales.PropsValueLabel(pr.Name)).Cursor(ui.CursorPointer).FocusRing(false)
 	a.contextOn(tr, func() []menuItem { return a.propRowMenu(p, pr) })
@@ -132,13 +132,15 @@ func (a *app) propFile(c *ui.Context, p *Page, pr *Property, key string) {
 	})
 	ryugo.Popover(kc, tr, open, func() {
 		ui.Column(c).Gap(4).Width(240).Children(func() {
-			if a.quietButton(c.Key("prop-file-open"), iconAttach, locales.PropsOpenFile()) {
-				*open = false
-				go mygo.Shell.OpenPath(file)
-			}
-			if a.quietButton(c.Key("prop-file-show"), iconLibrary, locales.PropsShowFolder()) {
-				*open = false
-				go mygo.Shell.ShowItemInFolder(file)
+			if safeAttachName(name) {
+				if a.quietButton(c.Key("prop-file-open"), iconAttach, locales.PropsOpenFile()) {
+					*open = false
+					a.openAttachedFile(p, name, false)
+				}
+				if a.quietButton(c.Key("prop-file-show"), iconLibrary, locales.PropsShowFolder()) {
+					*open = false
+					a.openAttachedFile(p, name, true)
+				}
 			}
 			if a.quietButton(c.Key("prop-file-pick"), iconPlus, locales.PropsChooseAnother()) {
 				*open = false
@@ -192,6 +194,10 @@ func (a *app) setPropData(p *Page, pr *Property, base string, data []byte) {
 	old := p.Props[pr.ID]
 	name := ""
 	if base != "" {
+		if !validAttachFileName(base) {
+			a.fail(errors.New(locales.CommonInvalidAttachmentName(base)))
+			return
+		}
 		name = freeName(p, base)
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
 			a.fail(err)
@@ -202,7 +208,7 @@ func (a *app) setPropData(p *Page, pr *Property, base string, data []byte) {
 		a.fail(err)
 		return
 	}
-	if old != "" && old != name {
+	if old != "" && old != name && safeAttachName(old) {
 		p.FS().Remove(filepath.Join(p.Dir, old))
 	}
 }

@@ -149,6 +149,66 @@ func TestRunCommandKeepsAccess(t *testing.T) {
 	}
 }
 
+type spyKeychain struct {
+	data map[string]string
+	sets int
+}
+
+func (k *spyKeychain) Get(name string) (string, error) {
+	return k.data[name], nil
+}
+
+func (k *spyKeychain) Set(name, secret string) error {
+	k.sets++
+	if k.data == nil {
+		k.data = map[string]string{}
+	}
+	k.data[name] = secret
+	return nil
+}
+
+func (k *spyKeychain) Delete(name string) error {
+	delete(k.data, name)
+	return nil
+}
+
+func TestRunCommandDispatchesUIAndRecoversPanic(t *testing.T) {
+	a, _ := newTestApp(t, "ilk metin")
+	a.crashDir = t.TempDir()
+	uiCalls := 0
+	a.runOnUI = func(fn func()) {
+		uiCalls++
+		fn()
+	}
+	cs := agent(t, a)
+
+	call(t, cs, "run_command", map[string]any{"command": "Sayfada bul"}, nil)
+	if uiCalls != 1 {
+		t.Fatalf("runOnUI calls = %d, want 1", uiCalls)
+	}
+
+	a.invalidate = func() { panic("ui boom") }
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "run_command",
+		Arguments: map[string]any{"command": "Sayfada bul"},
+	})
+	if err != nil {
+		t.Fatalf("transport error instead of tool error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected IsError on UI panic")
+	}
+	if uiCalls != 2 {
+		t.Fatalf("runOnUI calls after panic = %d, want 2", uiCalls)
+	}
+	a.mu.Lock()
+	msg, crashPath := a.crashMsg, a.crashPath
+	a.mu.Unlock()
+	if msg != "ui boom" || crashPath == "" {
+		t.Fatalf("expected crash note and path, got msg=%q path=%q", msg, crashPath)
+	}
+}
+
 // help, open_page, update_collection, a page as a resource and the prompts (#68).
 func TestMCPHelpResourcesPrompts(t *testing.T) {
 	a, tt := newTestApp(t, "ilk metin")
@@ -194,5 +254,134 @@ func TestMCPHelpResourcesPrompts(t *testing.T) {
 	w, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "weekly_review"})
 	if err != nil || !strings.Contains(w.Messages[0].Content.(*mcp.TextContent).Text, a.clock().Format(time.DateOnly)) {
 		t.Fatalf("weekly_review: %v", err)
+	}
+}
+
+func TestMCPMoveTargetByDirJournalReorderAndHiddenCommands(t *testing.T) {
+	a, _ := newTestApp(t, "ilk metin")
+	cs := agent(t, a)
+	ctx := context.Background()
+
+	// Two destination collections sharing the same Name must be resolved by Dir, not Name (#171).
+	destRW, err := a.lib.NewCollection("Ortak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	destRO, err := a.lib.NewCollection("Ortak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.settings.MCPAccess = map[string]string{
+		filepath.Base(destRO.Dir): mcpRead,
+	}
+
+	var matched int
+	for _, it := range a.commands() {
+		if target := a.mcpMoveTarget(it); target != nil {
+			matched++
+			if target == destRW {
+				if err := a.mcpMayChange(it); err != nil {
+					t.Fatalf("writable duplicate-name target denied: %v", err)
+				}
+			}
+			if target == destRO {
+				if err := a.mcpMayChange(it); err == nil {
+					t.Fatal("read-only duplicate-name target allowed via name collision")
+				}
+			}
+		}
+	}
+	if matched < 2 {
+		t.Fatalf("expected move targets for both Ortak collections, matched %d", matched)
+	}
+
+	// Hidden collection + open hidden page must not leak names or titles in list_commands (#171).
+	hiddenColl, err := a.lib.NewCollection("GizliKoleksiyon")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenColl.SubPages = true
+	hiddenPage, err := hiddenColl.NewPage(nil, "GizliSayfaBaşlığı")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.settings.MCPAccess[filepath.Base(hiddenColl.Dir)] = mcpOff
+	a.coll = hiddenColl
+	a.page = hiddenPage
+
+	var cmds []struct {
+		Title string `json:"title"`
+	}
+	call(t, cs, "list_commands", nil, &cmds)
+	for _, cmd := range cmds {
+		if strings.Contains(cmd.Title, "GizliSayfaBaşlığı") || strings.Contains(cmd.Title, "GizliKoleksiyon") {
+			t.Fatalf("list_commands leaked hidden name/title: %q", cmd.Title)
+		}
+	}
+
+	// move_page allows reordering within a journal, but rejects moving into a journal or dynamic collection (#181).
+	journalColl, err := a.lib.NewCollection("Günlük")
+	if err != nil {
+		t.Fatal(err)
+	}
+	journalColl.Journal = true
+	j1, err := a.makeDay(journalColl, a.clock().AddDate(0, 0, -1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	j2, err := a.makeDay(journalColl, a.clock())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dynColl, err := a.lib.NewCollection("Dinamik")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dynColl.Query = "#etiket"
+
+	call(t, cs, "move_page", map[string]any{"page": a.idOf(j2.Dir), "index": 0}, nil)
+	if journalColl.Pages[0] != j2 || journalColl.Pages[1] != j1 {
+		t.Fatalf("journal reorder failed: got %q, %q", journalColl.Pages[0].Title, journalColl.Pages[1].Title)
+	}
+
+	normalPage, err := destRW.NewPage(nil, "Normal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "move_page",
+		Arguments: map[string]any{"page": a.idOf(normalPage.Dir), "collection": a.idOf(journalColl.Dir)},
+	})
+	if err == nil && (res == nil || !res.IsError) {
+		t.Fatal("expected error moving a page into a journal collection")
+	}
+	res, err = cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "move_page",
+		Arguments: map[string]any{"page": a.idOf(normalPage.Dir), "collection": a.idOf(dynColl.Dir)},
+	})
+	if err == nil && (res == nil || !res.IsError) {
+		t.Fatal("expected error moving a page into a dynamic collection")
+	}
+}
+
+// TestMCPSeesTrashCollectionAccess verifies that mcpSeesTrash uses mcpOff consistently with mcpAccess,
+// including treating an empty string override like default/visible access.
+func TestMCPSeesTrashCollectionAccess(t *testing.T) {
+	a, _ := newTestApp(t, "x")
+	tr := &TrashItem{Kind: "collection", From: "Tarifler"}
+
+	a.settings.MCPAccess = map[string]string{"Tarifler": mcpOff}
+	if a.mcpSeesTrash(tr) {
+		t.Fatal("mcpSeesTrash should be false when collection access is mcpOff")
+	}
+
+	a.settings.MCPAccess = map[string]string{"Tarifler": ""}
+	if !a.mcpSeesTrash(tr) {
+		t.Fatal("mcpSeesTrash should match mcpAccess != mcpOff for empty access override")
+	}
+
+	a.settings.MCPAccess = map[string]string{"*": mcpOff}
+	if a.mcpSeesTrash(tr) {
+		t.Fatal("mcpSeesTrash should be false when wildcard access is mcpOff")
 	}
 }

@@ -93,12 +93,18 @@ func (a *app) sidePanel(c *ui.Context) {
 	}
 	full := a.panelWidth()
 	// frosted glass over the page: the page behind it blurred, under a tint of the card, lit from the top
-	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Material(glass.Blur{Radius: 24}).
+	var mat ui.Material = glass.Blur{Radius: 24}
+	panelAlpha := float32(sidePanelGlass)
+	if a.settings.Glass && c.Vibrancy() {
+		mat = glass.Glass{Clarity: 0.4}
+		panelAlpha = 0.58
+	}
+	card := ui.Column(c.Key("side-panel")).Absolute().Top(top).Right(14).Width(full).Material(mat).
 		Clip().Label(locales.CommonSidePanel())
-	frameCard(c, card, cl.Card.Alpha(sidePanelGlass), rad(ryugo.RadiusControl+4), 1.6)
+	frameCard(c, card, cl.Card.Alpha(panelAlpha), rad(ryugo.RadiusControl+4), 1.6)
 	card.Transition(panelFloat)
 	card.Children(func() {
-		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel) // over the content
+		defer a.edgeGrip(c, "panel-grip", false, full, &a.settings.PanelWidth, &a.edge.panel, card) // over the content
 		ui.Row(c).FillWidth().Height(34).Padding(0, 8, 0, 14).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.CommonThisPage()).FontSize(11).FontWeight(650).TextColor(cl.Muted).Grow(1)
 			if a.iconButton(c, iconClose, locales.CloseThePanel()) {

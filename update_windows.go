@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// processGone returns when pid no longer runs: on Windows any process can be waited for by its handle.
+// processGone waits until pid exits by its Windows process handle.
 func processGone(pid int, _ time.Time) {
 	if p, err := os.FindProcess(pid); err == nil {
 		p.Wait()

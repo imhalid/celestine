@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/imhalid/celestine/locales"
 )
@@ -34,7 +35,8 @@ const (
 var journalFormats = []string{"YYYY-MM-DD", "DD.MM.YYYY", "D MMMM YYYY", "D MMMM YYYY, dddd"}
 
 // formatDay writes day d as layout says: YYYY, YY, MMMM, MMM, MM, M, DD, D,
-// dddd and ddd, anything else as it is; months and days in the window's language.
+// dddd and ddd, leaving any character preceded by \ as literal text;
+// months and days are formatted in the window's language.
 func formatDay(layout string, d time.Time) string {
 	if layout == "" {
 		layout = defaultFormat
@@ -56,6 +58,17 @@ func formatDay(layout string, d time.Time) string {
 	}
 	var b strings.Builder
 	for i := 0; i < len(layout); {
+		if layout[i] == '\\' {
+			if i+1 < len(layout) {
+				r, size := utf8.DecodeRuneInString(layout[i+1:])
+				b.WriteRune(r)
+				i += 1 + size
+			} else {
+				b.WriteByte('\\')
+				i++
+			}
+			continue
+		}
 		matched := false
 		for _, tk := range tokens {
 			if strings.HasPrefix(layout[i:], tk.t) {
@@ -66,8 +79,9 @@ func formatDay(layout string, d time.Time) string {
 			}
 		}
 		if !matched {
-			b.WriteByte(layout[i])
-			i++
+			r, size := utf8.DecodeRuneInString(layout[i:])
+			b.WriteRune(r)
+			i += size
 		}
 	}
 	return b.String()

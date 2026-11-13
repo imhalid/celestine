@@ -568,3 +568,28 @@ func firstH(bs []richtext.ParagraphBox) float32 {
 	}
 	return bs[0].Height
 }
+
+// TestRestoreTagPaneColdIndex checks that restoring a tag pane before the link index
+// has finished warming keeps the tag destination instead of dropping it as empty.
+func TestRestoreTagPaneColdIndex(t *testing.T) {
+	a, tt := newTestApp(t, "#fikir notu\n")
+	tt.SetSize(1100, 700)
+	tt.Advance(200 * time.Millisecond)
+	a.openInSide(place{"tag", "fikir"})
+	tt.Advance(200 * time.Millisecond)
+	a.keepPanes()
+	if a.settings.Panes == "" {
+		t.Fatal("nothing kept in settings.Panes")
+	}
+
+	b := newApp(a.lib)
+	b.settings.Panes = a.settings.Panes
+	b.ps = paneSet{}
+	b.paneState = newPaneState()
+	b.prewarming = true // simulate startup prewarm running before index is built
+	b.links = linkIndex{}
+	b.restorePaneLayout()
+	if b.tag != "fikir" {
+		t.Fatalf("active restored pane tag = %q, want %q", b.tag, "fikir")
+	}
+}

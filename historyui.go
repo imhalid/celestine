@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"maps"
 	"strconv"
 	"strings"
@@ -102,16 +103,16 @@ func samePage(x, y []byte) bool {
 
 // putBack makes the page what the chosen version was, the whole of it: its text, and its title, cover and values.
 // What it was is kept as a version first (keepBefore), so that this too can be undone.
-func (a *app) putBackVersion() {
+func (a *app) putBackVersion() error {
 	v := &a.vhist
 	if v.sel >= len(v.vers) {
-		return
+		return errors.New("no version selected")
 	}
 	p := v.page
 	h, _ := v.hist()
 	data, ok := h.VersionData(p.File(), v.vers[v.sel].ID)
 	if !ok {
-		return
+		return errors.New("version data not found")
 	}
 	if p == a.page {
 		a.flush()
@@ -120,7 +121,7 @@ func (a *app) putBackVersion() {
 	meta, body, err := SplitPageChecked(data)
 	if err != nil {
 		a.fail(err)
-		return
+		return err
 	}
 	if s := meta["title"]; s != "" {
 		p.Title = s
@@ -129,12 +130,13 @@ func (a *app) putBackVersion() {
 	p.Unreadable = "" // a whole earlier copy is written over the file: what mends one that could not be read
 	if err := p.Save(body); err != nil {
 		a.fail(err)
-		return
+		return err
 	}
 	a.takeOutside(p)
 	a.linksStale()
 	a.say(toastOK, locales.HistoryBackTo(p.Title, dateTime(v.vers[v.sel].At, false)))
 	v.open = false
+	return nil
 }
 
 // historyView is the dialog.

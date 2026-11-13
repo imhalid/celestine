@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// processGone returns when pid no longer runs, or at the deadline: a process that is not this one's child
-// cannot be waited for here, so it is asked after with the signal 0.
+// processGone waits until pid no longer runs or deadline elapses, probing non-child processes with signal 0.
 func processGone(pid int, deadline time.Time) {
 	p, err := os.FindProcess(pid)
 	if err != nil {

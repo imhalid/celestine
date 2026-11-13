@@ -32,6 +32,8 @@ func TestPageScrollsAsAWhole(t *testing.T) {
 	}
 	// the caret goes to the start, then to the end of a long page, and the
 	// page goes after it
+	a.doc.SetSelection(1, 1) // a page opens with its caret at the start (#454): moved off it first, so going back is a move
+	tt.Frame()
 	a.doc.SetSelection(0, 0)
 	tt.Advance(400 * time.Millisecond)
 	tt.Advance(400 * time.Millisecond)
@@ -144,7 +146,7 @@ func TestPageScrollsBelowTheHeader(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
-	if a.scrollR.Y != frameTopH || a.barInset != 0 { // in the window's frame the card has no header: the page starts under its top edge (windowframe.go)
+	if a.scrollR.Y < frameTopH || a.scrollR.Y > frameTopH+1 || a.barInset != 0 { // in the window's frame the page starts below the header/buttons, never under them (windowframe.go)
 		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header", a.scrollR.Y, a.barInset)
 	}
 	if a.topSpace != pageTop-barH+8 {
@@ -167,4 +169,35 @@ func TestPageScrollsBelowTheHeader(t *testing.T) {
 	if a.barInset != 0 || a.topSpace != 0 {
 		t.Fatalf("the tasks have a head of their own: bar %v, top %v", a.barInset, a.topSpace)
 	}
+}
+
+// TestPageOpensInPlace: a page opened stays at its top, and its text takes the keyboard. The editor's focus used to
+// scroll it into view (AutoFocus), which put a long text's top at the window's and the title out of sight a moment
+// after the page showed at its top: a jump down at every page opened (#356).
+func TestPageOpensInPlace(t *testing.T) {
+	a, tt := newTestApp(t, longPage())
+	tt.SetSize(900, 600)
+	tt.Advance(300 * time.Millisecond)
+	first := a.page
+	other, err := first.Coll.NewPage(nil, "Öteki")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.SaveText(longPage())
+	still := func(when string) {
+		t.Helper()
+		for i := range 30 {
+			tt.Advance(16 * time.Millisecond)
+			if a.pageScroll.Y != 0 {
+				t.Fatalf("%s: frame %d, the page moved to %v", when, i, a.pageScroll.Y)
+			}
+		}
+		if !a.focused {
+			t.Fatalf("%s: the text does not have the keyboard", when)
+		}
+	}
+	a.open(other)
+	still("a page opened")
+	a.open(first)
+	still("a page come back to")
 }

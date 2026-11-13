@@ -43,6 +43,7 @@ type welcomeState struct {
 	opened   bool         // the opening window has drawn its first frame: the opening's clock runs from then
 	chosen   bool         // the welcome has started: the ground comes, and then the opening, by itself
 	chosenAt time.Time    // when
+	sounded  bool         // soundWelcome has already played for this welcome session
 	bar      ui.TitleBar  // the app's window's title bar, which the opening window has not (titleBar)
 	clear    bool         // the welcome is on the stage, and the app's window waits unseen until it has opened
 }
@@ -130,6 +131,10 @@ func (a *app) openStage() {
 // welcomeContinue starts the welcome: the ground comes, and then the opening, by itself (welcomeView). A ground that
 // blurs the desktop has its dark material only now, brought in slowly with the window's opacity.
 func (a *app) welcomeContinue(c *ui.Context) {
+	if !a.wel.sounded {
+		a.wel.sounded = true
+		a.playSound(soundWelcome)
+	}
 	if a.wel.chosen {
 		return
 	}

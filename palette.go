@@ -2,11 +2,13 @@ package main
 
 import (
 	"cmp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
@@ -71,6 +73,8 @@ type palItem struct {
 	name             string // an app command's Turkish title, as the code names it (appcmds.go), whatever the language
 	id               string // what it is whatever the language: a command's or a setting's title as the code writes it; the recent commands and the keys of one's own are kept by it
 	kind             palKind
+	coll             *Collection // collection named by or owning the target of this command, for MCP visibility
+	destDir          string      // destination collection folder for moveThePage, matched by Dir rather than Name
 }
 
 // A palKind is what a line of the palette is, where it matters: a command and a setting are remembered when run.
@@ -118,14 +122,19 @@ func (a *app) commands() []palItem {
 	}
 	if c := a.currentColl(); c != nil {
 		if !c.Dynamic() {
-			out = append(out, cmd(newPageLabel(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) }))
+			it := cmd(newPageLabel(c)+": "+c.Name, "⌘N", iconPlus, func() { a.newPage(c, nil) })
+			it.coll = c
+			out = append(out, it)
 		}
-		out = append(out, cmd("collectionSettings: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) }))
+		cs := cmd("collectionSettings: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) })
+		cs.coll = c
+		out = append(out, cs)
 		if !c.Journal {
 			for _, t := range c.AllTemplates() {
 				t := t
 				it := cmd("palette_newFromTemplate: "+t.Name, "", iconTemplate, func() { a.newPageFrom(c, nil, t.Body) })
 				it.title = locales.PaletteNewFromTemplate(t.Name)
+				it.coll = c
 				out = append(out, it)
 			}
 		}
@@ -139,29 +148,42 @@ func (a *app) commands() []palItem {
 			}{{"makeTheSelectionBold", a.doc.ToggleBold}, {"makeTheSelectionItalic", a.doc.ToggleItalic}, {"underlineTheSelection", a.doc.ToggleUnderline},
 				{"strikeTheSelectionThrough", a.doc.ToggleStrikethrough}, {"makeTheSelectionCode", a.doc.ToggleCode}} {
 				f := f
-				out = append(out, cmd(f.name, "", iconEditing, func() { f.do(); a.refocus = true }))
+				it := cmd(f.name, "", iconEditing, func() { f.do(); a.refocus = true })
+				it.coll = p.Coll
+				out = append(out, it)
 			}
 		}
 		if p.Coll.SubPages {
-			out = append(out, cmd("addASubPage: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) }))
+			it := cmd("addASubPage: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) })
+			it.coll = p.Coll
+			out = append(out, it)
 		}
 		if _, ok := historyOf(p); ok {
-			out = append(out, cmd(map[bool]string{false: "common_timeLapse", true: "common_backText"}[a.lapse.on], "", iconLapse, a.toggleLapse))
+			it := cmd(map[bool]string{false: "common_timeLapse", true: "common_backText"}[a.lapse.on], "", iconLapse, a.toggleLapse)
+			it.coll = p.Coll
+			out = append(out, it)
 		}
-		out = append(out, cmd("common_undo2", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true }))
-		out = append(out, cmd("redo", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true }))
-		out = append(out, cmd("pasteATableCsv", "", iconKind, func() { a.pasteTable() }))
-		out = append(out, cmd("moveToTrash: "+p.Title, "", iconTrash, func() { a.trashPage(p) }))
+		undoIt := cmd("common_undo2", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true })
+		undoIt.coll = p.Coll
+		redoIt := cmd("redo", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true })
+		redoIt.coll = p.Coll
+		pasteIt := cmd("pasteATableCsv", "", iconKind, func() { a.pasteTable() })
+		pasteIt.coll = p.Coll
+		trashIt := cmd("moveToTrash: "+p.Title, "", iconTrash, func() { a.trashPage(p) })
+		trashIt.coll = p.Coll
+		out = append(out, undoIt, redoIt, pasteIt, trashIt)
 	}
 	mark()
 	if c := a.coll; c != nil {
 		for i := range c.Views {
 			v := c.Views[i]
-			out = append(out, cmd("view: "+v.Label, "", iconStack, func() {
+			it := cmd("view: "+v.Label, "", iconStack, func() {
 				if err := c.SetView(v.ID); err != nil {
 					a.fail(err)
 				}
-			}))
+			})
+			it.coll = c
+			out = append(out, it)
 		}
 	}
 	out = append(out, a.moveCommands(cmd)...)
@@ -680,8 +702,13 @@ func (a *app) paletteView(c *ui.Context) {
 	cl := t.Colors
 	ui.DialogBase(c.Key("palette"), &a.pal.open, func(backdrop, panel ui.Element) {
 		backdrop.Justify(ui.Start).Padding(70, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
-		panel.Width(480).MaxWidthPercent(100).Radius(rad(ryugo.RadiusPop)).Background(cl.Card).
-			Border(1, cl.Hairline).Clip().Label(a.palLabel())
+		panel.Width(480).MaxWidthPercent(100).Radius(rad(ryugo.RadiusPop))
+		if a.settings.Glass && runtime.GOOS == "darwin" && c.Vibrancy() {
+			panel.Material(glass.Glass{Clarity: 0.45}).Background(cl.Card.Alpha(0.72))
+		} else {
+			panel.Background(cl.Card)
+		}
+		panel.Border(1, cl.Hairline).Clip().Label(a.palLabel())
 		t.Shadows.ShadowPop.Apply(panel)
 		items := a.palLines()
 		if a.pal.query != a.pal.was {
@@ -779,25 +806,25 @@ func (a *app) palLabel() string {
 			return m.name()
 		}
 	}
-	return "common_findPage"
+	return locales.CommonFindPage()
 }
 
 func palPlaceholder(mode byte) string {
 	switch mode {
 	case '>':
-		return "aCommandOrSettingFontSize"
+		return locales.ACommandOrSettingFontSize()
 	case '#':
-		return "Etiket ara…"
+		return locales.PalettePlaceholderTags()
 	case ':':
-		return "Paragraf numarası…"
+		return locales.PalettePlaceholderLine()
 	case '/':
-		return "Bu sayfada ara…"
+		return locales.PalettePlaceholderFind()
 	case '!':
-		return "Son komutlar…"
+		return locales.PalettePlaceholderRecent()
 	case '?':
-		return "Bir kip seç…"
+		return locales.PalettePlaceholderHelp()
 	}
-	return "goToAPageCommandTag"
+	return locales.GoToAPageCommandTag()
 }
 
 func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
@@ -837,7 +864,7 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 		if len(it.snip) > 0 { // the page, and the words around what was asked, marked
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, it.title).FontSize(12.5).FontWeight(600).TextColor(text).MaxLines(1).Shrink(1)
+					ui.Text(c, it.title).FontSize(12.5).FontWeight(600).TextColor(text).MaxLines(1).TruncateMiddle().Shrink(1)
 					ui.Text(c, it.sub).FontSize(11).TextColor(muted).MaxLines(1).Shrink(2)
 				})
 				var spans []ui.Span
@@ -854,7 +881,7 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 				ui.RichText(c, spans...).MaxLines(1)
 			})
 		} else {
-			ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).Shrink(1)
+			ui.Text(c, it.title).FontSize(12.5).TextColor(text).MaxLines(1).TruncateMiddle().Shrink(1)
 		}
 		if len(it.snip) == 0 && it.sub != "" && it.kind != palCommand {
 			ui.Text(c, it.sub).FontSize(11.5).TextColor(muted).MaxLines(1).Shrink(1)

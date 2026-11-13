@@ -43,15 +43,18 @@ func (a *app) secretScope() string {
 
 // loadSecrets fills the settings' secrets from the keychain, after the settings were read. One the settings still
 // hold is put in the keychain instead, and the answer says so: the settings are then written again without it.
-func (a *app) loadSecrets() (moved bool) {
+func (a *app) loadSecrets() (moved bool) { return a.loadSecretsWith(false) }
+
+// loadSecretsWith fills settings' secrets from the keychain and migrates plaintext secrets unless readOnly is true.
+func (a *app) loadSecretsWith(readOnly bool) (moved bool) {
 	if keychain == nil {
 		return false
 	}
 	a.inKeychain = map[string]string{}
 	scope := a.secretScope()
 	for _, f := range a.settings.secretFields() {
-		if *f.v != "" { // kept in the settings: moved over
-			if keychain.Set(scope+"#"+f.name, *f.v) == nil {
+		if *f.v != "" { // kept in the settings: moved over (unless reading read-only, #165)
+			if !readOnly && keychain.Set(scope+"#"+f.name, *f.v) == nil {
 				a.inKeychain[f.name] = *f.v
 				moved = true
 			}

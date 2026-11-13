@@ -130,9 +130,10 @@ func (a *app) lapseAuto(c *ui.Context, p *Page) {
 	}
 }
 
-// spansVersion tells the editor when what its spans do has changed: the letters' spacing, the theme, the time-lapse's colors.
+// spansVersion tells the editor when what its spans do has changed: the letters' spacing, the theme, the time-lapse's colors,
+// or dynamic query block heights.
 func (a *app) spansVersion() int {
-	v := a.settings.LetterSpacing*100 + a.settings.AppTheme
+	v := a.settings.LetterSpacing*100 + a.settings.AppTheme + (a.queryVer&0x3f)*20000000
 	if l := &a.lapse; l.on && l.page == a.page {
 		v += l.ver * 100000
 	}

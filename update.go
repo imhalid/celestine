@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -20,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/egoist/mygo/netproxy"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -51,28 +54,71 @@ type Release struct {
 type Asset struct {
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
-	Sig    string `json:"sig"`            // base64 ed25519 signature of sigText(version, sha256)
+	Sig    string `json:"sig"`            // base64 ed25519 signature of legacySigText: for the clients before #455, not checked here
+	Sig2   string `json:"sig2,omitempty"` // base64 ed25519 signature of sigText: the one this client requires
 	Size   int64  `json:"size,omitempty"` // bytes
 	Kind   string `json:"kind,omitempty"` // "binary" (default), or "app-zip": a macOS .app, zipped
 }
 
-// sigText is what is signed: the version and the file's hash, so that a signature cannot be moved to
-// another version.
-func sigText(version, sha string) []byte { return []byte(version + "\n" + strings.ToLower(sha)) }
+// sigFormat opens the text of the second signature, so that it can never be read as the first one's.
+const sigFormat = "celestine-update-2"
 
-// SignAsset makes the signature of an asset, for the release's script.
-func SignAsset(priv ed25519.PrivateKey, version, sha string) string {
-	return base64.StdEncoding.EncodeToString(ed25519.Sign(priv, sigText(version, sha)))
+// sigText is what Sig2 signs: the version, the system the asset is for ("darwin-arm64"), the file's name (the last
+// part of its URL), its kind and its hash, one to a line. A signature cannot be moved to another version, file,
+// system or kind: a file signed for one system served as another's is refused before it is put in place, not
+// installed to fail and be rolled back (#455). scripts/release writes the same text; both tests hold it to one
+// literal. It is ok false when a part has a line break in it, so that the lines cannot be shifted.
+func sigText(version, platform, name, kind, sha string) (text []byte, ok bool) {
+	if kind == "" {
+		kind = "binary"
+	}
+	parts := []string{sigFormat, version, platform, name, kind, strings.ToLower(sha)}
+	for _, p := range parts[1:] {
+		if p == "" || strings.ContainsAny(p, "\r\n") {
+			return nil, false
+		}
+	}
+	return []byte(strings.Join(parts, "\n")), true
 }
 
-// verifyAsset checks a signature against a base64 public key.
-func verifyAsset(pubB64, version, sha, sigB64 string) error {
+// legacySigText is what Sig signs, and all a client before #455 checks: the version and the hash. The release
+// still writes it for them; this client does not accept it alone, or a manifest stripped of Sig2 would open the
+// hole again.
+func legacySigText(version, sha string) []byte { return []byte(version + "\n" + strings.ToLower(sha)) }
+
+// assetName is the name of the file an asset's URL serves: the last part of its path, unescaped.
+func assetName(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" || strings.HasSuffix(u.Path, "/") {
+		return ""
+	}
+	return path.Base(u.Path)
+}
+
+// SignAsset makes the second signature of an asset listed under platform, for the tests; scripts/release signs
+// the same text.
+func SignAsset(priv ed25519.PrivateKey, version, platform string, as Asset) string {
+	text, ok := sigText(version, platform, assetName(as.URL), as.Kind, as.SHA256)
+	if !ok {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(ed25519.Sign(priv, text))
+}
+
+// verifyAsset checks an asset's second signature against a base64 public key, for the system platform: the
+// version, the system, the file's name, its kind and its hash are all the signer's. An asset with no Sig2 is
+// refused as unsigned.
+func verifyAsset(pubB64, version, platform string, as Asset) error {
 	pub, err := base64.StdEncoding.DecodeString(pubB64)
 	if err != nil || len(pub) != ed25519.PublicKeySize {
 		return errors.New(locales.UpdateErrKey())
 	}
-	sig, err := base64.StdEncoding.DecodeString(sigB64)
-	if err != nil || !ed25519.Verify(ed25519.PublicKey(pub), sigText(version, sha), sig) {
+	if as.Sig2 == "" {
+		return errors.New(locales.UpdateErrUnsigned())
+	}
+	text, ok := sigText(version, platform, assetName(as.URL), as.Kind, as.SHA256)
+	sig, err := base64.StdEncoding.DecodeString(as.Sig2)
+	if !ok || err != nil || !ed25519.Verify(ed25519.PublicKey(pub), text, sig) {
 		return errors.New(locales.UpdateErrSignature())
 	}
 	return nil
@@ -142,6 +188,22 @@ func (a *app) updateURLOf() string {
 	return updateURL
 }
 
+func updateHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: netproxy.Transport(),
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if err := HTTPSOnly(req.URL.String()); err != nil {
+				return err
+			}
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return nil
+		},
+	}
+}
+
 // fetchRelease reads the manifest at u and gives the release for this system, newer than current - or nil.
 func fetchRelease(ctx context.Context, u, current, channel string, skip string) (*Release, error) {
 	if err := HTTPSOnly(u); err != nil {
@@ -149,7 +211,7 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
 	req.Header.Set("User-Agent", "celestine/"+current) // the only thing that is said: which version asks
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	resp, err := updateHTTPClient(15 * time.Second).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +236,11 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 }
 
 // checkUpdate asks in the background, when the settings allow it and it is time; the answer is kept for
-// the window to show.
+// the window to show. Callers hold a.mu.
 func (a *app) checkUpdate(force bool) {
+	if !force && a.updState != updIdle {
+		return
+	}
 	if updTrial { // CELESTINE_UPDATE=1 finds a version every time (updtrial.go)
 		a.trialCheck()
 		return
@@ -187,8 +252,9 @@ func (a *app) checkUpdate(force bool) {
 		}
 		return
 	}
+	now := a.clock()
 	if !force {
-		if a.settings.UpdateOff || time.Since(time.Unix(a.settings.UpdateAt, 0)) < a.updateEvery() || time.Now().Before(time.Unix(a.settings.UpdateSnooze, 0)) {
+		if a.settings.UpdateOff || now.Sub(time.Unix(a.settings.UpdateAt, 0)) < a.updateEvery() || now.Before(time.Unix(a.settings.UpdateSnooze, 0)) {
 			a.updBusy.Store(false)
 			return
 		}
@@ -204,7 +270,7 @@ func (a *app) checkUpdate(force bool) {
 		defer cancel()
 		rel, err := fetchRelease(ctx, u, cur, channel, skip)
 		a.do(func() error {
-			a.settings.UpdateAt = time.Now().Unix()
+			a.settings.UpdateAt = a.clock().Unix()
 			a.saveSettingsSoon()
 			switch {
 			case err != nil:
@@ -218,11 +284,14 @@ func (a *app) checkUpdate(force bool) {
 					a.say(toastOK, locales.UpdateUpToDate(shownVersion(version)))
 				}
 			default:
-				a.updErr, a.updRel = "", rel
-				if a.settings.UpdateAuto {
-					a.updAuto = true
-				} else if !a.settings.UpdateQuiet || force {
-					a.updOpen = true
+				a.updErr = ""
+				if a.updState == updIdle {
+					a.updRel = rel
+					if a.settings.UpdateAuto {
+						a.updAuto = true
+					} else if !a.settings.UpdateQuiet || force {
+						a.updOpen = true
+					}
 				}
 			}
 			return nil
@@ -273,18 +342,24 @@ func (u *updProgress) frac() float32 {
 // filesystem, and closed to anyone else, so what was checked is what is put in place. prog, when given, counts it
 // as it comes.
 func download(ctx context.Context, rel *Release, pubKey, dir string, prog *updProgress) (string, Asset, error) {
-	as, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]
+	platform := runtime.GOOS + "-" + runtime.GOARCH
+	as, ok := rel.Assets[platform]
 	if !ok {
 		return "", as, errors.New(locales.UpdateErrNoBuild())
 	}
 	if err := HTTPSOnly(as.URL); err != nil {
 		return "", as, err
 	}
-	if as.SHA256 == "" || as.Sig == "" {
+	if as.SHA256 == "" || as.Sig2 == "" {
 		return "", as, errors.New(locales.UpdateErrUnsigned())
 	}
+	// the signature is checked before anything is fetched: a file signed for another system, name or kind is
+	// not downloaded at all; the hash, after, ties what came to what was signed
+	if err := verifyAsset(pubKey, rel.Version, platform, as); err != nil {
+		return "", as, err
+	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", as.URL, nil)
-	resp, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
+	resp, err := updateHTTPClient(10 * time.Minute).Do(req)
 	if err != nil {
 		return "", as, err
 	}
@@ -325,10 +400,6 @@ func download(ctx context.Context, rel *Release, pubKey, dir string, prog *updPr
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, as.SHA256) {
 		os.Remove(tmp)
 		return "", as, errors.New(locales.UpdateErrChecksum())
-	}
-	if err := verifyAsset(pubKey, rel.Version, as.SHA256, as.Sig); err != nil {
-		os.Remove(tmp)
-		return "", as, err
 	}
 	return tmp, as, nil
 }
@@ -376,8 +447,35 @@ func installBinary(newFile, exe string) (old string, err error) {
 	return old, nil
 }
 
+// maxUnpackBytes caps the total bytes installApp unpacks from an update zip (#184).
+var maxUnpackBytes int64 = 512 << 20
+
+// zipEntryDst returns the validated destination path inside staging for zip entry rawName.
+func zipEntryDst(staging, rawName string, root *string) (string, error) {
+	name := filepath.Clean(rawName)
+	if !filepath.IsLocal(name) {
+		return "", errors.New(locales.UpdateErrZipPath(rawName))
+	}
+	if *root == "" {
+		*root = strings.Split(name, string(filepath.Separator))[0]
+	}
+	var rel string
+	if name == *root {
+		rel = ""
+	} else if rest, ok := strings.CutPrefix(name, *root+string(filepath.Separator)); ok {
+		rel = rest
+	} else {
+		return "", errors.New(locales.UpdateErrZipPath(rawName))
+	}
+	dst := filepath.Join(staging, rel)
+	if !Within(staging, dst) {
+		return "", errors.New(locales.UpdateErrZipPath(rawName))
+	}
+	return dst, nil
+}
+
 // installApp unpacks a zipped macOS .app beside the program's bundle and swaps the two; app is the
-// bundle's path (…/celestine.app). The old bundle is kept as app.old.
+// bundle's path (…/celestine.app). The old bundle is kept as app.old, and zipFile is removed on success.
 func installApp(zipFile, app string) (old string, err error) {
 	zr, err := zip.OpenReader(zipFile)
 	if err != nil {
@@ -386,53 +484,115 @@ func installApp(zipFile, app string) (old string, err error) {
 	defer zr.Close()
 	staging := app + ".new"
 	os.RemoveAll(staging)
+	fail := func(err error) (string, error) {
+		os.RemoveAll(staging)
+		return "", err
+	}
+	type zipSym struct {
+		f   *zip.File
+		dst string
+	}
+	var symlinks []zipSym
+	var totalUnpacked int64
 	root := ""
 	for _, f := range zr.File {
-		name := filepath.Clean(f.Name)
-		if strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
-			os.RemoveAll(staging)
-			return "", errors.New(locales.UpdateErrZipPath(f.Name))
+		dst, err := zipEntryDst(staging, f.Name, &root)
+		if err != nil {
+			return fail(err)
 		}
-		if root == "" {
-			root = strings.Split(name, string(filepath.Separator))[0]
-		}
-		dst := filepath.Join(staging, strings.TrimPrefix(strings.TrimPrefix(name, root), string(filepath.Separator)))
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(dst, 0o755)
+		if f.Mode()&os.ModeSymlink != 0 {
+			symlinks = append(symlinks, zipSym{f, dst})
 			continue
 		}
-		os.MkdirAll(filepath.Dir(dst), 0o755)
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(dst, 0o755); err != nil {
+				return fail(err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fail(err)
+		}
 		in, err := f.Open()
 		if err != nil {
-			os.RemoveAll(staging)
-			return "", err
+			return fail(err)
 		}
-		out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode()|0o600)
+		// Strip setuid/setgid/sticky bits with & 0o777 while ensuring owner read/write (#184).
+		out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, (f.Mode()&0o777)|0o600)
 		if err != nil {
 			in.Close()
-			os.RemoveAll(staging)
-			return "", err
+			return fail(err)
 		}
-		_, err = io.Copy(out, in)
+		n, err := io.Copy(out, io.LimitReader(in, maxUnpackBytes-totalUnpacked+1))
 		in.Close()
 		if cerr := out.Close(); err == nil {
 			err = cerr
 		}
+		totalUnpacked += n
+		if err == nil && totalUnpacked > maxUnpackBytes {
+			err = errors.New(locales.UpdateErrZipTooLarge())
+		}
 		if err != nil {
-			os.RemoveAll(staging)
-			return "", err
+			return fail(err)
+		}
+	}
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return fail(err)
+	}
+	stagingAbs, err := filepath.EvalSymlinks(staging)
+	if err != nil {
+		stagingAbs = filepath.Clean(staging)
+	}
+	for _, sym := range symlinks {
+		if filepath.Clean(sym.dst) == filepath.Clean(staging) {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
+		in, err := sym.f.Open()
+		if err != nil {
+			return fail(err)
+		}
+		rawTarget, err := io.ReadAll(io.LimitReader(in, 4097))
+		in.Close()
+		if err != nil || len(rawTarget) == 0 || len(rawTarget) > 4096 {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
+		target := string(rawTarget)
+		if strings.ContainsRune(target, 0) || filepath.IsAbs(target) || strings.HasPrefix(target, "/") || strings.HasPrefix(target, `\`) || filepath.VolumeName(target) != "" {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
+		resolved := filepath.Clean(filepath.Join(filepath.Dir(sym.dst), filepath.FromSlash(target)))
+		if !Within(filepath.Clean(staging), resolved) {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
+		if err := os.MkdirAll(filepath.Dir(sym.dst), 0o755); err != nil {
+			return fail(err)
+		}
+		parentEval, err := filepath.EvalSymlinks(filepath.Dir(sym.dst))
+		if err != nil || !Within(stagingAbs, parentEval) {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
+		if err := os.Symlink(filepath.FromSlash(target), sym.dst); err != nil {
+			return fail(err)
+		}
+	}
+	// Resolve every symlink only after all links exist so forward-referenced symlink chains
+	// cannot bypass the containment check (#184).
+	for _, sym := range symlinks {
+		eval, err := filepath.EvalSymlinks(sym.dst)
+		if err != nil || !Within(stagingAbs, eval) {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
 		}
 	}
 	old = app + ".old"
 	os.RemoveAll(old)
 	if err := os.Rename(app, old); err != nil {
-		os.RemoveAll(staging)
-		return "", err
+		return fail(err)
 	}
 	if err := os.Rename(staging, app); err != nil {
 		os.Rename(old, app)
-		return "", err
+		return fail(err)
 	}
+	_ = os.Remove(zipFile)
 	return old, nil
 }
 
@@ -470,7 +630,8 @@ func rollbackIfBroken(mark, cur string) string {
 	}
 	ver, target, old := lines[0], lines[1], lines[2]
 	if len(lines) < 4 || lines[3] != startedStamp {
-		os.WriteFile(mark, []byte(strings.Join(lines[:3], "\n")+"\n"+startedStamp+"\n"), 0o644)
+		_ = os.WriteFile(mark, []byte(strings.Join(lines[:3], "\n")+"\n"+startedStamp+"\n"), 0o600)
+		_ = os.Chmod(mark, 0o600)
 		return "" // the first start: it proves itself (updateProved)
 	}
 	os.Remove(mark)
@@ -558,7 +719,10 @@ func (a *app) startUpdate() {
 				return nil
 			}
 			if m := updateMark(); m != "" {
-				os.WriteFile(m, []byte(rel.Version+"\n"+target+"\n"+old+"\n"), 0o644)
+				_ = os.MkdirAll(filepath.Dir(m), 0o700)
+				hardenPrivateDir(filepath.Dir(m))
+				_ = os.WriteFile(m, []byte(rel.Version+"\n"+target+"\n"+old+"\n"), 0o600)
+				_ = os.Chmod(m, 0o600)
 			}
 			a.settings.UpdateNotes, a.settings.UpdateFor = rel.Notes, rel.Version
 			a.saveSettings()
@@ -584,4 +748,44 @@ func (a *app) whatsNew() bool {
 		return true
 	}
 	return a.settings.UpdateFor != "" && a.settings.UpdateFor == version && a.settings.UpdateSeen != version
+}
+
+const rollbackFlag = "--restarted="
+
+// rollbackArgs returns the arguments for the restored binary after an update rollback, carrying this exiting
+// process's PID so the child waits before claiming the single-instance lock.
+func rollbackArgs() []string {
+	args, _ := withoutRollbackFlag(os.Args[1:])
+	return append(args, rollbackFlag+strconv.Itoa(os.Getpid()))
+}
+
+// withoutRollbackFlag removes rollbackFlag from args and returns the PID it carried, or 0.
+func withoutRollbackFlag(args []string) ([]string, int) {
+	pid := 0
+	out := make([]string, 0, len(args))
+	for _, s := range args {
+		if v, ok := strings.CutPrefix(s, rollbackFlag); ok {
+			pid, _ = strconv.Atoi(v)
+			continue
+		}
+		out = append(out, s)
+	}
+	return out, pid
+}
+
+// waitForExit waits until process pid exits or max elapses so a rollback child does not race the exiting
+// process's single-instance lock.
+func waitForExit(pid int, max time.Duration) {
+	if pid <= 0 || pid == os.Getpid() {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		processGone(pid, time.Now().Add(max))
+	}()
+	select {
+	case <-done:
+	case <-time.After(max):
+	}
 }

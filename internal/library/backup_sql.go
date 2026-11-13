@@ -4,6 +4,7 @@ package library
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -15,6 +16,8 @@ func (s *Store) Snapshot(dst string) error {
 		return err
 	}
 	defer db.Close()
-	_, err = db.Exec(`VACUUM INTO '` + strings.ReplaceAll(filepath.ToSlash(dst), `'`, `''`) + `'`)
-	return err
+	if _, err := db.Exec(`VACUUM INTO '` + strings.ReplaceAll(filepath.ToSlash(dst), `'`, `''`) + `'`); err != nil {
+		return err
+	}
+	return os.Chmod(dst, 0o600)
 }

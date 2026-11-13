@@ -82,6 +82,21 @@ func OpenStore(file string) (*Store, error) {
 	return s, nil
 }
 
+// OpenStoreReadOnly opens an existing SQLite library file read-only without creating tables or changing file mode (#165).
+func OpenStoreReadOnly(file string) (*Store, error) {
+	db, err := sql.Open("sqlite", sqliteURI(file, "mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(0)"))
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	var ok int
+	if err := db.QueryRow(`SELECT 1`).Scan(&ok); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &Store{DB: db, File: file}, nil
+}
+
 // WriteError is nil for a library file: its writes say at once when they fail. The browser's store writes later,
 // and keeps what its last write said (store_js.go).
 func (s *Store) WriteError() error { return nil }

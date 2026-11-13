@@ -31,4 +31,5 @@ var (
 	iconTag         = icon(`<path d="M9.5 4.5 7.8 19.5M16.2 4.5 14.5 19.5M5 9h14.5M4.5 15h14.5"/>`)
 	iconTask        = icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/>`)
 	iconSearch      = icon(`<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>`)
+	iconSound       = icon(`<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a8.5 8.5 0 0 1 0 12"/>`)
 )

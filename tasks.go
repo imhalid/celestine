@@ -631,17 +631,31 @@ func parseEvery(s string) (recur, bool) {
 	return recur{n, unit}, true
 }
 
-// next is the day after d.
-func (r recur) next(d time.Time) time.Time {
+// taskLineRe matches a markdown task list item with its checkbox marker.
+var taskLineRe = regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\](\s*)(.*)$`)
+
+// next returns the first recurrence date after d.
+func (r recur) next(d time.Time) time.Time { return r.nextN(d, 1) }
+
+// nextN returns the recurrence date steps intervals after d, clamping month ends.
+func (r recur) nextN(d time.Time, steps int) time.Time {
 	switch r.unit {
 	case "week":
-		return d.AddDate(0, 0, 7*r.n)
-	case "month":
-		return d.AddDate(0, r.n, 0)
-	case "year":
-		return d.AddDate(r.n, 0, 0)
+		return d.AddDate(0, 0, 7*r.n*steps)
+	case "month", "year":
+		months := r.n * steps
+		if r.unit == "year" {
+			months *= 12
+		}
+		y, m, day := d.Date()
+		first := time.Date(y, m+time.Month(months), 1, d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), d.Location())
+		lastDay := first.AddDate(0, 1, -1).Day()
+		if day > lastDay {
+			day = lastDay
+		}
+		return time.Date(first.Year(), first.Month(), day, d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), d.Location())
 	}
-	return d.AddDate(0, 0, r.n)
+	return d.AddDate(0, 0, r.n*steps)
 }
 
 // label says it as the task view shows it: "her hafta", "her 2 ayda".
@@ -660,7 +674,7 @@ func comesAgain(line string, now time.Time) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	m := regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\](\s*)(.*)$`).FindStringSubmatch(line)
+	m := taskLineRe.FindStringSubmatch(line)
 	if m == nil {
 		return "", false
 	}
@@ -678,9 +692,11 @@ func comesAgain(line string, now time.Time) (string, bool) {
 		}
 		return s
 	})
-	next := r.next(base)
+	step := 1
+	next := r.nextN(base, step)
 	for !next.After(today) {
-		next = r.next(next)
+		step++
+		next = r.nextN(base, step)
 	}
 	day := "[[" + next.Format("2006-01-02") + "]]"
 	if dated {

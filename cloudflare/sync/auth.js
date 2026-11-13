@@ -59,7 +59,7 @@ export async function allow(env, key, limit, windowSec) {
   const k = `${key}:${windowSec}`;
   // one statement: the count and the read of it are one step, and two requests at once do not both read the same number
   const r = await env.DB.prepare("INSERT INTO hits(key,win,n) VALUES(?,?,1) ON CONFLICT(key,win) DO UPDATE SET n=n+1 RETURNING n").bind(k, win).first();
-  if (Math.random() < 0.02) await env.DB.prepare("DELETE FROM hits WHERE win < ?").bind(Math.floor(now() / windowSec) - 2).run();
+  if (Math.random() < 0.02) await env.DB.prepare("DELETE FROM hits WHERE key LIKE ? AND win < ?").bind(`%:${windowSec}`, win - 2).run();
   return (r?.n || 0) <= limit;
 }
 // true when the counter of key has reached the limit in this window: it reads, and counts nothing.
@@ -368,6 +368,7 @@ export async function handleApi(request, env, url) {
 // ---- the administrator ----
 
 async function admin(request, env, path, method, body, bearer, url) {
+  if (await full(env, "adminfail:" + ip(request), 20, 3600)) return fail(429, "too many requests");
   if (!env.ADMIN_TOKEN || !same(await sha256hex(bearer), await sha256hex(env.ADMIN_TOKEN))) {
     await allow(env, "adminfail:" + ip(request), 20, 3600);
     return fail(401, "no");

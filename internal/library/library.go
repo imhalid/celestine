@@ -703,24 +703,8 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	if item.From != "" && !SafeName(filepath.ToSlash(item.From)) { // the note is a file in the trash: its path is not trusted to stay in the library
 		return nil, nil, errors.New("çöp notundaki yol güvenli değil: " + item.From)
 	}
-	if item.Kind == "files" { // each back at the library's top; one that is there again is not written over
-		ents, err := l.FS.ReadDir(item.Dir)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, e := range ents {
-			if e.IsDir() || e.Name() == TrashNote {
-				continue
-			}
-			to := filepath.Join(l.Root, e.Name())
-			if _, err := l.FS.Stat(to); err == nil {
-				return nil, nil, errors.New(e.Name() + ": a file of that name is there already")
-			}
-			if err := l.FS.Rename(filepath.Join(item.Dir, e.Name()), to); err != nil {
-				return nil, nil, err
-			}
-		}
-		return nil, nil, l.FS.RemoveAll(item.Dir)
+	if item.Kind == "files" { // each back in the folder it was taken from, the library's top or a page's; one that is there again is not written over
+		return nil, nil, l.restoreFiles(item)
 	}
 	if item.Kind == "collection" {
 		name := filepath.Base(item.From)
@@ -790,6 +774,7 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	l.filesBackWith(item.From, to) // what a sync took from it while it was here (#456)
 	p := &Page{Title: meta["title"], Dir: to, Coll: coll, Parent: parent}
 	p.ReadMeta(meta)
 	if p.Title == "" {

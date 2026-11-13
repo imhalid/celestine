@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -85,13 +86,17 @@ var settingsApart = map[string]string{
 	"treeSaved":     "where the sidebar's tree was left",
 	"treeOpen":      "where the sidebar's tree was left",
 	"panes":         "the panes as they were left",
+	"glass":         "macOS only: Liquid Glass requires macOS NSGlassEffectView (#361)",
 }
 
 func (a *app) save1() { a.saveSettings() }
 
 // settingDefs is the list of settings. The settings screen draws its own rows; this list is what the
 // palette and the argument commands go by, and the test holds the two together.
-func settingDefs() []settingDef {
+func settingDefs() []settingDef { return settingDefsFor(runtime.GOOS == "darwin") }
+
+// settingDefsFor returns the command-palette setting definitions for the given platform capability.
+func settingDefsFor(macOS bool) []settingDef {
 	tog := func(name, alias string, fields []string, on func(*app) bool, flip func(*app, bool)) settingDef {
 		return settingDef{name: name, alias: alias, fields: fields, kind: setToggle, on: on, flip: flip}
 	}
@@ -104,7 +109,7 @@ func settingDefs() []settingDef {
 	num := func(name, alias, field string, min, max, def, step float64, unit string, dec int, val func(*app) float64, put func(*app, float64)) settingDef {
 		return settingDef{name: name, alias: alias, fields: []string{field}, kind: setNumber, val: val, put: put, min: min, max: max, def: def, step: step, unit: unit, dec: dec}
 	}
-	return []settingDef{
+	defs := []settingDef{
 		{name: "common_theme", alias: "theme görünüm açık koyu sistem", fields: []string{"theme"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for i, n := range []string{"common_system", "common_light", "common_dark"} {
@@ -259,6 +264,8 @@ func settingDefs() []settingDef {
 			func(a *app) bool { return a.settings.Jelly },
 			func(a *app, v bool) { a.settings.Jelly = v; a.saveSettings() }),
 		simple("common_shimmer", "parıltı ışık jöle sarsıntısı wobble shake shimmer", "noWobble", func(s *Settings) *bool { return &s.NoWobble }, true),
+		simple("common_sounds", "sound audio chime bell mute ses bildirim", "noSound", func(s *Settings) *bool { return &s.NoSound }, true),
+		simple("sounds_startup", "sound chord startup opening open akor açılış", "startChord", func(s *Settings) *bool { return &s.StartChord }, false),
 		simple("common_pressWaves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
 		simple("common_automaticCover", "kapak cover", "autoCover", func(s *Settings) *bool { return &s.AutoCover }, false),
 		simple("common_colorWordsByDay", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
@@ -289,7 +296,7 @@ func settingDefs() []settingDef {
 				}
 			}),
 		tog("common_mcpServer", "mcp ajan agent", []string{"mcp"},
-			func(a *app) bool { return a.settings.MCP },
+			func(a *app) bool { return a.settings.MCP || a.mcpServer != nil },
 			func(a *app, v bool) { a.setMCP(v) }),
 		num("common_fontSize", "font size punto", "fontSize", minFont, maxFont, 16.5, 0.5, " px", 1,
 			func(a *app) float64 { return float64(a.fontSize()) }, func(a *app, v float64) { a.setFontSize(v) }),
@@ -312,6 +319,12 @@ func settingDefs() []settingDef {
 			func(a *app) float64 { return float64(a.cornerPercent()) },
 			func(a *app, v float64) { p := int(v); a.settings.Corner = &p; a.saveSettingsSoon() }),
 	}
+	if macOS {
+		defs = append(defs, tog("settings_glass", "liquid glass vibrancy cam saydam macos", []string{"glass"},
+			func(a *app) bool { return a.settings.Glass },
+			func(a *app, v bool) { a.setGlass(v) }))
+	}
+	return defs
 }
 
 func (d settingDef) fmt(v float64) string {

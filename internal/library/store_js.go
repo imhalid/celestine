@@ -31,18 +31,20 @@ type jnode struct {
 
 // Store is a library kept in the browser.
 type Store struct {
-	File  string
-	mu    sync.Mutex
-	node  map[string]*jnode
-	meta  map[string]string // base64
-	hold  int
-	dirty bool
+	File     string
+	mu       sync.Mutex
+	node     map[string]*jnode
+	meta     map[string]string // base64
+	hold     int
+	dirty    bool
+	readOnly bool
 	// before is the library as it was read, kept under a key of its own before the first write over it: the
 	// browser's storage has no versions and no backups, and this is one way back (#237).
 	before string
 	// writeErr is what the last write said, or nil (WriteError).
-	writeErr error
-	Now      func() time.Time
+	writeErr   error
+	retryTimer *time.Timer
+	Now        func() time.Time
 	// Writes counts the changes to the files and folders, as the Store of a file has it (store_sql.go).
 	Writes atomic.Uint64
 }
@@ -122,11 +124,21 @@ func idbGet(h js.Value, key string) (v string, found bool, err error) {
 	}
 }
 
+// OpenStoreReadOnly opens an existing library named file in browser storage read-only without creating a store or writing back.
+func OpenStoreReadOnly(file string) (*Store, error) {
+	return openStore(file, true)
+}
+
 // OpenStore opens the library named file in the browser's storage, making it when there is none. A library that is
 // there but cannot be read is an error, never an empty library: that would be written over the real one a moment
 // later (#237).
 func OpenStore(file string) (*Store, error) {
-	s := &Store{File: file, node: map[string]*jnode{"/": {Dir: true, MTime: time.Now().UnixNano()}}, meta: map[string]string{}}
+	return openStore(file, false)
+}
+
+// openStore loads the library named file from browser storage; when readOnly is true, missing stores fail and writes never flush.
+func openStore(file string, readOnly bool) (*Store, error) {
+	s := &Store{File: file, readOnly: readOnly, node: map[string]*jnode{"/": {Dir: true, MTime: time.Now().UnixNano()}}, meta: map[string]string{}}
 	raw, found := "", false
 	if h := idb(); !h.IsUndefined() {
 		var err error
@@ -140,6 +152,9 @@ func OpenStore(file string) (*Store, error) {
 				raw, found = v.String(), true
 			}
 		}
+	}
+	if !found && readOnly {
+		return nil, fs.ErrNotExist
 	}
 	if found {
 		var in struct {
@@ -160,24 +175,29 @@ func OpenStore(file string) (*Store, error) {
 		}
 		s.before = raw
 	}
-	// the page going away: what is waiting is written at once
-	hide := js.FuncOf(func(this js.Value, args []js.Value) any { s.mu.Lock(); s.flushLocked(); s.mu.Unlock(); return nil })
-	js.Global().Get("document").Call("addEventListener", "visibilitychange", hide)
-	js.Global().Call("addEventListener", "pagehide", hide)
+	if !readOnly {
+		// the page going away: what is waiting is written at once
+		hide := js.FuncOf(func(this js.Value, args []js.Value) any { s.mu.Lock(); s.flushLocked(); s.mu.Unlock(); return nil })
+		js.Global().Get("document").Call("addEventListener", "visibilitychange", hide)
+		js.Global().Call("addEventListener", "pagehide", hide)
+	}
 	return s, nil
 }
 
 func (s *Store) Close() error {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.readOnly {
+		return nil
+	}
 	s.dirty = true
 	s.flushLocked()
-	s.mu.Unlock()
 	return nil
 }
 
 // persist notes that the library changed: it is written a moment later, once for all the changes of the moment.
 func (s *Store) persist() {
-	if s.hold > 0 || s.dirty {
+	if s.readOnly || s.hold > 0 || s.dirty {
 		return
 	}
 	s.dirty = true
@@ -187,7 +207,7 @@ func (s *Store) persist() {
 // flushLocked writes the library to the browser's storage now (s.mu is held). A write that fails leaves the library
 // to be written again, and says so through WriteError (#238).
 func (s *Store) flushLocked() {
-	if !s.dirty {
+	if s.readOnly || !s.dirty {
 		return
 	}
 	s.dirty = false
@@ -205,7 +225,15 @@ func (s *Store) flushLocked() {
 		release := func() { then.Release(); catch.Release() }
 		then = js.FuncOf(func(this js.Value, args []js.Value) any {
 			release()
-			go func() { s.mu.Lock(); s.writeErr = nil; s.mu.Unlock() }()
+			go func() {
+				s.mu.Lock()
+				s.writeErr = nil
+				if s.retryTimer != nil {
+					s.retryTimer.Stop()
+					s.retryTimer = nil
+				}
+				s.mu.Unlock()
+			}()
 			return nil
 		})
 		catch = js.FuncOf(func(this js.Value, args []js.Value) any {
@@ -217,8 +245,8 @@ func (s *Store) flushLocked() {
 			go func() {
 				s.mu.Lock()
 				s.writeErr = errors.New(msg)
+				s.scheduleRetryLocked()
 				s.mu.Unlock()
-				time.AfterFunc(5*time.Second, func() { s.mu.Lock(); s.dirty = true; s.flushLocked(); s.mu.Unlock() })
 			}()
 			return nil
 		})
@@ -226,8 +254,35 @@ func (s *Store) flushLocked() {
 		return
 	}
 	if st := storage(); !st.IsUndefined() {
-		st.Call("setItem", key, string(data)) // over the quota it throws: the library stays in memory
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					s.writeErr = errors.New("the library could not be written to localStorage")
+					s.scheduleRetryLocked()
+				}
+			}()
+			st.Call("setItem", key, string(data)) // over the quota it throws: the library stays in memory (#239)
+			s.writeErr = nil
+			if s.retryTimer != nil {
+				s.retryTimer.Stop()
+				s.retryTimer = nil
+			}
+		}()
 	}
+}
+
+// scheduleRetryLocked schedules one retry of flushLocked after a browser storage write failure (#239).
+func (s *Store) scheduleRetryLocked() {
+	if s.retryTimer != nil {
+		return
+	}
+	s.retryTimer = time.AfterFunc(5*time.Second, func() {
+		s.mu.Lock()
+		s.retryTimer = nil
+		s.dirty = true
+		s.flushLocked()
+		s.mu.Unlock()
+	})
 }
 
 // WriteError is what the last write to the browser's storage said, or nil: the app shows it, as what is typed is

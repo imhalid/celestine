@@ -415,3 +415,49 @@ func TestContextSubmenu(t *testing.T) {
 		t.Fatalf("ran %q, open %v", ran, a.ctx.open)
 	}
 }
+
+// TestGearMenuThemeSubmenuCheck verifies that choosing a theme in the quick-settings
+// submenu moves the ✓ trailing mark to the newly active item when the menu is reopened.
+func TestGearMenuThemeSubmenuCheck(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(900, 600)
+
+	// Open the gear menu, select Dark from the Theme submenu, then reopen and open Theme.
+	a.gearMenu(40, 60)
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	if err := tt.ChooseMenuItem(msg("common_theme"), msg("common_dark")); err != nil {
+		t.Fatal(err, tt.Menu())
+	}
+	if a.settings.Theme != 2 {
+		t.Fatalf("Theme = %d, want 2", a.settings.Theme)
+	}
+	a.gearMenu(40, 60)
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	tt.Click(msg("common_theme"))
+	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
+	darkR, okDark := tt.Find(msg("common_dark"))
+	sysR, okSys := tt.Find(msg("common_system"))
+	checkR, okChk := tt.Find("✓")
+	if !okDark || !okSys || !okChk {
+		t.Fatalf("missing submenu items: dark=%v sys=%v check=%v texts=%v", okDark, okSys, okChk, tt.Texts())
+	}
+	if checkR.Y < darkR.Y-4 || checkR.Y > darkR.Y+darkR.H+4 {
+		t.Fatalf("✓ bounds Y=%v not aligned with Dark row=%v (System row=%v)", checkR.Y, darkR, sysR)
+	}
+	sub := a.ctx.items[0].items()
+	var darkHint, sysHint string
+	for _, it := range sub {
+		if it.title == "common_dark" {
+			darkHint = it.hint
+		}
+		if it.title == "common_system" {
+			sysHint = it.hint
+		}
+	}
+	if darkHint != "✓" || sysHint != "" {
+		t.Fatalf("reopened ticks: dark=%q sys=%q", darkHint, sysHint)
+	}
+}

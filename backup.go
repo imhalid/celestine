@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -50,7 +51,37 @@ type Backup struct {
 
 var backupName = regexp.MustCompile(`^kitaplik-(\d{8})-(\d{6})(?:-(.+))?\.db\.gz$`)
 
-// backups lists the folder's backups, newest first.
+// hardenPrivateDir ensures dir (and a "celestine" parent config folder if present) has 0700 permissions (#179).
+func hardenPrivateDir(dir string) {
+	if dir == "" {
+		return
+	}
+	_ = os.Chmod(dir, 0o700)
+	if parent := filepath.Dir(dir); filepath.Base(parent) == "celestine" {
+		_ = os.Chmod(parent, 0o700)
+	}
+}
+
+// hardenBackupDir tightens an existing backup folder to 0700 and its .db.gz files to 0600 (#179).
+func hardenBackupDir(dir string) {
+	hardenPrivateDir(dir)
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range ents {
+		if !strings.HasSuffix(e.Name(), backupExt) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 == 0 {
+			continue
+		}
+		_ = os.Chmod(filepath.Join(dir, e.Name()), 0o600)
+	}
+}
+
+// backups lists the folder's backups, newest first, without changing permissions (#179).
 func backups(dir string) []Backup {
 	ents, _ := os.ReadDir(dir)
 	var out []Backup
@@ -76,9 +107,10 @@ func backups(dir string) []Backup {
 
 // backupTo takes a backup of the store into dir: a snapshot, compressed. label says what it is for.
 func backupTo(s *Store, dir, label string, now time.Time) (string, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
+	hardenBackupDir(dir)
 	raw := filepath.Join(dir, ".snapshot-"+now.Format("150405.000")+".db")
 	os.Remove(raw)
 	if err := s.Snapshot(raw); err != nil {
@@ -109,7 +141,7 @@ func gzipFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	f, err := os.Create(dst + ".tmp")
+	f, err := os.OpenFile(dst+".tmp", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -140,7 +172,7 @@ func gunzipFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(dst)
+	f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -226,12 +258,44 @@ func pruneBackups(dir string, now time.Time) {
 // restoreMark is the file that says a backup is to be put in place at the next start: it holds its path.
 func restoreMark(dir string) string { return filepath.Join(filepath.Dir(dir), "restore-from") }
 
+// safeRestorePath verifies that path is an existing regular .db.gz file strictly inside the backup dir (#185).
+func safeRestorePath(dir, path string) (string, error) {
+	if dir == "" || strings.TrimSpace(path) == "" {
+		return "", errors.New(locales.BackupErrOpen())
+	}
+	src := filepath.Clean(strings.TrimSpace(path))
+	info, err := os.Lstat(src)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New(locales.BackupErrOpen())
+	}
+	dirAbs, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		dirAbs, err = filepath.Abs(dir)
+		if err != nil {
+			return "", err
+		}
+	}
+	srcAbs, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return "", err
+	}
+	if filepath.Clean(srcAbs) == filepath.Clean(dirAbs) || !Within(dirAbs, srcAbs) || !strings.HasSuffix(srcAbs, backupExt) {
+		return "", errors.New(locales.BackupErrOpen())
+	}
+	return srcAbs, nil
+}
+
 // planRestore puts the restore of backup path away for the next start.
 func planRestore(dir, path string) error {
-	if _, err := os.Stat(path); err != nil {
+	safe, err := safeRestorePath(dir, path)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(restoreMark(dir), []byte(path), 0o644)
+	hardenPrivateDir(dir)
+	return os.WriteFile(restoreMark(dir), []byte(safe), 0o600)
 }
 
 // applyRestore, before the library is opened, puts the planned backup in the place of the library's
@@ -244,7 +308,10 @@ func applyRestore(dir, file string, now time.Time) (string, error) {
 		return "", nil
 	}
 	os.Remove(mark)
-	src := strings.TrimSpace(string(b))
+	src, err := safeRestorePath(dir, string(b))
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", locales.BackupErrOpen(), err)
+	}
 	tmp := file + ".restoring"
 	if err := gunzipFile(src, tmp); err != nil {
 		return "", fmt.Errorf("%s: %w", locales.BackupErrOpen(), err)
@@ -278,7 +345,7 @@ func applyRestore(dir, file string, now time.Time) (string, error) {
 
 // zipDir writes the folder as a zip.
 func zipDir(src, dst string) error {
-	f, err := os.Create(dst)
+	f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

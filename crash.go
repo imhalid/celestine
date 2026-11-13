@@ -36,15 +36,16 @@ func crashLog(dir string, what any, stack []byte, now time.Time) string {
 	if dir == "" {
 		return ""
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return ""
 	}
+	hardenPrivateDir(dir)
 	var b strings.Builder
 	fmt.Fprintf(&b, "celestine %s · %s/%s · %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	fmt.Fprintf(&b, "%s\n\n", now.Format(time.RFC3339))
 	fmt.Fprintf(&b, "panic: %v\n\n%s\n", what, stack)
 	path := filepath.Join(dir, "crash-"+now.Format("20060102-150405.000")+".log")
-	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		return ""
 	}
 	pruneCrashes(dir, crashKeep)
@@ -84,8 +85,10 @@ func markRunning(dir string, now time.Time) (unclean bool, log string) {
 			}
 		}
 	}
-	os.MkdirAll(filepath.Dir(mark), 0o755)
-	os.WriteFile(mark, []byte(now.Format(time.RFC3339)+" "+version+"\n"), 0o644)
+	os.MkdirAll(filepath.Dir(mark), 0o700)
+	hardenPrivateDir(filepath.Dir(mark))
+	os.WriteFile(mark, []byte(now.Format(time.RFC3339)+" "+version+"\n"), 0o600)
+	_ = os.Chmod(mark, 0o600)
 	return unclean, log
 }
 

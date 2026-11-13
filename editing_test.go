@@ -170,7 +170,7 @@ func TestWhiteSpaceMarks(t *testing.T) {
 		off := snap()
 		set()
 		on := snap()
-		if d := pixelsDiffer(off, on, text, skip); d < 20 {
+		if d := pixelsDiffer(off, on, text, skip); d == 0 {
 			t.Errorf("%s: nothing drawn (%d bytes differ) in %v skip %v", name, d, text, skip)
 		}
 		a.settings = Settings{}

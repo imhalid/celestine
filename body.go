@@ -104,6 +104,51 @@ func (o *bodyObj) MarshalJSON() ([]byte, error) {
 // written back as it came.
 const unknownKind = "?"
 
+// inlineChipKinds are the chip kinds serialized directly as {k, target, alias} body objects.
+var inlineChipKinds = map[string]bool{
+	"page":     true,
+	"date":     true,
+	"embed":    true,
+	"file":     true,
+	"footnote": true,
+}
+
+// bodyObjectDecoders maps every non-inline body object kind handled by attachmentOf to its decoder.
+var bodyObjectDecoders = map[string]func(*bodyObj) *richtext.Attachment{
+	"table": func(o *bodyObj) *richtext.Attachment {
+		if len(o.Cols) == 0 {
+			return nil
+		}
+		m := &tableModel{cols: o.Cols, rows: o.Rows, Filter: o.Q}
+		for i, r := range m.rows {
+			for len(r) < len(m.cols) {
+				r = append(r, "")
+			}
+			m.rows[i] = r[:len(m.cols)]
+		}
+		return &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: m}}
+	},
+	"query": func(o *bodyObj) *richtext.Attachment {
+		return &richtext.Attachment{Name: locales.CommonQuery(), Data: &chip{kind: "query", target: o.Q}}
+	},
+	"image": func(o *bodyObj) *richtext.Attachment {
+		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
+	},
+}
+
+// knownBlockKinds is derived directly from inlineChipKinds and bodyObjectDecoders so blockmark.go
+// recognizes every body object kind handled by attachmentOf without maintaining a duplicate list.
+var knownBlockKinds = func() map[string]bool {
+	m := make(map[string]bool, len(inlineChipKinds)+len(bodyObjectDecoders))
+	for k := range inlineChipKinds {
+		m[k] = true
+	}
+	for k := range bodyObjectDecoders {
+		m[k] = true
+	}
+	return m
+}()
+
 // encodeBody writes the editor's text as the body: what is folded is put
 // back (a fold is the editor's, never the page's).
 func encodeBody(t richtext.Text) string {
@@ -158,9 +203,10 @@ func sameMarks(a, b bodyRun) bool {
 func objOf(at *richtext.Attachment) *bodyObj {
 	switch d := at.Data.(type) {
 	case *chip:
-		switch d.kind {
-		case "page", "date", "embed", "file", "footnote":
+		if inlineChipKinds[d.kind] {
 			return &bodyObj{K: d.kind, Target: d.target, Alias: d.alias}
+		}
+		switch d.kind {
 		case "table":
 			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
 		case "query":
@@ -228,26 +274,12 @@ func decodeBody(s string) richtext.Text {
 
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.
 func attachmentOf(o *bodyObj) *richtext.Attachment {
-	switch o.K {
-	case "page", "date", "embed", "file", "footnote":
+	if inlineChipKinds[o.K] {
 		ch := &chip{kind: o.K, target: o.Target, alias: o.Alias}
 		return &richtext.Attachment{Name: ch.label(), Data: ch}
-	case "table":
-		if len(o.Cols) == 0 {
-			return nil
-		}
-		m := &tableModel{cols: o.Cols, rows: o.Rows, Filter: o.Q}
-		for i, r := range m.rows {
-			for len(r) < len(m.cols) {
-				r = append(r, "")
-			}
-			m.rows[i] = r[:len(m.cols)]
-		}
-		return &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: m}}
-	case "query":
-		return &richtext.Attachment{Name: locales.CommonQuery(), Data: &chip{kind: "query", target: o.Q}}
-	case "image":
-		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
+	}
+	if dec := bodyObjectDecoders[o.K]; dec != nil {
+		return dec(o)
 	}
 	if o.raw != nil { // a kind of a newer version: kept, to be written back as it came
 		ch := &chip{kind: unknownKind, raw: o.raw}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -724,6 +725,34 @@ func TestSyncRemovalGoesToTrash(t *testing.T) {
 	}
 }
 
+func TestSyncOrdinaryFileRemovalNotTrashedAsPage(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/selam/page.json", `{"meta":{"title":"Selam"},"body":[]}`)
+	a.write("notlar/selam/resim.png", "png")
+	a.sync(DirRemote{Root: remoteDir})
+	b.sync(DirRemote{Root: remoteDir})
+	// Only the attachment is removed on b, not the page itself.
+	if err := os.Remove(filepath.Join(b.root, "notlar", "selam", "resim.png")); err != nil {
+		t.Fatal(err)
+	}
+	b.sync(DirRemote{Root: remoteDir})
+	if res := a.sync(DirRemote{Root: remoteDir}); res.Removed != 1 {
+		t.Fatalf("removed %d, want 1", res.Removed)
+	}
+	if a.read("notlar/selam/resim.png") != "<yok>" {
+		t.Fatal("resim.png should be removed")
+	}
+	if a.read("notlar/selam/page.json") == "<yok>" {
+		t.Fatal("page.json should remain")
+	}
+	// kept in the trash as the page's files, not as a page of its own (#456)
+	items := (&Library{Root: a.root, FS: OSFS{}}).Trash()
+	if len(items) != 1 || items[0].Kind != "files" || items[0].From != filepath.FromSlash("notlar/selam") || items[0].Where != "Selam" {
+		t.Fatalf("trash: %+v", items)
+	}
+}
+
 // A page thrown away on the other device comes down into the trash as it was moved: what is taken away from
 // its old place is the same bytes, and is not put in the trash a second time.
 func TestSyncRemovalNotKeptTwice(t *testing.T) {
@@ -1053,5 +1082,148 @@ func TestSyncGuardTombstonesAndTopFiles(t *testing.T) {
 	}
 	if _, _, err := lib.Restore(files); err != nil || a.read("kök.txt") != "kökte" {
 		t.Fatalf("not back: %v", err)
+	}
+}
+
+func TestHTTPRemoteTransport(t *testing.T) {
+	old := HTTPTransport
+	t.Cleanup(func() { HTTPTransport = old })
+
+	HTTPTransport = nil
+	if got := NewHTTPRemote("https://example.com", "tok").client.Transport; got != http.DefaultTransport {
+		t.Fatalf("nil HTTPTransport used %T, want http.DefaultTransport", got)
+	}
+
+	custom := &http.Transport{}
+	HTTPTransport = custom
+	if got := NewHTTPRemote("https://example.com", "tok").client.Transport; got != custom {
+		t.Fatalf("custom HTTPTransport used %#v, want %#v", got, custom)
+	}
+}
+
+func TestSyncSkipsNestedGitOnPush(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("Not/A/page.json", "bir")
+	a.write(".git/config", "root secret")
+	a.write("Not/.git/HEAD", "ref: refs/heads/main")
+	a.write("Not/Alt/.GIT/hooks/pre-commit", "#!/bin/sh\nid\n")
+	// Even if an older state tracked a .git entry, sync should forget it without tombstoning.
+	a.st.Files = map[string]fileSync{"Not/.git/HEAD": {Local: HashOf([]byte("x"))}}
+
+	res := a.sync(remote)
+	if res.Pushed != 1 {
+		t.Fatalf("pushed = %d, want 1 (only page.json): %+v", res.Pushed, res)
+	}
+	entries, err := remote.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name := range entries {
+		if hasGitSegment(name) || strings.HasSuffix(name, ".git") {
+			t.Fatalf("remote received .git entry %q", name)
+		}
+	}
+	if _, ok := entries["Not/A/page.json"]; !ok || len(entries) != 1 {
+		t.Fatalf("unexpected remote entries: %+v", entries)
+	}
+	if hasGitSegment("Not/.git/HEAD") {
+		if _, ok := a.st.Files["Not/.git/HEAD"]; ok {
+			t.Fatal("stale .git state entry was not purged")
+		}
+	}
+	b.sync(remote)
+	if b.read("Not/A/page.json") != "bir" {
+		t.Fatalf("b did not pull normal page: %q", b.read("Not/A/page.json"))
+	}
+	if a.read("Not/.git/HEAD") == "<yok>" {
+		t.Fatal("local .git file on device a was unexpectedly deleted")
+	}
+}
+
+// An attachment the remote no longer has is kept in the trash as its page's files, on this device alone: it is
+// not uploaded as something new, and put back it goes into its page's folder and up again (#456).
+func TestSyncRemovedAttachmentRestored(t *testing.T) {
+	remoteDir := t.TempDir()
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/selam/page.json", `{"meta":{"title":"Selam"},"body":[]}`)
+	a.write("notlar/selam/resim.png", "png")
+	a.sync(DirRemote{Root: remoteDir})
+	b.sync(DirRemote{Root: remoteDir})
+	os.Remove(filepath.Join(b.root, "notlar", "selam", "resim.png")) // by hand, not into the trash
+	b.sync(DirRemote{Root: remoteDir})
+	a.sync(DirRemote{Root: remoteDir})
+	if res := a.sync(DirRemote{Root: remoteDir}); res.Pushed != 0 {
+		t.Fatalf("the trash went up: %+v", res)
+	}
+	if got, _ := filepath.Glob(filepath.Join(remoteDir, TrashDir, "*")); len(got) != 0 {
+		t.Fatalf("the remote has the trash: %v", got)
+	}
+	lib := &Library{Root: a.root, FS: OSFS{}}
+	items := lib.Trash()
+	if len(items) != 1 || items[0].Title != "resim.png" || !strings.HasPrefix(filepath.Base(items[0].Dir), LocalTrash) {
+		t.Fatalf("trash: %+v", items)
+	}
+	if _, _, err := lib.Restore(items[0]); err != nil {
+		t.Fatal(err)
+	}
+	if a.read("notlar/selam/resim.png") != "png" || len(lib.Trash()) != 0 {
+		t.Fatal("not put back")
+	}
+	a.sync(DirRemote{Root: remoteDir})
+	b.sync(DirRemote{Root: remoteDir})
+	if b.read("notlar/selam/resim.png") != "png" {
+		t.Fatal("the restored file did not go to the other device")
+	}
+}
+
+// Files a sync took from a page come back with it when the page is put back from the trash, and alone they wait
+// for it (#456).
+func TestRemovedFilesComeBackWithTheirPage(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := lib.NewCollection("Notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := c.NewPage(nil, "Trip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(p.Dir, "map.png"), []byte("png"), 0o644)
+	rel, _ := filepath.Rel(lib.Root, p.Dir)
+	gone := path.Join(filepath.ToSlash(rel), "map.png")
+	if _, failed := syncTrash(lib.FS, lib.Root, []string{gone}, map[string]string{}, map[string]bool{}, time.Now(), false); len(failed) > 0 {
+		t.Fatal(failed)
+	}
+	if _, err := lib.TrashPage(p); err != nil {
+		t.Fatal(err)
+	}
+	var files, page *TrashItem
+	for _, it := range lib.Trash() {
+		switch it.Kind {
+		case "files":
+			files = it
+		case "page":
+			page = it
+		}
+	}
+	if files == nil || page == nil {
+		t.Fatalf("trash: %+v", lib.Trash())
+	}
+	if _, _, err := lib.Restore(files); err == nil {
+		t.Fatal("the files came back with no page to go to")
+	}
+	_, back, err := lib.Restore(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(back.Dir, "map.png")); err != nil || string(b) != "png" {
+		t.Fatalf("the file did not come back with its page: %v", err)
+	}
+	if n := len(lib.Trash()); n != 0 {
+		t.Fatalf("%d items left in the trash", n)
 	}
 }

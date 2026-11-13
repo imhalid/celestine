@@ -4,6 +4,7 @@
 
 # build output
 /celestine
+/ryudit
 *.test
 .DS_Store
 
@@ -12,6 +13,7 @@
 
 # the default library file the app makes next to itself
 /kitaplik.db
+/kitaplik.db-*
 /kitaplik-md-*/
 /dist/
 
@@ -29,3 +31,9 @@ cloudflare/sync/landing.gen.js
 # the admin panel, built from cloudflare/sync/admin by `npm run build`
 cloudflare/sync/admin.gen.js
 cloudflare/sync/admin.bin
+
+# release signing key and generated release artifacts
+/release.key
+/update.json
+/release-notes.md
+/notes.md

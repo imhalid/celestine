@@ -267,6 +267,19 @@ func TestRecurringInText(t *testing.T) {
 	}
 }
 
+// TestRecurringMonthEnd verifies month-end and leap-year recurrence clamping.
+func TestRecurringMonthEnd(t *testing.T) {
+	loc := time.UTC
+	jan31 := time.Date(2026, 1, 31, 9, 0, 0, 0, loc)
+	if got := (recur{n: 1, unit: "month"}).next(jan31); got != time.Date(2026, 2, 28, 9, 0, 0, 0, loc) {
+		t.Fatalf("2026-01-31 + 1 month = %s, want 2026-02-28", got.Format("2006-01-02"))
+	}
+	feb29 := time.Date(2024, 2, 29, 9, 0, 0, 0, loc)
+	if got := (recur{n: 1, unit: "year"}).next(feb29); got != time.Date(2025, 2, 28, 9, 0, 0, 0, loc) {
+		t.Fatalf("2024-02-29 + 1 year = %s, want 2025-02-28", got.Format("2006-01-02"))
+	}
+}
+
 // A library of thousands of tasks builds only the rows in view, and the tasks
 // are still all there: the list scrolls on, and a click on a task goes to its line.
 func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {

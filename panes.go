@@ -76,6 +76,7 @@ type paneState struct {
 	boardScroll   *ui.ScrollState // the board scrolled sideways: where its edges fade (edgeFades)
 	pageScroll    *ui.ScrollState // the page scrolled as a whole (pageView)
 	scrollR       ui.Rect         // its room in the window, last frame
+	headDragR     ui.Rect         // non-scrolling top drag strip when tabs are closed on macOS
 	barInset      float32         // the part of the top of the page the title bar lies over (the page scrolls under it)
 	topSpace      float32         // what the page leaves above its title, in its scroll
 	headH         float32         // the title's and properties' height, last frame
@@ -397,7 +398,11 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	} else if a.ps.layout == nil {
 		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch)
 		if a.wframe.on { // in the window's frame, a card of its own, as the Dock's areas are (windowframe.go)
-			frameCard(c, el, a.pageBg, rad(frameR), 1)
+			cardBg := a.pageBg
+			if a.settings.Glass && c.Vibrancy() {
+				cardBg = cardBg.Alpha(0.50)
+			}
+			frameCard(c, el, cardBg, rad(frameR), 1)
 			el.Clip()
 		}
 		el.Children(func() {
@@ -468,6 +473,11 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 		a.barInset, a.topSpace = 0, 0
 		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && !a.profileScreen && (a.coll != nil || a.page != nil) {
 			a.topSpace, topPad = topPad, 0
+		}
+		a.headDragR = ui.Rect{}
+		if h := a.noTabHeaderHeight(); h > 0 { // keeps scrolled content clear of traffic lights and top-left buttons
+			hd := ui.Box(c.Key("pane-head-drag")).FillWidth().Height(h).DragWindow()
+			a.headDragR = hd.LayoutBounds()
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
 		defer func() { a.pageR = pageRow.LayoutBounds() }()

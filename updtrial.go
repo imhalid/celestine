@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"time"
 )
 
@@ -12,10 +13,26 @@ import (
 // file; Restart starts the program again, which shows its "what's new" as an update's first start does. Nothing of
 // it is saved to the settings but what closing "what's new" saves, and the real flow is as it is without it.
 
+const updateRestartedFlag = "--update-restarted"
+
+// isUpdateTrialRestarted reports whether this launch is an update-trial restart, either via CELESTINE_UPDATE
+// or the command-line flag passed across Launch Services on macOS.
+func isUpdateTrialRestarted(args []string, env string) bool {
+	return env == "restarted" || slices.Contains(args, updateRestartedFlag)
+}
+
+// withoutUpdateRestartedFlag strips updateRestartedFlag from args.
+func withoutUpdateRestartedFlag(args []string) []string {
+	if !slices.Contains(args, updateRestartedFlag) {
+		return args
+	}
+	return slices.DeleteFunc(slices.Clone(args), func(s string) bool { return s == updateRestartedFlag })
+}
+
 // updTrial is whether the trial is on; updTrialRestarted, whether this run is the restart of one that played an
 // install, and so shows its "what's new" once.
 var (
-	updTrialRestarted = os.Getenv("CELESTINE_UPDATE") == "restarted"
+	updTrialRestarted = isUpdateTrialRestarted(os.Args[1:], os.Getenv("CELESTINE_UPDATE"))
 	updTrial          = os.Getenv("CELESTINE_UPDATE") == "1" || updTrialRestarted
 )
 

@@ -47,6 +47,16 @@ func TestUnreadableAndTrashFiles(t *testing.T) {
 	if _, err := os.Stat(p.File()); err != nil {
 		t.Fatal("the page went with it")
 	}
+	items := lib.Trash() // and it can be put back (#456)
+	if len(items) != 1 || items[0].Kind != "files" {
+		t.Fatalf("trash: %+v", items)
+	}
+	if _, _, err := lib.Restore(items[0]); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(pic); err != nil || string(b) != "png" {
+		t.Fatal("not put back")
+	}
 }
 
 // A collection.json that cannot be read leaves its collection out, named in Damaged, and the rest of the library

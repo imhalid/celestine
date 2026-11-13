@@ -67,7 +67,9 @@ func TestMarkdownShown(t *testing.T) {
 // TestRawBlockEdited: a raw block edited in the editor is written as edited.
 func TestRawBlockEdited(t *testing.T) {
 	a, tt := newTestApp(t, "> [!note] Not\n> Metin\n")
-	tt.Type(" daha") // at the end of its last line
+	n := a.doc.Text().Len()
+	a.doc.SetSelection(n, n) // a page opens with the caret at its start (#454)
+	tt.Type(" daha")         // at the end of its last line
 	tt.Frame()
 	a.save()
 	if body, _ := a.page.Text(); body != "> [!note] Not\n> Metin daha\n" {

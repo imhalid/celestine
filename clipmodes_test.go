@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"strings"
 	"testing"
 	"time"
@@ -113,4 +114,72 @@ func TestPasteMarkdownBlocks(t *testing.T) {
 	if a.clipKey(ui.KeyV, ui.Cmd) {
 		t.Fatal("plain text was taken from the editor")
 	}
+}
+
+func TestPasteDrawsLinksAndTables(t *testing.T) {
+	md := "A link [[Dune]] here.\n\n| A | B |\n| :--- | :--- |\n| 1 | 2 |\n\n---\n"
+	assertDressedAndDrawn := func(name string, paste func(a *app)) {
+		t.Helper()
+		a, tt := newTestApp(t, "")
+		tt.Frame()
+		before := *tt.Image()
+		before.Pix = append([]byte(nil), before.Pix...)
+		paste(a)
+		tt.Frame()
+		tt.Frame()
+
+		var linkDrawn, tableDrawn bool
+		for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+			att := r.Attributes.Attachment
+			if att == nil {
+				continue
+			}
+			ch, ok := att.Data.(*chip)
+			if !ok {
+				continue
+			}
+			if ch.kind == "page" && ch.target == "Dune" {
+				if att.Draw == nil || att.Width <= 1 || att.Height <= 1 {
+					t.Fatalf("%s: pasted link attachment not dressed: draw=%v size=%vx%v", name, att.Draw != nil, att.Width, att.Height)
+				}
+				linkDrawn = true
+			}
+			if ch.kind == "table" {
+				if att.Draw == nil || att.Width <= 1 || att.Height <= 1 {
+					t.Fatalf("%s: pasted table attachment not dressed: draw=%v size=%vx%v", name, att.Draw != nil, att.Width, att.Height)
+				}
+				tableDrawn = true
+			}
+		}
+		if !linkDrawn || !tableDrawn {
+			t.Fatalf("%s: linkDrawn=%v tableDrawn=%v", name, linkDrawn, tableDrawn)
+		}
+		after := tt.Image()
+		box := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y+a.editorR.H))
+		if d := pixelsDiffer(&before, after, box, image.Rectangle{}); d < 40 {
+			t.Fatalf("%s: expected pasted link and table to draw pixels, got %d", name, d)
+		}
+	}
+
+	assertDressedAndDrawn("pasteAsMarkdown", func(a *app) {
+		a.clipRead = func() string { return md }
+		a.pasteAs("markdown")
+	})
+	assertDressedAndDrawn("pasteOwn", func(a *app) {
+		a.ownClip = ownClip{plain: "own", md: md}
+		a.clipRead = func() string { return "own" }
+		if !a.pasteOwn() {
+			t.Fatal("pasteOwn returned false")
+		}
+	})
+	assertDressedAndDrawn("contextMenuPaste", func(a *app) {
+		a.clipRead = func() string { return md }
+		for _, it := range a.editorItems(0) {
+			if it.title == "common_paste" && it.run != nil {
+				it.run()
+				return
+			}
+		}
+		t.Fatal("common_paste item not found in editorItems")
+	})
 }

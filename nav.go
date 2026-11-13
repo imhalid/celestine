@@ -97,7 +97,7 @@ func (a *app) goTo(p place) bool {
 		return true
 	}
 	if p.kind == "tag" {
-		if len(a.tagPages(p.dir)) == 0 {
+		if a.links.into != nil && len(a.tagPages(p.dir)) == 0 {
 			return false
 		}
 		a.openTag(p.dir)

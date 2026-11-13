@@ -77,3 +77,40 @@ func TestPropertyKinds(t *testing.T) {
 		t.Fatal("the removed file stays")
 	}
 }
+
+func TestSetPropDataRejectsTraversalAndPreservesUnsafeOld(t *testing.T) {
+	a, _, coll := viewsLibrary(t)
+	fileProp, _ := coll.AddProperty("Attach", PropFile, nil)
+	p := coll.All()[0]
+	outside := filepath.Join(filepath.Dir(filepath.Dir(p.Dir)), "outside.txt")
+	if err := os.WriteFile(outside, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate an untrusted page.json loaded from disk/sync carrying an unsafe PropFile value.
+	unsafeOld := filepath.Join("..", "..", "outside.txt")
+	if p.Props == nil {
+		p.Props = map[string]string{}
+	}
+	p.Props[fileProp.ID] = unsafeOld
+	for _, bad := range []string{"../evil.txt", `..\evil.txt`, "/tmp/evil.txt", "sub/evil.txt", ".", ".."} {
+		a.toasts.items = nil
+		a.setPropData(p, fileProp, bad, []byte("pwn"))
+		if len(a.toasts.items) == 0 || a.toasts.items[0].text != locales.CommonInvalidAttachmentName(bad) {
+			t.Fatalf("bad name %q error toast = %+v, want %q", bad, a.toasts.items, locales.CommonInvalidAttachmentName(bad))
+		}
+	}
+	if got := p.Props[fileProp.ID]; got != unsafeOld {
+		t.Fatalf("unsafe base mutated property to %q", got)
+	}
+	if b, err := os.ReadFile(outside); err != nil || string(b) != "keep" {
+		t.Fatalf("outside file modified: %v %q", err, string(b))
+	}
+	// Replacing with a valid file must NOT delete an unsafe old path.
+	a.setPropData(p, fileProp, "good.txt", []byte("ok"))
+	if p.Props[fileProp.ID] != "good.txt" {
+		t.Fatalf("valid file not saved: %q", p.Props[fileProp.ID])
+	}
+	if b, err := os.ReadFile(outside); err != nil || string(b) != "keep" {
+		t.Fatalf("replacing removed outside target: %v %q", err, string(b))
+	}
+}

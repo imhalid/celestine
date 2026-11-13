@@ -557,6 +557,7 @@ func TestTimeMachineDays(t *testing.T) {
 // was as a copy once: going back again, to what a copy already is, keeps no second one of it (#71).
 func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 	a, tt := lapsePage(t)
+	a.settings.AutoCover = true // made covers are off by default (#388)
 	p := a.page
 	st := p.FS().(*Store)
 	st.DB.Exec(`UPDATE versions SET data = replace(data, '"title"', '"cover":"none","title"') WHERE id = ?`, st.Versions(p.File())[1].ID) // the copy of the 8th had no cover

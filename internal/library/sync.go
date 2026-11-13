@@ -182,8 +182,15 @@ type httpRemote struct {
 	client      *http.Client
 }
 
+// HTTPTransport is used by NewHTTPRemote when non-nil (for example netproxy.Transport()).
+var HTTPTransport http.RoundTripper
+
 func NewHTTPRemote(base, token string) *httpRemote {
-	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Timeout: 60 * time.Second}}
+	tr := HTTPTransport
+	if tr == nil {
+		tr = http.DefaultTransport
+	}
+	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Timeout: 60 * time.Second, Transport: tr}}
 }
 
 func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.Response, error) {
@@ -747,7 +754,10 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 			if rel == "" && (skip[name] || name == FormatFile) { // the format is each device's app's to write
 				continue
 			}
-			if strings.HasSuffix(name, ".tmp~") || name == SettingsKey {
+			if strings.EqualFold(name, ".git") || strings.HasSuffix(name, ".tmp~") || name == SettingsKey {
+				continue
+			}
+			if localTrash(r) { // the trash's folder that is this device's alone
 				continue
 			}
 			if e.IsDir() {
@@ -853,13 +863,13 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		}
 	}
 	for n := range remote { // a name that leaves the folder is a remote's to write over, or to delete, what is outside the library
-		if !SafeName(n) {
+		if !SafeName(n) || hasGitSegment(n) {
 			delete(remote, n)
 			res.Errors = append(res.Errors, n+": "+errUnsafeName.Error())
 		}
 	}
 	for n := range st.Files {
-		if !SafeName(n) {
+		if !SafeName(n) || hasGitSegment(n) {
 			delete(st.Files, n)
 		}
 	}
@@ -868,7 +878,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		names[n] = true
 	}
 	for n := range remote {
-		if !skip[strings.SplitN(n, "/", 2)[0]] && n != FormatFile {
+		if !skip[strings.SplitN(n, "/", 2)[0]] && !strings.EqualFold(n, FormatFile) && !localTrash(n) { // the trash's folder that is each device's alone is not the remote's to write or delete
 			names[n] = true
 		}
 	}
@@ -1037,6 +1047,10 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 				pushed = append(pushed, n)
 				continue
 			}
+			if rh == "" { // they deleted, we changed: ours stays, and goes up again (no conflict copy of our own file)
+				st.Files[n] = fileSync{Local: "", Remote: ""}
+				continue
+			}
 			// theirs stays, ours is kept beside, and goes up as a file of its own on the next pass
 			if lh != "" {
 				mine, err := fsys.ReadFile(abs(n))
@@ -1049,10 +1063,6 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 					continue
 				}
 				res.Conflicts = append(res.Conflicts, n)
-			}
-			if rh == "" { // they deleted, we changed: ours stays, and goes up again
-				st.Files[n] = fileSync{Local: "", Remote: ""}
-				continue
 			}
 			b, err := r.Get(n)
 			if err != nil {
@@ -1081,7 +1091,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 				kept[f.Local] = true
 			}
 		}
-		removed, failed := syncTrash(fsys, root, gone, local, kept, now)
+		removed, failed := syncTrash(fsys, root, gone, local, kept, now, false)
 		for _, n := range removed {
 			res.Removed++
 			delete(st.Files, n)
@@ -1199,6 +1209,15 @@ func HTTPSOnly(raw string) error {
 		return errors.New("yalnız HTTPS adresinden güncellenir: " + raw)
 	}
 	return nil
+}
+
+func hasGitSegment(name string) bool {
+	for _, seg := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if strings.EqualFold(seg, ".git") {
+			return true
+		}
+	}
+	return false
 }
 
 // SettingsKey is what the settings are kept under in a library's file.

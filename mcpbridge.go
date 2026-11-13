@@ -4,7 +4,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -54,6 +56,10 @@ func runMCP(args []string) int {
 		fmt.Fprintln(os.Stderr, "celestine mcp:", err)
 		return 1
 	}
+	if token == "" {
+		fmt.Fprintln(os.Stderr, "celestine mcp: no MCP token found (unlock keychain or open Settings > MCP)")
+		return 1
+	}
 	if err := mcpRelay(ctx, &mcp.StdioTransport{}, mcpClientTransport(port, token)); err != nil {
 		fmt.Fprintln(os.Stderr, "celestine mcp:", err)
 		return 1
@@ -83,24 +89,34 @@ func mcpRelay(ctx context.Context, from, to mcp.Transport) error {
 		return err
 	}
 	defer server.Close()
-	done := make(chan error, 2)
-	pump := func(src, dst mcp.Connection) {
+	type relayEnd struct {
+		side string
+		err  error
+	}
+	done := make(chan relayEnd, 2)
+	pump := func(side string, src, dst mcp.Connection) {
 		for {
 			msg, err := src.Read(ctx)
 			if err != nil {
-				done <- err
+				done <- relayEnd{side, err}
 				return
 			}
 			if err := dst.Write(ctx, msg); err != nil {
-				done <- err
+				done <- relayEnd{side, err}
 				return
 			}
 		}
 	}
-	go pump(agent, server)
-	go pump(server, agent)
-	<-done // one side ended (the agent went, or the app): the other is closed with it
-	return nil
+	go pump("agent", agent, server)
+	go pump("server", server, agent)
+	end := <-done // one side ended (the agent went, or the app): the other is closed with it
+	if end.side == "agent" && (end.err == nil || errors.Is(end.err, io.EOF)) {
+		return nil
+	}
+	if end.err != nil {
+		return end.err
+	}
+	return errors.New("server closed connection")
 }
 
 // mcpReachable is whether the app's server listens, for the library args names.
@@ -136,14 +152,14 @@ func mcpSettings(args []string) (int, string, error) {
 		if _, err := os.Stat(file); err != nil {
 			return 0, "", fmt.Errorf("no library at %s", file)
 		}
-		st, err := OpenStore(file)
+		st, err := OpenStoreReadOnly(file)
 		if err != nil {
 			return 0, "", err
 		}
 		defer st.Close()
 		a.settingsStore = st
 	}
-	a.loadSettings()
+	a.loadSettingsReadOnly()
 	return a.settings.Port, a.settings.Token, nil
 }
 

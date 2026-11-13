@@ -36,6 +36,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 			}
 			done(locales.MoveUpDone())
 		})
+		up.coll = p.Coll
 		if at <= 0 {
 			up.off = locales.MoveAtTop()
 		}
@@ -46,12 +47,13 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 			}
 			done(locales.MoveDownDone())
 		})
+		down.coll = p.Coll
 		if at < 0 || at >= len(sib)-1 {
 			down.off = locales.MoveAtBottom()
 		}
 		out = append(out, up, down)
 		if p.Parent != nil {
-			out = append(out, cmd("takeThePageOutOfIts", "", iconBack, func() {
+			it := cmd("takeThePageOutOfIts", "", iconBack, func() {
 				parent := p.Parent
 				idx := slices.Index(siblingsOf(parent), parent) + 1
 				if err := a.lib.MovePage(p, p.Coll, parent.Parent, idx); err != nil {
@@ -59,14 +61,16 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 					return
 				}
 				done(locales.MoveOutDone())
-			}))
+			})
+			it.coll = p.Coll
+			out = append(out, it)
 		}
 		for _, c := range a.lib.Collections {
 			c := c
 			if c == p.Coll || c.Dynamic() || c.Journal {
 				continue
 			}
-			out = append(out, cmd("moveThePage: "+c.Name, "", iconStack, func() {
+			it := cmd("moveThePage: "+c.Name, "", iconStack, func() {
 				a.flush()
 				if err := a.lib.MovePage(p, c, nil, len(c.Pages)); err != nil {
 					a.fail(err)
@@ -74,21 +78,26 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 				}
 				c.Open = true
 				done(locales.MoveToCollection(c.Name))
-			}))
+			})
+			it.coll = p.Coll
+			it.destDir = c.Dir
+			out = append(out, it)
 		}
 	}
 	if c := a.coll; c != nil {
-		out = append(out,
-			cmd("moveTheCollectionUp", "", iconBack, func() {
-				if err := a.lib.MoveCollection(c, -1); err != nil {
-					a.fail(err)
-				}
-			}),
-			cmd("moveTheCollectionDown", "", iconChevron, func() {
-				if err := a.lib.MoveCollection(c, 1); err != nil {
-					a.fail(err)
-				}
-			}))
+		up := cmd("moveTheCollectionUp", "", iconBack, func() {
+			if err := a.lib.MoveCollection(c, -1); err != nil {
+				a.fail(err)
+			}
+		})
+		up.coll = c
+		down := cmd("moveTheCollectionDown", "", iconChevron, func() {
+			if err := a.lib.MoveCollection(c, 1); err != nil {
+				a.fail(err)
+			}
+		})
+		down.coll = c
+		out = append(out, up, down)
 	}
 	return out
 }

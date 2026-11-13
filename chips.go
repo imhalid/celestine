@@ -2,13 +2,11 @@ package main
 
 import (
 	"math"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
@@ -402,10 +400,7 @@ func (a *app) clickChip(x, y float32) bool {
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it
-			if a.page != nil {
-				file := filepath.Join(a.page.Dir, h.ch.target)
-				go mygo.Shell.OpenPath(file)
-			}
+			a.openAttachedFile(a.page, h.ch.target, false)
 			return true
 		}
 		if h.ch.kind == "query" { // the page of the row, or the search

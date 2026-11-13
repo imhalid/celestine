@@ -35,7 +35,7 @@ func (a *app) putBanner(coll *Collection, data []byte, ext string) error {
 		coll.FS.Remove(filepath.Join(coll.Dir, name))
 		return err
 	}
-	if old != "" && old != name {
+	if old != "" && old != name && safeLocalAsset(old) {
 		coll.FS.Remove(filepath.Join(coll.Dir, old))
 	}
 	return nil
@@ -53,7 +53,9 @@ func (a *app) removeBanner(coll *Collection) {
 		a.fail(err)
 		return
 	}
-	coll.FS.Remove(filepath.Join(coll.Dir, old))
+	if safeLocalAsset(old) {
+		coll.FS.Remove(filepath.Join(coll.Dir, old))
+	}
 }
 
 // pickBanner asks for the banner in a dialog.
@@ -86,7 +88,7 @@ func (a *app) pickBanner(coll *Collection) {
 
 // bannerView is the banner across the top of the collection's page, cropped to its band, or nothing.
 func (a *app) bannerView(c *ui.Context, coll *Collection) {
-	if coll.Banner == "" {
+	if coll.Banner == "" || !safeLocalAsset(coll.Banner) {
 		return
 	}
 	src := a.loadImageIn(coll.FS, filepath.Join(coll.Dir, coll.Banner))

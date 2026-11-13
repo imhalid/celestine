@@ -39,6 +39,23 @@ func TestEverySettingIsACommand(t *testing.T) {
 			t.Errorf("command for %q, which is no setting", f)
 		}
 	}
+	hasGlass := func(defs []settingDef) bool {
+		for _, d := range defs {
+			if d.name == "settings_glass" {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasGlass(settingDefsFor(true)) {
+		t.Error("expected settings_glass command on macOS")
+	}
+	if hasGlass(settingDefsFor(false)) {
+		t.Error("expected settings_glass command hidden outside macOS")
+	}
+	if settingsApart["glass"] == "" {
+		t.Error("expected settingsApart reason for non-darwin glass omission")
+	}
 }
 
 // Each setting gives at least one line of the palette, each with an undo.

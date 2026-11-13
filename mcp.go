@@ -92,6 +92,7 @@ type Settings struct {
 	LineChars     int                       `json:"lineChars,omitempty"`     // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
 	HideStatus    bool                      `json:"hideStatus,omitempty"`    // the status bar is not shown at all
 	NoSidebarCard bool                      `json:"noSidebarCard,omitempty"` // in the window's frame the sidebar has no card: it lies on the frame's ground
+	Glass         bool                      `json:"glass,omitempty"`         // experimental macOS Liquid Glass window/panel background (off by default)
 	Panes         string                    `json:"panes,omitempty"`         // the panes of the window: the Dock's tree and what each shows (panes.go)
 	HideHints     bool                      `json:"hideHints,omitempty"`     // the keys to use are not written at the left of the status bar
 	Lang          string                    `json:"lang,omitempty"`          // "tr", "en"; "" the system's (i18n.go)
@@ -122,14 +123,16 @@ type Settings struct {
 	PanelOpen     bool           `json:"panelOpen,omitempty"`
 	SidebarWidth  int            `json:"sidebarWidth,omitempty"` // dragged at its edge; 0 is the design's own
 	PanelWidth    int            `json:"panelWidth,omitempty"`
-	Writing       map[string]int `json:"writing,omitempty"`   // the words written, by day (writing.go)
-	WriteGoal     int            `json:"writeGoal,omitempty"` // the words to write in a day
-	AutoCover     bool           `json:"autoCover,omitempty"` // pages with no cover of their own show a made one (autocover.go); off by default
-	NoLapse       bool           `json:"noLapse,omitempty"`   // the words are not colored by the day they were written (lapseui.go)
-	NoWobble      bool           `json:"noWobble,omitempty"`  // the window does not shake when an agent writes (wobble.go)
-	NoWaves       bool           `json:"noWaves,omitempty"`   // a pressed button sends no wave through itself (Ryugo's Options.Waves)
-	Corner        *int           `json:"corner,omitempty"`    // how round the corners are, in percent (radius.go)
-	QuickKey      string         `json:"quickKey,omitempty"`  // the quick note's global key
+	Writing       map[string]int `json:"writing,omitempty"`    // the words written, by day (writing.go)
+	WriteGoal     int            `json:"writeGoal,omitempty"`  // the words to write in a day
+	AutoCover     bool           `json:"autoCover,omitempty"`  // pages with no cover of their own show a made one (autocover.go); off by default
+	NoLapse       bool           `json:"noLapse,omitempty"`    // the words are not colored by the day they were written (lapseui.go)
+	NoWobble      bool           `json:"noWobble,omitempty"`   // the window does not shake when an agent writes (wobble.go)
+	NoSound       bool           `json:"noSound,omitempty"`    // the app plays no sound effects (sound.go)
+	StartChord    bool           `json:"startChord,omitempty"` // a chord is heard each time the window opens; off by default (sound.go)
+	NoWaves       bool           `json:"noWaves,omitempty"`    // a pressed button sends no wave through itself (Ryugo's Options.Waves)
+	Corner        *int           `json:"corner,omitempty"`     // how round the corners are, in percent (radius.go)
+	QuickKey      string         `json:"quickKey,omitempty"`   // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`
 	TreeOpen      []string       `json:"treeOpen,omitempty"`
 }
@@ -171,7 +174,13 @@ func (a *app) setCaret(k caretKind) {
 
 // loadSettings reads the settings, making a token the first time. Settings that cannot be read are kept aside, under
 // a name of their own, and the defaults are used without being saved: a change the user makes saves them (#133).
-func (a *app) loadSettings() {
+func (a *app) loadSettings() { a.loadSettingsWith(false) }
+
+// loadSettingsReadOnly reads existing settings and keychain secrets without generating a token or writing (#165).
+func (a *app) loadSettingsReadOnly() { a.loadSettingsWith(true) }
+
+// loadSettingsWith reads settings and keychain secrets, skipping repairs and writes when readOnly is true.
+func (a *app) loadSettingsWith(readOnly bool) {
 	var data []byte
 	if a.settingsStore != nil { // kept in the library's file, with the token
 		if data = a.settingsStore.Meta(SettingsKey); data == nil && a.settingsFile != "" { // the settings of before the file: taken in once
@@ -185,23 +194,25 @@ func (a *app) loadSettings() {
 		read := a.settings
 		if err := json.Unmarshal(data, &read); err != nil {
 			damaged = true
-			a.keepDamagedSettings(data, err)
+			if !readOnly {
+				a.keepDamagedSettings(data, err)
+			}
 		} else {
 			a.settings = read
 		}
 	}
 	a.settings.normalize()
-	moved := a.loadSecrets()
+	moved := a.loadSecretsWith(readOnly)
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort
 	}
 	a.caretKind = a.savedCaret()
 	a.settings.Caret, a.settings.CaretName = int(a.caretKind), caretName(a.caretKind)
-	if a.settings.Token == "" {
+	if !readOnly && a.settings.Token == "" {
 		a.settings.Token = newToken()
 		moved = true
 	}
-	if moved && !damaged {
+	if !readOnly && moved && !damaged {
 		a.saveSettings()
 	}
 }
@@ -249,6 +260,7 @@ func (a *app) saveSettings() {
 		return
 	}
 	os.MkdirAll(filepath.Dir(a.settingsFile), 0o700)
+	hardenPrivateDir(filepath.Dir(a.settingsFile))
 	if err := WriteFilePrivate(a.settingsFile, data); err != nil {
 		a.fail(err)
 	}
@@ -285,6 +297,15 @@ func (a *app) mcpStdioCommand() string {
 // mcpCommand is the line that adds the server to Claude Code.
 func (a *app) mcpCommand() string {
 	return fmt.Sprintf("claude mcp add --transport http celestine %s --header \"Authorization: Bearer %s\"", a.mcpURL(), a.settings.Token)
+}
+
+// runUI executes fn on the app's UI thread when a window loop is active, or directly in headless/test runs.
+func (a *app) runUI(fn func()) {
+	if a.runOnUI != nil {
+		a.runOnUI(fn)
+		return
+	}
+	fn()
 }
 
 // do runs fn on the library, holding the app's lock, and asks for a frame.

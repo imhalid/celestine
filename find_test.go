@@ -98,9 +98,13 @@ func TestLongPageCoverGoesWhenScrolled(t *testing.T) {
 		tt.Advance(150 * time.Millisecond)
 		tt.Frame()
 		if a.pageScroll.Y > autoFullH+a.headH {
-			img := tt.Image()
-			if top, below := img.RGBAAt(1060, 60), img.RGBAAt(1060, 500); top != below {
-				t.Fatalf("the cover is over the lines: %v at the top, %v below", top, below)
+			// the top of the window is as it is with no cover at all: the card's own ground, which is a gradient in
+			// the window's frame, so it is set against itself and not against the pixels lower down
+			with := tt.Image().RGBAAt(1060, 60)
+			a.settings.AutoCover = false
+			tt.Frame()
+			if without := tt.Image().RGBAAt(1060, 60); with != without {
+				t.Fatalf("the cover is over the lines: %v at the top, %v with no cover", with, without)
 			}
 			return
 		}

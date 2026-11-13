@@ -17,6 +17,9 @@ func (a *app) setMCP(on bool) {
 	}
 }
 
+// startMCP is a no-op in the browser, where the app cannot listen on a port.
+func (a *app) startMCP(on, persist bool) {}
+
 // mcpSetupRow is the row adding the app to the agents' apps (mcpsetup.go): a browser cannot write their files.
 func (a *app) mcpSetupRow(*ui.Context) func() { return func() {} }
 

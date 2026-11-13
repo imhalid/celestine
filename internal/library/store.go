@@ -194,7 +194,8 @@ func libraryFileIn(dir, data string) string {
 		return beside
 	}
 	if inBundle(dir) {
-		os.MkdirAll(data, 0o755)
+		os.MkdirAll(data, 0o700)
+		_ = os.Chmod(data, 0o700)
 		to := filepath.Join(data, "kitaplik.db")
 		// an update keeps the bundle it replaced beside the new one, as name.app.old, for a day
 		old := strings.Replace(filepath.ToSlash(dir), ".app/Contents/MacOS", ".app.old/Contents/MacOS", 1)
@@ -208,7 +209,8 @@ func libraryFileIn(dir, data string) string {
 	if dir == "." || fileExists(beside) && writable(dir) {
 		return beside
 	}
-	os.MkdirAll(data, 0o755)
+	os.MkdirAll(data, 0o700)
+	_ = os.Chmod(data, 0o700)
 	return filepath.Join(data, "kitaplik.db")
 }
 

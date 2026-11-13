@@ -229,7 +229,9 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 						v.sel = i
 					}
 				}
-				a.putBackVersion()
+				if err := a.putBackVersion(); err != nil {
+					return err
+				}
 				a.jiggle(400)
 				return nil
 			})

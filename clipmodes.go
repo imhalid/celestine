@@ -174,6 +174,6 @@ func (a *app) pasteOwn() bool {
 	if c.md == "" || a.readClip() != c.plain {
 		return false
 	}
-	a.insertBlocks(importMarkdown(c.md))
+	a.insertBlocks(a.parse(c.md))
 	return true
 }

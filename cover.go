@@ -61,7 +61,7 @@ func (a *app) putCover(p *Page, data []byte, ext string) error {
 	if err := p.Save(body); err != nil {
 		return err
 	}
-	if old != "" && old != CoverNone && old != name {
+	if old != "" && old != CoverNone && old != name && safeLocalAsset(old) {
 		p.FS().Remove(filepath.Join(p.Dir, old))
 	}
 	return nil
@@ -87,7 +87,7 @@ func (a *app) removeCover(p *Page) {
 		a.fail(err)
 		return
 	}
-	if old != "" && old != CoverNone {
+	if old != "" && old != CoverNone && safeLocalAsset(old) {
 		p.FS().Remove(filepath.Join(p.Dir, old))
 	}
 }
@@ -184,7 +184,10 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
+	var src ui.ImageSource
+	if safeLocalAsset(p.Cover) {
+		src = a.loadImage(p, filepath.Join(p.Dir, p.Cover))
+	}
 	wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
 		band := ui.Rect{X: r.X, Y: r.Y, W: r.W, H: coverBandH + barH}
 		if src == nil {
@@ -222,10 +225,13 @@ func decodeCheck(data []byte) (ui.ImageSource, error) { return ui.DecodeImage(da
 
 func readFile(name string) ([]byte, error) { return os.ReadFile(name) }
 
+// safeLocalAsset reports whether name is a relative single-folder filename without traversal or drive prefixes.
+func safeLocalAsset(name string) bool { return SafeName(name) && filepath.IsLocal(name) }
+
 // coverThumb is the cover of p as a small picture, cropped to w by h, or
 // nothing when the page has none (or the file is gone).
 func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
-	if !p.ImageCover() {
+	if !p.ImageCover() || !safeLocalAsset(p.Cover) {
 		return
 	}
 	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))

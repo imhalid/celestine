@@ -43,7 +43,7 @@ func (a *app) collectionView(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() { // as tall as the room: the scroll in it has a height to scroll in
 		a.scrolled(c, "coll-scroll:"+coll.Dir, nil, ui.Scroll(c.Key("coll-scroll:"+coll.Dir)).Grow(1), func() {
 			if a.topSpace > 0 { // below the title bar, which lies over the top
-				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace)
+				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace).DragWindow()
 			}
 			ui.Column(c).FillWidth().Gap(10).Children(func() {
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
@@ -534,7 +534,7 @@ const galleryCard = 232
 // galleryPicture is the top of p's card in a gallery, w by h: its cover, the first picture in its text, or a field
 // of its title's color with its first letter.
 func (a *app) galleryPicture(c *ui.Context, p *Page, w, h float32) {
-	if p.ImageCover() {
+	if p.ImageCover() && safeLocalAsset(p.Cover) { // a cover name that leaves the page's folder is not read (#176)
 		if src := a.loadImage(p, filepath.Join(p.Dir, p.Cover)); src != nil {
 			a.coverThumb(c, p, w, h, 8)
 			return

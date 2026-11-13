@@ -77,8 +77,10 @@ jobs:
           head -c 2000 changelog.json
       - name: manifest
         if: env.SIGNED == 'true'
+        env:
+          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
         run: |
-          echo "${{ secrets.RELEASE_KEY }}" > release.key
+          printf '%s\n' "$RELEASE_KEY" > release.key
           go run ./scripts/release manifest -version "$VERSION" -base "$BASE" \
             -notes release-notes.md -key release.key dist/celestine-* > update.json
           rm release.key
@@ -97,8 +99,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          EP="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          EP="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           for f in dist/celestine-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
           # the manifest last: once it is up, every app is offered the version
           aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json

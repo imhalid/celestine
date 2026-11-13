@@ -15,10 +15,14 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/netproxy"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
+
+func init() { library.HTTPTransport = netproxy.Transport() }
 
 // The app's side of synchronization: the settings, the remote they make, the state kept in the library's
 // file, a sync now and then in the background, the badge of its state, the conflicts to choose between.
@@ -734,8 +738,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	field := func(key, label string, v *string, secret bool) func() {
 		return func() {
 			ryugo.Field(c, ryugo.FieldOptions{Label: msg(label)}, func() {
-				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: msg(label), Size: ryugo.Sm}), v, fieldOpts{oneLine: true})
-				_ = secret
+				in := a.fieldMenu(ryugo.Input(c.Key(key), v, ryugo.InputOptions{Label: msg(label), Size: ryugo.Sm, Password: secret}), v, fieldOpts{oneLine: true, secret: secret})
 				_ = in
 			})
 		}
@@ -791,7 +794,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	if a.sy.recovery != "" && a.ac.mode != "recovery" { // the account's step shows it, then this
 		settingGroup(c, "set-sync-recovery", func() {
 			settingRow(c, locales.SyncRecoveryKeyWriteDown(), a.sy.recovery, func() {
-				ryugo.CopyButton(c.Key("copy-recovery"), a.sy.recovery, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
+				a.secretCopyButton(c, "copy-recovery", a.sy.recovery, locales.CommonCopyRecoveryKey())
 			})
 		})
 	}

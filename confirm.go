@@ -12,12 +12,19 @@ type askState struct {
 	open                bool
 	title, body, action string
 	run                 func()
+	alt                 string // optional secondary choice beside action and Cancel
+	altRun              func()
 	keep                func() // what not doing it does, or nothing
 }
 
 // ask puts the question title, with body under it, before run; action is the label of the button that runs it.
 func (a *app) ask(title, body, action string, run func()) {
 	a.asking = askState{open: true, title: title, body: body, action: action, run: run}
+}
+
+// askChoice puts the question title with two actions beside Cancel: alt/altRun and action/run.
+func (a *app) askChoice(title, body, alt string, altRun func(), action string, run func()) {
+	a.asking = askState{open: true, title: title, body: body, action: action, run: run, alt: alt, altRun: altRun}
 }
 
 // askView is the question, while there is one.
@@ -32,6 +39,11 @@ func (a *app) askView(c *ui.Context) {
 		ui.Spacer(c)
 		if ryugo.Button(c.Key("ask-no"), locales.CommonCancel2(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
 			q.open = false
+		}
+		if q.alt != "" && q.altRun != nil && ryugo.Button(c.Key("ask-alt"), q.alt, ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
+			altRun := q.altRun
+			*q = askState{}
+			altRun()
 		}
 		if ryugo.Button(c.Key("ask-yes"), q.action, ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Up, Variant: ryugo.Solid}).Clicked() {
 			run := q.run

@@ -114,6 +114,33 @@ func TestTableCSV(t *testing.T) {
 	}
 }
 
+func TestCSVSafeCell(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"-5", "-5"},
+		{"+3.2", "+3.2"},
+		{"-0.25", "-0.25"},
+		{"-", "'-"},
+		{"+", "'+"},
+		{"- madde", "'- madde"},
+		{"-1_000", "'-1_000"},
+		{"-Inf", "'-Inf"},
+		{"+NaN", "'+NaN"},
+		{"=SUM(A1)", "'=SUM(A1)"},
+		{"@SUM(A1)", "'@SUM(A1)"},
+		{"\tcmd", "'\tcmd"},
+		{"\rcmd", "'\rcmd"},
+		{"plain", "plain"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := csvSafeCell(tc.in); got != tc.want {
+			t.Errorf("csvSafeCell(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 // The buttons of an open cell: sort, filter (written in the strip under the
 // table, its cross taking it away), and the table copied as CSV.
 func TestTableSortFilterUI(t *testing.T) {

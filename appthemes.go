@@ -139,6 +139,11 @@ func (a *app) skin(t *ryugo.Tokens, th *ui.Theme) {
 		return
 	}
 	skinned[t] = true
+	a.applySkin(t, th, p)
+}
+
+// applySkin recolors token set t and UI theme th from p, deriving surface grays and preserving token alpha (#452).
+func (a *app) applySkin(t *ryugo.Tokens, th *ui.Theme, p skinColors) {
 	bg, tx := ui.Hex(p.bg), ui.Hex(p.text)
 	bg0, tx0 := t.Colors.Bg, t.Colors.Text
 	l0, l1 := luma(bg0), luma(tx0)
@@ -154,6 +159,11 @@ func (a *app) skin(t *ryugo.Tokens, th *ui.Theme) {
 		n.A = c.A
 		v.Field(i).Set(reflect.ValueOf(n))
 	}
+	// Keep the sidebar fallback color separate from the card well mix when a theme omits p.side (#452).
+	side := t.Colors.Well
+	if p.side != "" {
+		side = ui.Hex(p.side)
+	}
 	// what the theme gives itself: the cards, the lines
 	put := func(name string, c ui.Color) {
 		if f := v.FieldByName(name); f.IsValid() {
@@ -166,6 +176,11 @@ func (a *app) skin(t *ryugo.Tokens, th *ui.Theme) {
 		put("Card", card)
 		put("Surface", card)
 		put("Surface2", ryugo.Mix(card, bg, 0.5))
+		well := ryugo.Mix(card, bg, 0.60)
+		if t.Dark {
+			well = ryugo.Mix(card, bg, 0.45)
+		}
+		put("Well", well)
 	}
 	if p.line != "" {
 		line := ui.Hex(p.line)
@@ -175,10 +190,6 @@ func (a *app) skin(t *ryugo.Tokens, th *ui.Theme) {
 		put("ControlBorder", ryugo.Mix(line, tx, 0.14))
 	}
 	cl := t.Colors
-	side := cl.Well
-	if p.side != "" {
-		side = ui.Hex(p.side)
-	}
 	th.Background = cl.Bg
 	th.Surface = side
 	th.SurfaceHover = ryugo.Mix(side, cl.Text, 0.07)

@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/netproxy"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -110,7 +111,7 @@ func newAcctClient(base string) *acctClient {
 	if strings.TrimSpace(base) == "" {
 		base = defaultServer
 	}
-	return &acctClient{strings.TrimRight(base, "/"), &http.Client{Timeout: 30 * time.Second}}
+	return &acctClient{strings.TrimRight(base, "/"), &http.Client{Timeout: 30 * time.Second, Transport: netproxy.Transport()}}
 }
 
 // A DeviceInfo is a computer signed in to the account.
@@ -526,7 +527,7 @@ func (a *app) acctRecoveryStep(c *ui.Context) {
 		ui.Text(c, locales.AccountYourAccountOpenWrite()).FontSize(13).TextColor(cl.Text2).Wrap()
 		ui.Text(c, a.sy.recovery).FontSize(15).FontWeight(600).TextColor(cl.Text).Selectable().Wrap()
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ryugo.CopyButton(c.Key("copy-recovery-step"), a.sy.recovery, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
+			a.secretCopyButton(c, "copy-recovery-step", a.sy.recovery, locales.CommonCopyRecoveryKey())
 			if ryugo.Button(c.Key("acct-kept"), locales.AccountIKeptContinue(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid}).Clicked() {
 				a.ac.mode = "login"
 			}

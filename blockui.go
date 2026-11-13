@@ -3,7 +3,8 @@ package main
 import (
 	"math"
 	"strconv"
-	"strings"
+	"time"
+	"unicode/utf16"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -16,27 +17,38 @@ import (
 // move, delete; a drag lifts the block: in its place it fades and glows, a
 // copy of its first line follows the pointer, and where it would go the
 // paragraphs slide apart (the editor's Space) to open room for a preview
-// of it, its first lines. Let go, it moves there, what is under it with it.
+// of it, as tall as the block. Let go, it moves there, what is under it with
+// it, and the page does not jump: the block takes the room, the hole it left
+// shuts on a spring, and it comes from the accent to its colors (dropBlock).
 
 type gripState struct {
-	para     int     // the start of the paragraph the grip is for, -1 for none
-	top, h   float32 // its line in the editor
-	menu     bool
-	menuWas  bool // the menu showed last frame: it is built once more, when the line chosen in it runs
-	pressed  bool
-	moved    float32
-	dragging bool
-	from     [2]int // the block dragged
-	to       int    // where it would go: the paragraph it goes before, or the text's length+1
-	toY      float32
-	toIdx    int              // the paragraph (from 0) the room opens above, -1 at the end of the text
-	rooms    map[int]float32  // the room open above paragraphs, by index, as it springs open and shut
-	roomH    float32          // the room a preview of the block dragged takes
-	paras    [2]int           // the block's first and last paragraph, by index, for the editor's spans (blockSpans)
-	lays     map[int]blockLay // the block's paragraphs, laid out for the drag (drawBlockDrop)
-	ink      ui.Color         // the accent, the block's text drawn in it
-	pos      ui.Point         // the pointer, in window DIPs
-	hover    bool             // the pointer is on the grip
+	para      int     // the start of the paragraph the grip is for, -1 for none
+	top, h    float32 // its line in the editor
+	menu      bool
+	menuWas   bool // the menu showed last frame: it is built once more, when the line chosen in it runs
+	pressed   bool
+	moved     float32
+	dragging  bool
+	from      [2]int // the block dragged
+	to        int    // where it would go: the paragraph it goes before, or the text's length+1
+	toY       float32
+	toIdx     int              // the paragraph (from 0) the room opens above, -1 at the end of the text
+	rooms     map[int]float32  // the room open above paragraphs, by index, as it springs open and shut
+	roomH     float32          // the room a preview of the block dragged takes
+	paras     [2]int           // the block's first and last paragraph, by index, for the editor's spans (blockSpans)
+	lays      map[int]blockLay // the block's paragraphs, laid out for the drag (drawBlockDrop)
+	ink       ui.Color         // the accent, the block's text drawn in it
+	pos       ui.Point         // the pointer, in window DIPs
+	hover     bool             // the pointer is on the grip
+	blockH    float32          // the block's height in the text, as the drag starts: the room opens to it
+	settle    map[int]float32  // after a drop, the room left above paragraphs (by index), springing shut (settleRooms)
+	settleNew map[int]bool     // those of it just left, which start where they are
+	landed    [2]int           // the block's paragraphs where it was dropped, coming from the accent to their colors (drawLanding)
+	landAt    time.Time        // when it was dropped
+	lines     []previewPara    // the block's paragraphs, where they are in it: its preview draws them there
+	textH     float32          // how tall its text is, without the space under it
+	firstH    float32          // its first line's height, for the preview's grip
+	text      ui.Color         // the text's color, for the block's preview
 }
 
 // blockKinds are what a block can be turned into, in the menus.
@@ -89,9 +101,25 @@ func (a *app) gripAt(b richtext.ParagraphBox) {
 	g.para = head // its first line is out of view: it follows when it is back
 }
 
+// cancelGripDrag clears any active block-grip drag and closes any open block menu when a modal
+// opens so neither drag state nor menu state is left half-open.
+func (a *app) cancelGripDrag() {
+	g := &a.grip
+	if g.menu || g.menuWas {
+		g.menu, g.menuWas = false, false
+	}
+	if g.dragging || g.pressed {
+		g.dragging, g.pressed, g.hover, g.para, g.rooms = false, false, false, -1, nil
+	}
+}
+
 // trackGrip follows the pointer over the editor to put the grip by its paragraph.
 func (a *app) trackGrip(ed ui.Element) {
 	g := &a.grip
+	if a.modal() {
+		a.cancelGripDrag()
+		return
+	}
 	if g.dragging || g.menu || g.pressed {
 		return
 	}
@@ -173,6 +201,10 @@ func (a *app) gutterView(c *ui.Context) {
 // gripView is the grip and its menu, over the window.
 func (a *app) gripView(c *ui.Context) {
 	g := &a.grip
+	if a.modal() {
+		a.cancelGripDrag()
+		return
+	}
 	if phone || a.doc == nil || a.noPage() || g.para < 0 || g.para > a.doc.Text().Len() {
 		g.hover = false
 		return
@@ -275,8 +307,10 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 			first := t.Slice(0, s).ParagraphCount() - 1
 			g.dragging, g.from, g.to, g.toIdx, g.rooms = true, [2]int{s, e}, -1, -1, map[int]float32{}
 			g.paras = [2]int{first, first + t.Slice(s, e).ParagraphCount() - 1}
-			g.lays, g.ink = map[int]blockLay{}, c.Theme().Accent
-			g.roomH = previewH + 2*previewGap
+			g.lays, g.ink, g.text = map[int]blockLay{}, c.Theme().Accent, c.Theme().Text
+			g.blockH = a.blockHeight(s, e)
+			a.notePreview(s, e)
+			g.roomH = max(previewH+2*previewGap, g.blockH) // the block's own room: let go, it takes it, and nothing moves
 		}
 	case pressed && g.dragging:
 		b := grip.LayoutBounds()
@@ -288,9 +322,8 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 		a.aimBlock(g.pos.Y - a.editorR.Y)
 	case !pressed && g.dragging:
 		if g.to >= 0 {
-			moveBlockTo(a.doc, g.from[0], g.from[1], g.to)
+			a.dropBlock()
 		}
-		// the block takes the room's place: it shuts at once, not after it
 		g.dragging, g.pressed, g.para, g.rooms = false, false, -1, nil
 		c.AnimationFrame()
 	case !pressed:
@@ -298,16 +331,17 @@ func (a *app) dragGrip(c *ui.Context, grip ui.Element) {
 	}
 }
 
-// The preview of a block dragged, in the room opened for it: a card a line
-// tall, with some air above and below it.
+// The preview of a block dragged, in the room opened for it: a card as tall
+// as the block, a line at least, with some air above and below it.
 const (
 	previewH   = 30
 	previewGap = 5
 )
 
 // blockRoom is the room the editor leaves above paragraph p (its Space): the
-// room a block dragged opens where it would go.
-func (a *app) blockRoom(p int) float32 { return a.grip.rooms[p] }
+// room a block dragged opens where it would go, and what is left of it, and of the
+// hole the block left, after it was dropped (dropBlock).
+func (a *app) blockRoom(p int) float32 { return a.grip.rooms[p] + a.grip.settle[p] }
 
 // roomAbove is how far the rooms open push paragraph p down: those above it
 // and its own.
@@ -411,6 +445,106 @@ func (a *app) openRooms(el ui.Element) {
 	}
 }
 
+// blockHeight is how much of the text the block from s to e takes: from its top to the top of the paragraph after
+// it, the space between them counted, or to its own bottom when that paragraph is not in view. A block taller than
+// most of the window opens a room only that tall: past that, a little of what is under it moves when it is let go.
+func (a *app) blockHeight(s, e int) float32 {
+	top, bottom, ok := a.blockSpan(s, e)
+	if !ok {
+		return 0
+	}
+	for _, b := range a.boxes {
+		if b.Start > e {
+			bottom = b.Top
+			break
+		}
+	}
+	h := bottom - top
+	if vp := a.scrollR.H; vp > 0 {
+		h = min(h, vp*0.6)
+	}
+	return h
+}
+
+// dropBlock moves the block dragged where it was let go (#457), and keeps the page as it was at that moment: the room was
+// the block's height, so the block takes it with nothing moving; the hole it left where it was is kept open, as
+// room above the paragraph that came after it, and springs shut (settleRooms); room the block does not fill (a
+// block shorter than the smallest room) shuts the same way. The block lands in the accent and comes to its colors.
+func (a *app) dropBlock() {
+	g := &a.grip
+	t := a.doc.Text()
+	n := t.ParagraphCount()
+	i0, i1 := g.paras[0], g.paras[1]
+	count := i1 - i0 + 1
+	j := n // the paragraph it goes before, by index; n at the end of the text
+	if g.toIdx >= 0 {
+		j = g.toIdx
+	}
+	room := g.rooms[g.toIdx] // as far as it had opened
+	if g.toIdx < 0 {
+		room = 0 // at the end of the text the preview is below it, no room was opened
+	}
+	moveBlockTo(a.doc, g.from[0], g.from[1], g.to)
+	if a.doc.Text().ParagraphCount() != n { // the move did not keep the paragraphs: nothing to carry over
+		return
+	}
+	g.settle, g.settleNew = map[int]float32{}, map[int]bool{}
+	after, before := -1, -1 // the paragraphs that came after the block, and that it was put before, by their new index
+	if j > i1 {             // down: those between move up over where it was
+		g.landed = [2]int{j - count, j - 1}
+		if i1+1 < n {
+			after = i0
+		}
+		if j < n {
+			before = j
+		}
+	} else { // up
+		g.landed = [2]int{j, j + count - 1}
+		if i1+1 < n {
+			after = i1 + 1
+		}
+		before = j + count
+	}
+	if after >= 0 && g.blockH > 0 {
+		g.settle[after] += g.blockH
+		g.settleNew[after] = true
+	}
+	if before >= 0 && room > g.blockH {
+		g.settle[before] += room - g.blockH
+		g.settleNew[before] = true
+	}
+	g.landAt = a.frameNow
+}
+
+// landTime is how long a block dropped takes to come from the accent to its colors.
+const landTime = 450 * time.Millisecond
+
+// settleRooms springs shut, on el (the editor), the room dropBlock left, and keeps frames coming while the block
+// dropped is still coming to its colors.
+func (a *app) settleRooms(el ui.Element) {
+	g := &a.grip
+	for i, h := range g.settle {
+		key := "settle" + strconv.Itoa(i)
+		if g.settleNew[i] { // just left: it starts where it is, and goes to nothing
+			el.Jump(key, h)
+			delete(g.settleNew, i)
+		}
+		v := el.AnimateTo(key, 0, springShift)
+		if v < 0.5 {
+			delete(g.settle, i)
+			continue
+		}
+		g.settle[i] = v
+	}
+	if !g.landAt.IsZero() {
+		if a.frameNow.Sub(g.landAt) >= landTime {
+			g.landAt = time.Time{}
+		} else if a.frame != nil {
+			a.frame() // another frame, for its color
+		}
+	}
+}
+
 // drawBlockDrop draws the shimmer over the block dragged, which the editor
 // draws faded in the accent (blockSpans): a band of brighter ink going
 // across it, so that it is plain which block is lifted. Where it would go
@@ -418,6 +552,7 @@ func (a *app) openRooms(el ui.Element) {
 func (a *app) drawBlockDrop(p *ui.Painter, r ui.Rect) {
 	g := &a.grip
 	if !g.dragging {
+		a.drawLanding(p, r)
 		return
 	}
 	t := a.doc.Text()
@@ -439,18 +574,7 @@ func (a *app) drawBlockDrop(p *ui.Painter, r ui.Rect) {
 			top = b.Top
 		}
 		bottom = b.Top + b.Height
-		l, ok := g.lays[s]
-		if !ok || l.w != r.W {
-			var para richtext.Paragraph
-			for _, q := range t.Slice(s, e).Paragraphs() {
-				para = q
-				break
-			}
-			para.Style = t.ParagraphStyleAt(s)
-			l.l, l.left = layoutParagraph(para, r.W, a.font, a.theme)
-			l.w = r.W
-			g.lays[s] = l
-		}
+		l := a.blockLay(s, r.W)
 		lines = append(lines, line{l.l, r.X + l.left, r.Y + b.Top})
 	}
 	if top < 0 {
@@ -492,48 +616,94 @@ func (a *app) blockSpans(p int, spans []ui.Span) []ui.Span {
 type blockLay struct {
 	l       *ui.TextLayout
 	left, w float32
+	objs    []layObj // what is in its lines that is not text: chips, pictures
 }
 
-// blockPreview is the block dragged where it would go: the start of its
-// text on a card, one line cut short, in the room the paragraphs make for
-// it there (openRooms), coming as the room opens.
+// layObj is an attachment in a paragraph laid out (a chip, a picture) and its box in the layout.
+type layObj struct {
+	r   ui.Rect
+	att *richtext.Attachment
+}
+
+// drawLay draws the paragraph l at x, y as the editor does: its text in ink, and the chips and pictures in its lines
+// in their own colors, where the editor draws them.
+func drawLay(p *ui.Painter, l blockLay, x, y float32, ink ui.Color) {
+	p.TextLayout(l.l, x, y, ink)
+	for _, o := range l.objs {
+		r := o.r
+		r.X += x
+		r.Y += y
+		switch {
+		case o.att.Draw != nil:
+			o.att.Draw(p, r)
+		case o.att.Image != nil:
+			p.Image(o.att.Image, r, ui.Contain)
+		}
+	}
+}
+
+// layObjects pairs the inline objects of l, laid out from para, with their attachments: the layout gives each a box
+// by its offset in UTF-16, which the runs are counted in.
+func layObjects(para richtext.Paragraph, l *ui.TextLayout) []layObj {
+	at := map[int]*richtext.Attachment{}
+	u := 0
+	for _, r := range para.Runs {
+		if r.Attributes.Attachment != nil {
+			at[u] = r.Attributes.Attachment
+		}
+		for _, c := range r.Text {
+			u += utf16.RuneLen(c)
+		}
+	}
+	var out []layObj
+	for _, o := range l.Objects() {
+		if att := at[o.Index]; att != nil {
+			out = append(out, layObj{o.Rect, att})
+		}
+	}
+	return out
+}
+
+// blockPreview is the block dragged where it would go: its own text, laid out and drawn as the editor draws it, in
+// the room the paragraphs make for it there (openRooms), on a card that opens with the room, and its grip at the left
+// of it, where a grip is. Let go, the block lands right where its preview is: the same lines in the same place.
 func (a *app) blockPreview(c *ui.Context) {
 	g := &a.grip
 	t := ryugo.From(c)
 	cl := t.Colors
 	r := a.editorR
-	var y, h float32
+	var top, h float32 // the room's top, in the editor, and how far it has opened
 	switch {
 	case g.toIdx >= 0:
 		for _, b := range a.boxes {
 			if b.Index == g.toIdx {
 				h = g.rooms[g.toIdx]
-				y = b.Top - h + previewGap
+				top = b.Top - h
 				break
 			}
 		}
 	case g.to >= 0: // at the end of the text: below it, nothing to move
-		y, h = g.toY, g.roomH
+		top, h = g.toY, g.roomH
 	}
-	if h < 1 {
+	if h < 1 || len(g.lines) == 0 {
 		return
 	}
-	s := a.doc.Text().Slice(g.from[0], min(g.from[1], a.doc.Text().Len())).String()
-	s = strings.Join(strings.Fields(s), " ")
-	if n := []rune(s); len(n) > 160 {
-		s = string(n[:160]) + "…"
-	}
-	if s == "" {
-		s = "…"
-	}
-	card := ui.Row(c.Key("block-preview")).Absolute().Left(r.X-8).Top(r.Y+y).Width(r.W+16).Height(previewH).Padding(0, 12).Gap(8).
-		Radius(rad(8)).Background(cl.Card.Alpha(0.96)).Border(1, cl.Accent.Alpha(0.6)).PassThrough().AlignItems(ui.Center).
-		Opacity(min(1, h/g.roomH))
+	const pad = 6 // the card's edge, round the text
+	open := min(1, h/g.roomH)
+	cardH := min(h, g.textH+2*pad)
+	card := ui.Box(c.Key("block-preview")).Absolute().Left(r.X-pad*2).Top(r.Y+top-pad).Width(r.W+pad*4).Height(cardH).
+		Radius(rad(8)).Background(cl.Card.Alpha(0.96)).Border(1, cl.Accent.Alpha(0.6)).PassThrough().Clip().Opacity(open)
 	t.Shadows.ShadowPop.Apply(card)
-	card.Children(func() {
-		gripDots(c, cl.Muted)
-		ui.Text(c, s).FontSize(13).TextColor(cl.Text).MaxLines(1).Opacity(0.85)
+	ink := g.text
+	card.Draw(func(p *ui.Painter, _ ui.Rect) {
+		for _, ln := range g.lines {
+			l := a.blockLay(ln.start, r.W)
+			drawLay(p, l, r.X+l.left, r.Y+top+ln.top, ink)
+		}
 	})
+	grip := ui.Box(c.Key("block-preview-grip")).Absolute().Left(r.X-gripW-8).Top(r.Y+top+max(0, (g.firstH-gripH)/2)).
+		Size(gripW, gripH).Radius(rad(5)).Background(cl.Fill).AlignItems(ui.Center).Justify(ui.Center).PassThrough().Opacity(open)
+	grip.Children(func() { gripDots(c, cl.Muted) })
 }
 
 // blockGhost is the block's first line, lifted, following the pointer.
@@ -614,4 +784,85 @@ func (a *app) modal() bool {
 // to turn it into are a submenu.
 func (a *app) blockMenu(c *ui.Context, at ui.Rect) {
 	menuAt(c, "block-at", locales.CommonBlockMenu(), at, &a.grip.menu, a.blockItems())
+}
+
+// drawLanding draws a block just dropped (dropBlock) in the accent over its own text, fading out over landTime, so
+// that it comes from the accent to its colors and it is plain where it went. It is drawn over the editor, as the
+// shimmer of a block dragged is, rather than through its spans: the editor would lay the page out again each frame.
+func (a *app) drawLanding(p *ui.Painter, r ui.Rect) {
+	g := &a.grip
+	if g.landAt.IsZero() {
+		return
+	}
+	k := float32(a.frameNow.Sub(g.landAt)) / float32(landTime)
+	if k >= 1 {
+		return
+	}
+	k = 1 - (1-k)*(1-k) // fast at first, slow at the end
+	t := a.doc.Text()
+	for _, b := range a.doc.VisibleParagraphs() { // as laid out for this paint: a.boxes is the build's, a frame behind the rooms
+		if b.Index < g.landed[0] || b.Index > g.landed[1] {
+			continue
+		}
+		s, e := t.ParagraphRange(b.Start)
+		if e-s > maxCaretParagraph {
+			continue
+		}
+		var para richtext.Paragraph
+		for _, q := range t.Slice(s, e).Paragraphs() {
+			para = q
+			break
+		}
+		para.Style = t.ParagraphStyleAt(s)
+		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		p.TextLayout(l, r.X+left, r.Y+b.Top, g.ink.Alpha(1-k))
+	}
+}
+
+// blockLay is the paragraph starting at s laid out at width w, as the editor lays it out, kept for the drag: the
+// shimmer over the block, its preview where it would go and its landing draw the same lines the editor does.
+func (a *app) blockLay(s int, w float32) blockLay {
+	g := &a.grip
+	if g.lays == nil {
+		g.lays = map[int]blockLay{}
+	}
+	l, ok := g.lays[s]
+	if !ok || l.w != w {
+		t := a.doc.Text()
+		_, e := t.ParagraphRange(s)
+		var para richtext.Paragraph
+		for _, q := range t.Slice(s, e).Paragraphs() {
+			para = q
+			break
+		}
+		para.Style = t.ParagraphStyleAt(s)
+		l.l, l.left = layoutParagraph(para, w, a.font, a.theme)
+		l.w, l.objs = w, layObjects(para, l.l)
+		g.lays[s] = l
+	}
+	return l
+}
+
+// previewPara is a paragraph of the block dragged: where it starts in the text, and how far down the block it is.
+type previewPara struct {
+	start int
+	top   float32
+}
+
+// notePreview notes, as the drag starts, the block from s to e as it is laid out: its paragraphs and where each is
+// in it, its text's height and its first line's, so that its preview is the block itself, where it would land.
+func (a *app) notePreview(s, e int) {
+	g := &a.grip
+	g.lines, g.textH, g.firstH = nil, 0, 0
+	top, bottom, ok := a.blockSpan(s, e)
+	if !ok {
+		return
+	}
+	for _, b := range a.boxes {
+		if b.Start >= s && b.Start <= e {
+			g.lines = append(g.lines, previewPara{b.Start, b.Top - top})
+		}
+	}
+	g.textH = bottom - top
+	g.firstH = a.firstLineH(s, g.textH)
 }

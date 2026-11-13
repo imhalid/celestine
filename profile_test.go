@@ -2,15 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"image"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // A real library (it has settings of its own) with no account is not behind a sign-in: the app opens, and the account is
@@ -145,6 +149,24 @@ func TestInviteSteps(t *testing.T) {
 	if a.settings.AccountUser != "ali@ornek.com" || a.settings.SyncToken != "t1" {
 		t.Fatalf("account %q token %q", a.settings.AccountUser, a.settings.SyncToken)
 	}
+	var copiedSecret string
+	var copiedOpts mygo.ClipboardOptions
+	a.clipWrite = func(s string, opts mygo.ClipboardOptions) error {
+		copiedSecret, copiedOpts = s, opts
+		return nil
+	}
+	tt.Click(locales.CommonCopyRecoveryKey())
+	tt.Frame()
+	if copiedSecret != a.sy.recovery || !copiedOpts.Concealed {
+		t.Fatalf("recovery key not copied as concealed secret: got %q concealed=%v want %q", copiedSecret, copiedOpts.Concealed, a.sy.recovery)
+	}
+	tt.Advance(20 * time.Millisecond)
+	if !tt.HasText(locales.CommonCopied()) {
+		// Icon-only button exposes its label to accessibility tree; verify Find works.
+		if _, ok := tt.Find(locales.CommonCopied()); !ok {
+			t.Fatalf("expected secret copy button label %q during copied feedback window", locales.CommonCopied())
+		}
+	}
 	tt.Click(locales.AccountIKeptContinue())
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
@@ -277,5 +299,182 @@ func TestServerHistoryPutsBack(t *testing.T) {
 	}
 	if txt, _ := p.Text(); strings.Contains(txt, "yeni metin") {
 		t.Fatalf("the page kept the new text: %q", txt)
+	}
+}
+
+// TestSecretCopyNoUnconcealedFallback checks that failed concealed clipboard writes toast an error without
+// falling back to plain text, and that the Settings MCP secret row copies with Concealed=true (#343).
+func TestSecretCopyNoUnconcealedFallback(t *testing.T) {
+	withLang(t, "tr")
+	a, tt := newTestApp(t, "x\n")
+	plainCalled := false
+	a.clipText = func(string) { plainCalled = true }
+	a.clipWrite = func(string, mygo.ClipboardOptions) error {
+		return errors.New("clipboard locked")
+	}
+	if a.copySecret("top-secret") {
+		t.Fatal("expected copySecret to return false on error")
+	}
+	if plainCalled {
+		t.Fatal("copySecret fell back to plain clipText on failure")
+	}
+	if a.noticeTone == nil || *a.noticeTone != toastErr || !strings.Contains(a.notice, "clipboard locked") {
+		t.Fatalf("expected error toast on failed concealed write, got tone=%v notice=%q", a.noticeTone, a.notice)
+	}
+
+	// Concealed MCP copy row in Settings copies via clipWrite with Concealed=true.
+	var gotSecret string
+	var gotOpts mygo.ClipboardOptions
+	a.clipWrite = func(s string, opts mygo.ClipboardOptions) error {
+		gotSecret, gotOpts = s, opts
+		return nil
+	}
+	a.settings.Port = 0
+	a.setMCP(true)
+	defer a.setMCP(false)
+	if a.mcpServer == nil {
+		t.Fatalf("mcpServer did not start: %s", a.mcpErr)
+	}
+	tt.SetSize(1180, 760)
+	a.openSettings()
+	a.settingsTab = int(tabMCP)
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+
+	lbl := locales.CommonCopyLabel(msg("toAddItToClaudeCode"))
+	if err := tt.Click(lbl); err != nil {
+		t.Fatalf("click %q: %v (mcp=%v texts=%v)", lbl, err, tt.HasText(a.mcpCommand()), tt.Texts())
+	}
+	tt.Advance(20 * time.Millisecond)
+	if gotSecret != a.mcpCommand() || !gotOpts.Concealed {
+		t.Fatalf("MCP command copy: got %q concealed=%v (want %q, concealed=true)", gotSecret, gotOpts.Concealed, a.mcpCommand())
+	}
+	if _, ok := tt.Find(locales.CommonCopied()); !ok {
+		t.Fatalf("expected %q feedback label after copying MCP command", locales.CommonCopied())
+	}
+	tt.Advance(1600 * time.Millisecond)
+	if _, ok := tt.Find(lbl); !ok {
+		t.Fatalf("expected secret copy button label to revert to %q after 1.5s", lbl)
+	}
+
+	// Attempting to drag-select + Cmd+C the MCP command must not leak to plain clipboard.
+	tt.SetClipboard("")
+	cmdR, ok := tt.Find(a.mcpCommand())
+	if !ok {
+		t.Fatalf("MCP command text %q not found", a.mcpCommand())
+	}
+	tt.Press(cmdR.X+4, cmdR.Y+cmdR.H/2)
+	tt.Move(cmdR.X+cmdR.W-4, cmdR.Y+cmdR.H/2)
+	tt.Release(cmdR.X+cmdR.W-4, cmdR.Y+cmdR.H/2)
+	tt.Key(ui.Cmd, ui.KeyC)
+	if got := tt.Clipboard(); got != "" {
+		t.Fatalf("MCP command allowed unconcealed Cmd+C copy: %q", got)
+	}
+
+	// Right-click -> Copy on the MCP command row must copy via Concealed=true.
+	gotSecret = ""
+	gotOpts = mygo.ClipboardOptions{}
+	if err := tt.RightClick(a.mcpCommand()); err != nil {
+		t.Fatalf("right-click MCP command: %v", err)
+	}
+	tt.Frame()
+	if err := tt.Click(locales.CommonCopy()); err != nil {
+		t.Fatalf("click context menu Copy: %v", err)
+	}
+	tt.Advance(20 * time.Millisecond)
+	if gotSecret != a.mcpCommand() || !gotOpts.Concealed {
+		t.Fatalf("MCP context menu copy: got %q concealed=%v (want %q, concealed=true)", gotSecret, gotOpts.Concealed, a.mcpCommand())
+	}
+}
+
+// TestSecretCopyButtonMatchesRyugoCopyButton verifies that secretCopyButton matches
+// ryugo.CopyButton's round geometry, check-draw animation, and settled pixels (#343).
+func TestSecretCopyButtonMatchesRyugoCopyButton(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	a.clipWrite = func(string, mygo.ClipboardOptions) error { return nil }
+
+	for _, dark := range []bool{false, true} {
+		mode := ryugo.Light
+		if dark {
+			mode = ryugo.Dark
+		}
+		mk := func(secret bool) (*ui.Tester, ui.Rect) {
+			tt := ui.NewTester(func(c *ui.Context) {
+				ryugo.Root(c, ryugo.Options{Mode: mode})
+				ui.Column(c).Padding(24).Children(func() {
+					if secret {
+						a.secretCopyButton(c, "btn", "top-secret", "Copy secret")
+					} else {
+						ryugo.CopyButton(c.Key("btn"), "top-secret", ryugo.CopyOptions{Label: "Copy secret"})
+					}
+				})
+			}, 120, 120)
+			tt.SetDark(dark)
+			tt.Advance(100 * time.Millisecond)
+			r, ok := tt.Find("Copy secret")
+			if !ok {
+				t.Fatalf("dark=%v secret=%v button not found", dark, secret)
+			}
+			return tt, r
+		}
+
+		ttRef, rRef := mk(false)
+		ttSec, rSec := mk(true)
+		if rRef != rSec || rSec.W != rSec.H {
+			t.Fatalf("dark=%v bounds mismatch: ref=%+v sec=%+v", dark, rRef, rSec)
+		}
+		box := image.Rect(int(rRef.X)-6, int(rRef.Y)-6, int(rRef.X+rRef.W)+6, int(rRef.Y+rRef.H)+6)
+		snap := func(tt *ui.Tester) *image.RGBA {
+			src := tt.Image()
+			dst := image.NewRGBA(src.Rect)
+			copy(dst.Pix, src.Pix)
+			return dst
+		}
+		refIdle := snap(ttRef)
+		secIdle := snap(ttSec)
+		if d := pixelsDiffer(refIdle, secIdle, box, image.Rectangle{}); d != 0 {
+			t.Fatalf("dark=%v idle secretCopyButton differs from ryugo.CopyButton by %d px", dark, d)
+		}
+
+		if err := ttRef.Click("Copy secret"); err != nil {
+			t.Fatal(err)
+		}
+		if err := ttSec.Click("Copy secret"); err != nil {
+			t.Fatal(err)
+		}
+		// Mid-animation (~90ms): both icon shrink and check-draw are visibly in progress.
+		ttRef.Advance(90 * time.Millisecond)
+		ttSec.Advance(90 * time.Millisecond)
+		refMid := snap(ttRef)
+		secMid := snap(ttSec)
+		if d := pixelsDiffer(secIdle, secMid, box, image.Rectangle{}); d < 20 {
+			t.Fatalf("dark=%v secretCopyButton mid-animation changed only %d px from idle", dark, d)
+		}
+		if d := pixelsDiffer(refMid, secMid, box, image.Rectangle{}); d != 0 {
+			t.Fatalf("dark=%v mid-animation secretCopyButton differs from ryugo.CopyButton by %d bytes", dark, d)
+		}
+		// After animations settle (~350ms): check stroke matches ryugo.CopyButton cleanly.
+		ttRef.Advance(260 * time.Millisecond)
+		ttSec.Advance(260 * time.Millisecond)
+		refDone := snap(ttRef)
+		secDone := snap(ttSec)
+		if d := pixelsDiffer(secIdle, secDone, box, image.Rectangle{}); d < 20 {
+			t.Fatalf("dark=%v secretCopyButton copied state changed only %d bytes from idle", dark, d)
+		}
+		if d := pixelsDiffer(refDone, secDone, box, image.Rectangle{}); d != 0 {
+			t.Fatalf("dark=%v copied secretCopyButton differs from ryugo.CopyButton by %d bytes", dark, d)
+		}
+
+		// After 1.5s hold + return animation + moving pointer away, reverts cleanly to idle copy icon.
+		ttRef.Move(0, 0)
+		ttSec.Move(0, 0)
+		ttRef.Advance(1400 * time.Millisecond)
+		ttSec.Advance(1400 * time.Millisecond)
+		if d := pixelsDiffer(secIdle, snap(ttSec), box, image.Rectangle{}); d != 0 {
+			t.Fatalf("dark=%v reverted secretCopyButton differs from idle by %d bytes", dark, d)
+		}
+		if d := pixelsDiffer(snap(ttRef), snap(ttSec), box, image.Rectangle{}); d != 0 {
+			t.Fatalf("dark=%v reverted secretCopyButton differs from ryugo.CopyButton by %d bytes", dark, d)
+		}
 	}
 }

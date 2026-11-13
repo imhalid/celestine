@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,23 +50,59 @@ func testKey(t *testing.T) (ed25519.PrivateKey, string) {
 
 func TestSignatures(t *testing.T) {
 	priv, pub := testKey(t)
-	sha := strings.Repeat("ab", 32)
-	sig := SignAsset(priv, "v1.3.0", sha)
-	if err := verifyAsset(pub, "v1.3.0", sha, sig); err != nil {
+	as := Asset{URL: "https://dl.example.com/v1.3.0/celestine-darwin-arm64.zip", SHA256: strings.Repeat("ab", 32), Kind: "app-zip"}
+	as.Sig2 = SignAsset(priv, "v1.3.0", "darwin-arm64", as)
+	if err := verifyAsset(pub, "v1.3.0", "darwin-arm64", as); err != nil {
 		t.Fatal(err)
 	}
-	if verifyAsset(pub, "v1.3.1", sha, sig) == nil {
-		t.Fatal("a signature moved to another version")
+	refused := func(why, version, platform string, mut func(*Asset), key string) {
+		t.Helper()
+		a := as
+		mut(&a)
+		if verifyAsset(key, version, platform, a) == nil {
+			t.Errorf("%s: accepted", why)
+		}
 	}
-	if verifyAsset(pub, "v1.3.0", strings.Repeat("cd", 32), sig) == nil {
-		t.Fatal("a signature moved to another file")
-	}
+	same := func(*Asset) {}
+	refused("moved to another version", "v1.3.1", "darwin-arm64", same, pub)
+	refused("moved to another file", "v1.3.0", "darwin-arm64", func(a *Asset) { a.SHA256 = strings.Repeat("cd", 32) }, pub)
+	// #455: a darwin-arm64 file, rightly signed, served to linux-amd64 under its key
+	refused("moved to another system", "v1.3.0", "linux-amd64", same, pub)
+	refused("renamed", "v1.3.0", "darwin-arm64", func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/celestine-linux-amd64" }, pub)
+	refused("moved to another folder's name", "v1.3.0", "darwin-arm64", func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/x/" }, pub)
+	refused("another kind", "v1.3.0", "darwin-arm64", func(a *Asset) { a.Kind = "binary" }, pub)
+	refused("no second signature", "v1.3.0", "darwin-arm64", func(a *Asset) { a.Sig2 = "" }, pub)
+	// an old-format manifest - only the signature of the version and hash, which released clients check - is not
+	// accepted here: a manifest stripped of sig2 would bring #455 back
+	refused("only the old signature", "v1.3.0", "darwin-arm64", func(a *Asset) {
+		a.Sig = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText("v1.3.0", a.SHA256)))
+		a.Sig2 = ""
+	}, pub)
+	refused("the old signature as the new", "v1.3.0", "darwin-arm64", func(a *Asset) {
+		a.Sig2 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText("v1.3.0", a.SHA256)))
+	}, pub)
 	_, other := testKey(t)
-	if verifyAsset(other, "v1.3.0", sha, sig) == nil {
-		t.Fatal("another key accepted it")
+	refused("another key", "v1.3.0", "darwin-arm64", same, other)
+	refused("no key", "v1.3.0", "darwin-arm64", same, "")
+	refused("a key that is not one", "v1.3.0", "darwin-arm64", same, "zz")
+	refused("a line break in the version", "v1.3.0\ndarwin-arm64", "darwin-arm64", same, pub)
+}
+
+// TestSigTextIsTheReleases: the text the app checks is the one scripts/release signs (its own test holds the same
+// literal), and the old text is still the one released clients check.
+func TestSigTextIsTheReleases(t *testing.T) {
+	got, ok := sigText("v1.3.0", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", strings.Repeat("AB", 32))
+	if want := "celestine-update-2\nv1.3.0\ndarwin-arm64\ncelestine-darwin-arm64.zip\napp-zip\n" + strings.Repeat("ab", 32); !ok || string(got) != want {
+		t.Fatalf("%q, want %q", got, want)
 	}
-	if verifyAsset("", "v1.3.0", sha, sig) == nil || verifyAsset("zz", "v1.3.0", sha, sig) == nil {
-		t.Fatal("no key: still accepted")
+	if got, _ := sigText("v1.3.0", "linux-amd64", "celestine-linux-amd64", "", "ab"); string(got) != "celestine-update-2\nv1.3.0\nlinux-amd64\ncelestine-linux-amd64\nbinary\nab" {
+		t.Fatalf("no kind is not binary: %q", got)
+	}
+	if got := legacySigText("v1.3.0", "AB"); string(got) != "v1.3.0\nab" {
+		t.Fatalf("old text %q", got)
+	}
+	if got := assetName("https://dl.example.com/v1.3.0/celestine-windows-amd64.exe?x=1"); got != "celestine-windows-amd64.exe" {
+		t.Fatalf("name %q", got)
 	}
 }
 
@@ -79,9 +116,10 @@ func releaseServer(t *testing.T, priv ed25519.PrivateKey, ver string, file []byt
 	mux := http.NewServeMux()
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	rel := &Release{Version: ver, Date: "2026-11-07", Notes: "# Yenilikler\n- hızlandı", Assets: map[string]Asset{
-		runtime.GOOS + "-" + runtime.GOARCH: {URL: srv.URL + "/file", SHA256: sha, Sig: SignAsset(priv, ver, sha), Size: int64(len(file))},
-	}}
+	platform := runtime.GOOS + "-" + runtime.GOARCH
+	as := Asset{URL: srv.URL + "/file", SHA256: sha, Size: int64(len(file))}
+	as.Sig2 = SignAsset(priv, ver, platform, as)
+	rel := &Release{Version: ver, Date: "2026-11-07", Notes: "# Yenilikler\n- hızlandı", Assets: map[string]Asset{platform: as}}
 	if mut != nil {
 		mut(rel)
 	}
@@ -183,9 +221,17 @@ func TestDownloadChecks(t *testing.T) {
 	try("hash of another file with its own signature", func(a *Asset) {
 		s := sha256.Sum256([]byte("başka"))
 		a.SHA256 = hex.EncodeToString(s[:])
-		a.Sig = SignAsset(priv, "v2.0.0", a.SHA256)
+		a.Sig2 = SignAsset(priv, "v2.0.0", key, *a)
 	}, pub)
-	try("no signature", func(a *Asset) { a.Sig = "" }, pub)
+	try("no signature", func(a *Asset) { a.Sig2 = "" }, pub)
+	try("another system's file, rightly signed for it", func(a *Asset) {
+		other := "linux-amd64"
+		if key == other {
+			other = "darwin-arm64"
+		}
+		a.Sig2 = SignAsset(priv, "v2.0.0", other, *a)
+	}, pub)
+	try("renamed", func(a *Asset) { a.URL += "-renamed" }, pub)
 	try("signed by another key", func(a *Asset) {}, func() string { _, o := testKey(t); return o }())
 	try("a size that is not the file's", func(a *Asset) { a.Size = 3 }, pub)
 	try("not https", func(a *Asset) { a.URL = strings.Replace(srv.URL, "http://", "ftp://", 1) + "/file" }, pub)
@@ -345,6 +391,126 @@ func TestInstallApp(t *testing.T) {
 	}
 }
 
+func TestInstallAppHardening(t *testing.T) {
+	writeZip := func(path string, add func(*zip.Writer)) {
+		t.Helper()
+		f, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		zw := zip.NewWriter(f)
+		add(zw)
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+	dir := t.TempDir()
+	app := filepath.Join(dir, "celestine.app")
+	os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755)
+	os.WriteFile(filepath.Join(app, "Contents", "MacOS", "celestine"), []byte("old"), 0o755)
+
+	// 1. Valid relative symlink is created, setuid/setgid bits are stripped, and zip is removed on success.
+	good := filepath.Join(dir, "good.zip")
+	writeZip(good, func(zw *zip.Writer) {
+		h := &zip.FileHeader{Name: "celestine.app/Contents/MacOS/celestine", Method: zip.Deflate}
+		h.SetMode(os.ModeSetuid | os.ModeSetgid | 0o755)
+		w, _ := zw.CreateHeader(h)
+		w.Write([]byte("new"))
+
+		sh := &zip.FileHeader{Name: "celestine.app/Contents/MacOS/alias", Method: zip.Store}
+		sh.SetMode(os.ModeSymlink | 0o777)
+		sw, _ := zw.CreateHeader(sh)
+		sw.Write([]byte("celestine"))
+	})
+	if _, err := installApp(good, app); err != nil {
+		t.Fatalf("installApp good: %v", err)
+	}
+	if _, err := os.Stat(good); !os.IsNotExist(err) {
+		t.Fatalf("zip file not deleted after install: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		st, err := os.Lstat(filepath.Join(app, "Contents", "MacOS", "celestine"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
+			t.Fatalf("setuid/setgid bit survived: %v", st.Mode())
+		}
+		if got, err := os.Readlink(filepath.Join(app, "Contents", "MacOS", "alias")); err != nil || got != "celestine" {
+			t.Fatalf("symlink = %q, err = %v", got, err)
+		}
+	}
+
+	// 2. Prefix trick (celestine.app../x) and escaping symlink are rejected cleanly.
+	for _, tc := range []struct {
+		name string
+		add  func(*zip.Writer)
+	}{
+		{
+			name: "prefix-escape",
+			add: func(zw *zip.Writer) {
+				w, _ := zw.Create("celestine.app/Contents/MacOS/celestine")
+				w.Write([]byte("ok"))
+				e, _ := zw.Create("celestine.app../escaped")
+				e.Write([]byte("bad"))
+			},
+		},
+		{
+			name: "symlink-escape",
+			add: func(zw *zip.Writer) {
+				sh := &zip.FileHeader{Name: "celestine.app/Contents/link", Method: zip.Store}
+				sh.SetMode(os.ModeSymlink | 0o777)
+				sw, _ := zw.CreateHeader(sh)
+				sw.Write([]byte("../../../etc/passwd"))
+			},
+		},
+		{
+			name: "chained-symlink-escape",
+			add: func(zw *zip.Writer) {
+				for _, entry := range []struct{ name, target string }{
+					{"celestine.app/a/b/c/t", "s/../.."},
+					{"celestine.app/a/b/c/s", "../../.."},
+				} {
+					sh := &zip.FileHeader{Name: entry.name, Method: zip.Store}
+					sh.SetMode(os.ModeSymlink | 0o777)
+					sw, _ := zw.CreateHeader(sh)
+					sw.Write([]byte(entry.target))
+				}
+			},
+		},
+		{
+			name: "dangling-symlink",
+			add: func(zw *zip.Writer) {
+				sh := &zip.FileHeader{Name: "celestine.app/Contents/broken", Method: zip.Store}
+				sh.SetMode(os.ModeSymlink | 0o777)
+				sw, _ := zw.CreateHeader(sh)
+				sw.Write([]byte("does-not-exist"))
+			},
+		},
+	} {
+		zp := filepath.Join(dir, tc.name+".zip")
+		writeZip(zp, tc.add)
+		if _, err := installApp(zp, app); err == nil {
+			t.Fatalf("%s unexpectedly succeeded", tc.name)
+		}
+	}
+
+	// 3. Size limit exceeded returns a distinct error (not UpdateErrZipPath).
+	prev := maxUnpackBytes
+	maxUnpackBytes = 8
+	defer func() { maxUnpackBytes = prev }()
+	big := filepath.Join(dir, "big.zip")
+	writeZip(big, func(zw *zip.Writer) {
+		w, _ := zw.Create("celestine.app/Contents/MacOS/celestine")
+		w.Write([]byte("0123456789"))
+	})
+	_, err := installApp(big, app)
+	if err == nil || err.Error() != locales.UpdateErrZipTooLarge() {
+		t.Fatalf("size limit err = %v, want %q", err, locales.UpdateErrZipTooLarge())
+	}
+}
+
 func TestAppBundleOf(t *testing.T) {
 	if got := appBundleOf("/Applications/celestine.app/Contents/MacOS/celestine"); got != "/Applications/celestine.app" {
 		t.Fatal(got)
@@ -475,36 +641,6 @@ func TestWhatsNew(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if tt.HasText(locales.UpdateWhatsNew("3.0.0")) {
 		t.Fatal("shown again")
-	}
-}
-
-// TestRestartWaitsForTheOneBefore: a restart's start carries the pid of the copy that is quitting, takes it off
-// its command line and waits for that copy to be gone before it asks for the one-instance lock (#232).
-func TestRestartWaitsForTheOneBefore(t *testing.T) {
-	args, pid := withoutRestartFlag([]string{"kitaplik", restartFlag + "4242", "--mcp"})
-	if pid != 4242 || !slices.Equal(args, []string{"kitaplik", "--mcp"}) {
-		t.Fatalf("%v %d", args, pid)
-	}
-	if again, _ := withoutRestartFlag(restartArgs()); slices.ContainsFunc(again, func(s string) bool { return strings.HasPrefix(s, restartFlag) }) {
-		t.Fatal("the flag twice")
-	}
-	if runtime.GOOS == "windows" {
-		t.Skip("no sleep command")
-	}
-	cmd := exec.Command("sleep", "0.4")
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	go cmd.Wait() // its parent reaps it, as the leaving copy's own parent does
-	start := time.Now()
-	waitForExit(cmd.Process.Pid, 5*time.Second)
-	if d := time.Since(start); d < 300*time.Millisecond || d > 3*time.Second {
-		t.Fatalf("waited %v for a process of 0.4s", d)
-	}
-	start = time.Now()
-	waitForExit(os.Getpid(), 5*time.Second) // never for itself
-	if time.Since(start) > time.Second {
-		t.Fatal("waited for itself")
 	}
 }
 
@@ -716,5 +852,131 @@ func TestUpdateCardGoesByItself(t *testing.T) {
 	tt.Advance(updChipDelay + updChipUnfold + 100*time.Millisecond)
 	if !tt.HasText(locales.UpdateBadge()) {
 		t.Fatalf("no chip: %v", tt.Texts())
+	}
+}
+
+// TestPeriodicUpdateCheckClockAndReady checks that non-forced periodic checks follow a.clock() and
+// skip once an update is already downloading or installed awaiting restart (#327).
+func TestPeriodicUpdateCheckClockAndReady(t *testing.T) {
+	priv, pub := testKey(t)
+	library.AllowHTTP = true
+	t.Cleanup(func() { library.AllowHTTP = false })
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		sum := sha256.Sum256([]byte("x"))
+		sha := hex.EncodeToString(sum[:])
+		platform := runtime.GOOS + "-" + runtime.GOARCH
+		as := Asset{URL: "https://example.com/file", SHA256: sha, Size: 1}
+		as.Sig2 = SignAsset(priv, "v9.0.0", platform, as)
+		json.NewEncoder(w).Encode(&Release{
+			Version: "v9.0.0",
+			Date:    "2026-11-13",
+			Assets: map[string]Asset{
+				platform: as,
+			},
+		})
+	}))
+	defer srv.Close()
+
+	old := version
+	version = "v1.0.0"
+	defer func() { version = old }()
+
+	now := time.Date(2026, 11, 13, 8, 0, 0, 0, time.UTC)
+	a, tt := newTestApp(t, "x\n")
+	a.clock = func() time.Time { return now }
+	a.updKey = pub
+	a.settings.UpdateURL = srv.URL + "/update.json"
+	a.settings.UpdateQuiet = true
+
+	runCheck := func() {
+		a.do(func() error { a.checkUpdate(false); return nil })
+		for i := 0; i < 300 && a.updBusy.Load(); i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
+		time.Sleep(20 * time.Millisecond)
+		tt.Frame()
+	}
+
+	// Initial check runs because UpdateAt == 0.
+	runCheck()
+	if hits.Load() != 1 || a.settings.UpdateAt != now.Unix() {
+		t.Fatalf("initial check: hits=%d, UpdateAt=%d (want %d)", hits.Load(), a.settings.UpdateAt, now.Unix())
+	}
+
+	// One hour later: interval (24h) has not elapsed, so no request is made.
+	now = now.Add(time.Hour)
+	runCheck()
+	if hits.Load() != 1 {
+		t.Fatalf("checked too soon: hits=%d", hits.Load())
+	}
+
+	// 24 hours after initial check: interval elapsed, so a check runs.
+	now = now.Add(23 * time.Hour)
+	a.updRel = nil
+	runCheck()
+	if hits.Load() != 2 || a.settings.UpdateAt != now.Unix() {
+		t.Fatalf("due check: hits=%d, UpdateAt=%d (want %d)", hits.Load(), a.settings.UpdateAt, now.Unix())
+	}
+
+	// Once an update is installed awaiting restart (updReady) or downloading, non-forced checks stop.
+	for _, st := range []updateState{updReady, updDownloading} {
+		a.updState = st
+		now = now.Add(48 * time.Hour)
+		runCheck()
+		if hits.Load() != 2 {
+			t.Fatalf("state %v triggered non-forced check: hits=%d", st, hits.Load())
+		}
+	}
+}
+
+// TestRollbackWaitsForPrevious verifies that a rollback child strips its flag, never builds a duplicate
+// rollback flag, never waits on itself, and waits until the previous exiting PID disappears (#338).
+func TestRollbackWaitsForPrevious(t *testing.T) {
+	args, pid := withoutRollbackFlag([]string{"kitaplik", rollbackFlag + "4242", "--mcp"})
+	if pid != 4242 || !slices.Equal(args, []string{"kitaplik", "--mcp"}) {
+		t.Fatalf("%v %d", args, pid)
+	}
+	if again, _ := withoutRollbackFlag(rollbackArgs()); slices.ContainsFunc(again, func(s string) bool { return strings.HasPrefix(s, rollbackFlag) }) {
+		t.Fatal("the rollback flag appeared twice")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("no sleep command")
+	}
+	cmd := exec.Command("sleep", "0.4")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go cmd.Wait()
+	start := time.Now()
+	waitForExit(cmd.Process.Pid, 5*time.Second)
+	if d := time.Since(start); d < 300*time.Millisecond || d > 3*time.Second {
+		t.Fatalf("waited %v for a 0.4s process", d)
+	}
+	start = time.Now()
+	waitForExit(os.Getpid(), 5*time.Second)
+	if time.Since(start) > time.Second {
+		t.Fatal("waited for itself")
+	}
+}
+
+// TestUpdateTrialRestartArgs verifies both --update-restarted and CELESTINE_UPDATE=restarted plus flag cleanup (#338).
+func TestUpdateTrialRestartArgs(t *testing.T) {
+	if !isUpdateTrialRestarted([]string{"lib", updateRestartedFlag}, "") {
+		t.Fatal("expected --update-restarted flag to enable restarted trial state")
+	}
+	if !isUpdateTrialRestarted(nil, "restarted") {
+		t.Fatal("expected CELESTINE_UPDATE=restarted to enable restarted trial state")
+	}
+	if isUpdateTrialRestarted([]string{"lib"}, "1") {
+		t.Fatal("unexpected restarted state for CELESTINE_UPDATE=1 without flag")
+	}
+	got := updateRestartArgs([]string{"lib", updateRestartedFlag})
+	if !slices.Equal(got, []string{"lib", updateRestartedFlag}) {
+		t.Fatalf("updateRestartArgs = %v", got)
+	}
+	if clean := withoutUpdateRestartedFlag(got); !slices.Equal(clean, []string{"lib"}) {
+		t.Fatalf("withoutUpdateRestartedFlag = %v", clean)
 	}
 }

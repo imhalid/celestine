@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -44,9 +45,8 @@ func blockMarksIn(t richtext.Text) richtext.Text {
 	if !strings.Contains(t.String(), blockMarkStart) {
 		return t
 	}
-	ps := starts(t)
-	for k := len(ps) - 1; k >= 0; k-- {
-		s, e := t.ParagraphRange(ps[k])
+	for _, at := range starts(t) {
+		s, e := t.ParagraphRange(at)
 		m := blockMark.FindStringSubmatch(strings.TrimSpace(t.Slice(s, e).String()))
 		if m == nil {
 			continue
@@ -55,9 +55,18 @@ func blockMarksIn(t richtext.Text) richtext.Text {
 		if err != nil || len(raw) == 0 {
 			continue
 		}
+		var meta struct {
+			K string `json:"k"`
+		}
+		if json.Unmarshal(raw, &meta) != nil || meta.K == "" || isKnownBlockKind(meta.K) {
+			continue
+		}
 		ch := &chip{kind: unknownKind, raw: raw}
 		t = t.ReplaceString(s, e, string(richtext.ObjectReplacement), richtext.Attributes{Attachment: &richtext.Attachment{Name: ch.label(), Data: ch}})
 		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 	}
 	return t
 }
+
+// isKnownBlockKind reports whether k is one of the body object kinds handled by attachmentOf.
+func isKnownBlockKind(k string) bool { return knownBlockKinds[k] }

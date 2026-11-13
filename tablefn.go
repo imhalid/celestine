@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/csv"
+	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -138,6 +140,26 @@ func (m *tableModel) sortedAsc(col int) bool {
 	return differ
 }
 
+// csvSafeCell prefixes spreadsheet formula triggers (=, @, tab, CR, or +/- when not a finite number) with ' (#185).
+func csvSafeCell(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '@', '\t', '\r':
+		return "'" + s
+	case '+', '-':
+		if strings.ContainsAny(s, "_xXpP") {
+			return "'" + s
+		}
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+			return "'" + s
+		}
+	}
+	return s
+}
+
 // csvText is the table as CSV, the header first, in the cells' own Markdown.
 func (m *tableModel) csvText(sep rune) string {
 	var sb strings.Builder
@@ -145,11 +167,15 @@ func (m *tableModel) csvText(sep rune) string {
 	w.Comma = sep
 	head := make([]string, len(m.cols))
 	for i, c := range m.cols {
-		head[i] = c.Name
+		head[i] = csvSafeCell(c.Name)
 	}
 	w.Write(head)
 	for _, r := range m.rows {
-		w.Write(r)
+		safe := make([]string, len(r))
+		for i, cell := range r {
+			safe[i] = csvSafeCell(cell)
+		}
+		w.Write(safe)
 	}
 	w.Flush()
 	return sb.String()

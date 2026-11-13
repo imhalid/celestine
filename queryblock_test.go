@@ -130,3 +130,53 @@ func TestQueryFromMenu(t *testing.T) {
 		t.Fatalf("blocks %v; text %q", qs, a.doc.Text().String())
 	}
 }
+
+// TestQueryBlockGrowsWithResults checks that query block height updates as matching pages are added and removed.
+func TestQueryBlockGrowsWithResults(t *testing.T) {
+	a, tt := newTestApp(t, "önce\n\n```query\n#proje @todo\n```\n\nsonra\n")
+	tt.SetSize(1100, 800)
+	x, _ := a.page.Coll.NewPage(nil, "Proje X")
+	x.SaveText("#proje\n\n- [ ] bir\n")
+	y, _ := a.page.Coll.NewPage(nil, "Proje Y")
+	y.SaveText("#proje bitti\n")
+	a.docs = map[*Page]*richtext.Document{}
+	self := a.page
+	a.page = nil
+	a.open(self)
+	a.linksStale()
+	a.links.built = time.Time{}
+	a.linksTo(nil, a.clock(), true)
+	tt.Frame()
+
+	findHit := func() *chipHit {
+		for i := range a.chipSeen {
+			if a.chipSeen[i].ch.kind == "query" {
+				return &a.chipSeen[i]
+			}
+		}
+		return nil
+	}
+	hit1 := findHit()
+	if hit1 == nil {
+		t.Fatal("query block not drawn initially")
+	}
+	if want := queryHeight(1) - 6; hit1.r.H != want {
+		t.Fatalf("initial height %v, want %v", hit1.r.H, want)
+	}
+
+	// Add two more matching pages so the query grows to 3 rows.
+	y.SaveText("#proje\n\n- [ ] iki\n")
+	z, _ := a.page.Coll.NewPage(nil, "Proje Z")
+	z.SaveText("#proje\n\n- [ ] üç\n")
+	a.linksStale()
+	a.links.built = time.Time{}
+	a.linksTo(nil, a.clock(), true)
+	tt.Frame()
+	hit3 := findHit()
+	if hit3 == nil {
+		t.Fatal("query block missing after growth")
+	}
+	if want := queryHeight(3) - 6; hit3.r.H != want {
+		t.Fatalf("grown height %v, want %v", hit3.r.H, want)
+	}
+}

@@ -73,6 +73,7 @@ var OpenEnc = library.OpenEnc
 var OpenLibrary = library.OpenLibrary
 var OpenLibraryIn = library.OpenLibraryIn
 var OpenStore = library.OpenStore
+var OpenStoreReadOnly = library.OpenStoreReadOnly
 
 type Page = library.Page
 

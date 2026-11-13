@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -24,11 +25,12 @@ type backupView struct {
 	page  *Page  // the page shown
 	text  string // its text
 	theme int    // the app's light or dark, when it opened
+	glass bool
 }
 
 // previewBackup opens the backup b in a window of its own, read away from the window that asked.
 func (a *app) previewBackup(b Backup) {
-	theme := a.settings.Theme
+	theme, glassOn := a.settings.Theme, a.settings.Glass
 	go func() {
 		defer a.guard()
 		v, err := openBackupView(b)
@@ -36,9 +38,14 @@ func (a *app) previewBackup(b Backup) {
 			a.do(func() error { a.say(toastErr, locales.CommonDidntWork(err.Error())); return nil })
 			return
 		}
-		v.theme = theme
-		w := mygo.NewWindow(mygo.WindowOptions{Title: locales.BackupPreviewTitle(dateTime(b.At, false)), Width: 900, Height: 640,
-			MinWidth: 520, MinHeight: 360, Content: ui.View(v.view)})
+		v.theme, v.glass = theme, glassOn
+		opts := mygo.WindowOptions{Title: locales.BackupPreviewTitle(dateTime(b.At, false)), Width: 900, Height: 640,
+			MinWidth: 520, MinHeight: 360, Content: ui.View(v.view)}
+		if glassOn && runtime.GOOS == "darwin" {
+			opts.Transparent = true
+			opts.Vibrancy = mygo.VibrancyGlass
+		}
+		w := mygo.NewWindow(opts)
 		w.OnClosed(v.close)
 	}()
 }
@@ -90,7 +97,13 @@ func (v *backupView) close() {
 func (v *backupView) view(c *ui.Context) {
 	ryugo.Root(c, ryugo.Options{Mode: []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[v.theme%3]})
 	cl := ryugo.From(c).Colors
-	c.Root().Background(cl.Card)
+	sideBg := cl.Well
+	if v.glass && c.Vibrancy() {
+		c.Root().Background(ui.Transparent)
+		sideBg = cl.Well.Alpha(0.45)
+	} else {
+		c.Root().Background(cl.Card)
+	}
 	ui.Column(c).Fill().Children(func() {
 		ui.Row(c).FillWidth().Padding(14, 18).Gap(10).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.BackupPreviewTitle(dateTime(v.at, true))).FontSize(14).FontWeight(650).TextColor(cl.Text)
@@ -98,7 +111,7 @@ func (v *backupView) view(c *ui.Context) {
 		})
 		ui.Box(c).FillWidth().Height(1).Background(cl.Hairline)
 		ui.Row(c).FillWidth().Grow(1).MinHeight(0).Children(func() {
-			ui.Scroll(c.Key("bv-pages")).Width(250).FillHeight().Background(cl.Well).Children(func() {
+			ui.Scroll(c.Key("bv-pages")).Width(250).FillHeight().Background(sideBg).Children(func() {
 				ui.Column(c).FillWidth().Padding(10, 8).Gap(2).Children(func() { v.pages(c, cl) })
 			})
 			ui.Scroll(c.Key("bv-page")).Grow(1).FillHeight().Children(func() {

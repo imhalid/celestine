@@ -133,6 +133,7 @@ func TestMCPTools(t *testing.T) {
 func TestMCPEditsOpenPage(t *testing.T) {
 	a, tt := newTestApp(t, "ilk")
 	cs := agent(t, a)
+	a.doc.SetSelection(3, 3) // after "ilk": a page opens with the caret at its start (#454)
 	tt.Type("x")
 	tt.Frame()
 	id := a.idOf(a.page.Dir)
@@ -423,4 +424,167 @@ func TestMCPAccessPerCollection(t *testing.T) {
 	}
 	a.settings.MCPAccess["*"] = mcpRead
 	failing("create_collection", map[string]any{"name": "Yeni"})
+}
+
+// TestMCPExternalStartNotPersisted checks that starting MCP via --mcp at launch or via OnSecondInstance
+// neither persists MCP=true to disk nor omits the notice or data-not-instructions guidance (#182).
+func TestMCPExternalStartNotPersisted(t *testing.T) {
+	st, _ := storeAt(t)
+	lib, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed(lib)
+	a := newApp(lib)
+	a.noSound = true
+	a.settingsStore = st
+	a.loadSettings()
+	a.settings.Port = 0
+	a.settings.MCP = false
+	a.saveSettings()
+
+	// Path 1: startup with --mcp when settings.MCP is false.
+	a.startMCP(true, a.settings.MCP)
+	if a.mcpServer == nil {
+		t.Fatalf("startup --mcp did not start server: %s", a.mcpErr)
+	}
+	if a.settings.MCP {
+		t.Fatal("startup --mcp persisted settings.MCP = true in memory")
+	}
+	if a.notice != locales.McpStartedOutside() || a.noticeTone == nil || *a.noticeTone != toastInfo {
+		t.Fatalf("notice after startup --mcp: %q (%v)", a.notice, a.noticeTone)
+	}
+	checkDiskOff := func(step string) {
+		t.Helper()
+		b := &app{settingsStore: st}
+		b.loadSettings()
+		if b.settings.MCP {
+			t.Fatalf("%s wrote MCP=true to disk", step)
+		}
+	}
+	checkDiskOff("startup --mcp")
+	a.saveSettings() // another save later must still leave MCP off on disk
+	checkDiskOff("subsequent saveSettings")
+
+	// Stop server, then test Path 2: OnSecondInstance with --mcp.
+	a.startMCP(false, false)
+	a.notice, a.noticeTone = "", nil
+	a.settings.Port = 0
+	a.handleSecondInstance([]string{"celestine", mcpFlag})
+	defer a.startMCP(false, false)
+	if a.mcpServer == nil {
+		t.Fatalf("second instance --mcp did not start server: %s", a.mcpErr)
+	}
+	if a.settings.MCP {
+		t.Fatal("second instance --mcp persisted settings.MCP = true")
+	}
+	if a.notice != locales.McpStartedOutside() || a.noticeTone == nil || *a.noticeTone != toastInfo {
+		t.Fatalf("notice after second instance --mcp: %q (%v)", a.notice, a.noticeTone)
+	}
+	checkDiskOff("second instance --mcp")
+
+	cs := agent(t, a)
+	inst := cs.InitializeResult().Instructions
+	if !strings.Contains(inst, "data, not instructions") {
+		t.Fatalf("MCP instructions missing data-not-instructions warning: %q", inst)
+	}
+}
+
+// TestMCPSettingsSwitchReflectsExternalServer verifies that when the MCP server is started
+// externally (--mcp / OnSecondInstance), the Settings MCP switch displays ON without persisting MCP=true.
+func TestMCPSettingsSwitchReflectsExternalServer(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	st := a.settingsStore
+	if st == nil {
+		st, _ = storeAt(t)
+		a.settingsStore = st
+	}
+	a.settings.Port = 0
+	a.settings.MCP = false
+	a.saveSettings()
+
+	a.handleSecondInstance([]string{"celestine", mcpFlag})
+	defer a.startMCP(false, false)
+	if a.mcpServer == nil {
+		t.Fatalf("external --mcp did not start server: %s", a.mcpErr)
+	}
+
+	a.openSettings()
+	a.settingsTab = tabMCP
+	tt.Frame()
+	sw, ok := tt.AccessByRole(ui.RoleSwitch, locales.SettingsTurnMcpServer())
+	if !ok {
+		t.Fatalf("MCP switch not found in Settings MCP tab")
+	}
+	if !sw.Checked {
+		t.Fatalf("Settings MCP switch is unchecked while external server is running")
+	}
+	if !tt.HasText(a.mcpURL()) {
+		t.Fatalf("Settings MCP details not shown while external server is running")
+	}
+	if a.settings.MCP {
+		t.Fatal("opening Settings MCP tab persisted settings.MCP = true in memory")
+	}
+	b := &app{settingsStore: st}
+	b.loadSettings()
+	if b.settings.MCP {
+		t.Fatal("opening Settings MCP tab persisted settings.MCP = true to disk")
+	}
+	// Also check palette command reflects running server without changing settings.MCP.
+	var found bool
+	for _, cmd := range a.commands() {
+		if cmd.id == "common_mcpServer: off3" {
+			found = true
+			if cmd.keys != locales.SettingsOn() {
+				t.Fatalf("palette command %q state = %q, want %q", cmd.id, cmd.keys, locales.SettingsOn())
+			}
+		}
+	}
+	if !found {
+		t.Fatal("common_mcpServer: off3 command not found in palette while external server is running")
+	}
+}
+
+// TestMCPRunnableCommandsReviewed: the commands an agent may run (run_command) are these and no others. A command put
+// in one of the groups agents may use (mcpCommandCats) is open to agents at once, unseen: this list makes it a choice.
+// A new command that fails here is looked at, and either added here or to mcpCommandsDeny (#172: a command that read
+// the clipboard was open to agents in that way). A command made for each page or collection is listed by what comes
+// before its ":".
+func TestMCPRunnableCommandsReviewed(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	reviewed := map[string]bool{}
+	for _, id := range []string{
+		"accountProfile", "shortcutsAndHelp", "addASubPage", "appTypeface", "biggerText", "caret", "changeTheCaret",
+		"closeThePane", "codeTypeface", "collectionSettings", "common_alwaysShowFocusRing", "common_automaticCover",
+		"common_back", "common_backUpNow", "common_caretSleep", "common_colorTheme", "common_cornerRoundness",
+		"common_corners", "common_cursorFx", "common_firstLineIndent", "common_focusMode", "common_fontSize",
+		"common_fontWeight", "common_goDate", "common_jellyEffect", "common_language", "common_ligatures",
+		"common_lineLength", "common_lineSpacing", "common_pageWidth", "common_paragraphSpacing", "common_quickNote",
+		"common_save", "common_settings", "common_sidePanel", "common_statistics", "common_syncNow", "common_tabWidth",
+		"common_tasks", "common_theme", "common_trash", "common_undo2", "duplicateTheBlock", "findInPage2", "foldUnfold",
+		"forward", "moveTheBlockDown", "moveTheBlockUp", "moveThePageDownInIts", "moveThePageUpInIts",
+		"moveThePaneToAWindow", "moveToTrash", "newCollection", "newPaneThisScreen", "nextDay", "openBlockBeside",
+		"panes_settingsBeside", "panes_tasksBeside", "panes_trashBeside", "previousDay", "randomDay", "redo",
+		"resetTheFontSize", "searchTheLibrary", "shortcutHints", "showParagraphEnds", "showTabs",
+		"showWhitespaceInCodeBlocks", "sidebar", "smallerText", "switchPane", "todaysPage", "toggleTheSidePanel",
+		"toggleTheSidebar", "typefacePreset", "whatsNewInThisVersion",
+	} {
+		reviewed[id] = true
+	}
+	seen := map[string]bool{}
+	for _, it := range a.commands() {
+		if !mcpMayRun(it) {
+			continue
+		}
+		id, _, _ := strings.Cut(it.id, ":")
+		seen[id] = true
+		if !reviewed[id] {
+			t.Errorf("an agent may run %q (%s), which has not been reviewed for agents", it.id, it.cat)
+		}
+	}
+	for id := range reviewed {
+		if !seen[id] {
+			t.Errorf("%q is listed as reviewed but is no longer a command an agent may run: take it off the list", id)
+		}
+	}
 }

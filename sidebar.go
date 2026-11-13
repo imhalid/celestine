@@ -69,9 +69,9 @@ func (a *app) branch(c *ui.Context) ui.Element {
 // sidebar is shown or not: right of the window's controls.
 func (a *app) sidebarButton(c *ui.Context) {
 	h := a.headerHeight(c) // in a line with the header, as high as it
-	left := a.titleBar(c).Left + 6
-	ui.Row(c.Key("sidebar-button")).Absolute().Left(left).Top((h - barBtn) / 2).Gap(2).Children(func() {
-		a.sidebarButtons(c, left+3*(barBtnW+2)-2, h-4)
+	left := a.titleBar(c).Left + barLead
+	ui.Row(c.Key("sidebar-button")).Absolute().Left(left).Top((h - barBtn) / 2).Children(func() {
+		a.sidebarButtons(c, left+3*barBtnW, h-4)
 	})
 }
 
@@ -123,12 +123,21 @@ func (a *app) sidebar(c *ui.Context) float32 {
 		target = 0
 	}
 	sb := ui.Column(c).Clip()
+	useGlass := a.settings.Glass && c.Vibrancy()
+	sideAlpha := float32(sidebarGlass)
+	if useGlass {
+		sideAlpha = 0.42
+	}
 	switch {
 	case a.sideOnGround(): // no card: it lies on the frame's ground (NoSidebarCard)
 	case a.wframe.on: // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
-		frameCard(c, sb, t.Surface.Alpha(sidebarGlass), rad(frameR), 1)
+		frameCard(c, sb, t.Surface.Alpha(sideAlpha), rad(frameR), 1)
 	default:
-		sb.Background(t.Surface)
+		if useGlass {
+			sb.Background(t.Surface.Alpha(sideAlpha))
+		} else {
+			sb.Background(t.Surface)
+		}
 	}
 	if history {
 		a.tmSide = tmSideState{days: a.tm.days, n: len(a.tm.vers), sel: a.tm.sel, title: a.tm.page.Title}
@@ -157,7 +166,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	}
 	sb.Children(func() {
 		if !closed && !phone { // over the content, which is built first
-			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar)
+			defer a.edgeGrip(c, "sidebar-grip", true, full, &a.settings.SidebarWidth, &a.edge.sidebar, sb)
 		}
 		ui.Column(c).Width(full).Grow(1).Children(func() {
 			// The room of the window's controls: it moves the window too. On a phone, the drawer's head:
@@ -170,13 +179,13 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					}
 				})
 			} else {
-				ui.Box(c).Height(a.contentTop(c)).DragWindow()
+				ui.Box(c.Key("sidebar-head-drag")).Height(a.contentTop(c) + a.noTabHeaderHeight()).DragWindow()
 			}
 			// the tree, and over it, while the page's history is open, the history's timeline: one fades as the other comes
 			under := ui.Column(c.Key("sidebar-tree")).FillWidth().Grow(1).MinHeight(0)
 			if fade > 0.005 {
 				under.Opacity(1 - fade).Disabled(history).DimDisabled(false)
-				defer a.tmTimeline(c, a.contentTop(c), full, fade) // after the tree, over it
+				defer a.tmTimeline(c, a.contentTop(c)+a.noTabHeaderHeight(), full, fade) // after the tree, over it
 			}
 			under.Children(func() {
 				ui.Row(c).Padding(4, 10, 6, 18).AlignItems(ui.Center).Children(func() {
@@ -223,6 +232,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 			})
 		})
 	})
+	a.sidebarR = sb.LayoutBounds()
 	return w
 }
 
@@ -341,7 +351,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 			a.renameField(c)
 			return
 		}
-		tx := ui.Text(c, s.name).FontSize(14).MaxLines(1).Grow(1).MinWidth(0).TextColor(textC)
+		tx := ui.Text(c, s.name).FontSize(14).MaxLines(1).TruncateMiddle().Grow(1).MinWidth(0).TextColor(textC)
 		switch {
 		case s.strong: // a collection: a heading of the tree
 			tx.FontWeight(600)
@@ -701,15 +711,17 @@ func (a *app) iconButton(c *ui.Context, glyph *ui.SVG, label string) bool {
 }
 
 // barBtn is the height of a button in the top bar, and barBtnW its width; barGlyph is its icon's size, as large
-// as macOS's window buttons beside it look.
+// as the toolbar icons of macOS's own apps beside the window's buttons. barLead is the room left after those
+// buttons before the first of ours, as those apps leave it: closer, the two rows read as one.
 const (
-	barBtn   = 24
-	barBtnW  = 28
-	barGlyph = 17
+	barBtn   = 28
+	barBtnW  = 30
+	barGlyph = 19
+	barLead  = 10 // #458
 )
 
-// sidebarButtonsW is the room of the sidebar's buttons: four of them, and their gaps and margin.
-const sidebarButtonsW = 4*(barBtnW+2) + 6
+// sidebarButtonsW is the room of the sidebar's buttons: four of them, side by side, and the room before them.
+const sidebarButtonsW = 4*barBtnW + barLead
 
 // barIcon is an icon button of the top bar: small, as the bar is.
 func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {

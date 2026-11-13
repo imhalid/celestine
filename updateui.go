@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -15,27 +14,20 @@ import (
 // The windows of an update: "a new version is out" with its notes; "this version is new" after one; and the
 // settings' part, with when it last asked.
 
+// updateRestartArgs returns the Relaunch arguments for an update trial restart.
+func updateRestartArgs(args []string) []string {
+	return append(withoutUpdateRestartedFlag(args), updateRestartedFlag)
+}
+
 // restartApp starts the program again and quits this one.
 func (a *app) restartApp() {
-	exe, err := os.Executable()
-	if err != nil {
-		a.say(toastErr, locales.UpdateRestartFailed(err.Error()))
-		return
-	}
 	a.flush()
 	if updTrial { // the trial's restart shows its "what's new", as an update's does (updtrial.go)
 		os.Setenv("CELESTINE_UPDATE", "restarted")
-	}
-	cmd := exec.Command(exe, restartArgs()...) // it waits for this one to be gone (restart.go)
-	if err := cmd.Start(); err != nil {
-		a.say(toastErr, locales.UpdateRestartFailed(err.Error()))
+		mygo.App.Relaunch(updateRestartArgs(os.Args[1:])...)
 		return
 	}
-	go func() {
-		defer a.guard()
-		time.Sleep(200 * time.Millisecond)
-		mygo.App.Quit()
-	}()
+	mygo.App.Relaunch()
 }
 
 // updateView is the dialog of a new version, or of the notes of the one that was installed.
@@ -110,7 +102,7 @@ func (a *app) updateView(c *ui.Context) {
 						open = false
 					}
 					if ryugo.Button(c.Key("upd-snooze"), locales.UpdateRemindLater(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-						a.settings.UpdateSnooze = time.Now().Add(72 * time.Hour).Unix()
+						a.settings.UpdateSnooze = a.clock().Add(72 * time.Hour).Unix()
 						a.saveSettings()
 						open = false
 					}

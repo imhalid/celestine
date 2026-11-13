@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -339,5 +340,86 @@ func TestBackupPruneByLabel(t *testing.T) {
 	}
 	if by["içe-aktarma"] != 1 || by["senkron"] != backupPre {
 		t.Fatalf("kept: %v", by)
+	}
+}
+
+func TestBackupAndMarkPrivatePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
+	st := testStore(t)
+	cfg := filepath.Join(t.TempDir(), "celestine")
+	bdir := filepath.Join(cfg, "backups")
+	if err := os.MkdirAll(bdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chmod(cfg, 0o755)
+	_ = os.Chmod(bdir, 0o755)
+	legacy := filepath.Join(bdir, "kitaplik-20260101-010101.db.gz")
+	if err := os.WriteFile(legacy, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chmod(legacy, 0o644)
+
+	// Listing backups must not chmod folders or files (#179).
+	if got := backups(bdir); len(got) != 1 {
+		t.Fatalf("backups = %d, want 1", len(got))
+	}
+	for _, dir := range []string{cfg, bdir} {
+		if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o755 {
+			t.Fatalf("backups() changed %s mode = %v, err = %v", dir, info.Mode().Perm(), err)
+		}
+	}
+	if info, err := os.Stat(legacy); err != nil || info.Mode().Perm() != 0o644 {
+		t.Fatalf("backups() changed legacy mode = %v, err = %v", info.Mode().Perm(), err)
+	}
+
+	out, err := backupTo(st, bdir, "", time.Date(2026, 11, 7, 9, 0, 0, 0, time.Local))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{cfg, bdir} {
+		if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o700 {
+			t.Fatalf("%s mode = %v, err = %v", dir, info.Mode().Perm(), err)
+		}
+	}
+	for _, f := range []string{legacy, out} {
+		if info, err := os.Stat(f); err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s mode = %v, err = %v", f, info.Mode().Perm(), err)
+		}
+	}
+	mark := filepath.Join(t.TempDir(), "update-pending")
+	_ = os.WriteFile(mark, []byte("1.0.0\n/new\n/old\n"), 0o644)
+	rollbackIfBroken(mark, "1.0.0")
+	if info, err := os.Stat(mark); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("update mark mode = %v, err = %v", info.Mode().Perm(), err)
+	}
+}
+
+func TestRestorePathValidation(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "backups")
+	if err := os.MkdirAll(cfg, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside.db.gz")
+	if err := os.WriteFile(outside, []byte("bad"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := planRestore(cfg, outside); err == nil {
+		t.Fatal("planRestore accepted path outside backup dir")
+	}
+	target := filepath.Join(t.TempDir(), "kitaplik.db")
+	for _, forged := range []string{outside, filepath.Join("..", filepath.Base(outside))} {
+		_ = os.WriteFile(restoreMark(cfg), []byte(forged), 0o600)
+		if _, err := applyRestore(cfg, target, time.Now()); err == nil {
+			t.Fatalf("applyRestore accepted forged path %q", forged)
+		}
+	}
+	link := filepath.Join(cfg, "kitaplik-20260101-010101.db.gz")
+	if err := os.Symlink(outside, link); err == nil {
+		_ = os.WriteFile(restoreMark(cfg), []byte(link), 0o600)
+		if _, err := applyRestore(cfg, target, time.Now()); err == nil {
+			t.Fatal("applyRestore followed symlink inside backup dir")
+		}
 	}
 }

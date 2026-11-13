@@ -183,7 +183,7 @@ func (a *app) profileRecovery(c *ui.Context, cl ryugo.Colors) {
 			rec := RecoveryKey(key)
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Padding(8, 0, 0, 0).Children(func() {
 				ui.Text(c, rec).FontSize(13.5).FontWeight(600).TextColor(cl.Text).Wrap().Grow(1)
-				ryugo.CopyButton(c.Key("copy-recovery-prof"), rec, ryugo.CopyOptions{Label: locales.CommonCopyRecoveryKey()})
+				a.secretCopyButton(c, "copy-recovery-prof", rec, locales.CommonCopyRecoveryKey())
 			})
 		}
 	})

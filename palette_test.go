@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -265,5 +266,34 @@ func TestPaletteLinesKept(t *testing.T) {
 	tt.Frame()
 	if a.pal.made == made || a.pal.query != ">çöp" {
 		t.Fatalf("not made again for the query: %q", a.pal.query)
+	}
+}
+
+func TestPalettePlaceholdersAndLabels(t *testing.T) {
+	a, _ := newTestApp(t, "bir\n")
+	modes := []byte{0, '>', '#', ':', '/', '!', '?'}
+	ellipsisModes := map[byte]bool{'#': true, ':': true, '/': true, '!': true, '?': true}
+	for _, lc := range []string{"en", "tr"} {
+		withLang(t, lc)
+		for _, mode := range modes {
+			got := palPlaceholder(mode)
+			if got == "" {
+				t.Fatalf("%s mode %q: empty placeholder", lc, mode)
+			}
+			if strings.Contains(got, "_") {
+				t.Fatalf("%s mode %q: raw key %q", lc, mode, got)
+			}
+			if !strings.Contains(got, " ") {
+				t.Fatalf("%s mode %q: expected phrase/sentence, got %q", lc, mode, got)
+			}
+			if ellipsisModes[mode] && !strings.HasSuffix(got, "…") {
+				t.Fatalf("%s mode %q: expected trailing ellipsis, got %q", lc, mode, got)
+			}
+		}
+		a.pal.query = "abc"
+		lbl := a.palLabel()
+		if lbl == "" || strings.Contains(lbl, "_") || lbl == "common_findPage" {
+			t.Fatalf("%s palLabel() = %q", lc, lbl)
+		}
 	}
 }

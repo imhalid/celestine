@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // TestPageMoreMenu: the "…" of the window opens what the page offers: a copy
@@ -88,5 +90,70 @@ func TestPageExport(t *testing.T) {
 	imgs, _ := filepath.Glob(filepath.Join(dir, "resim-*.png"))
 	if !strings.Contains(string(md), "gövde") || len(imgs) != 1 {
 		t.Fatalf("md %q, pictures %v", md, imgs)
+	}
+}
+
+// TestPageExportOverwritePrompt verifies the three collision actions: Cancel, Skip existing, and Overwrite.
+func TestPageExportOverwritePrompt(t *testing.T) {
+	a, tt := newTestApp(t, "body\n")
+	if err := a.addImage("pic.png", pngBytes(20, 20)); err != nil {
+		t.Fatal(err)
+	}
+	a.save()
+	md := a.currentMarkdown(a.page)
+	names := exportAttachmentNames(a.page, md)
+	if len(names) != 1 {
+		t.Fatalf("attachments = %v", names)
+	}
+	dir := t.TempDir()
+	out := filepath.Join(dir, "page.md")
+	colliding := filepath.Join(dir, names[0])
+	if err := os.WriteFile(colliding, []byte("existing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cancel aborts without writing page.md or replacing the colliding attachment.
+	a.finishExport(a.page, md, out)
+	if !a.asking.open {
+		t.Fatal("expected overwrite confirmation prompt")
+	}
+	if b, _ := os.ReadFile(colliding); string(b) != "existing" {
+		t.Fatal("existing attachment overwritten before confirmation")
+	}
+	tt.Frame()
+	if err := tt.Click(locales.CommonCancel2()); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Frame()
+	if _, err := os.Stat(out); err == nil {
+		t.Fatal("Cancel should abort export without writing page.md")
+	}
+	if b, _ := os.ReadFile(colliding); string(b) != "existing" {
+		t.Fatal("Cancel overwrote existing attachment")
+	}
+
+	// Skip existing writes page.md while keeping the colliding attachment intact.
+	a.finishExport(a.page, md, out)
+	tt.Frame()
+	if err := tt.Click(locales.PageExportSkipExisting()); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Frame()
+	if _, err := os.Stat(out); err != nil {
+		t.Fatalf("Skip existing should write page.md: %v", err)
+	}
+	if b, _ := os.ReadFile(colliding); string(b) != "existing" {
+		t.Fatal("Skip existing overwrote colliding attachment")
+	}
+
+	// Overwrite writes page.md and replaces the colliding attachment.
+	a.finishExport(a.page, md, out)
+	tt.Frame()
+	if err := tt.Click(locales.PageExportOverwriteAction()); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Frame()
+	if b, _ := os.ReadFile(colliding); string(b) == "existing" {
+		t.Fatal("confirmed overwrite did not replace colliding attachment")
 	}
 }

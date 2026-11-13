@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -276,6 +277,38 @@ func TestUsageCountedOnce(t *testing.T) {
 		}
 		if got := d.PageSecs[a.page.Dir] - page; got != 3 {
 			t.Errorf("gap %v: %d seconds in the page, want 3", gap, got)
+		}
+	}
+}
+
+func TestStatsPrivateFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
+	a, _ := statsApp(t, "x\n")
+	dir := filepath.Dir(a.settingsFile)
+	_ = os.MkdirAll(dir, 0o755)
+	_ = os.Chmod(dir, 0o755)
+	a.usage = newUsage()
+	a.saveUsage()
+	if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("config dir mode = %v, err = %v", info.Mode().Perm(), err)
+	}
+	if info, err := os.Stat(a.usageFile()); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("usage file mode = %v, err = %v", info.Mode().Perm(), err)
+	}
+	if msg, ok := a.exportStatsCSV(); !ok {
+		t.Fatal(msg)
+	} else if p := strings.TrimPrefix(msg, locales.StatsWrittenTo("")); true {
+		if info, err := os.Stat(p); err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("csv mode = %v, err = %v", info.Mode().Perm(), err)
+		}
+	}
+	if msg, ok := a.exportStatsJSON(); !ok {
+		t.Fatal(msg)
+	} else if p := strings.TrimPrefix(msg, locales.StatsWrittenTo("")); true {
+		if info, err := os.Stat(p); err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("json mode = %v, err = %v", info.Mode().Perm(), err)
 		}
 	}
 }

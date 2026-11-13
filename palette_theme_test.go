@@ -1,10 +1,14 @@
 package main
 
 import (
+	"image/png"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // ⌘P → a theme shows as it is passed over, goes back on Esc, stays on Enter.
@@ -83,5 +87,89 @@ func TestPaletteSignIsNotInTheField(t *testing.T) {
 	tt.Frame()
 	if a.palCmds() || a.pal.text != "" {
 		t.Fatalf("a \"@\" did not make the pages: query %q text %q", a.pal.query, a.pal.text)
+	}
+}
+
+// TestAppThemeWellAlphaAndSurface verifies that applySkin preserves Well and WellBorder alpha,
+// keeps WellBorder at HEAD's line color, and keeps sidebar Surface independent from card-derived Well (#452).
+func TestAppThemeWellAlphaAndSurface(t *testing.T) {
+	shotDir := os.Getenv("THEME_SHOT_DIR")
+	prefix := os.Getenv("THEME_SHOT_PREFIX")
+	a, tt := newTestApp(t, "# Midnight Theme Check\n\nSome content in the editor.\n")
+	tt.SetSize(1180, 760)
+	a.setAppTheme(1) // midnight
+	a.settingsOpen, a.settingsTab = true, 0
+	tt.Advance(500 * time.Millisecond)
+
+	save := func(name string) {
+		if shotDir == "" || prefix == "" {
+			return
+		}
+		_ = os.MkdirAll(shotDir, 0o755)
+		f, err := os.Create(filepath.Join(shotDir, prefix+"-"+name+".png"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if err := png.Encode(f, tt.Image()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, dark := range []bool{false, true} {
+		tt.SetDark(dark)
+		a.settingsTab = 0 // Appearance / theme picker + well groups
+		tt.Advance(400 * time.Millisecond)
+		label := map[bool]string{false: "light", true: "dark"}[dark]
+		save("settings-" + label)
+	}
+
+	// Verify Well and WellBorder preserve token alpha and th.Surface stays separate from Well when p.side is empty (#452).
+	for _, tc := range []struct {
+		name string
+		dark bool
+		mode ryugo.Mode
+	}{
+		{"light", false, ryugo.Light},
+		{"dark", true, ryugo.Dark},
+	} {
+		var base, got, noSide ryugo.Tokens
+		var thGot, thNoSide, thNoCard ui.Theme
+		checker := ui.NewTester(func(c *ui.Context) {
+			root := ryugo.Root(c, ryugo.Options{Mode: tc.mode, Size: ryugo.Sm})
+			base = *root
+			got = *root
+			noSide = *root
+			noCard := *root
+			thGot = *c.Theme()
+			thNoSide = *c.Theme()
+			thNoCard = *c.Theme()
+
+			mid := appThemes[1].colors(tc.dark)
+			a.applySkin(&got, &thGot, mid)
+
+			withoutSide := mid
+			withoutSide.side = ""
+			a.applySkin(&noSide, &thNoSide, withoutSide)
+
+			withoutCard := withoutSide
+			withoutCard.card = ""
+			a.applySkin(&noCard, &thNoCard, withoutCard)
+		}, 400, 300)
+		checker.Frame()
+
+		if got.Colors.Well.A != base.Colors.Well.A {
+			t.Fatalf("%s Well alpha = %d, want %d", tc.name, got.Colors.Well.A, base.Colors.Well.A)
+		}
+		line := ui.Hex(appThemes[1].colors(tc.dark).line)
+		if got.Colors.WellBorder.R != line.R || got.Colors.WellBorder.G != line.G || got.Colors.WellBorder.B != line.B || got.Colors.WellBorder.A != base.Colors.WellBorder.A {
+			t.Fatalf("%s WellBorder = %+v, want rgb(%d,%d,%d) alpha=%d", tc.name, got.Colors.WellBorder, line.R, line.G, line.B, base.Colors.WellBorder.A)
+		}
+		if thNoSide.Surface != thNoCard.Surface {
+			t.Fatalf("%s sidebar Surface changed when card overridden without side: %+v != %+v", tc.name, thNoSide.Surface, thNoCard.Surface)
+		}
+		if thNoSide.Surface == noSide.Colors.Well {
+			t.Fatalf("%s sidebar Surface unexpectedly equals card-derived Well %+v", tc.name, noSide.Colors.Well)
+		}
 	}
 }

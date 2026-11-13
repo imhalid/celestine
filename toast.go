@@ -43,6 +43,7 @@ const (
 // from the words.
 func (a *app) say(kind toastKind, text string) {
 	a.notice, a.noticeTone = text, &kind
+	a.playSound(soundForToast(kind))
 }
 
 // sayDone puts up text as done, or as an error when ok is false: for what reports both in one message.

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -126,6 +127,9 @@ func (a *app) addMoreTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				}
 				p := a.journalPage(c, day)
 				if p == nil {
+					if err := a.mcpMay(c, mcpRead); err != nil {
+						return err
+					}
 					if !sameDay(day, a.clock()) {
 						return fmt.Errorf("the journal has no page for %s", day.Format("2006-01-02"))
 					}
@@ -217,6 +221,12 @@ func (a *app) collOfTrash(it *TrashItem) *Collection {
 // may see the others.
 func (a *app) mcpSeesTrash(it *TrashItem) bool {
 	if it.Kind == "collection" {
+		if a.settings.MCPAccess != nil {
+			key := strings.Trim(filepath.ToSlash(it.From), "/")
+			if v, ok := a.settings.MCPAccess[key]; ok {
+				return v != mcpOff
+			}
+		}
 		return a.mcpAccess(nil) != mcpOff
 	}
 	c := a.collOfTrash(it)

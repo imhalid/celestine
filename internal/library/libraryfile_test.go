@@ -14,8 +14,10 @@ func TestLibraryFileIn(t *testing.T) {
 	if got := libraryFileIn(dir, data); got != filepath.Join(data, "kitaplik.db") {
 		t.Fatalf("a program's folder with no library: %s", got)
 	}
-	if _, err := os.Stat(data); err != nil {
+	if st, err := os.Stat(data); err != nil {
 		t.Fatalf("the data folder is made: %v", err)
+	} else if runtime.GOOS != "windows" && st.Mode().Perm() != 0o700 {
+		t.Fatalf("the data folder mode = %v, want 0700", st.Mode().Perm())
 	}
 	os.WriteFile(filepath.Join(dir, "kitaplik.db"), []byte("taşınabilir"), 0o644)
 	if got := libraryFileIn(dir, data); got != filepath.Join(dir, "kitaplik.db") {

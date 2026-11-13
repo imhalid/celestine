@@ -6,11 +6,11 @@
 const CACHE = "celestine-" + (self.registration ? new URL(self.location).searchParams.get("v") || "1" : "1");
 // what the app is made of, kept at once when the worker comes: the page opens with no network even if
 // it was never asked for again (the wasm's name is the build's, given to the worker as ?v=)
-const PROGRAM = ["./", "wasm_exec.js", "touch.js", "manifest.webmanifest", "icon-256.png", "icon-512.png"];
+const PROGRAM = ["./", "./index.html", "wasm_exec.js", "touch.js", "manifest.webmanifest", "icon-256.png", "icon-512.png"];
 self.addEventListener("install", (e) => {
   const wasm = new URL(self.location).searchParams.get("v");
   const files = wasm ? PROGRAM.concat([wasm]) : PROGRAM;
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(files)).catch(() => {}).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(files)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k.startsWith("celestine-")).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

@@ -37,7 +37,7 @@ func (a *app) dropFile(f string, overText bool) {
 			return
 		}
 		a.flush()
-		var st importStats
+		st := importStats{noWalk: true}
 		p, err := a.importFile(c, filepath.Dir(f), f, &st)
 		if err != nil {
 			a.say(toastErr, locales.CommonDidntWork(err.Error()))

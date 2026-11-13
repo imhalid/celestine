@@ -1,10 +1,13 @@
 package main
 
 import (
-	"github.com/egoist/mygo/ui"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestGripMenuAndDrag(t *testing.T) {
@@ -244,5 +247,180 @@ func TestGripDragScrollsAtEdge(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	if got := mdOf(a.doc); got[:len("Satır Aa")] == "Satır Aa" {
 		t.Fatalf("not moved: %q", got[:40])
+	}
+}
+
+func TestGripDragClearedOnModal(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci blok\n\nİkinci blok\n\nÜçüncü blok\n")
+	tt.Advance(300 * time.Millisecond)
+	r, b := a.editorR, a.boxes[0]
+	tt.Move(r.X+40, r.Y+b.Top+b.Height/2)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find("Blok tutamağı")
+	if !ok {
+		t.Fatal("no grip")
+	}
+	x0, y0 := g.X+g.W/2, g.Y+g.H/2
+	tt.Press(x0, y0)
+	tt.Move(x0, y0+40)
+	tt.Frame()
+	if !a.grip.dragging {
+		t.Fatal("expected active grip drag before opening modal")
+	}
+	a.openCommands()
+	tt.Frame()
+	tt.Frame()
+	if a.grip.dragging || a.grip.pressed {
+		t.Fatalf("modal should clear grip drag state, got dragging=%v pressed=%v", a.grip.dragging, a.grip.pressed)
+	}
+	tt.Release(x0, y0+40)
+	tt.Frame()
+	if got := mdOf(a.doc); !strings.HasPrefix(got, "Birinci blok") {
+		t.Fatalf("cancelled grip drag should not reorder blocks, got %q", got)
+	}
+}
+
+func TestBlockMenuPaletteKeepsGripAndSelBar(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci blok\n\nİkinci blok\n")
+	tt.Advance(300 * time.Millisecond)
+	r, b0, b1 := a.editorR, a.boxes[0], a.boxes[1]
+
+	// 1. Open the block menu on the first paragraph.
+	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
+	tt.Frame()
+	tt.Frame()
+	g, ok := tt.Find(locales.BlocksBlockHandle())
+	if !ok {
+		t.Fatal("grip not shown on paragraph hover")
+	}
+	tt.ClickAt(g.X+g.W/2, g.Y+g.H/2)
+	tt.Frame()
+	tt.Frame()
+	if !a.grip.menu {
+		t.Fatal("expected block menu to open")
+	}
+
+	// 2. Open the command palette and close it again.
+	a.openPalette()
+	tt.Frame()
+	if !a.pal.open {
+		t.Fatal("expected palette to open")
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+	if a.pal.open {
+		t.Fatal("expected Escape to close palette")
+	}
+
+	// 3. Move pointer onto the second paragraph: the grip must reappear and the selection bar must work.
+	tt.Move(r.X+40, r.Y+b1.Top+b1.Height/2)
+	tt.Frame()
+	tt.Frame()
+	if _, ok := tt.Find(locales.BlocksBlockHandle()); !ok {
+		t.Fatalf("grip missing after block menu + palette round-trip (menu=%v para=%d)", a.grip.menu, a.grip.para)
+	}
+	tt.ClickAt(r.X+40, r.Y+b1.Top+b1.Height/2)
+	tt.Frame()
+	a.doc.SetSelection(b1.Start, b1.Start+len("İkinci"))
+	tt.Frame()
+	if _, ok := tt.Find(locales.SelectionBold()); !ok {
+		t.Fatalf("selection format bar missing after block menu + palette round-trip (menu=%v)", a.grip.menu)
+	}
+}
+
+// TestBlockDropIsSmooth (#457): a block let go takes the room it opened, so at that moment nothing on the page moves; then
+// the hole it left where it was, and the room it did not fill, shut on a spring, every paragraph going a little each
+// frame, never jumping; and the block comes to its colors. Down (a tall block, two lines) and up (a short one, in a
+// room taller than it).
+func TestBlockDropIsSmooth(t *testing.T) {
+	const text = "Bir uzun paragraf, iki satıra yayılacak kadar uzun bir metin bu: biraz daha, biraz daha, biraz daha yazı yazı yazı yazı yazı.\n\nİki\n\nÜç\n\nDört\n\nBeş\n"
+	for _, c := range []struct {
+		name     string
+		from, to int
+		want     string
+	}{
+		{"down", 0, 3, "İki\n\nÜç\n\nBir"},
+		{"up", 3, 1, "Bir"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			a, tt := newTestApp(t, text)
+			tt.SetSize(700, 900)
+			tt.Advance(300 * time.Millisecond)
+			r := a.editorR
+			var fy, ty float32
+			for _, b := range a.boxes {
+				if b.Index == c.from {
+					fy = b.Top + b.Height/2
+				}
+				if b.Index == c.to {
+					ty = b.Top + 2
+				}
+			}
+			tt.Move(r.X+40, r.Y+fy)
+			tt.Frame()
+			tt.Frame()
+			g, ok := tt.Find("Blok tutamağı")
+			if !ok {
+				t.Fatal("no grip")
+			}
+			x0, y0 := g.X+g.W/2, g.Y+g.H/2
+			y1 := r.Y + ty
+			tt.Press(x0, y0)
+			for k := 1; k <= 10; k++ {
+				tt.Move(x0, y0+(y1-y0)*float32(k)/10)
+				tt.Frame()
+			}
+			tt.Advance(600 * time.Millisecond)
+			// where each paragraph is, by its first letters
+			tops := func() map[string]float32 {
+				m := map[string]float32{}
+				txt := a.doc.Text()
+				for _, b := range a.boxes {
+					s, e := txt.ParagraphRange(b.Start)
+					m[txt.Slice(s, min(e, s+3)).String()] = b.Top
+				}
+				return m
+			}
+			moved := a.doc.Text().Slice(a.grip.from[0], a.grip.from[0]+3).String()
+			was := tops()
+			tt.Release(x0, y1)
+			tt.Frame()
+			now := tops()
+			for k, y := range was {
+				if k != moved && abs32(now[k]-y) > 1 {
+					t.Fatalf("let go, %q jumped from %.1f to %.1f", k, y, now[k])
+				}
+			}
+			for f := 0; f < 60; f++ {
+				prev := tops()
+				tt.Advance(16 * time.Millisecond)
+				for k, y := range tops() {
+					if d := abs32(y - prev[k]); d > 14 {
+						t.Fatalf("frame %d: %q went %.1f in one frame", f, k, d)
+					}
+				}
+			}
+			if len(a.grip.settle) != 0 || !a.grip.landAt.IsZero() {
+				t.Fatalf("still settling after a second: %v, landed at %v", a.grip.settle, a.grip.landAt)
+			}
+			if got := mdOf(a.doc); !strings.Contains(got, c.want) {
+				t.Fatalf("dropped: %q", got)
+			}
+		})
+	}
+}
+
+// TestBlockLayKeepsChips: the block's preview draws what is in its lines that is not text, a page's chip here, in
+// the place the editor draws it: without it the preview has a hole where the chip is (#457).
+func TestBlockLayKeepsChips(t *testing.T) {
+	a, tt := newTestApp(t, "Bu kitabı [[Sayfa]] ile birlikte okumak isterim.\n")
+	tt.Advance(100 * time.Millisecond)
+	l := a.blockLay(0, a.editorR.W)
+	if len(l.objs) != 1 || l.objs[0].att.Draw == nil {
+		t.Fatalf("the chip is not in the block's layout: %+v", l.objs)
+	}
+	if r := l.objs[0].r; r.W < 10 || r.X < 20 {
+		t.Fatalf("the chip's box %+v is not after \"Bu kitabı \"", r)
 	}
 }

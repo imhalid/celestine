@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -197,5 +198,33 @@ func TestBigLibraryStartsClosed(t *testing.T) {
 		if want := c == a.page.Coll; c.Open != want {
 			t.Fatalf("%s: open %v, want %v (the page open is in %s)", c.Name, c.Open, want, a.page.Coll.Name)
 		}
+	}
+}
+
+// TestSidebarEdgeHandle: the sidebar's edge shows nothing while the pointer is away from it, a handle as the pointer
+// nears it, plain on the strip that drags it, and in the accent while it is dragged (#459).
+func TestSidebarEdgeHandle(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(900, 500)
+	a.wframe.on = true
+	tt.Advance(400 * time.Millisecond)
+	g, ok := tt.Find("sidebar-grip")
+	if !ok {
+		t.Fatal("no edge strip")
+	}
+	x, y := g.X+g.W/2, float32(260)
+	at := func(px, py float32) color.RGBA { return tt.Image().RGBAAt(int(px), int(py)) }
+	tt.Move(x-80, y)
+	tt.Advance(400 * time.Millisecond)
+	ground := at(x, y)
+	tt.Move(x, y)
+	tt.Advance(400 * time.Millisecond)
+	if on := at(x, y); on == ground {
+		t.Fatalf("on the strip the edge shows no handle: %v", on)
+	}
+	tt.Move(x-80, y)
+	tt.Advance(600 * time.Millisecond)
+	if off := at(x, y); off != ground {
+		t.Fatalf("away from the edge the handle stays: %v, the ground is %v", off, ground)
 	}
 }

@@ -26,12 +26,70 @@ import (
 	"time"
 )
 
+// An asset is one file of the manifest, as the app's Asset (update.go) reads it.
 type asset struct {
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
-	Sig    string `json:"sig"`
+	Sig    string `json:"sig"`  // of legacySigText: all the clients before #455 check
+	Sig2   string `json:"sig2"` // of sigText: what the app requires since #455
 	Size   int64  `json:"size"`
 	Kind   string `json:"kind,omitempty"`
+}
+
+// sigText is the text of the second signature, the app's sigText (update.go) word for word: the version, the
+// system the file is for, its name, its kind and its hash. Both tests hold it to the same literal.
+func sigText(version, platform, name, kind, sha string) ([]byte, error) {
+	if kind == "" {
+		kind = "binary"
+	}
+	parts := []string{"celestine-update-2", version, platform, name, kind, strings.ToLower(sha)}
+	for _, p := range parts[1:] {
+		if p == "" || strings.ContainsAny(p, "\r\n") {
+			return nil, fmt.Errorf("cannot sign %q: empty, or a line break in it", p)
+		}
+	}
+	return []byte(strings.Join(parts, "\n")), nil
+}
+
+// legacySigText is the text of the first signature, the version and the hash: the clients released before #455
+// check only this, so a release keeps signing it for them.
+func legacySigText(version, sha string) []byte { return []byte(version + "\n" + strings.ToLower(sha)) }
+
+// signFile hashes and signs the file at f for the manifest, served at base: the "os-arch" it is listed under,
+// from its name (celestine-linux-amd64, celestine-windows-amd64.exe, celestine-darwin-arm64.zip), and its asset
+// with both signatures. ok is false for a file that is not an update (the .tar.gz of Linux is for people,
+// scripts/package.sh; the update takes the bare binary).
+func signFile(priv ed25519.PrivateKey, version, base, f string) (key string, a asset, ok bool, err error) {
+	name := filepath.Base(f)
+	if strings.HasSuffix(name, ".tar.gz") {
+		return "", a, false, nil
+	}
+	parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), "-")
+	if len(parts) < 3 {
+		return "", a, false, nil
+	}
+	key = parts[1] + "-" + parts[2]
+	in, err := os.Open(f)
+	if err != nil {
+		return "", a, false, err
+	}
+	defer in.Close()
+	h := sha256.New()
+	n, err := io.Copy(h, in)
+	if err != nil {
+		return "", a, false, err
+	}
+	a = asset{URL: strings.TrimRight(base, "/") + "/" + name, SHA256: hex.EncodeToString(h.Sum(nil)), Size: n}
+	if strings.HasSuffix(name, ".zip") {
+		a.Kind = "app-zip"
+	}
+	text, err := sigText(version, key, name, a.Kind, a.SHA256)
+	if err != nil {
+		return "", a, false, err
+	}
+	a.Sig = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText(version, a.SHA256)))
+	a.Sig2 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, text))
+	return key, a, true, nil
 }
 
 func main() {
@@ -57,6 +115,9 @@ func main() {
 		check(err)
 		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(kb)))
 		check(err)
+		if len(raw) != ed25519.PrivateKeySize {
+			check(fmt.Errorf("invalid private key length: got %d, want %d", len(raw), ed25519.PrivateKeySize))
+		}
 		priv := ed25519.PrivateKey(raw)
 		out := map[string]any{"version": *version, "date": time.Now().Format("2006-01-02")}
 		if *channel != "" {
@@ -69,31 +130,13 @@ func main() {
 		}
 		assets := map[string]asset{}
 		for _, f := range fs.Args() {
-			name := filepath.Base(f)
-			// the .tar.gz of Linux is for people (scripts/package.sh); the update takes the bare binary
-			if strings.HasSuffix(name, ".tar.gz") {
+			key, a, ok, err := signFile(priv, *version, *base, f)
+			check(err)
+			if !ok {
 				continue
 			}
-			// celestine-linux-amd64, celestine-windows-amd64.exe, celestine-darwin-arm64.zip
-			parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), "-")
-			if len(parts) < 3 {
-				continue
-			}
-			key := parts[1] + "-" + parts[2]
 			if _, ok := assets[key]; ok {
-				check(fmt.Errorf("two files for %s: %s and another (a bare darwin binary beside its zip?)", key, name))
-			}
-			h := sha256.New()
-			in, err := os.Open(f)
-			check(err)
-			n, err := io.Copy(h, in)
-			in.Close()
-			check(err)
-			sha := hex.EncodeToString(h.Sum(nil))
-			sig := ed25519.Sign(priv, []byte(*version+"\n"+sha))
-			a := asset{URL: strings.TrimRight(*base, "/") + "/" + name, SHA256: sha, Sig: base64.StdEncoding.EncodeToString(sig), Size: n}
-			if strings.HasSuffix(name, ".zip") {
-				a.Kind = "app-zip"
+				check(fmt.Errorf("two files for %s: %s and another (a bare darwin binary beside its zip?)", key, f))
 			}
 			assets[key] = a
 		}

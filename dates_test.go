@@ -53,3 +53,23 @@ func TestDatesInEnglish(t *testing.T) {
 		t.Errorf("Turkish duration: %q", got)
 	}
 }
+
+// TestFormatDayEscape checks backslash literal escaping in custom journal formats without changing [YY].
+func TestFormatDayEscape(t *testing.T) {
+	withLang(t, "en")
+	d := time.Date(2026, 11, 6, 9, 0, 0, 0, time.Local)
+	for _, tc := range []struct {
+		layout string
+		want   string
+	}{
+		{`\Day D of \M\M\M YYYY`, "Day 6 of MMM 2026"},
+		{`YYYY-\M\M-DD`, "2026-MM-06"},
+		{`\D=D \M=M \Y\Y=YY \d=ddd \\`, `D=6 M=11 YY=26 d=Fri \`},
+		{`[YY]`, "[26]"},
+		{`\Ş YYYY\`, `Ş 2026\`},
+	} {
+		if got := formatDay(tc.layout, d); got != tc.want {
+			t.Errorf("formatDay(%q) = %q, want %q", tc.layout, got, tc.want)
+		}
+	}
+}

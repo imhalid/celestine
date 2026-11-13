@@ -693,3 +693,28 @@ func TestSettingsSlashSearch(t *testing.T) {
 		}
 	}
 }
+
+func TestKbVimEmptyLastLineDD(t *testing.T) {
+	k := newKbd(t, "abc\n\ndef\n")
+	k.a.settings.VimKeys = true
+	// Add a trailing newline so the last line is truly empty.
+	n := k.a.doc.Text().Len()
+	k.a.doc.SetSelection(n, n)
+	k.tt.Key(0, ui.KeyEnter)
+	k.frames()
+
+	before := k.text()
+	beforeLines := strings.Count(before, "\n")
+	end := len([]rune(before))
+	k.a.doc.SetSelection(end, end)
+	k.press("esc")
+	k.frames()
+	k.press("d", "d")
+	got := k.text()
+	if !strings.Contains(got, "def") {
+		t.Fatalf("dd on empty last line deleted previous line def: %q", got)
+	}
+	if gotLines := strings.Count(got, "\n"); gotLines != beforeLines-1 {
+		t.Fatalf("dd on empty last line did not delete the empty line: before=%q (%d newlines) after=%q (%d newlines)", before, beforeLines, got, gotLines)
+	}
+}
