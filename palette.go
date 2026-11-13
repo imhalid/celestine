@@ -701,15 +701,26 @@ func (a *app) paletteView(c *ui.Context) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	ui.DialogBase(c.Key("palette"), &a.pal.open, func(backdrop, panel ui.Element) {
-		backdrop.Justify(ui.Start).Padding(70, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
 		panel.Width(480).MaxWidthPercent(100).Radius(rad(ryugo.RadiusPop))
+		line := cl.Hairline
 		if a.settings.Glass && runtime.GOOS == "darwin" && c.Vibrancy() {
-			panel.Material(glass.Glass{Clarity: 0.45}).Background(cl.Card.Alpha(0.72))
+			// as the side panel's glass (#486): the page behind is barely dimmed, as a dark scrim under the glass
+			// made it a gray blur that the list did not read on; the card's tint is thick enough for the text, its
+			// edge lit from the top, and the line under the field a faint one of the text's color
+			backdrop.Justify(ui.Start).Padding(70, 16, 16, 16).Background(cl.Scrim.Alpha(0.1))
+			fill := float32(0.66)
+			if t.Dark {
+				fill = 0.74
+			}
+			panel.Material(glass.Glass{Clarity: 0.4})
+			frameCard(c, panel, cl.Card.Alpha(fill), rad(ryugo.RadiusPop), 2)
+			line = c.Theme().Text.Alpha(0.08)
 		} else {
-			panel.Background(cl.Card)
+			backdrop.Justify(ui.Start).Padding(70, 16, 16, 16).Background(cl.Scrim.Alpha(0.35))
+			panel.Background(cl.Card).Border(1, cl.Hairline)
+			t.Shadows.ShadowPop.Apply(panel)
 		}
-		panel.Border(1, cl.Hairline).Clip().Label(a.palLabel())
-		t.Shadows.ShadowPop.Apply(panel)
+		panel.Clip().Label(a.palLabel())
 		items := a.palLines()
 		if a.pal.query != a.pal.was {
 			a.pal.sel, a.pal.was, a.pal.hseen, a.pal.reveal = 0, a.pal.query, -1, true
@@ -758,7 +769,7 @@ func (a *app) paletteView(c *ui.Context) {
 					a.runItem(items[a.pal.sel])
 				}
 			})
-			ui.Box(c).Height(1).Background(cl.Hairline)
+			ui.Box(c).Height(1).Background(line)
 			a.scrolled(c, "palette:704", nil, ui.Scroll(c).MaxHeight(300), func() {
 				ui.Column(c).Padding(4).Gap(1).Children(func() {
 					if len(items) == 0 {
