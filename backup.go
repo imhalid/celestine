@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -33,8 +34,12 @@ const (
 	backupExt    = ".db.gz"
 )
 
-// backupDir is where the backups are written.
+// backupDir is where the backups are written. A test that sets XDG_CONFIG_HOME has them there, on macOS too, where
+// the config folder does not follow it: a test's backups went into the user's own folder, and showed in their list.
 func backupDir() string {
+	if d := os.Getenv("XDG_CONFIG_HOME"); d != "" && testing.Testing() {
+		return filepath.Join(d, "celestine", "backups")
+	}
 	if d, err := os.UserConfigDir(); err == nil {
 		return filepath.Join(d, "celestine", "backups")
 	}
