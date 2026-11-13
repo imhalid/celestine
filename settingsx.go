@@ -200,7 +200,7 @@ func (a *app) applyProfile(name string) (on bool) {
 	before := a.settings
 	defer func() {
 		if on { // the profile was put on: it can be taken off, as one change
-			a.undoSettings(locales.SettingsProfileOn(name), before)
+			a.undoSettings(locales.SettingsProfileOn(msg(name)), before) // a built-in profile's name is a message: said, not its id
 		}
 	}()
 	data, _ := json.Marshal(a.settings)
@@ -508,8 +508,7 @@ func (a *app) settingsProfiles(c *ui.Context) {
 			settingRow(c, msg(n), help, func() {
 				ui.Row(c).Gap(6).Children(func() {
 					if ryugo.Button(c.Key("prof-use:"+n), locales.CommonApply(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
-						a.applyProfile(n)
-						a.say(toastOK, locales.SettingsProfileOn(msg(n)))
+						a.applyProfile(n) // its notice, with Undo, is its own
 					}
 					if mine && ryugo.Button(c.Key("prof-del:"+n), locales.CommonDelete(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 						a.deleteProfile(n)

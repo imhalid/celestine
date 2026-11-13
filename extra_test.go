@@ -355,3 +355,32 @@ func TestLineChars(t *testing.T) {
 		t.Fatal("a bigger font, the same column")
 	}
 }
+
+// TestProfileNoticeSaysItsName (#464): putting on a built-in profile from the settings says its name, not its message's id,
+// in one notice, the one that can take it back (it said both, once each, with "settings_profileCompact" in one).
+func TestProfileNoticeSaysItsName(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.openSettings()
+	a.setMode = "profiles"
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	before := len(a.toasts.items)
+	a.notice = ""
+	// Compact's Apply: its row's name, where the first row's Apply is beside the first row's name
+	first, ok1 := tt.Find(msg("code"))
+	apply, ok2 := tt.Find(locales.CommonApply())
+	compact, ok3 := tt.Find(msg("settings_profileCompact"))
+	if !ok1 || !ok2 || !ok3 {
+		t.Fatalf("the profiles are not listed: %v", tt.Texts())
+	}
+	tt.ClickAt(apply.X+apply.W/2, compact.Y+(apply.Y-first.Y)+apply.H/2)
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	added := a.toasts.items[before:]
+	if len(added) != 1 || a.notice != "" {
+		t.Fatalf("%d notices, and %q besides: want the one with Undo", len(added), a.notice)
+	}
+	if text := added[0].text; strings.Contains(text, "settings_") || added[0].action == "" {
+		t.Fatalf("the notice says %q, with %q", text, added[0].action)
+	}
+}
