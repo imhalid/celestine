@@ -268,6 +268,15 @@ func (s *siteShot) window(t *testing.T, name string) {
 	s.crop(t, name, 0, 0, shotW, shotH, shotScale)
 }
 
+// card saves the page's card alone, at shotScale: the window without its sidebar and the frame round the panes, which the site
+// puts in a frame of its own; h is how far down it goes, in points from its top.
+func (s *siteShot) card(t *testing.T, name string, h float32) {
+	t.Helper()
+	s.park()
+	x := s.a.sidebarWidth() + 16
+	s.crop(t, name, x, 10, shotW-11-x, h, shotScale)
+}
+
 // crop saves the part x, y, w, h of the window, in points, drawn at scale: a close-up.
 func (s *siteShot) crop(t *testing.T, name string, x, y, w, h, scale float32) {
 	t.Helper()
@@ -302,25 +311,25 @@ func (s *siteShot) around(t *testing.T, label string, pad float32) (x, y, w, h f
 var siteScenes = []siteScene{
 	{"editor", func(t *testing.T, s *siteShot) {
 		s.page()
-		s.window(t, "editor")
+		s.card(t, "editor", 770)
 	}},
 	{"table", func(t *testing.T, s *siteShot) {
 		s.collection(t, "Reading list")
-		s.window(t, "table")
+		s.card(t, "table", 520)
 	}},
 	{"board", func(t *testing.T, s *siteShot) {
 		s.collection(t, "Projects")
-		s.window(t, "board")
+		s.card(t, "board", 440)
 	}},
 	{"calendar", func(t *testing.T, s *siteShot) {
 		s.collection(t, "Journal")
-		s.window(t, "calendar")
+		s.card(t, "calendar", 690)
 	}},
 	{"calendar-day", func(t *testing.T, s *siteShot) {
 		s.collection(t, "Journal")
 		s.a.calDay, s.a.calOpen = siteDay.Add(-3*24*time.Hour), true
 		s.tt.Advance(900 * time.Millisecond)
-		s.window(t, "calendar-day")
+		s.card(t, "calendar-day", 690)
 	}},
 	{"palette", func(t *testing.T, s *siteShot) {
 		s.page()
@@ -328,7 +337,7 @@ var siteScenes = []siteScene{
 		s.tt.Advance(500 * time.Millisecond)
 		s.tt.Type("rel")
 		s.tt.Advance(300 * time.Millisecond)
-		s.window(t, "palette")
+		s.card(t, "palette", 720)
 	}},
 	{"history", func(t *testing.T, s *siteShot) {
 		s.page()
@@ -349,19 +358,19 @@ var siteScenes = []siteScene{
 			}
 		}
 		s.tt.Advance(300 * time.Millisecond)
-		s.window(t, "timelapse")
+		s.card(t, "timelapse", 770)
 	}},
 	{"settings", func(t *testing.T, s *siteShot) {
 		s.page()
 		s.a.openSettings()
 		s.tt.Advance(600 * time.Millisecond)
-		s.window(t, "settings")
+		s.card(t, "settings", shotH-37)
 	}},
 	{"split", func(t *testing.T, s *siteShot) {
 		s.page()
 		s.a.openInSide(place{kind: "page", dir: s.named(t, "Design review").Dir})
 		s.tt.Advance(900 * time.Millisecond)
-		s.window(t, "split")
+		s.card(t, "split", shotH-37)
 	}},
 }
 
