@@ -765,6 +765,7 @@ func (a *app) blockItems() []menuItem {
 	} else if blockHasKids(a.doc.Text(), at) {
 		fold = []menuItem{{title: "blocks_fold", hint: "⌘/", glyph: iconFold, run: done(func() { a.fold(at) })}}
 	}
+	fold = append(fold, a.listItems(at)...) // how its list looks (listmarks.go)
 	return append(fold, []menuItem{
 		{title: "blocks_turnInto", glyph: iconFormat, items: turn},
 		{title: "duplicate2", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},

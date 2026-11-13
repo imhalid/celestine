@@ -111,6 +111,7 @@ var inlineChipKinds = map[string]bool{
 	"embed":    true,
 	"file":     true,
 	"footnote": true,
+	"check":    true, // a task in the running text, its target "x" when done (listmarks.go)
 }
 
 // bodyObjectDecoders maps every non-inline body object kind handled by attachmentOf to its decoder.

@@ -53,6 +53,9 @@ func (ch *chip) markdown() string {
 	if ch.kind == "footnote" {
 		return "[^" + ch.target + "]"
 	}
+	if ch.kind == "check" {
+		return "[" + map[bool]string{true: "x", false: " "}[ch.target == "x"] + "]"
+	}
 	if ch.alias != "" {
 		return "[[" + ch.target + "|" + ch.alias + "]]"
 	}
@@ -66,6 +69,12 @@ func (ch *chip) label() string {
 	}
 	if ch.kind == "fold" {
 		return locales.BlocksFoldedLines(ch.lines)
+	}
+	if ch.kind == "check" {
+		if ch.target == "x" {
+			return locales.ListsInlineTaskDone()
+		}
+		return locales.ListsInlineTask()
 	}
 	if ch.kind == "zoom" {
 		if ch.top {
@@ -124,6 +133,9 @@ func chipOf(inside string) *chip {
 // attachment is the chip as richtext's attachment; how it is drawn
 // depends on the app (its pages, its colors), so the app gives it.
 func (a *app) attachment(ch *chip) *richtext.Attachment {
+	if ch.kind == "check" { // a box, no words (listmarks.go)
+		return &richtext.Attachment{Width: checkChipW(a.fontSize()), Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawCheckChip(p, r, ch) }}
+	}
 	w := a.chipTextWidth(ch.label()) + 2*(chipPad-1) // the text is drawn chipPad-1 in from each side
 	if ch.kind == "date" || ch.kind == "file" {
 		w += chipIcon + 4
@@ -468,6 +480,10 @@ func (a *app) clickChip(x, y float32) bool {
 		}
 		if h.ch.kind == "query" { // the page of the row, or the search
 			a.clickQuery(h, y)
+			return true
+		}
+		if h.ch.kind == "check" { // done, or not done again
+			a.toggleCheckChip(h.ch)
 			return true
 		}
 		if h.ch.kind == "footnote" { // its note

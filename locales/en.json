@@ -1827,5 +1827,22 @@
   "settings_glassHelp": "Translucent macOS glass background tinted to the active theme.",
   "settings_needsRestart": "Needs a restart",
   "common_invalidAttachmentName": "Invalid attachment name: {name}",
-  "@common_invalidAttachmentName": {"placeholders": {"name": {"type": "String"}}}
+  "@common_invalidAttachmentName": {"placeholders": {"name": {"type": "String"}}},
+  "lists_mark": "List mark",
+  "lists_markDot": "Dot",
+  "lists_iconArrow": "Arrow",
+  "lists_iconChevron": "Chevron",
+  "lists_iconStar": "Star",
+  "lists_iconHeart": "Heart",
+  "lists_iconDiamond": "Diamond",
+  "lists_iconDash": "Dash",
+  "lists_iconCheck": "Check",
+  "lists_numbering": "Numbering",
+  "lists_asTasks": "Make the items tasks",
+  "lists_beforeBox": "Before the boxes",
+  "lists_beforeNothing": "Nothing",
+  "lists_beforeBullet": "A bullet",
+  "lists_beforeNumber": "A number",
+  "lists_inlineTask": "Task",
+  "lists_inlineTaskDone": "Task, done"
 }

@@ -16162,3 +16162,173 @@ func CommonInvalidAttachmentName(name string) string {
 func (msgs Messages) CommonInvalidAttachmentName(name string) string {
 	return Catalog.Format(msgs.locale, "common_invalidAttachmentName", map[string]any{"name": name})
 }
+
+// ListsMark says "List mark"
+// in the language the app shows.
+func ListsMark() string { return In(i18n.Locale()).ListsMark() }
+
+// ListsMark says "List mark"
+// in the language of msgs.
+func (msgs Messages) ListsMark() string {
+	return Catalog.Format(msgs.locale, "lists_mark", nil)
+}
+
+// ListsMarkDot says "Dot"
+// in the language the app shows.
+func ListsMarkDot() string { return In(i18n.Locale()).ListsMarkDot() }
+
+// ListsMarkDot says "Dot"
+// in the language of msgs.
+func (msgs Messages) ListsMarkDot() string {
+	return Catalog.Format(msgs.locale, "lists_markDot", nil)
+}
+
+// ListsIconArrow says "Arrow"
+// in the language the app shows.
+func ListsIconArrow() string { return In(i18n.Locale()).ListsIconArrow() }
+
+// ListsIconArrow says "Arrow"
+// in the language of msgs.
+func (msgs Messages) ListsIconArrow() string {
+	return Catalog.Format(msgs.locale, "lists_iconArrow", nil)
+}
+
+// ListsIconChevron says "Chevron"
+// in the language the app shows.
+func ListsIconChevron() string { return In(i18n.Locale()).ListsIconChevron() }
+
+// ListsIconChevron says "Chevron"
+// in the language of msgs.
+func (msgs Messages) ListsIconChevron() string {
+	return Catalog.Format(msgs.locale, "lists_iconChevron", nil)
+}
+
+// ListsIconStar says "Star"
+// in the language the app shows.
+func ListsIconStar() string { return In(i18n.Locale()).ListsIconStar() }
+
+// ListsIconStar says "Star"
+// in the language of msgs.
+func (msgs Messages) ListsIconStar() string {
+	return Catalog.Format(msgs.locale, "lists_iconStar", nil)
+}
+
+// ListsIconHeart says "Heart"
+// in the language the app shows.
+func ListsIconHeart() string { return In(i18n.Locale()).ListsIconHeart() }
+
+// ListsIconHeart says "Heart"
+// in the language of msgs.
+func (msgs Messages) ListsIconHeart() string {
+	return Catalog.Format(msgs.locale, "lists_iconHeart", nil)
+}
+
+// ListsIconDiamond says "Diamond"
+// in the language the app shows.
+func ListsIconDiamond() string { return In(i18n.Locale()).ListsIconDiamond() }
+
+// ListsIconDiamond says "Diamond"
+// in the language of msgs.
+func (msgs Messages) ListsIconDiamond() string {
+	return Catalog.Format(msgs.locale, "lists_iconDiamond", nil)
+}
+
+// ListsIconDash says "Dash"
+// in the language the app shows.
+func ListsIconDash() string { return In(i18n.Locale()).ListsIconDash() }
+
+// ListsIconDash says "Dash"
+// in the language of msgs.
+func (msgs Messages) ListsIconDash() string {
+	return Catalog.Format(msgs.locale, "lists_iconDash", nil)
+}
+
+// ListsIconCheck says "Check"
+// in the language the app shows.
+func ListsIconCheck() string { return In(i18n.Locale()).ListsIconCheck() }
+
+// ListsIconCheck says "Check"
+// in the language of msgs.
+func (msgs Messages) ListsIconCheck() string {
+	return Catalog.Format(msgs.locale, "lists_iconCheck", nil)
+}
+
+// ListsNumbering says "Numbering"
+// in the language the app shows.
+func ListsNumbering() string { return In(i18n.Locale()).ListsNumbering() }
+
+// ListsNumbering says "Numbering"
+// in the language of msgs.
+func (msgs Messages) ListsNumbering() string {
+	return Catalog.Format(msgs.locale, "lists_numbering", nil)
+}
+
+// ListsAsTasks says "Make the items tasks"
+// in the language the app shows.
+func ListsAsTasks() string { return In(i18n.Locale()).ListsAsTasks() }
+
+// ListsAsTasks says "Make the items tasks"
+// in the language of msgs.
+func (msgs Messages) ListsAsTasks() string {
+	return Catalog.Format(msgs.locale, "lists_asTasks", nil)
+}
+
+// ListsBeforeBox says "Before the boxes"
+// in the language the app shows.
+func ListsBeforeBox() string { return In(i18n.Locale()).ListsBeforeBox() }
+
+// ListsBeforeBox says "Before the boxes"
+// in the language of msgs.
+func (msgs Messages) ListsBeforeBox() string {
+	return Catalog.Format(msgs.locale, "lists_beforeBox", nil)
+}
+
+// ListsBeforeNothing says "Nothing"
+// in the language the app shows.
+func ListsBeforeNothing() string { return In(i18n.Locale()).ListsBeforeNothing() }
+
+// ListsBeforeNothing says "Nothing"
+// in the language of msgs.
+func (msgs Messages) ListsBeforeNothing() string {
+	return Catalog.Format(msgs.locale, "lists_beforeNothing", nil)
+}
+
+// ListsBeforeBullet says "A bullet"
+// in the language the app shows.
+func ListsBeforeBullet() string { return In(i18n.Locale()).ListsBeforeBullet() }
+
+// ListsBeforeBullet says "A bullet"
+// in the language of msgs.
+func (msgs Messages) ListsBeforeBullet() string {
+	return Catalog.Format(msgs.locale, "lists_beforeBullet", nil)
+}
+
+// ListsBeforeNumber says "A number"
+// in the language the app shows.
+func ListsBeforeNumber() string { return In(i18n.Locale()).ListsBeforeNumber() }
+
+// ListsBeforeNumber says "A number"
+// in the language of msgs.
+func (msgs Messages) ListsBeforeNumber() string {
+	return Catalog.Format(msgs.locale, "lists_beforeNumber", nil)
+}
+
+// ListsInlineTask says "Task"
+// in the language the app shows.
+func ListsInlineTask() string { return In(i18n.Locale()).ListsInlineTask() }
+
+// ListsInlineTask says "Task"
+// in the language of msgs.
+func (msgs Messages) ListsInlineTask() string {
+	return Catalog.Format(msgs.locale, "lists_inlineTask", nil)
+}
+
+// ListsInlineTaskDone says "Task, done"
+// in the language the app shows.
+func ListsInlineTaskDone() string { return In(i18n.Locale()).ListsInlineTaskDone() }
+
+// ListsInlineTaskDone says "Task, done"
+// in the language of msgs.
+func (msgs Messages) ListsInlineTaskDone() string {
+	return Catalog.Format(msgs.locale, "lists_inlineTaskDone", nil)
+}

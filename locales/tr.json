@@ -1587,5 +1587,22 @@
   "settings_glassHelp": "Aktif temanın tonuyla renklendirilmiş yarı saydam macOS cam arka planı.",
   "settings_needsRestart": "Yeniden başlatma gerekir",
   "common_invalidAttachmentName": "Geçersiz ek dosya adı: {name}",
-  "@common_invalidAttachmentName": {"placeholders": {"name": {"type": "String"}}}
+  "@common_invalidAttachmentName": {"placeholders": {"name": {"type": "String"}}},
+  "lists_mark": "Liste imi",
+  "lists_markDot": "Nokta",
+  "lists_iconArrow": "Ok",
+  "lists_iconChevron": "Köşeli ok",
+  "lists_iconStar": "Yıldız",
+  "lists_iconHeart": "Kalp",
+  "lists_iconDiamond": "Karo",
+  "lists_iconDash": "Tire",
+  "lists_iconCheck": "Tik",
+  "lists_numbering": "Numaralama",
+  "lists_asTasks": "Maddeleri görev yap",
+  "lists_beforeBox": "Kutuların önünde",
+  "lists_beforeNothing": "Hiçbir şey",
+  "lists_beforeBullet": "Bir madde imi",
+  "lists_beforeNumber": "Bir numara",
+  "lists_inlineTask": "Görev",
+  "lists_inlineTaskDone": "Görev, bitti"
 }

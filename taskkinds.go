@@ -280,6 +280,9 @@ func (a *app) taskBoxAt(b richtext.ParagraphBox, st richtext.ParagraphStyle) (ui
 		return ui.Rect{}, false
 	}
 	size := a.font.Size
+	if a.markedTask(b.Index, st) { // a bullet or a number before it: the box at the end of the room (listmarks.go)
+		return markedTaskBox(cb.full.X, cb.full, size), true
+	}
 	indent := size * a.theme.Indent
 	box := size * 0.95
 	x := cb.full.X - indent + (indent-box)/2 - indent*0.1

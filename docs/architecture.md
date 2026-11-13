@@ -109,6 +109,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `clipmodes.go` | Copy and paste as Markdown, plain text or HTML; ⌘C/⌘V inside the app keeping code languages, task kinds and dividers |
 | `search.go`, `searchindex.go`, `searchquery.go`, `queryblock.go`, `tags.go`, `tasks.go` | Search: the index, the query language (OR, NOT, groups, tasks, days, properties), the query block, and dedicated tags/tasks views |
 | `journal.go`, `naturaldate.go`, `dates.go`, `taskkinds.go` | The journal (a day's page, the day before and after, a day by name), dates said in words and date helpers, and the kinds of tasks |
+| `listmarks.go` | Lists of the app's own look (#493): a bullet that is an emoji or an icon, Roman numerals, a bullet or a number before each box of a list of tasks, said by the ID of one item (`celestine:list:`) for the whole list and drawn over richtext's markers; a task in the running text, a chip (`check`) |
 | `lapseui.go`, `internal/library/timelapse.go` | A page's time-lapse: its words in the colors of the days they were written, from its versions |
 | `timemachine.go`, `tmside.go`, `tmdiff.go`, `historyui.go`, `tmreveal.go` | A page's history: its copies as a stack in the page's room, the timeline of their days in the sidebar, where the tree fades out, history UI/reveal, and a copy's differences from the page now, side by side |
 | `quicksettings.go` | The gear at the top left: a short menu of the settings used most, with the dialog of all of them at its end |

@@ -279,12 +279,13 @@ type app struct {
 	treeSigSeen   uint64
 	cdrag         collDragState
 	collRects     map[*Collection]ui.Rect
-	ctx           ctxMenu   // the context menu (ctxmenu.go)
-	frame         func()    // asks for a frame that builds the view
-	links         linkIndex // who links to whom (backlinks.go)
-	web           webLinks  // the web pages links go to, as far as they are known (linkcards.go)
-	hoverCh       *chip     // the chip the pointer is over
-	dateEdit      dateEdit  // the calendar a date chip opens
+	ctx           ctxMenu    // the context menu (ctxmenu.go)
+	frame         func()     // asks for a frame that builds the view
+	links         linkIndex  // who links to whom (backlinks.go)
+	web           webLinks   // the web pages links go to, as far as they are known (linkcards.go)
+	listMarks     *listMarks // the lists of the page's text and their looks, read once for each text (listmarks.go)
+	hoverCh       *chip      // the chip the pointer is over
+	dateEdit      dateEdit   // the calendar a date chip opens
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.
@@ -1367,6 +1368,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawMatches(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
+		a.drawListMarks(p, r)
 		a.drawTasks(p, r)
 		a.drawWhite(p, r)
 		a.drawFocusVeil(p, r)
@@ -1557,7 +1559,7 @@ func (a *app) track(c *ui.Context) {
 		text, v = a.doc.Text(), a.doc.Version()
 		n = text.Len()
 	}
-	if a.chipShortcut(text, caret, single) {
+	if a.chipShortcut(text, caret, single) || a.checkShortcut(text, caret, single) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
