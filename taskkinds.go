@@ -381,6 +381,7 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 			a.drawTaskBack(p, at, color, look.Checkmark)
 		} else {
 			a.drawTaskFace(p, at, kind, hasKind, look.Muted, th)
+			drawTaskPart(p, at, a.subtasksOf().count[b.Index], color) // as far as its subtasks are done (subtasks.go)
 		}
 	}
 	if busy || len(fx.bits) > 0 {

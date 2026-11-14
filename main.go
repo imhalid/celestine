@@ -185,6 +185,7 @@ type app struct {
 	charW       map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
 	sy          syncUI             // the state of synchronization (syncapp.go)
 	nt          notifyState        // the system's notifications (notify.go)
+	subtasks    subtaskState       // the counts of tasks' subtasks (subtasks.go)
 	ac          acctUI             // the account: signing in, its devices (account.go)
 	vimReg      richtext.Text      // what dd and yy took, for p
 	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
@@ -1296,7 +1297,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		OnCommand:    a.editorCommand, // the menus' copy and paste, as their keys (clipmodes.go)
 		Spans:        a.editorSpans,   // code colored, letters spaced (codecolors.go)
 		SpansVersion: a.spansVersion(),
-		Space:        a.blockRoom, // the room a block dragged opens where it would go (blockui.go)
+		Space:        a.paraRoom, // the room a block dragged opens where it would go (blockui.go), and a parent task's chip (subtasks.go)
 		ReadOnly:     p.Unreadable != "",
 		// the page scrolls as a whole, the editor as tall as its text, however long: no bar of its own beside the
 		// page's, which showed when a split pane narrowed it and the height worked out was a frame behind (#190), and

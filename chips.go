@@ -343,14 +343,27 @@ func (a *app) drawChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.RichText(x, r.Y+(r.H-h)/2, r.X+r.W-x, span)
 }
 
-// foldTasks is how many of the lines a fold's chip holds are tasks, and how many of them are done: 0 for any other
-// chip.
+// foldTasks is how many of the lines a fold's chip holds are tasks right under the folded line, and how many of them
+// are done: its direct subtasks, as a task's chip counts them unfolded (subtasks.go); 0 for any other chip.
 func foldTasks(ch *chip) (n, done int) {
 	if ch.kind != "fold" || ch.hidden == nil {
 		return 0, 0
 	}
+	var paras []richtext.Paragraph // what the fold holds ends with its last newline: the empty paragraph after it is none of it
 	for _, para := range ch.hidden.Paragraphs() {
-		if para.Style.List == richtext.Tasks {
+		paras = append(paras, para)
+	}
+	if k := len(paras) - 1; k >= 0 && paraEmpty(paras[k]) {
+		paras = paras[:k]
+	}
+	top := -1 // the indent of the lines right under it: the least in the fold
+	for _, para := range paras {
+		if para.Style.List != 0 && (top < 0 || para.Style.Indent < top) {
+			top = para.Style.Indent
+		}
+	}
+	for _, para := range paras {
+		if para.Style.List == richtext.Tasks && para.Style.Indent == top {
 			n++
 			if para.Style.Checked {
 				done++
@@ -358,6 +371,16 @@ func foldTasks(ch *chip) (n, done int) {
 		}
 	}
 	return n, done
+}
+
+// paraEmpty reports whether para has no text.
+func paraEmpty(para richtext.Paragraph) bool {
+	for _, r := range para.Runs {
+		if r.Text != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // drawTaskRing is the ring of a folded task's sub-tasks, round cx, cy (#494): a dash for each, going green as it is

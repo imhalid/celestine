@@ -13879,6 +13879,16 @@ func (msgs Messages) TasksFoldLabel(page string) string {
 	return Catalog.Format(msgs.locale, "tasks_foldLabel", map[string]any{"page": page})
 }
 
+// TasksFoldSubtasks says "Fold the subtasks"
+// in the language the app shows.
+func TasksFoldSubtasks() string { return In(i18n.Locale()).TasksFoldSubtasks() }
+
+// TasksFoldSubtasks says "Fold the subtasks"
+// in the language of msgs.
+func (msgs Messages) TasksFoldSubtasks() string {
+	return Catalog.Format(msgs.locale, "tasks_foldSubtasks", nil)
+}
+
 // TasksGoToLineLabel says "Go to line: {text}"
 // in the language the app shows.
 func TasksGoToLineLabel(text string) string { return In(i18n.Locale()).TasksGoToLineLabel(text) }
@@ -13977,6 +13987,18 @@ func TasksSearchTasks2() string { return In(i18n.Locale()).TasksSearchTasks2() }
 // in the language of msgs.
 func (msgs Messages) TasksSearchTasks2() string {
 	return Catalog.Format(msgs.locale, "tasks_searchTasks2", nil)
+}
+
+// TasksSubtasksDone says "{done} of {total, plural, one {# subtask} other {# subtasks}} done"
+// in the language the app shows.
+func TasksSubtasksDone(done int, total int) string {
+	return In(i18n.Locale()).TasksSubtasksDone(done, total)
+}
+
+// TasksSubtasksDone says "{done} of {total, plural, one {# subtask} other {# subtasks}} done"
+// in the language of msgs.
+func (msgs Messages) TasksSubtasksDone(done int, total int) string {
+	return Catalog.Format(msgs.locale, "tasks_subtasksDone", map[string]any{"done": done, "total": total})
 }
 
 // TasksTaskLabel says "Task: {text}"
