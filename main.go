@@ -795,6 +795,7 @@ func savedLang(store *Store) string {
 // frameTheme gives the window of the frame the app's look: Ryugo's tokens, in the app's color theme, its
 // typeface, and the text's theme. Every window of the app has it, the torn-off panes' too (dockwin.go).
 func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
+	a.applyZoom(c) // the window's zoom, before anything is laid out (winzoom.go)
 	mode := []ryugo.Mode{ryugo.ModeInherit, ryugo.Light, ryugo.Dark}[a.settings.Theme%3]
 	radiusScale = float32(a.cornerPercent()) / 100
 	// Ryugo's theme, its components' tokens, for the appearance; a pressed button's wave as the settings say

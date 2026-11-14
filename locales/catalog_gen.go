@@ -15607,6 +15607,46 @@ func (msgs Messages) View() string {
 	return Catalog.Format(msgs.locale, "view", nil)
 }
 
+// ViewActualSize says "Actual size"
+// in the language the app shows.
+func ViewActualSize() string { return In(i18n.Locale()).ViewActualSize() }
+
+// ViewActualSize says "Actual size"
+// in the language of msgs.
+func (msgs Messages) ViewActualSize() string {
+	return Catalog.Format(msgs.locale, "view_actualSize", nil)
+}
+
+// ViewZoom says "Zoom"
+// in the language the app shows.
+func ViewZoom() string { return In(i18n.Locale()).ViewZoom() }
+
+// ViewZoom says "Zoom"
+// in the language of msgs.
+func (msgs Messages) ViewZoom() string {
+	return Catalog.Format(msgs.locale, "view_zoom", nil)
+}
+
+// ViewZoomIn says "Zoom in"
+// in the language the app shows.
+func ViewZoomIn() string { return In(i18n.Locale()).ViewZoomIn() }
+
+// ViewZoomIn says "Zoom in"
+// in the language of msgs.
+func (msgs Messages) ViewZoomIn() string {
+	return Catalog.Format(msgs.locale, "view_zoomIn", nil)
+}
+
+// ViewZoomOut says "Zoom out"
+// in the language the app shows.
+func ViewZoomOut() string { return In(i18n.Locale()).ViewZoomOut() }
+
+// ViewZoomOut says "Zoom out"
+// in the language of msgs.
+func (msgs Messages) ViewZoomOut() string {
+	return Catalog.Format(msgs.locale, "view_zoomOut", nil)
+}
+
 // ViewsCardLabel says "Card: {title}"
 // in the language the app shows.
 func ViewsCardLabel(title string) string { return In(i18n.Locale()).ViewsCardLabel(title) }

@@ -133,7 +133,7 @@ func tabOfField(f string) int {
 	case f == "hideSaved" || f == "showChars" || f == "showPos" || f == "hideStatus":
 		return tabStatus
 	case f == "theme" || f == "appTheme" || f == "pageWidth" || f == "corner" || f == "lang" ||
-		f == "reduceMotion" || f == "noShaders" || f == "noWaves" || f == "noSidebarCard":
+		f == "reduceMotion" || f == "noShaders" || f == "noWaves" || f == "noSidebarCard" || f == "zoom":
 		return tabAppearance
 	}
 	return tabEditor

@@ -135,6 +135,7 @@ type Settings struct {
 	NoSound       bool           `json:"noSound,omitempty"`    // the app plays no sound effects (sound.go)
 	StartChord    bool           `json:"startChord,omitempty"` // a chord is heard each time the window opens; off by default (sound.go)
 	NoWaves       bool           `json:"noWaves,omitempty"`    // a pressed button sends no wave through itself (Ryugo's Options.Waves)
+	Zoom          float32        `json:"zoom,omitempty"`       // the window's zoom, 0 for none (winzoom.go)
 	Corner        *int           `json:"corner,omitempty"`     // how round the corners are, in percent (radius.go)
 	QuickKey      string         `json:"quickKey,omitempty"`   // the quick note's global key
 	TreeSaved     bool           `json:"treeSaved,omitempty"`

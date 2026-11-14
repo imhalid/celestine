@@ -91,17 +91,17 @@ func TestAutoSaveDelay(t *testing.T) {
 	}
 }
 
-// ⌘= and ⌘- change the text's size, ⌘0 puts it back.
+// ⌥⌘= and ⌥⌘- change the text's size, ⌥⌘0 puts it back (⌘= and ⌘- zoom the window, winzoom.go).
 func TestFontKeys(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	base := a.fontSize()
-	tt.Key(ui.Cmd, ui.KeyEqual)
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyEqual)
 	tt.Advance(20 * time.Millisecond)
 	if a.fontSize() != base+1 {
 		t.Fatalf("bigger: %v", a.fontSize())
 	}
-	tt.Key(ui.Cmd, ui.KeyMinus)
-	tt.Key(ui.Cmd, ui.KeyMinus)
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyMinus)
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyMinus)
 	tt.Advance(20 * time.Millisecond)
 	if a.fontSize() != base-1 {
 		t.Fatalf("smaller: %v", a.fontSize())
@@ -112,7 +112,7 @@ func TestFontKeys(t *testing.T) {
 	if a.fontSize() != minFont {
 		t.Fatalf("no floor: %v", a.fontSize())
 	}
-	tt.Key(ui.Cmd, ui.Key0)
+	tt.Key(ui.Cmd|ui.Alt, ui.Key0)
 	tt.Advance(20 * time.Millisecond)
 	if a.fontSize() != base {
 		t.Fatalf("reset: %v", a.fontSize())
