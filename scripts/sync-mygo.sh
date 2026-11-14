@@ -24,6 +24,12 @@ else
 fi
 echo "putting the patches on $onto"
 git -C "$MYGO" checkout -q celestine
+# a patch committed here and not pushed would be lost to the reset: stop and say so instead (#261)
+if [ -n "$(git -C "$MYGO" log --oneline origin/celestine..celestine)" ]; then
+	echo "celestine in $MYGO has commits origin/celestine does not; push or drop them first:"
+	git -C "$MYGO" log --oneline origin/celestine..celestine
+	exit 1
+fi
 git -C "$MYGO" reset -q --hard origin/celestine
 git -C "$MYGO" rebase --empty=drop "$onto"
 git -C "$MYGO" log --oneline "$onto"..celestine

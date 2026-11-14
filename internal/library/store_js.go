@@ -44,7 +44,6 @@ type Store struct {
 	// writeErr is what the last write said, or nil (WriteError).
 	writeErr   error
 	retryTimer *time.Timer
-	Now        func() time.Time
 	// Writes counts the changes to the files and folders, as the Store of a file has it (store_sql.go).
 	Writes atomic.Uint64
 }
@@ -339,7 +338,7 @@ func (s *Store) DeleteMeta(key string) error {
 
 // Snapshot: a browser has no file to copy; the library is exported or synced instead.
 func (s *Store) Snapshot(dst string) error {
-	return errors.New("tarayıcıda dosya kopyası yok: dışa aktar ya da eşitle")
+	return errors.New("a browser has no file to copy: export the library or sync it")
 }
 
 func (s *Store) get(name string) (*jnode, error) {
