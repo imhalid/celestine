@@ -793,6 +793,8 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 		opts.Mode, opts.Accent = map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], a.accentOf(tok.Dark)
 		tok = ryugo.Root(c, opts)
 		a.skin(tok, c.Theme())
+	} else {
+		lightLevels(tok) // Ryugo's own light, its steps set apart (#491)
 	}
 	t := c.Theme()
 	// the typeface of the window, from the first one that is installed: put in before anything reads the theme,
@@ -1217,7 +1219,7 @@ func (a *app) viewFrame(c *ui.Context) {
 // bg is the page's background: Ryugo's, but in the dark not its black -
 // its card's dark gray, a step below the sidebar.
 func (a *app) bg(c *ui.Context) ui.Color {
-	if t := ryugo.From(c); t.Dark && a.appTheme().colors(true).bg == "" { // Ryugo's own dark: the page is its card
+	if t := ryugo.From(c); a.appTheme().colors(t.Dark).bg == "" { // Ryugo's own, dark and light: the page is its card (#491)
 		return t.Colors.Card
 	}
 	return c.Theme().Background // a theme's page is its own color

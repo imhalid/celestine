@@ -47,7 +47,7 @@ func (a *app) libStatsNow() libStats {
 func statTile(c *ui.Context, key, label, value string) {
 	label = msg(label)
 	cl := ryugo.From(c).Colors
-	ui.Column(c.Key(key)).Grow(1).MinWidth(110).Padding(12, 14).Gap(2).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+	ui.Column(c.Key(key)).Grow(1).MinWidth(110).Padding(12, 14).Gap(2).Radius(rad(12)).Background(groupBg(cl)).Border(1, cl.WellBorder).Children(func() {
 		ui.Text(c, value).FontSize(22).FontWeight(700).TextColor(cl.Text).MaxLines(1)
 		ui.Text(c, label).FontSize(12).TextColor(cl.Muted).MaxLines(1)
 	})

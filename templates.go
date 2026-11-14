@@ -136,7 +136,7 @@ func (a *app) csTemplates(c *ui.Context) {
 	for i := range d.Templates {
 		i := i
 		t := &d.Templates[i]
-		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(rad(12)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+		ui.Column(c.Key("cs-tpl:"+itoa(i+1))).FillWidth().Gap(6).Padding(10).Radius(rad(12)).Background(groupBg(cl)).Border(1, cl.WellBorder).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				a.fieldMenu(ryugo.Input(c.Key("cs-tpl-name"), &t.Name, ryugo.InputOptions{Label: locales.TemplatesTheTemplatesName(), Placeholder: locales.TemplatesMeetingNotes(), Size: ryugo.Sm}), &t.Name, fieldOpts{oneLine: true}).Grow(1)
 				if ryugo.Button(c.Key("cs-tpl-del"), locales.TemplatesDeleteTemplate(), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {

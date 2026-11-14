@@ -256,3 +256,44 @@ func themeMock(c *ui.Context, p skinColors, dark bool, own ryugo.Colors) {
 		})
 	})
 }
+
+// leveled are the scopes of Ryugo's own light already given lightLevels.
+var leveled = map[*ryugo.Tokens]bool{}
+
+// lightLevels sets the steps of Ryugo's own light theme apart, once a scope (#491). Ryugo's light is a page of 0.97
+// with wells of 0.95 on it: a group of settings, a field and the page it lies on were one gray with a line round it.
+// Here the page is the white card (bg), a group lies a step under it (groupBg), and a field, a segmented track or a
+// chip a step more, with a border that reads: ground, card, group, control, each a step apart in lightness. The dark
+// theme already has them apart (card 0.18, well 0.23) and is left as it is.
+func lightLevels(t *ryugo.Tokens) {
+	if t.Dark || leveled[t] {
+		return
+	}
+	leveled[t] = true
+	cl := &t.Colors
+	cl.Well = ui.Oklch(0.94, 0.005, 286)          // a control: field, track, chip (Ryugo 0.95)
+	cl.WellStrong = ui.Oklch(0.86, 0.005, 286)    // the off switch's track (0.88)
+	cl.WellBorder = ui.Oklch(0, 0, 0).Alpha(0.11) // a control's line (0.08)
+	cl.ControlBorder = ui.Oklch(0, 0, 0).Alpha(0.13)
+	cl.Surface2 = ui.Oklch(0.955, 0.004, 286)
+	cl.Fill = ui.Oklch(0, 0, 0).Alpha(0.05) // a hover or a header (0.04)
+}
+
+// groupBg is the ground of a group of rows (settings, templates, the stats' tiles): a step between the card and a
+// control's well, so that a field in the group still has a ground of its own, in light and dark and in every theme
+// (#491). In Ryugo's own the page is the card, and the group lies a step under it; in a theme the page is its own
+// color and the group, nearer the card, stands a little over it.
+func groupBg(cl ryugo.Colors) ui.Color {
+	return ryugo.Mix(cl.Card, cl.Well, 0.5)
+}
+
+// fieldLook gives a text field of the app's own the look of Ryugo's Input: a well with its line at rest, the surface
+// and a border of the accent while it has the focus, so that it has a ground of its own on the page and in a group
+// (#491).
+func fieldLook(in ui.Element, cl ryugo.Colors, focused bool) {
+	if focused {
+		in.Background(cl.Surface).Border(1, cl.Accent.Alpha(0.7))
+		return
+	}
+	in.Background(cl.Well).Border(1, cl.WellBorder)
+}

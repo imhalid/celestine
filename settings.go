@@ -230,7 +230,7 @@ func (a *app) settingsGo(i int) {
 // settingGroup is a card of settings, a line between them.
 func settingGroup(c *ui.Context, key string, rows ...func()) {
 	cl := ryugo.From(c).Colors
-	ui.Column(c.Key(key)).FillWidth().Radius(rad(16)).Background(cl.Well).Border(1, cl.WellBorder).Children(func() {
+	ui.Column(c.Key(key)).FillWidth().Radius(rad(16)).Background(groupBg(cl)).Border(1, cl.WellBorder).Children(func() {
 		for i, r := range rows {
 			if i > 0 {
 				// a line between two rows, inset as the rows are, of the text's color: the hairline is lost on a dark well

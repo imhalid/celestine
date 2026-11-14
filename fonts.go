@@ -315,7 +315,8 @@ func (a *app) settingsFonts(c *ui.Context) {
 				}
 				q := a.fonts.query[ri]
 				in := ui.TextInputBase(c.Key("fontq"+strconv.Itoa(ri)), &q).Label(locales.FontsSearchTypefaces()).Placeholder(locales.FontsSearchTypefaces2()).PlaceholderColor(cl.Muted).
-					FontSize(13).Padding(7, 10).Radius(rad(8)).Background(cl.Card).Border(1, cl.Hairline).FocusRing(false)
+					FontSize(13).Padding(7, 10).Radius(rad(8)).FocusRing(false)
+				fieldLook(in, cl, in.Focused())
 				a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.fonts.query[ri] = q }})
 				if in.Changed() {
 					a.fonts.query[ri] = q

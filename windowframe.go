@@ -87,7 +87,7 @@ func (g frameGround) paint(p *ui.Painter, r ui.Rect) {
 // over another. fill may be translucent, as the sidebar's, to let the ground's tint through.
 func frameCard(c *ui.Context, el ui.Element, fill ui.Color, radius, lift float32) {
 	t := c.Theme()
-	sheen, rim, shade := float32(0.06), t.Text.Alpha(0.07), float32(0.08)
+	sheen, rim, shade := float32(0.022), t.Text.Alpha(0.08), float32(0.08) // light: a white card would take a gray band at its top (#491)
 	if t.Dark {
 		sheen, rim, shade = 0.05, t.Text.Alpha(0.09), 0.32
 	}
