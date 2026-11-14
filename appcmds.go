@@ -77,6 +77,7 @@ func appCommands() []appCmd {
 		{title: "view_zoomIn", accel: "cmd+=", menu: "view", sep: true, glyph: iconMaximize, run: func(a *app) { a.stepZoom(1) }},
 		{title: "view_zoomOut", accel: "cmd+-", menu: "view", glyph: iconMinimize, run: func(a *app) { a.stepZoom(-1) }},
 		{title: "view_actualSize", accel: "cmd+0", menu: "view", glyph: iconSearch, run: func(a *app) { a.setZoom(1) }},
+		{title: "tuner_open", menu: "view", glyph: iconSettings, run: (*app).openTuner}, // temporary (#511)
 		{title: "biggerText", accel: "alt+cmd+=", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(1) }},
 		{title: "smallerText", accel: "alt+cmd+-", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(-1) }},
 		{title: "resetTheFontSize", accel: "alt+cmd+0", menu: "view", glyph: iconEditing, run: (*app).resetFont},

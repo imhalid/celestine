@@ -118,6 +118,7 @@ type app struct {
 	glassBg       ui.Color                // the page background glassTint was made from
 	glassDark     bool                    // and whether the window was dark
 	glassHasTint  bool                    // whether glassBg and glassDark are those of the last tint made
+	glassAlpha    float32                 // the tint's opacity it was made with (the color tuner changes it)
 	glassTintRuns int                     // counts glassTint() string builds for verifying per-frame skip
 	caretDraws    int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
 	caretFB       caretFallback           // cached editor CaretRect fallback for oversized paragraphs (#213)
@@ -268,6 +269,7 @@ type app struct {
 	hoverBorder   borderKey
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
+	tuner         tunerState         // the color tuner, a temporary tool (colortuner.go)
 	lightbox      *picHit            // the picture shown large
 	ptags         []string           // the open page's tags, for the side panel
 	ptagsVer      uint64
@@ -832,6 +834,7 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	}
 	a.theme = th
 	th.CodeFont = a.monoFont()
+	a.tuneTheme(c, tok) // the color tuner's changes, last (colortuner.go, #511)
 	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
 	return tok, th
 }
@@ -1045,7 +1048,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.track(c)
 	}
 
-	a.pageBg = a.bg(c)
+	a.pageBg = a.tunePage(c, a.bg(c))
 	a.syncGlassTint(c)
 	// A new look (light or dark, or another color theme) is a new tree: what was there
 	// would take each color over a moment of its own - the sidebar, the inputs, the

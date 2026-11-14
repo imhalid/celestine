@@ -106,11 +106,7 @@ const sidebarGlass = 0.82
 
 // glassTint formats a CSS rgba() tint from bg for macOS Liquid Glass (NSGlassEffectView.tintColor),
 // keeping the glass translucent while carrying the active theme's hue.
-func glassTint(bg ui.Color, dark bool) string {
-	alpha := 0.48
-	if dark {
-		alpha = 0.56
-	}
+func glassTint(bg ui.Color, alpha float32) string {
 	return fmt.Sprintf("rgba(%d, %d, %d, %.2f)", bg.R, bg.G, bg.B, alpha)
 }
 
@@ -141,10 +137,12 @@ func (a *app) syncGlassTint(c *ui.Context) {
 		return
 	}
 	dark := ryugo.From(c).Dark
-	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark {
+	alpha := a.tuneAlpha(c, "glass.tint", map[bool]float32{false: 0.48, true: 0.56}[dark])
+	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark && a.glassAlpha == alpha {
 		return
 	}
-	tint := glassTint(a.pageBg, dark)
+	a.glassAlpha = alpha
+	tint := glassTint(a.pageBg, alpha)
 	a.glassTintRuns++
 	a.glassTint, a.glassBg, a.glassDark, a.glassHasTint = tint, a.pageBg, dark, true
 	if a.wel.win != nil {

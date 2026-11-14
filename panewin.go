@@ -57,7 +57,7 @@ func (a *app) paneWindowView(c *ui.Context, id string) {
 		return
 	}
 	_, th := a.frameTheme(c)
-	a.pageBg = a.bg(c)
+	a.pageBg = a.tunePage(c, a.bg(c))
 	ui.Column(c).Fill().Background(a.pageBg).Children(func() {
 		ryugo.Dock(c.Key("panes:"+id), a.ps.layout, ryugo.DockOptions{Window: id, Kinds: a.paneKinds(th), MinSize: 240, Host: a.host()}).Grow(1)
 	})
