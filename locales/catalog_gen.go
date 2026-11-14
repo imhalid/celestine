@@ -7753,6 +7753,126 @@ func (msgs Messages) NothingIsDrawnAtTheBottom() string {
 	return Catalog.Format(msgs.locale, "nothingIsDrawnAtTheBottom", nil)
 }
 
+// NotifyAllow says "Notify me"
+// in the language the app shows.
+func NotifyAllow() string { return In(i18n.Locale()).NotifyAllow() }
+
+// NotifyAllow says "Notify me"
+// in the language of msgs.
+func (msgs Messages) NotifyAllow() string {
+	return Catalog.Format(msgs.locale, "notify_allow", nil)
+}
+
+// NotifyAsk says "While you were away: {what}. Get a notification next time?"
+// in the language the app shows.
+func NotifyAsk(what string) string { return In(i18n.Locale()).NotifyAsk(what) }
+
+// NotifyAsk says "While you were away: {what}. Get a notification next time?"
+// in the language of msgs.
+func (msgs Messages) NotifyAsk(what string) string {
+	return Catalog.Format(msgs.locale, "notify_ask", map[string]any{"what": what})
+}
+
+// NotifyDenied says "Notifications are turned off for Celestine in your system settings"
+// in the language the app shows.
+func NotifyDenied() string { return In(i18n.Locale()).NotifyDenied() }
+
+// NotifyDenied says "Notifications are turned off for Celestine in your system settings"
+// in the language of msgs.
+func (msgs Messages) NotifyDenied() string {
+	return Catalog.Format(msgs.locale, "notify_denied", nil)
+}
+
+// NotifyName says "Notifications"
+// in the language the app shows.
+func NotifyName() string { return In(i18n.Locale()).NotifyName() }
+
+// NotifyName says "Notifications"
+// in the language of msgs.
+func (msgs Messages) NotifyName() string {
+	return Catalog.Format(msgs.locale, "notify_name", nil)
+}
+
+// NotifyOnBody says "Celestine will tell you here when sync needs you or a new version is out."
+// in the language the app shows.
+func NotifyOnBody() string { return In(i18n.Locale()).NotifyOnBody() }
+
+// NotifyOnBody says "Celestine will tell you here when sync needs you or a new version is out."
+// in the language of msgs.
+func (msgs Messages) NotifyOnBody() string {
+	return Catalog.Format(msgs.locale, "notify_onBody", nil)
+}
+
+// NotifyOnTitle says "Notifications are on"
+// in the language the app shows.
+func NotifyOnTitle() string { return In(i18n.Locale()).NotifyOnTitle() }
+
+// NotifyOnTitle says "Notifications are on"
+// in the language of msgs.
+func (msgs Messages) NotifyOnTitle() string {
+	return Catalog.Format(msgs.locale, "notify_onTitle", nil)
+}
+
+// NotifySub says "While Celestine is behind other apps, a notification says when sync stops or finds a conflict, and when a new version…"
+// in the language the app shows.
+func NotifySub() string { return In(i18n.Locale()).NotifySub() }
+
+// NotifySub says "While Celestine is behind other apps, a notification says when sync stops or finds a conflict, and when a new version…"
+// in the language of msgs.
+func (msgs Messages) NotifySub() string {
+	return Catalog.Format(msgs.locale, "notify_sub", nil)
+}
+
+// NotifySyncConflicts says "Sync found a conflict"
+// in the language the app shows.
+func NotifySyncConflicts() string { return In(i18n.Locale()).NotifySyncConflicts() }
+
+// NotifySyncConflicts says "Sync found a conflict"
+// in the language of msgs.
+func (msgs Messages) NotifySyncConflicts() string {
+	return Catalog.Format(msgs.locale, "notify_syncConflicts", nil)
+}
+
+// NotifySyncStopped says "Sync needs you"
+// in the language the app shows.
+func NotifySyncStopped() string { return In(i18n.Locale()).NotifySyncStopped() }
+
+// NotifySyncStopped says "Sync needs you"
+// in the language of msgs.
+func (msgs Messages) NotifySyncStopped() string {
+	return Catalog.Format(msgs.locale, "notify_syncStopped", nil)
+}
+
+// NotifyUnsupported says "This system can't show Celestine's notifications"
+// in the language the app shows.
+func NotifyUnsupported() string { return In(i18n.Locale()).NotifyUnsupported() }
+
+// NotifyUnsupported says "This system can't show Celestine's notifications"
+// in the language of msgs.
+func (msgs Messages) NotifyUnsupported() string {
+	return Catalog.Format(msgs.locale, "notify_unsupported", nil)
+}
+
+// NotifyUpdateBody says "Version {version} is ready to install."
+// in the language the app shows.
+func NotifyUpdateBody(version string) string { return In(i18n.Locale()).NotifyUpdateBody(version) }
+
+// NotifyUpdateBody says "Version {version} is ready to install."
+// in the language of msgs.
+func (msgs Messages) NotifyUpdateBody(version string) string {
+	return Catalog.Format(msgs.locale, "notify_updateBody", map[string]any{"version": version})
+}
+
+// NotifyUpdateTitle says "A new version of Celestine"
+// in the language the app shows.
+func NotifyUpdateTitle() string { return In(i18n.Locale()).NotifyUpdateTitle() }
+
+// NotifyUpdateTitle says "A new version of Celestine"
+// in the language of msgs.
+func (msgs Messages) NotifyUpdateTitle() string {
+	return Catalog.Format(msgs.locale, "notify_updateTitle", nil)
+}
+
 // Obsidian says "Obsidian"
 // in the language the app shows.
 func Obsidian() string { return In(i18n.Locale()).Obsidian() }

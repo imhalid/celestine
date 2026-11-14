@@ -317,6 +317,7 @@ func (a *app) syncNow() {
 			}
 			a.sy.writes, a.sy.movedAt = a.libWrites(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
+			hadErr := a.sy.err != ""
 			switch {
 			case err != nil:
 				a.sy.err, a.sy.status = err.Error(), locales.SyncOffline()
@@ -328,6 +329,12 @@ func (a *app) syncNow() {
 				}
 				if a.sy.held = res.Held; res.Held > 0 && a.sy.err == "" {
 					a.sy.err = locales.SyncHeldGone(res.Held)
+				}
+				switch { // what waits for the user is told behind other apps too (notify.go); what was only offline is not
+				case len(res.Conflicts) > 0:
+					a.notify(notifySync, locales.NotifySyncConflicts(), locales.SyncSummary(syncSummary(res)))
+				case res.Held > 0 || (a.sy.err != "" && !hadErr):
+					a.notify(notifySync, locales.NotifySyncStopped(), a.sy.err)
 				}
 				a.seedAfterSync(res)
 				a.purgeTrash()                             // what came down may be a trash that has run out

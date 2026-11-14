@@ -289,6 +289,9 @@ func (a *app) checkUpdate(force bool) {
 			default:
 				a.updErr = ""
 				if a.updState == updIdle {
+					if a.updRel == nil || a.updRel.Version != rel.Version { // a version found again is not news again
+						a.notify(notifyUpdate, locales.NotifyUpdateTitle(), locales.NotifyUpdateBody(shownVersion(rel.Version)))
+					}
 					a.updRel = rel
 					if a.settings.UpdateAuto {
 						a.updAuto = true

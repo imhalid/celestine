@@ -184,6 +184,7 @@ type app struct {
 	profName    string             // the name being typed for a profile
 	charW       map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
 	sy          syncUI             // the state of synchronization (syncapp.go)
+	nt          notifyState        // the system's notifications (notify.go)
 	ac          acctUI             // the account: signing in, its devices (account.go)
 	vimReg      richtext.Text      // what dd and yy took, for p
 	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
@@ -605,6 +606,7 @@ func main() {
 			panic(r)
 		}
 	}()
+	a.watchActive() // before Run: a notification's click that launched the app is told before WhenReady
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true

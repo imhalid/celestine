@@ -126,6 +126,8 @@ func tabOfField(f string) int {
 		return tabSync
 	case f == "mcp":
 		return tabMCP
+	case f == "notify":
+		return tabSounds
 	case f == "noBackup":
 		return tabLibrary
 	case f == "hideSaved" || f == "showChars" || f == "showPos" || f == "hideStatus":

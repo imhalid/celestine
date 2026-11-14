@@ -657,6 +657,15 @@ func (a *app) settingsSounds(c *ui.Context) {
 		a.settings.NoSound = !snd
 		a.saveSettings()
 	}
+	note := a.settings.Notify == notifyOn // the system's notifications (notify.go): turned on, the system may ask too
+	settingGroup(c, "set-notify", func() {
+		settingRow(c, locales.NotifyName(), locales.NotifySub(), func() {
+			ryugo.Switch(c.Key("set-notify-sw"), &note, ryugo.SwitchOptions{}).Label(locales.NotifyName())
+		})
+	})
+	if note != (a.settings.Notify == notifyOn) {
+		a.setNotify(note)
+	}
 	playRow := func(key, title, sub string, kind soundKind) func() {
 		return func() {
 			settingRow(c, title, sub, func() {

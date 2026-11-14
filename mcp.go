@@ -67,6 +67,7 @@ type Settings struct {
 	UpdateNotes    string                    `json:"updateNotes,omitempty"`    // the notes of the version that was put in place
 	UpdateFor      string                    `json:"updateFor,omitempty"`      // and its number
 	UpdateSeen     string                    `json:"updateSeen,omitempty"`     // the version whose notes were shown
+	Notify         string                    `json:"notify,omitempty"`         // the system's notifications: "" not asked, "on" or "off" (notify.go)
 	SyncMode       string                    `json:"syncMode,omitempty"`       // "" off, "dir" a folder, "server" a server of one's own (sync.go)
 	SyncDir        string                    `json:"syncDir,omitempty"`        // the folder, for "dir"
 	SyncURL        string                    `json:"syncUrl,omitempty"`        // the server's address
