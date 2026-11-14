@@ -101,7 +101,7 @@ func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	}
 	out = append(out, menuItem{title: coverTitle, group: "~", glyph: iconCover, run: func() { a.pickCover(p) }})
 	if a.coverKind(p) != coverKindNone {
-		out = append(out, menuItem{title: "common_removeCover", glyph: iconTrash, run: func() { a.removeCover(p) }})
+		out = append(out, menuItem{title: "common_removeCover", glyph: iconTrash, danger: true, run: func() { a.removeCover(p) }})
 	}
 	if p.Cover == CoverNone && a.settings.AutoCover {
 		out = append(out, menuItem{title: "page_restoreAutoCover", glyph: iconCover, run: func() { a.restoreAutoCover(p) }})
@@ -141,7 +141,7 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
 	}
 	if coll.Banner != "" {
-		out = append(out, menuItem{title: locales.CommandsRemoveBanner(), glyph: iconCover, run: func() { a.removeBanner(coll) }})
+		out = append(out, menuItem{title: locales.CommandsRemoveBanner(), glyph: iconTrash, danger: true, run: func() { a.removeBanner(coll) }})
 	}
 	if !coll.Journal { // the journal is not thrown away
 		out = append(out, menuItem{title: "moveToTrash", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashCollection(coll) }})
