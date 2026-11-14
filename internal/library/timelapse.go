@@ -162,9 +162,25 @@ type wordBlock struct{ i, j, size int }
 // without its junk: the longest run they share, then the same on each side
 // of it. It gives the steps from a to b and the runs they share.
 func matchWords(a, b []int) ([]wordOp, []wordBlock) {
+	// What the two share at their start is matched at once: two versions of a page are mostly the same, and only
+	// what follows is looked through (#506). Their end is not: a run there would be taken over an earlier one.
+	pre := 0
+	for pre < len(a) && pre < len(b) && a[pre] == b[pre] {
+		pre++
+	}
+	// A word in more than one in a hundred of b's (of 200 or more) does not start a run, as difflib's autojunk
+	// has it: each place of "the" in a long page was tried against each of a's, which on a page of thousands of
+	// like lines took minutes. A run found is still drawn out over such words on both sides (longest).
 	b2j := map[int][]int{}
-	for j, t := range b {
-		b2j[t] = append(b2j[t], j)
+	for j := pre; j < len(b); j++ {
+		b2j[b[j]] = append(b2j[b[j]], j)
+	}
+	if n := len(b) - pre; n >= 200 {
+		for t, js := range b2j {
+			if len(js) > n/100+1 {
+				delete(b2j, t)
+			}
+		}
 	}
 	// prev[j+1] is the length of the run ending at a[i-1] and b[j]; the
 	// slices are kept clean between calls by zeroing what was set.
@@ -197,11 +213,34 @@ func matchWords(a, b []int) ([]wordOp, []wordBlock) {
 			prev[x] = 0
 		}
 		prevSet = prevSet[:0]
+		// nothing but such words: the run the two share at the start of what is left, or at its end
+		if best.size == 0 {
+			for best.size < ahi-alo && best.size < bhi-blo && a[alo+best.size] == b[blo+best.size] {
+				best.size++
+			}
+			if best.size == 0 {
+				k := 0
+				for k < ahi-alo && k < bhi-blo && a[ahi-1-k] == b[bhi-1-k] {
+					k++
+				}
+				best = wordBlock{ahi - k, bhi - k, k}
+			}
+		}
+		// over the words that start no run, before it and after it
+		for best.size > 0 && best.i > alo && best.j > blo && a[best.i-1] == b[best.j-1] {
+			best.i, best.j, best.size = best.i-1, best.j-1, best.size+1
+		}
+		for best.size > 0 && best.i+best.size < ahi && best.j+best.size < bhi && a[best.i+best.size] == b[best.j+best.size] {
+			best.size++
+		}
 		return best
 	}
 
 	var blocks []wordBlock
-	queue := [][4]int{{0, len(a), 0, len(b)}}
+	if pre > 0 {
+		blocks = append(blocks, wordBlock{0, 0, pre})
+	}
+	queue := [][4]int{{pre, len(a), pre, len(b)}}
 	for len(queue) > 0 {
 		q := queue[len(queue)-1]
 		queue = queue[:len(queue)-1]

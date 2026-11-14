@@ -117,3 +117,42 @@ func TestLastOfDays(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// TestWordHistoryLongAlike: a page of thousands of like lines, a word changed in its middle and one in two of its
+// lines rewritten, is gone through in a moment, and only those words are new (#506).
+func TestWordHistoryLongAlike(t *testing.T) {
+	var v1, v2, v3 strings.Builder
+	for i := range 4000 {
+		line := "- [ ] most work in this area has advanced through small but consistent steps\n"
+		v1.WriteString(line)
+		switch {
+		case i == 2000:
+			v2.WriteString("- [ ] most work in this field has advanced through small but consistent steps\n")
+		default:
+			v2.WriteString(line)
+		}
+		if i%2 == 0 {
+			v3.WriteString("- [x] the work went on\n")
+		} else {
+			v3.WriteString(line)
+		}
+	}
+	start := time.Now()
+	ws := WordHistory([]string{v1.String(), v2.String()})
+	born := 0
+	for _, w := range ws {
+		if w.Born == 2 && w.Gone == 0 {
+			born++
+			if w.Text != "field" {
+				t.Fatalf("%q is new", w.Text)
+			}
+		}
+	}
+	if born != 1 {
+		t.Fatalf("%d words new, not 1", born)
+	}
+	WordHistory([]string{v1.String(), v3.String()})
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("the history took %v", d)
+	}
+}

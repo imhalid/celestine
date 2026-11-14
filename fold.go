@@ -18,10 +18,10 @@ import (
 
 // blockHasKids reports whether the block at at has lines under it to fold.
 func blockHasKids(t richtext.Text, at int) bool {
-	_, he := t.ParagraphRange(at)
-	hs, _ := t.ParagraphRange(at)
-	_, be := blockRange(t, hs)
-	return be > he
+	hs, he := t.ParagraphRange(at)
+	// the block runs on past this paragraph when the one after it is under the block's head: asked of those two
+	// alone, not of the whole block, which is the whole page for a heading over all of it (#506)
+	return he < t.Len() && under(t.ParagraphStyleAt(blockHeadOf(t, hs)), t.ParagraphStyleAt(he+1))
 }
 
 // foldOf is the fold chip on the line at at, or nil.

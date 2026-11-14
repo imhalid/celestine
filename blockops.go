@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui/richtext"
 )
@@ -52,15 +53,31 @@ func blockHeadOf(t richtext.Text, start int) int {
 func blockRange(t richtext.Text, at int) (int, int) {
 	s, e := t.ParagraphRange(blockHeadOf(t, at))
 	st := t.ParagraphStyleAt(s)
-	for e < t.Len() {
-		ns, ne := t.ParagraphRange(e + 1)
-		if !under(st, t.ParagraphStyleAt(ns)) {
+	if e >= t.Len() || !under(st, t.ParagraphStyleAt(e+1)) {
+		return s, e // a block of one paragraph, the most of them
+	}
+	// A block of more is walked in one pass: finding each paragraph in the tree on its own costs a page of
+	// thousands of paragraphs a second when the caret is in a heading over all of them (#506).
+	for ps, p := range t.Paragraphs() {
+		if ps <= e {
+			continue
+		}
+		if !under(st, p.Style) {
 			break
 		}
 		// a heading's block runs on through what is under the paragraphs in it
-		e = ne
+		e = ps + paraLen(p)
 	}
 	return s, e
+}
+
+// paraLen is the length of a paragraph in runes, without its newline.
+func paraLen(p richtext.Paragraph) int {
+	n := 0
+	for _, r := range p.Runs {
+		n += utf8.RuneCountInString(r.Text)
+	}
+	return n
 }
 
 // prevBlock is the block right before the one starting at s: the nearest

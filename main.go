@@ -283,6 +283,7 @@ type app struct {
 	frame         func()         // asks for a frame that builds the view
 	links         linkIndex      // who links to whom (backlinks.go)
 	web           webLinks       // the web pages links go to, as far as they are known (linkcards.go)
+	wholeBlock    wholeBlock     // whether the block at the start of the page's text is all of it (blockhints.go)
 	listMarks     *listMarks     // the lists of the page's text and their looks, read once for each text (listmarks.go)
 	toggleMu      sync.Mutex     // held by the toggle of a task read and written away from the window (toggleTaskSoon)
 	toggling      sync.WaitGroup // the toggles going on: a test waits for them
@@ -1250,7 +1251,11 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 				})
 			})
 		})
-		a.scrollR = sc.LayoutBounds()
+		// a tree built anew (another theme) has no bounds for its page in its first frame: the last ones stand, or what
+		// is drawn over the text would be worked out for every paragraph of a long page, not those in view (#506)
+		if b := sc.LayoutBounds(); b.H > 0 {
+			a.scrollR = b
+		}
 		a.findBar(c) // over the page, at its top right: nothing under it moves
 	})
 }
@@ -1495,6 +1500,11 @@ func (a *app) editorH(c *ui.Context) float32 {
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
 	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-8, 160)
+	// the text's height as the editor knows it, every paragraph measured or as tall as it was: with another theme or
+	// font the editor lays out again only what shows, and the rest as it comes into view (#506)
+	if h, ok := a.doc.ContentHeight(); ok {
+		return max(h+96, least)
+	}
 	n := len(a.boxes)
 	if n == 0 {
 		// nothing laid out yet (a page just opened): room for what the text

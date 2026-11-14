@@ -71,8 +71,7 @@ func (a *app) editorHints() []hint {
 	empty := strings.TrimSpace(t.Slice(ps, pe).String()) == ""
 	move := keyPair(a.cmdKey("moveTheBlockUp"), a.cmdKey("moveTheBlockDown"))
 	kids, folded := blockHasKids(t, caret), foldOf(t, caret) != nil
-	bs, be := blockRange(t, caret)
-	zoomable := kids && !(bs == 0 && be >= t.Len()) // zoomIn does not zoom into the whole page
+	zoomable := kids && !a.wholePage(t, caret) // zoomIn does not zoom into the whole page
 	foldHint := func() {
 		switch {
 		case folded:
@@ -124,4 +123,23 @@ func (a *app) editorHints() []hint {
 		add(a.cmdKey("common_blockMenu"), "blockMenu2")
 	}
 	return out
+}
+
+// wholePage reports whether the block the caret is in is the whole page. Only a block from the page's start can
+// be; that one is walked once for each text, not in every frame the hints are drawn (#506).
+func (a *app) wholePage(t richtext.Text, caret int) bool {
+	if blockHeadOf(t, caret) > 0 {
+		return false
+	}
+	if m := &a.wholeBlock; !m.ok || m.text != t {
+		_, e := blockRange(t, 0)
+		*m = wholeBlock{text: t, ok: true, whole: e >= t.Len()}
+	}
+	return a.wholeBlock.whole
+}
+
+// wholeBlock is whether the block at the start of a text is all of it (wholePage).
+type wholeBlock struct {
+	text      richtext.Text
+	ok, whole bool
 }
