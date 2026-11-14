@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -146,22 +147,26 @@ func layoutParagraph(p richtext.Paragraph, w float32, base ui.Font, th *richtext
 	}
 	width := max(w-left-right, 1)
 	var spans []ui.Span
-	prev := ""
+	var links []string // the link of each run, none for an attachment
 	for _, r := range p.Runs {
-		s := spanOf(r.Text, r.Attributes, st, size, width, th)
+		spans = append(spans, spanOf(r.Text, r.Attributes, st, size, width, th))
 		link := r.Attributes.Link
 		if r.Attributes.Attachment != nil {
 			link = ""
 		}
-		if link != prev && link != "" { // the room of its icon, as the editor's spans leave it (linkRoom)
-			ls := s.Size
-			if ls == 0 {
-				ls = size
+		links = append(links, link)
+	}
+	if linkIcons { // the room of a link's icon, as the editor's spans leave it (linkRoom)
+		spans = splitLinkRoom(spans, size, func(at int) string {
+			for i, r := range p.Runs {
+				n := utf8.RuneCountInString(r.Text)
+				if at < n {
+					return links[i]
+				}
+				at -= n
 			}
-			s.PaddingLeft = linkIconPad(link, ls)
-		}
-		prev = link
-		spans = append(spans, s)
+			return ""
+		})
 	}
 	f := base
 	switch {

@@ -28,6 +28,9 @@ type selBar struct {
 	// what was typed as the last frame had it, and since when: the page is asked for once the typing rests (#495)
 	urlWas string
 	urlAt  time.Time
+	// the link just set, and when, for its text's flourish (linkfx.go, #509)
+	wonSel [2]int
+	wonAt  time.Time
 }
 
 // linkTypeRest is how long the address typed rests before its page is asked for.
@@ -88,7 +91,7 @@ func (a *app) selectionBar(c *ui.Context) {
 			page = a.linkPage(address, true)
 		}
 		if page != nil {
-			full += 63
+			full += 1 + linkPreviewH(page, w)
 		}
 	}
 	left := max(8, min(x-8, ww-w-8))
@@ -129,18 +132,16 @@ func (a *app) selectionBar(c *ui.Context) {
 			btn("sb-strike", iconStrike, locales.SelectionStrike(), f.Strikethrough == richtext.FormatOn, a.doc.ToggleStrikethrough)
 			btn("sb-code", kindIcon["code"], "code", f.Code == richtext.FormatOn, a.doc.ToggleCode)
 			btn("sb-link", iconLink, locales.SelectionLink(), f.Link != "", func() {
-				if f.Link != "" {
-					a.doc.SetLink("")
-					return
-				}
-				b.link, b.url, b.linkSel = true, "", [2]int{s, e}
+				// a link there is edited: its address in the field, which emptied takes it away (#509)
+				b.link, b.url, b.linkSel = true, f.Link, [2]int{s, e}
 			})
 		})
 	})
 }
 
 // linkField is the bar asking for a link's address (#495): the field in the bar's own look, a key cap that says ↵
-// sets it, and under it, once the typing rests on a web address, its page's icon, title and picture as they come.
+// sets it, and under it, once the typing rests on a web address, its page's picture, title and icon as they come,
+// the picture as large as the hover's card has it (#509).
 func (a *app) linkField(c *ui.Context, b *selBar, page *linkInfo, address string, left, top, w, h float32) {
 	tth := ryugo.From(c)
 	cl := tth.Colors
@@ -173,14 +174,17 @@ func (a *app) linkField(c *ui.Context, b *selBar, page *linkInfo, address string
 			case in.Submitted():
 				a.doc.SetSelection(b.linkSel[0], b.linkSel[1])
 				a.doc.SetLink(address)
+				if address != "" {
+					b.wonSel, b.wonAt = b.linkSel, c.Now()
+				}
 				b.link = false
 				a.refocus = true
 			}
 		})
 		if page != nil {
 			ui.Box(c.Key("selbar-link-line")).Height(1).Background(cl.Hairline)
-			ui.Column(c.Key("selbar-link-page")).Height(62).Justify(ui.Center).Transition(rowEnter).Children(func() {
-				a.linkPreview(c, address, page, w, false)
+			ui.Column(c.Key("selbar-link-page")).Transition(rowEnter).Children(func() {
+				a.linkPreview(c, address, page, w)
 			})
 		}
 	})

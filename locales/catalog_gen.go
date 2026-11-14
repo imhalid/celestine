@@ -9983,6 +9983,26 @@ func (msgs Messages) SelectionBold() string {
 	return Catalog.Format(msgs.locale, "selection_bold", nil)
 }
 
+// SelectionEditLink says "Edit"
+// in the language the app shows.
+func SelectionEditLink() string { return In(i18n.Locale()).SelectionEditLink() }
+
+// SelectionEditLink says "Edit"
+// in the language of msgs.
+func (msgs Messages) SelectionEditLink() string {
+	return Catalog.Format(msgs.locale, "selection_editLink", nil)
+}
+
+// SelectionEditLinkLabel says "Change the link's address"
+// in the language the app shows.
+func SelectionEditLinkLabel() string { return In(i18n.Locale()).SelectionEditLinkLabel() }
+
+// SelectionEditLinkLabel says "Change the link's address"
+// in the language of msgs.
+func (msgs Messages) SelectionEditLinkLabel() string {
+	return Catalog.Format(msgs.locale, "selection_editLinkLabel", nil)
+}
+
 // SelectionFormatBar says "Format bar"
 // in the language the app shows.
 func SelectionFormatBar() string { return In(i18n.Locale()).SelectionFormatBar() }
@@ -10023,6 +10043,16 @@ func (msgs Messages) SelectionLinkAddress() string {
 	return Catalog.Format(msgs.locale, "selection_linkAddress", nil)
 }
 
+// SelectionLinkCard says "Link"
+// in the language the app shows.
+func SelectionLinkCard() string { return In(i18n.Locale()).SelectionLinkCard() }
+
+// SelectionLinkCard says "Link"
+// in the language of msgs.
+func (msgs Messages) SelectionLinkCard() string {
+	return Catalog.Format(msgs.locale, "selection_linkCard", nil)
+}
+
 // SelectionPasteAddress says "Paste a link, then ↵"
 // in the language the app shows.
 func SelectionPasteAddress() string { return In(i18n.Locale()).SelectionPasteAddress() }
@@ -10031,6 +10061,26 @@ func SelectionPasteAddress() string { return In(i18n.Locale()).SelectionPasteAdd
 // in the language of msgs.
 func (msgs Messages) SelectionPasteAddress() string {
 	return Catalog.Format(msgs.locale, "selection_pasteAddress", nil)
+}
+
+// SelectionRemoveLink says "Remove"
+// in the language the app shows.
+func SelectionRemoveLink() string { return In(i18n.Locale()).SelectionRemoveLink() }
+
+// SelectionRemoveLink says "Remove"
+// in the language of msgs.
+func (msgs Messages) SelectionRemoveLink() string {
+	return Catalog.Format(msgs.locale, "selection_removeLink", nil)
+}
+
+// SelectionRemoveLinkLabel says "Remove the link, keep the text"
+// in the language the app shows.
+func SelectionRemoveLinkLabel() string { return In(i18n.Locale()).SelectionRemoveLinkLabel() }
+
+// SelectionRemoveLinkLabel says "Remove the link, keep the text"
+// in the language of msgs.
+func (msgs Messages) SelectionRemoveLinkLabel() string {
+	return Catalog.Format(msgs.locale, "selection_removeLinkLabel", nil)
 }
 
 // SelectionStrike says "Strikethrough"
@@ -10103,6 +10153,26 @@ func SettingsFile() string { return In(i18n.Locale()).SettingsFile() }
 // in the language of msgs.
 func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
+}
+
+// SettingsLinkIcons says "Site icons"
+// in the language the app shows.
+func SettingsLinkIcons() string { return In(i18n.Locale()).SettingsLinkIcons() }
+
+// SettingsLinkIcons says "Site icons"
+// in the language of msgs.
+func (msgs Messages) SettingsLinkIcons() string {
+	return Catalog.Format(msgs.locale, "settings_linkIcons", nil)
+}
+
+// SettingsLinkIconsHelp says "A web link has its site's icon before it in the text."
+// in the language the app shows.
+func SettingsLinkIconsHelp() string { return In(i18n.Locale()).SettingsLinkIconsHelp() }
+
+// SettingsLinkIconsHelp says "A web link has its site's icon before it in the text."
+// in the language of msgs.
+func (msgs Messages) SettingsLinkIconsHelp() string {
+	return Catalog.Format(msgs.locale, "settings_linkIconsHelp", nil)
 }
 
 // SettingsReduceMotion says "Reduce motion"

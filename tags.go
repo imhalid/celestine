@@ -118,10 +118,10 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 		}
 		l, left := layoutParagraph(para, r.W, a.font, a.theme)
 		for _, lk := range links { // where the links are, to be clicked, and the icons of the web's before them
-			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
+			for i, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
 				at := ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}
-				a.linkHits = append(a.linkHits, linkHit{at, lk.url})
-				if lk.first && linkIconPad(lk.url, a.font.Size) > 0 {
+				a.linkHits = append(a.linkHits, linkHit{at, lk.url, s + lk.from})
+				if i == 0 && lk.first && linkIconPad(lk.url, a.font.Size) > 0 { // its first line's piece alone (#509)
 					a.drawLinkIcon(p, linkIconBox(at, a.font.Size), lk.url, th.Muted)
 				}
 			}

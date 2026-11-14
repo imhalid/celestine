@@ -100,6 +100,7 @@ type Settings struct {
 	VimKeys        bool                      `json:"vimKeys,omitempty"`        // the motions of Vim in the normal mode (vim.go)
 	EscNormal      bool                      `json:"escNormal,omitempty"`      // Esc in the text enters the normal mode, as with VimKeys; off, Esc leaves the text alone (#492, #207)
 	NoLinkPreviews bool                      `json:"noLinkPreviews,omitempty"` // web links have no icon nor card, and no site is asked for them (#495)
+	NoLinkIcons    bool                      `json:"noLinkIcons,omitempty"`    // web links have no site icon before them in the text; their cards still show (#509)
 	WelcomeDone    bool                      `json:"welcomeDone,omitempty"`    // the first opening was seen (welcome.go)
 	WelcomeGround  string                    `json:"welcomeGround,omitempty"`  // the look of the welcome's ground, and of its opening (welcomelooks.go)
 	WelcomeOpen    string                    `json:"welcomeOpen,omitempty"`

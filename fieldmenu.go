@@ -171,6 +171,12 @@ func (a *app) editorItems(y float32) []menuItem {
 	}))
 	out = append(out,
 		menuItem{title: "common_paste", hint: "⌘V", glyph: iconPaste, run: func() {
+			// as ⌘V pastes: an address over the selection links it, the app's own copy keeps its blocks, Markdown is
+			// its blocks (#509)
+			if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
+				a.refocus = true
+				return
+			}
 			if clip := a.readClip(); clip != "" {
 				if strings.Contains(clip, "\n") {
 					doc.Insert(a.parse(clip))

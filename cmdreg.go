@@ -231,6 +231,7 @@ func settingDefsFor(macOS bool) []settingDef {
 		simple("common_vimMotions", "vim hjkl normal kip", "vimKeys", func(s *Settings) *bool { return &s.VimKeys }, false),
 		simple("settings_escNormal", "esc escape normal kip keyboard klavye", "escNormal", func(s *Settings) *bool { return &s.EscNormal }, false),
 		simple("settings_linkPreviews", "link bağlantı preview önizleme favicon og", "noLinkPreviews", func(s *Settings) *bool { return &s.NoLinkPreviews }, true),
+		simple("settings_linkIcons", "link bağlantı favicon icon simge site", "noLinkIcons", func(s *Settings) *bool { return &s.NoLinkIcons }, true),
 		simple("checkForUpdates", "update güncelleme", "updateOff", func(s *Settings) *bool { return &s.UpdateOff }, true),
 		simple("quietUpdateMode", "update quiet", "updateQuiet", func(s *Settings) *bool { return &s.UpdateQuiet }, false),
 		simple("updateAutomatically", "update auto kur", "updateAuto", func(s *Settings) *bool { return &s.UpdateAuto }, false),

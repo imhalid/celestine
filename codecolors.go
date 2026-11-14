@@ -45,43 +45,82 @@ func spaced(spans []ui.Span) []ui.Span {
 	return spans
 }
 
-// linkRoom leaves the room of its icon before each web link of paragraph p (linkcards.go): its first span, the
-// spans being the runs of the paragraph.
-func (a *app) linkRoom(p int, spans []ui.Span) {
+// linkRoom leaves the room of its icon before each web link of paragraph p (linkcards.go), in the spans the editor
+// draws it with.
+func (a *app) linkRoom(p int, spans []ui.Span) []ui.Span {
 	if !linkIcons || a.doc == nil {
-		return
+		return spans
 	}
 	t := a.doc.Text()
-	if p >= t.ParagraphCount() {
-		return
+	pt := a.paraTableOf(t) // p is the paragraph's number, not a rune of it (#509)
+	if p < 0 || p >= len(pt.start) {
+		return spans
 	}
-	at, end := t.ParagraphRange(p)
-	prev := ""
-	for i := range spans {
-		if at >= end {
-			break
-		}
-		attrs := t.AttributesAt(at)
-		link := attrs.Link
+	start := pt.start[p]
+	return splitLinkRoom(spans, a.font.Size, func(at int) string {
+		attrs := t.AttributesAt(start + at)
 		if attrs.Attachment != nil {
-			link = ""
+			return ""
 		}
-		if link != prev && link != "" {
-			size := spans[i].Size
-			if size == 0 {
-				size = a.font.Size
+		return attrs.Link
+	})
+}
+
+// splitLinkRoom gives the room of its icon to the first word of each web link of the spans of a paragraph, its
+// own span: a span's PaddingLeft is taken at the left of each line's piece of it, and a link that wraps would have
+// the room, and its icon, on each of its lines (#509). linkAt is the link of the paragraph's rune at, "" for none;
+// size is the text's when a span has none of its own.
+func splitLinkRoom(spans []ui.Span, size float32, linkAt func(at int) string) []ui.Span {
+	var out []ui.Span // made when a span is split
+	at := 0
+	for i, s := range spans {
+		n := utf8.RuneCountInString(s.Text)
+		link := ""
+		if n > 0 {
+			link = linkAt(at)
+		}
+		ls := s.Size
+		if ls == 0 {
+			ls = size
+		}
+		pad := float32(0)
+		if link != "" && (at == 0 || linkAt(at-1) != link) {
+			pad = linkIconPad(link, ls)
+		}
+		at += n
+		if pad == 0 {
+			if out != nil {
+				out = append(out, s)
 			}
-			spans[i].PaddingLeft = linkIconPad(link, size)
+			continue
 		}
-		prev = link
-		at += utf8.RuneCountInString(spans[i].Text)
+		if out == nil {
+			out = append(make([]ui.Span, 0, len(spans)+4), spans[:i]...)
+		}
+		head, tail := s, s
+		head.PaddingLeft = pad
+		k := strings.IndexAny(s.Text, " \t") + 1 // the first word, with its space: the letters of a word are shaped together
+		if s.ObjectWidth != 0 || k <= 0 || k >= len(s.Text) {
+			out = append(out, head)
+			continue
+		}
+		head.Text, tail.Text = s.Text[:k], s.Text[k:]
+		out = append(out, head, tail)
 	}
+	if out == nil {
+		return spans
+	}
+	return out
 }
 
 // editorSpans are paragraph p's spans as the page editor draws them: spaced, and a block of code's colored.
 func (a *app) editorSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
-	spans = spaced(spans)
-	a.linkRoom(p, spans)
+	// the room of a link's icon, the last: what splits or colors the spans before would take it with them
+	return a.linkRoom(p, a.paintSpans(p, st, spaced(spans)))
+}
+
+// paintSpans are paragraph p's spans colored and struck as the page editor draws them.
+func (a *app) paintSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	if st.List == richtext.Tasks && st.Checked {
 		for i := range spans { // a fold's chip on a task done is not struck through (#494)
 			if spans[i].Text == string(richtext.ObjectReplacement) {

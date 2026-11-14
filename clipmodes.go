@@ -75,6 +75,21 @@ func (a *app) editorKeys(key ui.Key, mods ui.Modifiers) bool {
 	return a.editorKey(key, mods) || a.clipKey(key, mods)
 }
 
+// editorCommand takes an edit command of the menus before the editor does it: a Mac's menu bar sends ⌘V as
+// "paste", ⌘C as "copy", which the editor's keys never see (#509). They are done as their keys are.
+func (a *app) editorCommand(name string) bool {
+	if a.doc == nil {
+		return false
+	}
+	switch name {
+	case "copy", "cut":
+		a.noteCopy()
+	case "paste":
+		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
+	}
+	return false
+}
+
 // clipKey notes a copy (⌘C, ⌘X) and lets the editor make it; it takes a paste (⌘V) of that copy.
 func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
 	if mods != ui.Cmd || a.doc == nil {
@@ -84,7 +99,45 @@ func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
 	case ui.KeyC, ui.KeyX:
 		a.noteCopy()
 	case ui.KeyV:
-		return a.pasteOwn() || a.pasteMarkdown()
+		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
+	}
+	return false
+}
+
+// pasteLink makes the text selected a link when what is pasted over it is an address alone, as the bar's link
+// field would, with its flourish (#509): the text stays, the address is its link's.
+func (a *app) pasteLink() bool {
+	if a.noPage() {
+		return false
+	}
+	anchor, caret := a.doc.Selection()
+	s, e := min(anchor, caret), max(anchor, caret)
+	if s == e {
+		return false
+	}
+	t := a.doc.Text()
+	if t.ParagraphStyleAt(s).CodeBlock || t.AttributesAt(s).Code || strings.TrimSpace(t.Slice(s, e).String()) == "" {
+		return false
+	}
+	address := strings.TrimSpace(a.readClip())
+	if !pastedAddress(address) {
+		return false
+	}
+	a.doc.SetLink(address)
+	a.sel.wonSel, a.sel.wonAt = [2]int{s, e}, a.frameNow
+	return true
+}
+
+// pastedAddress says whether text is an address alone, which pasted over a selection links it: the web's, an
+// e-mail's, a page's of the app.
+func pastedAddress(text string) bool {
+	if text == "" || strings.ContainsAny(text, " \t\n") {
+		return false
+	}
+	for _, pre := range []string{"https://", "http://", "mailto:", "page://"} {
+		if strings.HasPrefix(text, pre) && len(text) > len(pre) {
+			return true
+		}
 	}
 	return false
 }

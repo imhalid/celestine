@@ -410,6 +410,18 @@ func (a *app) settingsText(c *ui.Context) {
 		a.settings.NoLinkPreviews = !previews
 		a.saveSettings()
 	}
+	if previews { // the site icons in the text, which only previews can have (#509)
+		icons := !a.settings.NoLinkIcons
+		settingGroup(c, "set-link-icons", func() {
+			settingRow(c, locales.SettingsLinkIcons(), locales.SettingsLinkIconsHelp(), func() {
+				ryugo.Switch(c.Key("set-link-icons-sw"), &icons, ryugo.SwitchOptions{}).Label(locales.SettingsLinkIcons())
+			})
+		})
+		if icons == a.settings.NoLinkIcons {
+			a.settings.NoLinkIcons = !icons
+			a.saveSettings()
+		}
+	}
 	vim := a.settings.VimKeys
 	settingGroup(c, "set-vim", func() {
 		settingRow(c, locales.CommonVimMotions(), locales.EditorAfterEscHJ(), func() {

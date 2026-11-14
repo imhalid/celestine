@@ -1271,14 +1271,16 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	c.Key("body:" + p.Dir)
 	a.refreshQueries()
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
-	linkIcons = !a.settings.NoLinkPreviews                         // the room of a link's icon, as well (linkcards.go)
+	linkPreviews = !a.settings.NoLinkPreviews                      // links' pages asked for, and shown on their cards (linkcards.go)
+	linkIcons = linkPreviews && !a.settings.NoLinkIcons            // the room of a link's icon, as well
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: locales.Page(), Font: a.font, Theme: th,
 		Placeholder:  locales.AppEditorPlaceholder(),
-		Menu:         a.editorMenu,  // the app's menu, not the system's (fieldmenu.go)
-		OnKey:        a.editorKeys,  // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
-		Spans:        a.editorSpans, // code colored, letters spaced (codecolors.go)
+		Menu:         a.editorMenu,    // the app's menu, not the system's (fieldmenu.go)
+		OnKey:        a.editorKeys,    // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
+		OnCommand:    a.editorCommand, // the menus' copy and paste, as their keys (clipmodes.go)
+		Spans:        a.editorSpans,   // code colored, letters spaced (codecolors.go)
 		SpansVersion: a.spansVersion(),
 		Space:        a.blockRoom, // the room a block dragged opens where it would go (blockui.go)
 		ReadOnly:     p.Unreadable != "",
@@ -1366,6 +1368,8 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.editorR = r
 		a.drawBlockSel(p, r)
 		a.drawMatches(p, r)
+		a.drawLinkPending(p, r) // the text a link is being made for, and one just made (linkfx.go)
+		a.drawLinkWon(p, r)
 		a.drawBlockDrop(p, r)
 		a.drawDividers(p, r)
 		a.drawListMarks(p, r)

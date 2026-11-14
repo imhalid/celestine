@@ -20,6 +20,7 @@ import (
 type linkHit struct {
 	r   ui.Rect
 	url string
+	pos int // where in the text its run starts
 }
 
 // linkSpan is a run of a paragraph that links: the runes it takes, and whether it starts its link, which a run
