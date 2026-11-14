@@ -17,7 +17,9 @@ export default {
     let key = url.pathname.replace(/^\/+/, "");
     if (key === "update.json") key = url.searchParams.get("channel") === "beta" ? "beta.json" : "update.json";
     if (!/^[A-Za-z0-9._\/-]+$/.test(key) || key.includes("..")) return new Response("not found", { status: 404 });
-    const obj = await env.RELEASES.get(key);
+    let obj = await env.RELEASES.get(key);
+    // before the first release that writes beta.json, the trial channel is offered what the stable one is (#169)
+    if (!obj && key === "beta.json") obj = await env.RELEASES.get((key = "update.json"));
     if (!obj) return new Response("not found", { status: 404 });
     const headers = new Headers();
     obj.writeHttpMetadata(headers);

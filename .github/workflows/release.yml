@@ -110,8 +110,12 @@ jobs:
         env:
           RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
         run: |
+          # a tag with a "-" (v1.2.0-beta.1) is a trial: its manifest says so, and it goes up as beta.json only (#169)
+          channel=
+          case "$VERSION" in *-*) channel=beta ;; esac
+          echo "CHANNEL=$channel" >> "$GITHUB_ENV"
           printf '%s\n' "$RELEASE_KEY" > release.key
-          go run ./scripts/release manifest -version "$VERSION" -base "$BASE" \
+          go run ./scripts/release manifest -version "$VERSION" -base "$BASE" -channel "$channel" \
             -notes release-notes.md -key release.key dist/celestine-* > update.json
           rm release.key
           cat update.json
@@ -133,8 +137,12 @@ jobs:
         run: |
           EP="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
           for f in dist/celestine-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
-          # the manifest last: once it is up, every app is offered the version
-          aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
+          # the manifest last: once it is up, every app is offered the version. A trial goes to beta.json alone, which
+          # only apps on the trial channel ask for; a stable release goes to both, so those apps are offered it too (#169)
+          aws s3 cp update.json s3://celestine-releases/beta.json --endpoint-url "$EP" --content-type application/json
+          if [ "$CHANNEL" != beta ]; then
+            aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
+          fi
           # the site's changelog after it, so the page never names a version that is not offered yet
           aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"
           # the install script, which the site serves at /install.sh (#514): the one of the version it installs

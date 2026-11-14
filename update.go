@@ -170,7 +170,48 @@ func versionLess(a, b string) bool {
 	case ap == "" && bp != "":
 		return false
 	}
-	return ap < bp
+	return preLess(ap, bp)
+}
+
+// preLess reports whether the trial part a comes before b, as SemVer orders them: part by part at the dots, a
+// part of digits by its number (beta.2 before beta.10) and before one of letters, and a shorter list first when
+// the other starts with it (#169).
+func preLess(a, b string) bool {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(as) && i < len(bs); i++ {
+		x, y := as[i], bs[i]
+		if x == y {
+			continue
+		}
+		xn, xerr := strconv.Atoi(x)
+		yn, yerr := strconv.Atoi(y)
+		switch {
+		case xerr == nil && yerr == nil:
+			return xn < yn
+		case xerr == nil:
+			return true
+		case yerr == nil:
+			return false
+		}
+		return x < y
+	}
+	return len(as) < len(bs)
+}
+
+// channelURL is the manifest's address for a channel: the trial channel asks for its own (?channel=beta), which
+// the Worker answers with beta.json (#169).
+func channelURL(u, channel string) string {
+	if channel != "beta" {
+		return u
+	}
+	p, err := url.Parse(u)
+	if err != nil {
+		return u
+	}
+	q := p.Query()
+	q.Set("channel", "beta")
+	p.RawQuery = q.Encode()
+	return p.String()
 }
 
 // ---- asking ----
@@ -209,6 +250,7 @@ func updateHTTPClient(timeout time.Duration) *http.Client {
 
 // fetchRelease reads the manifest at u and gives the release for this system, newer than current - or nil.
 func fetchRelease(ctx context.Context, u, current, channel string, skip string) (*Release, error) {
+	u = channelURL(u, channel)
 	if err := HTTPSOnly(u); err != nil {
 		return nil, err
 	}

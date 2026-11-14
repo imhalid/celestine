@@ -33,6 +33,8 @@ func TestVersionOrder(t *testing.T) {
 		{"v1.2.3", "v1.2.4", true}, {"v1.2.4", "v1.2.3", false}, {"1.2", "1.10", true}, {"v1.9.0", "v1.10.0", true},
 		{"v2.0.0-beta.1", "v2.0.0", true}, {"v2.0.0", "v2.0.0-beta.1", false}, {"v2.0.0-beta.1", "v2.0.0-beta.2", true},
 		{"v1.0.0", "v1.0.0", false}, {"dev", "v9.9.9", false}, {"v1.0.0", "garbage", false}, {"v0.1.0+build5", "v0.1.1", true},
+		{"v2.0.0-beta.2", "v2.0.0-beta.10", true}, {"v2.0.0-beta.10", "v2.0.0-beta.2", false}, {"v2.0.0-1", "v2.0.0-alpha", true},
+		{"v2.0.0-alpha", "v2.0.0-alpha.1", true}, {"v2.0.0-alpha.1", "v2.0.0-alpha", false}, {"v2.0.0-alpha.beta", "v2.0.0-beta", true},
 	} {
 		if got := versionLess(c.a, c.b); got != c.less {
 			t.Errorf("%s < %s: %v", c.a, c.b, got)
@@ -1004,5 +1006,20 @@ func TestUpdatePlatformAppImage(t *testing.T) {
 		if got := updatePlatform(); got != plain {
 			t.Errorf("APPIMAGE=%q: updatePlatform = %q, want %q", p, got, plain)
 		}
+	}
+}
+
+// The trial channel asks the Worker for its own manifest (?channel=beta, which it answers with beta.json); the
+// stable channel asks for update.json as it is (#169).
+func TestUpdateChannelURL(t *testing.T) {
+	const u = "https://dl.example.com/update.json"
+	if got := channelURL(u, ""); got != u {
+		t.Fatalf("stable: %s", got)
+	}
+	if got := channelURL(u, "beta"); got != u+"?channel=beta" {
+		t.Fatalf("beta: %s", got)
+	}
+	if got := channelURL(u+"?x=1", "beta"); got != u+"?channel=beta&x=1" {
+		t.Fatalf("beta with a query: %s", got)
 	}
 }
