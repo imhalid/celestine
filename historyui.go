@@ -45,17 +45,6 @@ func (v *histView) hist() (Historian, bool) {
 	return historyOf(v.page)
 }
 
-// openHistory shows the versions of p.
-func (a *app) openHistory(p *Page) {
-	h, ok := historyOf(p)
-	if !ok {
-		a.say(toastInfo, locales.VersionHistoryIsKeptOnlyIn())
-		return
-	}
-	a.flush()
-	a.vhist = histView{open: true, page: p, vers: h.Versions(p.File()), opsFor: -1}
-}
-
 // histOps is the difference of the chosen version from the page now.
 func (a *app) histOps() []DiffOp {
 	v := &a.vhist

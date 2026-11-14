@@ -6103,13 +6103,13 @@ func (msgs Messages) HistoryBackBeforeSave(page string) string {
 	return Catalog.Format(msgs.locale, "history_backBeforeSave", map[string]any{"page": page})
 }
 
-// HistoryBackTo says "“{page}” is back to its version from {date}"
+// HistoryBackTo says "“{page}” is back to its version from {date}. The page as it was is kept in its history."
 // in the language the app shows.
 func HistoryBackTo(page string, date string) string {
 	return In(i18n.Locale()).HistoryBackTo(page, date)
 }
 
-// HistoryBackTo says "“{page}” is back to its version from {date}"
+// HistoryBackTo says "“{page}” is back to its version from {date}. The page as it was is kept in its history."
 // in the language of msgs.
 func (msgs Messages) HistoryBackTo(page string, date string) string {
 	return Catalog.Format(msgs.locale, "history_backTo", map[string]any{"page": page, "date": date})
@@ -6217,6 +6217,16 @@ func HistoryKeptVersion() string { return In(i18n.Locale()).HistoryKeptVersion()
 // in the language of msgs.
 func (msgs Messages) HistoryKeptVersion() string {
 	return Catalog.Format(msgs.locale, "history_keptVersion", nil)
+}
+
+// HistoryKeptNamed says "The page as it is now is kept as “{name}”"
+// in the language the app shows.
+func HistoryKeptNamed(name string) string { return In(i18n.Locale()).HistoryKeptNamed(name) }
+
+// HistoryKeptNamed says "The page as it is now is kept as “{name}”"
+// in the language of msgs.
+func (msgs Messages) HistoryKeptNamed(name string) string {
+	return Catalog.Format(msgs.locale, "history_keptNamed", map[string]any{"name": name})
 }
 
 // HistoryNewer says "Newer"

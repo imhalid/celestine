@@ -22,8 +22,8 @@ import (
 // looking and fades. On a phone, which has no sidebar beside the page, the copies are bars on the right instead. At
 // the foot, a toolbar: the day of the front copy, older and newer, the differences, Cancel, Restore. Restore makes
 // the page what that copy is, the whole of it; Cancel or Esc goes back into the editor, the way it came. The
-// differences are shown in the stack's place, side by side with the page now (tmdiff.go); keeping a copy by name is
-// the version dialog's (historyui.go).
+// differences are shown in the stack's place, side by side with the page now (tmdiff.go); while Now is at the front,
+// the foot has a name to keep the page as it is by (tmKeepNamed, #223).
 
 type timeMachine struct {
 	open    bool
@@ -47,6 +47,8 @@ type timeMachine struct {
 
 	reveal   tmReveal // a restore being shown: the light running down the front card (tmreveal.go)
 	noReveal bool     // the system asks for less motion: a restore goes straight back into the editor
+
+	label string // the name the page now is to be kept by, typed in the foot while Now is at the front (#223)
 }
 
 // tmLine is a line of a copy's text, as the card shows it.
@@ -523,8 +525,29 @@ func (a *app) tmBars(c *ui.Context, ww, wh float32) {
 	}
 }
 
+// tmKeepNamed keeps the page as it is now as a copy by the name typed in the foot, or "My saved version". A copy
+// that says what the page says is not in the stack (tmCopies), so a toast says it was kept.
+func (a *app) tmKeepNamed() {
+	t := &a.tm
+	h, ok := historyOf(t.page)
+	if !ok {
+		return
+	}
+	name := strings.TrimSpace(t.label)
+	if name == "" {
+		name = locales.HistoryKeptVersion()
+	}
+	if t.page == a.page {
+		a.flush()
+	}
+	if h.SaveNamed(t.page.File(), name) {
+		t.label = ""
+		a.say(toastOK, locales.HistoryKeptNamed(name))
+	}
+}
+
 // tmFoot draws the toolbar at the foot, as the app's floating bars are: the day of the front copy, older and newer,
-// the differences, Cancel, Restore.
+// the differences (or, while Now is at the front, a name to keep it by), Cancel, Restore.
 func (a *app) tmFoot(c *ui.Context, ox, aw, wh float32) {
 	t := &a.tm
 	th := ryugo.From(c)
@@ -542,12 +565,19 @@ func (a *app) tmFoot(c *ui.Context, ox, aw, wh float32) {
 			if ryugo.Button(c.Key("tm-newer"), locales.HistoryNewer(), ryugo.ButtonOptions{Icon: iconChevronUp, IconOnly: true, Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && !t.busy() {
 				t.sel = max(t.sel-1, 0)
 			}
-			label := locales.HistoryShowDifferences() // in its place, side by side with the page now (tmdiff.go)
-			if t.diff && t.sel > 0 {
-				label = locales.HistoryShowPage()
-			}
-			if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: t.sel == 0}).Clicked() && t.sel > 0 && !t.busy() {
-				t.diff = !t.diff
+			if t.sel == 0 { // Now has no differences: in their place, a name to keep the page as it is by (#223)
+				in := a.fieldMenu(ryugo.Input(c.Key("tm-name"), &t.label, ryugo.InputOptions{Label: locales.HistoryTheVersionsName(), Placeholder: locales.HistoryKeepThisAsNamed(), Size: ryugo.Sm}), &t.label, fieldOpts{oneLine: true}).Width(190)
+				if (ryugo.Button(c.Key("tm-keep"), locales.HistoryKeep(), ryugo.ButtonOptions{Icon: iconHistory, Size: ryugo.Sm}).Clicked() || in.Submitted()) && !t.busy() {
+					a.tmKeepNamed()
+				}
+			} else {
+				label := locales.HistoryShowDifferences() // in its place, side by side with the page now (tmdiff.go)
+				if t.diff {
+					label = locales.HistoryShowPage()
+				}
+				if ryugo.Button(c.Key("tm-diff"), label, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.busy() {
+					t.diff = !t.diff
+				}
 			}
 			if ryugo.Button(c.Key("tm-cancel"), locales.CommonCancel2(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !t.busy() {
 				t.closing = true

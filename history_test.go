@@ -98,7 +98,8 @@ func TestVersionDialog(t *testing.T) {
 	a.takeOutside(p)
 	tt.Frame()
 
-	a.openHistory(p) // the dialog of the differences: the page menu opens the history as a stack (timemachine.go)
+	// the dialog of the differences, as the server's versions open it: the page menu opens the history as a stack (timemachine.go)
+	a.vhist = histView{open: true, page: p, vers: st.Versions(p.File()), opsFor: -1}
 	tt.Frame()
 	tt.Advance(400 * time.Millisecond)
 	if !a.vhist.open || len(a.vhist.vers) < 2 {
@@ -176,8 +177,9 @@ func TestNamedVersion(t *testing.T) {
 	}
 }
 
-// TestVersionDialogName: the dialog's field keeps the page as it is under a name.
-func TestVersionDialogName(t *testing.T) {
+// TestTimeMachineKeepNamed: while Now is at the front, the history's foot keeps the page as it is under a name, and
+// a toast says so, as the copy is not in the stack (#223).
+func TestTimeMachineKeepNamed(t *testing.T) {
 	st, now := storeAt(t)
 	lib, _ := OpenLibraryIn(st, StoreRoot)
 	seed(lib)
@@ -185,20 +187,27 @@ func TestVersionDialogName(t *testing.T) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
-	a.openHistory(a.page)
+	a.openTimeMachine(a.page)
 	tt.Advance(900 * time.Millisecond)
-	a.vhist.label = "Bugünkü hâl"
+	a.tm.label = "Bugünkü hâl"
 	tt.Frame()
-	r, _ := tt.Find("Sakla")
+	r, ok := tt.Find("Sakla")
+	if !ok {
+		t.Fatalf("no Keep in the foot: %v", tt.Texts())
+	}
 	tt.Move(r.X+r.W/2, r.Y+r.H/2) // the pointer is there a frame before the click, as it is for a hand
 	tt.Frame()
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(200 * time.Millisecond)
-	if len(a.vhist.vers) == 0 || a.vhist.vers[0].Label != "Bugünkü hâl" {
-		t.Fatalf("%+v", a.vhist.vers)
+	if vers := st.Versions(a.page.File()); len(vers) == 0 || vers[0].Label != "Bugünkü hâl" {
+		t.Fatalf("%+v", vers)
 	}
-	if !tt.HasText("Bugünkü hâl") {
-		t.Fatalf("not listed: %v", tt.Texts())
+	said := false
+	for _, it := range a.toasts.items {
+		said = said || strings.Contains(it.text, "Bugünkü hâl")
+	}
+	if a.tm.label != "" || !said {
+		t.Fatalf("not said, label %q", a.tm.label)
 	}
 }
 
