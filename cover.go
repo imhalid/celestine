@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -18,6 +19,8 @@ import (
 const coverH = 200
 
 var iconCover = icon(`<rect x="3.5" y="5" width="17" height="10.5" rx="2.5"/><path d="m4 13 4-3.5 3.5 3 3-2.5 5 3.5"/><path d="M7 19h10"/>`)
+
+var iconReposition = icon(`<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>`)
 
 // setCover makes data the page's cover, the old one's file going.
 func (a *app) setCover(p *Page, data []byte) error {
@@ -50,11 +53,15 @@ func (a *app) putCover(p *Page, data []byte, ext string) error {
 	if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
 		return err
 	}
+	oldShift := p.CoverShift
 	old := p.Cover
 	p.Cover = name
+	p.CoverShift = 0 // a new picture lies in the middle of its band
+	a.coverFix = nil
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old // the page file cannot be read: it is not written over, and the picture is not kept
+		p.CoverShift = oldShift
 		p.FS().Remove(filepath.Join(p.Dir, name))
 		return err
 	}
@@ -75,11 +82,15 @@ func (a *app) removeCover(p *Page) {
 	if p == a.page {
 		a.flush()
 	}
+	oldShift := p.CoverShift
 	old := p.Cover
 	p.Cover = CoverNone // no cover, the made one either: the page said so
+	p.CoverShift = 0
+	a.coverFix = nil
 	body, err := p.Body()
 	if err != nil {
 		p.Cover = old
+		p.CoverShift = oldShift
 		a.fail(err)
 		return
 	}
@@ -251,7 +262,8 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 			pt.Fill(pic, cl.Well, radius)
 			return
 		}
-		pt.Clip(pic, radius, func() { pt.Image(src, pic, ui.Cover) })
+		iw, ih := ui.ImageSize(src)
+		pt.Clip(pic, radius, func() { pt.Image(src, coverImageRect(pic, iw, ih, p.CoverShift), ui.FillBox) })
 		// no frame: only a hair of the text's color at its edge, so a pale picture still ends on a pale page
 		pt.Stroke(pic, cl.Text.Alpha(map[bool]float32{true: 0.10, false: 0.06}[t.Dark]), radius, 1)
 	})
@@ -262,6 +274,10 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 func (a *app) coverButtons(c *ui.Context, p *Page) {
 	kind := a.coverKind(p)
 	if kind == coverKindNone {
+		return
+	}
+	if a.coverFix == p && kind == coverKindImage {
+		a.coverReposition(c, p)
 		return
 	}
 	right, top := float32(18), float32(barH+10)
@@ -285,6 +301,9 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 // coverMenuItems are the cover's menu: change it, put the made one back, take it away.
 func (a *app) coverMenuItems(p *Page) []menuItem {
 	out := []menuItem{{title: "page_changeCover", glyph: iconCover, run: func() { a.pickCover(p) }}}
+	if a.coverKind(p) == coverKindImage {
+		out = append(out, menuItem{title: "page_repositionCover", glyph: iconReposition, run: func() { a.coverFix = p }})
+	}
 	if a.coverKind(p) == coverKindImage && a.settings.AutoCover {
 		out = append(out, menuItem{title: "page_restoreAutoCover", glyph: iconDice, run: func() {
 			a.removeCover(p)
@@ -328,5 +347,79 @@ func (a *app) coverThumb(c *ui.Context, p *Page, w, h float32, radius float32) {
 	} else {
 		box.FillWidth()
 	}
-	box.Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, radius, func() { pt.Image(src, r, ui.Cover) }) })
+	iw, ih := ui.ImageSize(src)
+	box.Draw(func(pt *ui.Painter, r ui.Rect) {
+		pt.Clip(r, radius, func() { pt.Image(src, coverImageRect(r, iw, ih, p.CoverShift), ui.FillBox) })
+	})
+}
+
+// coverImageRect is where a picture of iw by ih lies when it covers pic and shift (-100 to 100) says which part of it
+// shows: -100 its top (or left), 100 its bottom (or right), 0 the middle. The picture is drawn into it, stretched
+// to it as it is the right shape, under a clip of pic.
+func coverImageRect(pic ui.Rect, iw, ih float32, shift int) ui.Rect {
+	if iw <= 0 || ih <= 0 {
+		return pic
+	}
+	s := max(pic.W/iw, pic.H/ih)
+	w, h := iw*s, ih*s
+	f := 0.5 + float32(shift)/200
+	return ui.Rect{X: pic.X - (w-pic.W)*f, Y: pic.Y - (h-pic.H)*f, W: w, H: h}
+}
+
+// coverReposition is a picture cover while the user sets which part of it shows: the picture is dragged inside its
+// band (up or down, or sideways for a very wide one), and Done, at the top right where the cover's buttons are,
+// writes it (#524). Escape ends it too.
+func (a *app) coverReposition(c *ui.Context, p *Page) {
+	pic := ui.Rect{W: a.coverW, H: a.coverPicH(p)}
+	area := ui.Box(c.Key("cover-fix")).Absolute().Left(coverInset).Top(a.coverTopOf()).Size(pic.W, pic.H).Cursor(ui.CursorGrab).
+		Label(locales.PageCoverDrag()).AlignItems(ui.Center).Justify(ui.Center)
+	area.Children(func() {
+		if !a.coverDrag {
+			ui.Box(c.Key("cover-fix-hint")).Padding(6, 12).Radius(14).Background(ui.Hex("#000000").Alpha(0.5)).PassThrough().Children(func() {
+				ui.Text(c, locales.PageCoverDrag()).FontSize(13).FontWeight(500).TextColor(ui.Hex("#ffffff"))
+			})
+		}
+	})
+	dx, dy, pressed := area.Dragged()
+	if pressed && safeLocalAsset(p.Cover) {
+		if !a.coverDrag {
+			a.coverDrag, a.coverAt = true, float32(p.CoverShift)
+		}
+		iw, ih := ui.ImageSize(a.loadImage(p, filepath.Join(p.Dir, p.Cover)))
+		over := coverImageRect(pic, iw, ih, 0)
+		if oy, ox := over.H-pic.H, over.W-pic.W; oy >= ox && oy > 0.5 {
+			a.coverAt -= dy * 200 / oy // the picture follows the pointer: dragged down, its top comes into view
+		} else if ox > 0.5 {
+			a.coverAt -= dx * 200 / ox
+		}
+		a.coverAt = min(max(a.coverAt, -100), 100)
+		p.CoverShift = int(math.Round(float64(a.coverAt)))
+	}
+	if !pressed && a.coverDrag { // let go: written now, not on every frame of the drag
+		a.coverDrag = false
+		a.saveCoverShift(p)
+	}
+	done := ui.Box(c.Key("cover-fix-done")).Absolute().Right(coverInset+10).Top(a.coverTopOf()+10).Height(30).Padding(0, 14).Radius(15).
+		AlignItems(ui.Center).Justify(ui.Center).Label(locales.PageCoverDone()).Role(ui.RoleButton).
+		Cursor(ui.CursorPointer)
+	done.Background(ui.Hex("#ffffff").Alpha(map[bool]float32{true: 1, false: 0.88}[done.Hovered()]))
+	done.Children(func() { ui.Text(c, locales.PageCoverDone()).FontSize(13).FontWeight(600).TextColor(ui.Hex("#000000")) })
+	if done.Clicked() || c.Shortcut(0, ui.KeyEscape) {
+		a.coverFix = nil
+	}
+}
+
+// saveCoverShift writes p's cover position into its page file.
+func (a *app) saveCoverShift(p *Page) {
+	if p == a.page {
+		a.flush()
+	}
+	body, err := p.Body()
+	if err != nil {
+		a.fail(err)
+		return
+	}
+	if err := p.Save(body); err != nil {
+		a.fail(err)
+	}
 }

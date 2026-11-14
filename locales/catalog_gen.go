@@ -8055,6 +8055,26 @@ func (msgs Messages) PageChangeCover() string {
 	return Catalog.Format(msgs.locale, "page_changeCover", nil)
 }
 
+// PageCoverDone says "Done"
+// in the language the app shows.
+func PageCoverDone() string { return In(i18n.Locale()).PageCoverDone() }
+
+// PageCoverDone says "Done"
+// in the language of msgs.
+func (msgs Messages) PageCoverDone() string {
+	return Catalog.Format(msgs.locale, "page_coverDone", nil)
+}
+
+// PageCoverDrag says "Drag to reposition"
+// in the language the app shows.
+func PageCoverDrag() string { return In(i18n.Locale()).PageCoverDrag() }
+
+// PageCoverDrag says "Drag to reposition"
+// in the language of msgs.
+func (msgs Messages) PageCoverDrag() string {
+	return Catalog.Format(msgs.locale, "page_coverDrag", nil)
+}
+
 // PageCoverMore says "Cover options"
 // in the language the app shows.
 func PageCoverMore() string { return In(i18n.Locale()).PageCoverMore() }
@@ -8063,6 +8083,16 @@ func PageCoverMore() string { return In(i18n.Locale()).PageCoverMore() }
 // in the language of msgs.
 func (msgs Messages) PageCoverMore() string {
 	return Catalog.Format(msgs.locale, "page_coverMore", nil)
+}
+
+// PageRepositionCover says "Reposition"
+// in the language the app shows.
+func PageRepositionCover() string { return In(i18n.Locale()).PageRepositionCover() }
+
+// PageRepositionCover says "Reposition"
+// in the language of msgs.
+func (msgs Messages) PageRepositionCover() string {
+	return Catalog.Format(msgs.locale, "page_repositionCover", nil)
 }
 
 // PageChangedOutside says "“{page}” was also changed outside the app. Your edits were saved, and the other version was saved next to it as …"

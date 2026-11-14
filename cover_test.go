@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -168,5 +169,63 @@ func TestCoverFrameless(t *testing.T) {
 		if _, ok := tt.Find(label); !ok {
 			t.Fatalf("no %q over the cover", label)
 		}
+	}
+}
+
+// TestCoverReposition: Reposition in the cover's menu lets the picture be dragged inside its band; letting go writes
+// the position to the page's file, and Done ends it (#524).
+func TestCoverReposition(t *testing.T) {
+	a, tt := newTestApp(t, "text\n")
+	tt.SetSize(1200, 900)
+	p := a.page
+	a.open(p)
+	if err := a.setCover(p, pngBytes(100, 100)); err != nil { // square: cropped to the band, room to move
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	tt.Frame()
+	a.mu.Lock()
+	w, h := a.coverW, a.coverPicH(p)
+	a.coverFix = p
+	a.mu.Unlock()
+	tt.Advance(100 * time.Millisecond)
+	x, y := coverInset+w/2, a.coverTopOf()+h/2
+	tt.Move(x, y)
+	tt.Advance(100 * time.Millisecond)
+	tt.Press(x, y)
+	tt.Advance(50 * time.Millisecond)
+	tt.Move(x, y+30) // dragged down: the top of the picture comes into view
+	tt.Advance(50 * time.Millisecond)
+	tt.Move(x, y+60)
+	tt.Advance(50 * time.Millisecond)
+	tt.Release(x, y+60)
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	a.mu.Lock()
+	shift := p.CoverShift
+	a.mu.Unlock()
+	if shift >= 0 {
+		t.Fatalf("dragged down, the position is %d: the top should show (negative)", shift)
+	}
+	b, err := p.FS().ReadFile(p.File())
+	if err != nil || !strings.Contains(string(b), "covershift") {
+		t.Fatalf("the position was not written: %v %q", err, b)
+	}
+	if got := coverImageRect(ui.Rect{W: 100, H: 50}, 100, 100, -100); got.Y != 0 {
+		t.Fatalf("the top shown: the picture starts at %v, not 0", got.Y)
+	}
+	if got := coverImageRect(ui.Rect{W: 100, H: 50}, 100, 100, 100); got.Y != -50 {
+		t.Fatalf("the bottom shown: the picture starts at %v, not -50", got.Y)
+	}
+	if err := tt.Click(locales.PageCoverDone()); err != nil {
+		t.Fatal("no Done while repositioning: ", err)
+	}
+	tt.Advance(100 * time.Millisecond)
+	a.mu.Lock()
+	fix := a.coverFix
+	a.mu.Unlock()
+	if fix != nil {
+		t.Fatal("Done did not end it")
 	}
 }

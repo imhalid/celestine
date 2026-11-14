@@ -264,6 +264,9 @@ type app struct {
 	coverHover    bool    // the pointer is in the cover band
 	coverW        float32 // the width the picture cover was last laid out at: its height follows it (cover.go)
 	coverMenu     bool    // the cover's menu is open
+	coverFix      *Page   // the page whose cover picture is being repositioned: dragged inside its band (cover.go)
+	coverDrag     bool    // the picture is held, its position not yet written
+	coverAt       float32 // its position while held, finer than the page's whole numbers
 	bannerMenu    bool    // and the collection banner's (banner.go)
 	hoverBorder   borderKey
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)

@@ -184,21 +184,22 @@ func (c *Collection) All() []*Page {
 }
 
 type Page struct {
-	Title    string
-	Created  time.Time
-	Modified time.Time         // when its file was last written
-	Writes   int               // how many times it was written here: two writes in one tick of the file's clock are still two
-	Order    int               // its place among its siblings, from 1; 0: not yet placed (by creation)
-	Props    map[string]string // its properties' values, by id, and other front matter kept as it was
-	Rank     int               // its place in its column on the board, from 1; 0: not yet placed
-	Manual   int               // its place in a view in its own order (sort "manual"), from 1; 0: not yet placed
-	Cover    string            // the picture across its top: a file of its folder (cover.go)
-	Own      []Property        // its own properties, besides its collection's: added on it alone (#487)
-	Dir      string
-	Coll     *Collection
-	Parent   *Page
-	Children []*Page
-	Open     bool // shown expanded in the sidebar
+	Title      string
+	Created    time.Time
+	Modified   time.Time         // when its file was last written
+	Writes     int               // how many times it was written here: two writes in one tick of the file's clock are still two
+	Order      int               // its place among its siblings, from 1; 0: not yet placed (by creation)
+	Props      map[string]string // its properties' values, by id, and other front matter kept as it was
+	Rank       int               // its place in its column on the board, from 1; 0: not yet placed
+	Manual     int               // its place in a view in its own order (sort "manual"), from 1; 0: not yet placed
+	Cover      string            // the picture across its top: a file of its folder (cover.go)
+	CoverShift int               // where the cover picture lies in its band: -100 shows its top, 100 its bottom, 0 the middle (cover.go)
+	Own        []Property        // its own properties, besides its collection's: added on it alone (#487)
+	Dir        string
+	Coll       *Collection
+	Parent     *Page
+	Children   []*Page
+	Open       bool // shown expanded in the sidebar
 
 	SxID  int // its place in the search index, when sxOf is the index
 	SxOf  any // the index it is in (searchindex.go): the library does not know it
@@ -531,6 +532,9 @@ func (p *Page) Save(body string) error {
 	}
 	if p.Cover != "" {
 		meta["cover"] = p.Cover
+	}
+	if p.CoverShift != 0 {
+		meta["covershift"] = strconv.Itoa(p.CoverShift)
 	}
 	if len(p.Own) > 0 {
 		own, _ := json.Marshal(p.Own)

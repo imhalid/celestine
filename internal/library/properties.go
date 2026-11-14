@@ -55,7 +55,7 @@ type Property struct {
 }
 
 // reserved are the front matter keys of the page itself.
-var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover", "properties"}
+var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover", "covershift", "properties"}
 
 // Prop is the property id, or nil.
 func (c *Collection) Prop(id string) *Property {
@@ -365,6 +365,9 @@ func (p *Page) ReadMeta(meta map[string]string) {
 	fmt.Sscan(meta["rank"], &p.Rank)
 	fmt.Sscan(meta["manualrank"], &p.Manual)
 	p.Cover = meta["cover"]
+	p.CoverShift = 0
+	fmt.Sscan(meta["covershift"], &p.CoverShift)
+	p.CoverShift = max(-100, min(p.CoverShift, 100))
 	p.Own = nil
 	if own := meta["properties"]; own != "" {
 		json.Unmarshal([]byte(own), &p.Own) // one that cannot be read is none: the page is still read
