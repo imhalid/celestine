@@ -35,7 +35,7 @@
   `celestine-releases`. It serves `update.json` and `<version>/<file>`; `GET /download/<os-arch>` sends a browser to the latest release's
   file (the site's buttons). It records nothing. The address is in every release: it does not change.
 - `scripts/release`: `keygen` (the key pair), `manifest` (hashes the files, signs each with `sig` and `sig2`, writes `update.json`).
-- `.github/workflows/release.yml`: a `v*` tag → the gate, `scripts/build.sh` (address and key as `LDFLAGS`, budget 30 MB), packaging,
+- `.github/workflows/release.yml`: a `v*` tag → the gate, `scripts/build.sh` (address and key as `LDFLAGS`, budget 50 MB), packaging,
   `SHA256SUMS`, the signed manifest, the GitHub release, then R2 with `update.json` last.
 
 ### Setting it up (once)

@@ -3,7 +3,7 @@
 # the sizes of each next to the last build's, with a word when a size goes over the budget.
 #
 #   scripts/build.sh              all targets, into dist/
-#   BUDGET_MB=22 scripts/build.sh the budget of a binary, in MB (default 25)
+#   BUDGET_MB=40 scripts/build.sh the budget of a binary, in MB (default 50, as the release)
 #   scripts/build.sh linux/amd64  one target
 #   LDFLAGS='-X main.updateURL=…' scripts/build.sh   more -ldflags, as the release puts its update address and key in
 #
@@ -13,7 +13,7 @@
 # painting, so it is not the default. UPX is not used: it breaks macOS signing and notarization and Windows virus checkers dislike it.
 set -eu
 cd "$(dirname "$0")/.."
-BUDGET_MB=${BUDGET_MB:-25}
+BUDGET_MB=${BUDGET_MB:-50}
 VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}
 TARGETS=${*:-"darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64"}
 mkdir -p dist

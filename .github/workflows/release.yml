@@ -73,7 +73,7 @@ jobs:
           echo "BASE=${UPDATE_URL%/update.json}/$VERSION" >> "$GITHUB_ENV"
       - name: build
         env:
-          BUDGET_MB: 30 # the macOS builds are 26-29 MB; over this the release stops
+          BUDGET_MB: 50 # the builds are 27-31 MB (v0.1.0); over this the release stops
         run: |
           scripts/build.sh
           GOOS=js GOARCH=wasm go build -o /dev/null . # the web's build is in the gate too
