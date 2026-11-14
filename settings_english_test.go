@@ -101,3 +101,16 @@ func TestSettingsInEnglish(t *testing.T) {
 		t.Fatalf("Turkish in the English settings:\n%s", strings.Join(found, "\n"))
 	}
 }
+
+// The settings screen's sliders take their bounds from the palette's commands, which are those the getters keep:
+// a value set by a command is never past a slider's end (#224).
+func TestSettingSliderLimits(t *testing.T) {
+	for _, c := range []struct {
+		field  string
+		lo, hi float64
+	}{{"fontSize", minFont, maxFont}, {"lineHeight", 1.2, 2.2}, {"pageWidth", 480, 1200}, {"corner", 0, 200}} {
+		if lo, hi := settingLimits(c.field); lo != c.lo || hi != c.hi {
+			t.Errorf("%s: %v..%v, want %v..%v", c.field, lo, hi, c.lo, c.hi)
+		}
+	}
+}

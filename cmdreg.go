@@ -95,6 +95,17 @@ func (a *app) save1() { a.saveSettings() }
 // palette and the argument commands go by, and the test holds the two together.
 func settingDefs() []settingDef { return settingDefsFor(runtime.GOOS == "darwin") }
 
+// settingLimits are the bounds of the number setting that covers field, as the palette's command has them: the
+// settings screen's slider takes them too, so a value set by the command is never past the slider's end (#224).
+func settingLimits(field string) (lo, hi float64) {
+	for _, d := range settingDefs() {
+		if d.kind == setNumber && len(d.fields) == 1 && d.fields[0] == field {
+			return d.min, d.max
+		}
+	}
+	panic("no number setting covers " + field)
+}
+
 // settingDefsFor returns the command-palette setting definitions for the given platform capability.
 func settingDefsFor(macOS bool) []settingDef {
 	tog := func(name, alias string, fields []string, on func(*app) bool, flip func(*app, bool)) settingDef {

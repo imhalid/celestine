@@ -394,7 +394,8 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-width", func() {
 		settingRow(c, locales.CommonPageWidth(), locales.SettingsTheWidthTextColumn(), func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-width-s"), &w, 520, 1100, ryugo.SliderOptions{Label: locales.CommonPageWidth(), Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
+				lo, hi := settingLimits("pageWidth")
+				ryugo.Slider(c.Key("set-width-s"), &w, lo, hi, ryugo.SliderOptions{Label: locales.CommonPageWidth(), Step: 20, Format: func(v float64) string { return strconv.Itoa(int(v)) + " px" }})
 			})
 		})
 	})
@@ -406,7 +407,8 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	settingGroup(c, "set-corner", func() {
 		settingRow(c, locales.CommonCorners(), locales.SettingsAllCornersAreWorked(), func() {
 			ui.Box(c).Width(260).Children(func() {
-				ryugo.Slider(c.Key("set-corner-s"), &corner, 0, 200, ryugo.SliderOptions{Label: locales.CommonCornerRoundness(), Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
+				lo, hi := settingLimits("corner")
+				ryugo.Slider(c.Key("set-corner-s"), &corner, lo, hi, ryugo.SliderOptions{Label: locales.CommonCornerRoundness(), Step: 10, Format: func(v float64) string { return strconv.Itoa(int(v)) + "%" }})
 			})
 		})
 	})
@@ -579,14 +581,16 @@ func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 		func() {
 			settingRow(c, locales.CommonFontSize(), "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-font"), &fs, 13, 24, ryugo.SliderOptions{Label: locales.CommonFontSize(), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
+					lo, hi := settingLimits("fontSize")
+					ryugo.Slider(c.Key("set-font"), &fs, lo, hi, ryugo.SliderOptions{Label: locales.CommonFontSize(), Step: 0.5, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 1, 64) + " px" }})
 				})
 			})
 		},
 		func() {
 			settingRow(c, locales.CommonLineSpacing(), "", func() {
 				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-lh"), &lh, 1.3, 2, ryugo.SliderOptions{Label: locales.CommonLineSpacing(), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
+					lo, hi := settingLimits("lineHeight")
+					ryugo.Slider(c.Key("set-lh"), &lh, lo, hi, ryugo.SliderOptions{Label: locales.CommonLineSpacing(), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }})
 				})
 			})
 		},
