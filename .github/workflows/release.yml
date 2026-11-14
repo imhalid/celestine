@@ -1,7 +1,8 @@
 # A tag v1.2.3 makes a release: the five builds (scripts/build.sh, with its size budget), packaged
-# (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file), a SHA256SUMS,
-# a signed manifest, the GitHub release, and then the files on Cloudflare R2, from where the app's update check
-# reads them (cloudflare/update/worker.js). update.json goes up last: until it is there, no app is offered the version.
+# (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file, and
+# scripts/appimage.sh: Linux as an AppImage, #513), a SHA256SUMS, a signed manifest, the GitHub release, and then the
+# files on Cloudflare R2, from where the app's update check reads them (cloudflare/update/worker.js), and the site's
+# download buttons through the Worker's /download: the DMG on macOS, the AppImage on Linux, the .exe on Windows. update.json goes up last: until it is there, no app is offered the version.
 # Then the dmg job, on macOS, makes celestine-macos.dmg from the two darwin zips (scripts/dmg.sh) and adds it to
 # the release and to R2: the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
 #
@@ -80,6 +81,7 @@ jobs:
       - name: package
         run: |
           scripts/package.sh
+          scripts/appimage.sh
           (cd dist && sha256sum celestine-* > SHA256SUMS && cat SHA256SUMS)
       - name: darwin zips for the dmg job
         uses: actions/upload-artifact@v4

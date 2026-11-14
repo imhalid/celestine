@@ -57,18 +57,23 @@ func legacySigText(version, sha string) []byte { return []byte(version + "\n" + 
 
 // signFile hashes and signs the file at f for the manifest, served at base: the "os-arch" it is listed under,
 // from its name (celestine-linux-amd64, celestine-windows-amd64.exe, celestine-darwin-arm64.zip), and its asset
-// with both signatures. ok is false for a file that is not an update (the .tar.gz of Linux is for people,
-// scripts/package.sh; the update takes the bare binary).
+// with both signatures. An AppImage (celestine-linux-amd64.AppImage, scripts/appimage.sh) is listed apart, under
+// linux-amd64-appimage with the kind appimage: the update of a program run from one (update.go: updatePlatform).
+// ok is false for a file that is not an update (the .tar.gz of Linux is for people, scripts/package.sh).
 func signFile(priv ed25519.PrivateKey, version, base, f string) (key string, a asset, ok bool, err error) {
 	name := filepath.Base(f)
 	if strings.HasSuffix(name, ".tar.gz") {
 		return "", a, false, nil
 	}
-	parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), "-")
+	appImage := strings.HasSuffix(name, ".AppImage")
+	parts := strings.Split(strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(name, ".exe"), ".zip"), ".AppImage"), "-")
 	if len(parts) < 3 {
 		return "", a, false, nil
 	}
 	key = parts[1] + "-" + parts[2]
+	if appImage {
+		key += "-appimage"
+	}
 	in, err := os.Open(f)
 	if err != nil {
 		return "", a, false, err
@@ -82,6 +87,8 @@ func signFile(priv ed25519.PrivateKey, version, base, f string) (key string, a a
 	a = asset{URL: strings.TrimRight(base, "/") + "/" + name, SHA256: hex.EncodeToString(h.Sum(nil)), Size: n}
 	if strings.HasSuffix(name, ".zip") {
 		a.Kind = "app-zip"
+	} else if appImage {
+		a.Kind = "appimage"
 	}
 	text, err := sigText(version, key, name, a.Kind, a.SHA256)
 	if err != nil {

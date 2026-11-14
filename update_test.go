@@ -980,3 +980,29 @@ func TestUpdateTrialRestartArgs(t *testing.T) {
 		t.Fatalf("withoutUpdateRestartedFlag = %v", clean)
 	}
 }
+
+// TestUpdatePlatformAppImage: a program run from an AppImage takes the AppImage's asset, which replaces the
+// AppImage file, as the program in its read-only mount cannot be replaced (#513); elsewhere APPIMAGE changes
+// nothing, and a path that is not a file is not taken for one.
+func TestUpdatePlatformAppImage(t *testing.T) {
+	plain := runtime.GOOS + "-" + runtime.GOARCH
+	img := filepath.Join(t.TempDir(), "Celestine.AppImage")
+	os.WriteFile(img, []byte("appimage"), 0o755)
+	t.Setenv("APPIMAGE", img)
+	want, wantPath := plain, ""
+	if runtime.GOOS == "linux" {
+		want, wantPath = plain+"-appimage", img
+	}
+	if got := updatePlatform(); got != want {
+		t.Errorf("updatePlatform = %q, want %q", got, want)
+	}
+	if got := appImagePath(); got != wantPath {
+		t.Errorf("appImagePath = %q, want %q", got, wantPath)
+	}
+	for _, p := range []string{"", "relative/Celestine.AppImage", filepath.Dir(img), img + ".gone"} {
+		t.Setenv("APPIMAGE", p)
+		if got := updatePlatform(); got != plain {
+			t.Errorf("APPIMAGE=%q: updatePlatform = %q, want %q", p, got, plain)
+		}
+	}
+}

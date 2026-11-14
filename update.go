@@ -60,7 +60,7 @@ type Asset struct {
 	Sig    string `json:"sig"`            // base64 ed25519 signature of legacySigText: for the clients before #455, not checked here
 	Sig2   string `json:"sig2,omitempty"` // base64 ed25519 signature of sigText: the one this client requires
 	Size   int64  `json:"size,omitempty"` // bytes
-	Kind   string `json:"kind,omitempty"` // "binary" (default), or "app-zip": a macOS .app, zipped
+	Kind   string `json:"kind,omitempty"` // "binary" (default), "app-zip": a macOS .app, zipped, or "appimage"
 }
 
 // sigFormat opens the text of the second signature, so that it can never be read as the first one's.
@@ -232,10 +232,37 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 	if !versionLess(current, rel.Version) || rel.Version == skip {
 		return nil, nil
 	}
-	if _, ok := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]; !ok {
+	if _, ok := rel.Assets[updatePlatform()]; !ok {
 		return nil, errors.New(locales.UpdateErrNoBuildFor(runtime.GOOS + "/" + runtime.GOARCH))
 	}
 	return &rel, nil
+}
+
+// appImagePath is the AppImage this program runs from, or "": the runtime of an AppImage sets APPIMAGE to the
+// file's path, and the program itself is in a read-only mount that cannot be replaced (#513).
+func appImagePath() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	p := os.Getenv("APPIMAGE")
+	if !filepath.IsAbs(p) {
+		return ""
+	}
+	if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() {
+		return ""
+	}
+	return p
+}
+
+// updatePlatform is the key of this program's build among a release's assets: "darwin-arm64", "windows-amd64",
+// and for a program run from an AppImage "linux-amd64-appimage", the AppImage that replaces it whole
+// (scripts/appimage.sh).
+func updatePlatform() string {
+	p := runtime.GOOS + "-" + runtime.GOARCH
+	if appImagePath() != "" {
+		p += "-appimage"
+	}
+	return p
 }
 
 // checkUpdate asks in the background, when the settings allow it and it is time; the answer is kept for
@@ -348,7 +375,7 @@ func (u *updProgress) frac() float32 {
 // filesystem, and closed to anyone else, so what was checked is what is put in place. prog, when given, counts it
 // as it comes.
 func download(ctx context.Context, rel *Release, pubKey, dir string, prog *updProgress) (string, Asset, error) {
-	platform := runtime.GOOS + "-" + runtime.GOARCH
+	platform := updatePlatform()
 	as, ok := rel.Assets[platform]
 	if !ok {
 		return "", as, errors.New(locales.UpdateErrNoBuild())
@@ -682,9 +709,12 @@ func (a *app) startUpdate() {
 		a.say(toastErr, locales.UpdateFailed(err.Error()))
 		return
 	}
+	if p := appImagePath(); p != "" {
+		exe = p // the AppImage is what is replaced, as a program is (installBinary)
+	}
 	exe, _ = filepath.EvalSymlinks(exe)
 	bundle := ""
-	if as := rel.Assets[runtime.GOOS+"-"+runtime.GOARCH]; as.Kind == "app-zip" {
+	if as := rel.Assets[updatePlatform()]; as.Kind == "app-zip" {
 		if bundle = appBundleOf(exe); bundle == "" {
 			a.updBusy.Store(false)
 			a.say(toastErr, locales.UpdateFailed(locales.UpdateErrNotInApp()))

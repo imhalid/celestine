@@ -1,8 +1,8 @@
 # The gate, every evening there were commits: format, vet, the builds a release makes (the three systems without cgo,
-# and the web's wasm), the library under the race detector, every test, the performance with a big library, and
-# govulncheck. Not on each push: the repository is private, and its Actions minutes are counted; an evening's run is
-# one, on Linux, the cheapest runner. An evening with no commit in the day before stops after the check, a minute. It
-# can be run by hand too (Actions ▸ nightly ▸ Run workflow).
+# the web's wasm, and the Linux AppImages), the library under the race detector, every test, the performance with a
+# big library, and govulncheck. Not on each push: the repository is private, and its Actions minutes are counted; an
+# evening's run is one, on Linux, the cheapest runner. An evening with no commit in the day before stops after the
+# check, a minute. It can be run by hand too (Actions ▸ nightly ▸ Run workflow).
 #
 # Each run that checks something opens an issue, labelled nightly, with what it found (scripts/nightly-report.sh): the
 # commits it tested, each step, the failed tests, the slowest, the performance figures, the vulnerabilities. One where
@@ -67,6 +67,8 @@ jobs:
           {
             for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . || exit 1; done
             GOOS=js GOARCH=wasm go build -o /dev/null .
+            # the AppImages a release packs (scripts/appimage.sh, #513), so a broken package is found before a tag
+            scripts/build.sh linux/amd64 linux/arm64 && scripts/appimage.sh || exit 1
           } 2>&1 | tee report/builds.txt
       - name: the library under the race detector
         id: race

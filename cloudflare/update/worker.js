@@ -3,7 +3,7 @@
 //   GET /update.json          the manifest of the latest release (channel=beta for trials)
 //   GET /<version>/<file>     the release's files
 //   GET /download/<os-arch>   the latest release's file for darwin-arm64, windows-amd64, …: a redirect, for the site's buttons;
-//                             macOS's is the zipped celestine.app, Linux's the .tar.gz beside the binary when the release has one
+//                             macOS's is the DMG, Linux's the AppImage, Windows's the .exe
 //
 // The release's workflow (.github/workflows/release.yml) puts the files and update.json in the bucket.
 // The Worker adds nothing and logs nothing of the user: the request is a version in the User-Agent, and
@@ -27,9 +27,10 @@ export default {
   },
 };
 
-// download sends the browser to the latest release's file for a platform, as update.json names it. The
-// manifest names the bare Linux binary (what the update takes); a person gets the .tar.gz put beside it
-// (scripts/package.sh), with the .desktop file and the icon, when that release has one.
+// download sends the browser to the latest release's file for a platform, the one a person installs: the DMG on
+// macOS (one for both chips, release.yml's dmg job), the AppImage on Linux (listed as linux-<arch>-appimage), the
+// .exe on Windows. A release without them falls back to what update.json names: the zipped celestine.app, and on
+// Linux the .tar.gz beside the bare binary (scripts/package.sh), with the .desktop file and the icon (#513).
 async function download(env, platform) {
   const obj = await env.RELEASES.get("update.json");
   if (!obj) return new Response("no release yet", { status: 404 });
@@ -37,7 +38,12 @@ async function download(env, platform) {
   const asset = manifest.assets?.[platform];
   if (!asset?.url) return new Response("no build for " + platform, { status: 404 });
   let location = asset.url;
-  if (platform.startsWith("linux-") && (await env.RELEASES.head(`${manifest.version}/celestine-${platform}.tar.gz`)))
+  const dir = location.slice(0, location.lastIndexOf("/") + 1);
+  if (platform.startsWith("darwin-") && (await env.RELEASES.head(`${manifest.version}/celestine-macos.dmg`)))
+    location = dir + "celestine-macos.dmg";
+  else if (platform.startsWith("linux-") && manifest.assets?.[platform + "-appimage"]?.url)
+    location = manifest.assets[platform + "-appimage"].url;
+  else if (platform.startsWith("linux-") && (await env.RELEASES.head(`${manifest.version}/celestine-${platform}.tar.gz`)))
     location += ".tar.gz";
   return new Response(null, { status: 302, headers: { location, "cache-control": "public, max-age=300" } });
 }

@@ -73,6 +73,15 @@ func TestSignFile(t *testing.T) {
 	if err != nil || !ok || key != "windows-amd64" || a.Kind != "" || !verify(text, a.Sig2) {
 		t.Fatalf("windows: %s %+v %v %v", key, a, ok, err)
 	}
+	// an AppImage is listed apart from the bare binary, as the update of a program run from one (#513)
+	key, a, ok, err = signFile(priv, "v1.3.0", "https://dl.example.com/v1.3.0", write("celestine-linux-arm64.AppImage"))
+	text, _ = sigText("v1.3.0", "linux-arm64-appimage", "celestine-linux-arm64.AppImage", "appimage", a.SHA256)
+	if err != nil || !ok || key != "linux-arm64-appimage" || a.Kind != "appimage" || !verify(text, a.Sig2) {
+		t.Fatalf("appimage: %s %+v %v %v", key, a, ok, err)
+	}
+	if verify(must(sigText("v1.3.0", "linux-arm64", "celestine-linux-arm64.AppImage", "binary", a.SHA256)), a.Sig2) {
+		t.Error("the AppImage's signature holds for the bare binary's place")
+	}
 	if _, _, ok, err := signFile(priv, "v1.3.0", "https://x", write("celestine-linux-amd64.tar.gz")); ok || err != nil {
 		t.Fatalf("the .tar.gz for people was taken: %v %v", ok, err)
 	}

@@ -122,7 +122,7 @@ folders (`kitaplar/dune`); text is Markdown. What an agent does shows in the win
 | `web/` | Web / PWA shell assets: manifest, icons, service worker (`sw.js`), and touch helpers (`touch.js`) |
 | `android/` | Android Kotlin/Gradle wrapper project (`app/`, `build.gradle.kts`, Gradle scripts) |
 | `cloudflare/` | Cloudflare Workers (`cloudflare/sync`: the sync, account and admin API at celestine.halid.dev, which hands every other path to the site Worker of the `celestine-site` repository through a service binding; `cloudflare/update`: the release manifest and downloads) |
-| `scripts/` | Build, packaging, release/changelog (`scripts/build.sh`, `scripts/package.sh`, `scripts/dmg.sh` (the macOS DMG), `scripts/release/`, `scripts/winicon/`), and platform helper scripts |
+| `scripts/` | Build, packaging, release/changelog (`scripts/build.sh`, `scripts/package.sh`, `scripts/dmg.sh` (the macOS DMG), `scripts/appimage.sh` (the Linux AppImages), `scripts/release/`, `scripts/winicon/`), and platform helper scripts |
 | `docs/` | What is still to do, decisions in force and open problems (Turkish); 00-OKU-BENI.md is the index |
 | `prototypes/slime-md` | The caret prototype |
 
