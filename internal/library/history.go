@@ -89,16 +89,12 @@ func PairWords(ops []DiffOp) {
 }
 
 // DiffLines sets the lines of the version against those of the present: the
-// longest run they share, the rest marked. Long texts are compared by their
-// first lines only.
+// longest run they share, the rest marked. The lines both start and end with
+// are set aside first; of what lies between, only the first 1 500 lines of each
+// side are matched, and those after them are marked as differing, so a change
+// past line 1 500 is never shown as the same (#225).
 func DiffLines(version, now []string) []DiffOp {
 	const cap = 1500
-	if len(version) > cap {
-		version = version[:cap]
-	}
-	if len(now) > cap {
-		now = now[:cap]
-	}
 	// the lines both start and end with are the same in any longest run: only those between are compared, a copy
 	// a few lines from the present costing a few lines, not 1 501 × 1 501 numbers (#199)
 	var head, tail []DiffOp
@@ -109,6 +105,13 @@ func DiffLines(version, now []string) []DiffOp {
 	for len(version) > 0 && len(now) > 0 && version[len(version)-1] == now[len(now)-1] {
 		tail = append(tail, DiffOp{Kind: '=', Text: version[len(version)-1]})
 		version, now = version[:len(version)-1], now[:len(now)-1]
+	}
+	var versionRest, nowRest []string
+	if len(version) > cap {
+		version, versionRest = version[:cap], version[cap:]
+	}
+	if len(now) > cap {
+		now, nowRest = now[:cap], now[cap:]
 	}
 	n, m := len(version), len(now)
 	w := m + 1
@@ -144,6 +147,12 @@ func DiffLines(version, now []string) []DiffOp {
 	}
 	for ; j < m; j++ {
 		out = append(out, DiffOp{Kind: '-', Text: now[j]})
+	}
+	for _, s := range versionRest {
+		out = append(out, DiffOp{Kind: '+', Text: s})
+	}
+	for _, s := range nowRest {
+		out = append(out, DiffOp{Kind: '-', Text: s})
 	}
 	for k := len(tail) - 1; k >= 0; k-- {
 		out = append(out, tail[k])

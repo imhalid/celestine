@@ -142,3 +142,35 @@ func TestDiffLinesTrimmed(t *testing.T) {
 		t.Fatalf("%d ops for one line changed in 1 500", len(ops))
 	}
 }
+
+// A change past line 1 500 is a difference, not "the same": the cap is on the lines between the shared start and
+// end, and what lies beyond it is marked, not dropped (#225).
+func TestDiffLinesPastCap(t *testing.T) {
+	long := make([]string, 3000)
+	for i := range long {
+		long[i] = fmt.Sprint("line ", i)
+	}
+	edited := slices.Clone(long)
+	edited[2500] = "changed"
+	changed := func(ops []DiffOp) int {
+		n := 0
+		for _, o := range ops {
+			if o.Kind != '=' {
+				n++
+			}
+		}
+		return n
+	}
+	if n := changed(DiffLines(long, edited)); n != 2 {
+		t.Fatalf("%d lines marked for one changed at 2 500, want 2", n)
+	}
+	// a middle wider than the cap on both sides: every line still appears once on its side
+	a, b := make([]string, 2000), make([]string, 2000)
+	for i := range a {
+		a[i], b[i] = fmt.Sprint("a", i), fmt.Sprint("b", i)
+	}
+	ops := DiffLines(a, b)
+	if n := changed(ops); n != 4000 || ops[len(ops)-1].Text != "b1999" {
+		t.Fatalf("%d lines marked, last %q", n, ops[len(ops)-1].Text)
+	}
+}
