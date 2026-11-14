@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/plugins/glass"
@@ -633,7 +634,54 @@ func (a *app) goToParagraph(n int) {
 }
 
 // fold is s for matching: lower case, Turkish letters as their ASCII.
-func fold(s string) string { return TurkishFold.Replace(strings.ToLower(TurkishFold.Replace(s))) }
+func fold(s string) string {
+	ascii := true
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			ascii = false
+			break
+		}
+	}
+	if ascii {
+		return strings.ToLower(s)
+	}
+	// one pass, as TurkishFold, strings.ToLower and TurkishFold again would: a page's whole text is folded for the
+	// search (#504)
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if c, ok := turkishASCII(r); ok {
+			b.WriteByte(c)
+			continue
+		}
+		r = unicode.ToLower(r)
+		if c, ok := turkishASCII(r); ok {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// turkishASCII is the ASCII letter TurkishFold gives a Turkish letter.
+func turkishASCII(r rune) (byte, bool) {
+	switch r {
+	case 'ç', 'Ç':
+		return 'c', true
+	case 'ğ', 'Ğ':
+		return 'g', true
+	case 'ı', 'İ':
+		return 'i', true
+	case 'ö', 'Ö':
+		return 'o', true
+	case 'ş', 'Ş':
+		return 's', true
+	case 'ü', 'Ü':
+		return 'u', true
+	}
+	return 0, false
+}
 
 // match scores how well q matches s: the words of q all in s, nearer the
 // start and at the start of words better; the letters of q in order, worse;

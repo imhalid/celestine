@@ -13617,6 +13617,48 @@ func (msgs Messages) TasksClearFilters() string {
 	return Catalog.Format(msgs.locale, "tasks_clearFilters", nil)
 }
 
+// TasksCloseAll says "Complete all"
+// in the language the app shows.
+func TasksCloseAll() string { return In(i18n.Locale()).TasksCloseAll() }
+
+// TasksCloseAll says "Complete all"
+// in the language of msgs.
+func (msgs Messages) TasksCloseAll() string {
+	return Catalog.Format(msgs.locale, "tasks_closeAll", nil)
+}
+
+// TasksCloseAllBody says "{count, plural, one{{count} open task of {page} is ticked off.} other{{count} open tasks of {page} are ticked off.}}"
+// in the language the app shows.
+func TasksCloseAllBody(count int, page string) string {
+	return In(i18n.Locale()).TasksCloseAllBody(count, page)
+}
+
+// TasksCloseAllBody says "{count, plural, one{{count} open task of {page} is ticked off.} other{{count} open tasks of {page} are ticked off.}}"
+// in the language of msgs.
+func (msgs Messages) TasksCloseAllBody(count int, page string) string {
+	return Catalog.Format(msgs.locale, "tasks_closeAllBody", map[string]any{"count": count, "page": page})
+}
+
+// TasksCloseAllLabel says "Complete every open task: {page}"
+// in the language the app shows.
+func TasksCloseAllLabel(page string) string { return In(i18n.Locale()).TasksCloseAllLabel(page) }
+
+// TasksCloseAllLabel says "Complete every open task: {page}"
+// in the language of msgs.
+func (msgs Messages) TasksCloseAllLabel(page string) string {
+	return Catalog.Format(msgs.locale, "tasks_closeAllLabel", map[string]any{"page": page})
+}
+
+// TasksCloseAllTitle says "Complete these tasks?"
+// in the language the app shows.
+func TasksCloseAllTitle() string { return In(i18n.Locale()).TasksCloseAllTitle() }
+
+// TasksCloseAllTitle says "Complete these tasks?"
+// in the language of msgs.
+func (msgs Messages) TasksCloseAllTitle() string {
+	return Catalog.Format(msgs.locale, "tasks_closeAllTitle", nil)
+}
+
 // TasksDay says "Day"
 // in the language the app shows.
 func TasksDay() string { return In(i18n.Locale()).TasksDay() }

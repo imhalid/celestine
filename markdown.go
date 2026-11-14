@@ -297,13 +297,20 @@ func bodyMarkdown(t richtext.Text) string {
 		h    heldBlock
 	}
 	var spans []span
-	asc := starts(t)
-	for i, j := 0, len(asc)-1; i < j; i, j = i+1, j-1 {
-		asc[i], asc[j] = asc[j], asc[i]
+	// the paragraphs read once, in order: a paragraph's range, style and text asked of the text one by one cost a
+	// walk of it each, seconds for a page of thirty thousand lines (#504)
+	type para struct {
+		s, e int
+		st   richtext.ParagraphStyle
+		text string
 	}
-	for i := 0; i < len(asc); {
-		s, e := t.ParagraphRange(asc[i])
-		st := t.ParagraphStyleAt(s)
+	var ps []para
+	for at, p := range t.Paragraphs() {
+		text := paraText(p)
+		ps = append(ps, para{at, at + utf8.RuneCountInString(text), p.Style, text})
+	}
+	for i := 0; i < len(ps); {
+		s, e, st := ps[i].s, ps[i].e, ps[i].st
 		switch {
 		case st.ID == hrID && s == e:
 			spans = append(spans, span{s, e, heldBlock{kind: "hr"}})
@@ -317,17 +324,16 @@ func bodyMarkdown(t richtext.Text) string {
 			}
 			var texts []string
 			end, j := e, i
-			for ; j < len(asc); j++ {
-				s2, e2 := t.ParagraphRange(asc[j])
-				st2 := t.ParagraphStyleAt(s2)
+			for ; j < len(ps); j++ {
+				st2 := ps[j].st
 				if !st2.CodeBlock || st2.Quote || st2.Indent != 0 || st2.List != richtext.NoList {
 					break
 				}
 				if j > i && (strings.HasPrefix(st2.ID, codeIDPrefix) || strings.HasPrefix(st2.ID, rawIDPrefix)) {
 					break // the next block
 				}
-				texts = append(texts, t.Slice(s2, e2).String())
-				end = e2
+				texts = append(texts, ps[j].text)
+				end = ps[j].e
 			}
 			h.text = strings.Join(texts, "\n")
 			spans = append(spans, span{s, end, h})

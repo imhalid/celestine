@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/internal/library"
 	"regexp"
 	"slices"
 	"sort"
@@ -163,69 +164,285 @@ func (a *app) openTasks() {
 	a.visit()
 }
 
-// toggleTask ticks a task off, or on again: in the page's file, and in its text where that is open. The body is
-// changed where the task is, not written again from its Markdown, which loses what Markdown cannot say (#123).
-func (a *app) toggleTask(t taskItem) {
+// taskToggle is a task ticked off, or on again, as its page's new body: made away from the window (prepareToggle),
+// written under its lock (applyToggle).
+type taskToggle struct {
+	t     taskItem
+	err   error
+	stale bool   // the page changed since the task was read: nothing to write
+	saved string // the page's new body
+	// what the indexes keep of the page, when its Markdown is the old one with the task's box changed: the index
+	// is not read again from the whole page, which took most of a second on one of thirty thousand lines (#504)
+	text   string
+	idx    *pageIdx
+	plain  string
+	folded string
+}
+
+// prepareToggle reads task t's page and makes its body with the task ticked off, or on again. It reads nothing of
+// the app's but the page's file, and may run away from the window. The body is changed where the task is, not
+// written again from its Markdown, which loses what Markdown cannot say (#123).
+func prepareToggle(t taskItem, now time.Time) taskToggle {
+	j := taskToggle{t: t}
 	p := t.page
-	if p == a.page {
-		a.flush()
-	}
 	body, err := p.Body()
 	if err == nil {
 		err = bodyReadable(body) // what this version does not read would be dropped by writing it again
 	}
 	if err != nil {
-		a.fail(err)
-		return
+		j.err = err
+		return j
 	}
 	tx := decodeBody(body)
-	at, ok := taskParagraph(tx, p, t)
+	md := library.TextOfBody(body) // the page's Markdown, kept since its index read it
+	at, ok := taskParagraph(tx, md, p, t)
 	if !ok {
-		a.linksStale() // the page changed since: read it again
-		return
+		j.stale = true
+		return j
 	}
 	doc := richtext.NewDocument(tx)
 	doc.ToggleChecked(at)
-	rollRecurringIn(doc, a.clock(), importMarkdown) // a task that comes again: this one is done, and the next is made
-	if err := p.Save(encodeBody(doc.Text())); err != nil {
-		a.fail(err)
+	rollRecurringIn(doc, now, importMarkdown) // a task that comes again: this one is done, and the next is made
+	j.saved = encodeBody(doc.Text())
+	if doc.Text().ParagraphCount() == tx.ParagraphCount() { // nothing came again: the page's Markdown is the task's box changed
+		st := doc.Text().ParagraphStyleAt(at)
+		box := " "
+		if st.Checked {
+			box = "x"
+		} else if k, ok := taskKindOf(st); ok {
+			box = k.md
+		}
+		if text, ok := withTaskBox(md, t.line, box); ok {
+			j.text = text
+			j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, text)
+			j.folded = fold(j.plain)
+		}
+	}
+	return j
+}
+
+// applyToggle writes a task's toggle made by prepareToggle, under the window's lock: the page's file, its text in
+// the editor where it is open, and the indexes.
+func (a *app) applyToggle(j taskToggle) {
+	p := j.t.page
+	switch {
+	case j.err != nil:
+		a.fail(j.err)
+		a.linksStale()
 		return
+	case j.stale:
+		a.linksStale() // the page changed since: read it again
+		return
+	}
+	if err := p.Save(j.saved); err != nil {
+		a.fail(err)
+		a.linksStale()
+		return
+	}
+	if j.text != "" {
+		library.RememberText(j.saved, j.text)
+		l := &a.links
+		j.idx.mod, j.idx.writes = p.Modified, p.Writes
+		if l.pages == nil {
+			l.pages = map[*Page]*pageIdx{}
+		}
+		l.pages[p] = j.idx
+		if l.plain == nil {
+			l.plain = map[*Page]*plainIdx{}
+		}
+		l.plain[p] = &plainIdx{mod: p.Modified, writes: p.Writes, plain: j.plain, folded: j.folded}
 	}
 	a.takeOutside(p) // its text, in the editor, as the file has it now
 	a.linksStale()
 }
 
-// taskParagraph is where in tx, page p's text, the task t starts: the task paragraph whose Markdown is t's line,
-// counted among the tasks as tasksOf counts them. False when the page has changed since t was read.
-func taskParagraph(tx richtext.Text, p *Page, t taskItem) (int, bool) {
-	md := bodyMarkdown(tx)
-	lines := strings.Split(md, "\n")
-	if t.line >= len(lines) {
-		return 0, false
+// prepareClose reads page p and makes its body with the open tasks of ts ticked off: one write for them all.
+func prepareClose(p *Page, ts []taskItem, now time.Time) taskToggle {
+	j := taskToggle{t: taskItem{page: p}}
+	body, err := p.Body()
+	if err == nil {
+		err = bodyReadable(body)
 	}
+	if err != nil {
+		j.err = err
+		return j
+	}
+	tx := decodeBody(body)
+	md := library.TextOfBody(body)
+	items, starts := taskParagraphs(tx, md, p)
+	byLine := map[int]int{}
+	for i, ti := range items {
+		byLine[ti.line] = i
+	}
+	var at []int
+	for _, t := range ts {
+		if t.done || t.page != p {
+			continue
+		}
+		i, ok := byLine[t.line]
+		if !ok || i >= len(starts) || items[i].text != t.text || items[i].done {
+			j.stale = true
+			return j
+		}
+		at = append(at, starts[i])
+	}
+	doc := richtext.NewDocument(tx)
+	doc.Edit(func(ed *richtext.Edit) {
+		for _, s := range at {
+			ed.FormatParagraphs(s, s, func(st *richtext.ParagraphStyle) { st.Checked = true })
+		}
+	})
+	rollRecurringIn(doc, now, importMarkdown)
+	j.saved = encodeBody(doc.Text())
+	j.text = library.TextOfBody(j.saved) // written as Markdown here, away from the window, and kept
+	j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, j.text)
+	j.folded = fold(j.plain)
+	return j
+}
+
+// closeTasks ticks off the open tasks of ts, page p's: the list shows them done at once, the page is written away
+// from the window, after any toggle before (#505).
+func (a *app) closeTasks(p *Page, ts []taskItem) {
+	if p == a.page {
+		a.flush()
+	}
+	ts = append([]taskItem(nil), ts...)
+	open := map[int]bool{}
+	for _, t := range ts {
+		if !t.done {
+			open[t.line] = true
+		}
+	}
+	for _, list := range [][]taskItem{a.links.tasks, a.links.sorted} {
+		for i := range list {
+			if list[i].page == p && open[list[i].line] {
+				list[i].done = true
+			}
+		}
+	}
+	if a.taskFilter == 0 && !stillNow() { // in the open ones they go out, as one ticked off does
+		if a.taskLeaving == nil {
+			a.taskLeaving = map[string]time.Time{}
+		}
+		for _, t := range ts {
+			if open[t.line] {
+				a.taskLeaving[taskKey(t)] = a.frameNow
+			}
+		}
+	}
+	now := a.clock()
+	a.toggling.Add(1)
+	go func() {
+		defer a.toggling.Done()
+		defer a.guard()
+		a.toggleMu.Lock()
+		defer a.toggleMu.Unlock()
+		j := prepareClose(p, ts, now)
+		a.do(func() error {
+			a.applyToggle(j)
+			return nil
+		})
+	}()
+}
+
+// toggleTask ticks a task off, or on again, at once: what an agent asks for, which reads the page after.
+func (a *app) toggleTask(t taskItem) {
+	if t.page == a.page {
+		a.flush()
+	}
+	a.applyToggle(prepareToggle(t, a.clock()))
+}
+
+// toggleTaskSoon is toggleTask from the task view: the list shows the task ticked at once, and the page is read
+// and written away from the window, one toggle after another, so that a page of thousands of tasks does not hold
+// the window (#504).
+func (a *app) toggleTaskSoon(t taskItem) {
+	if t.page == a.page {
+		a.flush()
+	}
+	for _, list := range [][]taskItem{a.links.tasks, a.links.sorted} { // as it will be
+		for i := range list {
+			if list[i].page == t.page && list[i].line == t.line {
+				list[i].done = !t.done
+			}
+		}
+	}
+	now := a.clock()
+	a.toggling.Add(1)
+	go func() {
+		defer a.toggling.Done()
+		defer a.guard()
+		a.toggleMu.Lock() // one after another: each reads the page the one before wrote
+		defer a.toggleMu.Unlock()
+		j := prepareToggle(t, now)
+		a.do(func() error {
+			a.applyToggle(j)
+			return nil
+		})
+	}()
+}
+
+// taskParagraph is where in tx, page p's text, the task t starts: the task paragraph that is t's among the tasks,
+// counted as tasksOf counts them in the page's Markdown. False when the page has changed since t was read: its
+// line is not t's task any more. The text is written as Markdown once, not a paragraph at a time, which took
+// seconds on a page of thousands of tasks (#504).
+func taskParagraph(tx richtext.Text, md string, p *Page, t taskItem) (int, bool) {
 	k := -1
 	for i, ti := range tasksOf(p, md) {
 		if ti.line == t.line {
+			if ti.text != t.text || ti.done != t.done {
+				return 0, false
+			}
 			k = i
 		}
 	}
 	if k < 0 {
 		return 0, false
 	}
-	for s, para := range tx.Paragraphs() {
-		if para.Style.List != richtext.Tasks {
-			continue
-		}
-		s, e := tx.ParagraphRange(s)
-		line := strings.TrimSpace(strings.TrimRight(bodyMarkdown(tx.Slice(s, e)), "\n"))
-		if m := taskLine.FindStringSubmatch(line); m == nil || m[3] == "" {
+	for s, para := range tx.Paragraphs() { // the tasks with words, as a task's line in Markdown has them (openTask)
+		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
 			continue
 		}
 		if k--; k < 0 {
-			return s, line == strings.TrimSpace(lines[t.line])
+			return s, true
 		}
 	}
 	return 0, false
+}
+
+// taskParagraphs are the tasks of page p's Markdown md, as tasksOf reads them, and where each starts in tx, its
+// text: both in one pass, for many tasks at once.
+func taskParagraphs(tx richtext.Text, md string, p *Page) ([]taskItem, []int) {
+	items := tasksOf(p, md)
+	starts := make([]int, 0, len(items))
+	for s, para := range tx.Paragraphs() {
+		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
+			continue
+		}
+		starts = append(starts, s)
+	}
+	return items, starts
+}
+
+// withTaskBox is the Markdown md with the box of the task on line i holding box; false when that line is no task.
+func withTaskBox(md string, i int, box string) (string, bool) {
+	start := 0
+	for n := 0; n < i; n++ {
+		j := strings.IndexByte(md[start:], '\n')
+		if j < 0 {
+			return "", false
+		}
+		start += j + 1
+	}
+	end := len(md)
+	if j := strings.IndexByte(md[start:], '\n'); j >= 0 {
+		end = start + j
+	}
+	m := taskLine.FindStringSubmatchIndex(md[start:end])
+	if m == nil {
+		return "", false
+	}
+	return md[:start+m[4]] + box + md[start+m[5]:], true
 }
 
 // tasksView is the view: a filter, and the tasks under their pages.
@@ -454,9 +671,10 @@ func (a *app) noTasks(c *ui.Context, none bool) {
 // taskGroup is a page and its tasks.
 // taskListRow is a row of the list of tasks: the head of a page's tasks, or one task.
 type taskListRow struct {
-	head bool
-	task taskItem
-	n    int // of a head: how many tasks its page has here
+	head  bool
+	task  taskItem
+	n     int        // of a head: how many tasks its page has here
+	tasks []taskItem // and they
 }
 
 // key is what the row is known by, as the list keeps its place by it.
@@ -475,7 +693,7 @@ func taskRows(shown []taskItem, folded map[*Page]bool) []taskListRow {
 		for j < len(shown) && shown[j].page == shown[i].page {
 			j++
 		}
-		rows = append(rows, taskListRow{head: true, task: shown[i], n: j - i})
+		rows = append(rows, taskListRow{head: true, task: shown[i], n: j - i, tasks: shown[i:j]})
 		if !folded[shown[i].page] {
 			for _, k := range shown[i:j] {
 				rows = append(rows, taskListRow{task: k})
@@ -514,6 +732,27 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 		ui.Text(c, p.Title).FontSize(13.5).FontWeight(650).TextColor(cl.Text).MaxLines(1).Shrink(1)
 		ui.Text(c, p.Coll.Name).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1).Margin(0, 0, 0, 8)
 		ui.Text(c, strconv.Itoa(r.n)).FontSize(12).TextColor(cl.Muted).FontFeatures("tnum")
+		open := 0
+		for _, k := range r.tasks {
+			if !k.done {
+				open++
+			}
+		}
+		if open > 1 { // every open task shown under it, ticked off at once (#505)
+			all := ui.Row(c.Key("tgh-all")).Height(24).Padding(0, 8).Gap(5).Radius(rad(6)).AlignItems(ui.Center).Cursor(ui.CursorPointer).
+				Role(ui.RoleButton).Label(locales.TasksCloseAllLabel(p.Title))
+			if all.Hovered() {
+				all.Background(cl.Fill)
+			}
+			all.Children(func() {
+				ui.Icon(c, kindIcon["tasks"]).Width(13).Height(13).TextColor(cl.Muted)
+				ui.Text(c, locales.TasksCloseAll()).FontSize(12).TextColor(cl.Text2).NoWrap()
+			})
+			if all.Clicked() {
+				tasks := r.tasks
+				a.ask(locales.TasksCloseAllTitle(), locales.TasksCloseAllBody(open, p.Title), locales.TasksCloseAll(), func() { a.closeTasks(p, tasks) })
+			}
+		}
 	})
 	switch {
 	case fold.Clicked():
@@ -530,9 +769,9 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 // taskKey is what a task is known by between frames: its page and its line.
 func taskKey(k taskItem) string { return k.page.Dir + ":" + strconv.Itoa(k.line) }
 
-// taskLeave is how long a task just done takes to go out of the open ones: its letters fly off one after another,
-// then its row closes (#494).
-const taskLeave = 650 * time.Millisecond
+// taskLeave is how long a task just done takes to go out of the open ones: it shows done, struck through and faint,
+// for a moment, then its row slides a little and closes (#494, #508).
+const taskLeave = 700 * time.Millisecond
 
 func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 	c.Key("tk:" + taskKey(k))
@@ -544,40 +783,25 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 			leave = 1
 		}
 		c.Invalidate()
-		if close := smooth(0.6, 1, float64(leave)); close > 0 { // the row closes as the last letters go
-			row.MaxHeight(f32(34 * (1 - close))).Clip().Opacity(f32(1 - close))
+		if close := smooth(0.45, 1, float64(leave)); close > 0 { // done for a moment, then it goes
+			row.MaxHeight(f32(34*(1-close))).Clip().Opacity(f32(1-close)).Translate(f32(-10*close), 0)
 		}
 	}
 	if row.Hovered() {
 		row.Background(cl.Fill.Alpha(0.5))
 	}
 	row.Children(func() {
-		on := k.done
+		on := k.done || leave >= 0
 		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(locales.TasksTaskLabel(k.text))
 		if tk, ok := taskKindByID(k.kind); ok && !k.done { // its kind, in its color
 			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(msg(tk.name))
 		}
 		col, st := cl.Text, false
-		if k.done {
+		if k.done || leave >= 0 {
 			col, st = cl.Muted, true
 		}
 		body := ui.Row(c.Key("tkt")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center).Label(locales.TasksGoToLineLabel(k.text)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 		body.Children(func() {
-			if leave >= 0 { // its letters fly off, from the first, up and away, fading
-				ui.Row(c.Key("fly")).Grow(1).MinWidth(0).Clip().Children(func() {
-					rs := []rune(k.text)
-					for i, r := range rs {
-						if r == ' ' { // a space alone is drawn as nothing: one that does not break keeps its width
-							r = '\u00a0'
-						}
-						at := float64(leave)*1.6 - 0.6*float64(i)/float64(max(len(rs), 1))
-						e := smooth(0, 1, at)
-						ui.Text(c.Key(i), string(r)).FontSize(14).TextColor(cl.Muted).NoWrap().
-							Translate(f32(e*18), f32(-e*14)).Opacity(f32(1 - e))
-					}
-				})
-				return
-			}
 			tx := ui.Text(c, k.text).FontSize(14).TextColor(col).Grow(1).MinWidth(0).Wrap()
 			if st {
 				tx.Strikethrough()
@@ -607,7 +831,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 				}
 				a.taskLeaving[taskKey(k)] = c.Now()
 			}
-			a.toggleTask(k)
+			a.toggleTaskSoon(k)
 		}
 	})
 }

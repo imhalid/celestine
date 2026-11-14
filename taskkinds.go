@@ -202,17 +202,22 @@ func paraStarts(t richtext.Text) []int {
 // markTaskKinds writes the kinds of t's tasks in their boxes in md's lines, as richtext wrote them plain.
 func markTaskKinds(t richtext.Text, lines []string) {
 	var kinds []string
-	for _, at := range paraStarts(t) {
-		st := t.ParagraphStyleAt(at)
+	has := false
+	for _, para := range t.Paragraphs() { // their styles as they come, not asked one by one (#504)
+		st := para.Style
 		if st.List != richtext.Tasks {
 			continue
 		}
 		k, ok := taskKindOf(st)
+		has = has || ok
 		if ok && !st.Checked {
 			kinds = append(kinds, k.md)
 		} else {
 			kinds = append(kinds, "")
 		}
+	}
+	if !has { // no task of a kind: nothing to write
+		return
 	}
 	var at []int
 	for i, l := range lines {

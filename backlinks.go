@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
@@ -242,7 +243,7 @@ func readPageIdxPlain(q *Page, body string) (*pageIdx, string) {
 func readPageIdxAt(q *Page, mod time.Time, writes int, body string) (*pageIdx, string) {
 	plain := plainText(body)
 	e := &pageIdx{mod: mod, writes: writes, tasks: tasksOf(q, body), tags: tagsOf(body),
-		words: len(strings.Fields(plain)), empty: strings.TrimSpace(plain) == ""}
+		words: countWords(plain), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
 		return e, plain
 	}
@@ -283,4 +284,18 @@ func (a *app) plainOf(p *Page) *plainIdx {
 	}
 	l.plain[p] = e
 	return e
+}
+
+// countWords is how many words plain has, as strings.Fields would cut it, without making them.
+func countWords(plain string) int {
+	n, in := 0, false
+	for _, r := range plain {
+		if unicode.IsSpace(r) {
+			in = false
+		} else if !in {
+			in = true
+			n++
+		}
+	}
+	return n
 }

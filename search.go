@@ -20,18 +20,87 @@ import (
 // result shows the place it was found, the words marked.
 
 var (
-	mdLink    = regexp.MustCompile(`!?\[([^\[\]]*)\]\([^)]*\)`)
-	mdWiki    = regexp.MustCompile(`\[\[([^\[\]|]*\|)?([^\[\]]*)\]\]`)
-	mdMarks   = regexp.MustCompile("(?m)^\\s*(#{1,6}|>|[-*+]|\\d+[.)])\\s+|^\\s*```.*$|^\\s*\\[[ xX]\\]\\s*|[*_~`]{1,3}|\\|")
-	spacesRun = regexp.MustCompile(`\s+`)
+	mdLink = regexp.MustCompile(`!?\[([^\[\]]*)\]\([^)]*\)`)
+	mdWiki = regexp.MustCompile(`\[\[([^\[\]|]*\|)?([^\[\]]*)\]\]`)
 )
 
-// plainText is Markdown as the words a reader sees, on one line.
+// plainText is Markdown as the words a reader sees, on one line: links their words, a line's mark (a heading's, a
+// quote's, a list item's and a task's box) and the lines of a fence left out, the marks of emphasis and a table's
+// bars taken for spaces. It goes through the text once, by hand: the regular expressions it was took seconds over
+// a page of thirty thousand lines, read twice each time the page changed (#504).
 func plainText(md string) string {
-	s := mdLink.ReplaceAllString(md, "$1")
-	s = mdWiki.ReplaceAllString(s, "$2")
-	s = mdMarks.ReplaceAllString(s, " ")
-	return strings.TrimSpace(spacesRun.ReplaceAllString(s, " "))
+	s := md
+	if strings.Contains(s, "](") {
+		s = mdLink.ReplaceAllString(s, "$1")
+	}
+	if strings.Contains(s, "[[") {
+		s = mdWiki.ReplaceAllString(s, "$2")
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	gap := false // a space is owed before the next letter
+	for len(s) > 0 {
+		line := s
+		if i := strings.IndexByte(s, '\n'); i >= 0 {
+			line, s = s[:i], s[i+1:]
+		} else {
+			s = ""
+		}
+		line = strings.TrimLeft(line, " \t\r\f")
+		if strings.HasPrefix(line, "```") {
+			gap = true
+			continue
+		}
+		line = cutBox(cutLineMark(line))
+		for i := 0; i < len(line); i++ { // by bytes: a letter of more than one is copied as it is
+			switch c := line[i]; c {
+			case ' ', '\t', '\r', '\f', '\v', '*', '_', '~', '`', '|':
+				gap = true
+			default:
+				if gap && b.Len() > 0 {
+					b.WriteByte(' ')
+				}
+				gap = false
+				b.WriteByte(c)
+			}
+		}
+		gap = true
+	}
+	return b.String()
+}
+
+// cutLineMark is a line, its leading spaces gone, without the mark that starts it and the spaces after it: a
+// heading's #s, a quote's >, a list item's bullet or number. A mark needs a space after it.
+func cutLineMark(line string) string {
+	n := 0
+	switch {
+	case strings.HasPrefix(line, "#"):
+		for n < len(line) && n < 6 && line[n] == '#' {
+			n++
+		}
+	case strings.HasPrefix(line, ">"), strings.HasPrefix(line, "-"), strings.HasPrefix(line, "*"), strings.HasPrefix(line, "+"):
+		n = 1
+	default:
+		for n < len(line) && line[n] >= '0' && line[n] <= '9' {
+			n++
+		}
+		if n == 0 || n >= len(line) || (line[n] != '.' && line[n] != ')') {
+			return line
+		}
+		n++
+	}
+	if n >= len(line) || (line[n] != ' ' && line[n] != '\t') {
+		return line
+	}
+	return strings.TrimLeft(line[n:], " \t")
+}
+
+// cutBox is a line without the box of a task that starts it, and the spaces after it.
+func cutBox(line string) string {
+	if len(line) >= 3 && line[0] == '[' && line[2] == ']' && (line[1] == ' ' || line[1] == 'x' || line[1] == 'X') {
+		return strings.TrimLeft(line[3:], " \t")
+	}
+	return line
 }
 
 // seg is a piece of a result's text; hit when it is a word asked for.

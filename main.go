@@ -279,13 +279,15 @@ type app struct {
 	treeSigSeen   uint64
 	cdrag         collDragState
 	collRects     map[*Collection]ui.Rect
-	ctx           ctxMenu    // the context menu (ctxmenu.go)
-	frame         func()     // asks for a frame that builds the view
-	links         linkIndex  // who links to whom (backlinks.go)
-	web           webLinks   // the web pages links go to, as far as they are known (linkcards.go)
-	listMarks     *listMarks // the lists of the page's text and their looks, read once for each text (listmarks.go)
-	hoverCh       *chip      // the chip the pointer is over
-	dateEdit      dateEdit   // the calendar a date chip opens
+	ctx           ctxMenu        // the context menu (ctxmenu.go)
+	frame         func()         // asks for a frame that builds the view
+	links         linkIndex      // who links to whom (backlinks.go)
+	web           webLinks       // the web pages links go to, as far as they are known (linkcards.go)
+	listMarks     *listMarks     // the lists of the page's text and their looks, read once for each text (listmarks.go)
+	toggleMu      sync.Mutex     // held by the toggle of a task read and written away from the window (toggleTaskSoon)
+	toggling      sync.WaitGroup // the toggles going on: a test waits for them
+	hoverCh       *chip          // the chip the pointer is over
+	dateEdit      dateEdit       // the calendar a date chip opens
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
 	// an agent's tool each hold mu: the library is theirs one at a time.

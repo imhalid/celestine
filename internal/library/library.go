@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/maphash"
 	"io/fs"
 	"path/filepath"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -418,12 +420,84 @@ func (p *Page) Text() (string, error) {
 	return TextOfBody(body), nil
 }
 
-// TextOfBody is Text of a body read.
+// TextOfBody is Text of a body read. A large body's text is kept (textMemo): the indexes, the search and the
+// tasks each ask for a page's text when it changes, and writing a page of thirty thousand lines as Markdown takes
+// a good part of a second (#504).
 func TextOfBody(body string) string {
+	if len(body) < textMemoMin {
+		return textOfBody(body)
+	}
+	return textMemo.get(body, textOfBody)
+}
+
+func textOfBody(body string) string {
 	text := Format.Markdown(body)
 	if text != "" && !strings.HasSuffix(text, "\n") {
 		text += "\n"
 	}
+	return text
+}
+
+// textMemoMin is the size from which a body's text is kept.
+const textMemoMin = 128 << 10
+
+// textMemo keeps the texts of the last large bodies, by what the body is (its hash and length): a page's body says
+// what its text is, whoever asks, from any goroutine.
+var textMemo memoTexts
+
+type memoTexts struct {
+	mu    sync.Mutex
+	seed  maphash.Seed
+	keep  []memoText // the last asked for last
+	bytes int        // the length of the texts kept
+}
+
+type memoText struct {
+	sum  uint64
+	n    int // the body's length
+	text string
+}
+
+// textMemoBytes is how much text is kept, the oldest let go past it.
+const textMemoBytes = 64 << 20
+
+// RememberText keeps text as the text of body, a large one's, made by its writer, who knows it without writing the
+// body as Markdown again: a task ticked off changes a line's box and nothing else (#504).
+func RememberText(body, text string) {
+	if len(body) >= textMemoMin {
+		textMemo.put(body, text)
+	}
+}
+
+func (m *memoTexts) put(body, text string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.seed == (maphash.Seed{}) {
+		m.seed = maphash.MakeSeed()
+	}
+	m.keep = append(m.keep, memoText{maphash.String(m.seed, body), len(body), text})
+	m.bytes += len(text)
+	for m.bytes > textMemoBytes && len(m.keep) > 1 {
+		m.bytes -= len(m.keep[0].text)
+		m.keep = m.keep[1:]
+	}
+}
+
+func (m *memoTexts) get(body string, make func(string) string) string {
+	m.mu.Lock()
+	if m.seed == (maphash.Seed{}) {
+		m.seed = maphash.MakeSeed()
+	}
+	sum := maphash.String(m.seed, body)
+	for i := len(m.keep) - 1; i >= 0; i-- {
+		if e := m.keep[i]; e.sum == sum && e.n == len(body) {
+			m.mu.Unlock()
+			return e.text
+		}
+	}
+	m.mu.Unlock()
+	text := make(body) // outside the lock: two goroutines may make it both, the same
+	m.put(body, text)
 	return text
 }
 
