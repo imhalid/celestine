@@ -137,6 +137,8 @@ jobs:
           aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
           # the site's changelog after it, so the page never names a version that is not offered yet
           aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"
+          # the install script, which the site serves at /install.sh (#514): the one of the version it installs
+          aws s3 cp scripts/install.sh s3://celestine-releases/install.sh --endpoint-url "$EP" --content-type "text/plain; charset=utf-8" --cache-control "public, max-age=300"
   dmg:
     needs: build
     runs-on: macos-latest
