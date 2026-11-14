@@ -13355,6 +13355,16 @@ func (msgs Messages) SyncUseThis() string {
 	return Catalog.Format(msgs.locale, "sync_useThis", nil)
 }
 
+// SyncWaitingForNetwork says "waiting for the network"
+// in the language the app shows.
+func SyncWaitingForNetwork() string { return In(i18n.Locale()).SyncWaitingForNetwork() }
+
+// SyncWaitingForNetwork says "waiting for the network"
+// in the language of msgs.
+func (msgs Messages) SyncWaitingForNetwork() string {
+	return Catalog.Format(msgs.locale, "sync_waitingForNetwork", nil)
+}
+
 // SyncWhichCollectionsSync says "Collections to sync"
 // in the language the app shows.
 func SyncWhichCollectionsSync() string { return In(i18n.Locale()).SyncWhichCollectionsSync() }

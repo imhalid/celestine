@@ -177,21 +177,22 @@ type app struct {
 	keyAccel    string
 	macroName   string
 	macroList   string
-	setSearch   string             // the search of the settings
-	setFocus    bool               // the settings' search takes the keys in the next frame (/)
-	setSlash    bool               // the / that focused the settings' search is still to come as text
-	setMode     string             // the settings' special page: "changed", "profiles", "file"
-	profName    string             // the name being typed for a profile
-	charW       map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
-	sy          syncUI             // the state of synchronization (syncapp.go)
-	nt          notifyState        // the system's notifications (notify.go)
-	subtasks    subtaskState       // the counts of tasks' subtasks (subtasks.go)
-	ac          acctUI             // the account: signing in, its devices (account.go)
-	vimReg      richtext.Text      // what dd and yy took, for p
-	kb          kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
-	winW, winH  float32            // the window's size, last frame
-	wel         welcomeState       // the first opening (welcome.go)
-	winOnce     sync.Once          // the window coming forward and going behind, in order (windowEvent)
+	setSearch   string                               // the search of the settings
+	setFocus    bool                                 // the settings' search takes the keys in the next frame (/)
+	setSlash    bool                                 // the / that focused the settings' search is still to come as text
+	setMode     string                               // the settings' special page: "changed", "profiles", "file"
+	profName    string                               // the name being typed for a profile
+	charW       map[string]float32                   // the width of n zeros in a font, for the line length (editing.go)
+	sy          syncUI                               // the state of synchronization (syncapp.go)
+	nt          notifyState                          // the system's notifications (notify.go)
+	keepRunning func(reason string) (release func()) // MyGo's Power.KeepRunning, for a sync pass; nil in tests (netsync.go)
+	subtasks    subtaskState                         // the counts of tasks' subtasks (subtasks.go)
+	ac          acctUI                               // the account: signing in, its devices (account.go)
+	vimReg      richtext.Text                        // what dd and yy took, for p
+	kb          kbState                              // the keyboard's normal mode, the letters on what can be pressed (kb.go)
+	winW, winH  float32                              // the window's size, last frame
+	wel         welcomeState                         // the first opening (welcome.go)
+	winOnce     sync.Once                            // the window coming forward and going behind, in order (windowEvent)
 	winEv       chan bool
 	codeTheme   *editor.Theme // the colors of code, in the window's theme (codecolors.go)
 	codeLangs   codeLangs     // the languages of the page's lines of code, by paragraph (codecolors.go)
@@ -614,6 +615,7 @@ func main() {
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
+		a.watchSync() // sync waits while offline, and runs at full speed out of sight (netsync.go)
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}

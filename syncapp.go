@@ -31,6 +31,7 @@ const syncStateKey = "sync-state"
 
 type syncUI struct {
 	busy     bool
+	offline  bool      // the computer is offline (netsync.go): a sync to a server waits
 	status   string    // "eşitleniyor…", "Eşit 14:32", "çevrimdışı: …", "çakışma: 2"
 	last     time.Time // when the last pass began
 	at       time.Time // when the last one went well
@@ -300,8 +301,12 @@ func (a *app) syncNow() {
 	state.ForRemote(a.syncRemoteID())
 	state.AllowRemovals, a.sy.allow = a.sy.allow, false
 	state.Resend, a.sy.resend = a.sy.resend, false
+	keep := a.keepRunning
 	go func() {
 		defer a.guard()
+		if keep != nil { // at full speed while no window shows, until the pass ends (netsync.go)
+			defer keep("Syncing the library")()
+		}
 		if backupDir != "" {
 			if _, err := backupTo(st, backupDir, "senkron", time.Now()); err == nil {
 				pruneBackups(backupDir, time.Now())
@@ -361,7 +366,7 @@ func (a *app) syncNow() {
 
 // syncTick starts a pass when it is time: once at the start, then every few minutes.
 func (a *app) syncTick(c *ui.Context) {
-	if a.settings.SyncMode == "" || a.sy.busy {
+	if a.settings.SyncMode == "" || a.sy.busy || a.syncWaits() { // offline, it waits for the network to come back (netsync.go)
 		return
 	}
 	now := a.clock()

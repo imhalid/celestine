@@ -1316,6 +1316,7 @@
   "sync_syncing": "eşitleniyor…",
   "sync_theRemoteMayHave": "Sunucu ya da klasör dosya listesini kaybetmiş olabilir. Bu dosyaları başka bir cihazda gerçekten sildiysen silmeleri uygula; emin değilsen bekle.",
   "sync_useThis": "Bunu kullan",
+  "sync_waitingForNetwork": "ağ bekleniyor",
   "sync_whichCollectionsSync": "Eşitlenecek koleksiyonlar",
   "sync_withCelestineAccountYour": "Celestine hesabıyla kitaplığın bilgisayarların arasında eşitlenir ve her birinde, dışarı çıkmadan önce şifrelenir. Erken erişim döneminde hesaplar yalnızca davetle açılır.",
   "tables_addColumnRight": "Sağa sütun ekle",

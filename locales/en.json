@@ -1496,6 +1496,7 @@
   "sync_syncing": "syncing…",
   "sync_theRemoteMayHave": "The server or folder may have lost its file list. Apply the deletions only if you really deleted these files on another device; if you're not sure, wait.",
   "sync_useThis": "Use this",
+  "sync_waitingForNetwork": "waiting for the network",
   "sync_whichCollectionsSync": "Collections to sync",
   "sync_withCelestineAccountYour": "With a Celestine account, your library syncs across your computers and is encrypted on each one before it leaves. During early access, accounts are invite-only.",
   "tables_addColumnRight": "Add a column to the right",
