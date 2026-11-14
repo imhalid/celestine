@@ -185,6 +185,7 @@ type app struct {
 	charW       map[string]float32                   // the width of n zeros in a font, for the line length (editing.go)
 	sy          syncUI                               // the state of synchronization (syncapp.go)
 	nt          notifyState                          // the system's notifications (notify.go)
+	libPath     string                               // the library opened: its file, or the folder of a folder library (recent.go)
 	keepRunning func(reason string) (release func()) // MyGo's Power.KeepRunning, for a sync pass; nil in tests (netsync.go)
 	subtasks    subtaskState                         // the counts of tasks' subtasks (subtasks.go)
 	ac          acctUI                               // the account: signing in, its devices (account.go)
@@ -496,18 +497,20 @@ func main() {
 		err   error
 	)
 	restoreNote, restoreKind := "", toastOK
-	arg := ""
+	arg, libPath := "", "" // libPath: the library opened, its file or its folder, for the recent documents (recent.go)
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
 	}
 	if info, serr := os.Stat(arg); arg != "" && serr == nil && info.IsDir() {
 		root, _ := filepath.Abs(arg)
+		libPath = root
 		lib, err = OpenLibraryIn(&countFS{FS: OSFS{}}, root) // its writes counted: the sync goes a moment after them
 	} else {
 		file := LibraryFile()
 		if arg != "" {
 			file, _ = filepath.Abs(arg)
 		}
+		libPath = file
 		bdir := backupDir()
 		hardenBackupDir(bdir)                                  // tighten existing backups once on startup (#179)
 		restored, rerr := applyRestore(bdir, file, time.Now()) // a backup chosen before the last quit is put in place first
@@ -548,6 +551,7 @@ func main() {
 		}
 	}
 	a := newApp(lib)
+	a.libPath = libPath
 	if restoreNote != "" {
 		a.say(restoreKind, restoreNote)
 	}
@@ -612,10 +616,12 @@ func main() {
 		}
 	}()
 	a.watchActive() // before Run: a notification's click that launched the app is told before WhenReady
+	a.watchRecent() // and a library chosen from the system's recent documents (recent.go)
 	mygo.App.WhenReady(func() {
 		mygo.App.SetMenu(a.menu())
 		a.menuBar = true
-		a.watchSync() // sync waits while offline, and runs at full speed out of sight (netsync.go)
+		a.watchSync()       // sync waits while offline, and runs at full speed out of sight (netsync.go)
+		a.rememberLibrary() // the library opened, in the system's recent documents (recent.go)
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
