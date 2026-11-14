@@ -160,9 +160,9 @@ const (
 	coverInset = 16  // the picture's room at the pane's sides
 	coverTop   = 4   // and under the bar
 	coverGapT  = 30  // from its foot to the title
-	coverMinH  = 150 // a wide picture is not thinner than this: it is cropped
-	coverMaxH  = 340 // a tall one not taller
-	coverDefH  = 220 // until the picture or the pane's width is known
+	coverMinH  = 110 // a wide picture is not thinner than this: it is cropped
+	coverMaxH  = 200 // a tall one not taller
+	coverDefH  = 170 // until the picture or the pane's width is known
 	coverFoot  = 22  // below the title, on the made cover's band
 )
 
@@ -180,9 +180,18 @@ func (a *app) coverPicH(p *Page) float32 {
 	return min(max(a.coverW*ih/iw, coverMinH), coverMaxH)
 }
 
+// coverTopOf is the room above a picture cover: right under the pane's bar when the window has one (it is a row above
+// the page), else under the title bar that lies over the page's top, and coverTop beyond it.
+func (a *app) coverTopOf() float32 {
+	if a.paneBarH() > 0 {
+		return coverTop
+	}
+	return barH + coverTop
+}
+
 // coverPicRect is where the picture cover lies in r, the page's wrapper.
 func (a *app) coverPicRect(p *Page, r ui.Rect) ui.Rect {
-	return ui.Rect{X: r.X + coverInset, Y: r.Y + barH + coverTop, W: max(r.W-2*coverInset, 1), H: a.coverPicH(p)}
+	return ui.Rect{X: r.X + coverInset, Y: r.Y + a.coverTopOf(), W: max(r.W-2*coverInset, 1), H: a.coverPicH(p)}
 }
 
 func (a *app) coverGap(c *ui.Context, p *Page) {
@@ -257,7 +266,7 @@ func (a *app) coverButtons(c *ui.Context, p *Page) {
 	}
 	right, top := float32(18), float32(barH+10)
 	if kind == coverKindImage {
-		right, top = coverInset+10, barH+coverTop+10
+		right, top = coverInset+10, a.coverTopOf()+10
 	}
 	row := ui.Row(c.Key("cover-btns")).Absolute().Right(right).Top(top).Gap(6)
 	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover || a.coverMenu], fadeQuick))

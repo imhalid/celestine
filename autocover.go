@@ -84,7 +84,7 @@ func (a *app) coverBandOf(p *Page) float32 {
 	case coverKindAuto:
 		return autoFullH
 	case coverKindImage:
-		return barH + coverTop + a.coverPicH(p)
+		return a.coverTopOf() + a.coverPicH(p)
 	}
 	return 0
 }
@@ -94,7 +94,7 @@ func (a *app) coverRoomOf(p *Page) float32 {
 	case coverKindAuto:
 		return autoRoom + barH
 	case coverKindImage:
-		return barH + coverTop + a.coverPicH(p) + coverGapT
+		return a.coverTopOf() + a.coverPicH(p) + coverGapT
 	}
 	return 0
 }
