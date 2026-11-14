@@ -88,7 +88,7 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 			ui.Box(c.Key(m.key+"-d2")).Height(1).Background(cl.Hairline).Margin(0, -menuPad)
 			ui.Box(c.Key(m.key + "-s2")).Height(menuAfter)
 		}
-		a.scrolled(c, "menupanel:91", m.scroll, ui.Scroll(c).Height(m.pl.inner), func() {
+		a.scrolled(c, "menupanel-list", m.scroll, ui.Scroll(c).Height(m.pl.inner), func() {
 			ui.Column(c).Gap(1).Children(func() {
 				if len(m.items) == 0 {
 					ui.Column(c.Key("empty")).Height(menuEmpty).Justify(ui.Center).AlignItems(ui.Center).Gap(8).Children(func() {
