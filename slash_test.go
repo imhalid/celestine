@@ -500,3 +500,22 @@ func TestGearMenuThemeSubmenuCheck(t *testing.T) {
 		t.Fatalf("reopened ticks: dark=%q sys=%q", darkHint, sysHint)
 	}
 }
+
+// In English, the slash menu's heading is English both before and after a query is typed (#474).
+func TestSlashHeadingInEnglish(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	withLang(t, "en")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "/")
+	tt.Advance(100 * time.Millisecond)
+	if !a.slash.open || !tt.HasText("Suggestions") || tt.HasText("Öneriler") {
+		t.Fatalf("heading before a query is not English: %+v", a.slash)
+	}
+	typeEach(tt, "ta")
+	tt.Frame()
+	if !tt.HasText("Results") || tt.HasText("Sonuçlar") {
+		t.Fatal("heading after a query is not English")
+	}
+}

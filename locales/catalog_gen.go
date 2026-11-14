@@ -11749,6 +11749,16 @@ func (msgs Messages) SlashPropertySub() string {
 	return Catalog.Format(msgs.locale, "slash_propertySub", nil)
 }
 
+// SlashResults says "Results"
+// in the language the app shows.
+func SlashResults() string { return In(i18n.Locale()).SlashResults() }
+
+// SlashResults says "Results"
+// in the language of msgs.
+func (msgs Messages) SlashResults() string {
+	return Catalog.Format(msgs.locale, "slash_results", nil)
+}
+
 // SlashSuggestions says "Suggestions"
 // in the language the app shows.
 func SlashSuggestions() string { return In(i18n.Locale()).SlashSuggestions() }

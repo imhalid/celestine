@@ -798,7 +798,7 @@ func (a *app) slashView(c *ui.Context) {
 		if s.view == "" { // the title and the sign
 			title := locales.SlashSuggestions()
 			if q != "" {
-				title = "Sonuçlar"
+				title = locales.SlashResults()
 			}
 			ui.Text(c, title).FontSize(12.5).TextColor(cl.Muted).Grow(1)
 			ui.Text(c, locales.SlashThisMenu()).FontSize(11.5).TextColor(cl.Muted)
