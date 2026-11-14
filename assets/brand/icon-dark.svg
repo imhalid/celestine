@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- icon-dark.svg is the app icon (assets/icon.svg) on a night ground for dark places: the same carets, their rims dark, a soft glow behind them. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A2033"/>
+      <stop offset="1" stop-color="#0E1220"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E4F3FF"/>
+      <stop offset="0.45" stop-color="#93C8F7"/>
+      <stop offset="1" stop-color="#4A90EA"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#323C55"/>
+      <stop offset="1" stop-color="#252D42"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#ground)"/>
+  <g transform="translate(100 100)">
+  <g opacity="0.35" filter="url(#glow)">
+    <rect x="277" y="362" width="170" height="380" rx="65" fill="#4A90EA"/>
+    <rect x="577" y="302" width="170" height="440" rx="65" fill="#4A90EA"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="237" y="322" width="250" height="460" rx="105" fill="url(#rim)"/>
+    <rect x="537" y="262" width="250" height="520" rx="105" fill="url(#rim)"/>
+  </g>
+  <rect x="277" y="362" width="170" height="380" rx="65" fill="url(#fill)"/>
+  <rect x="577" y="302" width="170" height="440" rx="65" fill="url(#fill)"/>
+  </g>
+</svg>

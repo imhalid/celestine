@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- icon-blue.svg is the app icon (assets/icon.svg) on the site's accent blue, for places that want the brand's color: the same carets and white rims. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3478E6"/>
+      <stop offset="1" stop-color="#2353BE"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DCF0FF"/>
+      <stop offset="0.45" stop-color="#8CC4F5"/>
+      <stop offset="1" stop-color="#3E86E0"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#0A1F55" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#ground)"/>
+  <g transform="translate(100 100)">
+  <g filter="url(#shadow)">
+    <rect x="237" y="322" width="250" height="460" rx="105" fill="#FFFFFF"/>
+    <rect x="537" y="262" width="250" height="520" rx="105" fill="#FFFFFF"/>
+  </g>
+  <rect x="277" y="362" width="170" height="380" rx="65" fill="url(#fill)"/>
+  <rect x="577" y="302" width="170" height="440" rx="65" fill="url(#fill)"/>
+  </g>
+</svg>

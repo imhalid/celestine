@@ -10,6 +10,9 @@
 # Android launcher (its ground in values/ic_launcher_background.xml is the paper tone) and the site's favicon
 # (static/icon.png of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
 #
+# assets/brand/ keeps the icon's dark and blue versions for branding, each drawn at 1024 px in the Dock's shape and
+# filling its square; no build reads them, and this script leaves them as they are.
+#
 #   scripts/icons.sh
 set -eu
 cd "$(dirname "$0")/.."
