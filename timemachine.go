@@ -159,7 +159,9 @@ func (a *app) tmPutBack() {
 		keep = a.startReveal(sel)
 	}
 	a.vhist = histView{page: t.page, vers: t.vers, sel: sel - 1, opsFor: -1}
-	a.putBackVersion()
+	if a.putBackVersion() != nil {
+		return // the error is said; the history stays open on the copy that failed, its sweep not begun
+	}
 	t.texts, t.lines, t.pages, t.docs, t.diffs = map[int]string{}, map[int][]tmLine{}, nil, nil, nil // the page now is the copy: the front card says so
 	t.diff = false
 	if keep != nil {

@@ -737,3 +737,31 @@ func TestTimeMachineRestoreSweeps(t *testing.T) {
 		t.Fatal("the history is still open after the sweep")
 	}
 }
+
+// A copy whose data cannot be read says so when it is put back, and the history stays open on it, instead of
+// closing as if the page had been restored (#225).
+func TestTimeMachineRestoreFailureIsSaid(t *testing.T) {
+	a, tt := lapsePage(t)
+	p := a.page
+	st := p.FS().(*Store)
+	before, _ := p.Text()
+	a.openTimeMachine(p)
+	tt.Frame()
+	st.DB.Exec(`DELETE FROM versions WHERE id = ?`, a.tm.vers[1].ID) // the copy at 2 is gone under the open history
+	a.tm.sel = 2
+	a.tmPutBack()
+	tt.Frame()
+	if text, _ := p.Text(); text != before {
+		t.Fatalf("the page changed: %q", text)
+	}
+	if !a.tm.open || a.tm.closing || a.tm.reveal.sel != 0 {
+		t.Fatalf("the history closed or swept: open %v closing %v reveal %d", a.tm.open, a.tm.closing, a.tm.reveal.sel)
+	}
+	said := false
+	for _, it := range a.toasts.items {
+		said = said || it.kind == toastErr
+	}
+	if !said {
+		t.Fatal("no error said")
+	}
+}

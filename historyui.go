@@ -102,8 +102,14 @@ func samePage(x, y []byte) bool {
 }
 
 // putBack makes the page what the chosen version was, the whole of it: its text, and its title, cover and values.
-// What it was is kept as a version first (keepBefore), so that this too can be undone.
-func (a *app) putBackVersion() error {
+// What it was is kept as a version first (keepBefore), so that this too can be undone. A failure is said in a toast,
+// whatever it was, so that a version whose data cannot be read does not leave the button silent (#225).
+func (a *app) putBackVersion() (err error) {
+	defer func() {
+		if err != nil {
+			a.say(toastErr, locales.AppRestoreFailed(err.Error()))
+		}
+	}()
 	v := &a.vhist
 	if v.sel >= len(v.vers) {
 		return errors.New("no version selected")
@@ -120,7 +126,6 @@ func (a *app) putBackVersion() error {
 	a.keepBefore(p)
 	meta, body, err := SplitPageChecked(data)
 	if err != nil {
-		a.fail(err)
 		return err
 	}
 	if s := meta["title"]; s != "" {
@@ -129,7 +134,6 @@ func (a *app) putBackVersion() error {
 	p.ReadMeta(meta)  // the copy's cover and values; where the page is in the tree stays
 	p.Unreadable = "" // a whole earlier copy is written over the file: what mends one that could not be read
 	if err := p.Save(body); err != nil {
-		a.fail(err)
 		return err
 	}
 	a.takeOutside(p)
