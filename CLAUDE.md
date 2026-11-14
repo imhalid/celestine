@@ -77,3 +77,8 @@ minutes are counted): `gofmt -l .` empty, `go vet ./...`,
   takes it in. `scripts/sync-mygo.sh` puts the patches on MyGo's newest release (or main), drops those MyGo took,
   points `go.mod` at the branch (or at MyGo itself when none is left) and runs the gate. Whatever the app can do
   itself is not a patch.
+- A pull request (to MyGo, Ryugo or this repository) is opened with its repository's PR template filled in whole:
+  its summary, its testing with the platforms it was tried on, and its AI disclosure with the exact tool and model
+  (Claude Code with the model's name and ID). Its last line says Claude Code made it:
+  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. The disclosure's box that a human read every
+  line is the maintainer's to tick, not the agent's (#503).
