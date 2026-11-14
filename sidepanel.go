@@ -95,7 +95,7 @@ func (a *app) sidePanel(c *ui.Context) {
 	// frosted glass over the page: the page behind it blurred, under a tint of the card, lit from the top
 	var mat ui.Material = glass.Blur{Radius: 24}
 	panelAlpha := a.tuneAlpha(c, "alpha.sidePanel", sidePanelGlass)
-	if a.settings.Glass && c.Vibrancy() {
+	if a.glassLive(c) {
 		mat = glass.Glass{Clarity: 0.4}
 		panelAlpha = a.tuneAlpha(c, "glass.sidePanel", 0.58)
 	}

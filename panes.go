@@ -404,8 +404,8 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch)
 		if a.wframe.on { // in the window's frame, a card of its own, as the Dock's areas are (windowframe.go)
 			cardBg := a.pageBg
-			if a.settings.Glass && c.Vibrancy() {
-				cardBg = cardBg.Alpha(a.tuneAlpha(c, "glass.card", 0.50))
+			if a.glassLive(c) {
+				cardBg = cardBg.Alpha(a.tuneAlpha(c, "glass.card", glassOpacity(c, 0.50)))
 			}
 			frameCard(c, el, cardBg, rad(frameR), 1)
 			el.Clip()

@@ -269,6 +269,7 @@ type app struct {
 	hoverBorder   borderKey
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
+	winBehind     bool               // the window is not the one in front: the glass is matte (glassLive)
 	tuner         tunerState         // the color tuner, a temporary tool (colortuner.go)
 	lightbox      *picHit            // the picture shown large
 	ptags         []string           // the open page's tags, for the side panel
@@ -859,6 +860,7 @@ func (a *app) windowEvent(forward bool) {
 					} else {
 						a.sy.behind = true
 					}
+					a.winBehind = !fwd // the glass matte behind other windows (glassLive)
 					return nil
 				})
 			}
@@ -1062,7 +1064,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.welcomeBackdrop(c, false) // the first opening's circles, under the app
 	framed := a.framed()
 	a.wframe.on = framed
-	useGlass := a.settings.Glass && c.Vibrancy()
+	useGlass := a.glassLive(c)
 	if useGlass {
 		c.Root().Background(ui.Transparent)
 	}

@@ -110,6 +110,22 @@ func glassTint(bg ui.Color, alpha float32) string {
 	return fmt.Sprintf("rgba(%d, %d, %d, %.2f)", bg.R, bg.G, bg.B, alpha)
 }
 
+// glassLive reports whether the window shows the glass: it is on, the system draws it, and the window is the one in
+// front. Behind another window it is matte, as the system's own windows are: the ground and the cards opaque, the
+// desktop not showing through (#491).
+func (a *app) glassLive(c *ui.Context) bool {
+	return a.settings.Glass && c.Vibrancy() && !a.winBehind
+}
+
+// glassOpacity is how opaque a surface over the glass is: dark in the dark theme, and nearly opaque in the light one,
+// where a white half let through turns the desktop behind into a muddy gray (#491).
+func glassOpacity(c *ui.Context, dark float32) float32 {
+	if ryugo.From(c).Dark {
+		return dark
+	}
+	return 0.95
+}
+
 // setGlass persists the macOS Liquid Glass preference (applied on next launch so the window keeps its
 // launch vibrancy/transparency state) and clears any cached theme tint when turned off.
 func (a *app) setGlass(on bool) {
@@ -137,7 +153,7 @@ func (a *app) syncGlassTint(c *ui.Context) {
 		return
 	}
 	dark := ryugo.From(c).Dark
-	alpha := a.tuneAlpha(c, "glass.tint", map[bool]float32{false: 0.48, true: 0.56}[dark])
+	alpha := a.tuneAlpha(c, "glass.tint", glassOpacity(c, 0.56))
 	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark && a.glassAlpha == alpha {
 		return
 	}

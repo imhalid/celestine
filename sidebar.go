@@ -123,10 +123,10 @@ func (a *app) sidebar(c *ui.Context) float32 {
 		target = 0
 	}
 	sb := ui.Column(c).Clip()
-	useGlass := a.settings.Glass && c.Vibrancy()
+	useGlass := a.glassLive(c)
 	sideAlpha := a.tuneAlpha(c, "alpha.sidebar", sidebarGlass)
 	if useGlass {
-		sideAlpha = a.tuneAlpha(c, "glass.sidebar", 0.42)
+		sideAlpha = a.tuneAlpha(c, "glass.sidebar", glassOpacity(c, 0.42))
 	}
 	switch {
 	case a.sideOnGround(): // no card: it lies on the frame's ground
