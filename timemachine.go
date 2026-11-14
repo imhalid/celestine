@@ -411,17 +411,13 @@ func (a *app) tmPage(c *ui.Context, i int, lw, lh float32, shape bool) {
 		ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
 			ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() {
 				ui.Column(c.Key("tm-head:" + itoa(i))).FillWidth().Children(func() {
-					ink := c.Theme().Text
-					if a.coverKind(vp) != coverKindNone { // the title lies on the cover, as it does on the page
+					ink := a.coverInk(c, vp) // as on the page (cover.go)
+					if a.coverKind(vp) != coverKindNone {
 						ui.Box(c.Key("tm-room:" + itoa(i))).FillWidth().Height(a.coverRoomOf(vp))
-						ink = ui.Hex("#ffffff")
-						if a.coverKind(vp) == coverKindAuto && !ryugo.From(c).Dark {
-							ink = c.Theme().Text
-						}
 					}
 					ui.Text(c, vp.Title).FontSize(32).FontWeight(720).Padding(6, 0, 10, 0).TextColor(ink).MaxLines(2)
-					if a.coverKind(vp) != coverKindNone {
-						ui.Box(c.Key("tm-foot-gap:" + itoa(i))).FillWidth().Height(coverFoot)
+					if h := coverFootOf(a.coverKind(vp)); h > 0 {
+						ui.Box(c.Key("tm-foot-gap:" + itoa(i))).FillWidth().Height(h)
 					}
 					ui.Column(c).Gap(1).Padding(0, 0, 14, 0).Children(func() {
 						for k := range vp.Coll.Properties {

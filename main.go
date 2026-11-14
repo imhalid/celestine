@@ -258,7 +258,10 @@ type app struct {
 	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al
 	noticeTone    *toastKind  // the notice's kind, which a.say tells; none is news
 	hoverTag      string
-	coverHover    bool // the pointer is in the cover band
+	coverHover    bool    // the pointer is in the cover band
+	coverW        float32 // the width the picture cover was last laid out at: its height follows it (cover.go)
+	coverMenu     bool    // the cover's menu is open
+	bannerMenu    bool    // and the collection banner's (banner.go)
 	hoverBorder   borderKey
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
@@ -1415,13 +1418,9 @@ func (a *app) caretView(c *ui.Context) {
 
 // pageHead is the page's title and its properties.
 func (a *app) pageHead(c *ui.Context, p *Page) {
-	ink := c.Theme().Text
-	if a.coverKind(p) != coverKindNone { // the title lies on the cover, as the band's bottom is dark
+	ink := a.coverInk(c, p)
+	if a.coverKind(p) != coverKindNone { // the room of the cover above the title (cover.go)
 		ui.Box(c.Key("cover-room")).FillWidth().Height(a.coverRoomOf(p))
-		ink = ui.Hex("#ffffff")
-		if a.coverKind(p) == coverKindAuto && !ryugo.From(c).Dark { // a pale mosaic: the text's own ink
-			ink = c.Theme().Text
-		}
 	}
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed

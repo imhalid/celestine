@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 // TestCover: a cover is a file beside the page and a line of its front
@@ -127,5 +129,44 @@ func TestCorruptPageIsLeftAlone(t *testing.T) {
 	}
 	if _, _, err := SplitPageChecked(nil); err == nil { // every page file is written with its meta: an empty one is cut short (#140)
 		t.Fatal("an empty file read as a page")
+	}
+}
+
+// TestCoverFrameless: a picture cover is the picture itself, as tall as it is for the pane's width within its bounds,
+// with its buttons over it as the pointer is on it (#478).
+func TestCoverFrameless(t *testing.T) {
+	a, tt := newTestApp(t, "text\n")
+	tt.SetSize(1200, 900)
+	p := a.page
+	a.open(p)
+	if err := a.setCover(p, pngBytes(400, 100)); err != nil { // 4:1
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	tt.Frame() // the height follows the width laid out a frame before
+	a.mu.Lock()
+	w, h := a.coverW, a.coverPicH(p)
+	a.mu.Unlock()
+	if w <= 0 || h != min(max(w/4, coverMinH), coverMaxH) {
+		t.Fatalf("the picture is %v tall at %v wide, not its own height", h, w)
+	}
+	a.clock = func() time.Time { return time.Now().Add(time.Minute) } // a file of another name, not the picture kept for the first
+	if err := a.setCover(p, pngBytes(100, 100)); err != nil {         // square: cut at the most
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	a.mu.Lock()
+	h = a.coverPicH(p)
+	a.mu.Unlock()
+	if h != coverMaxH {
+		t.Fatalf("a square picture is %v tall, not cut at %v", h, coverMaxH)
+	}
+	tt.Move(600, barH+40)
+	tt.Advance(400 * time.Millisecond)
+	for _, label := range []string{locales.PageChangeCover(), locales.PageCoverMore()} {
+		if _, ok := tt.Find(label); !ok {
+			t.Fatalf("no %q over the cover", label)
+		}
 	}
 }

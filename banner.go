@@ -11,7 +11,11 @@ import (
 // A collection's banner: a picture across the top of its page, above its icon and name. It is a file in the
 // collection's folder (afis-….png), named in collection.json, so it travels with the collection when it syncs.
 
-const bannerH = 168
+const (
+	bannerH    = 168 // until the picture's width is known
+	bannerMinH = 120 // a wide picture is cropped below this
+	bannerMaxH = 280 // a tall one above this
+)
 
 // setBanner makes data the collection's banner, the old one's file going.
 func (a *app) setBanner(coll *Collection, data []byte) error {
@@ -86,7 +90,9 @@ func (a *app) pickBanner(coll *Collection) {
 	}()
 }
 
-// bannerView is the banner across the top of the collection's page, cropped to its band, or nothing.
+// bannerView is the banner at the top of the collection's page, or nothing: a rounded picture with no frame, as tall
+// as it is for the page's width (within bannerMinH and bannerMaxH, cropped beyond them), its buttons floating over its
+// top right as the pointer is on it, as a page's cover has them (#478).
 func (a *app) bannerView(c *ui.Context, coll *Collection) {
 	if coll.Banner == "" || !safeLocalAsset(coll.Banner) {
 		return
@@ -95,6 +101,30 @@ func (a *app) bannerView(c *ui.Context, coll *Collection) {
 	if src == nil {
 		return
 	}
-	ui.Box(c.Key("banner:"+coll.Dir)).FillWidth().Height(bannerH).Radius(rad(12)).Clip().Shrink(0).Margin(0, 0, 6, 0).
-		Label(locales.PageBanner()).Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, 12, func() { pt.Image(src, r, ui.Cover) }) })
+	box := ui.Box(c.Key("banner:"+coll.Dir)).FillWidth().Radius(rad(12)).Clip().Shrink(0).Margin(0, 0, 6, 0).Label(locales.PageBanner())
+	h := float32(bannerH)
+	if iw, ih := ui.ImageSize(src); iw > 0 && ih > 0 {
+		if w := box.LayoutBounds().W; w > 0 {
+			h = min(max(w*ih/iw, bannerMinH), bannerMaxH)
+		}
+	}
+	box.Height(h).Draw(func(pt *ui.Painter, r ui.Rect) { pt.Clip(r, rad(12), func() { pt.Image(src, r, ui.Cover) }) })
+	hot := box.Hovered() || a.bannerMenu
+	box.Children(func() {
+		row := ui.Row(c.Key("banner-btns")).Absolute().Right(10).Top(10).Gap(6)
+		row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[hot], fadeQuick))
+		row.Children(func() {
+			if coverRound(c, "banner-change", locales.CommandsChangeBanner(), iconImage).Clicked() {
+				a.pickBanner(coll)
+			}
+			more := coverRound(c, "banner-more", locales.PageCoverMore(), iconMore)
+			if more.Clicked() {
+				a.bannerMenu = !a.bannerMenu
+			}
+			menuAt(c, "banner-more-menu", "page_coverMore", more.LayoutBounds(), &a.bannerMenu, []menuItem{
+				{title: "commands_changeBanner", glyph: iconCover, run: func() { a.pickBanner(coll) }},
+				{title: "commands_removeBanner", group: "~", glyph: iconTrash, danger: true, run: func() { a.removeBanner(coll) }},
+			})
+		})
+	})
 }

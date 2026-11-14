@@ -793,6 +793,7 @@
   "page_backlinkCount": "{count} sayfa bu sayfaya bağlanıyor",
   "page_banner": "Afiş",
   "page_changeCover": "Kapağı değiştir",
+  "page_coverMore": "Kapak seçenekleri",
   "page_changedOutside": "“{page}” uygulamanın dışında da değiştirildi. Yazdıkların kaydedildi; diğer sürüm yanına “{copy}” adıyla kaydedildi.",
   "page_chooseBanner": "Bir afiş seç",
   "page_chooseCover": "Kapak resmi seç",

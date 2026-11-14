@@ -30,8 +30,9 @@ func TestCollectionBanner(t *testing.T) {
 		t.Fatalf("collection.json: %s", data)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if r, ok := tt.Find(locales.PageBanner()); !ok || r.H != bannerH {
-		t.Fatalf("no banner on the page: %+v %v", r, ok)
+	// as tall as the picture is for the page's width, within its bounds: a 2:1 picture 840 wide is 420, cut at the top (#478)
+	if r, ok := tt.Find(locales.PageBanner()); !ok || r.H != min(max(r.W/2, bannerMinH), bannerMaxH) {
+		t.Fatalf("no banner on the page, or not as tall as its picture: %+v %v", r, ok)
 	}
 	a.openCollSettings(coll, 0) // the settings keep it
 	a.saveCollSettings()

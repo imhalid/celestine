@@ -8045,6 +8045,16 @@ func (msgs Messages) PageChangeCover() string {
 	return Catalog.Format(msgs.locale, "page_changeCover", nil)
 }
 
+// PageCoverMore says "Cover options"
+// in the language the app shows.
+func PageCoverMore() string { return In(i18n.Locale()).PageCoverMore() }
+
+// PageCoverMore says "Cover options"
+// in the language of msgs.
+func (msgs Messages) PageCoverMore() string {
+	return Catalog.Format(msgs.locale, "page_coverMore", nil)
+}
+
 // PageChangedOutside says "“{page}” was also changed outside the app. Your edits were saved, and the other version was saved next to it as …"
 // in the language the app shows.
 func PageChangedOutside(page string, copy string) string {

@@ -149,28 +149,68 @@ func (a *app) coverFile(p *Page, file string) {
 	}
 }
 
-// The cover is a band across the top of the page, behind its title: the
-// picture cropped to the band, darker toward its foot, where the title lies;
-// the page's text goes on under it. coverBand is the band, drawn behind the
-// page (an absolute layer in the page's wrapper); pageHead leaves coverRoom
-// above the title, and coverGap the foot below it.
+// A picture cover is frameless (#478): the picture itself, rounded, a little in from the pane's sides and right under
+// its bar, as tall as the picture is for that width (within coverMinH and coverMaxH, cropped beyond them), with no
+// band of its own and nothing over it but its buttons; the title is the page's own, under it. The made cover
+// (autocover.go) is still a band behind the top of the page, its foot fading into the page, the title on it.
+// paintCover draws either behind the page (the wrapper's own drawing); pageHead leaves coverRoomOf above the title,
+// and coverGap the foot below it.
 
 const (
-	coverBandH = 232 // the band's height: the room, the title, the foot
-	coverRoom  = 150 // above the title, in the band
-	coverFoot  = 22  // below the title, in the band
+	coverInset = 16  // the picture's room at the pane's sides
+	coverTop   = 4   // and under the bar
+	coverGapT  = 30  // from its foot to the title
+	coverMinH  = 150 // a wide picture is not thinner than this: it is cropped
+	coverMaxH  = 340 // a tall one not taller
+	coverDefH  = 220 // until the picture or the pane's width is known
+	coverFoot  = 22  // below the title, on the made cover's band
 )
 
+// coverPicH is the height of page p's picture cover in the pane: the picture's own for the width it was last drawn
+// at, kept within coverMinH and coverMaxH.
+func (a *app) coverPicH(p *Page) float32 {
+	if !safeLocalAsset(p.Cover) || a.coverW <= 0 {
+		return coverDefH
+	}
+	src := a.loadImage(p, filepath.Join(p.Dir, p.Cover))
+	iw, ih := ui.ImageSize(src)
+	if iw <= 0 || ih <= 0 {
+		return coverDefH
+	}
+	return min(max(a.coverW*ih/iw, coverMinH), coverMaxH)
+}
+
+// coverPicRect is where the picture cover lies in r, the page's wrapper.
+func (a *app) coverPicRect(p *Page, r ui.Rect) ui.Rect {
+	return ui.Rect{X: r.X + coverInset, Y: r.Y + barH + coverTop, W: max(r.W-2*coverInset, 1), H: a.coverPicH(p)}
+}
+
 func (a *app) coverGap(c *ui.Context, p *Page) {
-	if a.coverKind(p) != coverKindNone {
-		ui.Box(c.Key("cover-foot")).FillWidth().Height(coverFoot)
+	if h := coverFootOf(a.coverKind(p)); h > 0 {
+		ui.Box(c.Key("cover-foot")).FillWidth().Height(h)
 	}
 }
 
-// paintCover is the band's picture, drawn as the wrapper's own, under what
-// is in it: cropped to the width, darker toward the foot. A page with no
-// picture of its own has the pattern made for it (autocover.go), still, its
-// foot already dark.
+// coverFootOf is the room under the title for a cover of kind: the made cover's band goes on under it, a picture
+// has ended above it.
+func coverFootOf(kind int) float32 {
+	if kind == coverKindAuto {
+		return coverFoot
+	}
+	return 0
+}
+
+// coverInk is the title's color on page p: white on the made cover's dark foot, the text's own on its pale light
+// mosaic and under a picture, which the title no longer lies on.
+func (a *app) coverInk(c *ui.Context, p *Page) ui.Color {
+	if a.coverKind(p) == coverKindAuto && ryugo.From(c).Dark {
+		return ui.Hex("#ffffff")
+	}
+	return c.Theme().Text
+}
+
+// paintCover is the cover, drawn as the wrapper's own, under what is in it: a picture rounded in its place, or the
+// pattern made for a page with no picture of its own (autocover.go), its foot going into the page.
 func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 	switch a.coverKind(p) {
 	case coverKindNone:
@@ -183,41 +223,76 @@ func (a *app) paintCover(c *ui.Context, p *Page, wrap ui.Element) {
 		})
 		return
 	}
-	cl := ryugo.From(c).Colors
+	t := ryugo.From(c)
+	cl := t.Colors
 	var src ui.ImageSource
 	if safeLocalAsset(p.Cover) {
 		src = a.loadImage(p, filepath.Join(p.Dir, p.Cover))
 	}
+	radius := rad(14)
+	if b := wrap.LayoutBounds(); b.W > 0 { // the height follows the width the page was laid out at, a frame late
+		if w := max(b.W-2*coverInset, 1); w != a.coverW {
+			a.coverW = w
+			c.Invalidate() // so the next frame comes, with the height for it
+		}
+	}
 	wrap.Draw(func(pt *ui.Painter, r ui.Rect) {
-		band := ui.Rect{X: r.X, Y: r.Y, W: r.W, H: coverBandH + barH}
+		pic := a.coverPicRect(p, r)
 		if src == nil {
-			pt.Fill(band, cl.Well, 0)
+			pt.Fill(pic, cl.Well, radius)
 			return
 		}
-		pt.Image(src, band, ui.Cover)
-		// the foot darkens, so that the title reads on any picture
-		pt.FillGradient(band, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-			{Color: ui.Hex("#000000").Alpha(0), At: 0.25}, {Color: ui.Hex("#000000").Alpha(0.62), At: 1},
-		}}, 0)
+		pt.Clip(pic, radius, func() { pt.Image(src, pic, ui.Cover) })
+		// no frame: only a hair of the text's color at its edge, so a pale picture still ends on a pale page
+		pt.Stroke(pic, cl.Text.Alpha(map[bool]float32{true: 0.10, false: 0.06}[t.Dark]), radius, 1)
 	})
 }
 
-// coverButtons are the buttons on the cover, as the pointer is in the band.
+// coverButtons are the cover's buttons, floating over its top right as the pointer is on it (#478): round, on a
+// dark glass that reads on any picture - change the picture, and a menu of the rest.
 func (a *app) coverButtons(c *ui.Context, p *Page) {
-	if a.coverKind(p) == coverKindNone {
+	kind := a.coverKind(p)
+	if kind == coverKindNone {
 		return
 	}
-	cl := ryugo.From(c).Colors
-	row := ui.Row(c.Key("cover-btns")).Absolute().Right(18).Top(10).Gap(6)
-	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover], fadeQuick))
+	right, top := float32(18), float32(barH+10)
+	if kind == coverKindImage {
+		right, top = coverInset+10, barH+coverTop+10
+	}
+	row := ui.Row(c.Key("cover-btns")).Absolute().Right(right).Top(top).Gap(6)
+	row.Opacity(row.AnimateTo("hot", map[bool]float32{true: 1, false: 0}[a.coverHover || a.coverMenu], fadeQuick))
 	row.Children(func() {
-		if ryugo.Button(c.Key("cover-change"), locales.PageChangeCover(), ryugo.ButtonOptions{Icon: iconCover, Size: ryugo.Sm}).Clicked() {
+		if coverRound(c, "cover-change", locales.PageChangeCover(), iconImage).Clicked() {
 			a.pickCover(p)
 		}
-		if ryugo.Button(c.Key("cover-remove"), locales.CommonRemoveCover(), ryugo.ButtonOptions{Icon: iconTrash, IconOnly: true, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-			a.removeCover(p)
+		more := coverRound(c, "cover-more", locales.PageCoverMore(), iconMore)
+		if more.Clicked() {
+			a.coverMenu = !a.coverMenu
 		}
+		menuAt(c, "cover-more-menu", "page_coverMore", more.LayoutBounds(), &a.coverMenu, a.coverMenuItems(p))
 	})
+}
+
+// coverMenuItems are the cover's menu: change it, put the made one back, take it away.
+func (a *app) coverMenuItems(p *Page) []menuItem {
+	out := []menuItem{{title: "page_changeCover", glyph: iconCover, run: func() { a.pickCover(p) }}}
+	if a.coverKind(p) == coverKindImage && a.settings.AutoCover {
+		out = append(out, menuItem{title: "page_restoreAutoCover", glyph: iconDice, run: func() {
+			a.removeCover(p)
+			a.restoreAutoCover(p)
+		}})
+	}
+	return append(out, menuItem{title: "common_removeCover", group: "~", glyph: iconTrash, danger: true, run: func() { a.removeCover(p) }})
+}
+
+// coverRound is one of the cover's round buttons: a glyph on dark glass, lighter under the pointer.
+func coverRound(c *ui.Context, key, label string, glyph *ui.SVG) ui.Element {
+	b := ui.Box(c.Key(key)).Size(30, 30).Radius(15).AlignItems(ui.Center).Justify(ui.Center).
+		Label(label).Role(ui.RoleButton).Tooltip(label).Border(1, ui.Hex("#ffffff").Alpha(0.16)).
+		Shadow(0, 2, 8, 0, ui.RGBA(0, 0, 0, 0.18))
+	b.Background(ui.Hex("#000000").Alpha(map[bool]float32{true: 0.56, false: 0.38}[b.Hovered()]))
+	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(ui.Hex("#ffffff")) })
+	return b
 }
 
 // decodeCheck reports whether data decodes as a picture.
