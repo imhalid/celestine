@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
@@ -14,7 +15,7 @@ import (
 )
 
 // Links of the web, shown (#495): each with its site's icon before it in the text, room for which the span takes
-// (Span.PaddingLeft); a card with its page's picture and title when the pointer rests on it; the same in the bar's
+// (Span.PaddingStart); a card with its page's picture and title when the pointer rests on it; the same in the bar's
 // link field while an address is typed in. What a page says of itself is asked for once and kept for the session.
 // Settings.NoLinkPreviews turns it all off: no site is asked for anything.
 
@@ -184,11 +185,28 @@ func (a *app) drawLinkIcon(p *ui.Painter, box ui.Rect, address string, muted ui.
 }
 
 // linkIconBox is where the icon of a link goes, in the room before the line's piece of it drawn in rc, for text of
-// size.
-func linkIconBox(rc ui.Rect, size float32) ui.Rect {
+// size: at its left, or at its right when the link's text runs right to left, as Span.PaddingStart leaves the room.
+func linkIconBox(rc ui.Rect, size float32, rtl bool) ui.Rect {
 	pad := size * 1.2
 	s := size * 0.9
+	if rtl {
+		return ui.Rect{X: rc.X + rc.W + (pad-s)/2 + size*0.08, Y: rc.Y + (rc.H-s)/2, W: s, H: s}
+	}
 	return ui.Rect{X: rc.X - pad + (pad-s)/2 - size*0.08, Y: rc.Y + (rc.H-s)/2, W: s, H: s}
+}
+
+// startsRTL reports whether text's first strong letter is of a script written right to left, which is the
+// direction its run is laid out in.
+func startsRTL(text string) bool {
+	for _, r := range text {
+		if unicode.In(r, unicode.Hebrew, unicode.Arabic, unicode.Syriac, unicode.Thaana, unicode.Nko) {
+			return true
+		}
+		if unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return false
 }
 
 // hoverLink keeps the link the pointer is on, (x, y) of the window, and since when: its card shows after

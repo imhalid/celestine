@@ -278,3 +278,43 @@ func TestPasteLinkFromMenu(t *testing.T) {
 		t.Fatalf("the menu's Paste did not link: %q", got)
 	}
 }
+
+// TestLinkIconRTL: a link whose text runs right to left has its icon's room, and its icon, at its right, where it
+// starts (Span.PaddingStart, #509).
+func TestLinkIconRTL(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		rtl  bool
+	}{{"שלום", true}, {"مرحبا", true}, {"Dune", false}, {"12 שלום", true}, {"", false}} {
+		if got := startsRTL(c.text); got != c.rtl {
+			t.Errorf("startsRTL(%q) = %v", c.text, got)
+		}
+	}
+	rc := ui.Rect{X: 100, Y: 10, W: 50, H: 20}
+	if b := linkIconBox(rc, 16, true); b.X < rc.X+rc.W {
+		t.Errorf("the icon of a right-to-left link is not at its right: %v", b)
+	}
+	if b := linkIconBox(rc, 16, false); b.X+b.W > rc.X {
+		t.Errorf("the icon of a left-to-right link is not at its left: %v", b)
+	}
+	a, tt := newTestApp(t, "קרא את [הספר הזה](https://example.com/x) עכשיו\n")
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	if len(a.linkSeen) == 0 {
+		t.Fatal("the link was not drawn")
+	}
+	link := a.linkSeen[0].r
+	a.settings.NoLinkIcons = true
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	tt.Frame()
+	plain := a.linkSeen[0].r
+	// the line is right-aligned: room at the link's right moves the link left by it; room at its left would not
+	// move it
+	linkIcons = true
+	pad := linkIconPad("https://example.com/x", a.font.Size)
+	if d := plain.X - link.X; d < pad-1 || d > pad+1 {
+		t.Errorf("the room is not at the link's right: x %v, without the icon %v, room %v", link.X, plain.X, pad)
+	}
+}

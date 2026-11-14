@@ -67,7 +67,7 @@ func (a *app) linkRoom(p int, spans []ui.Span) []ui.Span {
 }
 
 // splitLinkRoom gives the room of its icon to the first word of each web link of the spans of a paragraph, its
-// own span: a span's PaddingLeft is taken at the left of each line's piece of it, and a link that wraps would have
+// own span: a span's PaddingStart is taken at the start of each line's piece of it, and a link that wraps would have
 // the room, and its icon, on each of its lines (#509). linkAt is the link of the paragraph's rune at, "" for none;
 // size is the text's when a span has none of its own.
 func splitLinkRoom(spans []ui.Span, size float32, linkAt func(at int) string) []ui.Span {
@@ -98,7 +98,7 @@ func splitLinkRoom(spans []ui.Span, size float32, linkAt func(at int) string) []
 			out = append(make([]ui.Span, 0, len(spans)+4), spans[:i]...)
 		}
 		head, tail := s, s
-		head.PaddingLeft = pad
+		head.PaddingStart = pad
 		k := strings.IndexAny(s.Text, " \t") + 1 // the first word, with its space: the letters of a word are shaped together
 		if s.ObjectWidth != 0 || k <= 0 || k >= len(s.Text) {
 			out = append(out, head)

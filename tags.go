@@ -122,7 +122,8 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 				at := ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}
 				a.linkHits = append(a.linkHits, linkHit{at, lk.url, s + lk.from})
 				if i == 0 && lk.first && linkIconPad(lk.url, a.font.Size) > 0 { // its first line's piece alone (#509)
-					a.drawLinkIcon(p, linkIconBox(at, a.font.Size), lk.url, th.Muted)
+					rtl := startsRTL(string([]rune(line)[lk.from:lk.to]))
+					a.drawLinkIcon(p, linkIconBox(at, a.font.Size, rtl), lk.url, th.Muted)
 				}
 			}
 		}
