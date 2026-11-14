@@ -15925,16 +15925,6 @@ func (msgs Messages) WelcomeStart() string {
 	return Catalog.Format(msgs.locale, "welcome_start", nil)
 }
 
-// WelcomeTagline says "The notes app you've been looking for."
-// in the language the app shows.
-func WelcomeTagline() string { return In(i18n.Locale()).WelcomeTagline() }
-
-// WelcomeTagline says "The notes app you've been looking for."
-// in the language of msgs.
-func (msgs Messages) WelcomeTagline() string {
-	return Catalog.Format(msgs.locale, "welcome_tagline", nil)
-}
-
 // WhatIsShownAtTheBottom says "What's shown at the bottom"
 // in the language the app shows.
 func WhatIsShownAtTheBottom() string { return In(i18n.Locale()).WhatIsShownAtTheBottom() }

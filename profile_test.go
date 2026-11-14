@@ -26,7 +26,7 @@ func TestNoLoginGate(t *testing.T) {
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if tt.HasText("Erişim kodu") || !tt.HasText("Bir daha gösterme") {
+	if tt.HasText("Erişim kodu") || !tt.HasText("Kenar çubuğu (⌘\\)") { // the app itself, its sidebar; the corner tour it once had is gone (#488)
 		t.Fatalf("the app does not open without an account: %v", tt.Texts())
 	}
 	a.openSettings()

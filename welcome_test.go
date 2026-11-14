@@ -23,7 +23,7 @@ func welcomeApp(t *testing.T) *app {
 	return a
 }
 
-// TestWelcome: the preview of the app rises and its line is typed in, Başla opens the app, and the welcome is done.
+// TestWelcome: the logo and the name rise, and nothing more; Başla opens the app, and the welcome is done.
 func TestWelcome(t *testing.T) {
 	a := welcomeApp(t)
 	tt := ui.NewTester(a.view, 560, 660)
@@ -38,9 +38,9 @@ func TestWelcome(t *testing.T) {
 	if !a.wel.goAt.IsZero() {
 		t.Fatal("the opening started without Başla")
 	}
-	// the preview's page has the tagline typed whole by now (#488)
-	if !tt.HasText(locales.WelcomeTagline()) {
-		t.Fatalf("the tagline is not typed into the preview: %v", tt.Texts())
+	// the name, and no line under it (#507)
+	if !tt.HasText("Celestine") || len(tt.Texts()) > 3 {
+		t.Fatalf("not the name alone: %v", tt.Texts())
 	}
 	// only the pill is the button: its glow, round it, is not
 	r, _ := tt.Find("Başla")

@@ -4,7 +4,7 @@ import (
 	"math"
 	"os"
 	"runtime"
-	"strconv"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -417,90 +417,17 @@ func (a *app) openingView(c *ui.Context) {
 	a.view(c)
 }
 
-// welTypeAt is when the tagline starts to be typed into the preview's page, and welTypeRate how many letters a second.
-const (
-	welTypeAt   = welHead + 0.45
-	welTypeRate = 26.0
-)
-
-// welTyped is when the tagline is typed whole.
-func welTyped(line string) float64 {
-	return welTypeAt + float64(len([]rune(line)))/welTypeRate
-}
-
-// welcomePreview is a small piece of the app (#488): a window with its sidebar and a page, whose title is the app's
-// name, a few blocks drawn as lines (a list, a done task, a quote), and the tagline typed in at the end with the caret
-// after it, so that the first look shows what the app is. el is the time since the welcome was chosen; width is
-// the window's.
-func (a *app) welcomePreview(c *ui.Context, el float64, width float32) ui.Element {
-	cl := ryugo.From(c).Colors
-	line := locales.WelcomeTagline()
-	runes := []rune(line)
-	typed := runes[:max(0, min(len(runes), int((el-welTypeAt)*welTypeRate)))]
-	caretOn := el < welTyped(line) || int(el*2)%2 == 0 // solid while typing, then a blink
-	bar := func(key string, w float32, col ui.Color) {
-		ui.Box(c.Key(key)).Width(w).Height(7).Radius(3.5).Background(col)
+// welcomeLogo is the app's icon for the welcome, read from its bytes once.
+var welcomeLogo = sync.OnceValue(func() ui.ImageSource {
+	img, err := ui.DecodeImage(appIcon)
+	if err != nil {
+		return nil
 	}
-	win := ui.Column(c.Key("w-preview")).Width(width).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline).Clip().
-		Shadow(0, 18, 48, 0, ui.RGB(0, 0, 0).Alpha(0.16))
-	win.Children(func() {
-		ui.Row(c.Key("w-bar")).Height(30).Padding(0, 12).Gap(6).AlignItems(ui.Center).Children(func() { // the window's lights
-			for i := range 3 {
-				ui.Box(c.Key("w-light" + strconv.Itoa(i))).Width(9).Height(9).Radius(4.5).Background(cl.Muted.Alpha(0.35))
-			}
-		})
-		ui.Row(c.Key("w-body")).Height(196).Children(func() {
-			side := ui.Column(c.Key("w-side")).Width(width*0.27).Padding(8, 10).Gap(9).Background(cl.Fill)
-			if phone {
-				side.Width(0).Padding(0).Hidden(true)
-			}
-			side.Children(func() {
-				for i, w := range []float32{0.7, 0.55, 0.62, 0.45} {
-					col := cl.Muted.Alpha(0.28)
-					r := ui.Row(c.Key("w-nav"+strconv.Itoa(i))).Padding(5, 6).Radius(rad(6)).Gap(6).AlignItems(ui.Center)
-					if i == 0 { // the open page
-						r.Background(cl.Accent.Alpha(0.14))
-						col = cl.Accent.Alpha(0.55)
-					}
-					r.Children(func() {
-						ui.Box(c.Key("w-navicon")).Width(8).Height(8).Radius(2).Background(col)
-						bar("w-navbar", width*0.27*w-34, col)
-					})
-				}
-			})
-			ui.Column(c.Key("w-page")).Grow(1).MinWidth(0).Padding(18, 22).Gap(11).Children(func() {
-				ui.Text(c.Key("w-head"), "Celestine").FontSize(22).FontWeight(720).TextColor(cl.Text).MaxLines(1)
-				for i, w := range []float32{0.62, 0.46} { // a list
-					ui.Row(c.Key("w-item" + strconv.Itoa(i))).Gap(9).AlignItems(ui.Center).Children(func() {
-						ui.Box(c.Key("w-dot")).Width(5).Height(5).Radius(2.5).Background(cl.Text2)
-						bar("w-itembar", width*0.73*w-60, cl.Muted.Alpha(0.32))
-					})
-				}
-				ui.Row(c.Key("w-task")).Gap(8).AlignItems(ui.Center).Children(func() { // a task done
-					ui.Box(c.Key("w-check")).Width(13).Height(13).Radius(4).Background(cl.Accent).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-						ui.Icon(c, iconCheck).Width(10).Height(10).TextColor(ui.RGB(255, 255, 255))
-					})
-					bar("w-taskbar", width*0.73*0.38, cl.Muted.Alpha(0.2))
-				})
-				ui.Row(c.Key("w-quote")).Gap(10).AlignItems(ui.Center).Children(func() { // a quote
-					ui.Box(c.Key("w-quoteline")).Width(2.5).Height(16).Radius(1.25).Background(cl.Accent.Alpha(0.7))
-					bar("w-quotebar", width*0.73*0.5, cl.Muted.Alpha(0.26))
-				})
-				ui.Row(c.Key("w-typed")).AlignItems(ui.Center).Children(func() { // the line being written, and the caret
-					ui.Text(c.Key("w-sub"), string(typed)).FontSize(14.5).TextColor(cl.Text).MaxLines(1).Shrink(1).MinWidth(0)
-					caret := ui.Box(c.Key("w-caret")).Width(2).Height(17).Radius(1).Margin(0, 0, 0, 1).Background(cl.Accent)
-					if !caretOn {
-						caret.Background(cl.Accent.Alpha(0))
-					}
-				})
-			})
-		})
-	})
-	return win
-}
+	return img
+})
 
-// welcomeView is the preview of the app (welcomePreview, its page titled in English in every language) and Başla, over
-// the ground: the ground starts on the first frame, and the words and the button rise in one after another as it
+// welcomeView is the app's logo and its name (the same in every language) and Başla, over the ground, and nothing
+// else, which keeps the welcome quiet (#507): the ground starts on the first frame, and the words and the button rise in one after another as it
 // comes. Başla (or Enter) starts the opening from the button; Esc goes straight to the app. They lift off as the
 // app opens.
 func (a *app) welcomeView(c *ui.Context, onStage bool) {
@@ -516,10 +443,8 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 	going := !a.wel.goAt.IsZero()
 	if going { // lifting off: a frame each frame, the app's window has its own
 		c.AnimationFrame()
-	} else if el < welButton+1.0 || el < welTyped(locales.WelcomeTagline()) {
+	} else if el < welButton+1.0 {
 		c.After(16 * time.Millisecond)
-	} else { // the caret blinks
-		c.After(250 * time.Millisecond)
 	}
 	rise := ui.Animation{Spring: ui.SpringOptions{Duration: 700 * time.Millisecond, Bounce: 0.12}}
 	rises := func(e ui.Element, at float64) ui.Element {
@@ -540,8 +465,12 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 		stage := ui.Column(c.Key("welcome")).Absolute().Left(0).Top(0).Width(w).Height(h).AlignItems(ui.Center).Justify(ui.Center)
 		stage.Opacity(float32(1-min(1, prog*3))).Translate(0, float32(-24*prog))
 		stage.Children(func() {
-			rises(a.welcomePreview(c, el, min(440, w-32)), welHead)
-			ui.Box(c.Key("w-gap2")).Height(6) // Başla's box has its glow's room round it
+			if logo := welcomeLogo(); logo != nil {
+				rises(ui.Image(c.Key("w-logo"), logo).Size(112, 112), welHead)
+				ui.Box(c.Key("w-gap1")).Height(4)
+			}
+			rises(ui.Text(c.Key("w-head"), "Celestine").FontSize(40).FontWeight(720).TextColor(ryugo.From(c).Colors.Text).TextAlign(ui.Center), welHead+0.08)
+			ui.Box(c.Key("w-gap2")).Height(10) // Başla's box has its glow's room round it
 			glow, b := a.welcomeButton(c)
 			rises(glow, welButton)
 			button = b
