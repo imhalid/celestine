@@ -68,7 +68,7 @@ jobs:
             for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . || exit 1; done
             GOOS=js GOARCH=wasm go build -o /dev/null .
             # the AppImages a release packs (scripts/appimage.sh, #513), so a broken package is found before a tag
-            scripts/build.sh linux/amd64 linux/arm64 && scripts/appimage.sh || exit 1
+            BUDGET_MB=30 scripts/build.sh linux/amd64 linux/arm64 && scripts/appimage.sh || exit 1 # the release's budget
           } 2>&1 | tee report/builds.txt
       - name: the library under the race detector
         id: race
