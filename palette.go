@@ -999,8 +999,10 @@ func (a *app) palPreview(items []palItem) {
 		a.palRestore()
 		return
 	}
-	if a.pal.snap == nil {
+	if s := a.pal.snap; s == nil {
 		a.pal.snap = &palSnap{a.settings.Theme, a.settings.AppTheme, a.caretKind}
+	} else { // what the one before showed goes first: a color theme after "Theme: Dark" is not shown dark (#512)
+		a.settings.Theme, a.settings.AppTheme, a.caretKind = s.theme, s.appTheme, s.caret
 	}
 	show()
 }

@@ -203,3 +203,27 @@ func ryugoColorsNow(a *app, tt *ui.Tester) ryugo.Colors {
 	tt2.Frame()
 	return got
 }
+
+// A preview starts from what was there when the palette opened: a color theme passed over after "Theme: Dark" is shown
+// in the light theme the user has (#512).
+func TestPalettePreviewsDoNotStack(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.settings.Theme, a.settings.AppTheme = 1, 0
+	items := []palItem{
+		{title: "dark", preview: func() { a.settings.Theme = 2 }},
+		{title: "ember", preview: func() { a.settings.AppTheme = 3 }},
+	}
+	a.pal.sel = 0
+	a.palPreview(items)
+	a.pal.sel = 1
+	a.palPreview(items)
+	if a.settings.Theme != 1 || a.settings.AppTheme != 3 {
+		t.Fatalf("theme %d, color theme %d", a.settings.Theme, a.settings.AppTheme)
+	}
+	a.palRestore()
+	if a.settings.Theme != 1 || a.settings.AppTheme != 0 {
+		t.Fatalf("not put back: theme %d, color theme %d", a.settings.Theme, a.settings.AppTheme)
+	}
+}
