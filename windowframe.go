@@ -153,11 +153,10 @@ func (a *app) syncGlassTint(c *ui.Context) {
 		return
 	}
 	dark := ryugo.From(c).Dark
-	alpha := a.tuneAlpha(c, "glass.tint", glassOpacity(c, 0.56))
-	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark && a.glassAlpha == alpha {
+	alpha := glassOpacity(c, 0.56)
+	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark {
 		return
 	}
-	a.glassAlpha = alpha
 	tint := glassTint(a.pageBg, alpha)
 	a.glassTintRuns++
 	a.glassTint, a.glassBg, a.glassDark, a.glassHasTint = tint, a.pageBg, dark, true

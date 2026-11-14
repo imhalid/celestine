@@ -1634,14 +1634,5 @@
   "lists_beforeBullet": "Bir madde imi",
   "lists_beforeNumber": "Bir numara",
   "lists_inlineTask": "Görev",
-  "lists_inlineTaskDone": "Görev, bitti",
-  "tuner_copied": "Kopyalandı",
-  "tuner_copyAll": "Hepsini kopyala",
-  "tuner_filter": "Süz",
-  "tuner_open": "Renk ayarlayıcı",
-  "tuner_pick": "Değiştirmek için soldan bir renk seçin. Uygulama siz değiştirdikçe değişir.",
-  "tuner_reset": "Hepsini sıfırla",
-  "tuner_title": "Renk ayarlayıcı",
-  "tuner_undo": "Bunu geri al",
-  "tuner_was": "Önceki: {value}"
+  "lists_inlineTaskDone": "Görev, bitti"
 }

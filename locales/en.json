@@ -1879,14 +1879,5 @@
   "lists_beforeBullet": "A bullet",
   "lists_beforeNumber": "A number",
   "lists_inlineTask": "Task",
-  "lists_inlineTaskDone": "Task, done",
-  "tuner_copied": "Copied",
-  "tuner_copyAll": "Copy all",
-  "tuner_filter": "Filter",
-  "tuner_open": "Color tuner",
-  "tuner_pick": "Choose a color on the left to change it. The app changes as you do.",
-  "tuner_reset": "Reset all",
-  "tuner_title": "Color tuner",
-  "tuner_undo": "Undo this one",
-  "tuner_was": "Was {value}"
+  "lists_inlineTaskDone": "Task, done"
 }
