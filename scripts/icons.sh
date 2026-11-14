@@ -7,11 +7,13 @@
 #
 # and writes what the builds read: in the Dock's shape for macOS and the window (icon-*.png, icon.icns), filling
 # its square for Windows (icon-win.png, icon.ico, and the .syso through scripts/winicon), for the web, the
-# Android launcher (its ground in values/ic_launcher_background.xml is the paper tone) and the site's favicon
-# (static/icon.png of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
+# Android launcher (its ground in values/ic_launcher_background.xml is the paper tone) and the site's top bar on the
+# dark page (static/icon.png of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
 #
 # assets/brand/ keeps the icon's dark and blue versions for branding, each drawn at 1024 px in the Dock's shape and
-# filling its square; no build reads them, and this script leaves them as they are.
+# filling its square; no build reads them, and this script leaves them as they are. The site's favicon and Apple touch
+# icon (static/icon-blue.png, static/apple-touch-icon.png) and its top bar's icon on the light page (static/icon-dark.png)
+# are made from them by hand, at 256 and 180 px.
 #
 #   scripts/icons.sh
 set -eu
