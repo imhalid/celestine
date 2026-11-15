@@ -1,10 +1,14 @@
 # A tag v1.2.3 makes a release: the five builds (scripts/build.sh, with its size budget), packaged
 # (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file, and
-# scripts/appimage.sh: Linux as an AppImage, #513), a SHA256SUMS, a signed manifest, the GitHub release, and then the
-# files on Cloudflare R2, from where the app's update check reads them (cloudflare/update/worker.js), and the site's
-# download buttons through the Worker's /download: the DMG on macOS, the AppImage on Linux, the .exe on Windows. update.json goes up last: until it is there, no app is offered the version.
+# scripts/appimage.sh: Linux as an AppImage, #513), a SHA256SUMS, a signed manifest and the GitHub release.
 # Then the dmg job, on macOS, makes celestine-macos.dmg from the two darwin zips (scripts/dmg.sh) and adds it to
-# the release and to R2: the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
+# the release: the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
+# Last, the publish job adds the DMG to SHA256SUMS and signs it with the release's key (SHA256SUMS.sig, which
+# scripts/install.sh checks, #540), and puts the files on Cloudflare R2, from where the app's update check reads them
+# (cloudflare/update/worker.js), and the site's download buttons through the Worker's /download: the DMG on macOS,
+# the AppImage on Linux, the .exe on Windows. Every file goes up once, signed sums before the manifest, and
+# update.json last: until it is there, no app and no install script is offered the version. A DMG that could not be
+# made does not hold the release back: it goes up without one.
 #
 # Secrets: RELEASE_KEY (the secret key of `go run ./scripts/release keygen`), UPDATE_PUBLIC_KEY (its public
 # half, which goes into the program), UPDATE_URL (the Worker's address, https://…/update.json; the files are served
@@ -33,7 +37,6 @@ jobs:
     env:
       VERSION: ${{ github.ref_name }}
       SIGNED: ${{ secrets.RELEASE_KEY != '' }}
-      R2: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -115,7 +118,6 @@ jobs:
           # and the notes) for those since; the clients of each check their own
           channel=
           case "$VERSION" in *-*) channel=beta ;; esac
-          echo "CHANNEL=$channel" >> "$GITHUB_ENV"
           printf '%s\n' "$RELEASE_KEY" > release.key
           go run ./scripts/release manifest -version "$VERSION" -base "$BASE" -channel "$channel" \
             -notes release-notes.md -key release.key dist/celestine-* > update.json
@@ -129,32 +131,22 @@ jobs:
             dist/SHA256SUMS
           body_path: release-notes.md
           prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
-      - name: upload to R2
-        if: env.SIGNED == 'true' && env.R2 == 'true'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          EP="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          for f in dist/celestine-* dist/SHA256SUMS; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
-          # the manifest last: once it is up, every app is offered the version. A trial goes to beta.json alone, which
-          # only apps on the trial channel ask for; a stable release goes to both, so those apps are offered it too (#169)
-          aws s3 cp update.json s3://celestine-releases/beta.json --endpoint-url "$EP" --content-type application/json
-          if [ "$CHANNEL" != beta ]; then
-            aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
-          fi
-          # the site's changelog after it, so the page never names a version that is not offered yet
-          aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"
-          # the install script, which the site serves at /install.sh (#514): the one of the version it installs
-          aws s3 cp scripts/install.sh s3://celestine-releases/install.sh --endpoint-url "$EP" --content-type "text/plain; charset=utf-8" --cache-control "public, max-age=300"
+      - name: files for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            dist/celestine-*
+            dist/SHA256SUMS
+            update.json
+            changelog.json
+          if-no-files-found: ignore # update.json only when signed
+          retention-days: 1
   dmg:
     needs: build
     runs-on: macos-latest
     env:
       VERSION: ${{ github.ref_name }}
-      R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.RELEASE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -165,13 +157,81 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$VERSION" dist/celestine-macos.dmg --clobber
+      - name: the dmg for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: dist/celestine-macos.dmg
+          retention-days: 1
+  publish:
+    needs: [build, dmg]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+      SIGNED: ${{ secrets.RELEASE_KEY != '' }}
+      R2: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: actions/download-artifact@v4
+        with: { name: release, path: . }
+      - name: the dmg
+        if: needs.dmg.result == 'success'
+        uses: actions/download-artifact@v4
+        with: { name: dmg, path: dist }
+      - name: sums
+        env:
+          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
+        run: |
+          # the DMG is in SHA256SUMS too (#540)
+          if [ -f dist/celestine-macos.dmg ]; then (cd dist && sha256sum celestine-macos.dmg >> SHA256SUMS); fi
+          cat dist/SHA256SUMS
+          channel=
+          case "$VERSION" in *-*) channel=beta ;; esac
+          echo "CHANNEL=$channel" >> "$GITHUB_ENV"
+          # signed with the key the app checks its updates with: the install script checks it (scripts/release/sums.go)
+          if [ "$SIGNED" = true ]; then
+            printf '%s\n' "$RELEASE_KEY" > release.key
+            go run ./scripts/release sums -version "$VERSION" -channel "$channel" -key release.key dist/SHA256SUMS > dist/SHA256SUMS.sig
+            rm release.key
+            cat dist/SHA256SUMS.sig
+          fi
+      - name: sums on the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$VERSION" dist/SHA256SUMS* --clobber
+      - name: install script
+        if: env.SIGNED == 'true'
+        env:
+          UPDATE_PUBLIC_KEY: ${{ secrets.UPDATE_PUBLIC_KEY }}
+        run: |
+          # the install script carries the releases' key, as ssh-keygen reads it, to check SHA256SUMS.sig with (#540)
+          key=$(go run ./scripts/release sshkey "$UPDATE_PUBLIC_KEY")
+          sed "s|@RELEASE_SSH_KEY@|$key|" scripts/install.sh > install.sh
+          grep -q '^KEY=${CELESTINE_KEY:-ssh-ed25519 [A-Za-z0-9+/=]*}$' install.sh || { echo "the key is not in install.sh"; exit 1; }
       - name: upload to R2
-        if: env.R2 == 'true'
+        if: env.SIGNED == 'true' && env.R2 == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          aws s3 cp dist/celestine-macos.dmg "s3://celestine-releases/$VERSION/celestine-macos.dmg" \
-            --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          EP="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # the builds, then the signed sums that name them: the install script finds both before the version
+          for f in dist/celestine-* dist/SHA256SUMS dist/SHA256SUMS.sig; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
+          # the manifest last: once it is up, every app is offered the version. A trial goes to beta.json alone, which
+          # only apps on the trial channel ask for; a stable release goes to both, so those apps are offered it too (#169)
+          aws s3 cp update.json s3://celestine-releases/beta.json --endpoint-url "$EP" --content-type application/json
+          if [ "$CHANNEL" != beta ]; then
+            aws s3 cp update.json s3://celestine-releases/update.json --endpoint-url "$EP" --content-type application/json
+          fi
+          # the site's changelog after it, so the page never names a version that is not offered yet
+          aws s3 cp changelog.json s3://celestine-releases/changelog.json --endpoint-url "$EP" --content-type application/json --cache-control "public, max-age=300"
+          # the install script, which the site serves at /install.sh (#514): the one of the version it installs. It
+          # installs what update.json names, the stable release, so a trial leaves the stable one's script in place
+          if [ "$CHANNEL" != beta ]; then
+            aws s3 cp install.sh s3://celestine-releases/install.sh --endpoint-url "$EP" --content-type "text/plain; charset=utf-8" --cache-control "public, max-age=300"
+          fi

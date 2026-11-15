@@ -24,10 +24,22 @@ export default {
     const headers = new Headers();
     obj.writeHttpMetadata(headers);
     headers.set("etag", obj.httpEtag);
-    headers.set("cache-control", key.endsWith(".json") ? "public, max-age=300" : "public, max-age=31536000, immutable");
+    headers.set("cache-control", cacheControl(key, headers.get("cache-control")));
     return new Response(request.method === "HEAD" ? null : obj.body, { headers });
   },
 };
+
+// cacheControl is how long a file may be kept by a cache. Only a release's own builds, under its version's folder,
+// never change, and are kept for a year; the manifests five minutes; anything else (install.sh, changelog.json)
+// as it was stored, else five minutes, so that a fixed file is not served stale for a year (#540). A release's
+// SHA256SUMS and its signature are not kept for good either: a run of the release's workflow again writes them
+// anew, with the hash of a DMG built again.
+function cacheControl(key, stored) {
+  if (/^v[0-9][A-Za-z0-9.+-]*\/[^/]+$/.test(key) && !/\/SHA256SUMS(\.sig)?$/.test(key))
+    return "public, max-age=31536000, immutable";
+  if (key.endsWith(".json") || !stored) return "public, max-age=300";
+  return stored;
+}
 
 // download sends the browser to the latest release's file for a platform, the one a person installs: the DMG on
 // macOS (one for both chips, release.yml's dmg job), the AppImage on Linux (listed as linux-<arch>-appimage), the

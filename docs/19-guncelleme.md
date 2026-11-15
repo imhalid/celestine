@@ -38,10 +38,18 @@
 
 - `cloudflare/update/worker.js` + `wrangler.toml`: the Worker `celestine-updates` at **https://dl.celestine.halid.dev**, over the R2 bucket
   `celestine-releases`. It serves `update.json` and `<version>/<file>`; `GET /download/<os-arch>` sends a browser to the latest release's
-  file (the site's buttons). It records nothing. The address is in every release: it does not change.
-- `scripts/release`: `keygen` (the key pair), `manifest` (hashes the files, signs each with `sig`, `sig2` and `sig3`, writes `update.json`).
+  file (the site's buttons). It records nothing. The address is in every release: it does not change. A release's builds, under its
+  version's folder, are cached for a year as immutable; everything else (the manifests, `SHA256SUMS`, `install.sh`) for five minutes,
+  so a fixed file is not served stale (#540).
+- `scripts/release`: `keygen` (the key pair), `manifest` (hashes the files, signs each with `sig`, `sig2` and `sig3`, writes `update.json`),
+  `sums` (signs `SHA256SUMS` for the install script) and `sshkey` (the public key as `ssh-keygen` reads it).
 - `.github/workflows/release.yml`: a `v*` tag → the gate, `scripts/build.sh` (address and key as `LDFLAGS`, budget 50 MB), packaging,
-  `SHA256SUMS`, the signed manifest, the GitHub release, then R2 with `update.json` last.
+  `SHA256SUMS`, the signed manifest, the GitHub release; the DMG on macOS; then the publish job: the DMG's hash into `SHA256SUMS`, its
+  signature `SHA256SUMS.sig`, the install script with the key written into it, and R2 with `update.json` last.
+- `scripts/install.sh` (`curl … | sh`) checks `SHA256SUMS.sig` with the same key before it trusts `SHA256SUMS` (#540): an OpenSSH
+  signature (SSHSIG, namespace `celestine-release`) of the lines `celestine-sums-1`, the version and `stable`, then the file, checked
+  with `ssh-keygen -Y verify`. The stock `openssl` of macOS (LibreSSL) has no ed25519, but every Mac has `ssh-keygen`, and so do most
+  Linux systems; where none can check, the script stops unless `CELESTINE_UNVERIFIED=1` says to install on the checksums alone.
 
 ### Setting it up (once)
 

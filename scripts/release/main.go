@@ -1,9 +1,12 @@
-// Command release makes what a release needs: a key pair, the manifest the app reads, signed, and the changelog the
-// site shows (changelog.go).
+// Command release makes what a release needs: a key pair, the manifest the app reads, signed, the signature of
+// SHA256SUMS the install script checks (sums.go), and the changelog the site shows (changelog.go).
 //
 //	go run ./scripts/release keygen                       writes release.key (secret) and prints the public key
 //	go run ./scripts/release manifest -version v1.3.0 -base https://dl.example.com/v1.3.0 \
 //	    -notes notes.md -key release.key dist/celestine-*    prints update.json
+//	go run ./scripts/release sums -version v1.3.0 -key release.key dist/SHA256SUMS
+//	                                                      prints SHA256SUMS.sig, for scripts/install.sh
+//	go run ./scripts/release sshkey <public key>          prints the public key as ssh-keygen reads it
 //	go run ./scripts/release changelog                    prints changelog.json, every release from the git tags
 //
 // The secret key lives only where the release is made (a secret of the CI); the public key goes into the
@@ -132,7 +135,7 @@ func signFile(priv ed25519.PrivateKey, rel signed, base, f string) (key string, 
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "keygen | manifest | changelog")
+		fmt.Fprintln(os.Stderr, "keygen | manifest | sums | sshkey | changelog")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
@@ -149,14 +152,7 @@ func main() {
 		keyFile := fs.String("key", "release.key", "the secret key")
 		channel := fs.String("channel", "", "beta for a trial")
 		fs.Parse(os.Args[2:])
-		kb, err := os.ReadFile(*keyFile)
-		check(err)
-		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(kb)))
-		check(err)
-		if len(raw) != ed25519.PrivateKeySize {
-			check(fmt.Errorf("invalid private key length: got %d, want %d", len(raw), ed25519.PrivateKeySize))
-		}
-		priv := ed25519.PrivateKey(raw)
+		priv := readKey(*keyFile)
 		out := map[string]any{"version": *version, "date": time.Now().Format("2006-01-02")}
 		rel := signed{version: *version, channel: *channel}
 		switch *channel {
@@ -192,6 +188,31 @@ func main() {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		check(enc.Encode(out))
+	case "sums":
+		fs := flag.NewFlagSet("sums", flag.ExitOnError)
+		version := fs.String("version", "", "the version, v1.3.0")
+		keyFile := fs.String("key", "release.key", "the secret key")
+		channel := fs.String("channel", "", "beta for a trial")
+		fs.Parse(os.Args[2:])
+		if fs.NArg() != 1 {
+			check(fmt.Errorf("sums: one SHA256SUMS file"))
+		}
+		priv := readKey(*keyFile)
+		b, err := os.ReadFile(fs.Arg(0))
+		check(err)
+		text, err := sumsText(*version, *channel, b)
+		check(err)
+		fmt.Print(sshSign(priv, sumsNamespace, text))
+	case "sshkey":
+		if len(os.Args) != 3 {
+			check(fmt.Errorf("sshkey <base64 public key>"))
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(os.Args[2]))
+		check(err)
+		if len(raw) != ed25519.PublicKeySize {
+			check(fmt.Errorf("invalid public key length: got %d, want %d", len(raw), ed25519.PublicKeySize))
+		}
+		fmt.Println(sshPublicKey(ed25519.PublicKey(raw)))
 	case "changelog":
 		tags, err := gitTags()
 		check(err)
@@ -202,9 +223,21 @@ func main() {
 		enc.SetIndent("", "  ")
 		check(enc.Encode(c))
 	default:
-		fmt.Fprintln(os.Stderr, "keygen | manifest | changelog")
+		fmt.Fprintln(os.Stderr, "keygen | manifest | sums | sshkey | changelog")
 		os.Exit(2)
 	}
+}
+
+// readKey reads the secret key of `keygen` from the file f.
+func readKey(f string) ed25519.PrivateKey {
+	kb, err := os.ReadFile(f)
+	check(err)
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(kb)))
+	check(err)
+	if len(raw) != ed25519.PrivateKeySize {
+		check(fmt.Errorf("invalid private key length: got %d, want %d", len(raw), ed25519.PrivateKeySize))
+	}
+	return ed25519.PrivateKey(raw)
 }
 
 func check(err error) {
