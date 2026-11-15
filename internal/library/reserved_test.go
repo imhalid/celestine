@@ -1,7 +1,9 @@
 package library
 
 import (
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -61,7 +63,7 @@ func TestReservedPropertyRenamed(t *testing.T) {
 		t.Fatalf("not renamed: %+v", c.Properties)
 	}
 	d := pageNamed(t, again, "Dune")
-	if d.Value(props) != "hard cover, signed" || d.Value(shift) != "7" || d.CoverShift != 0 {
+	if d.Value(props) != "hard cover, signed" || d.Value(shift) != "7" || d.CoverShift != 7 {
 		t.Fatalf("values: %v, cover shift %d", d.Props, d.CoverShift)
 	}
 	var view *View
@@ -81,7 +83,7 @@ func TestReservedPropertyRenamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	meta := PageMeta(src)
-	if meta[props.ID] != "hard cover, signed" || meta[shift.ID] != "7" || meta["properties"] != "" || meta["covershift"] != "" {
+	if meta[props.ID] != "hard cover, signed" || meta[shift.ID] != "7" || meta["properties"] != "" || meta["covershift"] != "7" {
 		t.Fatalf("the file after the rename: %v", meta)
 	}
 
@@ -142,5 +144,110 @@ func TestSetValueReservedRefused(t *testing.T) {
 		if err := dune.SetValue(id, "hard cover, signed"); err == nil {
 			t.Errorf("SetValue(%q) returned nil, and wrote nothing", id)
 		}
+	}
+}
+
+// legacyBooks makes a collection whose properties "Properties" and "Covershift" have the reserved ids they were
+// once given, with the pages Dune and Emma holding their values under those keys, and returns the library's root
+// and the collection.json as it was then.
+func legacyBooks(t *testing.T) (string, []byte) {
+	t.Helper()
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	books, _ := lib.NewCollection("Books")
+	books.Properties = append(books.Properties,
+		Property{ID: "properties", Name: "Properties", Type: PropText},
+		Property{ID: "covershift", Name: "Covershift", Type: PropText})
+	if err := books.Save(); err != nil {
+		t.Fatal(err)
+	}
+	dune, _ := books.NewPage(nil, "Dune")
+	emma, _ := books.NewPage(nil, "Emma")
+	writeMeta(t, dune, map[string]string{"title": "Dune", "created": "2026-11-01T10:00:00Z",
+		"properties": "hard cover, signed", "covershift": "7"})
+	writeMeta(t, emma, emmaMeta)
+	old, err := books.FS.ReadFile(filepath.Join(books.Dir, CollectionFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return lib.Root, old
+}
+
+// emmaMeta is the front matter of legacyBooks' Emma: a "covershift" that is no cover's position.
+var emmaMeta = map[string]string{"title": "Emma", "created": "2026-11-02T10:00:00Z", "properties": "paperback", "covershift": "wide"}
+
+// TestReservedRenameRepeated: when the collection.json of before the rename comes back (an older client syncs it,
+// or a conflict keeps the old copy), the next rename takes the ids of the first again: the values stay the
+// properties', and a cover position set since stays the cover's (#531).
+func TestReservedRenameRepeated(t *testing.T) {
+	root, old := legacyBooks(t)
+	first, err := OpenLibrary(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := first.Collections[0]
+	props, shift := c.PropNamed("Properties").ID, c.PropNamed("Covershift").ID
+	if e := pageNamed(t, first, "Emma"); e.Props[shift] != "wide" || e.CoverShift != 0 {
+		t.Fatalf("a covershift that is no position: %v, cover shift %d", e.Props, e.CoverShift)
+	}
+	d := pageNamed(t, first, "Dune")
+	d.CoverShift = 30 // set by the user since
+	if err := d.saveMeta(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.FS.WriteFile(filepath.Join(c.Dir, CollectionFile), old); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := OpenLibrary(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c = again.Collections[0]
+	if c.PropNamed("Properties").ID != props || c.PropNamed("Covershift").ID != shift || len(c.Properties) != 2 {
+		t.Fatalf("renamed to other ids: %+v, want %s and %s", c.Properties, props, shift)
+	}
+	d = pageNamed(t, again, "Dune")
+	if d.Props[props] != "hard cover, signed" || d.Props[shift] != "7" || d.CoverShift != 30 {
+		t.Fatalf("Dune: %v, cover shift %d", d.Props, d.CoverShift)
+	}
+	if e := pageNamed(t, again, "Emma"); e.Props[props] != "paperback" || e.Props[shift] != "wide" {
+		t.Fatalf("Emma: %v", e.Props)
+	}
+	for k := range d.Props {
+		if strings.HasSuffix(k, "-3") {
+			t.Fatalf("a third id: %v", d.Props)
+		}
+	}
+}
+
+// TestReservedRenameInterrupted: a rename cut short, with Dune written and Emma and the collection.json not, is
+// finished by the next one under the same ids, and none of the values is lost (#531).
+func TestReservedRenameInterrupted(t *testing.T) {
+	root, old := legacyBooks(t)
+	lib, err := OpenLibrary(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := lib.Collections[0]
+	props, shift := c.PropNamed("Properties").ID, c.PropNamed("Covershift").ID
+	writeMeta(t, pageNamed(t, lib, "Emma"), emmaMeta)
+	if err := c.FS.WriteFile(filepath.Join(c.Dir, CollectionFile), old); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := OpenLibrary(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c = again.Collections[0]
+	if c.PropNamed("Properties").ID != props || c.PropNamed("Covershift").ID != shift {
+		t.Fatalf("renamed to other ids: %+v, want %s and %s", c.Properties, props, shift)
+	}
+	d, e := pageNamed(t, again, "Dune"), pageNamed(t, again, "Emma")
+	if d.Props[props] != "hard cover, signed" || d.Props[shift] != "7" || e.Props[props] != "paperback" || e.Props[shift] != "wide" {
+		t.Fatalf("values: Dune %v, Emma %v", d.Props, e.Props)
 	}
 }

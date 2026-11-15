@@ -401,41 +401,84 @@ func (p *Page) ReadMeta(meta map[string]string) {
 	}
 	for i := range p.Own { // an own property given a key of the page before it was reserved (covershift)
 		if from := p.Own[i].ID; slices.Contains(reserved, from) {
-			to := freeID(p.Own[i].Name, func(id string) bool { _, kept := p.Props[id]; return p.Prop(id) != nil || kept })
+			pages := []*Page{p}
+			to, first := renamedID(from, p.Own[i].Name, pages, func(id string) bool { return p.Prop(id) != nil })
 			p.Own[i].ID = to
-			p.takeReserved(from, to)
+			p.takeReserved(from, to, first)
 		}
 	}
 }
 
+// renamedID is the id a property with reserved id from, named name, is given, and whether this is its first
+// rename. A rename that was made before (and then undone by an older client writing its collection.json back, or
+// cut short) left the property's values in pages under from-N, an id no property has: that id is taken again, so
+// that the values stay the property's and a second rename does not make a third id (#531). Otherwise it is a free
+// id, as a new property's. defined reports an id a property has.
+func renamedID(from, name string, pages []*Page, defined func(string) bool) (string, bool) {
+	best := 0
+	for _, p := range pages {
+		for k, v := range p.Props {
+			suffix, ok := strings.CutPrefix(k, from+"-")
+			n, err := strconv.Atoi(suffix)
+			if !ok || err != nil || n < 2 || strconv.Itoa(n) != suffix || v == "" || defined(k) {
+				continue
+			}
+			if best == 0 || n < best {
+				best = n
+			}
+		}
+	}
+	if best > 0 {
+		return from + "-" + strconv.Itoa(best), false
+	}
+	return freeID(name, func(id string) bool {
+		return defined(id) || slices.ContainsFunc(pages, func(p *Page) bool {
+			_, kept := p.Props[id]
+			return kept || ownProp(p.Own, id) != nil
+		})
+	}), true
+}
+
 // takeReserved gives page p's property to the value its file holds under reserved key from: the value of a
-// property that had that id before the key was reserved (#531). The page's own field of that key is left as it
-// was read, but for "covershift" and "properties", reserved last: what they hold was the property's. It reports
-// whether there was a value.
-func (p *Page) takeReserved(from, to string) bool {
+// property that had that id before the key was reserved (#531). A page that already has a value of the property
+// (renamed before) is left as it is. Otherwise "properties", which could not be read as the page's own
+// properties, is the property's. A "covershift" that is not a cover's position is the property's too, and taken
+// from the cover; one that could be its position is copied to the property on the first rename only, and stays
+// the cover's: a position set since cannot be told from the property's old value, and the cover's is kept. So are
+// "cover" and "manualrank", reserved long before. It reports whether the page changed.
+func (p *Page) takeReserved(from, to string, first bool) bool {
 	v := p.reservedMeta[from]
 	delete(p.reservedMeta, from)
-	if v == "" {
+	if v == "" || p.Props[to] != "" {
 		return false
+	}
+	switch from {
+	case "properties":
+		p.ownText = ""
+	case "covershift":
+		if n, err := strconv.Atoi(v); err != nil || n < -100 || n > 100 {
+			p.CoverShift = 0
+		} else if !first {
+			return false
+		}
+	default:
+		if !first {
+			return false
+		}
 	}
 	if p.Props == nil {
 		p.Props = map[string]string{}
 	}
 	p.Props[to] = v
-	switch from {
-	case "covershift":
-		p.CoverShift = 0
-	case "properties":
-		p.ownText = ""
-	}
 	return true
 }
 
 // renameReserved gives each of the collection's properties whose id is a key of the page itself another id, with
-// its values in the pages and its places in the views, and writes the pages that changed. Such an id was handed
-// out before the key was reserved, and its values were dropped on save (#531). It reports whether anything
-// changed.
+// its values in the pages and its places in the views, and writes the pages that changed and the collection, as
+// one change where the store can make one. Such an id was handed out before the key was reserved, and its values
+// were dropped on save (#531). It reports whether anything changed.
 func (c *Collection) renameReserved() bool {
+	var touched []*Page
 	changed := false
 	for i := range c.Properties {
 		from := c.Properties[i].ID
@@ -443,22 +486,25 @@ func (c *Collection) renameReserved() bool {
 			continue
 		}
 		pages := c.All()
-		to := freeID(c.Properties[i].Name, func(id string) bool {
-			return c.Prop(id) != nil || slices.ContainsFunc(pages, func(p *Page) bool {
-				_, kept := p.Props[id]
-				return kept || ownProp(p.Own, id) != nil
-			})
-		})
+		to, first := renamedID(from, c.Properties[i].Name, pages, func(id string) bool { return c.Prop(id) != nil })
 		c.Properties[i].ID = to
 		for v := range c.Views {
 			c.Views[v].renameProp(from, to)
 		}
 		for _, p := range pages {
-			if p.takeReserved(from, to) {
-				p.saveMeta() // one that cannot be written keeps the value in its file under the old key, as the page's own field
+			if p.takeReserved(from, to, first) && !slices.Contains(touched, p) {
+				touched = append(touched, p)
 			}
 		}
 		changed = true
+	}
+	if changed {
+		InBatch(c.FS, func() error { // cut short where it is not one change, the next rename takes the same ids again
+			for _, p := range touched {
+				p.saveMeta() // one that cannot be written keeps the value in its file under the old key, as the page's own field
+			}
+			return c.Save()
+		})
 	}
 	return changed
 }
