@@ -475,7 +475,10 @@ func (a *app) commitRename() {
 	var err error
 	switch x := item.(type) {
 	case *Page:
-		err = x.SetTitle(name)
+		from := x.Title
+		if err = x.SetTitle(name); err == nil {
+			a.later(func() { a.relinkRenamed(x, from, false) }) // its links follow (relink.go)
+		}
 		if x == a.page {
 			a.title = name
 		}

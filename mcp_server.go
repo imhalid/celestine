@@ -388,9 +388,11 @@ func (a *app) newMCPServer() *mcp.Server {
 						a.flush()
 						a.title = t
 					}
+					from := p.Title
 					if err := p.SetTitle(t); err != nil {
 						return err
 					}
+					a.relinkRenamed(p, from, true) // the links to it follow (relink.go)
 				}
 				if in.Markdown != nil || in.Append != "" {
 					if p == a.page {

@@ -601,6 +601,10 @@ func main() {
 			a.quick.leaving = true
 		}
 		a.mu.Lock()
+		if r := a.retitle; r.p != nil { // a title being typed: its links follow before the app goes
+			a.retitle = titleEdit{}
+			a.relinkRenamed(r.p, r.from, false)
+		}
 		a.flush()
 		if a.settingsDirty { // what saveSettingsSoon left
 			a.saveSettings()
@@ -880,6 +884,7 @@ func (a *app) open(p *Page) {
 	if p == a.page {
 		return
 	}
+	a.endTitleEdit()
 	a.flush()
 	if a.page != nil && a.dirty { // its save failed: its text is kept and saved when it can be, not dropped (#129)
 		if a.unsaved == nil {
@@ -1437,6 +1442,9 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	if a.coverKind(p) != coverKindNone { // the room of the cover above the title (cover.go)
 		ui.Box(c.Key("cover-room")).FillWidth().Height(a.coverRoomOf(p))
 	}
+	if a.retitle.p != nil && a.retitle.p != p { // the pane went on to another page while its title was typed
+		a.endTitleEdit()
+	}
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
@@ -1476,11 +1484,12 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 		if name == "" {
 			name = locales.CommonUntitled()
 		}
-		if err := p.SetTitle(name); err != nil {
-			a.fail(err)
-		}
+		a.titleTyped(p, name)
 	}
 	a.titleFocused = title.Focused()
+	if !a.titleFocused && a.retitle.p == p { // the field left: the rename is done, and its links follow
+		a.endTitleEdit()
+	}
 	a.titleCaret = titleCaretSpec{}
 	if b := title.LayoutBounds(); title.Focused() && b.W > 0 { // the caret is ours, as the page's
 		anchor, caret := title.TextAnchorCaret()

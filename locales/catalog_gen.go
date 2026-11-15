@@ -7203,6 +7203,36 @@ func (msgs Messages) Link() string {
 	return Catalog.Format(msgs.locale, "link", nil)
 }
 
+// LinksKeptShared says "Links to “{title}” were kept: another page has that title too"
+// in the language the app shows.
+func LinksKeptShared(title string) string { return In(i18n.Locale()).LinksKeptShared(title) }
+
+// LinksKeptShared says "Links to “{title}” were kept: another page has that title too"
+// in the language of msgs.
+func (msgs Messages) LinksKeptShared(title string) string {
+	return Catalog.Format(msgs.locale, "links_keptShared", map[string]any{"title": title})
+}
+
+// LinksKeptTaken says "Links to “{from}” were kept: another page is already titled “{to}”"
+// in the language the app shows.
+func LinksKeptTaken(from string, to string) string { return In(i18n.Locale()).LinksKeptTaken(from, to) }
+
+// LinksKeptTaken says "Links to “{from}” were kept: another page is already titled “{to}”"
+// in the language of msgs.
+func (msgs Messages) LinksKeptTaken(from string, to string) string {
+	return Catalog.Format(msgs.locale, "links_keptTaken", map[string]any{"from": from, "to": to})
+}
+
+// LinksUpdated says "{count, plural, one {Updated # link} other {Updated # links}}"
+// in the language the app shows.
+func LinksUpdated(count int) string { return In(i18n.Locale()).LinksUpdated(count) }
+
+// LinksUpdated says "{count, plural, one {Updated # link} other {Updated # links}}"
+// in the language of msgs.
+func (msgs Messages) LinksUpdated(count int) string {
+	return Catalog.Format(msgs.locale, "links_updated", map[string]any{"count": count})
+}
+
 // List says "list"
 // in the language the app shows.
 func List() string { return In(i18n.Locale()).List() }

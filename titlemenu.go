@@ -42,8 +42,6 @@ func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
 		if name == "" {
 			name = locales.CommonUntitled()
 		}
-		if err := p.SetTitle(name); err != nil {
-			a.fail(err)
-		}
+		a.titleTyped(p, name)
 	}})
 }

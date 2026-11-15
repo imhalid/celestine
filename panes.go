@@ -82,9 +82,10 @@ type paneState struct {
 	topSpace      float32         // what the page leaves above its title, in its scroll
 	headH         float32         // the title's and properties' height, last frame
 	titleFocused  bool
-	edH           float32 // the editor's height, last frame
-	revealWant    bool    // the caret moved: bring it into view
-	statsVer      uint64  // the version of the text the counts are of
+	retitle       titleEdit // a rename being typed in the title field, its links written when it is left (relink.go)
+	edH           float32   // the editor's height, last frame
+	revealWant    bool      // the caret moved: bring it into view
+	statsVer      uint64    // the version of the text the counts are of
 	statWords     int
 	statChars     int
 	settingsTab   int       // the settings' tab
