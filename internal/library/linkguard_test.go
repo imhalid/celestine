@@ -25,8 +25,18 @@ func TestLinkPrivateAddrs(t *testing.T) {
 		"100.64.0.1", "100.127.255.254", // carrier-grade NAT
 		"::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:169.254.169.254", // mapped into IPv6
 		"224.0.0.1", "ff02::1", // multicast
+		"64:ff9b::a00:1", "64:ff9b::7f00:1", "64:ff9b::a9fe:a9fe", "64:ff9b:1::808:808", // NAT64, and its local-use block
+		"2002:c0a8:101::1", "2002:7f00:1::", "2002:a9fe:a9fe::1", // 6to4 of a private address
+		"::10.0.0.1", "::8.8.8.8", // IPv4-compatible
+		"fec0::1", "feff::1", // site-local
+		"240.0.0.1", "250.1.2.3", // reserved
+		"198.18.0.1", "198.19.255.255", // benchmarking
+		"192.0.0.1", "192.0.0.170", // IETF protocol assignments
 	}
-	public := []string{"93.184.215.14", "1.1.1.1", "100.63.255.255", "100.128.0.1", "172.32.0.1", "2606:4700::1111", "::ffff:8.8.8.8"}
+	public := []string{
+		"93.184.215.14", "1.1.1.1", "100.63.255.255", "100.128.0.1", "172.32.0.1", "2606:4700::1111", "::ffff:8.8.8.8",
+		"64:ff9b::808:808", "2002:808:808::1", "198.17.255.255", "198.20.0.1", "192.0.1.1", "223.255.255.1",
+	}
 	for _, s := range private {
 		if publicAddr(netip.MustParseAddr(s)) {
 			t.Errorf("%s is taken as public", s)

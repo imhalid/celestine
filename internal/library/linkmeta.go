@@ -52,23 +52,51 @@ var errNotWeb = errors.New("not a web address")
 // errPrivateAddr is an address of this machine or of its network, which a link is not fetched from (#532).
 var errPrivateAddr = errors.New("a private address")
 
-// cgnat is the shared address space of carrier-grade NAT (RFC 6598), private to a provider's network.
-var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+// notPublic are the blocks of addresses that are not the public internet's beyond those netip names: "this network"
+// (0.0.0.0/8), carrier-grade NAT's shared space (RFC 6598), the IETF's protocol assignments (192.0.0.0/24), the
+// benchmarking block (198.18.0.0/15), the reserved 240.0.0.0/4 with the broadcast address, the IPv4-compatible
+// addresses (::/96, deprecated), NAT64's local-use block (64:ff9b:1::/48) and the deprecated site-local fec0::/10.
+var notPublic = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),
+	netip.MustParsePrefix("100.64.0.0/10"),
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("240.0.0.0/4"),
+	netip.MustParsePrefix("::/96"),
+	netip.MustParsePrefix("64:ff9b:1::/48"),
+	netip.MustParsePrefix("fec0::/10"),
+}
+
+// nat64 and sixToFour are IPv6 blocks that carry an IPv4 address inside them: NAT64's well-known prefix (RFC 6052)
+// in the last four bytes, 6to4 (RFC 3056) in the four after its prefix.
+var (
+	nat64     = netip.MustParsePrefix("64:ff9b::/96")
+	sixToFour = netip.MustParsePrefix("2002::/16")
+)
 
 // publicAddr is whether ip is an address of the public internet, which a link may be fetched from: not this machine's
 // (loopback, unspecified), not a private network's (RFC 1918, unique-local fc00::/7, carrier-grade NAT), not
-// link-local, multicast or broadcast. An IPv4 address mapped into IPv6 is judged as itself. Loopback is let through
-// when AllowLocalLinks is set.
+// link-local, multicast, reserved or broadcast (notPublic). An IPv4 address mapped into IPv6, or carried in a NAT64 or
+// 6to4 address, is judged as itself. Loopback is let through when AllowLocalLinks is set.
 func publicAddr(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	switch {
 	case !ip.IsValid(), ip.IsUnspecified(), ip.IsPrivate(), ip.IsLinkLocalUnicast(), ip.IsMulticast(),
-		ip.IsInterfaceLocalMulticast(), ip.IsLinkLocalMulticast(), cgnat.Contains(ip):
+		ip.IsInterfaceLocalMulticast(), ip.IsLinkLocalMulticast():
 		return false
 	case ip.IsLoopback():
 		return AllowLocalLinks
-	case ip.Is4() && (ip.As4()[0] == 0 || ip == netip.AddrFrom4([4]byte{255, 255, 255, 255})):
-		return false // "this network" (0.0.0.0/8) and the broadcast address
+	case nat64.Contains(ip):
+		b := ip.As16()
+		return publicAddr(netip.AddrFrom4([4]byte(b[12:16])))
+	case sixToFour.Contains(ip):
+		b := ip.As16()
+		return publicAddr(netip.AddrFrom4([4]byte(b[2:6])))
+	}
+	for _, p := range notPublic {
+		if p.Contains(ip) {
+			return false
+		}
 	}
 	return true
 }
