@@ -210,6 +210,14 @@ type Page struct {
 	// with what was shown (#125). A restore of an earlier copy clears it.
 	Unreadable string
 
+	// ownText is the "properties" of its file when they could not be read as properties (a value of a property
+	// that had that id before it was reserved, or what a newer client wrote): written back as it was, never
+	// dropped (#531).
+	ownText string
+	// reservedMeta is what its file holds under the keys of the page itself that were once property ids
+	// (renamedKeys), as written: the values a property with that id had (#531).
+	reservedMeta map[string]string
+
 	excerpt   string // the start of its text, for a list
 	excerptOf time.Time
 	excerptAt int
@@ -539,6 +547,8 @@ func (p *Page) Save(body string) error {
 	if len(p.Own) > 0 {
 		own, _ := json.Marshal(p.Own)
 		meta["properties"] = string(own)
+	} else if p.ownText != "" {
+		meta["properties"] = p.ownText
 	}
 	src, err := JoinPageChecked(meta, body)
 	if err != nil {
@@ -834,6 +844,11 @@ func (l *Library) Restore(item *TrashItem) (*Collection, *Page, error) {
 		}
 		c.Dir = to
 		c.Pages = ReadPages(to, c, nil)
+		if c.migrate() { // one thrown away before its properties' ids were reserved (#531)
+			if err := c.Save(); err != nil {
+				return nil, nil, err
+			}
+		}
 		l.Collections = append(l.Collections, c)
 		SortCollections(l.Collections)
 		return c, nil, nil

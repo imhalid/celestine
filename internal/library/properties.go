@@ -57,6 +57,11 @@ type Property struct {
 // reserved are the front matter keys of the page itself.
 var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover", "covershift", "properties"}
 
+// renamedKeys are the reserved keys that were reserved after properties came: before, a property could have one
+// for its id (one named "Properties" had "properties"), and its values are under that key in the pages' files. Such
+// a property is given another id when it is read, with its values (#531).
+var renamedKeys = []string{"manualrank", "cover", "covershift", "properties"}
+
 // Prop is the property id, or nil.
 func (c *Collection) Prop(id string) *Property {
 	for i := range c.Properties {
@@ -216,6 +221,9 @@ func (p *Page) AddProperty(name, typ string, options []string) (*Property, error
 	if p.PropNamed(name) != nil {
 		return nil, fmt.Errorf("%s already has %q", p.Title, name)
 	}
+	if p.ownText != "" { // writing the new one would write over what could not be read (#531)
+		return nil, fmt.Errorf("the properties of %s could not be read", p.Title)
+	}
 	id := freeID(name, func(id string) bool { _, kept := p.Props[id]; return p.Prop(id) != nil || kept })
 	p.Own = append(p.Own, Property{ID: id, Name: name, Type: typ, Options: CleanOptions(options)})
 	return ownProp(p.Own, id), p.saveMeta()
@@ -323,7 +331,7 @@ func (c *Collection) Normalize() {
 // statuses, or its pages' "status", become a "Durum" choice. It reports
 // whether anything changed.
 func (c *Collection) migrate() bool {
-	changed := false
+	changed := c.renameReserved()
 	if len(c.Statuses) > 0 && c.Prop("status") == nil {
 		c.Properties = append(c.Properties, Property{ID: "status", Name: "Durum", Type: PropChoice, Options: c.Statuses})
 		changed = true
@@ -368,15 +376,120 @@ func (p *Page) ReadMeta(meta map[string]string) {
 	p.CoverShift = 0
 	fmt.Sscan(meta["covershift"], &p.CoverShift)
 	p.CoverShift = max(-100, min(p.CoverShift, 100))
-	p.Own = nil
-	if own := meta["properties"]; own != "" {
-		json.Unmarshal([]byte(own), &p.Own) // one that cannot be read is none: the page is still read
+	p.Own, p.ownText = nil, ""
+	if own := meta["properties"]; own != "" && json.Unmarshal([]byte(own), &p.Own) != nil {
+		p.Own, p.ownText = nil, own // the page is still read, and this is kept as it was (#531)
+	}
+	p.reservedMeta = nil
+	for _, k := range renamedKeys {
+		v := meta[k]
+		if k == "properties" {
+			v = p.ownText // own properties that were read are not a value
+		}
+		if v != "" {
+			if p.reservedMeta == nil {
+				p.reservedMeta = map[string]string{}
+			}
+			p.reservedMeta[k] = v
+		}
 	}
 	p.Props = map[string]string{}
 	for k, v := range meta {
 		if !slices.Contains(reserved, k) {
 			p.Props[k] = v
 		}
+	}
+	for i := range p.Own { // an own property given a key of the page before it was reserved (covershift)
+		if from := p.Own[i].ID; slices.Contains(reserved, from) {
+			to := freeID(p.Own[i].Name, func(id string) bool { _, kept := p.Props[id]; return p.Prop(id) != nil || kept })
+			p.Own[i].ID = to
+			p.takeReserved(from, to)
+		}
+	}
+}
+
+// takeReserved gives page p's property to the value its file holds under reserved key from: the value of a
+// property that had that id before the key was reserved (#531). The page's own field of that key is left as it
+// was read, but for "covershift" and "properties", reserved last: what they hold was the property's. It reports
+// whether there was a value.
+func (p *Page) takeReserved(from, to string) bool {
+	v := p.reservedMeta[from]
+	delete(p.reservedMeta, from)
+	if v == "" {
+		return false
+	}
+	if p.Props == nil {
+		p.Props = map[string]string{}
+	}
+	p.Props[to] = v
+	switch from {
+	case "covershift":
+		p.CoverShift = 0
+	case "properties":
+		p.ownText = ""
+	}
+	return true
+}
+
+// renameReserved gives each of the collection's properties whose id is a key of the page itself another id, with
+// its values in the pages and its places in the views, and writes the pages that changed. Such an id was handed
+// out before the key was reserved, and its values were dropped on save (#531). It reports whether anything
+// changed.
+func (c *Collection) renameReserved() bool {
+	changed := false
+	for i := range c.Properties {
+		from := c.Properties[i].ID
+		if !slices.Contains(reserved, from) {
+			continue
+		}
+		pages := c.All()
+		to := freeID(c.Properties[i].Name, func(id string) bool {
+			return c.Prop(id) != nil || slices.ContainsFunc(pages, func(p *Page) bool {
+				_, kept := p.Props[id]
+				return kept || ownProp(p.Own, id) != nil
+			})
+		})
+		c.Properties[i].ID = to
+		for v := range c.Views {
+			c.Views[v].renameProp(from, to)
+		}
+		for _, p := range pages {
+			if p.takeReserved(from, to) {
+				p.saveMeta() // one that cannot be written keeps the value in its file under the old key, as the page's own field
+			}
+		}
+		changed = true
+	}
+	return changed
+}
+
+// renameProp makes the view's mentions of property from mentions of property to.
+func (v *View) renameProp(from, to string) {
+	re := func(s string) string {
+		switch s {
+		case "prop:" + from:
+			return "prop:" + to
+		case from:
+			return to
+		}
+		return s
+	}
+	v.Sort, v.GroupBy, v.DateField = re(v.Sort), re(v.GroupBy), re(v.DateField)
+	for _, list := range [][]string{v.Columns, v.Fields, v.Order, v.Hidden} {
+		for i := range list {
+			list[i] = re(list[i])
+		}
+	}
+	for i := range v.Filters {
+		v.Filters[i].Prop = re(v.Filters[i].Prop)
+	}
+	if w, ok := v.Widths["prop:"+from]; ok {
+		delete(v.Widths, "prop:"+from)
+		v.Widths["prop:"+to] = w
+	}
+	if c, ok := v.Calcs["prop:"+from]; ok {
+		delete(v.Calcs, "prop:"+from)
+		v.Calcs["prop:"+to] = c
 	}
 }
 
@@ -397,6 +510,9 @@ func (p *Page) SetValue(id, v string) error {
 	pr := p.Prop(id)
 	if pr == nil {
 		return fmt.Errorf("%s has no property %q", p.Title, id)
+	}
+	if slices.Contains(reserved, id) { // Save would not write it (#531)
+		return fmt.Errorf("%q is a key of the page itself, not a property's", id)
 	}
 	v = strings.TrimSpace(v)
 	switch pr.Type {
