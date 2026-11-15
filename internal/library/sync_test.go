@@ -565,8 +565,8 @@ func (r *indexFails) Put(name string, data []byte, prev string) error {
 	return r.Remote.Put(name, data, prev)
 }
 
-// The index of an encrypted remote not written at the start of a pass: nothing goes up and nothing is taken
-// as sent, so the next pass sends it, and never deletes it here as if it were deleted there.
+// The index of an encrypted remote not written in a pass: the new file does not go up and is not taken as
+// sent, so the next pass sends it, and never deletes it here as if it were deleted there.
 func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 	a := newDevice(t)
 	a.write("notlar/bir/page.json", "bir")
@@ -576,8 +576,8 @@ func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	inner.fail = true
-	if _, err := SyncOnce(OSFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err == nil {
-		t.Fatal("no error for an index not written")
+	if res, err := SyncOnce(OSFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err != nil || len(res.Errors) == 0 || res.Pushed != 0 {
+		t.Fatalf("an index not written: %v %+v", err, res)
 	}
 	if _, ok := a.st.Files["notlar/bir/page.json"]; ok {
 		t.Fatal("the file is taken as sent, its name not on the remote")
@@ -599,6 +599,53 @@ func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 	}
 }
 
+// A remote that takes no index put (a Worker at its quota refuses every put that grows, the index's too) still
+// gives a device what changed there and its deletions: only the new file's put fails, and says so (#149).
+func TestSyncIndexFailureStillPulls(t *testing.T) {
+	inner := &indexFails{Remote: DirRemote{Root: t.TempDir()}}
+	open := func() *EncRemote {
+		e, err := OpenEnc(inner, "parola")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/bir/page.json", "bir")
+	a.write("notlar/iki/page.json", "iki")
+	a.sync(open())
+	b.sync(open())
+	a.write("notlar/bir/page.json", "bir, düzeltildi") // a change and a deletion wait on the remote for b
+	os.RemoveAll(filepath.Join(a.root, "notlar", "iki"))
+	a.sync(open())
+	b.write("notlar/yeni/page.json", "yeni") // and b has a new file
+	inner.fail = true
+	res, err := SyncOnce(OSFS{}, b.root, open(), &b.st, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Pulled != 1 || res.Removed != 1 || res.Pushed != 0 || b.read("notlar/bir/page.json") != "bir, düzeltildi" || b.read("notlar/iki/page.json") != "<yok>" {
+		t.Fatalf("the pass with no index: %+v", res)
+	}
+	failed := false
+	for _, e := range res.Errors {
+		failed = failed || strings.HasPrefix(e, "notlar/yeni/page.json: ")
+	}
+	if !failed {
+		t.Fatalf("the new file's put said nothing: %v", res.Errors)
+	}
+	if _, ok := b.st.Files["notlar/yeni/page.json"]; ok {
+		t.Fatal("the new file is taken as sent")
+	}
+	inner.fail = false // the next pass sends it (and what the deletion put in the trash here)
+	if b.sync(open()); b.st.Files["notlar/yeni/page.json"].Remote == "" {
+		t.Fatal("the new file did not go up at the next pass")
+	}
+	if c := newDevice(t); c.sync(open()).Pulled == 0 || c.read("notlar/yeni/page.json") != "yeni" {
+		t.Fatal("another device did not get the new file")
+	}
+}
+
 // The same, and the file is written again before the next pass: the pass that failed left nothing on the
 // remote, and the new text goes up with no conflict.
 func TestSyncIndexFailureThenEdited(t *testing.T) {
@@ -610,8 +657,8 @@ func TestSyncIndexFailureThenEdited(t *testing.T) {
 		t.Fatal(err)
 	}
 	inner.fail = true
-	if _, err := SyncOnce(OSFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err == nil {
-		t.Fatal("no error for an index not written")
+	if res, err := SyncOnce(OSFS{}, a.root, e, &a.st, map[string]bool{}, time.Now()); err != nil || len(res.Errors) == 0 || res.Pushed != 0 {
+		t.Fatalf("an index not written: %v %+v", err, res)
 	}
 	a.write("notlar/bir/page.json", "bir, ve daha")
 	inner.fail = false

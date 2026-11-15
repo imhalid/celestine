@@ -855,7 +855,9 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	}
 	// a remote that keeps the names apart from the files (EncRemote) is given every name this pass could put
 	// before any file goes up, and is listed after: a file of the same path that another device put first is
-	// then seen, and met as a conflict (#149)
+	// then seen, and met as a conflict (#149). An index that cannot be put (a remote at its quota, the network) does
+	// not stop the pass: what comes down and what is deleted still are, and each new file's put, which announces
+	// its own name first, fails by itself.
 	if an, ok := r.(interface{ Announce([]string) error }); ok {
 		names := make([]string, 0, len(local))
 		for n := range local {
@@ -863,7 +865,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		}
 		sort.Strings(names)
 		if err := an.Announce(names); err != nil {
-			return res, pushed, err
+			res.Errors = append(res.Errors, IndexFile+": "+err.Error())
 		}
 	}
 	remote, err := r.List()
