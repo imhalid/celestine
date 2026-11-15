@@ -970,9 +970,10 @@ func (a *app) setSyncPassphrase(pass string) {
 	a.sy.passBusy = true
 	go func() {
 		defer a.guard()
+		// the button is let go however this ends, a panic too: deferred after guard, it runs before guard recovers
+		defer a.do(func() error { a.sy.passBusy = false; return nil })
 		e, err := OpenEnc(inner, pass)
 		a.do(func() error {
-			a.sy.passBusy = false
 			if a.syncRemoteID() != id {
 				return nil // set another way, or pointed elsewhere, while it was checked
 			}

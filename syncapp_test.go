@@ -260,6 +260,23 @@ func TestSyncPassphraseEnteredAgain(t *testing.T) {
 	}
 }
 
+// A panic while the passphrase is checked is kept as a crash, and the button is let go: it does not stay on
+// "Trying…" for good, and the passphrase can be entered again.
+func TestSyncPassphrasePanicLetsGo(t *testing.T) {
+	a := syncApp(t, t.TempDir())
+	a.crashDir = t.TempDir()
+	open := OpenEnc
+	OpenEnc = func(Remote, string) (*EncRemote, error) { panic("the check fell over") }
+	defer func() { OpenEnc = open }()
+	key := a.settings.SyncKey
+	enterPassphrase(t, a, "parola") // it fails the test if the button stays busy
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.crashText != "the check fell over" || a.settings.SyncKey != key {
+		t.Fatalf("crash %q, key changed %v", a.crashText, a.settings.SyncKey != key)
+	}
+}
+
 func TestSyncSettingsPage(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.SyncMode = "dir"
