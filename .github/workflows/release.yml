@@ -110,7 +110,9 @@ jobs:
         env:
           RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
         run: |
-          # a tag with a "-" (v1.2.0-beta.1) is a trial: its manifest says so, and it goes up as beta.json only (#169)
+          # a tag with a "-" (v1.2.0-beta.1) is a trial: its manifest says so, and it goes up as beta.json only (#169).
+          # Every file is signed three times: sig and sig2 for the clients released before #168, sig3 (with the channel
+          # and the notes) for those since; the clients of each check their own
           channel=
           case "$VERSION" in *-*) channel=beta ;; esac
           echo "CHANNEL=$channel" >> "$GITHUB_ENV"

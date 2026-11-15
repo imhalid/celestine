@@ -57,25 +57,43 @@ type Release struct {
 type Asset struct {
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
-	Sig    string `json:"sig"`            // base64 ed25519 signature of legacySigText: for the clients before #455, not checked here
-	Sig2   string `json:"sig2,omitempty"` // base64 ed25519 signature of sigText: the one this client requires
+	Sig    string `json:"sig"`            // base64 ed25519 signature of the version and hash: for the clients before #455, not checked here
+	Sig2   string `json:"sig2,omitempty"` // base64 ed25519 signature of the asset without its channel: for the clients of #455, not checked here
+	Sig3   string `json:"sig3,omitempty"` // base64 ed25519 signature of sigText: the one this client requires
 	Size   int64  `json:"size,omitempty"` // bytes
 	Kind   string `json:"kind,omitempty"` // "binary" (default), "app-zip": a macOS .app, zipped, or "appimage"
 }
 
-// sigFormat opens the text of the second signature, so that it can never be read as the first one's.
-const sigFormat = "celestine-update-2"
+// sigFormat opens the text of the third signature, so that it can never be read as one of the two before it
+// ("celestine-update-2", and the bare version of the first).
+const sigFormat = "celestine-update-3"
 
-// sigText is what Sig2 signs: the version, the system the asset is for ("darwin-arm64"), the file's name (the last
-// part of its URL), its kind and its hash, one to a line. A signature cannot be moved to another version, file,
-// system or kind: a file signed for one system served as another's is refused before it is put in place, not
-// installed to fail and be rolled back (#455). scripts/release writes the same text; both tests hold it to one
-// literal. It is ok false when a part has a line break in it, so that the lines cannot be shifted.
-func sigText(version, platform, name, kind, sha string) (text []byte, ok bool) {
+// releaseChannel is a manifest's channel as it is signed: "stable" for none.
+func releaseChannel(c string) string {
+	if c == "" {
+		return "stable"
+	}
+	return c
+}
+
+// notesHash is the hex sha256 of a release's notes, as the third signature holds them.
+func notesHash(notes string) string {
+	sum := sha256.Sum256([]byte(notes))
+	return hex.EncodeToString(sum[:])
+}
+
+// sigText is what Sig3 signs, one to a line: the version, the channel ("stable" or "beta"), the system the asset
+// is for ("darwin-arm64"), the file's name (the last part of its URL), its kind, its hash and the hash of the
+// release's notes. A signature cannot be moved to another version, file, system or kind (#455), a trial's cannot
+// be served on the stable channel, and the notes the app shows are the signer's (#168). The two signatures before
+// it are still written for the clients that check them (scripts/release); this one covers all they cover.
+// scripts/release writes the same text; both tests hold it to one literal. It is ok false when a part is empty or
+// has a line break in it, so that the lines cannot be shifted.
+func sigText(version, channel, platform, name, kind, sha, notes string) (text []byte, ok bool) {
 	if kind == "" {
 		kind = "binary"
 	}
-	parts := []string{sigFormat, version, platform, name, kind, strings.ToLower(sha)}
+	parts := []string{sigFormat, version, releaseChannel(channel), platform, name, kind, strings.ToLower(sha), notesHash(notes)}
 	for _, p := range parts[1:] {
 		if p == "" || strings.ContainsAny(p, "\r\n") {
 			return nil, false
@@ -83,11 +101,6 @@ func sigText(version, platform, name, kind, sha string) (text []byte, ok bool) {
 	}
 	return []byte(strings.Join(parts, "\n")), true
 }
-
-// legacySigText is what Sig signs, and all a client before #455 checks: the version and the hash. The release
-// still writes it for them; this client does not accept it alone, or a manifest stripped of Sig2 would open the
-// hole again.
-func legacySigText(version, sha string) []byte { return []byte(version + "\n" + strings.ToLower(sha)) }
 
 // assetName is the name of the file an asset's URL serves: the last part of its path, unescaped.
 func assetName(rawURL string) string {
@@ -98,33 +111,46 @@ func assetName(rawURL string) string {
 	return path.Base(u.Path)
 }
 
-// SignAsset makes the second signature of an asset listed under platform, for the tests; scripts/release signs
-// the same text.
-func SignAsset(priv ed25519.PrivateKey, version, platform string, as Asset) string {
-	text, ok := sigText(version, platform, assetName(as.URL), as.Kind, as.SHA256)
+// SignAsset makes the third signature of an asset of rel listed under platform, for the tests; scripts/release
+// signs the same text.
+func SignAsset(priv ed25519.PrivateKey, rel *Release, platform string, as Asset) string {
+	text, ok := sigText(rel.Version, rel.Channel, platform, assetName(as.URL), as.Kind, as.SHA256, rel.Notes)
 	if !ok {
 		return ""
 	}
 	return base64.StdEncoding.EncodeToString(ed25519.Sign(priv, text))
 }
 
-// verifyAsset checks an asset's second signature against a base64 public key, for the system platform: the
-// version, the system, the file's name, its kind and its hash are all the signer's. An asset with no Sig2 is
-// refused as unsigned.
-func verifyAsset(pubB64, version, platform string, as Asset) error {
+// verifyAsset checks the third signature of rel's asset as for the system platform against a base64 public key:
+// the version, the channel, the notes, the system, the file's name, its kind and its hash are all the signer's.
+// An asset with no Sig3 is refused as unsigned: the two signatures before it leave the channel and the notes open.
+func verifyAsset(pubB64 string, rel *Release, platform string, as Asset) error {
 	pub, err := base64.StdEncoding.DecodeString(pubB64)
 	if err != nil || len(pub) != ed25519.PublicKeySize {
 		return errors.New(locales.UpdateErrKey())
 	}
-	if as.Sig2 == "" {
+	if as.Sig3 == "" {
 		return errors.New(locales.UpdateErrUnsigned())
 	}
-	text, ok := sigText(version, platform, assetName(as.URL), as.Kind, as.SHA256)
-	sig, err := base64.StdEncoding.DecodeString(as.Sig2)
+	text, ok := sigText(rel.Version, rel.Channel, platform, assetName(as.URL), as.Kind, as.SHA256, rel.Notes)
+	sig, err := base64.StdEncoding.DecodeString(as.Sig3)
 	if !ok || err != nil || !ed25519.Verify(ed25519.PublicKey(pub), text, sig) {
 		return errors.New(locales.UpdateErrSignature())
 	}
 	return nil
+}
+
+// channelServes reports whether a release signed for the channel signed may be offered to an app on the channel
+// asked: a stable release to every app (a stable release goes up as beta.json too, release.yml), a trial only to
+// the apps that asked for trials.
+func channelServes(signed, asked string) bool {
+	switch releaseChannel(signed) {
+	case "stable":
+		return true
+	case "beta":
+		return asked == "beta"
+	}
+	return false
 }
 
 // ---- versions ----
@@ -248,8 +274,10 @@ func updateHTTPClient(timeout time.Duration) *http.Client {
 	}
 }
 
-// fetchRelease reads the manifest at u and gives the release for this system, newer than current - or nil.
-func fetchRelease(ctx context.Context, u, current, channel string, skip string) (*Release, error) {
+// fetchRelease reads the manifest at u and gives the release for this system, newer than current - or nil. The
+// release is checked against pubKey before it is given: its notes are shown and its channel trusted only once they
+// are the signer's.
+func fetchRelease(ctx context.Context, u, pubKey, current, channel string, skip string) (*Release, error) {
 	u = channelURL(u, channel)
 	if err := HTTPSOnly(u); err != nil {
 		return nil, err
@@ -274,8 +302,16 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 	if !versionLess(current, rel.Version) || rel.Version == skip {
 		return nil, nil
 	}
-	if _, ok := rel.Assets[updatePlatform()]; !ok {
+	platform := updatePlatform()
+	as, ok := rel.Assets[platform]
+	if !ok {
 		return nil, errors.New(locales.UpdateErrNoBuildFor(runtime.GOOS + "/" + runtime.GOARCH))
+	}
+	if err := verifyAsset(pubKey, &rel, platform, as); err != nil {
+		return nil, err
+	}
+	if !channelServes(rel.Channel, channel) { // the channel, now the signer's: a trial served as a stable release
+		return nil, errors.New(locales.UpdateErrSignature())
 	}
 	return &rel, nil
 }
@@ -358,7 +394,7 @@ func (a *app) checkUpdate(force bool) {
 			return
 		}
 	}
-	cur, channel, skip := version, a.settings.UpdateChannel, a.settings.UpdateSkip
+	cur, channel, skip, pub := version, a.settings.UpdateChannel, a.settings.UpdateSkip, a.updateKeyOf()
 	if force {
 		skip = ""
 	}
@@ -367,7 +403,7 @@ func (a *app) checkUpdate(force bool) {
 		defer a.updBusy.Store(false)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		rel, err := fetchRelease(ctx, u, cur, channel, skip)
+		rel, err := fetchRelease(ctx, u, pub, cur, channel, skip)
 		a.do(func() error {
 			a.settings.UpdateAt = a.clock().Unix()
 			a.saveSettingsSoon()
@@ -452,12 +488,12 @@ func download(ctx context.Context, rel *Release, pubKey, dir string, prog *updPr
 	if err := HTTPSOnly(as.URL); err != nil {
 		return "", as, err
 	}
-	if as.SHA256 == "" || as.Sig2 == "" {
+	if as.SHA256 == "" || as.Sig3 == "" {
 		return "", as, errors.New(locales.UpdateErrUnsigned())
 	}
 	// the signature is checked before anything is fetched: a file signed for another system, name or kind is
 	// not downloaded at all; the hash, after, ties what came to what was signed
-	if err := verifyAsset(pubKey, rel.Version, platform, as); err != nil {
+	if err := verifyAsset(pubKey, rel, platform, as); err != nil {
 		return "", as, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", as.URL, nil)

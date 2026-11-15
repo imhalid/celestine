@@ -52,53 +52,103 @@ func testKey(t *testing.T) (ed25519.PrivateKey, string) {
 
 func TestSignatures(t *testing.T) {
 	priv, pub := testKey(t)
+	rel := &Release{Version: "v1.3.0", Notes: "- faster"}
 	as := Asset{URL: "https://dl.example.com/v1.3.0/celestine-darwin-arm64.zip", SHA256: strings.Repeat("ab", 32), Kind: "app-zip"}
-	as.Sig2 = SignAsset(priv, "v1.3.0", "darwin-arm64", as)
-	if err := verifyAsset(pub, "v1.3.0", "darwin-arm64", as); err != nil {
+	as.Sig3 = SignAsset(priv, rel, "darwin-arm64", as)
+	if err := verifyAsset(pub, rel, "darwin-arm64", as); err != nil {
 		t.Fatal(err)
 	}
-	refused := func(why, version, platform string, mut func(*Asset), key string) {
+	refused := func(why, platform string, mutRel func(*Release), mut func(*Asset), key string) {
 		t.Helper()
-		a := as
+		r, a := *rel, as
+		mutRel(&r)
 		mut(&a)
-		if verifyAsset(key, version, platform, a) == nil {
+		if verifyAsset(key, &r, platform, a) == nil {
 			t.Errorf("%s: accepted", why)
 		}
 	}
 	same := func(*Asset) {}
-	refused("moved to another version", "v1.3.1", "darwin-arm64", same, pub)
-	refused("moved to another file", "v1.3.0", "darwin-arm64", func(a *Asset) { a.SHA256 = strings.Repeat("cd", 32) }, pub)
+	sameRel := func(*Release) {}
+	refused("moved to another version", "darwin-arm64", func(r *Release) { r.Version = "v1.3.1" }, same, pub)
+	refused("moved to another file", "darwin-arm64", sameRel, func(a *Asset) { a.SHA256 = strings.Repeat("cd", 32) }, pub)
 	// #455: a darwin-arm64 file, rightly signed, served to linux-amd64 under its key
-	refused("moved to another system", "v1.3.0", "linux-amd64", same, pub)
-	refused("renamed", "v1.3.0", "darwin-arm64", func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/celestine-linux-amd64" }, pub)
-	refused("moved to another folder's name", "v1.3.0", "darwin-arm64", func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/x/" }, pub)
-	refused("another kind", "v1.3.0", "darwin-arm64", func(a *Asset) { a.Kind = "binary" }, pub)
-	refused("no second signature", "v1.3.0", "darwin-arm64", func(a *Asset) { a.Sig2 = "" }, pub)
-	// an old-format manifest - only the signature of the version and hash, which released clients check - is not
-	// accepted here: a manifest stripped of sig2 would bring #455 back
-	refused("only the old signature", "v1.3.0", "darwin-arm64", func(a *Asset) {
+	refused("moved to another system", "linux-amd64", sameRel, same, pub)
+	refused("renamed", "darwin-arm64", sameRel, func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/celestine-linux-amd64" }, pub)
+	refused("moved to another folder's name", "darwin-arm64", sameRel, func(a *Asset) { a.URL = "https://dl.example.com/v1.3.0/x/" }, pub)
+	refused("another kind", "darwin-arm64", sameRel, func(a *Asset) { a.Kind = "binary" }, pub)
+	// #168: the channel and the notes are the signer's too
+	refused("moved to the beta channel", "darwin-arm64", func(r *Release) { r.Channel = "beta" }, same, pub)
+	refused("other notes", "darwin-arm64", func(r *Release) { r.Notes = "- faster\n- and free money: https://example.com" }, same, pub)
+	refused("no notes", "darwin-arm64", func(r *Release) { r.Notes = "" }, same, pub)
+	refused("no third signature", "darwin-arm64", sameRel, func(a *Asset) { a.Sig3 = "" }, pub)
+	// an old-format manifest - only the signatures the released clients check, which leave the channel and the
+	// notes open (and the first, the system and the name) - is not accepted here: a manifest stripped of sig3
+	// would bring #168 back
+	refused("only the signatures of #455 and before", "darwin-arm64", sameRel, func(a *Asset) {
 		a.Sig = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText("v1.3.0", a.SHA256)))
-		a.Sig2 = ""
+		a.Sig2 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, must(sigText2("v1.3.0", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", a.SHA256))))
+		a.Sig3 = ""
 	}, pub)
-	refused("the old signature as the new", "v1.3.0", "darwin-arm64", func(a *Asset) {
-		a.Sig2 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText("v1.3.0", a.SHA256)))
+	refused("the second signature as the third", "darwin-arm64", sameRel, func(a *Asset) {
+		a.Sig3 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, must(sigText2("v1.3.0", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", a.SHA256))))
+	}, pub)
+	refused("the old signature as the third", "darwin-arm64", sameRel, func(a *Asset) {
+		a.Sig3 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText("v1.3.0", a.SHA256)))
 	}, pub)
 	_, other := testKey(t)
-	refused("another key", "v1.3.0", "darwin-arm64", same, other)
-	refused("no key", "v1.3.0", "darwin-arm64", same, "")
-	refused("a key that is not one", "v1.3.0", "darwin-arm64", same, "zz")
-	refused("a line break in the version", "v1.3.0\ndarwin-arm64", "darwin-arm64", same, pub)
+	refused("another key", "darwin-arm64", sameRel, same, other)
+	refused("no key", "darwin-arm64", sameRel, same, "")
+	refused("a key that is not one", "darwin-arm64", sameRel, same, "zz")
+	refused("a line break in the version", "darwin-arm64", func(r *Release) { r.Version = "v1.3.0\ndarwin-arm64" }, same, pub)
+
+	if !channelServes("", "") || !channelServes("", "beta") || !channelServes("stable", "") || !channelServes("beta", "beta") {
+		t.Error("a release refused to a channel it is for")
+	}
+	if channelServes("beta", "") || channelServes("beta", "stable") || channelServes("nightly", "beta") {
+		t.Error("a trial, or a channel there is none of, offered")
+	}
+}
+
+// sigText2 is the text of the second signature, which the clients of #455 check (sig2): frozen here, as the
+// release keeps writing it for them and scripts/release's test holds it to the same literal.
+func sigText2(version, platform, name, kind, sha string) ([]byte, bool) {
+	if kind == "" {
+		kind = "binary"
+	}
+	parts := []string{"celestine-update-2", version, platform, name, kind, strings.ToLower(sha)}
+	for _, p := range parts[1:] {
+		if p == "" || strings.ContainsAny(p, "\r\n") {
+			return nil, false
+		}
+	}
+	return []byte(strings.Join(parts, "\n")), true
+}
+
+// legacySigText is the text of the first signature, the version and the hash, which the clients before #455
+// check (sig): frozen here as sigText2 is.
+func legacySigText(version, sha string) []byte { return []byte(version + "\n" + strings.ToLower(sha)) }
+
+// must is a text that could be made, or the test's end.
+func must(b []byte, ok bool) []byte {
+	if !ok {
+		panic("no text")
+	}
+	return b
 }
 
 // TestSigTextIsTheReleases: the text the app checks is the one scripts/release signs (its own test holds the same
-// literal), and the old text is still the one released clients check.
+// literal), and the old texts are still the ones released clients check.
 func TestSigTextIsTheReleases(t *testing.T) {
-	got, ok := sigText("v1.3.0", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", strings.Repeat("AB", 32))
-	if want := "celestine-update-2\nv1.3.0\ndarwin-arm64\ncelestine-darwin-arm64.zip\napp-zip\n" + strings.Repeat("ab", 32); !ok || string(got) != want {
+	got, ok := sigText("v1.3.0-beta.1", "beta", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", strings.Repeat("AB", 32), "- faster")
+	if want := "celestine-update-3\nv1.3.0-beta.1\nbeta\ndarwin-arm64\ncelestine-darwin-arm64.zip\napp-zip\n" + strings.Repeat("ab", 32) +
+		"\nc9d3478adaa449914687b73062b06018452b2f73e56431869abaacb933675946"; !ok || string(got) != want {
 		t.Fatalf("%q, want %q", got, want)
 	}
-	if got, _ := sigText("v1.3.0", "linux-amd64", "celestine-linux-amd64", "", "ab"); string(got) != "celestine-update-2\nv1.3.0\nlinux-amd64\ncelestine-linux-amd64\nbinary\nab" {
-		t.Fatalf("no kind is not binary: %q", got)
+	if got, _ := sigText("v1.3.0", "", "linux-amd64", "celestine-linux-amd64", "", "ab", ""); string(got) != "celestine-update-3\nv1.3.0\nstable\nlinux-amd64\ncelestine-linux-amd64\nbinary\nab\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatalf("no channel is not stable, or no kind not binary: %q", got)
+	}
+	if got, _ := sigText2("v1.3.0", "darwin-arm64", "celestine-darwin-arm64.zip", "app-zip", strings.Repeat("AB", 32)); string(got) != "celestine-update-2\nv1.3.0\ndarwin-arm64\ncelestine-darwin-arm64.zip\napp-zip\n"+strings.Repeat("ab", 32) {
+		t.Fatalf("second text %q", got)
 	}
 	if got := legacySigText("v1.3.0", "AB"); string(got) != "v1.3.0\nab" {
 		t.Fatalf("old text %q", got)
@@ -108,7 +158,73 @@ func TestSigTextIsTheReleases(t *testing.T) {
 	}
 }
 
-// releaseServer serves a manifest and a file; mut can change the manifest.
+// TestReleaseToolManifest: what scripts/release writes holds for every client - the third signature for this one,
+// the second for the clients of #455 and the first for those before (#168) - and its channel and notes are the
+// ones signed.
+func TestReleaseToolManifest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds scripts/release")
+	}
+	pubRaw, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := base64.StdEncoding.EncodeToString(pubRaw)
+	dir := t.TempDir()
+	keyFile, notesFile := filepath.Join(dir, "release.key"), filepath.Join(dir, "notes.md")
+	os.WriteFile(keyFile, []byte(base64.StdEncoding.EncodeToString(priv)), 0o600)
+	os.WriteFile(notesFile, []byte("Since v1.2.0:\n- faster <and> \"quieter\" & ılık\n"), 0o644)
+	files := map[string]string{ // the asset's key, and its file
+		"darwin-arm64":         "celestine-darwin-arm64.zip",
+		"linux-amd64":          "celestine-linux-amd64",
+		"linux-amd64-appimage": "celestine-linux-amd64.AppImage",
+		"windows-amd64":        "celestine-windows-amd64.exe",
+	}
+	args := []string{"run", "./scripts/release", "manifest", "-version", "v1.3.0-beta.1", "-base", "https://dl.example.com/v1.3.0-beta.1",
+		"-channel", "beta", "-notes", notesFile, "-key", keyFile}
+	for _, name := range files {
+		f := filepath.Join(dir, name)
+		os.WriteFile(f, []byte("the build "+name), 0o644)
+		args = append(args, f)
+	}
+	cmd := exec.Command("go", args...)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rel Release
+	if err := json.Unmarshal(out, &rel); err != nil {
+		t.Fatal(err)
+	}
+	if rel.Channel != "beta" || !strings.Contains(rel.Notes, "ılık") {
+		t.Fatalf("channel %q, notes %q", rel.Channel, rel.Notes)
+	}
+	key := ed25519.PublicKey(pubRaw)
+	sig := func(s string) []byte { b, _ := base64.StdEncoding.DecodeString(s); return b }
+	for platform, name := range files {
+		as, ok := rel.Assets[platform]
+		if !ok || assetName(as.URL) != name {
+			t.Fatalf("%s: %+v", platform, as)
+		}
+		if err := verifyAsset(pub, &rel, platform, as); err != nil {
+			t.Errorf("%s: this client refuses it: %v", platform, err)
+		}
+		if !ed25519.Verify(key, must(sigText2(rel.Version, platform, name, as.Kind, as.SHA256)), sig(as.Sig2)) {
+			t.Errorf("%s: the clients of #455 refuse it", platform)
+		}
+		if !ed25519.Verify(key, legacySigText(rel.Version, as.SHA256), sig(as.Sig)) {
+			t.Errorf("%s: the clients before #455 refuse it", platform)
+		}
+		stable := rel
+		stable.Channel = ""
+		if verifyAsset(pub, &stable, platform, as) == nil {
+			t.Errorf("%s: the trial holds as a stable release", platform)
+		}
+	}
+}
+
+// releaseServer serves a manifest and a file, signed by priv; mut can change the manifest before it is signed.
 func releaseServer(t *testing.T, priv ed25519.PrivateKey, ver string, file []byte, mut func(*Release)) (*httptest.Server, *Release) {
 	t.Helper()
 	library.AllowHTTP = true
@@ -120,10 +236,13 @@ func releaseServer(t *testing.T, priv ed25519.PrivateKey, ver string, file []byt
 	t.Cleanup(srv.Close)
 	platform := runtime.GOOS + "-" + runtime.GOARCH
 	as := Asset{URL: srv.URL + "/file", SHA256: sha, Size: int64(len(file))}
-	as.Sig2 = SignAsset(priv, ver, platform, as)
 	rel := &Release{Version: ver, Date: "2026-11-07", Notes: "# Yenilikler\n- hızlandı", Assets: map[string]Asset{platform: as}}
 	if mut != nil {
 		mut(rel)
+	}
+	for k, a := range rel.Assets { // signed as it is served: a test changes the returned release to tamper with it
+		a.Sig3 = SignAsset(priv, rel, k, a)
+		rel.Assets[k] = a
 	}
 	mux.HandleFunc("/update.json", func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(rel) })
 	mux.HandleFunc("/file", func(w http.ResponseWriter, r *http.Request) { w.Write(file) })
@@ -131,48 +250,88 @@ func releaseServer(t *testing.T, priv ed25519.PrivateKey, ver string, file []byt
 }
 
 func TestFetchRelease(t *testing.T) {
-	priv, _ := testKey(t)
+	priv, pub := testKey(t)
 	srv, _ := releaseServer(t, priv, "v2.0.0", []byte("yeni"), nil)
 	ctx := context.Background()
-	rel, err := fetchRelease(ctx, srv.URL+"/update.json", "v1.0.0", "", "")
+	rel, err := fetchRelease(ctx, srv.URL+"/update.json", pub, "v1.0.0", "", "")
 	if err != nil || rel == nil || rel.Version != "v2.0.0" {
 		t.Fatalf("%v %v", rel, err)
 	}
-	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", "v2.0.0", "", ""); rel != nil {
+	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", pub, "v2.0.0", "", ""); rel != nil {
 		t.Fatal("the same version offered")
 	}
-	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", "v3.0.0", "", ""); rel != nil {
+	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", pub, "v3.0.0", "", ""); rel != nil {
 		t.Fatal("an older version offered")
 	}
-	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", "v1.0.0", "", "v2.0.0"); rel != nil {
+	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", pub, "v1.0.0", "", "v2.0.0"); rel != nil {
 		t.Fatal("a skipped version offered")
 	}
-	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", "dev", "", ""); rel != nil {
+	if rel, _ := fetchRelease(ctx, srv.URL+"/update.json", pub, "dev", "", ""); rel != nil {
 		t.Fatal("a build from the source asked to be replaced")
 	}
 	beta, _ := releaseServer(t, priv, "v2.1.0-beta.1", []byte("x"), func(r *Release) { r.Channel = "beta" })
-	if rel, _ := fetchRelease(ctx, beta.URL+"/update.json", "v1.0.0", "", ""); rel != nil {
+	if rel, _ := fetchRelease(ctx, beta.URL+"/update.json", pub, "v1.0.0", "", ""); rel != nil {
 		t.Fatal("a trial offered to the stable channel")
 	}
-	if rel, _ := fetchRelease(ctx, beta.URL+"/update.json", "v1.0.0", "beta", ""); rel == nil {
+	if rel, _ := fetchRelease(ctx, beta.URL+"/update.json", pub, "v1.0.0", "beta", ""); rel == nil {
 		t.Fatal("a trial not offered to the trial channel")
 	}
+	// a stable release goes up as beta.json too: the trial channel is offered it
+	if rel, err := fetchRelease(ctx, srv.URL+"/update.json", pub, "v1.0.0", "beta", ""); rel == nil {
+		t.Fatalf("a stable release not offered to the trial channel: %v", err)
+	}
+	// #168: a trial's manifest, rightly signed, served on the stable channel with its channel taken out or
+	// called stable, is refused, and its notes are not shown
+	beta2, betaRel := releaseServer(t, priv, "v2.1.0-beta.2", []byte("x"), func(r *Release) { r.Channel = "beta" })
+	for _, c := range []string{"", "stable"} {
+		betaRel.Channel = c
+		if rel, err := fetchRelease(ctx, beta2.URL+"/update.json", pub, "v1.0.0", "", ""); rel != nil || err == nil {
+			t.Fatalf("a trial served as %q to the stable channel: %v %v", c, rel, err)
+		}
+	}
+	// the other way, a stable release called a trial, is refused as well: the channel is the signer's
+	stab, stabRel := releaseServer(t, priv, "v2.0.0", []byte("x"), nil)
+	stabRel.Channel = "beta"
+	if rel, err := fetchRelease(ctx, stab.URL+"/update.json", pub, "v1.0.0", "beta", ""); rel != nil || err == nil {
+		t.Fatalf("a stable release called a trial: %v %v", rel, err)
+	}
+	// notes changed on the server: refused before they are shown
+	notes, notesRel := releaseServer(t, priv, "v2.0.0", []byte("x"), nil)
+	notesRel.Notes += "\n- download the real one from https://example.com"
+	if rel, err := fetchRelease(ctx, notes.URL+"/update.json", pub, "v1.0.0", "", ""); rel != nil || err == nil {
+		t.Fatalf("other notes accepted: %v %v", rel, err)
+	}
+	// a manifest as released before #168 - sig and sig2, no sig3 - is refused by this client
+	old, oldRel := releaseServer(t, priv, "v2.0.0", []byte("x"), nil)
+	for k, a := range oldRel.Assets {
+		a.Sig = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, legacySigText(oldRel.Version, a.SHA256)))
+		a.Sig2 = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, must(sigText2(oldRel.Version, k, assetName(a.URL), a.Kind, a.SHA256))))
+		a.Sig3 = ""
+		oldRel.Assets[k] = a
+	}
+	if rel, err := fetchRelease(ctx, old.URL+"/update.json", pub, "v1.0.0", "", ""); rel != nil || err == nil {
+		t.Fatalf("a manifest without sig3 accepted: %v %v", rel, err)
+	}
+	_, otherKey := testKey(t)
+	if rel, err := fetchRelease(ctx, srv.URL+"/update.json", otherKey, "v1.0.0", "", ""); rel != nil || err == nil {
+		t.Fatalf("a release signed by another key accepted: %v %v", rel, err)
+	}
 	none, _ := releaseServer(t, priv, "v2.0.0", []byte("x"), func(r *Release) { r.Assets = map[string]Asset{"plan9-mips": {}} })
-	if _, err := fetchRelease(ctx, none.URL+"/update.json", "v1.0.0", "", ""); err == nil {
+	if _, err := fetchRelease(ctx, none.URL+"/update.json", pub, "v1.0.0", "", ""); err == nil {
 		t.Fatal("no file for this system, and no error")
 	}
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "x", 500) }))
 	defer bad.Close()
-	if _, err := fetchRelease(ctx, bad.URL, "v1.0.0", "", ""); err == nil {
+	if _, err := fetchRelease(ctx, bad.URL, pub, "v1.0.0", "", ""); err == nil {
 		t.Fatal("a server error taken as no news")
 	}
 	junk := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("<html>")) }))
 	defer junk.Close()
-	if _, err := fetchRelease(ctx, junk.URL, "v1.0.0", "", ""); err == nil {
+	if _, err := fetchRelease(ctx, junk.URL, pub, "v1.0.0", "", ""); err == nil {
 		t.Fatal("html taken as a manifest")
 	}
 	library.AllowHTTP = false
-	if _, err := fetchRelease(ctx, srv.URL+"/update.json", "v1.0.0", "", ""); err == nil {
+	if _, err := fetchRelease(ctx, srv.URL+"/update.json", pub, "v1.0.0", "", ""); err == nil {
 		t.Fatal("plain HTTP accepted")
 	}
 }
@@ -186,7 +345,7 @@ func TestFetchSendsOnlyTheVersion(t *testing.T) {
 		w.Write([]byte(`{"version":"v1.0.0","assets":{}}`))
 	}))
 	defer srv.Close()
-	fetchRelease(context.Background(), srv.URL, "v1.0.0", "", "")
+	fetchRelease(context.Background(), srv.URL, "", "v1.0.0", "", "")
 	if ua := got.Get("User-Agent"); ua != "celestine/v1.0.0" {
 		t.Fatalf("user agent %q", ua)
 	}
@@ -223,15 +382,15 @@ func TestDownloadChecks(t *testing.T) {
 	try("hash of another file with its own signature", func(a *Asset) {
 		s := sha256.Sum256([]byte("başka"))
 		a.SHA256 = hex.EncodeToString(s[:])
-		a.Sig2 = SignAsset(priv, "v2.0.0", key, *a)
+		a.Sig3 = SignAsset(priv, rel, key, *a)
 	}, pub)
-	try("no signature", func(a *Asset) { a.Sig2 = "" }, pub)
+	try("no signature", func(a *Asset) { a.Sig3 = "" }, pub)
 	try("another system's file, rightly signed for it", func(a *Asset) {
 		other := "linux-amd64"
 		if key == other {
 			other = "darwin-arm64"
 		}
-		a.Sig2 = SignAsset(priv, "v2.0.0", other, *a)
+		a.Sig3 = SignAsset(priv, rel, other, *a)
 	}, pub)
 	try("renamed", func(a *Asset) { a.URL += "-renamed" }, pub)
 	try("signed by another key", func(a *Asset) {}, func() string { _, o := testKey(t); return o }())
@@ -870,14 +1029,10 @@ func TestPeriodicUpdateCheckClockAndReady(t *testing.T) {
 		sha := hex.EncodeToString(sum[:])
 		platform := runtime.GOOS + "-" + runtime.GOARCH
 		as := Asset{URL: "https://example.com/file", SHA256: sha, Size: 1}
-		as.Sig2 = SignAsset(priv, "v9.0.0", platform, as)
-		json.NewEncoder(w).Encode(&Release{
-			Version: "v9.0.0",
-			Date:    "2026-11-13",
-			Assets: map[string]Asset{
-				platform: as,
-			},
-		})
+		rel := &Release{Version: "v9.0.0", Date: "2026-11-13"}
+		as.Sig3 = SignAsset(priv, rel, platform, as)
+		rel.Assets = map[string]Asset{platform: as}
+		json.NewEncoder(w).Encode(rel)
 	}))
 	defer srv.Close()
 
