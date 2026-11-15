@@ -1233,14 +1233,14 @@ func TestSyncOpenEncChecksPassphrase(t *testing.T) {
 	if _, err := OpenEnc(inner, "parola"); err != nil { // a new remote: the salt is made, there is no index
 		t.Fatal(err)
 	}
-	if _, err := OpenEnc(inner, "başka"); err != nil {
-		t.Fatalf("a remote with no index refused a passphrase: %v", err)
+	if e, err := OpenEnc(inner, "başka"); err != nil || e.HasIndex() {
+		t.Fatalf("a remote with no index refused a passphrase, or said it was checked: %v", err)
 	}
 	e, _ := OpenEnc(inner, "parola")
 	a := newDevice(t)
 	a.write("Not/Bir/page.json", "bir")
 	a.sync(e)
-	if _, err := OpenEnc(inner, "parola"); err != nil {
+	if e, err := OpenEnc(inner, "parola"); err != nil || !e.HasIndex() {
 		t.Fatalf("the right passphrase: %v", err)
 	}
 	if e, err := OpenEnc(inner, "parol"); !errors.Is(err, ErrWrongPassphrase) || e != nil {

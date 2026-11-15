@@ -13149,6 +13149,16 @@ func (msgs Messages) SyncEndEndEncryption() string {
 	return Catalog.Format(msgs.locale, "sync_endEndEncryption", nil)
 }
 
+// SyncEnterPassphraseAgain says "Enter the passphrase again"
+// in the language the app shows.
+func SyncEnterPassphraseAgain() string { return In(i18n.Locale()).SyncEnterPassphraseAgain() }
+
+// SyncEnterPassphraseAgain says "Enter the passphrase again"
+// in the language of msgs.
+func (msgs Messages) SyncEnterPassphraseAgain() string {
+	return Catalog.Format(msgs.locale, "sync_enterPassphraseAgain", nil)
+}
+
 // SyncErrKeyBroken says "the encryption key is damaged"
 // in the language the app shows.
 func SyncErrKeyBroken() string { return In(i18n.Locale()).SyncErrKeyBroken() }
@@ -13177,6 +13187,16 @@ func SyncErrNoServer() string { return In(i18n.Locale()).SyncErrNoServer() }
 // in the language of msgs.
 func (msgs Messages) SyncErrNoServer() string {
 	return Catalog.Format(msgs.locale, "sync_errNoServer", nil)
+}
+
+// SyncErrNothingToCheck says "nothing is synced there yet, so the passphrase can't be checked: the key you have is kept"
+// in the language the app shows.
+func SyncErrNothingToCheck() string { return In(i18n.Locale()).SyncErrNothingToCheck() }
+
+// SyncErrNothingToCheck says "nothing is synced there yet, so the passphrase can't be checked: the key you have is kept"
+// in the language of msgs.
+func (msgs Messages) SyncErrNothingToCheck() string {
+	return Catalog.Format(msgs.locale, "sync_errNothingToCheck", nil)
 }
 
 // SyncErrOff says "sync is off"
@@ -13307,6 +13327,16 @@ func SyncPassphrase() string { return In(i18n.Locale()).SyncPassphrase() }
 // in the language of msgs.
 func (msgs Messages) SyncPassphrase() string {
 	return Catalog.Format(msgs.locale, "sync_passphrase", nil)
+}
+
+// SyncPassphraseAccepted says "The passphrase opens what is synced there. Sync goes on with it."
+// in the language the app shows.
+func SyncPassphraseAccepted() string { return In(i18n.Locale()).SyncPassphraseAccepted() }
+
+// SyncPassphraseAccepted says "The passphrase opens what is synced there. Sync goes on with it."
+// in the language of msgs.
+func (msgs Messages) SyncPassphraseAccepted() string {
+	return Catalog.Format(msgs.locale, "sync_passphraseAccepted", nil)
 }
 
 // SyncReceived says "{count} received"

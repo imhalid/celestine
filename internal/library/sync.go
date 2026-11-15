@@ -357,6 +357,8 @@ type EncRemote struct {
 	gcm    cipher.AEAD
 	idx    map[string]string // opaque name → path
 	loaded bool
+	// indexed says the remote held a sealed index when it was read, and so that the key opened it (HasIndex)
+	indexed bool
 	// sent is the remote's hash of each file put in this pass, by its name: the hash of the sealed bytes, as a
 	// folder and the Worker both have it, so that the pass need not list the remote again to learn it (PutHash)
 	sent map[string]string
@@ -496,9 +498,13 @@ func (e *EncRemote) loadIndex() error {
 	if err != nil {
 		return err
 	}
-	e.loaded = true
+	e.loaded, e.indexed = true, true
 	return json.Unmarshal(plain, &e.idx)
 }
+
+// HasIndex says whether the remote held a sealed index when it was opened, which the key opened: only then is a
+// passphrase known to be the remote's (OpenEnc). A remote with a salt and no index takes any passphrase.
+func (e *EncRemote) HasIndex() bool { return e.indexed }
 
 // saveIndex puts the index back, merged with what the remote holds now: another device may have added
 // names since this one read it, and an index written from the old copy would drop them (their files would

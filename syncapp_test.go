@@ -114,6 +114,15 @@ func setPassphrase(t *testing.T, a *app, pass string) {
 	t.Helper()
 	a.mu.Lock()
 	a.settings.SyncKey = "" // syncApp's own key: the passphrase is for an app with none
+	a.mu.Unlock()
+	enterPassphrase(t, a, pass)
+}
+
+// enterPassphrase enters pass as the settings' button does, from a frame, with the key the app has, and waits for
+// it to be checked against the remote.
+func enterPassphrase(t *testing.T, a *app, pass string) {
+	t.Helper()
+	a.mu.Lock()
 	a.setSyncPassphrase(pass)
 	a.mu.Unlock()
 	for i := 0; i < 500; i++ {
@@ -172,9 +181,9 @@ func TestSyncAppsEncrypted(t *testing.T) {
 	}
 }
 
-// With the passphrase set, the settings have no way to change it: the key would no longer open what the remote
-// holds, and every pass would fail (#153). With none, encryption is turned on there.
-func TestSyncPassphraseNotChanged(t *testing.T) {
+// With the passphrase set, the settings offer to enter it again, not to change it (#153). With none, encryption
+// is turned on there.
+func TestSyncPassphraseField(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.SyncMode, a.settings.SyncDir = "dir", t.TempDir()
 	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
@@ -185,16 +194,12 @@ func TestSyncPassphraseNotChanged(t *testing.T) {
 	if !tt.HasText(locales.SyncEndEndEncryption()) {
 		t.Fatalf("no encryption row: %v", tt.Texts())
 	}
-	if tt.HasText(locales.TurnOnEncryption()) {
-		t.Fatal("a passphrase button with the key set")
+	// with the key set, the passphrase is entered again, checked against the remote; it is not turned on anew
+	if tt.HasText(locales.TurnOnEncryption()) || !tt.HasText(locales.SyncEnterPassphraseAgain()) {
+		t.Fatalf("the passphrase's button with the key set: %v", tt.Texts())
 	}
-	if _, ok := tt.Find(locales.SyncPassphrase()); ok {
-		t.Fatal("a passphrase field with the key set")
-	}
-	key := a.settings.SyncKey
-	a.setSyncPassphrase("başka") // the function too keeps the key as it is
-	if a.settings.SyncKey != key || a.sy.passBusy {
-		t.Fatal("the passphrase was changed")
+	if _, ok := tt.Find(locales.SyncPassphrase()); !ok {
+		t.Fatal("no passphrase field with the key set")
 	}
 	a.settings.SyncKey = ""
 	tt.Frame()
@@ -204,6 +209,54 @@ func TestSyncPassphraseNotChanged(t *testing.T) {
 	}
 	if _, ok := tt.Find(locales.SyncPassphrase()); !ok {
 		t.Fatal("no passphrase field with no key")
+	}
+}
+
+// A device whose stored key does not open the remote fails every pass; the passphrase entered again puts it right,
+// and it syncs. A passphrase that does not open the remote is refused and the key kept, and so is any passphrase
+// on a remote with nothing sealed to check it against (#153).
+func TestSyncPassphraseEnteredAgain(t *testing.T) {
+	// a remote with a salt and no index: nothing to check a passphrase against, the key kept stays
+	empty := syncApp(t, t.TempDir())
+	key := empty.settings.SyncKey
+	enterPassphrase(t, empty, "parola")
+	if empty.settings.SyncKey != key || empty.notice != locales.SyncErrNothingToCheck() {
+		t.Fatalf("a remote with no index: key changed %v, notice %q", empty.settings.SyncKey != key, empty.notice)
+	}
+
+	dir := t.TempDir()
+	a := syncApp(t, dir)
+	setPassphrase(t, a, "parola")
+	c, _ := a.lib.NewCollection("Ortak")
+	p, _ := c.NewPage(nil, "Merhaba")
+	p.SaveText("birinci metin\n")
+	a.syncNow()
+	waitSync(t, a)
+
+	b := syncApp(t, dir) // its key is not the remote's
+	b.syncNow()
+	waitSync(t, b)
+	if b.sy.err == "" || len(b.lib.Collections) != 0 {
+		t.Fatalf("the wrong key: err %q collections %d", b.sy.err, len(b.lib.Collections))
+	}
+	wrong := b.settings.SyncKey
+	enterPassphrase(t, b, "yanlış")
+	if b.settings.SyncKey != wrong || b.notice != locales.SyncErrWrongPassphrase() {
+		t.Fatalf("a passphrase that does not open the remote: key changed %v, notice %q", b.settings.SyncKey != wrong, b.notice)
+	}
+	enterPassphrase(t, b, "parola")
+	if b.settings.SyncKey != a.settings.SyncKey || b.notice != locales.SyncPassphraseAccepted() || b.sy.err != "" {
+		t.Fatalf("the right passphrase entered again: notice %q err %q", b.notice, b.sy.err)
+	}
+	b.syncNow()
+	waitSync(t, b)
+	if b.sy.err != "" || len(b.lib.Collections) != 1 || len(b.lib.Collections[0].All()) != 1 {
+		t.Fatalf("not synced after the passphrase: err %q", b.sy.err)
+	}
+	// and once right, a passphrase of another remote is no way to change it
+	enterPassphrase(t, b, "başka")
+	if b.settings.SyncKey != a.settings.SyncKey {
+		t.Fatal("the passphrase was changed")
 	}
 }
 
