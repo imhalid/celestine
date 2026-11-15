@@ -1,6 +1,7 @@
 package library
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path"
@@ -43,10 +44,24 @@ func (OSFS) RemoveAll(n string) error                { return os.RemoveAll(n) }
 func (OSFS) Stat(n string) (fs.FileInfo, error)      { return os.Stat(n) }
 
 // WriteFile goes through a temporary file, so a crash never leaves half of it.
-func (OSFS) WriteFile(name string, data []byte) error { return writeWhole(name, data, 0o644) }
+func (OSFS) WriteFile(name string, data []byte) error {
+	return writeWhole(name, data, 0o644, time.Time{})
+}
+
+// WriteFileKeepTime writes over name as WriteFile does, and gives the new file the time the old one was last
+// written before it takes the name: what looks at the folder never sees it written now (TimeKeeper).
+func (OSFS) WriteFileKeepTime(name string, data []byte) error {
+	info, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+	return writeWhole(name, data, 0o644, info.ModTime())
+}
 
 // WriteFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
-func WriteFilePrivate(name string, data []byte) error { return writeWhole(name, data, 0o600) }
+func WriteFilePrivate(name string, data []byte) error {
+	return writeWhole(name, data, 0o600, time.Time{})
+}
 
 // tempPattern is the pattern of writeWhole's temporary file for a file named base, as os.CreateTemp takes it: a
 // hidden ".<base>.<digits>.tmp" beside it. IsTempFile knows the names it makes, so the two cannot disagree.
@@ -73,8 +88,8 @@ func IsTempFile(name string) bool {
 
 // writeWhole writes data to name through a temporary file of its own beside it, on the disk before it takes the
 // name, and the folder's entry after: a power cut leaves the old file or the new one, never an empty one, and two
-// writers do not share a temporary name (#140).
-func writeWhole(name string, data []byte, perm os.FileMode) error {
+// writers do not share a temporary name (#140). Given a time, mt, the file takes it as when it was last written.
+func writeWhole(name string, data []byte, perm os.FileMode, mt time.Time) error {
 	dir := filepath.Dir(name)
 	f, err := os.CreateTemp(dir, tempPattern(filepath.Base(name)))
 	if err != nil {
@@ -90,6 +105,9 @@ func writeWhole(name string, data []byte, perm os.FileMode) error {
 	}
 	if err == nil {
 		err = os.Chmod(tmp, perm)
+	}
+	if err == nil && !mt.IsZero() {
+		err = os.Chtimes(tmp, mt, mt)
 	}
 	if err == nil {
 		err = os.Rename(tmp, name)
@@ -307,6 +325,62 @@ func dataDir() string {
 // Batcher is a file system whose writes can be made one change: all of them or none.
 type Batcher interface {
 	Batch(fn func() error) error
+}
+
+// TimeKeeper is a file system that can write a file over and leave it the time it was last written: a change to a
+// page that is not a change of its text (a key the app keeps in its meta) does not move it in the order of the
+// pages changed last (#538).
+type TimeKeeper interface {
+	WriteFileKeepTime(name string, data []byte) error
+}
+
+// WriteFileKeepTime writes data over the file name in fsys and leaves it the time it was last written, where fsys
+// can (TimeKeeper); errors.ErrUnsupported where it cannot. The file must be there.
+func WriteFileKeepTime(fsys FS, name string, data []byte) error {
+	if k, ok := fsys.(TimeKeeper); ok {
+		return k.WriteFileKeepTime(name, data)
+	}
+	return errors.ErrUnsupported
+}
+
+// StampMeta keeps value under key in the meta of the page file at file, its body and the time it was last written
+// left as they were (WriteFileKeepTime). It reports whether it wrote: a page that has a value for key already, or
+// whose file cannot be read as a page, is left alone. Its size changes, so a sync still sends it (localFiles).
+func StampMeta(fsys FS, file, key, value string) (bool, error) {
+	src, err := fsys.ReadFile(file)
+	if err != nil {
+		return false, err
+	}
+	meta, body, err := SplitPageChecked(src)
+	if err != nil {
+		return false, nil // a file that cannot be read is not written over (#125)
+	}
+	if meta[key] != "" {
+		return false, nil
+	}
+	meta[key] = value
+	out, err := JoinPageChecked(meta, body)
+	if err != nil {
+		return false, err
+	}
+	if err := WriteFileKeepTime(fsys, file, out); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// sealedBatcher is a Batcher whose Batch other goroutines' reads and writes wait for: the store of a file, which
+// has one connection. The browser's store only holds its writes back.
+type sealedBatcher interface {
+	Batcher
+	sealedBatch()
+}
+
+// BatchSeals reports whether a Batch of fsys keeps other goroutines out while it runs: what it reads in it is
+// what it writes over, whoever else writes.
+func BatchSeals(fsys FS) bool {
+	_, ok := fsys.(sealedBatcher)
+	return ok
 }
 
 // InBatch runs fn, whose writes go to fsys, as one change of it when it can be one: a reorder that writes every

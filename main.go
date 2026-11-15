@@ -245,6 +245,8 @@ type app struct {
 	shellOpen   func(string, bool) // test seam for opening/revealing attached files (path, reveal)
 	runOnUI     func(func())       // UI-thread dispatcher when the event loop is active (#173)
 	daysStamped bool               // the journal's pages have their days kept (stampDays)
+	stamping    sync.WaitGroup     // the journal's days being written: a test waits for them
+	stampHold   func()             // a test holds the writing of the journal's days here
 	storeErr    string             // the library store's last write error, as shown
 	notice      string             // a toast to show
 	trashed     *TrashItem         // just thrown away: a toast offers it back

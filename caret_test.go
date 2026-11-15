@@ -61,6 +61,7 @@ func newTestApp(t *testing.T, src string) (*app, *ui.Tester) {
 	t.Helper()
 	a := newApp(testLibrary(t, src))
 	a.noSound = true
+	t.Cleanup(a.stamping.Wait) // the journal's days written before the library's folder goes
 	tt := ui.NewTester(a.view, 900, 1400)
 	a.clipRead = tt.Clipboard // the app reads the clipboard the editor does: the Tester's, not the system's
 	tt.Advance(50 * time.Millisecond)

@@ -208,6 +208,23 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	return nil
 }
 
+// WriteFileKeepTime writes data over the file name and leaves it the time it was last written (TimeKeeper). It keeps
+// no version of what was there: what is written so is not the page's text.
+func (s *Store) WriteFileKeepTime(name string, data []byte) error {
+	s.wrote()
+	if data == nil {
+		data = []byte{}
+	}
+	r, err := s.db().Exec(`UPDATE nodes SET data = ? WHERE path = ? AND dir = 0`, data, Clean(name))
+	if err != nil {
+		return err
+	}
+	if k, err := r.RowsAffected(); err == nil && k == 0 {
+		return pathErr("write", name, fs.ErrNotExist)
+	}
+	return nil
+}
+
 func (s *Store) Mkdir(name string) error {
 	s.wrote()
 	n := Clean(name)
@@ -502,6 +519,9 @@ func (s *Store) Batch(fn func() error) error {
 	kept = true
 	return nil
 }
+
+// sealedBatch marks the store's Batch as one the others wait for (BatchSeals).
+func (s *Store) sealedBatch() {}
 
 // batchConn is the connection of an open Batch, and the goroutine that runs it.
 type batchConn struct {

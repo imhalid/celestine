@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -115,34 +116,83 @@ func dayOf(p *Page) time.Time {
 	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.Local)
 }
 
-// stampDays keeps in each page of the journal c that has none the day it is for now, once: from then on a change of
-// time zone does not move it.
-func stampDays(c *Collection) error {
-	var bare []*Page
+// stampJob is a page of the journal to keep its day in: the page, its file and its day, as they were when the days
+// were asked for.
+type stampJob struct {
+	p    *Page
+	file string
+	day  string
+}
+
+// stampDays keeps in each page of the journal c that has none the day it is for now: from then on a change of time
+// zone does not move it. It is called with the lock held, and only looks: the files are written by a goroutine, the
+// key in their meta alone, and the time they were last written kept (library.StampMeta), so an old page is not one
+// changed now, and no frame waits for a journal of years to be written (#538). A sync still sends each page once,
+// as its file is not what it was. Each file is read again as it is written, so a page saved meanwhile keeps what was
+// saved; and the key goes into a page's meta in memory once its file has it, so a save of it after keeps it too.
+func (a *app) stampDays(c *Collection) {
+	var jobs []stampJob
 	for _, p := range c.All() {
-		if p.Props[journalDayKey] == "" {
-			bare = append(bare, p)
+		if p.Props[journalDayKey] == "" && p.Unreadable == "" {
+			jobs = append(jobs, stampJob{p, p.File(), dayOf(p).Format("2006-01-02")})
 		}
 	}
-	if len(bare) == 0 {
-		return nil
+	if len(jobs) == 0 {
+		return
 	}
-	return InBatch(c.FS, func() error {
-		for _, p := range bare {
-			body, err := p.Body()
+	fsys, hold := c.FS, a.stampHold
+	a.stamping.Add(1)
+	go func() {
+		defer a.stamping.Done()
+		defer a.guard()
+		if hold != nil {
+			hold()
+		}
+		keep := func(j stampJob) {
+			if j.p.Props == nil {
+				j.p.Props = map[string]string{}
+			}
+			if j.p.Props[journalDayKey] == "" {
+				j.p.Props[journalDayKey] = j.day
+			}
+		}
+		if library.BatchSeals(fsys) {
+			// one change of the store, outside the lock: a save the window makes meanwhile waits for it, and is
+			// not lost, as each file is read inside it
+			var done []stampJob
+			err := library.InBatch(fsys, func() error {
+				for _, j := range jobs {
+					if ok, err := library.StampMeta(fsys, j.file, journalDayKey, j.day); ok && err == nil {
+						done = append(done, j)
+					}
+				}
+				return nil
+			})
 			if err != nil {
-				continue // a page that cannot be read is not written
+				return // nothing was kept: the next start tries again
 			}
-			if p.Props == nil {
-				p.Props = map[string]string{}
-			}
-			p.Props[journalDayKey] = dayOf(p).Format("2006-01-02")
-			if err := p.Save(body); err != nil {
-				return err
-			}
+			a.do(func() error {
+				for _, j := range done {
+					keep(j)
+				}
+				return nil
+			})
+			return
 		}
-		return nil
-	})
+		// a folder (or the browser's store) has nothing that keeps the window's saves out: a page at a time, with
+		// the lock held, so that no save comes between the reading of a file and its writing
+		for _, j := range jobs {
+			a.do(func() error {
+				if j.p.Props[journalDayKey] != "" {
+					return nil // kept meanwhile
+				}
+				if ok, err := library.StampMeta(fsys, j.p.File(), journalDayKey, j.day); ok && err == nil {
+					keep(j)
+				}
+				return nil
+			})
+		}
+	}()
 }
 
 // dayTitle is the title of a page of day d in collection c.
@@ -155,7 +205,7 @@ func (a *app) journal() (*Collection, error) {
 		if c.Journal {
 			if !a.daysStamped {
 				a.daysStamped = true
-				stampDays(c)
+				a.stampDays(c)
 			}
 			return c, nil
 		}

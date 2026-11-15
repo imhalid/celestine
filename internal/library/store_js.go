@@ -383,6 +383,21 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	return nil
 }
 
+// WriteFileKeepTime writes data over the file name and leaves it the time it was last written (TimeKeeper).
+func (s *Store) WriteFileKeepTime(name string, data []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer s.Writes.Add(1)
+	n := Clean(name)
+	cur, ok := s.node[n]
+	if !ok || cur.Dir {
+		return pathErr("write", name, fs.ErrNotExist)
+	}
+	s.node[n] = &jnode{Data: base64.StdEncoding.EncodeToString(data), MTime: cur.MTime}
+	s.persist()
+	return nil
+}
+
 func (s *Store) mkdir(name string) error {
 	n := Clean(name)
 	if _, ok := s.node[n]; ok {

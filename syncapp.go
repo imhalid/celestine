@@ -259,6 +259,10 @@ func (c *countFS) Rename(oldName, newName string) error {
 	c.n.Add(1)
 	return c.FS.Rename(oldName, newName)
 }
+func (c *countFS) WriteFileKeepTime(name string, data []byte) error {
+	c.n.Add(1)
+	return library.WriteFileKeepTime(c.FS, name, data)
+}
 func (c *countFS) Remove(name string) error    { c.n.Add(1); return c.FS.Remove(name) }
 func (c *countFS) RemoveAll(name string) error { c.n.Add(1); return c.FS.RemoveAll(name) }
 
