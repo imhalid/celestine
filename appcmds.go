@@ -98,7 +98,7 @@ func appCommands() []appCmd {
 
 		{title: "moveTheBlockUp", accel: "cmd+shift+up", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, -1) }, off: noPageOff},
 		{title: "moveTheBlockDown", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
-		{title: "duplicateTheBlock", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a)) }, off: noPageOff},
+		{title: "duplicateTheBlock", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a), a.copyChipsIn) }, off: noPageOff},
 		{title: "foldUnfold", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
 		{title: "zoomIntoTheBlock", accel: zoomInKey, menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
 		{title: "zoomOut", accel: zoomOutKey, menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {

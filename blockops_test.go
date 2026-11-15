@@ -92,7 +92,7 @@ func TestMoveBlockTo(t *testing.T) {
 
 func TestDuplicateDeleteTurn(t *testing.T) {
 	d := docOf("# Başlık\n\nmetin\n\n- a\n    - a1\n")
-	duplicateBlock(d, at(d, "a"))
+	duplicateBlock(d, at(d, "a"), nil)
 	if got := mdOf(d); got != "# Başlık\n\nmetin\n\n- a\n    - a1\n- a\n    - a1" {
 		t.Fatalf("duplicate: %q", got)
 	}
@@ -256,7 +256,7 @@ func TestBlockOpsKeepIDs(t *testing.T) {
 		t.Fatalf("task dragged to the top: %s", got)
 	}
 	d = newDoc()
-	duplicateBlock(d, at(d, "yıldız"))
+	duplicateBlock(d, at(d, "yıldız"), nil)
 	if got := sig(d); got != "a# | #celestine:hr | yıldız#celestine:task:star | yıldız#celestine:task:star | b#" {
 		t.Fatalf("task copied: %s", got)
 	}

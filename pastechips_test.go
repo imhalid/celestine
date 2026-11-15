@@ -66,16 +66,29 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 	s, e := a.doc.Text().ParagraphRange(0)
 	a.doc.SetSelection(s, e)
 	tt.Key(ui.Cmd, ui.KeyC)
-	if a.ownClip.md != "" {
-		t.Fatal("the copy was noted as blocks: the editor's own paste is not what is tested")
+	if a.ownClip.md != "" || a.ownClip.rich.Len() == 0 {
+		t.Fatalf("the copy was not noted as text with chips: %+v", a.ownClip)
 	}
 	a.doc.SetSelection(e, e)
 	a.doc.InsertText("\n")
+	before := a.doc.Text().String()
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	cs := checksIn(a)
 	if len(cs) != 2 || cs[0] == cs[1] {
 		t.Fatalf("boxes after the paste: %d, shared %v", len(cs), len(cs) == 2 && cs[0] == cs[1])
+	}
+	// one undo takes the paste back whole; a redo brings it back with its own box
+	tt.Key(ui.Cmd, ui.KeyZ)
+	tt.Frame()
+	if got := a.doc.Text().String(); got != before || len(checksIn(a)) != 1 {
+		t.Fatalf("one undo left %q, want %q", got, before)
+	}
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyZ)
+	tt.Frame()
+	cs = checksIn(a)
+	if len(cs) != 2 || cs[0] == cs[1] {
+		t.Fatalf("boxes after the redo: %d in %q", len(cs), a.doc.Text().String())
 	}
 	tick := func(ch *chip) {
 		t.Helper()
@@ -122,5 +135,67 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 	}
 	if md := bodyMarkdown(a.doc.Text()); !strings.Contains(md, "buy milk [ ] today") {
 		t.Fatalf("the first line changed: %q", md)
+	}
+}
+
+// A block duplicated (⌘D) has chips of its own: ticking the copy's task leaves the first (#539).
+func TestDuplicatedInlineTaskOwnBox(t *testing.T) {
+	a, tt := newTestApp(t, "buy milk [ ] today\n")
+	tt.Advance(100 * time.Millisecond)
+	a.doc.SetSelection(2, 2)
+	tt.Key(ui.Cmd, ui.KeyD)
+	tt.Frame()
+	cs := checksIn(a)
+	if len(cs) != 2 || cs[0] == cs[1] {
+		t.Fatalf("boxes after ⌘D: %d in %q", len(cs), bodyMarkdown(a.doc.Text()))
+	}
+	a.toggleCheckChip(cs[1])
+	tt.Frame()
+	if cs = checksIn(a); cs[0].target != "" || cs[1].target != "x" {
+		t.Fatalf("after ticking the copy: %q", bodyMarkdown(a.doc.Text()))
+	}
+}
+
+// A fold pasted holds chips of its own in what it hides (#539).
+func TestPastedFoldOwnsItsChips(t *testing.T) {
+	a, tt := newTestApp(t, "title\n")
+	a.clipRead = func() string { return tt.Clipboard() }
+	tt.Advance(100 * time.Millisecond)
+	hidden := a.parse("milk [ ] today\n")
+	fold := &chip{kind: "fold", hidden: &hidden, lines: 1}
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.ReplaceString(5, 5, string(richtext.ObjectReplacement), richtext.Attributes{Attachment: a.attachment(fold)})
+	})
+	tt.Frame()
+	s, e := a.doc.Text().ParagraphRange(0)
+	a.doc.SetSelection(s, e)
+	tt.Key(ui.Cmd, ui.KeyC)
+	a.doc.SetSelection(e, e)
+	a.doc.InsertText("\n")
+	tt.Key(ui.Cmd, ui.KeyV)
+	tt.Frame()
+	var folds []*chip
+	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok && ch.kind == "fold" {
+				folds = append(folds, ch)
+			}
+		}
+	}
+	if len(folds) != 2 || folds[0] == folds[1] || folds[0].hidden == folds[1].hidden {
+		t.Fatalf("folds after the paste: %d", len(folds))
+	}
+	inner := func(tx richtext.Text) *chip {
+		for _, r := range tx.Runs(0, tx.Len()) {
+			if att := r.Attributes.Attachment; att != nil {
+				if ch, ok := att.Data.(*chip); ok {
+					return ch
+				}
+			}
+		}
+		return nil
+	}
+	if x, y := inner(*folds[0].hidden), inner(*folds[1].hidden); x == nil || x == y {
+		t.Fatal("the folds' hidden tasks share a box")
 	}
 }

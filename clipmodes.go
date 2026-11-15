@@ -64,11 +64,16 @@ func (a *app) pasteAs(kind string) {
 // Copy and paste inside the app keep what a block is beyond its text: a code block's language, a task's kind, a
 // divider. The editor keeps those in its paragraphs' IDs, and its own copy clears every ID, so ⌘C and ⌘X also keep
 // the copy as the app's Markdown, and ⌘V, while the clipboard still holds that copy's text, pastes the blocks made
-// from it.
+// from it. A copy with chips in it and no such blocks is kept as the text itself, and pasted with chips of its own:
+// the editor's paste brings back the very chips it copied, so a task copied and pasted shared one box with the first,
+// and ticking one ticked both (#539). The app pastes it in one edit, which one undo takes back whole.
 
-// ownClip is the last copy in the editor that had such blocks: its plain text, as the clipboard has it, and its
-// Markdown.
-type ownClip struct{ plain, md string }
+// ownClip is the last copy in the editor that had such blocks or chips: its plain text, as the clipboard has it,
+// and its Markdown, or the text itself (rich).
+type ownClip struct {
+	plain, md string
+	rich      richtext.Text
+}
 
 // editorKeys are the keys the app takes before the editor: the / menu's, then copy and paste.
 func (a *app) editorKeys(key ui.Key, mods ui.Modifiers) bool {
@@ -85,10 +90,7 @@ func (a *app) editorCommand(name string) bool {
 	case "copy", "cut":
 		a.noteCopy()
 	case "paste":
-		if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
-			return true
-		}
-		a.notePaste()
+		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
 	}
 	return false
 }
@@ -102,10 +104,7 @@ func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
 	case ui.KeyC, ui.KeyX:
 		a.noteCopy()
 	case ui.KeyV:
-		if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
-			return true
-		}
-		a.notePaste()
+		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
 	}
 	return false
 }
@@ -209,7 +208,8 @@ func (a *app) insertBlocks(t richtext.Text) {
 	a.refocus = true
 }
 
-// noteCopy keeps the selection as Markdown when a block in it has an ID the editor's copy would lose.
+// noteCopy keeps the selection as Markdown when a block in it has an ID the editor's copy would lose, and as it is
+// when it holds a chip.
 func (a *app) noteCopy() {
 	a.ownClip = ownClip{}
 	t := a.doc.Text()
@@ -225,14 +225,34 @@ func (a *app) noteCopy() {
 			return
 		}
 	}
+	for _, r := range src.Runs(0, src.Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if _, ok := att.Data.(*chip); ok {
+				a.ownClip = ownClip{plain: src.PlainText(), rich: src}
+				return
+			}
+		}
+	}
 }
 
-// pasteOwn pastes the blocks of the last copy, when the clipboard still holds its text; otherwise the editor pastes.
+// pasteOwn pastes the blocks of the last copy, or its text with chips of its own (copyChipsIn), when the clipboard
+// still holds its text; otherwise the editor pastes.
 func (a *app) pasteOwn() bool {
 	c := a.ownClip
-	if c.md == "" || a.readClip() != c.plain {
+	if c.md == "" && c.rich.Len() == 0 || a.readClip() != c.plain {
 		return false
 	}
-	a.insertBlocks(a.parse(c.md))
+	if c.md != "" {
+		a.insertBlocks(a.parse(c.md))
+		return true
+	}
+	t := a.copyChipsIn(c.rich)
+	sa, sc := a.doc.Selection()
+	s, e := min(sa, sc), max(sa, sc)
+	a.doc.Edit(func(ed *richtext.Edit) { // as the editor pastes, in one step of undo
+		ed.Replace(s, e, t)
+		ed.Select(s+t.Len(), s+t.Len())
+	})
+	a.refocus = true
 	return true
 }

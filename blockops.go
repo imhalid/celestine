@@ -218,11 +218,15 @@ func moveBlockTo(doc *richtext.Document, s, e, to int) int {
 	return at
 }
 
-// duplicateBlock puts a copy of the block holding rune at right after it.
-func duplicateBlock(doc *richtext.Document, at int) {
+// duplicateBlock puts a copy of the block holding rune at right after it, its chips made their own by own (copyChipsIn:
+// a task duplicated has a box of its own, #539); nil copies the text as it is.
+func duplicateBlock(doc *richtext.Document, at int, own func(richtext.Text) richtext.Text) {
 	t := doc.Text()
 	s, e := blockOf(t, at)
 	blk := t.Slice(s, e)
+	if own != nil {
+		blk = own(blk)
+	}
 	st := t.ParagraphStyleAt(s)
 	styles := paraStyles(t)
 	i0, i1 := paraIndex(t, s), paraIndex(t, e)

@@ -768,7 +768,7 @@ func (a *app) blockItems() []menuItem {
 	fold = append(fold, a.listItems(at)...) // how its list looks (listmarks.go)
 	return append(fold, []menuItem{
 		{title: "blocks_turnInto", glyph: iconFormat, items: turn},
-		{title: "duplicate2", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at) })},
+		{title: "duplicate2", hint: "⌘D", glyph: iconDuplicate, run: done(func() { duplicateBlock(a.doc, at, a.copyChipsIn) })},
 		{title: "moveUp", hint: "⌘⇧↑", glyph: iconMoveUp, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, -1) })},
 		{title: "moveDown", hint: "⌘⇧↓", glyph: iconMoveDown, run: done(func() { a.doc.SetSelection(at, at); moveBlock(a.doc, 1) })},
 		{title: "common_delete", group: "~", glyph: iconTrash, danger: true, run: done(func() { deleteBlock(a.doc, at) })},
