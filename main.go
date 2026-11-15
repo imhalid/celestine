@@ -332,6 +332,8 @@ type app struct {
 	clipWrite     func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
 	clipRead      func() string                             // and to read
 	ownClip       ownClip                                   // the blocks of the last copy in the editor (clipmodes.go)
+	pasting       bool                                      // the editor is pasting: its chips are looked at as the text comes in (ownPastedChips)
+	pasteAt       int                                       // where the paste goes: the start of the selection it is made over
 	carry         dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
 	panesR        ui.Rect                                   // where the panes were, last frame
 	sidebarR      ui.Rect                                   // where the sidebar was, last frame
@@ -1619,6 +1621,16 @@ func (a *app) track(c *ui.Context) {
 		style = text.ParagraphStyleAt(caret)
 		n = text.Len()
 		a.length, a.caretAt = n, caret
+	}
+	// the editor's own paste: its chips made the pasted text's own (chips.go)
+	if a.pasting {
+		a.pasting = false
+		if a.ownPastedChips(a.pasteAt, caret) {
+			_, caret = a.doc.Selection()
+			text, v = a.doc.Text(), a.doc.Version()
+			style = text.ParagraphStyleAt(caret)
+			n = text.Len()
+		}
 	}
 	switch grew := n - a.length; {
 	case grew > 0 && caret-a.caretAt == grew && grew <= 8:

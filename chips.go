@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -171,6 +172,121 @@ func chipsIn(t richtext.Text) richtext.Text {
 	return t
 }
 
+// chipAttachment is chip ch drawn, as its kind is: a chip in the line, a page embedded, a footnote, a query, a table.
+func (a *app) chipAttachment(ch *chip) *richtext.Attachment {
+	switch ch.kind {
+	case "embed":
+		return a.embedAttachment(ch)
+	case "footnote":
+		return a.footnoteAttachment(ch)
+	case "query":
+		return a.queryAttachment(ch)
+	case "table":
+		ch.tw = a.tableWidths(ch.tbl)
+		return a.tableAttachment(ch)
+	}
+	return a.attachment(ch)
+}
+
+// copyChip is a chip of its own that says what ch says: what a table, a fold or a zoom holds is copied too, and
+// the chips in what a fold or a zoom hides are made their own as well. A chip is found in the text by what it is
+// (toggleCheckChip, tablePos, a fold's hidden text), so two places in a page never share one (#539).
+func (a *app) copyChip(ch *chip) *chip {
+	c := *ch
+	if ch.tbl != nil {
+		c.tbl = ch.tbl.clone()
+	}
+	c.tw = slices.Clone(ch.tw)
+	c.raw = slices.Clone(ch.raw)
+	if ch.hidden != nil {
+		h := a.copyChipsIn(*ch.hidden)
+		c.hidden = &h
+	}
+	return &c
+}
+
+// copyChipsIn is t with each of its chips one of its own (copyChip), drawn.
+func (a *app) copyChipsIn(t richtext.Text) richtext.Text {
+	type obj struct {
+		i     int
+		ch    *chip
+		attrs richtext.Attributes
+	}
+	var found []obj
+	for i, r := range t.Runs(0, t.Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok {
+				found = append(found, obj{i, ch, r.Attributes})
+			}
+		}
+	}
+	for _, o := range found { // an object for an object: the places stay
+		o.attrs.Attachment = a.chipAttachment(a.copyChip(o.ch))
+		t = t.ReplaceString(o.i, o.i+1, string(richtext.ObjectReplacement), o.attrs)
+	}
+	return t
+}
+
+// notePaste notes that the editor is about to paste, over the selection: the text it brings is looked at as it
+// comes in (ownPastedChips).
+func (a *app) notePaste() {
+	s, e := a.doc.Selection()
+	a.pasting, a.pasteAt = true, min(s, e)
+}
+
+// ownPastedChips gives the chips of the text just pasted from..to their own, where the page has them elsewhere
+// too: the editor pastes its own copy with the very objects it was copied from, so a task copied and pasted shared
+// one box with the first, and ticking one ticked both (#539). Every kind is copied (copyChip): a link's, a date's, a
+// file's, a task's, a footnote's, an embedded page's, a query's, a table's, a fold's and a zoom's. It reports
+// whether it changed any; the caret stays where it is.
+func (a *app) ownPastedChips(from, to int) bool {
+	t := a.doc.Text()
+	if from < 0 || to > t.Len() || from >= to {
+		return false
+	}
+	type obj struct {
+		i     int
+		ch    *chip
+		attrs richtext.Attributes
+	}
+	var pasted []obj
+	elsewhere := map[*chip]bool{}
+	for i, r := range t.Runs(0, t.Len()) {
+		att := r.Attributes.Attachment
+		if att == nil {
+			continue
+		}
+		ch, ok := att.Data.(*chip)
+		if !ok {
+			continue
+		}
+		if i >= from && i < to {
+			pasted = append(pasted, obj{i, ch, r.Attributes})
+		} else {
+			elsewhere[ch] = true
+		}
+	}
+	var todo []obj
+	for _, o := range pasted {
+		if elsewhere[o.ch] {
+			todo = append(todo, o)
+		}
+		elsewhere[o.ch] = true // the same chip twice in what was pasted: the second gets its own
+	}
+	if len(todo) == 0 {
+		return false
+	}
+	an, ca := a.doc.Selection()
+	a.doc.Edit(func(ed *richtext.Edit) {
+		for _, o := range todo {
+			o.attrs.Attachment = a.chipAttachment(a.copyChip(o.ch))
+			ed.ReplaceString(o.i, o.i+1, string(richtext.ObjectReplacement), o.attrs)
+		}
+		ed.Select(an, ca)
+	})
+	return true
+}
+
 // dress gives the objects of t, read from a page p's body (or its Markdown),
 // their drawing: chips, cards, tables and pictures, which carry only what they are.
 func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
@@ -189,18 +305,8 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 		var att *richtext.Attachment
 		switch d := o.attrs.Attachment.Data.(type) {
 		case *chip:
-			switch d.kind {
-			case "page", "date", "file", "check", unknownKind:
-				att = a.attachment(d)
-			case "embed":
-				att = a.embedAttachment(d)
-			case "footnote":
-				att = a.footnoteAttachment(d)
-			case "query":
-				att = a.queryAttachment(d)
-			case "table":
-				d.tw = a.tableWidths(d.tbl)
-				att = a.tableAttachment(d)
+			if d.kind != "fold" && d.kind != "zoom" { // made drawn, by what makes them
+				att = a.chipAttachment(d)
 			}
 		case nil:
 			if u := o.attrs.Attachment; u.URL != "" && p != nil {

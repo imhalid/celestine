@@ -85,7 +85,10 @@ func (a *app) editorCommand(name string) bool {
 	case "copy", "cut":
 		a.noteCopy()
 	case "paste":
-		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
+		if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
+			return true
+		}
+		a.notePaste()
 	}
 	return false
 }
@@ -99,7 +102,10 @@ func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
 	case ui.KeyC, ui.KeyX:
 		a.noteCopy()
 	case ui.KeyV:
-		return a.pasteLink() || a.pasteOwn() || a.pasteMarkdown()
+		if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
+			return true
+		}
+		a.notePaste()
 	}
 	return false
 }
