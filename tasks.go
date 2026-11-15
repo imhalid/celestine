@@ -20,10 +20,10 @@ import (
 // with the backlinks' index (backlinks.go), in the same pass; ticking one
 // writes the page's file (and the page's text, if it is open) at once.
 
-var taskLine = regexp.MustCompile(`^(\s*)[-*+]\s+\[([ xX*!?/e])\]\s*(.*?)\s*$`)
+var taskLine = regexp.MustCompile(`^(\s*)(?:[-*+]|\d+[.)])\s+\[([ xX*!?/e])\]\s*(.*?)\s*$`)
 
 // taskBox is the box of a task's line, and what is before it: a kind of task's too (taskkinds.go).
-var taskBox = regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\]`)
+var taskBox = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[[ xX*!?/e]\]`)
 
 // taskItem is a task: its page, which line of the page's Markdown, whether
 // it is done, and what it says.
@@ -951,7 +951,7 @@ func parseEvery(s string) (recur, bool) {
 }
 
 // taskLineRe matches a markdown task list item with its checkbox marker.
-var taskLineRe = regexp.MustCompile(`^(\s*[-*+]\s+)\[[ xX*!?/e]\](\s*)(.*)$`)
+var taskLineRe = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[[ xX*!?/e]\](\s*)(.*)$`)
 
 // next returns the first recurrence date after d.
 func (r recur) next(d time.Time) time.Time { return r.nextN(d, 1) }
@@ -1048,12 +1048,16 @@ func rollRecurringIn(doc *richtext.Document, now time.Time, parse func(string) r
 	for i := len(at) - 1; i >= 0; i-- {
 		s, e := text.ParagraphRange(at[i])
 		line := strings.TrimRight(bodyMarkdown(text.Slice(s, e)), "\n")
+		look := "" // the comment of its list's look over it, when it says the look (listmd.go)
+		if k := strings.LastIndexByte(line, '\n'); k >= 0 && strings.HasPrefix(strings.TrimLeft(line, "> "), listMarkStart) {
+			look, line = line[:k+1], line[k+1:]
+		}
 		next, ok := comesAgain(line, now)
 		if !ok {
 			continue
 		}
 		done := everyTok.ReplaceAllString(line, "")
-		doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, parse(done+"\n"+next)) })
+		doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, parse(look+done+"\n"+next)) })
 		text = doc.Text()
 	}
 }

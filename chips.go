@@ -190,7 +190,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 		switch d := o.attrs.Attachment.Data.(type) {
 		case *chip:
 			switch d.kind {
-			case "page", "date", "file", unknownKind:
+			case "page", "date", "file", "check", unknownKind:
 				att = a.attachment(d)
 			case "embed":
 				att = a.embedAttachment(d)

@@ -14,7 +14,8 @@ import (
 func TestTasksOf(t *testing.T) {
 	p := &Page{}
 	got := tasksOf(p, "- [ ] bir [[Sayfa|ad]] görevi\n- [x] bitti\ntext\n  * [X] iç\n```\n- [ ] kodda\n```\n- [ ]\n1. [ ] numaralı")
-	if len(got) != 3 || got[0].text != "bir ad görevi" || got[0].done || !got[1].done || got[1].line != 1 || !got[2].done || got[2].line != 3 {
+	// a numbered task is a task too, as the page reads it (#536)
+	if len(got) != 4 || got[0].text != "bir ad görevi" || got[0].done || !got[1].done || got[1].line != 1 || !got[2].done || got[2].line != 3 || got[3].text != "numaralı" || got[3].line != 8 {
 		t.Fatalf("%+v", got)
 	}
 }

@@ -70,6 +70,11 @@ func parseBody(md string) richtext.Text {
 		afterHeld = true
 	}
 	blank := func(i int) bool { return i < 0 || strings.TrimSpace(lines[i]) == "" }
+	// lists' looks and tasks in the running text (listmd.go): tokens in the lines, what they say after richtext
+	var looks []string
+	look, tokens := -1, false // the look of the line after a list's comment
+	refX := refDefX.MatchString(md)
+	plain := strings.ContainsAny(md, listRunes) // its characters are text already: read as before
 	for i := 0; i < len(lines); {
 		l := lines[i]
 		t := strings.TrimSpace(l)
@@ -95,8 +100,14 @@ func parseBody(md string) richtext.Text {
 				continue
 			}
 		}
+		if m, ok := listMarkAt(lines, i); ok && !plain { // the line under it says it
+			look = len(looks)
+			looks = append(looks, m)
+			i++
+			continue
+		}
 		if indent <= 3 {
-			if kind, n := rawBlock(lines, i, blank(i-1)); n > 0 {
+			if kind, n := rawBlockOf(lines, i, blank(i-1), !plain); n > 0 {
 				hold(heldBlock{kind: kind, text: strings.Join(lines[i:i+n], "\n")})
 				i += n
 				continue
@@ -111,12 +122,28 @@ func parseBody(md string) richtext.Text {
 		if footDef.MatchString(l) && len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
 			out = append(out, "") // a footnote's note is a paragraph of its own, under another note too (#308)
 		}
-		out = append(out, protectInline(l))
+		l = protectInline(l)
+		if !plain {
+			l = inlineChecksIn(l, refX)
+			toks := ""
+			if look >= 0 {
+				toks, look = listToken(tokLook, look), -1
+			}
+			if numberedTaskLine.MatchString(l) {
+				toks += listToken(tokNumbered, 0)
+			}
+			l = withItemTokens(l, toks)
+			tokens = tokens || strings.ContainsAny(l, listTokens)
+		}
+		out = append(out, l)
 		afterHeld = false
 		i++
 	}
 	kinds := taskKindsIn(out) // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
 	t := withTaskKinds(richtext.ParseMarkdown(strings.Join(out, "\n")), kinds)
+	if tokens {
+		t = listTokensIn(t, looks)
+	}
 	if len(held) == 0 {
 		return t
 	}
@@ -152,6 +179,11 @@ func parseBody(md string) richtext.Text {
 // a table, HTML, math, a footnote's definition, an Obsidian callout, or a
 // paragraph with HTML in it (only where a paragraph starts) - and its lines.
 func rawBlock(lines []string, i int, paraStart bool) (string, int) {
+	return rawBlockOf(lines, i, paraStart, true)
+}
+
+// rawBlockOf is rawBlock; looks says that a list's look (listmd.go) is no HTML of the paragraph it is in.
+func rawBlockOf(lines []string, i int, paraStart, looks bool) (string, int) {
 	l := lines[i]
 	until := func(j int, in func(string) bool) int {
 		for j < len(lines) && strings.TrimSpace(lines[j]) != "" && in(lines[j]) {
@@ -181,7 +213,10 @@ func rawBlock(lines []string, i int, paraStart bool) (string, int) {
 		return "html", until(i, any)
 	case paraStart:
 		n := until(i, any)
-		for _, s := range lines[i : i+n] {
+		for k, s := range lines[i : i+n] {
+			if _, look := listMarkAt(lines, i+k); look && looks { // a list's look, over an item of it
+				continue
+			}
 			if foreignHTML(withoutCode(s)) {
 				return "html", n
 			}
@@ -291,7 +326,8 @@ func outsideCode(l string, fn func(string) string) string {
 
 // bodyMarkdown writes the editor's text as the page's Markdown.
 func bodyMarkdown(t richtext.Text) string {
-	t = withoutChips(t) // chips are their [[links]] (chips.go)
+	// chips are their [[links]] (chips.go); tasks in the running text and lists' looks are tokens (listmd.go)
+	t, looks, marked := listTokensOut(unfold(t))
 	type span struct {
 		s, e int
 		h    heldBlock
@@ -349,6 +385,13 @@ func bodyMarkdown(t richtext.Text) string {
 	}
 	lines := strings.Split(t.Markdown(), "\n")
 	markTaskKinds(t, lines)
+	if marked {
+		lines = listMarksOut(lines, looks)
+	}
+	var text []bool // the lines of text, not of code: where a task in the running text can be written bare
+	if marked {
+		text = make([]bool, len(lines))
+	}
 	fence := ""
 	for i, l := range lines {
 		if m := tokenLine.FindStringSubmatch(l); m != nil {
@@ -368,6 +411,19 @@ func bodyMarkdown(t richtext.Text) string {
 		}
 		if fence == "" {
 			lines[i] = unescape(l)
+			if text != nil {
+				text[i] = true
+			}
+		}
+	}
+	if marked {
+		refX := refDefX.MatchString(strings.Join(lines, "\n"))
+		for i, l := range lines {
+			if text[i] {
+				lines[i] = checksOut(l, refX)
+			} else {
+				lines[i] = checksBare(l)
+			}
 		}
 	}
 	// footnotes' notes one under the other, as they are written: no empty line between two (#308)

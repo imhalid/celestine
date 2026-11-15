@@ -51,6 +51,9 @@ func plainText(md string) string {
 			gap = true
 			continue
 		}
+		if strings.HasPrefix(strings.TrimLeft(line, "> "), listMarkStart) {
+			continue // a list's look (listmd.go), no words of the page
+		}
 		line = cutBox(cutLineMark(line))
 		for i := 0; i < len(line); i++ { // by bytes: a letter of more than one is copied as it is
 			switch c := line[i]; c {

@@ -68,7 +68,7 @@ func (a *app) embedLines(p *Page) []string {
 				continue
 			}
 			t := strings.TrimSpace(ln)
-			if t == "" || t == "---" {
+			if t == "" || t == "---" || listMarkLine.MatchString(ln) { // a list's look, which no reader shows (listmd.go)
 				continue
 			}
 			if m := h1Line.FindStringSubmatch(ln); m != nil && len(out) == 0 && strings.EqualFold(strings.TrimSpace(m[1]), p.Title) {

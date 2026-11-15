@@ -26,6 +26,9 @@ var bodySeeds = []string{
 	`[{"r":[{"t":"￼","o":{"k":"future","what":[1,2]}}]}]`,
 	`[{"s":{"codeBlock":true,"id":"celestine:code:go"},"r":[{"t":"x := 1"}]},{"s":{"codeBlock":true},"r":[{"t":"y"}]}]`,
 	`[{"r":[{"t":"a","w":400},{"t":""},{"t":"b","l":"https://x.y","u":true,"x":true,"c":true,"g":"m"}]}]`,
+	`[{"r":[{"t":"Buy "},{"t":"￼","o":{"k":"check"}},{"t":" milk "},{"t":"￼","o":{"k":"check","target":"x"}}]}]`,
+	`[{"s":{"list":3,"id":"celestine:list:num=roman\u0026task=number"},"r":[{"t":"a"}]},{"s":{"list":3,"checked":true},"r":[{"t":"b"}]}]`,
+	`[{"s":{"list":1,"id":"celestine:list:mark=%E2%AD%90"},"r":[{"t":"a"}]},{"s":{"list":1,"indent":1,"id":"celestine:list:mark=icon%3Aarrow"},"r":[{"t":"b"}]}]`,
 }
 
 func FuzzBodyRoundTrip(f *testing.F) {
@@ -71,16 +74,21 @@ func TestBodyUnknownField(t *testing.T) {
 }
 
 func FuzzParseBody(f *testing.F) {
-	for _, s := range []string{"# a\n\n- [*] b\n\n```go\nx\n```\n---\n", "[[_x]] [^1] <u>u</u> $$x$$\r\n", "| a |\n|---|\n| b |"} {
+	for _, s := range []string{"# a\n\n- [*] b\n\n```go\nx\n```\n---\n", "[[_x]] [^1] <u>u</u> $$x$$\r\n", "| a |\n|---|\n| b |",
+		"Buy [ ] milk [x] \\[ \\] `[x]` [x](u) [[a [x]]]\n\n1. [ ] a\n2. [x] b",
+		"- a\n    <!--celestine:list mark=%E2%AD%90-->\n    - b\n> <!--celestine:list num=roman-->\n> 1. c\n<!--celestine:list -->\n",
+		"\uE002\uE004" + "9\uE005\uE006x\uE005", "- \uE004-1\uE005 a"} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, md string) {
 		if len(md) > 4096 {
 			return
 		}
-		body := encodeBody(parseBody(md))
+		tx := parseBody(md)
+		body := encodeBody(tx)
 		if !json.Valid([]byte(body)) {
 			t.Fatalf("not JSON from %q", md)
 		}
+		bodyMarkdown(tx) // and written back, its tasks and lists' looks too (listmd.go), without a panic
 	})
 }
