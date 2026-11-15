@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,21 @@ func TestCaretTiles(t *testing.T) {
 		if !tt.HasText(msg(caretName(k))) { // shown in the window's language: Line is Çizgi
 			t.Fatalf("no tile for %s: %v", caretName(k), tt.Texts())
 		}
+	}
+}
+
+// TestCaretSleepShapes: a z takes a few sizes and tilts over its life, whatever its seed, so the masks MyGo keeps
+// for them repeat; a shape new at each frame filled MyGo's atlas, which painted the whole window again (#558).
+func TestCaretSleepShapes(t *testing.T) {
+	shapes := map[[2]float64]bool{}
+	for n := range 20 {
+		seed := float64(n) * 1.7
+		for age := 0.0; age < 1; age += 1.0 / 240 {
+			shapes[[2]float64{snapZ(age, sleepZSizes), snapZ(math.Sin(age*4+seed), 1)}] = true
+		}
+	}
+	if len(shapes) > 3*(sleepZSizes+1) {
+		t.Errorf("the z's take %d shapes, more than %d", len(shapes), 3*(sleepZSizes+1))
 	}
 }
 

@@ -128,6 +128,13 @@ func (s *sleeper) breathe(now time.Time, f caretFrame) (t ui.Transform, px, py f
 	return ui.Scaling(f32(sx), f32(sy)), box.X + box.W/2, box.Y + box.H, true
 }
 
+// sleepZSizes is how many sizes a z takes over its life after the first; with its three tilts, the shapes the z's
+// are drawn in are a few dozen at most.
+const sleepZSizes = 7
+
+// snapZ rounds v to the nearest 1/per, so that a z's shapes repeat.
+func snapZ(v, per float64) float64 { return math.Round(v*per) / per }
+
 // zPath is a z, as lines, centered on (x, y), half a side s, turned by ang: drawn as a shape it
 // stays steady as it grows and fades, where a letter of text shimmers.
 func zPath(x, y, s, ang float64) *ui.Path {
@@ -159,11 +166,15 @@ func (s *sleeper) draw(p *ui.Painter, f caretFrame, ink ui.Color) {
 		}
 		out = append(out, z)
 		fade := smoothstep(age/0.18) * (1 - smoothstep((age-0.55)/0.45)) // thin at both ends
-		x := float64(box.X+box.W) + 3 + age*30 + math.Sin(age*5+z.seed)*3
-		y := float64(box.Y) - 2 - age*38
-		sc := 0.6 + 0.8*age
+		// The z's place, size, tilt and stroke are taken in steps: MyGo keeps a mask for each shape it strokes, and
+		// a shape new at each frame would fill its atlas, which then paints the whole window again (#558).
+		// Its place is in whole pixels, so that a shape is the same wherever it is drawn.
+		x := math.Round(float64(box.X+box.W) + 3 + age*30 + math.Sin(age*5+z.seed)*3)
+		y := math.Round(float64(box.Y) - 2 - age*38)
+		sc := 0.6 + 0.8*snapZ(age, sleepZSizes)
 		hs := float64(size) * 0.19 * sc
-		p.StrokePath(zPath(x, y, hs, -0.18+0.12*math.Sin(age*4+z.seed)), f32(math.Max(2, hs*0.55)), withAlpha(ink, 0.85*fade))
+		tilt := -0.18 + 0.12*snapZ(math.Sin(age*4+z.seed), 1)
+		p.StrokePath(zPath(x, y, hs, tilt), f32(math.Max(2, hs*0.55)), withAlpha(ink, 0.85*fade))
 	}
 	s.zs = out
 }
