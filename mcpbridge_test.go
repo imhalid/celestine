@@ -200,3 +200,15 @@ func TestMCPRelayReturnsErrorOnFailure(t *testing.T) {
 		t.Fatalf("expected server EOF error, got %v", err)
 	}
 }
+
+// TestMCPBridgeAppImageEnv: the bridge does not pass on APPIMAGE and APPDIR that another AppImage (the agent) gave
+// it to the app it starts, unless it runs from an AppImage itself (#527).
+func TestMCPBridgeAppImageEnv(t *testing.T) {
+	env := []string{"HOME=/home/u", "APPIMAGE=/opt/Cursor.AppImage", "APPDIR=/tmp/.mount_Cursor", "APPIMAGE_EXTRA=1"}
+	if got := mcpAppEnv(env, false); !slices.Equal(got, []string{"HOME=/home/u", "APPIMAGE_EXTRA=1"}) {
+		t.Errorf("mcpAppEnv = %v", got)
+	}
+	if got := mcpAppEnv(env, true); !slices.Equal(got, env) {
+		t.Errorf("mcpAppEnv, its own AppImage = %v", got)
+	}
+}

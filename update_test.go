@@ -985,12 +985,21 @@ func TestUpdateTrialRestartArgs(t *testing.T) {
 
 // TestUpdatePlatformAppImage: a program run from an AppImage takes the AppImage's asset, which replaces the
 // AppImage file, as the program in its read-only mount cannot be replaced (#513); elsewhere APPIMAGE changes
-// nothing, and a path that is not a file is not taken for one.
+// nothing, a path that is not a file is not taken for one, and neither is an AppImage without its mount.
 func TestUpdatePlatformAppImage(t *testing.T) {
 	plain := runtime.GOOS + "-" + runtime.GOARCH
-	img := filepath.Join(t.TempDir(), "Celestine.AppImage")
+	tmp := t.TempDir()
+	img := filepath.Join(tmp, "Celestine.AppImage")
 	os.WriteFile(img, []byte("appimage"), 0o755)
+	mount := filepath.Join(tmp, ".mount_Celest")
+	os.MkdirAll(filepath.Join(mount, "usr", "bin"), 0o755)
+	exe := filepath.Join(mount, "usr", "bin", "celestine")
+	os.WriteFile(exe, []byte("program"), 0o755)
+	old := appExecutable
+	t.Cleanup(func() { appExecutable = old })
+	appExecutable = func() (string, error) { return exe, nil }
 	t.Setenv("APPIMAGE", img)
+	t.Setenv("APPDIR", mount)
 	want, wantPath := plain, ""
 	if runtime.GOOS == "linux" {
 		want, wantPath = plain+"-appimage", img
@@ -1001,10 +1010,78 @@ func TestUpdatePlatformAppImage(t *testing.T) {
 	if got := appImagePath(); got != wantPath {
 		t.Errorf("appImagePath = %q, want %q", got, wantPath)
 	}
+	if got := appImageOf(img, mount, exe); got != img {
+		t.Errorf("appImageOf, the program in the mount = %q, want %q", got, img)
+	}
 	for _, p := range []string{"", "relative/Celestine.AppImage", filepath.Dir(img), img + ".gone"} {
 		t.Setenv("APPIMAGE", p)
 		if got := updatePlatform(); got != plain {
 			t.Errorf("APPIMAGE=%q: updatePlatform = %q, want %q", p, got, plain)
+		}
+		if got := appImageOf(p, mount, exe); got != "" {
+			t.Errorf("appImageOf(%q) = %q, want none", p, got)
+		}
+	}
+	t.Setenv("APPIMAGE", img)
+	t.Setenv("APPDIR", "")
+	if got := updatePlatform(); got != plain {
+		t.Errorf("no APPDIR: updatePlatform = %q, want %q", got, plain)
+	}
+	if got := appImageOf(img, "", exe); got != "" {
+		t.Errorf("appImageOf, no APPDIR = %q, want none", got)
+	}
+}
+
+// TestUpdateInheritedAppImage: APPIMAGE and APPDIR passed on by another AppImage (Cursor starting `celestine mcp`,
+// a terminal run from one) to a program installed elsewhere do not make the updater take that AppImage for its
+// own, which it would replace and then delete (#527); links are followed both ways.
+func TestUpdateInheritedAppImage(t *testing.T) {
+	plain := runtime.GOOS + "-" + runtime.GOARCH
+	tmp := t.TempDir()
+	cursor := filepath.Join(tmp, "Cursor.AppImage")
+	os.WriteFile(cursor, []byte("cursor"), 0o755)
+	mount := filepath.Join(tmp, ".mount_Cursor")
+	os.MkdirAll(mount, 0o755)
+	in := filepath.Join(mount, "cursor")
+	os.WriteFile(in, []byte("cursor"), 0o755)
+	bin := filepath.Join(tmp, "bin")
+	os.MkdirAll(bin, 0o755)
+	exe := filepath.Join(bin, "celestine")
+	os.WriteFile(exe, []byte("program"), 0o755)
+	old := appExecutable
+	t.Cleanup(func() { appExecutable = old })
+	appExecutable = func() (string, error) { return exe, nil }
+	t.Setenv("APPIMAGE", cursor)
+	t.Setenv("APPDIR", mount)
+	if got := appImagePath(); got != "" {
+		t.Errorf("appImagePath = %q, want none: the program is not in %s", got, mount)
+	}
+	if got := updatePlatform(); got != plain {
+		t.Errorf("updatePlatform = %q, want %q", got, plain)
+	}
+	if got := appImageOf(cursor, mount, exe); got != "" {
+		t.Errorf("appImageOf, a program outside the mount = %q, want none", got)
+	}
+	// a sibling whose name starts with the mount's is not inside it, nor is the mount itself
+	sibling := mount + "2"
+	os.MkdirAll(sibling, 0o755)
+	os.WriteFile(filepath.Join(sibling, "x"), nil, 0o755)
+	if got := appImageOf(cursor, mount, filepath.Join(sibling, "x")); got != "" {
+		t.Errorf("appImageOf, a sibling of the mount = %q, want none", got)
+	}
+	if got := appImageOf(cursor, mount, mount); got != "" {
+		t.Errorf("appImageOf, the mount itself = %q, want none", got)
+	}
+	// a link in the mount to a program outside it is the program outside
+	if err := os.Symlink(exe, filepath.Join(mount, "celestine")); err == nil {
+		if got := appImageOf(cursor, mount, filepath.Join(mount, "celestine")); got != "" {
+			t.Errorf("appImageOf, a link out of the mount = %q, want none", got)
+		}
+	}
+	// a link outside the mount to a program in it is the program in it
+	if err := os.Symlink(in, filepath.Join(bin, "cursor")); err == nil {
+		if got := appImageOf(cursor, mount, filepath.Join(bin, "cursor")); got != cursor {
+			t.Errorf("appImageOf, a link into the mount = %q, want %q", got, cursor)
 		}
 	}
 }

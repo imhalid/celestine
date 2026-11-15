@@ -281,19 +281,46 @@ func fetchRelease(ctx context.Context, u, current, channel string, skip string) 
 }
 
 // appImagePath is the AppImage this program runs from, or "": the runtime of an AppImage sets APPIMAGE to the
-// file's path, and the program itself is in a read-only mount that cannot be replaced (#513).
+// file's path and APPDIR to its mount, and the program itself is in that read-only mount, which cannot be replaced
+// (#513). The runtime passes both on to every process the AppImage starts, so a program started from another
+// AppImage (an agent's `celestine mcp`, a terminal) sees that one's: only a program inside APPDIR runs from
+// APPIMAGE, else the updater would replace, and then delete, another program's file (#527).
 func appImagePath() string {
 	if runtime.GOOS != "linux" {
 		return ""
 	}
-	p := os.Getenv("APPIMAGE")
-	if !filepath.IsAbs(p) {
+	exe, err := appExecutable()
+	if err != nil {
 		return ""
 	}
-	if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() {
+	return appImageOf(os.Getenv("APPIMAGE"), os.Getenv("APPDIR"), exe)
+}
+
+// appExecutable is os.Executable, the path of this program; a test points it into or out of an AppImage's mount.
+var appExecutable = os.Executable
+
+// appImageOf is img, the AppImage file of APPIMAGE, when the program at exe runs from it: img is a regular file
+// and exe, with its links followed, is inside appDir, the AppImage's mount; else "".
+func appImageOf(img, appDir, exe string) string {
+	if !filepath.IsAbs(img) || !filepath.IsAbs(appDir) {
 		return ""
 	}
-	return p
+	if st, err := os.Stat(img); err != nil || !st.Mode().IsRegular() {
+		return ""
+	}
+	dir, err := filepath.EvalSymlinks(appDir)
+	if err != nil {
+		return ""
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return ""
+	}
+	rel, err := filepath.Rel(dir, exe)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	return img
 }
 
 // updatePlatform is the key of this program's build among a release's assets: "darwin-arm64", "windows-amd64",

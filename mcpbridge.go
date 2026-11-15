@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -37,6 +38,7 @@ func runMCP(args []string) int {
 		}
 		// the app, or the running app it hands its command line to, turns its server on
 		cmd := exec.Command(exe, append([]string{mcpFlag}, args...)...)
+		cmd.Env = mcpAppEnv(os.Environ(), appImagePath() != "")
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintln(os.Stderr, "celestine mcp: the app could not be started:", err)
 			return 1
@@ -65,6 +67,23 @@ func runMCP(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// mcpAppEnv is the environment the bridge starts the app with: its own, less APPIMAGE and APPDIR when the bridge
+// does not run from an AppImage (ownAppImage), as those were then passed on by another AppImage that started the
+// agent, and name that one's file, not the app's (#527).
+func mcpAppEnv(env []string, ownAppImage bool) []string {
+	if ownAppImage {
+		return env
+	}
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "APPIMAGE=") || strings.HasPrefix(kv, "APPDIR=") {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
 }
 
 // mcpClientTransport is the way to the app's server on port, with its token.
