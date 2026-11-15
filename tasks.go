@@ -157,10 +157,15 @@ func (a *app) openTasks() {
 // taskToggle is a task ticked off, or on again, as its page's new body: made away from the window (prepareToggle),
 // written under its lock (applyToggle).
 type taskToggle struct {
-	t     taskItem
-	err   error
-	stale bool   // the page changed since the task was read: nothing to write
-	saved string // the page's new body
+	t      taskItem
+	err    error
+	stale  bool   // the page changed since the task was read: nothing to write
+	saved  string // the page's new body
+	writes int    // how many times the page had been written when its body was read (pageRead)
+	// how the toggle is made again from the page as it is, when the page was written since it was read, and how many
+	// times it was made: nil for one made under the window's lock, which nothing writes in between (#530)
+	again func(pageRead) taskToggle
+	tries int
 	// what the indexes keep of the page, when its Markdown is the old one with the task's box changed: the index
 	// is not read again from the whole page, which took most of a second on one of thirty thousand lines (#504)
 	text   string
@@ -169,13 +174,34 @@ type taskToggle struct {
 	folded string
 }
 
-// prepareToggle reads task t's page and makes its body with the task ticked off, or on again. It reads nothing of
-// the app's but the page's file, and may run away from the window. The body is changed where the task is, not
-// written again from its Markdown, which loses what Markdown cannot say (#123).
-func prepareToggle(t taskItem, now time.Time) taskToggle {
-	j := taskToggle{t: t}
+// pageRead is where a page's file is and how many times the page had been written, read under the window's lock,
+// for its body to be read away from it: a write after it is known by the count (#530).
+type pageRead struct {
+	fs     FS
+	file   string
+	writes int
+}
+
+// readOf is page p's pageRead, under the window's lock.
+func readOf(p *Page) pageRead { return pageRead{p.FS(), p.File(), p.Writes} }
+
+// body reads the page's body from its file.
+func (r pageRead) body() (string, error) {
+	src, err := r.fs.ReadFile(r.file)
+	if err != nil {
+		return "", err
+	}
+	_, body, err := SplitPageChecked(src)
+	return body, err
+}
+
+// prepareToggle reads task t's page from r and makes its body with the task ticked off, or on again. It reads
+// nothing of the app's but the page's file, and may run away from the window. The body is changed where the task
+// is, not written again from its Markdown, which loses what Markdown cannot say (#123).
+func prepareToggle(t taskItem, r pageRead, now time.Time) taskToggle {
+	j := taskToggle{t: t, writes: r.writes}
 	p := t.page
-	body, err := p.Body()
+	body, err := r.body()
 	if err == nil {
 		err = bodyReadable(body) // what this version does not read would be dropped by writing it again
 	}
@@ -211,10 +237,26 @@ func prepareToggle(t taskItem, now time.Time) taskToggle {
 	return j
 }
 
+// taskToggleTries is how many times a toggle is made again from its page when the page is written meanwhile.
+const taskToggleTries = 3
+
 // applyToggle writes a task's toggle made by prepareToggle, under the window's lock: the page's file, its text in
-// the editor where it is open, and the indexes.
+// the editor where it is open, and the indexes. What is typed in the page and not yet saved is saved first; a page
+// written since its body was read is not written over, which would lose the newer text: the toggle is made again
+// from the page as it is now (#530).
 func (a *app) applyToggle(j taskToggle) {
 	p := j.t.page
+	if a.docs[p] != nil {
+		a.flush()
+	}
+	if p.Writes != j.writes {
+		if j.again != nil && j.tries < taskToggleTries {
+			a.toggleAway(p, j.again, j.tries+1)
+		} else {
+			a.linksStale() // read it again, as it is
+		}
+		return
+	}
 	switch {
 	case j.err != nil:
 		a.fail(j.err)
@@ -246,10 +288,10 @@ func (a *app) applyToggle(j taskToggle) {
 	a.linksStale()
 }
 
-// prepareClose reads page p and makes its body with the open tasks of ts ticked off: one write for them all.
-func prepareClose(p *Page, ts []taskItem, now time.Time) taskToggle {
-	j := taskToggle{t: taskItem{page: p}}
-	body, err := p.Body()
+// prepareClose reads page p from r and makes its body with the open tasks of ts ticked off: one write for them all.
+func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle {
+	j := taskToggle{t: taskItem{page: p}, writes: r.writes}
+	body, err := r.body()
 	if err == nil {
 		err = bodyReadable(body)
 	}
@@ -324,13 +366,26 @@ func (a *app) closeTasks(p *Page, ts []taskItem) {
 		}
 	}
 	now := a.clock()
+	a.toggleAway(p, func(r pageRead) taskToggle { return prepareClose(p, ts, r, now) }, 0)
+}
+
+// toggleAway makes a toggle of page p with prepare away from the window, one toggle after another, each reading
+// the page the one before wrote, and writes it under the window's lock (applyToggle). The page's file and its
+// count of writes are read under the lock, its body away from it; tries is how many times it was made before.
+func (a *app) toggleAway(p *Page, prepare func(pageRead) taskToggle, tries int) {
 	a.toggling.Add(1)
 	go func() {
 		defer a.toggling.Done()
 		defer a.guard()
 		a.toggleMu.Lock()
 		defer a.toggleMu.Unlock()
-		j := prepareClose(p, ts, now)
+		var r pageRead
+		a.do(func() error {
+			r = readOf(p)
+			return nil
+		})
+		j := prepare(r)
+		j.again, j.tries = prepare, tries
 		a.do(func() error {
 			a.applyToggle(j)
 			return nil
@@ -340,10 +395,10 @@ func (a *app) closeTasks(p *Page, ts []taskItem) {
 
 // toggleTask ticks a task off, or on again, at once: what an agent asks for, which reads the page after.
 func (a *app) toggleTask(t taskItem) {
-	if t.page == a.page {
+	if a.docs[t.page] != nil {
 		a.flush()
 	}
-	a.applyToggle(prepareToggle(t, a.clock()))
+	a.applyToggle(prepareToggle(t, readOf(t.page), a.clock()))
 }
 
 // toggleTaskSoon is toggleTask from the task view: the list shows the task ticked at once, and the page is read
@@ -361,18 +416,7 @@ func (a *app) toggleTaskSoon(t taskItem) {
 		}
 	}
 	now := a.clock()
-	a.toggling.Add(1)
-	go func() {
-		defer a.toggling.Done()
-		defer a.guard()
-		a.toggleMu.Lock() // one after another: each reads the page the one before wrote
-		defer a.toggleMu.Unlock()
-		j := prepareToggle(t, now)
-		a.do(func() error {
-			a.applyToggle(j)
-			return nil
-		})
-	}()
+	a.toggleAway(t.page, func(r pageRead) taskToggle { return prepareToggle(t, r, now) }, 0)
 }
 
 // taskParagraph is where in tx, page p's text, the task t starts: the paragraph of the task that is t's among the

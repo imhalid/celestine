@@ -155,3 +155,35 @@ func TestCompleteAllFindsTheParagraphs(t *testing.T) {
 		}
 	}
 }
+
+// TestToggleKeepsNewerEdits: a page written between the read of a task's toggle and its write, as an autosave of
+// what is typed in another pane, or typed and not yet saved, is not written over: the toggle is made again from
+// the page as it is, and both the typing and the tick are kept, in the file and in the editor (#530).
+func TestToggleKeepsNewerEdits(t *testing.T) {
+	for _, saved := range []bool{true, false} {
+		a, tt := newTestApp(t, "- [ ] one\n- [ ] two\n")
+		k := taskIn(t, a, "one")
+		now := a.clock()
+		prepare := func(r pageRead) taskToggle { return prepareToggle(k, r, now) }
+		j := prepare(readOf(a.page)) // read, as toggleAway reads it away from the window
+		j.again = prepare
+		a.doc.SetText(importMarkdown("- [ ] one\n- [ ] two\n\ntyped meanwhile\n"))
+		a.dirty = true
+		if saved {
+			a.save() // the autosave lands before the toggle is written
+		}
+		a.applyToggle(j)
+		a.toggling.Wait()
+		tt.Frame()
+		md, _ := a.page.Text()
+		if !strings.Contains(md, "typed meanwhile") || !strings.Contains(md, "- [x] one") || !strings.Contains(md, "- [ ] two") {
+			t.Fatalf("saved %v: the file is\n%s", saved, md)
+		}
+		if got := a.doc.Text().String(); !strings.Contains(got, "typed meanwhile") {
+			t.Fatalf("saved %v: the editor lost what was typed: %q", saved, got)
+		}
+		if !taskIn(t, a, "one").done {
+			t.Fatalf("saved %v: the index does not have it ticked", saved)
+		}
+	}
+}
