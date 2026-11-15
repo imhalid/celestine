@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -27,13 +28,54 @@ const (
 	linkImageMax = 4 << 20   // the largest picture taken for a link
 )
 
-// linkClient fetches pages and pictures for links: briefly, as a link waits for them.
-var linkClient = &http.Client{Timeout: 10 * time.Second}
+// linkClient fetches pages and pictures for links: briefly, as a link waits for them. Its transport (linkTransport)
+// connects only to public addresses, and each redirect is checked as the first address was (#532).
+var linkClient = &http.Client{
+	Timeout:   10 * time.Second,
+	Transport: linkTransport(),
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("too many redirects")
+		}
+		_, err := webURL(req.URL.String())
+		return err
+	},
+}
+
+// AllowLocalLinks lets links be fetched from this machine's loopback addresses: only a test does, for a server of
+// its own. Private, link-local and the other addresses of a network are refused all the same.
+var AllowLocalLinks = false
 
 // errNotWeb is an address that is not a web page's.
 var errNotWeb = errors.New("not a web address")
 
-// webURL is raw as an address of the web: http or https, with a host.
+// errPrivateAddr is an address of this machine or of its network, which a link is not fetched from (#532).
+var errPrivateAddr = errors.New("a private address")
+
+// cgnat is the shared address space of carrier-grade NAT (RFC 6598), private to a provider's network.
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+
+// publicAddr is whether ip is an address of the public internet, which a link may be fetched from: not this machine's
+// (loopback, unspecified), not a private network's (RFC 1918, unique-local fc00::/7, carrier-grade NAT), not
+// link-local, multicast or broadcast. An IPv4 address mapped into IPv6 is judged as itself. Loopback is let through
+// when AllowLocalLinks is set.
+func publicAddr(ip netip.Addr) bool {
+	ip = ip.Unmap()
+	switch {
+	case !ip.IsValid(), ip.IsUnspecified(), ip.IsPrivate(), ip.IsLinkLocalUnicast(), ip.IsMulticast(),
+		ip.IsInterfaceLocalMulticast(), ip.IsLinkLocalMulticast(), cgnat.Contains(ip):
+		return false
+	case ip.IsLoopback():
+		return AllowLocalLinks
+	case ip.Is4() && (ip.As4()[0] == 0 || ip == netip.AddrFrom4([4]byte{255, 255, 255, 255})):
+		return false // "this network" (0.0.0.0/8) and the broadcast address
+	}
+	return true
+}
+
+// webURL is raw as an address of the web: http or https, with a host that is not this machine's nor a private
+// network's when it is written as an address (or as localhost). A name is checked again when it is connected to,
+// against the addresses it resolves to (linkTransport).
 func webURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
@@ -41,6 +83,17 @@ func webURL(raw string) (*url.URL, error) {
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, errNotWeb
+	}
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if host == "" {
+		return nil, errNotWeb
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		if !AllowLocalLinks {
+			return nil, errPrivateAddr
+		}
+	} else if ip, err := netip.ParseAddr(host); err == nil && !publicAddr(ip.WithZone("")) {
+		return nil, errPrivateAddr
 	}
 	return u, nil
 }

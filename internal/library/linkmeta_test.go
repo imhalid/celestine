@@ -34,6 +34,7 @@ func TestFetchLinkMeta(t *testing.T) {
 	mux.HandleFunc("/huge.png", func(w http.ResponseWriter, r *http.Request) { w.Write(make([]byte, linkImageMax+10)) })
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
+	localLinks(t)
 	ctx := context.Background()
 
 	m, err := FetchLinkMeta(ctx, srv.URL+"/blog/../post")
@@ -64,4 +65,10 @@ func TestFetchLinkMeta(t *testing.T) {
 	if _, err := FetchLinkImage(ctx, srv.URL+"/huge.png"); err == nil || !strings.Contains(err.Error(), "large") {
 		t.Fatalf("a picture too large was taken: %v", err)
 	}
+}
+
+// localLinks lets links be fetched from a test's own server on 127.0.0.1 while the test runs.
+func localLinks(t *testing.T) {
+	AllowLocalLinks = true
+	t.Cleanup(func() { AllowLocalLinks = false })
 }

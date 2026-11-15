@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // linkSite is a web site of a test's own, with a page that has a title, an Open Graph picture and an icon; links
@@ -36,8 +37,8 @@ func linkSite(t *testing.T) *httptest.Server {
 	}
 	srv := httptest.NewServer(mux)
 	was := linkFetch
-	linkFetch = true
-	t.Cleanup(func() { linkFetch = was; srv.Close() })
+	linkFetch, library.AllowLocalLinks = true, true // the site is on 127.0.0.1
+	t.Cleanup(func() { linkFetch, library.AllowLocalLinks = was, false; srv.Close() })
 	return srv
 }
 
