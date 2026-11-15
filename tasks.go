@@ -124,24 +124,14 @@ func (a *app) allTasks(force bool) []taskItem {
 func (a *app) openTask(k taskItem) {
 	a.open(k.page)
 	body, _ := k.page.Text()
-	idx := 0
-	for _, t := range tasksOf(k.page, body) {
-		if t.line == k.line {
-			break
-		}
-		idx++
-	}
-	text := a.doc.Text()
-	n := 0
-	for at, para := range text.Paragraphs() {
-		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
-			continue
-		}
-		if n == idx {
-			a.gotoPos(at)
+	// the slots of the editor's text, without taskParagraphs' check that the two count the same: a fold in it
+	// hides tasks after the one gone to, and a caret in the wrong line changes nothing
+	slots := taskSlots(a.doc.Text())
+	for i, t := range tasksOf(k.page, body) {
+		if t.line == k.line && i < len(slots) && slots[i] >= 0 {
+			a.gotoPos(slots[i])
 			return
 		}
-		n++
 	}
 }
 
@@ -284,6 +274,9 @@ func prepareClose(p *Page, ts []taskItem, now time.Time) taskToggle {
 			j.stale = true
 			return j
 		}
+		if starts[i] < 0 { // a line that is no task of the text, as in a raw block: nothing there to tick
+			continue
+		}
 		at = append(at, starts[i])
 	}
 	doc := richtext.NewDocument(tx)
@@ -382,46 +375,62 @@ func (a *app) toggleTaskSoon(t taskItem) {
 	}()
 }
 
-// taskParagraph is where in tx, page p's text, the task t starts: the task paragraph that is t's among the tasks,
-// counted as tasksOf counts them in the page's Markdown. False when the page has changed since t was read: its
-// line is not t's task any more. The text is written as Markdown once, not a paragraph at a time, which took
-// seconds on a page of thousands of tasks (#504).
+// taskParagraph is where in tx, page p's text, the task t starts: the paragraph of the task that is t's among the
+// tasks, counted as tasksOf counts them in the page's Markdown (taskSlots). False when the page has changed since t
+// was read (its line is not t's task any more), or when t's line is no task paragraph of the text. The text is
+// written as Markdown once, not a paragraph at a time, which took seconds on a page of thousands of tasks (#504).
 func taskParagraph(tx richtext.Text, md string, p *Page, t taskItem) (int, bool) {
-	k := -1
-	for i, ti := range tasksOf(p, md) {
-		if ti.line == t.line {
-			if ti.text != t.text || ti.done != t.done {
-				return 0, false
-			}
-			k = i
-		}
-	}
-	if k < 0 {
-		return 0, false
-	}
-	for s, para := range tx.Paragraphs() { // the tasks with words, as a task's line in Markdown has them (openTask)
-		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
+	items, starts := taskParagraphs(tx, md, p)
+	for i, ti := range items {
+		if ti.line != t.line {
 			continue
 		}
-		if k--; k < 0 {
-			return s, true
+		if ti.text != t.text || ti.done != t.done || i >= len(starts) || starts[i] < 0 {
+			return 0, false
 		}
+		return starts[i], true
 	}
 	return 0, false
 }
 
 // taskParagraphs are the tasks of page p's Markdown md, as tasksOf reads them, and where each starts in tx, its
-// text: both in one pass, for many tasks at once.
+// text: both in one pass, for many tasks at once. A start is -1 where the task's line is no task paragraph of the
+// text; the starts are none at all when the two do not count the same tasks, as nothing then says which is which.
 func taskParagraphs(tx richtext.Text, md string, p *Page) ([]taskItem, []int) {
 	items := tasksOf(p, md)
-	starts := make([]int, 0, len(items))
-	for s, para := range tx.Paragraphs() {
-		if para.Style.List != richtext.Tasks || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
-			continue
-		}
-		starts = append(starts, s)
+	starts := taskSlots(tx)
+	if len(starts) != len(items) {
+		return items, nil
 	}
 	return items, starts
+}
+
+// taskSlots are the lines tasksOf takes for tasks in the Markdown of tx, in their order: for each, where its task
+// paragraph starts in tx, or -1 for a line that is a task in Markdown but no task paragraph of the text, as one
+// in a raw block of HTML is. A task paragraph in a quote is none of them: its line, "> - [ ] …", is no task to
+// tasksOf. Counting the paragraphs alone took the k-th task of the Markdown for the k-th task paragraph, another
+// one where the two counts differ (#529). The paragraphs are read once, as bodyMarkdown holds its blocks.
+func taskSlots(tx richtext.Text) []int {
+	var out []int
+	block, raw := false, false // in a code or raw block, and which, as bodyMarkdown groups its paragraphs
+	for s, para := range tx.Paragraphs() {
+		st := para.Style
+		if st.CodeBlock && !st.Quote && st.Indent == 0 && st.List == richtext.NoList {
+			if !block || strings.HasPrefix(st.ID, codeIDPrefix) || strings.HasPrefix(st.ID, rawIDPrefix) {
+				block, raw = true, strings.HasPrefix(st.ID, rawIDPrefix)
+			}
+			if m := taskLine.FindStringSubmatch(paraText(para)); raw && m != nil && m[3] != "" { // written as it is
+				out = append(out, -1)
+			}
+			continue
+		}
+		block, raw = false, false
+		if st.List != richtext.Tasks || st.Quote || st.QuoteDepth > 0 || strings.TrimSpace(strings.ReplaceAll(paraText(para), string(richtext.ObjectReplacement), "x")) == "" {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 // withTaskBox is the Markdown md with the box of the task on line i holding box; false when that line is no task.

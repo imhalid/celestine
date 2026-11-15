@@ -83,3 +83,75 @@ func TestCompleteAllTasks(t *testing.T) {
 		t.Fatalf("not all done:\n%s", body)
 	}
 }
+
+// taskIn is page p's task that says text, as the task view has it.
+func taskIn(t *testing.T, a *app, text string) taskItem {
+	t.Helper()
+	for _, k := range a.allTasks(true) {
+		if k.page == a.page && k.text == text {
+			return k
+		}
+	}
+	t.Fatalf("no task %q", text)
+	return taskItem{}
+}
+
+// TestTaskFindsItsParagraph: a task is ticked in its own line where the Markdown counts a task the text has in no
+// task paragraph (a line in a block of HTML), or the text one the Markdown does not count (a task in a quote), and
+// the index and the file then agree (#529).
+func TestTaskFindsItsParagraph(t *testing.T) {
+	for _, c := range []struct{ src, other, want string }{
+		{"<div>\n- [ ] fake\n</div>\n\n- [ ] one\n- [ ] two", "<div>\n- [ ] fake\n</div>", "- [x] one\n- [ ] two"},
+		{"> - [ ] quoted\n\n- [ ] one\n- [ ] two", "> - [ ] quoted", "- [x] one\n- [ ] two"},
+	} {
+		a, _ := newTestApp(t, c.src)
+		body, _ := a.page.Body()
+		tx, md := decodeBody(body), library.TextOfBody(body)
+		for _, k := range tasksOf(a.page, md) {
+			at, ok := taskParagraph(tx, md, a.page, k)
+			if k.text == "fake" {
+				if ok {
+					t.Fatalf("%q: the line in the HTML block found a paragraph", c.src)
+				}
+				continue
+			}
+			if !ok {
+				t.Fatalf("%q: %q is called stale", c.src, k.text)
+			}
+			s, e := tx.ParagraphRange(at)
+			if got := tx.Slice(s, e).String(); got != k.text {
+				t.Fatalf("%q: %q found the paragraph %q", c.src, k.text, got)
+			}
+		}
+		a.toggleTask(taskIn(t, a, "one"))
+		md, _ = a.page.Text()
+		if !strings.Contains(md, c.want) || !strings.Contains(md, c.other) {
+			t.Fatalf("%q: ticked as\n%s", c.src, md)
+		}
+		if !taskIn(t, a, "one").done || taskIn(t, a, "two").done {
+			t.Fatalf("%q: the index and the file disagree", c.src)
+		}
+	}
+}
+
+// TestCompleteAllFindsTheParagraphs: "Complete all" ticks the page's own tasks, and leaves a task's line in a block
+// of HTML as it is (#529).
+func TestCompleteAllFindsTheParagraphs(t *testing.T) {
+	for _, c := range []struct{ src, want string }{
+		{"<div>\n- [ ] fake\n</div>\n\n- [ ] one\n- [ ] two", "<div>\n- [ ] fake\n</div>\n\n- [x] one\n- [x] two"},
+		{"> - [ ] quoted\n\n- [ ] one\n- [ ] two", "> - [ ] quoted\n- [x] one\n- [x] two"},
+	} {
+		a, _ := newTestApp(t, c.src)
+		var ts []taskItem
+		for _, k := range a.allTasks(true) {
+			if k.page == a.page {
+				ts = append(ts, k)
+			}
+		}
+		a.closeTasks(a.page, ts)
+		a.toggling.Wait()
+		if md, _ := a.page.Text(); strings.TrimRight(md, "\n") != c.want {
+			t.Fatalf("%q: closed as\n%s", c.src, md)
+		}
+	}
+}
