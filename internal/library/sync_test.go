@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -998,6 +999,175 @@ func TestSyncFileGoneMidWalk(t *testing.T) {
 	}
 	if _, ok := a.st.Seen["notlar/s1/gone.png"]; ok {
 		t.Fatal("a file gone mid-walk is kept as seen")
+	}
+}
+
+// missingOnceFS says, once, that a file or a folder is not there, though it is: one caught as it was renamed.
+type missingOnceFS struct {
+	FS
+	file, dir string
+	done      *bool
+}
+
+func (m missingOnceFS) ReadFile(n string) ([]byte, error) {
+	if !*m.done && m.file != "" && filepath.Base(n) == m.file {
+		*m.done = true
+		return nil, fs.ErrNotExist
+	}
+	return m.FS.ReadFile(n)
+}
+
+func (m missingOnceFS) ReadDir(n string) ([]fs.DirEntry, error) {
+	if !*m.done && m.dir != "" && filepath.Base(n) == m.dir {
+		*m.done = true
+		return nil, fs.ErrNotExist
+	}
+	return m.FS.ReadDir(n)
+}
+
+// touch writes a file of the device again, with a later time, so the next pass reads it.
+func (d *device) touch(name, text string, after time.Duration) {
+	d.t.Helper()
+	d.write(name, text)
+	at := time.Now().Add(after)
+	os.Chtimes(filepath.Join(d.root, filepath.FromSlash(name)), at, at)
+}
+
+// remoteHas is the remote's names that are there, not deleted.
+func remoteHas(t *testing.T, r Remote) map[string]bool {
+	t.Helper()
+	got, err := r.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]bool{}
+	for n, e := range got {
+		if !e.Deleted {
+			out[n] = true
+		}
+	}
+	return out
+}
+
+// A synced file that reads as not there in the middle of a pass is left as the last sync had it: that pass
+// neither deletes it on the remote nor sends it, the next one sends its change, and another device never loses
+// it (#542).
+func TestSyncKnownFileMissingMidWalk(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/s1/index.md", "aaa")
+	a.sync(remote)
+	b.sync(remote)
+	a.touch("notlar/s1/index.md", "bbb", 3*time.Second)
+	done := false
+	res, err := SyncOnce(missingOnceFS{FS: OSFS{}, file: "index.md", done: &done}, a.root, remote, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 || !done {
+		t.Fatal(err, res.Errors, done)
+	}
+	if res.Deleted != 0 || res.Pushed != 0 || !remoteHas(t, remote)["notlar/s1/index.md"] {
+		t.Fatalf("a file missing for a moment was deleted or sent: %+v", res)
+	}
+	if b.sync(remote); b.read("notlar/s1/index.md") != "aaa" {
+		t.Fatal("the other device lost the file")
+	}
+	if res := a.sync(remote); res.Pushed != 1 || res.Deleted != 0 {
+		t.Fatalf("the next pass did not send the change: %+v", res)
+	}
+	if b.sync(remote); b.read("notlar/s1/index.md") != "bbb" {
+		t.Fatal("the change did not arrive")
+	}
+}
+
+// A synced file that reads as not there while another device changed it is not written over by that pass: a tool
+// may be writing the path right then. The next pass reads what is there and keeps both sides, one of them as a
+// conflict copy (#542).
+func TestSyncKnownFileMissingWhileRemoteChanged(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("notlar/s1/pic.png", "aaa")
+	a.sync(remote)
+	b.sync(remote)
+	b.touch("notlar/s1/pic.png", "theirs", 3*time.Second)
+	if res := b.sync(remote); res.Pushed != 1 {
+		t.Fatalf("%+v", res)
+	}
+	a.touch("notlar/s1/pic.png", "ours", 5*time.Second)
+	before := a.st.Files["notlar/s1/pic.png"]
+	done, fetched := false, false
+	watched := &onGet{Remote: remote, fn: func(n string) { fetched = fetched || n == "notlar/s1/pic.png" }}
+	res, err := SyncOnce(missingOnceFS{FS: OSFS{}, file: "pic.png", done: &done}, a.root, watched, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 || !done {
+		t.Fatal(err, res.Errors, done)
+	}
+	if fetched { // the pass would write what it fetched, were the path as the last sync left it right then
+		t.Fatal("the pass brought down a file that was not there to read")
+	}
+	if res.Pulled+res.Pushed+res.Deleted+res.Removed != 0 || len(res.Conflicts) != 0 {
+		t.Fatalf("the pass worked on a file that was not there to read: %+v", res)
+	}
+	if got := a.read("notlar/s1/pic.png"); got != "ours" {
+		t.Fatalf("the path was written: %q", got)
+	}
+	if a.st.Files["notlar/s1/pic.png"] != before {
+		t.Fatal("the file's state changed")
+	}
+	res = a.sync(remote)
+	if len(res.Conflicts) != 1 {
+		t.Fatalf("the next pass did not meet the conflict: %+v", res)
+	}
+	sides := append([]string{a.read("notlar/s1/pic.png")}, a.conflictCopies("notlar/s1/pic.png")...)
+	slices.Sort(sides)
+	if !slices.Equal(sides, []string{"ours", "theirs"}) {
+		t.Fatalf("a side was lost: %q", sides)
+	}
+}
+
+// The synced files of a folder that reads as not there in the middle of a pass are left for the next pass as well (#542).
+func TestSyncKnownFolderMissingMidWalk(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a := newDevice(t)
+	a.write("notlar/s1/index.md", "aaa")
+	a.write("notlar/s1/sub/index.md", "ccc")
+	a.write("notlar/s2/index.md", "ddd")
+	a.sync(remote)
+	a.touch("notlar/s2/index.md", "eee", 3*time.Second)
+	done := false
+	res, err := SyncOnce(missingOnceFS{FS: OSFS{}, dir: "s1", done: &done}, a.root, remote, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 || !done {
+		t.Fatal(err, res.Errors, done)
+	}
+	has := remoteHas(t, remote)
+	if res.Deleted != 0 || !has["notlar/s1/index.md"] || !has["notlar/s1/sub/index.md"] {
+		t.Fatalf("a folder missing for a moment had its files deleted: %+v %v", res, has)
+	}
+	if res.Pushed != 1 {
+		t.Fatalf("the rest was not sent: %+v", res)
+	}
+	if res := a.sync(remote); res.Deleted != 0 || res.Pushed != 0 {
+		t.Fatalf("the next pass found a change: %+v", res)
+	}
+}
+
+// A synced file really removed in the middle of a pass is deleted on the remote by the next pass (#542).
+func TestSyncKnownFileRemovedMidWalk(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a := newDevice(t)
+	a.write("notlar/s1/index.md", "aaa")
+	a.write("notlar/s1/gone.png", "bbb")
+	a.sync(remote)
+	a.touch("notlar/s1/gone.png", "ccc", 3*time.Second)
+	res, err := SyncOnce(vanishFS{OSFS{}, "gone.png"}, a.root, remote, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 {
+		t.Fatal(err, res.Errors)
+	}
+	if res.Deleted != 0 || !remoteHas(t, remote)["notlar/s1/gone.png"] {
+		t.Fatalf("the pass it vanished in deleted it: %+v", res)
+	}
+	if res := a.sync(remote); res.Deleted != 1 {
+		t.Fatalf("the next pass did not delete it: %+v", res)
+	}
+	if has := remoteHas(t, remote); has["notlar/s1/gone.png"] || !has["notlar/s1/index.md"] {
+		t.Fatalf("%v", has)
 	}
 }
 

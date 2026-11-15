@@ -758,14 +758,30 @@ type fileSeen struct {
 
 // localFiles lists the files of the tree under root, by path relative to it, with their hashes; the top
 // folders in skip are left out. A file seen as st saw it at the last sync has the hash it had then, and is not
-// read: a library of thousands was read whole, and hashed, every pass. seen is what is seen now.
-func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[string]string, map[string]fileSeen, error) {
-	out := map[string]string{}
-	seen := map[string]fileSeen{}
+// read: a library of thousands was read whole, and hashed, every pass. seen is what is seen now. held is what was
+// gone by the time it was read (see heldBy).
+func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (out map[string]string, seen map[string]fileSeen, held map[string]bool, err error) {
+	out, seen, held = map[string]string{}, map[string]fileSeen{}, map[string]bool{}
+	// hold marks a file, or a folder (its path and a "/"), that is gone by the time it is read: one renamed or
+	// removed while the tree is walked, or caught as a tool writes it. The pass leaves it alone, sending,
+	// deleting and writing nothing at its path, and its state stays as it was, so the next pass reads it again
+	// and decides (#542). A file the last sync knew keeps its hash here, so the remote is still told its name.
+	hold := func(r string) {
+		held[r] = true
+		if f, ok := st.Files[r]; ok && f.Local != "" && !strings.HasSuffix(r, "/") {
+			out[r] = f.Local
+		}
+	}
 	var walk func(dir, rel string) error
 	walk = func(dir, rel string) error {
 		ents, err := fsys.ReadDir(dir)
-		if errors.Is(err, fs.ErrNotExist) && rel != "" { // a folder removed while the tree is walked is not there
+		if errors.Is(err, fs.ErrNotExist) && rel != "" { // a folder removed while the tree is walked
+			hold(rel + "/")
+			for n := range st.Files {
+				if strings.HasPrefix(n, rel+"/") {
+					hold(n)
+				}
+			}
 			return nil
 		}
 		if err != nil {
@@ -797,8 +813,9 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 				}
 			}
 			b, err := fsys.ReadFile(filepath.Join(dir, name))
-			if errors.Is(err, fs.ErrNotExist) { // renamed or removed since its folder was read: it is not there (#542)
+			if errors.Is(err, fs.ErrNotExist) { // renamed or removed since its folder was read
 				delete(seen, r)
+				hold(r)
 				continue
 			}
 			if err != nil {
@@ -808,13 +825,26 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 		}
 		return nil
 	}
-	return out, seen, walk(root, "")
+	return out, seen, held, walk(root, "")
+}
+
+// heldBy reports whether name is one localFiles held, or lies in a folder it held.
+func heldBy(held map[string]bool, name string) bool {
+	if held[name] {
+		return true
+	}
+	for i := strings.LastIndexByte(name, '/'); i > 0; i = strings.LastIndexByte(name[:i], '/') {
+		if held[name[:i+1]] {
+			return true
+		}
+	}
+	return false
 }
 
 // PristineOf is the files of the library under root by their hash, as SyncState.Pristine has them: what a new
 // library made for itself, before anything was written in it.
 func PristineOf(fsys FS, root string) (map[string]string, error) {
-	local, _, err := localFiles(fsys, root, nil, &SyncState{})
+	local, _, _, err := localFiles(fsys, root, nil, &SyncState{})
 	return local, err
 }
 
@@ -856,7 +886,7 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	if st.Files == nil {
 		st.Files = map[string]fileSync{}
 	}
-	local, seen, err := localFiles(fsys, root, skip, st)
+	local, seen, held, err := localFiles(fsys, root, skip, st)
 	if err != nil {
 		return res, pushed, err
 	}
@@ -913,6 +943,11 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		// on: its files are missing here only because the walk left them out, and would read as deleted here
 		if !skip[strings.SplitN(n, "/", 2)[0]] {
 			names[n] = true
+		}
+	}
+	for n := range names { // what was gone as it was read is the next pass's (#542)
+		if heldBy(held, n) {
+			delete(names, n)
 		}
 	}
 	order := make([]string, 0, len(names))
