@@ -3,15 +3,21 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -163,7 +169,7 @@ func TestMCPRelayReturnsErrorOnFailure(t *testing.T) {
 	defer cancel1()
 	tr := &mcp.StreamableClientTransport{
 		Endpoint:   srv.URL,
-		HTTPClient: &http.Client{Transport: bearerToken("bad")},
+		HTTPClient: &http.Client{Transport: bearer{"bad"}},
 	}
 	errCh1 := make(chan error, 1)
 	go func() {
@@ -210,5 +216,178 @@ func TestMCPBridgeAppImageEnv(t *testing.T) {
 	}
 	if got := mcpAppEnv(env, true); !slices.Equal(got, env) {
 		t.Errorf("mcpAppEnv, its own AppImage = %v", got)
+	}
+}
+
+// TestMCPBridgeRefusesImpostor: a process that took the port and does not hold the token is never sent it. Whether
+// it does not know the handshake, answers it with nonsense, or answers it under another token, the bridge sends it
+// its nonce and nothing more, and ends (#170).
+func TestMCPBridgeRefusesImpostor(t *testing.T) {
+	const token = "the-real-token-0123456789abcdef"
+	answers := map[string]func(w http.ResponseWriter, body []byte){
+		"no handshake": func(w http.ResponseWriter, _ []byte) { http.Error(w, "not found", http.StatusNotFound) },
+		"nonsense":     func(w http.ResponseWriter, _ []byte) { w.Write([]byte(`{"nonce":"zz","proof":"00"}`)) },
+		"another token": func(w http.ResponseWriter, body []byte) {
+			var in mcpHello
+			json.Unmarshal(body, &in)
+			cn, _ := hex.DecodeString(in.Nonce)
+			sn := mcpNonce()
+			json.NewEncoder(w).Encode(mcpHello{Nonce: hex.EncodeToString(sn), Proof: hex.EncodeToString(mcpProof("another", "server", cn, sn))})
+		},
+	}
+	for name, answer := range answers {
+		t.Run(name, func(t *testing.T) {
+			var mu sync.Mutex
+			var seen [][]byte
+			var paths []string
+			fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				r.Body = io.NopCloser(bytes.NewReader(body))
+				dump, _ := httputil.DumpRequest(r, true)
+				mu.Lock()
+				seen, paths = append(seen, dump), append(paths, r.URL.Path)
+				mu.Unlock()
+				answer(w, body)
+			}))
+			defer fake.Close()
+			port := fake.Listener.Addr().(*net.TCPAddr).Port
+
+			agentSide, bridgeSide := mcp.NewInMemoryTransports()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- mcpRelay(ctx, bridgeSide, mcpClientTransport(port, token)) }()
+			go mcp.NewClient(&mcp.Implementation{Name: "agent", Version: "0"}, nil).Connect(ctx, agentSide, nil)
+			if err := <-done; err == nil {
+				t.Fatal("the bridge went on with a server that did not prove it holds the token")
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(seen) == 0 {
+				t.Fatal("no handshake was tried")
+			}
+			for i, dump := range seen {
+				if bytes.Contains(dump, []byte(token)) || bytes.Contains(bytes.ToLower(dump), []byte("authorization")) {
+					t.Fatalf("the impostor was sent the token or a proof:\n%s", dump)
+				}
+				if paths[i] != mcpHelloPath {
+					t.Fatalf("the impostor was sent more than the handshake: %s", paths[i])
+				}
+			}
+		})
+	}
+}
+
+// TestMCPBridgeProofs: the server takes a request whose proof was made with its token on a nonce it gave, and refuses
+// one made with another token, on a nonce it did not give, or on one it gave too long ago (#170).
+func TestMCPBridgeProofs(t *testing.T) {
+	a, _ := newTestApp(t, "")
+	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	a.clock = func() time.Time { return now }
+	h := a.mcpHandler()
+	serve := func(path, auth, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "http://127.0.0.1:7457"+path, strings.NewReader(body))
+		r.Host = "127.0.0.1:7457"
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "application/json, text/event-stream")
+		if auth != "" {
+			r.Header.Set("Authorization", auth)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	hello := func() (cn, sn []byte) {
+		cn = mcpNonce()
+		w := serve(mcpHelloPath, "", `{"nonce":"`+hex.EncodeToString(cn)+`"}`)
+		var in mcpHello
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &in) != nil {
+			t.Fatalf("hello: %d %s", w.Code, w.Body)
+		}
+		sn, _ = hex.DecodeString(in.Nonce)
+		if proof, _ := hex.DecodeString(in.Proof); !hmac.Equal(proof, mcpProof(a.settings.Token, "server", cn, sn)) {
+			t.Fatal("the server's proof is not made with its token")
+		}
+		return cn, sn
+	}
+	auth := func(token string, cn, sn []byte) string {
+		return mcpProofScheme + " " + hex.EncodeToString(sn) + " " + hex.EncodeToString(mcpProof(token, "client", cn, sn))
+	}
+	init := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}`
+
+	cn, sn := hello()
+	if c := serve("/mcp", auth("wrong", cn, sn), init).Code; c != http.StatusUnauthorized {
+		t.Fatalf("a proof with the wrong token: %d", c)
+	}
+	if c := serve("/mcp", auth(a.settings.Token, cn, mcpNonce()), init).Code; c != http.StatusUnauthorized {
+		t.Fatalf("a proof on a nonce the server did not give: %d", c)
+	}
+	if c := serve("/mcp", auth(a.settings.Token, cn, sn), init).Code; c != http.StatusOK {
+		t.Fatalf("the right proof: %d", c)
+	}
+	now = now.Add(2 * mcpChallengeLife) // a nonce in use does not run out
+	if c := serve("/mcp", auth(a.settings.Token, cn, sn), init).Code; c != http.StatusOK {
+		t.Fatalf("the right proof, later: %d", c)
+	}
+	cn, sn = hello()
+	now = now.Add(2 * mcpChallengeLife)
+	if c := serve("/mcp", auth(a.settings.Token, cn, sn), init).Code; c != http.StatusUnauthorized {
+		t.Fatalf("a proof on a nonce that ran out: %d", c)
+	}
+	if c := serve(mcpHelloPath, "", `{"nonce":"abcd"}`).Code; c != http.StatusBadRequest {
+		t.Fatalf("a short nonce: %d", c)
+	}
+	a.settings.Token = ""
+	if c := serve(mcpHelloPath, "", `{"nonce":"`+hex.EncodeToString(mcpNonce())+`"}`).Code; c != http.StatusUnauthorized {
+		t.Fatalf("a handshake with no token: %d", c)
+	}
+}
+
+// TestMCPBridgeChallengesBounded: asking for nonces again and again keeps no more than mcpChallengeMax, and one a
+// proof has used is kept over the new ones.
+func TestMCPBridgeChallengesBounded(t *testing.T) {
+	var cs mcpChallenges
+	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	cn, sn := mcpNonce(), mcpNonce()
+	cs.add(hex.EncodeToString(sn), cn, now)
+	if !cs.check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
+		t.Fatal("the right proof was refused")
+	}
+	for i := range 3 * mcpChallengeMax {
+		cs.add(hex.EncodeToString(mcpNonce()), mcpNonce(), now.Add(time.Duration(i)*time.Millisecond))
+	}
+	if len(cs.m) > mcpChallengeMax {
+		t.Fatalf("%d nonces kept", len(cs.m))
+	}
+	if !cs.check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
+		t.Fatal("a nonce in use was dropped for new ones")
+	}
+
+	// every nonce used, as after many bridges in one run of the app: a new one still comes, in place of the one
+	// used longest ago
+	cs = mcpChallenges{}
+	type pair struct{ cn, sn []byte }
+	var pairs []pair
+	for i := range mcpChallengeMax {
+		p := pair{mcpNonce(), mcpNonce()}
+		at := now.Add(time.Duration(i) * time.Second)
+		cs.add(hex.EncodeToString(p.sn), p.cn, at)
+		if !cs.check(hex.EncodeToString(p.sn), hex.EncodeToString(mcpProof("t", "client", p.cn, p.sn)), "t", at) {
+			t.Fatal("the right proof was refused")
+		}
+		pairs = append(pairs, p)
+	}
+	later := now.Add(time.Hour)
+	cn, sn = mcpNonce(), mcpNonce()
+	cs.add(hex.EncodeToString(sn), cn, later)
+	if len(cs.m) != mcpChallengeMax || cs.m[hex.EncodeToString(sn)] == nil {
+		t.Fatalf("no room for a new nonce: %d", len(cs.m))
+	}
+	if cs.m[hex.EncodeToString(pairs[0].sn)] != nil {
+		t.Fatal("the nonce used longest ago was kept")
+	}
+	last := pairs[len(pairs)-1]
+	if !cs.check(hex.EncodeToString(last.sn), hex.EncodeToString(mcpProof("t", "client", last.cn, last.sn)), "t", later) {
+		t.Fatal("the nonce used last was dropped")
 	}
 }

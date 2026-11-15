@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,21 +62,26 @@ func (a *app) startMCP(on, persist bool) {
 }
 
 // mcpHandler serves MCP to those who have the token, on a local address
-// only (a page in a browser can't reach it under another name).
+// only (a page in a browser can't reach it under another name): an agent
+// over HTTP sends it, the bridge proves it holds it (mcp_auth.go).
 func (a *app) mcpHandler() http.Handler {
 	server := a.newMCPServer()
 	h := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)
+	challenges := &mcpChallenges{}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, _ := net.SplitHostPort(r.Host)
 		if host != "127.0.0.1" && host != "localhost" && host != "::1" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		var token string
 		a.mu.Lock()
-		token = a.settings.Token
+		token, now := a.settings.Token, a.clock()
 		a.mu.Unlock()
-		if token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 {
+		if r.URL.Path == mcpHelloPath {
+			mcpServeHello(w, r, challenges, token, now)
+			return
+		}
+		if !mcpAuthorized(r.Header.Get("Authorization"), token, challenges, now) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}

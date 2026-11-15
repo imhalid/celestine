@@ -15,7 +15,8 @@ import (
 
 // The MCP server: turned on in the settings, the app serves its library to
 // agents (Claude Code, or any MCP client) at http://127.0.0.1:<port>/mcp,
-// with a token they send as "Authorization: Bearer <token>". An agent
+// with a token they send as "Authorization: Bearer <token>" (the bridge of
+// `celestine mcp` proves it holds it instead, mcp_auth.go). An agent
 // lists, reads, searches, makes, edits, moves and throws away collections
 // and pages; what it does shows in the window at once, as if typed there.
 //

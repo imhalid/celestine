@@ -3,7 +3,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -86,12 +91,84 @@ func mcpAppEnv(env []string, ownAppImage bool) []string {
 	return out
 }
 
-// mcpClientTransport is the way to the app's server on port, with its token.
+// mcpClientTransport is the way to the app's server on port: the token never goes to it, the bridge proves it
+// holds it once the server has proved the same (mcp_auth.go).
 func mcpClientTransport(port int, token string) *mcp.StreamableClientTransport {
+	base := "http://127.0.0.1:" + strconv.Itoa(port)
 	return &mcp.StreamableClientTransport{
-		Endpoint:   "http://127.0.0.1:" + strconv.Itoa(port) + "/mcp",
-		HTTPClient: &http.Client{Transport: bearerToken(token)},
+		Endpoint:   base + "/mcp",
+		HTTPClient: &http.Client{Transport: &mcpProver{hello: base + mcpHelloPath, token: token}},
 	}
+}
+
+// mcpProver makes the handshake with the server before its first request and signs each request with the
+// bridge's proof. A server that does not prove it holds the token is not sent anything more, and there is no way
+// back to sending the token itself: that would be the hole again. When the handshake fails, every request fails
+// with it, and the bridge ends; one whose server went (the app restarted) ends too, and the agent starts it again.
+type mcpProver struct {
+	hello string
+	token string
+	mu    sync.Mutex
+	auth  string // the Authorization of each request, once the server proved itself
+	err   error  // why the handshake failed
+}
+
+// RoundTrip sends r with the bridge's proof, making the handshake first when there has been none.
+func (p *mcpProver) RoundTrip(r *http.Request) (*http.Response, error) {
+	p.mu.Lock()
+	if p.auth == "" && p.err == nil {
+		p.auth, p.err = mcpHandshake(r.Context(), p.hello, p.token)
+	}
+	auth, err := p.auth, p.err
+	p.mu.Unlock()
+	if err != nil {
+		if r.Body != nil {
+			r.Body.Close()
+		}
+		return nil, err
+	}
+	r = r.Clone(r.Context())
+	r.Header.Set("Authorization", auth)
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+// mcpHandshake sends a nonce to the server at url, checks that its answer was made with token, and returns the
+// Authorization that proves the bridge holds it too.
+func mcpHandshake(ctx context.Context, url, token string) (string, error) {
+	if token == "" {
+		return "", errors.New("no MCP token")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	cn := mcpNonce()
+	body, _ := json.Marshal(mcpHello{Nonce: hex.EncodeToString(cn)})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	refused := errors.New("the server on the MCP port did not prove it holds the token: is it this app, of this version?")
+	if resp.StatusCode != http.StatusOK {
+		return "", refused
+	}
+	var in mcpHello
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&in); err != nil {
+		return "", refused
+	}
+	sn, err := hex.DecodeString(in.Nonce)
+	if err != nil || len(sn) != mcpNonceSize {
+		return "", refused
+	}
+	proof, err := hex.DecodeString(in.Proof)
+	if err != nil || !hmac.Equal(proof, mcpProof(token, "server", cn, sn)) {
+		return "", refused
+	}
+	return mcpProofScheme + " " + in.Nonce + " " + hex.EncodeToString(mcpProof(token, "client", cn, sn)), nil
 }
 
 // mcpRelay carries messages between an agent (from) and the app's server (to), each way, until either side ends.
@@ -180,13 +257,4 @@ func mcpSettings(args []string) (int, string, error) {
 	}
 	a.loadSettingsReadOnly()
 	return a.settings.Port, a.settings.Token, nil
-}
-
-// bearerToken sends the token with each request.
-type bearerToken string
-
-func (b bearerToken) RoundTrip(r *http.Request) (*http.Response, error) {
-	r = r.Clone(r.Context())
-	r.Header.Set("Authorization", "Bearer "+string(b))
-	return http.DefaultTransport.RoundTrip(r)
 }
