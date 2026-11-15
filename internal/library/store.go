@@ -48,12 +48,35 @@ func (OSFS) WriteFile(name string, data []byte) error { return writeWhole(name, 
 // WriteFilePrivate writes a file whole, as WriteFile does, for its owner alone: the settings hold keys and tokens.
 func WriteFilePrivate(name string, data []byte) error { return writeWhole(name, data, 0o600) }
 
+// tempPattern is the pattern of writeWhole's temporary file for a file named base, as os.CreateTemp takes it: a
+// hidden ".<base>.<digits>.tmp" beside it. IsTempFile knows the names it makes, so the two cannot disagree.
+func tempPattern(base string) string { return "." + base + ".*.tmp" }
+
+// IsTempFile reports whether name (a base name) is one of writeWhole's temporary files. What walks a folder library
+// (the sync, the search for conflicts) leaves it out: it is renamed to its file or removed in a moment (#542).
+func IsTempFile(name string) bool {
+	if !strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".tmp") {
+		return false
+	}
+	mid := strings.TrimSuffix(strings.TrimPrefix(name, "."), ".tmp")
+	i := strings.LastIndexByte(mid, '.')
+	if i <= 0 || i == len(mid)-1 { // a base before the dot, and os.CreateTemp's random digits after it
+		return false
+	}
+	for _, c := range mid[i+1:] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // writeWhole writes data to name through a temporary file of its own beside it, on the disk before it takes the
 // name, and the folder's entry after: a power cut leaves the old file or the new one, never an empty one, and two
 // writers do not share a temporary name (#140).
 func writeWhole(name string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(name)
-	f, err := os.CreateTemp(dir, "."+filepath.Base(name)+".*.tmp")
+	f, err := os.CreateTemp(dir, tempPattern(filepath.Base(name)))
 	if err != nil {
 		return err
 	}

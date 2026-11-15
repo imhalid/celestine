@@ -765,6 +765,9 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 	var walk func(dir, rel string) error
 	walk = func(dir, rel string) error {
 		ents, err := fsys.ReadDir(dir)
+		if errors.Is(err, fs.ErrNotExist) && rel != "" { // a folder removed while the tree is walked is not there
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -774,7 +777,7 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 			if rel == "" && (skip[name] || name == FormatFile) { // the format is each device's app's to write
 				continue
 			}
-			if strings.EqualFold(name, ".git") || strings.HasSuffix(name, ".tmp~") || name == SettingsKey {
+			if strings.EqualFold(name, ".git") || strings.HasSuffix(name, ".tmp~") || IsTempFile(name) || name == SettingsKey {
 				continue
 			}
 			if localTrash(r) { // the trash's folder that is this device's alone
@@ -794,6 +797,10 @@ func localFiles(fsys FS, root string, skip map[string]bool, st *SyncState) (map[
 				}
 			}
 			b, err := fsys.ReadFile(filepath.Join(dir, name))
+			if errors.Is(err, fs.ErrNotExist) { // renamed or removed since its folder was read: it is not there (#542)
+				delete(seen, r)
+				continue
+			}
 			if err != nil {
 				return err
 			}

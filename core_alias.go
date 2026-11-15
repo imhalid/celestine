@@ -43,6 +43,7 @@ var FilterOps = library.FilterOps
 var HTTPSOnly = library.HTTPSOnly
 var HashOf = library.HashOf
 var InBatch = library.InBatch
+var IsTempFile = library.IsTempFile
 
 type Historian = library.Historian
 

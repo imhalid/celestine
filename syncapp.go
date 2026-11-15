@@ -582,7 +582,7 @@ func (a *app) lookForConflicts() {
 				name := e.Name()
 				if e.IsDir() {
 					walk(filepath.Join(dir, name), path.Join(rel, name))
-				} else if strings.Contains(name, " (çakışma ") && !strings.HasSuffix(name, ".tmp~") {
+				} else if strings.Contains(name, " (çakışma ") && !strings.HasSuffix(name, ".tmp~") && !IsTempFile(name) {
 					found = append(found, path.Join(rel, name))
 				}
 			}

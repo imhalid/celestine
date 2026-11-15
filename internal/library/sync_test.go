@@ -915,6 +915,92 @@ func TestSyncDoesNotReadWhatDidNotChange(t *testing.T) {
 	}
 }
 
+// IsTempFile knows the names writeWhole gives its temporary files, and no others (#542).
+func TestIsTempFile(t *testing.T) {
+	dir := t.TempDir()
+	for _, base := range []string{"index.md", "collection.json", "a.b.c", "page (çakışma 2026-11-07 10-00-00).md"} {
+		f, err := os.CreateTemp(dir, tempPattern(base))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+		if name := filepath.Base(f.Name()); !IsTempFile(name) {
+			t.Errorf("%q is writeWhole's and was not known", name)
+		}
+	}
+	for _, name := range []string{"index.md", "notes.tmp", ".notes.tmp", ".tmp", "..tmp", ".a.12x.tmp", ".a..tmp", ".12.tmp", "a.12.tmp", "x.tmp~"} {
+		if IsTempFile(name) {
+			t.Errorf("%q is not writeWhole's", name)
+		}
+	}
+}
+
+// A temporary file of writeWhole's in a folder library is not sent: it is renamed or removed in a moment (#542).
+func TestSyncLeavesWriteWholeTemp(t *testing.T) {
+	remoteDir := t.TempDir()
+	a := newDevice(t)
+	a.write("notlar/s1/index.md", "aaa")
+	f, err := os.CreateTemp(filepath.Join(a.root, "notlar", "s1"), tempPattern("index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("half")
+	f.Close()
+	if res := a.sync(DirRemote{Root: remoteDir}); res.Pushed != 1 {
+		t.Fatalf("%+v", res)
+	}
+	got, err := DirRemote{Root: remoteDir}.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name := range got {
+		if IsTempFile(path.Base(name)) {
+			t.Fatalf("the temporary file %s was sent", name)
+		}
+	}
+	if _, ok := got["notlar/s1/index.md"]; !ok {
+		t.Fatalf("the page was not sent: %v", got)
+	}
+}
+
+// vanishFS removes a file just before it is read: renamed away between the folder's ReadDir and its ReadFile.
+type vanishFS struct {
+	FS
+	name string
+}
+
+func (v vanishFS) ReadFile(n string) ([]byte, error) {
+	if filepath.Base(n) == v.name {
+		os.Remove(n)
+	}
+	return v.FS.ReadFile(n)
+}
+
+// A file gone while the tree is walked is not there: the pass goes on and sends the rest (#542).
+func TestSyncFileGoneMidWalk(t *testing.T) {
+	remoteDir := t.TempDir()
+	a := newDevice(t)
+	a.write("notlar/s1/index.md", "aaa")
+	a.write("notlar/s1/gone.png", "bbb")
+	res, err := SyncOnce(vanishFS{OSFS{}, "gone.png"}, a.root, DirRemote{Root: remoteDir}, &a.st, map[string]bool{}, time.Now())
+	if err != nil || len(res.Errors) != 0 {
+		t.Fatal(err, res.Errors)
+	}
+	got, err := DirRemote{Root: remoteDir}.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["notlar/s1/gone.png"]; ok {
+		t.Fatal("a file gone mid-walk was sent")
+	}
+	if _, ok := got["notlar/s1/index.md"]; !ok {
+		t.Fatalf("the rest was not sent: %v", got)
+	}
+	if _, ok := a.st.Seen["notlar/s1/gone.png"]; ok {
+		t.Fatal("a file gone mid-walk is kept as seen")
+	}
+}
+
 // onGet runs a function when the remote is asked for a file: the window going on while a pass runs.
 type onGet struct {
 	Remote
