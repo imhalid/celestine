@@ -54,6 +54,10 @@ Turned on in the settings, the app serves its library to agents over MCP at
 claude mcp add --transport http celestine http://127.0.0.1:7457/mcp --header "Authorization: Bearer <token>"
 ```
 
+That line sends the token itself to whatever holds the port, so a process that took it before the app would collect
+it; the stdio bridge (`celestine mcp`) does not: it sends only a proof, once the server has proved it holds the token
+too (`mcp_auth.go`).
+
 Its tools: `list_collections`, `list_pages`, `read_page`, `search`, `create_collection`, `create_page`,
 `update_page` (title, text replaced or appended, property values), `add_property`, `move_page`, `trash_page`,
 `list_tags`, `list_tasks`, `set_task`, `list_versions`, `read_version`, `restore_version`, and `list_commands`/`run_command` (the palette's

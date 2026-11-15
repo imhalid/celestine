@@ -132,6 +132,10 @@ func (p *mcpProver) RoundTrip(r *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(r)
 }
 
+// errMCPOlderApp is the handshake's error when the server knows no handshake: the running app is older than the
+// bridge, and the bridge does not fall back to sending it the token.
+var errMCPOlderApp = errors.New("the running Celestine is older than this bridge: quit and reopen Celestine to finish its update")
+
 // mcpHandshake sends a nonce to the server at url, checks that its answer was made with token, and returns the
 // Authorization that proves the bridge holds it too.
 func mcpHandshake(ctx context.Context, url, token string) (string, error) {
@@ -152,7 +156,12 @@ func mcpHandshake(ctx context.Context, url, token string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	refused := errors.New("the server on the MCP port did not prove it holds the token: is it this app, of this version?")
+	// an app from before the handshake knows no /mcp/hello: its server answers 401 (no token sent) or 404, as one
+	// left running while the updater or install.sh replaced its binary does
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound {
+		return "", errMCPOlderApp
+	}
+	refused := errors.New("the server on the MCP port did not prove it holds the token: it may not be Celestine, so the token was not sent")
 	if resp.StatusCode != http.StatusOK {
 		return "", refused
 	}

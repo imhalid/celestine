@@ -391,3 +391,28 @@ func TestMCPBridgeChallengesBounded(t *testing.T) {
 		t.Fatal("the nonce used last was dropped")
 	}
 }
+
+// TestMCPBridgeOlderApp: an app from before the handshake, left running while its binary was replaced, answers the
+// hello with 401 or 404; the bridge says the app must be reopened, not that it may be someone else, and a wrong
+// proof still reads as an impostor.
+func TestMCPBridgeOlderApp(t *testing.T) {
+	for _, code := range []int{http.StatusUnauthorized, http.StatusNotFound} {
+		old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, http.StatusText(code), code)
+		}))
+		_, err := mcpHandshake(context.Background(), old.URL+mcpHelloPath, "tok")
+		old.Close()
+		if !errors.Is(err, errMCPOlderApp) || !strings.Contains(err.Error(), "older than this bridge") {
+			t.Fatalf("%d: %v", code, err)
+		}
+	}
+	impostor := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sn := mcpNonce()
+		json.NewEncoder(w).Encode(mcpHello{Nonce: hex.EncodeToString(sn), Proof: hex.EncodeToString(mcpProof("another", "server", sn, sn))})
+	}))
+	defer impostor.Close()
+	_, err := mcpHandshake(context.Background(), impostor.URL+mcpHelloPath, "tok")
+	if err == nil || errors.Is(err, errMCPOlderApp) || !strings.Contains(err.Error(), "did not prove") {
+		t.Fatalf("a wrong proof: %v", err)
+	}
+}
