@@ -331,7 +331,6 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 		if err := enc.Put(name, []byte(text), prev); err != nil {
 			t.Fatal(err)
 		}
-		enc.Flush()
 	}
 	put("bir")
 	if v, err := enc.Versions(name); err != nil || len(v) != 0 {

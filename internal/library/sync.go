@@ -357,9 +357,6 @@ type EncRemote struct {
 	gcm    cipher.AEAD
 	idx    map[string]string // opaque name → path
 	loaded bool
-	// pending is how many names were added since the index was last put: it is put every indexEvery, and
-	// at the end of a pass (Flush), not at every file, which made a first pass of thousands go as their square
-	pending int
 	// sent is the remote's hash of each file put in this pass, by its name: the hash of the sealed bytes, as a
 	// folder and the Worker both have it, so that the pass need not list the remote again to learn it (PutHash)
 	sent map[string]string
@@ -370,10 +367,6 @@ func (e *EncRemote) PutHash(name string) (string, bool) {
 	h, ok := e.sent[name]
 	return h, ok
 }
-
-// indexEvery is how many new names wait before the index is put: what another device sees of a long first
-// pass comes in steps of it.
-const indexEvery = 200
 
 const SaltFile = "_salt"
 
@@ -583,44 +576,46 @@ func (e *EncRemote) Put(name string, data []byte, prev string) error {
 	if err := e.loadIndex(); err != nil {
 		return err
 	}
-	sealed := e.seal(data)
-	err := e.inner.Put(e.opaque(name), sealed, prev)
-	if errors.Is(err, ErrConflict) && prev == "" && e.idx[e.opaque(name)] != name {
-		// an object a pass left there, its name never put in the index: it is ours, and what is in it may
-		// be older than what is sent now. It is written over, by its hash as the remote has it now.
-		if list, lerr := e.inner.List(); lerr == nil {
-			if ent, ok := list[e.opaque(name)]; ok && !ent.Deleted {
-				err = e.inner.Put(e.opaque(name), sealed, ent.Hash)
-			}
-		}
-	}
-	if err == nil {
-		if e.sent == nil {
-			e.sent = map[string]string{}
-		}
-		e.sent[name] = HashOf(sealed)
-	} else if !e.sentBefore(name, data) {
+	if err := e.Announce([]string{name}); err != nil { // its name first, then the object (Announce)
 		return err
 	}
-	if e.idx[e.opaque(name)] == name {
-		return nil // the index had it when it was read, and names are never taken out
+	sealed := e.seal(data)
+	if err := e.inner.Put(e.opaque(name), sealed, prev); err != nil {
+		return err
 	}
-	e.idx[e.opaque(name)] = name
-	if e.pending++; e.pending < indexEvery {
-		return nil
+	if e.sent == nil {
+		e.sent = map[string]string{}
 	}
-	return e.Flush()
+	e.sent[name] = HashOf(sealed)
+	return nil
 }
 
-// Flush puts the index, if names were added to it since it was last put.
-func (e *EncRemote) Flush() error {
-	if e.pending == 0 {
+// Announce puts the names in the sealed index, once for all of them, before any of their files is put: an object
+// on the remote always has its name in the index, so that another device making a file of the same path meets
+// it, and keeps a conflict copy, instead of writing over it as a pass's own leftover (#149). A name in the index
+// with no object is harmless: List leaves it out, as if it were not there. A pass announces the files it has at its
+// start (syncOnce), so that a first pass of thousands puts the index once, not once a file.
+func (e *EncRemote) Announce(names []string) error {
+	if err := e.loadIndex(); err != nil {
+		return err
+	}
+	var added []string
+	for _, n := range names {
+		if op := e.opaque(n); e.idx[op] != n { // names are never taken out of the index
+			e.idx[op] = n
+			added = append(added, op)
+		}
+	}
+	if len(added) == 0 {
 		return nil
 	}
 	if err := e.saveIndex(); err != nil {
+		// not on the remote: taken back here, or the next Announce would take them for put and skip them
+		for _, op := range added {
+			delete(e.idx, op)
+		}
 		return err
 	}
-	e.pending = 0
 	return nil
 }
 
@@ -796,24 +791,9 @@ func conflictName(name string, at time.Time) string {
 	return strings.TrimSuffix(name, ext) + " (çakışma " + at.Format("2006-01-02 15-04-05") + ")" + ext
 }
 
-// SyncOnce makes one pass: it puts the library under root (in fsys) and the remote in agreement. What
-// the remote keeps back to write at the end (the sealed index's names, encRemote) is written then, an
-// error or not.
+// SyncOnce makes one pass: it puts the library under root (in fsys) and the remote in agreement.
 func SyncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]bool, now time.Time) (SyncResult, error) {
 	res, pushed, err := syncOnce(fsys, root, r, st, skip, now)
-	if f, ok := r.(interface{ Flush() error }); ok {
-		if ferr := f.Flush(); ferr != nil {
-			// the names of what was sent are not on the remote: what went up is forgotten, and goes up
-			// again next pass. Kept as sent, the next pass would read it as deleted there, and delete it here.
-			for _, n := range pushed {
-				delete(st.Files, n)
-			}
-			if err == nil {
-				err = ferr
-			}
-			return res, err
-		}
-	}
 	// the remote's hash of what was sent: known from what was put where the remote can tell it (EncRemote), and
 	// for the rest read once, after their names are there
 	var unknown []string
@@ -847,6 +827,19 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	local, seen, err := localFiles(fsys, root, skip, st)
 	if err != nil {
 		return res, pushed, err
+	}
+	// a remote that keeps the names apart from the files (EncRemote) is given every name this pass could put
+	// before any file goes up, and is listed after: a file of the same path that another device put first is
+	// then seen, and met as a conflict (#149)
+	if an, ok := r.(interface{ Announce([]string) error }); ok {
+		names := make([]string, 0, len(local))
+		for n := range local {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		if err := an.Announce(names); err != nil {
+			return res, pushed, err
+		}
 	}
 	remote, err := r.List()
 	if err != nil {
@@ -1171,20 +1164,6 @@ func localHashOf(r Remote, name, remoteHash, _ string) string {
 		return ""
 	}
 	return HashOf(b)
-}
-
-// sentBefore reports whether the remote holds name already with these very bytes, though its index
-// does not name it: a pass whose index was not written sent it, and sending it again is done.
-func (e *EncRemote) sentBefore(name string, data []byte) bool {
-	if e.idx[e.opaque(name)] == name {
-		return false
-	}
-	raw, err := e.inner.Get(e.opaque(name))
-	if err != nil {
-		return false
-	}
-	plain, err := e.open(raw)
-	return err == nil && bytes.Equal(plain, data)
 }
 
 // localIs says whether the file at p is still what a pass saw of it: the bytes of hash lh, or no file when lh

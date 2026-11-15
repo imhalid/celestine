@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -499,12 +500,6 @@ func TestSyncEncryptedIndexRace(t *testing.T) {
 	if err := eb.Put("b/y.json", []byte("y"), ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := ea.Flush(); err != nil { // the index is put at the end of a pass, as SyncOnce does
-		t.Fatal(err)
-	}
-	if err := eb.Flush(); err != nil {
-		t.Fatal(err)
-	}
 	list, err := open().List()
 	if err != nil {
 		t.Fatal(err)
@@ -525,8 +520,8 @@ type listCounter struct {
 
 func (l *listCounter) List() (map[string]RemoteEntry, error) { l.lists++; return l.Remote.List() }
 
-// A first pass of many files puts the sealed index a few times, not once a file: each put lists the remote
-// and merges, and once a file a library of thousands took minutes. Another device sees them all after it.
+// A first pass of many files puts the sealed index once, before the files, not once a file: each put lists the
+// remote and merges, and once a file a library of thousands took minutes. Another device sees them all after it.
 func TestSyncEncryptedIndexInSteps(t *testing.T) {
 	a := newDevice(t)
 	const n = 450
@@ -567,8 +562,8 @@ func (r *indexFails) Put(name string, data []byte, prev string) error {
 	return r.Remote.Put(name, data, prev)
 }
 
-// The index of an encrypted remote not written at the end of a pass: what went up is not taken as
-// sent, so the next pass sends it again, and never deletes it here as if it were deleted there.
+// The index of an encrypted remote not written at the start of a pass: nothing goes up and nothing is taken
+// as sent, so the next pass sends it, and never deletes it here as if it were deleted there.
 func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 	a := newDevice(t)
 	a.write("notlar/bir/page.json", "bir")
@@ -601,8 +596,8 @@ func TestSyncIndexFailureKeepsLocalFiles(t *testing.T) {
 	}
 }
 
-// The same, and the file is written again before the next pass: what is left on the remote by the pass
-// that failed is older than it, and is written over, not met as a conflict for ever.
+// The same, and the file is written again before the next pass: the pass that failed left nothing on the
+// remote, and the new text goes up with no conflict.
 func TestSyncIndexFailureThenEdited(t *testing.T) {
 	a := newDevice(t)
 	a.write("notlar/bir/page.json", "bir")
@@ -1225,5 +1220,128 @@ func TestRemovedFilesComeBackWithTheirPage(t *testing.T) {
 	}
 	if n := len(lib.Trash()); n != 0 {
 		t.Fatalf("%d items left in the trash", n)
+	}
+}
+
+// pauseRemote runs pause once, around the first put of a file (not the index or the salt): before it when
+// before is set, after it otherwise. It stands for the time between one device's steps of a pass, in which
+// another device makes a whole pass of its own.
+type pauseRemote struct {
+	Remote
+	before bool
+	pause  func()
+}
+
+func (p *pauseRemote) Put(name string, data []byte, prev string) error {
+	f := p.pause
+	if name == IndexFile || name == SaltFile || f == nil {
+		return p.Remote.Put(name, data, prev)
+	}
+	p.pause = nil
+	if p.before {
+		f()
+	}
+	err := p.Remote.Put(name, data, prev)
+	if !p.before {
+		f()
+	}
+	return err
+}
+
+// conflictCopies is the texts of the conflict copies of name in the device's folder.
+func (d *device) conflictCopies(name string) []string {
+	d.t.Helper()
+	dir := filepath.Join(d.root, filepath.FromSlash(path.Dir(name)))
+	ents, _ := os.ReadDir(dir)
+	var out []string
+	for _, e := range ents {
+		if strings.Contains(e.Name(), "çakışma") {
+			b, _ := os.ReadFile(filepath.Join(dir, e.Name()))
+			out = append(out, string(b))
+		}
+	}
+	return out
+}
+
+// Two devices make a new file of the same path (today's journal page), one while the other is in the middle of
+// its pass: neither text is written over, one is at the path and the other kept beside it as a conflict copy, on
+// both devices (#149). The other device's pass comes before the first one's file is put, and after it.
+func TestSyncEncryptedSameNewPathTwoDevices(t *testing.T) {
+	const name = "Günlük/2026-11-15/page.json"
+	for _, before := range []bool{true, false} {
+		t.Run(fmt.Sprint("before=", before), func(t *testing.T) {
+			inner := DirRemote{Root: t.TempDir()}
+			open := func(r Remote) *EncRemote {
+				e, err := OpenEnc(r, "parola")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return e
+			}
+			a, b := newDevice(t), newDevice(t)
+			a.write(name, "A'nın günü")
+			b.write(name, "B'nin günü")
+			var bErr error
+			pause := &pauseRemote{Remote: inner, before: before, pause: func() {
+				_, bErr = SyncOnce(OSFS{}, b.root, open(inner), &b.st, nil, time.Date(2026, 11, 15, 9, 0, 0, 0, time.UTC))
+			}}
+			if _, err := SyncOnce(OSFS{}, a.root, open(pause), &a.st, nil, time.Date(2026, 11, 15, 9, 0, 1, 0, time.UTC)); err != nil {
+				t.Fatal(err)
+			}
+			if bErr != nil {
+				t.Fatal(bErr)
+			}
+			// the one whose put lost the race is told so, and meets the other's file as a conflict at its next pass
+			for i := 0; i < 2; i++ {
+				for _, d := range []*device{a, b} {
+					if _, err := SyncOnce(OSFS{}, d.root, open(inner), &d.st, nil, time.Date(2026, 11, 15, 9, 1, i, 0, time.UTC)); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			for _, d := range []*device{a, b} {
+				got := append([]string{d.read(name)}, d.conflictCopies(name)...)
+				if len(got) != 2 || !slices.Contains(got, "A'nın günü") || !slices.Contains(got, "B'nin günü") {
+					t.Fatalf("a device has %q: one text was written over", got)
+				}
+			}
+			if a.read(name) != b.read(name) {
+				t.Fatalf("the devices disagree: %q, %q", a.read(name), b.read(name))
+			}
+		})
+	}
+}
+
+// A name in the sealed index whose file never went up (a pass that stopped between the two) is harmless to
+// every other device: it is not listed, nothing is pulled or deleted for it, a device that has it synced keeps
+// it, and a device that makes a file of that path sends it up as new.
+func TestSyncEncryptedNameWithoutFile(t *testing.T) {
+	inner := DirRemote{Root: t.TempDir()}
+	open := func() *EncRemote {
+		e, err := OpenEnc(inner, "parola")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+	b := newDevice(t)
+	b.write("Not/Bir/page.json", "bir")
+	b.sync(open())
+	if err := open().Announce([]string{"Not/Yeni/page.json", "Not/Bir/page.json"}); err != nil {
+		t.Fatal(err)
+	}
+	if list, err := open().List(); err != nil || len(list) != 1 {
+		t.Fatalf("listed: %v %v", list, err)
+	}
+	if res := b.sync(open()); res.Pushed+res.Pulled+res.Removed+res.Held+len(res.Conflicts) != 0 {
+		t.Fatalf("a name with no file did something: %+v", res)
+	}
+	c := newDevice(t)
+	c.write("Not/Yeni/page.json", "yeni")
+	if res := c.sync(open()); res.Pushed != 1 || res.Pulled != 1 {
+		t.Fatalf("the new device: %+v", res)
+	}
+	if res := b.sync(open()); res.Pulled != 1 || b.read("Not/Yeni/page.json") != "yeni" || b.read("Not/Bir/page.json") != "bir" {
+		t.Fatalf("after: %+v", res)
 	}
 }
