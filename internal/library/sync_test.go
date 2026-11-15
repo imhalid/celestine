@@ -290,15 +290,18 @@ func TestSyncEncrypted(t *testing.T) {
 	if r := a.sync(open("parola")); r.Pushed+r.Pulled+len(r.Conflicts) != 0 {
 		t.Fatalf("a second pass did something: %+v", r)
 	}
-	// the wrong passphrase gets nothing, and says so
+	// the wrong passphrase is refused when the remote is opened, and gets nothing (#153)
+	if e, err := OpenEnc(inner, "yanlış"); !errors.Is(err, ErrWrongPassphrase) || e != nil {
+		t.Fatalf("the wrong passphrase opened the remote: %v", err)
+	}
+	// a key that is not the remote's, put in by hand, gets nothing, and says so
 	bad := newDevice(t)
-	if e, err := OpenEnc(inner, "yanlış"); err == nil {
-		if _, err := SyncOnce(OSFS{}, bad.root, e, &bad.st, nil, time.Now()); err == nil {
-			t.Fatal("the wrong passphrase read the library")
-		}
+	wrongKey, _ := NewEncRemote(inner, bytes.Repeat([]byte{3}, 32))
+	if _, err := SyncOnce(OSFS{}, bad.root, wrongKey, &bad.st, nil, time.Now()); err == nil {
+		t.Fatal("the wrong key read the library")
 	}
 	if bad.read("Gizli koleksiyon/Banka şifrem/page.json") != "<yok>" {
-		t.Fatal("plaintext came with a wrong passphrase")
+		t.Fatal("plaintext came with a wrong key")
 	}
 	// the recovery key opens it, too
 	salt, _ := inner.Get(SaltFile)
@@ -1220,6 +1223,33 @@ func TestRemovedFilesComeBackWithTheirPage(t *testing.T) {
 	}
 	if n := len(lib.Trash()); n != 0 {
 		t.Fatalf("%d items left in the trash", n)
+	}
+}
+
+// A passphrase is checked against the remote's sealed index when the remote is opened: the right one opens it, a
+// wrong one (a typo when joining a second device) is refused, and a remote with no index yet takes any (#153).
+func TestSyncOpenEncChecksPassphrase(t *testing.T) {
+	inner := DirRemote{Root: t.TempDir()}
+	if _, err := OpenEnc(inner, "parola"); err != nil { // a new remote: the salt is made, there is no index
+		t.Fatal(err)
+	}
+	if _, err := OpenEnc(inner, "başka"); err != nil {
+		t.Fatalf("a remote with no index refused a passphrase: %v", err)
+	}
+	e, _ := OpenEnc(inner, "parola")
+	a := newDevice(t)
+	a.write("Not/Bir/page.json", "bir")
+	a.sync(e)
+	if _, err := OpenEnc(inner, "parola"); err != nil {
+		t.Fatalf("the right passphrase: %v", err)
+	}
+	if e, err := OpenEnc(inner, "parol"); !errors.Is(err, ErrWrongPassphrase) || e != nil {
+		t.Fatalf("a wrong passphrase: %v", err)
+	}
+	salt, _ := inner.Get(SaltFile)
+	key, _ := DeriveKey("parola", salt)
+	if back, err := KeyFromRecovery(RecoveryKey(key)); err != nil || !bytes.Equal(back, e.Key) {
+		t.Fatal("the recovery key is not the key the remote was opened with")
 	}
 }
 

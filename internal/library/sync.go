@@ -407,7 +407,8 @@ func NewEncRemote(inner Remote, key []byte) (*EncRemote, error) {
 	return &EncRemote{inner: inner, Key: key, gcm: g, idx: map[string]string{}}, nil
 }
 
-// OpenEnc opens the remote with a passphrase: the salt is read from it, or made and put there.
+// OpenEnc opens the remote with a passphrase: the salt is read from it, or made and put there. A remote that
+// holds a sealed index must open with the key, or the passphrase is refused (ErrWrongPassphrase).
 func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 	salt, err := inner.Get(SaltFile)
 	if err != nil {
@@ -428,8 +429,26 @@ func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEncRemote(inner, key)
+	e, err := NewEncRemote(inner, key)
+	if err != nil {
+		return nil, err
+	}
+	// the index, when the remote has one, is opened with the key: a passphrase that is not the one the remote
+	// was sealed with is refused here, not kept to fail every pass after (#153)
+	if err := e.loadIndex(); errors.Is(err, errSealed) {
+		return nil, ErrWrongPassphrase
+	} else if err != nil {
+		return nil, err
+	}
+	return e, nil
 }
+
+// ErrWrongPassphrase says a passphrase does not open what the remote holds: it is not the one its files were
+// sealed with.
+var ErrWrongPassphrase = errors.New("the passphrase does not open the remote")
+
+// errSealed says a sealed file did not open with the key.
+var errSealed = errors.New("şifre çözülemedi: parola ya da anahtar yanlış")
 
 func (e *EncRemote) seal(b []byte) []byte {
 	nonce := make([]byte, e.gcm.NonceSize())
@@ -444,7 +463,7 @@ func (e *EncRemote) open(b []byte) ([]byte, error) {
 	}
 	out, err := e.gcm.Open(nil, b[:n], b[n:], nil)
 	if err != nil {
-		return nil, errors.New("şifre çözülemedi: parola ya da anahtar yanlış")
+		return nil, errSealed
 	}
 	return out, nil
 }

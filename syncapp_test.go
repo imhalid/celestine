@@ -108,15 +108,35 @@ func TestSyncApps(t *testing.T) {
 	}
 }
 
+// setPassphrase turns encryption on with pass as the settings' button does, from a frame, and waits for the
+// passphrase to be checked against the remote.
+func setPassphrase(t *testing.T, a *app, pass string) {
+	t.Helper()
+	a.mu.Lock()
+	a.settings.SyncKey = "" // syncApp's own key: the passphrase is for an app with none
+	a.setSyncPassphrase(pass)
+	a.mu.Unlock()
+	for i := 0; i < 500; i++ {
+		a.mu.Lock()
+		busy := a.sy.passBusy
+		a.mu.Unlock()
+		if !busy {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the passphrase was not checked")
+}
+
 // With encryption on from the passphrase, two apps agree, and the folder holds nothing readable.
 func TestSyncAppsEncrypted(t *testing.T) {
 	dir := t.TempDir()
 	a, b := syncApp(t, dir), syncApp(t, dir)
-	a.setSyncPassphrase("parola")
+	setPassphrase(t, a, "parola")
 	if a.settings.SyncKey == "" || a.sy.recovery == "" {
 		t.Fatalf("no key: %q", a.notice)
 	}
-	b.setSyncPassphrase("parola")
+	setPassphrase(t, b, "parola")
 	if a.settings.SyncKey != b.settings.SyncKey {
 		t.Fatal("two devices with the same passphrase made different keys")
 	}
@@ -134,13 +154,56 @@ func TestSyncAppsEncrypted(t *testing.T) {
 	if bytes.Contains(all, []byte("99887766")) || bytes.Contains(all, []byte("Banka")) {
 		t.Fatal("readable on the remote")
 	}
-	// a wrong key is an error, not a library
+	// a wrong passphrase is refused and not kept (a typo when joining), and the sync, with no key, gets nothing
 	c2 := syncApp(t, dir)
-	c2.setSyncPassphrase("yanlış")
+	setPassphrase(t, c2, "yanlış")
+	if c2.settings.SyncKey != "" || c2.sy.recovery != "" || c2.notice != locales.SyncErrWrongPassphrase() {
+		t.Fatalf("the wrong passphrase: key %q notice %q", c2.settings.SyncKey, c2.notice)
+	}
 	c2.syncNow()
 	waitSync(t, c2)
 	if c2.sy.err == "" || len(c2.lib.Collections) != 0 {
 		t.Fatalf("the wrong passphrase: err %q collections %d", c2.sy.err, len(c2.lib.Collections))
+	}
+	// and the right one, typed again, is
+	setPassphrase(t, c2, "parola")
+	if c2.settings.SyncKey != a.settings.SyncKey {
+		t.Fatalf("the right passphrase after a wrong one: %q", c2.notice)
+	}
+}
+
+// With the passphrase set, the settings have no way to change it: the key would no longer open what the remote
+// holds, and every pass would fail (#153). With none, encryption is turned on there.
+func TestSyncPassphraseNotChanged(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settings.SyncMode, a.settings.SyncDir = "dir", t.TempDir()
+	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText(locales.SyncEndEndEncryption()) {
+		t.Fatalf("no encryption row: %v", tt.Texts())
+	}
+	if tt.HasText(locales.TurnOnEncryption()) {
+		t.Fatal("a passphrase button with the key set")
+	}
+	if _, ok := tt.Find(locales.SyncPassphrase()); ok {
+		t.Fatal("a passphrase field with the key set")
+	}
+	key := a.settings.SyncKey
+	a.setSyncPassphrase("başka") // the function too keeps the key as it is
+	if a.settings.SyncKey != key || a.sy.passBusy {
+		t.Fatal("the passphrase was changed")
+	}
+	a.settings.SyncKey = ""
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	if !tt.HasText(locales.TurnOnEncryption()) {
+		t.Fatalf("no button to turn encryption on: %v", tt.Texts())
+	}
+	if _, ok := tt.Find(locales.SyncPassphrase()); !ok {
+		t.Fatal("no passphrase field with no key")
 	}
 }
 

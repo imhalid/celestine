@@ -1903,16 +1903,6 @@ func (msgs Messages) ChangeTheCaret() string {
 	return Catalog.Format(msgs.locale, "changeTheCaret", nil)
 }
 
-// ChangeThePassphrase says "Change the passphrase"
-// in the language the app shows.
-func ChangeThePassphrase() string { return In(i18n.Locale()).ChangeThePassphrase() }
-
-// ChangeThePassphrase says "Change the passphrase"
-// in the language of msgs.
-func (msgs Messages) ChangeThePassphrase() string {
-	return Catalog.Format(msgs.locale, "changeThePassphrase", nil)
-}
-
 // Changed says "Changed"
 // in the language the app shows.
 func Changed() string { return In(i18n.Locale()).Changed() }
@@ -13207,6 +13197,16 @@ func SyncErrOriginalMissing() string { return In(i18n.Locale()).SyncErrOriginalM
 // in the language of msgs.
 func (msgs Messages) SyncErrOriginalMissing() string {
 	return Catalog.Format(msgs.locale, "sync_errOriginalMissing", nil)
+}
+
+// SyncErrWrongPassphrase says "this passphrase doesn't open what is already synced there: it isn't the one the other devices use"
+// in the language the app shows.
+func SyncErrWrongPassphrase() string { return In(i18n.Locale()).SyncErrWrongPassphrase() }
+
+// SyncErrWrongPassphrase says "this passphrase doesn't open what is already synced there: it isn't the one the other devices use"
+// in the language of msgs.
+func (msgs Messages) SyncErrWrongPassphrase() string {
+	return Catalog.Format(msgs.locale, "sync_errWrongPassphrase", nil)
 }
 
 // SyncErrors says "{count, plural, one {# error} other {# errors}}"

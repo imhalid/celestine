@@ -46,6 +46,7 @@ type syncUI struct {
 	showColls      bool // the list of collections to sync is open
 	tried          time.Time
 	pass           string // the passphrase being typed
+	passBusy       bool   // the passphrase is being checked against the remote (setSyncPassphrase)
 	recovery       string // the recovery key just made, to be written down
 	hasKey         bool
 	held           int       // files the last pass did not delete here, the remote having none of them (massRemovals)
@@ -787,9 +788,18 @@ func (a *app) settingsSync(c *ui.Context) {
 		settingGroup(c, "set-sync-enc",
 			func() {
 				settingRow(c, locales.SyncEndEndEncryption(), locales.SyncRequiredFilesAreEncrypted(), func() {
+					if enc {
+						// the passphrase is not changed: a new one would need every file sealed again, and a key
+						// that does not open the remote fails every pass (#153)
+						return
+					}
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 						a.fieldMenu(ryugo.Input(c.Key("sync-pass"), &a.sy.pass, ryugo.InputOptions{Label: locales.SyncPassphrase(), Size: ryugo.Sm, Placeholder: locales.SyncPassphrase()}), &a.sy.pass, fieldOpts{oneLine: true})
-						if ryugo.Button(c.Key("sync-setpass"), msg(map[bool]string{true: "changeThePassphrase", false: "turnOnEncryption"}[enc]), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
+						label := locales.TurnOnEncryption()
+						if a.sy.passBusy {
+							label = locales.CommonTrying()
+						}
+						if ryugo.Button(c.Key("sync-setpass"), label, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 							a.setSyncPassphrase(a.sy.pass)
 						}
 					})
@@ -931,9 +941,14 @@ func (a *app) settingsSync(c *ui.Context) {
 	}
 }
 
-// setSyncPassphrase turns encryption on with the passphrase: the key is made with the remote's salt, kept, and its
-// recovery words shown once.
+// setSyncPassphrase turns encryption on with the passphrase: the key is made with the remote's salt, checked
+// against what the remote holds, kept, and its recovery words shown once. A key once set is not changed here
+// (#153). The remote and the key derivation are slow, so they run in a goroutine, out of the app's lock; what
+// they found is kept only if the settings still point where they did.
 func (a *app) setSyncPassphrase(pass string) {
+	if a.settings.SyncKey != "" || a.sy.passBusy {
+		return
+	}
 	if strings.TrimSpace(pass) == "" {
 		a.say(toastWarn, locales.TypeAPassword())
 		return
@@ -948,15 +963,31 @@ func (a *app) setSyncPassphrase(pass string) {
 		a.say(toastWarn, locales.FirstChooseWhereToSyncTo())
 		return
 	}
-	e, err := OpenEnc(inner, pass)
-	if err != nil {
-		a.say(toastErr, locales.CommonDidntWork(err.Error()))
-		return
-	}
-	a.settings.SyncKey = base64.StdEncoding.EncodeToString(e.Key)
-	a.sy.recovery, a.sy.pass, a.sy.hasKey = RecoveryKey(e.Key), "", true
-	a.saveSettings()
-	a.say(toastWarn, locales.EncryptionIsOnWriteTheRecovery())
+	id := a.syncRemoteID()
+	a.sy.passBusy = true
+	go func() {
+		defer a.guard()
+		e, err := OpenEnc(inner, pass)
+		a.do(func() error {
+			a.sy.passBusy = false
+			if a.settings.SyncKey != "" || a.syncRemoteID() != id {
+				return nil // set another way, or pointed elsewhere, while it was checked
+			}
+			if errors.Is(err, library.ErrWrongPassphrase) {
+				a.say(toastErr, locales.SyncErrWrongPassphrase())
+				return nil
+			}
+			if err != nil {
+				a.say(toastErr, locales.CommonDidntWork(err.Error()))
+				return nil
+			}
+			a.settings.SyncKey = base64.StdEncoding.EncodeToString(e.Key)
+			a.sy.recovery, a.sy.pass, a.sy.hasKey = RecoveryKey(e.Key), "", true
+			a.saveSettings()
+			a.say(toastWarn, locales.EncryptionIsOnWriteTheRecovery())
+			return nil
+		})
+	}()
 }
 
 // activity notes whether one did something in the window since the last frame: the pointer moved over it or pressed,
