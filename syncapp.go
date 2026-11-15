@@ -53,6 +53,13 @@ type syncUI struct {
 	allow          bool      // the user said to delete them: the next pass does
 	backedUp       time.Time // when a pass last backed the library up
 	resend         bool      // the user said to send them up again: the next pass does
+	// refused is the files the last pass that reached the remote did not take, their copy there not being theirs,
+	// and rolledBack that it served an index older than one seen (#148): a pass that could not reach it leaves them as
+	// they were. trustIndex and trustFiles say the user trusts the remote's index, or its files, again: the next pass
+	// does, and keeps the word for the one after if it could not use it up.
+	refused                []string
+	rolledBack             bool
+	trustIndex, trustFiles bool
 	// the store's Writes when it was last synced or last seen moving, and when it moved: a pass starts once the
 	// writing has been quiet for syncQuiet, so that what is typed goes up in seconds, not at the next round
 	writes   uint64
@@ -306,6 +313,8 @@ func (a *app) syncNow() {
 	state.ForRemote(a.syncRemoteID())
 	state.AllowRemovals, a.sy.allow = a.sy.allow, false
 	state.Resend, a.sy.resend = a.sy.resend, false
+	state.TrustIndex, a.sy.trustIndex = a.sy.trustIndex, false
+	state.TrustFiles, a.sy.trustFiles = a.sy.trustFiles, false
 	keep := a.keepRunning
 	go func() {
 		defer a.guard()
@@ -328,7 +337,24 @@ func (a *app) syncNow() {
 			a.sy.writes, a.sy.movedAt = a.libWrites(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			hadErr := a.sy.err != ""
+			a.sy.trustIndex = a.sy.trustIndex || state.TrustIndex // not used up: the next pass tries again
+			a.sy.trustFiles = a.sy.trustFiles || state.TrustFiles
 			switch {
+			case errors.Is(err, library.ErrIndexRollback):
+				a.sy.rolledBack = true
+			case err == nil:
+				a.sy.rolledBack, a.sy.refused = false, res.Refused
+			}
+			switch {
+			case errors.Is(err, library.ErrIndexRollback): // not offline: the remote answered, with an index older than one seen
+				a.sy.err, a.sy.status = locales.SyncErrIndexRollback(), locales.NotifySyncStopped()
+				if !hadErr {
+					a.notify(notifySync, locales.NotifySyncStopped(), a.sy.err)
+				}
+			case errors.Is(err, library.ErrRemoteNotYet): // a folder bringing the index late: waited for, not told
+				a.sy.err, a.sy.status = "", locales.SyncWaitingForRemote()
+			case errors.Is(err, library.ErrNoFolder): // a drive not connected: offline
+				a.sy.err, a.sy.status = locales.SyncErrNoFolder(), locales.SyncOffline()
 			case err != nil:
 				a.sy.err, a.sy.status = err.Error(), locales.SyncOffline()
 			default:
@@ -917,6 +943,35 @@ func (a *app) settingsSync(c *ui.Context) {
 						}
 					})
 				})
+		})
+	}
+	if a.sy.rolledBack || len(a.sy.refused) > 0 {
+		settingGroup(c, "set-sync-refused", func() {
+			title := locales.SyncErrIndexRollback()
+			if !a.sy.rolledBack {
+				title = locales.SyncRefusedFiles(len(a.sy.refused))
+			}
+			settingRow(c, title, locales.SyncTrustRemoteHint(), func() {
+				// the way out of a refusal that was no attack (#148): the index, when it is what stopped the pass, and
+				// the files then, each at its own word, so that trusting a file does not take an older index too
+				if ryugo.Button(c.Key("sync-trust"), locales.SyncTrustRemoteAgain(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Warn, Variant: ryugo.Soft, Icon: iconSync}).Clicked() {
+					if a.sy.rolledBack {
+						a.sy.trustIndex = true
+					} else {
+						a.sy.trustFiles = true
+					}
+					a.syncNow()
+				}
+			})
+			if !a.sy.rolledBack {
+				for i, f := range a.sy.refused {
+					if i == 8 {
+						ui.Text(c, "…").FontSize(12).TextColor(cl.Muted)
+						break
+					}
+					ui.Text(c, f).FontSize(12).TextColor(cl.Muted).Wrap()
+				}
+			}
 		})
 	}
 	if files := a.conflictFiles(); len(files) > 0 {

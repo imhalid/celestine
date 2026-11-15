@@ -13159,6 +13159,26 @@ func (msgs Messages) SyncEnterPassphraseAgain() string {
 	return Catalog.Format(msgs.locale, "sync_enterPassphraseAgain", nil)
 }
 
+// SyncErrIndexRollback says "the remote served an older list of its files than this device has seen, so nothing was taken from it"
+// in the language the app shows.
+func SyncErrIndexRollback() string { return In(i18n.Locale()).SyncErrIndexRollback() }
+
+// SyncErrIndexRollback says "the remote served an older list of its files than this device has seen, so nothing was taken from it"
+// in the language of msgs.
+func (msgs Messages) SyncErrIndexRollback() string {
+	return Catalog.Format(msgs.locale, "sync_errIndexRollback", nil)
+}
+
+// SyncErrNoFolder says "the sync folder isn't there: is its drive connected?"
+// in the language the app shows.
+func SyncErrNoFolder() string { return In(i18n.Locale()).SyncErrNoFolder() }
+
+// SyncErrNoFolder says "the sync folder isn't there: is its drive connected?"
+// in the language of msgs.
+func (msgs Messages) SyncErrNoFolder() string {
+	return Catalog.Format(msgs.locale, "sync_errNoFolder", nil)
+}
+
 // SyncErrKeyBroken says "the encryption key is damaged"
 // in the language the app shows.
 func SyncErrKeyBroken() string { return In(i18n.Locale()).SyncErrKeyBroken() }
@@ -13279,6 +13299,36 @@ func (msgs Messages) SyncMerged(count int) string {
 	return Catalog.Format(msgs.locale, "sync_merged", map[string]any{"count": count})
 }
 
+// SyncTrustRemoteAgain says "Trust the remote again"
+// in the language the app shows.
+func SyncTrustRemoteAgain() string { return In(i18n.Locale()).SyncTrustRemoteAgain() }
+
+// SyncTrustRemoteAgain says "Trust the remote again"
+// in the language of msgs.
+func (msgs Messages) SyncTrustRemoteAgain() string {
+	return Catalog.Format(msgs.locale, "sync_trustRemoteAgain", nil)
+}
+
+// SyncTrustRemoteHint says "The remote may have been restored from a backup, changed by another program or a folder-sync app, or tampered with. T…"
+// in the language the app shows.
+func SyncTrustRemoteHint() string { return In(i18n.Locale()).SyncTrustRemoteHint() }
+
+// SyncTrustRemoteHint says "The remote may have been restored from a backup, changed by another program or a folder-sync app, or tampered with. T…"
+// in the language of msgs.
+func (msgs Messages) SyncTrustRemoteHint() string {
+	return Catalog.Format(msgs.locale, "sync_trustRemoteHint", nil)
+}
+
+// SyncWaitingForRemote says "Waiting for the remote's files to arrive"
+// in the language the app shows.
+func SyncWaitingForRemote() string { return In(i18n.Locale()).SyncWaitingForRemote() }
+
+// SyncWaitingForRemote says "Waiting for the remote's files to arrive"
+// in the language of msgs.
+func (msgs Messages) SyncWaitingForRemote() string {
+	return Catalog.Format(msgs.locale, "sync_waitingForRemote", nil)
+}
+
 // SyncNoFolderChosen says "no folder chosen"
 // in the language the app shows.
 func SyncNoFolderChosen() string { return In(i18n.Locale()).SyncNoFolderChosen() }
@@ -13317,6 +13367,16 @@ func SyncOffline() string { return In(i18n.Locale()).SyncOffline() }
 // in the language of msgs.
 func (msgs Messages) SyncOffline() string {
 	return Catalog.Format(msgs.locale, "sync_offline", nil)
+}
+
+// SyncRefusedFiles says "{count, plural, one {# file on the remote isn't its latest copy; it wasn't written here} other {# files on the remote…"
+// in the language the app shows.
+func SyncRefusedFiles(count int) string { return In(i18n.Locale()).SyncRefusedFiles(count) }
+
+// SyncRefusedFiles says "{count, plural, one {# file on the remote isn't its latest copy; it wasn't written here} other {# files on the remote…"
+// in the language of msgs.
+func (msgs Messages) SyncRefusedFiles(count int) string {
+	return Catalog.Format(msgs.locale, "sync_refusedFiles", map[string]any{"count": count})
 }
 
 // SyncPassphrase says "Passphrase"

@@ -34,6 +34,15 @@ eşitleniyor… / çevrimdışı / çakışma: 2` rozeti. Çevrimdışıyken yaz
   görür (test: uzaktaki hiçbir ad ya da baytta düz metin yok). Yanlış parola veri vermez. **Kurtarma anahtarı** (anahtarın base32 hâli) bir kez gösterilir;
   parolayı ve anahtarı kaybetmek veriyi kaybetmektir, ayarlarda yazılı.
 - Yalnız HTTPS. Jeton ve anahtar kitaplık dosyasının içindeki ayarlarda durur (dosyayı paylaşan, onu da paylaşır).
+- What the remote serves is checked too (#148). The index carries a generation (a counter per device), and a sealed
+  `_hashes` object beside it keeps each file's hash and sealed hash under its own generation. A device keeps the sealed
+  copies it synced of each file. Each put seals with a nonce of its own, so an honest write never repeats earlier bytes:
+  an older index, a file served under another's name, an older copy, or a deleted file brought back is refused, and
+  the sync settings offer "Trust the remote again". An index or hashes missing are waited for five minutes (a folder
+  synced by another program may bring them late); a folder not there at all is offline. Phase 1 still writes without
+  labels, so that older versions keep syncing; it cannot catch a newer copy of another file, served with older hashes
+  that are not below what a device saw, to a device that never held that file. Phase 2 seals each file under a label
+  of its path, which closes it.
 
 ## Silinenler çöpe gider, toplu silme beklemeye alınır (8 Kasım 2026)
 

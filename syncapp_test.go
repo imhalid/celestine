@@ -854,3 +854,82 @@ func TestSyncFolderLibrary(t *testing.T) {
 		t.Fatalf("not merged (%q): %s", b.sy.err, src)
 	}
 }
+
+// A remote that serves an older index stops the pass with its own message, and the user's "trust the remote
+// again" takes it at the next pass, after which the passes go on (#148).
+func TestSyncTrustRemoteAgain(t *testing.T) {
+	dir := t.TempDir()
+	a := syncApp(t, dir)
+	c, _ := a.lib.NewCollection("Not")
+	p, _ := c.NewPage(nil, "Bir")
+	p.SaveText("bir\n")
+	a.syncNow()
+	waitSync(t, a)
+	before, err := os.ReadFile(filepath.Join(dir, IndexFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, _ := c.NewPage(nil, "İki")
+	q.SaveText("iki\n")
+	a.syncNow()
+	waitSync(t, a)
+	os.WriteFile(filepath.Join(dir, IndexFile), before, 0o644) // the remote restored from a backup
+	a.syncNow()
+	waitSync(t, a)
+	if !a.sy.rolledBack || a.sy.err != locales.SyncErrIndexRollback() {
+		t.Fatalf("the older index: rolled back %v, err %q", a.sy.rolledBack, a.sy.err)
+	}
+	a.sy.trustIndex = true // the button in the sync settings
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.rolledBack || a.sy.trustIndex {
+		t.Fatalf("trusted again: rolled back %v, err %q", a.sy.rolledBack, a.sy.err)
+	}
+	// the page the older index left out is still here: its name goes in again before the remote is listed
+	if pages := a.lib.Collections[0].All(); len(pages) != 2 {
+		t.Fatalf("trusted again, the library holds %d pages", len(pages))
+	}
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.rolledBack || len(a.sy.refused) > 0 {
+		t.Fatalf("the pass after: err %q", a.sy.err)
+	}
+	// a pass that does not reach the remote leaves what the last one that did refused, and its button
+	a.sy.refused = []string{"Not/Bir/page.json"}
+	a.settings.SyncMode, a.settings.SyncURL, a.settings.SyncToken = "server", "http://127.0.0.1:1", "x"
+	a.syncNow()
+	waitSync(t, a)
+	if len(a.sy.refused) != 1 {
+		t.Fatalf("a pass that did not reach the remote forgot the refusal: err %q", a.sy.err)
+	}
+}
+
+// The sync settings offer the way out of a refusal: the message, and the button that trusts the remote again.
+func TestSyncTrustRemoteAgainShown(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settings.SyncMode = "dir"
+	a.sy.refused = []string{"Not/Bir/page.json", "Not/İki/page.json"}
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	for _, want := range []string{locales.SyncRefusedFiles(2), locales.SyncTrustRemoteAgain(), "Not/İki/page.json"} {
+		if !tt.HasText(want) {
+			t.Errorf("no %q: %v", want, tt.Texts())
+		}
+	}
+}
+
+// A sync folder that is not there (its drive not connected) is offline, with its own message, and is not made.
+func TestSyncFolderNotThere(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "Volume")
+	a := syncApp(t, dir)
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.err != locales.SyncErrNoFolder() {
+		t.Fatalf("a folder not there: %q", a.sy.err)
+	}
+	if _, err := os.Stat(dir); err == nil {
+		t.Fatal("the pass made the folder")
+	}
+}
