@@ -208,3 +208,112 @@ func TestSnapshotHoldsJSONOnly(t *testing.T) {
 		t.Fatalf("its size: %v", err)
 	}
 }
+
+// A write from another goroutine while a Batch is open is its own: a Batch that fails takes back what its fn wrote,
+// not what the sync wrote meanwhile, which had been told it was written (#526).
+func TestBatchKeepsOtherWrites(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.MkdirAll("/c/a")
+	st.MkdirAll("/c/b")
+	st.WriteFile("/c/a/"+PageFileName, []byte("v1"))
+	st.WriteFile("/c/b/"+PageFileName, []byte("mine"))
+	watch := func(name string, f func()) {
+		t.Helper()
+		done := make(chan struct{})
+		go func() { defer close(done); f() }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%s: stuck", name)
+		}
+	}
+	read := func(name string) string { b, _ := st.ReadFile(name); return string(b) }
+
+	// the sync writes v2 while the window's batch is open, and the batch fails
+	var synced error
+	watch("failing batch", func() {
+		wrote := make(chan struct{})
+		err := st.Batch(func() error {
+			if err := st.WriteFile("/c/b/"+PageFileName, []byte("batch")); err != nil {
+				return err
+			}
+			go func() { defer close(wrote); synced = st.WriteFile("/c/a/"+PageFileName, []byte("v2")) }()
+			select {
+			case <-wrote: // the write went into the batch's transaction
+			case <-time.After(200 * time.Millisecond): // the write waits for the batch
+			}
+			return errors.New("a sibling cannot be read")
+		})
+		if err == nil {
+			t.Error("the batch did not fail")
+		}
+		<-wrote
+	})
+	if synced != nil {
+		t.Fatal(synced)
+	}
+	if b := read("/c/a/" + PageFileName); b != "v2" {
+		t.Fatalf("the sync's write was taken back: %q", b)
+	}
+	if b := read("/c/b/" + PageFileName); b != "mine" {
+		t.Fatalf("the failed batch's own write was kept: %q", b)
+	}
+
+	// what fn does through the store goes into the batch: a save with its copy, a read, a move, a folder, a removal
+	ops := func() error {
+		if err := st.WriteFile("/c/b/"+PageFileName, []byte("batch text\n")); err != nil {
+			return err
+		}
+		if read("/c/b/"+PageFileName) != "batch text\n" {
+			return errors.New("the batch does not read its own write")
+		}
+		if err := st.Rename("/c/b", "/c/d"); err != nil {
+			return err
+		}
+		if err := st.MkdirAll("/c/e/f"); err != nil {
+			return err
+		}
+		return st.RemoveAll("/c/a")
+	}
+	watch("failing batch of every kind", func() {
+		if err := st.Batch(func() error {
+			if err := ops(); err != nil {
+				t.Error(err)
+			}
+			return errors.New("stop")
+		}); err == nil {
+			t.Error("the batch did not fail")
+		}
+	})
+	if read("/c/a/"+PageFileName) != "v2" || read("/c/b/"+PageFileName) != "mine" {
+		t.Fatal("a failed batch was kept")
+	}
+	if _, err := st.Stat("/c/e"); err == nil {
+		t.Fatal("a failed batch's folder was kept")
+	}
+	watch("batch of every kind", func() {
+		if err := st.Batch(ops); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := st.Stat("/c/a"); err == nil || read("/c/d/"+PageFileName) != "batch text\n" {
+		t.Fatal("a batch was not kept")
+	}
+	if _, err := st.Stat("/c/e/f"); err != nil {
+		t.Fatal(err)
+	}
+	// a panic in fn leaves the store to the others
+	func() {
+		defer func() { recover() }()
+		st.Batch(func() error { panic("boom") })
+	}()
+	watch("after a panic", func() {
+		if err := st.SetMeta("k", []byte("v")); err != nil {
+			t.Error(err)
+		}
+	})
+}

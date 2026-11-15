@@ -3,12 +3,16 @@
 package library
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,8 +32,8 @@ type Store struct {
 	// after it moves, so that what was written goes up before long.
 	Writes atomic.Uint64
 
-	batchMu  sync.Mutex  // one Batch at a time
-	batching atomic.Bool // a Batch's transaction is open on the connection
+	batchMu sync.Mutex                // one Batch at a time
+	batch   atomic.Pointer[batchConn] // the open Batch's connection, nil when none is open
 }
 
 // wrote marks a change to the tree: what was read at once is no more what is there, and Writes moves.
@@ -106,7 +110,7 @@ func (s *Store) Close() error { return s.DB.Close() }
 // Meta is the small thing kept under key, nil when there is none.
 func (s *Store) Meta(key string) []byte {
 	var v []byte
-	if s.DB.QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&v) != nil {
+	if s.db().QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&v) != nil {
 		return nil
 	}
 	return v
@@ -114,14 +118,14 @@ func (s *Store) Meta(key string) []byte {
 
 func (s *Store) SetMeta(key string, value []byte) error {
 	s.Snap.Store(nil) // a write: what was read at once is no more what is there
-	_, err := s.DB.Exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	_, err := s.db().Exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
 }
 
 // DeleteMeta takes away what is kept under key.
 func (s *Store) DeleteMeta(key string) error {
 	s.Snap.Store(nil)
-	_, err := s.DB.Exec(`DELETE FROM meta WHERE key = ?`, key)
+	_, err := s.db().Exec(`DELETE FROM meta WHERE key = ?`, key)
 	return err
 }
 
@@ -138,7 +142,7 @@ func (s *Store) node(name string) (dir bool, data []byte, mtime time.Time, err e
 	}
 	var ns int64
 	var d int
-	err = s.DB.QueryRow(`SELECT dir, data, mtime FROM nodes WHERE path = ?`, Clean(name)).Scan(&d, &data, &ns)
+	err = s.db().QueryRow(`SELECT dir, data, mtime FROM nodes WHERE path = ?`, Clean(name)).Scan(&d, &data, &ns)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil, time.Time{}, pathErr("open", name, fs.ErrNotExist)
 	}
@@ -153,7 +157,7 @@ func (s *Store) kind(name string) (dir, ok bool) {
 		return there && n.dir, there
 	}
 	var d int
-	if err := s.DB.QueryRow(`SELECT dir FROM nodes WHERE path = ?`, Clean(name)).Scan(&d); err != nil {
+	if err := s.db().QueryRow(`SELECT dir FROM nodes WHERE path = ?`, Clean(name)).Scan(&d); err != nil {
 		return false, false
 	}
 	return d == 1, true
@@ -191,7 +195,7 @@ func (s *Store) WriteFile(name string, data []byte) error {
 	}
 	// the checks above again, in the statement that writes: the sync's goroutine uses the same store, and a folder
 	// taken away between them would leave a row with no folder (#143)
-	r, err := s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime)
+	r, err := s.db().Exec(`INSERT INTO nodes (path, parent, dir, data, mtime)
 		SELECT ?1, ?2, 0, ?3, ?4 WHERE EXISTS (SELECT 1 FROM nodes WHERE path = ?2 AND dir = 1)
 			AND NOT EXISTS (SELECT 1 FROM nodes WHERE path = ?1 AND dir = 1)
 		ON CONFLICT(path) DO UPDATE SET data = excluded.data, mtime = excluded.mtime`, n, path.Dir(n), data, time.Now().UnixNano())
@@ -213,7 +217,7 @@ func (s *Store) Mkdir(name string) error {
 	if d, _, _, err := s.node(path.Dir(n)); err != nil || !d {
 		return pathErr("mkdir", name, fs.ErrNotExist)
 	}
-	_, err := s.DB.Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 1, NULL, ?)`, n, path.Dir(n), time.Now().UnixNano())
+	_, err := s.db().Exec(`INSERT INTO nodes (path, parent, dir, data, mtime) VALUES (?, ?, 1, NULL, ?)`, n, path.Dir(n), time.Now().UnixNano())
 	return err
 }
 
@@ -306,16 +310,16 @@ func (s *Store) Remove(name string) error {
 	}
 	if d {
 		var kids int
-		s.DB.QueryRow(`SELECT count(*) FROM nodes WHERE parent = ?`, n).Scan(&kids)
+		s.db().QueryRow(`SELECT count(*) FROM nodes WHERE parent = ?`, n).Scan(&kids)
 		if kids > 0 {
 			return pathErr("remove", name, errors.New("directory not empty"))
 		}
 	}
-	if _, err = s.DB.Exec(`DELETE FROM nodes WHERE path = ?`, n); err != nil {
+	if _, err = s.db().Exec(`DELETE FROM nodes WHERE path = ?`, n); err != nil {
 		return err
 	}
 	// its copies go with it: a page made later at the same place would show them as its own (#139)
-	_, err = s.DB.Exec(`DELETE FROM versions WHERE path = ?`, n)
+	_, err = s.db().Exec(`DELETE FROM versions WHERE path = ?`, n)
 	return err
 }
 
@@ -350,7 +354,7 @@ func (s *Store) Stat(name string) (fs.FileInfo, error) {
 	}
 	var ns, size int64
 	var d int
-	err := s.DB.QueryRow(`SELECT dir, coalesce(length(data), 0), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns) // a folder's data is NULL
+	err := s.db().QueryRow(`SELECT dir, coalesce(length(data), 0), mtime FROM nodes WHERE path = ?`, n).Scan(&d, &size, &ns) // a folder's data is NULL
 	if err != nil {
 		return nil, pathErr("stat", name, fs.ErrNotExist)
 	}
@@ -370,7 +374,7 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 		}
 		return out, nil
 	}
-	rows, err := s.DB.Query(`SELECT path, dir, coalesce(length(data), 0), mtime FROM nodes WHERE parent = ? ORDER BY path`, n)
+	rows, err := s.db().Query(`SELECT path, dir, coalesce(length(data), 0), mtime FROM nodes WHERE parent = ? ORDER BY path`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -391,16 +395,16 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 // Fast turns the wait for each write to the disk off, for a copy of what is still there, and on again.
 func (s *Store) Fast(on bool) {
 	if on {
-		s.DB.Exec(`PRAGMA synchronous = OFF`)
+		s.db().Exec(`PRAGMA synchronous = OFF`)
 	} else {
-		s.DB.Exec(`PRAGMA synchronous = FULL`)
+		s.db().Exec(`PRAGMA synchronous = FULL`)
 	}
 }
 
 // ReadNamed reads, in one pass over the table, every file whose name ends in "/"+base: by its name.
 // Opening a library of thousands of pages reads them all at once, not a query each.
 func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
-	rows, err := s.DB.Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
+	rows, err := s.db().Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +438,7 @@ type snapNode struct {
 
 // BeginSnapshot reads the table, for what reads it next to be answered from it, until endSnapshot or a write.
 func (s *Store) BeginSnapshot() {
-	rows, err := s.DB.Query(`SELECT path, parent, dir, CASE WHEN path LIKE '%.json' THEN data END, coalesce(length(data), 0), mtime FROM nodes ORDER BY path`)
+	rows, err := s.db().Query(`SELECT path, parent, dir, CASE WHEN path LIKE '%.json' THEN data END, coalesce(length(data), 0), mtime FROM nodes ORDER BY path`)
 	if err != nil {
 		return
 	}
@@ -460,36 +464,111 @@ func (s *Store) BeginSnapshot() {
 
 func (s *Store) EndSnapshot() { s.Snap.Store(nil) }
 
-// Batch runs fn as one transaction: the store has one connection, so what fn writes through the store is in it, and
-// is kept whole or not at all. Rename and RemoveAll, which make transactions of their own, run inside it.
+// Batch runs fn as one transaction on a connection of its own: what fn writes through the store is in it, and is kept
+// whole or not at all. Rename and RemoveAll, which make transactions of their own, run inside it, and a Batch in fn
+// goes on in this one. The store has one connection, so another goroutine's statement (the sync's) waits for the
+// Batch to end and is not in it: a Batch that fails takes back what fn wrote, not what the sync was told it wrote
+// (#526).
 func (s *Store) Batch(fn func() error) error {
+	if s.inBatch() != nil {
+		return fn()
+	}
 	s.batchMu.Lock()
 	defer s.batchMu.Unlock()
-	if _, err := s.DB.Exec(`BEGIN IMMEDIATE`); err != nil {
-		return err
-	}
-	s.batching.Store(true)
-	err := fn()
-	s.batching.Store(false)
+	ctx := context.Background()
+	c, err := s.DB.Conn(ctx)
 	if err != nil {
-		s.DB.Exec(`ROLLBACK`)
-		s.wrote()
 		return err
 	}
-	_, err = s.DB.Exec(`COMMIT`)
-	return err
+	defer c.Close()
+	if _, err := c.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		return err
+	}
+	s.batch.Store(&batchConn{c: c, owner: goid()})
+	kept := false
+	defer func() { // on a panic in fn too: the connection goes back to the others with no transaction open on it
+		s.batch.Store(nil)
+		if !kept {
+			c.ExecContext(ctx, `ROLLBACK`)
+			s.wrote()
+		}
+	}()
+	if err := fn(); err != nil {
+		return err
+	}
+	if _, err := c.ExecContext(ctx, `COMMIT`); err != nil {
+		return err
+	}
+	kept = true
+	return nil
 }
 
-// execer is a transaction, or the store's connection inside a Batch.
+// batchConn is the connection of an open Batch, and the goroutine that runs it.
+type batchConn struct {
+	c     *sql.Conn
+	owner uint64
+}
+
+func (b *batchConn) Exec(query string, args ...any) (sql.Result, error) {
+	return b.c.ExecContext(context.Background(), query, args...)
+}
+
+func (b *batchConn) Query(query string, args ...any) (*sql.Rows, error) {
+	return b.c.QueryContext(context.Background(), query, args...)
+}
+
+func (b *batchConn) QueryRow(query string, args ...any) *sql.Row {
+	return b.c.QueryRowContext(context.Background(), query, args...)
+}
+
+// querier is what the store's statements run on: the pool, or a Batch's connection.
+type querier interface {
+	execer
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
+// inBatch is the open Batch when the calling goroutine runs it, nil otherwise.
+func (s *Store) inBatch() *batchConn {
+	if b := s.batch.Load(); b != nil && b.owner == goid() {
+		return b
+	}
+	return nil
+}
+
+// db is what a statement of the store runs on: the Batch's connection in the goroutine that runs the Batch, the pool
+// in any other, where it waits while a Batch holds the one connection.
+func (s *Store) db() querier {
+	if b := s.inBatch(); b != nil {
+		return b
+	}
+	return s.DB
+}
+
+// goid is the number of the calling goroutine, which Go does not give otherwise: Batch's fn takes no store, and the
+// writes it makes through the store are told from the sync's by the goroutine that makes them. It is read only while
+// a Batch is open.
+func goid() uint64 {
+	var buf [64]byte
+	b := buf[:runtime.Stack(buf[:], false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	if i := bytes.IndexByte(b, ' '); i > 0 {
+		b = b[:i]
+	}
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
+
+// execer is a transaction, or a Batch's connection.
 type execer interface {
 	Exec(query string, args ...any) (sql.Result, error)
 	QueryRow(query string, args ...any) *sql.Row
 }
 
-// begin starts a transaction, or, inside a Batch, goes on in the Batch's: done commits it (or does nothing).
+// begin starts a transaction, or, in the goroutine of a Batch, goes on in the Batch's: done commits it (or does
+// nothing).
 func (s *Store) begin() (x execer, done func() error, undo func(), err error) {
-	if s.batching.Load() {
-		return s.DB, func() error { return nil }, func() {}, nil
+	if b := s.inBatch(); b != nil {
+		return b, func() error { return nil }, func() {}, nil
 	}
 	tx, err := s.DB.Begin()
 	if err != nil {
