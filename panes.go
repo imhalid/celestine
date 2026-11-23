@@ -278,6 +278,8 @@ func (a *app) closePane(i int) {
 // dropPane forgets pane i: the pane in use goes to a neighbor if it was that one.
 func (a *app) dropPane(i int) {
 	a.ps.states[a.ps.active] = a.paneState
+	a.endRename(a.ps.states[i].retitle) // a title being typed in it: its links follow (#560)
+	a.ps.states[i].retitle = titleEdit{}
 	active := a.ps.active
 	switch {
 	case i < active:

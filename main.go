@@ -576,6 +576,7 @@ func main() {
 		a.loadSettings()
 		a.seedNew(empty && store != nil)
 		a.applyTree()
+		a.finishRenames()        // a title being typed when the app last went: its links follow now (#560)
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
 	if len(lib.Damaged) > 0 { // left out, and left as they are on disk

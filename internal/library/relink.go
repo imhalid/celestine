@@ -14,21 +14,32 @@ var wikiLink = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]`)
 // instead of the title (its alias, after "|") is kept as it was.
 func RenameLinks(md, from, to string) (string, int) {
 	from = strings.TrimSpace(from)
-	if from == "" || !strings.Contains(md, "[[") {
+	if from == "" {
+		return md, 0
+	}
+	return RenameLinksTo(md, map[string]string{strings.ToLower(from): to})
+}
+
+// RenameLinksTo is RenameLinks for several renames at once: to has each old title, trimmed and in lower case, and the
+// title it is now. Each link is written once, by its title as md has it, so a rename of A to B and of B to C sends a
+// link to A to B, not on to C.
+func RenameLinksTo(md string, to map[string]string) (string, int) {
+	if len(to) == 0 || !strings.Contains(md, "[[") {
 		return md, 0
 	}
 	n := 0
 	out := wikiLink.ReplaceAllStringFunc(md, func(link string) string {
 		inside := link[2 : len(link)-2]
 		target, alias, aliased := strings.Cut(inside, "|")
-		if !strings.EqualFold(strings.TrimSpace(target), from) {
+		now, ok := to[strings.ToLower(strings.TrimSpace(target))]
+		if !ok {
 			return link
 		}
 		n++
 		if aliased {
-			return "[[" + to + "|" + alias + "]]"
+			return "[[" + now + "|" + alias + "]]"
 		}
-		return "[[" + to + "]]"
+		return "[[" + now + "]]"
 	})
 	return out, n
 }

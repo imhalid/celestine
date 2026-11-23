@@ -23,3 +23,11 @@ func TestLinkableTitle(t *testing.T) {
 		}
 	}
 }
+
+// Several renames at once write each link once: a rename of A to B and of B to C does not send a link to A on to C.
+func TestRenameLinksTo(t *testing.T) {
+	got, n := RenameLinksTo("[[A]], [[ b |the second]] and [[C]]", map[string]string{"a": "B", "b": "C"})
+	if want := "[[B]], [[C|the second]] and [[C]]"; got != want || n != 2 {
+		t.Fatalf("got %q (%d), want %q", got, n, want)
+	}
+}

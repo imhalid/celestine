@@ -346,17 +346,24 @@ func (a *app) openRandomDay() {
 	a.open(days[rand.Intn(len(days))])
 }
 
-// retitleJournal gives every day's page the title the format says.
+// retitleJournal gives every day's page the title the format says, and the links to the days follow (#560).
 func (a *app) retitleJournal(c *Collection) {
+	var rs []renamed
 	for _, p := range c.All() {
 		if title := dayTitle(c, dayOf(p)); title != p.Title {
+			from := p.Title
 			if err := p.SetTitle(title); err != nil {
 				a.fail(err)
+				continue
 			}
+			rs = append(rs, renamed{p, from})
 			if p == a.page {
 				a.title = title
 			}
 		}
+	}
+	if len(rs) > 0 {
+		a.later(func() { a.relinkAll(rs, false) })
 	}
 }
 

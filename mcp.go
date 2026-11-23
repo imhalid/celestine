@@ -37,6 +37,9 @@ type Settings struct {
 	Recent []string `json:"recent,omitempty"`
 	// RecentCmds are the commands of the palette used last, newest first (palette.go).
 	RecentCmds []string `json:"recentCmds,omitempty"`
+	// PendingRenames are the pages whose title was being typed, by folder, and the title each had before: the links
+	// to them are written when the title is left, or at the next start if the app went first (relink.go).
+	PendingRenames map[string]string `json:"pendingRenames,omitempty"`
 	// Appearance and the editor; zero is the default.
 	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
 	AppTheme   int     `json:"appTheme,omitempty"`   // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
