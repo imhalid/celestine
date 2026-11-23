@@ -197,6 +197,9 @@ func (a *app) takeOutside(p *Page) {
 	if bad == nil {
 		p.ReadMeta(meta)
 		SavesGen.Add(1) // its values may be others: what is kept from them is made again
+		// it reads again: written to again, whether it is open or not, or its numbering, values and moves on a
+		// board would be refused until it was opened (#541)
+		p.Unreadable = ""
 	}
 	doc := a.docs[p]
 	if doc == nil {
@@ -213,7 +216,6 @@ func (a *app) takeOutside(p *Page) {
 		a.say(toastOK, locales.PageChangedOutside(p.Title, name))
 		return
 	}
-	p.Unreadable = ""
 	doc.SetText(a.parsePage(p, body))
 	if p == a.page {
 		a.dirty, a.saveErr = false, ""

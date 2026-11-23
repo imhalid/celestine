@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // pngBytes is a w by h picture.
@@ -319,5 +321,30 @@ func TestUnreadablePageKept(t *testing.T) {
 		if p.Unreadable != "" || !strings.Contains(a.doc.Text().String(), "onarıldı") {
 			t.Fatalf("%q: a mended file is not taken: %q %q", bad, p.Unreadable, a.doc.Text().String())
 		}
+	}
+}
+
+// A page that is not open, made readable again outside the app, is written to again: its values and its place are
+// not refused until it is opened (#541).
+func TestUnreadablePageMendedClosed(t *testing.T) {
+	a, _ := newTestApp(t, "ilk\n")
+	p, _ := a.page.Coll.NewPage(nil, "Kapalı")
+	p.SaveText("metin\n")
+	os.WriteFile(p.File(), []byte(`{"meta":{"title":"Kapalı"},"body":[{"r":[{"t":"yar`), 0o644)
+	a.takeOutside(p)
+	if p.Unreadable == "" {
+		t.Fatal("not seen as unreadable")
+	}
+	write := `[{"r":[{"t":"yazıldı"}]}]` // what a renumbering or a value writes: the page, through Save
+	if err := p.Save(write); !errors.Is(err, library.ErrUnreadable) {
+		t.Fatalf("written over an unreadable page: %v", err)
+	}
+	os.WriteFile(p.File(), JoinPage(map[string]string{"title": "Kapalı"}, `[{"r":[{"t":"onarıldı"}]}]`), 0o644)
+	a.takeOutside(p)
+	if p.Unreadable != "" {
+		t.Fatalf("mended, still refused: %q", p.Unreadable)
+	}
+	if err := p.Save(write); err != nil {
+		t.Fatalf("the mended page: %v", err)
 	}
 }
