@@ -35,10 +35,12 @@ func (a *app) closeStats() {
 	}
 }
 
-// libStatsNow is the library's figures, read again at most every ten seconds.
+// libStatsNow is the library's figures, read again at most every ten seconds, and only when the library changed since
+// they were: they took half a second at every ten for a library of 10 000 pages left on the screen (#201).
 func (a *app) libStatsNow() libStats {
-	if a.statCacheAt.IsZero() || a.clock().Sub(a.statCacheAt) > 10*time.Second {
-		a.statCache, a.statCacheAt = a.libraryStats(), a.clock()
+	gen := PagesGen.Load() + SavesGen.Load() + a.libWrites()
+	if a.statCacheAt.IsZero() || gen != a.statCacheGen && a.clock().Sub(a.statCacheAt) > 10*time.Second {
+		a.statCache, a.statCacheAt, a.statCacheGen = a.libraryStats(), a.clock(), gen
 	}
 	return a.statCache
 }

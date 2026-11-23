@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeFile(t *testing.T, path, s string) {
@@ -195,5 +197,43 @@ func TestQuickWhereMakesNothing(t *testing.T) {
 	q.where()
 	if len(a.lib.Collections) != before {
 		t.Fatalf("collections %d -> %d", before, len(a.lib.Collections))
+	}
+}
+
+// The library is exported away from the window, from a plan taken at once: renaming pages while it is written
+// races with nothing, and the export has every page as it was planned (#201).
+func TestExportLibrarySoon(t *testing.T) {
+	a := syncApp(t, t.TempDir())
+	c, _ := a.lib.NewCollection("Notlar")
+	var pages []*Page
+	for i := range 30 {
+		p, _ := c.NewPage(nil, fmt.Sprintf("Sayfa %d", i))
+		p.SaveText(fmt.Sprintf("metin %d\n", i))
+		pages = append(pages, p)
+	}
+	done := make(chan string, 1)
+	a.mu.Lock()
+	a.exportLibrarySoon(a.settingsStore, func(note string, ok bool) {
+		if !ok {
+			t.Error(note)
+		}
+		done <- note
+	})
+	a.mu.Unlock()
+	for i, p := range pages { // the window goes on
+		a.do(func() error { p.Title = fmt.Sprintf("Başka %d", i); return nil })
+	}
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the export did not end")
+	}
+	dirs, _ := filepath.Glob(filepath.Join(filepath.Dir(a.settingsStore.File), "kitaplik-md-*", "Notlar"))
+	if len(dirs) != 1 {
+		t.Fatalf("no export: %v", dirs)
+	}
+	files, _ := filepath.Glob(filepath.Join(dirs[0], "*.md"))
+	if len(files) != 30 {
+		t.Fatalf("%d pages exported", len(files))
 	}
 }

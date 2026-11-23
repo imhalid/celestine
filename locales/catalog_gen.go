@@ -16976,3 +16976,13 @@ func SyncErrDeviceRefused() string { return In(i18n.Locale()).SyncErrDeviceRefus
 func (msgs Messages) SyncErrDeviceRefused() string {
 	return Catalog.Format(msgs.locale, "sync_errDeviceRefused", nil)
 }
+
+// CommonExporting says "Exporting…"
+// in the language the app shows.
+func CommonExporting() string { return In(i18n.Locale()).CommonExporting() }
+
+// CommonExporting says "Exporting…"
+// in the language of msgs.
+func (msgs Messages) CommonExporting() string {
+	return Catalog.Format(msgs.locale, "common_exporting", nil)
+}

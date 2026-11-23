@@ -764,7 +764,8 @@ func (a *app) settingsLibrary(c *ui.Context) {
 			}
 			settingRow(c, locales.SettingsExportAsMarkdown(), note, func() {
 				if ryugo.Button(c.Key("export-md"), locales.CommonExport(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-					a.exportNote, _ = a.exportLibrary(store)
+					a.exportNote = locales.CommonExporting()
+					a.exportLibrarySoon(store, func(note string, _ bool) { a.exportNote = note })
 				}
 			})
 		},
@@ -780,13 +781,25 @@ func (a *app) settingsLibrary(c *ui.Context) {
 
 // exportLibrary writes the library as a folder of Markdown files next to its file (exportmd.go), and says where
 // it went.
-func (a *app) exportLibrary(store *Store) (string, bool) {
-	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+time.Now().Format("20060102-150405"))
+// exportLibrarySoon exports the library as Markdown beside its file, and says how it went through done, under the
+// lock: what is typed is saved and the page tree taken at once, the pages read and written away from the window,
+// which walked them all in the frame (#201).
+func (a *app) exportLibrarySoon(store *Store, done func(note string, ok bool)) {
+	dir := filepath.Join(filepath.Dir(store.File), "kitaplik-md-"+a.clock().Format("20060102-150405"))
 	a.flush()
-	if err := a.lib.ExportMarkdown(dir); err != nil {
-		return locales.CommonDidntWork(err.Error()), false
-	}
-	return locales.CommonSavedTo(dir), true
+	plan := a.lib.PlanExport()
+	go func() {
+		defer a.guard()
+		err := plan.Write(dir)
+		a.do(func() error {
+			if err != nil {
+				done(locales.CommonDidntWork(err.Error()), false)
+			} else {
+				done(locales.CommonSavedTo(dir), true)
+			}
+			return nil
+		})
+	}()
 }
 
 func (a *app) settingsMCP(c *ui.Context) {

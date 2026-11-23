@@ -222,7 +222,7 @@ func (a *app) commands() []palItem {
 		cmd("common_backUpNow", "", iconExport, func() { a.backupNow("elle", false) }),
 		cmd("exportAsMarkdownFolder", "", iconExport, func() {
 			if st := a.store(); st != nil {
-				a.sayDone(a.exportLibrary(st))
+				a.exportLibrarySoon(st, a.sayDone)
 			} else {
 				a.say(toastInfo, locales.ThisLibraryIsAlreadyMadeOf())
 			}

@@ -312,3 +312,29 @@ func TestStatsPrivateFilePermissions(t *testing.T) {
 		}
 	}
 }
+
+// The library's figures on the stats screen are counted again only when the library changed, at most every ten
+// seconds: a library left on the screen is not counted at every ten (#201).
+func TestLibStatsOnlyWhenChanged(t *testing.T) {
+	a, tt := newTestApp(t, "bir iki\n")
+	a.clock = tt.Now
+	a.openStats()
+	tt.Frame() // "calculating…"
+	tt.Frame() // the figures
+	first := a.statCacheAt
+	if first.IsZero() {
+		t.Fatal("no figures")
+	}
+	tt.Advance(11 * time.Second)
+	tt.Frame()
+	if a.statCacheAt != first {
+		t.Fatal("counted again with nothing changed")
+	}
+	p, _ := a.page.Coll.NewPage(nil, "Yeni")
+	p.SaveText("üç dört beş\n")
+	tt.Advance(11 * time.Second)
+	tt.Frame()
+	if a.statCacheAt == first {
+		t.Fatal("not counted again after the library changed")
+	}
+}

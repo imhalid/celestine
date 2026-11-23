@@ -158,99 +158,100 @@ type app struct {
 	mizan     *mizanCaret
 
 	// Updates (update.go), shortcuts and macros of one's own, and the settings' search.
-	updKey      string      // a test's key for releases
-	updBusy     atomic.Bool // a check or a download goes on
-	updErr      string      // what the last check said, when it failed
-	updState    updateState // where an update the user asked for is
-	updChipAt   time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
-	updPanelAt  time.Time   // when the update card began to open
-	updHeldAt   time.Time   // when the pointer was last on the update card: it stays updStay from then (updatepanel.go)
-	updEase     updEase     // the chip's fill as it is drawn, following the download smoothly
-	hello       helloState  // the note of the version just installed, at its first start (updhello.go)
-	statusH     float32     // the status bar's height, as it was laid out
-	updProg     updProgress // how far the download is
-	updRel      *Release    // the newer version found
-	updAuto     bool        // a check found a release and the settings say to put it in place
-	updNotes    bool        // the dialog shows the notes of the version installed, not a new one
-	updOpen     bool        // the dialog of it
-	keyCmd      string      // the command and the key being typed for a shortcut of one's own
-	keyAccel    string
-	macroName   string
-	macroList   string
-	setSearch   string                               // the search of the settings
-	setFocus    bool                                 // the settings' search takes the keys in the next frame (/)
-	setSlash    bool                                 // the / that focused the settings' search is still to come as text
-	setMode     string                               // the settings' special page: "changed", "profiles", "file"
-	profName    string                               // the name being typed for a profile
-	charW       map[string]float32                   // the width of n zeros in a font, for the line length (editing.go)
-	sy          syncUI                               // the state of synchronization (syncapp.go)
-	nt          notifyState                          // the system's notifications (notify.go)
-	libPath     string                               // the library opened: its file, or the folder of a folder library (recent.go)
-	keepRunning func(reason string) (release func()) // MyGo's Power.KeepRunning, for a sync pass; nil in tests (netsync.go)
-	subtasks    subtaskState                         // the counts of tasks' subtasks (subtasks.go)
-	ac          acctUI                               // the account: signing in, its devices (account.go)
-	vimReg      richtext.Text                        // what dd and yy took, for p
-	kb          kbState                              // the keyboard's normal mode, the letters on what can be pressed (kb.go)
-	winW, winH  float32                              // the window's size, last frame
-	wel         welcomeState                         // the first opening (welcome.go)
-	winOnce     sync.Once                            // the window coming forward and going behind (windowEvent)
-	winWake     chan struct{}                        // the worker is woken to take winLast
-	winLast     atomic.Bool                          // the window's last state: in front
-	codeTheme   *editor.Theme                        // the colors of code, in the window's theme (codecolors.go)
-	codeLangs   codeLangs                            // the languages of the page's lines of code, by paragraph (codecolors.go)
-	blink       caretBlink                           // when the caret last moved, for it to blink once still (caretBlinkOff)
-	bsel        blockSel                             // blocks chosen from the keyboard (blocksel.go)
-	toasts      toastState                           // the toasts up (toast.go)
-	statCache   libStats                             // the library's figures, read at most every ten seconds
-	statCacheAt time.Time
-	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
-	px          placeIdx            // the palette's places, folded once (palette.go)
-	edge        edgeDrag            // the sidebar or the side panel being dragged wider or narrower
-	statLoading bool                // the first frame of the stats screen is drawn before the figures are read
-	setClock    func(time.Duration) // a test moves the clock
-	statReset   bool                // the reset asked once: the next click does it
-	usage       *usageData          // what is used, by the day (stats.go)
-	usageDirty  bool
-	usageSaved  time.Time
-	activeAt    time.Time     // the last thing done: a minute after it, the time is not counted
-	pageFrac    time.Duration // the open page's time gathered, not yet a whole second (statTick)
-	pageFracOf  string        // the page it is of
-	activeFrac  time.Duration
-	statLast    time.Time
-	statVer     uint64
-	sess        session // the writing session that goes on
-	sessLast    time.Time
-	backupDir   string // where the backups go, when not the config folder's (a test's)
-	backupBusy  atomic.Bool
-	bk          backupUI // the backups' settings: the last by hand, a delete asked (backup.go)
-	crashDir    string   // where the logs go, when not the config folder's (a test's)
-	crashMsg    string   // the panic last written, and when: the same one is not written over and over
-	crashAt     time.Time
-	crashPath   string                   // its log
-	crashText   string                   // what it said
-	testPanic   string                   // a test sets it to have a frame panic
-	crashOpen   bool                     // the dialog of a crash is shown
-	asking      askState                 // a question before an action that cannot be taken back (confirm.go)
-	crashPrev   string                   // the last session ended badly: its log, or ""
-	fonts       fontState                // the typefaces installed, and the lists of them (fonts.go)
-	fx          []caretFX                // the carets of the presets, made as they are used (caretfx.go)
-	jellied     smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
-	sleep       sleeper                  // the caret asleep after five seconds (caretextras.go)
-	demos       map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
-	cursor      cursorState              // the effect of the mouse pointer (cursorfx.go)
-	winRect     ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
-	saveErr     string
-	saveTried   time.Time      // when the open page's save last failed: autosave tries again a while after
-	unsaved     map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
-	unsavedAt   time.Time
-	shellOpen   func(string, bool) // test seam for opening/revealing attached files (path, reveal)
-	runOnUI     func(func())       // UI-thread dispatcher when the event loop is active (#173)
-	daysStamped bool               // the journal's pages have their days kept (stampDays)
-	stamping    sync.WaitGroup     // the journal's days being written: a test waits for them
-	stampHold   func()             // a test holds the writing of the journal's days here
-	storeErr    string             // the library store's last write error, as shown
-	notice      string             // a toast to show
-	trashed     *TrashItem         // just thrown away: a toast offers it back
+	updKey       string      // a test's key for releases
+	updBusy      atomic.Bool // a check or a download goes on
+	updErr       string      // what the last check said, when it failed
+	updState     updateState // where an update the user asked for is
+	updChipAt    time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
+	updPanelAt   time.Time   // when the update card began to open
+	updHeldAt    time.Time   // when the pointer was last on the update card: it stays updStay from then (updatepanel.go)
+	updEase      updEase     // the chip's fill as it is drawn, following the download smoothly
+	hello        helloState  // the note of the version just installed, at its first start (updhello.go)
+	statusH      float32     // the status bar's height, as it was laid out
+	updProg      updProgress // how far the download is
+	updRel       *Release    // the newer version found
+	updAuto      bool        // a check found a release and the settings say to put it in place
+	updNotes     bool        // the dialog shows the notes of the version installed, not a new one
+	updOpen      bool        // the dialog of it
+	keyCmd       string      // the command and the key being typed for a shortcut of one's own
+	keyAccel     string
+	macroName    string
+	macroList    string
+	setSearch    string                               // the search of the settings
+	setFocus     bool                                 // the settings' search takes the keys in the next frame (/)
+	setSlash     bool                                 // the / that focused the settings' search is still to come as text
+	setMode      string                               // the settings' special page: "changed", "profiles", "file"
+	profName     string                               // the name being typed for a profile
+	charW        map[string]float32                   // the width of n zeros in a font, for the line length (editing.go)
+	sy           syncUI                               // the state of synchronization (syncapp.go)
+	nt           notifyState                          // the system's notifications (notify.go)
+	libPath      string                               // the library opened: its file, or the folder of a folder library (recent.go)
+	keepRunning  func(reason string) (release func()) // MyGo's Power.KeepRunning, for a sync pass; nil in tests (netsync.go)
+	subtasks     subtaskState                         // the counts of tasks' subtasks (subtasks.go)
+	ac           acctUI                               // the account: signing in, its devices (account.go)
+	vimReg       richtext.Text                        // what dd and yy took, for p
+	kb           kbState                              // the keyboard's normal mode, the letters on what can be pressed (kb.go)
+	winW, winH   float32                              // the window's size, last frame
+	wel          welcomeState                         // the first opening (welcome.go)
+	winOnce      sync.Once                            // the window coming forward and going behind (windowEvent)
+	winWake      chan struct{}                        // the worker is woken to take winLast
+	winLast      atomic.Bool                          // the window's last state: in front
+	codeTheme    *editor.Theme                        // the colors of code, in the window's theme (codecolors.go)
+	codeLangs    codeLangs                            // the languages of the page's lines of code, by paragraph (codecolors.go)
+	blink        caretBlink                           // when the caret last moved, for it to blink once still (caretBlinkOff)
+	bsel         blockSel                             // blocks chosen from the keyboard (blocksel.go)
+	toasts       toastState                           // the toasts up (toast.go)
+	statCache    libStats                             // the library's figures, read at most every ten seconds
+	statCacheAt  time.Time
+	statCacheGen uint64              // the library's moves when they were read: they are read again only when it moved
+	sx           *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
+	px           placeIdx            // the palette's places, folded once (palette.go)
+	edge         edgeDrag            // the sidebar or the side panel being dragged wider or narrower
+	statLoading  bool                // the first frame of the stats screen is drawn before the figures are read
+	setClock     func(time.Duration) // a test moves the clock
+	statReset    bool                // the reset asked once: the next click does it
+	usage        *usageData          // what is used, by the day (stats.go)
+	usageDirty   bool
+	usageSaved   time.Time
+	activeAt     time.Time     // the last thing done: a minute after it, the time is not counted
+	pageFrac     time.Duration // the open page's time gathered, not yet a whole second (statTick)
+	pageFracOf   string        // the page it is of
+	activeFrac   time.Duration
+	statLast     time.Time
+	statVer      uint64
+	sess         session // the writing session that goes on
+	sessLast     time.Time
+	backupDir    string // where the backups go, when not the config folder's (a test's)
+	backupBusy   atomic.Bool
+	bk           backupUI // the backups' settings: the last by hand, a delete asked (backup.go)
+	crashDir     string   // where the logs go, when not the config folder's (a test's)
+	crashMsg     string   // the panic last written, and when: the same one is not written over and over
+	crashAt      time.Time
+	crashPath    string                   // its log
+	crashText    string                   // what it said
+	testPanic    string                   // a test sets it to have a frame panic
+	crashOpen    bool                     // the dialog of a crash is shown
+	asking       askState                 // a question before an action that cannot be taken back (confirm.go)
+	crashPrev    string                   // the last session ended badly: its log, or ""
+	fonts        fontState                // the typefaces installed, and the lists of them (fonts.go)
+	fx           []caretFX                // the carets of the presets, made as they are used (caretfx.go)
+	jellied      smear                    // the jelly of the settings, put on a caret (caretfx_look.go)
+	sleep        sleeper                  // the caret asleep after five seconds (caretextras.go)
+	demos        map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
+	cursor       cursorState              // the effect of the mouse pointer (cursorfx.go)
+	winRect      ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
+	saveErr      string
+	saveTried    time.Time      // when the open page's save last failed: autosave tries again a while after
+	unsaved      map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
+	unsavedAt    time.Time
+	shellOpen    func(string, bool) // test seam for opening/revealing attached files (path, reveal)
+	runOnUI      func(func())       // UI-thread dispatcher when the event loop is active (#173)
+	daysStamped  bool               // the journal's pages have their days kept (stampDays)
+	stamping     sync.WaitGroup     // the journal's days being written: a test waits for them
+	stampHold    func()             // a test holds the writing of the journal's days here
+	storeErr     string             // the library store's last write error, as shown
+	notice       string             // a toast to show
+	trashed      *TrashItem         // just thrown away: a toast offers it back
 
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings

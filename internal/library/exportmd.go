@@ -16,21 +16,62 @@ import (
 // Obsidian or any editor opens. (The library's own folder form, page.json, is what backups keep.)
 
 // ExportMarkdown writes the library's collections under dir, which is made.
-func (l *Library) ExportMarkdown(dir string) error {
+func (l *Library) ExportMarkdown(dir string) error { return l.PlanExport().Write(dir) }
+
+// ExportPlan is the library as ExportMarkdown writes it, taken at once: its collections and pages, each with its
+// front matter and where its file is. A plan is written away from the window (Write): what the window does to the
+// pages meanwhile is not read half way, as it would be by a walk of the pages themselves (#201).
+type ExportPlan struct {
+	colls []exportColl
+}
+
+type exportColl struct {
+	name  string
+	pages []exportPage
+}
+
+type exportPage struct {
+	title, front string
+	fs           FS
+	dir, file    string
+	kids         []exportPage
+}
+
+// PlanExport takes the plan of the library's export, under the window's lock: the page tree and the front matters
+// only, no file read.
+func (l *Library) PlanExport() ExportPlan {
+	var plan ExportPlan
+	var pages func(ps []*Page) []exportPage
+	pages = func(ps []*Page) []exportPage {
+		out := make([]exportPage, 0, len(ps))
+		for _, p := range ps {
+			out = append(out, exportPage{title: p.Title, front: frontMatterOf(p), fs: p.FS(), dir: p.Dir, file: p.File(), kids: pages(p.Children)})
+		}
+		return out
+	}
+	for _, c := range l.Collections {
+		if c.Dynamic() { // a search: its pages are found, not kept
+			continue
+		}
+		plan.colls = append(plan.colls, exportColl{c.Name, pages(c.Pages)})
+	}
+	return plan
+}
+
+// Write writes the plan into dir: a folder for each collection, a Markdown file for each page with its pictures
+// beside it, a page's sub-pages in a folder of its name. It reads the pages' files, not the pages.
+func (plan ExportPlan) Write(dir string) error {
 	osf := OSFS{}
 	if err := osf.MkdirAll(dir); err != nil {
 		return err
 	}
 	taken := map[string]bool{}
-	for _, c := range l.Collections {
-		if c.Dynamic() { // a search: its pages are found, not kept
-			continue
-		}
-		folder := filepath.Join(dir, uniqueName(taken, FileSafe(c.Name)))
+	for _, c := range plan.colls {
+		folder := filepath.Join(dir, uniqueName(taken, FileSafe(c.name)))
 		if err := osf.MkdirAll(folder); err != nil {
 			return err
 		}
-		if err := exportPages(osf, c.Pages, folder); err != nil {
+		if err := exportPages(osf, c.pages, folder); err != nil {
 			return err
 		}
 	}
@@ -38,21 +79,26 @@ func (l *Library) ExportMarkdown(dir string) error {
 }
 
 // exportPages writes pages into folder, each page's sub-pages in a folder of its name beside it.
-func exportPages(dst FS, pages []*Page, folder string) error {
+func exportPages(dst FS, pages []exportPage, folder string) error {
 	taken := map[string]bool{}
 	for _, p := range pages {
-		name := uniqueName(taken, FileSafe(p.Title))
-		body, err := p.Text()
-		if err != nil {
-			return fmt.Errorf("%s: %w", p.Title, err)
+		name := uniqueName(taken, FileSafe(p.title))
+		src, err := p.fs.ReadFile(p.file)
+		var body string
+		if err == nil {
+			_, body, err = SplitPageChecked(src)
 		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", p.title, err)
+		}
+		body = TextOfBody(body)
 		// the pictures of the page, beside its file: the text names them by their file name
-		ents, _ := p.FS().ReadDir(p.Dir)
+		ents, _ := p.fs.ReadDir(p.dir)
 		for _, e := range ents {
 			if e.IsDir() || e.Name() == PageFileName || e.Name() == LegacyPageFile || strings.HasPrefix(e.Name(), "page (") || strings.HasPrefix(e.Name(), ".") {
 				continue
 			}
-			data, err := p.FS().ReadFile(filepath.Join(p.Dir, e.Name()))
+			data, err := p.fs.ReadFile(filepath.Join(p.dir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -66,15 +112,15 @@ func exportPages(dst FS, pages []*Page, folder string) error {
 				return err
 			}
 		}
-		if err := dst.WriteFile(filepath.Join(folder, name+".md"), []byte(frontMatterOf(p)+body)); err != nil {
+		if err := dst.WriteFile(filepath.Join(folder, name+".md"), []byte(p.front+body)); err != nil {
 			return err
 		}
-		if len(p.Children) > 0 {
+		if len(p.kids) > 0 {
 			sub := filepath.Join(folder, name)
 			if err := dst.MkdirAll(sub); err != nil {
 				return err
 			}
-			if err := exportPages(dst, p.Children, sub); err != nil {
+			if err := exportPages(dst, p.kids, sub); err != nil {
 				return err
 			}
 		}
