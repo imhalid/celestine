@@ -479,3 +479,18 @@ func TestPaneBarDrag(t *testing.T) {
 // compassTileOf is the side of one of the Dock's compass targets (Ryugo's compassTile): the middle of the left arm is
 // that and a gap left of the compass's middle.
 func compassTileOf() float32 { return 30 }
+
+// The cards' corners follow the window's: its radius less the frame's width, concentric with it, or frameR where
+// its corners are square or not told (#517).
+func TestCardRadiusFollowsTheWindow(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.wframe.on = true
+	for _, c := range []struct{ win, want float64 }{{26, 18}, {16, 8}, {0, frameR}, {6, frameR}} {
+		a.winRadius = c.win
+		if got := a.cardR(); float64(got) != c.want {
+			t.Errorf("a window of %v: cards of %v, want %v", c.win, got, c.want)
+		}
+	}
+	a.winRadius = 26
+	tt.Frame() // drawn with it: the sidebar's card, the page's, and the pane's (cardRadius) take cardR
+}

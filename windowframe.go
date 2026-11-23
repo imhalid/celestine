@@ -18,11 +18,22 @@ import (
 // card has a bar of its own (panebar.go, #468). macOS's window buttons stay in the card's corner, beside the
 // sidebar's buttons.
 
-// frameW is the frame's width around the card, and frameR the card's corner, in DIPs.
+// frameW is the frame's width around the card, and frameR the card's corner where the window has no rounded corners
+// to follow (cardR), in DIPs.
 const (
 	frameW = 8
 	frameR = 10
 )
+
+// cardR is the corner of the frame's cards: the window's own radius less the frame's width, so that the card's
+// corners are concentric with the window's (on macOS 26 a window with a toolbar has 26, the cards 18), or frameR
+// where the window's corners are square or the system does not tell them (#517).
+func (a *app) cardR() float32 {
+	if r := float32(a.winRadius) - frameW; r > 0 {
+		return r
+	}
+	return frameR
+}
 
 // frameGap is the room between the cards in the frame: the sidebar, the panes, the Dock's areas.
 const frameGap = 6

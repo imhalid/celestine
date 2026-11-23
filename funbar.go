@@ -345,7 +345,7 @@ func (a *app) cardRadius(c *ui.Context) float32 {
 	case !a.wframe.on:
 		return 0
 	case a.ps.layout == nil:
-		return rad(frameR)
+		return rad(a.cardR())
 	}
 	return ryugo.From(c).R(ryugo.RadiusControl)
 }

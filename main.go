@@ -340,6 +340,7 @@ type app struct {
 	prewarming    bool                                      // the pages are being read away from the window (prewarm.go)
 	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
 	nextFrame     []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
+	winRadius     float64                                   // the window's corners' radius as the system draws them, read each frame (cardR)
 	firstFrame    chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
 	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
 	edPtr         ui.Point                                  // the pointer over the page's text, last frame
@@ -1051,6 +1052,9 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frameSeq++
 	a.frameNow = c.Now()
+	if a.wel.win != nil { // it changes with full screen and back
+		a.winRadius = a.wel.win.CornerRadius()
+	}
 	for _, fn := range a.nextFrame {
 		fn()
 	}

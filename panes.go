@@ -410,7 +410,7 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 			if a.glassLive(c) {
 				cardBg = cardBg.Alpha(glassOpacity(c, 0.50))
 			}
-			frameCard(c, el, cardBg, rad(frameR), 1)
+			frameCard(c, el, cardBg, rad(a.cardR()), 1)
 			el.Clip()
 		}
 		el.Children(func() {
