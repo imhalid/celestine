@@ -998,12 +998,17 @@ func (r recur) nextN(d time.Time, steps int) time.Time {
 	return d.AddDate(0, 0, r.n*steps)
 }
 
-// label says it as the task view shows it: "her hafta", "her 2 ayda".
+// label says it as the task view shows it: "every week", "every 2 months".
 func (r recur) label() string {
-	if r.n == 1 {
-		return map[string]string{"day": "her gün", "week": "her hafta", "month": "her ay", "year": "her yıl"}[r.unit]
+	switch r.unit {
+	case "day":
+		return locales.TasksEveryDays(r.n)
+	case "week":
+		return locales.TasksEveryWeeks(r.n)
+	case "month":
+		return locales.TasksEveryMonths(r.n)
 	}
-	return "her " + strconv.Itoa(r.n) + " " + map[string]string{"day": "günde", "week": "haftada", "month": "ayda", "year": "yılda"}[r.unit]
+	return locales.TasksEveryYears(r.n)
 }
 
 // comesAgain makes the line of the task that follows when the task of line is

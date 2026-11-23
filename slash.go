@@ -246,7 +246,7 @@ func (a *app) rawItems(q string) []menuItem {
 	if q == "" || match(q, "Resim") >= 0 {
 		out = append(out, menuItem{title: "slash_image", sub: "slash_imageSub", glyph: iconImage, group: "slash_groupInsert", run: a.chooseImage})
 	}
-	if q == "" || match(q, "Sayfa göm") >= 0 || match(q, "embed") >= 0 {
+	if q == "" || match(q, names("slash_embed")) >= 0 || match(q, "embed") >= 0 {
 		out = append(out, menuItem{title: "slash_embed", sub: "slash_embedSub", glyph: iconPage, group: "slash_groupInsert", nav: true, run: func() { a.enterView("embed") }})
 	}
 	if q == "" || match(q, names("common_query")) >= 0 || match(q, "query") >= 0 {
@@ -714,7 +714,7 @@ func hasField(view string) bool {
 	return view == "date" || view == "link" || view == "embed" || view == "query"
 }
 
-var viewTitle = map[string]string{"format": "slash_groupFormat", "insert": "slash_groupInsert", "date": "slash_dateTime", "link": "link", "embed": "Sayfa göm", "prop": "property2", "query": "common_query"}
+var viewTitle = map[string]string{"format": "slash_groupFormat", "insert": "slash_groupInsert", "date": "slash_dateTime", "link": "link", "embed": "slash_embed", "prop": "property2", "query": "common_query"}
 
 // slashView is the menu under the caret.
 func (a *app) slashView(c *ui.Context) {

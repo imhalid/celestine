@@ -1908,7 +1908,7 @@ func (a *app) status(c *ui.Context) {
 		// no file paths: what the settings ask for - the letters, how it is saved, the caret
 		if a.settings.ShowChars {
 			_, chars := a.docStats()
-			ui.Text(c, strconv.Itoa(chars)+" harf").FontSize(11.5).TextColor(t.TextMuted)
+			ui.Text(c, locales.StatusChars(chars)).FontSize(11.5).TextColor(t.TextMuted)
 		}
 		if !a.settings.HideSaved {
 			st := ui.Text(c, strings.ToUpper(state[:1])+state[1:]).FontSize(11.5).TextColor(t.TextMuted)

@@ -159,7 +159,7 @@ var leaderKeys = []struct {
 }{
 	{'s', "common_settings", func(a *app) { a.openSettings() }},
 	{'p', "common_commands", func(a *app) { a.openCommands() }},
-	{'o', "Sayfa aç", func(a *app) { a.openPalette() }},
+	{'o', "openPage", func(a *app) { a.openPalette() }},
 	{'f', "findInPage2", func(a *app) { a.openFind() }},
 	{'/', "searchTheLibrary", func(a *app) { a.openSearch(a.searchQ) }},
 	{'t', "common_tasks", func(a *app) { a.openTasks() }},

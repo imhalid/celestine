@@ -16826,3 +16826,113 @@ func ListsInlineTaskDone() string { return In(i18n.Locale()).ListsInlineTaskDone
 func (msgs Messages) ListsInlineTaskDone() string {
 	return Catalog.Format(msgs.locale, "lists_inlineTaskDone", nil)
 }
+
+// Pin says "Pin"
+// in the language the app shows.
+func Pin() string { return In(i18n.Locale()).Pin() }
+
+// Pin says "Pin"
+// in the language of msgs.
+func (msgs Messages) Pin() string {
+	return Catalog.Format(msgs.locale, "pin", nil)
+}
+
+// NewFromTemplate says "New from a template…"
+// in the language the app shows.
+func NewFromTemplate() string { return In(i18n.Locale()).NewFromTemplate() }
+
+// NewFromTemplate says "New from a template…"
+// in the language of msgs.
+func (msgs Messages) NewFromTemplate() string {
+	return Catalog.Format(msgs.locale, "newFromTemplate", nil)
+}
+
+// TagsNewTag says "New tag: #{tag}"
+// in the language the app shows.
+func TagsNewTag(tag string) string { return In(i18n.Locale()).TagsNewTag(tag) }
+
+// TagsNewTag says "New tag: #{tag}"
+// in the language of msgs.
+func (msgs Messages) TagsNewTag(tag string) string {
+	return Catalog.Format(msgs.locale, "tags_newTag", map[string]any{"tag": tag})
+}
+
+// OpenPage says "Open a page"
+// in the language the app shows.
+func OpenPage() string { return In(i18n.Locale()).OpenPage() }
+
+// OpenPage says "Open a page"
+// in the language of msgs.
+func (msgs Messages) OpenPage() string {
+	return Catalog.Format(msgs.locale, "openPage", nil)
+}
+
+// TasksEveryDays says "{count, plural, one {every day} other {every # days}}"
+// in the language the app shows.
+func TasksEveryDays(count int) string { return In(i18n.Locale()).TasksEveryDays(count) }
+
+// TasksEveryDays says "{count, plural, one {every day} other {every # days}}"
+// in the language of msgs.
+func (msgs Messages) TasksEveryDays(count int) string {
+	return Catalog.Format(msgs.locale, "tasks_everyDays", map[string]any{"count": count})
+}
+
+// TasksEveryWeeks says "{count, plural, one {every week} other {every # weeks}}"
+// in the language the app shows.
+func TasksEveryWeeks(count int) string { return In(i18n.Locale()).TasksEveryWeeks(count) }
+
+// TasksEveryWeeks says "{count, plural, one {every week} other {every # weeks}}"
+// in the language of msgs.
+func (msgs Messages) TasksEveryWeeks(count int) string {
+	return Catalog.Format(msgs.locale, "tasks_everyWeeks", map[string]any{"count": count})
+}
+
+// TasksEveryMonths says "{count, plural, one {every month} other {every # months}}"
+// in the language the app shows.
+func TasksEveryMonths(count int) string { return In(i18n.Locale()).TasksEveryMonths(count) }
+
+// TasksEveryMonths says "{count, plural, one {every month} other {every # months}}"
+// in the language of msgs.
+func (msgs Messages) TasksEveryMonths(count int) string {
+	return Catalog.Format(msgs.locale, "tasks_everyMonths", map[string]any{"count": count})
+}
+
+// TasksEveryYears says "{count, plural, one {every year} other {every # years}}"
+// in the language the app shows.
+func TasksEveryYears(count int) string { return In(i18n.Locale()).TasksEveryYears(count) }
+
+// TasksEveryYears says "{count, plural, one {every year} other {every # years}}"
+// in the language of msgs.
+func (msgs Messages) TasksEveryYears(count int) string {
+	return Catalog.Format(msgs.locale, "tasks_everyYears", map[string]any{"count": count})
+}
+
+// TemplatesBodyPlaceholder says "# '{{'title'}}'"
+// in the language the app shows.
+func TemplatesBodyPlaceholder() string { return In(i18n.Locale()).TemplatesBodyPlaceholder() }
+
+// TemplatesBodyPlaceholder says "# '{{'title'}}'"
+// in the language of msgs.
+func (msgs Messages) TemplatesBodyPlaceholder() string {
+	return Catalog.Format(msgs.locale, "templates_bodyPlaceholder", nil)
+}
+
+// StatusChars says "{count, plural, one {# character} other {# characters}}"
+// in the language the app shows.
+func StatusChars(count int) string { return In(i18n.Locale()).StatusChars(count) }
+
+// StatusChars says "{count, plural, one {# character} other {# characters}}"
+// in the language of msgs.
+func (msgs Messages) StatusChars(count int) string {
+	return Catalog.Format(msgs.locale, "status_chars", map[string]any{"count": count})
+}
+
+// PageCopyTitle says "{title} (copy)"
+// in the language the app shows.
+func PageCopyTitle(title string) string { return In(i18n.Locale()).PageCopyTitle(title) }
+
+// PageCopyTitle says "{title} (copy)"
+// in the language of msgs.
+func (msgs Messages) PageCopyTitle(title string) string {
+	return Catalog.Format(msgs.locale, "page_copyTitle", map[string]any{"title": title})
+}

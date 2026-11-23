@@ -338,9 +338,9 @@ var (
 	shownCalls  = map[string]bool{"Text": true, "Button": true, "MenuButton": true, "Label": true, "iconButton": true, "barButton": true, "barIcon": true, "settingRow": true, "settingStack": true, "statHead": true, "statTile": true, "emptyState": true, "Tooltip": true, "panelTitle": true, "menuAt": true, "Checkbox": true, "Subtitle": true, "Item": true, "Submenu": true, "say": true}
 	shownFields = map[string]bool{"Label": true, "Title": true, "Placeholder": true, "Help": true, "Description": true, "title": true, "sub": true, "off": true, "group": true}
 	// keyLike are the keys of elements and the names of files, which are not shown: "st-today", "collection.json"
-	keyLike = regexp.MustCompile(`^[a-z][a-z0-9:_.+\-]*$`)
+	keyLike = regexp.MustCompile(`^[a-z\-:][a-z0-9:_.+\-]*$`)
 	// notWords are literals shown as they are in every language: names, signs, keys.
-	notWords = regexp.MustCompile(`^(Celestine|MCP|Markdown|Claude Code|JSON|CSV|HTML|URL|CRT|Mizan|Slime|Pacman|Back-man|Shredder|Portal|Aurora|Neon|Shimmer|Press waves|Cursor FX|Time-lapse|v\d.*|[^\pL]*|.*⌘.*|[A-Z]{1,4}|#.*|\[\[.*)$`)
+	notWords = regexp.MustCompile(`^(Celestine|MCP|Markdown|Claude Code|JSON|CSV|HTML|URL|CRT|Mizan|Slime|Pacman|Back-man|Shredder|Portal|Aurora|Neon|Shimmer|Press waves|Cursor FX|Time-lapse|v\d.*|[^\pL]*|[⇧⌃⌥⌘]+\S{0,3}|NORMAL|%[.\d]*f [KMG]B|[DMYd, ]+|[A-Z]{1,4}|#.*|\[\[.*)$`)
 )
 
 // No word is shown that the catalogs cannot translate: a literal with letters, given to what the window shows, is a
@@ -360,6 +360,17 @@ func TestNoLiteralWords(t *testing.T) {
 			return
 		}
 		found = append(found, fset.Position(bl.Pos()).String()+": "+s)
+	}
+	// every literal in what is shown, not the expression alone: a concatenation ("New tag: #" + q), a map of two
+	// words picked by a value, a literal inside a call's argument (#533); a function literal's body is its own
+	inside := func(f string, e ast.Expr) {
+		ast.Inspect(e, func(n ast.Node) bool {
+			if _, ok := n.(*ast.FuncLit); ok {
+				return false
+			}
+			check(f, n)
+			return true
+		})
 	}
 	for _, f := range srcs {
 		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n") || strings.HasPrefix(f, "mcp") {
@@ -381,12 +392,12 @@ func TestNoLiteralWords(t *testing.T) {
 				}
 				if shownCalls[name] {
 					for _, arg := range n.Args {
-						check(f, arg)
+						inside(f, arg)
 					}
 				}
 			case *ast.KeyValueExpr:
 				if k, ok := n.Key.(*ast.Ident); ok && shownFields[k.Name] {
-					check(f, n.Value)
+					inside(f, n.Value)
 				}
 			}
 			return true
@@ -394,6 +405,46 @@ func TestNoLiteralWords(t *testing.T) {
 	}
 	if len(found) > 0 {
 		t.Fatalf("%d words the catalogs cannot translate:\n%s", len(found), strings.Join(found, "\n"))
+	}
+}
+
+// turkishData are the files whose Turkish literals are data, not words shown: what the user types and the app reads
+// (the query and the tasks' syntax, a table's "hayır", :set's names, the commands' Turkish search words), names a
+// file has on disk (a backup's kind, a conflict's copy), the Worker's errors said through T, legacy names read from
+// old settings and libraries, and the agents' help, which names the query's Turkish words.
+var turkishData = map[string]bool{
+	"account.go": true, "autocover.go": true, "backup.go": true, "caretfx.go": true, "cmdreg.go": true, "i18n.go": true,
+	"importmd.go": true, "journal.go": true, "kb.go": true, "mcp_help.go": true, "mcp_server.go": true, "palette.go": true,
+	"searchquery.go": true, "syncapp.go": true, "tablemodel.go": true, "tasks.go": true, "templates.go": true,
+	"update.go": true, "watch.go": true,
+}
+
+// No word of Turkish is written in the code outside the catalogs but as data (turkishData): the English window shows
+// none, wherever the literal goes, a variable, a map or a sum (#533). A letter only Turkish has tells it.
+func TestNoTurkishLiterals(t *testing.T) {
+	turkish := regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`)
+	srcs, _ := filepath.Glob("*.go")
+	fset := token.NewFileSet()
+	var found []string
+	for _, f := range srcs {
+		if strings.HasSuffix(f, "_test.go") || turkishData[f] {
+			continue
+		}
+		af, err := parser.ParseFile(fset, f, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(af, func(n ast.Node) bool {
+			if bl, ok := n.(*ast.BasicLit); ok && bl.Kind == token.STRING {
+				if s, err := strconv.Unquote(bl.Value); err == nil && turkish.MatchString(s) {
+					found = append(found, fset.Position(bl.Pos()).String()+": "+s)
+				}
+			}
+			return true
+		})
+	}
+	if len(found) > 0 {
+		t.Fatalf("%d Turkish literals out of the catalogs:\n%s", len(found), strings.Join(found, "\n"))
 	}
 }
 
@@ -407,5 +458,32 @@ func TestTagAddedMessage(t *testing.T) {
 	}
 	if got := locales.In("tr").BulkTagAdded(3, "acil"); got != "3 sayfaya #acil eklendi" {
 		t.Errorf("tr: %q", got)
+	}
+}
+
+// A template's words are English, its help names them, and the Turkish ones are still read (#537).
+func TestTemplateWords(t *testing.T) {
+	now := time.Date(2026, 3, 4, 9, 30, 0, 0, time.UTC)
+	for _, body := range []string{"# {{title}}\n{{date}} {{today}} {{time}}", "# {{başlık}}\n{{tarih}} {{bugün}} {{saat}}"} {
+		if got := expandTemplate(body, "Dune", now); got != "# Dune\n[[2026-03-04]] [[2026-03-04]] 09:30" {
+			t.Errorf("%q: %q", body, got)
+		}
+	}
+	if help := locales.In("en").TemplatesEachChosenByName(); !strings.Contains(help, "{{title}}") || strings.Contains(help, "başlık") {
+		t.Errorf("the English help: %q", help)
+	}
+	if help := locales.In("tr").TemplatesEachChosenByName(); !strings.Contains(help, "{{başlık}}") {
+		t.Errorf("the Turkish help: %q", help)
+	}
+}
+
+// A task that comes again says how often in the window's language (#533).
+func TestRecurLabel(t *testing.T) {
+	cases := map[recur]string{{n: 1, unit: "day"}: "every day", {n: 2, unit: "week"}: "every 2 weeks", {n: 3, unit: "month"}: "every 3 months", {n: 1, unit: "year"}: "every year"}
+	withLang(t, "en")
+	for r, want := range cases {
+		if got := r.label(); got != want {
+			t.Errorf("%+v: %q, want %q", r, got, want)
+		}
 	}
 }

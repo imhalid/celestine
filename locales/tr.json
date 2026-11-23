@@ -1653,5 +1653,16 @@
   "lists_beforeBullet": "Bir madde imi",
   "lists_beforeNumber": "Bir numara",
   "lists_inlineTask": "Görev",
-  "lists_inlineTaskDone": "Görev, bitti"
+  "lists_inlineTaskDone": "Görev, bitti",
+  "pin": "Sabitle",
+  "newFromTemplate": "Şablondan yeni…",
+  "tags_newTag": "Yeni etiket: #{tag}",
+  "openPage": "Sayfa aç",
+  "tasks_everyDays": "{count, plural, one {her gün} other {her # günde}}",
+  "tasks_everyWeeks": "{count, plural, one {her hafta} other {her # haftada}}",
+  "tasks_everyMonths": "{count, plural, one {her ay} other {her # ayda}}",
+  "tasks_everyYears": "{count, plural, one {her yıl} other {her # yılda}}",
+  "templates_bodyPlaceholder": "# '{{'başlık'}}'",
+  "status_chars": "{count} harf",
+  "page_copyTitle": "{title} (kopya)"
 }

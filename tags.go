@@ -322,7 +322,7 @@ func (a *app) tagItems(q string) []menuItem {
 		}
 	}
 	if q != "" && !exact {
-		out = append(out, menuItem{title: "Yeni etiket: #" + q, group: "slash_groupNew", glyph: iconPlus, run: func() { a.chooseTag(q) }})
+		out = append(out, menuItem{title: locales.TagsNewTag(q), group: "slash_groupNew", glyph: iconPlus, run: func() { a.chooseTag(q) }})
 	}
 	return out
 }

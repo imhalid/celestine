@@ -26,7 +26,7 @@ func (a *app) pageButtons(c *ui.Context) {
 		return
 	}
 	ui.Row(c.Key("page-buttons")).Gap(2).Children(func() {
-		if !phone && a.barButton(c, iconPanel, "Yan panel (⇧⌘\\)") { // a phone has no side panel
+		if !phone && a.barButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") { // a phone has no side panel
 			a.togglePanel()
 		}
 		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: locales.CommonTimeLapse(), true: locales.CommonBackText()}[a.lapse.on]) {
@@ -188,7 +188,7 @@ func (a *app) duplicatePage(p *Page) {
 		a.fail(err)
 		return
 	}
-	cp := &Page{Title: p.Title + " (kopya)", Created: a.clock().Truncate(1e9), Dir: dir, Coll: p.Coll, Parent: p.Parent, Props: map[string]string{}}
+	cp := &Page{Title: locales.PageCopyTitle(p.Title), Created: a.clock().Truncate(1e9), Dir: dir, Coll: p.Coll, Parent: p.Parent, Props: map[string]string{}}
 	for k, v := range p.Props {
 		cp.Props[k] = v
 	}

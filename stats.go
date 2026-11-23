@@ -592,7 +592,7 @@ func (a *app) exportStatsCSV() (string, bool) {
 	}
 	_ = os.Chmod(path, 0o600)
 	w := csv.NewWriter(f)
-	w.Write([]string{"gün", "kelime", "kullanım_sn", "açılan", "yeni", "silinen", "arama"})
+	w.Write([]string{"day", "words", "active_s", "opened", "created", "deleted", "searches"}) // a file for other programs: the same names in every language
 	for _, r := range a.dayRows() {
 		w.Write([]string{r.Day, strconv.Itoa(r.Words), strconv.Itoa(r.Active), strconv.Itoa(r.Opened), strconv.Itoa(r.Created), strconv.Itoa(r.Deleted), strconv.Itoa(r.Searches)})
 	}

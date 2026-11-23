@@ -97,7 +97,7 @@ func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	}
 	coverTitle := "page_addCover"
 	if p.ImageCover() {
-		coverTitle = "Kapak resmini değiştir…"
+		coverTitle = "page_changeCover"
 	}
 	out = append(out, menuItem{title: coverTitle, group: "~", glyph: iconCover, run: func() { a.pickCover(p) }})
 	if a.coverKind(p) != coverKindNone {
@@ -133,12 +133,12 @@ func (a *app) collectionMenu(coll *Collection) []menuItem {
 		{title: newPageLabel(coll), glyph: iconPlus, run: func() { a.newPage(coll, nil) }},
 		{title: "settings2", glyph: iconSettings, run: func() { a.openCollSettings(coll, 0) }},
 		{title: map[bool]string{true: locales.CommandsChangeBanner(), false: locales.CommandsAddBanner()}[coll.Banner != ""], glyph: iconCover, run: func() { a.pickBanner(coll) }},
-		{title: map[bool]string{true: "unpin", false: "Sabitle"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
+		{title: map[bool]string{true: "unpin", false: "pin"}[coll.Pinned], group: "~", glyph: iconPin, run: func() { a.pinCollection(coll, !coll.Pinned) }},
 		{title: "moveUp", glyph: iconMoveUp, run: func() { a.moveCollection(coll, -1) }},
 		{title: "moveDown", glyph: iconMoveDown, run: func() { a.moveCollection(coll, 1) }},
 	}
 	if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from its templates
-		out = slices.Insert(out, 4, a.into("Şablondan yeni…", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
+		out = slices.Insert(out, 4, a.into("newFromTemplate", iconTemplate, func() []menuItem { return a.templateMenu(coll, nil) }))
 	}
 	if coll.Banner != "" {
 		out = append(out, menuItem{title: locales.CommandsRemoveBanner(), glyph: iconTrash, danger: true, run: func() { a.removeBanner(coll) }})

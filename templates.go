@@ -13,16 +13,18 @@ import (
 // Templates: a collection starts its new pages with the Markdown of its
 // template (the first, which it always had), and may have more, each a name
 // and a text: a page from one is a click away in the collection, in the
-// palette and the sidebar's menu, and the / menu's Ekle… puts one in a page
-// as it is written. In a template, {{başlık}} is the page's title, {{tarih}}
-// (or {{bugün}}) today as a day link, {{saat}} the time.
+// palette and the sidebar's menu, and the / menu's Insert… puts one in a page
+// as it is written. In a template, {{title}} is the page's title, {{date}}
+// (or {{today}}) today as a day link, {{time}} the time; the Turkish names,
+// {{başlık}}, {{tarih}}, {{bugün}} and {{saat}}, are read as well (#537).
 
 // expandTemplate fills in what a template says of the page and the day.
 func expandTemplate(body, title string, now time.Time) string {
+	day := "[[" + now.Format("2006-01-02") + "]]"
 	return strings.NewReplacer(
-		"{{başlık}}", title, "{{baslik}}", title,
-		"{{tarih}}", "[["+now.Format("2006-01-02")+"]]", "{{bugün}}", "[["+now.Format("2006-01-02")+"]]", "{{bugun}}", "[["+now.Format("2006-01-02")+"]]",
-		"{{saat}}", now.Format("15:04"),
+		"{{title}}", title, "{{başlık}}", title, "{{baslik}}", title,
+		"{{date}}", day, "{{today}}", day, "{{tarih}}", day, "{{bugün}}", day, "{{bugun}}", day,
+		"{{time}}", now.Format("15:04"), "{{saat}}", now.Format("15:04"),
 	).Replace(body)
 }
 
@@ -143,7 +145,7 @@ func (a *app) csTemplates(c *ui.Context) {
 					drop = i
 				}
 			})
-			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: locales.TemplatesTheTemplatesText(), Placeholder: "baslik", Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
+			a.fieldMenu(ryugo.Textarea(c.Key("cs-tpl-body"), &t.Body, ryugo.TextareaOptions{Label: locales.TemplatesTheTemplatesText(), Placeholder: locales.TemplatesBodyPlaceholder(), Rows: 4, MaxRows: 12, Size: ryugo.Sm}), &t.Body, fieldOpts{})
 		})
 	}
 	if drop >= 0 {

@@ -214,7 +214,7 @@ func (a *app) commands() []palItem {
 		cmd("whatsNewInThisVersion", "", iconUpdate, func() {
 			a.updNotes, a.updOpen = true, true
 			if a.settings.UpdateNotes == "" {
-				a.settings.UpdateNotes = "Bu sürümün notu yok: sürüm " + version + "."
+				a.settings.UpdateNotes = locales.UpdateNoNotes()
 			}
 		}),
 		cmd("shortcutsAndHelp", "?", iconSearch, func() { a.kb.help = true }),
