@@ -368,6 +368,13 @@ func TestTasksFilterSearchFold(t *testing.T) {
 	if tt.HasText("baharat siparişi") || tt.HasText("boya al") || !tt.HasText("kapak ölç") || !tt.HasText("kapak tartışması") {
 		t.Fatalf("search kapak: %v", tt.Texts())
 	}
+	a.taskQuery = "TADİLAT" // a page's title, folded once a frame (#195)
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText("boya al") || !tt.HasText("kapak ölç") || tt.HasText("baharat siparişi") {
+		t.Fatalf("search by a page's title: %v", tt.Texts())
+	}
+	a.taskQuery = "KAPAK"
 	a.taskColl = k2.Dir
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)

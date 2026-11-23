@@ -39,6 +39,7 @@ type taskItem struct {
 	// inl is a task in the running text (a chip, "Buy [ ] milk"): its place among the boxes of its line, from 1; 0
 	// for the line's own task. col is where its box starts in the line, -1 when that is not known (#536).
 	inl, col int
+	folded   string // text, folded for the view's search: once as the page is read, not at every frame (#195)
 }
 
 // tasksOf are the tasks in a page's Markdown, not those in code.
@@ -68,7 +69,7 @@ func tasksOf(p *Page, body string) []taskItem {
 			if k, ok := taskKindByMD(m[2]); ok {
 				kind = k.id
 			}
-			out = append(out, taskItem{page: p, line: i, done: m[2] == "x" || m[2] == "X", text: text, due: due, every: every, kind: kind})
+			out = append(out, taskItem{page: p, line: i, done: m[2] == "x" || m[2] == "X", text: text, due: due, every: every, kind: kind, folded: fold(text)})
 		}
 	}
 	return out
@@ -132,7 +133,7 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 		}
 		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
 		text, due, every := taskWords(raw)
-		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col})
+		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col, folded: fold(text)})
 	}
 	return out
 }
@@ -753,6 +754,15 @@ func (a *app) tasksView(c *ui.Context) {
 			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
 		})
 		q := fold(strings.TrimSpace(a.taskQuery))
+		titles := map[*Page]string{} // each page's title folded once a frame, not once a task
+		titleHas := func(p *Page) bool {
+			t, ok := titles[p]
+			if !ok {
+				t = fold(p.Title)
+				titles[p] = t
+			}
+			return strings.Contains(t, q)
+		}
 		var shown []taskItem
 		for _, k := range all {
 			_, leaving := a.taskLeaving[taskKey(k)]
@@ -763,7 +773,7 @@ func (a *app) tasksView(c *ui.Context) {
 			case a.taskFilter == 0 && !dueMatches(k, a.taskDue, now):
 			case a.taskColl != "" && k.page.Coll.Dir != a.taskColl:
 			case a.taskKindF != "" && (k.done || taskKindKey(k) != a.taskKindF):
-			case q != "" && !strings.Contains(fold(k.text), q) && !strings.Contains(fold(k.page.Title), q):
+			case q != "" && !strings.Contains(k.folded, q) && !titleHas(k.page):
 			default:
 				shown = append(shown, k)
 			}
