@@ -336,6 +336,8 @@ type app struct {
 	panesR        ui.Rect                                   // where the panes were, last frame
 	sidebarR      ui.Rect                                   // where the sidebar was, last frame
 	prewarming    bool                                      // the pages are being read away from the window (prewarm.go)
+	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
+	firstFrame    chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
 	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
 	edPtr         ui.Point                                  // the pointer over the page's text, last frame
 	cellBar       ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
@@ -385,7 +387,8 @@ type app struct {
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing()}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing(),
+		firstFrame: make(chan struct{})}
 	a.paneState = newPaneState()
 	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
@@ -1038,6 +1041,9 @@ func (a *app) viewFrame(c *ui.Context) {
 		panic(a.testPanic)
 	}
 	a.frame = c.Invalidate
+	if a.frameSeq == 0 && a.firstFrame != nil {
+		defer close(a.firstFrame) // the first frame, built: what waited for it goes on (prewarm.go)
+	}
 	a.frameSeq++
 	a.frameNow = c.Now()
 	a.motionFrame(c) // reduced motion, and the shader effects on or off (motion.go)

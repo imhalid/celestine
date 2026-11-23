@@ -228,3 +228,45 @@ func TestSidebarEdgeHandle(t *testing.T) {
 		t.Fatalf("away from the edge the handle stays: %v, the ground is %v", off, ground)
 	}
 }
+
+// TestSidebarManyCollections: a library of thousands of collections, all open, builds only the rows near what the
+// sidebar shows, at the top and scrolled to the end; the others are gaps, and the list of rows has every one (#581).
+func TestSidebarManyCollections(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1100, 800)
+	const n = 1500
+	for i := range n {
+		c, err := a.lib.NewCollection(fmt.Sprintf("C%04d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.NewPage(nil, fmt.Sprintf("P%04d", i)); err != nil {
+			t.Fatal(err)
+		}
+		c.Open = true
+	}
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	want := a.treeCensus().rows
+	if want < 2*n || len(a.rows) != want {
+		t.Fatalf("%d rows listed, the tree has %d", len(a.rows), want)
+	}
+	if a.rowsBuilt > 200 {
+		t.Fatalf("%d rows built of %d", a.rowsBuilt, want)
+	}
+	if !tt.HasText("C0001") || tt.HasText("C1499") {
+		t.Fatal("not the first collections at the top")
+	}
+	// to the end of the tree: the last ones are built there
+	for range 40 {
+		tt.Wheel(100, 400, 0, 40000)
+		tt.Advance(500 * time.Millisecond)
+		if tt.HasText("C1499") {
+			break
+		}
+	}
+	if !tt.HasText("C1499") || a.rowsBuilt > 200 {
+		r, _ := tt.Find("C0001")
+		t.Fatalf("scrolled to the end: the last collection shown %v, %d rows built, top %v view %v, sidebar %v, C0001 at %v", tt.HasText("C1499"), a.rowsBuilt, a.treeTop, a.treeView, a.sidebarR, r)
+	}
+}

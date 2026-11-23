@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
 
 // The pages read away from the window fill the links' index and the search's text: once they are in,
@@ -75,5 +77,38 @@ func TestStoreSnapshotOpensTheSame(t *testing.T) {
 	}
 	if a, b := names(plain), names(snap); len(a) != 2 || !slices.Equal(a, b) {
 		t.Fatalf("plain %v, snapshot %v", a, b)
+	}
+}
+
+// The pages are read once the window's first frame is built, not before: the reading would take the cores the first
+// frame needs (#581).
+func TestPrewarmWaitsForTheFirstFrame(t *testing.T) {
+	a := newApp(testLibrary(t, "Birinci [[İkinci]]\n"))
+	a.noSound = true
+	t.Cleanup(a.stamping.Wait)
+	a.prewarm()
+	time.Sleep(300 * time.Millisecond)
+	a.mu.Lock()
+	read := len(a.links.pages)
+	a.mu.Unlock()
+	if read != 0 {
+		t.Fatalf("%d pages read before the first frame", read)
+	}
+	tt := ui.NewTester(a.view, 900, 1400)
+	tt.Frame()
+	for deadline := time.Now().Add(prewarmWait / 2); ; { // read for the frame, not for the wait running out
+		a.mu.Lock()
+		w := a.prewarming
+		a.mu.Unlock()
+		if !w {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("not read after the first frame")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if a.links.pages[a.page] == nil {
+		t.Fatal("the page was not read")
 	}
 }

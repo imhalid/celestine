@@ -30,7 +30,12 @@ type prewarmRead struct {
 	plain *plainIdx
 }
 
-// prewarm starts the reading. While it goes on, the indexes do not read pages on the window's thread.
+// prewarmWait is how long the reading waits for the window's first frame, which it would otherwise take the cores
+// from (#581): a window that never draws one still gets its indexes.
+const prewarmWait = 2 * time.Second
+
+// prewarm starts the reading, once the window's first frame is drawn. While it goes on, the indexes do not read pages
+// on the window's thread.
 func (a *app) prewarm() {
 	var jobs []prewarmJob
 	for _, c := range a.lib.Collections {
@@ -42,9 +47,14 @@ func (a *app) prewarm() {
 		return
 	}
 	a.prewarming = true
+	first := a.firstFrame
 	go func() {
 		defer a.guard()
 		defer a.do(func() error { a.prewarming = false; return nil })
+		select {
+		case <-first:
+		case <-time.After(prewarmWait):
+		}
 		// a library in one file gives all its pages in one pass
 		bulk := map[FS]map[string][]byte{}
 		for _, j := range jobs {
@@ -57,7 +67,7 @@ func (a *app) prewarm() {
 		in := make(chan prewarmJob)
 		out := make(chan prewarmRead, 64)
 		var wg sync.WaitGroup
-		for range max(1, runtime.NumCPU()-1) { // a core left for the window
+		for range max(1, runtime.NumCPU()/2) { // half the cores: the window and its GPU have the others
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

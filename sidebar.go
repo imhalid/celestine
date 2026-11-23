@@ -221,15 +221,8 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					}
 					a.rowsLast = append(a.rowsLast[:0], a.rows...)
 					a.rows = a.rows[:0]
-					tree.Children(func() {
-						for _, coll := range a.lib.Collections {
-							a.collectionRow(c, coll)
-							c.Key("coll-kids:" + coll.Dir)
-							if coll.Open && len(coll.Pages) > 0 {
-								a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
-							}
-						}
-					})
+					a.rowsBuilt = 0
+					tree.Children(func() { a.collectionRows(c) })
 					a.aim()
 					a.ghost(c)
 				})
@@ -323,6 +316,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	hover := r.Hovered() && !a.moving()
 	renaming := s.item != nil && a.renaming == s.item
 	a.placeRow(c, r, len(a.rows), s.item)
+	a.rowsBuilt++
 	switch x := s.item.(type) {
 	case *Page:
 		a.rows = append(a.rows, treeEntry{page: x})
@@ -536,6 +530,71 @@ const (
 	treeVirtualFrom = 200 // rows: a tree this long is virtual
 	treeMargin      = 2.0 // the views of room built above and below what shows
 )
+
+// collectionRows builds the rows of the collections, with their open pages, and gaps for those far from view: a
+// library of thousands of collections built a row for each at every frame, most of a frame's time (#581).
+func (a *app) collectionRows(c *ui.Context) {
+	gap, gapKey := 0, ""
+	flush := func() {
+		if gap > 0 {
+			ui.Box(c.Key("coll-gap:" + gapKey)).FillWidth().Height(float32(gap) * rowH)
+			gap = 0
+		}
+	}
+	for _, coll := range a.lib.Collections {
+		n := collRows(coll)
+		if a.treeVirtual && a.rowsAway(len(a.rows), n) && !a.mustBuildColl(coll) {
+			if gap == 0 {
+				gapKey = coll.Dir
+			}
+			a.rows = append(a.rows, treeEntry{coll: coll})
+			if coll.Open {
+				for _, p := range coll.Pages {
+					a.noteRows(p)
+				}
+			}
+			gap += n
+			continue
+		}
+		flush()
+		a.collectionRow(c, coll)
+		c.Key("coll-kids:" + coll.Dir)
+		if coll.Open && len(coll.Pages) > 0 {
+			a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
+		}
+	}
+	flush()
+}
+
+// collRows is how many rows collection c and its open pages take.
+func collRows(c *Collection) int {
+	n := 1
+	if c.Open {
+		for _, p := range c.Pages {
+			n += openRows(p)
+		}
+	}
+	return n
+}
+
+// mustBuildColl reports whether the rows of collection c are built wherever they are: it, or a page in it, is being
+// renamed or is to have the focus.
+func (a *app) mustBuildColl(c *Collection) bool {
+	if a.renaming == nil && a.treeFocus == nil {
+		return false
+	}
+	if a.renaming == any(c) || a.treeFocus == any(c) {
+		return true
+	}
+	if c.Open {
+		for _, p := range c.Pages {
+			if a.mustBuild(p) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // pageRows builds the rows of pages, and their open children's, and gaps for those far from view.
 func (a *app) pageRows(c *ui.Context, pages []*Page) {
