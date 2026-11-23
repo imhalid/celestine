@@ -40,6 +40,10 @@ import (
 type RemoteEntry struct {
 	Hash    string `json:"hash"`
 	Deleted bool   `json:"deleted,omitempty"`
+	// Held says the file was gone by the time the listing read it (a folder remote, as another program renames
+	// or removes it): the pass leaves its name alone, as it leaves a file gone here mid-walk, and the next one reads
+	// it again (#566). Taken as not there, a file the remote still has would be deleted here.
+	Held bool `json:"-"`
 }
 
 // ErrConflict says the remote's file is not the one the writer saw.
@@ -105,7 +109,18 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 		}
 		rel, _ := filepath.Rel(d.Root, p)
 		rel = filepath.ToSlash(rel)
+		if strings.HasSuffix(rel, ".tmp~") { // a Put half done, here or on another device: not a file of the remote's
+			return nil
+		}
 		b, err := os.ReadFile(p)
+		if errors.Is(err, fs.ErrNotExist) { // gone while the folder was walked (#566)
+			if !strings.HasSuffix(rel, tombSuffix) {
+				if _, dead := out[rel]; !dead {
+					out[rel] = RemoteEntry{Held: true}
+				}
+			}
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -113,7 +128,7 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 			out[strings.TrimSuffix(rel, tombSuffix)] = RemoteEntry{Deleted: true}
 			return nil
 		}
-		if _, dead := out[rel]; !dead {
+		if prev, dead := out[rel]; !dead || prev.Held {
 			out[rel] = RemoteEntry{Hash: HashOf(b)}
 		}
 		return nil
@@ -121,8 +136,7 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 	// a tombstone beside a file that is there: the later is the tombstone only if the file is gone
 	for name, e := range out {
 		if e.Deleted {
-			if _, err := os.Stat(d.file(name)); err == nil {
-				b, _ := os.ReadFile(d.file(name))
+			if b, err := os.ReadFile(d.file(name)); err == nil {
 				out[name] = RemoteEntry{Hash: HashOf(b)}
 			}
 		}
@@ -1693,6 +1707,11 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	// An entry listed without a hash, not deleted, is not one the pass can read: an object put in the bucket by
 	// another tool. Read as gone it would be deleted here, past the guard (#147): it is an error for that name.
 	for n, re := range remote {
+		if re.Held { // gone as the remote was listed: the next pass reads it again (#566)
+			delete(remote, n)
+			names[n] = false
+			continue
+		}
 		if !re.Deleted && re.Hash == "" {
 			delete(remote, n)
 			names[n] = false

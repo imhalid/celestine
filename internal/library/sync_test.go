@@ -1678,3 +1678,53 @@ func TestSyncEncryptedNameWithoutFile(t *testing.T) {
 		t.Fatalf("after: %+v", res)
 	}
 }
+
+// A folder remote's listing leaves out the temporary files a Put writes before its rename, and a file gone by the
+// time it is read (another program renaming or removing it as the folder is walked) is held: the pass neither fails
+// nor deletes the copy here, and the next pass takes the file as it is then (#566). A link to nothing stands in for
+// the file gone between the folder's read and the file's.
+func TestSyncDirRemoteFileGoneMidWalk(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a := newDevice(t)
+	a.write("Not/collection.json", `{"name":"Not"}`)
+	a.write("Not/Bir/page.json", "bir")
+	a.sync(remote)
+	page := remote.file("Not/Bir/page.json")
+	os.MkdirAll(filepath.Dir(remote.file("Not/İki/page.json")), 0o755)
+	os.WriteFile(remote.file("Not/İki/page.json")+".tmp~", []byte("half"), 0o644)
+	saved, _ := os.ReadFile(page)
+	os.Remove(page)
+	if err := os.Symlink(filepath.Join(remote.Root, "nowhere"), page); err != nil {
+		t.Skip("no symbolic links here:", err)
+	}
+	list, err := remote.List()
+	if err != nil {
+		t.Fatalf("a file gone mid-walk fails the listing: %v", err)
+	}
+	for n := range list {
+		if strings.HasSuffix(n, ".tmp~") {
+			t.Fatalf("a Put's temporary file is listed: %v", list)
+		}
+	}
+	if e := list["Not/Bir/page.json"]; !e.Held {
+		t.Fatalf("the file gone mid-walk: %+v", e)
+	}
+	before := a.st.Files["Not/Bir/page.json"]
+	if res := a.sync(remote); res.Pulled+res.Removed+res.Pushed != 0 || a.read("Not/Bir/page.json") != "bir" {
+		t.Fatalf("a pass with the file gone mid-walk: %+v, here %q", res, a.read("Not/Bir/page.json"))
+	}
+	if a.st.Files["Not/Bir/page.json"] != before {
+		t.Fatalf("its state moved: %+v, was %+v", a.st.Files["Not/Bir/page.json"], before)
+	}
+	// back, changed by another device: the next pass takes it
+	os.Remove(page)
+	b := newDevice(t)
+	b.sync(remote) // it has the file but the one gone: nothing of Bir
+	os.WriteFile(page, saved, 0o644)
+	b.sync(remote)
+	b.write("Not/Bir/page.json", "bir, b")
+	b.sync(remote)
+	if res := a.sync(remote); res.Pulled != 1 || a.read("Not/Bir/page.json") != "bir, b" {
+		t.Fatalf("the pass after: %+v, here %q", res, a.read("Not/Bir/page.json"))
+	}
+}
