@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -824,5 +825,96 @@ func TestAppKeyedOnce(t *testing.T) {
 	}
 	if len(a) != n {
 		t.Fatalf("%d commands with keys, %d parsed", n, len(a))
+	}
+}
+
+// vimKbd is a keyboard on src with Vim's motions on, in the normal mode, the caret at 0.
+func vimKbd(t *testing.T, src string) *kbd {
+	k := newKbd(t, src)
+	k.a.settings.VimKeys = true
+	k.a.doc.SetSelection(0, 0)
+	k.frames()
+	k.press("esc")
+	k.frames()
+	return k
+}
+
+// h, l and x go by the letters as the eye has them: a family of emoji is one, and x takes it whole (#206).
+func TestKbVimClusters(t *testing.T) {
+	fam := "👨‍👩‍👧"
+	k := vimKbd(t, "a"+fam+"b\n")
+	k.press("l")
+	if k.caret() != 1 {
+		t.Fatalf("l onto the family: %d", k.caret())
+	}
+	k.press("l")
+	if want := 1 + len([]rune(fam)); k.caret() != want {
+		t.Fatalf("l over the family: %d, want %d", k.caret(), want)
+	}
+	k.press("h")
+	if k.caret() != 1 {
+		t.Fatalf("h back over the family: %d", k.caret())
+	}
+	k.press("x")
+	if got := k.text(); !strings.HasPrefix(got, "ab") {
+		t.Fatalf("x took part of the family: %q", got)
+	}
+}
+
+// j and k walk a long paragraph line by line, as it wraps, and then go on to the next one (#206).
+func TestKbVimWrappedLines(t *testing.T) {
+	long := strings.Repeat("kelime ", 120)
+	k := vimKbd(t, long+"\nson\n")
+	_, pe := k.a.doc.Text().ParagraphRange(0)
+	k.press("j")
+	if c := k.caret(); c <= 0 || c >= pe {
+		t.Fatalf("j left the wrapped paragraph or stayed: %d of %d", c, pe)
+	}
+	first := k.caret()
+	k.press("j")
+	if c := k.caret(); c <= first || c >= pe {
+		t.Fatalf("a second j: %d after %d, of %d", c, first, pe)
+	}
+	k.press("k", "k")
+	if k.caret() != 0 {
+		t.Fatalf("k k back to the first line: %d", k.caret())
+	}
+	k.press("G", "k")
+	if c := k.caret(); c < first || c > pe {
+		t.Fatalf("k from the end goes to the last line of the paragraph above: %d", c)
+	}
+}
+
+// w stops where the script changes and at each ideograph, as Vim does, not at the end of a sentence written
+// without spaces (#206).
+func TestVimWordsCJK(t *testing.T) {
+	rs := []rune("日本語のテキスト abc")
+	var stops []int
+	for i := 0; i < len(rs); {
+		i = vimWordStart(rs, i)
+		stops = append(stops, i)
+	}
+	want := []int{1, 2, 3, 4, 9, 12}
+	if !slices.Equal(stops, want) {
+		t.Fatalf("w stops at %v, want %v", stops, want)
+	}
+	if b := vimWordBack(rs, 8); b != 4 {
+		t.Fatalf("b from the space: %d", b)
+	}
+	if e := vimWordEnd(rs, 4); e != 7 {
+		t.Fatalf("e in the katakana: %d", e)
+	}
+}
+
+// dd on a folded heading takes the line, and what the fold held stays (DATA-06, #128).
+func TestKbVimDDKeepsFolded(t *testing.T) {
+	k := vimKbd(t, "# Başlık\n\nBir\n\nİki\n\nSon\n")
+	k.a.fold(at(k.a.doc, "Başlık"))
+	k.frames()
+	k.a.doc.SetSelection(0, 0)
+	k.press("d", "d")
+	k.frames()
+	if md := mdOf(k.a.doc); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
+		t.Fatalf("dd on the fold took what it held: %q", md)
 	}
 }
