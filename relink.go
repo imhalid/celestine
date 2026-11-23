@@ -37,9 +37,23 @@ func (a *app) titleTyped(p *Page, name string) {
 		a.settings.PendingRenames[p.Dir] = p.Title
 		a.saveSettingsSoon()
 	}
-	if err := p.SetTitle(name); err != nil {
-		a.fail(err)
+	a.retitled(p, name)
+}
+
+// retitled gives page p the title name in memory at once, and has it written with the page's next save: a key typed
+// in a title wrote the whole page's file at each key (#192). The open page is saved by its autosave; another, as a
+// side pane's, at once.
+func (a *app) retitled(p *Page, name string) {
+	if p != a.page || a.doc == nil {
+		if err := p.SetTitle(name); err != nil {
+			a.fail(err)
+		}
+		return
 	}
+	p.Title = name
+	PagesChanged()
+	a.lastSave = ""                     // what is saved next is written, the body unchanged or not, with the title
+	a.dirty, a.editAt = true, a.clock() // saved once the typing pauses, as the text is
 }
 
 // endTitleEdit ends the rename being typed in this pane, if there is one: the links to the page are written after

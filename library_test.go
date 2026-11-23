@@ -66,6 +66,7 @@ func TestLibraryOnDisk(t *testing.T) {
 // TestSidebarMakesSubPage clicks a page's + and gets a sub-page, open, on disk.
 func TestSidebarMakesSubPage(t *testing.T) {
 	a, tt := newTestApp(t, "gövde")
+	a.clock = tt.Now // the autosave's delay, in the tester's time
 	parent := a.page
 	if err := tt.Click("Ekle: Sayfa"); err != nil {
 		t.Fatal(err)
@@ -77,13 +78,17 @@ func TestSidebarMakesSubPage(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", PageFileName)); err != nil {
 		t.Fatal(err)
 	}
-	// The new title is typed straight away, and saved.
+	// The new title is typed straight away, and saved once the typing pauses, with the page (#192).
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("Toplantı notları")
 	tt.Advance(50 * time.Millisecond)
 	if a.page.Title != "Toplantı notları" {
 		t.Fatalf("title: %q", a.page.Title)
 	}
+	if again, _ := OpenLibrary(a.lib.Root); again.Collections[0].Pages[0].Children[0].Title == "Toplantı notları" {
+		t.Fatal("the title was written at once, at a key")
+	}
+	tt.Advance(a.saveAfter() + 100*time.Millisecond)
 	if again, _ := OpenLibrary(a.lib.Root); again.Collections[0].Pages[0].Children[0].Title != "Toplantı notları" {
 		t.Fatal("the title is not on disk")
 	}
