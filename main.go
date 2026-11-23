@@ -193,14 +193,15 @@ type app struct {
 	kb          kbState                              // the keyboard's normal mode, the letters on what can be pressed (kb.go)
 	winW, winH  float32                              // the window's size, last frame
 	wel         welcomeState                         // the first opening (welcome.go)
-	winOnce     sync.Once                            // the window coming forward and going behind, in order (windowEvent)
-	winEv       chan bool
-	codeTheme   *editor.Theme // the colors of code, in the window's theme (codecolors.go)
-	codeLangs   codeLangs     // the languages of the page's lines of code, by paragraph (codecolors.go)
-	blink       caretBlink    // when the caret last moved, for it to blink once still (caretBlinkOff)
-	bsel        blockSel      // blocks chosen from the keyboard (blocksel.go)
-	toasts      toastState    // the toasts up (toast.go)
-	statCache   libStats      // the library's figures, read at most every ten seconds
+	winOnce     sync.Once                            // the window coming forward and going behind (windowEvent)
+	winWake     chan struct{}                        // the worker is woken to take winLast
+	winLast     atomic.Bool                          // the window's last state: in front
+	codeTheme   *editor.Theme                        // the colors of code, in the window's theme (codecolors.go)
+	codeLangs   codeLangs                            // the languages of the page's lines of code, by paragraph (codecolors.go)
+	blink       caretBlink                           // when the caret last moved, for it to blink once still (caretBlinkOff)
+	bsel        blockSel                             // blocks chosen from the keyboard (blocksel.go)
+	toasts      toastState                           // the toasts up (toast.go)
+	statCache   libStats                             // the library's figures, read at most every ten seconds
 	statCacheAt time.Time
 	sx          *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
 	px          placeIdx            // the palette's places, folded once (palette.go)
@@ -854,17 +855,18 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 // windowIn and windowOut are the window's coming forward and going behind. They do their work off the window's thread, not in the call
 // that raised them: showing or focusing a window is done by a frame that holds the app's lock (the welcome's Başla), and the system
 // answers with the focus at once, in that very call. Taking the lock there waited for the frame that was waiting for it, and the
-// window froze (TestWindowFocusDoesNotWaitForTheLock). One worker takes them in the order they came, so that a window that came
-// forward and went behind at once is behind, not forward.
+// window froze (TestWindowFocusDoesNotWaitForTheLock). One worker takes the window's last state each time it is woken, so that a window
+// that came forward and went behind at once is behind, not forward; a flood of them is the last of them, never one dropped (#545).
 func (a *app) windowIn()  { a.windowEvent(true) }
 func (a *app) windowOut() { a.windowEvent(false) }
 
 func (a *app) windowEvent(forward bool) {
 	a.winOnce.Do(func() {
-		a.winEv = make(chan bool, 64)
+		a.winWake = make(chan struct{}, 1)
 		go func() {
 			defer a.guard()
-			for fwd := range a.winEv {
+			for range a.winWake {
+				fwd := a.winLast.Load()
 				a.do(func() error {
 					if fwd {
 						a.windowFocused()
@@ -877,9 +879,10 @@ func (a *app) windowEvent(forward bool) {
 			}
 		}()
 	})
+	a.winLast.Store(forward)
 	select {
-	case a.winEv <- forward:
-	default: // a flood of them: the next one comes
+	case a.winWake <- struct{}{}:
+	default: // woken already: it reads the state when it goes, this one's
 	}
 }
 
@@ -1088,20 +1091,18 @@ func (a *app) viewFrame(c *ui.Context) {
 		c.Root().Background(ui.Transparent)
 	}
 	var root ui.Element
-	if framed { // the window's frame around the content, a card in it, the tabs above and the status bar under (windowframe.go)
+	if framed { // the window's frame around the content, a card in it, and the status bar under (windowframe.go)
 		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Padding(0, frameW, 0, frameW)
 		if !useGlass {
 			g := frameGroundOf(c)
 			root.Draw(func(p *ui.Painter, r ui.Rect) { g.paint(p, r) })
 		}
-		a.wframe.strip = root.AnimateTo("frame-strip", map[bool]float32{true: 1}[a.frameTabs()], springSheet)
 	} else {
 		bg := a.pageBg
 		if useGlass {
 			bg = ui.Transparent
 		}
 		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(bg)
-		a.wframe.strip = 0
 	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
 	a.helloRoot(c, root)   // the first start after an update: a wave of light up the window (updhello.go)

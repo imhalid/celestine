@@ -167,7 +167,7 @@ func (m *frameMeter) stats() (s hudStats) {
 	}
 	latest := m.ring[(m.n-1)%hudFrames]
 	s.gap, s.build = latest.gap, latest.build
-	var gaps, gapSum, bSum time.Duration
+	var gapSum, bSum time.Duration
 	var nGaps int
 	for i := 0; i < min(m.n, hudFrames); i++ {
 		f := m.ring[(m.n-1-i)%hudFrames]
@@ -192,7 +192,6 @@ func (m *frameMeter) stats() (s hudStats) {
 			bSum += f.build
 			s.bWorst = max(s.bWorst, f.build)
 		}
-		gaps += f.gap
 	}
 	if nGaps > 0 {
 		s.gapAvg = gapSum / time.Duration(nGaps)

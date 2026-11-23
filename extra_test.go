@@ -380,3 +380,21 @@ func TestProfileNoticeSaysItsName(t *testing.T) {
 		t.Fatalf("the notice says %q, with %q", text, added[0].action)
 	}
 }
+
+// A built-in profile is called by its message, in the window's language; one of the user's own by the name it was
+// given, even one that is a message's id ("code") (#545).
+func TestProfileLabel(t *testing.T) {
+	a, _ := newTestApp(t, "x\n")
+	if got := a.profileLabel("code"); got != msg("code") || got == "code" {
+		t.Fatalf("the built-in code: %q", got)
+	}
+	if got := a.profileLabel("list"); got != "list" {
+		t.Fatalf("a name that is no profile: %q", got)
+	}
+	a.settings.Profiles = map[string]map[string]any{"code": {"fontSize": 13.0}, "list": {"fontSize": 15.0}}
+	for _, n := range []string{"code", "list"} {
+		if got := a.profileLabel(n); got != n {
+			t.Fatalf("the user's own %q: %q", n, got)
+		}
+	}
+}

@@ -217,3 +217,25 @@ func TestOnlyOnceDoesNotWaitForTheFirst(t *testing.T) {
 		t.Fatalf("shown %d times", runs)
 	}
 }
+
+// A flood of the window's comings and goings, more than any buffer held, while a frame holds the lock, ends in the
+// last of them: the window behind is behind, never left in front by one dropped (#545).
+func TestWindowEventsFloodEndsLast(t *testing.T) {
+	a := welcomeApp(t)
+	a.mu.Lock()
+	for i := 0; i < 200; i++ {
+		a.windowIn()
+	}
+	a.windowOut() // the last, behind a full buffer's worth of the others
+	a.mu.Unlock()
+	for i := 0; i < 200; i++ {
+		a.mu.Lock()
+		behind := a.winBehind
+		a.mu.Unlock()
+		if behind {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the last state, behind, was not taken")
+}

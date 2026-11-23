@@ -14,10 +14,9 @@ import (
 // same on every platform (frameGround). A material of the window's would show what is behind it, near black over dark
 // windows.
 //
-// Its sides are thin. Its bottom edge holds the status bar. Its top edge is thin while one pane shows; with two or
-// more it grows down on a spring and lists the panes as tabs, the one in use lit. macOS's window buttons cannot
-// move once the window is made, so they stay where they are: in the strip while it is open, and in the card's
-// corner, beside the sidebar's buttons, while it is not.
+// Its sides are thin. Its bottom edge holds the status bar. Its top edge is thin however many panes show: each pane's
+// card has a bar of its own (panebar.go, #468). macOS's window buttons stay in the card's corner, beside the
+// sidebar's buttons.
 
 // frameW is the frame's width around the card, and frameR the card's corner, in DIPs.
 const (
@@ -37,8 +36,7 @@ const (
 
 // frameState is what a frame of the window knows of the window's frame.
 type frameState struct {
-	on    bool    // the frame is drawn
-	strip float32 // how far the top edge's tabs are in, 0 to 1
+	on bool // the frame is drawn
 }
 
 // framed reports whether this frame of the window draws the frame: not in a browser's tab nor on a phone, where
@@ -168,29 +166,20 @@ func (a *app) syncGlassTint(c *ui.Context) {
 	}
 }
 
-// frameTabs reports whether the top edge lists the panes. It no longer does: each pane's card has its bar, with its
-// title, menu and close (panebar.go, #468), so the cards stay at the window's top however many panes there are.
-func (a *app) frameTabs() bool { return false }
-
-// noTabHeaderHeight is the room kept at the top of the sidebar's and the page's cards on macOS while the window has
-// one pane: the cards rise to the window's top, round the window's buttons and the sidebar's, and what is in them
-// starts, and scrolls, below those. With the panes' tabs it is none: the cards are under the top edge again.
-//
-// It changes at once, not on the tabs' spring: the Dock places its areas a frame late, and cards moving on a spring
-// would grow and shrink under it while the window splits, their scroll bars showing. What is in a card does not move
-// either way; only the card's top edge does.
+// noTabHeaderHeight is the room kept at the top of the sidebar's and the page's cards on macOS: the cards rise to
+// the window's top, round the window's buttons and the sidebar's, and what is in them starts, and scrolls, below
+// those.
 func (a *app) noTabHeaderHeight() float32 {
-	if a.wframe.on && !ownWindowControls && !a.frameTabs() {
+	if a.wframe.on && !ownWindowControls {
 		return frameTopH - frameW
 	}
 	return 0
 }
 
 // frameTop is the frame's top edge, which moves the window: after macOS's window buttons the sidebar's buttons
-// (fold, back, forward, the settings); the panes' tabs, coming in as the window is split; at the right end, on Linux
-// and Windows, the window's own controls. The side panel is opened from the page's menu ("Page info").
+// (fold, back, forward, the settings); at the right end, on Linux and Windows, the window's own controls. The side
+// panel is opened from the page's menu ("Page info").
 func (a *app) frameTop(c *ui.Context) {
-	p := a.wframe.strip
 	a.barLeft = a.titleBar(c).Left
 	left := max(a.barLeft-frameW+barLead, 6) // after macOS's window buttons, with room between
 	row := ui.Row(c.Key("frame-top")).FillWidth().Height(frameTopH).Shrink(0).Padding(0, 4, 0, 0).Gap(10).AlignItems(ui.Center).Label(locales.SidebarTopBar())
@@ -198,24 +187,16 @@ func (a *app) frameTop(c *ui.Context) {
 		row.Padding(0, 4, 0, left).DragWindow()
 	} else {
 		topGap := frameTopH - a.noTabHeaderHeight() // where the cards start: see noTabHeaderHeight
-		row.Margin(0, 0, -(frameTopH - topGap), 0).ZIndex(1)
-		if p > 0.01 {
-			row.DragWindow()
-		} else {
-			row.PassThrough()
-		}
+		row.Margin(0, 0, -(frameTopH - topGap), 0).ZIndex(1).PassThrough()
 	}
 	row.Children(func() {
-		if !ownWindowControls && p <= 0.01 {
+		if !ownWindowControls {
 			ui.Box(c.Key("frame-drag-top")).Absolute().Left(0).Right(0).Top(0).Height(frameW).DragWindow()
 		}
 		btns := ui.Row(c.Key("frame-top-left")).Height(frameTopH).AlignItems(ui.Center).Shrink(0)
 		a.topLeftR = btns.LayoutBounds()
 		if !ownWindowControls {
-			btns.Padding(0, 0, 0, left)
-			if p <= 0.01 {
-				btns.DragWindow()
-			}
+			btns.Padding(0, 0, 0, left).DragWindow()
 		}
 		btns.Children(func() {
 			ui.Row(c.Key("frame-sidebar-buttons")).Shrink(0).AlignItems(ui.Center).Children(func() {

@@ -644,7 +644,7 @@ func (a *app) mcpMayChange(it palItem) error {
 	}
 	var c *Collection
 	switch {
-	case name == "todaysPage" || name == "Yeni günlük":
+	case name == "todaysPage":
 		for _, x := range a.lib.Collections {
 			if x.Journal {
 				c = x

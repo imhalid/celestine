@@ -49,15 +49,23 @@ var errNoNotifications = errors.New("notifications are not supported here")
 // before the window is made: a click that launched the app is told before WhenReady.
 func (a *app) watchActive() {
 	a.nt.active.Store(true)
+	// what takes the app's lock is done away from the call, as windowIn does it: the system calls these on the
+	// window's thread, which a frame holding the lock may be waiting for (#545)
 	mygo.App.OnDidBecomeActive(func() {
 		a.nt.active.Store(true)
 		mygo.ClearNotifications() // what is in front of the user is not left waiting in the system's list
-		a.do(func() error { a.askNotify(); return nil })
+		go func() {
+			defer a.guard()
+			a.do(func() error { a.askNotify(); return nil })
+		}()
 	})
 	mygo.App.OnDidResignActive(func() { a.nt.active.Store(false) })
 	mygo.App.OnNotificationClick(func(id string) {
 		a.bringToFront()
-		a.do(func() error { a.notifyClicked(id); return nil })
+		go func() {
+			defer a.guard()
+			a.do(func() error { a.notifyClicked(id); return nil })
+		}()
 	})
 }
 

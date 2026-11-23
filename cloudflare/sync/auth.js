@@ -484,7 +484,7 @@ async function admin(request, env, path, method, body, bearer, url) {
   // the dashboard (analytics.js): Cloudflare's figures, read with a token that stays here, and the app's own
   if ((path === "/api/admin/cloudflare" || path === "/api/admin/figures") && method === "GET") {
     const range = url.searchParams.get("range") || "24h";
-    if (!RANGES[range]) return fail(400, "bad request");
+    if (!Object.hasOwn(RANGES, range)) return fail(400, "bad request"); // a key of RANGES, not one every object has, as constructor (#545)
     if (path === "/api/admin/figures") return json(await appFigures(env, range));
     try {
       return json(await cloudflareFigures(env, range, url.searchParams.has("fresh")));

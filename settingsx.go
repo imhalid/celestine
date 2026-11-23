@@ -192,6 +192,17 @@ func (a *app) saveProfile(name string) {
 	a.saveSettings()
 }
 
+// profileLabel is how profile n is called: a built-in one's name is a message, said in the window's language; one
+// of the user's own is called as it was named, even a name that happens to be a message's id (#545).
+func (a *app) profileLabel(n string) string {
+	if _, mine := a.settings.Profiles[n]; !mine {
+		if _, built := builtinProfiles[n]; built {
+			return msg(n)
+		}
+	}
+	return n
+}
+
 // applyProfile puts a profile on: what it holds is set, the rest of the settings stay.
 func (a *app) applyProfile(name string) (on bool) {
 	prof, ok := a.settings.Profiles[name]
@@ -204,7 +215,7 @@ func (a *app) applyProfile(name string) (on bool) {
 	before := a.settings
 	defer func() {
 		if on { // the profile was put on: it can be taken off, as one change
-			a.undoSettings(locales.SettingsProfileOn(msg(name)), before) // a built-in profile's name is a message: said, not its id
+			a.undoSettings(locales.SettingsProfileOn(a.profileLabel(name)), before)
 		}
 	}()
 	data, _ := json.Marshal(a.settings)
@@ -586,7 +597,7 @@ func (a *app) profileOn(prof map[string]any) bool {
 func (a *app) profileCard(c *ui.Context, cl ryugo.Colors, n string) {
 	prof := a.profileOf(n)
 	_, mine := a.settings.Profiles[n]
-	name := msg(n)
+	name := a.profileLabel(n)
 	tone := columnTone(c, name)
 	on := a.profileOn(prof)
 	card := ui.Column(c.Key("prof:"+n)).Width(236).Gap(10).Padding(14).Radius(rad(14)).Background(cl.Card).Border(1, cl.Hairline)

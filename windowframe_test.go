@@ -25,8 +25,8 @@ func TestPaneBar(t *testing.T) {
 	second.SaveText(longPage())
 	a.openInSide(place{"page", second.Dir})
 	tt.Advance(900 * time.Millisecond)
-	if a.paneCount() != 2 || a.wframe.strip != 0 {
-		t.Fatalf("panes %d, the tabs' strip %v", a.paneCount(), a.wframe.strip)
+	if a.paneCount() != 2 {
+		t.Fatalf("panes %d", a.paneCount())
 	}
 	if _, ok := tt.Find("Maximize"); ok {
 		t.Fatal("an area has the Dock's own header")
@@ -438,7 +438,7 @@ func TestSplitKeepsThePaneStill(t *testing.T) {
 			continue
 		}
 		if r.Y != first.Y || r.H != first.H {
-			t.Fatalf("frame %d (tabs %.2f): the pane's page is at %v, it was at %v", i, a.wframe.strip, r, first)
+			t.Fatalf("frame %d: the pane's page is at %v, it was at %v", i, r, first)
 		}
 	}
 }

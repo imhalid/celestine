@@ -277,7 +277,7 @@ func (a *app) commands() []palItem {
 	for _, n := range a.profileNames() {
 		n := n
 		it := cmd("profile2: "+n, "", iconSettings, func() { a.applyProfile(n) })
-		it.title = msg("common_profile") + ": " + msg(n) // a built-in profile's name in the window's language; one's own as it was given
+		it.title = msg("common_profile") + ": " + a.profileLabel(n)
 		it.alias = "profile görünüm ayar paketi"
 		out = append(out, it)
 	}
