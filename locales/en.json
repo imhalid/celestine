@@ -1565,6 +1565,7 @@
   "tasks_allCollections": "All collections",
   "tasks_allDone": "All done.",
   "tasks_allKinds": "All kinds",
+  "tasks_toggleNotMade": "The task couldn't be ticked: its page changed meanwhile. Try again.",
   "tasks_clearFilters": "Clear filters",
   "tasks_closeAll": "Complete all",
   "tasks_closeAllBody": "{count, plural, one{{count} open task of {page} is ticked off.} other{{count} open tasks of {page} are ticked off.}}",

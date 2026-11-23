@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/locales"
 )
 
 // bigTaskPage is a page of n tasks, large enough that its Markdown is kept (library.TextOfBody).
@@ -34,6 +35,7 @@ func TestToggleTaskSoon(t *testing.T) {
 	if k.page == nil {
 		t.Fatal("no task 7")
 	}
+	a.mu.Lock() // as a frame does: the toggle's write waits for it
 	a.toggleTaskSoon(k)
 	shown := false
 	for _, x := range a.allTasks(false) {
@@ -41,6 +43,7 @@ func TestToggleTaskSoon(t *testing.T) {
 			shown = x.done
 		}
 	}
+	a.mu.Unlock()
 	if !shown {
 		t.Fatal("the list did not show the task done at once")
 	}
@@ -185,5 +188,64 @@ func TestToggleKeepsNewerEdits(t *testing.T) {
 		if !taskIn(t, a, "one").done {
 			t.Fatalf("saved %v: the index does not have it ticked", saved)
 		}
+	}
+}
+
+// TestToggleKeepsAPull: a page's file written between the read of a toggle and its write, not through the page, as
+// a sync's pull writes it, is not written over: the toggle is made again from it. A page the library no longer holds
+// (a pull reads the library again) is not written, and a tick that cannot be made is told (#561).
+func TestToggleKeepsAPull(t *testing.T) {
+	a, tt := newTestApp(t, "- [ ] one\n- [ ] two\n")
+	p := a.page
+	pull := func(from, to string) { // what a pass writes: the file, through the store, the page not told
+		src, err := p.FS().ReadFile(p.File())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := p.FS().WriteFile(p.File(), []byte(strings.Replace(string(src), from, to, 1))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	k := taskIn(t, a, "one")
+	now := a.clock()
+	prepare := func(r pageRead) taskToggle { return prepareToggle(k, r, now) }
+	j := prepare(readOf(p))
+	j.again = prepare
+	pull("two", "two, pulled")
+	a.applyToggle(j)
+	a.toggling.Wait()
+	tt.Frame()
+	src, _ := p.FS().ReadFile(p.File())
+	if !strings.Contains(string(src), "two, pulled") {
+		t.Fatalf("the pulled copy was written over: %s", src)
+	}
+	if !taskIn(t, a, "one").done {
+		t.Fatal("the tick was not made again from the pulled copy")
+	}
+
+	// written meanwhile each time it is made: told, and nothing written
+	k = taskIn(t, a, "two, pulled")
+	j = prepareToggle(k, readOf(p), now)
+	j.again, j.tries = prepare, taskToggleTries
+	pull("one", "one, pulled again")
+	a.notice = ""
+	a.applyToggle(j)
+	a.toggling.Wait()
+	if a.notice != locales.TasksToggleNotMade() {
+		t.Fatalf("a tick not made, not told: %q", a.notice)
+	}
+	if src, _ := p.FS().ReadFile(p.File()); !strings.Contains(string(src), "one, pulled again") {
+		t.Fatalf("the newer copy was written over: %s", src)
+	}
+
+	// the library read again between the read and the write: the old page is not written
+	j = prepareToggle(taskIn(t, a, "two, pulled"), readOf(p), now)
+	a.reloadLibrary()
+	a.notice = ""
+	writes := a.libWrites()
+	a.applyToggle(j)
+	a.toggling.Wait()
+	if a.notice != locales.TasksToggleNotMade() || a.libWrites() != writes {
+		t.Fatalf("a page the library no longer holds: notice %q, written %v", a.notice, a.libWrites() != writes)
 	}
 }

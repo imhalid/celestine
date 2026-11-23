@@ -13927,6 +13927,16 @@ func (msgs Messages) TasksAllKinds() string {
 	return Catalog.Format(msgs.locale, "tasks_allKinds", nil)
 }
 
+// TasksToggleNotMade says "The task couldn't be ticked: its page changed meanwhile. Try again."
+// in the language the app shows.
+func TasksToggleNotMade() string { return In(i18n.Locale()).TasksToggleNotMade() }
+
+// TasksToggleNotMade says "The task couldn't be ticked: its page changed meanwhile. Try again."
+// in the language of msgs.
+func (msgs Messages) TasksToggleNotMade() string {
+	return Catalog.Format(msgs.locale, "tasks_toggleNotMade", nil)
+}
+
 // TasksClearFilters says "Clear filters"
 // in the language the app shows.
 func TasksClearFilters() string { return In(i18n.Locale()).TasksClearFilters() }

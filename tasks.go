@@ -162,6 +162,7 @@ type taskToggle struct {
 	stale  bool   // the page changed since the task was read: nothing to write
 	saved  string // the page's new body
 	writes int    // how many times the page had been written when its body was read (pageRead)
+	sum    string // the hash of the page's file as it was read: a write not through the page (a sync's pull) moves it (#561)
 	// how the toggle is made again from the page as it is, when the page was written since it was read, and how many
 	// times it was made: nil for one made under the window's lock, which nothing writes in between (#530)
 	again func(pageRead) taskToggle
@@ -185,14 +186,14 @@ type pageRead struct {
 // readOf is page p's pageRead, under the window's lock.
 func readOf(p *Page) pageRead { return pageRead{p.FS(), p.File(), p.Writes} }
 
-// body reads the page's body from its file.
-func (r pageRead) body() (string, error) {
+// body reads the page's body from its file, and the hash of the file as it was read.
+func (r pageRead) body() (body, sum string, err error) {
 	src, err := r.fs.ReadFile(r.file)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	_, body, err := SplitPageChecked(src)
-	return body, err
+	_, body, err = SplitPageChecked(src)
+	return body, HashOf(src), err
 }
 
 // prepareToggle reads task t's page from r and makes its body with the task ticked off, or on again. It reads
@@ -201,7 +202,8 @@ func (r pageRead) body() (string, error) {
 func prepareToggle(t taskItem, r pageRead, now time.Time) taskToggle {
 	j := taskToggle{t: t, writes: r.writes}
 	p := t.page
-	body, err := r.body()
+	body, sum, err := r.body()
+	j.sum = sum
 	if err == nil {
 		err = bodyReadable(body) // what this version does not read would be dropped by writing it again
 	}
@@ -243,17 +245,28 @@ const taskToggleTries = 3
 // applyToggle writes a task's toggle made by prepareToggle, under the window's lock: the page's file, its text in
 // the editor where it is open, and the indexes. What is typed in the page and not yet saved is saved first; a page
 // written since its body was read is not written over, which would lose the newer text: the toggle is made again
-// from the page as it is now (#530).
+// from the page as it is now (#530). Written since is a save of the page, or its file changed another way, as a
+// sync's pull writes it (#561); a page the library no longer holds (a pull reads the library again, with pages of
+// its own) is not written: the list is read again, and the tick is to be made there.
 func (a *app) applyToggle(j taskToggle) {
 	p := j.t.page
 	if a.docs[p] != nil {
 		a.flush()
 	}
-	if p.Writes != j.writes {
+	if !a.inLibrary(p) {
+		a.toggleNotMade()
+		return
+	}
+	moved := p.Writes != j.writes
+	if !moved && j.err == nil {
+		src, err := p.FS().ReadFile(p.File())
+		moved = err != nil || HashOf(src) != j.sum
+	}
+	if moved {
 		if j.again != nil && j.tries < taskToggleTries {
 			a.toggleAway(p, j.again, j.tries+1)
 		} else {
-			a.linksStale() // read it again, as it is
+			a.toggleNotMade()
 		}
 		return
 	}
@@ -288,10 +301,18 @@ func (a *app) applyToggle(j taskToggle) {
 	a.linksStale()
 }
 
+// toggleNotMade says a tick could not be made, its page changing as it was made: the list is read again, and shows
+// the task as the page has it.
+func (a *app) toggleNotMade() {
+	a.linksStale()
+	a.say(toastWarn, locales.TasksToggleNotMade())
+}
+
 // prepareClose reads page p from r and makes its body with the open tasks of ts ticked off: one write for them all.
 func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle {
 	j := taskToggle{t: taskItem{page: p}, writes: r.writes}
-	body, err := r.body()
+	body, sum, err := r.body()
+	j.sum = sum
 	if err == nil {
 		err = bodyReadable(body)
 	}
