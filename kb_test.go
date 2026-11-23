@@ -72,10 +72,25 @@ func (k *kbd) press(keys ...string) {
 		default:
 			k.t.Fatalf("unknown key %q", s)
 		}
-		k.tt.Key(mods, key)
+		if text := kbTyped(s); text != "" && mods&^ui.Shift == 0 {
+			k.tt.TypeKey(mods, key, text) // a key that types text: the key, then its text, as a keyboard sends them
+		} else {
+			k.tt.Key(mods, key)
+		}
 		k.tt.Advance(30 * time.Millisecond)
 		k.tt.Frame()
 	}
+}
+
+// kbTyped is the text a key of press types, or "" for one that types none.
+func kbTyped(s string) string {
+	switch s {
+	case "space":
+		return " "
+	case "esc", "enter", "down", "up", "left", "right", "tab", "backspace":
+		return ""
+	}
+	return s
 }
 
 // write types text: into the editor or a field that has the focus.
@@ -554,6 +569,38 @@ func TestKbVimMotions(t *testing.T) {
 
 func (k *kbd) caretByte() int { return len(string([]rune(k.text())[:k.caret()])) }
 
+// The commands are the characters the layout types (#207): on Turkish Q, / is Shift+7 and finds, ? is
+// Shift+- and shows the keys, and a letter that is not on a US keyboard is no command and writes nothing.
+func TestKbTurkishLayout(t *testing.T) {
+	k := newKbd(t, "bir iki\n")
+	k.frames()
+	k.press("esc")
+	before := k.text()
+	k.tt.TypeKey(0, ui.KeyUnknown, "ş")
+	k.frames()
+	if !k.a.kb.normal || k.text() != before {
+		t.Fatalf("ş: normal %v, text %q", k.a.kb.normal, k.text())
+	}
+	k.tt.TypeKey(ui.Shift, ui.Key7, "/")
+	k.frames()
+	if !k.a.find.open || k.a.kb.help {
+		t.Fatalf("Shift+7, the / of Turkish Q: find %v, the keys %v", k.a.find.open, k.a.kb.help)
+	}
+	k.a.find.open = false
+	k.a.refocus = false
+	k.press("esc")
+	k.press("esc")
+	k.frames()
+	if !k.a.kb.normal {
+		t.Fatal("not in the normal mode again")
+	}
+	k.tt.TypeKey(ui.Shift, ui.KeyMinus, "?")
+	k.frames()
+	if !k.a.kb.help {
+		t.Fatal("Shift+-, the ? of Turkish Q, did not show the keys")
+	}
+}
+
 // Without the setting, the normal mode leaves the text alone.
 func TestKbVimOff(t *testing.T) {
 	k := newKbd(t, "bir iki\n")
@@ -561,7 +608,7 @@ func TestKbVimOff(t *testing.T) {
 	k.frames()
 	k.press("esc")
 	before := k.text()
-	k.press("x", "d", "d", "l", "w")
+	k.press("x", "d", "d", "w") // not l: with no row chosen it goes back to writing
 	if k.text() != before || k.caret() != 0 {
 		t.Fatalf("the text changed or moved with Vim off: %q %d", k.text(), k.caret())
 	}

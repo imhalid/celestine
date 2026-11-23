@@ -1208,6 +1208,14 @@ func (a *app) viewFrame(c *ui.Context) {
 			a.kbEnter()
 		}
 	}
+	// The mouse's back and forward buttons step through the places visited, as ⌘[ and ⌘] do, which MyGo
+	// matches by the key's place where the layout has no [ (ğ on Turkish Q) (#207).
+	if c.Shortcut(0, ui.KeyBack) {
+		a.step(-1)
+	}
+	if c.Shortcut(0, ui.KeyForward) {
+		a.step(1)
+	}
 	if c.Shortcut(ui.Cmd, ui.Key1) { // the regions: the tree, the side panel, the text
 		a.focusTree()
 	}

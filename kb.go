@@ -49,6 +49,7 @@ type kbState struct {
 		pair string
 	}
 	repeating bool
+	chars     []rune // the characters typed at the anchor since the last frame
 	hints     bool   // letters are shown
 	typed     string // what of a letter was typed
 	which     bool   // the leader was pressed
@@ -80,6 +81,22 @@ func (a *app) kbMark(e ui.Element, key string, list bool, act func()) {
 // kbAnchor is the place the focus goes to when the keys are commands.
 func (a *app) kbAnchor(c *ui.Context) {
 	e := ui.Box(c.Key("kb-anchor")).Size(0, 0).Focusable().FocusRing(false).Label(locales.KeyboardMode())
+	// The anchor takes the keys' text with no input method, as Vim's normal mode does: a command is the character
+	// the layout types, not a key of the US one, so / is Shift+7 on Turkish Q, and ş or a letter of another
+	// script comes as it is (#207). The keys that type nothing come as shortcuts (kbLetter).
+	e.TextCaret(ui.Rect{H: 1}).InputMethod(false).HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind != ui.InputText {
+			return false
+		}
+		a.mu.Lock()
+		for _, r := range ev.Text {
+			if r >= ' ' && r != 0x7f {
+				a.kb.chars = append(a.kb.chars, r)
+			}
+		}
+		a.mu.Unlock()
+		return true
+	})
 	if a.kb.park {
 		a.kb.park = false
 		e.Focus()
@@ -180,16 +197,30 @@ var leaderKeys = []struct {
 	{'k', "shortcuts", func(a *app) { a.kb.help = true }},
 }
 
-// kbKey reads the keys of the normal mode; it reports a key that it took.
+// kbKeys reads the keys of the normal mode: the one pressed this frame that types nothing, then the
+// characters typed since the last frame, as the layout typed them (#207).
 func (a *app) kbKeys(c *ui.Context) {
 	k := &a.kb
-	if !k.normal || a.modal() || a.pal.open || a.cellEd.open {
+	chars := k.chars
+	k.chars = nil
+	on := func() bool { return k.normal && !a.modal() && !a.pal.open && !a.cellEd.open }
+	if !on() {
 		return
 	}
-	r, ok := kbLetter(c)
-	if !ok {
-		return
+	if r, ok := kbLetter(c); ok {
+		a.kbKey(r)
 	}
+	for _, r := range chars {
+		if !on() { // a key before it went back to the text, or opened a dialog: the rest was not for the commands
+			return
+		}
+		a.kbKey(r)
+	}
+}
+
+// kbKey does what a key of the normal mode says.
+func (a *app) kbKey(r rune) {
+	k := &a.kb
 	if a.bsel.on && a.blockSelKey(r) { // the blocks chosen take their keys first
 		return
 	}
@@ -368,7 +399,8 @@ var kbDigitKeys = []ui.Key{ui.Key0, ui.Key1, ui.Key2, ui.Key3, ui.Key4, ui.Key5,
 var kbLetterKeys = []ui.Key{ui.KeyA, ui.KeyB, ui.KeyC, ui.KeyD, ui.KeyE, ui.KeyF, ui.KeyG, ui.KeyH, ui.KeyI, ui.KeyJ, ui.KeyK, ui.KeyL, ui.KeyM,
 	ui.KeyN, ui.KeyO, ui.KeyP, ui.KeyQ, ui.KeyR, ui.KeyS, ui.KeyT, ui.KeyU, ui.KeyV, ui.KeyW, ui.KeyX, ui.KeyY, ui.KeyZ}
 
-// kbLetter reads the key pressed this frame as a rune: a letter, a digit, a sign, or one of the keys of kb*.
+// kbLetter reads the key pressed this frame that types no text as a rune, one of the keys of kb*; the keys
+// that type text come as the text they type, to the anchor (kbAnchor).
 func kbLetter(c *ui.Context) (rune, bool) {
 	if c.Shortcut(0, ui.KeyEscape) {
 		return 0x1b, true
@@ -388,54 +420,14 @@ func kbLetter(c *ui.Context) (rune, bool) {
 	if c.Shortcut(0, ui.KeyEnter) {
 		return kbEnter, true
 	}
-	if c.Shortcut(0, ui.KeySpace) {
-		return ' ', true
-	}
 	if c.Shortcut(ui.Ctrl, ui.KeyO) {
 		return kbBack, true
 	}
 	if c.Shortcut(0, ui.KeyTab) {
 		return kbTab, true
 	}
-	if c.Shortcut(0, ui.KeyPeriod) {
-		return '.', true
-	}
 	if c.Shortcut(ui.Ctrl, ui.KeyR) {
 		return kbRedo, true
-	}
-	if c.Shortcut(0, ui.KeySlash) {
-		return '/', true
-	}
-	if c.Shortcut(ui.Shift, ui.KeySlash) {
-		return '?', true
-	}
-	if c.Shortcut(ui.Shift, ui.KeySemicolon) {
-		return ':', true
-	}
-	if c.Shortcut(ui.Shift, ui.Key4) {
-		return '$', true
-	}
-	if c.Shortcut(0, ui.KeyQuote) {
-		return '\'', true
-	}
-	if c.Shortcut(0, ui.KeyBracketLeft) {
-		return '[', true
-	}
-	if c.Shortcut(0, ui.KeyBracketRight) {
-		return ']', true
-	}
-	for i, key := range kbDigitKeys {
-		if c.Shortcut(0, key) {
-			return rune('0' + i), true
-		}
-	}
-	for i, key := range kbLetterKeys {
-		if c.Shortcut(0, key) {
-			return rune('a' + i), true
-		}
-		if c.Shortcut(ui.Shift, key) {
-			return rune('A' + i), true
-		}
 	}
 	return 0, false
 }

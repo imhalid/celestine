@@ -141,14 +141,14 @@ func TestJournalKeys(t *testing.T) {
 	if !a.kb.normal {
 		t.Fatal("not in the normal mode")
 	}
-	tt.Key(0, ui.KeyBracketLeft)
+	tt.TypeKey(0, ui.KeyBracketLeft, "[")
 	tt.Frame()
 	if a.page == nil || a.page.Title != "2026-11-06" {
 		t.Fatalf("[: %+v", a.page)
 	}
-	tt.Key(0, ui.KeyBracketLeft)
+	tt.TypeKey(0, ui.KeyBracketLeft, "[")
 	tt.Frame()
-	tt.Key(0, ui.KeyBracketRight)
+	tt.TypeKey(0, ui.KeyBracketRight, "]")
 	tt.Frame()
 	if a.page.Title != "2026-11-06" {
 		t.Fatalf("[ ]: %q", a.page.Title)
