@@ -378,6 +378,8 @@ type app struct {
 		made  int // how many times, counted for a test
 	}
 	searchMade int          // the searches made, not taken from searchCache: counted for a test
+	boards     boardKept    // the board's columns, as they were last made (boardColumns)
+	calDays    calKept      // the calendar's pages by day, as they were last sorted (calendarDays)
 	chipHits   []chipHit    // the chips drawn this frame (chips.go)
 	chipSeen   []chipHit    // and last frame, for a click
 	slash      slashMenu    // the / menu (slash.go)

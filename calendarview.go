@@ -53,6 +53,35 @@ const (
 // calSpring is the card growing out of its day, and the days making way.
 var calSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 360 * time.Millisecond, Bounce: 0.08}}
 
+// calKept is the calendar's pages by day, as they were last sorted, and what from.
+type calKept struct {
+	field string
+	made  int // the view's pages as they were made (viewPages): new ones are new pages
+	lib   libKey
+	days  map[string][]*Page
+}
+
+// calendarDays are the pages by their day of field, each day's in the order they were made: kept while the view's
+// pages and the library are as they were, where every page was put in its day again at every frame (#194).
+func (a *app) calendarDays(pages []*Page, field string) map[string][]*Page {
+	d := &a.calDays
+	if k := a.libKeyNow(); d.days != nil && d.field == field && d.made == a.viewCache.made && d.lib == k {
+		return d.days
+	}
+	byDay := map[string][]*Page{}
+	for _, p := range pages {
+		if t, ok := pageDate(p, field); ok {
+			k := t.Format("2006-01-02")
+			byDay[k] = append(byDay[k], p)
+		}
+	}
+	for _, l := range byDay {
+		sort.SliceStable(l, func(i, j int) bool { return l[i].Created.Before(l[j].Created) })
+	}
+	*d = calKept{field, a.viewCache.made, a.libKeyNow(), byDay}
+	return byDay
+}
+
 func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
 	t := ryugo.From(c)
 	cl := t.Colors
@@ -65,16 +94,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 	if field == "" {
 		field = "created"
 	}
-	byDay := map[string][]*Page{}
-	for _, p := range pages {
-		if d, ok := pageDate(p, field); ok {
-			k := d.Format("2006-01-02")
-			byDay[k] = append(byDay[k], p)
-		}
-	}
-	for _, l := range byDay {
-		sort.SliceStable(l, func(i, j int) bool { return l[i].Created.Before(l[j].Created) })
-	}
+	byDay := a.calendarDays(pages, field)
 	offset := weekIndex(month)
 	start := month.AddDate(0, 0, -offset)
 	days := month.AddDate(0, 1, -1).Day()

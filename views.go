@@ -217,6 +217,34 @@ type viewKey struct {
 	text          uint64
 }
 
+// libKey is what the library is as the view's caches read it: its pages, what was written, the index, the text typed.
+type libKey struct {
+	pages, writes uint64
+	built         time.Time
+}
+
+func (a *app) libKeyNow() libKey {
+	return libKey{PagesGen.Load(), a.libWrites() + SavesGen.Load(), a.links.built}
+}
+
+// boardKept is a board's columns as they were last made, and what they were made of.
+type boardKept struct {
+	coll *Collection
+	prop string
+	lib  libKey
+	cols map[string][]*Page
+}
+
+// boardColumns are the board's columns of collection coll by choice property prop, kept while the library is as it
+// was: each column was a pass over the pages and a sort, at every frame (#194).
+func (a *app) boardColumns(coll *Collection, prop string) map[string][]*Page {
+	b := &a.boards
+	if k := a.libKeyNow(); b.cols == nil || b.coll != coll || b.prop != prop || b.lib != k {
+		*b = boardKept{coll, prop, k, coll.Columns(prop)}
+	}
+	return b.cols
+}
+
 // viewPages are the pages view v of collection coll shows, filtered and sorted: kept while what they come from is as
 // it was, as they were made again at every frame, a sort of 5 000 pages each (#194). A copy: the caller's to change.
 func (a *app) viewPages(coll *Collection, v *View) []*Page {
@@ -1078,6 +1106,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	for _, p := range pages {
 		shown[p] = true
 	}
+	cols := a.boardColumns(coll, pr.ID)
 	// The columns: each its own color, made from its name; the column of
 	// pages with no value, when it is empty, is a strip; the cards are their titles, quiet; the column asked for
 	// is wider and shows what its cards say, the others as they were; too many for the room
@@ -1089,7 +1118,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
 				for _, s := range append([]string{""}, pr.Options...) {
 					var col []*Page
-					for _, p := range coll.Column(pr.ID, s) {
+					for _, p := range cols[s] {
 						if shown[p] {
 							col = append(col, p)
 						}

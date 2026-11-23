@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -314,5 +315,36 @@ func TestNumberPropertyRefusesLetters(t *testing.T) {
 		f, _ := os.Create(file)
 		png.Encode(f, tt.Image())
 		f.Close()
+	}
+}
+
+// The board's columns are made once while the library is as it was, not a pass and a sort each at every frame, and
+// again when a page moves (#194).
+func TestBoardColumnsKept(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	coll.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
+	tt.Frame()
+	if err := tt.Click("Pano"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(time.Second)
+	first := fmt.Sprintf("%p", a.boards.cols)
+	tt.Frame()
+	tt.Frame()
+	if got := fmt.Sprintf("%p", a.boards.cols); got != first || a.boards.cols == nil {
+		t.Fatalf("made again with nothing changed: %s, was %s", got, first)
+	}
+	var dune *Page
+	for _, p := range coll.All() {
+		if p.Title == "Dune" {
+			dune = p
+		}
+	}
+	if err := coll.MoveOnBoard(dune, "durum", "Bitti", 0); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := titles(a.boards.cols["Bitti"]); fmt.Sprintf("%p", a.boards.cols) == first || !equal(got, []string{"Dune"}) {
+		t.Fatalf("after a move: %v", got)
 	}
 }

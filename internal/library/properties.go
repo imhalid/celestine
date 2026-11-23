@@ -613,18 +613,40 @@ func (c *Collection) Column(id, v string) []*Page {
 			out = append(out, p)
 		}
 	}
-	slices.SortStableFunc(out, func(a, b *Page) int {
-		switch {
-		case a.Rank == b.Rank:
-			return a.Created.Compare(b.Created)
-		case a.Rank == 0: // not yet placed: after the placed ones
-			return 1
-		case b.Rank == 0:
-			return -1
-		}
-		return a.Rank - b.Rank
-	})
+	slices.SortStableFunc(out, byRank)
 	return out
+}
+
+// Columns are all the columns of choice property id at once, by value ("" for the pages with none), in one pass
+// over the pages: a board asked for each with Column, a pass each (#194).
+func (c *Collection) Columns(id string) map[string][]*Page {
+	out := map[string][]*Page{}
+	pr := c.Prop(id)
+	if pr == nil {
+		return out
+	}
+	for _, p := range c.All() {
+		v := p.Value(pr)
+		out[v] = append(out[v], p)
+	}
+	for _, col := range out {
+		slices.SortStableFunc(col, byRank)
+	}
+	return out
+}
+
+// byRank orders a column's pages: by their place on the board, those not yet placed after the others, in the order
+// they were made.
+func byRank(a, b *Page) int {
+	switch {
+	case a.Rank == b.Rank:
+		return a.Created.Compare(b.Created)
+	case a.Rank == 0: // not yet placed: after the placed ones
+		return 1
+	case b.Rank == 0:
+		return -1
+	}
+	return a.Rank - b.Rank
 }
 
 // MoveOnBoard gives p value v of choice id and puts it at index among that
