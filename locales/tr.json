@@ -1373,7 +1373,7 @@
   "tasks_allCollections": "Tüm koleksiyonlar",
   "tasks_allDone": "Hepsi tamam.",
   "tasks_allKinds": "Tüm türler",
-  "tasks_toggleNotMade": "Görev işaretlenemedi: sayfası bu arada değişti. Yeniden deneyin.",
+  "tasks_toggleNotMade": "Görev işaretlenemedi: sayfası bu arada değişti. Yeniden dene.",
   "tasks_clearFilters": "Filtreleri temizle",
   "tasks_closeAll": "Hepsini tamamla",
   "tasks_closeAllBody": "{page} sayfasındaki {count} açık görev tamamlanır.",
