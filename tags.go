@@ -349,14 +349,105 @@ type tagRename struct {
 	key  string // the tag
 	name string // what it becomes
 	err  string
+	busy bool // the pages are being rewritten (renameTagSoon)
+}
+
+// tagName is newName as a tag's name, without its # and spaces; an error when it cannot be one.
+func tagName(newName string) (string, error) {
+	newName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(newName), "#"))
+	if newName == "" || !tagWord.MatchString(" #"+newName) || !tagQuery.MatchString(newName) || tagWord.FindStringSubmatch(" #" + newName)[2] != newName {
+		return "", errors.New(locales.TagsErrInvalid())
+	}
+	return newName, nil
+}
+
+// renameTagSoon is renameTag away from the window, for the dialog: the pages that have the tag are taken at once,
+// their texts read and rewritten on a goroutine, and written back under the lock, each one whose file is still as it
+// was read; one written meanwhile is rewritten there from its text as it is. Every page was read and written in the
+// frame that clicked Save (#195). done says how it went, under the lock.
+func (a *app) renameTagSoon(key, newName string, done func(n int, err error)) {
+	newName, err := tagName(newName)
+	if err != nil {
+		done(0, err)
+		return
+	}
+	a.flush()
+	a.linksStale()
+	a.linksTo(nil, a.clock(), true)
+	type job struct {
+		p    *Page
+		read pageRead
+		sum  string
+		nb   string
+		n    int
+		err  error
+	}
+	var jobs []job
+	for _, p := range a.links.tags[key] {
+		jobs = append(jobs, job{p: p, read: readOf(p)})
+	}
+	go func() {
+		defer a.guard()
+		for i := range jobs {
+			j := &jobs[i]
+			body, sum, err := j.read.body()
+			if err == nil {
+				err = bodyReadable(body) // what this version does not read would be dropped by writing it again
+			}
+			j.sum, j.err = sum, err
+			if err == nil {
+				j.nb, j.n = renameTagInBody(body, key, newName)
+			}
+		}
+		a.do(func() error {
+			changed := 0
+			var ferr error
+			for _, j := range jobs {
+				if ferr != nil {
+					break
+				}
+				p, nb, n, err := j.p, j.nb, j.n, j.err
+				if !a.inLibrary(p) {
+					continue
+				}
+				src, rerr := p.FS().ReadFile(p.File())
+				if rerr != nil || p.Writes != j.read.writes || HashOf(src) != j.sum { // written meanwhile: from its text now
+					body, berr := p.Body()
+					if berr == nil {
+						berr = bodyReadable(body)
+					}
+					err = berr
+					if err == nil {
+						nb, n = renameTagInBody(body, key, newName)
+					}
+				}
+				switch {
+				case err != nil:
+					ferr = err
+				case n == 0:
+				default:
+					if err := p.Save(nb); err != nil {
+						ferr = err
+						continue
+					}
+					a.takeOutside(p)
+					changed++
+				}
+			}
+			a.linksStale()
+			a.linksTo(nil, a.clock(), true)
+			done(changed, ferr)
+			return nil
+		})
+	}()
 }
 
 // renameTag renames the tag key in every page that has it; when newName is
 // the name of a tag there is, the two are one. It says how many pages changed.
 func (a *app) renameTag(key, newName string) (int, error) {
-	newName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(newName), "#"))
-	if newName == "" || !tagWord.MatchString(" #"+newName) || !tagQuery.MatchString(newName) || tagWord.FindStringSubmatch(" #" + newName)[2] != newName {
-		return 0, errors.New(locales.TagsErrInvalid())
+	newName, err := tagName(newName)
+	if err != nil {
+		return 0, err
 	}
 	a.flush()
 	a.linksStale()
@@ -394,7 +485,11 @@ func (a *app) tagRenameView(c *ui.Context) {
 	}
 	ryugo.Dialog(c.Key("tag-rename"), &r.open, ryugo.DialogOptions{Title: locales.SidebarRenameTag(), Width: 420, Footer: func() {
 		ui.Spacer(c)
-		if ryugo.Button(c.Key("tag-rename-ok"), locales.CommonSave(), ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
+		label := locales.CommonSave()
+		if r.busy { // the pages are being rewritten
+			label = locales.CommonTrying()
+		}
+		if ryugo.Button(c.Key("tag-rename-ok"), label, ryugo.ButtonOptions{Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
 			a.applyTagRename()
 		}
 	}}, func() {
@@ -417,14 +512,21 @@ func (a *app) tagRenameView(c *ui.Context) {
 
 func (a *app) applyTagRename() {
 	r := &a.tagRen
-	n, err := a.renameTag(r.key, r.name)
-	if err != nil {
-		r.err = err.Error()
+	if r.busy {
 		return
 	}
-	r.open, r.err = false, ""
-	a.say(toastOK, locales.TagsChangedIn(n))
-	if a.tag == r.key {
-		a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(r.name), "#")))
-	}
+	r.busy, r.err = true, ""
+	key, name := r.key, r.name
+	a.renameTagSoon(key, name, func(n int, err error) {
+		r.busy = false
+		if err != nil {
+			r.err = err.Error()
+			return
+		}
+		r.open = false
+		a.say(toastOK, locales.TagsChangedIn(n))
+		if a.tag == key {
+			a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(name), "#")))
+		}
+	})
 }

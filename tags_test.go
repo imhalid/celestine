@@ -235,3 +235,34 @@ func TestLinkContext(t *testing.T) {
 		t.Fatalf("a line that is no link: %v", got)
 	}
 }
+
+// The dialog's rename reads and rewrites the pages away from the window: a page saved between the read and the write
+// keeps what was saved, the tag renamed in it too (#195).
+func TestTagRenameSoonKeepsAWrite(t *testing.T) {
+	a, tt := newTestApp(t, "bir #fikir\n")
+	b, _ := a.page.Coll.NewPage(nil, "İki")
+	b.SaveText("#fikir ve fazlası\n")
+	tt.Frame()
+	done := make(chan int, 1)
+	a.mu.Lock() // a frame: the rewrite waits for it to write
+	a.renameTagSoon("fikir", "plan", func(n int, err error) {
+		if err != nil {
+			t.Error(err)
+		}
+		done <- n
+	})
+	time.Sleep(200 * time.Millisecond) // the pages read and rewritten meanwhile
+	b.SaveText("#fikir, yazıldı arada\n")
+	a.mu.Unlock()
+	select {
+	case n := <-done:
+		if n != 2 {
+			t.Fatalf("%d pages changed", n)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the rename did not end")
+	}
+	if body, _ := b.Text(); !strings.Contains(body, "#plan, yazıldı arada") {
+		t.Fatalf("the page written meanwhile: %q", body)
+	}
+}
