@@ -1669,5 +1669,6 @@
   "task": "görev",
   "keychain_noAnswer": "Sistemin anahtar zinciri yanıt vermedi, eşitlemenin anahtarı ve jetonları okunamadı: oturumun açık. Anahtar zinciri yanıt verince uygulamayı yeniden başlat.",
   "sync_errDeviceRefused": "sunucu bu cihazı artık kabul etmiyor: yeniden giriş yap",
-  "common_exporting": "Dışa aktarılıyor…"
+  "common_exporting": "Dışa aktarılıyor…",
+  "views_showMore": "{count, plural, one {Son sayfayı göster} other {Daha fazlasını göster · # kaldı}}"
 }

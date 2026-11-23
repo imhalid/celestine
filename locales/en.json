@@ -1925,5 +1925,7 @@
   "task": "task",
   "keychain_noAnswer": "The system's keychain didn't answer, so the sync's key and tokens couldn't be read: you're still signed in. Restart the app once the keychain answers.",
   "sync_errDeviceRefused": "the server no longer takes this device: sign in again",
-  "common_exporting": "Exporting…"
+  "common_exporting": "Exporting…",
+  "views_showMore": "{count, plural, one {Show the last page} other {Show more · # left}}",
+  "@views_showMore": {"placeholders": {"count": {"type": "int"}}}
 }

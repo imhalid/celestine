@@ -182,7 +182,7 @@ func (a *app) collectionView(c *ui.Context) {
 								case v.Type == "table":
 									a.tableView(c, coll, v, pages)
 								case v.Type == "gallery":
-									a.galleryView(c, v, pages)
+									a.galleryView(c, coll, v, pages)
 								default:
 									a.listView(c, coll, v, pages)
 								}
@@ -362,17 +362,61 @@ func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) 
 		groups[len(groups)-1].pages = append(groups[len(groups)-1].pages, p)
 	}
 	seen := map[string]int{} // a group coming again (an order not by date) gets a key of its own
+	budget := a.viewLimit(coll, v)
 	for _, g := range groups {
+		if budget <= 0 {
+			break
+		}
 		seen[g.label]++
 		key := fmt.Sprintf("group:%s:%d", g.label, seen[g.label])
 		if g.label != "" {
-			listHeading(c, key, g.label, len(g.pages))
+			listHeading(c, key, g.label, len(g.pages)) // the day's count is all its pages, those not built yet too
 		}
+		rows := g.pages[:min(len(g.pages), budget)]
+		budget -= len(rows)
 		listCard(c, key, func() {
-			for i, p := range g.pages {
+			for i, p := range rows {
 				a.listRow(c, v, p, now, i > 0)
 			}
 		})
+	}
+	a.moreRow(c, len(pages)-a.viewLimit(coll, v))
+}
+
+// viewMore is how many pages a view shows, by its collection, the view and the search: a list or a gallery of
+// thousands built every row and card at every frame. It shows viewStep, and viewStep more each time its last row asks
+// (moreRow), from viewStep again when the view or the search changes (#194).
+type viewMore struct {
+	key string
+	n   int
+}
+
+const viewStep = 200
+
+// viewLimit is how many pages view v of collection coll shows now.
+func (a *app) viewLimit(coll *Collection, v *View) int {
+	if k := coll.Dir + "|" + v.ID + "|" + a.search; a.more.key != k {
+		a.more = viewMore{k, viewStep}
+	}
+	return a.more.n
+}
+
+// moreRow is the last row of a view that shows only some of its pages, left being how many more there are: a click,
+// or its coming into sight as the view scrolls down, shows viewStep more.
+func (a *app) moreRow(c *ui.Context, left int) {
+	if left <= 0 {
+		return
+	}
+	cl := ryugo.From(c).Colors
+	row := ui.Row(c.Key("view-more")).FillWidth().Height(44).Justify(ui.Center).AlignItems(ui.Center).Radius(rad(9)).
+		Label(locales.ViewsShowMore(left)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+	if row.Hovered() {
+		row.Background(c.Theme().SurfaceHover)
+	}
+	row.Children(func() { ui.Text(c, locales.ViewsShowMore(left)).FontSize(13).TextColor(cl.Muted) })
+	if b := row.LayoutBounds(); row.Clicked() || b.H > 0 && b.Y < a.winH { // seen: the reader is at the end of what is shown
+		a.more.n += viewStep
+		c.Invalidate()
 	}
 }
 
@@ -569,9 +613,12 @@ func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time, divider bo
 // galleryView shows the pages as cards in rows that wrap: each its picture across the top (its cover, or else the
 // first picture in its text, or else a field of a color its title gives, with its first letter), then its title,
 // the start of its text and the properties the view shows.
-func (a *app) galleryView(c *ui.Context, v *View, pages []*Page) {
+func (a *app) galleryView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
+	all := len(pages)
+	pages = pages[:min(all, a.viewLimit(coll, v))]
+	defer a.moreRow(c, all-len(pages))
 	ui.Row(c.Key("gallery")).FillWidth().Wrap().Gap(14).Padding(6, 0, 0, 0).Children(func() {
 		for _, p := range pages {
 			c.Key("gal:" + p.Dir)

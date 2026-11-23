@@ -16986,3 +16986,13 @@ func CommonExporting() string { return In(i18n.Locale()).CommonExporting() }
 func (msgs Messages) CommonExporting() string {
 	return Catalog.Format(msgs.locale, "common_exporting", nil)
 }
+
+// ViewsShowMore says "{count, plural, one {Show the last page} other {Show more · # left}}"
+// in the language the app shows.
+func ViewsShowMore(count int) string { return In(i18n.Locale()).ViewsShowMore(count) }
+
+// ViewsShowMore says "{count, plural, one {Show the last page} other {Show more · # left}}"
+// in the language of msgs.
+func (msgs Messages) ViewsShowMore(count int) string {
+	return Catalog.Format(msgs.locale, "views_showMore", map[string]any{"count": count})
+}

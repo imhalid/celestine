@@ -381,6 +381,7 @@ type app struct {
 	}
 	searchMade int          // the searches made, not taken from searchCache: counted for a test
 	boards     boardKept    // the board's columns, as they were last made (boardColumns)
+	more       viewMore     // how many pages the list or the gallery shows (viewLimit)
 	calDays    calKept      // the calendar's pages by day, as they were last sorted (calendarDays)
 	chipHits   []chipHit    // the chips drawn this frame (chips.go)
 	chipSeen   []chipHit    // and last frame, for a click

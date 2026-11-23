@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/imhalid/celestine/locales"
 	"image/png"
 	"math"
@@ -710,4 +711,41 @@ func columnName(coll *Collection, key string) string {
 		}
 	}
 	return key
+}
+
+// A list of hundreds of pages builds viewStep rows, and its last row shows more as it comes into sight; it does not
+// grow by itself while the reader is not at the end (#194).
+func TestListShowsInSteps(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	for i := range 450 {
+		if _, err := coll.NewPage(nil, fmt.Sprintf("Kitap %03d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tt.SetSize(1100, 800)
+	a.openCollection(coll)
+	for range 5 {
+		tt.Advance(100 * time.Millisecond)
+	}
+	if a.more.n != viewStep {
+		t.Fatalf("it grew by itself, the reader at the top: %d", a.more.n)
+	}
+	if !tt.HasText(locales.ViewsShowMore(len(coll.All()) - viewStep)) {
+		t.Fatalf("no row for more: %v", tt.Texts()[:10])
+	}
+	for range 60 { // to the end of what is shown
+		tt.Wheel(600, 400, 0, 2000)
+		tt.Advance(100 * time.Millisecond)
+		if a.more.n > viewStep {
+			break
+		}
+	}
+	if a.more.n <= viewStep {
+		t.Fatal("the end of the list was reached and no more was shown")
+	}
+	a.search = "Kitap 01"
+	tt.Advance(100 * time.Millisecond)
+	if a.more.n != viewStep {
+		t.Fatalf("a new search did not start again from the first rows: %d", a.more.n)
+	}
 }
