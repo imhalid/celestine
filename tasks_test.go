@@ -515,3 +515,65 @@ func TestBodyEditsKeepTheRest(t *testing.T) {
 		t.Fatalf("appended:\n%s", got)
 	}
 }
+
+// The tasks in the running text are in the task view with the lines' tasks: each says the words after its box,
+// a tick there writes its chip and no other, and closing a page's tasks closes them too (#536).
+func TestInlineTasksInView(t *testing.T) {
+	a, tt := newTestApp(t, "Buy [ ] milk and [x] bread.\n\n- [ ] call [ ] Ana\n")
+	tt.Frame()
+	a.save()
+	var got []string
+	for _, k := range a.allTasks(true) {
+		got = append(got, fmt.Sprintf("%d.%d %v %s", k.line, k.inl, k.done, k.text))
+	}
+	want := []string{"0.1 false milk and", "0.2 true bread", "2.0 false call Ana", "2.1 false Ana"}
+	if strings.Join(got, " | ") != strings.Join(want, " | ") {
+		t.Fatalf("tasks:\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	var milk taskItem
+	for _, k := range a.allTasks(true) {
+		if k.inl == 1 && k.line == 0 {
+			milk = k
+		}
+	}
+	a.mu.Lock()
+	a.toggleTaskSoon(milk)
+	a.mu.Unlock()
+	a.toggling.Wait()
+	tt.Frame()
+	_, done := checkChips(a.doc.Text())
+	if fmt.Sprint(done) != "[true true false]" {
+		t.Fatalf("the chips after the tick: %v", done)
+	}
+	if a.doc.Text().ParagraphStyleAt(a.doc.Text().Len() - 1).Checked {
+		t.Fatal("the line's task was ticked too")
+	}
+	// an agent's set_task: by its line and its box, at once (toggleTask)
+	a.linksStale()
+	for _, k := range a.allTasks(true) {
+		if k.line == 0 && k.inl == 2 {
+			a.toggleTask(k)
+		}
+	}
+	if _, done := checkChips(a.doc.Text()); fmt.Sprint(done) != "[true false false]" {
+		t.Fatalf("the chips after the agent's untick: %v", done)
+	}
+	a.linksStale()
+	var open []taskItem
+	for _, k := range a.allTasks(true) {
+		if !k.done {
+			open = append(open, k)
+		}
+	}
+	a.mu.Lock()
+	a.closeTasks(a.page, open)
+	a.mu.Unlock()
+	a.toggling.Wait()
+	tt.Frame()
+	a.linksStale()
+	for _, k := range a.allTasks(true) {
+		if !k.done {
+			t.Errorf("open after closing all: %d.%d %s", k.line, k.inl, k.text)
+		}
+	}
+}

@@ -181,8 +181,9 @@ func TestListMarkdownOldFiles(t *testing.T) {
 	}
 }
 
-// The task view counts numbered tasks as tasks and the tasks in the running text not, and a task it ticks is
-// the one it shows (taskParagraph counts the page's tasks as tasksOf does).
+// The lines' tasks are numbered tasks too, and not the tasks in the running text (those are inlineTasksOf's, #536),
+// and a task the view ticks is the one it shows (taskParagraph counts the page's tasks as tasksOf does). A line's
+// words leave out the boxes of the tasks in it.
 func TestListMarkdownTasks(t *testing.T) {
 	tx := richtext.TextOf(
 		para(item(richtext.Tasks, 0, look0(listSpec{num: "roman", task: "number"})), "first ☐"),
@@ -201,7 +202,7 @@ func TestListMarkdownTasks(t *testing.T) {
 			t.Fatalf("task %d (%q) not found", k, it.text)
 		}
 		_, e := tx.ParagraphRange(s)
-		if got := strings.ReplaceAll(tx.Slice(s, e).String(), string(richtext.ObjectReplacement), "[ ]"); got != it.text {
+		if got := strings.TrimSpace(strings.ReplaceAll(tx.Slice(s, e).String(), string(richtext.ObjectReplacement), "")); got != it.text {
 			t.Errorf("task %d: the view shows %q, a tick lands on %q", k, it.text, got)
 		}
 	}
@@ -304,5 +305,40 @@ func TestNumberedTasksTicked(t *testing.T) {
 	md, _ = a.page.Text()
 	if strings.Contains(md, "[ ]") || strings.Count(md, "[x]") != 4 || !strings.Contains(md, "<!--celestine:list num=roman&task=number-->\n1. [x] one") {
 		t.Fatalf("closed as\n%s", md)
+	}
+}
+
+// The tasks in the running text the task view reads from a page's Markdown are the chips the page's text has when
+// the Markdown is read, in the same order and the same state: the view's k-th is the text's k-th (#536).
+func TestInlineTaskSpots(t *testing.T) {
+	pages := []string{
+		"Buy [ ] milk and [x] bread.\n",
+		"- [ ] a line's task with [ ] one in it\n- [x] done\n",
+		"```\ncode [ ] not a task\n```\n\ntext [ ] after\n",
+		"| a | b |\n| --- | --- |\n| [ ] cell | x |\n\nafter the table [x]\n",
+		"> [!note] a callout [ ] held\n> still [ ] held\n\nout [ ] of it\n",
+		"<!--celestine:list mark=%E2%AD%90-->\n- item [ ] inside\n",
+		"[x]: https://example.com\n\nsee [x] a link, and [ ] a task\n",
+		"escaped \\[ \\] and `code [ ]` and [a [ ] b](https://x.y) and [[Page]] [ ]\n",
+		"# Heading [ ]\n\n---\n\nunder the rule [x]\n",
+		"a footnote[^1] [ ] after\n\n[^1]: its note [ ]\n",
+		"word[ ]glued and (x [ ]) and *[x]*\n",
+	}
+	for _, md := range pages {
+		spots := inlineTaskSpots(md)
+		_, done := checkChips(parseBody(md))
+		if len(spots) != len(done) {
+			t.Errorf("%q: %d spots, %d chips", md, len(spots), len(done))
+			continue
+		}
+		lines := strings.Split(md, "\n")
+		for k, s := range spots {
+			if s.done != done[k] {
+				t.Errorf("%q: task %d done %v, its chip %v", md, k, s.done, done[k])
+			}
+			if s.col >= 0 && lines[s.line][s.col] != '[' {
+				t.Errorf("%q: task %d at %d:%d is no box", md, k, s.line, s.col)
+			}
+		}
 	}
 }

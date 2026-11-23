@@ -27,6 +27,7 @@ type (
 	setTaskArgs struct {
 		Page string `json:"page" jsonschema:"the page's id"`
 		Line int    `json:"line" jsonschema:"the task's line in the page's Markdown, from 0, as list_tasks gives it"`
+		Box  int    `json:"box,omitempty" jsonschema:"a task in the running text of the line: its box, from 1, as list_tasks gives it; 0 or none for the line's own task"`
 		Done bool   `json:"done" jsonschema:"true to tick it off, false to put it back"`
 	}
 	versionArgs struct {
@@ -82,12 +83,13 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			return result(out)
 		})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "list_tasks", Description: "Lists the tasks (\"- [ ]\" lines) of the library: the page, the line, the text, whether it is done, and its day when it names one.", Annotations: ro},
+	mcp.AddTool(s, &mcp.Tool{Name: "list_tasks", Description: "Lists the tasks of the library, \"- [ ]\" lines and boxes in the running text (\"Buy [ ] milk\", with their box's place in the line): the page, the line, the text, whether it is done, and its day when it names one.", Annotations: ro},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in tasksArgs) (*mcp.CallToolResult, any, error) {
 			type task struct {
 				Page  string `json:"page"`
 				Title string `json:"title"`
 				Line  int    `json:"line"`
+				Box   int    `json:"box,omitempty"` // a task in the running text: its box in the line, from 1
 				Text  string `json:"text"`
 				Done  bool   `json:"done"`
 				Due   string `json:"due,omitempty"`
@@ -121,7 +123,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					if !k.done && !dueMatches(k, g, a.clock()) {
 						continue
 					}
-					t := task{a.idOf(k.page.Dir), k.page.Title, k.line, k.text, k.done, ""}
+					t := task{a.idOf(k.page.Dir), k.page.Title, k.line, k.inl, k.text, k.done, ""}
 					if !k.due.IsZero() {
 						t.Due = k.due.Format("2006-01-02")
 					}
@@ -135,7 +137,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			return result(out)
 		})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "set_task", Description: "Ticks a task off, or puts it back, by its page and line (list_tasks gives them)."},
+	mcp.AddTool(s, &mcp.Tool{Name: "set_task", Description: "Ticks a task off, or puts it back, by its page, its line and, for a box in the running text, its box (list_tasks gives them)."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in setTaskArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
 				p, err := a.findPage(in.Page, mcpWrite)
@@ -144,7 +146,7 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				}
 				a.linksStale()
 				for _, k := range a.allTasks(true) {
-					if k.page == p && k.line == in.Line {
+					if k.page == p && k.line == in.Line && k.inl == in.Box {
 						if k.done != in.Done {
 							a.toggleTask(k)
 							a.jiggle(40)

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -33,8 +34,11 @@ type taskItem struct {
 	done  bool
 	text  string
 	due   time.Time // a day named in it, as [[2026-11-10]]; zero when none
-	every string    // how it comes again, as "her hafta"; "" when it does not
+	every string    // how it comes again, as "every week"; "" when it does not
 	kind  string    // its kind's id (taskkinds.go), as its box says: "" a plain one, or a done one
+	// inl is a task in the running text (a chip, "Buy [ ] milk"): its place among the boxes of its line, from 1; 0
+	// for the line's own task. col is where its box starts in the line, -1 when that is not known (#536).
+	inl, col int
 }
 
 // tasksOf are the tasks in a page's Markdown, not those in code.
@@ -44,6 +48,7 @@ func tasksOf(p *Page, body string) []taskItem {
 	}
 	var out []taskItem
 	inFence := false
+	refX := strings.Contains(body, "[x]:") && refDefX.MatchString(body)
 	for i, ln := range strings.Split(body, "\n") {
 		if fenceLine.MatchString(ln) {
 			inFence = !inFence
@@ -52,35 +57,107 @@ func tasksOf(p *Page, body string) []taskItem {
 		if inFence {
 			continue
 		}
+		if boxes := inlineBoxes(ln, refX); len(boxes) > 0 { // its words without the boxes of the tasks in it (#536)
+			for k := len(boxes) - 1; k >= 0; k-- {
+				ln = ln[:boxes[k]] + strings.TrimLeft(ln[boxes[k]+3:], " ")
+			}
+		}
 		if m := taskLine.FindStringSubmatch(ln); m != nil && m[3] != "" {
-			var due time.Time
-			text := wikiInText.ReplaceAllStringFunc(m[3], func(s string) string {
-				inside := s[2 : len(s)-2]
-				target, alias, _ := strings.Cut(inside, "|")
-				if d, err := parseDay(strings.TrimSpace(target)); err == nil && alias == "" && due.IsZero() {
-					due = d
-					return ""
-				}
-				if alias != "" {
-					return alias
-				}
-				return target
-			})
-			every := ""
-			if r, ok := parseEvery(text); ok {
-				every = r.label()
-				text = everyTok.ReplaceAllString(text, "")
-			}
-			if text = strings.TrimSpace(text); text == "" {
-				text = strings.TrimSpace(m[3])
-			}
+			text, due, every := taskWords(m[3])
 			kind := ""
 			if k, ok := taskKindByMD(m[2]); ok {
 				kind = k.id
 			}
-			out = append(out, taskItem{p, i, m[2] == "x" || m[2] == "X", text, due, every, kind})
+			out = append(out, taskItem{page: p, line: i, done: m[2] == "x" || m[2] == "X", text: text, due: due, every: every, kind: kind})
 		}
 	}
+	return out
+}
+
+// taskWords is what a task says, from its Markdown raw: its links as their words, the day it names taken out as its
+// due day, and how it comes again taken out as every.
+func taskWords(raw string) (text string, due time.Time, every string) {
+	text = wikiInText.ReplaceAllStringFunc(raw, func(s string) string {
+		inside := s[2 : len(s)-2]
+		target, alias, _ := strings.Cut(inside, "|")
+		if d, err := parseDay(strings.TrimSpace(target)); err == nil && alias == "" && due.IsZero() {
+			due = d
+			return ""
+		}
+		if alias != "" {
+			return alias
+		}
+		return target
+	})
+	if r, ok := parseEvery(text); ok {
+		every = r.label()
+		text = everyTok.ReplaceAllString(text, "")
+	}
+	if text = strings.TrimSpace(text); text == "" {
+		text = strings.TrimSpace(raw)
+	}
+	return text, due, every
+}
+
+// inlineTasksOf are the tasks in the running text of a page's Markdown, as parseBody reads them (inlineTaskSpots).
+// What one says is the words after its box, up to the next box of its line, or the words before it when none come
+// after: "Call [ ] Ana, [ ] Ben" is "Ana," and "Ben" (#536).
+func inlineTasksOf(p *Page, body string) []taskItem {
+	spots := inlineTaskSpots(body)
+	if len(spots) == 0 {
+		return nil
+	}
+	lines := strings.Split(body, "\n")
+	var out []taskItem
+	for k, s := range spots {
+		ln := lines[s.line]
+		inl := 1
+		for j := k - 1; j >= 0 && spots[j].line == s.line; j-- {
+			inl++
+		}
+		raw := ln
+		if s.col >= 0 {
+			from, to := s.col+3, len(ln)
+			if k+1 < len(spots) && spots[k+1].line == s.line && spots[k+1].col > s.col {
+				to = spots[k+1].col
+			}
+			raw = ln[from:to]
+			if strings.TrimFunc(raw, notWord) == "" { // nothing after it: what is before it
+				start := 0
+				if k > 0 && spots[k-1].line == s.line && spots[k-1].col >= 0 {
+					start = spots[k-1].col + 3
+				}
+				raw = ln[start:s.col]
+			}
+		}
+		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
+		text, due, every := taskWords(raw)
+		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col})
+	}
+	return out
+}
+
+// taskLead is what starts a line before its words: a quote's marks, a heading's, a list's marker and its box.
+var taskLead = regexp.MustCompile(`^[>\s]*(?:#{1,6}\s+|(?:[-*+]|\d+[.)])\s+(?:\[.\]\s*)?)?`)
+
+// notWord is a rune that is no part of a task's words at its ends: a space or a stop.
+func notWord(r rune) bool { return unicode.IsSpace(r) || strings.ContainsRune(",;:.!?·–—-", r) }
+
+// pageTasks are all the tasks of a page's Markdown, its lines' and those in its running text, in the order of the
+// text: what the task view lists.
+func pageTasks(p *Page, body string) []taskItem {
+	out := tasksOf(p, body)
+	inline := inlineTasksOf(p, body)
+	if len(inline) == 0 {
+		return out
+	}
+	out = append(out, inline...)
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].line != out[j].line {
+			return out[i].line < out[j].line
+		}
+		return out[i].inl < out[j].inl
+	})
 	return out
 }
 
@@ -120,10 +197,16 @@ func (a *app) allTasks(force bool) []taskItem {
 	return l.sorted
 }
 
-// openTask opens the page of task k with the caret in the task's line.
+// openTask opens the page of task k with the caret in the task's line, or at its box in the running text.
 func (a *app) openTask(k taskItem) {
 	a.open(k.page)
 	body, _ := k.page.Text()
+	if k.inl > 0 {
+		if at, ok := inlineChip(a.doc.Text(), body, k.page, k); ok {
+			a.gotoPos(at)
+		}
+		return
+	}
 	// the slots of the editor's text, without taskParagraphs' check that the two count the same: a fold in it
 	// hides tasks after the one gone to, and a caret in the wrong line changes nothing
 	slots := taskSlots(a.doc.Text())
@@ -213,6 +296,22 @@ func prepareToggle(t taskItem, r pageRead, now time.Time) taskToggle {
 	}
 	tx := decodeBody(body)
 	md := library.TextOfBody(body) // the page's Markdown, kept since its index read it
+	if t.inl > 0 {                 // a task in the running text: its chip, done or not done again (#536)
+		at, ok := inlineChip(tx, md, p, t)
+		if !ok {
+			j.stale = true
+			return j
+		}
+		doc := richtext.NewDocument(tx)
+		setCheckChip(doc, at, !t.done)
+		j.saved = encodeBody(doc.Text())
+		if text, ok := withInlineBox(md, t, !t.done); ok {
+			j.text = text
+			j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, text)
+			j.folded = fold(j.plain)
+		}
+		return j
+	}
 	at, ok := taskParagraph(tx, md, p, t)
 	if !ok {
 		j.stale = true
@@ -327,9 +426,18 @@ func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle 
 	for i, ti := range items {
 		byLine[ti.line] = i
 	}
-	var at []int
+	var at, chips []int
 	for _, t := range ts {
 		if t.done || t.page != p {
+			continue
+		}
+		if t.inl > 0 { // a task in the running text: its chip (#536)
+			c, ok := inlineChip(tx, md, p, t)
+			if !ok {
+				j.stale = true
+				return j
+			}
+			chips = append(chips, c)
 			continue
 		}
 		i, ok := byLine[t.line]
@@ -348,6 +456,9 @@ func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle 
 			ed.FormatParagraphs(s, s, func(st *richtext.ParagraphStyle) { st.Checked = true })
 		}
 	})
+	for _, c := range chips { // one rune each, in place: the places of the others stay
+		setCheckChip(doc, c, true)
+	}
 	rollRecurringIn(doc, now, importMarkdown)
 	j.saved = encodeBody(doc.Text())
 	j.text = library.TextOfBody(j.saved) // written as Markdown here, away from the window, and kept
@@ -363,15 +474,15 @@ func (a *app) closeTasks(p *Page, ts []taskItem) {
 		a.flush()
 	}
 	ts = append([]taskItem(nil), ts...)
-	open := map[int]bool{}
+	open := map[string]bool{} // by taskKey: a line's task and those in its running text are each their own
 	for _, t := range ts {
 		if !t.done {
-			open[t.line] = true
+			open[taskKey(t)] = true
 		}
 	}
 	for _, list := range [][]taskItem{a.links.tasks, a.links.sorted} {
 		for i := range list {
-			if list[i].page == p && open[list[i].line] {
+			if list[i].page == p && open[taskKey(list[i])] {
 				list[i].done = true
 			}
 		}
@@ -381,7 +492,7 @@ func (a *app) closeTasks(p *Page, ts []taskItem) {
 			a.taskLeaving = map[string]time.Time{}
 		}
 		for _, t := range ts {
-			if open[t.line] {
+			if open[taskKey(t)] {
 				a.taskLeaving[taskKey(t)] = a.frameNow
 			}
 		}
@@ -431,7 +542,7 @@ func (a *app) toggleTaskSoon(t taskItem) {
 	}
 	for _, list := range [][]taskItem{a.links.tasks, a.links.sorted} { // as it will be
 		for i := range list {
-			if list[i].page == t.page && list[i].line == t.line {
+			if list[i].page == t.page && list[i].line == t.line && list[i].inl == t.inl {
 				list[i].done = !t.done
 			}
 		}
@@ -517,6 +628,69 @@ func withTaskBox(md string, i int, box string) (string, bool) {
 		return "", false
 	}
 	return md[:start+m[4]] + box + md[start+m[5]:], true
+}
+
+// inlineChip is where in tx, page p's text, the task in the running text t is: its chip, the one that is t's among
+// the page's tasks in the running text, counted as inlineTasksOf counts them in the Markdown md (checkChips). False
+// when the page changed since t was read, or the two do not count the same tasks in the same states: a chip the
+// Markdown writes escaped, glued to a word, is no task of it, and nothing then says which is which.
+func inlineChip(tx richtext.Text, md string, p *Page, t taskItem) (int, bool) {
+	items := inlineTasksOf(p, md)
+	at, done := checkChips(tx)
+	if len(items) != len(at) {
+		return 0, false
+	}
+	for k, it := range items {
+		if it.done != done[k] {
+			return 0, false
+		}
+	}
+	for k, it := range items {
+		if it.line == t.line && it.inl == t.inl {
+			if it.text != t.text || it.done != t.done {
+				return 0, false
+			}
+			return at[k], true
+		}
+	}
+	return 0, false
+}
+
+// setCheckChip makes the task in the running text at in doc done, or not done. The chip is a new one, as a click
+// makes it (toggleCheckChip): the page's text is written from it, and read again where it is shown.
+func setCheckChip(doc *richtext.Document, at int, done bool) {
+	ch := &chip{kind: "check"}
+	if done {
+		ch.target = "x"
+	}
+	attrs := doc.Text().AttributesAt(at)
+	attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
+	doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(at, at+1, string(richtext.ObjectReplacement), attrs) })
+}
+
+// withInlineBox is the Markdown md with the box of the task in the running text t holding done; false when its box
+// is not where t says, or its place in the line is not known.
+func withInlineBox(md string, t taskItem, done bool) (string, bool) {
+	if t.col < 0 {
+		return "", false
+	}
+	start := 0
+	for n := 0; n < t.line; n++ {
+		j := strings.IndexByte(md[start:], '\n')
+		if j < 0 {
+			return "", false
+		}
+		start += j + 1
+	}
+	at := start + t.col
+	if at+3 > len(md) || (md[at:at+3] != "[ ]" && md[at:at+3] != "[x]") {
+		return "", false
+	}
+	box := "[ ]"
+	if done {
+		box = "[x]"
+	}
+	return md[:at] + box + md[at+3:], true
 }
 
 // tasksView is the view: a filter, and the tasks under their pages.
@@ -841,7 +1015,12 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 
 // taskRow is one task: its box, its words (a click goes to its line), its day.
 // taskKey is what a task is known by between frames: its page and its line.
-func taskKey(k taskItem) string { return k.page.Dir + ":" + strconv.Itoa(k.line) }
+func taskKey(k taskItem) string {
+	if k.inl > 0 {
+		return k.page.Dir + ":" + strconv.Itoa(k.line) + "." + strconv.Itoa(k.inl)
+	}
+	return k.page.Dir + ":" + strconv.Itoa(k.line)
+}
 
 // taskLeave is how long a task just done takes to go out of the open ones: it shows done, struck through and faint,
 // for a moment, then its row slides a little and closes (#494, #508).

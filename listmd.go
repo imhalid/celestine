@@ -452,3 +452,93 @@ func checksBare(s string) string {
 	}
 	return strings.NewReplacer(string(tokCheck), "[ ]", string(tokChecked), "[x]").Replace(s)
 }
+
+// taskSpot is a task in the running text as a page's Markdown has it: its line, where its box starts in the line
+// (-1 when the line is read in another form, its box elsewhere), and whether it is done.
+type taskSpot struct {
+	line, col int
+	done      bool
+}
+
+// inlineTaskSpots are the tasks in the running text of a page's Markdown md, in their order: the boxes parseBody
+// makes chips of. It reads the lines as parseBody does, passing over what it holds (code, a raw block, a divider,
+// a list's look), and a test holds the two to the same tasks (TestInlineTaskSpots). The task view lists them
+// (tasksOf, #536).
+func inlineTaskSpots(md string) []taskSpot {
+	if (!strings.Contains(md, "[ ]") && !strings.Contains(md, "[x]")) || strings.ContainsAny(md, listRunes) {
+		return nil // no box, or a text read as before, without tokens: none is a task
+	}
+	md = strings.ReplaceAll(strings.TrimPrefix(md, "\uFEFF"), "\r\n", "\n")
+	lines := strings.Split(md, "\n")
+	refX := refDefX.MatchString(md)
+	blank := func(i int) bool { return i < 0 || strings.TrimSpace(lines[i]) == "" }
+	var out []taskSpot
+	afterHeld := false
+	for i := 0; i < len(lines); {
+		l := lines[i]
+		t := strings.TrimSpace(l)
+		indent := len(l) - len(strings.TrimLeft(l, " "))
+		if indent <= 3 && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
+			n := 0
+			for n < len(t) && t[n] == t[0] {
+				n++
+			}
+			fence, lang := t[:n], strings.TrimSpace(t[n:])
+			if !(fence[0] == '`' && strings.Contains(lang, "`")) {
+				j := i + 1
+				for ; j < len(lines); j++ {
+					if c := strings.TrimSpace(lines[j]); strings.HasPrefix(c, fence) && strings.Trim(c, fence[:1]) == "" {
+						break
+					}
+				}
+				i, afterHeld = j+1, true
+				continue
+			}
+		}
+		if _, ok := listMarkAt(lines, i); ok {
+			i++
+			continue
+		}
+		if indent <= 3 {
+			if _, n := rawBlockOf(lines, i, blank(i-1), true); n > 0 {
+				i, afterHeld = i+n, true
+				continue
+			}
+			if hrLine.MatchString(l) && (blank(i-1) || afterHeld || !strings.Contains(l, "-")) {
+				i, afterHeld = i+1, true
+				continue
+			}
+		}
+		read := protectInline(l)
+		boxes, own := inlineBoxes(read, refX), inlineBoxes(l, refX)
+		for k, b := range boxes {
+			col := -1
+			if len(own) == len(boxes) {
+				col = own[k]
+			}
+			out = append(out, taskSpot{i, col, read[b+1] == 'x'})
+		}
+		afterHeld = false
+		i++
+	}
+	return out
+}
+
+// checkChips are where the tasks in the running text of t are, in their order, out of code, and whether each is done.
+func checkChips(t richtext.Text) (at []int, done []bool) {
+	for s, para := range t.Paragraphs() {
+		if para.Style.CodeBlock {
+			continue
+		}
+		pos := s
+		for _, r := range para.Runs {
+			if att := r.Attributes.Attachment; att != nil {
+				if c, ok := att.Data.(*chip); ok && c.kind == "check" {
+					at, done = append(at, pos), append(done, c.target == "x")
+				}
+			}
+			pos += utf8.RuneCountInString(r.Text)
+		}
+	}
+	return at, done
+}

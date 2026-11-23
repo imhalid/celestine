@@ -242,7 +242,7 @@ func readPageIdxPlain(q *Page, body string) (*pageIdx, string) {
 // pages away from the window is given them, and does not read the page's own fields, which the window writes.
 func readPageIdxAt(q *Page, mod time.Time, writes int, body string) (*pageIdx, string) {
 	plain := plainText(body)
-	e := &pageIdx{mod: mod, writes: writes, tasks: tasksOf(q, body), tags: tagsOf(body),
+	e := &pageIdx{mod: mod, writes: writes, tasks: pageTasks(q, body), tags: tagsOf(body),
 		words: countWords(plain), empty: strings.TrimSpace(plain) == ""}
 	if !strings.Contains(body, "[[") {
 		return e, plain
