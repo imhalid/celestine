@@ -1049,3 +1049,33 @@ func TestSyncDeviceRefused(t *testing.T) {
 		t.Fatalf("a refused token: err %q, status %q", a.sy.err, a.sy.status)
 	}
 }
+
+// A pass takes its backup of the library only when it is about to change something here: sending up what was written
+// takes none, bringing down what another device wrote takes one (#150).
+func TestSyncBackupOnlyBeforeAChange(t *testing.T) {
+	dir := t.TempDir()
+	a, b := syncApp(t, dir), syncApp(t, dir)
+	count := func(x *app) int {
+		ents, _ := os.ReadDir(x.backupDirOf())
+		n := 0
+		for _, e := range ents {
+			if strings.Contains(e.Name(), "senkron") {
+				n++
+			}
+		}
+		return n
+	}
+	c, _ := a.lib.NewCollection("Ortak")
+	p, _ := c.NewPage(nil, "Bir")
+	p.SaveText("bir\n")
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.err != "" || count(a) != 0 {
+		t.Fatalf("a pass that only sent: err %q, %d backups", a.sy.err, count(a))
+	}
+	b.syncNow()
+	waitSync(t, b)
+	if b.sy.err != "" || count(b) != 1 {
+		t.Fatalf("a pass that brought files down: err %q, %d backups", b.sy.err, count(b))
+	}
+}

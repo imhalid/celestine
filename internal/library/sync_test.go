@@ -1830,3 +1830,33 @@ func TestHTTPRemoteIdle(t *testing.T) {
 		t.Fatalf("the pass: %v, after %d requests that did not get through", err, n-1)
 	}
 }
+
+// BeforeChange is called once by a pass that changes something here, before its first change, and not by one that
+// changes nothing here: a backup is taken then, not before every pass (#150).
+func TestSyncBeforeChange(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	a, b := newDevice(t), newDevice(t)
+	a.write("Not/Bir/page.json", "bir")
+	calls := 0
+	a.st.BeforeChange = func() { calls++ }
+	a.sync(remote) // it only sends
+	if calls != 0 {
+		t.Fatalf("a pass that only sent called it %d times", calls)
+	}
+	a.write("Not/Iki/page.json", "iki")
+	a.sync(remote)
+	b.st.BeforeChange = func() {
+		calls++
+		if b.read("Not/Bir/page.json") != "<yok>" {
+			t.Error("called after a change")
+		}
+	}
+	b.sync(remote) // it brings two files down
+	if calls != 1 {
+		t.Fatalf("a pass that brought files down called it %d times", calls)
+	}
+	b.sync(remote)
+	if calls != 1 {
+		t.Fatalf("a pass with nothing to do called it: %d", calls)
+	}
+}

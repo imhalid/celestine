@@ -319,11 +319,9 @@ func (a *app) syncNow() {
 		backupDir = ""
 	}
 	// once in a while, not before every pass: passes come two seconds after each pause in typing, and each backup is
-	// the whole file read and compressed (#205)
-	if now := a.clock(); now.Sub(a.sy.backedUp) < syncBackupEvery {
+	// the whole file read and compressed (#205); and only by a pass that is about to change something here (#150)
+	if a.clock().Sub(a.sy.backedUp) < syncBackupEvery {
 		backupDir = ""
-	} else if backupDir != "" {
-		a.sy.backedUp = now
 	}
 	a.sy.busy, a.sy.status, a.sy.last = true, locales.SyncSyncing(), a.clock()
 	skip := a.syncSkip()
@@ -333,16 +331,19 @@ func (a *app) syncNow() {
 	state.Resend, a.sy.resend = a.sy.resend, false
 	state.TrustIndex, a.sy.trustIndex = a.sy.trustIndex, false
 	state.TrustFiles, a.sy.trustFiles = a.sy.trustFiles, false
+	if backupDir != "" {
+		state.BeforeChange = func() { // the library as it was, before the pass's first change to it
+			if _, err := backupTo(st, backupDir, "senkron", time.Now()); err == nil {
+				pruneBackups(backupDir, time.Now())
+				a.do(func() error { a.sy.backedUp = a.clock(); return nil })
+			}
+		}
+	}
 	keep := a.keepRunning
 	go func() {
 		defer a.guard()
 		if keep != nil { // at full speed while no window shows, until the pass ends (netsync.go)
 			defer keep("Syncing the library")()
-		}
-		if backupDir != "" {
-			if _, err := backupTo(st, backupDir, "senkron", time.Now()); err == nil {
-				pruneBackups(backupDir, time.Now())
-			}
 		}
 		res, err := SyncOnce(fsys, root, remote, state, skip, time.Now())
 		changes, cerr := remoteChanges(remote) // what this pass wrote moved it: that is not news for the next ask

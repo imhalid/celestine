@@ -25,6 +25,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -1487,6 +1488,10 @@ type SyncState struct {
 	// Resend sends up again, as new, the files this one pass would hold back (massRemovals): what the guard is
 	// for is a remote that lost them, and the copies here are the ones to keep (#147). It is never kept.
 	Resend bool `json:"-"`
+	// BeforeChange, if set, is called once in a pass, before the first file here is written, removed or moved: a
+	// backup of the library is taken then, not before every pass, whether or not it changes anything (#150). It is
+	// never kept.
+	BeforeChange func() `json:"-"`
 	// Held is how many files the last pass held back: they stay held, whatever the next pass counts, until the
 	// user says to delete them or to send them up again.
 	Held int `json:"held,omitempty"`
@@ -1711,6 +1716,9 @@ func SyncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	sp, sealed := r.(sealedPass)
 	if sealed {
 		sp.beginPass(st, now)
+	}
+	if st.BeforeChange != nil {
+		fsys = &firstChange{FS: fsys, before: st.BeforeChange}
 	}
 	res, pushed, err := syncOnce(fsys, root, r, st, skip, now)
 	// the remote's hash of what was sent: known from what was put where the remote can tell it (EncRemote), and
@@ -2181,4 +2189,27 @@ const transportStop = 3
 func isTransport(err error) bool {
 	var ue *url.Error
 	return errors.As(err, &ue)
+}
+
+// firstChange is fsys, calling before once, ahead of the first change it makes: a write, a removal, a move, a folder
+// made (SyncState.BeforeChange).
+type firstChange struct {
+	FS
+	before func()
+	once   sync.Once
+}
+
+func (f *firstChange) changing() { f.once.Do(f.before) }
+
+func (f *firstChange) WriteFile(name string, data []byte) error {
+	f.changing()
+	return f.FS.WriteFile(name, data)
+}
+func (f *firstChange) Mkdir(name string) error    { f.changing(); return f.FS.Mkdir(name) }
+func (f *firstChange) MkdirAll(name string) error { f.changing(); return f.FS.MkdirAll(name) }
+func (f *firstChange) Rename(a, b string) error   { f.changing(); return f.FS.Rename(a, b) }
+func (f *firstChange) Remove(name string) error   { f.changing(); return f.FS.Remove(name) }
+func (f *firstChange) RemoveAll(name string) error {
+	f.changing()
+	return f.FS.RemoveAll(name)
 }
