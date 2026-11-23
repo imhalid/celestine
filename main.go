@@ -1324,11 +1324,14 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	a.codeTheme = editor.DefaultTheme(c.Theme())
 	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
 		Label: locales.Page(), Font: a.font, Theme: th,
-		Placeholder:  locales.AppEditorPlaceholder(),
-		Menu:         a.editorMenu,    // the app's menu, not the system's (fieldmenu.go)
-		OnKey:        a.editorKeys,    // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
-		OnCommand:    a.editorCommand, // the menus' copy and paste, as their keys (clipmodes.go)
-		Spans:        a.editorSpans,   // code colored, letters spaced (codecolors.go)
+		Placeholder: locales.AppEditorPlaceholder(),
+		Menu:        a.editorMenu,    // the app's menu, not the system's (fieldmenu.go)
+		OnKey:       a.editorKeys,    // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
+		OnCommand:   a.editorCommand, // the menus' copy and paste, as their keys (clipmodes.go)
+		Spans:       a.editorSpans,   // code colored, letters spaced (codecolors.go)
+		// a click on a link is the app's to open (openLink, from the editor's click): richtext's own open of it,
+		// through the system, opened a web link a second time (#578)
+		OnLink:       func(string) {},
 		SpansVersion: a.spansVersion(),
 		Space:        a.paraRoom, // the room a block dragged opens where it would go (blockui.go), and a parent task's chip (subtasks.go)
 		ReadOnly:     p.Unreadable != "",

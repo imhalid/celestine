@@ -62,6 +62,9 @@ func (a *app) linkAt(x, y float32) (string, bool) {
 	return "", false
 }
 
+// openExternal opens an address of the web, or a mail, in the system's app: a test sees what it is given instead.
+var openExternal = func(url string) { go mygo.Shell.OpenExternal(url) }
+
 // openLink goes where the address says.
 func (a *app) openLink(url string) {
 	switch {
@@ -71,7 +74,7 @@ func (a *app) openLink(url string) {
 			a.say(toastWarn, locales.PageLinkMissingAt(path))
 		}
 	case strings.HasPrefix(url, "http://"), strings.HasPrefix(url, "https://"), strings.HasPrefix(url, "mailto:"):
-		go mygo.Shell.OpenExternal(url)
+		openExternal(url)
 	}
 }
 

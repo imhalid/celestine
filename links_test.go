@@ -103,3 +103,26 @@ func TestLinkSelectDoesNotOpen(t *testing.T) {
 		t.Fatal("nothing was selected")
 	}
 }
+
+// A web link in a page opens once on a click: the app opens it, and the editor does not open it again (#578).
+func TestWebLinkOpensOnce(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	var opened []string
+	was := openExternal
+	openExternal = func(url string) { opened = append(opened, url) }
+	t.Cleanup(func() { openExternal = was })
+	a.doc.SetText(decodeBody(`[{"r":[{"t":"See "},{"t":"the site","l":"https://example.com/"}]}]`))
+	a.doc.SetSelection(0, 0)
+	tt.SetSize(900, 500)
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if len(a.linkSeen) == 0 {
+		t.Fatal("no link was drawn")
+	}
+	r := a.linkSeen[0].r
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(300 * time.Millisecond)
+	if n := len(opened) + len(tt.OpenedURLs()); n != 1 {
+		t.Fatalf("opened %d times: the app %v, the editor %v", n, opened, tt.OpenedURLs())
+	}
+}
