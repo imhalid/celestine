@@ -183,3 +183,37 @@ func TestWindowFocusDoesNotWaitForTheLock(t *testing.T) {
 	}
 	t.Fatal("going behind was not noted")
 }
+
+// The window is shown by whichever comes first, its first frame drawn or a timer, and showing it waits for the main
+// thread; the frame's call is made on the main thread. A call while the first one waits returns at once, rather than
+// waiting for it and holding the thread it waits for, which hid the window for good when a big library's first frame
+// took over the timer's 1.5 s (#567).
+func TestOnlyOnceDoesNotWaitForTheFirst(t *testing.T) {
+	posted := make(chan func()) // the main thread's queue
+	runs := 0
+	show := onlyOnce(func() {
+		runs++
+		ran := make(chan struct{})
+		posted <- func() { close(ran) } // as MyGo's onMain: post to the main thread, and wait
+		<-ran
+	})
+	timer := make(chan struct{})
+	go func() { show(); close(timer) }()
+	main := make(chan struct{})
+	go func() { // the main thread: the frame drawn calls show before it runs what the timer posted
+		fn := <-posted
+		show()
+		fn()
+		close(main)
+	}()
+	for _, ch := range []chan struct{}{timer, main} {
+		select {
+		case <-ch:
+		case <-time.After(2 * time.Second):
+			t.Fatal("the second call waits for the first, which waits for the main thread")
+		}
+	}
+	if runs != 1 {
+		t.Fatalf("shown %d times", runs)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -202,6 +203,18 @@ func (a *app) fadeWindow(w *mygo.Window, from, to, delay, dur float64, then ...f
 			time.Sleep(16 * time.Millisecond)
 		}
 	}()
+}
+
+// onlyOnce is fn for the first call and nothing for the later ones. Unlike sync.Once, a later call does not wait for
+// the first to finish: fn may wait for the main thread (showing a window does), and a call made on the main thread
+// meanwhile would hold it, each waiting on the other (#567).
+func onlyOnce(fn func()) func() {
+	var called atomic.Bool
+	return func() {
+		if called.CompareAndSwap(false, true) {
+			fn()
+		}
+	}
 }
 
 // stageView is the stage's frame: the colors and the words, and nothing under them.

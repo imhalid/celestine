@@ -653,17 +653,16 @@ func main() {
 			a.openStage()
 		}
 		if fadeIn { // shown once its first frame is drawn, and faded in: no blank window, no flash of the system's ground
-			var once sync.Once
-			show := func() {
-				once.Do(func() {
-					w.SetOpacity(0)
-					w.Show()
-					a.fadeWindow(w, 0, 1, 0, 0.22)
-					a.playStartupSound()
-				})
-			}
+			show := onlyOnce(func() {
+				w.SetOpacity(0)
+				w.Show()
+				a.fadeWindow(w, 0, 1, 0, 0.22)
+				a.playStartupSound()
+			})
 			w.OnReadyToShow(show)
-			time.AfterFunc(1500*time.Millisecond, show) // a platform that never says the frame is drawn still gets its window
+			// a platform that never says the frame is drawn still gets its window; the timer's call is made on the main
+			// thread, as the window's are, and not under a lock the main thread could be waiting on (#567)
+			time.AfterFunc(1500*time.Millisecond, func() { mygo.RunOnMain(show) })
 		}
 		if ownWindowControls {
 			a.win = w
