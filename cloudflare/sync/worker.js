@@ -22,7 +22,7 @@
 // deleted ("tomb" in its metadata), by the same conditional write as any other change. A tombstone older
 // than TOMB_DAYS is dropped when the files are listed: a device that was away longer than that has, for
 // the files it deletes or keeps, the same outcome as with the tombstone.
-import { handleApi, userOfToken } from "./auth.js";
+import { DEVICE_DAYS, handleApi, userOfToken } from "./auth.js";
 import { adminPage } from "./pages.js";
 import { ADMIN_JS, ADMIN_JS_PATH, ADMIN_WASM_PATH } from "./admin.gen.js";
 import ADMIN_WASM from "./admin.bin";
@@ -80,6 +80,10 @@ export default {
     } while (cursor);
     for (const [id, n] of refund) await env.DB.prepare("UPDATE users SET bytes=MAX(0,bytes-?) WHERE id=?").bind(n, Number(id)).run();
     console.log(`versions deleted for ${refund.size} accounts`);
+    // the devices unseen for DEVICE_DAYS: their tokens hold no more (#161)
+    const unseen = Math.floor(Date.now() / 1000) - DEVICE_DAYS * 86400;
+    const d = await env.DB.prepare("DELETE FROM devices WHERE last_seen<?").bind(unseen).run();
+    console.log(`devices put out: ${d.meta.changes}`);
   },
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -240,19 +244,18 @@ async function files(request, env, url) {
       const r = await env.DB.prepare("UPDATE users SET bytes=bytes+?1 WHERE id=?2 AND bytes+?1<=quota").bind(delta, user.id).run();
       if (r.meta.changes !== 1) return new Response("quota", { status: 413 });
     }
-    const kept = head && !dead(head) ? await keepVersion(env, user, name, head, key) : "";
-    const meta = { hash: await sha256(body) };
-    if (kept) meta.kept = kept;
-    let o;
+    // from the reservation to the write, one try: whatever fails on the way (the version kept, the write, a write
+    // that lost the race) gives the reservation back, and the quota does not drift upward (#156)
+    let written = false;
     try {
-      o = await bucket.put(key, body, { onlyIf: only, customMetadata: meta });
-    } catch (e) {
-      if (delta > 0) await bytes(-delta);
-      throw e;
-    }
-    if (!o) {
-      if (delta > 0) await bytes(-delta);
-      return new Response("stale", { status: 412 });
+      const kept = head && !dead(head) ? await keepVersion(env, user, name, head, key) : "";
+      const meta = { hash: await sha256(body) };
+      if (kept) meta.kept = kept;
+      const o = await bucket.put(key, body, { onlyIf: only, customMetadata: meta });
+      if (!o) return new Response("stale", { status: 412 });
+      written = true;
+    } finally {
+      if (!written && delta > 0) await bytes(-delta);
     }
     if (delta < 0) await bytes(delta);
     await bump();

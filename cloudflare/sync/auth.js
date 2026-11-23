@@ -51,7 +51,6 @@ const validRecovery = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
 const recoveryHash = (r) => sha256hex("celestine-recovery:" + r);
 const validWrapped = (s) => typeof s === "string" && /^[A-Za-z0-9+/=_-]{20,400}$/.test(s);
 const validEmail = (s) => typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-const validUser = (s) => typeof s === "string" && /^[a-z0-9][a-z0-9_.-]{2,31}$/.test(s);
 
 const ip = (req) => req.headers.get("cf-connecting-ip") || "unknown";
 
@@ -68,6 +67,19 @@ export async function allow(env, key, limit, windowSec) {
 export async function full(env, key, limit, windowSec) {
   const r = await env.DB.prepare("SELECT n FROM hits WHERE key=? AND win=?").bind(`${key}:${windowSec}`, Math.floor(now() / windowSec)).first();
   return (r?.n || 0) >= limit;
+}
+// The limits on guessing are counted per address first, and per name or code alone only at a far higher cap: a cap on a
+// name alone, from anywhere, is one anyone can use up, keeping its owner out (#158).
+// codeTries says whether a code for email may be tried from where: ten an hour from one address, twenty an hour for
+// one invited address, and CODE_ALL wrong ones an hour from all, which a few addresses alone cannot reach.
+const CODE_ALL = 2000;
+async function codeTries(env, where, email) {
+  return (await allow(env, "code:" + where, 10, 3600)) && !(await full(env, "codee:" + email, 20, 3600)) && !(await full(env, "code:all", CODE_ALL, 3600));
+}
+// wrongCode counts a wrong code: for the invited address and for all.
+async function wrongCode(env, email) {
+  await allow(env, "codee:" + email, 20, 3600);
+  await allow(env, "code:all", CODE_ALL, 3600);
 }
 const audit = (env, what) => env.DB.prepare("INSERT INTO audit(at,what) VALUES(?,?)").bind(now(), what).run();
 
@@ -101,11 +113,18 @@ async function readJSON(request, max = 8192) {
 
 // ---- tokens of devices ----
 
+// DEVICE_DAYS is how long a device's token holds unseen, and MAX_DEVICES how many an account keeps: a sign-in past
+// them puts the least seen out (#161).
+export const DEVICE_DAYS = 90;
+const MAX_DEVICES = 20;
+
 async function newDevice(env, userId, name) {
   const token = randomHex(24);
   const t = now();
   await env.DB.prepare("INSERT INTO devices(token_hash,user_id,name,created_at,last_seen) VALUES(?,?,?,?,?)")
     .bind(await sha256hex(token), userId, String(name || "").slice(0, 40) || "cihaz", t, t).run();
+  await env.DB.prepare("DELETE FROM devices WHERE user_id=?1 AND token_hash NOT IN (SELECT token_hash FROM devices WHERE user_id=?1 ORDER BY last_seen DESC LIMIT ?2)")
+    .bind(userId, MAX_DEVICES).run();
   return token;
 }
 
@@ -117,6 +136,10 @@ export async function userOfToken(env, token) {
     "SELECT d.token_hash AS dh, d.last_seen AS seen, u.id, u.username, u.quota, u.bytes, u.status FROM devices d JOIN users u ON u.id=d.user_id WHERE d.token_hash=?",
   ).bind(h).first();
   if (!r || r.status !== "active") return null;
+  if (now() - r.seen > DEVICE_DAYS * 86400) { // unseen too long: it signs in again (#161)
+    await env.DB.prepare("DELETE FROM devices WHERE token_hash=?").bind(h).run();
+    return null;
+  }
   if (now() - r.seen > 600) await env.DB.prepare("UPDATE devices SET last_seen=? WHERE token_hash=?").bind(now(), h).run();
   return { device: r.dh, id: r.id, username: r.username, quota: r.quota, bytes: r.bytes };
 }
@@ -247,41 +270,38 @@ export async function handleApi(request, env, url) {
   if (path === "/api/invite" && method === "POST") {
     const email = String(body.email || "").trim().toLowerCase();
     if (!validEmail(email)) return fail(400, "e-posta adresi geçersiz");
-    if (!(await allow(env, "code:" + where, 10, 3600)) || (await full(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    if (!(await codeTries(env, where, email))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     const inv = await env.DB.prepare(
       "SELECT i.code_hash FROM invites i JOIN waitlist w ON w.id=i.waitlist_id WHERE i.code_hash=? AND w.email=? AND i.used_at IS NULL AND i.expires_at>?",
     ).bind(await codeHash(body.code), email, now()).first();
     if (!inv) {
-      await allow(env, "code:all", 200, 3600);
+      await wrongCode(env, email);
       return fail(400, BAD_INVITE);
     }
     if (await env.DB.prepare("SELECT id FROM users WHERE username=?").bind(email).first()) return fail(409, TAKEN_EMAIL);
     return json({ ok: true });
   }
 
-  // An account is opened with the address the invite was sent to, which is its name from then on (an older app sends a username
-  // instead, and its code is taken from any address).
+  // An account is opened with the address the invite was sent to, which is its name from then on. A request with no
+  // address, as an app of before sent with a username, is refused: its code was taken from any address (#160).
   if (path === "/api/register" && method === "POST") {
     if (!(await allow(env, "reg:" + where, 20, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
-    const email = body.email === undefined ? null : String(body.email).trim().toLowerCase();
-    if (email !== null && !validEmail(email)) return fail(400, "e-posta adresi geçersiz");
-    const username = email ?? String(body.username || "").trim().toLowerCase();
-    if (email === null && !validUser(username)) return fail(400, "kullanıcı adı 3-32 karakter: harf, rakam, . _ -");
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!validEmail(email)) return fail(400, "e-posta adresi geçersiz");
+    const username = email;
     if (!validAuth(body.auth) || !validWrapped(body.wrapped)) return fail(400, "bad request");
     const code = normalizeCode(body.code);
-    // the code is short, what protects it is that it can only be tried a few times: ten an hour from one address, and
-    // 200 wrong ones an hour from all. Only a wrong code counts in the second: a right one, a real signup, never uses it up.
-    if (!(await allow(env, "code:" + where, 10, 3600)) || (await full(env, "code:all", 200, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    // the code is short, what protects it is that it can only be tried a few times (codeTries). Only a wrong code counts
+    // for the invited address and for all: a right one, a real signup, never uses them up.
+    if (!(await codeTries(env, where, email))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     const ch = await codeHash(code);
     const t = now();
-    const claim = email === null
-      ? await env.DB.prepare("UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>?").bind(t, ch, t).run()
-      : await env.DB.prepare(
-        "UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>? AND waitlist_id IN (SELECT id FROM waitlist WHERE email=?)",
-      ).bind(t, ch, t, email).run();
+    const claim = await env.DB.prepare(
+      "UPDATE invites SET used_at=? WHERE code_hash=? AND used_at IS NULL AND expires_at>? AND waitlist_id IN (SELECT id FROM waitlist WHERE email=?)",
+    ).bind(t, ch, t, email).run();
     if (claim.meta.changes !== 1) {
-      await allow(env, "code:all", 200, 3600);
-      return fail(400, email === null ? "davet kodu geçersiz ya da süresi dolmuş" : BAD_INVITE);
+      await wrongCode(env, email);
+      return fail(400, BAD_INVITE);
     }
     const salt = randomHex(16);
     try {
@@ -294,14 +314,15 @@ export async function handleApi(request, env, url) {
       return json({ token, username });
     } catch (e) {
       await env.DB.prepare("UPDATE invites SET used_at=NULL WHERE code_hash=?").bind(ch).run(); // the code is not spent on a taken name
-      if (String(e).includes("UNIQUE")) return fail(409, email === null ? "bu kullanıcı adı alınmış" : TAKEN_EMAIL);
+      if (String(e).includes("UNIQUE")) return fail(409, TAKEN_EMAIL);
       throw e;
     }
   }
 
   if (path === "/api/login" && method === "POST") {
     const username = String(body.username || "").trim().toLowerCase();
-    if (!(await allow(env, "login:" + where, 30, 3600)) || !(await allow(env, "loginu:" + username, 10, 900))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    // a name's tries from one address, ten in a quarter of an hour, and a hundred from all: not ten from anywhere (#158)
+    if (!(await allow(env, "login:" + where, 30, 3600)) || !(await allow(env, "loginu:" + username + "@" + where, 10, 900)) || !(await allow(env, "loginu:" + username, 100, 900))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     if (!validAuth(body.auth)) return fail(400, "bad request");
     const u = await env.DB.prepare("SELECT id,salt,auth_hash,wrapped_key,status FROM users WHERE username=?").bind(username).first();
     // a name that is not there costs the same work, and gets the same answer
@@ -317,7 +338,7 @@ export async function handleApi(request, env, url) {
   // staying the same, so that what is on the server stays readable. Every computer is signed out but this one.
   if (path === "/api/recover" && method === "POST") {
     const username = String(body.username || "").trim().toLowerCase();
-    if (!(await allow(env, "rec:" + where, 10, 3600)) || !(await allow(env, "recu:" + username, 5, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
+    if (!(await allow(env, "rec:" + where, 10, 3600)) || !(await allow(env, "recu:" + username + "@" + where, 5, 3600)) || !(await allow(env, "recu:" + username, 50, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     if (!validRecovery(body.recovery) || !validAuth(body.newAuth) || !validWrapped(body.newWrapped)) return fail(400, "bad request");
     const u = await env.DB.prepare("SELECT id,status,recovery_hash FROM users WHERE username=?").bind(username).first();
     const ok = same(await recoveryHash(body.recovery), u?.recovery_hash || "0".repeat(64));

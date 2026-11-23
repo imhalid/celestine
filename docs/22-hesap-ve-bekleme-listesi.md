@@ -13,6 +13,11 @@ uygulama hesapsız açılır ve çalışır.
   aynı alandan kullanıcı adıyla girer.
 - **Davet kodu:** `RYU-` + 6 karakter (ayrımı zor harfler yok, ≈30 bit), yalnız karması saklanır, tek kullanımlık, 14 gün, onaylanan e-postaya bağlı;
   deneme sınırlı, yanlış adres / yanlış kod / süresi dolmuş aynı cevabı verir.
+- **Limits and devices:** tries are counted per address first, and per name or code alone only at a far higher cap, which
+  nobody can use up to keep the owner out (#158): a name's sign-ins 10 a quarter of an hour from one address and 100 from
+  all; a recovery 5 an hour from one address and 50 from all; an invite's codes 10 an hour from one address, 20 wrong ones
+  an hour for one invited address and 2000 from all. A device's token holds 90 days unseen, and an account keeps 20
+  devices, the least seen put out by a new sign-in (#161).
 - E-posta **Resend** ile (`Celestine <davet@resend.halid.dev>`, `MAIL_FROM`), adres `celestine.halid.dev`, yönetici `ADMIN_TOKEN` sırrı. Kod `/admin`'de de bir kez görünür.
 - Sırlar depoda değil; dağıtım `cloudflare/sync/deploy.sh` (`CELESTINE_SYNC_SECRETS=… ./deploy.sh` sırlar değişince, `./deploy.sh` yalnız kod).
 
