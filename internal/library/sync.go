@@ -114,6 +114,15 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 		if strings.HasSuffix(rel, ".tmp~") { // a Put half done, here or on another device: not a file of the remote's
 			return nil
 		}
+		fi, _ := e.Info() // before the read: a write after it has a later time, and is read again
+		if !strings.HasSuffix(rel, tombSuffix) {
+			if h, ok := dirHashOf(p, fi); ok { // as it was when last read: not read again (#151)
+				if prev, dead := out[rel]; !dead || prev.Held {
+					out[rel] = RemoteEntry{Hash: h}
+				}
+				return nil
+			}
+		}
 		b, err := os.ReadFile(p)
 		if errors.Is(err, fs.ErrNotExist) { // gone while the folder was walked (#566)
 			if !strings.HasSuffix(rel, tombSuffix) {
@@ -130,8 +139,10 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 			out[strings.TrimSuffix(rel, tombSuffix)] = RemoteEntry{Deleted: true}
 			return nil
 		}
+		h := HashOf(b)
+		keepDirHash(p, fi, h)
 		if prev, dead := out[rel]; !dead || prev.Held {
-			out[rel] = RemoteEntry{Hash: HashOf(b)}
+			out[rel] = RemoteEntry{Hash: h}
 		}
 		return nil
 	})
@@ -150,6 +161,42 @@ func (d DirRemote) List() (map[string]RemoteEntry, error) {
 }
 
 const tombSuffix = ".deleted~"
+
+// dirHashes are the hashes of a folder remote's files as they were last read, by their path, with the size and the
+// modified time they had then: a pass read and hashed every file of the folder, the whole library's bytes every few
+// seconds of typing on a folder a cloud drive syncs (#151).
+var dirHashes sync.Map
+
+type dirHashed struct {
+	size int64
+	mod  time.Time
+	hash string
+}
+
+// dirSettle is how long ago a file must have been written for its hash to be kept: a file system that keeps times in
+// whole seconds, or coarser, gives a write in the same second the same time, and a write of the same size would be
+// taken for the file kept. A file written since it was kept has a later time.
+const dirSettle = 2 * time.Second
+
+// dirHashOf is the hash kept of the file at p, when its size and modified time, fi, are those it had when it was read.
+func dirHashOf(p string, fi fs.FileInfo) (string, bool) {
+	v, ok := dirHashes.Load(p)
+	if !ok || fi == nil {
+		return "", false
+	}
+	h := v.(dirHashed)
+	return h.hash, fi.Mode().IsRegular() && fi.Size() == h.size && fi.ModTime().Equal(h.mod)
+}
+
+// keepDirHash keeps hash as the file at p's, with its size and modified time as fi had them before it was read, when
+// it was written a while ago.
+func keepDirHash(p string, fi fs.FileInfo, hash string) {
+	if fi == nil || !fi.Mode().IsRegular() || time.Since(fi.ModTime()) < dirSettle {
+		dirHashes.Delete(p)
+		return
+	}
+	dirHashes.Store(p, dirHashed{fi.Size(), fi.ModTime(), hash})
+}
 
 func (d DirRemote) current(name string) (string, error) {
 	p, err := d.path(name)

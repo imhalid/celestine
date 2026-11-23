@@ -1860,3 +1860,32 @@ func TestSyncBeforeChange(t *testing.T) {
 		t.Fatalf("a pass with nothing to do called it: %d", calls)
 	}
 }
+
+// A folder remote's file whose size and time are those it had when last read is not read again; one written since
+// is; one written just now is not taken from what was kept, a write in the same second keeping its time (#151).
+func TestDirRemoteHashKept(t *testing.T) {
+	remote := DirRemote{Root: t.TempDir()}
+	p := remote.file("Not/a.json")
+	os.MkdirAll(filepath.Dir(p), 0o755)
+	os.WriteFile(p, []byte("one"), 0o644)
+	old := time.Now().Add(-time.Hour)
+	os.Chtimes(p, old, old)
+	first, _ := remote.List()
+	os.WriteFile(p, []byte("two"), 0o644) // the same size, its time put back: taken for the file kept
+	os.Chtimes(p, old, old)
+	if again, _ := remote.List(); again["Not/a.json"] != first["Not/a.json"] {
+		t.Fatal("read again, its size and time as they were")
+	}
+	later := old.Add(time.Minute)
+	os.Chtimes(p, later, later)
+	if got, _ := remote.List(); got["Not/a.json"].Hash != HashOf([]byte("two")) {
+		t.Fatal("not read again after its time changed")
+	}
+	q := remote.file("Not/b.json") // written just now: not kept
+	os.WriteFile(q, []byte("one"), 0o644)
+	remote.List()
+	os.WriteFile(q, []byte("two"), 0o644)
+	if got, _ := remote.List(); got["Not/b.json"].Hash != HashOf([]byte("two")) {
+		t.Fatal("a file written just now was taken from what was kept")
+	}
+}
