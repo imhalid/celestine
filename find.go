@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +85,7 @@ func (a *app) findAll() {
 	}
 	text := foldRunes(a.doc.Text().String())
 	for i := 0; i+len(q) <= len(text); i++ {
-		if string(text[i:i+len(q)]) == string(q) {
+		if text[i] == q[0] && slices.Equal(text[i:i+len(q)], q) { // the runes compared, not made into strings at each place (#198)
 			f.matches = append(f.matches, [2]int{i, i + len(q)})
 			i += len(q) - 1
 		}

@@ -4,6 +4,7 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -273,5 +274,33 @@ func TestCaretBlink(t *testing.T) {
 	tt.Frame()
 	if n := pixelsDiffer(shown, snap(), box, image.Rectangle{}); n != 0 {
 		t.Fatalf("a caret not set to blink went: %d", n)
+	}
+}
+
+// Finding in a long page allocates a few times, not at each place of it, and a Vim key that is no word motion does
+// not copy the page's runes (#198).
+func TestFindAndVimCosts(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("a long line of words to find in, ", 3000)+"\n")
+	tt.Frame()
+	a.find.query = "words"
+	allocs := testing.AllocsPerRun(3, func() {
+		a.find.ver = 0 // found again
+		a.findAll()
+	})
+	if len(a.find.matches) != 3000 || allocs > 100 {
+		t.Fatalf("%d matches, %v allocations a search", len(a.find.matches), allocs)
+	}
+	a.settings.VimKeys = true
+	if !a.vimOn() {
+		t.Skip("no normal mode here")
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	for range 20 {
+		a.vimKey('l', 1)
+	}
+	runtime.ReadMemStats(&after)
+	if per := (after.TotalAlloc - before.TotalAlloc) / 20; per > 50_000 { // the page's runes are 400 KB
+		t.Fatalf("a Vim key allocates %d bytes", per)
 	}
 }

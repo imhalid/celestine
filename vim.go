@@ -89,8 +89,15 @@ func (a *app) vimKey(r rune, n int) bool {
 	d := a.doc
 	t := d.Text()
 	_, caret := d.Selection()
-	rs := []rune(t.String())
-	total := len(rs)
+	// the text's runes, for the word motions alone: made at every key, they were the whole page's (#198)
+	var rs []rune
+	runes := func() []rune {
+		if rs == nil {
+			rs = []rune(t.String())
+		}
+		return rs
+	}
+	total := t.Len()
 	ps, pe := t.ParagraphRange(caret)
 	put := func(i int) {
 		i = min(max(i, 0), total)
@@ -128,19 +135,19 @@ func (a *app) vimKey(r rune, n int) bool {
 	case 'w':
 		i := caret
 		for k := 0; k < n; k++ {
-			i = vimWordStart(rs, i)
+			i = vimWordStart(runes(), i)
 		}
 		put(i)
 	case 'b':
 		i := caret
 		for k := 0; k < n; k++ {
-			i = vimWordBack(rs, i)
+			i = vimWordBack(runes(), i)
 		}
 		put(i)
 	case 'e':
 		i := caret
 		for k := 0; k < n; k++ {
-			i = vimWordEnd(rs, i)
+			i = vimWordEnd(runes(), i)
 		}
 		put(i)
 	case '0':
