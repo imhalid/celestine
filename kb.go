@@ -53,7 +53,8 @@ type kbState struct {
 	typed     string // what of a letter was typed
 	which     bool   // the leader was pressed
 	marks     map[rune]place
-	help      bool // the page of the shortcuts
+	help      bool        // the page of the shortcuts
+	helpKept  []helpGroup // its groups, made once while it is open: the commands each, at every frame (#204)
 	accent    ui.Color
 }
 

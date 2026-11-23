@@ -740,3 +740,24 @@ func TestEscStaysInText(t *testing.T) {
 		t.Fatal("with Vim's motions Esc did not enter the keyboard mode")
 	}
 }
+
+// The page of the shortcuts makes its groups once while it is open, the commands' list each, not at every frame,
+// and again when it opens next (#204).
+func TestHelpGroupsKept(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.kb.help = true
+	tt.Frame()
+	if len(a.kb.helpKept) == 0 {
+		t.Fatal("no groups")
+	}
+	first := &a.kb.helpKept[0]
+	tt.Frame()
+	if &a.kb.helpKept[0] != first {
+		t.Fatal("made again with the page open")
+	}
+	a.kb.help = false
+	tt.Frame()
+	if a.kb.helpKept != nil {
+		t.Fatal("kept once closed")
+	}
+}

@@ -300,7 +300,10 @@ func (a *app) statsUse(c *ui.Context, cl ryugo.Colors, now, weekFrom time.Time) 
 		ui.Text(c, locales.StatsPagesYouSpentMost()).FontSize(13).FontWeight(620).TextColor(cl.Muted)
 		statList(c, "by-time", timed, "", nil)
 	}
-	if un := a.unusedFeatures(6); len(un) > 0 {
+	if a.statUnusedAt != a.statCacheAt { // with the library's figures, not at every frame: the commands each (#204)
+		a.statUnused, a.statUnusedAt = a.unusedFeatures(6), a.statCacheAt
+	}
+	if un := a.statUnused; len(un) > 0 {
 		ui.Text(c, locales.StatsNeverUsedList(strings.Join(un, " · "))).FontSize(12.5).TextColor(cl.Muted).Wrap()
 	}
 }

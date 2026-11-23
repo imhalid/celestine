@@ -43,6 +43,7 @@ type fontState struct {
 	mu      sync.Mutex
 	started bool
 	fam     []ui.FontFamily
+	names   map[string]bool // the families' names, in lower case: made once they are known (hasFont)
 	ready   bool
 	query   [3]string // the search of each list
 	open    [3]bool   // the list is open
@@ -59,8 +60,12 @@ func (a *app) families() []ui.FontFamily {
 		go func() {
 			defer a.guard()
 			fam := ui.FontFamilies()
+			names := make(map[string]bool, len(fam))
+			for _, x := range fam {
+				names[strings.ToLower(x.Name)] = true
+			}
 			f.mu.Lock()
-			f.fam, f.ready = fam, true
+			f.fam, f.names, f.ready = fam, names, true
 			f.mu.Unlock()
 			if inv != nil {
 				inv()
@@ -70,21 +75,14 @@ func (a *app) families() []ui.FontFamily {
 	return f.fam
 }
 
-// hasFont reports whether the family is installed; until the list is known, it is taken to be.
+// hasFont reports whether the family is installed; until the list is known, it is taken to be. It is asked for each
+// stack at every frame: the names are looked up, not the families gone through one by one (#204).
 func (a *app) hasFont(name string) bool {
-	fam := a.families()
+	a.families()
 	a.fonts.mu.Lock()
-	ready := a.fonts.ready
+	ready, names := a.fonts.ready, a.fonts.names
 	a.fonts.mu.Unlock()
-	if !ready {
-		return true
-	}
-	for _, f := range fam {
-		if strings.EqualFold(f.Name, name) {
-			return true
-		}
-	}
-	return false
+	return !ready || names[strings.ToLower(name)]
 }
 
 func (s *Settings) fontField(r fontRole) *string {

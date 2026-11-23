@@ -203,7 +203,9 @@ type app struct {
 	toasts       toastState                           // the toasts up (toast.go)
 	statCache    libStats                             // the library's figures, read at most every ten seconds
 	statCacheAt  time.Time
-	statCacheGen uint64              // the library's moves when they were read: they are read again only when it moved
+	statCacheGen uint64   // the library's moves when they were read: they are read again only when it moved
+	statUnused   []string // the commands never run, found with the figures (statsUse)
+	statUnusedAt time.Time
 	sx           *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
 	px           placeIdx            // the palette's places, folded once (palette.go)
 	edge         edgeDrag            // the sidebar or the side panel being dragged wider or narrower

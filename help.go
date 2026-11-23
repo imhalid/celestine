@@ -61,13 +61,17 @@ func (a *app) helpGroups() []helpGroup {
 // helpView is the page of shortcuts.
 func (a *app) helpView(c *ui.Context) {
 	if !a.kb.help {
+		a.kb.helpKept = nil
 		return
+	}
+	if a.kb.helpKept == nil {
+		a.kb.helpKept = a.helpGroups()
 	}
 	cl := ryugo.From(c).Colors
 	ryugo.Dialog(c.Key("help"), &a.kb.help, ryugo.DialogOptions{Title: locales.HelpTitle(), Width: 680}, func() {
 		a.scrolled(c, "help-scroll", nil, ui.Scroll(c.Key("help-scroll")).MaxHeight(520), func() {
 			ui.Column(c).FillWidth().Gap(14).Padding(0, 6, 0, 0).Children(func() {
-				for gi, g := range a.helpGroups() {
+				for gi, g := range a.kb.helpKept {
 					ui.Column(c.Key("hg" + itoa(gi))).FillWidth().Gap(4).Children(func() {
 						ui.Text(c, g.title).FontSize(13).FontWeight(680).TextColor(cl.Muted)
 						for ri, r := range g.rows {
