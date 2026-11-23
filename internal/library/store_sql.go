@@ -418,24 +418,27 @@ func (s *Store) Fast(on bool) {
 	}
 }
 
-// ReadNamed reads, in one pass over the table, every file whose name ends in "/"+base: by its name.
-// Opening a library of thousands of pages reads them all at once, not a query each.
-func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
-	rows, err := s.db().Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ?`, "%/"+base)
+// ReadNamedFrom reads the files whose name ends in "/"+base and whose path comes after after, in the order of their
+// paths, limit at most, by path, and says the last path read. Reading a library's pages in parts of a query each,
+// not a query a page, holds only a part in memory at once, where reading them all held the library's every byte,
+// and the store's one connection is let go between parts, for the window's saves (#196).
+func (s *Store) ReadNamedFrom(base, after string, limit int) (map[string][]byte, string, error) {
+	rows, err := s.db().Query(`SELECT path, data FROM nodes WHERE dir = 0 AND path LIKE ? AND path > ? ORDER BY path LIMIT ?`, "%/"+base, after, limit)
 	if err != nil {
-		return nil, err
+		return nil, after, err
 	}
 	defer rows.Close()
 	out := map[string][]byte{}
+	last := after
 	for rows.Next() {
 		var p string
 		var data []byte
 		if err := rows.Scan(&p, &data); err != nil {
-			return nil, err
+			return nil, after, err
 		}
-		out[p] = data
+		out[p], last = data, p
 	}
-	return out, rows.Err()
+	return out, last, rows.Err()
 }
 
 // storeSnap is the whole table, read in one pass, for opening the library: the folders and pages of a

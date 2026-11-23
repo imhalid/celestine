@@ -254,7 +254,7 @@ func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 		for _, h := range hits {
 			hit := searchHit{page: h.d.page, score: h.score, at: first}
 			if snips {
-				hit.snip = snippet(a.plainOf(h.d.page).plain, marks)
+				hit.snip = snippet(snippetText(h.d.page), marks)
 			}
 			out = append(out, hit)
 		}
@@ -281,7 +281,7 @@ func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 			}
 			hit := searchHit{page: p, score: score, at: first}
 			if snips {
-				hit.snip = snippet(a.plainOf(p).plain, marks)
+				hit.snip = snippet(snippetText(p), marks)
 			}
 			out = append(out, hit)
 		}

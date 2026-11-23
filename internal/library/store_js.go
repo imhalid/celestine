@@ -552,22 +552,31 @@ func (s *Store) ReadDir(name string) ([]fs.DirEntry, error) {
 func (s *Store) BeginSnapshot() {}
 func (s *Store) EndSnapshot()   {}
 
-// ReadNamed reads every file whose name ends in "/"+base, by its path (as the file Store does).
-func (s *Store) ReadNamed(base string) (map[string][]byte, error) {
+// ReadNamedFrom reads the files whose name ends in "/"+base and whose path comes after after, in the order of their
+// paths, limit at most, and says the last path read (as the file Store does).
+func (s *Store) ReadNamedFrom(base, after string, limit int) (map[string][]byte, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := map[string][]byte{}
+	var paths []string
 	for p, n := range s.node {
-		if n.Dir || !strings.HasSuffix(p, "/"+base) {
-			continue
+		if !n.Dir && strings.HasSuffix(p, "/"+base) && p > after {
+			paths = append(paths, p)
 		}
-		b, err := base64.StdEncoding.DecodeString(n.Data)
-		if err != nil {
-			return nil, err
-		}
-		out[p] = b
 	}
-	return out, nil
+	sort.Strings(paths)
+	if len(paths) > limit {
+		paths = paths[:limit]
+	}
+	out := map[string][]byte{}
+	last := after
+	for _, p := range paths {
+		b, err := base64.StdEncoding.DecodeString(s.node[p].Data)
+		if err != nil {
+			return nil, after, err
+		}
+		out[p], last = b, p
+	}
+	return out, last, nil
 }
 
 // Batch runs fn with the writes to the browser's storage held, and writes them once after: there is one value to

@@ -4,6 +4,7 @@ package library
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -316,4 +317,46 @@ func TestBatchKeepsOtherWrites(t *testing.T) {
 			t.Error(err)
 		}
 	})
+}
+
+// ReadNamedFrom reads the files of a name in parts, in the order of their paths, from after the last one read: the
+// parts together are every file of that name, once, and no other file (#196).
+func TestStoreReadNamedFrom(t *testing.T) {
+	st, err := OpenStore(filepath.Join(t.TempDir(), "k.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	for i := range 7 {
+		dir := fmt.Sprintf("/c/p%d", i)
+		if err := st.MkdirAll(dir); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.WriteFile(dir+"/page.json", []byte(fmt.Sprint(i))); err != nil {
+			t.Fatal(err)
+		}
+		st.WriteFile(dir+"/other.json", []byte("x"))
+	}
+	seen := map[string]string{}
+	after, parts := "", 0
+	for {
+		part, last, err := st.ReadNamedFrom("page.json", after, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts++
+		for p, b := range part {
+			if _, again := seen[p]; again || !strings.HasSuffix(p, "/page.json") {
+				t.Fatalf("%s read again, or not a page", p)
+			}
+			seen[p] = string(b)
+		}
+		if len(part) < 3 {
+			break
+		}
+		after = last
+	}
+	if len(seen) != 7 || parts != 3 || seen["/c/p4/page.json"] != "4" {
+		t.Fatalf("%d files in %d parts: %v", len(seen), parts, seen)
+	}
 }

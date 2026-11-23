@@ -51,8 +51,8 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 		t.Fatalf("A links to B again: %d backlinks", n)
 	}
 	// the text for the search is made when asked for, and follows the writes
-	if got := app.plainOf(a).plain; got == "" {
-		t.Fatalf("plain text of A: %q", got)
+	if got := app.plainOf(a).folded; got == "" {
+		t.Fatalf("the text of A: %q", got)
 	}
 	first := app.plainOf(a)
 	if app.plainOf(a) != first {
@@ -60,7 +60,7 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 	}
 	time.Sleep(2 * time.Millisecond)
 	a.SaveText("başka\n")
-	if app.plainOf(a) == first || app.plainOf(a).plain != "başka" {
-		t.Fatalf("the plain text did not follow the write: %q", app.plainOf(a).plain)
+	if app.plainOf(a) == first || app.plainOf(a).folded != fold("başka") {
+		t.Fatalf("the text did not follow the write: %q", app.plainOf(a).folded)
 	}
 }

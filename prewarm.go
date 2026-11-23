@@ -2,6 +2,8 @@ package main
 
 import (
 	"runtime"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,7 +24,12 @@ type prewarmJob struct {
 	name   string
 	mod    time.Time
 	writes int
+	src    []byte // its file, read with others (a library's file): nil to be read by itself
 }
+
+// prewarmChunk is how many page files of a library's file are read at once: the reading holds that many, not all.
+// A test makes it smaller.
+var prewarmChunk = 2000
 
 type prewarmRead struct {
 	j     prewarmJob
@@ -40,7 +47,7 @@ func (a *app) prewarm() {
 	var jobs []prewarmJob
 	for _, c := range a.lib.Collections {
 		for _, p := range c.All() {
-			jobs = append(jobs, prewarmJob{p, p.FS(), p.File(), p.Modified, p.Writes})
+			jobs = append(jobs, prewarmJob{p: p, fs: p.FS(), name: p.File(), mod: p.Modified, writes: p.Writes})
 		}
 	}
 	if len(jobs) == 0 {
@@ -55,15 +62,6 @@ func (a *app) prewarm() {
 		case <-first:
 		case <-time.After(prewarmWait):
 		}
-		// a library in one file gives all its pages in one pass
-		bulk := map[FS]map[string][]byte{}
-		for _, j := range jobs {
-			if st, ok := j.fs.(*Store); ok && bulk[j.fs] == nil {
-				if m, err := st.ReadNamed(PageFileName); err == nil {
-					bulk[j.fs] = m
-				}
-			}
-		}
 		in := make(chan prewarmJob)
 		out := make(chan prewarmRead, 64)
 		var wg sync.WaitGroup
@@ -73,8 +71,8 @@ func (a *app) prewarm() {
 				defer wg.Done()
 				defer a.guard()
 				for j := range in {
-					src, ok := bulk[j.fs][Clean(j.name)]
-					if !ok {
+					src := j.src
+					if src == nil {
 						var err error
 						if src, err = j.fs.ReadFile(j.name); err != nil {
 							continue
@@ -82,15 +80,13 @@ func (a *app) prewarm() {
 					}
 					_, body := SplitPage(src)
 					e, plain := readPageIdxAt(j.p, j.mod, j.writes, TextOfBody(body))
-					out <- prewarmRead{j, e, &plainIdx{mod: j.mod, writes: j.writes, plain: plain, folded: fold(plain)}}
+					out <- prewarmRead{j, e, &plainIdx{mod: j.mod, writes: j.writes, folded: fold(plain)}}
 				}
 			}()
 		}
 		go func() {
 			defer a.guard()
-			for _, j := range jobs {
-				in <- j
-			}
+			feedPrewarm(jobs, in)
 			close(in)
 			wg.Wait()
 			close(out)
@@ -104,6 +100,34 @@ func (a *app) prewarm() {
 		}
 		a.takePrewarm(got)
 	}()
+}
+
+// feedPrewarm gives the workers the jobs, the pages of a library's file with their files read in parts of
+// prewarmChunk, in the order of their paths, a query a part: the files of a part are let go once its pages are
+// handed on, where all of them were read and held at once (#196). The others read their own.
+func feedPrewarm(jobs []prewarmJob, in chan<- prewarmJob) {
+	stores := map[*Store][]prewarmJob{}
+	for _, j := range jobs {
+		if st, ok := j.fs.(*Store); ok {
+			stores[st] = append(stores[st], j)
+			continue
+		}
+		in <- j
+	}
+	for st, js := range stores {
+		slices.SortFunc(js, func(x, y prewarmJob) int { return strings.Compare(Clean(x.name), Clean(y.name)) })
+		after := ""
+		for i := 0; i < len(js); {
+			part, last, err := st.ReadNamedFrom(PageFileName, after, prewarmChunk)
+			done := err != nil || len(part) < prewarmChunk // the last part: what is left is read by itself
+			for ; i < len(js) && (done || Clean(js[i].name) <= last); i++ {
+				js[i].src = part[Clean(js[i].name)]
+				in <- js[i]
+				js[i].src = nil
+			}
+			after = last
+		}
+	}
 }
 
 // takePrewarm hands pages read to the indexes, on the window's side: a page written since it was read

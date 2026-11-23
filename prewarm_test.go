@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +33,7 @@ func TestPrewarmFillsTheIndexes(t *testing.T) {
 	if e := a.links.pages[a.page]; e == nil || len(e.links) != 1 || e.links[0] != "ikinci" || len(e.tags) == 0 {
 		t.Fatalf("links' index: %+v", e)
 	}
-	if p := a.links.plain[second]; p == nil || p.plain == "" {
+	if p := a.links.plain[second]; p == nil || p.folded == "" {
 		t.Fatalf("plain text: %+v", p)
 	}
 	tt.Frame()
@@ -110,5 +112,39 @@ func TestPrewarmWaitsForTheFirstFrame(t *testing.T) {
 	}
 	if a.links.pages[a.page] == nil {
 		t.Fatal("the page was not read")
+	}
+}
+
+// A library's pages are read in parts, not all their files at once, and every page is read (#196).
+func TestPrewarmInParts(t *testing.T) {
+	was := prewarmChunk
+	prewarmChunk = 3
+	defer func() { prewarmChunk = was }()
+	a := syncApp(t, t.TempDir())
+	c, _ := a.lib.NewCollection("Notlar")
+	var pages []*Page
+	for i := range 10 {
+		p, _ := c.NewPage(nil, fmt.Sprintf("Sayfa %d", i))
+		p.SaveText(fmt.Sprintf("kelime%d\n", i))
+		pages = append(pages, p)
+	}
+	close(a.firstFrame) // as the first frame does
+	a.prewarm()
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		a.mu.Lock()
+		w := a.prewarming
+		a.mu.Unlock()
+		if !w {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("still reading")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	for i, p := range pages {
+		if e := a.links.plain[p]; e == nil || !strings.Contains(e.folded, fmt.Sprintf("kelime%d", i)) {
+			t.Fatalf("page %d not read: %+v", i, e)
+		}
 	}
 }

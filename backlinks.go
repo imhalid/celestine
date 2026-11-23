@@ -259,15 +259,25 @@ func readPageIdxAt(q *Page, mod time.Time, writes int, body string) (*pageIdx, s
 	return e, plain
 }
 
-// plainIdx is the text of a page, plain, and folded as the search compares it.
+// plainIdx is the text of a page folded as the search compares it. The plain text is not kept beside it: only the
+// snippets of the few hits shown need it, and they read it again (snippetText), where every page's text was kept
+// twice (#196).
 type plainIdx struct {
 	mod    time.Time
 	writes int
-	plain  string
 	folded string
 }
 
-// plainOf is the text of page p, plain, as the search shows it. It is made the
+// snippetText is the plain text of page p, for the snippet of a hit: read again from its file.
+func snippetText(p *Page) string {
+	body, err := p.Text()
+	if err != nil {
+		return ""
+	}
+	return plainText(body)
+}
+
+// plainOf is the text of page p, folded, as the search compares it. It is made the
 // first time it is asked for, and again when the page was written.
 func (a *app) plainOf(p *Page) *plainIdx {
 	l := &a.links
@@ -279,8 +289,7 @@ func (a *app) plainOf(p *Page) *plainIdx {
 	}
 	e := &plainIdx{mod: p.Modified, writes: p.Writes}
 	if body, err := p.Text(); err == nil {
-		e.plain = plainText(body)
-		e.folded = fold(e.plain)
+		e.folded = fold(plainText(body))
 	}
 	l.plain[p] = e
 	return e

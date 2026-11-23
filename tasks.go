@@ -395,7 +395,7 @@ func (a *app) applyToggle(j taskToggle) {
 		if l.plain == nil {
 			l.plain = map[*Page]*plainIdx{}
 		}
-		l.plain[p] = &plainIdx{mod: p.Modified, writes: p.Writes, plain: j.plain, folded: j.folded}
+		l.plain[p] = &plainIdx{mod: p.Modified, writes: p.Writes, folded: j.folded}
 	}
 	a.takeOutside(p) // its text, in the editor, as the file has it now
 	a.linksStale()
