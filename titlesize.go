@@ -34,9 +34,15 @@ func (a *app) titleLayout(text string, size, width float32) *ui.TextLayout {
 }
 
 // titleRoom notes the width the title was laid out in, which its size and lines are found at; when it changed, the
-// title is laid out again at it.
-func (a *app) titleRoom(c *ui.Context, title ui.Element) {
-	if w := title.LayoutBounds().W; w > 0 && w != a.titleW {
+// title is laid out again at it. A text area (area, the title being typed) lays its lines out a pixel narrower than its
+// box, its last column kept for the caret (egoist/mygo#2203): measured at the whole box, a title that just fits would
+// be sized for one line less than it wraps onto, and clipped.
+func (a *app) titleRoom(c *ui.Context, title ui.Element, area bool) {
+	w := title.LayoutBounds().W
+	if area && w > 1 {
+		w--
+	}
+	if w > 0 && w != a.titleW {
 		a.titleW = w
 		c.Invalidate()
 	}

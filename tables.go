@@ -144,7 +144,7 @@ func (a *app) tableWidths(m *tableModel) []float32 {
 		cw[len(cw)-1] += tableFilterW - total
 		total = tableFilterW
 	}
-	if limit := a.pageWidth(); total > limit && total > 0 {
+	if limit := a.blockWidth(); total > limit && total > 0 {
 		for c := range cw {
 			cw[c] *= limit / total
 		}

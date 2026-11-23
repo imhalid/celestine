@@ -133,7 +133,7 @@ func queryHeight(n int) float32 {
 func (a *app) queryAttachment(ch *chip) *richtext.Attachment {
 	n := len(a.queryHits(ch.target))
 	var att *richtext.Attachment
-	att = &richtext.Attachment{Width: a.pageWidth(), Height: queryHeight(n), Name: locales.QueryNamed(ch.target), Data: ch,
+	att = &richtext.Attachment{Width: a.blockWidth(), Height: queryHeight(n), Name: locales.QueryNamed(ch.target), Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawQuery(p, r, ch, att) }}
 	return att
 }

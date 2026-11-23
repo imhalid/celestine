@@ -171,6 +171,11 @@ func (a *app) pageWidth() float32 {
 	return w
 }
 
+// blockWidth is the widest a block in a page's text (a query, an embed, a table) is drawn at its own size: the page's
+// width less the column the editor keeps at a paragraph's right for the caret (egoist/mygo#2203). A wider block
+// would be scaled down to it, its height with it.
+func (a *app) blockWidth() float32 { return a.pageWidth() - 1 }
+
 // setCaret chooses the caret, and keeps the choice.
 func (a *app) setCaret(k caretKind) {
 	a.caretKind = k

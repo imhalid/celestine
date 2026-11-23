@@ -21,6 +21,10 @@ func TestLongTitleWraps(t *testing.T) {
 	if a.titleW <= 0 || a.titleSize(a.title, a.titleW) != titleSizes[0] {
 		t.Fatalf("a short title: room %v, size %v", a.titleW, a.titleSize(a.title, a.titleW))
 	}
+	// the title is measured at the width the area lays its lines out in: its box less the caret's column
+	if a.titleW != short.W-1 {
+		t.Fatalf("the title measured at %v in a box %v wide", a.titleW, short.W)
+	}
 	tt.ClickAt(short.X+20, short.Y+short.H/2)
 	tt.Key(ui.Cmd, ui.KeyA)
 	two := "Cognitive Biases and Attentional Influences on Memory"

@@ -1452,7 +1452,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 		c.Key("title:" + p.Dir)
 		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, a.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(locales.CommonTitle()).Selectable().Wrap().FillWidth().TextColor(ink)
 		a.titleMenu(ttl, p, false)
-		a.titleRoom(c, ttl)
+		a.titleRoom(c, ttl, false)
 		a.titleFocused = false
 		a.coverGap(c, p)
 		a.propsSection(c, p)
@@ -1466,7 +1466,7 @@ func (a *app) pageHead(c *ui.Context, p *Page) {
 	title := ui.TextAreaBase(c, &a.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
 		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
 	a.titleMenu(title, p, true)
-	a.titleRoom(c, title)
+	a.titleRoom(c, title, true)
 	enter := false
 	if strings.ContainsAny(a.title, "\r\n") {
 		// the area takes ↵ as a break: one break typed into the title as it was is ↵, which goes into the text below,

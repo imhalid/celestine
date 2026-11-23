@@ -45,7 +45,7 @@ func embedsIn(t richtext.Text) richtext.Text {
 
 // embedAttachment is the card of an embed.
 func (a *app) embedAttachment(ch *chip) *richtext.Attachment {
-	return &richtext.Attachment{Width: a.pageWidth(), Height: embedH, Name: locales.BlocksEmbeddedPage(ch.target), Data: ch,
+	return &richtext.Attachment{Width: a.blockWidth(), Height: embedH, Name: locales.BlocksEmbeddedPage(ch.target), Data: ch,
 		Draw: func(p *ui.Painter, r ui.Rect) { a.drawEmbed(p, r, ch) }}
 }
 
