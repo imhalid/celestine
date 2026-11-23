@@ -43,6 +43,10 @@ eşitleniyor… / çevrimdışı / çakışma: 2` rozeti. Çevrimdışıyken yaz
   labels, so that older versions keep syncing; it cannot catch a newer copy of another file, served with older hashes
   that are not below what a device saw, to a device that never held that file. Phase 2 seals each file under a label
   of its path, which closes it.
+- A pass lists the server only when another device wrote since this one's last pass (#151). The server's counter
+  moves once for each write it answers "ok" (`/changes` says `exact`), and this device counts its own: when the
+  counter is what its last pass left, the pass takes what the sync state knows for the listing. A write of another
+  device, before or during a pass, a pass with an error, or a server that is not exact, makes the next pass list.
 - A passphrase is checked when it is set: against the sealed index, and before there is one against `_check`, a short
   text sealed with the key and put beside the salt by the passphrase that made the salt (#562). A second device
   joining with a typo before the first one's index is there is refused instead of sealing under another key. A remote

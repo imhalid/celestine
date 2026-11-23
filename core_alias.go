@@ -147,12 +147,14 @@ type Store = library.Store
 const StoreRoot = library.StoreRoot
 
 var SyncOnce = library.SyncOnce
+var SyncCounted = library.SyncCounted
 
 type SyncResult = library.SyncResult
 type SyncState = library.SyncState
 type MetaBases = library.MetaBases
 type DirBases = library.DirBases
 type ChangeCounter = library.ChangeCounter
+type ExactCounter = library.ExactCounter
 
 var TextOfBody = library.TextOfBody
 

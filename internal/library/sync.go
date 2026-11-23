@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -273,6 +274,7 @@ func (d DirRemote) Delete(name, prev string) error {
 type httpRemote struct {
 	base, token string
 	client      *http.Client
+	written     atomic.Int64 // the writes the server answered "ok", each of which moved its counter once (Written)
 }
 
 // HTTPTransport is used by NewHTTPRemote when non-nil (for example netproxy.Transport()).
@@ -285,7 +287,7 @@ func NewHTTPRemote(base, token string) *httpRemote {
 	}
 	// no deadline for a whole transfer, which a large file on a slow line never met: a request stops when nothing
 	// moves for transferIdle (send), instead (#155)
-	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Transport: tr}}
+	return &httpRemote{base: strings.TrimRight(base, "/"), token: token, client: &http.Client{Transport: tr}}
 }
 
 // transferIdle is how long a request to the server may go without a byte moving, either way, or without an answer
@@ -395,6 +397,9 @@ func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.R
 		resp.Body.Close()
 		return nil, err
 	}
+	if method == "PUT" || method == "DELETE" {
+		h.written.Add(1)
+	}
 	return resp, nil
 }
 
@@ -496,17 +501,34 @@ type ChangeCounter interface {
 }
 
 func (h *httpRemote) Changes() (int64, error) {
+	n, _, err := h.CountedChanges()
+	return n, err
+}
+
+// CountedChanges is the server's change counter, and whether it moves once for each write it answers "ok" and for
+// nothing else, so that a device that counts its own (Written) can tell whether another wrote (#151).
+func (h *httpRemote) CountedChanges() (int64, bool, error) {
 	b, err := h.get(h.base + "/changes")
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	var out struct {
 		Changes *int64 `json:"changes"`
+		Exact   bool   `json:"exact"`
 	}
 	if err := json.Unmarshal(b, &out); err != nil || out.Changes == nil {
-		return 0, errNoChanges
+		return 0, false, errNoChanges
 	}
-	return *out.Changes, nil
+	return *out.Changes, out.Exact, nil
+}
+
+// Written is how many writes the server answered "ok" to this remote.
+func (h *httpRemote) Written() int64 { return h.written.Load() }
+
+// ExactCounter is a remote whose server counts its writes exactly (CountedChanges), and that counts its own.
+type ExactCounter interface {
+	CountedChanges() (int64, bool, error)
+	Written() int64
 }
 
 var errNoChanges = errors.New("bu eşitleme yeri değişiklik sayacı tutmuyor")
@@ -517,6 +539,31 @@ func (e *EncRemote) Changes() (int64, error) {
 		return c.Changes()
 	}
 	return 0, errNoChanges
+}
+
+// CountedChanges and Written are the inner remote's (ExactCounter): the index's and the hashes' writes are its too.
+func (e *EncRemote) CountedChanges() (int64, bool, error) {
+	if c, ok := e.inner.(ExactCounter); ok {
+		return c.CountedChanges()
+	}
+	return 0, false, errNoChanges
+}
+
+func (e *EncRemote) Written() int64 {
+	if c, ok := e.inner.(ExactCounter); ok {
+		return c.Written()
+	}
+	return 0
+}
+
+// listedFrom takes listed as the pass's listing, where the remote was not listed (SyncState.Unchanged): what the
+// sealed pass learns of a listing, the sealed copy each file has there, is what the state says this device left.
+func (e *EncRemote) listedFrom(listed map[string]RemoteEntry) {
+	e.listed, e.inner0 = map[string]string{}, map[string]RemoteEntry{}
+	for p, r := range listed {
+		e.listed[p] = r.Hash
+		e.inner0[e.opaque(p)] = r
+	}
 }
 
 // ---- end-to-end encryption ----
@@ -1554,6 +1601,12 @@ type SyncState struct {
 	Bases SyncBases `json:"-"`
 	// Remote names the remote the state is of (ForRemote): the files it knows were synced with that one.
 	Remote string `json:"remote,omitempty"`
+	// Counter is the server's change counter as this device's last pass left it, when nothing but that pass's own
+	// writes moved it while it went (ExactCounter); 0 when that is not known. Unchanged says the app found the counter
+	// at it before this pass: the remote is as the state says, and the pass takes that for its listing, which held
+	// every file's name and hash, at every pass (#151). Unchanged is never kept.
+	Counter   int64 `json:"counter,omitempty"`
+	Unchanged bool  `json:"-"`
 	// Device names this device in the generation of a sealed index (EncRemote): made at its first pass, and kept.
 	Device string `json:"device,omitempty"`
 	// IndexSeen is the generation of the remote's sealed index this device has seen, and IndexNames the short names
@@ -1594,7 +1647,28 @@ func (st *SyncState) ForRemote(id string) bool {
 	st.forget()
 	st.IndexSeen, st.IndexNames, st.Earlier = nil, "", nil // another remote's index counts its own generations
 	st.HashesSeen, st.IndexMissingSince, st.HashesMissingSince = nil, 0, 0
+	st.Counter = 0
 	return true
+}
+
+// asListed is the listing of the remote as this device's last pass left it: each file it synced, with the hash it
+// has there.
+func (st *SyncState) asListed() map[string]RemoteEntry {
+	out := map[string]RemoteEntry{}
+	for n, f := range st.Files {
+		if f.Remote != "" {
+			out[n] = RemoteEntry{Hash: f.Remote}
+		}
+	}
+	return out
+}
+
+// MayTakeAsListed says whether a pass may take the state for the remote's listing, the remote being as it was
+// (Unchanged): only in a plain pass, nothing to trust again, to remove or to send again, nothing held or waited for,
+// and something synced already.
+func (st *SyncState) MayTakeAsListed() bool {
+	return st.Counter != 0 && !st.TrustIndex && !st.TrustFiles && !st.AllowRemovals && !st.Resend && st.Held == 0 &&
+		st.IndexMissingSince == 0 && st.HashesMissingSince == 0 && len(st.asListed()) > 0
 }
 
 // forget drops what the state knows of each file and its base; what this library made for itself stays (Pristine).
@@ -1627,6 +1701,38 @@ type SyncResult struct {
 	// Remote is how many names the remote had as the pass began, deleted ones too: none is an account that was
 	// never used (the app gives a new one its welcome page then, and not before).
 	Remote int
+	// Listed says the remote was listed; not when the state was taken for its listing (SyncCounted). Changes is the
+	// server's change counter after the pass, when SyncCounted read it (ChangesKnown).
+	Listed       bool
+	Changes      int64
+	ChangesKnown bool
+}
+
+// SyncCounted is SyncOnce with a server that counts its writes exactly (ExactCounter): its counter is read before
+// the pass, and when it is what the state's last pass left (SyncState.Counter), nothing but this device wrote since,
+// and the pass takes what the state knows for the remote's listing (#151). After a pass with no error, nothing refused
+// and nothing waited for, the counter is kept when it moved by this pass's own writes alone, and forgotten
+// otherwise: a write of another device while the pass went makes the next one list. r is to be new for the pass:
+// its count of its own writes is this pass's. Another remote is synced as SyncOnce does it.
+func SyncCounted(fsys FS, root string, r Remote, st *SyncState, skip map[string]bool, now time.Time) (SyncResult, error) {
+	ec, ok := r.(ExactCounter)
+	if !ok {
+		return SyncOnce(fsys, root, r, st, skip, now)
+	}
+	before, exact, cerr := ec.CountedChanges()
+	counted := cerr == nil && exact
+	st.Unchanged = counted && st.Counter != 0 && before == st.Counter
+	res, err := SyncOnce(fsys, root, r, st, skip, now)
+	st.Unchanged = false
+	st.Counter = 0
+	after, _, aerr := ec.CountedChanges()
+	if aerr == nil {
+		res.Changes, res.ChangesKnown = after, true
+		if counted && err == nil && len(res.Errors) == 0 && !res.Waiting && len(res.Refused) == 0 && after == before+ec.Written() {
+			st.Counter = after
+		}
+	}
+	return res, err
 }
 
 func (r SyncResult) String() string {
@@ -1829,9 +1935,16 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			res.Errors = append(res.Errors, IndexFile+": "+err.Error())
 		}
 	}
-	remote, err := r.List()
-	if err != nil {
+	var remote map[string]RemoteEntry
+	if st.Unchanged && st.MayTakeAsListed() { // nothing but this device wrote since its last pass: no listing (#151)
+		remote = st.asListed()
+		if l, ok := r.(interface{ listedFrom(map[string]RemoteEntry) }); ok {
+			l.listedFrom(remote)
+		}
+	} else if remote, err = r.List(); err != nil {
 		return res, pushed, err
+	} else {
+		res.Listed = true
 	}
 	res.Remote = len(remote)
 	if len(remote) == 0 { // a remote with nothing, not even a tombstone, never had what the state says was synced

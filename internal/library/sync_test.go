@@ -335,6 +335,11 @@ type fakeServer struct {
 	// changes is the counter of writes; noChanges, a server of before that has none
 	changes   int64
 	noChanges bool
+	// exact says the counter moves once for each write answered "ok" (the Worker since #151); listings counts the
+	// listings asked for; onPut, if set, runs at a PUT, as another device's write in the middle of a pass
+	exact    bool
+	listings int
+	onPut    func()
 }
 
 func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -345,7 +350,7 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if r.URL.Path == "/changes" && !s.noChanges {
-		fmt.Fprintf(w, `{"changes":%d}`, s.changes)
+		fmt.Fprintf(w, `{"changes":%d,"exact":%v}`, s.changes, s.exact)
 		return
 	}
 	if !strings.HasPrefix(r.URL.Path, "/files") {
@@ -355,6 +360,7 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/files")
 	name = strings.TrimPrefix(name, "/")
 	if name == "" {
+		s.listings++
 		out := map[string]RemoteEntry{}
 		for n, b := range s.files {
 			out[n] = RemoteEntry{Hash: HashOf(b)}
@@ -386,6 +392,11 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.files[name] = b
 		delete(s.dead, name)
 		s.changes++
+		if s.onPut != nil {
+			f := s.onPut
+			s.onPut = nil
+			f()
+		}
 	case "DELETE":
 		delete(s.files, name)
 		s.dead[name] = true
@@ -1887,5 +1898,79 @@ func TestDirRemoteHashKept(t *testing.T) {
 	os.WriteFile(q, []byte("two"), 0o644)
 	if got, _ := remote.List(); got["Not/b.json"].Hash != HashOf([]byte("two")) {
 		t.Fatal("a file written just now was taken from what was kept")
+	}
+}
+
+// A pass with a server that counts its writes exactly lists the remote only when another device wrote since this one's
+// last pass: a pass that only sends what was typed, or has nothing to do, takes what the state knows for the listing.
+// Another device's write, before the pass or in the middle of it, makes the next pass list, and what it wrote comes
+// down. A server that does not count exactly is listed at every pass (#151).
+func TestSyncCountedSkipsTheListing(t *testing.T) {
+	AllowHTTP = true
+	defer func() { AllowHTTP = false }()
+	for _, sealed := range []bool{false, true} {
+		fs := &fakeServer{files: map[string][]byte{}, dead: map[string]bool{}, token: "jeton", exact: true}
+		srv := httptest.NewServer(fs)
+		remote := func() Remote { // new for each pass, as the app makes it
+			var r Remote = NewHTTPRemote(srv.URL, "jeton")
+			if sealed {
+				r = sealRemote(t, r, false)
+			}
+			return r
+		}
+		a, b := newDevice(t), newDevice(t)
+		pass := func(d *device) SyncResult {
+			t.Helper()
+			res, err := SyncCounted(OSFS{}, d.root, remote(), &d.st, nil, time.Now())
+			if err != nil || len(res.Errors) > 0 {
+				t.Fatalf("sealed %v: %v %v", sealed, err, res.Errors)
+			}
+			return res
+		}
+		a.write("Not/Bir/page.json", "bir")
+		if res := pass(a); !res.Listed || a.st.Counter == 0 {
+			t.Fatalf("sealed %v: the first pass: listed %v, counter %d", sealed, res.Listed, a.st.Counter)
+		}
+		listings := fs.listings
+		if res := pass(a); res.Listed || fs.listings != listings {
+			t.Fatalf("sealed %v: a pass with nothing to do listed the remote", sealed)
+		}
+		a.write("Not/Bir/page.json", "bir, sonra")
+		if res := pass(a); res.Listed || res.Pushed != 1 || a.st.Counter != fs.changes {
+			t.Fatalf("sealed %v: a pass that sent: listed %v, pushed %d, counter %d of %d", sealed, res.Listed, res.Pushed, a.st.Counter, fs.changes)
+		}
+		if res := pass(a); res.Listed {
+			t.Fatalf("sealed %v: the pass after its own writes listed the remote", sealed)
+		}
+		// another device writes: the next pass lists, and brings it down
+		pass(b)
+		b.write("Not/Iki/page.json", "iki")
+		pass(b)
+		if res := pass(a); !res.Listed || a.read("Not/Iki/page.json") != "iki" {
+			t.Fatalf("sealed %v: after another device wrote: listed %v, %q", sealed, res.Listed, a.read("Not/Iki/page.json"))
+		}
+		// another device writes in the middle of a pass: the pass after it lists
+		pass(a)
+		a.write("Not/Bir/page.json", "bir, üçüncü")
+		fs.onPut = func() {
+			fs.files["Not/Uc/page.json"] = []byte("üç")
+			fs.changes++
+		}
+		if !sealed { // a plain remote's names are the paths: another device's file can be put as one
+			pass(a)
+			if a.st.Counter != 0 {
+				t.Fatal("a write of another device in the middle of the pass was taken for none")
+			}
+			if res := pass(a); !res.Listed || a.read("Not/Uc/page.json") != "üç" {
+				t.Fatalf("after a write in the middle of a pass: listed %v, %q", res.Listed, a.read("Not/Uc/page.json"))
+			}
+		}
+		fs.onPut = nil
+		// a server that does not count exactly is listed at every pass
+		fs.exact = false
+		if res := pass(a); !res.Listed {
+			t.Fatalf("sealed %v: a server that is not exact was not listed", sealed)
+		}
+		srv.Close()
 	}
 }

@@ -345,8 +345,11 @@ func (a *app) syncNow() {
 		if keep != nil { // at full speed while no window shows, until the pass ends (netsync.go)
 			defer keep("Syncing the library")()
 		}
-		res, err := SyncOnce(fsys, root, remote, state, skip, time.Now())
-		changes, cerr := remoteChanges(remote) // what this pass wrote moved it: that is not news for the next ask
+		res, err := SyncCounted(fsys, root, remote, state, skip, time.Now()) // no listing when no one else wrote (#151)
+		changes, cerr := res.Changes, error(nil)
+		if !res.ChangesKnown {
+			changes, cerr = remoteChanges(remote) // what this pass wrote moved it: that is not news for the next ask
+		}
 		a.do(func() error {
 			a.sy.busy = false
 			a.sy.changes, a.sy.changesKnown = changes, cerr == nil

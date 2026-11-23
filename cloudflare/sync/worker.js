@@ -6,8 +6,9 @@
 //   GET    /files/<name>   the bytes
 //   PUT    /files/<name>   the bytes; If-Match: "<hash seen>" ("" when there was none); 412 when it is stale
 //   DELETE /files/<name>   If-Match as above; the file becomes a tombstone
-//   GET    /changes        { "changes": <n> }: the account's change counter, bumped by every PUT and DELETE; a device asks
-//                          for it often (it is one small read) and lists the files only when it moved
+//   GET    /changes        { "changes": <n>, "exact": true }: the account's change counter, moved once by every PUT and
+//                          DELETE that answers "ok" and by nothing else (exact): a device asks for it often (it is one
+//                          small read) and lists the files only when it moved, and by more than its own writes (#151)
 //   /api/…   accounts: waitlist, registration with an invite code, login, devices (auth.js)
 //   /admin   the administrator's page (pages.js)
 //   anything else is the site's (the entry screen, /privacy, /changelog, their pictures): the site Worker, celestine-site,
@@ -182,7 +183,7 @@ async function changes(request, env) {
   const user = await userOfToken(env, token);
   if (!user) return new Response("no", { status: 401 });
   const row = await env.DB.prepare("SELECT changes FROM users WHERE id=?").bind(user.id).first();
-  return Response.json({ changes: row?.changes || 0 }, { headers: { "cache-control": "no-store" } });
+  return Response.json({ changes: row?.changes || 0, exact: true }, { headers: { "cache-control": "no-store" } });
 }
 
 async function files(request, env, url) {
@@ -261,7 +262,10 @@ async function files(request, env, url) {
     await bump();
     return new Response("ok");
   }
-  if (!head || dead(head)) return new Response("ok"); // already gone
+  if (!head || dead(head)) { // already gone: "ok", and the counter moves as for any write that answers so (exact, #151)
+    await bump();
+    return new Response("ok");
+  }
   await keepVersion(env, user, name, head, key);
   const o = await bucket.put(key, new Uint8Array(0), { onlyIf: only, customMetadata: { tomb: "1" } });
   if (!o) return new Response("stale", { status: 412 });
