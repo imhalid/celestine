@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/imhalid/celestine/locales"
 )
 
 func findPage(t *testing.T) (*app, func()) {
@@ -110,4 +112,45 @@ func TestLongPageCoverGoesWhenScrolled(t *testing.T) {
 		}
 	}
 	t.Fatal("the page never scrolled to the line")
+}
+
+// A query with a capital or a mark is found as it is written, and a replace of all takes only that; in lower case
+// without marks it finds every way of writing it (#212).
+func TestFindExactWhenWrittenSo(t *testing.T) {
+	a, tt := newTestApp(t, "on ön ON Ön\n")
+	tt.Frame()
+	for q, want := range map[string]int{"on": 4, "ön": 1, "ON": 1, "Ön": 1} {
+		a.find.query, a.find.ver = q, 0
+		a.findAll()
+		if len(a.find.matches) != want {
+			t.Errorf("%q: %d matches, want %d", q, len(a.find.matches), want)
+		}
+	}
+	a.find.open, a.find.query, a.find.with, a.find.ver = true, "ön", "x", 0
+	a.findAll()
+	a.replaceMatch(true)
+	if got := a.doc.Text().String(); got != "on x ON Ön" {
+		t.Fatalf("replace all of ön: %q", got)
+	}
+}
+
+// What find does not go into, a fold's lines and a table's cells, is counted, and the bar says so (#212).
+func TestFindCountsWhatIsHidden(t *testing.T) {
+	a, tt := newTestApp(t, "# Başlık\n\nelma bir\n\nelma iki\n\n# Son\n\nelma\n")
+	tt.SetSize(1100, 800)
+	tt.Frame()
+	a.fold(at(a.doc, "Başlık"))
+	tt.Frame()
+	ch := a.insertTableOf(a.doc.Text().Len(), newTable(2, 1))
+	ch.tbl.setCell(0, 1, "kırmızı elma")
+	tt.Frame()
+	a.openFind()
+	a.find.query = "elma"
+	tt.Frame()
+	if len(a.find.matches) != 1 || a.find.hidden != 3 {
+		t.Fatalf("matches %d, hidden %d", len(a.find.matches), a.find.hidden)
+	}
+	if !tt.HasText(locales.FindHiddenMore(3)) {
+		t.Fatal("the bar does not say what is hidden")
+	}
 }

@@ -516,6 +516,7 @@
   "findInPage2": "Sayfada bul",
   "find_close": "Kapat (Esc)",
   "find_findInPage": "Sayfada bul",
+  "find_hiddenMore": "Katlanmış bloklarda ya da tablolarda {count} eşleşme daha var: bulmak için onları aç",
   "find_next": "Sonraki (↵)",
   "find_placeholder": "Bul",
   "find_previous": "Önceki (⇧↵)",

@@ -14,14 +14,16 @@ import (
 
 // Finding in the page (⌘F): a bar over the title; every match in view is
 // lit, the one being looked at more, and selected. ↵ goes to the next, ⇧↵
-// back, Esc closes. Accents and case don't matter. Its second row replaces
-// the match, or all of them.
+// back, Esc closes. Accents and case don't matter while the query has
+// none: one with a capital or an accent is found as it is written (#212).
+// Its second row replaces the match, or all of them.
 
 type finder struct {
 	open, replace bool
 	query, with   string
 	cur           int      // the match being looked at
 	matches       [][2]int // the matches, rune ranges of the text
+	hidden        int      // the matches inside folds, zooms and tables, which find does not go into
 	ver           uint64   // the text and query they were found in
 	q             string
 	focus         bool // the field takes the focus next frame
@@ -78,18 +80,17 @@ func (a *app) findAll() {
 		return
 	}
 	queryChanged := f.q != f.query
-	f.ver, f.q, f.matches = a.doc.Version(), f.query, nil
-	q := foldRunes(f.query)
+	f.ver, f.q, f.matches, f.hidden = a.doc.Version(), f.query, nil, 0
+	exact := findExact(f.query)
+	q := findRunes(f.query, exact)
 	if len(q) == 0 {
 		return
 	}
-	text := foldRunes(a.doc.Text().String())
-	for i := 0; i+len(q) <= len(text); i++ {
-		if text[i] == q[0] && slices.Equal(text[i:i+len(q)], q) { // the runes compared, not made into strings at each place (#198)
-			f.matches = append(f.matches, [2]int{i, i + len(q)})
-			i += len(q) - 1
-		}
+	text := a.doc.Text()
+	for _, m := range findIn(findRunes(text.String(), exact), q) {
+		f.matches = append(f.matches, m)
 	}
+	f.hidden = findHidden(text, q, exact)
 	if queryChanged { // the first match from the caret on
 		_, caret := a.doc.Selection()
 		f.cur = 0
@@ -102,6 +103,57 @@ func (a *app) findAll() {
 		a.showMatch()
 	}
 	f.cur = min(f.cur, max(len(f.matches)-1, 0))
+}
+
+// findExact says whether query is found as it is written: when it has a capital or a letter with a mark, as
+// "Ön" is not "on", and a replace takes only what is written so (#212). Lower case and without marks, it finds
+// every way of writing it.
+func findExact(query string) bool { return string(foldRunes(query)) != query }
+
+// findRunes is s as find compares it: folded, or as it is when the query is exact; a rune for each rune.
+func findRunes(s string, exact bool) []rune {
+	if exact {
+		return []rune(s)
+	}
+	return foldRunes(s)
+}
+
+// findIn are the places of q in text, one after the other, not overlapping.
+func findIn(text, q []rune) [][2]int {
+	var out [][2]int
+	for i := 0; i+len(q) <= len(text); i++ {
+		if text[i] == q[0] && slices.Equal(text[i:i+len(q)], q) { // the runes compared, not made into strings at each place (#198)
+			out = append(out, [2]int{i, i + len(q)})
+			i += len(q) - 1
+		}
+	}
+	return out
+}
+
+// findHidden counts the matches of q that find does not go into: in what a fold or a zoom holds, folds in it
+// too, and in a table's cells. The bar says how many there are, so that a replace of all does not seem to
+// have taken every one (#212).
+func findHidden(t richtext.Text, q []rune, exact bool) int {
+	n := 0
+	for _, r := range t.Runs(0, t.Len()) {
+		att := r.Attributes.Attachment
+		if att == nil {
+			continue
+		}
+		ch, ok := att.Data.(*chip)
+		switch {
+		case !ok:
+		case (ch.kind == "fold" || ch.kind == "zoom") && ch.hidden != nil:
+			n += len(findIn(findRunes(ch.hidden.String(), exact), q)) + findHidden(*ch.hidden, q, exact)
+		case ch.kind == "table" && ch.tbl != nil:
+			for _, row := range ch.tbl.rows {
+				for _, cell := range row {
+					n += len(findIn(findRunes(cell, exact), q))
+				}
+			}
+		}
+	}
+	return n
 }
 
 // showMatch selects the match being looked at.
@@ -196,6 +248,9 @@ func (a *app) findBar(c *ui.Context) {
 				a.closeFind()
 			}
 		})
+		if f.hidden > 0 {
+			ui.Text(c, locales.FindHiddenMore(f.hidden)).FontSize(12).TextColor(cl.Muted).Padding(0, 0, 0, 32)
+		}
 		if f.replace {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 32).Children(func() {
 				in := a.fieldMenu(ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: locales.QueryReplaceWith(), Placeholder: locales.QueryReplaceWith(), Size: ryugo.Sm}), &f.with, fieldOpts{oneLine: true})

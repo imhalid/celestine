@@ -5237,6 +5237,16 @@ func (msgs Messages) FindFindInPage() string {
 	return Catalog.Format(msgs.locale, "find_findInPage", nil)
 }
 
+// FindHiddenMore says "{count, plural, one {# more in a folded block or a table: open it to find it} other {# more in folded blocks or table…"
+// in the language the app shows.
+func FindHiddenMore(count int) string { return In(i18n.Locale()).FindHiddenMore(count) }
+
+// FindHiddenMore says "{count, plural, one {# more in a folded block or a table: open it to find it} other {# more in folded blocks or table…"
+// in the language of msgs.
+func (msgs Messages) FindHiddenMore(count int) string {
+	return Catalog.Format(msgs.locale, "find_hiddenMore", map[string]any{"count": count})
+}
+
 // FindNext says "Next (↵)"
 // in the language the app shows.
 func FindNext() string { return In(i18n.Locale()).FindNext() }

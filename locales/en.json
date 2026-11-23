@@ -579,6 +579,8 @@
   "findInPage2": "Find in page",
   "find_close": "Close (Esc)",
   "find_findInPage": "Find in page",
+  "find_hiddenMore": "{count, plural, one {# more in a folded block or a table: open it to find it} other {# more in folded blocks or tables: open them to find them}}",
+  "@find_hiddenMore": {"placeholders": {"count": {"type": "int"}}},
   "find_next": "Next (↵)",
   "find_placeholder": "Find",
   "find_previous": "Previous (⇧↵)",
