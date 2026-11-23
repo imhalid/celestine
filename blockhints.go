@@ -88,7 +88,7 @@ func (a *app) editorHints() []hint {
 		foldHint()
 		add("⌥⌘1–6", "headingLevel")
 		add("⌥⌘0", "plainText2")
-		add(move, "move")
+		add(move, "move2")
 	case st.List != richtext.NoList && empty && st.Indent > 0: // ↵ on an empty item takes it a level out
 		add("↵", "outdent")
 	case st.List != richtext.NoList && empty: // and at the first level ends the list
@@ -102,13 +102,13 @@ func (a *app) editorHints() []hint {
 			add(a.cmdKey("zoomIntoTheBlock"), "zoomIntoTheItem")
 		}
 		foldHint()
-		add(move, "move")
+		add(move, "move2")
 	case st.CodeBlock && empty && ps > 0 && t.ParagraphStyleAt(ps-1).CodeBlock:
 		add("↵", "endTheCode")
 	case st.CodeBlock:
 		add("Tab", "indent")
 		add("⇧Tab", "outdent")
-		add(move, "move")
+		add(move, "move2")
 		add(a.cmdKey("duplicateTheBlock"), "duplicate")
 	case empty:
 		add("/", "addABlock")
@@ -117,7 +117,7 @@ func (a *app) editorHints() []hint {
 		add("[]", "task")
 		add("```", "code")
 	default:
-		add(move, "move")
+		add(move, "move2")
 		add(a.cmdKey("duplicateTheBlock"), "duplicate")
 		add("⇧⌘8", "bulletList")
 		add(a.cmdKey("common_blockMenu"), "blockMenu2")

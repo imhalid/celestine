@@ -1664,5 +1664,7 @@
   "tasks_everyYears": "{count, plural, one {her yıl} other {her # yılda}}",
   "templates_bodyPlaceholder": "# '{{'başlık'}}'",
   "status_chars": "{count} harf",
-  "page_copyTitle": "{title} (kopya)"
+  "page_copyTitle": "{title} (kopya)",
+  "heading": "başlık",
+  "task": "görev"
 }

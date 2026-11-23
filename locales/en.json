@@ -1920,5 +1920,7 @@
   "status_chars": "{count, plural, one {# character} other {# characters}}",
   "@status_chars": {"placeholders": {"count": {"type": "int"}}},
   "page_copyTitle": "{title} (copy)",
-  "@page_copyTitle": {"placeholders": {"title": {"type": "String"}}}
+  "@page_copyTitle": {"placeholders": {"title": {"type": "String"}}},
+  "heading": "heading",
+  "task": "task"
 }

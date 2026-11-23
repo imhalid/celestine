@@ -16936,3 +16936,23 @@ func PageCopyTitle(title string) string { return In(i18n.Locale()).PageCopyTitle
 func (msgs Messages) PageCopyTitle(title string) string {
 	return Catalog.Format(msgs.locale, "page_copyTitle", map[string]any{"title": title})
 }
+
+// Heading says "heading"
+// in the language the app shows.
+func Heading() string { return In(i18n.Locale()).Heading() }
+
+// Heading says "heading"
+// in the language of msgs.
+func (msgs Messages) Heading() string {
+	return Catalog.Format(msgs.locale, "heading", nil)
+}
+
+// Task says "task"
+// in the language the app shows.
+func Task() string { return In(i18n.Locale()).Task() }
+
+// Task says "task"
+// in the language of msgs.
+func (msgs Messages) Task() string {
+	return Catalog.Format(msgs.locale, "task", nil)
+}

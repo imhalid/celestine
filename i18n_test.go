@@ -487,3 +487,27 @@ func TestRecurLabel(t *testing.T) {
 		}
 	}
 }
+
+// Every hint of the editor names a message the catalogs have: an id they do not know is shown as it is, in any
+// language ("move" for "move2").
+func TestEditorHintsAreMessages(t *testing.T) {
+	af, err := parser.ParseFile(token.NewFileSet(), "blockhints.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast.Inspect(af, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok || len(call.Args) != 2 {
+			return true
+		}
+		if id, ok := call.Fun.(*ast.Ident); !ok || id.Name != "add" {
+			return true
+		}
+		if bl, ok := call.Args[1].(*ast.BasicLit); ok && bl.Kind == token.STRING {
+			if s, _ := strconv.Unquote(bl.Value); !hasMessage(s) {
+				t.Errorf("hint %q is no message", s)
+			}
+		}
+		return true
+	})
+}
