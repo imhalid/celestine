@@ -79,7 +79,7 @@ func appCommands() []appCmd {
 		{title: "view_actualSize", accel: "cmd+0", menu: "view", glyph: iconSearch, run: func(a *app) { a.setZoom(1) }},
 		{title: "biggerText", accel: "alt+cmd+=", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(1) }},
 		{title: "smallerText", accel: "alt+cmd+-", menu: "view", glyph: iconEditing, run: func(a *app) { a.stepFont(-1) }},
-		{title: "resetTheFontSize", accel: "alt+cmd+0", menu: "view", glyph: iconEditing, run: (*app).resetFont},
+		{title: "resetTheFontSize", menu: "view", glyph: iconEditing, run: (*app).resetFont},
 		{title: "panes_openHereInSide", accel: "alt+cmd+enter", menu: "view", sep: true, glyph: iconPanel, run: (*app).openHereInSide, off: phoneOff},
 		{title: "newPaneThisScreen", menu: "view", glyph: iconPanel, run: (*app).newPaneHere, off: phoneOff},
 		{title: "switchPane", accel: "alt+cmd+right", menu: "view", glyph: iconPanel, run: (*app).nextPane, off: onePaneOff},

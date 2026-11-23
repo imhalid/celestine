@@ -91,7 +91,7 @@ func TestAutoSaveDelay(t *testing.T) {
 	}
 }
 
-// ⌥⌘= and ⌥⌘- change the text's size, ⌥⌘0 puts it back (⌘= and ⌘- zoom the window, winzoom.go).
+// ⌥⌘= and ⌥⌘- change the text's size, the View menu puts it back (⌘= and ⌘- zoom the window, winzoom.go).
 func TestFontKeys(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	base := a.fontSize()
@@ -112,10 +112,29 @@ func TestFontKeys(t *testing.T) {
 	if a.fontSize() != minFont {
 		t.Fatalf("no floor: %v", a.fontSize())
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.Key0)
+	a.resetFont() // the View menu's: ⌥⌘0 is the editor's plain text (#535)
 	tt.Advance(20 * time.Millisecond)
 	if a.fontSize() != base {
 		t.Fatalf("reset: %v", a.fontSize())
+	}
+}
+
+// ⌥⌘0 in a heading makes it plain text, as the block's hints say, and leaves the text's size as it is (#535).
+func TestPlainTextKey(t *testing.T) {
+	a, tt := newTestApp(t, "# Heading one\n\nbody\n")
+	tt.Frame()
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyEqual) // a size of its own, which a reset would take away
+	tt.Advance(20 * time.Millisecond)
+	size := a.fontSize()
+	a.doc.SetSelection(3, 3) // in the heading
+	tt.Frame()
+	if a.doc.Text().ParagraphStyleAt(0).Heading != 1 {
+		t.Fatal("the test's page has no heading")
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.Key0)
+	tt.Advance(20 * time.Millisecond)
+	if h := a.doc.Text().ParagraphStyleAt(0).Heading; h != 0 || a.fontSize() != size {
+		t.Fatalf("⌥⌘0 in a heading: heading %d, size %v (was %v)", h, a.fontSize(), size)
 	}
 }
 
