@@ -22,7 +22,8 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-func init() { library.HTTPTransport = netproxy.Transport() }
+// The library's requests go through the proxy the user set: sync's, and the links' pages (#559).
+func init() { library.HTTPTransport, library.LinkProxy = netproxy.Transport(), netproxy.Proxy }
 
 // The app's side of synchronization: the settings, the remote they make, the state kept in the library's
 // file, a sync now and then in the background, the badge of its state, the conflicts to choose between.

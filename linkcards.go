@@ -57,7 +57,23 @@ var (
 	linkHoverWait = 450 * time.Millisecond
 	// linkLeaveWait is how long the card stays once the pointer left the link and is not on the card.
 	linkLeaveWait = 300 * time.Millisecond
+	// linkWait is how long a page or a picture of a link is waited for, from when it is asked for.
+	linkWait = 15 * time.Second
 )
+
+// linkSlots are the pages and pictures of links asked for at once: a page of many links does not ask every site
+// together (#559).
+var linkSlots = make(chan struct{}, 4)
+
+// fetchLink runs fetch when a slot is free, with linkWait from then: the time waited for the slot is not the fetch's,
+// or a link behind others would run out before it is asked for, and be remembered as failed for the session.
+func fetchLink(fetch func(ctx context.Context)) {
+	linkSlots <- struct{}{}
+	defer func() { <-linkSlots }()
+	ctx, cancel := context.WithTimeout(context.Background(), linkWait)
+	defer cancel()
+	fetch(ctx)
+}
 
 var iconUnlink = icon(`<path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1M4 4l16 16"/>`)
 
@@ -105,9 +121,8 @@ func (a *app) linkPage(address string, withImage bool) *linkInfo {
 		}
 		go func() {
 			defer a.guard()
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			m, _ := library.FetchLinkMeta(ctx, address)
+			var m library.LinkMeta
+			fetchLink(func(ctx context.Context) { m, _ = library.FetchLinkMeta(ctx, address) })
 			a.do(func() error {
 				info.done, info.meta = true, m
 				return nil
@@ -122,12 +137,12 @@ func (a *app) linkPage(address string, withImage bool) *linkInfo {
 		src := info.meta.Image
 		go func() {
 			defer a.guard()
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
 			var img ui.ImageSource
-			if data, err := library.FetchLinkImage(ctx, src); err == nil {
-				img, _ = ui.DecodeImage(data)
-			}
+			fetchLink(func(ctx context.Context) {
+				if data, err := library.FetchLinkImage(ctx, src); err == nil {
+					img, _ = ui.DecodeImage(data)
+				}
+			})
 			a.do(func() error {
 				info.image = img
 				return nil
@@ -152,12 +167,12 @@ func (a *app) linkIcon(address string) ui.ImageSource {
 	}
 	go func() {
 		defer a.guard()
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
 		var img ui.ImageSource
-		if data, err := library.FetchLinkImage(ctx, address); err == nil {
-			img, _ = ui.DecodeImage(data)
-		}
+		fetchLink(func(ctx context.Context) {
+			if data, err := library.FetchLinkImage(ctx, address); err == nil {
+				img, _ = ui.DecodeImage(data)
+			}
+		})
 		a.do(func() error {
 			w.icons[address] = img
 			return nil

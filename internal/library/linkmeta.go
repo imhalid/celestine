@@ -42,6 +42,11 @@ var linkClient = &http.Client{
 	},
 }
 
+// LinkProxy is the proxy a link's page or picture is asked through, for each request: nil, or a nil answer, to go
+// straight to the site. The app sets it to the system's (MyGo's netproxy.Proxy), which the library does not import;
+// a browser has its own (#559).
+var LinkProxy func(*http.Request) (*url.URL, error)
+
 // AllowLocalLinks lets links be fetched from this machine's loopback addresses: only a test does, for a server of
 // its own. Private, link-local and the other addresses of a network are refused all the same.
 var AllowLocalLinks = false

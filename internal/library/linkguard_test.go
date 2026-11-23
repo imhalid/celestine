@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -100,5 +101,33 @@ func TestLinkRedirectPrivate(t *testing.T) {
 		if _, err := FetchLinkImage(ctx, srv.URL+"/to/"+host); !errors.Is(err, errPrivateAddr) {
 			t.Errorf("a picture's redirect to %s is followed: %v", host, err)
 		}
+	}
+}
+
+// TestLinkThroughProxy: a link's page is asked through the proxy the system says, which resolves the site's name (the
+// proxy's own address, here this machine's, is not judged); a proxy that cannot be found out fails the request rather
+// than sending it straight; an address written as a private one is refused before any proxy is asked (#559).
+func TestLinkThroughProxy(t *testing.T) {
+	var asked []string
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.URL.String()) // a proxy is asked for the whole address
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<html><head><title>Through the proxy</title></head></html>"))
+	}))
+	defer proxy.Close()
+	via, _ := url.Parse(proxy.URL)
+	LinkProxy = func(*http.Request) (*url.URL, error) { return via, nil }
+	defer func() { LinkProxy = nil }()
+	m, err := FetchLinkMeta(context.Background(), "http://example.com/page")
+	if err != nil || m.Title != "Through the proxy" || len(asked) != 1 || asked[0] != "http://example.com/page" {
+		t.Fatalf("through the proxy: %v %+v, the proxy asked for %v", err, m, asked)
+	}
+	LinkProxy = func(*http.Request) (*url.URL, error) { return nil, errors.New("no answer from the system") }
+	if _, err := FetchLinkMeta(context.Background(), "http://example.com/page"); err == nil || len(asked) != 1 {
+		t.Fatalf("a proxy not found out: %v, the proxy asked %d times", err, len(asked))
+	}
+	LinkProxy = func(*http.Request) (*url.URL, error) { return via, nil }
+	if _, err := FetchLinkMeta(context.Background(), "http://192.168.1.1/"); !errors.Is(err, errPrivateAddr) || len(asked) != 1 {
+		t.Fatalf("a private address through the proxy: %v", err)
 	}
 }

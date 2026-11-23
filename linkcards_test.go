@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -317,5 +318,37 @@ func TestLinkIconRTL(t *testing.T) {
 	pad := linkIconPad("https://example.com/x", a.font.Size)
 	if d := plain.X - link.X; d < pad-1 || d > pad+1 {
 		t.Errorf("the room is not at the link's right: x %v, without the icon %v, room %v", link.X, plain.X, pad)
+	}
+}
+
+// At most four pages or pictures of links are asked for at once, and the time a fetch has starts when it is asked
+// for: one that waited behind four others does not find its time used up (#559).
+func TestFetchLinkSlots(t *testing.T) {
+	was := linkWait
+	linkWait = 300 * time.Millisecond
+	defer func() { linkWait = was }()
+	release := make(chan struct{})
+	started := make(chan struct{}, 8)
+	for range cap(linkSlots) {
+		go fetchLink(func(context.Context) { started <- struct{}{}; <-release })
+	}
+	for range cap(linkSlots) {
+		<-started
+	}
+	late := make(chan error, 1)
+	go fetchLink(func(ctx context.Context) { late <- ctx.Err() })
+	select {
+	case <-late:
+		t.Fatal("a fifth fetch ran with four going on")
+	case <-time.After(2 * linkWait): // longer than its time: it would be used up, had it started with the wait
+	}
+	close(release)
+	select {
+	case err := <-late:
+		if err != nil {
+			t.Fatalf("the fetch that waited for a slot found its time up: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the fifth fetch did not run once a slot was free")
 	}
 }
