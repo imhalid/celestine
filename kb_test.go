@@ -761,3 +761,21 @@ func TestHelpGroupsKept(t *testing.T) {
 		t.Fatal("kept once closed")
 	}
 }
+
+// The app's command keys are parsed once, not at each frame where there is no menu bar, and every command with a key
+// is among them (#204).
+func TestAppKeyedOnce(t *testing.T) {
+	a, b := appKeyed(), appKeyed()
+	if len(a) == 0 || &a[0] != &b[0] {
+		t.Fatal("parsed again")
+	}
+	n := 0
+	for _, c := range appCommands() {
+		if _, _, _, ok := parseAccel(c.accel); ok {
+			n++
+		}
+	}
+	if len(a) != n {
+		t.Fatalf("%d commands with keys, %d parsed", n, len(a))
+	}
+}

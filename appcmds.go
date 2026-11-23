@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -219,16 +220,40 @@ func appAccels() map[string]string {
 
 // appKeys runs the commands whose keys were pressed, in the window: when there is no menu bar to take them.
 func (a *app) appKeys(c *ui.Context) {
-	for _, cmd := range appCommands() {
-		mods, key, _, ok := parseAccel(cmd.accel)
-		if !ok || !c.Shortcut(mods, key) {
+	for _, k := range appKeyed() {
+		if !c.Shortcut(k.mods, k.key) {
 			continue
 		}
-		if cmd.off == nil || cmd.off(a) == "" {
-			cmd.run(a)
+		if k.cmd.off == nil || k.cmd.off(a) == "" {
+			k.cmd.run(a)
 		}
 	}
 }
+
+// keyedCmd is a command of the app and its key, parsed.
+type keyedCmd struct {
+	cmd  appCmd
+	mods ui.Modifiers
+	key  ui.Key
+}
+
+// appKeyed are the app's commands that have keys, with them parsed: once, where every command was made and every key
+// parsed at each frame where there is no menu bar (#204). The commands and their keys are the same for the app's life.
+func appKeyed() []keyedCmd {
+	madeKeyed.Do(func() {
+		for _, cmd := range appCommands() {
+			if mods, key, _, ok := parseAccel(cmd.accel); ok {
+				keyedList = append(keyedList, keyedCmd{cmd, mods, key})
+			}
+		}
+	})
+	return keyedList
+}
+
+var (
+	madeKeyed sync.Once
+	keyedList []keyedCmd
+)
 
 // appPalette are the app's commands as lines of the palette.
 func (a *app) appPalette() []palItem {
