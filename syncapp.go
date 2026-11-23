@@ -243,13 +243,19 @@ func (a *app) syncFS() (FS, string) {
 // libWrites counts the writes to the library: the store's own count, or the app's for a folder library
 // (countFS); a pass starts once it has been still a moment.
 func (a *app) libWrites() uint64 {
-	switch fs := a.lib.FS.(type) {
+	n, _ := fsWrites(a.lib.FS)
+	return n
+}
+
+// fsWrites is the count of writes to fsys, and whether it keeps one: the store's own, or countFS's.
+func fsWrites(fsys FS) (uint64, bool) {
+	switch fs := fsys.(type) {
 	case *Store:
-		return fs.Writes.Load()
+		return fs.Writes.Load(), true
 	case *countFS:
-		return fs.n.Load()
+		return fs.n.Load(), true
 	}
-	return 0
+	return 0, false
 }
 
 // countFS is a folder library's disk, counting the writes made through it: the folder has no count of its own, as

@@ -124,6 +124,10 @@ type stampJob struct {
 	day  string
 }
 
+// stampChunk is how many pages of the journal one change of the store stamps: a frame that reads or saves waits for
+// the change going on, so a big journal is stamped in parts, not at once (#565). A test makes it smaller.
+var stampChunk = 200
+
 // stampDays keeps in each page of the journal c that has none the day it is for now: from then on a change of time
 // zone does not move it. It is called with the lock held, and only looks: the files are written by a goroutine, the
 // key in their meta alone, and the time they were last written kept (library.StampMeta), so an old page is not one
@@ -157,23 +161,34 @@ func (a *app) stampDays(c *Collection) {
 			}
 		}
 		if library.BatchSeals(fsys) {
-			// one change of the store, outside the lock: a save the window makes meanwhile waits for it, and is
-			// not lost, as each file is read inside it
+			// changes of the store outside the lock, stampChunk pages each: a save the window makes meanwhile waits
+			// for the one going on, and is not lost, as each file is read inside it
 			var done []stampJob
-			err := library.InBatch(fsys, func() error {
-				for _, j := range jobs {
-					if ok, err := library.StampMeta(fsys, j.file, journalDayKey, j.day); ok && err == nil {
-						done = append(done, j)
+			var after uint64 // the writes when the last batch had written, inside it: no one else writes then
+			for chunk := range slices.Chunk(jobs, stampChunk) {
+				err := library.InBatch(fsys, func() error {
+					for _, j := range chunk {
+						if ok, err := library.StampMeta(fsys, j.file, journalDayKey, j.day); ok && err == nil {
+							done = append(done, j)
+						}
 					}
+					after, _ = fsWrites(fsys)
+					return nil
+				})
+				if err != nil {
+					break // what this one stamped was not kept: the next start tries again
 				}
-				return nil
-			})
-			if err != nil {
-				return // nothing was kept: the next start tries again
 			}
 			a.do(func() error {
 				for _, j := range done {
 					keep(j)
+				}
+				// a save between the last batch and now wrote its page from the props, without the day: it is
+				// stamped again, here, where no save comes between (#565)
+				if now, known := fsWrites(fsys); !known || now != after {
+					for _, j := range done {
+						library.StampMeta(fsys, j.p.File(), journalDayKey, j.day)
+					}
 				}
 				return nil
 			})

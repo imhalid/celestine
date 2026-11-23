@@ -12,8 +12,11 @@ import (
 
 // The pages of the journal from before their days were kept get them in the background: the meta of each file alone,
 // the time it was last written kept, so they do not become the pages changed last; and a page saved meanwhile keeps
-// what was saved (#538).
+// what was saved (#538). The store's are stamped in parts, and a page saved after the last part, before the days are
+// in memory, is written without its day and stamped again (#565).
 func TestJournalStampDaysKeepsModified(t *testing.T) {
+	stampChunk = 2 // three pages: two changes of the store
+	t.Cleanup(func() { stampChunk = 200 })
 	for _, kind := range []string{"store", "folder"} {
 		t.Run(kind, func(t *testing.T) {
 			var (
@@ -124,9 +127,26 @@ func TestJournalStampDaysKeepsModified(t *testing.T) {
 					}
 					time.Sleep(5 * time.Millisecond)
 				}
-				a.mu.Unlock()
 			} else {
 				close(release)
+			}
+			// the window saves another page while the days are written and not yet in memory: its file has no day
+			var late *Page
+			var lateAt time.Time
+			if kind == "store" {
+				for _, p := range j.All() {
+					if p.Title == days[2] {
+						late = p
+					}
+				}
+				if err := late.SaveText("saved after the days\n"); err != nil {
+					t.Fatal(err)
+				}
+				lateAt = late.Modified
+				if stamped(days[2]) {
+					t.Fatal("the save after the days kept the day: the test does not reach the case")
+				}
+				a.mu.Unlock()
 			}
 			a.stamping.Wait()
 
@@ -149,6 +169,12 @@ func TestJournalStampDaysKeepsModified(t *testing.T) {
 				if p.Title == days[1] {
 					if !strings.Contains(text, "edited meanwhile") || !p.Modified.Equal(editedAt) {
 						t.Errorf("the page saved meanwhile: %q, modified %v, want %v", text, p.Modified, editedAt)
+					}
+					continue
+				}
+				if late != nil && p.Title == days[2] {
+					if !strings.Contains(text, "saved after the days") || !p.Modified.Equal(lateAt) {
+						t.Errorf("the page saved after the days: %q, modified %v, want %v", text, p.Modified, lateAt)
 					}
 					continue
 				}
