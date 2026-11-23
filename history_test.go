@@ -774,3 +774,26 @@ func TestTimeMachineRestoreFailureIsSaid(t *testing.T) {
 		t.Fatal("no error said")
 	}
 }
+
+// What a goroutine hands to the next frame is done as that frame starts, under the lock, and not before: the paint,
+// which runs out of the lock, reads it only after a frame has put it in (#582).
+func TestDoNextFrame(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	done := false
+	given := make(chan struct{})
+	go func() {
+		a.doNextFrame(func() { done = true })
+		close(given)
+	}()
+	<-given
+	a.mu.Lock()
+	early := done
+	a.mu.Unlock()
+	if early {
+		t.Fatal("done before a frame")
+	}
+	tt.Frame()
+	if !done {
+		t.Fatal("not done by the frame")
+	}
+}

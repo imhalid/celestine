@@ -337,6 +337,7 @@ type app struct {
 	sidebarR      ui.Rect                                   // where the sidebar was, last frame
 	prewarming    bool                                      // the pages are being read away from the window (prewarm.go)
 	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
+	nextFrame     []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
 	firstFrame    chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
 	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
 	edPtr         ui.Point                                  // the pointer over the page's text, last frame
@@ -1046,6 +1047,10 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frameSeq++
 	a.frameNow = c.Now()
+	for _, fn := range a.nextFrame {
+		fn()
+	}
+	a.nextFrame = nil
 	a.motionFrame(c) // reduced motion, and the shader effects on or off (motion.go)
 	a.updatePhone(c)
 	a.keepSettings(c)

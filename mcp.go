@@ -335,6 +335,16 @@ func (a *app) do(fn func() error) error {
 	return err
 }
 
+// doNextFrame has fn done at the start of the next frame, under the window's lock: what a goroutine found that the
+// paint reads. The paint runs after the view, out of the lock, on the window's thread: a goroutine's a.do may run
+// as it paints, but a frame never does (#582).
+func (a *app) doNextFrame(fn func()) {
+	a.do(func() error {
+		a.nextFrame = append(a.nextFrame, fn)
+		return nil
+	})
+}
+
 // ---- what an agent sees ----
 
 // A page or collection is named by its folder, from the library's root, as

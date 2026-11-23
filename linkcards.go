@@ -123,10 +123,7 @@ func (a *app) linkPage(address string, withImage bool) *linkInfo {
 			defer a.guard()
 			var m library.LinkMeta
 			fetchLink(func(ctx context.Context) { m, _ = library.FetchLinkMeta(ctx, address) })
-			a.do(func() error {
-				info.done, info.meta = true, m
-				return nil
-			})
+			a.doNextFrame(func() { info.done, info.meta = true, m }) // read in the paint: given in a frame (#582)
 		}()
 	}
 	if info.done && info.meta.Icon != "" {
@@ -143,10 +140,7 @@ func (a *app) linkPage(address string, withImage bool) *linkInfo {
 					img, _ = ui.DecodeImage(data)
 				}
 			})
-			a.do(func() error {
-				info.image = img
-				return nil
-			})
+			a.doNextFrame(func() { info.image = img })
 		}()
 	}
 	return info
@@ -173,10 +167,7 @@ func (a *app) linkIcon(address string) ui.ImageSource {
 				img, _ = ui.DecodeImage(data)
 			}
 		})
-		a.do(func() error {
-			w.icons[address] = img
-			return nil
-		})
+		a.doNextFrame(func() { w.icons[address] = img })
 	}()
 	return nil
 }

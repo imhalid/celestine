@@ -206,14 +206,13 @@ func (a *app) startLapse() {
 			}
 		}
 		toks := lapseParas(ws, paras)
-		a.do(func() error {
+		a.doNextFrame(func() { // the editor's paint reads them (lapseSpans): given in a frame (#582)
 			l := &a.lapse
 			if l.page != p || !l.busy {
-				return nil
+				return
 			}
 			l.busy, l.words, l.days, l.sizes, l.paras = false, ws, when, sizes, toks
 			l.ver++ // the editor's words are colored anew
-			return nil
 		})
 	}()
 }
