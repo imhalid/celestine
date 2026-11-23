@@ -396,3 +396,16 @@ func TestNoLiteralWords(t *testing.T) {
 		t.Fatalf("%d words the catalogs cannot translate:\n%s", len(found), strings.Join(found, "\n"))
 	}
 }
+
+// A tag's "#" in a plural message is the tag's, not the count's (#534).
+func TestTagAddedMessage(t *testing.T) {
+	if got := locales.In("en").BulkTagAdded(3, "urgent"); got != "Added #urgent to 3 pages" {
+		t.Errorf("en: %q", got)
+	}
+	if got := locales.In("en").BulkTagAdded(1, "urgent"); got != "Added #urgent to 1 page" {
+		t.Errorf("en, one: %q", got)
+	}
+	if got := locales.In("tr").BulkTagAdded(3, "acil"); got != "3 sayfaya #acil eklendi" {
+		t.Errorf("tr: %q", got)
+	}
+}

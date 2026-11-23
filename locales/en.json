@@ -208,7 +208,7 @@
   "bulk_selectedCount": "{count} selected",
   "@bulk_selectedCount": {"placeholders": {"count": {"type": "int"}}},
   "bulk_tag": "Tag",
-  "bulk_tagAdded": "{count, plural, one {Added #{tag} to # page} other {Added #{tag} to # pages}}",
+  "bulk_tagAdded": "{count, plural, one {Added '#'{tag} to # page} other {Added '#'{tag} to # pages}}",
   "@bulk_tagAdded": {"placeholders": {"count": {"type": "int"}, "tag": {"type": "String"}}},
   "bulk_tagPlaceholder": "tag",
   "bulletList": "bullet list",

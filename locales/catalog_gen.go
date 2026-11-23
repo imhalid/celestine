@@ -1803,11 +1803,11 @@ func (msgs Messages) BulkTag() string {
 	return Catalog.Format(msgs.locale, "bulk_tag", nil)
 }
 
-// BulkTagAdded says "{count, plural, one {Added #{tag} to # page} other {Added #{tag} to # pages}}"
+// BulkTagAdded says "{count, plural, one {Added '#'{tag} to # page} other {Added '#'{tag} to # pages}}"
 // in the language the app shows.
 func BulkTagAdded(count int, tag string) string { return In(i18n.Locale()).BulkTagAdded(count, tag) }
 
-// BulkTagAdded says "{count, plural, one {Added #{tag} to # page} other {Added #{tag} to # pages}}"
+// BulkTagAdded says "{count, plural, one {Added '#'{tag} to # page} other {Added '#'{tag} to # pages}}"
 // in the language of msgs.
 func (msgs Messages) BulkTagAdded(count int, tag string) string {
 	return Catalog.Format(msgs.locale, "bulk_tagAdded", map[string]any{"count": count, "tag": tag})
