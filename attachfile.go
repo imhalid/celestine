@@ -45,7 +45,16 @@ func openedCopies() string {
 // session that did not end as it should left behind.
 func clearOpenedCopies() { os.RemoveAll(openedCopies()) }
 
-// runShellOpen gives path to the system: opened with its program, or shown in its folder.
+// shellOpenSoon is runShellOpen away from the window, with a panic in it logged rather than lost (guard).
+func (a *app) shellOpenSoon(path string, reveal bool) {
+	go func() {
+		defer a.guard()
+		a.runShellOpen(path, reveal)
+	}()
+}
+
+// runShellOpen gives path to the system: opened with its program, or shown in its folder. MyGo makes the call on
+// the main thread itself (onMain), from any goroutine.
 func (a *app) runShellOpen(path string, reveal bool) {
 	if a.shellOpen != nil { // a test sees what would be opened
 		a.shellOpen(path, reveal)

@@ -522,7 +522,7 @@ func (a *app) settingsBackup(c *ui.Context) {
 				// the folder, to open or to copy where it is (#497)
 				if ryugo.Button(c.Key("backup-open"), locales.CommonOpen(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
 					os.MkdirAll(dir, 0o700)
-					go a.runShellOpen(dir, false)
+					a.shellOpenSoon(dir, false)
 				}
 				ryugo.CopyButton(c.Key("backup-copy"), dir, ryugo.CopyOptions{Label: locales.CommonCopyLabel(locales.BackupBackupFolder())})
 				rest := a.bk.handAt.Add(backupRest).Sub(now)

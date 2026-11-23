@@ -157,7 +157,7 @@ func (a *app) settingsUpdate(c *ui.Context) {
 				ui.Row(c).Gap(8).Children(func() {
 					if local {
 						if ryugo.Button(c.Key("upd-releases"), locales.UpdateReleases(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-							go a.runShellOpen(releasesPage, false)
+							a.shellOpenSoon(releasesPage, false)
 						}
 						return
 					}

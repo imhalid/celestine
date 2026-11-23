@@ -753,7 +753,7 @@ func (a *app) settingsLibrary(c *ui.Context) {
 		// where it is, not its file's name, which says nothing to a user (#408)
 		row("libraryFolder", filepath.Dir(store.File), "copy-root", func() {
 			if ryugo.Button(c.Key("lib-show"), locales.PropsShowFolder(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-				go a.runShellOpen(store.File, true)
+				a.shellOpenSoon(store.File, true)
 			}
 		}),
 		func() { a.settingsImport(c) },
