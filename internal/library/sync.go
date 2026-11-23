@@ -613,6 +613,10 @@ type EncRemote struct {
 	// while (missingWait) before what is missing is taken for withheld
 	now                     time.Time
 	indexSince, hashesSince int64
+	// unvouched is when each labelled file the hashes did not vouch for was first found so (SyncState.Unvouched):
+	// another device puts a file before the hashes that vouch for it, so it is waited for a while (missingWait)
+	// before it is taken for a copy that is not the file's (#148)
+	unvouched map[string]int64
 
 	// hashes is the remote's "_hashes" as read, by short name (hashKey); hraw the hash of its sealed bytes, and
 	// hloaded whether it was read; mine is what this pass knows better
@@ -642,10 +646,9 @@ type EncRemote struct {
 }
 
 // sealWithLabels is whether a remote seals what it puts with labels, and refuses a labelled file that the hashes do
-// not vouch for (EncRemote.Labels). It is off in this release: what it puts must still open on a version from
-// before #148, which seals and opens with no label. It is turned on in a later release, once every device runs
-// this one, which reads both.
-const sealWithLabels = false
+// not vouch for once it has waited for them (EncRemote.Labels). It is on since every device reads both forms (#148,
+// phase 2). A file sealed before, with no label, still opens, and is sealed with its label when it is next written.
+const sealWithLabels = true
 
 // PutHash is the remote's hash of what was put under name, when it is known without asking the remote.
 func (e *EncRemote) PutHash(name string) (string, bool) {
@@ -1205,10 +1208,22 @@ func (e *EncRemote) vouch(p, plain, sealed string, unlabelled bool) error {
 		}
 		if e.Labels && !unlabelled {
 			if f, ok := e.entry(key); !ok || f.deleted || f.plain != plain {
+				if e.unvouched == nil {
+					e.unvouched = map[string]int64{}
+				}
+				since := e.unvouched[p]
+				if since == 0 {
+					since = e.now.Unix()
+					e.unvouched[p] = since
+				}
+				if e.now.Unix()-since < int64(missingWait/time.Second) { // its hashes may yet come
+					return ErrRemoteNotYet
+				}
 				return fmt.Errorf("%w: the hashes do not vouch for it", ErrFileRollback)
 			}
 		}
 	}
+	delete(e.unvouched, p)
 	e.know(p, fileHashes{plain: plain, sealed: s})
 	if e.got == nil {
 		e.got = map[string]string{}
@@ -1312,6 +1327,7 @@ func (e *EncRemote) beginPass(st *SyncState, now time.Time) {
 	e.trustIndex, e.trustFiles = st.TrustIndex, st.TrustFiles
 	e.hseen = genVector(st.HashesSeen).join(nil)
 	e.now, e.indexSince, e.hashesSince = now, st.IndexMissingSince, st.HashesMissingSince
+	e.unvouched = maps.Clone(st.Unvouched)
 	e.have = map[string]string{}
 	for p, f := range st.Files {
 		if f.Local != "" && f.Remote != "" {
@@ -1368,6 +1384,7 @@ func (e *EncRemote) endPass(st *SyncState) error {
 		st.IndexNames = strings.Join(names, "")
 	}
 	st.IndexMissingSince, st.HashesMissingSince = e.indexSince, e.hashesSince
+	st.Unvouched = e.unvouched
 	st.IndexSeen, st.HashesSeen = e.seen.join(nil), e.hseen.join(nil)
 	st.Earlier = e.held(st)
 	return err
@@ -1499,6 +1516,10 @@ func (e *EncRemote) Get(name string) ([]byte, error) {
 		return nil, err
 	}
 	out, unlabelled, err := e.open(b, fileAAD(name))
+	if errors.Is(err, errSealed) && e.indexed && !e.trustFiles {
+		// the key opened the index: a file it does not open under its own name is sealed for another (#148)
+		return nil, fmt.Errorf("%w: sealed for another name", ErrFileRollback)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1617,8 +1638,10 @@ type SyncState struct {
 	// taken at their word. IndexMissingSince and HashesMissingSince are when a pass first found the index, or the
 	// hashes, missing where they were, in Unix seconds (0 for not): a folder copied by another program may bring them
 	// late, so they are waited for, missingWait at most.
-	HashesSeen         map[string]int64 `json:"hashesSeen,omitempty"`
-	IndexMissingSince  int64            `json:"indexMissingSince,omitempty"`
+	HashesSeen        map[string]int64 `json:"hashesSeen,omitempty"`
+	IndexMissingSince int64            `json:"indexMissingSince,omitempty"`
+	// Unvouched is when each labelled file the remote's hashes did not vouch for was first found so (EncRemote.vouch).
+	Unvouched          map[string]int64 `json:"unvouched,omitempty"`
 	HashesMissingSince int64            `json:"hashesMissingSince,omitempty"`
 	// Earlier is, by path, the short hashes of the sealed copies of each file this device synced, the last one
 	// last, and deletedMark after them for a file deleted (EncRemote.vouch): the remote serving one of them, but
@@ -1647,7 +1670,7 @@ func (st *SyncState) ForRemote(id string) bool {
 	st.forget()
 	st.IndexSeen, st.IndexNames, st.Earlier = nil, "", nil // another remote's index counts its own generations
 	st.HashesSeen, st.IndexMissingSince, st.HashesMissingSince = nil, 0, 0
-	st.Counter = 0
+	st.Counter, st.Unvouched = 0, nil
 	return true
 }
 
@@ -1668,7 +1691,7 @@ func (st *SyncState) asListed() map[string]RemoteEntry {
 // and something synced already.
 func (st *SyncState) MayTakeAsListed() bool {
 	return st.Counter != 0 && !st.TrustIndex && !st.TrustFiles && !st.AllowRemovals && !st.Resend && st.Held == 0 &&
-		st.IndexMissingSince == 0 && st.HashesMissingSince == 0 && len(st.asListed()) > 0
+		st.IndexMissingSince == 0 && st.HashesMissingSince == 0 && len(st.Unvouched) == 0 && len(st.asListed()) > 0
 }
 
 // forget drops what the state knows of each file and its base; what this library made for itself stays (Pristine).

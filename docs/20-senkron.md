@@ -39,10 +39,10 @@ eşitleniyor… / çevrimdışı / çakışma: 2` rozeti. Çevrimdışıyken yaz
   copies it synced of each file. Each put seals with a nonce of its own, so an honest write never repeats earlier bytes:
   an older index, a file served under another's name, an older copy, or a deleted file brought back is refused, and
   the sync settings offer "Trust the remote again". An index or hashes missing are waited for five minutes (a folder
-  synced by another program may bring them late); a folder not there at all is offline. Phase 1 still writes without
-  labels, so that older versions keep syncing; it cannot catch a newer copy of another file, served with older hashes
-  that are not below what a device saw, to a device that never held that file. Phase 2 seals each file under a label
-  of its path, which closes it.
+  synced by another program may bring them late); a folder not there at all is offline. Since phase 2 each file is
+  sealed under a label of its path, so a file served under another's name does not open, and is refused; a file the
+  hashes do not vouch for is waited for five minutes, as another device puts a file before its hashes, then refused.
+  A file sealed before, with no label, still opens, and is sealed with its label when it is next written.
 - A pass lists the server only when another device wrote since this one's last pass (#151). The server's counter
   moves once for each write it answers "ok" (`/changes` says `exact`), and this device counts its own: when the
   counter is what its last pass left, the pass takes what the sync state knows for the listing. A write of another

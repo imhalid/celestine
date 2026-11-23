@@ -208,7 +208,7 @@ func TestSyncSealSwapRefused(t *testing.T) {
 		os.WriteFile(two, b1, 0o644)
 		for i, d := range []*device{a, newDevice(t)} {
 			res, err := passOf(d, sealRemote(t, inner, labels))
-			if err != nil || len(res.Errors) != 2 || !labels && len(res.Refused) != 2 || res.Pulled != 0 {
+			if err != nil || len(res.Errors) != 2 || len(res.Refused) != 2 || res.Pulled != 0 { // a labelled swap, too: sealed for another name
 				t.Fatalf("labels %v, device %d took the swap: %v %+v", labels, i, err, res)
 			}
 		}
@@ -603,7 +603,8 @@ func TestSyncSealOldClientBothWays(t *testing.T) {
 }
 
 // With labels on, a new device refuses a labelled file the hashes do not vouch for: an older copy, or one they have
-// nothing of. An unlabelled one, as a version before #148 puts it, is taken.
+// nothing of. It waits for them first, missingWait, taking nothing: another device puts a file before the hashes
+// that vouch for it (#148, phase 2). An unlabelled one, as a version before #148 puts it, is taken.
 func TestSyncSealStrict(t *testing.T) {
 	inner := DirRemote{Root: t.TempDir()}
 	const page = "Not/Bir/page.json"
@@ -615,7 +616,11 @@ func TestSyncSealStrict(t *testing.T) {
 	a.sync(sealRemote(t, inner, true))
 	second, _ := os.ReadFile(object(t, inner, page))
 	os.WriteFile(object(t, inner, page), first, 0o644)
-	if res, _ := passOf(newDevice(t), sealRemote(t, inner, true)); len(res.Refused) != 1 {
+	b := newDevice(t)
+	if res, _ := passOf(b, sealRemote(t, inner, true)); !res.Waiting || res.Pulled != 0 || len(res.Refused) != 0 {
+		t.Fatalf("an older labelled copy, before the wait: %+v", res)
+	}
+	if res, _ := passAt(b, sealRemote(t, inner, true), sealT0.Add(missingWait+time.Minute)); len(res.Refused) != 1 || b.read(page) != "<yok>" {
 		t.Fatalf("an older labelled copy was taken: %+v", res)
 	}
 	os.WriteFile(object(t, inner, page), second, 0o644)
@@ -623,7 +628,8 @@ func TestSyncSealStrict(t *testing.T) {
 	a.sync(sealRemote(t, inner, false)) // unlabelled
 	os.Remove(inner.file(HashesFile))
 	fresh := newDevice(t)
-	res, _ := passOf(fresh, sealRemote(t, inner, true))
+	passOf(fresh, sealRemote(t, inner, true)) // the hashes waited for
+	res, _ := passAt(fresh, sealRemote(t, inner, true), sealT0.Add(missingWait+time.Minute))
 	if fresh.read("Not/Eski/page.json") != "eski" || len(res.Refused) != 1 || res.Refused[0] != page {
 		t.Fatalf("with labels on and no hashes: %+v", res)
 	}
@@ -1052,5 +1058,30 @@ func TestSyncSealMountPointThenBack(t *testing.T) {
 		if clean(t, "the folder's own copies back", res, err); a.read("A/Bir/page.json") != "bir" {
 			t.Fatal("a page changed")
 		}
+	}
+}
+
+// A labelled file put before the hashes that vouch for it, as another device puts a file and then its hashes, is
+// waited for, not refused: once the hashes come, it is taken, and nothing is left waiting (#148, phase 2).
+func TestSyncSealFileBeforeItsHashes(t *testing.T) {
+	inner := DirRemote{Root: t.TempDir()}
+	const page = "Not/Bir/page.json"
+	a, b := newDevice(t), newDevice(t)
+	a.write(page, "bir")
+	a.sync(sealRemote(t, inner, true))
+	b.sync(sealRemote(t, inner, true))
+	before := mustGet(t, inner, HashesFile)
+	a.write(page, "bir, sonra")
+	a.sync(sealRemote(t, inner, true))
+	after := mustGet(t, inner, HashesFile)
+	inner.Put(HashesFile, before, HashOf(after)) // the file is there, its hashes not yet
+	res, err := passAt(b, sealRemote(t, inner, true), sealT0.Add(time.Hour))
+	if err != nil || !res.Waiting || len(res.Refused) != 0 || b.read(page) != "bir" || len(b.st.Unvouched) != 1 {
+		t.Fatalf("before its hashes: %v %+v, here %q", err, res, b.read(page))
+	}
+	inner.Put(HashesFile, after, HashOf(before)) // they come
+	res, err = passAt(b, sealRemote(t, inner, true), sealT0.Add(time.Hour+time.Minute))
+	if err != nil || res.Waiting || len(res.Refused) != 0 || b.read(page) != "bir, sonra" || len(b.st.Unvouched) != 0 {
+		t.Fatalf("after its hashes came: %v %+v, here %q", err, res, b.read(page))
 	}
 }
