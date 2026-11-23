@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -150,5 +151,37 @@ func TestInlineTask(t *testing.T) {
 	// at the start of a line: not a chip
 	if a.checkShortcut(richtext.NewText("[ ]"), 3, true) {
 		t.Fatal("a line's box taken for one in the text")
+	}
+}
+
+// The paint makes no map of the lists' items for a text none of whose lists has a look: typing in a long list
+// rebuilt them at each key (#543). A list with a look still has its marks.
+func TestListLooksOnlyWhenThere(t *testing.T) {
+	var b strings.Builder
+	for i := range 2000 {
+		fmt.Fprintf(&b, "- item %d\n", i)
+	}
+	a, tt := newTestApp(t, b.String())
+	tt.Frame()
+	a.doc.SetSelection(3, 3)
+	tt.Type("x")
+	tt.Frame()
+	if a.listMarks != nil {
+		t.Fatal("the lists' items were made for a text with no look")
+	}
+	if a.looks == nil || len(a.looks.items) != 0 {
+		t.Fatalf("looks: %+v", a.looks)
+	}
+	a.setListSpec(0, listSpec{mark: "★"})
+	tt.Frame()
+	if it := a.listItemAt(0); it == nil || it.spec.mark != "★" {
+		t.Fatalf("a list with a look has no mark: %+v", it)
+	}
+}
+
+// The settings' definitions are made once, not at each call (#543).
+func TestSettingDefsOnce(t *testing.T) {
+	if a, b := settingDefs(), settingDefs(); len(a) == 0 || &a[0] != &b[0] {
+		t.Fatal("made again")
 	}
 }

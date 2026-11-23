@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -94,7 +95,18 @@ func (a *app) save1() { a.saveSettings() }
 
 // settingDefs is the list of settings. The settings screen draws its own rows; this list is what the
 // palette and the argument commands go by, and the test holds the two together.
-func settingDefs() []settingDef { return settingDefsFor(runtime.GOOS == "darwin") }
+func settingDefs() []settingDef {
+	madeDefs.Do(func() { allDefs = settingDefsFor(runtime.GOOS == "darwin") })
+	return allDefs
+}
+
+// allDefs are the definitions, made once (madeDefs): about eighty, each with its closures, which the settings
+// screen asked for six times and more a frame (settingLimits, changedDefs, profileChanges, #543). Nothing in making
+// them reads the app or the language: what they say is said when their functions run.
+var (
+	madeDefs sync.Once
+	allDefs  []settingDef
+)
 
 // settingLimits are the bounds of the number setting that covers field, as the palette's command has them: the
 // settings screen's slider takes them too, so a value set by the command is never past the slider's end (#224).

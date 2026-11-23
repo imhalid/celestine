@@ -298,6 +298,7 @@ type app struct {
 	web           webLinks       // the web pages links go to, as far as they are known (linkcards.go)
 	wholeBlock    wholeBlock     // whether the block at the start of the page's text is all of it (blockhints.go)
 	listMarks     *listMarks     // the lists of the page's text and their looks, read once for each text (listmarks.go)
+	looks         *listMarks     // the lists that have a look, for the paint: none made for a text with no look (listLooks)
 	toggleMu      sync.Mutex     // held by the toggle of a task read and written away from the window (toggleTaskSoon)
 	toggling      sync.WaitGroup // the toggles going on: a test waits for them
 	hoverCh       *chip          // the chip the pointer is over

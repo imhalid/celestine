@@ -183,12 +183,37 @@ func (a *app) lists() *listMarks {
 	return a.listMarks
 }
 
+// listLooks is lists for what is drawn at every frame: the lists that have a look (items). A text whose paragraphs
+// have no look at all, as most have, makes none of the maps of every item, which lists made again after each change:
+// 5 ms a key on a page of thirty thousand paragraphs (#543).
+func (a *app) listLooks() *listMarks {
+	t := a.doc.Text()
+	if a.looks == nil || a.looks.text != t {
+		if hasListLook(t) {
+			a.looks = a.lists()
+		} else {
+			a.looks = &listMarks{text: t}
+		}
+	}
+	return a.looks
+}
+
+// hasListLook reports whether a paragraph of t says how its list looks.
+func hasListLook(t richtext.Text) bool {
+	for _, para := range t.Paragraphs() {
+		if strings.HasPrefix(para.Style.ID, listIDPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // listItemAt is the item paragraph index p is, with its list's spec; nil when its list has none.
 func (a *app) listItemAt(p int) *listItem {
 	if a.doc == nil {
 		return nil
 	}
-	return a.lists().items[p]
+	return a.listLooks().items[p]
 }
 
 // markedTask reports whether the task of paragraph index p has a bullet or a number before its box.
@@ -227,7 +252,7 @@ func (a *app) drawListMarks(p *ui.Painter, r ui.Rect) {
 	if a.doc == nil || a.theme == nil {
 		return
 	}
-	lm := a.lists()
+	lm := a.listLooks()
 	if len(lm.items) == 0 {
 		return
 	}
