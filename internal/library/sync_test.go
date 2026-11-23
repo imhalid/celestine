@@ -1530,14 +1530,31 @@ func TestRemovedFilesComeBackWithTheirPage(t *testing.T) {
 }
 
 // A passphrase is checked against the remote's sealed index when the remote is opened: the right one opens it, a
-// wrong one (a typo when joining a second device) is refused, and a remote with no index yet takes any (#153).
+// wrong one (a typo when joining a second device) is refused (#153). Before there is an index, the check put beside
+// the salt by the first passphrase does it (#562); a remote whose salt came before the check takes any, and is not
+// given a check by a key it cannot check.
 func TestSyncOpenEncChecksPassphrase(t *testing.T) {
 	inner := DirRemote{Root: t.TempDir()}
-	if _, err := OpenEnc(inner, "parola"); err != nil { // a new remote: the salt is made, there is no index
-		t.Fatal(err)
+	if e, err := OpenEnc(inner, "parola"); err != nil || e.Checked() { // a new remote: the salt and the check are made
+		t.Fatalf("a new remote: %v, checked against nothing %v", err, e != nil && e.Checked())
 	}
-	if e, err := OpenEnc(inner, "başka"); err != nil || e.HasIndex() {
-		t.Fatalf("a remote with no index refused a passphrase, or said it was checked: %v", err)
+	if _, err := inner.Get(CheckFile); err != nil {
+		t.Fatalf("no check beside the salt: %v", err)
+	}
+	if e, err := OpenEnc(inner, "başka"); !errors.Is(err, ErrWrongPassphrase) || e != nil {
+		t.Fatalf("a wrong passphrase before any index: %v", err)
+	}
+	if e, err := OpenEnc(inner, "parola"); err != nil || !e.Checked() || e.HasIndex() {
+		t.Fatalf("the right passphrase before any index: %v", err)
+	}
+	old := DirRemote{Root: t.TempDir()} // a salt from before the check
+	OpenEnc(old, "parola")
+	os.Remove(old.file(CheckFile))
+	if e, err := OpenEnc(old, "başka"); err != nil || e.Checked() {
+		t.Fatalf("a remote with no index and no check refused a passphrase, or said it was checked: %v", err)
+	}
+	if _, err := old.Get(CheckFile); err == nil {
+		t.Fatal("a key that could not be checked put the check")
 	}
 	e, _ := OpenEnc(inner, "parola")
 	a := newDevice(t)

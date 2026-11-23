@@ -1031,7 +1031,7 @@ func (a *app) settingsSync(c *ui.Context) {
 // setSyncPassphrase turns encryption on with the passphrase: the key is made with the remote's salt, checked
 // against what the remote holds, kept, and its recovery words shown once. With a key set, it is the passphrase
 // entered again, never changed (#153): the new key replaces the one kept only if it opens the remote's sealed
-// index, and a remote with no index yet has nothing to check it against, so the key kept stays. The remote and
+// index or its check, and a remote with neither has nothing to check it against, so the key kept stays. The remote and
 // the key derivation are slow, so they run in a goroutine, out of the app's lock; what they found is kept only if
 // the settings still point where they did, with the same key.
 func (a *app) setSyncPassphrase(pass string) {
@@ -1071,7 +1071,7 @@ func (a *app) setSyncPassphrase(pass string) {
 			case err != nil:
 				a.say(toastErr, locales.CommonDidntWork(err.Error()))
 				return nil
-			case again && !e.HasIndex():
+			case again && !e.Checked():
 				a.say(toastErr, locales.SyncErrNothingToCheck())
 				return nil
 			}

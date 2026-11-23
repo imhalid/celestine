@@ -43,6 +43,10 @@ eşitleniyor… / çevrimdışı / çakışma: 2` rozeti. Çevrimdışıyken yaz
   labels, so that older versions keep syncing; it cannot catch a newer copy of another file, served with older hashes
   that are not below what a device saw, to a device that never held that file. Phase 2 seals each file under a label
   of its path, which closes it.
+- A passphrase is checked when it is set: against the sealed index, and before there is one against `_check`, a short
+  text sealed with the key and put beside the salt by the passphrase that made the salt (#562). A second device
+  joining with a typo before the first one's index is there is refused instead of sealing under another key. A remote
+  whose salt came before the check has none, and takes any passphrase until its index is there.
 
 ## Silinenler çöpe gider, toplu silme beklemeye alınır (8 Kasım 2026)
 

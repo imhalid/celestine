@@ -411,6 +411,8 @@ type EncRemote struct {
 	loaded bool
 	// indexed says the remote held a sealed index when it was read, and so that the key opened it (HasIndex)
 	indexed bool
+	// checked says the key opened the remote's check (CheckFile), put there before (Checked)
+	checked bool
 	// sent is the remote's hash of each file put in this pass, by its name: the hash of the sealed bytes, as a
 	// folder and the Worker both have it, so that the pass need not list the remote again to learn it (PutHash)
 	sent map[string]string
@@ -517,6 +519,7 @@ func NewEncRemote(inner Remote, key []byte) (*EncRemote, error) {
 // holds a sealed index must open with the key, or the passphrase is refused (ErrWrongPassphrase).
 func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 	salt, err := inner.Get(SaltFile)
+	made := false // the salt is made here: this passphrase is the remote's first, and its check is put with it
 	if err != nil {
 		list, lerr := inner.List()
 		if m, ok := inner.(interface{ Make() error }); ok && errors.Is(lerr, ErrNoFolder) {
@@ -536,6 +539,7 @@ func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 		if err := inner.Put(SaltFile, salt, ""); err != nil {
 			return nil, err
 		}
+		made = true
 	}
 	key, err := DeriveKey(pass, salt)
 	if err != nil {
@@ -552,8 +556,60 @@ func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 	} else if err != nil {
 		return nil, err
 	}
+	// and so is the check, which a remote has from its first key on, before any index: a second device joining with
+	// a typo, before the first one's index is there, would otherwise seal under another key and lock it out (#562)
+	if err := e.check(made); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
+
+// CheckFile holds a short text sealed with the remote's key, put beside the salt by the passphrase that made the
+// salt: a passphrase is checked against it when the remote has no index yet to check it against. A remote whose
+// salt came before the check has none, and a passphrase there is checked only by the index, as before.
+const CheckFile = "_check"
+
+var (
+	checkAAD  = []byte("celestine/check/v1")
+	checkText = []byte("celestine passphrase check")
+)
+
+// check opens the remote's check with the key, and puts one there when it has none and first (the salt made with
+// this key) says the key is the remote's first: ErrWrongPassphrase when the check is there and does not open. A key
+// that is not known to be the remote's never puts it: a typo would then be the check the right passphrase fails.
+func (e *EncRemote) check(first bool) error {
+	for range 2 {
+		b, err := e.inner.Get(CheckFile)
+		if err == nil {
+			if out, _, err := e.open(b, checkAAD); err != nil || !bytes.Equal(out, checkText) {
+				return ErrWrongPassphrase
+			}
+			e.checked = true
+			return nil
+		}
+		list, lerr := e.inner.List()
+		if lerr != nil {
+			return lerr
+		}
+		if c, ok := list[CheckFile]; ok && !c.Deleted {
+			return err // there, and not read: not a reason to put another
+		}
+		if !first {
+			return nil // nothing to check the key against: the index, when there is one, has checked it
+		}
+		err = e.inner.Put(CheckFile, e.seal(checkText, checkAAD), "")
+		if errors.Is(err, ErrConflict) { // put by another device as this one read: read it
+			continue
+		}
+		return err // the first check: what it checks is the next passphrase, not this one
+	}
+	return ErrConflict
+}
+
+// Checked says whether the key is known to be the remote's: it opened the remote's index, or its check. A key that
+// made the remote's salt and check is not: it is what it is, with nothing before it to agree with. A passphrase
+// entered again replaces the key kept only when it is checked (setSyncPassphrase).
+func (e *EncRemote) Checked() bool { return e.indexed || e.checked }
 
 // ErrWrongPassphrase says a passphrase does not open what the remote holds: it is not the one its files were
 // sealed with.
@@ -711,7 +767,7 @@ func (e *EncRemote) checkIndex(idx map[string]string, gen genVector) error {
 // onlyItsOwn says whether a listing holds nothing but what the remote keeps for itself: a remote emptied, or never used.
 func onlyItsOwn(list map[string]RemoteEntry) bool {
 	for n := range list {
-		if n != SaltFile && n != HashesFile && n != IndexFile {
+		if n != SaltFile && n != HashesFile && n != IndexFile && n != CheckFile {
 			return false
 		}
 	}
