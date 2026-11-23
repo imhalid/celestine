@@ -388,7 +388,7 @@ func (a *app) sharedProps(name string) []sharedProp {
 			continue
 		}
 		for _, p := range c.Properties {
-			k := fold(p.Name)
+			k := foldText(p.Name)
 			if seen[k] || cs.draft.PropNamed(p.Name) != nil || match(name, p.Name) < 0 {
 				continue
 			}

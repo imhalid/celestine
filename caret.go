@@ -19,8 +19,9 @@ import (
 // against the caret the editor reports to input methods, for every kind of
 // paragraph, so a change in MyGo that moves it fails a test.
 //
-// This mirrors richtext v0.7.4's paraFont, look.span and insets (ui/richtext/view.go);
-// the editor is an EditorBase, which has no padding.
+// This mirrors MyGo's richtext paraFont, look.span and insets (ui/richtext/view.go), the
+// version go.mod requires, which caret_test.go holds it to; the editor is an EditorBase, which
+// has no padding.
 
 // invisible is a caret color the editor takes as set (it is not the zero
 // Color, which would take the default) and draws as nothing.

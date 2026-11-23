@@ -61,7 +61,7 @@ func foldRunes(s string) []rune {
 		}
 		f, ok := seen[r]
 		if !ok {
-			fr := []rune(fold(string(r)))
+			fr := []rune(foldText(string(r)))
 			f = r
 			if len(fr) > 0 {
 				f = fr[0]

@@ -142,7 +142,7 @@ func (a *app) commandByTitle(title string) *palItem {
 		if all[i].off != "" {
 			continue
 		}
-		if s := match(title, all[i].title); s > score && fold(all[i].title) != "" {
+		if s := match(title, all[i].title); s > score && foldText(all[i].title) != "" {
 			best, score = i, s
 		}
 	}

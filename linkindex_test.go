@@ -60,7 +60,7 @@ func TestLinkIndexFollowsWrites(t *testing.T) {
 	}
 	time.Sleep(2 * time.Millisecond)
 	a.SaveText("başka\n")
-	if app.plainOf(a) == first || app.plainOf(a).folded != fold("başka") {
+	if app.plainOf(a) == first || app.plainOf(a).folded != foldText("başka") {
 		t.Fatalf("the text did not follow the write: %q", app.plainOf(a).folded)
 	}
 }

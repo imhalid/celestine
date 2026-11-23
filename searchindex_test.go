@@ -12,7 +12,7 @@ import (
 
 // match as it was before it was taken apart for speed: the folded form must score what it scored.
 func matchOld(q, s string) int {
-	q, s = fold(strings.TrimSpace(q)), fold(s)
+	q, s = foldText(strings.TrimSpace(q)), foldText(s)
 	if q == "" {
 		return 0
 	}
@@ -68,7 +68,7 @@ func TestMatchFoldedParity(t *testing.T) {
 			t.Fatalf("match(%q, %q) = %d, was %d", q, s, got, want)
 		}
 		// the mask never throws out what matches
-		if matchOld(q, s) >= 0 && letterMask(fold(strings.TrimSpace(q)))&^letterMask(fold(s)) != 0 {
+		if matchOld(q, s) >= 0 && letterMask(foldText(strings.TrimSpace(q)))&^letterMask(foldText(s)) != 0 {
 			t.Fatalf("the mask drops %q in %q", q, s)
 		}
 	}

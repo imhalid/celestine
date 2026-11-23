@@ -1682,9 +1682,9 @@ func (a *app) track(c *ui.Context) {
 		a.edited = true
 	}
 	// A Markdown shortcut ("[] ", "# "…) just turned an empty paragraph into
-	// another kind: what is typed there starts plain. (richtext v0.7.4 takes
+	// another kind: what is typed there starts plain. (MyGo's richtext took
 	// the empty paragraph's attributes from its end mark, which a bold word
-	// closed at the end of the paragraph above left bold.)
+	// closed at the end of the paragraph above left bold; seen with v0.7.4.)
 	if s, e := text.ParagraphRange(caret); n < a.length && style != a.style && s == e {
 		a.doc.SetTypingAttributes(richtext.Attributes{})
 	}
@@ -2031,7 +2031,7 @@ func (a *app) save() {
 		return
 	}
 	a.saveErr = ""
-	words := len(strings.Fields(unfold(a.doc.Text()).PlainText())) // a fold's lines too: folding is not writing (#128)
+	words := len(strings.Fields(unfoldText(a.doc.Text()).PlainText())) // a fold's lines too: folding is not writing (#128)
 	a.countWriting(a.lastWords, words)
 	a.lastSave, a.lastWords, a.dirty = body, words, false
 	a.savedAt = a.clock()

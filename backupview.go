@@ -167,8 +167,8 @@ func (v *backupView) shows(p *Page) bool {
 	if v.coll != "" && p.Coll.Dir != v.coll || v.only && !v.picked[p] {
 		return false
 	}
-	q := fold(strings.TrimSpace(v.query))
-	if q == "" || strings.Contains(fold(p.Title), q) {
+	q := foldText(strings.TrimSpace(v.query))
+	if q == "" || strings.Contains(foldText(p.Title), q) {
 		return true
 	}
 	if v.texts == nil {
@@ -177,7 +177,7 @@ func (v *backupView) shows(p *Page) bool {
 	t, ok := v.texts[p]
 	if !ok {
 		t, _ = p.Text()
-		t = fold(t)
+		t = foldText(t)
 		v.texts[p] = t
 	}
 	return strings.Contains(t, q)

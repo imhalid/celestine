@@ -153,7 +153,7 @@ var knownBlockKinds = func() map[string]bool {
 // encodeBody writes the editor's text as the body: what is folded is put
 // back (a fold is the editor's, never the page's).
 func encodeBody(t richtext.Text) string {
-	t = unfold(t)
+	t = unfoldText(t)
 	paras := []bodyPara{}
 	for _, p := range t.Paragraphs() {
 		bp := bodyPara{}

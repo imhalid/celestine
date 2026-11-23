@@ -61,7 +61,7 @@ func (g *moodFace) draw(p *ui.Painter, f caretFrame, k kick) {
 		case r == '?':
 			g.feel(moodHuh, tn)
 		case r == ' ' || r == '\n' || r == '.' || r == ',' || r == ';' || r == ':':
-			if m, ok := moodWords[fold(string(g.word))]; ok {
+			if m, ok := moodWords[foldText(string(g.word))]; ok {
 				g.feel(m, tn)
 			}
 			g.word = g.word[:0]

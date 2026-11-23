@@ -69,7 +69,7 @@ func tasksOf(p *Page, body string) []taskItem {
 			if k, ok := taskKindByMD(m[2]); ok {
 				kind = k.id
 			}
-			out = append(out, taskItem{page: p, line: i, done: m[2] == "x" || m[2] == "X", text: text, due: due, every: every, kind: kind, folded: fold(text)})
+			out = append(out, taskItem{page: p, line: i, done: m[2] == "x" || m[2] == "X", text: text, due: due, every: every, kind: kind, folded: foldText(text)})
 		}
 	}
 	return out
@@ -133,7 +133,7 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 		}
 		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
 		text, due, every := taskWords(raw)
-		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col, folded: fold(text)})
+		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col, folded: foldText(text)})
 	}
 	return out
 }
@@ -309,7 +309,7 @@ func prepareToggle(t taskItem, r pageRead, now time.Time) taskToggle {
 		if text, ok := withInlineBox(md, t, !t.done); ok {
 			j.text = text
 			j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, text)
-			j.folded = fold(j.plain)
+			j.folded = foldText(j.plain)
 		}
 		return j
 	}
@@ -333,7 +333,7 @@ func prepareToggle(t taskItem, r pageRead, now time.Time) taskToggle {
 		if text, ok := withTaskBox(md, t.line, box); ok {
 			j.text = text
 			j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, text)
-			j.folded = fold(j.plain)
+			j.folded = foldText(j.plain)
 		}
 	}
 	return j
@@ -464,7 +464,7 @@ func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle 
 	j.saved = encodeBody(doc.Text())
 	j.text = library.TextOfBody(j.saved) // written as Markdown here, away from the window, and kept
 	j.idx, j.plain = readPageIdxAt(p, time.Time{}, 0, j.text)
-	j.folded = fold(j.plain)
+	j.folded = foldText(j.plain)
 	return j
 }
 
@@ -753,12 +753,12 @@ func (a *app) tasksView(c *ui.Context) {
 			}
 			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
 		})
-		q := fold(strings.TrimSpace(a.taskQuery))
+		q := foldText(strings.TrimSpace(a.taskQuery))
 		titles := map[*Page]string{} // each page's title folded once a frame, not once a task
 		titleHas := func(p *Page) bool {
 			t, ok := titles[p]
 			if !ok {
-				t = fold(p.Title)
+				t = foldText(p.Title)
 				titles[p] = t
 			}
 			return strings.Contains(t, q)

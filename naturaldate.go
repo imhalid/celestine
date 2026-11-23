@@ -32,7 +32,7 @@ var dayUnits = map[string]string{
 // parseNaturalDay is the day q names, counted from now's, at its start; false when q names none.
 func parseNaturalDay(q string, now time.Time) (time.Time, bool) {
 	today := startOfDay(now)
-	s := strings.Join(strings.Fields(fold(q)), " ")
+	s := strings.Join(strings.Fields(foldText(q)), " ")
 	if s == "" {
 		return time.Time{}, false
 	}

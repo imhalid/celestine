@@ -21,8 +21,8 @@ type blockSel struct {
 // blockSelRange is the text the chosen blocks take, from the start of the first to the end of the last.
 func (a *app) blockSelRange() (int, int) {
 	t := a.doc.Text()
-	as, ae := blockOf(t, min(a.bsel.anchor, t.Len()))
-	hs, he := blockOf(t, min(a.bsel.head, t.Len()))
+	as, ae := blockRange(t, min(a.bsel.anchor, t.Len()))
+	hs, he := blockRange(t, min(a.bsel.head, t.Len()))
 	return min(as, hs), max(ae, he)
 }
 
@@ -32,7 +32,7 @@ func (a *app) startBlockSel() {
 		return
 	}
 	_, at := a.doc.Selection()
-	s, _ := blockOf(a.doc.Text(), at)
+	s, _ := blockRange(a.doc.Text(), at)
 	a.bsel = blockSel{on: true, anchor: s, head: s}
 	if !a.kb.normal {
 		a.kbEnter() // the keys are the choice's
@@ -51,8 +51,8 @@ func (a *app) blockSelKey(r rune) bool {
 	case 0x1b: // Esc
 		a.bsel.on = false
 	case 'j', kbDown: // take in the next block
-		if _, he := blockOf(t, a.bsel.head); he < t.Len() {
-			a.bsel.head, _ = blockOf(t, he+1)
+		if _, he := blockRange(t, a.bsel.head); he < t.Len() {
+			a.bsel.head, _ = blockRange(t, he+1)
 		}
 	case 'k', kbUp: // the one before
 		if ps, _, ok := prevBlock(t, a.bsel.head); ok {
@@ -67,7 +67,7 @@ func (a *app) blockSelKey(r rune) bool {
 		a.bsel.on = false
 	case 'J': // past the block after them
 		if e < t.Len() {
-			_, ne := blockOf(t, e+1)
+			_, ne := blockRange(t, e+1)
 			at := moveBlockTo(a.doc, s, e, min(ne+1, a.doc.Text().Len()+1))
 			a.reselect(at, e-s)
 		}
@@ -86,7 +86,7 @@ func (a *app) blockSelKey(r rune) bool {
 func (a *app) reselect(at, n int) {
 	t := a.doc.Text()
 	a.bsel.anchor = at
-	a.bsel.head, _ = blockOf(t, blockHeadOf(t, min(at+n, t.Len())))
+	a.bsel.head, _ = blockRange(t, blockHeadOf(t, min(at+n, t.Len())))
 	if a.bsel.head < at {
 		a.bsel.head = at
 	}
@@ -140,7 +140,7 @@ func (a *app) openBlockMenu() {
 		return
 	}
 	_, at := a.doc.Selection()
-	s, _ := blockOf(a.doc.Text(), at)
+	s, _ := blockRange(a.doc.Text(), at)
 	g := &a.grip
 	g.para = s
 	g.menu = true
@@ -155,7 +155,7 @@ func (a *app) openBlockBeside() {
 		return
 	}
 	_, at := a.doc.Selection()
-	s, _ := blockOf(a.doc.Text(), at)
+	s, _ := blockRange(a.doc.Text(), at)
 	pl := a.here()
 	if phone {
 		a.gotoPos(s)

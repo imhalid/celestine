@@ -414,7 +414,7 @@ var goDate = regexp.MustCompile(`^(?:tarihe git|tarih|go to date|go to|date)\s+(
 // dateItems are the palette's lines for "Tarihe git" and a day said after it (parseNaturalDay): its page, or
 // today's made, or what the journal does not have.
 func (a *app) dateItems(q string) []palItem {
-	m := goDate.FindStringSubmatch(strings.Join(strings.Fields(fold(q)), " "))
+	m := goDate.FindStringSubmatch(strings.Join(strings.Fields(foldText(q)), " "))
 	if m == nil {
 		return nil
 	}

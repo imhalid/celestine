@@ -289,7 +289,7 @@ func (p *qparser) unary() *qnode {
 		}
 		return n
 	case t.phrase:
-		return &qnode{kind: qPhrase, text: fold(t.s)}
+		return &qnode{kind: qPhrase, text: foldText(t.s)}
 	case strings.HasPrefix(t.s, "-") && len(t.s) > 1:
 		if n := term(t.s[1:]); n != nil {
 			return &qnode{kind: qNot, kids: []*qnode{n}}
@@ -305,7 +305,7 @@ func term(w string) *qnode {
 		return &qnode{kind: qTag, text: tagKey(w[1:])}
 	}
 	if strings.HasPrefix(w, "@") {
-		switch fold(w[1:]) {
+		switch foldText(w[1:]) {
 		case "todo", "yapilacak", "acik":
 			return &qnode{kind: qTodo}
 		case "done", "bitti", "tamam", "yapildi":
@@ -315,18 +315,18 @@ func term(w string) *qnode {
 		}
 	}
 	if m := queryKeyOp.FindStringSubmatch(w); m != nil && m[3] != "" {
-		k, op, v := fold(m[1]), strings.TrimPrefix(m[2], ":"), m[3]
+		k, op, v := foldText(m[1]), strings.TrimPrefix(m[2], ":"), m[3]
 		if op == "" || op == "=" {
 			op = ":"
 		}
 		switch k {
 		case "baslik", "title":
 			if op == ":" {
-				return &qnode{kind: qTitle, text: fold(v)}
+				return &qnode{kind: qTitle, text: foldText(v)}
 			}
 		case "koleksiyon", "kol", "in":
 			if op == ":" {
-				return &qnode{kind: qColl, text: fold(v)}
+				return &qnode{kind: qColl, text: foldText(v)}
 			}
 		case "etiket", "tag":
 			if op == ":" {
@@ -340,7 +340,7 @@ func term(w string) *qnode {
 			return &qnode{kind: qProp, text: k, op: op, val: v}
 		}
 	}
-	if w = fold(w); w == "" {
+	if w = foldText(w); w == "" {
 		return nil
 	}
 	return &qnode{kind: qWord, text: w}
@@ -488,7 +488,7 @@ func (a *app) score(n *qnode, d qdoc) (int, bool) {
 			return 20, propMatches(pr, d.page.Value(pr), n.op, n.val)
 		}
 		// no such property here: it is a word, as written
-		return wordScore(fold(n.text+":"+n.val), d, 50, 2)
+		return wordScore(foldText(n.text+":"+n.val), d, 50, 2)
 	}
 	return 0, false
 }
@@ -512,7 +512,7 @@ func propFolded(c *Collection, name string) *Property {
 		return nil
 	}
 	for i := range c.Properties {
-		if pr := &c.Properties[i]; fold(pr.Name) == name || pr.ID == name {
+		if pr := &c.Properties[i]; foldText(pr.Name) == name || pr.ID == name {
 			return pr
 		}
 	}
@@ -526,16 +526,16 @@ func propMatches(pr *Property, val, op, want string) bool {
 	if op == ":" {
 		switch pr.Type {
 		case PropTags:
-			return slices.ContainsFunc(SplitTags(val), func(t string) bool { return fold(t) == fold(want) })
+			return slices.ContainsFunc(SplitTags(val), func(t string) bool { return foldText(t) == foldText(want) })
 		case PropNumber:
 			return val != "" && CompareValues(pr, val, want) == 0
 		case PropChoice, PropDate, PropPage, PropFile:
-			return fold(val) == fold(want)
+			return foldText(val) == foldText(want)
 		}
-		return strings.Contains(fold(val), fold(want))
+		return strings.Contains(foldText(val), foldText(want))
 	}
 	if pr.Type == PropChoice { // the option as it is written, from any case and letters; none is no order
-		i := slices.IndexFunc(pr.Options, func(o string) bool { return fold(o) == fold(want) })
+		i := slices.IndexFunc(pr.Options, func(o string) bool { return foldText(o) == foldText(want) })
 		if i < 0 {
 			return false
 		}

@@ -540,10 +540,10 @@ func (a *app) fontNameItems(q string) []palItem {
 		default:
 			continue
 		}
-		low := fold(q)
-		pre := fold(d.name) // the name in Turkish, or in the window's language
+		low := foldText(q)
+		pre := foldText(d.name) // the name in Turkish, or in the window's language
 		if !strings.HasPrefix(low, pre+" ") {
-			if pre = fold(msg(d.name)); !strings.HasPrefix(low, pre+" ") {
+			if pre = foldText(msg(d.name)); !strings.HasPrefix(low, pre+" ") {
 				continue
 			}
 		}

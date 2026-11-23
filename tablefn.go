@@ -19,7 +19,7 @@ import (
 // words in a cell. A row with nothing in it always shows, or a row just added
 // would vanish under the filter it does not match.
 func (m *tableModel) visible() []int {
-	q := strings.Fields(fold(m.Filter))
+	q := strings.Fields(foldText(m.Filter))
 	out := make([]int, 0, len(m.rows))
 	for i, r := range m.rows {
 		if len(q) == 0 || rowBlank(r) || rowHolds(r, q) {
@@ -40,7 +40,7 @@ func rowBlank(r []string) bool {
 
 // rowHolds reports whether the row's cells together hold every word of q (folded).
 func rowHolds(r []string, q []string) bool {
-	all := fold(strings.Join(r, "\x00"))
+	all := foldText(strings.Join(r, "\x00"))
 	for _, w := range q {
 		if !strings.Contains(all, w) {
 			return false
@@ -69,7 +69,7 @@ func sortKey(col tableCol, s string) (num float64, text string, ok bool) {
 	case kindDate:
 		return 0, s, true
 	}
-	return 0, fold(plainText(s)), true
+	return 0, foldText(plainText(s)), true
 }
 
 // lessRows orders two cells of a column, those with nothing last.

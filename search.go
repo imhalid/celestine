@@ -122,7 +122,7 @@ type searchHit struct {
 
 // snippet is the words of text around the first of the words, marked.
 func snippet(text string, words []string) []seg {
-	folded := fold(text)
+	folded := foldText(text)
 	src := text
 	if utf8.RuneCountInString(folded) != utf8.RuneCountInString(text) {
 		src = folded // the letters do not line up: the folded text is shown
@@ -266,7 +266,7 @@ func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 	}
 	var out []searchHit
 	for _, c := range a.lib.Collections {
-		cname := fold(c.Name)
+		cname := foldText(c.Name)
 		okColl := true
 		for _, w := range pq.colls {
 			okColl = okColl && strings.Contains(cname, w)
@@ -275,7 +275,7 @@ func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 			continue
 		}
 		for _, p := range c.All() {
-			score, ok := a.score(pq.root, qdoc{p, c, fold(p.Title), a.plainOf(p).folded, cname})
+			score, ok := a.score(pq.root, qdoc{p, c, foldText(p.Title), a.plainOf(p).folded, cname})
 			if !ok {
 				continue
 			}
@@ -317,7 +317,7 @@ func (a *app) openFound(h searchHit) {
 	if a.doc == nil {
 		return
 	}
-	if at := runeIndex([]rune(fold(a.doc.Text().String())), []rune(h.at)); at >= 0 {
+	if at := runeIndex([]rune(foldText(a.doc.Text().String())), []rune(h.at)); at >= 0 {
 		a.gotoPos(at)
 	}
 }

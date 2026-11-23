@@ -111,9 +111,9 @@ func (x *searchIndex) take(a *app, c *Collection, p *Page) {
 		x.docs = append(x.docs, d)
 		p.SxID, p.SxOf, p.SxGen = id, x, x.gen
 	}
-	d.coll, d.title, d.fcoll = c, p.Title, fold(c.Name)
+	d.coll, d.title, d.fcoll = c, p.Title, foldText(c.Name)
 	d.mod, d.writes = p.Modified.UnixNano(), p.Writes
-	d.ftitle, d.ftext = fold(p.Title), a.plainOf(p).folded
+	d.ftitle, d.ftext = foldText(p.Title), a.plainOf(p).folded
 	clear(x.seen[:])
 	x.put(id, d.ftitle, true)
 	x.put(id, d.ftext, true)

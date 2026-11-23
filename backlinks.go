@@ -191,7 +191,7 @@ func (a *app) linkContext(q, p *Page) []seg {
 		re := regexp.MustCompile(`(?i)\[\[\s*` + regexp.QuoteMeta(strings.TrimSpace(p.Title)) + `\s*(\|[^\]]*)?\]\]`)
 		for _, ln := range strings.Split(body, "\n") {
 			if m := re.FindString(ln); m != "" {
-				out = snippet(plainText(ln), []string{fold(p.Title)})
+				out = snippet(plainText(ln), []string{foldText(p.Title)})
 				break
 			}
 		}
@@ -289,7 +289,7 @@ func (a *app) plainOf(p *Page) *plainIdx {
 	}
 	e := &plainIdx{mod: p.Modified, writes: p.Writes}
 	if body, err := p.Text(); err == nil {
-		e.folded = fold(plainText(body))
+		e.folded = foldText(plainText(body))
 	}
 	l.plain[p] = e
 	return e

@@ -48,8 +48,10 @@ func blockHeadOf(t richtext.Text, start int) int {
 	return s
 }
 
-// blockRange is the block starting at the paragraph holding rune at: from
-// its start to the end of its last paragraph (without the newline after).
+// blockRange is the block starting at the paragraph holding rune at, or the run of code or quotation it is a
+// line of: from its start to the end of its last paragraph (without the newline after), the paragraphs under
+// it with it. A paragraph inside a heading's section is a block of its own; one inside a list item's is its
+// own item's.
 func blockRange(t richtext.Text, at int) (int, int) {
 	s, e := t.ParagraphRange(blockHeadOf(t, at))
 	st := t.ParagraphStyleAt(s)
@@ -119,7 +121,7 @@ func swapBlocks(t richtext.Text, a0, a1, b0, b1 int) richtext.Text {
 func moveBlock(doc *richtext.Document, dir int) bool {
 	t := doc.Text()
 	_, caret := doc.Selection()
-	s, e := blockOf(t, caret)
+	s, e := blockRange(t, caret)
 	var a0, a1, b0, b1 int
 	if dir < 0 {
 		ps, pe, ok := prevBlock(t, s)
@@ -150,13 +152,6 @@ func moveBlock(doc *richtext.Document, dir int) bool {
 		}
 	})
 	return true
-}
-
-// blockOf is the block the paragraph holding rune at starts, or is in:
-// a paragraph inside a heading's section is a block of its own; one inside
-// a list item's is its own item's.
-func blockOf(t richtext.Text, at int) (int, int) {
-	return blockRange(t, at)
 }
 
 // moveBlockTo moves block [s, e) to before the paragraph starting at to
@@ -222,7 +217,7 @@ func moveBlockTo(doc *richtext.Document, s, e, to int) int {
 // a task duplicated has a box of its own, #539); nil copies the text as it is.
 func duplicateBlock(doc *richtext.Document, at int, own func(richtext.Text) richtext.Text) {
 	t := doc.Text()
-	s, e := blockOf(t, at)
+	s, e := blockRange(t, at)
 	blk := t.Slice(s, e)
 	if own != nil {
 		blk = own(blk)
@@ -239,23 +234,11 @@ func duplicateBlock(doc *richtext.Document, at int, own func(richtext.Text) rich
 	})
 }
 
-// deleteBlock takes the block holding rune at away, with its newline.
+// deleteBlock takes the block holding rune at away, with its newline: the blocks chosen are taken the same way
+// (deleteRange).
 func deleteBlock(doc *richtext.Document, at int) {
-	t := doc.Text()
-	s, e := blockOf(t, at)
-	doc.Edit(func(ed *richtext.Edit) {
-		switch {
-		case e < t.Len():
-			ed.Replace(s, e+1, richtext.Text{})
-			ed.Select(s, s)
-		case s > 0:
-			ed.Replace(s-1, e, richtext.Text{})
-			ed.Select(s-1, s-1)
-		default:
-			ed.Replace(s, e, richtext.Text{})
-			ed.FormatParagraphs(0, 0, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
-		}
-	})
+	s, e := blockRange(doc.Text(), at)
+	deleteRange(doc, s, e)
 }
 
 // turnInto gives the paragraph holding rune at the kind of block named.

@@ -327,7 +327,7 @@ func outsideCode(l string, fn func(string) string) string {
 // bodyMarkdown writes the editor's text as the page's Markdown.
 func bodyMarkdown(t richtext.Text) string {
 	// chips are their [[links]] (chips.go); tasks in the running text and lists' looks are tokens (listmd.go)
-	t, looks, marked := listTokensOut(unfold(t))
+	t, looks, marked := listTokensOut(unfoldText(t))
 	type span struct {
 		s, e int
 		h    heldBlock

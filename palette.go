@@ -384,8 +384,8 @@ func (a *app) placeIndex() *placeIdx {
 	px.items = items
 	px.ftitle, px.fboth, px.mask = make([]string, len(items)), make([]string, len(items)), make([]uint64, len(items))
 	for i, it := range items {
-		px.ftitle[i] = fold(it.title)
-		px.fboth[i] = fold(it.title + " " + it.sub)
+		px.ftitle[i] = foldText(it.title)
+		px.fboth[i] = foldText(it.title + " " + it.sub)
 		px.mask[i] = letterMask(px.fboth[i])
 	}
 	px.ready, px.dirty = true, false
@@ -396,7 +396,7 @@ func (a *app) placeIndex() *placeIdx {
 // the folded titles, the places that lack a letter of q never looked at.
 func (a *app) placeMatches(q string, max int) []palItem {
 	px := a.placeIndex()
-	fq := fold(strings.TrimSpace(q))
+	fq := foldText(strings.TrimSpace(q))
 	words := strings.Fields(fq)
 	qr := []rune(strings.ReplaceAll(fq, " ", ""))
 	qm := letterMask(fq)
@@ -518,7 +518,7 @@ func (a *app) commandItems(q string) []palItem {
 		}
 		if s >= 0 {
 			it.score = s + rank(it.title)*6 + it.boost
-			if fold(it.title) == fold(strings.TrimSpace(q)) { // the very name asked for comes first
+			if foldText(it.title) == foldText(strings.TrimSpace(q)) { // the very name asked for comes first
 				it.score += 300
 			}
 			out = append(out, it)
@@ -633,8 +633,9 @@ func (a *app) goToParagraph(n int) {
 	a.revealWant = true
 }
 
-// fold is s for matching: lower case, Turkish letters as their ASCII.
-func fold(s string) string {
+// foldText is s for matching: lower case, Turkish letters as their ASCII. Its name is not fold, which folds
+// a block of the page (fold.go).
+func foldText(s string) string {
 	ascii := true
 	for i := 0; i < len(s); i++ {
 		if s[i] >= utf8.RuneSelf {
@@ -687,11 +688,11 @@ func turkishASCII(r rune) (byte, bool) {
 // start and at the start of words better; the letters of q in order, worse;
 // -1 for no match.
 func match(q, s string) int {
-	q = fold(strings.TrimSpace(q))
+	q = foldText(strings.TrimSpace(q))
 	if q == "" {
 		return 0
 	}
-	return matchFolded(q, strings.Fields(q), []rune(strings.ReplaceAll(q, " ", "")), fold(s))
+	return matchFolded(q, strings.Fields(q), []rune(strings.ReplaceAll(q, " ", "")), foldText(s))
 }
 
 // matchFolded is match for a q that was folded and taken apart once (its words, its letters without
