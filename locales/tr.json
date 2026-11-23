@@ -1314,6 +1314,7 @@
   "sync_trustRemoteAgain": "Uzak konuma yeniden güven",
   "sync_trustRemoteHint": "Uzak konum bir yedekten geri yüklenmiş, başka bir program ya da klasör eşitleme uygulaması tarafından değiştirilmiş ya da kurcalanmış olabilir. Ona yalnızca nedenini biliyorsan yeniden güven: tuttukları, buradaki kopyaların üzerine olduğu gibi alınır.",
   "sync_waitingForRemote": "Uzak konumdaki dosyaların gelmesi bekleniyor",
+  "sync_createFolder": "Klasörü oluştur",
   "sync_noFolderChosen": "klasör seçilmemiş",
   "sync_noPassphraseYetSync": "Henüz parola yok; eşitleme çalışmaz.",
   "sync_notOnRemote": "{count} dosya uzak konumda yok; bu bilgisayarda tutuluyor",

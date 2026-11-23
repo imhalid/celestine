@@ -1492,6 +1492,7 @@
   "sync_trustRemoteAgain": "Trust the remote again",
   "sync_trustRemoteHint": "The remote may have been restored from a backup, changed by another program or a folder-sync app, or tampered with. Trust it again only if you know why: what it holds is then taken as it is, over the copies here.",
   "sync_waitingForRemote": "Waiting for the remote's files to arrive",
+  "sync_createFolder": "Create folder",
   "sync_noFolderChosen": "no folder chosen",
   "sync_noPassphraseYetSync": "No passphrase yet, so sync won't run.",
   "sync_notOnRemote": "{count, plural, one {# file isn't on the remote; it's kept on this computer} other {# files aren't on the remote; they're kept on this computer}}",

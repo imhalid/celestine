@@ -13329,6 +13329,16 @@ func (msgs Messages) SyncWaitingForRemote() string {
 	return Catalog.Format(msgs.locale, "sync_waitingForRemote", nil)
 }
 
+// SyncCreateFolder says "Create folder"
+// in the language the app shows.
+func SyncCreateFolder() string { return In(i18n.Locale()).SyncCreateFolder() }
+
+// SyncCreateFolder says "Create folder"
+// in the language of msgs.
+func (msgs Messages) SyncCreateFolder() string {
+	return Catalog.Format(msgs.locale, "sync_createFolder", nil)
+}
+
 // SyncNoFolderChosen says "no folder chosen"
 // in the language the app shows.
 func SyncNoFolderChosen() string { return In(i18n.Locale()).SyncNoFolderChosen() }

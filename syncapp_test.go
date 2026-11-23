@@ -932,4 +932,87 @@ func TestSyncFolderNotThere(t *testing.T) {
 	if _, err := os.Stat(dir); err == nil {
 		t.Fatal("the pass made the folder")
 	}
+	// the user makes it, from Settings, and the next pass runs with it (#568)
+	if !a.sy.noFolder {
+		t.Fatal("no folder, and nothing offers to make it")
+	}
+	a.makeSyncDir()
+	for i := 0; i < 200; i++ {
+		a.mu.Lock()
+		made := a.sy.err == ""
+		a.mu.Unlock()
+		if made {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		t.Fatalf("the folder was not made: %v", err)
+	}
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.err != "" || a.sy.noFolder {
+		t.Fatalf("the pass after the folder was made: %q", a.sy.err)
+	}
+}
+
+// Settings offer to make the sync folder that a pass did not find, in folder mode only.
+func TestSyncFolderNotThereButton(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.settings.SyncMode, a.settings.SyncDir = "dir", filepath.Join(t.TempDir(), "New")
+	a.sy.noFolder, a.sy.err = true, locales.SyncErrNoFolder()
+	a.openSettings()
+	a.settingsTab = tabSync
+	tt.Frame()
+	tt.Advance(100 * time.Millisecond)
+	r, ok := tt.Find(locales.SyncCreateFolder())
+	if !ok {
+		t.Fatalf("no button to make the folder: %v", tt.Texts())
+	}
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	for i := 0; i < 200; i++ {
+		if _, err := os.Stat(a.settings.SyncDir); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if _, err := os.Stat(a.settings.SyncDir); err != nil {
+		t.Fatalf("the button did not make the folder: %v", err)
+	}
+	tt.Advance(100 * time.Millisecond)
+	if tt.HasText(locales.SyncCreateFolder()) {
+		t.Fatal("the button stays once the folder is made")
+	}
+	a.settings.SyncMode = "server"
+	a.sy.noFolder = true
+	tt.Advance(100 * time.Millisecond)
+	if tt.HasText(locales.SyncCreateFolder()) {
+		t.Fatal("a server has no folder to make")
+	}
+}
+
+// A pass that waits for the remote's hashes (a folder bringing them late) does not read as synced: what is to come
+// down has not (#568).
+func TestSyncWaitingForTheHashes(t *testing.T) {
+	dir := t.TempDir()
+	a, b := syncApp(t, dir), syncApp(t, dir)
+	c, _ := a.lib.NewCollection("Ortak")
+	p, _ := c.NewPage(nil, "Bir")
+	p.SaveText("bir\n")
+	a.syncNow()
+	waitSync(t, a)
+	b.syncNow()
+	waitSync(t, b)
+	q, _ := c.NewPage(nil, "İki")
+	q.SaveText("iki\n")
+	a.syncNow()
+	waitSync(t, a)
+	if err := os.Remove(filepath.Join(dir, library.HashesFile)); err != nil {
+		t.Fatal(err)
+	}
+	b.syncNow()
+	waitSync(t, b)
+	if b.sy.err != "" || b.sy.status != locales.SyncWaitingForRemote() {
+		t.Fatalf("waiting for the hashes: status %q, err %q", b.sy.status, b.sy.err)
+	}
 }

@@ -50,6 +50,7 @@ type syncUI struct {
 	recovery       string // the recovery key just made, to be written down
 	hasKey         bool
 	held           int       // files the last pass did not delete here, the remote having none of them (massRemovals)
+	noFolder       bool      // the last pass found no sync folder: Settings offers to make it (#568)
 	allow          bool      // the user said to delete them: the next pass does
 	backedUp       time.Time // when a pass last backed the library up
 	resend         bool      // the user said to send them up again: the next pass does
@@ -337,6 +338,7 @@ func (a *app) syncNow() {
 			a.sy.writes, a.sy.movedAt = a.libWrites(), time.Time{} // what came down is not something to send
 			a.saveSyncState(state)
 			hadErr := a.sy.err != ""
+			a.sy.noFolder = errors.Is(err, library.ErrNoFolder)
 			a.sy.trustIndex = a.sy.trustIndex || state.TrustIndex // not used up: the next pass tries again
 			a.sy.trustFiles = a.sy.trustFiles || state.TrustFiles
 			switch {
@@ -360,6 +362,9 @@ func (a *app) syncNow() {
 			default:
 				a.sy.err, a.sy.at, a.sy.result = "", time.Now(), syncSummary(res)
 				a.sy.status = locales.SyncLastSynced(clockTime(a.sy.at))
+				if res.Waiting { // what came up went, but what is to come down waits for the remote's hashes (#568)
+					a.sy.status = locales.SyncWaitingForRemote()
+				}
 				if len(res.Errors) > 0 {
 					a.sy.err = res.Errors[0]
 				}
@@ -719,6 +724,25 @@ var (
 	iconServer     = icon(`<rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M7.5 7.75h.01M7.5 16.25h.01M11 7.75h5M11 16.25h5"/>`)
 )
 
+// makeSyncDir makes the sync folder, which a pass found not there, and starts a pass with it. A pass never makes it
+// itself: a folder not there may be a drive not connected, and one made in its place would be taken for it (#568).
+func (a *app) makeSyncDir() {
+	dir := a.settings.SyncDir
+	a.sy.noFolder = false
+	go func() {
+		defer a.guard()
+		err := DirRemote{Root: dir}.Make() // a share may be slow to answer: not under the lock
+		a.do(func() error {
+			if err != nil {
+				a.sy.err = err.Error()
+				return nil
+			}
+			a.sy.err, a.sy.tried = "", time.Time{} // the next frame's syncTick starts a pass with it
+			return nil
+		})
+	}()
+}
+
 // pickSyncDir opens the system's folder picker, at the folder typed (from), and makes the one chosen the sync's.
 func (a *app) pickSyncDir(from string) {
 	go func() {
@@ -810,6 +834,7 @@ func (a *app) settingsSync(c *ui.Context) {
 	}
 	if dir != s.SyncDir || url != s.SyncURL || token != s.SyncToken {
 		s.SyncDir, s.SyncURL, s.SyncToken = dir, url, token
+		a.sy.noFolder = false // another folder: the next pass says whether it is there
 		a.saveSettingsSoon()
 	}
 	// encryption: always on; it needs a passphrase before anything is sent
@@ -913,6 +938,9 @@ func (a *app) settingsSync(c *ui.Context) {
 			ui.Row(c).Gap(8).Wrap().Children(func() {
 				if ryugo.Button(c.Key("sync-now"), locales.CommonSyncNow(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Accent, Variant: ryugo.Solid, Icon: iconSync}).Clicked() {
 					a.syncNow()
+				}
+				if a.sy.noFolder && s.SyncMode == "dir" && ryugo.Button(c.Key("sync-make-dir"), locales.SyncCreateFolder(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft, Icon: iconSyncFolder}).Clicked() {
+					a.makeSyncDir()
 				}
 				if ryugo.Button(c.Key("sync-probe"), locales.CommonTryConnection(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: cl.Down, Variant: ryugo.Soft, Icon: iconPlug}).Clicked() {
 					a.syncProbe()
