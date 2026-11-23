@@ -71,9 +71,31 @@ export async function full(env, key, limit, windowSec) {
 }
 const audit = (env, what) => env.DB.prepare("INSERT INTO audit(at,what) VALUES(?,?)").bind(now(), what).run();
 
+// readJSON reads a request's JSON body, max bytes at most: no more is read than that, whatever length the client
+// says or does not say, so a large body is refused before it is held (#163).
 async function readJSON(request, max = 8192) {
-  const text = await request.text();
-  if (text.length > max) throw new Error("big");
+  if (Number(request.headers.get("content-length") || 0) > max) throw new Error("big");
+  if (!request.body) return {};
+  const reader = request.body.getReader();
+  const parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) {
+      await reader.cancel();
+      throw new Error("big");
+    }
+    parts.push(value);
+  }
+  const all = new Uint8Array(n);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
+  const text = new TextDecoder().decode(all);
   return JSON.parse(text || "{}");
 }
 

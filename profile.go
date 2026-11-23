@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -252,7 +251,7 @@ func (a *app) openServerHistory(p *Page) {
 		return
 	}
 	a.flush()
-	name := strings.TrimPrefix(filepath.ToSlash(p.File()), StoreRoot)
+	name := a.syncName(p.File())
 	a.say(toastInfo, locales.FetchingTheVersionsOnTheServer())
 	go func() {
 		defer a.guard()

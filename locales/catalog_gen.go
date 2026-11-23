@@ -16956,3 +16956,13 @@ func Task() string { return In(i18n.Locale()).Task() }
 func (msgs Messages) Task() string {
 	return Catalog.Format(msgs.locale, "task", nil)
 }
+
+// KeychainNoAnswer says "The system's keychain didn't answer, so the sync's key and tokens couldn't be read: you're still signed in. Restart t…"
+// in the language the app shows.
+func KeychainNoAnswer() string { return In(i18n.Locale()).KeychainNoAnswer() }
+
+// KeychainNoAnswer says "The system's keychain didn't answer, so the sync's key and tokens couldn't be read: you're still signed in. Restart t…"
+// in the language of msgs.
+func (msgs Messages) KeychainNoAnswer() string {
+	return Catalog.Format(msgs.locale, "keychain_noAnswer", nil)
+}

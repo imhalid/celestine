@@ -24,6 +24,7 @@ function page(html, n, scriptExtra = "") {
       "x-frame-options": "DENY",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
+      "strict-transport-security": "max-age=31536000", // the page that holds the admin key: HTTPS only, from then on (#163)
       "cache-control": "no-store",
     },
   });

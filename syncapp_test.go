@@ -1016,3 +1016,21 @@ func TestSyncWaitingForTheHashes(t *testing.T) {
 		t.Fatalf("waiting for the hashes: status %q, err %q", b.sy.status, b.sy.err)
 	}
 }
+
+// A page's name on the remote is its path from the sync's root, in a library's file and in a folder library alike:
+// the folder's own path is not part of it (#163).
+func TestSyncName(t *testing.T) {
+	a := syncApp(t, t.TempDir())
+	if got := a.syncName("/Not/Bir/page.json"); got != "Not/Bir/page.json" {
+		t.Errorf("in the store: %q", got)
+	}
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newApp(lib)
+	file := filepath.Join(lib.Root, "Not", "Bir", PageFileName)
+	if got := b.syncName(file); got != "Not/Bir/"+PageFileName {
+		t.Errorf("in a folder: %q", got)
+	}
+}

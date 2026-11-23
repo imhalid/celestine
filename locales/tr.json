@@ -1666,5 +1666,6 @@
   "status_chars": "{count} harf",
   "page_copyTitle": "{title} (kopya)",
   "heading": "başlık",
-  "task": "görev"
+  "task": "görev",
+  "keychain_noAnswer": "Sistemin anahtar zinciri yanıt vermedi, eşitlemenin anahtarı ve jetonları okunamadı: oturumun açık. Anahtar zinciri yanıt verince uygulamayı yeniden başlat."
 }

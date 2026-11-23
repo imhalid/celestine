@@ -1,6 +1,9 @@
 package main
 
-import "path/filepath"
+import (
+	"errors"
+	"path/filepath"
+)
 
 // The secrets of the settings - the key of end-to-end encryption, the device's sync token, the MCP server's token -
 // are kept in the system's keychain (macOS's Keychain, the Secret Service on Linux, Windows' Credential Manager)
@@ -29,8 +32,21 @@ func (s *Settings) secretFields() []struct {
 	}{{"syncKey", &s.SyncKey}, {"syncToken", &s.SyncToken}, {"mcpToken", &s.Token}}
 }
 
-// secretScope is what tells this library's secrets from another's in the keychain: the file its settings are kept in.
+// errNoSecret is a keychain's answer for a name it has nothing under: not a failure of the keychain.
+var errNoSecret = errors.New("no secret under that name")
+
+// secretScope is what tells this library's secrets from another's in the keychain: an id of the library's own, kept
+// in its settings, so that the secrets go where the library goes (#163); the path of its settings' file for settings
+// of before the id, until loadSecrets gives them one.
 func (a *app) secretScope() string {
+	if s := a.settings.SecretScope; s != "" {
+		return "library:" + s
+	}
+	return a.pathScope()
+}
+
+// pathScope is the scope of secrets kept before the libraries had ids: the file their settings are kept in.
+func (a *app) pathScope() string {
 	f := a.settingsFile
 	if a.settingsStore != nil {
 		f = a.settingsStore.File
@@ -51,6 +67,19 @@ func (a *app) loadSecretsWith(readOnly bool) (moved bool) {
 		return false
 	}
 	a.inKeychain = map[string]string{}
+	var fromPath []string                          // the names taken from the path's scope, to be taken out of it once moved
+	if a.settings.SecretScope == "" && !readOnly { // settings of before the ids: given one, their secrets moved to it
+		old := a.pathScope()
+		for _, f := range a.settings.secretFields() {
+			if *f.v == "" {
+				if v, err := keychain.Get(old + "#" + f.name); err == nil && v != "" {
+					*f.v = v
+					fromPath = append(fromPath, f.name)
+				}
+			}
+		}
+		a.settings.SecretScope, moved = newToken()[:16], true
+	}
 	scope := a.secretScope()
 	for _, f := range a.settings.secretFields() {
 		if *f.v != "" { // kept in the settings: moved over (unless reading read-only, #165)
@@ -60,9 +89,18 @@ func (a *app) loadSecretsWith(readOnly bool) (moved bool) {
 			}
 			continue
 		}
-		if v, err := keychain.Get(scope + "#" + f.name); err == nil && v != "" {
+		v, err := keychain.Get(scope + "#" + f.name)
+		switch {
+		case err == nil && v != "":
 			*f.v = v
 			a.inKeychain[f.name] = v
+		case err != nil && !errors.Is(err, errNoSecret): // it did not answer: no sign-out, and the window says so
+			a.keychainErr = err
+		}
+	}
+	for _, name := range fromPath {
+		if _, ok := a.inKeychain[name]; ok {
+			keychain.Delete(a.pathScope() + "#" + name)
 		}
 	}
 	return moved

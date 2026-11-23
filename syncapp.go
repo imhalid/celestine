@@ -241,6 +241,16 @@ func (a *app) syncFS() (FS, string) {
 	return a.lib.FS, a.lib.Root
 }
 
+// syncName is the name page file has in the sync and on the remote: its path from the sync's root, with slashes.
+// A folder library's file is under its folder, not under the store's "/" (#163).
+func (a *app) syncName(file string) string {
+	_, root := a.syncFS()
+	if rel, err := filepath.Rel(root, file); err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(rel)
+	}
+	return strings.TrimPrefix(filepath.ToSlash(file), "/")
+}
+
 // libWrites counts the writes to the library: the store's own count, or the app's for a folder library
 // (countFS); a pass starts once it has been still a moment.
 func (a *app) libWrites() uint64 {

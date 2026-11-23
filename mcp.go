@@ -37,6 +37,9 @@ type Settings struct {
 	Recent []string `json:"recent,omitempty"`
 	// RecentCmds are the commands of the palette used last, newest first (palette.go).
 	RecentCmds []string `json:"recentCmds,omitempty"`
+	// SecretScope is the library's own id, under which the keychain keeps its secrets (keychain.go): it goes where
+	// the library goes.
+	SecretScope string `json:"secretScope,omitempty"`
 	// PendingRenames are the pages whose title was being typed, by folder, and the title each had before: the links
 	// to them are written when the title is left, or at the next start if the app went first (relink.go).
 	PendingRenames map[string]string `json:"pendingRenames,omitempty"`

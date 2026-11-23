@@ -93,3 +93,58 @@ func TestKeychainFallback(t *testing.T) {
 		}
 	}
 }
+
+// A library's secrets go where it goes: kept under an id of its own, the settings moved to another file still find
+// them. Secrets kept under the old file's path are moved to the id at the first start, and taken from there (#163).
+func TestKeychainFollowsTheLibrary(t *testing.T) {
+	keyring.MockInit()
+	withKeychain(t, osKeychain{})
+	dir := t.TempDir()
+	file := filepath.Join(dir, "settings.json")
+	a := settingsApp(t, file)
+	a.settings.SyncKey = "S3CRETKEY"
+	a.saveSettings()
+	moved := filepath.Join(t.TempDir(), "elsewhere.json")
+	data, _ := os.ReadFile(file)
+	os.WriteFile(moved, data, 0o600)
+	if b := settingsApp(t, moved); b.settings.SyncKey != "S3CRETKEY" {
+		t.Fatalf("moved, the library lost its key: %q", b.settings.SyncKey)
+	}
+
+	// settings of before the ids: their key under the path of their file
+	old := filepath.Join(t.TempDir(), "settings.json")
+	os.WriteFile(old, []byte(`{"syncMode":"server"}`), 0o600)
+	abs, _ := filepath.Abs(old)
+	keyring.Set(keychainService, abs+"#syncKey", "OLDKEY")
+	c := settingsApp(t, old)
+	if c.settings.SyncKey != "OLDKEY" || c.settings.SecretScope == "" {
+		t.Fatalf("the old key: %q, scope %q", c.settings.SyncKey, c.settings.SecretScope)
+	}
+	if v, _ := keyring.Get(keychainService, c.secretScope()+"#syncKey"); v != "OLDKEY" {
+		t.Fatalf("not under the id: %q", v)
+	}
+	if _, err := keyring.Get(keychainService, abs+"#syncKey"); !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("left under the path: %v", err)
+	}
+	if d := settingsApp(t, old); d.settings.SyncKey != "OLDKEY" {
+		t.Fatalf("the next start: %q", d.settings.SyncKey)
+	}
+}
+
+// A keychain that does not answer as the settings are read is told, not taken for a sign-out (#163).
+func TestKeychainNoAnswer(t *testing.T) {
+	keyring.MockInit()
+	withKeychain(t, osKeychain{})
+	file := filepath.Join(t.TempDir(), "settings.json")
+	a := settingsApp(t, file)
+	a.settings.SyncKey = "S3CRETKEY"
+	a.saveSettings()
+	if a.keychainErr != nil {
+		t.Fatalf("an answer taken for none: %v", a.keychainErr)
+	}
+	keyring.MockInitWithError(errors.New("locked"))
+	b := settingsApp(t, file)
+	if b.keychainErr == nil {
+		t.Fatal("no answer, not told")
+	}
+}

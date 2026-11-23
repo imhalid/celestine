@@ -341,6 +341,7 @@ type app struct {
 	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
 	nextFrame     []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
 	winRadius     float64                                   // the window's corners' radius as the system draws them, read each frame (cardR)
+	keychainErr   error                                     // the keychain did not answer as the settings were read: said, not taken for a sign-out
 	firstFrame    chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
 	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
 	edPtr         ui.Point                                  // the pointer over the page's text, last frame
@@ -583,7 +584,10 @@ func main() {
 		a.loadSettings()
 		a.seedNew(empty && store != nil)
 		a.applyTree()
-		a.finishRenames()        // a title being typed when the app last went: its links follow now (#560)
+		a.finishRenames()         // a title being typed when the app last went: its links follow now (#560)
+		if a.keychainErr != nil { // its secrets not read: said, as no sign-out is (#163)
+			a.say(toastWarn, locales.KeychainNoAnswer())
+		}
 		setLang(a.settings.Lang) // the window speaks the language that was chosen, or the system's
 	}
 	if len(lib.Damaged) > 0 { // left out, and left as they are on disk

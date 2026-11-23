@@ -139,6 +139,9 @@ func TestSyncConflictLosesNothing(t *testing.T) {
 	if b.read("Not/Iki/page.json") != "x ve devamı" {
 		t.Fatalf("a change was lost to a deletion: %q", b.read("Not/Iki/page.json"))
 	}
+	if ents, _ := os.ReadDir(filepath.Join(b.root, "Not", "Iki")); len(ents) != 1 { // no conflict copy of our own file (#163)
+		t.Fatalf("beside the page kept: %v", ents)
+	}
 }
 
 // A collection chosen out stays here: nothing of it goes up, nothing of it comes down.

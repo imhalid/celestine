@@ -62,6 +62,7 @@ var settingsApart = map[string]string{
 	"recent":         "what the / menu was used for",
 	"recentCmds":     "the commands used last",
 	"pendingRenames": "a rename being typed, ended at the next start (relink.go)",
+	"secretScope":    "the library's id in the keychain (keychain.go)",
 	"writing":        "the words written, by day",
 	"writeGoal":      "the goal: set on the statistics page",
 	"quickKey":       "the quick note's key: pressed in its own settings",
