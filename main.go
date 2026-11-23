@@ -1620,8 +1620,17 @@ func (a *app) track(c *ui.Context) {
 	if caret != a.caretAt || n != a.length {
 		a.revealWant = true
 	}
+	// An undo or a redo puts text back as it was: it was not typed now, and what typing turns into something else
+	// (a chip, a divider, the / menu) is not done to it again, as a new edit that took the redo away (#210). After an
+	// undo the document can redo, and after anything typed it cannot. A few letters to the caret are typed, as two
+	// keys that came in one frame (a slow frame, a key held) are: "---" with the last two at once is a divider.
+	undone := a.doc.CanRedo()
+	typed := func() bool {
+		grew := n - a.length
+		return !undone && grew >= 1 && grew <= 4 && caret-a.caretAt == grew
+	}
 	// the / menu (slash.go)
-	if a.trackSlash(text, caret, true, n-a.length == 1 && caret-a.caretAt == 1) {
+	if a.trackSlash(text, caret, true, !undone && n-a.length == 1 && caret-a.caretAt == 1) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
@@ -1629,7 +1638,7 @@ func (a *app) track(c *ui.Context) {
 		a.length, a.caretAt = n, caret
 	}
 	// "---" and "```" typed: a divider, a block of code (blocks.go)
-	if a.blockShortcuts(text, caret, n-a.length == 1 && caret-a.caretAt == 1) {
+	if a.blockShortcuts(text, caret, typed()) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
@@ -1637,12 +1646,13 @@ func (a *app) track(c *ui.Context) {
 		n = text.Len()
 	}
 	// "[[Page]]": the "]" typed over the one the "[[" wrote, then a chip (chips.go)
-	single := n-a.length == 1 && caret-a.caretAt == 1
-	if a.overtype(text, caret, single) {
+	// typed, as it was before the one ] typed over the one written is taken away
+	keyed := typed()
+	if a.overtype(text, caret, !undone && n-a.length == 1 && caret-a.caretAt == 1) {
 		text, v = a.doc.Text(), a.doc.Version()
 		n = text.Len()
 	}
-	if a.chipShortcut(text, caret, single) || a.checkShortcut(text, caret, single) {
+	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
@@ -1651,7 +1661,7 @@ func (a *app) track(c *ui.Context) {
 	}
 	// pasted text with [[links]] in it: they are chips, as if typed (a link copied from
 	// the page's menu is such text)
-	if grew := n - a.length; grew > 1 && caret-a.caretAt == grew && (a.tableInPasted(caret-grew, caret) || a.chipsInPasted(caret-grew, caret)) {
+	if grew := n - a.length; !undone && grew > 1 && caret-a.caretAt == grew && (a.tableInPasted(caret-grew, caret) || a.chipsInPasted(caret-grew, caret)) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)

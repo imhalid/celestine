@@ -112,3 +112,64 @@ func TestCodeBlockCopy(t *testing.T) {
 		t.Fatalf("copied %q, want %q", copied, want)
 	}
 }
+
+// TestDividerTwoKeysInAFrame types "---" with the last two dashes in one frame, as a slow frame or a key held
+// brings them: still a divider (#210).
+func TestDividerTwoKeysInAFrame(t *testing.T) {
+	a, tt := newTestApp(t, "Üst\n")
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "-")
+	tt.Type("--") // the tester builds a frame after each event: two letters in one are two in a frame
+	tt.Frame()
+	if st := styles(a.doc.Text()); len(st) < 2 || st[1].ID != hrID {
+		t.Fatalf("not a divider: %q %+v", a.doc.Text().String(), st)
+	}
+}
+
+// TestUndoNotTypedAgain: an undo that puts back text that typing turns into something is left as it is, and the
+// redo is kept: links pasted as chips, ⌘Z gives the text, ⇧⌘Z the chips; a / taken back is no menu (#210).
+func TestUndoNotTypedAgain(t *testing.T) {
+	a, tt := newTestApp(t, "Önce\n")
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	_, caret := a.doc.Selection()
+	paste := " [[Bir]] ve [[İki]]"
+	a.doc.Edit(func(ed *richtext.Edit) {
+		ed.Replace(caret, caret, richtext.NewText(paste))
+		ed.Select(caret+len([]rune(paste)), caret+len([]rune(paste)))
+	})
+	tt.Frame()
+	tt.Frame()
+	if got := chipTargets(a); len(got) != 2 {
+		t.Fatalf("no chips to start with: %v", got)
+	}
+	a.doc.Undo()
+	tt.Frame()
+	tt.Frame()
+	if got := chipTargets(a); len(got) != 0 || !strings.Contains(a.doc.Text().String(), "[[İki]]") || !a.doc.CanRedo() {
+		t.Fatalf("the undo was made chips again: %v in %q, redo %v", got, a.doc.Text().String(), a.doc.CanRedo())
+	}
+	a.doc.Redo()
+	tt.Frame()
+	if got := chipTargets(a); len(got) != 2 {
+		t.Fatalf("the redo: %v in %q", got, a.doc.Text().String())
+	}
+
+	b, tb := newTestApp(t, "Önce\n")
+	tb.Key(ui.Cmd, ui.KeyDown)
+	tb.Key(0, ui.KeyEnter)
+	tb.Frame()
+	typeEach(tb, "/")
+	if !b.slash.open {
+		t.Fatal("/ opened no menu")
+	}
+	tb.Key(0, ui.KeyBackspace)
+	tb.Frame()
+	b.doc.Undo()
+	tb.Frame()
+	if b.slash.open {
+		t.Fatalf("the / an undo put back opened the menu: %q", b.doc.Text().String())
+	}
+}
