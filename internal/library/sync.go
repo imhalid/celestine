@@ -2,6 +2,7 @@ package library
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -234,12 +235,92 @@ func NewHTTPRemote(base, token string) *httpRemote {
 	if tr == nil {
 		tr = http.DefaultTransport
 	}
-	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Timeout: 60 * time.Second, Transport: tr}}
+	// no deadline for a whole transfer, which a large file on a slow line never met: a request stops when nothing
+	// moves for transferIdle (send), instead (#155)
+	return &httpRemote{strings.TrimRight(base, "/"), token, &http.Client{Transport: tr}}
+}
+
+// transferIdle is how long a request to the server may go without a byte moving, either way, or without an answer
+// once it is sent, before it is given up.
+var transferIdle = 30 * time.Second
+
+// MaxFileBytes is the largest file the server takes (cloudflare/sync/worker.js, MAX_BYTES): a larger one is refused
+// here, before it is sent (ErrTooLarge).
+const MaxFileBytes = 50 << 20
+
+var (
+	// ErrTooLarge is a file over the server's size, refused before it is sent.
+	ErrTooLarge = errors.New("the file is larger than the server takes (50 MB)")
+	// ErrQuotaFull is the server's refusal of a file for the account's quota.
+	ErrQuotaFull = errors.New("the account's room on the server is full")
+	// ErrDeviceRefused is the server's 401: it no longer takes this device's token (signed out elsewhere, removed).
+	ErrDeviceRefused = errors.New("the server no longer takes this device: sign in again")
+)
+
+// send makes req with ctx's deadline moving while bytes do: the request's body and the answer's are read through
+// a watchdog that cancels the request after transferIdle with nothing read, and the wait for the answer is one too.
+// The answer's body is the watchdog's until it is closed.
+func (h *httpRemote) send(req *http.Request) (*http.Response, error) {
+	ctx, cancel := context.WithCancel(req.Context())
+	dog := time.AfterFunc(transferIdle, cancel)
+	if req.Body != nil {
+		req.Body = &idleReader{r: req.Body, dog: dog}
+	}
+	resp, err := h.client.Do(req.WithContext(ctx))
+	if err != nil {
+		dog.Stop()
+		cancel()
+		return nil, err
+	}
+	dog.Reset(transferIdle)
+	resp.Body = &idleReader{r: resp.Body, dog: dog, done: cancel}
+	return resp, nil
+}
+
+// idleReader reads r, and puts the watchdog back at each read that moved; done, if any, ends with it.
+type idleReader struct {
+	r    io.ReadCloser
+	dog  *time.Timer
+	done func()
+}
+
+func (i *idleReader) Read(p []byte) (int, error) {
+	n, err := i.r.Read(p)
+	if n > 0 {
+		i.dog.Reset(transferIdle)
+	}
+	return n, err
+}
+
+func (i *idleReader) Close() error {
+	err := i.r.Close()
+	if i.done != nil {
+		i.dog.Stop()
+		i.done()
+	}
+	return err
+}
+
+// statusErr is the error of an answer that is no success: the server's refusals named, the rest by their status.
+func statusErr(resp *http.Response) error {
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		return ErrDeviceRefused
+	case http.StatusRequestEntityTooLarge:
+		if b, _ := io.ReadAll(io.LimitReader(resp.Body, 64)); strings.Contains(string(b), "quota") {
+			return ErrQuotaFull
+		}
+		return ErrTooLarge
+	}
+	return fmt.Errorf("the server answered %d", resp.StatusCode)
 }
 
 func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.Response, error) {
 	if err := HTTPSOnly(h.base); err != nil {
 		return nil, err
+	}
+	if method == "PUT" && len(body) > MaxFileBytes {
+		return nil, ErrTooLarge
 	}
 	u := h.base + "/files"
 	if name != "" {
@@ -253,7 +334,7 @@ func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.R
 	if prev != nil {
 		req.Header.Set("If-Match", `"`+*prev+`"`)
 	}
-	resp, err := h.client.Do(req)
+	resp, err := h.send(req)
 	if err != nil {
 		return nil, err
 	}
@@ -262,8 +343,9 @@ func (h *httpRemote) do(method, name string, body []byte, prev *string) (*http.R
 		return nil, ErrConflict
 	}
 	if resp.StatusCode/100 != 2 {
+		err := statusErr(resp)
 		resp.Body.Close()
-		return nil, fmt.Errorf("sunucu %d döndü", resp.StatusCode)
+		return nil, err
 	}
 	return resp, nil
 }
@@ -335,13 +417,13 @@ func (h *httpRemote) get(u string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+h.token)
-	resp, err := h.client.Do(req)
+	resp, err := h.send(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("sunucu %d döndü", resp.StatusCode)
+		return nil, statusErr(resp)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 }
@@ -1746,10 +1828,19 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 	}
 	sort.Strings(order)
 	abs := func(n string) string { return filepath.Join(root, filepath.FromSlash(n)) }
+	// a server that stops answering mid-pass would cost transferIdle for each file left: after transportStop
+	// requests that did not get through, the pass stops, and the next takes up what is left (#155)
+	var stopped error
+	transport := 0
 	fail := func(n string, err error) {
 		if errors.Is(err, ErrRemoteNotYet) { // waited for: not an error, and the next pass takes it
 			res.Waiting = true
 			return
+		}
+		if isTransport(err) {
+			if transport++; transport >= transportStop {
+				stopped = err
+			}
 		}
 		res.Errors = append(res.Errors, n+": "+err.Error())
 		if errors.Is(err, ErrFileRollback) {
@@ -1812,6 +1903,9 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 		}
 	}
 	for _, n := range order {
+		if stopped != nil {
+			break
+		}
 		if !names[n] { // listed with no hash: left as it is
 			continue
 		}
@@ -1945,6 +2039,9 @@ func syncOnce(fsys FS, root string, r Remote, st *SyncState, skip map[string]boo
 			st.setBase(n, b)
 		}
 	}
+	if stopped != nil { // what is done is kept in the state; the rest is the next pass's
+		return res, pushed, fmt.Errorf("the server stopped answering: %w", stopped)
+	}
 	if len(gone) > 0 {
 		// what is in the trash, by its bytes: a page thrown away on the other device came down there
 		kept := map[string]bool{}
@@ -2075,3 +2172,13 @@ func hasGitSegment(name string) bool {
 
 // SettingsKey is what the settings are kept under in a library's file.
 const SettingsKey = "settings"
+
+// transportStop is how many requests of a pass may fail to get through before the pass stops (#155).
+const transportStop = 3
+
+// isTransport says whether err is a request that did not get through: no connection, no answer in time, a line
+// that went quiet. A refusal of the server, or of this device's checks, is not one.
+func isTransport(err error) bool {
+	var ue *url.Error
+	return errors.As(err, &ue)
+}

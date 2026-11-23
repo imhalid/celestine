@@ -1034,3 +1034,18 @@ func TestSyncName(t *testing.T) {
 		t.Errorf("in a folder: %q", got)
 	}
 }
+
+// A server that no longer takes this device's token says so, and is not "offline" (#155).
+func TestSyncDeviceRefused(t *testing.T) {
+	library.AllowHTTP = true
+	defer func() { library.AllowHTTP = false }()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "no", http.StatusUnauthorized) }))
+	defer srv.Close()
+	a := syncApp(t, t.TempDir())
+	a.settings.SyncMode, a.settings.SyncURL, a.settings.SyncToken = "server", srv.URL, "revoked"
+	a.syncNow()
+	waitSync(t, a)
+	if a.sy.err != locales.SyncErrDeviceRefused() || a.sy.status == locales.SyncOffline() {
+		t.Fatalf("a refused token: err %q, status %q", a.sy.err, a.sy.status)
+	}
+}

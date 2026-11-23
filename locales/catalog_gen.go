@@ -16966,3 +16966,13 @@ func KeychainNoAnswer() string { return In(i18n.Locale()).KeychainNoAnswer() }
 func (msgs Messages) KeychainNoAnswer() string {
 	return Catalog.Format(msgs.locale, "keychain_noAnswer", nil)
 }
+
+// SyncErrDeviceRefused says "the server no longer takes this device: sign in again"
+// in the language the app shows.
+func SyncErrDeviceRefused() string { return In(i18n.Locale()).SyncErrDeviceRefused() }
+
+// SyncErrDeviceRefused says "the server no longer takes this device: sign in again"
+// in the language of msgs.
+func (msgs Messages) SyncErrDeviceRefused() string {
+	return Catalog.Format(msgs.locale, "sync_errDeviceRefused", nil)
+}

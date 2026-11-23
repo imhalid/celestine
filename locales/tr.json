@@ -1667,5 +1667,6 @@
   "page_copyTitle": "{title} (kopya)",
   "heading": "başlık",
   "task": "görev",
-  "keychain_noAnswer": "Sistemin anahtar zinciri yanıt vermedi, eşitlemenin anahtarı ve jetonları okunamadı: oturumun açık. Anahtar zinciri yanıt verince uygulamayı yeniden başlat."
+  "keychain_noAnswer": "Sistemin anahtar zinciri yanıt vermedi, eşitlemenin anahtarı ve jetonları okunamadı: oturumun açık. Anahtar zinciri yanıt verince uygulamayı yeniden başlat.",
+  "sync_errDeviceRefused": "sunucu bu cihazı artık kabul etmiyor: yeniden giriş yap"
 }

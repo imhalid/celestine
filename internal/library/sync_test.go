@@ -1748,3 +1748,85 @@ func TestSyncDirRemoteFileGoneMidWalk(t *testing.T) {
 		t.Fatalf("the pass after: %+v, here %q", res, a.read("Not/Bir/page.json"))
 	}
 }
+
+// The server's refusals are named (#155): a file over its size is refused here and not sent, a full quota is told from
+// a file too large, and a token it no longer takes is no "offline".
+func TestHTTPRemoteRefusals(t *testing.T) {
+	AllowHTTP = true
+	defer func() { AllowHTTP = false }()
+	var puts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/files/big":
+			puts++
+		case "/files/quota":
+			http.Error(w, "quota", http.StatusRequestEntityTooLarge)
+		case "/files/large":
+			http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+		default:
+			http.Error(w, "no", http.StatusUnauthorized)
+		}
+	}))
+	defer srv.Close()
+	r := NewHTTPRemote(srv.URL, "jeton")
+	if err := r.Put("big", make([]byte, MaxFileBytes+1), ""); !errors.Is(err, ErrTooLarge) || puts != 0 {
+		t.Errorf("a file over the size: %v, sent %d", err, puts)
+	}
+	if err := r.Put("quota", []byte("x"), ""); !errors.Is(err, ErrQuotaFull) {
+		t.Errorf("a full quota: %v", err)
+	}
+	if err := r.Put("large", []byte("x"), ""); !errors.Is(err, ErrTooLarge) {
+		t.Errorf("too large for the server: %v", err)
+	}
+	if _, err := r.List(); !errors.Is(err, ErrDeviceRefused) || isTransport(err) {
+		t.Errorf("a token refused: %v", err)
+	}
+}
+
+// A transfer that keeps moving is not cut off however long it takes; one that stops moving is, after transferIdle,
+// not after a minute; and a pass whose requests do not get through stops after transportStop of them (#155).
+func TestHTTPRemoteIdle(t *testing.T) {
+	AllowHTTP = true
+	was := transferIdle
+	transferIdle = 300 * time.Millisecond
+	defer func() { AllowHTTP, transferIdle = false, was }()
+	var mu sync.Mutex
+	gets := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/files/slow": // a second, a little at a time
+			for i := 0; i < 10; i++ {
+				w.Write([]byte("0123456789"))
+				w.(http.Flusher).Flush()
+				time.Sleep(100 * time.Millisecond)
+			}
+		case r.URL.Path == "/files":
+			json.NewEncoder(w).Encode(map[string]RemoteEntry{"A/a": {Hash: "1"}, "A/b": {Hash: "2"}, "A/c": {Hash: "3"}, "A/d": {Hash: "4"}, "A/e": {Hash: "5"}})
+		default: // gone quiet
+			mu.Lock()
+			gets++
+			mu.Unlock()
+			select {
+			case <-r.Context().Done():
+			case <-time.After(5 * time.Second):
+			}
+		}
+	}))
+	defer srv.Close()
+	r := NewHTTPRemote(srv.URL, "jeton")
+	if b, err := r.Get("slow"); err != nil || len(b) != 100 {
+		t.Fatalf("a slow transfer that moves: %v, %d bytes", err, len(b))
+	}
+	start := time.Now()
+	if _, err := r.Get("quiet"); !isTransport(err) || time.Since(start) > 2*time.Second {
+		t.Fatalf("a server gone quiet: %v after %v", err, time.Since(start))
+	}
+	d := newDevice(t)
+	_, err := SyncOnce(OSFS{}, d.root, r, &d.st, nil, time.Now())
+	mu.Lock()
+	n := gets
+	mu.Unlock()
+	if err == nil || n-1 > transportStop { // the one before was Get("quiet")
+		t.Fatalf("the pass: %v, after %d requests that did not get through", err, n-1)
+	}
+}

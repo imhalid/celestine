@@ -374,6 +374,11 @@ func (a *app) syncNow() {
 				a.sy.err, a.sy.status = "", locales.SyncWaitingForRemote()
 			case errors.Is(err, library.ErrNoFolder): // a drive not connected: offline
 				a.sy.err, a.sy.status = locales.SyncErrNoFolder(), locales.SyncOffline()
+			case errors.Is(err, library.ErrDeviceRefused): // not offline: the server answered, and no longer takes this device (#155)
+				a.sy.err, a.sy.status = locales.SyncErrDeviceRefused(), locales.NotifySyncStopped()
+				if !hadErr {
+					a.notify(notifySync, locales.NotifySyncStopped(), a.sy.err)
+				}
 			case err != nil:
 				a.sy.err, a.sy.status = err.Error(), locales.SyncOffline()
 			default:
