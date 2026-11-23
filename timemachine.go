@@ -1,6 +1,7 @@
 package main
 
 import (
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -39,6 +40,9 @@ type timeMachine struct {
 	shown   int              // the copy the timeline was last scrolled to
 	begun   bool             // it has been drawn: its coming in has begun
 	in      float32          // how far it is in: 0 gone, 1 here (timeMachineView)
+
+	raw  map[int][]byte // each copy's file as it was kept, read once: its text, its page and its document are made from it (tmData)
+	kept int            // the copy at the front when the caches were last trimmed (tmTrim)
 
 	diff       bool                // the differences from the page now are shown, not the stack (tmdiff.go)
 	diffs      map[int][]tmDiffRow // each copy's, by its place
@@ -102,12 +106,47 @@ func (a *app) tmText(i int) string {
 	if i == 0 {
 		s, _ = t.page.Text()
 	} else if h, ok := historyOf(t.page); ok {
-		data, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
-		_, body := SplitPage(data)
+		_, body := SplitPage(a.tmData(h, i))
 		s = bodyText(body)
 	}
 	t.texts[i] = s
 	return s
+}
+
+// tmData is the file of the copy at place i (from 1) as it was kept: read from the history once, where its text, its
+// page and its document each read it again, up to three reads a copy in the frame that first showed it (#199).
+func (a *app) tmData(h Historian, i int) []byte {
+	t := &a.tm
+	if b, ok := t.raw[i]; ok {
+		return b
+	}
+	b, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
+	if t.raw == nil {
+		t.raw = map[int][]byte{}
+	}
+	t.raw[i] = b
+	return b
+}
+
+// tmNear is how many copies on each side of the one at the front the caches keep: those the stack draws (it shows
+// a dozen behind the front one), and a few more for the steps the arrows take.
+const tmNear = 16
+
+// tmTrim takes out of the caches the copies far from the one at the front: they only grew while the history was
+// open, a document and its texts for each copy ever passed (#199).
+func (a *app) tmTrim() {
+	t := &a.tm
+	if t.sel == t.kept {
+		return
+	}
+	t.kept = t.sel
+	far := func(i int) bool { return i != 0 && (i < t.sel-tmNear || i > t.sel+tmNear) }
+	maps.DeleteFunc(t.raw, func(i int, _ []byte) bool { return far(i) })
+	maps.DeleteFunc(t.texts, func(i int, _ string) bool { return far(i) })
+	maps.DeleteFunc(t.lines, func(i int, _ []tmLine) bool { return far(i) })
+	maps.DeleteFunc(t.pages, func(i int, _ *Page) bool { return far(i) })
+	maps.DeleteFunc(t.docs, func(i int, _ *richtext.Document) bool { return far(i) })
+	maps.DeleteFunc(t.diffs, func(i int, _ []tmDiffRow) bool { return far(i) })
 }
 
 // tmLines are the lines of the copy at place i, as a card shows them.
@@ -164,7 +203,7 @@ func (a *app) tmPutBack() {
 	if a.putBackVersion() != nil {
 		return // the error is said; the history stays open on the copy that failed, its sweep not begun
 	}
-	t.texts, t.lines, t.pages, t.docs, t.diffs = map[int]string{}, map[int][]tmLine{}, nil, nil, nil // the page now is the copy: the front card says so
+	t.texts, t.lines, t.pages, t.docs, t.diffs, t.raw = map[int]string{}, map[int][]tmLine{}, nil, nil, nil, nil // the page now is the copy: the front card says so
 	t.diff = false
 	if keep != nil {
 		keep()
@@ -218,6 +257,7 @@ func (a *app) timeMachineView(c *ui.Context) {
 	if !t.open || t.page == nil {
 		return
 	}
+	a.tmTrim()
 	ww, wh := c.Size()
 	ox := float32(0) // its left edge: the sidebar, which has the timeline, stays
 	if !phone {
@@ -279,8 +319,7 @@ func (a *app) tmVersionPage(i int) *Page {
 	vp := new(Page)
 	*vp = *t.page
 	if h, ok := historyOf(t.page); ok {
-		data, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
-		meta, _ := SplitPage(data)
+		meta, _ := SplitPage(a.tmData(h, i))
 		if s := meta["title"]; s != "" {
 			vp.Title = s
 		}
@@ -383,8 +422,7 @@ func (a *app) tmDoc(i int) *richtext.Document {
 	if i == 0 {
 		body, _ = vp.Body()
 	} else if h, ok := historyOf(t.page); ok {
-		data, _ := h.VersionData(t.page.File(), t.vers[i-1].ID)
-		_, body = SplitPage(data)
+		_, body = SplitPage(a.tmData(h, i))
 	}
 	d := richtext.NewDocument(a.parsePage(vp, body))
 	if t.docs == nil {

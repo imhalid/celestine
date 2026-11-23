@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/imhalid/celestine/locales"
 	"path/filepath"
 	"slices"
@@ -795,5 +796,45 @@ func TestDoNextFrame(t *testing.T) {
 	tt.Frame()
 	if !done {
 		t.Fatal("not done by the frame")
+	}
+}
+
+// The page's history keeps in its caches only the copies near the one at the front, however far it is stepped
+// through, and reads each copy's file once (#199).
+func TestTimeMachineCachesNear(t *testing.T) {
+	st, now := storeAt(t)
+	lib, _ := OpenLibraryIn(st, StoreRoot)
+	seed(lib)
+	a := newApp(lib)
+	a.clock = func() time.Time { return *now }
+	tt := ui.NewTester(a.view, 1100, 800)
+	tt.Advance(50 * time.Millisecond)
+	p := a.page
+	for i := range 60 {
+		*now = now.Add(time.Hour)
+		p.SaveText(fmt.Sprintf("copy %d\n", i))
+	}
+	a.takeOutside(p)
+	a.openTimeMachine(p)
+	tt.Frame()
+	n := len(a.tm.vers)
+	if n < 40 {
+		t.Skipf("the store kept %d copies", n)
+	}
+	for sel := 0; sel <= n; sel += 4 { // stepped back, the stack moving on its spring
+		a.tm.sel = sel
+		tt.Advance(40 * time.Millisecond)
+	}
+	a.tm.sel = n
+	tt.Advance(time.Second)
+	for _, m := range []int{len(a.tm.raw), len(a.tm.texts), len(a.tm.docs), len(a.tm.pages)} {
+		if m > 2*tmNear+2 {
+			t.Fatalf("the caches hold %d, %d, %d and %d copies of %d", len(a.tm.raw), len(a.tm.texts), len(a.tm.docs), len(a.tm.pages), n)
+		}
+	}
+	for i := range a.tm.raw {
+		if i < n-tmNear {
+			t.Fatalf("copy %d kept with %d at the front", i, n)
+		}
 	}
 }
