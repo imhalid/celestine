@@ -93,6 +93,19 @@ func locateIn(doc *richtext.Document, caret int, box richtext.ParagraphBox, star
 	}
 	u := units(line, caret-start) // in UTF-16 units of the paragraph's text, as the layout has them
 	c := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextDownstream})
+	// Where a line wraps, one place is two: the end of a line and the start of the next. The editor knows which its
+	// caret is at (End puts it at the end of the line, a click past a line's end too), and does not say: the place it
+	// paints its caret at (CaretRect) tells. Asked for only there, as it lays the paragraph out (#213).
+	if up := l.CaretAt(ui.TextCaretPosition{Index: u, Affinity: ui.TextUpstream}); up != c && doc != nil {
+		if cr, ok := doc.CaretRect(); ok {
+			off := func(p ui.Rect) float64 {
+				return math.Abs(float64(cr.Y-(box.Top+p.Y))) + math.Abs(float64(cr.X-(left+p.X)))
+			}
+			if off(up) < off(c) {
+				c = up
+			}
+		}
+	}
 	full := c
 	mid := c.Y + c.H/2
 	// a line holding a block (a table, a card, a picture) is as tall as it: its caret is

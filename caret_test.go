@@ -340,3 +340,40 @@ func TestPageOpensWithCaretAtStart(t *testing.T) {
 		t.Fatalf("back to the first page, the caret is at %d, not where it was left (5)", c)
 	}
 }
+
+// TestCaretAtAWrap: where a line wraps, the caret is drawn on the side the editor's is: at the end of the line after
+// End or a click past the line's end, at the start of the next after Home or a step right (#213, #281).
+func TestCaretAtAWrap(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("kelime ", 60)+"\n\nikinci\n")
+	tt.Frame()
+	a.doc.SetSelection(3, 3)
+	tt.Frame()
+	same := func(what string) {
+		t.Helper()
+		tt.Frame()
+		want, ok := tt.TextCaret()
+		got, ok2 := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme)
+		if !ok || !ok2 {
+			t.Fatalf("%s: no caret (%v, %v)", what, ok, ok2)
+		}
+		g := got.full
+		if d := math.Abs(float64(g.X+a.editorR.X-want.X)) + math.Abs(float64(g.Y+a.editorR.Y-want.Y)); d > 1 {
+			t.Fatalf("%s: ours at %.0f,%.0f, the editor's at %.0f,%.0f", what, g.X+a.editorR.X, g.Y+a.editorR.Y, want.X, want.Y)
+		}
+	}
+	for _, k := range []struct {
+		key  ui.Key
+		what string
+	}{{ui.KeyEnd, "End"}, {ui.KeyDown, "Down"}, {ui.KeyEnd, "End again"}, {ui.KeyHome, "Home"}, {ui.KeyEnd, "End"}, {ui.KeyLeft, "a step left"}, {ui.KeyRight, "a step right"}, {ui.KeyUp, "Up"}} {
+		tt.Key(0, k.key)
+		same(k.what)
+	}
+	// a click past the end of the first line, in its middle
+	a.doc.SetSelection(0, 0)
+	tt.Frame()
+	tt.ClickAt(a.editorR.X+a.editorR.W-4, a.editorR.Y+a.boxes[0].Top+a.font.Size*0.7)
+	if _, at := a.doc.Selection(); at == 0 {
+		t.Fatal("the click did not move the caret")
+	}
+	same("a click past the line's end")
+}
