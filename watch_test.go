@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,4 +123,40 @@ func TestWatchOpenDeleted(t *testing.T) {
 	if a.page == nil || a.page.Dir != p.Dir {
 		t.Fatal("the page is not open")
 	}
+}
+
+// TestWatchFollows: a change made outside reaches the app through its watch of the folder, without the app being
+// asked to look: the open page's new text, and a page another program made (#344).
+func TestWatchFollows(t *testing.T) {
+	old := watchEvery
+	watchEvery = 50 * time.Millisecond // where the system does not watch: the watch polls so often
+	t.Cleanup(func() { watchEvery = old })
+	a, _ := newTestApp(t, "eski")
+	p := a.page
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); a.watch(ctx) }()
+	t.Cleanup(func() { cancel(); <-done })
+	until := func(what string, ok func() bool) {
+		t.Helper()
+		for end := time.Now().Add(10 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			a.mu.Lock()
+			yes := ok()
+			a.mu.Unlock()
+			if yes {
+				return
+			}
+		}
+		t.Fatalf("the watch did not take %s", what)
+	}
+	touchLater(t, p.File(), string(JoinPage(map[string]string{"title": "Yeni ad"}, encodeBody(importMarkdown("Dışarıdan yazıldı.\n")))))
+	until("the page's new text", func() bool { return a.doc.Text().String() == "Dışarıdan yazıldı." && p.Title == "Yeni ad" })
+	other, err := OpenLibrary(a.lib.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Collections[0].NewPage(nil, "Başka bir programdan"); err != nil {
+		t.Fatal(err)
+	}
+	until("the new page", func() bool { return len(a.lib.Collections) == 1 && len(a.lib.Collections[0].All()) == 2 })
 }

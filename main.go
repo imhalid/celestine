@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -741,7 +742,7 @@ func main() {
 				a.do(func() error { a.checkUpdate(false); return nil })
 			}
 		}()
-		go func() { defer a.guard(); a.watch() }()
+		go func() { defer a.guard(); a.watch(context.Background()) }()
 		go func() { defer a.guard(); a.watchClipboard() }()
 		if a.settings.MCP || mcpOn { // on as it was left, or asked for by `celestine mcp` (do not persist --mcp, #182)
 			a.startMCP(true, a.settings.MCP)

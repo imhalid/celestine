@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"log"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/egoist/mygo"
 
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
@@ -11,9 +16,9 @@ import (
 
 // Watching the library for changes made elsewhere: another editor, a
 // script, a sync (iCloud, Dropbox, git) or an agent writing the files.
-// Every watchEvery the disk is compared with what the app holds: the
-// folders of its collections and pages, and when each file was last read
-// or written here. Our own writes leave the two the same; anything else is
+// When the system says something changed (watch), the disk is compared
+// with what the app holds: the folders of its collections and pages, and
+// when each file was last read or written here. Our own writes leave the two the same; anything else is
 // a change from outside, and the app takes it:
 //   - a page's text changed: its document is read again, unless it has
 //     edits not yet saved - then both are kept, the outside version next
@@ -23,25 +28,129 @@ import (
 //   - the open page was deleted with edits not yet saved: it is written
 //     back, so that nothing typed is lost.
 
-const watchEvery = 1500 * time.Millisecond
+// watchEvery is how often the library is looked at where the system does not tell what changes in it: a library of
+// another kind of storage, a system without file watching, or one whose watch ended (too many files, its folder gone).
+var watchEvery = 1500 * time.Millisecond
 
-// watch checks the disk every watchEvery, for as long as the app runs.
-func (a *app) watch() {
-	if _, ok := a.lib.FS.(*Store); ok {
-		return // nothing else reads or writes a library's file: no one to wait for
-	}
-	for range time.Tick(watchEvery) { // one scan at a time: a tick that comes during one is dropped
+// watch follows the disk for as long as ctx lasts: through the system's watch of a folder library
+// (mygo.WatchFiles, #344), which says at once that something changed and costs nothing while nothing does, else
+// every watchEvery. Either way what changed is read by scanLibrary and taken by applyDisk, which tell the app's own
+// writes from others: an event only says when to look.
+func (a *app) watch(ctx context.Context) {
+	for ctx.Err() == nil {
 		a.mu.Lock()
 		fsys, root := a.lib.FS, a.lib.Root
 		a.mu.Unlock()
-		disk := scanLibrary(fsys, root) // the slow part, outside the lock: no frame waits for the disk (#193)
-		a.do(func() error {
-			if a.lib.FS == fsys && a.lib.Root == root { // the same library still
-				a.applyDisk(disk, true)
-			}
-			return nil
-		})
+		if onDisk(fsys) && a.watchFolder(ctx, fsys, root) {
+			continue // the library is another now: watched again
+		}
+		if !a.pollDisk(ctx, fsys, root) {
+			return
+		}
 	}
+}
+
+// watchFolder watches the folder library at root until ctx ends or the library is another, which it reports.
+// It returns false at once where the system cannot watch it, and once its watch ended, so that the library is
+// polled instead.
+func (a *app) watchFolder(ctx context.Context, fsys FS, root string) bool {
+	wctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	w, err := mygo.WatchFiles(wctx, root, mygo.FileWatchOptions{
+		Recursive:    true,
+		PollInterval: watchEvery, // where the system has no watch
+		// what scanLibrary passes over: the trash, the app's own folders, hidden files
+		Ignore: func(p string, _ bool) bool { return strings.HasPrefix(path.Base(p), ".") },
+	})
+	if err != nil {
+		log.Printf("celestine: watching the library every %v instead: %v", watchEvery, err)
+		return false
+	}
+	changed := make(chan error)
+	go func() {
+		defer a.guard()
+		for {
+			_, err := w.Next(wctx)
+			select {
+			case changed <- err:
+			case <-wctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	a.scanDisk(fsys, root) // what changed before the watch began
+	tick := time.NewTicker(watchEvery)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case err := <-changed:
+			if err != nil {
+				if ctx.Err() == nil {
+					log.Printf("celestine: watching the library every %v instead: %v", watchEvery, err)
+				}
+				return false
+			}
+			a.scanDisk(fsys, root)
+		case <-tick.C: // nothing read: only whether the library is still this one
+			if !a.sameLibrary(fsys, root) {
+				return true
+			}
+		}
+	}
+}
+
+// pollDisk looks at the library every watchEvery until ctx ends, reporting false then, or the library is another
+// that the system can watch.
+func (a *app) pollDisk(ctx context.Context, fsys FS, root string) bool {
+	tick := time.NewTicker(watchEvery) // one scan at a time: a tick that comes during one is dropped
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-tick.C:
+		}
+		if !a.sameLibrary(fsys, root) {
+			return true
+		}
+		if _, ok := fsys.(*Store); ok {
+			continue // nothing else reads or writes a library's file: no one to wait for
+		}
+		a.scanDisk(fsys, root)
+	}
+}
+
+// onDisk says whether fsys is the computer's own disk, which the system can watch: a folder library's.
+func onDisk(fsys FS) bool {
+	if c, ok := fsys.(*countFS); ok {
+		fsys = c.FS
+	}
+	_, ok := fsys.(OSFS)
+	return ok
+}
+
+// sameLibrary says whether the app's library is still the one in fsys at root.
+func (a *app) sameLibrary(fsys FS, root string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.lib.FS == fsys && a.lib.Root == root
+}
+
+// scanDisk reads the library in fsys at root, the slow part, outside the lock: no frame waits for the disk (#193);
+// then takes what changed, if the library is still that one.
+func (a *app) scanDisk(fsys FS, root string) {
+	disk := scanLibrary(fsys, root)
+	a.do(func() error {
+		if a.lib.FS == fsys && a.lib.Root == root {
+			a.applyDisk(disk, true)
+		}
+		return nil
+	})
 }
 
 // diskReload says whether disk shows the tree changed: a collection or a page there or gone, a collection.json
