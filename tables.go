@@ -737,8 +737,10 @@ func (a *app) cellEditView(c *ui.Context) {
 		case ce.fresh:
 		case a.chipInText(ce.ch):
 			// out of view: the editor paints only the paragraphs that show (#314), so the table was not drawn and
-			// gave no place for its cells; the cell stays open as it was, and takes the keyboard when it is back
-			ce.fresh = true
+			// gave no place for its cells; the cell stays open as it was, and takes the keyboard when it is back.
+			// Meanwhile MyGo gives the focus its input had to the page, which had it before (#588): that is not the
+			// page taking the keyboard back from the cell, which would close it
+			ce.fresh, ce.was = true, false
 		default:
 			ce.open = false
 		}
@@ -851,7 +853,9 @@ func (a *app) cellEditView(c *ui.Context) {
 			return
 		}
 		col := ce.ch.tbl.cols[ce.col]
-		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline)
+		// the cell's bar keeps the focus in the cell as its buttons are pressed, as a spreadsheet's does: the press of
+		// one took it, and MyGo gives it back now to what had it before the cell opened, the page (#588)
+		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline).KeepFocus()
 		a.wheelToPage(bar)
 		a.cellBar = bar.LayoutBounds()
 		bar.
