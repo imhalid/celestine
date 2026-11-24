@@ -1,5 +1,9 @@
 # Notices
 
+What is drawn after other works, without their code. The licences of the software the builds link are
+generated at each release, and packed with the app as THIRD_PARTY_NOTICES.md (`go run ./scripts/notices`). Celestine
+itself is under LICENSE.
+
 ## Cursor-Smith
 
 The carets after Back-man, the Shredder, the Portal, Evaporate, the letter pops, the lightning, the

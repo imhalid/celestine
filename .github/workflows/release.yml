@@ -127,6 +127,7 @@ jobs:
           ls -l dist
       - name: package
         run: |
+          go run ./scripts/notices > dist/THIRD_PARTY_NOTICES.md # the licences packed with the app (#256)
           scripts/package.sh
           scripts/appimage.sh
           (cd dist && sha256sum celestine-* > SHA256SUMS && cat SHA256SUMS)
@@ -159,6 +160,7 @@ jobs:
           path: |
             dist/celestine-*
             dist/SHA256SUMS
+            dist/THIRD_PARTY_NOTICES.md
             release-notes.md
             changelog.json
           retention-days: 1
@@ -237,7 +239,7 @@ jobs:
         run: |
           pre=
           case "$VERSION" in v0.*|*-*) pre=--prerelease ;; esac
-          gh release create "$VERSION" dist/celestine-* dist/SHA256SUMS* --repo "$GITHUB_REPOSITORY" \
+          gh release create "$VERSION" dist/celestine-* dist/SHA256SUMS* dist/THIRD_PARTY_NOTICES.md LICENSE --repo "$GITHUB_REPOSITORY" \
             --title "$VERSION" --notes-file release-notes.md --verify-tag $pre
       - name: install script
         if: env.SIGNED == 'true'

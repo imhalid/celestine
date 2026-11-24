@@ -47,6 +47,9 @@ for bin in dist/celestine-linux-*; do
 	mkdir -p "$dir/usr/bin" "$dir/usr/share/applications" "$dir/usr/share/icons/hicolor/256x256/apps"
 	install -m 0755 "$bin" "$dir/usr/bin/celestine"
 	install -m 0644 assets/icon-256.png "$dir/usr/share/icons/hicolor/256x256/apps/celestine.png"
+	mkdir -p "$dir/usr/share/doc/celestine" # the licences, the app's and the third-party software's (#256)
+	install -m 0644 LICENSE "$dir/usr/share/doc/celestine/LICENSE"
+	if [ -f dist/THIRD_PARTY_NOTICES.md ]; then install -m 0644 dist/THIRD_PARTY_NOTICES.md "$dir/usr/share/doc/celestine/"; fi
 	cat > "$dir/usr/share/applications/celestine.desktop" <<EOF
 [Desktop Entry]
 Type=Application

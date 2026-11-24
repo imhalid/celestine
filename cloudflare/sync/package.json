@@ -9,7 +9,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
+  "private": true,
   "devDependencies": {
     "@synth-ui/backend": "0.1.0",
     "@synth-ui/core": "0.1.0",

@@ -20,6 +20,13 @@ root=$(pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# notices puts the licences of the third-party software in the package, with the app's own (#256):
+# dist/THIRD_PARTY_NOTICES.md, which the release makes (go run ./scripts/notices), when it is there
+notices() {
+	install -m 0644 LICENSE "$1/LICENSE"
+	if [ -f dist/THIRD_PARTY_NOTICES.md ]; then install -m 0644 dist/THIRD_PARTY_NOTICES.md "$1/THIRD_PARTY_NOTICES.md"; fi
+}
+
 for bin in dist/celestine-darwin-*; do
 	case $bin in *.zip) continue ;; esac
 	[ -f "$bin" ] || continue
@@ -28,6 +35,7 @@ for bin in dist/celestine-darwin-*; do
 	mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 	install -m 0755 "$bin" "$app/Contents/MacOS/celestine"
 	install -m 0644 assets/icon.icns "$app/Contents/Resources/icon.icns"
+	notices "$app/Contents/Resources"
 	cat > "$app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -63,6 +71,7 @@ for bin in dist/celestine-linux-*; do
 	mkdir -p "$dir"
 	install -m 0755 "$bin" "$dir/celestine"
 	install -m 0644 assets/icon-256.png "$dir/celestine.png"
+	notices "$dir"
 	cat > "$dir/celestine.desktop" <<EOF
 [Desktop Entry]
 Type=Application
