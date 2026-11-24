@@ -29,8 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0, persist-credentials: false }
       - name: anything new
         id: new
         env:
@@ -47,9 +47,18 @@ jobs:
           else
             echo "No commit in the last day: nothing to check."
           fi
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.new.outputs.run == 'true'
-        with: { go-version-file: go.mod }
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        # what is compiled, kept by the commit: a release of a commit tested here finds its packages compiled (#580)
+        if: steps.new.outputs.run == 'true'
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-nightly-${{ github.sha }}
+          restore-keys: go-nightly-
       - name: gofmt and vet
         id: fmt
         if: steps.new.outputs.run == 'true'
@@ -65,10 +74,11 @@ jobs:
         run: |
           set -o pipefail
           {
-            for os in darwin linux windows; do CGO_ENABLED=0 GOOS=$os go build -o /dev/null . || exit 1; done
+            # the five builds as the release makes them (its flags, its budget), so that a tag of this commit finds
+            # them compiled (#580), and the AppImages it packs (scripts/appimage.sh, #513): a broken package is found
+            # before a tag
+            BUDGET_MB=50 scripts/build.sh && scripts/appimage.sh || exit 1
             GOOS=js GOARCH=wasm go build -o /dev/null .
-            # the AppImages a release packs (scripts/appimage.sh, #513), so a broken package is found before a tag
-            BUDGET_MB=50 scripts/build.sh linux/amd64 linux/arm64 && scripts/appimage.sh || exit 1 # the release's budget
           } 2>&1 | tee report/builds.txt
       - name: the library under the race detector
         id: race
@@ -103,7 +113,7 @@ jobs:
         run: |
           set -o pipefail
           go run golang.org/x/vuln/cmd/govulncheck@latest ./... 2>&1 | tee report/vuln.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: steps.new.outputs.run == 'true'
         with: { node-version: 22, cache: npm, cache-dependency-path: cloudflare/sync/package-lock.json }
       - name: the sync Worker

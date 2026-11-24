@@ -22,7 +22,10 @@
 #   git tag -a v1.2.0 -m "Quieter sync" -m "Sync asks the server less, and ..."
 #
 # The tests run here only for a commit the nightly has not tested whole: one it has (its status celestine/tests,
-# nightly.yml) is not tested again, and the release is its builds alone (#465). To release a fix quickly, run the
+# nightly.yml) is not tested again, and the release is its builds alone (#465). Run, they are four jobs at once beside
+# the builds (scripts/test-shard.sh), and nothing is published until all four passed (#580). The compiled packages
+# are kept between runs (GOCACHE, by the commit): a tag of a commit the nightly built finds them compiled. A release
+# takes some 8 minutes then, and 5 when the nightly tested it. To release a fix quickly, run the
 # nightly on it by hand (`gh workflow run nightly.yml`) and tag it once that passed.
 # The key is the publish job's alone (#174): the build job, which runs the tests (all of the dependencies' code)
 # and builds, has no secret that signs and only reads the repository, and the dmg job neither. The publish job runs
@@ -36,21 +39,15 @@ on:
     tags: ["v*"]
 permissions: {} # each job asks for what it needs
 jobs:
-  build:
+  tested:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      statuses: read # whether the nightly tested the commit (tested already)
-    env:
-      VERSION: ${{ github.ref_name }}
-      SIGNED: ${{ secrets.UPDATE_PUBLIC_KEY != '' }}
+      statuses: read # whether the nightly tested the commit
+    outputs:
+      ok: ${{ steps.mark.outputs.ok }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with: { fetch-depth: 0, persist-credentials: false }
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with: { go-version-file: go.mod }
       - name: tested already
-        id: tested
+        id: mark
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -63,13 +60,55 @@ jobs:
           else
             echo "The nightly has not tested $GITHUB_SHA: the tests run here."
           fi
+  test:
+    needs: tested
+    if: needs.tested.outputs.ok != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix: { shard: [1, 2, 3, 4] }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-test-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: |
+            go-test-${{ matrix.shard }}-
+            go-nightly-
+      - name: test
+        run: scripts/test-shard.sh 4 ${{ matrix.shard }}
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ github.ref_name }}
+      SIGNED: ${{ secrets.UPDATE_PUBLIC_KEY != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-build-${{ github.sha }}
+          restore-keys: |
+            go-build-
+            go-nightly-
       - name: format and vet
         run: |
           test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
           go vet ./...
-      - name: test
-        if: steps.tested.outputs.ok != 'true'
-        run: go test -timeout 20m ./...
       - name: update address
         if: env.SIGNED == 'true'
         env:
@@ -142,8 +181,9 @@ jobs:
           path: dist/celestine-macos.dmg
           retention-days: 1
   publish:
-    needs: [build, dmg]
-    if: always() && needs.build.result == 'success'
+    needs: [build, dmg, test]
+    # the tests passed, or were not run as the nightly had; a DMG that could not be made does not hold it back
+    if: always() && needs.build.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -217,8 +257,15 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           EP="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          # the builds, then the signed sums that name them: the install script finds both before the version
-          for f in dist/celestine-* dist/SHA256SUMS dist/SHA256SUMS.sig; do aws s3 cp "$f" "s3://celestine-releases/$VERSION/$(basename $f)" --endpoint-url "$EP"; done
+          # the builds, at once, then the signed sums that name them: the install script finds both before the version
+          up() { aws s3 cp "$1" "s3://celestine-releases/$VERSION/$(basename "$1")" --endpoint-url "$EP" --only-show-errors; }
+          pids=""
+          for f in dist/celestine-*; do up "$f" & pids="$pids $!"; done
+          for p in $pids; do wait "$p"; done # one that failed stops the release here, before the sums
+          up dist/SHA256SUMS & a=$!
+          up dist/SHA256SUMS.sig & b=$!
+          wait "$a"
+          wait "$b"
           # the manifest last: once it is up, every app is offered the version. A trial goes to beta.json alone, which
           # only apps on the trial channel ask for; a stable release goes to both, so those apps are offered it too (#169)
           aws s3 cp update.json s3://celestine-releases/beta.json --endpoint-url "$EP" --content-type application/json
