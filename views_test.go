@@ -779,3 +779,36 @@ func TestCollectionColorIsItsAccent(t *testing.T) {
 		t.Fatalf("the button %v is not the collection's color (without it %v)", tinted, plain)
 	}
 }
+
+// A list grouped by a choice shows viewStep pages too, and more as the reader gets to the end; each group's heading
+// counts all its pages (#194).
+func TestGroupedListShowsInSteps(t *testing.T) {
+	a, tt, coll := viewsLibrary(t)
+	pr, err := coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okundu"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 300 {
+		p, err := coll.NewPage(nil, fmt.Sprintf("Kitap %03d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SetValue(pr.ID, []string{"Okunacak", "Okundu"}[i%2])
+	}
+	tt.SetSize(1100, 800)
+	a.openCollection(coll)
+	coll.View().GroupBy = pr.ID
+	tt.Advance(300 * time.Millisecond)
+	total := len(coll.All())
+	if !tt.HasText(locales.ViewsShowMore(total - viewStep)) {
+		t.Fatalf("no row for more: %v", tt.Texts()[:12])
+	}
+	if !tt.HasText("150") {
+		t.Fatal("a group's heading does not count all its pages")
+	}
+	a.more.n = total
+	tt.Advance(100 * time.Millisecond)
+	if tt.HasText(locales.ViewsShowMore(total - viewStep)) {
+		t.Fatal("still a row for more when all show")
+	}
+}

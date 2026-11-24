@@ -415,8 +415,13 @@ const viewStep = 200
 
 // viewLimit is how many pages view v of collection coll shows now.
 func (a *app) viewLimit(coll *Collection, v *View) int {
-	if k := coll.Dir + "|" + v.ID + "|" + a.search; a.more.key != k {
-		a.more = viewMore{k, viewStep}
+	return a.shownLimit(coll.Dir + "|" + v.ID + "|" + a.search)
+}
+
+// shownLimit is how many pages the list named key shows now: viewStep, from the start again when it is another.
+func (a *app) shownLimit(key string) int {
+	if a.more.key != key {
+		a.more = viewMore{key, viewStep}
 	}
 	return a.more.n
 }
@@ -462,14 +467,22 @@ func listCard(c *ui.Context, key string, rows func()) {
 func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
+	// the pages by their choice, in one pass: a pass for each option was options × pages a frame
+	byChoice := map[string][]*Page{}
+	for _, p := range pages {
+		byChoice[p.Value(pr)] = append(byChoice[p.Value(pr)], p)
+	}
+	// as the list does, viewStep pages at first and more as the reader gets to the end; a group's count is all its pages
+	budget, left := a.viewLimit(coll, v), 0
 	for _, s := range append(slices.Clone(pr.Options), "") {
-		var group []*Page
-		for _, p := range pages {
-			if p.Value(pr) == s {
-				group = append(group, p)
-			}
-		}
+		group := byChoice[s]
 		if len(group) == 0 {
+			continue
+		}
+		if budget <= 0 {
+			if !slices.Contains(v.Collapsed, s) {
+				left += len(group)
+			}
 			continue
 		}
 		title := s
@@ -496,12 +509,16 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		if folded {
 			continue
 		}
+		rows := group[:min(len(group), budget)]
+		budget -= len(rows)
+		left += len(group) - len(rows)
 		listCard(c, "lgroup:"+s, func() {
-			for i, p := range group {
+			for i, p := range rows {
 				a.listRow(c, v, p, now, i > 0)
 			}
 		})
 	}
+	a.moreRow(c, left)
 }
 
 // manualList is a list in the collection's own order: its rows are dragged into place (Ryugo's Sortable), and the
