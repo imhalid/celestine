@@ -10,15 +10,21 @@ import (
 )
 
 // What agents changed while the app runs: each page an agent wrote is kept as it was before the agent's first write,
-// and the pages an agent made are known. The status bar says how many, and one click puts them all back: the pages
-// to what they were, the made ones to the trash. Before each write the page is also kept as a version (in a library
-// kept in a file), so one write can be taken back from the page's history.
+// the pages an agent made are known, and so are the other changes it made through the tools (#180): a page moved,
+// thrown away or brought back, a collection made or changed, a property added. The status bar says how many, and one
+// click puts them all back: the changes taken back the last first, then the pages to what they were, the made ones
+// to the trash. Before each write the page is also kept as a version (in a library kept in a file), so one write can
+// be taken back from the page's history. A command of the palette an agent runs (run_command) is the user's own
+// action, and is undone as the user would undo it. The record follows the pages by their folders: a folder library
+// read again has other pages (reloadLibrary), and a page taken back from the trash is another one.
 
 // agentEdits is the record.
 type agentEdits struct {
 	pages  []*Page          // in the order the agent came to them
 	before map[*Page][]byte // a page's file before the agent's first write
 	made   map[*Page]bool   // made by the agent
+	dirs   map[*Page]string // where each was when the agent came to it
+	ops    []func() error   // the other changes, each as what takes it back
 }
 
 // agentTouch is called before an agent writes page p: its file is kept, the first time, and as a version each time.
@@ -41,7 +47,7 @@ func (a *app) agentTouch(p *Page) {
 		r.before = map[*Page][]byte{}
 	}
 	r.before[p] = data
-	r.pages = append(r.pages, p)
+	r.note(p)
 }
 
 // agentMade notes that an agent made page p.
@@ -51,12 +57,51 @@ func (a *app) agentMade(p *Page) {
 		r.made = map[*Page]bool{}
 	}
 	r.made[p] = true
+	r.note(p)
+}
+
+// note puts page p in the record's order, with where it is.
+func (r *agentEdits) note(p *Page) {
+	if r.dirs == nil {
+		r.dirs = map[*Page]string{}
+	}
+	r.dirs[p] = p.Dir
 	r.pages = append(r.pages, p)
 }
 
-// agentChanged is how many pages the agents changed that are still in the library and not as they were.
+// agentDid notes a change an agent made that is not a page's text, by what takes it back: it finds what it needs by
+// its folder, as the library may hold other objects by then, and does nothing to what is gone.
+func (a *app) agentDid(back func() error) { a.agent.ops = append(a.agent.ops, back) }
+
+// agentRemap follows the record to the pages of a library read again: each page by its folder.
+func (a *app) agentRemap() {
+	r := &a.agent
+	if len(r.pages) == 0 {
+		return
+	}
+	old := *r
+	*r = agentEdits{ops: old.ops}
+	for _, p := range old.pages {
+		q := a.pageAt(old.dirs[p])
+		if q == nil {
+			continue
+		}
+		if old.made[p] {
+			a.agentMade(q)
+			continue
+		}
+		if r.before == nil {
+			r.before = map[*Page][]byte{}
+		}
+		r.before[q] = old.before[p]
+		r.note(q)
+	}
+}
+
+// agentChanged is how many changes the agents made that are still there: the pages still in the library and not
+// as they were, and the other changes.
 func (a *app) agentChanged() int {
-	n := 0
+	n := len(a.agent.ops)
 	for _, p := range a.agent.pages {
 		if a.agentDiffers(p) {
 			n++
@@ -90,17 +135,38 @@ func (a *app) inLibrary(p *Page) bool {
 	return false
 }
 
-// undoAgent puts back what the agents changed: each page as it was before them (what it is now kept as a version
-// first), and the pages they made to the trash. The record is cleared.
+// collAt is the collection of folder dir, or nil.
+func (a *app) collAt(dir string) *Collection {
+	for _, c := range a.lib.Collections {
+		if c.Dir == dir {
+			return c
+		}
+	}
+	return nil
+}
+
+// undoAgent puts back what the agents changed: the other changes taken back, the last first, so that what was
+// moved or thrown away is where it was; then each page as it was before them (what it is now kept as a version
+// first), found where it was, and the pages they made to the trash. The record is cleared.
 func (a *app) undoAgent() {
 	r := a.agent
 	a.agent = agentEdits{}
 	n := 0
-	for _, p := range r.pages {
-		if !a.inLibrary(p) {
+	for i := len(r.ops) - 1; i >= 0; i-- {
+		if err := r.ops[i](); err != nil {
+			a.fail(err)
 			continue
 		}
-		if r.made[p] {
+		n++
+	}
+	for _, orig := range r.pages {
+		p := orig
+		if !a.inLibrary(p) { // another object now, where it was (back from the trash), or gone
+			if p = a.pageAt(r.dirs[orig]); p == nil {
+				continue
+			}
+		}
+		if r.made[orig] {
 			a.trashPage(p)
 			n++
 			continue
@@ -109,13 +175,13 @@ func (a *app) undoAgent() {
 			a.flush()
 		}
 		now, _ := p.FS().ReadFile(p.File())
-		if bytes.Equal(now, r.before[p]) {
+		if bytes.Equal(now, r.before[orig]) {
 			continue
 		}
 		if h, ok := historyOf(p); ok {
 			h.SnapshotNow(p.File())
 		}
-		if err := p.FS().WriteFile(p.File(), r.before[p]); err != nil {
+		if err := p.FS().WriteFile(p.File(), r.before[orig]); err != nil {
 			a.fail(err)
 			continue
 		}
@@ -123,6 +189,7 @@ func (a *app) undoAgent() {
 		a.takeOutside(p)
 		n++
 	}
+	a.loadTrash()
 	a.linksStale()
 	PagesChanged()
 	a.say(toastOK, locales.AgentChangesUndone(n))
@@ -143,7 +210,7 @@ func (a *app) agentStatus(c *ui.Context) {
 			b.Background(t.SurfaceHover)
 		}
 		b.Children(func() {
-			ui.Text(c, locales.AgentChangedPages(n)).FontSize(11.5).TextColor(t.TextMuted)
+			ui.Text(c, locales.AgentChanges(n)).FontSize(11.5).TextColor(t.TextMuted)
 		})
 		if b.Clicked() {
 			a.undoAgent()

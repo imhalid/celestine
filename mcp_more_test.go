@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +108,7 @@ func TestAgentEditsUndo(t *testing.T) {
 	var made struct{ ID string }
 	call(t, cs, "create_page", map[string]any{"collection": colls[0].ID, "title": "Yeni", "markdown": "x"}, &made)
 	tt.Frame()
-	if !tt.HasText("Ajan 2 sayfayı değiştirdi") {
+	if !tt.HasText("Ajan 2 değişiklik yaptı") {
 		t.Fatal("the status bar does not say what the agent changed")
 	}
 	if err := tt.Click("Ajanın değişikliklerini geri al"); err != nil {
@@ -122,7 +123,60 @@ func TestAgentEditsUndo(t *testing.T) {
 	if res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "read_page", Arguments: map[string]any{"page": made.ID}}); !res.IsError {
 		t.Fatal("the made page is still there")
 	}
-	if tt.HasText("Ajan 2 sayfayı değiştirdi") || a.agentChanged() != 0 {
+	if tt.HasText("Ajan 2 değişiklik yaptı") || a.agentChanged() != 0 {
+		t.Fatal("still said")
+	}
+}
+
+// TestAgentOpsUndo: what an agent did through the tools besides writing - a page moved and one thrown away, a
+// collection made, a property added, a collection renamed, a page brought back - is taken back by the one click too,
+// the last first, and the record follows the pages when the library is read again (#180).
+func TestAgentOpsUndo(t *testing.T) {
+	a, tt := newTestApp(t, "ilk metin")
+	coll := a.lib.Collections[0]
+	second, _ := coll.NewPage(nil, "İkinci")
+	third, _ := coll.NewPage(nil, "Üçüncü")
+	third.SaveText("üçüncünün metni\n")
+	order := func() []string {
+		var out []string
+		for _, p := range coll.Pages {
+			out = append(out, p.Title)
+		}
+		return out
+	}
+	was := order()
+	cs := agent(t, a)
+	call(t, cs, "move_page", map[string]any{"page": a.idOf(third.Dir), "index": 0}, nil)
+	call(t, cs, "update_page", map[string]any{"page": a.idOf(coll.Pages[0].Dir), "append": "ajanın satırı"}, nil)
+	call(t, cs, "trash_page", map[string]any{"page": a.idOf(second.Dir)}, nil)
+	var made struct{ ID string }
+	call(t, cs, "create_collection", map[string]any{"name": "Ajanınki"}, &made)
+	call(t, cs, "add_property", map[string]any{"collection": a.idOf(coll.Dir), "name": "Durum", "type": "text"}, nil)
+	call(t, cs, "update_collection", map[string]any{"collection": a.idOf(coll.Dir), "name": "Yeni ad"}, nil)
+	if slices.Equal(order(), was) || coll.Name != "Yeni ad" || len(a.lib.Collections) != 2 || len(coll.Properties) == 0 {
+		t.Fatalf("the agent's changes did not happen: %v %q %d", order(), coll.Name, len(a.lib.Collections))
+	}
+	dir := coll.Dir
+	a.reloadLibrary() // as a folder library is read again: other pages
+	coll = a.collAt(dir)
+	tt.Frame()
+	if n := a.agentChanged(); n < 6 {
+		t.Fatalf("the record after a reload: %d", n)
+	}
+	a.undoAgent()
+	coll = a.collAt(dir)
+	if got := order(); !slices.Equal(got, was) {
+		t.Fatalf("the order: %v, was %v", got, was)
+	}
+	if coll.Name == "Yeni ad" || len(coll.Properties) != 0 || len(a.lib.Collections) != 1 {
+		t.Fatalf("the collections: %q, %d properties, %d collections", coll.Name, len(coll.Properties), len(a.lib.Collections))
+	}
+	for _, p := range coll.All() {
+		if text, _ := p.Text(); strings.Contains(text, "ajanın") {
+			t.Fatalf("%s still has the agent's line", p.Title)
+		}
+	}
+	if a.agentChanged() != 0 {
 		t.Fatal("still said")
 	}
 }

@@ -286,6 +286,13 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
+				dir := c.Dir
+				a.agentDid(func() error { // taken back to the trash, its pages with it
+					if c := a.collAt(dir); c != nil {
+						a.trashCollection(c)
+					}
+					return nil
+				})
 				for _, ps := range in.Properties {
 					if _, err := c.AddProperty(ps.Name, ps.Type, ps.Options); err != nil {
 						return err
@@ -366,8 +373,17 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
-				pr, err = c.AddProperty(in.Name, in.Type, in.Options)
-				return err
+				if pr, err = c.AddProperty(in.Name, in.Type, in.Options); err != nil {
+					return err
+				}
+				dir, id := c.Dir, pr.ID
+				a.agentDid(func() error {
+					if c := a.collAt(dir); c != nil && c.Prop(id) != nil {
+						return c.RemoveProperty(id)
+					}
+					return nil
+				})
+				return nil
 			})
 			if err != nil {
 				return nil, nil, err
@@ -471,9 +487,37 @@ func (a *app) newMCPServer() *mcp.Server {
 				if p == a.page {
 					a.flush()
 				}
+				fromColl, fromParent, fromAt := p.Coll.Dir, "", indexOf(p.Coll.Pages, p)
+				if p.Parent != nil {
+					fromParent, fromAt = p.Parent.Dir, indexOf(p.Parent.Children, p)
+				}
 				if err := a.lib.MovePage(p, c, parent, index); err != nil {
 					return err
 				}
+				to := p.Dir
+				a.agentDid(func() error { // back among its siblings, where it was
+					q, c := a.pageAt(to), a.collAt(fromColl)
+					if q == nil || c == nil {
+						return nil
+					}
+					var parent *Page
+					if fromParent != "" {
+						if parent = a.pageAt(fromParent); parent == nil {
+							return nil
+						}
+					}
+					siblings, at := c.Pages, fromAt
+					if parent != nil {
+						siblings = parent.Children
+					}
+					if now := indexOf(siblings, q); now >= 0 && now < at { // among the siblings but itself, as above
+						at++
+					}
+					if q == a.page {
+						a.flush()
+					}
+					return a.lib.MovePage(q, c, parent, at)
+				})
 				id = a.idOf(p.Dir)
 				return nil
 			})
@@ -493,6 +537,9 @@ func (a *app) newMCPServer() *mcp.Server {
 				a.trashPage(p)
 				if a.saveErr != "" {
 					return errors.New(a.saveErr)
+				}
+				if a.trashed != nil {
+					a.agentDid(a.untrash(trashID(a.trashed)))
 				}
 				return nil
 			})

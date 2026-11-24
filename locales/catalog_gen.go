@@ -539,21 +539,21 @@ func (msgs Messages) Address() string {
 	return Catalog.Format(msgs.locale, "address", nil)
 }
 
-// AgentChangedPages says "{count, plural, one {The agent changed # page} other {The agent changed # pages}}"
+// AgentChanges says "{count, plural, one {The agent made # change} other {The agent made # changes}}"
 // in the language the app shows.
-func AgentChangedPages(count int) string { return In(i18n.Locale()).AgentChangedPages(count) }
+func AgentChanges(count int) string { return In(i18n.Locale()).AgentChanges(count) }
 
-// AgentChangedPages says "{count, plural, one {The agent changed # page} other {The agent changed # pages}}"
+// AgentChanges says "{count, plural, one {The agent made # change} other {The agent made # changes}}"
 // in the language of msgs.
-func (msgs Messages) AgentChangedPages(count int) string {
-	return Catalog.Format(msgs.locale, "agent_changedPages", map[string]any{"count": count})
+func (msgs Messages) AgentChanges(count int) string {
+	return Catalog.Format(msgs.locale, "agent_changes", map[string]any{"count": count})
 }
 
-// AgentChangesUndone says "{count, plural, one {Undid the agent's changes to # page} other {Undid the agent's changes to # pages}}"
+// AgentChangesUndone says "{count, plural, one {Took back # change of the agent's} other {Took back # changes of the agent's}}"
 // in the language the app shows.
 func AgentChangesUndone(count int) string { return In(i18n.Locale()).AgentChangesUndone(count) }
 
-// AgentChangesUndone says "{count, plural, one {Undid the agent's changes to # page} other {Undid the agent's changes to # pages}}"
+// AgentChangesUndone says "{count, plural, one {Took back # change of the agent's} other {Took back # changes of the agent's}}"
 // in the language of msgs.
 func (msgs Messages) AgentChangesUndone(count int) string {
 	return Catalog.Format(msgs.locale, "agent_changesUndone", map[string]any{"count": count})

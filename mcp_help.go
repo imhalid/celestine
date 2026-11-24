@@ -38,7 +38,8 @@ task), @today, created: and modified: with a day (2026-11-09), a range (2026-11-
 
 TOOLS TO START WITH. list_collections, list_pages, read_page, search; get_daily_note for the journal;
 insert_under_heading to add under a heading; update_page to change a page; list_tasks and set_task for tasks.
-Every write is kept as a version first and the user can take it back in one click.`
+Every write to a page is kept as a version first, and what the tools change can be taken back by the user in one
+click; a command run with run_command is the user's to undo, as if they had run it.`
 
 type (
 	openArgs struct {
@@ -82,6 +83,15 @@ func (a *app) addHelpTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if strings.TrimSpace(in.Name) == "" && in.PageNoun == "" && in.SubPages == nil {
 					return errors.New("nothing to change: give name, pageNoun or subPages")
 				}
+				name, noun, sub, dir := c.Name, c.PageNoun, c.SubPages, c.Dir
+				a.agentDid(func() error {
+					if c := a.collAt(dir); c != nil {
+						c.Name, c.PageNoun, c.SubPages = name, noun, sub
+						PagesChanged()
+						return c.Save()
+					}
+					return nil
+				})
 				if n := strings.TrimSpace(in.Name); n != "" {
 					c.Name = n
 				}

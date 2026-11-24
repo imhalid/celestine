@@ -278,6 +278,7 @@ func (a *app) reloadLibrary() {
 		}
 	}
 	a.restorePanes(side)
+	a.agentRemap() // what the agents changed, followed to the new pages (#180)
 	// what was being done to what is gone is let go
 	a.drag = dragState{}
 	a.renaming = nil

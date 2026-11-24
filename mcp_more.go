@@ -184,6 +184,24 @@ func (a *app) addMoreTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 					if err != nil {
 						return err
 					}
+					switch { // taken back to the trash
+					case p != nil:
+						dir := p.Dir
+						a.agentDid(func() error {
+							if q := a.pageAt(dir); q != nil {
+								a.trashPage(q)
+							}
+							return nil
+						})
+					case c != nil:
+						dir := c.Dir
+						a.agentDid(func() error {
+							if c := a.collAt(dir); c != nil {
+								a.trashCollection(c)
+							}
+							return nil
+						})
+					}
 					a.loadTrash()
 					a.linksStale()
 					switch {
@@ -201,6 +219,19 @@ func (a *app) addMoreTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			}
 			return result(map[string]string{"id": id})
 		})
+}
+
+// untrash is what brings the item of the trash named id back, when it is still there.
+func (a *app) untrash(id string) func() error {
+	return func() error {
+		for _, it := range a.lib.Trash() {
+			if trashID(it) == id {
+				_, _, err := a.lib.Restore(it)
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 // trashID names a trash item for an agent: where it was, and when it was thrown away.
