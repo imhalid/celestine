@@ -6,7 +6,6 @@ require (
 	github.com/egoist/mygo v0.10.1-0.20261123053526-dc99135e6f99
 	github.com/imhalid/ryu-go v0.1.1-0.20261113214138-ff2b8f69d026
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.59.0
 	golang.org/x/net v0.62.0
@@ -14,11 +13,9 @@ require (
 )
 
 require (
-	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/go-text/typesetting v0.3.5 // indirect
-	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

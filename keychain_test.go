@@ -8,9 +8,42 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	keyring "github.com/zalando/go-keyring"
 )
+
+// memKeychain is a keychain in memory, as a system's answers: err, when set, is every call's answer.
+type memKeychain struct {
+	m   map[string]string
+	err error
+}
+
+func newMemKeychain() *memKeychain { return &memKeychain{m: map[string]string{}} }
+
+func (k *memKeychain) Get(name string) (string, error) {
+	if k.err != nil {
+		return "", k.err
+	}
+	v, ok := k.m[name]
+	if !ok {
+		return "", errNoSecret
+	}
+	return v, nil
+}
+
+func (k *memKeychain) Set(name, secret string) error {
+	if k.err != nil {
+		return k.err
+	}
+	k.m[name] = secret
+	return nil
+}
+
+func (k *memKeychain) Delete(name string) error {
+	if k.err != nil {
+		return k.err
+	}
+	delete(k.m, name)
+	return nil
+}
 
 // withKeychain puts k in the place of the system's keychain for the test.
 func withKeychain(t *testing.T, k secretKeeper) {
@@ -29,8 +62,8 @@ func settingsApp(t *testing.T, file string) *app {
 
 // The secrets of the settings are kept in the keychain, not in the file; the next start reads them back from there.
 func TestKeychainKeepsSecrets(t *testing.T) {
-	keyring.MockInit()
-	withKeychain(t, osKeychain{})
+	k := newMemKeychain()
+	withKeychain(t, k)
 	file := filepath.Join(t.TempDir(), "settings.json")
 	a := settingsApp(t, file)
 	a.settings.SyncKey, a.settings.SyncToken, a.settings.SyncMode = "S3CRETKEY", "TOKEN123", "server"
@@ -51,15 +84,15 @@ func TestKeychainKeepsSecrets(t *testing.T) {
 	// signed out: they go from the keychain too
 	b.settings.SyncKey, b.settings.SyncToken = "", ""
 	b.saveSettings()
-	if _, err := keyring.Get(keychainService, b.secretScope()+"#syncKey"); !errors.Is(err, keyring.ErrNotFound) {
+	if _, err := k.Get(b.secretScope() + "#syncKey"); !errors.Is(err, errNoSecret) {
 		t.Fatalf("the key is still in the keychain: %v", err)
 	}
 }
 
 // Secrets a settings file of before holds are moved to the keychain at the first start, and taken out of the file.
 func TestKeychainMovesOldSecrets(t *testing.T) {
-	keyring.MockInit()
-	withKeychain(t, osKeychain{})
+	k := newMemKeychain()
+	withKeychain(t, k)
 	file := filepath.Join(t.TempDir(), "settings.json")
 	os.WriteFile(file, []byte(`{"token":"MCPOLD","syncKey":"KEYOLD","syncToken":"TOKOLD","syncMode":"server"}`), 0o600)
 	a := settingsApp(t, file)
@@ -70,15 +103,14 @@ func TestKeychainMovesOldSecrets(t *testing.T) {
 	if strings.Contains(string(data), "OLD") {
 		t.Fatalf("the secrets were left in the file: %s", data)
 	}
-	if v, _ := keyring.Get(keychainService, a.secretScope()+"#syncToken"); v != "TOKOLD" {
+	if v, _ := k.Get(a.secretScope() + "#syncToken"); v != "TOKOLD" {
 		t.Fatalf("the keychain has %q", v)
 	}
 }
 
 // With no keychain that answers (none on the system, or none in the browser), the settings file keeps the secrets as before.
 func TestKeychainFallback(t *testing.T) {
-	for name, k := range map[string]secretKeeper{"none": nil, "unreachable": osKeychain{}} {
-		keyring.MockInitWithError(errors.New("no secret service"))
+	for name, k := range map[string]secretKeeper{"none": nil, "unreachable": &memKeychain{err: errors.New("no secret service")}} {
 		withKeychain(t, k)
 		file := filepath.Join(t.TempDir(), "settings.json")
 		a := settingsApp(t, file)
@@ -97,8 +129,8 @@ func TestKeychainFallback(t *testing.T) {
 // A library's secrets go where it goes: kept under an id of its own, the settings moved to another file still find
 // them. Secrets kept under the old file's path are moved to the id at the first start, and taken from there (#163).
 func TestKeychainFollowsTheLibrary(t *testing.T) {
-	keyring.MockInit()
-	withKeychain(t, osKeychain{})
+	k := newMemKeychain()
+	withKeychain(t, k)
 	dir := t.TempDir()
 	file := filepath.Join(dir, "settings.json")
 	a := settingsApp(t, file)
@@ -115,15 +147,15 @@ func TestKeychainFollowsTheLibrary(t *testing.T) {
 	old := filepath.Join(t.TempDir(), "settings.json")
 	os.WriteFile(old, []byte(`{"syncMode":"server"}`), 0o600)
 	abs, _ := filepath.Abs(old)
-	keyring.Set(keychainService, abs+"#syncKey", "OLDKEY")
+	k.Set(abs+"#syncKey", "OLDKEY")
 	c := settingsApp(t, old)
 	if c.settings.SyncKey != "OLDKEY" || c.settings.SecretScope == "" {
 		t.Fatalf("the old key: %q, scope %q", c.settings.SyncKey, c.settings.SecretScope)
 	}
-	if v, _ := keyring.Get(keychainService, c.secretScope()+"#syncKey"); v != "OLDKEY" {
+	if v, _ := k.Get(c.secretScope() + "#syncKey"); v != "OLDKEY" {
 		t.Fatalf("not under the id: %q", v)
 	}
-	if _, err := keyring.Get(keychainService, abs+"#syncKey"); !errors.Is(err, keyring.ErrNotFound) {
+	if _, err := k.Get(abs + "#syncKey"); !errors.Is(err, errNoSecret) {
 		t.Fatalf("left under the path: %v", err)
 	}
 	if d := settingsApp(t, old); d.settings.SyncKey != "OLDKEY" {
@@ -133,8 +165,8 @@ func TestKeychainFollowsTheLibrary(t *testing.T) {
 
 // A keychain that does not answer as the settings are read is told, not taken for a sign-out (#163).
 func TestKeychainNoAnswer(t *testing.T) {
-	keyring.MockInit()
-	withKeychain(t, osKeychain{})
+	k := newMemKeychain()
+	withKeychain(t, k)
 	file := filepath.Join(t.TempDir(), "settings.json")
 	a := settingsApp(t, file)
 	a.settings.SyncKey = "S3CRETKEY"
@@ -142,7 +174,7 @@ func TestKeychainNoAnswer(t *testing.T) {
 	if a.keychainErr != nil {
 		t.Fatalf("an answer taken for none: %v", a.keychainErr)
 	}
-	keyring.MockInitWithError(errors.New("locked"))
+	k.err = errors.New("locked")
 	b := settingsApp(t, file)
 	if b.keychainErr == nil {
 		t.Fatal("no answer, not told")
