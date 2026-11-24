@@ -387,6 +387,11 @@ type autoCover struct {
 	dark  bool
 	img   *ui.Bitmap
 
+	// what moves, drawn into lifeCv at the step lifeTick of coverFPS a second, and shown as lifeBm
+	lifeCv   *ui.Canvas
+	lifeBm   *ui.Bitmap
+	lifeTick float64
+
 	// what moves, in the picture's pixels
 	clouds    []coverCloud
 	stars     []coverStar
@@ -933,8 +938,24 @@ const coverFPS = 8
 // paint draws the landscape across the band, a pixel of it two DIPs, crisp; past the
 // picture's width it goes on mirrored, so that there is no seam. Over it, what moves; its
 // foot fades into the page, where the title lies: fade is the page's own color.
+//
+// What moves is drawn into a canvas of the picture's size coverFPS times a second, and each
+// frame shows the canvas, as it shows the picture: a frame drawn for a key, the caret or a
+// scroll drew the clouds, the waves, the stars and the birds of every tile anew, some 3 ms
+// of the CPU's frame and a third of a key's in a big library (#204).
 func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 	t := float64(pt.Now().UnixMilli()%(1<<40)) / 1000
+	if tick := math.Floor(t * coverFPS); ac.lifeCv == nil || tick != ac.lifeTick {
+		if ac.lifeCv == nil {
+			ac.lifeCv = ui.NewCanvas(autoW, autoFullH)
+			ac.lifeBm = ac.lifeCv.Bitmap().Pixelated()
+		}
+		ac.lifeTick = tick
+		at := func(px, py float64) (float32, float32) {
+			return f32(math.Round(px) * autoPx), f32(math.Round(py) * autoPx)
+		}
+		ac.lifeCv.Draw(pt, func(cp *ui.Painter) { ac.paintLife(cp, tick/coverFPS, at) })
+	}
 	pt.Clip(band, 0, func() {
 		// the picture's middle is the band's, so what matters in it is seen at any width; to
 		// each side it goes on mirrored
@@ -942,16 +963,10 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 		k0 := -int(math.Ceil(float64((x0 - band.X) / autoW)))
 		for k := k0; x0+float32(k)*autoW < band.X+band.W; k++ {
 			ox := x0 + float32(k)*autoW
-			flip := k%2 != 0
-			pt.ImageRegion(ac.img, ui.Rect{W: picW, H: picH}, ui.Rect{X: ox, Y: band.Y, W: autoW, H: band.H}, ui.ImageOptions{FlipX: flip})
-			// the picture's pixel (px, py) is here, on this tile
-			at := func(px, py float64) (float32, float32) {
-				if flip {
-					px = picW - px
-				}
-				return ox + f32(math.Round(px)*autoPx), band.Y + f32(math.Round(py)*autoPx)
-			}
-			ac.paintLife(pt, t, at, flip)
+			tile := ui.Rect{X: ox, Y: band.Y, W: autoW, H: band.H}
+			opts := ui.ImageOptions{FlipX: k%2 != 0}
+			pt.ImageRegion(ac.img, ui.Rect{W: picW, H: picH}, tile, opts)
+			pt.ImageRegion(ac.lifeBm, ui.Rect{W: autoW, H: autoFullH}, tile, opts)
 		}
 		const foot = 96 // how far up the fade reaches
 		pt.FillGradient(ui.Rect{X: band.X, Y: band.Y + band.H - foot, W: band.W, H: foot}, ui.LinearGradient{Angle: 180, Oklab: true,
@@ -964,20 +979,16 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 // of a cover wrap a position for every column of every tile at every frame, and math.Mod was half of their cost (#204).
 func wrap(x, m float64) float64 { return x - m*math.Floor(x/m) }
 
-// paintLife is what moves in the landscape at time t (seconds), on a tile: at gives where
+// paintLife is what moves in the landscape at time t (seconds), in its canvas: at gives where
 // a pixel of the picture is.
-func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32), flip bool) {
+func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32)) {
 	const s = autoPx
 	white := rgb{255, 255, 255}
-	ac.paintScene(pt, t, at, flip)
+	ac.paintScene(pt, t, at)
 	for _, c := range ac.clouds { // clouds drift, and come round again
 		x, y := at(wrap(c.x+t*c.speed, picW+c.w)-c.w, c.y)
 		w := f32(c.w * s)
-		dst := ui.Rect{X: x, Y: y, W: w, H: f32(c.h * s)}
-		if flip { // a mirrored tile: its left is where its right was
-			dst.X -= w
-		}
-		pt.ImageRegion(c.img, ui.Rect{W: f32(c.w), H: f32(c.h)}, dst, ui.ImageOptions{FlipX: flip})
+		pt.ImageRegion(c.img, ui.Rect{W: f32(c.w), H: f32(c.h)}, ui.Rect{X: x, Y: y, W: w, H: f32(c.h * s)}, ui.ImageOptions{})
 	}
 	for i, st := range ac.stars { // stars twinkle
 		if i%2 == 1 {
@@ -1062,9 +1073,6 @@ func (ac *autoCover) paintLife(pt *ui.Painter, t float64, at func(px, py float64
 			up := 3 + 3*math.Sin(t*0.9-float64(x)*0.012) + 1.2*math.Sin(t*1.7+float64(x)*0.05)
 			front := math.Round(sh - up)
 			px, py := at(float64(x), front)
-			if flip {
-				px -= col * s
-			}
 			h := f32((sh - front) * s)
 			if h > 0 {
 				pt.Fill(ui.Rect{X: px, Y: py, W: col * s, H: h}, ac.shallow.ui(0.72), 0) // the water over the sand

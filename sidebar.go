@@ -1049,14 +1049,38 @@ func (a *app) treeKeys(r ui.Element, item any) {
 
 // ---- what the tree is like, kept
 
-// treeSig is a number for what is open in the tree, to see it changed.
-func (a *app) treeSig() uint64 { return a.treeCensus().sig }
+// treeSig is a number for what is open in the tree, closed branches too, to see it changed.
+func (a *app) treeSig() uint64 {
+	var h uint64 = 14695981039346656037
+	mix := func(s string) {
+		for i := 0; i < len(s); i++ {
+			h = (h ^ uint64(s[i])) * 1099511628211
+		}
+		h = (h ^ 0xff) * 1099511628211
+	}
+	var walk func(ps []*Page)
+	walk = func(ps []*Page) {
+		for _, p := range ps {
+			if p.Open {
+				mix(p.Dir)
+			}
+			walk(p.Children)
+		}
+	}
+	for _, c := range a.lib.Collections {
+		if c.Open {
+			mix(c.Dir)
+		}
+		walk(c.Pages)
+	}
+	return h
+}
 
-// census is what one walk through the tree finds, once a frame: how many rows it has (the collections and
-// their open pages) and a signature of what is open in it.
+// census is what one walk through the tree's shown rows finds, once a frame: how many there are (the collections
+// and their open pages). Closed branches are not walked: a tree of 40 000 pages took a third of a millisecond a frame
+// when they were (#204).
 type census struct {
 	rows  int
-	sig   uint64
 	frame uint64
 }
 
@@ -1065,39 +1089,38 @@ func (a *app) treeCensus() census {
 	if a.census.frame == a.frameSeq && a.frameSeq != 0 {
 		return a.census
 	}
-	var h uint64 = 14695981039346656037
-	mix := func(s string) {
-		for i := 0; i < len(s); i++ {
-			h = (h ^ uint64(s[i])) * 1099511628211
-		}
-		h = (h ^ 0xff) * 1099511628211
-	}
 	rows := 0
-	var walk func(ps []*Page, shown bool)
-	walk = func(ps []*Page, shown bool) {
+	var walk func(ps []*Page)
+	walk = func(ps []*Page) {
 		for _, p := range ps {
-			if shown {
-				rows++
-			}
+			rows++
 			if p.Open {
-				mix(p.Dir)
+				walk(p.Children)
 			}
-			walk(p.Children, shown && p.Open)
 		}
 	}
 	for _, c := range a.lib.Collections {
 		rows++
 		if c.Open {
-			mix(c.Dir)
+			walk(c.Pages)
 		}
-		walk(c.Pages, c.Open)
 	}
-	a.census = census{rows: rows, sig: h, frame: a.frameSeq}
+	a.census = census{rows: rows, frame: a.frameSeq}
 	return a.census
 }
 
-// keepTree keeps what is open in the tree in the settings, when it changed.
-func (a *app) keepTree() {
+// treeKeepEvery is how often what is open in the tree is looked at to be kept: the look walks every page, closed
+// branches too, and a branch opened is kept within a second, and at once when the app quits (#204).
+const treeKeepEvery = time.Second
+
+// keepTree keeps what is open in the tree in the settings, when it changed; now looks at once, as the app quits,
+// rather than once a treeKeepEvery.
+func (a *app) keepTree(now bool) {
+	t := a.clock()
+	if !now && t.Sub(a.treeKeptAt) < treeKeepEvery && !a.treeKeptAt.After(t) {
+		return
+	}
+	a.treeKeptAt = t
 	if sig := a.treeSig(); sig != a.treeSigSeen {
 		first := a.treeSigSeen == 0
 		a.treeSigSeen = sig

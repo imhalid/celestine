@@ -29,6 +29,16 @@ func (m *tableModel) visible() []int {
 	return out
 }
 
+// shown is visible, kept on the model for its filter: the drawing of a table asks for it each frame, and its foot
+// once a column, each a fold of every row (#204). It is for a table in the text, which is never changed (clone): the
+// changes are made to a copy, which has nothing kept, and they ask visible.
+func (m *tableModel) shown() []int {
+	if m.vis == nil || m.visOf != m.Filter {
+		m.vis, m.visOf = m.visible(), m.Filter
+	}
+	return m.vis
+}
+
 func rowBlank(r []string) bool {
 	for _, s := range r {
 		if strings.TrimSpace(s) != "" {

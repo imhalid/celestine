@@ -256,15 +256,12 @@ func (k *kit) draw(scene int) {
 	}
 }
 
-// paintScene is what moves in these scenes at time t (seconds), on a tile.
-func (ac *autoCover) paintScene(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32), flip bool) {
+// paintScene is what moves in these scenes at time t (seconds), in the cover's canvas.
+func (ac *autoCover) paintScene(pt *ui.Painter, t float64, at func(px, py float64) (float32, float32)) {
 	const s = autoPx
 	lf := &ac.life
 	dot := func(x, y float64, c rgb, a float64) {
 		X, Y := at(x, y)
-		if flip {
-			X -= s
-		}
 		pt.Fill(ui.Rect{X: X, Y: Y, W: s, H: s}, c.ui(a), 0)
 	}
 	white := rgb{255, 255, 255}

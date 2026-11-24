@@ -75,7 +75,7 @@ func (a *app) tableAttachment(ch *chip) *richtext.Attachment {
 
 // tableHeight is how tall the table is: its header, its rows and its foot.
 func tableHeight(m *tableModel) float32 {
-	h := float32(len(m.visible())+1)*tableRowH + 2
+	h := float32(len(m.shown())+1)*tableRowH + 2
 	if m.hasCalc() {
 		h += tableFootH
 	}
@@ -237,7 +237,8 @@ func (a *app) cellSpans(md string, size float32, weight int, th *ui.Theme, accen
 			defer add(seg[len(seg)-trail:], richtext.Attributes{}, false)
 		}
 		seg = strings.TrimSpace(seg)
-		for _, r := range richtext.ParseMarkdown(seg).Runs(0, richtext.ParseMarkdown(seg).Len()) {
+		md := richtext.ParseMarkdown(seg)
+		for _, r := range md.Runs(0, md.Len()) {
 			text := r.Text
 			if r.Attributes.Code {
 				add(text, r.Attributes, false)
@@ -294,7 +295,7 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(box, th.Border, rad(9))
 	inner := ui.Rect{X: box.X + 1, Y: box.Y + 1, W: box.W - 2, H: box.H - 2}
 	p.Fill(inner, a.pageBg, rad(8))
-	vis := m.visible()
+	vis := m.shown()
 	rowsH := float32(len(vis)+1) * tableRowH
 	footH := float32(0)
 	if m.hasCalc() {

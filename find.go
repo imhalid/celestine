@@ -308,7 +308,7 @@ func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
 			break
 		}
 		para.Style = text.ParagraphStyleAt(s)
-		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		l, left := a.paraLayout(s, para, r.W)
 		var line string
 		for _, run := range para.Runs {
 			line += run.Text

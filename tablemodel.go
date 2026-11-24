@@ -80,6 +80,8 @@ type tableModel struct {
 	cols   []tableCol
 	rows   [][]string
 	Filter string // the words a row must hold to show (tablefn.go); blank, all show
+	vis    []int  // the rows that show, as shown last made them, for Filter visOf
+	visOf  string
 }
 
 // newTable is a table of ncols columns and nrows empty rows.
@@ -270,7 +272,7 @@ func (m *tableModel) calc(c int) string {
 	if col.Calc == "" {
 		return ""
 	}
-	shown := m.visible() // the foot counts the rows that show
+	shown := m.shown() // the foot counts the rows that show
 	if col.Kind == kindCheck {
 		n := 0
 		for _, i := range shown {

@@ -33,7 +33,7 @@ func (a *app) rangeRects(r ui.Rect, from, to int) []ui.Rect {
 		for _, run := range para.Runs {
 			line += run.Text
 		}
-		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		l, left := a.paraLayout(s, para, r.W)
 		for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lo-s), End: units(line, hi-s)}) {
 			out = append(out, ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H})
 		}

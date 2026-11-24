@@ -347,3 +347,34 @@ func TestContextMenuKey(t *testing.T) {
 		}
 	}
 }
+
+// TestTreeKept: what is opened or closed in the tree is kept in the settings within a second, the look at every page
+// not made each frame, and at once as the app quits (#204); the census counts the rows shown, not closed branches.
+func TestTreeKept(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	a.clock = tt.Now
+	c := a.lib.Collections[0]
+	if _, err := c.NewPage(a.page, "Alt"); err != nil {
+		t.Fatal(err)
+	}
+	a.page.Open = false
+	tt.Advance(2 * time.Second)
+	if rows := a.treeCensus().rows; rows != 2 {
+		t.Fatalf("rows %d, want the collection and its page", rows)
+	}
+	a.page.Open = true
+	tt.Advance(100 * time.Millisecond)
+	if rows := a.treeCensus().rows; rows != 3 {
+		t.Fatalf("rows %d, want the child too", rows)
+	}
+	tt.Advance(1100 * time.Millisecond)
+	if !slices.Contains(a.settings.TreeOpen, a.page.Dir) {
+		t.Fatalf("not kept within a second: %v", a.settings.TreeOpen)
+	}
+	a.page.Open = false
+	tt.Frame()
+	a.keepTree(true) // as the app quits
+	if slices.Contains(a.settings.TreeOpen, a.page.Dir) {
+		t.Fatalf("not kept at once: %v", a.settings.TreeOpen)
+	}
+}

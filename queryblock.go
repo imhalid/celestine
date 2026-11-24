@@ -102,6 +102,7 @@ func (a *app) refreshQueries() {
 	}
 	if changed {
 		a.queryVer++
+		sizedGen++
 	}
 }
 
@@ -169,6 +170,7 @@ func (a *app) drawQuery(p *ui.Painter, r ui.Rect, ch *chip, att *richtext.Attach
 		if want := queryHeight(len(hits)); att.Height != want {
 			att.Height = want
 			a.queryVer++
+			sizedGen++
 			if a.frame != nil {
 				a.frame()
 			}

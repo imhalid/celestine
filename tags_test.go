@@ -266,3 +266,21 @@ func TestTagRenameSoonKeepsAWrite(t *testing.T) {
 		t.Fatalf("the page written meanwhile: %q", body)
 	}
 }
+
+// TestTagPillsKeptLaidOut: the pills of the tags in view are drawn from layouts kept for the text's version, not laid
+// out again each frame (#204): the theme the editor is given is made anew each frame, and was the key.
+func TestTagPillsKeptLaidOut(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("Bir paragraf #etiket ve [bağlantı](https://example.com) ile biraz metin.\n\n", 30))
+	tt.SetSize(1100, 900)
+	tt.Advance(time.Second)
+	if len(a.tagHits) == 0 {
+		t.Fatal("no pills drawn")
+	}
+	before := paraLayouts
+	for range 5 {
+		tt.Frame()
+	}
+	if n := paraLayouts - before; n > 0 {
+		t.Fatalf("%d paragraphs laid out again in five frames of the same text", n)
+	}
+}

@@ -116,7 +116,7 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 		if len(spans) == 0 && len(links) == 0 {
 			continue
 		}
-		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		l, left := a.paraLayout(s, para, r.W)
 		for _, lk := range links { // where the links are, to be clicked, and the icons of the web's before them
 			for i, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
 				at := ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}

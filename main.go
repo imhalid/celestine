@@ -301,6 +301,7 @@ type app struct {
 	treeNav       bool            // the focus is kept in the tree as the page opens: the arrow keys are in use
 	treeHeld      bool            // a row has the focus in this frame
 	treeSigSeen   uint64
+	treeKeptAt    time.Time // when what is open in the tree was last looked at (keepTree)
 	cdrag         collDragState
 	collRects     map[*Collection]ui.Rect
 	ctx           ctxMenu        // the context menu (ctxmenu.go)
@@ -639,6 +640,7 @@ func main() {
 			a.relinkRenamed(r.p, r.from, false)
 		}
 		a.flush()
+		a.keepTree(true)     // what was opened in the tree in its last second
 		if a.settingsDirty { // what saveSettingsSoon left
 			a.saveSettings()
 		}
@@ -1179,7 +1181,7 @@ func (a *app) viewFrame(c *ui.Context) {
 			if !framed && !a.settings.HideStatus { // in the frame, the status bar is its bottom edge
 				a.status(c)
 			}
-			a.keepTree()
+			a.keepTree(false)
 		})
 		if phone {
 			a.drawer(c)

@@ -128,7 +128,7 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 		for _, run := range para.Runs {
 			line.WriteString(run.Text)
 		}
-		l, left := layoutParagraph(para, r.W, a.font, a.theme)
+		l, left := a.paraLayout(s, para, r.W)
 		runes := []rune(line.String())
 		pre := make([]int, len(runes)+1) // where each rune starts, in the layout's units: once, not once a rune (#198)
 		for i, r := range runes {

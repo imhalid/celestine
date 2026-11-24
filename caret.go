@@ -131,6 +131,7 @@ func locateIn(doc *richtext.Document, caret int, box richtext.ParagraphBox, star
 // layoutParagraph lays a paragraph out as the editor does, and returns how
 // far in from the left it starts.
 func layoutParagraph(p richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (*ui.TextLayout, float32) {
+	paraLayouts++
 	st := p.Style
 	size := base.Size
 	indent := size * th.Indent
@@ -223,6 +224,9 @@ func spanOf(text string, a richtext.Attributes, st richtext.ParagraphStyle, size
 	return s
 }
 
+// paraLayouts counts the paragraphs laid out by layoutParagraph, for the tests of what is kept.
+var paraLayouts int
+
 // longMemo keeps the layout of the last long paragraph laid out for a caret.
 // The caret is found every frame, and a paragraph is laid out again for it each
 // time: for a paragraph of a few hundred runes that is nothing, for one of
@@ -243,7 +247,7 @@ type paraMemo struct {
 	start int
 	w     float32
 	base  ui.Font
-	th    *richtext.Theme
+	th    layLook
 	style richtext.ParagraphStyle
 	l     *ui.TextLayout
 	left  float32
@@ -253,18 +257,19 @@ func (m *paraMemo) layout(doc *richtext.Document, start, runes int, p richtext.P
 	if runes < longParagraphRunes {
 		return shortMemo.layout(doc, start, p, w, base, th)
 	}
-	ver := doc.Version()
-	if m.l != nil && m.doc == doc && m.ver == ver && m.start == start && m.w == w && m.base == base && m.th == th && m.style == p.Style {
+	ver, look := doc.Version(), lookOf(th)
+	if m.l != nil && m.doc == doc && m.ver == ver && m.start == start && m.w == w && m.base == base && m.th == look && m.style == p.Style {
 		return m.l, m.left
 	}
 	l, left := layoutParagraph(p, w, base, th)
-	*m = paraMemo{doc, ver, start, w, base, th, p.Style, l, left}
+	*m = paraMemo{doc, ver, start, w, base, look, p.Style, l, left}
 	return l, left
 }
 
-// shortMemo keeps the layouts of the short paragraphs laid out for a caret or a mark over them (a task's box),
-// for one version of the text: on a long page the boxes of the tasks in view were each laid out twice a frame,
-// most of a frame, in every frame between two keys as in the one after a key (#314).
+// shortMemo keeps the layouts of the short paragraphs laid out for a caret or a mark over them (a task's box, a
+// tag's pill, a link's place, the whitespace marks, the find's hits), for one version of the text: on a long page the
+// boxes of the tasks in view were each laid out twice a frame, most of a frame, in every frame between two keys as in
+// the one after a key (#314), and a page of tags some 60 µs a paragraph in view, each frame (#204).
 var shortMemo shortLayouts
 
 type shortLayouts struct {
@@ -272,8 +277,39 @@ type shortLayouts struct {
 	ver  uint64
 	w    float32
 	base ui.Font
-	th   *richtext.Theme
+	th   layLook
 	m    map[int]shortLaid // by the rune the paragraph starts at
+}
+
+// layLook is what lays a paragraph out besides its text, width and font (layoutParagraph): the editor's theme, made
+// anew each frame, so that a layout is kept by these rather than by the theme, whether links have the room of their
+// icons, the spacing of the letters, and the sizes of the objects that change in place (sizedGen).
+type layLook struct {
+	indent, codeSize float32
+	codeFont         string
+	codePad          [2]float32
+	headings         [6]richtext.HeadingStyle
+	linkIcons        bool
+	spacing          float32
+	sized            uint64
+}
+
+// sizedGen counts the objects of a text whose size changed in place, not by an edit (a query block's rows): a layout
+// kept from before is not that of the text any longer.
+var sizedGen uint64
+
+func lookOf(th *richtext.Theme) layLook {
+	return layLook{th.Indent, th.CodeSize, th.CodeFont, th.CodeBlockPadding, th.Headings, linkIcons, textSpacing, sizedGen}
+}
+
+// paraLayout is the paragraph para of the open page, starting at rune s, laid out at width w as the editor lays it
+// out, kept for this version of the text.
+func (a *app) paraLayout(s int, para richtext.Paragraph, w float32) (*ui.TextLayout, float32) {
+	n := 0
+	for _, r := range para.Runs {
+		n += utf8.RuneCountInString(r.Text)
+	}
+	return longMemo.layout(a.doc, s, n, para, w, a.font, a.theme)
 }
 
 type shortLaid struct {
@@ -283,9 +319,9 @@ type shortLaid struct {
 }
 
 func (s *shortLayouts) layout(doc *richtext.Document, start int, p richtext.Paragraph, w float32, base ui.Font, th *richtext.Theme) (*ui.TextLayout, float32) {
-	ver := doc.Version()
-	if s.m == nil || s.doc != doc || s.ver != ver || s.w != w || s.base != base || s.th != th || len(s.m) > 1024 {
-		*s = shortLayouts{doc, ver, w, base, th, map[int]shortLaid{}}
+	ver, look := doc.Version(), lookOf(th)
+	if s.m == nil || s.doc != doc || s.ver != ver || s.w != w || s.base != base || s.th != look || len(s.m) > 1024 {
+		*s = shortLayouts{doc, ver, w, base, look, map[int]shortLaid{}}
 	}
 	if e, ok := s.m[start]; ok && e.style == p.Style {
 		return e.l, e.left
