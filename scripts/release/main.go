@@ -6,11 +6,14 @@
 //	    -notes notes.md -key release.key dist/celestine-*    prints update.json
 //	go run ./scripts/release sums -version v1.3.0 -key release.key dist/SHA256SUMS
 //	                                                      prints SHA256SUMS.sig, for scripts/install.sh
+//	go run ./scripts/release verify -pub <public key> -version v1.3.0 -notes notes.md -dir dist update.json
+//	go run ./scripts/release verify-sums -pub <public key> -version v1.3.0 dist/SHA256SUMS dist/SHA256SUMS.sig
+//	                                                      check what was signed with the public key (verify.go)
 //	go run ./scripts/release sshkey <public key>          prints the public key as ssh-keygen reads it
 //	go run ./scripts/release changelog                    prints changelog.json, every release from the git tags
 //
-// The secret key lives only where the release is made (a secret of the CI); the public key goes into the
-// program at the build: -X main.updateKey=<public key>.
+// The secret key lives only where the release is made (a secret of the CI, read with -key env:RELEASE_KEY); the
+// public key goes into the program at the build: -X main.updateKey=<public key>.
 package main
 
 import (
@@ -135,7 +138,7 @@ func signFile(priv ed25519.PrivateKey, rel signed, base, f string) (key string, 
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "keygen | manifest | sums | sshkey | changelog")
+		fmt.Fprintln(os.Stderr, "keygen | manifest | sums | verify | verify-sums | sshkey | changelog")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
@@ -203,6 +206,42 @@ func main() {
 		text, err := sumsText(*version, *channel, b)
 		check(err)
 		fmt.Print(sshSign(priv, sumsNamespace, text))
+	case "verify":
+		fs := flag.NewFlagSet("verify", flag.ExitOnError)
+		pub := fs.String("pub", "", "the public key the programs are built with")
+		version := fs.String("version", "", "the version, v1.3.0")
+		channel := fs.String("channel", "", "beta for a trial")
+		notes := fs.String("notes", "", "the Markdown file of the notes")
+		dir := fs.String("dir", "dist", "where the files are")
+		fs.Parse(os.Args[2:])
+		if fs.NArg() != 1 {
+			check(fmt.Errorf("verify: one update.json"))
+		}
+		rel := signed{version: *version, channel: *channel}
+		if *notes != "" {
+			b, err := os.ReadFile(*notes)
+			check(err)
+			rel.notes = string(b)
+		}
+		m, err := os.ReadFile(fs.Arg(0))
+		check(err)
+		check(verifyManifest(readPub(*pub), rel, *dir, m))
+		fmt.Println("the manifest is signed with the public key")
+	case "verify-sums":
+		fs := flag.NewFlagSet("verify-sums", flag.ExitOnError)
+		pub := fs.String("pub", "", "the public key the programs are built with")
+		version := fs.String("version", "", "the version, v1.3.0")
+		channel := fs.String("channel", "", "beta for a trial")
+		fs.Parse(os.Args[2:])
+		if fs.NArg() != 2 {
+			check(fmt.Errorf("verify-sums: SHA256SUMS and SHA256SUMS.sig"))
+		}
+		sums, err := os.ReadFile(fs.Arg(0))
+		check(err)
+		sig, err := os.ReadFile(fs.Arg(1))
+		check(err)
+		check(verifySums(readPub(*pub), *version, *channel, sums, string(sig)))
+		fmt.Println("the sums are signed with the public key")
 	case "sshkey":
 		if len(os.Args) != 3 {
 			check(fmt.Errorf("sshkey <base64 public key>"))
@@ -228,10 +267,20 @@ func main() {
 	}
 }
 
-// readKey reads the secret key of `keygen` from the file f.
+// readKey reads the secret key of `keygen` from the file f, or from the environment variable NAME for "env:NAME":
+// the release's job hands it so, never written to a file (#174).
 func readKey(f string) ed25519.PrivateKey {
-	kb, err := os.ReadFile(f)
-	check(err)
+	var kb []byte
+	if name, ok := strings.CutPrefix(f, "env:"); ok {
+		kb = []byte(os.Getenv(name))
+		if len(kb) == 0 {
+			check(fmt.Errorf("the environment has no %s", name))
+		}
+	} else {
+		var err error
+		kb, err = os.ReadFile(f)
+		check(err)
+	}
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(kb)))
 	check(err)
 	if len(raw) != ed25519.PrivateKeySize {

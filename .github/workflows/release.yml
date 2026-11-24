@@ -1,10 +1,10 @@
 # A tag v1.2.3 makes a release: the five builds (scripts/build.sh, with its size budget), packaged
 # (scripts/package.sh: macOS as a zipped celestine.app, Linux also as a .tar.gz with a .desktop file, and
-# scripts/appimage.sh: Linux as an AppImage, #513), a SHA256SUMS, a signed manifest and the GitHub release.
-# Then the dmg job, on macOS, makes celestine-macos.dmg from the two darwin zips (scripts/dmg.sh) and adds it to
-# the release: the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
+# scripts/appimage.sh: Linux as an AppImage, #513) and a SHA256SUMS. Then the dmg job, on macOS, makes
+# celestine-macos.dmg from the two darwin zips (scripts/dmg.sh): the first install, for both Macs (#479). macOS minutes count ten times; it takes a minute or two.
 # Last, the publish job adds the DMG to SHA256SUMS and signs it with the release's key (SHA256SUMS.sig, which
-# scripts/install.sh checks, #540), and puts the files on Cloudflare R2, from where the app's update check reads them
+# scripts/install.sh checks, #540), signs the manifest, checks both with the public key the programs are built with,
+# makes the GitHub release, and puts the files on Cloudflare R2, from where the app's update check reads them
 # (cloudflare/update/worker.js), and the site's download buttons through the Worker's /download: the DMG on macOS,
 # the AppImage on Linux, the .exe on Windows. Every file goes up once, signed sums before the manifest, and
 # update.json last: until it is there, no app and no install script is offered the version. A DMG that could not be
@@ -24,23 +24,30 @@
 # The tests run here only for a commit the nightly has not tested whole: one it has (its status celestine/tests,
 # nightly.yml) is not tested again, and the release is its builds alone (#465). To release a fix quickly, run the
 # nightly on it by hand (`gh workflow run nightly.yml`) and tag it once that passed.
+# The key is the publish job's alone (#174): the build job, which runs the tests (all of the dependencies' code)
+# and builds, has no secret that signs and only reads the repository, and the dmg job neither. The publish job runs
+# in the environment "release" (its protection rules, and RELEASE_KEY as its own secret, are set in the repository's
+# settings), runs only scripts/release (the standard library alone) with the key, which it reads from the environment
+# and never writes to a file, and uses no action that is not GitHub's own. Every action is pinned by its commit.
+#
 name: release
 on:
   push:
     tags: ["v*"]
-permissions:
-  contents: write
-  statuses: read # whether the nightly tested the commit (tested already)
+permissions: {} # each job asks for what it needs
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: read # whether the nightly tested the commit (tested already)
     env:
       VERSION: ${{ github.ref_name }}
-      SIGNED: ${{ secrets.RELEASE_KEY != '' }}
+      SIGNED: ${{ secrets.UPDATE_PUBLIC_KEY != '' }}
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with: { go-version-file: go.mod }
       - name: tested already
         id: tested
@@ -66,14 +73,12 @@ jobs:
       - name: update address
         if: env.SIGNED == 'true'
         env:
-          UPDATE_URL: ${{ secrets.UPDATE_URL }}
+          UPDATE_URL: ${{ secrets.UPDATE_URL }} # the address and the public key, which go into the programs: nothing that signs
           UPDATE_PUBLIC_KEY: ${{ secrets.UPDATE_PUBLIC_KEY }}
         run: |
-          # a signed release with no address or key would sign files no app can find or check
+          # a signed release with no address would sign files no app can find
           case "$UPDATE_URL" in https://*/update.json) ;; *) echo "UPDATE_URL is not https://…/update.json"; exit 1 ;; esac
-          test -n "$UPDATE_PUBLIC_KEY" || { echo "UPDATE_PUBLIC_KEY is empty"; exit 1; }
           echo "LDFLAGS=-X main.updateURL=$UPDATE_URL -X main.updateKey=$UPDATE_PUBLIC_KEY" >> "$GITHUB_ENV"
-          echo "BASE=${UPDATE_URL%/update.json}/$VERSION" >> "$GITHUB_ENV"
       - name: build
         env:
           BUDGET_MB: 50 # the builds are 27-31 MB (v0.1.0); over this the release stops
@@ -86,12 +91,6 @@ jobs:
           scripts/package.sh
           scripts/appimage.sh
           (cd dist && sha256sum celestine-* > SHA256SUMS && cat SHA256SUMS)
-      - name: darwin zips for the dmg job
-        uses: actions/upload-artifact@v4
-        with:
-          name: darwin
-          path: dist/celestine-darwin-*.zip
-          retention-days: 1
       - name: notes
         run: |
           prev=$(git describe --tags --abbrev=0 "$VERSION^" 2>/dev/null || true)
@@ -108,57 +107,36 @@ jobs:
           # every release from the tags, for the site's /changelog (src/routes/changelog of the celestine-site repository)
           go run ./scripts/release changelog > changelog.json
           head -c 2000 changelog.json
-      - name: manifest
-        if: env.SIGNED == 'true'
-        env:
-          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
-        run: |
-          # a tag with a "-" (v1.2.0-beta.1) is a trial: its manifest says so, and it goes up as beta.json only (#169).
-          # Every file is signed three times: sig and sig2 for the clients released before #168, sig3 (with the channel
-          # and the notes) for those since; the clients of each check their own
-          channel=
-          case "$VERSION" in *-*) channel=beta ;; esac
-          printf '%s\n' "$RELEASE_KEY" > release.key
-          go run ./scripts/release manifest -version "$VERSION" -base "$BASE" -channel "$channel" \
-            -notes release-notes.md -key release.key dist/celestine-* > update.json
-          rm release.key
-          cat update.json
-      - name: github release
-        uses: softprops/action-gh-release@v2
+      - name: darwin zips for the dmg job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          files: |
-            dist/celestine-*
-            dist/SHA256SUMS
-          body_path: release-notes.md
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-') }}
+          name: darwin
+          path: dist/celestine-darwin-*.zip
+          retention-days: 1
       - name: files for the publish job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release
           path: |
             dist/celestine-*
             dist/SHA256SUMS
-            update.json
+            release-notes.md
             changelog.json
-          if-no-files-found: ignore # update.json only when signed
           retention-days: 1
   dmg:
     needs: build
     runs-on: macos-latest
-    env:
-      VERSION: ${{ github.ref_name }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: { name: darwin, path: dist }
       - name: dmg
         run: scripts/dmg.sh
-      - name: add to the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$VERSION" dist/celestine-macos.dmg --clobber
       - name: the dmg for the publish job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dmg
           path: dist/celestine-macos.dmg
@@ -167,21 +145,27 @@ jobs:
     needs: [build, dmg]
     if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # the GitHub release
     env:
       VERSION: ${{ github.ref_name }}
       SIGNED: ${{ secrets.RELEASE_KEY != '' }}
       R2: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
+      UPDATE_PUBLIC_KEY: ${{ secrets.UPDATE_PUBLIC_KEY }}
+      UPDATE_URL: ${{ secrets.UPDATE_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with: { go-version-file: go.mod }
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: { name: release, path: . }
       - name: the dmg
         if: needs.dmg.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: { name: dmg, path: dist }
-      - name: sums
+      - name: sign
         env:
           RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
         run: |
@@ -191,24 +175,35 @@ jobs:
           channel=
           case "$VERSION" in *-*) channel=beta ;; esac
           echo "CHANNEL=$channel" >> "$GITHUB_ENV"
+          [ "$SIGNED" = true ] || exit 0
+          go build -o release-tool ./scripts/release # the standard library alone
+          # a tag with a "-" (v1.2.0-beta.1) is a trial: its manifest says so, and it goes up as beta.json only (#169).
+          # Every file is signed three times: sig and sig2 for the clients released before #168, sig3 (with the channel
+          # and the notes) for those since; the clients of each check their own
+          ./release-tool manifest -version "$VERSION" -base "${UPDATE_URL%/update.json}/$VERSION" -channel "$channel" \
+            -notes release-notes.md -key env:RELEASE_KEY dist/celestine-* > update.json
           # signed with the key the app checks its updates with: the install script checks it (scripts/release/sums.go)
-          if [ "$SIGNED" = true ]; then
-            printf '%s\n' "$RELEASE_KEY" > release.key
-            go run ./scripts/release sums -version "$VERSION" -channel "$channel" -key release.key dist/SHA256SUMS > dist/SHA256SUMS.sig
-            rm release.key
-            cat dist/SHA256SUMS.sig
-          fi
-      - name: sums on the GitHub release
+          ./release-tool sums -version "$VERSION" -channel "$channel" -key env:RELEASE_KEY dist/SHA256SUMS > dist/SHA256SUMS.sig
+          cat update.json dist/SHA256SUMS.sig
+      - name: checked with the public key
+        if: env.SIGNED == 'true'
+        run: |
+          # what was signed opens with the key the programs carry: another key in the CI stops the release here (#174)
+          ./release-tool verify -pub "$UPDATE_PUBLIC_KEY" -version "$VERSION" -channel "$CHANNEL" -notes release-notes.md -dir dist update.json
+          ./release-tool verify-sums -pub "$UPDATE_PUBLIC_KEY" -version "$VERSION" -channel "$CHANNEL" dist/SHA256SUMS dist/SHA256SUMS.sig
+      - name: github release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$VERSION" dist/SHA256SUMS* --clobber
+        run: |
+          pre=
+          case "$VERSION" in v0.*|*-*) pre=--prerelease ;; esac
+          gh release create "$VERSION" dist/celestine-* dist/SHA256SUMS* --repo "$GITHUB_REPOSITORY" \
+            --title "$VERSION" --notes-file release-notes.md --verify-tag $pre
       - name: install script
         if: env.SIGNED == 'true'
-        env:
-          UPDATE_PUBLIC_KEY: ${{ secrets.UPDATE_PUBLIC_KEY }}
         run: |
           # the install script carries the releases' key, as ssh-keygen reads it, to check SHA256SUMS.sig with (#540)
-          key=$(go run ./scripts/release sshkey "$UPDATE_PUBLIC_KEY")
+          key=$(./release-tool sshkey "$UPDATE_PUBLIC_KEY")
           sed "s|@RELEASE_SSH_KEY@|$key|" scripts/install.sh > install.sh
           grep -q '^KEY=${CELESTINE_KEY:-ssh-ed25519 [A-Za-z0-9+/=]*}$' install.sh || { echo "the key is not in install.sh"; exit 1; }
       - name: upload to R2
