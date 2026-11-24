@@ -250,6 +250,7 @@ type app struct {
 	winRect      ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
 	saveErr      string
 	saveTried    time.Time      // when the open page's save last failed: autosave tries again a while after
+	savingAway   bool           // a big page's autosave is being made away from the frame (saveAway)
 	unsaved      map[*Page]bool // pages left with a save that failed: their texts are kept, and saved again (retryUnsaved)
 	unsavedAt    time.Time
 	shellOpen    func(string, bool) // test seam for opening/revealing attached files (path, reveal)
@@ -2027,12 +2028,51 @@ func (a *app) autosave(c *ui.Context) {
 		c.After(wait)
 		return
 	}
+	if a.doc.Text().Len() >= bigSave {
+		a.saveAway()
+		return
+	}
 	a.save()
+}
+
+// bigSave is the length of a page's text, in letters, from which its autosave is made away from the frame: a page of
+// a book's length (500 000 letters) takes some 30 ms to write and count, a pause in the typing that follows (#198).
+// A smaller one is written in the frame, as a save asked for (flush, ⌘S) always is.
+const bigSave = 100_000
+
+// saveAway writes the open page as autosave does, its text made and counted in a goroutine and written in a.do. What
+// it wrote is the page as it was then: if the page changed meanwhile, was saved, or another is open, nothing is
+// written, and the next autosave writes it as it is.
+func (a *app) saveAway() {
+	if a.savingAway {
+		return
+	}
+	a.rollRecurring()
+	p, doc, t, ver := a.page, a.doc, a.doc.Text(), a.doc.Version()
+	a.savingAway = true
+	go func() {
+		defer a.guard()
+		defer a.do(func() error { a.savingAway = false; return nil }) // a panic too: the next autosave can begin
+		body := encodeBody(t)
+		words := len(strings.Fields(unfoldText(t).PlainText()))
+		a.do(func() error {
+			if a.page != p || a.doc != doc || doc.Version() != ver || !a.dirty || a.settings.NoAutoSave {
+				return nil
+			}
+			a.wroteBody(body, words)
+			return nil
+		})
+	}()
 }
 
 func (a *app) save() {
 	a.rollRecurring()
-	body := encodeBody(a.doc.Text())
+	a.wroteBody(encodeBody(a.doc.Text()), -1)
+}
+
+// wroteBody writes body as the open page's file, and notes it: words are its words, counted with a fold's lines too
+// (folding is not writing, #128), or -1 to count them here, which is done only when the body is new.
+func (a *app) wroteBody(body string, words int) {
 	if body == a.lastSave {
 		a.dirty = false
 		return
@@ -2042,7 +2082,9 @@ func (a *app) save() {
 		return
 	}
 	a.saveErr = ""
-	words := len(strings.Fields(unfoldText(a.doc.Text()).PlainText())) // a fold's lines too: folding is not writing (#128)
+	if words < 0 {
+		words = len(strings.Fields(unfoldText(a.doc.Text()).PlainText()))
+	}
 	a.countWriting(a.lastWords, words)
 	a.lastSave, a.lastWords, a.dirty = body, words, false
 	a.savedAt = a.clock()

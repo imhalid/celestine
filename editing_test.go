@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 // pixelsDiffer counts the bytes that differ between a and b, in the rectangle in and outside skip.
@@ -302,5 +303,50 @@ func TestFindAndVimCosts(t *testing.T) {
 	runtime.ReadMemStats(&after)
 	if per := (after.TotalAlloc - before.TotalAlloc) / 20; per > 50_000 { // the page's runes are 400 KB
 		t.Fatalf("a Vim key allocates %d bytes", per)
+	}
+}
+
+// TestAutoSaveBigPage: a page of a book's length is autosaved away from the frame (#198): written once the goroutine is
+// done; and what it made is not written when the page changed meanwhile, which the next save writes as it is.
+func TestAutoSaveBigPage(t *testing.T) {
+	a, tt := newTestApp(t, strings.Repeat("Bir paragraf, biraz metin ve biraz daha metin burada.\n\n", bigSave/50))
+	a.clock = tt.Now
+	tt.Frame()
+	if a.doc.Text().Len() < bigSave {
+		t.Fatalf("not big: %d", a.doc.Text().Len())
+	}
+	read := func() string { b, _ := a.page.Text(); return b }
+	edit := func(s string) {
+		a.doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(0, 0, s, richtext.Attributes{}) })
+		a.dirty, a.editAt = true, a.clock()
+	}
+	tt.Type("ilk")
+	for i := 0; i < 400 && a.dirty; i++ {
+		tt.Advance(50 * time.Millisecond)
+	}
+	if a.dirty || !strings.Contains(read(), "ilk") {
+		t.Fatal("the big page was not autosaved")
+	}
+	// begun, then changed before it is written: the goroutine's a.do waits for the lock held here
+	a.mu.Lock()
+	edit("ikinci ")
+	a.saveAway()
+	edit("üçüncü ")
+	a.mu.Unlock()
+	for i := 0; i < 400; i++ {
+		a.mu.Lock()
+		busy := a.savingAway
+		a.mu.Unlock()
+		if !busy {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if strings.Contains(read(), "ikinci") || !a.dirty {
+		t.Fatalf("a text older than the page's was written, or the page left clean: dirty %v", a.dirty)
+	}
+	a.flush()
+	if got := read(); !strings.Contains(got, "üçüncü ikinci ilk") {
+		t.Fatalf("flush: %.60q", got)
 	}
 }
