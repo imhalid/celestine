@@ -412,12 +412,14 @@ func TestAccountRecoveryAndVersionsLive(t *testing.T) {
 		t.Fatalf("login with the new password: %v", err)
 	}
 	// and what was written before is read with the same key
+	// (read from its kept version: a file alone, put outside a pass, has no hashes a Get of it would wait for, #148)
 	again, _ := NewEncRemote(NewHTTPRemote(base, tokN), keyN)
-	if b, err := again.Get(name); err != nil || string(b) != "üç" {
-		t.Fatalf("a file after the recovery: %q %v", b, err)
-	}
-	if v, err := again.Versions(name); err != nil || len(v) != 1 {
+	v, err := again.Versions(name)
+	if err != nil || len(v) != 1 {
 		t.Fatalf("versions after the recovery: %v %v", v, err)
+	}
+	if b, err := again.VersionData(name, v[0].At); err != nil || string(b) != "bir" {
+		t.Fatalf("a file after the recovery: %q %v", b, err)
 	}
 	// deleting the account takes the versions too
 	if err := cl.DeleteAccount(tokR, user, "yeni-parola-2"); err != nil { // the token the recovery gave is a computer like any

@@ -2,7 +2,7 @@
 # Writes the nightly run's report, as Markdown, to stdout: the commits it tested, each step's outcome, the tests that
 # failed with the end of their output, the slowest tests, the performance figures, and the known vulnerabilities.
 # .github/workflows/nightly.yml runs it with the steps' outcomes in the environment (OUT_FMT, OUT_BUILD, OUT_RACE,
-# OUT_TEST, OUT_PERF, OUT_VULN: success, failure or skipped), FROM the commit the last run tested ("" when none), and
+# OUT_TEST, OUT_PERF, OUT_VULN, OUT_WORKER: success, failure or skipped), FROM the commit the last run tested ("" when none), and
 # the outputs in report/. The issue it becomes is cut to GitHub's limit.
 set -u
 R=report
@@ -40,6 +40,7 @@ echo "| the library under -race | $(mark "${OUT_RACE:-}") |"
 echo "| every test | $(mark "${OUT_TEST:-}") |"
 echo "| performance with a big library | $(mark "${OUT_PERF:-}") |"
 echo "| govulncheck | $(mark "${OUT_VULN:-}") |"
+echo "| the sync Worker under wrangler dev | $(mark "${OUT_WORKER:-}") |"
 
 if [ "${OUT_FMT:-}" = failure ]; then
 	echo
@@ -52,6 +53,12 @@ if [ "${OUT_BUILD:-}" = failure ]; then
 	echo "## Builds"
 	echo
 	block $R/builds.txt
+fi
+if [ "${OUT_WORKER:-}" = failure ]; then
+	echo
+	echo "## The sync Worker"
+	echo
+	block $R/worker.txt 80
 fi
 if [ "${OUT_RACE:-}" = failure ]; then
 	echo

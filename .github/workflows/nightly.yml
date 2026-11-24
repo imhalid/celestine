@@ -103,6 +103,18 @@ jobs:
         run: |
           set -o pipefail
           go run golang.org/x/vuln/cmd/govulncheck@latest ./... 2>&1 | tee report/vuln.txt
+      - uses: actions/setup-node@v4
+        if: steps.new.outputs.run == 'true'
+        with: { node-version: 22, cache: npm, cache-dependency-path: cloudflare/sync/package-lock.json }
+      - name: the sync Worker
+        # the Worker run by wrangler dev with a database of its own, and the tests that speak to a real one (#164)
+        id: worker
+        if: steps.new.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          set -o pipefail
+          (cd cloudflare/sync && npm ci --no-audit --no-fund) && scripts/worker-test.sh 2>&1 | tee report/worker.txt
       - name: the report, as an issue
         if: always() && steps.new.outputs.run == 'true'
         env:
@@ -116,12 +128,13 @@ jobs:
           OUT_TEST: ${{ steps.test.outcome }}
           OUT_PERF: ${{ steps.perf.outcome }}
           OUT_VULN: ${{ steps.vuln.outcome }}
+          OUT_WORKER: ${{ steps.worker.outcome }}
         run: |
           mkdir -p report
           bash scripts/nightly-report.sh > report/issue.md
           head -c 60000 report/issue.md > report/body.md # GitHub takes 65536 characters
           bad=""
-          for o in "$OUT_FMT" "$OUT_BUILD" "$OUT_RACE" "$OUT_TEST" "$OUT_PERF" "$OUT_VULN"; do
+          for o in "$OUT_FMT" "$OUT_BUILD" "$OUT_RACE" "$OUT_TEST" "$OUT_PERF" "$OUT_VULN" "$OUT_WORKER"; do
             if [ "$o" = failure ]; then bad=1; fi
           done
           nfail=$(jq -r 'select(.Action=="fail" and .Test != null) | .Test' report/test.json 2>/dev/null | sort -u | wc -l | tr -d ' ')
