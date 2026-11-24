@@ -140,3 +140,23 @@ func TestAutoCoverKinds(t *testing.T) {
 		t.Fatal("the setting off still gives a made cover")
 	}
 }
+
+// TestCoverStillWithReducedMotion: with reduced motion the made cover is drawn once, still, and asks for no frames;
+// the scrollbar does not stretch (#221).
+func TestCoverStillWithReducedMotion(t *testing.T) {
+	a, tt := newTestApp(t, "metin\n")
+	a.settings.AutoCover, a.settings.ReduceMotion = true, true
+	tt.Advance(time.Second)
+	var ac *autoCover
+	for _, c := range a.autoCovers {
+		ac = c
+	}
+	if ac == nil || ac.lifeCv == nil {
+		t.Fatal("no cover drawn")
+	}
+	tick := ac.lifeTick
+	tt.Advance(3 * time.Second)
+	if ac.lifeTick != tick {
+		t.Fatalf("the cover moved with reduced motion: %v, then %v", tick, ac.lifeTick)
+	}
+}

@@ -945,6 +945,9 @@ const coverFPS = 8
 // of the CPU's frame and a third of a key's in a big library (#204).
 func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 	t := float64(pt.Now().UnixMilli()%(1<<40)) / 1000
+	if fx.still { // reduced motion: the landscape as it is at one moment, still (#221)
+		t = 0
+	}
 	if tick := math.Floor(t * coverFPS); ac.lifeCv == nil || tick != ac.lifeTick {
 		if ac.lifeCv == nil {
 			ac.lifeCv = ui.NewCanvas(autoW, autoFullH)
@@ -972,7 +975,9 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 		pt.FillGradient(ui.Rect{X: band.X, Y: band.Y + band.H - foot, W: band.W, H: foot}, ui.LinearGradient{Angle: 180, Oklab: true,
 			Stops: []ui.GradientStop{{Color: fade.Alpha(0), At: 0}, {Color: fade.Alpha(0.62), At: 0.5}, {Color: fade, At: 1}}}, 0)
 	})
-	pt.AnimationFrameRate(coverFPS)
+	if !fx.still {
+		pt.AnimationFrameRate(coverFPS)
+	}
 }
 
 // wrap is x modulo m, for x and m not below zero: what math.Mod gives then, without its slow loop. The moving parts

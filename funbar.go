@@ -231,6 +231,9 @@ func (a *app) paintBar(p *ui.Painter, b *funBar, r ui.Rect) {
 	if b.drag { // in the hand it stays more itself
 		want *= 0.35
 	}
+	if fx.still { // reduced motion: no jelly (#221)
+		want, b.stretch = 0, 0
+	}
 	b.stretch += (want - b.stretch) * (1 - math.Exp(-dt*18))
 	wantW := funBarRest
 	switch {
