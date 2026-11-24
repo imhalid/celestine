@@ -157,14 +157,20 @@ func (a *app) collectionViewIn(c *ui.Context) {
 							if coll.Dynamic() {
 								return // it has no pages to make
 							}
-							if ryugo.Button(c, label, ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+							if coll.Journal || len(coll.AllTemplates()) == 0 {
+								if ryugo.Button(c, label, ryugo.ButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
+									a.newPage(coll, nil)
+								}
+								return
+							}
+							// with templates of its own, one control: the new page, and its arrow the pages of the others (#351)
+							sb := ryugo.SplitButton(c.Key("new-page"), label, ryugo.SplitButtonOptions{Icon: iconPlus, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Soft, Size: ryugo.Sm, MenuLabel: locales.ViewsNewPageFromTemplate()})
+							if sb.Button.Clicked() {
 								a.newPage(coll, nil)
 							}
-							if !coll.Journal && len(coll.AllTemplates()) > 0 { // pages from the other templates
-								if ryugo.Button(c.Key("tpl-menu"), locales.ViewsNewPageFromTemplate(), ryugo.ButtonOptions{Icon: iconChevronDown, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm}).Clicked() {
-									ww, _ := c.Size()
-									a.showContext(ww-280, 190, a.templateMenu(coll, nil))
-								}
+							if sb.Arrow.Clicked() { // the templates' menu under the arrow
+								r := sb.Arrow.LayoutBounds()
+								a.showContext(r.X+r.W-280, r.Y+r.H+4, a.templateMenu(coll, nil))
 							}
 						})
 					})

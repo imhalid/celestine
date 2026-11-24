@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestExpandTemplate(t *testing.T) {
@@ -132,5 +133,35 @@ func TestTemplateAsksAndPlacesTheCaret(t *testing.T) {
 	_, caret := a.doc.Selection() // in the empty paragraph between the two lines, where {{cursor}} was alone
 	if want := strings.Index(text, "\n\n") + 1; caret != len([]rune(text[:want])) || a.fresh {
 		t.Fatalf("the caret at %d (want %d), the title to type %v, in %q", caret, len([]rune(text[:want])), a.fresh, text)
+	}
+}
+
+// TestNewPageSplitButton: a collection with templates has one control in its head, the new page and an arrow with
+// the pages of the other templates (#351): the arrow opens the templates' menu under it, the action makes a page.
+func TestNewPageSplitButton(t *testing.T) {
+	a, tt := newTestApp(t, "metin\n")
+	tt.SetSize(1100, 800)
+	c := a.page.Coll
+	c.Templates = []NamedTemplate{{Name: "Toplantı", Body: "# Toplantı\n"}}
+	if err := tt.Click("Koleksiyon: " + c.Name); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if err := tt.Click(locales.ViewsNewPageFromTemplate()); err != nil {
+		t.Fatal(err, tt.Texts())
+	}
+	tt.Advance(200 * time.Millisecond)
+	if !tt.HasText("Toplantı") || !a.ctx.open {
+		t.Fatalf("the arrow did not open the templates' menu: %v", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(200 * time.Millisecond)
+	n := len(c.All())
+	if err := tt.Click(newPageLabel(c)); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(300 * time.Millisecond)
+	if len(c.All()) != n+1 {
+		t.Fatalf("the action made no page: %d, was %d", len(c.All()), n)
 	}
 }

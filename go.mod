@@ -3,8 +3,8 @@ module github.com/imhalid/celestine
 go 1.27.4
 
 require (
-	github.com/egoist/mygo v0.10.1-0.20261123053526-dc99135e6f99
-	github.com/imhalid/ryu-go v0.1.1-0.20261113214138-ff2b8f69d026
+	github.com/egoist/mygo v0.10.1-0.20261124041827-c16fc5b6d8ed
+	github.com/imhalid/ryu-go v0.1.1-0.20261124074029-fef019c9c60e
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.59.0
