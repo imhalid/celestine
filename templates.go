@@ -1,6 +1,9 @@
 package main
 
 import (
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,21 +18,151 @@ import (
 // and a text: a page from one is a click away in the collection, in the
 // palette and the sidebar's menu, and the / menu's Insert… puts one in a page
 // as it is written. In a template, {{title}} is the page's title, {{date}}
-// (or {{today}}) today as a day link, {{time}} the time; the Turkish names,
-// {{başlık}}, {{tarih}}, {{bugün}} and {{saat}}, are read as well (#537).
+// (or {{today}}) today as a day link, {{yesterday}} and {{tomorrow}} the days
+// beside it, {{weekday}} today's name, {{time}} the time, {{cursor}} where the
+// caret lands, and {{prompt:Name}} a value asked for as the template is used,
+// once for each name however often it is written; the Turkish names,
+// {{başlık}}, {{tarih}}, {{bugün}}, {{dün}}, {{yarın}}, {{gün}}, {{saat}},
+// {{imleç}} and {{sor:Ad}}, are read as well (#537, #555).
 
-// expandTemplate fills in what a template says of the page and the day.
-func expandTemplate(body, title string, now time.Time) string {
-	day := "[[" + now.Format("2006-01-02") + "]]"
+// cursorMark stands for {{cursor}} between a template's expansion and the page it went into, where it is taken out
+// and the caret put in its place: a rune of the private use area, which no text has.
+const cursorMark = "\uE000"
+
+// promptVar is a {{prompt:Name}} of a template, or {{sor:Ad}}: its name.
+var promptVar = regexp.MustCompile(`\{\{\s*(?:prompt|sor)\s*:\s*([^}]*?)\s*\}\}`)
+
+// templatePrompts are the names a template asks for, each once, in the order they first come.
+func templatePrompts(body string) []string {
+	var out []string
+	for _, m := range promptVar.FindAllStringSubmatch(body, -1) {
+		if name := m[1]; name != "" && !slices.Contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// expandTemplate fills in what a template says of the page and the day, the values asked for by their names (one
+// not given is left empty), and {{cursor}} as cursorMark, which the page it goes into takes out (takeCursorMark).
+func expandTemplate(body, title string, now time.Time, vals map[string]string) string {
+	day := func(d time.Time) string { return "[[" + d.Format("2006-01-02") + "]]" }
+	today, yesterday, tomorrow := day(now), day(now.AddDate(0, 0, -1)), day(now.AddDate(0, 0, 1))
+	weekday := dayName(now.Weekday(), false)
+	body = promptVar.ReplaceAllStringFunc(body, func(m string) string { return vals[promptVar.FindStringSubmatch(m)[1]] })
 	return strings.NewReplacer(
 		"{{title}}", title, "{{başlık}}", title, "{{baslik}}", title,
-		"{{date}}", day, "{{today}}", day, "{{tarih}}", day, "{{bugün}}", day, "{{bugun}}", day,
+		"{{date}}", today, "{{today}}", today, "{{tarih}}", today, "{{bugün}}", today, "{{bugun}}", today,
+		"{{yesterday}}", yesterday, "{{dün}}", yesterday, "{{dun}}", yesterday,
+		"{{tomorrow}}", tomorrow, "{{yarın}}", tomorrow, "{{yarin}}", tomorrow,
+		"{{weekday}}", weekday, "{{gün}}", weekday, "{{gun}}", weekday,
 		"{{time}}", now.Format("15:04"), "{{saat}}", now.Format("15:04"),
+		"{{cursor}}", cursorMark, "{{imleç}}", cursorMark, "{{imlec}}", cursorMark,
 	).Replace(body)
 }
 
-// newPageFrom makes a page in c with the template's text, and opens it, its
-// title ready to be typed.
+// plainTemplate is a template expanded for a page no one is typing in, as an agent's: nothing is asked, and there is
+// no caret to put.
+func plainTemplate(body, title string, now time.Time) string {
+	return strings.ReplaceAll(expandTemplate(body, title, now, nil), cursorMark, "")
+}
+
+// takeCursorMark takes the first cursorMark out of the open page and puts the caret there, and the rest out too.
+// It reports whether there was one.
+func (a *app) takeCursorMark() bool {
+	if a.doc == nil {
+		return false
+	}
+	mark := []rune(cursorMark)[0]
+	var at []int
+	i := 0
+	for _, r := range a.doc.Text().String() {
+		if r == mark {
+			at = append(at, i)
+		}
+		i++
+	}
+	if len(at) == 0 {
+		return false
+	}
+	a.doc.Edit(func(ed *richtext.Edit) {
+		for k := len(at) - 1; k >= 0; k-- {
+			ed.Replace(at[k], at[k]+1, richtext.Text{})
+		}
+		ed.Select(at[0], at[0])
+	})
+	a.fresh, a.refocus, a.revealWant = false, true, true
+	return true
+}
+
+// tplAsk is the values a template asks for, while its dialog is open: the names, what is typed for each, and what
+// is done with them.
+type tplAsk struct {
+	open  bool
+	names []string
+	vals  []string
+	then  func(map[string]string)
+}
+
+// askTemplate runs then with the values the template body asks for: at once when it asks for none, or once they
+// are typed in its dialog. Cancel does nothing.
+func (a *app) askTemplate(body string, then func(map[string]string)) {
+	names := templatePrompts(body)
+	if len(names) == 0 {
+		then(nil)
+		return
+	}
+	a.tplAsk = tplAsk{open: true, names: names, vals: make([]string, len(names)), then: then}
+}
+
+// tplAskView is the dialog of the values a template asks for, while it is open: a field for each, the first with
+// the focus, and Enter in the last uses the template.
+func (a *app) tplAskView(c *ui.Context) {
+	q := &a.tplAsk
+	if q.then == nil {
+		return
+	}
+	done := func() {
+		vals := map[string]string{}
+		for i, n := range q.names {
+			vals[n] = strings.TrimSpace(q.vals[i])
+		}
+		then := q.then
+		*q = tplAsk{}
+		then(vals)
+	}
+	ryugo.Dialog(c.Key("tpl-ask"), &q.open, ryugo.DialogOptions{Title: locales.TemplatesFillIn(), Width: 420, Footer: func() {
+		ui.Spacer(c)
+		if ryugo.Button(c.Key("tpl-ask-no"), locales.CommonCancel2(), ryugo.ButtonOptions{Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
+			q.open = false
+		}
+		if ryugo.Button(c.Key("tpl-ask-yes"), locales.TemplatesUse(), ryugo.ButtonOptions{Size: ryugo.Sm, Color: ryugo.From(c).Colors.Accent, Variant: ryugo.Solid}).Clicked() {
+			done()
+		}
+	}}, func() {
+		cl := ryugo.From(c).Colors
+		ui.Column(c).FillWidth().Gap(6).Children(func() {
+			for i, n := range q.names {
+				ui.Text(c, n).FontSize(ryugo.FsSm).FontWeight(600).TextColor(cl.Text2).Margin(map[bool]float32{true: 6}[i > 0], 0, 0, 0)
+				in := a.fieldMenu(ryugo.Input(c.Key("tpl-ask-"+strconv.Itoa(i)), &q.vals[i], ryugo.InputOptions{Label: n}), &q.vals[i], fieldOpts{oneLine: true})
+				if i == 0 {
+					in.AutoFocus()
+				}
+				if in.Submitted() && i == len(q.names)-1 {
+					done()
+					return
+				}
+			}
+		})
+	})
+	if q.then != nil && !q.open { // closed by Cancel, Esc or the scrim: nothing is made
+		*q = tplAsk{}
+	}
+}
+
+// newPageFrom makes a page in c with the template's text, once the values it
+// asks for are given, and opens it, its title ready to be typed, or the caret
+// where the template says.
 func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 	if c.Dynamic() {
 		a.newPage(c, parent)
@@ -39,18 +172,22 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 		a.openToday()
 		return
 	}
-	p, err := c.NewPage(parent, msg("common_untitled"))
-	if err != nil {
-		a.fail(err)
-		return
-	}
-	if tpl != "" {
-		if err := p.SaveText(expandTemplate(tpl, p.Title, a.clock())); err != nil {
+	a.askTemplate(tpl, func(vals map[string]string) {
+		p, err := c.NewPage(parent, msg("common_untitled"))
+		if err != nil {
 			a.fail(err)
+			return
 		}
-	}
-	a.open(p)
-	a.fresh = true
+		a.noteCreated()
+		if tpl != "" {
+			if err := p.SaveText(expandTemplate(tpl, p.Title, a.clock(), vals)); err != nil {
+				a.fail(err)
+			}
+		}
+		a.open(p)
+		a.fresh = true
+		a.takeCursorMark()
+	})
 }
 
 // templateMenu is the menu of a collection's templates, for a page from each.
@@ -81,7 +218,18 @@ var iconTemplate = icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="2.5"/>
 // insertTemplate puts a template's text in the open page at the line the
 // caret is in (the empty line, or under the line with text).
 func (a *app) insertTemplate(start int, tpl NamedTemplate) {
-	text := a.parse(expandTemplate(tpl.Body, a.page.Title, a.clock()))
+	page := a.page
+	a.askTemplate(tpl.Body, func(vals map[string]string) {
+		if a.page != page || a.doc == nil { // another page is open now
+			return
+		}
+		a.insertExpanded(start, a.parse(expandTemplate(tpl.Body, page.Title, a.clock(), vals)))
+		a.takeCursorMark()
+	})
+}
+
+// insertExpanded puts text, a template filled in, in the open page at the line the caret is in, as insertTemplate.
+func (a *app) insertExpanded(start int, text richtext.Text) {
 	t := a.doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	n := text.Len()

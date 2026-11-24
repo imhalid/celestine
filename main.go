@@ -236,6 +236,7 @@ type app struct {
 	testPanic    string                   // a test sets it to have a frame panic
 	crashOpen    bool                     // the dialog of a crash is shown
 	asking       askState                 // a question before an action that cannot be taken back (confirm.go)
+	tplAsk       tplAsk                   // the values a template asks for, while they are typed (templates.go)
 	crashPrev    string                   // the last session ended badly: its log, or ""
 	fonts        fontState                // the typefaces installed, and the lists of them (fonts.go)
 	fx           []caretFX                // the carets of the presets, made as they are used (caretfx.go)
@@ -1015,19 +1016,7 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		a.openToday()
 		return
 	}
-	p, err := c.NewPage(parent, msg("common_untitled"))
-	if err != nil {
-		a.fail(err)
-		return
-	}
-	a.noteCreated()
-	if c.Template != "" { // it starts as the collection says
-		if err := p.SaveText(expandTemplate(c.Template, p.Title, a.clock())); err != nil {
-			a.fail(err)
-		}
-	}
-	a.open(p)
-	a.fresh = true
+	a.newPageFrom(c, parent, c.Template) // it starts as the collection says
 }
 
 // flush saves the open page now, if it changed.
@@ -1251,6 +1240,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.crashView(c)
 	a.frameMeterView(c)
 	a.askView(c)
+	a.tplAskView(c)
 	// the palette over the dialogs: ⌘P with one open shows it above them, not behind (#483)
 	a.paletteView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go

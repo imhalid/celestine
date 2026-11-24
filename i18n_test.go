@@ -465,7 +465,7 @@ func TestTagAddedMessage(t *testing.T) {
 func TestTemplateWords(t *testing.T) {
 	now := time.Date(2026, 3, 4, 9, 30, 0, 0, time.UTC)
 	for _, body := range []string{"# {{title}}\n{{date}} {{today}} {{time}}", "# {{başlık}}\n{{tarih}} {{bugün}} {{saat}}"} {
-		if got := expandTemplate(body, "Dune", now); got != "# Dune\n[[2026-03-04]] [[2026-03-04]] 09:30" {
+		if got := expandTemplate(body, "Dune", now, nil); got != "# Dune\n[[2026-03-04]] [[2026-03-04]] 09:30" {
 			t.Errorf("%q: %q", body, got)
 		}
 	}

@@ -4,11 +4,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func TestExpandTemplate(t *testing.T) {
 	now := time.Date(2026, 11, 5, 14, 30, 0, 0, time.UTC)
-	got := expandTemplate("# {{başlık}}\n{{tarih}} {{saat}} {{bugün}}", "Toplantı", now)
+	got := expandTemplate("# {{başlık}}\n{{tarih}} {{saat}} {{bugün}}", "Toplantı", now, nil)
 	if got != "# Toplantı\n[[2026-11-05]] 14:30 [[2026-11-05]]" {
 		t.Fatalf("%q", got)
 	}
@@ -75,5 +77,60 @@ func TestTemplateSettings(t *testing.T) {
 	}
 	if len(c.Templates) != 1 || c.Templates[0].Body != "## kayıtlı" {
 		t.Fatalf("not taken: %+v", c.Templates)
+	}
+}
+
+// TestTemplateVariables: the days beside today, its name, {{cursor}} as its mark, and the values asked for by name,
+// each name once, a value not given left empty (#555).
+func TestTemplateVariables(t *testing.T) {
+	now := time.Date(2026, 11, 5, 14, 30, 0, 0, time.UTC) // a Thursday
+	got := expandTemplate("{{yesterday}} {{tomorrow}} {{dün}} {{yarın}} {{weekday}}|{{cursor}}|{{prompt:Who}}/{{ sor : Who }}/{{prompt:Where}}", "T", now, map[string]string{"Who": "Ada"})
+	want := "[[2026-11-04]] [[2026-11-06]] [[2026-11-04]] [[2026-11-06]] " + dayName(time.Thursday, false) + "|" + cursorMark + "|Ada/Ada/"
+	if got != want {
+		t.Fatalf("%q, want %q", got, want)
+	}
+	if names := templatePrompts("{{prompt:B}} {{sor:A}} {{prompt:B}} {{prompt:}}"); strings.Join(names, ",") != "B,A" {
+		t.Fatalf("the names asked for: %v", names)
+	}
+	if got := plainTemplate("a{{cursor}}b {{prompt:X}}", "T", now); got != "ab " {
+		t.Fatalf("for an agent: %q", got)
+	}
+}
+
+// TestTemplateAsksAndPlacesTheCaret: a template with {{prompt:…}} asks for the values in a dialog before the page is
+// made, and the page has them, with the caret where {{cursor}} was and no mark left; Cancel makes nothing (#555).
+func TestTemplateAsksAndPlacesTheCaret(t *testing.T) {
+	a, tt := newTestApp(t, "metin\n")
+	tt.SetSize(1100, 800)
+	c := a.page.Coll
+	tpl := "Author: {{prompt:Author}}\n\n{{cursor}}\n\nBy {{prompt:Author}}\n"
+	before := len(c.Pages)
+	a.newPageFrom(c, nil, tpl)
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	if !a.tplAsk.open || len(c.Pages) != before {
+		t.Fatalf("no dialog (%v), or a page made before it: %d pages", a.tplAsk.open, len(c.Pages))
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(300 * time.Millisecond)
+	if a.tplAsk.open || len(c.Pages) != before {
+		t.Fatalf("cancelled: open %v, %d pages", a.tplAsk.open, len(c.Pages))
+	}
+	a.newPageFrom(c, nil, tpl)
+	tt.Frame()
+	tt.Advance(300 * time.Millisecond)
+	tt.Type("Herbert")
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(300 * time.Millisecond)
+	if len(c.Pages) != before+1 || a.page == nil {
+		t.Fatalf("no page made: %d", len(c.Pages))
+	}
+	text := a.doc.Text().String()
+	if strings.Count(text, "Herbert") != 2 || strings.Contains(text, cursorMark) {
+		t.Fatalf("the page: %q", text)
+	}
+	_, caret := a.doc.Selection() // in the empty paragraph between the two lines, where {{cursor}} was alone
+	if want := strings.Index(text, "\n\n") + 1; caret != len([]rune(text[:want])) || a.fresh {
+		t.Fatalf("the caret at %d (want %d), the title to type %v, in %q", caret, len([]rune(text[:want])), a.fresh, text)
 	}
 }

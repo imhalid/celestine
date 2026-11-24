@@ -330,7 +330,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					found := false
 					for _, t := range c.AllTemplates() {
 						if strings.EqualFold(t.Name, strings.TrimSpace(in.Template)) {
-							in.Markdown, found = expandTemplate(t.Body, title, a.clock()), true
+							in.Markdown, found = plainTemplate(t.Body, title, a.clock()), true
 						}
 					}
 					if !found {
@@ -338,7 +338,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					}
 				}
 				if in.Markdown == "" && c.Template != "" {
-					in.Markdown = expandTemplate(c.Template, title, a.clock()) // as the collection starts its pages
+					in.Markdown = plainTemplate(c.Template, title, a.clock()) // as the collection starts its pages
 				}
 				if in.Markdown != "" {
 					if err := p.SaveText(bodyOf(in.Markdown)); err != nil {

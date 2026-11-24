@@ -782,7 +782,7 @@ func (a *app) blockItems() []menuItem {
 // modal reports whether a dialog is open over the window: what is under it is
 // not pointed at (no grip, no bar) while it is.
 func (a *app) modal() bool {
-	return a.cs.open || a.prop.open || a.pal.open || a.tagRen.open || a.crashOpen || a.vhist.open || a.lightbox != nil || a.wel.on
+	return a.cs.open || a.prop.open || a.pal.open || a.tagRen.open || a.crashOpen || a.vhist.open || a.lightbox != nil || a.wel.on || a.tplAsk.open
 }
 
 // blockMenu is the menu of a block, MyGo's drawn in the window (popmenu.go), under its grip (the span at): its kinds

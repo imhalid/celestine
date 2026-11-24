@@ -14317,6 +14317,22 @@ func (msgs Messages) TemplatesEachChosenByName() string {
 	return Catalog.Format(msgs.locale, "templates_eachChosenByName", nil)
 }
 
+// TemplatesFillIn says "Fill in the template"
+// in the language the app shows.
+//
+// The title of the dialog that asks for the values a template’s
+// {{prompt:Name}} fields want, as it is used.
+func TemplatesFillIn() string { return In(i18n.Locale()).TemplatesFillIn() }
+
+// TemplatesFillIn says "Fill in the template"
+// in the language of msgs.
+//
+// The title of the dialog that asks for the values a template’s
+// {{prompt:Name}} fields want, as it is used.
+func (msgs Messages) TemplatesFillIn() string {
+	return Catalog.Format(msgs.locale, "templates_fillIn", nil)
+}
+
 // TemplatesGroup says "Templates"
 // in the language the app shows.
 func TemplatesGroup() string { return In(i18n.Locale()).TemplatesGroup() }
@@ -14387,6 +14403,22 @@ func TemplatesTheTemplatesText() string { return In(i18n.Locale()).TemplatesTheT
 // in the language of msgs.
 func (msgs Messages) TemplatesTheTemplatesText() string {
 	return Catalog.Format(msgs.locale, "templates_theTemplatesText", nil)
+}
+
+// TemplatesUse says "Use"
+// in the language the app shows.
+//
+// The button of the dialog that fills in a template: makes the page, or
+// puts the template in, with the values typed.
+func TemplatesUse() string { return In(i18n.Locale()).TemplatesUse() }
+
+// TemplatesUse says "Use"
+// in the language of msgs.
+//
+// The button of the dialog that fills in a template: makes the page, or
+// puts the template in, with the values typed.
+func (msgs Messages) TemplatesUse() string {
+	return Catalog.Format(msgs.locale, "templates_use", nil)
 }
 
 // Tentacles says "Tentacles"
