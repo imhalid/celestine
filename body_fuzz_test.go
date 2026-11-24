@@ -44,6 +44,7 @@ var markdownSeeds = []string{
 	"- [x] \n- b\n",                 // a task with no words (#584)
 	"0000000000\n* [X] *\n* [!] 00", // and an empty item under it, then a kind
 	"` `_0_",                        // a code span of a space, then an emphasis (#587)
+	"[x] 0[[\n[x] ]]",               // brackets over two lines around a task, joined on one by the writer (#589)
 	"- a\n-\n- b\n",
 	"<div>\n- [ ] in HTML\n</div>\n\n- [ ] after it\n",
 	"a note[^1] and [[Page|its name]]\n\n[^1]: the note, with [[Other]]\n",

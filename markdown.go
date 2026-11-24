@@ -229,7 +229,9 @@ func rawBlockOf(lines []string, i int, paraStart, looks bool) (string, int) {
 	t := strings.TrimSpace(l)
 	switch {
 	case strings.Contains(l, "|") && i+1 < len(lines) && strings.Contains(lines[i+1], "-") && delimRow.MatchString(lines[i+1]):
-		return "table", until(i, func(s string) bool { return strings.Contains(s, "|") })
+		// the delimiter row is the table's whatever it holds, a "-" without a pipe too, which would be a list's item
+		// besides (#589)
+		return "table", until(i+2, func(s string) bool { return strings.Contains(s, "|") })
 	case strings.HasPrefix(t, "$$"):
 		if len(t) > 2 && strings.HasSuffix(t, "$$") && t != "$$" {
 			return "math", 1
@@ -507,6 +509,11 @@ func unescape(l string) string {
 	rest = outsideCode(rest, func(s string) string {
 		s = wikiLink.ReplaceAllStringFunc(s, func(m string) string { // its inside as it is typed, not escaped
 			inner := wikiLink.FindStringSubmatch(m)[1]
+			if strings.ContainsAny(inner, string(tokCheck)+string(tokChecked)) {
+				// brackets around a task, which no link holds: lines joined by the writer, "a [[" over "[x] ]]",
+				// stay text, and the task a task (#589)
+				return m
+			}
 			return "[[" + linkEscape.ReplaceAllString(inner, "$1") + "]]"
 		})
 		s = footRef.ReplaceAllString(s, "[^$1]")

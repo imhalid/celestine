@@ -79,7 +79,7 @@ func inlineBoxes(l string, refX bool) []int {
 	code, depth := false, 0
 	for i := 0; i < len(l); i++ {
 		switch c := l[i]; {
-		case c == '`':
+		case c == '`' && (code || !escapedAt(l, i)): // an escaped one opens no code; in code no backslash escapes
 			code = !code
 		case code:
 		case c == '[' && !escapedAt(l, i):
@@ -437,12 +437,24 @@ func checksOut(l string, refX bool) string {
 			bare, esc = "[x]", `\[x\]`
 		}
 		cand := l[:i] + bare + l[i+n:]
-		if slices.Contains(inlineBoxes(cand, refX), i) || strings.Count(l[:i], "`")%2 == 1 { // or in code, not escaped
+		if slices.Contains(inlineBoxes(cand, refX), i) || inCode(l, i) { // or in code, not escaped
 			l = cand
 		} else {
 			l = l[:i] + esc + l[i+n:]
 		}
 	}
+}
+
+// inCode says whether the byte at i of l is in inline code, as inlineBoxes reads it: a backtick opens and closes
+// code, but for one escaped outside it, which richtext writes for a backtick of the text (#589).
+func inCode(l string, i int) bool {
+	code := false
+	for k := 0; k < i; k++ {
+		if l[k] == '`' && (code || !escapedAt(l, k)) {
+			code = !code
+		}
+	}
+	return code
 }
 
 // checksBare writes the tasks in the running text of s bare: in code, where nothing is escaped.
