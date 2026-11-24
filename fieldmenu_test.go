@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -17,47 +18,41 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 	coll.AddProperty("Yazar", PropText, nil)
 	tt.Advance(300 * time.Millisecond)
 	a.clipRead = func() string { return "Herbert" }
-	open := func(label string) []menuItem {
+	open := func(label string) []string {
 		t.Helper()
-		a.ctx.open = false
+		tt.CloseMenu()
 		r, ok := tt.Find(label)
 		if !ok {
 			t.Fatalf("no %q: %v", label, tt.Texts())
 		}
 		tt.RightClickAt(r.X+r.W/2, r.Y+r.H/2)
 		tt.Frame()
-		if !a.ctx.open || tt.Menu() == nil {
-			t.Fatalf("%q: app menu %v, system menu %v", label, a.ctx.open, tt.Menu() != nil)
+		if tt.Menu() == nil {
+			t.Fatalf("%q: no menu", label)
 		}
-		return a.ctx.items
+		return tt.Menu()
 	}
-	has := func(items []menuItem, title string) *menuItem {
-		for i := range items {
-			if items[i].title == title {
-				return &items[i]
-			}
-		}
-		return nil
-	}
+	has := func(items []string, id string) bool { return slices.Contains(items, msg(id)) }
 	items := open("Yazar değeri")
-	if has(items, "props_editPropertyMenu") == nil || has(items, "common_selectAllText") == nil {
-		t.Fatalf("value's menu: %+v", items)
+	if !has(items, "props_editPropertyMenu") || !has(items, "common_selectAllText") {
+		t.Fatalf("value's menu: %v", items)
 	}
-	a.ctx.open = false
-	has(items, "common_paste").run()
+	if err := tt.ChooseMenuItem(msg("common_paste")); err != nil {
+		t.Fatal(err)
+	}
 	tt.Advance(100 * time.Millisecond)
 	if a.page.Props["yazar"] != "Herbert" {
 		t.Fatalf("pasted: %q", a.page.Props["yazar"])
 	}
 	// the collection's property is deleted in its settings, not from a page (#487)
-	if items := open("Özellik: Yazar"); has(items, "props_editPropertyMenu") == nil || has(items, "common_deleteProperty") != nil {
-		t.Fatalf("name's menu: %+v", items)
+	if items := open("Özellik: Yazar"); !has(items, "props_editPropertyMenu") || has(items, "common_deleteProperty") {
+		t.Fatalf("name's menu: %v", items)
 	}
-	a.ctx.open = false
+	tt.CloseMenu()
 	a.openCollection(coll)
 	tt.Advance(300 * time.Millisecond)
-	if items := open("Ara"); has(items, "common_paste") == nil {
-		t.Fatalf("search's menu: %+v", items)
+	if items := open("Ara"); !has(items, "common_paste") {
+		t.Fatalf("search's menu: %v", items)
 	}
 }
 
@@ -123,7 +118,7 @@ func TestTagsFieldAndItsMenu(t *testing.T) {
 	r, _ := tt.Find("Seçenek ekle")
 	tt.RightClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Frame()
-	if !a.ctx.open || tt.Menu() == nil {
-		t.Fatalf("app menu %v, system menu %v", a.ctx.open, tt.Menu() != nil)
+	if m := tt.Menu(); !slices.Contains(m, msg("common_paste")) {
+		t.Fatalf("the field's menu: %v", m)
 	}
 }

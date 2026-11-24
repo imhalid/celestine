@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -318,5 +319,31 @@ func TestSidebarCollectionSticks(t *testing.T) {
 	}
 	if r, ok := tt.Find("Projects"); ok && r.Y+r.H > head.Y {
 		t.Fatalf("the first collection is still held at %v", r)
+	}
+}
+
+// TestContextMenuKey: a row of the tree with the focus opens its menu for Shift+F10 and the menu key, below it, as
+// MyGo's own right-click menus do, and Esc closes it (#575).
+func TestContextMenuKey(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1000, 600)
+	tt.Frame()
+	for _, press := range []func(){
+		func() { tt.Key(ui.Shift, ui.KeyF10) },
+		func() { tt.Key(0, ui.KeyContextMenu) },
+	} {
+		a.treeFocus = a.page
+		tt.Frame()
+		tt.Frame()
+		press()
+		tt.Frame()
+		if m := tt.Menu(); !slices.Contains(m, msg("common_open")) {
+			t.Fatalf("the row's menu: %v", m)
+		}
+		tt.Key(0, ui.KeyEscape)
+		tt.Frame()
+		if tt.Menu() != nil {
+			t.Fatal("Esc did not close it")
+		}
 	}
 }

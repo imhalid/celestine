@@ -93,7 +93,7 @@ func TestContextMenus(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if !a.ctx.open {
+	if tt.Menu() == nil {
 		t.Fatal("no menu for the page")
 	}
 	for _, want := range []string{"Aç", "Yeniden adlandır", "Çöpe taşı"} {

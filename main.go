@@ -225,10 +225,11 @@ type app struct {
 	sessLast     time.Time
 	backupDir    string // where the backups go, when not the config folder's (a test's)
 	backupBusy   atomic.Bool
-	bk           backupUI // the backups' settings: the last by hand, a delete asked (backup.go)
-	crashDir     string   // where the logs go, when not the config folder's (a test's)
-	crashRT      string   // the runtime's crash log a test has, with crashDir
-	crashMsg     string   // the panic last written, and when: the same one is not written over and over
+	bk           backupUI         // the backups' settings: the last by hand, a delete asked (backup.go)
+	crashDir     string           // where the logs go, when not the config folder's (a test's)
+	crashRT      string           // the runtime's crash log a test has, with crashDir
+	menuPanel    func(ui.Element) // the look of the menus' panels in the frame's theme (popmenu.go)
+	crashMsg     string           // the panic last written, and when: the same one is not written over and over
 	crashAt      time.Time
 	crashPath    string                   // its log
 	crashText    string                   // what it said
@@ -835,6 +836,7 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	// Ryugo's theme, its components' tokens, for the appearance; a pressed button's wave as the settings say
 	opts := ryugo.Options{Mode: mode, Size: ryugo.Sm, Corners: a.ryugoCorners(), CornerScale: a.ryugoScale(), Waves: !a.settings.NoWaves && !fx.still}
 	tok := ryugo.Root(c, opts)
+	a.menuPanel = menuPanelLook(c) // the menus' look in this theme (popmenu.go)
 	a.ryugoOwn = tok.Colors
 	if a.appTheme().colors(tok.Dark).bg != "" { // and in the app's theme: the same appearance, in its colors
 		opts.Mode, opts.Accent = map[bool]ryugo.Mode{false: ryugo.Light, true: ryugo.Dark}[tok.Dark], a.accentOf(tok.Dark)

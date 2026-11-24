@@ -8,10 +8,10 @@ import (
 )
 
 // The context menu, the one for the whole app: a right click on a row of the tree, a page in a list or on a board,
-// a block's margin, a field, or a page in the trash opens it where the pointer is, and the "…" of the bar and a few
-// buttons open it where they are. It is MyGo's menu drawn in the window (popmenu.go), from an anchor at that point:
-// its keys (↑↓ ← → ↵ Esc, the first letters of a line), its submenus (a line made by into, with ›) and its placement
-// are MyGo's. Its lines are the ones that thing offers.
+// a field, or a page in the trash opens that thing's own menu where the pointer is (contextOn, popMenu), and the "…"
+// of the bar, a few buttons and a block's margin open one where they are (showContext), from an anchor at that point.
+// Both are MyGo's menu drawn in the window (popmenu.go): its keys (↑↓ ← → ↵ Esc, the first letters of a line), its
+// submenus (a line made by into, with ›) and its placement are MyGo's. Its lines are the ones that thing offers.
 
 type ctxMenu struct {
 	open  bool
@@ -21,16 +21,7 @@ type ctxMenu struct {
 
 // showContext opens the menu at x, y in the window.
 func (a *app) showContext(x, y float32, items []menuItem) {
-	if phone { // a phone has one pane: what opens beside is not offered
-		kept := items[:0:0]
-		for _, it := range items {
-			if it.title != "openInASidePane" {
-				kept = append(kept, it)
-			}
-		}
-		items = kept
-	}
-	a.ctx = ctxMenu{open: true, x: x, y: y, items: items}
+	a.ctx = ctxMenu{open: true, x: x, y: y, items: phoneItems(items)}
 	if a.frame != nil { // asked for after the menu's anchor was built in this frame: it opens in the next
 		a.frame()
 	}
@@ -47,12 +38,24 @@ func rightClick(el ui.Element) (x, y float32, ok bool) {
 	return b.X + px, b.Y + py, true
 }
 
-// contextOn opens the menu of el when it was right-clicked, built by menu.
-func (a *app) contextOn(el ui.Element, menu func() []menuItem) {
-	if x, y, ok := rightClick(el); ok {
-		if items := menu(); len(items) > 0 {
-			a.showContext(x, y, items)
+// phoneItems are items as a phone offers them: it has one pane, so what opens beside is not offered.
+func phoneItems(items []menuItem) []menuItem {
+	if !phone {
+		return items
+	}
+	kept := items[:0:0]
+	for _, it := range items {
+		if it.title != "openInASidePane" {
+			kept = append(kept, it)
 		}
+	}
+	return kept
+}
+
+// contextOn gives el its right-click menu, built by menu as it opens.
+func (a *app) contextOn(el ui.Element, menu func() []menuItem) {
+	if menu != nil {
+		a.popMenu(el, menu)
 	}
 }
 

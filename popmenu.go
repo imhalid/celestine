@@ -8,8 +8,9 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The context menus (ctxmenu.go) and a block's menu (blockui.go) are MyGo's menus drawn in the window
-// (PopoverMenuButton): their keys, submenus, focus, placement inside the window and what assistive technology sees
+// The context menus (ctxmenu.go) and a block's menu (blockui.go) are MyGo's menus drawn in the window: a thing's
+// right-click menu is its own (PopoverMenu), and a menu the app opens from a button or a key is drawn from an anchor
+// (PopoverMenuButton). Their keys, submenus, focus, placement inside the window and what assistive technology sees
 // are MyGo's. The app keeps its lists as menuItems, as the / menu, which stays its own (menupanel.go: a field and a
 // calendar inside it), has them; fillMenu writes them into a MyGo menu (#305).
 
@@ -96,6 +97,30 @@ func menuPanelLook(c *ui.Context) func(ui.Element) {
 // menuRowLook makes the rows of MyGo's menus slimmer than the theme's (#394): less room above and below the
 // label, the same at its sides.
 func menuRowLook(row ui.Element) { row.Padding(4, 8) }
+
+// popMenu gives el its right-click menu: items, drawn by MyGo in the window with the app's look (#575). It opens
+// where el was clicked with the secondary button, and below el for the menu key or Shift+F10 while el or one inside
+// it has the focus. A menu with no lines does not open.
+//
+// MyGo builds a drawn menu in every frame it shows; the lines are asked for once, as it opens, and kept with el
+// until it closes, as the menu taking the focus changes what some of them would be (a field's lines are its text's
+// while it is being edited).
+func (a *app) popMenu(el ui.Element, items func() []menuItem) ui.Element {
+	kept := ui.Local(el, "pop-menu", func() []menuItem { return nil })
+	shown := false
+	el.PopoverMenu(func(m *ui.Menu) {
+		shown = true
+		if *kept == nil {
+			*kept = phoneItems(items())
+		}
+		m.MaxWidth(menuW + 40)
+		fillMenu(m, *kept, func() {})
+	}, ui.PopoverMenuOptions{Panel: a.menuPanel, Item: menuRowLook})
+	if !shown {
+		*kept = nil
+	}
+	return el
+}
 
 // menuAt draws MyGo's menu of items at the box at in the window, below it (above where the window has no room),
 // while *open: an anchor of its own, so the menu opens from anywhere the app asks, not only from a click on it.

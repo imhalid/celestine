@@ -33,18 +33,12 @@ func (a *app) fieldMenu(el ui.Element, value *string, o fieldOpts) ui.Element {
 		el.Focus()
 		el.SetTextSelection(s.s, s.e)
 	}
-	el.ContextMenu(func(*ui.Menu) {
-		px, py, _ := el.PointerPosition()
-		b := el.LayoutBounds()
-		items := a.fieldItems(el, value, o)
+	return a.popMenu(el, func() []menuItem {
 		if o.editing != nil && !o.editing() && o.more != nil { // not el.Focused(): the right click has given it the focus
-			items = o.more()
+			return o.more()
 		}
-		if len(items) > 0 {
-			a.showContext(b.X+px, b.Y+py, items)
-		}
+		return a.fieldItems(el, value, o)
 	})
-	return el
 }
 
 // fieldItems are the lines of a field's menu.
@@ -109,13 +103,9 @@ func (a *app) secretTextMenu(el ui.Element, text func() string, more func() []me
 
 // textMenuWith attaches a copy-first context menu to el using copyFn for the Copy item and more for extra actions.
 func (a *app) textMenuWith(el ui.Element, text func() string, copyFn func(string), more func() []menuItem) ui.Element {
-	el.ContextMenu(func(*ui.Menu) {
-		px, py, _ := el.PointerPosition()
-		b := el.LayoutBounds()
-		items := withMore([]menuItem{{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { copyFn(text()) }}}, more)
-		a.showContext(b.X+px, b.Y+py, items)
+	return a.popMenu(el, func() []menuItem {
+		return withMore([]menuItem{{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { copyFn(text()) }}}, more)
 	})
-	return el
 }
 
 // withMore puts what the place offers after the text's lines, a line between them.

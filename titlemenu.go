@@ -30,11 +30,7 @@ func (a *app) readClip() string {
 func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
 	more := func() []menuItem { return a.pageMenu(p, false) }
 	if !editable { // a day's title is not typed: only the page's menu
-		title.ContextMenu(func(*ui.Menu) {
-			px, py, _ := title.PointerPosition()
-			b := title.LayoutBounds()
-			a.showContext(b.X+px, b.Y+py, more())
-		})
+		a.popMenu(title, more)
 		return
 	}
 	a.fieldMenu(title, &a.title, fieldOpts{oneLine: true, editing: func() bool { return a.titleFocused }, more: more, changed: func() {
