@@ -14,37 +14,58 @@ import (
 )
 
 func TestAcctKeys(t *testing.T) {
-	a1, k1, err := acctKeys("Ali", "gizli parola")
+	kdf, err := newKDF()
 	if err != nil {
 		t.Fatal(err)
 	}
-	a2, k2, _ := acctKeys(" ali ", "gizli parola")
-	if a1 != a2 || !bytes.Equal(k1, k2) {
-		t.Fatal("the name's case and spaces changed the keys")
+	for _, k := range []string{"", kdf} { // an account of before, and one stretched with Argon2id (#154)
+		a1, k1, err := acctKeys("Ali", "gizli parola", k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a2, k2, _ := acctKeys(" ali ", "gizli parola", k)
+		if a1 != a2 || !bytes.Equal(k1, k2) {
+			t.Fatal("the name's case and spaces changed the keys")
+		}
+		a3, k3, _ := acctKeys("ali", "başka parola", k)
+		if a1 == a3 || bytes.Equal(k1, k3) {
+			t.Fatal("two passwords gave the same keys")
+		}
+		if len(a1) != 64 || strings.Trim(a1, "0123456789abcdef") != "" {
+			t.Fatalf("auth is not 64 hex: %q", a1)
+		}
+		if bytes.Equal(k1, mustHex(t, a1)) {
+			t.Fatal("the key that seals the data key is the proof sent to the server")
+		}
+		data := bytes.Repeat([]byte{7}, 32)
+		w, err := wrapDataKey(k1, data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, err := unwrapDataKey(k1, w); err != nil || !bytes.Equal(got, data) {
+			t.Fatalf("unwrap: %v", err)
+		}
+		if _, err := unwrapDataKey(k3, w); err == nil {
+			t.Fatal("a wrong key opened the sealed data key")
+		}
+		if !validWrappedShape(w) {
+			t.Fatalf("a sealed key of %d characters is outside what the server takes", len(w))
+		}
 	}
-	a3, k3, _ := acctKeys("ali", "başka parola")
-	if a1 == a3 || bytes.Equal(k1, k3) {
-		t.Fatal("two passwords gave the same keys")
+	other, _ := newKDF()
+	a1, _, _ := acctKeys("ali", "gizli parola", kdf)
+	if a2, _, _ := acctKeys("ali", "gizli parola", other); a1 == a2 {
+		t.Fatal("two salts gave the same proof")
 	}
-	if len(a1) != 64 || strings.Trim(a1, "0123456789abcdef") != "" {
-		t.Fatalf("auth is not 64 hex: %q", a1)
+	// a server cannot ask for a stretching cheaper than the library's lowest, nor one that takes the memory
+	for _, bad := range []string{"pbkdf2", "argon2id$1$65536$4$00112233445566778899aabbccddeeff", "argon2id$3$1024$4$00112233445566778899aabbccddeeff",
+		"argon2id$3$4194304$4$00112233445566778899aabbccddeeff", "argon2id$3$65536$4$0011", "argon2id$3$65536$0$00112233445566778899aabbccddeeff"} {
+		if _, _, err := acctKeys("ali", "gizli parola", bad); err == nil {
+			t.Errorf("took the stretching %q", bad)
+		}
 	}
-	if bytes.Equal(k1, mustHex(t, a1)) {
-		t.Fatal("the key that seals the data key is the proof sent to the server")
-	}
-	data := bytes.Repeat([]byte{7}, 32)
-	w, err := wrapDataKey(k1, data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := unwrapDataKey(k1, w); err != nil || !bytes.Equal(got, data) {
-		t.Fatalf("unwrap: %v", err)
-	}
-	if _, err := unwrapDataKey(k3, w); err == nil {
-		t.Fatal("a wrong key opened the sealed data key")
-	}
-	if !validWrappedShape(w) {
-		t.Fatalf("a sealed key of %d characters is outside what the server takes", len(w))
+	if recoveryAuth(bytes.Repeat([]byte{7}, 32)) == recoveryAuthOfBefore(bytes.Repeat([]byte{7}, 32)) {
+		t.Fatal("the recovery proof is the one of before")
 	}
 }
 

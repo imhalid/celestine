@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/pbkdf2"
 	"crypto/rand"
@@ -28,6 +29,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/crypto/argon2"
 )
 
 // Synchronization. The library is a tree of small files (a page is a folder with its page.json); the
@@ -581,9 +584,13 @@ func (e *EncRemote) listedFrom(listed map[string]RemoteEntry) {
 // held, or of a file deleted since, are refused (ErrFileRollback). The sync state keeps what each pass saw, since
 // the remote is made again at each pass (beginPass, endPass).
 type EncRemote struct {
-	inner  Remote
-	Key    []byte
-	gcm    cipher.AEAD
+	inner Remote
+	Key   []byte      // the data key: the recovery key says it
+	gcm   cipher.AEAD // seals, with a key of its own made from the data key (subKey)
+	names []byte      // the key files are named with (opaque)
+	// keyed says which keys the remote is sealed with is known: what was opened first opened with them. A remote
+	// made before #162 has everything sealed and named with the data key itself, and keeps it (open)
+	keyed  bool
 	idx    map[string]string // opaque name → path
 	loaded bool
 	// indexed says the remote held a sealed index when it was read, and so that the key opened it (HasIndex)
@@ -658,9 +665,46 @@ func (e *EncRemote) PutHash(name string) (string, bool) {
 
 const SaltFile = "_salt"
 
-// DeriveKey makes the key from a passphrase and the salt that is kept on the remote (made when there is none).
+// argonSalt is what a remote's salt starts with when its key is stretched with Argon2id (StretchPassword); a salt
+// without it is of a remote made before (#154), whose key is PBKDF2's.
+var argonSalt = []byte("argon2id:")
+
+// DeriveKey makes the key from a passphrase and the salt that is kept on the remote (made when there is none):
+// Argon2id for a salt made since #154, PBKDF2 for one made before.
 func DeriveKey(pass string, salt []byte) ([]byte, error) {
+	if s, ok := bytes.CutPrefix(salt, argonSalt); ok {
+		return StretchPassword(pass, s, ArgonTime, ArgonMemory, ArgonThreads), nil
+	}
 	return pbkdf2.Key(sha256.New, pass, salt, 200_000, 32)
+}
+
+// The cost of stretching a password (#154): Argon2id, which a guess costs memory as well as time, at the second of
+// RFC 9106's recommended settings. A server leak gives what checks a guess; each guess then costs this.
+const (
+	ArgonTime    = 3
+	ArgonMemory  = 64 * 1024 // KiB
+	ArgonThreads = 4
+)
+
+// StretchPassword is the 32-byte key of a password and a salt, stretched with Argon2id at the cost given.
+func StretchPassword(pass string, salt []byte, time, memory uint32, threads uint8) []byte {
+	return argon2.IDKey([]byte(pass), salt, time, memory, threads, 32)
+}
+
+// subKey is a key of its own for one use of the data key (#162), named by use: the key that seals and the key that
+// names files are not the data key itself, nor each other, nor what the recovery key proves to the server.
+func subKey(key []byte, use string) []byte {
+	k, err := hkdf.Key(sha256.New, key, nil, use, 32)
+	if err != nil {
+		panic(err) // only for a length past 255 hashes
+	}
+	return k
+}
+
+// RecoveryProof is what the recovery key proves to the account's server (/api/recover): a key of its own made from
+// the data key, one way, so that the server, holding its hash, cannot make the key from it (#162).
+func RecoveryProof(key []byte) string {
+	return hex.EncodeToString(subKey(key, "celestine/recovery-proof/v2"))
 }
 
 // RecoveryKey is the key as words to write down: base32, in groups.
@@ -684,15 +728,29 @@ func KeyFromRecovery(s string) ([]byte, error) {
 }
 
 func NewEncRemote(inner Remote, key []byte) (*EncRemote, error) {
+	g, err := newGCM(subKey(key, "celestine/seal/v2"))
+	if err != nil {
+		return nil, err
+	}
+	return &EncRemote{inner: inner, Key: key, gcm: g, names: subKey(key, "celestine/names/v2"), idx: map[string]string{}, Labels: sealWithLabels}, nil
+}
+
+func newGCM(key []byte) (cipher.AEAD, error) {
 	blk, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cipher.NewGCM(blk)
+	return cipher.NewGCM(blk)
+}
+
+// keysOfBefore makes the remote use the data key itself to seal and to name, as a remote made before #162 does.
+func (e *EncRemote) keysOfBefore() error {
+	g, err := newGCM(e.Key)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &EncRemote{inner: inner, Key: key, gcm: g, idx: map[string]string{}, Labels: sealWithLabels}, nil
+	e.gcm, e.names = g, e.Key
+	return nil
 }
 
 // OpenEnc opens the remote with a passphrase: the salt is read from it, or made and put there. A remote that
@@ -714,8 +772,8 @@ func OpenEnc(inner Remote, pass string) (*EncRemote, error) {
 		if e, ok := list[SaltFile]; ok && !e.Deleted {
 			return nil, err
 		}
-		salt = make([]byte, 16)
-		rand.Read(salt)
+		salt = append(slices.Clone(argonSalt), make([]byte, 16)...)
+		rand.Read(salt[len(argonSalt):])
 		if err := inner.Put(SaltFile, salt, ""); err != nil {
 			return nil, err
 		}
@@ -837,14 +895,37 @@ func (e *EncRemote) seal(b, aad []byte) []byte {
 // open opens what seal sealed, under the label aad first, and with none then: what was sealed before labels, or
 // with them off, is read too, and unlabelled says so.
 func (e *EncRemote) open(b, aad []byte) (out []byte, unlabelled bool, err error) {
-	n := e.gcm.NonceSize()
+	out, unlabelled, err = openWith(e.gcm, b, aad)
+	if err == nil || e.keyed {
+		e.keyed = e.keyed || err == nil
+		return out, unlabelled, err
+	}
+	// the first thing opened does not open with the keys made from the data key: a remote made before #162, sealed
+	// with the data key itself, opens with it, and goes on with it
+	before, gerr := newGCM(e.Key)
+	if gerr != nil {
+		return nil, false, err
+	}
+	if out, unlabelled, berr := openWith(before, b, aad); berr == nil {
+		if err := e.keysOfBefore(); err != nil {
+			return nil, false, err
+		}
+		e.keyed = true
+		return out, unlabelled, nil
+	}
+	return nil, false, err
+}
+
+// openWith opens b with g: under the label aad, or with none (unlabelled), as it was put.
+func openWith(g cipher.AEAD, b, aad []byte) (out []byte, unlabelled bool, err error) {
+	n := g.NonceSize()
 	if len(b) < n {
 		return nil, false, errors.New("şifreli dosya kısa")
 	}
-	if out, err := e.gcm.Open(nil, b[:n], b[n:], aad); err == nil {
+	if out, err := g.Open(nil, b[:n], b[n:], aad); err == nil {
 		return out, false, nil
 	}
-	out, err = e.gcm.Open(nil, b[:n], b[n:], nil)
+	out, err = g.Open(nil, b[:n], b[n:], nil)
 	if err != nil {
 		return nil, false, errSealed
 	}
@@ -856,7 +937,7 @@ func (e *EncRemote) open(b, aad []byte) (out []byte, unlabelled bool, err error)
 func short(h string) string { return h[:min(16, len(h))] }
 
 func (e *EncRemote) opaque(p string) string {
-	m := hmac.New(sha256.New, e.Key)
+	m := hmac.New(sha256.New, e.names)
 	m.Write([]byte(p))
 	return hex.EncodeToString(m.Sum(nil))
 }

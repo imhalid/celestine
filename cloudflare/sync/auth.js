@@ -50,6 +50,18 @@ const validAuth = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
 const validRecovery = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
 const recoveryHash = (r) => sha256hex("celestine-recovery:" + r);
 const validWrapped = (s) => typeof s === "string" && /^[A-Za-z0-9+/=_-]{20,400}$/.test(s);
+// How a password is stretched on the device (#154): "argon2id$time$memory$threads$salt", which the server keeps beside
+// the account and gives before a sign-in (/api/prelogin). An account of before has none: the app stretches its
+// password with PBKDF2 then, until a new password moves it on.
+const KDF_COST = "argon2id$3$65536$4$";
+const validKDF = (s) => typeof s === "string" && /^argon2id\$\d{1,2}\$\d{5,7}\$\d{1,2}\$[0-9a-f]{32,128}$/.test(s);
+// the stretching said for a name with no account: like an account's, and the same each time, so that the answer does
+// not tell who has one. Its salt is keyed by a secret the Worker has, which nobody outside it can make the salts of.
+async function fakeKDF(env, username) {
+  const key = await crypto.subtle.importKey("raw", enc.encode("prelogin:" + (env.ADMIN_TOKEN || "")), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(username)));
+  return KDF_COST + [...mac.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 const validEmail = (s) => typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 const ip = (req) => req.headers.get("cf-connecting-ip") || "unknown";
@@ -306,8 +318,9 @@ export async function handleApi(request, env, url) {
     const salt = randomHex(16);
     try {
       const rec = validRecovery(body.recovery) ? await recoveryHash(body.recovery) : null;
-      const u = await env.DB.prepare("INSERT INTO users(username,salt,auth_hash,wrapped_key,quota,created_at,recovery_hash) VALUES(?,?,?,?,?,?,?)")
-        .bind(username, salt, await authHash(salt, body.auth), body.wrapped, DEFAULT_QUOTA, t, rec).run();
+      const kdf = validKDF(body.kdf) ? body.kdf : null;
+      const u = await env.DB.prepare("INSERT INTO users(username,salt,auth_hash,wrapped_key,quota,created_at,recovery_hash,kdf) VALUES(?,?,?,?,?,?,?,?)")
+        .bind(username, salt, await authHash(salt, body.auth), body.wrapped, DEFAULT_QUOTA, t, rec, kdf).run();
       await env.DB.prepare("UPDATE invites SET used_by=? WHERE code_hash=?").bind(u.meta.last_row_id, ch).run();
       const token = await newDevice(env, u.meta.last_row_id, body.device);
       await audit(env, `register ${username}`);
@@ -317,6 +330,14 @@ export async function handleApi(request, env, url) {
       if (String(e).includes("UNIQUE")) return fail(409, TAKEN_EMAIL);
       throw e;
     }
+  }
+
+  // how the account of a name stretches its password, asked before a sign-in, a password change or the deletion of the
+  // account (#154): one read, no counter, as a sign-in that follows counts its tries
+  if (path === "/api/prelogin" && method === "POST") {
+    const username = String(body.username || "").trim().toLowerCase();
+    const u = await env.DB.prepare("SELECT kdf FROM users WHERE username=?").bind(username).first();
+    return json({ kdf: u ? u.kdf || "" : await fakeKDF(env, username) });
   }
 
   if (path === "/api/login" && method === "POST") {
@@ -341,12 +362,16 @@ export async function handleApi(request, env, url) {
     if (!(await allow(env, "rec:" + where, 10, 3600)) || !(await allow(env, "recu:" + username + "@" + where, 5, 3600)) || !(await allow(env, "recu:" + username, 50, 3600))) return fail(429, "çok fazla deneme, sonra tekrar dene");
     if (!validRecovery(body.recovery) || !validAuth(body.newAuth) || !validWrapped(body.newWrapped)) return fail(400, "bad request");
     const u = await env.DB.prepare("SELECT id,status,recovery_hash FROM users WHERE username=?").bind(username).first();
-    const ok = same(await recoveryHash(body.recovery), u?.recovery_hash || "0".repeat(64));
+    // the proof, or for an account of before the proof it was made with (#162); this one's is kept from now on
+    const want = u?.recovery_hash || "0".repeat(64);
+    const ok = same(await recoveryHash(body.recovery), want) || (validRecovery(body.recoveryBefore) && same(await recoveryHash(body.recoveryBefore), want));
     if (!u || !u.recovery_hash || !ok) return fail(401, "e-posta ya da kurtarma anahtarı yanlış");
     if (u.status !== "active") return fail(403, "hesap askıya alınmış");
     const salt = randomHex(16);
+    const kdf = validKDF(body.newKdf) ? body.newKdf : null;
     await env.DB.batch([
-      env.DB.prepare("UPDATE users SET salt=?,auth_hash=?,wrapped_key=? WHERE id=?").bind(salt, await authHash(salt, body.newAuth), body.newWrapped, u.id),
+      env.DB.prepare("UPDATE users SET salt=?,auth_hash=?,wrapped_key=?,kdf=?,recovery_hash=? WHERE id=?")
+        .bind(salt, await authHash(salt, body.newAuth), body.newWrapped, kdf, await recoveryHash(body.recovery), u.id),
       env.DB.prepare("DELETE FROM devices WHERE user_id=?").bind(u.id),
     ]);
     const token = await newDevice(env, u.id, body.device);
@@ -393,8 +418,9 @@ export async function handleApi(request, env, url) {
     const u = await env.DB.prepare("SELECT salt,auth_hash FROM users WHERE id=?").bind(me.id).first();
     if (!same(await authHash(u.salt, body.auth), u.auth_hash)) return fail(401, "şifre yanlış");
     const salt = randomHex(16);
+    const kdf = validKDF(body.newKdf) ? body.newKdf : null;
     await env.DB.batch([
-      env.DB.prepare("UPDATE users SET salt=?,auth_hash=?,wrapped_key=? WHERE id=?").bind(salt, await authHash(salt, body.newAuth), body.newWrapped, me.id),
+      env.DB.prepare("UPDATE users SET salt=?,auth_hash=?,wrapped_key=?,kdf=? WHERE id=?").bind(salt, await authHash(salt, body.newAuth), body.newWrapped, kdf, me.id),
       env.DB.prepare("DELETE FROM devices WHERE user_id=? AND token_hash<>?").bind(me.id, me.device), // the others sign in again
     ]);
     return json({ ok: true });

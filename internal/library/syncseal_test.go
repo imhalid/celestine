@@ -24,7 +24,28 @@ func sealRemote(t *testing.T, inner Remote, labels bool) *EncRemote {
 		t.Fatal(err)
 	}
 	e.Labels = labels
+	// the keys the remote is sealed with, from its index when it has one: a remote an older build made has the data
+	// key itself (#162), which the helpers below then use, as a pass does once it has read the index
+	if b, err := inner.Get(IndexFile); err == nil {
+		e.open(b, indexAAD)
+	}
 	return e
+}
+
+// madeBefore makes inner a remote an older build made, before #162: its index, empty, sealed with the data key
+// itself and no label, as every build reads it. This version then goes on there with the data key, and the builds
+// before it read what it writes.
+func madeBefore(t *testing.T, inner Remote) {
+	t.Helper()
+	g, err := newGCM(sealKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, g.NonceSize())
+	rand.Read(nonce)
+	if err := inner.Put(IndexFile, g.Seal(nonce, nonce, []byte("{}"), nil), ""); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // legacySeal seals b as the versions before #148 did: with no label.
@@ -224,6 +245,7 @@ func TestSyncSealOldBuildMovesBack(t *testing.T) {
 	for _, ob := range oldBuilds {
 		t.Run(ob.name, func(t *testing.T) {
 			inner := DirRemote{Root: t.TempDir()}
+			madeBefore(t, inner) // the older builds read only a remote of before #162
 			n, o := newDevice(t), newDevice(t)
 			const a, b = "Not/A/page.json", "Not/B/page.json"
 			n.write(a, "metin")
@@ -269,6 +291,7 @@ func TestSyncSealIndexFork(t *testing.T) {
 	for _, w := range writers {
 		t.Run(w.name, func(t *testing.T) {
 			inner := DirRemote{Root: t.TempDir()}
+			madeBefore(t, inner) // the older builds read only a remote of before #162
 			a, b := newDevice(t), newDevice(t)
 			a.write("Not/Bir/page.json", "bir")
 			a.sync(sealRemote(t, inner, false))
@@ -561,6 +584,7 @@ func TestSyncSealOldClientBothWays(t *testing.T) {
 	for _, ob := range oldBuilds {
 		t.Run(ob.name, func(t *testing.T) {
 			inner := DirRemote{Root: t.TempDir()}
+			madeBefore(t, inner) // the older builds read only a remote of before #162
 			n, o := newDevice(t), newDevice(t)
 			n.write("Not/Bir/page.json", "bir")
 			n.sync(sealRemote(t, inner, false))

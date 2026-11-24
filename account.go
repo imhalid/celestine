@@ -23,6 +23,7 @@ import (
 
 	"github.com/egoist/mygo/netproxy"
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -40,9 +41,53 @@ const defaultServer = "https://celestine.halid.dev"
 
 const acctIterations = 200_000
 
-// acctKeys makes, from the name and the password, the proof for the server and the key that seals the data key.
-func acctKeys(username, password string) (auth string, kek []byte, err error) {
-	master, err := pbkdf2.Key(sha256.New, password, []byte("celestine/v1/"+strings.ToLower(strings.TrimSpace(username))), acctIterations, 32)
+// An account's password is stretched as its kdf says (#154), which the server keeps beside the account and gives
+// before a sign-in (/api/prelogin): "argon2id$time$memory$threads$salt", the salt random and in hex, for an account
+// made or given a password since; "" for one of before, whose stretching is PBKDF2 with the address for salt. A
+// leak of the server then has what checks a guess at a cost in memory as well as time, and no salt shared by every
+// server that has the address.
+
+// newKDF is the stretching of a password set now: Argon2id at the library's cost, with a salt of its own.
+func newKDF() (string, error) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("argon2id$%d$%d$%d$%x", library.ArgonTime, library.ArgonMemory, library.ArgonThreads, salt), nil
+}
+
+// parseKDF reads a kdf the server gave. Its costs are held to bounds: a server cannot ask for a stretching that
+// costs a guess less than the library's lowest, nor one that takes this computer's memory.
+func parseKDF(kdf string) (t, m uint32, p uint8, salt []byte, err error) {
+	f := strings.Split(kdf, "$")
+	bad := errors.New("the server gave a stretching this app does not take")
+	if len(f) != 5 || f[0] != "argon2id" {
+		return 0, 0, 0, nil, bad
+	}
+	nt, e1 := strconv.ParseUint(f[1], 10, 32)
+	nm, e2 := strconv.ParseUint(f[2], 10, 32)
+	np, e3 := strconv.ParseUint(f[3], 10, 8)
+	salt, e4 := hex.DecodeString(f[4])
+	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || nt < 2 || nt > 10 || nm < 19*1024 || nm > 1<<20 || np < 1 || np > 16 || len(salt) < 16 {
+		return 0, 0, 0, nil, bad
+	}
+	return uint32(nt), uint32(nm), uint8(np), salt, nil
+}
+
+// acctKeys makes, from the name, the password and how the account stretches it, the proof for the server and the key
+// that seals the data key.
+func acctKeys(username, password, kdf string) (auth string, kek []byte, err error) {
+	var master []byte
+	if kdf == "" { // an account of before
+		master, err = pbkdf2.Key(sha256.New, password, []byte("celestine/v1/"+strings.ToLower(strings.TrimSpace(username))), acctIterations, 32)
+	} else {
+		var t, m uint32
+		var p uint8
+		var salt []byte
+		if t, m, p, salt, err = parseKDF(kdf); err == nil {
+			master = library.StretchPassword(password, salt, t, m, p)
+		}
+	}
 	if err != nil {
 		return "", nil, err
 	}
@@ -55,8 +100,11 @@ func acctKeys(username, password string) (auth string, kek []byte, err error) {
 }
 
 // recoveryAuth is what the recovery key proves to the server (/api/recover): made from the data key, so that it is the same wherever the key is,
-// and one way, so that the server, holding only its hash, cannot make the key from it.
-func recoveryAuth(key []byte) string {
+// and one way, so that the server, holding only its hash, cannot make the key from it. It is a key of its own made from
+// the data key (library.RecoveryProof, #162); recoveryAuthOfBefore is what an account of before has the hash of.
+func recoveryAuth(key []byte) string { return library.RecoveryProof(key) }
+
+func recoveryAuthOfBefore(key []byte) string {
 	m := hmac.New(sha256.New, key)
 	m.Write([]byte("celestine/recovery-auth"))
 	return hex.EncodeToString(m.Sum(nil))
@@ -188,7 +236,11 @@ func acctName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
 // Register opens an account for email with the access code sent to it. It makes the data key; the token is this computer's.
 func (c *acctClient) Register(email, password, code string) (token string, key []byte, err error) {
-	auth, kek, err := acctKeys(email, password)
+	kdf, err := newKDF()
+	if err != nil {
+		return "", nil, err
+	}
+	auth, kek, err := acctKeys(email, password, kdf)
 	if err != nil {
 		return "", nil, err
 	}
@@ -204,7 +256,7 @@ func (c *acctClient) Register(email, password, code string) (token string, key [
 		Token string `json:"token"`
 	}
 	err = c.call("POST", "/api/register", "", map[string]string{
-		"email": acctName(email), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key),
+		"email": acctName(email), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key), "kdf": kdf,
 	}, &out)
 	if err != nil {
 		return "", nil, err
@@ -212,9 +264,28 @@ func (c *acctClient) Register(email, password, code string) (token string, key [
 	return out.Token, key, nil
 }
 
+// kdfOf is how the account of username stretches its password, as the server says. A name with no account gets an
+// answer like one's, the same each time, so that what the server says does not tell who has an account.
+func (c *acctClient) kdfOf(username string) (string, error) {
+	var out struct {
+		KDF string `json:"kdf"`
+	}
+	err := c.call("POST", "/api/prelogin", "", map[string]string{"username": acctName(username)}, &out)
+	return out.KDF, err
+}
+
+// keysOf is acctKeys for the account of username, its stretching asked of the server.
+func (c *acctClient) keysOf(username, password string) (auth string, kek []byte, err error) {
+	kdf, err := c.kdfOf(username)
+	if err != nil {
+		return "", nil, err
+	}
+	return acctKeys(username, password, kdf)
+}
+
 // Login signs this computer in and brings the data key back, opened here.
 func (c *acctClient) Login(username, password string) (token string, key []byte, err error) {
-	auth, kek, err := acctKeys(username, password)
+	auth, kek, err := c.keysOf(username, password)
 	if err != nil {
 		return "", nil, err
 	}
@@ -243,7 +314,11 @@ func (c *acctClient) Recover(username, recovery, newPassword string) (token stri
 	if err != nil {
 		return "", nil, err
 	}
-	newAuth, newKek, err := acctKeys(username, newPassword)
+	kdf, err := newKDF()
+	if err != nil {
+		return "", nil, err
+	}
+	newAuth, newKek, err := acctKeys(username, newPassword, kdf)
 	if err != nil {
 		return "", nil, err
 	}
@@ -254,8 +329,10 @@ func (c *acctClient) Recover(username, recovery, newPassword string) (token stri
 	var out struct {
 		Token string `json:"token"`
 	}
+	// an account of before has the hash of the proof of before: the server takes either, and keeps this one's
 	err = c.call("POST", "/api/recover", "", map[string]string{
-		"username": strings.ToLower(strings.TrimSpace(username)), "recovery": recoveryAuth(key), "newAuth": newAuth, "newWrapped": wrapped, "device": deviceName(),
+		"username": strings.ToLower(strings.TrimSpace(username)), "recovery": recoveryAuth(key), "recoveryBefore": recoveryAuthOfBefore(key),
+		"newAuth": newAuth, "newWrapped": wrapped, "newKdf": kdf, "device": deviceName(),
 	}, &out)
 	if err != nil {
 		return "", nil, err
@@ -278,11 +355,15 @@ func (c *acctClient) RemoveDevice(token, id string) error {
 
 // ChangePassword seals the data key anew under the new password; the server signs the other computers out.
 func (c *acctClient) ChangePassword(token, username, oldPassword, newPassword string, key []byte) error {
-	oldAuth, _, err := acctKeys(username, oldPassword)
+	oldAuth, _, err := c.keysOf(username, oldPassword)
 	if err != nil {
 		return err
 	}
-	newAuth, newKek, err := acctKeys(username, newPassword)
+	kdf, err := newKDF() // a password set anew is stretched as one set now: an account of before moves on here
+	if err != nil {
+		return err
+	}
+	newAuth, newKek, err := acctKeys(username, newPassword, kdf)
 	if err != nil {
 		return err
 	}
@@ -290,12 +371,12 @@ func (c *acctClient) ChangePassword(token, username, oldPassword, newPassword st
 	if err != nil {
 		return err
 	}
-	return c.call("POST", "/api/password", token, map[string]string{"auth": oldAuth, "newAuth": newAuth, "newWrapped": wrapped}, nil)
+	return c.call("POST", "/api/password", token, map[string]string{"auth": oldAuth, "newAuth": newAuth, "newWrapped": wrapped, "newKdf": kdf}, nil)
 }
 
 // DeleteAccount removes the account and what is on the server.
 func (c *acctClient) DeleteAccount(token, username, password string) error {
-	auth, _, err := acctKeys(username, password)
+	auth, _, err := c.keysOf(username, password)
 	if err != nil {
 		return err
 	}
