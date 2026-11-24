@@ -131,18 +131,21 @@ func (a *app) addFileFrom(src string) {
 		a.say(toastErr, locales.CommonInvalidAttachmentName(base))
 		return
 	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		a.say(toastErr, err.Error())
-		return
-	}
-	name := freeName(p, base)
-	if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
-		a.fail(err)
-		return
-	}
-	ch := &chip{kind: "file", target: name}
-	a.putBlock(a.attachment(ch))
+	a.readThen(src, maxFileBytes, func(data []byte, err error) { // a big file away from the window (#177)
+		if a.page != p || a.doc == nil {
+			return
+		}
+		if err != nil {
+			a.say(toastErr, err.Error())
+			return
+		}
+		name := freeName(p, base)
+		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), data); err != nil {
+			a.fail(err)
+			return
+		}
+		a.putBlock(a.attachment(&chip{kind: "file", target: name}))
+	})
 }
 
 // pickFileToAttach asks for a file in a dialog and puts it in the page.

@@ -17590,3 +17590,27 @@ func ViewsShowMore(count int) string { return In(i18n.Locale()).ViewsShowMore(co
 func (msgs Messages) ViewsShowMore(count int) string {
 	return Catalog.Format(msgs.locale, "views_showMore", map[string]any{"count": count})
 }
+
+// FilesTooBig says "{name} is too big: {size}, and at most {max} can be put in"
+// in the language the app shows.
+func FilesTooBig(name string, size string, max string) string {
+	return In(i18n.Locale()).FilesTooBig(name, size, max)
+}
+
+// FilesTooBig says "{name} is too big: {size}, and at most {max} can be put in"
+// in the language of msgs.
+func (msgs Messages) FilesTooBig(name string, size string, max string) string {
+	return Catalog.Format(msgs.locale, "files_tooBig", map[string]any{"name": name, "size": size, "max": max})
+}
+
+// FilesTooManyPixels says "{name} is too large a picture: {width} × {height} pixels"
+// in the language the app shows.
+func FilesTooManyPixels(name string, width int, height int) string {
+	return In(i18n.Locale()).FilesTooManyPixels(name, width, height)
+}
+
+// FilesTooManyPixels says "{name} is too large a picture: {width} × {height} pixels"
+// in the language of msgs.
+func (msgs Messages) FilesTooManyPixels(name string, width int, height int) string {
+	return Catalog.Format(msgs.locale, "files_tooManyPixels", map[string]any{"name": name, "width": width, "height": height})
+}

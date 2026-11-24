@@ -137,7 +137,7 @@ func (a *app) linkPage(address string, withImage bool) *linkInfo {
 			var img ui.ImageSource
 			fetchLink(func(ctx context.Context) {
 				if data, err := library.FetchLinkImage(ctx, src); err == nil {
-					img, _ = ui.DecodeImage(data)
+					img, _ = decodePicture(src, data)
 				}
 			})
 			a.doNextFrame(func() { info.image = img })
@@ -164,7 +164,7 @@ func (a *app) linkIcon(address string) ui.ImageSource {
 		var img ui.ImageSource
 		fetchLink(func(ctx context.Context) {
 			if data, err := library.FetchLinkImage(ctx, address); err == nil {
-				img, _ = ui.DecodeImage(data)
+				img, _ = decodePicture(address, data)
 			}
 		})
 		a.doNextFrame(func() { w.icons[address] = img })

@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"math"
-	"os"
 	"path/filepath"
 
 	"github.com/egoist/mygo"
@@ -38,7 +37,10 @@ func checkImage(data []byte) (string, error) {
 	if ext == "" {
 		return "", errors.New(notImage())
 	}
-	if _, err := decodeCheck(data); err != nil {
+	if _, err := decodePicture("", data); err != nil {
+		if errors.As(err, new(tooManyPixels)) {
+			return "", err
+		}
 		return "", errors.New(notImage())
 	}
 	return ext, nil
@@ -323,10 +325,8 @@ func coverRound(c *ui.Context, key, label string, glyph *ui.SVG) ui.Element {
 	return b
 }
 
-// decodeCheck reports whether data decodes as a picture.
-func decodeCheck(data []byte) (ui.ImageSource, error) { return ui.DecodeImage(data) }
-
-func readFile(name string) ([]byte, error) { return os.ReadFile(name) }
+// readFile reads a picture chosen for a cover or a banner, unless it is too big to be one (#177).
+func readFile(name string) ([]byte, error) { return readCapped(name, maxImageBytes) }
 
 // safeLocalAsset reports whether name is a relative single-folder filename without traversal or drive prefixes.
 func safeLocalAsset(name string) bool { return SafeName(name) && filepath.IsLocal(name) }

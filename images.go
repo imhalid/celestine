@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -108,6 +107,7 @@ func (a *app) loadImage(p *Page, file string) ui.ImageSource { return a.loadImag
 // loadImageIn is loadImage for a file in fsys: a collection's banner, which is no page's.
 func (a *app) loadImageIn(fsys FS, file string) ui.ImageSource {
 	if src, ok := a.images[file]; ok && src != nil {
+		a.useImage(file)
 		return src
 	}
 	now := a.clock()
@@ -115,8 +115,10 @@ func (a *app) loadImageIn(fsys FS, file string) ui.ImageSource {
 		return nil
 	}
 	var src ui.ImageSource
-	if data, err := fsys.ReadFile(file); err == nil {
-		src, _ = ui.DecodeImage(data)
+	if st, err := fsys.Stat(file); err == nil && st.Size() <= maxImageBytes { // a file named as a picture may be any (#177)
+		if data, err := fsys.ReadFile(file); err == nil {
+			src, _ = decodePicture(file, data)
+		}
 	}
 	if src == nil {
 		if a.imageMiss == nil {
@@ -126,10 +128,7 @@ func (a *app) loadImageIn(fsys FS, file string) ui.ImageSource {
 		return nil
 	}
 	delete(a.imageMiss, file)
-	if a.images == nil {
-		a.images = map[string]ui.ImageSource{}
-	}
-	a.images[file] = src
+	a.keepImage(file, src)
 	return src
 }
 
@@ -171,8 +170,8 @@ func (a *app) addImage(name string, data []byte) error {
 	if ext == "" {
 		return errors.New(notImage())
 	}
-	if _, err := ui.DecodeImage(data); err != nil {
-		return errors.New(notImage())
+	if _, err := decodePicture(name, data); err != nil {
+		return err
 	}
 	stem := "resim-" + a.clock().Format("20060102-150405")
 	ref := stem + ext
@@ -219,15 +218,21 @@ func (a *app) putBlock(att *richtext.Attachment) {
 	a.doc.SetTypingAttributes(richtext.Attributes{})
 }
 
-// addImageFile reads the picture at file and adds it.
+// addImageFile reads the picture at file and adds it to the open page: a big one read away from the window, and
+// added if that page is still the one open.
 func (a *app) addImageFile(file string) {
-	data, err := os.ReadFile(file)
-	if err == nil {
-		err = a.addImage(filepath.Base(file), data)
-	}
-	if err != nil {
-		a.say(toastErr, err.Error())
-	}
+	p := a.page
+	a.readThen(file, maxImageBytes, func(data []byte, err error) {
+		if a.page != p {
+			return
+		}
+		if err == nil {
+			err = a.addImage(filepath.Base(file), data)
+		}
+		if err != nil {
+			a.say(toastErr, err.Error())
+		}
+	})
 }
 
 // pickImage asks for a picture in a dialog and adds it; the dialog waits

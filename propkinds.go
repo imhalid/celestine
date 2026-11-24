@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -166,7 +165,7 @@ func (a *app) pickPropFile(p *Page, pr *Property) {
 		if err != nil || len(paths) == 0 {
 			return
 		}
-		data, err := os.ReadFile(paths[0]) // read away from the window: a file may be big (#201)
+		data, err := readCapped(paths[0], maxFileBytes) // read away from the window: a file may be big (#201, #177)
 		a.do(func() error {
 			if err != nil {
 				a.say(toastErr, err.Error())
@@ -185,7 +184,7 @@ func (a *app) setPropFile(p *Page, pr *Property, src string) {
 		a.setPropData(p, pr, "", nil)
 		return
 	}
-	data, err := os.ReadFile(src)
+	data, err := readCapped(src, maxFileBytes)
 	if err != nil {
 		a.say(toastErr, err.Error())
 		return

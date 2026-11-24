@@ -337,9 +337,11 @@ type app struct {
 	tables        map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
 	sortLists     map[string]*manualState            // each list in its own order, by collection and view (views.go)
 	writingSaved  time.Time
-	exportNote    string                                    // what the last export said, in the settings
-	docUse        []*Page                                   // the pages whose texts are kept, the longest unused first (touchDoc)
-	images        map[string]ui.ImageSource                 // the pictures read, by their file (images.go)
+	exportNote    string                    // what the last export said, in the settings
+	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
+	images        map[string]ui.ImageSource // the pictures read, by their file (images.go), the ones used last (limits.go)
+	imageUsed     map[string]uint64         // when each was used last, by imageClock
+	imageClock    uint64
 	imageMiss     map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
 	clipText      func(string)                              // the clipboard to write; the system's when nil
 	clipWrite     func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard

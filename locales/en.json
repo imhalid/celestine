@@ -2000,5 +2000,9 @@
   "sync_errDeviceRefused": "the server no longer takes this device: sign in again",
   "common_exporting": "Exporting…",
   "views_showMore": "{count, plural, one {Show the last page} other {Show more · # left}}",
-  "@views_showMore": {"placeholders": {"count": {"type": "int"}}}
+  "@views_showMore": {"placeholders": {"count": {"type": "int"}}},
+  "files_tooBig": "{name} is too big: {size}, and at most {max} can be put in",
+  "@files_tooBig": {"placeholders": {"name": {"type": "String"}, "size": {"type": "String"}, "max": {"type": "String"}}},
+  "files_tooManyPixels": "{name} is too large a picture: {width} × {height} pixels",
+  "@files_tooManyPixels": {"placeholders": {"name": {"type": "String"}, "width": {"type": "int"}, "height": {"type": "int"}}}
 }

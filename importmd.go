@@ -110,7 +110,7 @@ func (a *app) importMarkdown(root string) (importStats, error) {
 
 // importFile makes a page of the file f in c.
 func (a *app) importFile(c *Collection, root, f string, st *importStats) (*Page, error) {
-	data, err := os.ReadFile(f)
+	data, err := readCapped(f, maxImportBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (a *app) importPictures(p *Page, root, dir, body string, st *importStats) s
 		if src == "" {
 			return ""
 		}
-		data, err := os.ReadFile(src)
+		data, err := readCapped(src, maxImageBytes)
 		if err != nil || imageExt(data) == "" {
 			return ""
 		}
