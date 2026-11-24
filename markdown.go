@@ -57,7 +57,30 @@ var (
 )
 
 // parseBody reads a page's Markdown into the editor's text.
+// emptyTaskLine is a task's line with nothing after its box: GFM, and richtext's reader with it, read it as no task,
+// though richtext writes an empty task so (#584). Such a line is given emptyTaskFill after its box, which is taken
+// away once richtext has read it as a task.
+var emptyTaskLine = regexp.MustCompile(`^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[^\]]\]\s*$`)
+
+const emptyTaskFill = "\uE010" // a letter of its own: \uE000 to \uE006 are the reader's other marks
+
+// emptyItemLine is a list's mark with nothing after it. One under an item (listItemLine) is filled too: under a task
+// filled, its lone "-" would underline the fill as a heading.
+var emptyItemLine = regexp.MustCompile(`^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s*$`)
+
+// withoutRune is t without any r in it.
+func withoutRune(t richtext.Text, r rune) richtext.Text {
+	rs := []rune(t.String())
+	for i := len(rs) - 1; i >= 0; i-- {
+		if rs[i] == r {
+			t = t.ReplaceString(i, i+1, "", t.AttributesAt(i))
+		}
+	}
+	return t
+}
+
 func parseBody(md string) richtext.Text {
+	md = strings.ToValidUTF8(md, "\uFFFD") // read as it will be written: a byte that is not UTF-8 is U+FFFD both times (#586)
 	// one form at the door: a file written on Windows has CRLF lines, and one from some editors a BOM (#131)
 	md = strings.ReplaceAll(strings.TrimPrefix(md, "\uFEFF"), "\r\n", "\n")
 	lines := strings.Split(md, "\n")
@@ -73,6 +96,7 @@ func parseBody(md string) richtext.Text {
 	// lists' looks and tasks in the running text (listmd.go): tokens in the lines, what they say after richtext
 	var looks []string
 	look, tokens := -1, false // the look of the line after a list's comment
+	filled := false           // a task with no words was given emptyTaskFill
 	refX := refDefX.MatchString(md)
 	plain := strings.ContainsAny(md, listRunes) // its characters are text already: read as before
 	for i := 0; i < len(lines); {
@@ -134,6 +158,13 @@ func parseBody(md string) richtext.Text {
 			}
 			l = withItemTokens(l, toks)
 			tokens = tokens || strings.ContainsAny(l, listTokens)
+			// a task with no words, and an empty item under an item: something after its box or its mark, taken away
+			// once read (#584)
+			under := len(out) > 0 && listItemLine.MatchString(out[len(out)-1])
+			if emptyTaskLine.MatchString(l) || under && emptyItemLine.MatchString(l) {
+				l = strings.TrimRight(l, " \t") + " " + emptyTaskFill
+				filled = true
+			}
 		}
 		out = append(out, l)
 		afterHeld = false
@@ -141,6 +172,9 @@ func parseBody(md string) richtext.Text {
 	}
 	kinds := taskKindsIn(out) // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
 	t := withTaskKinds(richtext.ParseMarkdown(strings.Join(out, "\n")), kinds)
+	if filled {
+		t = withoutRune(t, []rune(emptyTaskFill)[0])
+	}
 	if tokens {
 		t = listTokensIn(t, looks)
 	}

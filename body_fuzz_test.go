@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"unicode"
@@ -42,6 +41,9 @@ var markdownSeeds = []string{
 	"# a\n\n- [*] b\n\n```go\nx\n```\n---\n",
 	"- [ ] open\n- [x] done\n- [!] important\n- [?] question\n- [/] half\n- [e] event\n",
 	"> - [ ] a quoted task\n> - [x] and a done one\n",
+	"- [x] \n- b\n",                 // a task with no words (#584)
+	"0000000000\n* [X] *\n* [!] 00", // and an empty item under it, then a kind
+	"- a\n-\n- b\n",
 	"<div>\n- [ ] in HTML\n</div>\n\n- [ ] after it\n",
 	"a note[^1] and [[Page|its name]]\n\n[^1]: the note, with [[Other]]\n",
 	"Buy [ ] milk and [x] bread, call [[Ana]] [ ] today.\n\n- [ ] a line [ ] with one\n",
@@ -111,15 +113,11 @@ func FuzzMarkdownRoundTrip(f *testing.F) {
 }
 
 // roundTripKept is what the round trip keeps of a page's Markdown md: its words, with a letter or a digit (a page of
-// marks alone, "> * > *", may be nested otherwise by richtext the second time), its tasks and its links. A task with
-// no words is not kept, and leaves its box as text: richtext writes it "- [x] ", which GFM, and richtext's reader,
-// read as no task (lostBox).
+// marks alone, "> * > *", may be nested otherwise by richtext the second time), its tasks, those with no words too
+// (#584), and its links.
 func roundTripKept(md string) string {
 	var b strings.Builder
 	for _, w := range strings.Fields(plainText(md)) {
-		if lostBox.MatchString(w) {
-			continue
-		}
 		if strings.IndexFunc(w, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) >= 0 {
 			b.WriteString(w + " ")
 		}
@@ -132,9 +130,6 @@ func roundTripKept(md string) string {
 	}
 	return b.String()
 }
-
-// lostBox is the box of a task with no words, as the round trip leaves it: text, escaped or not.
-var lostBox = regexp.MustCompile(`^\\?\[[xX ]\\?\]$`)
 
 // The bodies of the seeds keep their words, tasks and links through Markdown and back (#544).
 func TestBodyMarkdownKeeps(t *testing.T) {
