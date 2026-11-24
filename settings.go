@@ -621,6 +621,16 @@ func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 		a.settings.NoLapse = !lapse
 		a.saveSettings()
 	}
+	extras := !a.settings.NoDayExtras
+	settingGroup(c, "set-day-extras", func() {
+		settingRow(c, locales.JournalDayExtras(), locales.JournalDayExtrasHelp(), func() {
+			ryugo.Switch(c.Key("set-day-extras-sw"), &extras, ryugo.SwitchOptions{}).Label(locales.JournalDayExtras())
+		})
+	})
+	if extras != !a.settings.NoDayExtras {
+		a.settings.NoDayExtras = !extras
+		a.saveSettings()
+	}
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
 		settingRow(c, locales.CommonShimmer(), locales.SettingsWhileAgentMcpAdds(), func() {

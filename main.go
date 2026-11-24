@@ -1336,6 +1336,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	if a.lapseOn(p) && a.lapse.solo != 0 { // one day's words alone, to look at: nothing to type in
 		a.focused = false
 		a.lapseView(c)
+		a.dayExtras(c, p)
 		a.backlinksView(c, p)
 		return
 	}
@@ -1456,6 +1457,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.drawTags(p, r)
 		a.sealTables()
 	})
+	a.dayExtras(c, p)
 	a.backlinksView(c, p)
 }
 
@@ -1569,7 +1571,7 @@ func (a *app) editorH(c *ui.Context) float32 {
 // editorHeight is the editor's: its text, and more while there is text
 // still to lay out; at least what is left of the page's room.
 func (a *app) editorHeight() float32 {
-	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-8, 160)
+	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-a.dayH-8, 160)
 	// the text's height as the editor knows it, every paragraph measured or as tall as it was: with another theme or
 	// font the editor lays out again only what shows, and the rest as it comes into view (#506)
 	if h, ok := a.doc.ContentHeight(); ok {

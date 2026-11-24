@@ -53,6 +53,7 @@ type settingDef struct {
 // settingsApart are the fields of Settings that are not settings to change by a command, and why.
 var settingsApart = map[string]string{
 	"sidebarWidth":   "dragged at the sidebar's edge",
+	"dayFold":        "folded by their headings under a day of the journal",
 	"sidebarName":    "a name typed in the settings, not turned on or off",
 	"updateChannel":  "trial versions are the maintainer's, set in the settings file: not shown (#407)",
 	"panelWidth":     "dragged at the side panel's edge",
@@ -303,6 +304,7 @@ func settingDefsFor(macOS bool) []settingDef {
 		simple("common_pressWaves", "button ripple wave press düğme dalga", "noWaves", func(s *Settings) *bool { return &s.NoWaves }, true),
 		simple("common_automaticCover", "kapak cover", "autoCover", func(s *Settings) *bool { return &s.AutoCover }, false),
 		simple("common_colorWordsByDay", "time-lapse timelapse renk color sürüm version", "noLapse", func(s *Settings) *bool { return &s.NoLapse }, true),
+		simple("journal_dayExtras", "journal günlük day gün tasks görevler on this day bu gün years yıllar", "noDayExtras", func(s *Settings) *bool { return &s.NoDayExtras }, true),
 		simple("common_autosave", "autosave kaydet save", "noAutoSave", func(s *Settings) *bool { return &s.NoAutoSave }, true),
 		simple("showSpaces", "whitespace boşluk space", "showSpaces", func(s *Settings) *bool { return &s.ShowSpaces }, false),
 		simple("showTabs", "tab whitespace", "showTabs", func(s *Settings) *bool { return &s.ShowTabs }, false),

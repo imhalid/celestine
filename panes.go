@@ -62,6 +62,7 @@ type paneState struct {
 	boxes         []richtext.ParagraphBox
 	paras         paraTable // the text's paragraphs, read once for each version of it (shown.go)
 	linksH        float32   // the backlinks' height, last frame: each pane's own, as its page's
+	dayH          float32   // and what a day of the journal shows over them (dayextras.go)
 	focused       bool
 	lastSave      string                  // the body as last written
 	lastWords     int                     // the words it had, or -1 when not known

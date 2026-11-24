@@ -6635,6 +6635,62 @@ func (msgs Messages) JellyLine() string {
 	return Catalog.Format(msgs.locale, "jellyLine", nil)
 }
 
+// JournalDayExtras says "Tasks and earlier years under a day"
+// in the language the app shows.
+//
+// A setting: under a page of the journal, the tasks due that day and the
+// pages of the same day in earlier years.
+func JournalDayExtras() string { return In(i18n.Locale()).JournalDayExtras() }
+
+// JournalDayExtras says "Tasks and earlier years under a day"
+// in the language of msgs.
+//
+// A setting: under a page of the journal, the tasks due that day and the
+// pages of the same day in earlier years.
+func (msgs Messages) JournalDayExtras() string {
+	return Catalog.Format(msgs.locale, "journal_dayExtras", nil)
+}
+
+// JournalDayExtrasHelp says "A day of the journal shows the tasks due that day, today’s overdue ones too, and its pages of the same day in earli…"
+// in the language the app shows.
+func JournalDayExtrasHelp() string { return In(i18n.Locale()).JournalDayExtrasHelp() }
+
+// JournalDayExtrasHelp says "A day of the journal shows the tasks due that day, today’s overdue ones too, and its pages of the same day in earli…"
+// in the language of msgs.
+func (msgs Messages) JournalDayExtrasHelp() string {
+	return Catalog.Format(msgs.locale, "journal_dayExtrasHelp", nil)
+}
+
+// JournalDayTasks says "{count, plural, one {# task for this day} other {# tasks for this day}}"
+// in the language the app shows.
+//
+// The heading of the tasks due on a day, under its page of the journal.
+func JournalDayTasks(count int) string { return In(i18n.Locale()).JournalDayTasks(count) }
+
+// JournalDayTasks says "{count, plural, one {# task for this day} other {# tasks for this day}}"
+// in the language of msgs.
+//
+// The heading of the tasks due on a day, under its page of the journal.
+func (msgs Messages) JournalDayTasks(count int) string {
+	return Catalog.Format(msgs.locale, "journal_dayTasks", map[string]any{"count": count})
+}
+
+// JournalOnThisDay says "On this day"
+// in the language the app shows.
+//
+// The heading of the journal’s pages of the same month and day in earlier
+// years, under a day’s page.
+func JournalOnThisDay() string { return In(i18n.Locale()).JournalOnThisDay() }
+
+// JournalOnThisDay says "On this day"
+// in the language of msgs.
+//
+// The heading of the journal’s pages of the same month and day in earlier
+// years, under a day’s page.
+func (msgs Messages) JournalOnThisDay() string {
+	return Catalog.Format(msgs.locale, "journal_onThisDay", nil)
+}
+
 // JournalViewCalendar says "Calendar"
 // in the language the app shows.
 func JournalViewCalendar() string { return In(i18n.Locale()).JournalViewCalendar() }
