@@ -90,7 +90,7 @@ func (a *app) settingsSnippets(c *ui.Context) {
 				s := &(*list)[i]
 				abbr, body := s.Abbr, s.Text
 				ui.Row(c.Key("snip:" + strconv.Itoa(i))).FillWidth().Gap(8).AlignItems(ui.Start).Children(func() {
-					a.fieldMenu(ryugo.Input(c.Key("snip-abbr"), &abbr, ryugo.InputOptions{Label: locales.SnippetsAbbreviation(), Placeholder: ";sig", Size: ryugo.Sm}), &abbr, fieldOpts{oneLine: true}).Width(120).Shrink(0)
+					a.fieldMenu(ryugo.Input(c.Key("snip-abbr"), &abbr, ryugo.InputOptions{Label: locales.SnippetsAbbreviation(), Placeholder: locales.SnippetsAbbrPlaceholder(), Size: ryugo.Sm}), &abbr, fieldOpts{oneLine: true}).Width(120).Shrink(0)
 					a.fieldMenu(ryugo.Textarea(c.Key("snip-text"), &body, ryugo.TextareaOptions{Label: locales.SnippetsText(), Placeholder: locales.SnippetsTextPlaceholder(), Rows: 1, MaxRows: 6}), &body, fieldOpts{}).Grow(1).MinWidth(0)
 					if a.iconButton(c, iconClose, locales.SnippetsRemove(abbr)) {
 						drop = i

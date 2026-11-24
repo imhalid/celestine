@@ -1376,6 +1376,7 @@
   "stats_brokenLinksNone": "Broken [[links]]: none ✓",
   "stats_calculating": "Calculating…",
   "stats_cleared": "Statistics deleted.",
+  "snippets_abbrPlaceholder": ";sig",
   "snippets_abbreviation": "Abbreviation",
   "snippets_add": "Add a snippet",
   "snippets_help": "Type an abbreviation as a word and end it with a space, Enter or a period: it becomes its text. Undo brings back what you typed. The text is Markdown and can use the templates’ '{{'date'}}', '{{'time'}}' and '{{'cursor'}}'.",

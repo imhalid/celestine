@@ -1208,6 +1208,7 @@
   "stats_brokenLinkCount": "Kırık [[bağlantı]] bulunan sayfa: {count}",
   "stats_brokenLinksNone": "Kırık [[bağlantı]]: yok ✓",
   "stats_calculating": "Hesaplanıyor…",
+  "snippets_abbrPlaceholder": ";imza",
   "snippets_abbreviation": "Kısaltma",
   "snippets_add": "Kısaltma ekle",
   "snippets_help": "Bir kısaltmayı kelime olarak yazıp boşluk, Enter ya da noktayla bitir: metnine dönüşür. Geri al yazdığını geri getirir. Metin Markdown’dır; şablonların '{{'tarih'}}', '{{'saat'}}' ve '{{'imleç'}}' değişkenleri kullanılabilir.",

@@ -12343,6 +12343,16 @@ func (msgs Messages) StatsCleared() string {
 	return Catalog.Format(msgs.locale, "stats_cleared", nil)
 }
 
+// SnippetsAbbrPlaceholder says ";sig"
+// in the language the app shows.
+func SnippetsAbbrPlaceholder() string { return In(i18n.Locale()).SnippetsAbbrPlaceholder() }
+
+// SnippetsAbbrPlaceholder says ";sig"
+// in the language of msgs.
+func (msgs Messages) SnippetsAbbrPlaceholder() string {
+	return Catalog.Format(msgs.locale, "snippets_abbrPlaceholder", nil)
+}
+
 // SnippetsAbbreviation says "Abbreviation"
 // in the language the app shows.
 func SnippetsAbbreviation() string { return In(i18n.Locale()).SnippetsAbbreviation() }
