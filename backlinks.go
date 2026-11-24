@@ -254,6 +254,12 @@ func readPageIdxAt(q *Page, mod time.Time, writes int, body string) (*pageIdx, s
 	for _, m := range wikiInText.FindAllStringSubmatch(body, -1) {
 		target, _, _ := strings.Cut(m[1], "|")
 		key := strings.ToLower(strings.TrimSpace(target))
+		if page, heading := splitHeading(strings.TrimSpace(target)); heading != "" { // to a heading: to its page too
+			if k := strings.ToLower(page); !seen[k] {
+				seen[k] = true
+				e.links = append(e.links, k)
+			}
+		}
 		if key != "" && !seen[key] {
 			seen[key] = true
 			e.links = append(e.links, key)

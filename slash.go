@@ -255,6 +255,9 @@ func (a *app) wikiItems(q string) []menuItem {
 	}
 	als, alExact := a.aliasLinks(q, start, 20, "")
 	out, exact = append(out, als...), exact || alExact
+	if hs := a.headingLinks(tq, start); len(hs) > 0 { // "Page#…": its headings, first
+		out, exact = append(hs, out...), true
+	}
 	if tq != "" && !exact && a.page != nil {
 		out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
@@ -407,6 +410,9 @@ func (a *app) viewItems(view, q string) []menuItem {
 		}
 		als, alExact := a.aliasLinks(q, start, 20, "")
 		out, exact = append(out, als...), exact || alExact
+		if hs := a.headingLinks(tq, start); len(hs) > 0 {
+			out, exact = append(hs, out...), true
+		}
 		if tq != "" && !exact && a.page != nil {
 			out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 				if _, err := a.page.Coll.NewPage(nil, tq); err != nil {

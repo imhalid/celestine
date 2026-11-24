@@ -91,6 +91,9 @@ func (ch *chip) label() string {
 	if ch.alias != "" {
 		return ch.alias
 	}
+	if page, heading := splitHeading(ch.target); ch.kind == "page" && heading != "" {
+		return locales.LinksPageHeading(page, heading)
+	}
 	return ch.target
 }
 
@@ -471,6 +474,17 @@ func drawTaskRing(p *ui.Painter, cx, cy, radius float32, n, done int, rest, gree
 // pageTitled is the page titled title (any case), or with title for one of its aliases (#547), in the open
 // page's collection first, or nil. A page so titled comes before one with it for an alias.
 func (a *app) pageTitled(title string) *Page {
+	if p := a.pageTitledWhole(title); p != nil {
+		return p
+	}
+	if page, heading := splitHeading(title); heading != "" { // [[Page#Heading]] (headinglinks.go)
+		return a.pageTitledWhole(page)
+	}
+	return nil
+}
+
+// pageTitledWhole is the page titled title, or with it for an alias, as pageTitled has it, the target taken whole.
+func (a *app) pageTitledWhole(title string) *Page {
 	var found *Page
 	for _, p := range a.titleIndex()[strings.ToLower(title)] {
 		if !strings.EqualFold(p.Title, title) {
@@ -590,8 +604,13 @@ func (a *app) clickChip(x, y float32) bool {
 			return true
 		}
 		p := a.pageTitled(h.ch.target)
+		_, heading := splitHeading(h.ch.target)
+		if p != nil && a.pageTitledWhole(h.ch.target) != nil {
+			heading = "" // a page so titled, "#" and all
+		}
 		if p == nil && a.page != nil {
-			np, err := a.page.Coll.NewPage(nil, h.ch.target)
+			title, _ := splitHeading(h.ch.target)
+			np, err := a.page.Coll.NewPage(nil, title)
 			if err != nil {
 				a.fail(err)
 				return true
@@ -600,6 +619,9 @@ func (a *app) clickChip(x, y float32) bool {
 		}
 		if p != nil {
 			a.open(p)
+			if heading != "" {
+				a.goToHeading(heading)
+			}
 		}
 		return true
 	}

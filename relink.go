@@ -268,6 +268,10 @@ func relinkBody(body string, to map[string]string) (string, int) {
 			case o != nil && (o.K == "page" || o.K == "embed"):
 				if now, ok := to[strings.ToLower(strings.TrimSpace(o.Target))]; ok {
 					o.Target, k = now, 1
+				} else if page, heading := splitHeading(strings.TrimSpace(o.Target)); heading != "" { // [[Page#Heading]]
+					if now, ok := to[strings.ToLower(page)]; ok {
+						o.Target, k = now+"#"+heading, 1
+					}
 				}
 			case o != nil && o.K == "table":
 				for _, row := range o.Rows {

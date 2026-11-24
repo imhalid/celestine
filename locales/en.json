@@ -812,6 +812,8 @@
   "@links_keptShared": {"placeholders": {"title": {"type": "String"}}},
   "links_keptTaken": "Links to “{from}” were kept: another page is already titled “{to}”",
   "@links_keptTaken": {"placeholders": {"from": {"type": "String"}, "to": {"type": "String"}}},
+  "links_pageHeading": "{page} › {heading}",
+  "@links_pageHeading": {"description": "A link to a heading of a page, as its chip and the [[ menu say it.", "placeholders": {"page": {"type": "String"}, "heading": {"type": "String"}}},
   "links_updated": "{count, plural, one {Updated # link} other {Updated # links}}",
   "@links_updated": {"placeholders": {"count": {"type": "int"}}},
   "list": "list",

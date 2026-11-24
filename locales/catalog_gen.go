@@ -7325,6 +7325,22 @@ func (msgs Messages) LinksKeptTaken(from string, to string) string {
 	return Catalog.Format(msgs.locale, "links_keptTaken", map[string]any{"from": from, "to": to})
 }
 
+// LinksPageHeading says "{page} › {heading}"
+// in the language the app shows.
+//
+// A link to a heading of a page, as its chip and the [[ menu say it.
+func LinksPageHeading(page string, heading string) string {
+	return In(i18n.Locale()).LinksPageHeading(page, heading)
+}
+
+// LinksPageHeading says "{page} › {heading}"
+// in the language of msgs.
+//
+// A link to a heading of a page, as its chip and the [[ menu say it.
+func (msgs Messages) LinksPageHeading(page string, heading string) string {
+	return Catalog.Format(msgs.locale, "links_pageHeading", map[string]any{"page": page, "heading": heading})
+}
+
 // LinksUpdated says "{count, plural, one {Updated # link} other {Updated # links}}"
 // in the language the app shows.
 func LinksUpdated(count int) string { return In(i18n.Locale()).LinksUpdated(count) }

@@ -721,6 +721,7 @@
   "link": "Bağlantı",
   "links_keptShared": "“{title}” bağlantıları olduğu gibi bırakıldı: bu başlık başka bir sayfada da var",
   "links_keptTaken": "“{from}” bağlantıları olduğu gibi bırakıldı: “{to}” başlıklı başka bir sayfa zaten var",
+  "links_pageHeading": "{page} › {heading}",
   "links_updated": "{count, plural, one {# bağlantı güncellendi} other {# bağlantı güncellendi}}",
   "list": "liste",
   "lockOn": "Kilit",
