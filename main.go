@@ -239,6 +239,7 @@ type app struct {
 	tplAsk       tplAsk                   // the values a template asks for, while they are typed (templates.go)
 	mentions     mentionsState            // the open page's unlinked mentions, as last looked for (mentions.go)
 	repl         replaceState             // the search's replace across the library (libreplace.go)
+	triage       triageState              // a collection's pages sorted one at a time (triage.go)
 	crashPrev    string                   // the last session ended badly: its log, or ""
 	fonts        fontState                // the typefaces installed, and the lists of them (fonts.go)
 	fx           []caretFX                // the carets of the presets, made as they are used (caretfx.go)
@@ -1243,6 +1244,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	a.frameMeterView(c)
 	a.askView(c)
 	a.tplAskView(c)
+	a.triageView(c)
 	// the palette over the dialogs: ⌘P with one open shows it above them, not behind (#483)
 	a.paletteView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go

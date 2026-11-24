@@ -15439,6 +15439,158 @@ func (msgs Messages) TrashThrownAwayPagesCollections() string {
 	return Catalog.Format(msgs.locale, "trash_thrownAwayPagesCollections", nil)
 }
 
+// TriageBack says "Back"
+// in the language the app shows.
+func TriageBack() string { return In(i18n.Locale()).TriageBack() }
+
+// TriageBack says "Back"
+// in the language of msgs.
+func (msgs Messages) TriageBack() string {
+	return Catalog.Format(msgs.locale, "triage_back", nil)
+}
+
+// TriageDone says "{count, plural, =0 {Sorted: nothing changed} one {Sorted: # page} other {Sorted: # pages}}"
+// in the language the app shows.
+func TriageDone(count int) string { return In(i18n.Locale()).TriageDone(count) }
+
+// TriageDone says "{count, plural, =0 {Sorted: nothing changed} one {Sorted: # page} other {Sorted: # pages}}"
+// in the language of msgs.
+func (msgs Messages) TriageDone(count int) string {
+	return Catalog.Format(msgs.locale, "triage_done", map[string]any{"count": count})
+}
+
+// TriageEmpty says "This collection has no pages to sort"
+// in the language the app shows.
+func TriageEmpty() string { return In(i18n.Locale()).TriageEmpty() }
+
+// TriageEmpty says "This collection has no pages to sort"
+// in the language of msgs.
+func (msgs Messages) TriageEmpty() string {
+	return Catalog.Format(msgs.locale, "triage_empty", nil)
+}
+
+// TriageLinkToday says "Link from today"
+// in the language the app shows.
+//
+// In the triage: puts a link to the page in today’s page of the journal.
+func TriageLinkToday() string { return In(i18n.Locale()).TriageLinkToday() }
+
+// TriageLinkToday says "Link from today"
+// in the language of msgs.
+//
+// In the triage: puts a link to the page in today’s page of the journal.
+func (msgs Messages) TriageLinkToday() string {
+	return Catalog.Format(msgs.locale, "triage_linkToday", nil)
+}
+
+// TriageMove says "Move"
+// in the language the app shows.
+func TriageMove() string { return In(i18n.Locale()).TriageMove() }
+
+// TriageMove says "Move"
+// in the language of msgs.
+func (msgs Messages) TriageMove() string {
+	return Catalog.Format(msgs.locale, "triage_move", nil)
+}
+
+// TriageMoveTo says "Move to, by its number:"
+// in the language the app shows.
+func TriageMoveTo() string { return In(i18n.Locale()).TriageMoveTo() }
+
+// TriageMoveTo says "Move to, by its number:"
+// in the language of msgs.
+func (msgs Messages) TriageMoveTo() string {
+	return Catalog.Format(msgs.locale, "triage_moveTo", nil)
+}
+
+// TriageNoText says "No text"
+// in the language the app shows.
+func TriageNoText() string { return In(i18n.Locale()).TriageNoText() }
+
+// TriageNoText says "No text"
+// in the language of msgs.
+func (msgs Messages) TriageNoText() string {
+	return Catalog.Format(msgs.locale, "triage_noText", nil)
+}
+
+// TriageNotHere says "A saved search and the journal are not sorted"
+// in the language the app shows.
+func TriageNotHere() string { return In(i18n.Locale()).TriageNotHere() }
+
+// TriageNotHere says "A saved search and the journal are not sorted"
+// in the language of msgs.
+func (msgs Messages) TriageNotHere() string {
+	return Catalog.Format(msgs.locale, "triage_notHere", nil)
+}
+
+// TriageSkip says "Skip"
+// in the language the app shows.
+func TriageSkip() string { return In(i18n.Locale()).TriageSkip() }
+
+// TriageSkip says "Skip"
+// in the language of msgs.
+func (msgs Messages) TriageSkip() string {
+	return Catalog.Format(msgs.locale, "triage_skip", nil)
+}
+
+// TriageSortThePages says "Sort the pages one by one"
+// in the language the app shows.
+//
+// A command: goes through a collection’s pages one at a time, each moved,
+// tagged, linked from today or trashed with one key.
+func TriageSortThePages() string { return In(i18n.Locale()).TriageSortThePages() }
+
+// TriageSortThePages says "Sort the pages one by one"
+// in the language of msgs.
+//
+// A command: goes through a collection’s pages one at a time, each moved,
+// tagged, linked from today or trashed with one key.
+func (msgs Messages) TriageSortThePages() string {
+	return Catalog.Format(msgs.locale, "triage_sortThePages", nil)
+}
+
+// TriageTag says "Tag"
+// in the language the app shows.
+func TriageTag() string { return In(i18n.Locale()).TriageTag() }
+
+// TriageTag says "Tag"
+// in the language of msgs.
+func (msgs Messages) TriageTag() string {
+	return Catalog.Format(msgs.locale, "triage_tag", nil)
+}
+
+// TriageTagPlaceholder says "A tag, ↵"
+// in the language the app shows.
+func TriageTagPlaceholder() string { return In(i18n.Locale()).TriageTagPlaceholder() }
+
+// TriageTagPlaceholder says "A tag, ↵"
+// in the language of msgs.
+func (msgs Messages) TriageTagPlaceholder() string {
+	return Catalog.Format(msgs.locale, "triage_tagPlaceholder", nil)
+}
+
+// TriageTitle says "{name}: {at} of {count}"
+// in the language the app shows.
+func TriageTitle(name string, at int, count int) string {
+	return In(i18n.Locale()).TriageTitle(name, at, count)
+}
+
+// TriageTitle says "{name}: {at} of {count}"
+// in the language of msgs.
+func (msgs Messages) TriageTitle(name string, at int, count int) string {
+	return Catalog.Format(msgs.locale, "triage_title", map[string]any{"name": name, "at": at, "count": count})
+}
+
+// TriageTrash says "Trash"
+// in the language the app shows.
+func TriageTrash() string { return In(i18n.Locale()).TriageTrash() }
+
+// TriageTrash says "Trash"
+// in the language of msgs.
+func (msgs Messages) TriageTrash() string {
+	return Catalog.Format(msgs.locale, "triage_trash", nil)
+}
+
 // TryAnotherWordOrTakeThe says "Try another word, or remove the filters."
 // in the language the app shows.
 func TryAnotherWordOrTakeThe() string { return In(i18n.Locale()).TryAnotherWordOrTakeThe() }

@@ -130,6 +130,11 @@ func (a *app) commands() []palItem {
 		cs := cmd("collectionSettings: "+c.Name, "", iconSettings, func() { a.openCollSettings(c, 0) })
 		cs.coll = c
 		out = append(out, cs)
+		if !c.Dynamic() && !c.Journal {
+			tr := cmd("triage_sortThePages", "", iconTask, func() { a.openTriage(c) })
+			tr.coll = c
+			out = append(out, tr)
+		}
 		if !c.Journal {
 			for _, t := range c.AllTemplates() {
 				t := t
