@@ -35,6 +35,26 @@ func (a *app) openCollection(c *Collection) {
 }
 
 func (a *app) collectionView(c *ui.Context) {
+	a.collScope(c, a.coll, func() { a.collectionViewIn(c) })
+}
+
+// collScope builds a collection's view in its color, when it has one (#358): a Ryugo scope (MyGo's Themed) whose
+// accent is the collection's, so that what takes the accent in it - the new page button, the view chosen, the focus
+// rings, a table's checks - takes the collection's color, at Ryugo's lightness steps for the theme. The scope's
+// theme is given the window's typeface and scroll bars, which the app sets on the root's (frameTheme).
+func (a *app) collScope(c *ui.Context, coll *Collection, build func()) {
+	root := c.Theme()
+	col, _ := colorOf(ryugo.From(c), coll.Color) // none: the window's accent
+	ryugo.Scope(c, ryugo.Options{Accent: col}).Fill().Font(root.Font).Children(func() {
+		if t := c.Theme(); t != root {
+			t.Font, t.Scrollbar, t.ScrollbarWidth = root.Font, root.Scrollbar, root.ScrollbarWidth
+		}
+		build()
+	})
+}
+
+// collectionViewIn is the collection's view, in its scope.
+func (a *app) collectionViewIn(c *ui.Context) {
 	t := c.Theme()
 	coll := a.coll
 	v := coll.View()

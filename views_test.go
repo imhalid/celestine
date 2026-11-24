@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/imhalid/celestine/locales"
+	"image/color"
 	"image/png"
 	"math"
 	"os"
@@ -747,5 +748,34 @@ func TestListShowsInSteps(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	if a.more.n != viewStep {
 		t.Fatalf("a new search did not start again from the first rows: %d", a.more.n)
+	}
+}
+
+// TestCollectionColorIsItsAccent: a collection with a color has its view in that accent - its new page button takes
+// a hue near the collection's, not the window's blue - and one without keeps the window's (#358).
+func TestCollectionColorIsItsAccent(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1100, 600)
+	coll := a.lib.Collections[0]
+	a.openCollection(coll)
+	button := func() color.RGBA {
+		t.Helper()
+		tt.Frame()
+		tt.Advance(400 * time.Millisecond)
+		r, ok := tt.Find(newPageLabel(coll))
+		if !ok {
+			t.Fatalf("no new page button: %v", tt.Texts())
+		}
+		return tt.Image().RGBAAt(int(r.X+6), int(r.Y+r.H/2))
+	}
+	plain := button()
+	coll.Color = "c3"
+	tinted := button()
+	if plain == tinted {
+		t.Fatalf("the button is %v with the collection's color and without", tinted)
+	}
+	// warmer: the collection's c3 is an amber, the window's accent a blue
+	if int(tinted.R)-int(tinted.B) <= int(plain.R)-int(plain.B) {
+		t.Fatalf("the button %v is not the collection's color (without it %v)", tinted, plain)
 	}
 }
