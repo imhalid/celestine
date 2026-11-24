@@ -205,10 +205,13 @@ func TestProfileScreen(t *testing.T) {
 	a.ac.me = &AcctMe{Username: "ali", Bytes: 5 << 20, Quota: 200 << 20, Devices: []DeviceInfo{{ID: "aaaaaaaaaaaa", Name: "MacBook", Seen: 1, Current: true}, {ID: "bbbbbbbbbbbb", Name: "Telefon", Seen: 1}}}
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	for _, want := range []string{"ali", "sync.example.com", "Kullanılan yer", "5.0 MB / 200.0 MB", "Şimdi eşitle", "Bağlantıyı dene", "Kurtarma anahtarı", "Şifreyi değiştir", "MacBook", "Telefon", "Hesabı sil", "Çıkış yap"} {
+	for _, want := range []string{"ali", "sync.example.com", "Kullanılan yer", "5.0 MB / 200.0 MB", "Şimdi eşitle", "Bağlantıyı dene", "Kurtarma anahtarı", "Şifreyi değiştir", "Bu bilgisayarın adı", "Telefon", "Hesabı sil", "Çıkış yap"} {
 		if !tt.HasText(want) {
 			t.Errorf("signed in: no %q: %v", want, tt.Texts())
 		}
+	}
+	if a.ac.devName != "MacBook" { // this computer's name, in its field (#161)
+		t.Errorf("this computer's field: %q", a.ac.devName)
 	}
 	if tt.HasText("Giriş yapılmadı") {
 		t.Error("signed in, and it says it is not")
