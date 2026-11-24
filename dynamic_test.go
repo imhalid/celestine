@@ -19,6 +19,7 @@ func TestDynamicCollection(t *testing.T) {
 	a.links.built = time.Time{}
 	tt.Frame()
 	a.openSearch("#fikir")
+	tt.Frame() // opened from outside an event: nothing else asks for the frame
 	tt.Advance(300 * time.Millisecond)
 	if err := tt.Click("Koleksiyon olarak kaydet"); err != nil {
 		t.Fatal(err)

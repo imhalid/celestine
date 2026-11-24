@@ -249,6 +249,8 @@ type rowSpec struct {
 	pinned     bool
 	item       any               // the page or collection, to rename it in place
 	menu       func() []menuItem // what a right click offers
+	sticky     bool              // a collection's row, which stays at the top while its pages scroll under it
+	stuck      bool              // and it is held there now, over its pages
 }
 
 // rowState is how a row of the sidebar stands: at rest, under the pointer, or the one open.
@@ -288,6 +290,25 @@ func sideRowLook(c *ui.Context, r ui.Element, st rowState) (text, icon ui.Color)
 	}
 	r.Background(none).Border(1, none)
 	return ryugo.Mix(t.TextMuted, t.Text, 0.6), ryugo.Mix(t.TextMuted, t.Text, 0.75)
+}
+
+// stuckRowLook gives a collection's row held at the top of the tree, over its pages, a ground of its own, so that
+// the rows scrolling under it do not show through: a chip a step off the sidebar with a soft shadow under it. The
+// open row keeps its own chip, which is opaque already.
+func stuckRowLook(c *ui.Context, r ui.Element, st rowState) {
+	if st == rowOpen {
+		return
+	}
+	t := c.Theme()
+	ground := ryugo.Mix(t.Surface.Alpha(1), ui.RGB(255, 255, 255), 0.55)
+	shade := float32(0.06)
+	if t.Dark {
+		ground, shade = ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.05), 0.22
+	}
+	if st == rowHover {
+		ground = ryugo.Mix(ground, ryugo.From(c).Colors.Accent, map[bool]float32{false: 0.07, true: 0.12}[t.Dark])
+	}
+	r.Background(ground).Shadow(0, 2, 6, 0, ui.RGBA(0, 0, 0, shade))
 }
 
 // treeRow is a row of the tree: its chevron, icon and name - a field when
@@ -337,6 +358,12 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 		st = rowHover
 	}
 	textC, iconC := sideRowLook(c, r, st)
+	if s.sticky {
+		r.Sticky().Top(0)
+	}
+	if s.stuck {
+		stuckRowLook(c, r, st)
+	}
 	if renaming {
 		r.Background(a.pageBg).Border(1, t.Accent)
 	}
@@ -489,7 +516,9 @@ func (a *app) commitRename() {
 
 func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	tint := collTint(c, coll)
-	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, label: locales.CommonCollectionLabel(coll.Name), glyph: collGlyph(coll), tint: &tint, name: coll.Name,
+	sticky := coll.Open && len(coll.Pages) > 0 && !a.moving() && !a.cdrag.active
+	top, n := float32(len(a.rows))*rowH, float32(collRows(coll))*rowH // where its rows lie in the tree
+	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, sticky: sticky, stuck: sticky && a.treeTop > top+0.5 && a.treeTop < top+n, label: locales.CommonCollectionLabel(coll.Name), glyph: collGlyph(coll), tint: &tint, name: coll.Name,
 		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: !coll.Dynamic(), item: coll,
 		pin: func() { a.pinCollection(coll, !coll.Pinned) }, pinned: coll.Pinned,
 		menu: func() []menuItem { return a.collectionMenu(coll) }})
@@ -557,11 +586,22 @@ func (a *app) collectionRows(c *ui.Context) {
 			continue
 		}
 		flush()
-		a.collectionRow(c, coll)
-		c.Key("coll-kids:" + coll.Dir)
-		if coll.Open && len(coll.Pages) > 0 {
-			a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
+		// A collection and its pages in a column of their own, so that its row stays at the top while its pages
+		// scroll under it, and goes as the next collection comes up (#354).
+		// The column moves as a row does, so that the rows below a collection folded slide up as they did.
+		group := ui.Column(c.Key("coll-group:" + coll.Dir)).FillWidth()
+		if a.drag.settle {
+			group.Transition(rowStill)
+		} else {
+			group.Transition(rowMove)
 		}
+		group.Children(func() {
+			a.collectionRow(c, coll)
+			c.Key("coll-kids:" + coll.Dir)
+			if coll.Open && len(coll.Pages) > 0 {
+				a.branch(c).Children(func() { a.pageRows(c, coll.Pages) })
+			}
+		})
 	}
 	flush()
 }

@@ -270,3 +270,53 @@ func TestSidebarManyCollections(t *testing.T) {
 		t.Fatalf("scrolled to the end: the last collection shown %v, %d rows built, top %v view %v, sidebar %v, C0001 at %v", tt.HasText("C1499"), a.rowsBuilt, a.treeTop, a.treeView, a.sidebarR, r)
 	}
 }
+
+// TestSidebarCollectionSticks: a collection's row stays at the top of the tree while its pages scroll under it, a
+// click there opens the collection, not the page under it, and the next collection takes its place (#354).
+func TestSidebarCollectionSticks(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1100, 700)
+	c, err := a.lib.NewCollection("Projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 40 {
+		if _, err := c.NewPage(nil, fmt.Sprintf("Page %02d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c.Open = true
+	d, err := a.lib.NewCollection("Reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 40 {
+		if _, err := d.NewPage(nil, fmt.Sprintf("Book %02d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.Open = true
+	tt.Advance(300 * time.Millisecond)
+	tt.Frame()
+	first, _ := tt.Find("Page 00")
+	tt.Wheel(100, 400, 0, 300)
+	tt.Advance(600 * time.Millisecond)
+	head, ok := tt.Find("Projects")
+	if !ok || head.Y > first.Y {
+		t.Fatalf("scrolled, the collection's row is at %v (%v), above where its first page was (%v)", head, ok, first)
+	}
+	tt.ClickAt(head.X+20, head.Y+head.H/2)
+	tt.Advance(300 * time.Millisecond)
+	if a.coll != c || !a.noPage() {
+		t.Fatalf("a click on the held row opened %v, page %v", a.coll, a.page)
+	}
+	// to the end: the next collection has pushed it away, and is held in its place
+	tt.Wheel(100, 400, 0, 4000)
+	tt.Advance(600 * time.Millisecond)
+	if r, ok := tt.Find("Reading"); !ok || r.Y != head.Y {
+		t.Fatalf("the next collection at %v (%v), the held row was at %v", r, ok, head)
+	}
+	if r, ok := tt.Find("Projects"); ok && r.Y+r.H > head.Y {
+		t.Fatalf("the first collection is still held at %v", r)
+	}
+}
