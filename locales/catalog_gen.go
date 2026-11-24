@@ -5165,6 +5165,52 @@ func (msgs Messages) ExportAsMarkdownZip() string {
 	return Catalog.Format(msgs.locale, "exportAsMarkdownZip", nil)
 }
 
+// ExtractDone says "Moved to “{title}”, with a link in their place"
+// in the language the app shows.
+//
+// A notice after blocks were moved to a new page and a link put where they
+// were.
+func ExtractDone(title string) string { return In(i18n.Locale()).ExtractDone(title) }
+
+// ExtractDone says "Moved to “{title}”, with a link in their place"
+// in the language of msgs.
+//
+// A notice after blocks were moved to a new page and a link put where they
+// were.
+func (msgs Messages) ExtractDone(title string) string {
+	return Catalog.Format(msgs.locale, "extract_done", map[string]any{"title": title})
+}
+
+// ExtractNothing says "There is nothing to extract here"
+// in the language the app shows.
+func ExtractNothing() string { return In(i18n.Locale()).ExtractNothing() }
+
+// ExtractNothing says "There is nothing to extract here"
+// in the language of msgs.
+func (msgs Messages) ExtractNothing() string {
+	return Catalog.Format(msgs.locale, "extract_nothing", nil)
+}
+
+// ExtractNowhere says "There is no collection to put the new page in"
+// in the language the app shows.
+func ExtractNowhere() string { return In(i18n.Locale()).ExtractNowhere() }
+
+// ExtractNowhere says "There is no collection to put the new page in"
+// in the language of msgs.
+func (msgs Messages) ExtractNowhere() string {
+	return Catalog.Format(msgs.locale, "extract_nowhere", nil)
+}
+
+// ExtractToANewPage says "Extract to a new page"
+// in the language the app shows.
+func ExtractToANewPage() string { return In(i18n.Locale()).ExtractToANewPage() }
+
+// ExtractToANewPage says "Extract to a new page"
+// in the language of msgs.
+func (msgs Messages) ExtractToANewPage() string {
+	return Catalog.Format(msgs.locale, "extract_toANewPage", nil)
+}
+
 // FailedTask says "Failed task"
 // in the language the app shows.
 func FailedTask() string { return In(i18n.Locale()).FailedTask() }

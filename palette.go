@@ -154,6 +154,9 @@ func (a *app) commands() []palItem {
 				out = append(out, it)
 			}
 		}
+		ex := cmd("extract_toANewPage", "", iconArrowRight, a.extractToPage) // the selection's blocks, or the caret's
+		ex.coll = p.Coll
+		out = append(out, ex)
 		if p.Coll.SubPages {
 			it := cmd("addASubPage: "+p.Title, "", iconPlus, func() { a.newPage(p.Coll, p) })
 			it.coll = p.Coll

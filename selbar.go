@@ -72,7 +72,7 @@ func (a *app) selectionBar(c *ui.Context) {
 	tth := ryugo.From(c)
 	cl := tth.Colors
 	f := a.doc.Formatting()
-	w := float32(5*selBtn + 2*selPad + 4*2)
+	w := float32(6*selBtn + 2*selPad + 5*2)
 	ww, _ := c.Size()
 	h := float32(selBtn + 2*selPad)
 	full := h // the bar with the preview of the link typed, under the field
@@ -135,6 +135,7 @@ func (a *app) selectionBar(c *ui.Context) {
 				// a link there is edited: its address in the field, which emptied takes it away (#509)
 				b.link, b.url, b.linkSel = true, f.Link, [2]int{s, e}
 			})
+			btn("sb-extract", iconArrowRight, locales.ExtractToANewPage(), false, a.extractToPage)
 		})
 	})
 }
