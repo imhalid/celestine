@@ -238,6 +238,7 @@ type app struct {
 	asking       askState                 // a question before an action that cannot be taken back (confirm.go)
 	tplAsk       tplAsk                   // the values a template asks for, while they are typed (templates.go)
 	mentions     mentionsState            // the open page's unlinked mentions, as last looked for (mentions.go)
+	repl         replaceState             // the search's replace across the library (libreplace.go)
 	crashPrev    string                   // the last session ended badly: its log, or ""
 	fonts        fontState                // the typefaces installed, and the lists of them (fonts.go)
 	fx           []caretFX                // the carets of the presets, made as they are used (caretfx.go)

@@ -334,7 +334,7 @@ func (a *app) searchView(c *ui.Context) {
 			in.Focus()
 			a.searchFocus = false
 		}
-		ui.Row(c).Children(func() { a.saveSearchButton(c) })
+		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() { a.saveSearchButton(c); a.replaceBar(c) }) // replaceBar: libreplace.go
 		sub := locales.QueryPagesWithEveryWord()
 		switch {
 		case strings.TrimSpace(a.searchQ) == "":
@@ -374,6 +374,7 @@ func (a *app) searchView(c *ui.Context) {
 								where += " › " + crumb
 							}
 							ui.Text(c, where).FontSize(12).TextColor(cl.Muted).MaxLines(1).Shrink(2).Grow(1)
+							a.replaceRowButton(c, h.page)
 						})
 						var spans []ui.Span
 						for _, sg := range h.snip {

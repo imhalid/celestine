@@ -10251,6 +10251,86 @@ func (msgs Messages) ResetTheFontSize() string {
 	return Catalog.Format(msgs.locale, "resetTheFontSize", nil)
 }
 
+// ReplaceDone says "{count, plural, one {Replaced # match} other {Replaced # matches}} in {pages, plural, one {# page} other {# pages}}"
+// in the language the app shows.
+func ReplaceDone(count int, pages int) string { return In(i18n.Locale()).ReplaceDone(count, pages) }
+
+// ReplaceDone says "{count, plural, one {Replaced # match} other {Replaced # matches}} in {pages, plural, one {# page} other {# pages}}"
+// in the language of msgs.
+func (msgs Messages) ReplaceDone(count int, pages int) string {
+	return Catalog.Format(msgs.locale, "replace_done", map[string]any{"count": count, "pages": pages})
+}
+
+// ReplaceHere says "Replace"
+// in the language the app shows.
+//
+// On a search result, while the search’s replace shows: replaces what was
+// searched for in that page only.
+func ReplaceHere() string { return In(i18n.Locale()).ReplaceHere() }
+
+// ReplaceHere says "Replace"
+// in the language of msgs.
+//
+// On a search result, while the search’s replace shows: replaces what was
+// searched for in that page only.
+func (msgs Messages) ReplaceHere() string {
+	return Catalog.Format(msgs.locale, "replace_here", nil)
+}
+
+// ReplaceHide says "Close replace"
+// in the language the app shows.
+func ReplaceHide() string { return In(i18n.Locale()).ReplaceHide() }
+
+// ReplaceHide says "Close replace"
+// in the language of msgs.
+func (msgs Messages) ReplaceHide() string {
+	return Catalog.Format(msgs.locale, "replace_hide", nil)
+}
+
+// ReplaceInPages says "{count, plural, =0 {Nothing to replace} one {Replace # match} other {Replace # matches}} in {pages, plural, =0 {no pa…"
+// in the language the app shows.
+//
+// The button that replaces what was searched for in every page of the
+// library.
+func ReplaceInPages(count int, pages int) string {
+	return In(i18n.Locale()).ReplaceInPages(count, pages)
+}
+
+// ReplaceInPages says "{count, plural, =0 {Nothing to replace} one {Replace # match} other {Replace # matches}} in {pages, plural, =0 {no pa…"
+// in the language of msgs.
+//
+// The button that replaces what was searched for in every page of the
+// library.
+func (msgs Messages) ReplaceInPages(count int, pages int) string {
+	return Catalog.Format(msgs.locale, "replace_inPages", map[string]any{"count": count, "pages": pages})
+}
+
+// ReplaceShow says "Replace…"
+// in the language the app shows.
+//
+// In the search: shows the field to replace what is searched for across the
+// library.
+func ReplaceShow() string { return In(i18n.Locale()).ReplaceShow() }
+
+// ReplaceShow says "Replace…"
+// in the language of msgs.
+//
+// In the search: shows the field to replace what is searched for across the
+// library.
+func (msgs Messages) ReplaceShow() string {
+	return Catalog.Format(msgs.locale, "replace_show", nil)
+}
+
+// ReplaceWith says "Replace with"
+// in the language the app shows.
+func ReplaceWith() string { return In(i18n.Locale()).ReplaceWith() }
+
+// ReplaceWith says "Replace with"
+// in the language of msgs.
+func (msgs Messages) ReplaceWith() string {
+	return Catalog.Format(msgs.locale, "replace_with", nil)
+}
+
 // RestoreFromABackup says "Restore from a backup"
 // in the language the app shows.
 func RestoreFromABackup() string { return In(i18n.Locale()).RestoreFromABackup() }
