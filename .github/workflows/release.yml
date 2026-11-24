@@ -204,8 +204,10 @@ jobs:
         run: |
           # the install script carries the releases' key, as ssh-keygen reads it, to check SHA256SUMS.sig with (#540)
           key=$(./release-tool sshkey "$UPDATE_PUBLIC_KEY")
-          sed "s|@RELEASE_SSH_KEY@|$key|" scripts/install.sh > install.sh
+          # and the version it is of: it installs none older (#564)
+          sed -e "s|@RELEASE_SSH_KEY@|$key|" -e "s|@RELEASE_VERSION@|$VERSION|" scripts/install.sh > install.sh
           grep -q '^KEY=${CELESTINE_KEY:-ssh-ed25519 [A-Za-z0-9+/=]*}$' install.sh || { echo "the key is not in install.sh"; exit 1; }
+          grep -qx "FLOOR=$VERSION" install.sh || { echo "the version is not in install.sh"; exit 1; }
       - name: upload to R2
         if: env.SIGNED == 'true' && env.R2 == 'true'
         env:

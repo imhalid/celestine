@@ -33,6 +33,10 @@ DL=${CELESTINE_DL:-https://dl.celestine.halid.dev}
 # KEY is the public key of the releases as ssh-keygen reads it: the release workflow writes it into the copy it
 # puts on the server (go run ./scripts/release sshkey); the one in the repository has none.
 KEY=${CELESTINE_KEY:-@RELEASE_SSH_KEY@}
+# FLOOR is the version of the release that wrote this script: one older is not installed, so that update.json, which
+# is not signed, cannot point the script at an older signed release with its fixed holes (#564). The copy in the
+# repository has none.
+FLOOR=@RELEASE_VERSION@
 
 # ---- the look ----
 
@@ -123,14 +127,33 @@ verify_sums() {
 			< "$WORK/SHA256SUMS.signed" >/dev/null 2>&1; then
 			return 0
 		fi
-		# an OpenSSH before 8.1 has no -Y: it cannot tell, which is not a bad signature
-		if ! ssh-keygen -Y verify 2>&1 | grep -qi -e 'unknown option' -e 'illegal option' -e 'invalid option'; then
+		# an OpenSSH before 8.1 has no -Y, and one built for FIPS refuses ed25519: neither can tell, which is not a bad
+		# signature (#564). One that can make an ed25519 key and knows -Y could tell, and said no.
+		if ! ssh-keygen -Y verify 2>&1 | grep -qi -e 'unknown option' -e 'illegal option' -e 'invalid option' &&
+			ssh-keygen -q -t ed25519 -N '' -f "$WORK/probe" </dev/null >/dev/null 2>&1; then
 			fail "the release's checksums are not signed with Celestine's key: not installed"
 		fi
 	fi
 	[ "${CELESTINE_UNVERIFIED:-}" = 1 ] ||
 		fail "checking the release's signature needs ssh-keygen (OpenSSH 8.1 or later): install it, or run with CELESTINE_UNVERIFIED=1 to install on the checksums alone"
 	warn "the signature was not checked (no ssh-keygen that can): installing on the checksums alone, as CELESTINE_UNVERIFIED=1 says"
+}
+
+# older A B says whether version A is older than version B, both vX.Y.Z (what follows a "-" is not compared: the
+# script installs stable releases).
+older() {
+	a=${1#v} b=${2#v}
+	a=${a%%-*} b=${b%%-*}
+	for _ in 1 2 3; do
+		x=${a%%.*} y=${b%%.*}
+		x=${x:-0} y=${y:-0}
+		case $x$y in *[!0-9]*) return 1 ;; esac
+		[ "$x" -lt "$y" ] && return 0
+		[ "$x" -gt "$y" ] && return 1
+		case $a in *.*) a=${a#*.} ;; *) a=0 ;; esac
+		case $b in *.*) b=${b#*.} ;; *) b=0 ;; esac
+	done
+	return 1
 }
 
 # get FILE downloads a file of the latest release into the work folder and checks it against SHA256SUMS.
@@ -224,6 +247,7 @@ main() {
 	VERSION=$(fetch "$DL/update.json" | sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' | head -n 1) || true
 	case $VERSION in v[0-9]*) ;; *) fail "could not read the latest version from $DL" ;; esac
 	case $VERSION in *[!A-Za-z0-9.+-]*) fail "not a version: $VERSION" ;; esac
+	case $FLOOR in v[0-9]*) ! older "$VERSION" "$FLOOR" || fail "the server offers $VERSION, older than $FLOOR, which this script came with: not installed" ;; esac
 	WORK=$(mktemp -d)
 	trap 'rm -rf "$WORK"' EXIT INT TERM
 	fetch "$DL/$VERSION/SHA256SUMS" "$WORK/SHA256SUMS" || fail "could not download the release's checksums"

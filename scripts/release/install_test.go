@@ -136,10 +136,14 @@ func testInstallScript(t *testing.T, goos string) {
 	appDir := filepath.Join(root, "apps x|y&z")
 	os.MkdirAll(home, 0o755)
 
+	// extra is put after the environment: a PATH of its own, CELESTINE_UNVERIFIED; scriptAt another copy of the script
+	var extra []string
+	scriptAt := script
 	run := func(r *fakeRelease, key string) (string, error) {
-		cmd := exec.Command("sh", script)
+		cmd := exec.Command("sh", scriptAt)
 		cmd.Env = append(os.Environ(), "CELESTINE_DL=file://"+r.dir, "CELESTINE_DIR="+appDir, "HOME="+home, "NO_COLOR=1",
 			"XDG_DATA_HOME=", "XDG_BIN_HOME=", "CELESTINE_UNVERIFIED=", "PATH="+shim+string(os.PathListSeparator)+os.Getenv("PATH"))
+		cmd.Env = append(cmd.Env, extra...)
 		if key != "" {
 			cmd.Env = append(cmd.Env, "CELESTINE_KEY="+key)
 		} else {
@@ -203,4 +207,55 @@ func testInstallScript(t *testing.T, goos string) {
 	refused("no key in the script", bad, "")
 	os.WriteFile(filepath.Join(bad.dir, bad.version, "SHA256SUMS"), append([]byte(strings.Repeat("0", 64)+"  other\n"), bad.sums...), 0o644)
 	refused("the sums changed after they were signed", bad, key)
+
+	// a script of a release installs none older than it, whatever update.json says (#564)
+	src, _ := os.ReadFile(script)
+	floored := filepath.Join(t.TempDir(), "install.sh")
+	os.WriteFile(floored, []byte(strings.Replace(string(src), "@RELEASE_VERSION@", "v1.2.4", 1)), 0o644)
+	scriptAt = floored
+	old := newFakeRelease(t, goos, "v1.2.3", []byte("an old one"))
+	old.sign(t, priv, "v1.2.3", "")
+	refused("a version older than the script's", old, key)
+	if out, err := run(next, key); err != nil || installed() != "build two" {
+		t.Fatalf("the script's own version: %v\n%s", err, out)
+	}
+	scriptAt = script
+
+	// an ssh-keygen that cannot tell - before OpenSSH 8.1 (no -Y), or one of FIPS (no ed25519) - stops it, unless
+	// CELESTINE_UNVERIFIED=1 says to install on the checksums alone; so does none at all
+	cannot := map[string]string{
+		"an ssh-keygen with no -Y": "#!/bin/sh\necho 'ssh-keygen: unknown option -- Y' >&2\nexit 1\n",
+		"an ssh-keygen of FIPS":    "#!/bin/sh\necho 'ssh-keygen: ed25519 is not allowed' >&2\nexit 255\n",
+	}
+	none := t.TempDir() // every tool of the PATH, but no ssh-keygen
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		ents, _ := os.ReadDir(dir)
+		for _, e := range ents {
+			if e.Name() != "ssh-keygen" && e.Name() != "uname" {
+				os.Symlink(filepath.Join(dir, e.Name()), filepath.Join(none, e.Name())) // the first of a name stays
+			}
+		}
+	}
+	os.Symlink(filepath.Join(shim, "uname"), filepath.Join(none, "uname"))
+	paths := map[string]string{"no ssh-keygen": none}
+	for why, body := range cannot {
+		d := t.TempDir()
+		os.WriteFile(filepath.Join(d, "ssh-keygen"), []byte(body), 0o755)
+		paths[why] = d + string(os.PathListSeparator) + shim + string(os.PathListSeparator) + os.Getenv("PATH")
+	}
+	for why, path := range paths {
+		third := newFakeRelease(t, goos, "v1.2.6", []byte("build three: "+why))
+		third.sign(t, priv, "v1.2.6", "")
+		extra = []string{"PATH=" + path}
+		refused(why, third, key)
+		extra = append(extra, "CELESTINE_UNVERIFIED=1")
+		if out, err := run(third, key); err != nil || installed() != "build three: "+why || !strings.Contains(out, "not checked") {
+			t.Fatalf("%s, CELESTINE_UNVERIFIED=1: %v\n%s", why, err, out)
+		}
+		next.sign(t, priv, "v1.2.4", "") // back to build two for the next
+		extra = nil
+		if out, err := run(next, key); err != nil {
+			t.Fatalf("back to build two: %v\n%s", err, out)
+		}
+	}
 }
