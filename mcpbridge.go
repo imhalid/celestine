@@ -17,7 +17,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -81,14 +80,7 @@ func mcpAppEnv(env []string, ownAppImage bool) []string {
 	if ownAppImage {
 		return env
 	}
-	out := make([]string, 0, len(env))
-	for _, kv := range env {
-		if strings.HasPrefix(kv, "APPIMAGE=") || strings.HasPrefix(kv, "APPDIR=") {
-			continue
-		}
-		out = append(out, kv)
-	}
-	return out
+	return withoutMount(env)
 }
 
 // mcpClientTransport is the way to the app's server on port: the token never goes to it, the bridge proves it

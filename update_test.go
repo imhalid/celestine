@@ -1255,3 +1255,39 @@ func TestUpdateChannelURL(t *testing.T) {
 		t.Fatalf("beta with a query: %s", got)
 	}
 }
+
+// TestRelaunchAppImage: from an AppImage, Restart starts the AppImage file, not the program in its old mount, with the
+// arguments asked for or the ones it started with, and without the mount's APPIMAGE and APPDIR (#528); elsewhere it is
+// MyGo's Relaunch.
+func TestRelaunchAppImage(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("AppImages are Linux's")
+	}
+	tmp := t.TempDir()
+	img := filepath.Join(tmp, "Celestine.AppImage")
+	os.WriteFile(img, []byte("appimage"), 0o755)
+	mount := filepath.Join(tmp, ".mount_Celest")
+	os.MkdirAll(filepath.Join(mount, "usr", "bin"), 0o755)
+	exe := filepath.Join(mount, "usr", "bin", "celestine")
+	os.WriteFile(exe, []byte("program"), 0o755)
+	old, oldQuit := appExecutable, appQuit
+	t.Cleanup(func() { appExecutable, appQuit, relaunchImage.path, relaunchImage.args = old, oldQuit, "", nil })
+	appExecutable = func() (string, error) { return exe, nil }
+	quit := 0
+	appQuit = func() { quit++ }
+	t.Setenv("APPIMAGE", img)
+	t.Setenv("APPDIR", mount)
+	a := &app{}
+	a.relaunch("--update-restarted")
+	if quit != 1 || relaunchImage.path != img || !slices.Equal(relaunchImage.args, []string{"--update-restarted"}) {
+		t.Fatalf("relaunch from an AppImage: quit %d, %q %v", quit, relaunchImage.path, relaunchImage.args)
+	}
+	a.relaunch()
+	if !slices.Equal(relaunchImage.args, os.Args[1:]) {
+		t.Fatalf("no arguments: %v, want the ones it started with", relaunchImage.args)
+	}
+	cmd := relaunchCmd(img, []string{"x"}, []string{"HOME=/h", "APPIMAGE=" + img, "APPDIR=" + mount})
+	if cmd.Path != img || !slices.Equal(cmd.Args, []string{img, "x"}) || !slices.Equal(cmd.Env, []string{"HOME=/h"}) {
+		t.Fatalf("the command: %s %v %v", cmd.Path, cmd.Args, cmd.Env)
+	}
+}

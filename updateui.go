@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -24,10 +23,10 @@ func (a *app) restartApp() {
 	a.flush()
 	if updTrial { // the trial's restart shows its "what's new", as an update's does (updtrial.go)
 		os.Setenv("CELESTINE_UPDATE", "restarted")
-		mygo.App.Relaunch(updateRestartArgs(os.Args[1:])...)
+		a.relaunch(updateRestartArgs(os.Args[1:])...)
 		return
 	}
-	mygo.App.Relaunch()
+	a.relaunch()
 }
 
 // updateView is the dialog of a new version, or of the notes of the one that was installed.

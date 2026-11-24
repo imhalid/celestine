@@ -632,6 +632,7 @@ func main() {
 		}
 	}
 	time.AfterFunc(20*time.Second, func() { updateProved(updateMark(), version) }) // twenty seconds in, it has proved itself
+	mygo.App.OnQuit(relaunchAtQuit)                                                // an AppImage started again, as the app goes (relaunch.go)
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {                                  // what is written and not saved goes to its file before the app goes
 		if a.quick != nil {
 			a.quick.leaving = true

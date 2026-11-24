@@ -36,7 +36,7 @@ func (a *app) watchRecent() {
 			return
 		}
 		a.do(func() error { a.flush(); return nil }) // what is written goes to its file before the app starts again
-		mygo.App.Relaunch(path)
+		a.do(func() error { a.relaunch(path); return nil })
 	})
 }
 
