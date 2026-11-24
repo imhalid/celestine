@@ -20,8 +20,6 @@
   "account_delete": "Delete…",
   "account_deleteAccount": "Delete account",
   "account_deleteAccountForGood": "Delete the account for good",
-  "account_deviceThis": "{name} · this device",
-  "@account_deviceThis": {"placeholders": {"name": {"type": "String"}}},
   "account_errDecrypt": "couldn't decrypt",
   "account_errServer": "the server answered {status}",
   "@account_errServer": {"placeholders": {"status": {"type": "String"}}},
@@ -2004,5 +2002,6 @@
   "files_tooBig": "{name} is too big: {size}, and at most {max} can be put in",
   "@files_tooBig": {"placeholders": {"name": {"type": "String"}, "size": {"type": "String"}, "max": {"type": "String"}}},
   "files_tooManyPixels": "{name} is too large a picture: {width} × {height} pixels",
-  "@files_tooManyPixels": {"placeholders": {"name": {"type": "String"}, "width": {"type": "int"}, "height": {"type": "int"}}}
+  "@files_tooManyPixels": {"placeholders": {"name": {"type": "String"}, "width": {"type": "int"}, "height": {"type": "int"}}},
+  "account_thisComputerName": "This computer's name"
 }

@@ -18,7 +18,6 @@
   "account_delete": "Sil…",
   "account_deleteAccount": "Hesabı sil",
   "account_deleteAccountForGood": "Hesabı kalıcı olarak sil",
-  "account_deviceThis": "{name} · bu cihaz",
   "account_errDecrypt": "şifre çözülemedi",
   "account_errServer": "sunucu {status} yanıtını verdi",
   "account_iForgotMyPassword": "Şifremi unuttum",
@@ -1720,5 +1719,6 @@
   "common_exporting": "Dışa aktarılıyor…",
   "views_showMore": "{count, plural, one {Son sayfayı göster} other {Daha fazlasını göster · # kaldı}}",
   "files_tooBig": "{name} çok büyük: {size}; en fazla {max} eklenebilir",
-  "files_tooManyPixels": "{name} çok büyük bir resim: {width} × {height} piksel"
+  "files_tooManyPixels": "{name} çok büyük bir resim: {width} × {height} piksel",
+  "account_thisComputerName": "Bu bilgisayarın adı"
 }

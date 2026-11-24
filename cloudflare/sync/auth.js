@@ -404,6 +404,13 @@ export async function handleApi(request, env, url) {
     await env.DB.prepare("UPDATE users SET recovery_hash=? WHERE id=? AND recovery_hash IS NULL").bind(await recoveryHash(body.recovery), me.id).run();
     return json({ ok: true });
   }
+  // this device's name in the list, as the app names it (#161)
+  if (path === "/api/device" && method === "POST") {
+    const name = String(body.name || "").trim().slice(0, 40);
+    if (!name) return fail(400, "bad request");
+    await env.DB.prepare("UPDATE devices SET name=? WHERE token_hash=?").bind(name, me.device).run();
+    return json({ ok: true });
+  }
   if (path.startsWith("/api/devices/") && method === "DELETE") {
     const id = path.slice("/api/devices/".length);
     if (!/^[0-9a-f]{12}$/.test(id)) return fail(400, "bad request");

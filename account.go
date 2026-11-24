@@ -219,11 +219,24 @@ func (c *acctClient) call(method, path, token string, in, out any) error {
 	return nil
 }
 
+// deviceName is what this computer is called in the account's list of computers: the name given to it in the
+// settings (ownDeviceName, #161), or its host name.
 func deviceName() string {
+	if n := strings.TrimSpace(ownDeviceName); n != "" {
+		return n
+	}
 	if h, err := os.Hostname(); err == nil && h != "" {
 		return h
 	}
 	return "cihaz"
+}
+
+// ownDeviceName is the name the settings give this computer (Settings.DeviceName), set as they are read and changed.
+var ownDeviceName string
+
+// RenameDevice gives this computer, the one of token, another name in the account's list.
+func (c *acctClient) RenameDevice(token, name string) error {
+	return c.call("POST", "/api/device", token, map[string]string{"name": name}, nil)
 }
 
 // CheckInvite asks whether code is the access code sent to email, unused, and the address has no account yet; it spends nothing.
@@ -404,6 +417,8 @@ type acctUI struct {
 	showRec  bool   // the profile shows the recovery key
 	probe    string // what the last try of the connection found
 	probing  bool
+	devName  string // this computer's name, as typed in the list of computers
+	devEdit  bool   // and being typed
 }
 
 func (a *app) acctServer() string {
@@ -711,11 +726,11 @@ func (a *app) acctManage(c *ui.Context) {
 				for _, d := range a.ac.me.Devices {
 					d := d
 					ui.Row(c.Key("acct-dev:" + d.ID)).Gap(10).AlignItems(ui.Center).FillWidth().Children(func() {
-						name := d.Name
-						if d.Current {
-							name = locales.AccountDeviceThis(name)
+						if d.Current { // this one's name can be changed here (#161)
+							a.deviceNameField(c, d.Name)
+						} else {
+							ui.Text(c, d.Name).FontSize(13).TextColor(cl.Text).Grow(1)
 						}
-						ui.Text(c, name).FontSize(13).TextColor(cl.Text).Grow(1)
 						ui.Text(c, time.Unix(d.Seen, 0).Format("2006-01-02 15:04")).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 						if !d.Current && btn("acct-devrm:"+d.ID, locales.AccountRemove(), ryugo.ButtonOptions{Size: ryugo.Sm}) {
 							cl, token := newAcctClient(a.acctServer()), s.SyncToken
@@ -797,4 +812,22 @@ func serverError(s string) string {
 		return msg("tooManyTriesTryAgainLater")
 	}
 	return msg(s)
+}
+
+// deviceNameField is this computer's name in the account's list, as a field: what is typed is its name there once
+// it is entered, and the name it signs in with from then on.
+func (a *app) deviceNameField(c *ui.Context, current string) {
+	if !a.ac.devEdit {
+		a.ac.devName = current
+	}
+	in := a.fieldMenu(ryugo.Input(c.Key("acct-devname"), &a.ac.devName, ryugo.InputOptions{Label: locales.AccountThisComputerName(), Size: ryugo.Sm}), &a.ac.devName, fieldOpts{oneLine: true}).Grow(1).MinWidth(0)
+	a.ac.devEdit = in.Focused()
+	name := strings.TrimSpace(a.ac.devName)
+	if !in.Submitted() || name == "" || name == current || a.ac.busy {
+		return
+	}
+	a.settings.DeviceName, ownDeviceName = name, name
+	a.saveSettings()
+	cl, token := newAcctClient(a.acctServer()), a.settings.SyncToken
+	a.acctRun(func(*acctClient) error { return cl.RenameDevice(token, name) }, func() { a.ac.devEdit, a.ac.meAt = false, time.Time{} })
 }

@@ -75,6 +75,7 @@ var settingsApart = map[string]string{
 	"syncToken":      "the device's secret",
 	"syncKey":        "the encryption key: made from a passphrase in the sync settings",
 	"accountUser":    "the account signed in to: in the sync settings",
+	"deviceName":     "a name typed in the account's list of computers",
 	"accountAsked":   "whether the sign-in dialog has been answered: it is shown once (profile.go)",
 	"syncOff":        "the collections left out: switches in the sync settings",
 	"profiles":       "profiles: saved on the settings' profiles page",

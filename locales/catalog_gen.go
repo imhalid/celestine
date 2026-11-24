@@ -215,16 +215,6 @@ func (msgs Messages) AccountDeleteAccountForGood() string {
 	return Catalog.Format(msgs.locale, "account_deleteAccountForGood", nil)
 }
 
-// AccountDeviceThis says "{name} · this device"
-// in the language the app shows.
-func AccountDeviceThis(name string) string { return In(i18n.Locale()).AccountDeviceThis(name) }
-
-// AccountDeviceThis says "{name} · this device"
-// in the language of msgs.
-func (msgs Messages) AccountDeviceThis(name string) string {
-	return Catalog.Format(msgs.locale, "account_deviceThis", map[string]any{"name": name})
-}
-
 // AccountErrDecrypt says "couldn't decrypt"
 // in the language the app shows.
 func AccountErrDecrypt() string { return In(i18n.Locale()).AccountErrDecrypt() }
@@ -17613,4 +17603,14 @@ func FilesTooManyPixels(name string, width int, height int) string {
 // in the language of msgs.
 func (msgs Messages) FilesTooManyPixels(name string, width int, height int) string {
 	return Catalog.Format(msgs.locale, "files_tooManyPixels", map[string]any{"name": name, "width": width, "height": height})
+}
+
+// AccountThisComputerName says "This computer's name"
+// in the language the app shows.
+func AccountThisComputerName() string { return In(i18n.Locale()).AccountThisComputerName() }
+
+// AccountThisComputerName says "This computer's name"
+// in the language of msgs.
+func (msgs Messages) AccountThisComputerName() string {
+	return Catalog.Format(msgs.locale, "account_thisComputerName", nil)
 }

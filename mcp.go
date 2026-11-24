@@ -81,6 +81,7 @@ type Settings struct {
 	SyncToken      string                    `json:"syncToken,omitempty"`      // this device's token
 	SyncKey        string                    `json:"syncKey,omitempty"`        // the key of end-to-end encryption, base64: "" when it is off
 	AccountUser    string                    `json:"accountUser,omitempty"`    // the account this computer is signed in to (account.go)
+	DeviceName     string                    `json:"deviceName,omitempty"`     // what this computer is called in the account's list; its host name when empty (#161)
 	SyncOff        []string                  `json:"syncOff,omitempty"`        // collections (their folders) that stay here
 	SyncMinutes    int                       `json:"syncMinutes,omitempty"`    // minutes between two syncs: 5 when not set
 	Profiles       map[string]map[string]any `json:"profiles,omitempty"`       // looks and ways of writing saved under a name (settingsx.go)
@@ -222,6 +223,7 @@ func (a *app) loadSettingsWith(readOnly bool) {
 		}
 	}
 	a.settings.normalize()
+	ownDeviceName = a.settings.DeviceName
 	moved := a.loadSecretsWith(readOnly)
 	if a.settings.Port == 0 {
 		a.settings.Port = defaultPort

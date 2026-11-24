@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -183,6 +184,13 @@ func TestAccountLive(t *testing.T) {
 	}
 	if _, _, err := cl.Login(user, "yanlış"); err == nil {
 		t.Fatal("a wrong password signed in")
+	}
+	// a computer named in the list (#161)
+	if err := cl.RenameDevice(tokB, "Masaüstü"); err != nil {
+		t.Fatal(err)
+	}
+	if me, err := cl.Me(tokB); err != nil || !slices.ContainsFunc(me.Devices, func(d DeviceInfo) bool { return d.Current && d.Name == "Masaüstü" }) {
+		t.Fatalf("the name in the list: %v %+v", err, me.Devices)
 	}
 
 	// sealed files go from one computer to the other, through the account's prefix
