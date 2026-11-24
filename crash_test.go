@@ -37,24 +37,24 @@ func TestCrashLogWritten(t *testing.T) {
 func TestUncleanSession(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "celestine", "crashes")
 	now := time.Now()
-	if unclean, _ := markRunning(dir, now); unclean {
+	if unclean, _, _ := markRunning(dir, "", now); unclean {
 		t.Fatal("first start unclean")
 	}
 	markClean(dir)
-	if unclean, _ := markRunning(dir, now); unclean {
+	if unclean, _, _ := markRunning(dir, "", now); unclean {
 		t.Fatal("a clean end was taken as a crash")
 	}
 	// no markClean: the process died. It left a log, too
 	log := crashLog(dir, "x", []byte("stack"), time.Now().Add(time.Second))
-	unclean, got := markRunning(dir, now)
+	unclean, got, _ := markRunning(dir, "", now)
 	if !unclean || got != log {
 		t.Fatalf("unclean %v log %q (want %q)", unclean, got, log)
 	}
 	// a kill, with no log
 	markClean(dir)
-	markRunning(dir, now)
+	markRunning(dir, "", now)
 	os.Remove(log)
-	unclean, got = markRunning(dir, now)
+	unclean, got, _ = markRunning(dir, "", now)
 	if !unclean || got != "" {
 		t.Fatalf("a kill: unclean %v log %q", unclean, got)
 	}
@@ -105,5 +105,45 @@ func TestShowCrashCommand(t *testing.T) {
 	a.showCrash()
 	if !a.crashOpen || !strings.Contains(a.crashText, "panic: eski") {
 		t.Fatalf("not shown: %q", a.crashText)
+	}
+}
+
+// TestRuntimeCrashLog: a session ended by a panic nothing recovered, which the runtime wrote to MyGo's crash.log, is
+// told at the next start with what crash.log took in since that session began, once; the crash view shows the
+// runtime's last crash when it is newer than the app's own logs (#579).
+func TestRuntimeCrashLog(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "celestine", "crashes")
+	rt := filepath.Join(root, "logs", "crash.log")
+	os.MkdirAll(filepath.Dir(rt), 0o700)
+	os.WriteFile(rt, []byte("panic: an older one\n\ngoroutine 1 [running]:\n"), 0o600)
+	now := time.Now()
+	if unclean, _, _ := markRunning(dir, rt, now); unclean {
+		t.Fatal("first start unclean")
+	}
+	// the session dies: the runtime appends its report
+	f, _ := os.OpenFile(rt, os.O_WRONLY|os.O_APPEND, 0)
+	f.WriteString("panic: boom\n\ngoroutine 7 [running]:\nmain.deep()\n")
+	f.Close()
+	unclean, _, text := markRunning(dir, rt, now)
+	if !unclean || !strings.HasPrefix(text, "panic: boom") || strings.Contains(text, "older") {
+		t.Fatalf("unclean %v, the crash %q", unclean, text)
+	}
+	// dies again with nothing written: a kill, and the crash before is not told again
+	if unclean, _, text := markRunning(dir, rt, now); !unclean || text != "" {
+		t.Fatalf("a kill: unclean %v, %q", unclean, text)
+	}
+	if got := lastRuntimeCrash("panic: a\n\nx\nfatal error: b\n\ny\n"); got != "fatal error: b\n\ny" {
+		t.Fatalf("the last crash %q", got)
+	}
+	// the crash view: the runtime's last crash, newer than the app's own log
+	a, _ := newTestApp(t, "x\n")
+	a.crashDir, a.crashRT = dir, rt
+	crashLog(dir, "ours", nil, now.Add(-time.Hour))
+	old := now.Add(-2 * time.Hour)
+	os.Chtimes(crashLogs(dir)[0], old, old)
+	a.showCrash()
+	if !a.crashOpen || a.crashPath != rt || !strings.HasPrefix(a.crashText, "panic: boom") {
+		t.Fatalf("shown %q from %q", a.crashText, a.crashPath)
 	}
 }

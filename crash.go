@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -17,8 +18,10 @@ import (
 
 // The crash log. A panic is caught - in a frame of the window, in a goroutine of the app, or in the
 // program - and written, with the version and the stack, to a file in the config folder: the library is
-// not touched, nothing is sent anywhere. The next time the app starts, if the last session did not end
-// as it should (a file "running" is still there), it says so, and shows the log.
+// not touched, nothing is sent anywhere. A panic nothing recovers (in one of MyGo's goroutines, or before
+// the guard) is written by the runtime to MyGo's crash.log in the logs folder. The next time the app
+// starts, if the last session did not end as it should (a file "running" is still there), it says so, and
+// shows the log: what crash.log took in since that session began, or else the newest of the app's own.
 
 const crashKeep = 20 // the logs that are kept
 
@@ -70,13 +73,33 @@ func crashLogs(dir string) []string {
 // runningMark is the file that says a session is on: it is there from the start to a clean end.
 func runningMark(dir string) string { return filepath.Join(filepath.Dir(dir), "running") }
 
+// runtimeCrashLog is the file the runtime writes the panic that ends the app to (MyGo's crash.log), or ""
+// where there is no logs folder.
+func runtimeCrashLog() string {
+	dir, err := mygo.App.Path(mygo.PathLogs)
+	if err != nil || dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "crash.log")
+}
+
+// maxRuntimeCrash is how much of what crash.log took in is shown: a crash's head and its goroutines' stacks
+// are well inside it.
+const maxRuntimeCrash = 64 << 10
+
 // markRunning notes that a session has begun, and reports whether the last one did not end as it
-// should, with the newest log it left (which may be none: a kill, a power cut).
-func markRunning(dir string, now time.Time) (unclean bool, log string) {
+// should, with the newest log it left (which may be none: a kill, a power cut). rt is the runtime's crash
+// log; the mark keeps its size, and what it took in since the last session began is that session's end,
+// given as text, once.
+func markRunning(dir, rt string, now time.Time) (unclean bool, log, rtText string) {
 	if dir == "" {
-		return false, ""
+		return false, "", ""
 	}
 	mark := runningMark(dir)
+	rtSize := int64(0)
+	if st, err := os.Stat(rt); rt != "" && err == nil {
+		rtSize = st.Size()
+	}
 	if st, err := os.Stat(mark); err == nil {
 		unclean = true
 		if l := crashLogs(dir); len(l) > 0 {
@@ -84,12 +107,59 @@ func markRunning(dir string, now time.Time) (unclean bool, log string) {
 				log = l[0]
 			}
 		}
+		if b, err := os.ReadFile(mark); err == nil && rtSize > 0 {
+			from := int64(0)
+			if f := strings.Fields(string(b)); len(f) > 2 {
+				fmt.Sscan(f[2], &from)
+			}
+			if from > rtSize { // started over since: all of it is new
+				from = 0
+			}
+			if rtSize > from {
+				rtText = readTail(rt, from, maxRuntimeCrash)
+			}
+		}
 	}
 	os.MkdirAll(filepath.Dir(mark), 0o700)
 	hardenPrivateDir(filepath.Dir(mark))
-	os.WriteFile(mark, []byte(now.Format(time.RFC3339)+" "+version+"\n"), 0o600)
+	os.WriteFile(mark, []byte(fmt.Sprintf("%s %s %d\n", now.Format(time.RFC3339), version, rtSize)), 0o600)
 	_ = os.Chmod(mark, 0o600)
-	return unclean, log
+	return unclean, log, strings.TrimSpace(rtText)
+}
+
+// lastRuntimeCrash is the last crash of text, what the runtime wrote to its crash log: from the last line that
+// begins one ("panic: ", "fatal error: ") on, or all of it when none does.
+func lastRuntimeCrash(text string) string {
+	at := -1
+	for _, head := range []string{"panic: ", "fatal error: "} {
+		if strings.HasPrefix(text, head) {
+			at = max(at, 0)
+		}
+		if i := strings.LastIndex(text, "\n"+head); i >= 0 {
+			at = max(at, i+1)
+		}
+	}
+	return strings.TrimSpace(text[max(at, 0):])
+}
+
+// runtimeLogOf is the runtime's crash log this app reads: MyGo's, unless a test has its own.
+func (a *app) runtimeLogOf() string {
+	if a.crashDir != "" {
+		return a.crashRT
+	}
+	return runtimeCrashLog()
+}
+
+// readTail is the text of file path from byte from on, its first max bytes at most.
+func readTail(path string, from, max int64) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	b := make([]byte, max)
+	n, _ := f.ReadAt(b, from)
+	return string(b[:n])
 }
 
 // markClean notes that the session ended as it should.
@@ -198,6 +268,15 @@ func (a *app) crashView(c *ui.Context) {
 // showCrash shows the newest log, or says there is none.
 func (a *app) showCrash() {
 	text, path := latestCrash(a.crashDirOf())
+	if rt := a.runtimeLogOf(); rt != "" { // the runtime's, when it wrote after the newest of ours
+		st, err := os.Stat(rt)
+		own, ownErr := os.Stat(path)
+		if err == nil && st.Size() > 0 && (path == "" || ownErr == nil && st.ModTime().After(own.ModTime())) {
+			if t := lastRuntimeCrash(readTail(rt, max(st.Size()-maxRuntimeCrash, 0), maxRuntimeCrash)); t != "" {
+				text, path = t, rt
+			}
+		}
+	}
 	if text == "" {
 		a.say(toastWarn, locales.ThereIsNoCrashLog())
 		return

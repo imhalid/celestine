@@ -227,6 +227,7 @@ type app struct {
 	backupBusy   atomic.Bool
 	bk           backupUI // the backups' settings: the last by hand, a delete asked (backup.go)
 	crashDir     string   // where the logs go, when not the config folder's (a test's)
+	crashRT      string   // the runtime's crash log a test has, with crashDir
 	crashMsg     string   // the panic last written, and when: the same one is not written over and over
 	crashAt      time.Time
 	crashPath    string                   // its log
@@ -602,17 +603,23 @@ func main() {
 	if empty {
 		a.markPristine()
 	}
-	a.wel.on = a.wantWelcome()                              // the first opening, if it is one
-	go func() { defer a.guard(); clearOpenedCopies() }()    // the copies a session that ended badly left
-	a.purgeTrash()                                          // what has been in the trash trashDays is deleted for good
-	a.prewarm()                                             // the pages' text, read away from the window
-	unclean, prevLog := markRunning(crashDir(), time.Now()) // the last session that did not end as it should is told
+	a.wel.on = a.wantWelcome()                           // the first opening, if it is one
+	go func() { defer a.guard(); clearOpenedCopies() }() // the copies a session that ended badly left
+	a.purgeTrash()                                       // what has been in the trash trashDays is deleted for good
+	a.prewarm()                                          // the pages' text, read away from the window
+	rt := runtimeCrashLog()
+	unclean, prevLog, rtText := markRunning(crashDir(), rt, time.Now()) // the last session that did not end as it should is told
 	if unclean {
 		a.crashPrev, a.crashOpen = prevLog, true
-		if prevLog == "" {
+		switch {
+		case rtText != "": // the panic that ended it, as the runtime wrote it
+			a.crashPrev, a.crashText, a.crashPath = rt, rtText, rt
+		case prevLog == "":
 			a.crashText = locales.AppClosedWithoutLog()
-		} else if b, err := os.ReadFile(prevLog); err == nil {
-			a.crashText, a.crashPath = string(b), prevLog
+		default:
+			if b, err := os.ReadFile(prevLog); err == nil {
+				a.crashText, a.crashPath = string(b), prevLog
+			}
 		}
 	}
 	time.AfterFunc(20*time.Second, func() { updateProved(updateMark(), version) }) // twenty seconds in, it has proved itself
