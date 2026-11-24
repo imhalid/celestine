@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +53,40 @@ func TestAddMCPServer(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(bad); string(b) != "{ not json" {
 		t.Fatalf("changed: %q", b)
+	}
+	// its order and its numbers as written; through a link, the file it points at, in its mode
+	ordered := filepath.Join(dir, "real.json")
+	os.WriteFile(ordered, []byte(`{"zeta":1,"big":12345678901234567890,"mcpServers":{"b":{"command":"y"},"a":{"command":"x"}},"alpha":true}`), 0o640)
+	link := filepath.Join(dir, "link.json")
+	if err := os.Symlink(ordered, link); err != nil {
+		t.Skip("no symbolic links here")
+	}
+	if _, err := addMCPServer(link, "/opt/celestine"); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(link); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("the link was written over")
+	}
+	b, _ = os.ReadFile(ordered)
+	keys := []string{`"zeta"`, `"big": 12345678901234567890`, `"mcpServers"`, `"b"`, `"a"`, `"celestine"`, `"alpha"`}
+	at := 0
+	for _, k := range keys {
+		i := strings.Index(string(b[at:]), k)
+		if i < 0 {
+			t.Fatalf("%s not after what comes before it: %s", k, b)
+		}
+		at += i
+	}
+	if fi, _ := os.Stat(ordered); fi.Mode().Perm() != 0o640 {
+		t.Fatalf("mode %v", fi.Mode().Perm())
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, ".celestine-*")); len(left) > 0 {
+		t.Fatalf("left behind: %v", left)
+	}
+	// mcpServers null: as none
+	null := filepath.Join(dir, "null.json")
+	os.WriteFile(null, []byte(`{"mcpServers":null}`), 0o600)
+	if changed, err := addMCPServer(null, "/opt/celestine"); err != nil || !changed {
+		t.Fatalf("null servers: %v %v", changed, err)
 	}
 }

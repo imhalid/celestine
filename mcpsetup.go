@@ -4,13 +4,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
@@ -24,6 +28,9 @@ import (
 
 // mcpServerName is the name the app has among an agent app's servers.
 const mcpServerName = "celestine"
+
+// agentCmdWait is how long an agent app's own command is waited for.
+const agentCmdWait = 30 * time.Second
 
 // agentApp is an app the server can be added to.
 type agentApp struct {
@@ -45,44 +52,130 @@ var agentApps = []agentApp{
 
 // addMCPServer puts the app among the mcpServers of the JSON file at path, made when there is none: exe with
 // `mcp`. It says whether the file changed; one that holds something not JSON is left as it is, with an error.
+//
+// The file is the agent app's, and is changed only where the app's server goes (#183): its keys stay in their
+// order and its values as they were written, numbers too (a round trip through a map sorted the keys and made
+// integers past 2^53 floats); a symbolic link is followed and the file it points at written, in its own mode.
 func addMCPServer(path, exe string) (bool, error) {
-	conf := map[string]any{}
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
+	var top []jsonMember
+	mode := os.FileMode(0o600)
 	old, err := os.ReadFile(path)
 	switch {
 	case err == nil && len(bytes.TrimSpace(old)) > 0:
-		if err := json.Unmarshal(old, &conf); err != nil {
+		if top, err = jsonObject(old); err != nil {
 			return false, fmt.Errorf("%s is not JSON (%v): left as it is", path, err)
+		}
+		if fi, err := os.Stat(path); err == nil {
+			mode = fi.Mode().Perm()
 		}
 	case err != nil && !errors.Is(err, os.ErrNotExist):
 		return false, err
 	}
-	servers, _ := conf["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = map[string]any{}
-	}
-	want := map[string]any{"command": exe, "args": []any{"mcp"}}
-	if cur, ok := servers[mcpServerName]; ok {
-		a, _ := json.Marshal(cur)
-		b, _ := json.Marshal(want)
-		if bytes.Equal(a, b) {
-			return false, nil
+	want, _ := json.Marshal(map[string]any{"command": exe, "args": []any{"mcp"}})
+	var servers []jsonMember
+	at := slices.IndexFunc(top, func(m jsonMember) bool { return m.key == "mcpServers" })
+	if at >= 0 && string(bytes.TrimSpace(top[at].value)) != "null" {
+		if servers, err = jsonObject(top[at].value); err != nil {
+			return false, fmt.Errorf("%s: mcpServers is not an object (%v): left as it is", path, err)
 		}
 	}
-	servers[mcpServerName] = want
-	conf["mcpServers"] = servers
-	out, err := json.MarshalIndent(conf, "", "  ")
-	if err != nil {
+	if i := slices.IndexFunc(servers, func(m jsonMember) bool { return m.key == mcpServerName }); i >= 0 {
+		var cur any
+		if json.Unmarshal(servers[i].value, &cur) == nil {
+			if b, _ := json.Marshal(cur); bytes.Equal(b, want) {
+				return false, nil
+			}
+		}
+		servers[i].value = want
+	} else {
+		servers = append(servers, jsonMember{mcpServerName, want})
+	}
+	if at >= 0 {
+		top[at].value = jsonEncode(servers)
+	} else {
+		top = append(top, jsonMember{"mcpServers", jsonEncode(servers)})
+	}
+	var out bytes.Buffer
+	if err := json.Indent(&out, jsonEncode(top), "", "  "); err != nil {
 		return false, err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	out.WriteByte('\n')
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, err
 	}
 	// written whole or not at all: a half-written file would be the agent app's lost settings
-	tmp := path + ".celestine-tmp"
-	if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
+	f, err := os.CreateTemp(dir, ".celestine-*.tmp")
+	if err != nil {
 		return false, err
 	}
-	return true, os.Rename(tmp, path)
+	defer os.Remove(f.Name()) // gone once renamed; left by a failure, taken away
+	if _, err := f.Write(out.Bytes()); err != nil {
+		f.Close()
+		return false, err
+	}
+	if err := f.Chmod(mode); err != nil {
+		f.Close()
+		return false, err
+	}
+	if err := f.Close(); err != nil {
+		return false, err
+	}
+	return true, os.Rename(f.Name(), path)
+}
+
+// jsonMember is a member of a JSON object: its key, and its value as it was written.
+type jsonMember struct {
+	key   string
+	value json.RawMessage
+}
+
+// jsonObject is the members of the JSON object b, in their order, each value as it was written.
+func jsonObject(b []byte) ([]jsonMember, error) {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return nil, errors.New("not an object")
+	}
+	var out []jsonMember
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, _ := tok.(string)
+		var v json.RawMessage
+		if err := dec.Decode(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, jsonMember{key, v})
+	}
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('}') {
+		return nil, errors.New("not an object")
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, errors.New("more after the object")
+	}
+	return out, nil
+}
+
+// jsonEncode is the object of members ms, compact.
+func jsonEncode(ms []jsonMember) []byte {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, m := range ms {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, _ := json.Marshal(m.key)
+		b.Write(k)
+		b.WriteByte(':')
+		b.Write(m.value)
+	}
+	b.WriteByte('}')
+	return b.Bytes()
 }
 
 // addToAgentApp adds the app to ag, and says what was done.
@@ -96,7 +189,12 @@ func (a *app) addToAgentApp(ag agentApp) (string, error) {
 		if err != nil {
 			return "", errors.New(locales.McpClaudeCodeNotInstalled())
 		}
-		out, err := exec.Command(claude, "mcp", "add", "--scope", "user", mcpServerName, "--", exe, "mcp").CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), agentCmdWait)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, claude, "mcp", "add", "--scope", "user", mcpServerName, "--", exe, "mcp").CombinedOutput()
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("claude mcp add: %w", ctx.Err())
+		}
 		if err != nil && strings.Contains(strings.ToLower(string(out)), "already exists") {
 			return locales.McpClaudeCodeAlreadyHas(), nil
 		}
@@ -126,11 +224,14 @@ func (a *app) mcpSetupRow(c *ui.Context) func() {
 			ui.Row(c).Gap(6).Children(func() {
 				for _, ag := range agentApps {
 					if ryugo.Button(c.Key("mcp-add:"+ag.name), ag.name, ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-						msg, err := a.addToAgentApp(ag)
-						if err != nil {
-							msg = err.Error()
-						}
-						a.sayDone(msg, err == nil)
+						go func() { // away from the frame: Claude Code's command may take its time (#183)
+							defer a.guard()
+							msg, err := a.addToAgentApp(ag)
+							if err != nil {
+								msg = err.Error()
+							}
+							a.do(func() error { a.sayDone(msg, err == nil); return nil })
+						}()
 					}
 				}
 			})
