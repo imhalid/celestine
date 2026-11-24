@@ -219,7 +219,10 @@ func (a *app) tagView(c *ui.Context) {
 		}
 		a.scrolled(c, "tags:220", nil, ui.Scroll(c).Grow(1), func() {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
-				for _, q := range pages {
+				// viewStep pages at first, and more as the reader gets to the end, as a collection's list (#195)
+				shown := pages[:min(len(pages), a.shownLimit("tag|"+a.tag))]
+				defer a.moreRow(c, len(pages)-len(shown))
+				for _, q := range shown {
 					q := q
 					row := ui.Row(c.Key("tp:"+q.Dir)).Padding(8, 10).Gap(10).Radius(rad(8)).AlignItems(ui.Center).
 						Label(locales.CommonPageLabel(q.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)

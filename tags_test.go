@@ -1,11 +1,13 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/imhalid/celestine/locales"
 )
 
 func TestTagsOf(t *testing.T) {
@@ -282,5 +284,27 @@ func TestTagPillsKeptLaidOut(t *testing.T) {
 	}
 	if n := paraLayouts - before; n > 0 {
 		t.Fatalf("%d paragraphs laid out again in five frames of the same text", n)
+	}
+}
+
+// TestTagViewShowsInSteps: a tag's view shows viewStep of its pages, and more as the reader gets to the end (#195).
+func TestTagViewShowsInSteps(t *testing.T) {
+	a, tt := newTestApp(t, "#kalabalık\n")
+	tt.SetSize(1100, 800)
+	coll := a.lib.Collections[0]
+	for i := range 250 {
+		p, err := coll.NewPage(nil, "Not "+strconv.Itoa(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SaveText("#kalabalık\n")
+	}
+	a.linksStale()
+	a.links.built = time.Time{}
+	tt.Frame()
+	a.openTag("kalabalık")
+	tt.Advance(300 * time.Millisecond)
+	if !tt.HasText(locales.ViewsShowMore(251 - viewStep)) {
+		t.Fatalf("no row for more: %v", tt.Texts()[:12])
 	}
 }
