@@ -63,3 +63,8 @@ go run .
 ```
 
 How it is built, the file format and the code's layout are in [docs/architecture.md](docs/architecture.md).
+
+## Licence
+
+All rights reserved. The app as it is published is free to use for non-commercial purposes; the code is not
+open source. See [LICENSE](LICENSE), and [NOTICE.md](NOTICE.md) for the work of others it draws on.
