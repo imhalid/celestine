@@ -328,7 +328,7 @@ func (a *app) places() []palItem {
 			if crumb := Parents(p); crumb != "" {
 				sub += " › " + crumb
 			}
-			out = append(out, palItem{title: p.Title, sub: sub, glyph: iconPage, to: place{"page", p.Dir}, run: func() { a.goTo(place{"page", p.Dir}) }})
+			out = append(out, palItem{title: p.Title, sub: sub, glyph: iconPage, to: place{"page", p.Dir}, alias: strings.Join(p.Aliases(), " "), run: func() { a.goTo(place{"page", p.Dir}) }})
 		}
 	}
 	for _, ti := range a.allTags() {
@@ -388,7 +388,7 @@ func (a *app) placeIndex() *placeIdx {
 	px.ftitle, px.fboth, px.mask = make([]string, len(items)), make([]string, len(items)), make([]uint64, len(items))
 	for i, it := range items {
 		px.ftitle[i] = foldText(it.title)
-		px.fboth[i] = foldText(it.title + " " + it.sub)
+		px.fboth[i] = foldText(it.title + " " + it.sub + " " + it.alias) // a page's aliases find it too
 		px.mask[i] = letterMask(px.fboth[i])
 	}
 	px.ready, px.dirty = true, false

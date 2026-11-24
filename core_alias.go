@@ -110,6 +110,8 @@ func PropTypeName(typ string) string {
 		return locales.PropsTypeTags()
 	case PropFile:
 		return locales.PropsTypeFile()
+	case PropAliases:
+		return locales.PropsTypeAliases()
 	}
 	return typ
 }
@@ -118,6 +120,10 @@ const PropURL = library.PropURL
 const PropPage = library.PropPage
 const PropTags = library.PropTags
 const PropFile = library.PropFile
+const PropAliases = library.PropAliases
+
+// IsList reports whether a kind of property holds a list of words: tags and aliases.
+func IsList(typ string) bool { return library.IsList(typ) }
 
 type Property = library.Property
 

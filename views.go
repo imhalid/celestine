@@ -714,7 +714,7 @@ func (a *app) fieldChips(c *ui.Context, p *Page, v *View) {
 		switch pr.Type {
 		case PropChoice:
 			ryugo.Badge(c.Key("chip:"+id), val, choiceTone(pr, val))
-		case PropTags:
+		case PropTags, PropAliases:
 			for _, tag := range SplitTags(val) {
 				ryugo.Badge(c.Key("chip:"+id+":"+tag), tag, ryugo.ToneNeutral)
 			}
@@ -984,7 +984,7 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 					}
 					return
 				}
-				if col.prop != nil && col.prop.Type == PropTags {
+				if col.prop != nil && IsList(col.prop.Type) {
 					ui.Row(c).Gap(4).AlignItems(ui.Center).Clip().Children(func() {
 						for _, tag := range SplitTags(p.Value(col.prop)) {
 							ryugo.Badge(c.Key(tag), tag, ryugo.ToneNeutral)

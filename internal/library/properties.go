@@ -26,14 +26,43 @@ const (
 	PropURL    = "url"
 	PropPage   = "page" // another page: its folders from the library's root (Library.PageAt)
 	PropTags   = "tags" // words, ", " between them
-	PropFile   = "file" // a file in the page's folder: its name
+	// PropAliases are other names of the page, ", " between them, which a [[link]] resolves to as it does to the
+	// title (#547).
+	PropAliases = "aliases"
+	PropFile    = "file" // a file in the page's folder: its name
 )
 
 // PropTypes are the kinds of property, in the order the menu shows them,
 // with their names.
 var PropTypes = []struct{ Type, Name string }{
 	{PropChoice, "Seçim"}, {PropText, "Metin"}, {PropNumber, "Sayı"}, {PropDate, "Tarih"}, {PropURL, "Bağlantı"},
-	{PropPage, "Sayfa"}, {PropTags, "Etiketler"}, {PropFile, "Dosya"},
+	{PropPage, "Sayfa"}, {PropTags, "Etiketler"}, {PropFile, "Dosya"}, {PropAliases, "Takma adlar"},
+}
+
+// IsList reports whether a kind of property holds a list of words, ", " between them: tags and aliases.
+func IsList(typ string) bool { return typ == PropTags || typ == PropAliases }
+
+// Aliases are page p's other names, which a [[link]] resolves to as it does to its title: the values of its
+// properties of the aliases kind, its collection's and its own, each once.
+func (p *Page) Aliases() []string {
+	var out []string
+	add := func(prs []Property) {
+		for _, pr := range prs {
+			if pr.Type != PropAliases {
+				continue
+			}
+			for _, w := range SplitTags(p.Props[pr.ID]) {
+				if !slices.ContainsFunc(out, func(o string) bool { return strings.EqualFold(o, w) }) {
+					out = append(out, w)
+				}
+			}
+		}
+	}
+	if p.Coll != nil {
+		add(p.Coll.Properties)
+	}
+	add(p.Own)
+	return out
 }
 
 // PropTypeName is the name of a kind of property.
@@ -584,7 +613,7 @@ func (p *Page) SetValue(id, v string) error {
 		if _, err := time.Parse("2006-01-02", v); v != "" && err != nil {
 			return fmt.Errorf("%s is a day, as 2026-11-04", pr.Name)
 		}
-	case PropTags:
+	case PropTags, PropAliases:
 		v = strings.Join(SplitTags(v), ", ")
 	case PropPage:
 		v = strings.Trim(filepath.ToSlash(v), "/")
@@ -600,6 +629,9 @@ func (p *Page) SetValue(id, v string) error {
 		p.Props = map[string]string{}
 	}
 	p.Props[id] = v
+	if pr.Type == PropAliases { // what a [[link]] resolves to changed, as with a rename
+		defer PagesChanged()
+	}
 	return p.saveMeta()
 }
 

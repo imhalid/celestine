@@ -203,6 +203,32 @@ func (a *app) menuItems(q string) []menuItem {
 	return out
 }
 
+// aliasLinks are the pages' other names that q matches (#547), at most n, as lines that link to the page by the
+// name, under a heading group; and whether one is q itself, so that no page of that name is offered to be made.
+func (a *app) aliasLinks(q string, start, n int, group string) (out []menuItem, exact bool) {
+	tq := strings.TrimSpace(q)
+	if tq == "" {
+		return nil, false
+	}
+	for _, c := range a.lib.Collections {
+		for _, p := range c.All() {
+			if a.page != nil && p.Dir == a.page.Dir {
+				continue
+			}
+			for _, al := range p.Aliases() {
+				if match(q, al) < 0 {
+					continue
+				}
+				exact = exact || strings.EqualFold(al, tq)
+				if len(out) < n {
+					out = append(out, menuItem{title: al, sub: locales.SlashAliasOf(p.Title), group: group, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: al}) }})
+				}
+			}
+		}
+	}
+	return out, exact
+}
+
 // wikiItems are the pages to link, for what is typed between "[[" and "]]":
 // a day typed as 2026-11-05 too, and a page of that name when none is.
 func (a *app) wikiItems(q string) []menuItem {
@@ -227,6 +253,8 @@ func (a *app) wikiItems(q string) []menuItem {
 		title := it.title
 		out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 	}
+	als, alExact := a.aliasLinks(q, start, 20, "")
+	out, exact = append(out, als...), exact || alExact
 	if tq != "" && !exact && a.page != nil {
 		out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
@@ -377,6 +405,8 @@ func (a *app) viewItems(view, q string) []menuItem {
 			title := it.title
 			out = append(out, menuItem{title: title, sub: it.sub, glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 		}
+		als, alExact := a.aliasLinks(q, start, 20, "")
+		out, exact = append(out, als...), exact || alExact
 		if tq != "" && !exact && a.page != nil {
 			out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
 				if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
@@ -438,6 +468,8 @@ func (a *app) searchItems(q string) []menuItem {
 		title := it.title
 		pages = append(pages, menuItem{title: title, sub: it.sub, group: "link", glyph: iconPage, run: func() { a.insertChip(start, &chip{kind: "page", target: title}) }})
 	}
+	als, _ := a.aliasLinks(q, start, 4, "link")
+	pages = append(pages, als...)
 	// the page's choices
 	if p := a.page; p != nil {
 		for i := range p.Coll.Properties {

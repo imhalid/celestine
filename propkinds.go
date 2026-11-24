@@ -19,12 +19,16 @@ import (
 
 var iconAttach = icon(`<path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1L13 4.4a3.4 3.4 0 0 1 4.8 4.8l-7.9 7.9a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/>`)
 
-// propTags is a tags value: its tags as chips, each with its cross, and a field that adds what is typed.
+// propTags is a tags or aliases value: its words as chips, each with its cross, and a field that adds what is typed.
 func (a *app) propTags(c *ui.Context, p *Page, pr *Property, key string) {
 	tags := SplitTags(p.Props[pr.ID])
 	before := strings.Join(tags, ", ")
+	add := locales.PropsAddTag()
+	if pr.Type == PropAliases {
+		add = locales.PropsAddName()
+	}
 	ui.Box(c.Key("prop-val:" + key)).Grow(1).MinWidth(0).Children(func() {
-		a.tagsField(c, "prop-tags:"+key, &tags, locales.PropsAddTag(), locales.PropsValueLabel(pr.Name))
+		a.tagsField(c, "prop-tags:"+key, &tags, add, locales.PropsValueLabel(pr.Name))
 	})
 	if now := strings.Join(tags, ", "); now != before {
 		a.setValue(p, pr.ID, now)

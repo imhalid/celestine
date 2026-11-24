@@ -525,7 +525,7 @@ func propFolded(c *Collection, name string) *Property {
 func propMatches(pr *Property, val, op, want string) bool {
 	if op == ":" {
 		switch pr.Type {
-		case PropTags:
+		case PropTags, PropAliases:
 			return slices.ContainsFunc(SplitTags(val), func(t string) bool { return foldText(t) == foldText(want) })
 		case PropNumber:
 			return val != "" && CompareValues(pr, val, want) == 0

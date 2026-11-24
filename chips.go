@@ -468,8 +468,8 @@ func drawTaskRing(p *ui.Painter, cx, cy, radius float32, n, done int, rest, gree
 	}
 }
 
-// pageTitled is the page titled title (any case), in the open page's
-// collection first, or nil.
+// pageTitled is the page titled title (any case), or with title for one of its aliases (#547), in the open
+// page's collection first, or nil. A page so titled comes before one with it for an alias.
 func (a *app) pageTitled(title string) *Page {
 	var found *Page
 	for _, p := range a.titleIndex()[strings.ToLower(title)] {
@@ -483,11 +483,22 @@ func (a *app) pageTitled(title string) *Page {
 			found = p
 		}
 	}
+	if found != nil {
+		return found
+	}
+	for _, p := range a.titleIndex()[strings.ToLower(title)] {
+		if a.page != nil && p.Coll == a.page.Coll {
+			return p
+		}
+		if found == nil {
+			found = p
+		}
+	}
 	return found
 }
 
-// titleIdx is the pages by their titles, lower case, for the chips of [[links]] that each frame draws: a
-// lookup is not a walk through the library. It is made again when a page was made, renamed, moved, thrown
+// titleIdx is the pages by their titles and their aliases, lower case, for the chips of [[links]] that each frame
+// draws: a lookup is not a walk through the library. It is made again when a page was made, renamed, moved, thrown
 // away or brought back, or the library read again (pagesGen).
 type titleIdx struct {
 	by  map[string][]*Page
@@ -495,7 +506,7 @@ type titleIdx struct {
 	lib *Library
 }
 
-// titleIndex is the pages by their titles, as they are now.
+// titleIndex is the pages by their titles and aliases, as they are now.
 func (a *app) titleIndex() map[string][]*Page {
 	ti := &a.titles
 	if gen := PagesGen.Load(); ti.by == nil || ti.gen != gen || ti.lib != a.lib {
@@ -505,6 +516,11 @@ func (a *app) titleIndex() map[string][]*Page {
 			for _, p := range ps {
 				k := strings.ToLower(p.Title)
 				ti.by[k] = append(ti.by[k], p)
+				for _, al := range p.Aliases() {
+					if k := strings.ToLower(al); !slices.Contains(ti.by[k], p) {
+						ti.by[k] = append(ti.by[k], p)
+					}
+				}
 				add(p.Children)
 			}
 		}

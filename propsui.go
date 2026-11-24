@@ -120,7 +120,7 @@ func (a *app) propRow(c *ui.Context, p *Page, pr *Property) {
 			a.propChoice(c, p, pr, key)
 		case PropDate:
 			a.propDate(c, p, pr, key)
-		case PropTags:
+		case PropTags, PropAliases:
 			a.propTags(c, p, pr, key)
 		case PropPage:
 			a.propPageLink(c, p, pr, key)

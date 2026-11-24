@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -85,9 +86,11 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 		return nil
 	}
 	var out []*Page
-	for _, q := range l.into[strings.ToLower(strings.TrimSpace(p.Title))] {
-		if q != p {
-			out = append(out, q)
+	for _, name := range append([]string{p.Title}, p.Aliases()...) { // a link by an alias is one to it (#547)
+		for _, q := range l.into[strings.ToLower(strings.TrimSpace(name))] {
+			if q != p && !slices.Contains(out, q) {
+				out = append(out, q)
+			}
 		}
 	}
 	return out

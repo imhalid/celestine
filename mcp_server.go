@@ -112,7 +112,7 @@ type (
 	}
 	propSpec struct {
 		Name    string   `json:"name" jsonschema:"the property's name"`
-		Type    string   `json:"type" jsonschema:"choice, text, number, date (2026-11-04), url, page (another page's folders from the library's root, as kitaplar/dune), tags (words with commas between them) or file (a file's name in the page's folder)"`
+		Type    string   `json:"type" jsonschema:"choice, text, number, date (2026-11-04), url, page (another page's folders from the library's root, as kitaplar/dune), tags (words with commas between them), file (a file's name in the page's folder) or aliases (other names of the page, with commas between them, which a [[link]] finds it by)"`
 		Options []string `json:"options,omitempty" jsonschema:"a choice's options, in order: the columns of the board"`
 	}
 	newCollArgs struct {

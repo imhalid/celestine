@@ -9545,6 +9545,22 @@ func (msgs Messages) PropsAddTag() string {
 	return Catalog.Format(msgs.locale, "props_addTag", nil)
 }
 
+// PropsAddName says "Add a name, ↵"
+// in the language the app shows.
+//
+// The placeholder of an aliases property’s field: another name of the
+// page, which a [[link]] finds it by.
+func PropsAddName() string { return In(i18n.Locale()).PropsAddName() }
+
+// PropsAddName says "Add a name, ↵"
+// in the language of msgs.
+//
+// The placeholder of an aliases property’s field: another name of the
+// page, which a [[link]] finds it by.
+func (msgs Messages) PropsAddName() string {
+	return Catalog.Format(msgs.locale, "props_addName", nil)
+}
+
 // PropsChooseAnother says "Choose another…"
 // in the language the app shows.
 func PropsChooseAnother() string { return In(i18n.Locale()).PropsChooseAnother() }
@@ -9695,6 +9711,22 @@ func PropsStatusAuthorDue() string { return In(i18n.Locale()).PropsStatusAuthorD
 // in the language of msgs.
 func (msgs Messages) PropsStatusAuthorDue() string {
 	return Catalog.Format(msgs.locale, "props_statusAuthorDue", nil)
+}
+
+// PropsTypeAliases says "Aliases"
+// in the language the app shows.
+//
+// A kind of property: other names of the page, which a [[link]] resolves to
+// as it does to the title.
+func PropsTypeAliases() string { return In(i18n.Locale()).PropsTypeAliases() }
+
+// PropsTypeAliases says "Aliases"
+// in the language of msgs.
+//
+// A kind of property: other names of the page, which a [[link]] resolves to
+// as it does to the title.
+func (msgs Messages) PropsTypeAliases() string {
+	return Catalog.Format(msgs.locale, "props_typeAliases", nil)
 }
 
 // PropsTypeChoice says "Choice"
@@ -11613,6 +11645,22 @@ func SlashAMarkHereNote() string { return In(i18n.Locale()).SlashAMarkHereNote()
 // in the language of msgs.
 func (msgs Messages) SlashAMarkHereNote() string {
 	return Catalog.Format(msgs.locale, "slash_aMarkHereNote", nil)
+}
+
+// SlashAliasOf says "Another name of {title}"
+// in the language the app shows.
+//
+// Under a page’s alias in the [[ and @ menus: the page it is another name
+// of.
+func SlashAliasOf(title string) string { return In(i18n.Locale()).SlashAliasOf(title) }
+
+// SlashAliasOf says "Another name of {title}"
+// in the language of msgs.
+//
+// Under a page’s alias in the [[ and @ menus: the page it is another name
+// of.
+func (msgs Messages) SlashAliasOf(title string) string {
+	return Catalog.Format(msgs.locale, "slash_aliasOf", map[string]any{"title": title})
 }
 
 // SlashDatePlaceholder says "Tomorrow, 2026-11-10…"
