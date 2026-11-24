@@ -275,11 +275,7 @@ func (a *app) caretMock(c *ui.Context, kind caretKind) {
 			body := func() {
 				switch {
 				case d.slime != nil:
-					col := ui.Hex("#59f939")
-					if !f.dark {
-						col = ui.Hex("#2f9a1c")
-					}
-					d.slime.draw(p, f.r, f.cw, col, f.dark)
+					d.slime.draw(p, f.r, f.cw, cursorColor(p), f.dark)
 				case d.miz != nil:
 					d.miz.draw(p, f)
 				case d.fx != nil:
@@ -307,15 +303,12 @@ func caretTint(p *ui.Painter, kind caretKind, fx caretFX) ui.Color {
 	case kind == caretMizan:
 		return p.Theme().Accent
 	case kind == caretSlime:
-		if dark {
-			return ui.Hex("#59f939")
-		}
-		return ui.Hex("#2f9a1c")
+		return cursorColor(p)
 	}
 	if t, ok := fx.(tinted); ok {
 		return t.tint(dark)
 	}
-	return cursorColor(dark)
+	return cursorColor(p)
 }
 
 func (a *app) caretTint(p *ui.Painter) ui.Color {

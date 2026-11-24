@@ -12,13 +12,9 @@ import (
 // NOTICE.md), each fixed as it ships, with nothing to set: the phosphor ghosts of the CRT,
 // drawn by this app's painter, and the jelly that can be put on any caret.
 
-// cursorColor is the color of Cursor-Smith's box cursor, for the dark appearance and the light.
-func cursorColor(dark bool) ui.Color {
-	if dark {
-		return ui.Hex("#31edae")
-	}
-	return ui.Hex("#147133")
-}
+// cursorColor is the color of the carets: the theme's accent, as the plain line's, whatever the look (#213). The
+// looks after Cursor-Smith shipped in its green.
+func cursorColor(p *ui.Painter) ui.Color { return p.Theme().Accent }
 
 // rrect is a rounded rectangle as a path.
 func rrect(x, y, w, h, r float32) *ui.Path {
@@ -278,7 +274,7 @@ func (c *crt) draw(p *ui.Painter, f caretFrame, k kick) {
 	if len(c.ghosts) > crtGhosts {
 		c.ghosts = c.ghosts[len(c.ghosts)-crtGhosts:]
 	}
-	col := cursorColor(f.dark)
+	col := cursorColor(p)
 	out := c.ghosts[:0]
 	for _, g := range c.ghosts {
 		age := float64(now.Sub(g.at)) / float64(crtFade)

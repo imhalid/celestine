@@ -154,7 +154,7 @@ func (g *torch) draw(p *ui.Painter, f caretFrame, k kick) {
 		p.FillRadialGradient(b, ui.RadialGradient{Center: cen, Radius: R * 0.6, Stops: []ui.GradientStop{
 			{Color: withAlpha(warm, 0.04), At: 0}, {Color: withAlpha(warm, 0.012), At: 0.45}, {Color: withAlpha(warm, 0), At: 0.75}}}, 0)
 	}
-	glassBody(p, f, box, cursorColor(f.dark), 1, 0.9)
+	glassBody(p, f, box, cursorColor(p), 1, 0.9)
 	if math.Hypot(tx-g.x, ty-g.y) > 0.25 {
 		p.AnimationFrame()
 	}

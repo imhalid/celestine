@@ -1911,11 +1911,7 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 			a.fxOf(i).draw(p, f, k)
 			return
 		}
-		col := ui.Hex("#59f939")
-		if !dark {
-			col = ui.Hex("#2f9a1c")
-		}
-		styledDraw(p, f, boxOf(f), func() { a.jelly.draw(p, cr, cw, col, dark) })
+		styledDraw(p, f, boxOf(f), func() { a.jelly.draw(p, cr, cw, cursorColor(p), dark) })
 	}
 	p.Clip(room, 0, func() {
 		// asleep, it breathes

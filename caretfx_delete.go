@@ -151,7 +151,7 @@ func (b *backman) draw(p *ui.Painter, f caretFrame, k kick) {
 	}
 	tn := ms(now.Sub(b.base))
 	box := boxOf(f)
-	col := cursorColor(f.dark)
+	col := cursorColor(p)
 	if k.erased > 0 && k.gone != "" {
 		b.key(p, f, k, tn)
 	}
@@ -379,7 +379,7 @@ func (g *portal) draw(p *ui.Painter, f caretFrame, k kick) {
 	}
 	tn := ms(now.Sub(g.base))
 	box := boxOf(f)
-	col := cursorColor(f.dark)
+	col := cursorColor(p)
 	if k.erased > 0 && k.gone != "" {
 		g.at = tn
 		for i := range g.letters {

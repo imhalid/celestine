@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"testing"
 	"time"
 
@@ -89,6 +90,41 @@ func TestPixelFont(t *testing.T) {
 		rows, ok := pixelFont[r]
 		if !ok || len(rows) != 5*3+4 {
 			t.Fatalf("%q: %q", r, rows)
+		}
+	}
+}
+
+// TestCaretTakesTheAccent: the carets are drawn in the theme's accent, not in the green they shipped in (#213): the
+// slime, the CRT's and the torch's leave no green on a page of the light theme, which has none of its own.
+func TestCaretTakesTheAccent(t *testing.T) {
+	green := func(c color.Color) bool {
+		r, g, b, _ := c.RGBA()
+		r, g, b = r>>8, g>>8, b>>8
+		return g > r+40 && g > b+30
+	}
+	for _, name := range []string{"Slime", "CRT", "torch"} {
+		a, tt := newTestApp(t, "metin\n")
+		found := false
+		for k := caretKind(0); k < caretCount(); k++ {
+			if caretName(k) == name {
+				a.caretKind, found = k, true
+			}
+		}
+		if !found {
+			t.Fatalf("no caret %s", name)
+		}
+		tt.SetSize(700, 420)
+		tt.Advance(200 * time.Millisecond)
+		img, n := tt.Image(), 0
+		for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+			for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+				if green(img.At(x, y)) {
+					n++
+				}
+			}
+		}
+		if n > 0 {
+			t.Errorf("%s: %d green pixels", name, n)
 		}
 	}
 }
