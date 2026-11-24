@@ -7573,6 +7573,74 @@ func (msgs Messages) MenusTheSidebarHeadingsAndButtons() string {
 	return Catalog.Format(msgs.locale, "menusTheSidebarHeadingsAndButtons", nil)
 }
 
+// MentionsCount says "{count, plural, one {#} other {#}}"
+// in the language the app shows.
+//
+// How many pages name the open one without a link, beside the section’s
+// heading.
+func MentionsCount(count int) string { return In(i18n.Locale()).MentionsCount(count) }
+
+// MentionsCount says "{count, plural, one {#} other {#}}"
+// in the language of msgs.
+//
+// How many pages name the open one without a link, beside the section’s
+// heading.
+func (msgs Messages) MentionsCount(count int) string {
+	return Catalog.Format(msgs.locale, "mentions_count", map[string]any{"count": count})
+}
+
+// MentionsLink says "Link"
+// in the language the app shows.
+//
+// The button that turns a page’s mention of the open page’s name into a
+// [[link]].
+func MentionsLink() string { return In(i18n.Locale()).MentionsLink() }
+
+// MentionsLink says "Link"
+// in the language of msgs.
+//
+// The button that turns a page’s mention of the open page’s name into a
+// [[link]].
+func (msgs Messages) MentionsLink() string {
+	return Catalog.Format(msgs.locale, "mentions_link", nil)
+}
+
+// MentionsLinked says "Linked the mention in “{title}”"
+// in the language the app shows.
+func MentionsLinked(title string) string { return In(i18n.Locale()).MentionsLinked(title) }
+
+// MentionsLinked says "Linked the mention in “{title}”"
+// in the language of msgs.
+func (msgs Messages) MentionsLinked(title string) string {
+	return Catalog.Format(msgs.locale, "mentions_linked", map[string]any{"title": title})
+}
+
+// MentionsNone says "No page names this one without a link"
+// in the language the app shows.
+func MentionsNone() string { return In(i18n.Locale()).MentionsNone() }
+
+// MentionsNone says "No page names this one without a link"
+// in the language of msgs.
+func (msgs Messages) MentionsNone() string {
+	return Catalog.Format(msgs.locale, "mentions_none", nil)
+}
+
+// MentionsTitle says "Unlinked mentions"
+// in the language the app shows.
+//
+// Under a page: the pages whose text names it (its title or an alias)
+// without a [[link]] to it.
+func MentionsTitle() string { return In(i18n.Locale()).MentionsTitle() }
+
+// MentionsTitle says "Unlinked mentions"
+// in the language of msgs.
+//
+// Under a page: the pages whose text names it (its title or an alias)
+// without a [[link]] to it.
+func (msgs Messages) MentionsTitle() string {
+	return Catalog.Format(msgs.locale, "mentions_title", nil)
+}
+
 // Midnight says "Midnight"
 // in the language the app shows.
 func Midnight() string { return In(i18n.Locale()).Midnight() }

@@ -237,6 +237,7 @@ type app struct {
 	crashOpen    bool                     // the dialog of a crash is shown
 	asking       askState                 // a question before an action that cannot be taken back (confirm.go)
 	tplAsk       tplAsk                   // the values a template asks for, while they are typed (templates.go)
+	mentions     mentionsState            // the open page's unlinked mentions, as last looked for (mentions.go)
 	crashPrev    string                   // the last session ended badly: its log, or ""
 	fonts        fontState                // the typefaces installed, and the lists of them (fonts.go)
 	fx           []caretFX                // the carets of the presets, made as they are used (caretfx.go)
@@ -1338,6 +1339,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 		a.lapseView(c)
 		a.dayExtras(c, p)
 		a.backlinksView(c, p)
+		a.mentionsView(c, p)
 		return
 	}
 	if p.Unreadable != "" { // shown, not edited: the editor would save what it shows over the file
@@ -1459,6 +1461,7 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	})
 	a.dayExtras(c, p)
 	a.backlinksView(c, p)
+	a.mentionsView(c, p)
 }
 
 // caretView draws the caret in a layer over the window - the editor clips
