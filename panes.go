@@ -451,7 +451,9 @@ func (a *app) noteVisit() {
 // trash, the tasks, a search, a tag - and the bar over it. In the Dock (docked) the window's bar is
 // above the areas and each area has its own header, so the pane has neither.
 func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked bool) {
-	col := ui.Column(c.Key("pane:" + a.ps.key(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false)
+	// It takes the keyboard when there is no text to: a region named after what it shows, so that the focus
+	// coming to it says where it is (#362).
+	col := ui.Column(c.Key("pane:" + a.ps.key(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false).Role(ui.RoleRegion).Label(a.paneTitle())
 	// what is drawn later, after the view is built, is drawn with this pane's state in the app: it is
 	// swapped in as the pane starts to be drawn, and out as it is done
 	col.Draw(func(*ui.Painter, ui.Rect) { a.paintIn(i) })
