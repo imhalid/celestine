@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -279,6 +280,24 @@ func TestRecurringMonthEnd(t *testing.T) {
 	feb29 := time.Date(2024, 2, 29, 9, 0, 0, 0, loc)
 	if got := (recur{n: 1, unit: "year"}).next(feb29); got != time.Date(2025, 2, 28, 9, 0, 0, 0, loc) {
 		t.Fatalf("2024-02-29 + 1 year = %s, want 2025-02-28", got.Format("2006-01-02"))
+	}
+	// ticked off month after month, it comes back to the 31st: the day it is meant for is kept while it is cut (#214)
+	line := "- [x] kira [[2026-01-31]] every:month"
+	var days []string
+	for _, now := range []time.Time{time.Date(2026, 2, 1, 9, 0, 0, 0, loc), time.Date(2026, 3, 1, 9, 0, 0, 0, loc), time.Date(2026, 4, 1, 9, 0, 0, 0, loc), time.Date(2026, 5, 1, 9, 0, 0, 0, loc)} {
+		next, ok := comesAgain(line, now)
+		if !ok {
+			t.Fatalf("no next of %q", line)
+		}
+		days = append(days, next)
+		line = strings.Replace(next, "[ ]", "[x]", 1)
+	}
+	want := []string{"- [ ] kira [[2026-02-28]] every:month@31", "- [ ] kira [[2026-03-31]] every:month", "- [ ] kira [[2026-04-30]] every:month@31", "- [ ] kira [[2026-05-31]] every:month"}
+	if !slices.Equal(days, want) {
+		t.Fatalf("month after month:\n%q\nwant\n%q", days, want)
+	}
+	if next, _ := comesAgain("- [x] doğum günü [[2024-02-29]] her:yıl", time.Date(2024, 3, 1, 0, 0, 0, 0, loc)); next != "- [ ] doğum günü [[2025-02-28]] her:yıl@29" {
+		t.Fatalf("a leap day: %q", next)
 	}
 }
 

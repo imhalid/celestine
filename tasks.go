@@ -1135,12 +1135,14 @@ func dueMatches(k taskItem, group int, now time.Time) bool {
 // ---- tasks that come again ----
 
 // everyTok is how a task says it comes again: every:week, every:2week,
-// her:hafta (day gün, week hafta, month ay, year yıl).
-var everyTok = regexp.MustCompile(`(?i)\s*\b(?:every|her):(\d*)(day|week|month|year|gün|gun|hafta|ay|yıl|yil)\b`)
+// her:hafta (day gün, week hafta, month ay, year yıl). A monthly or a yearly one whose day a shorter month cut says the
+// day it is meant for after it: every:month@31 (#214).
+var everyTok = regexp.MustCompile(`(?i)\s*\b(?:every|her):(\d*)(day|week|month|year|gün|gun|hafta|ay|yıl|yil)\b(?:@(\d{1,2}))?`)
 
 type recur struct {
 	n    int
 	unit string // day, week, month, year
+	day  int    // the day of the month it is meant for, when a shorter month cut it (@31); 0 for its date's own
 }
 
 // parseEvery reads the recurrence a task's text says.
@@ -1157,7 +1159,11 @@ func parseEvery(s string) (recur, bool) {
 		n = 1
 	}
 	unit := map[string]string{"day": "day", "gün": "day", "gun": "day", "week": "week", "hafta": "week", "month": "month", "ay": "month", "year": "year", "yıl": "year", "yil": "year"}[strings.ToLower(m[2])]
-	return recur{n, unit}, true
+	day, _ := strconv.Atoi(m[3])
+	if day > 31 || unit != "month" && unit != "year" {
+		day = 0
+	}
+	return recur{n, unit, day}, true
 }
 
 // taskLineRe matches a markdown task list item with its checkbox marker.
@@ -1177,6 +1183,9 @@ func (r recur) nextN(d time.Time, steps int) time.Time {
 			months *= 12
 		}
 		y, m, day := d.Date()
+		if r.day > 0 { // the day it is meant for, which a shorter month cut
+			day = r.day
+		}
 		first := time.Date(y, m+time.Month(months), 1, d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), d.Location())
 		lastDay := first.AddDate(0, 1, -1).Day()
 		if day > lastDay {
@@ -1233,10 +1242,20 @@ func comesAgain(line string, now time.Time) (string, bool) {
 		next = r.nextN(base, step)
 	}
 	day := "[[" + next.Format("2006-01-02") + "]]"
+	// the day it is meant for: written after the token while a shorter month cuts it, as the date alone would keep the
+	// cut day for good (the 31st, the 28th in February, then the 28th ever after); taken away when it is met again
+	tok := everyTok.FindString(m[3])
+	if i := strings.LastIndexByte(tok, '@'); i >= 0 {
+		tok = tok[:i]
+	}
+	if want := max(r.day, base.Day()); (r.unit == "month" || r.unit == "year") && next.Day() < want {
+		tok += "@" + strconv.Itoa(want)
+	}
+	text = everyTok.ReplaceAllString(text, tok)
 	if dated {
 		text = strings.Replace(text, "\x00", day, 1)
 	} else {
-		text = strings.TrimSpace(everyTok.ReplaceAllString(text, "")) + " " + day + everyTok.FindString(m[3])
+		text = strings.TrimSpace(everyTok.ReplaceAllString(text, "")) + " " + day + tok
 	}
 	return m[1] + "[ ]" + m[2] + text, true
 }
