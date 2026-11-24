@@ -148,11 +148,15 @@ const (
 // its text (a heading's is taller), or the block when it is lower - a table, a
 // picture - so that the grip is at its top.
 func (a *app) firstLineH(para int, h float32) float32 {
-	size := a.font.Size
+	size, lh := a.font.Size, a.font.LineHeight
 	if st := a.doc.Text().ParagraphStyleAt(min(para, a.doc.Text().Len())); st.Heading > 0 && a.theme != nil {
-		size *= a.theme.Headings[min(max(st.Heading, 1), 6)-1].Size
+		hs := a.theme.Headings[min(max(st.Heading, 1), 6)-1]
+		size *= hs.Size
+		if hs.LineHeight > 0 {
+			lh = hs.LineHeight
+		}
 	}
-	return min(h, size*a.font.LineHeight)
+	return min(h, size*lh)
 }
 
 // gutterW is the strip of the page's margin left of the text, where the grip

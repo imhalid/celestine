@@ -175,6 +175,9 @@ func layoutParagraph(p richtext.Paragraph, w float32, base ui.Font, th *richtext
 		h := th.Headings[min(max(st.Heading, 1), 6)-1]
 		f.Size *= h.Size
 		f.Weight = h.Weight
+		if h.LineHeight > 0 {
+			f.LineHeight = h.LineHeight
+		}
 	case st.CodeBlock:
 		f.Family = th.CodeFont
 		f.Size *= th.CodeSize

@@ -858,17 +858,21 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	th.Caret = invisible // ours is drawn over it
 	th.ParagraphSpacing = a.paraGap()
 	th.FirstLineIndent = a.firstIndent()
-	// A heading's room above stays under half its line: the editor moves ↑ by
-	// the height of the line the caret is on, and from a heading that must
-	// land in the paragraph above, not in the heading's own room.
+	// A heading's lines are closer than the text's, as a type scale sets them, so that a heading that wraps
+	// reads as one (#349). Its room above stays under half such a line: the editor moves ↑ by the height of
+	// the line the caret is on, and from a heading that must land in the paragraph above, not in the heading's
+	// own room. The room below is a little more (0.5 of the text), for the leading it gave up under its last line.
 	for i := range th.Headings {
-		th.Headings[i].Top, th.Headings[i].Bottom = 0.6, 0.3
+		th.Headings[i].Top, th.Headings[i].Bottom, th.Headings[i].LineHeight = 0.6, 0.5, headingLeading
 	}
 	a.theme = th
 	th.CodeFont = a.monoFont()
 	a.font = ui.Font{Family: a.editorFont(), Size: a.fontSize(), LineHeight: a.lineHeight(), Weight: a.fontWeight(), Features: a.fontFeatures()}
 	return tok, th
 }
+
+// headingLeading is the height of a heading's lines, in ems of its size.
+const headingLeading = 1.3
 
 // windowIn and windowOut are the window's coming forward and going behind. They do their work off the window's thread, not in the call
 // that raised them: showing or focusing a window is done by a frame that holds the app's lock (the welcome's Başla), and the system
