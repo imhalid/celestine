@@ -123,7 +123,7 @@ type paneState struct {
 
 // newPaneState is a pane with nothing in it: its scrolls and lists are its own.
 func newPaneState() paneState {
-	return paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: new(ui.ListState), grip: gripState{para: -1}}
+	return paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: &ui.ListState{MoveAnimation: &rowGlide}, grip: gripState{para: -1}}
 }
 
 // paneSet is the panes of the window: one, or two side by side. The pane in use has its state in

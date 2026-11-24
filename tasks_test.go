@@ -584,3 +584,45 @@ func TestInlineTasksInView(t *testing.T) {
 		}
 	}
 }
+
+// TestTasksGlide: a ticked task that leaves the open ones lets the rows under it glide up to their places, no frame
+// moving them far (#577); with reduced motion they are there at once.
+func TestTasksGlide(t *testing.T) {
+	for _, still := range []bool{false, true} {
+		a, tt := newTestApp(t, "- [ ] birinci\n- [ ] ikinci\n- [ ] üçüncü\n")
+		tt.SetSize(1100, 800)
+		a.settings.ReduceMotion = still
+		a.linksStale()
+		a.links.built = time.Time{}
+		tt.Frame()
+		if err := tt.Click("Görevler"); err != nil {
+			t.Fatal(err)
+		}
+		tt.Advance(300 * time.Millisecond)
+		from, ok := tt.Find("Görev: üçüncü")
+		if !ok {
+			t.Fatalf("no row: %v", tt.Texts())
+		}
+		if err := tt.Click("Görev: birinci"); err != nil {
+			t.Fatal(err)
+		}
+		ys := []float32{from.Y}
+		for range 250 {
+			tt.Advance(8 * time.Millisecond)
+			if r, ok := tt.Find("Görev: üçüncü"); ok {
+				ys = append(ys, r.Y)
+			}
+		}
+		end := ys[len(ys)-1]
+		if end >= from.Y {
+			t.Fatalf("still %v: the row did not go up: %v to %v", still, from.Y, end)
+		}
+		jump := float32(0)
+		for i := 1; i < len(ys); i++ {
+			jump = max(jump, ys[i-1]-ys[i])
+		}
+		if still && jump != from.Y-end || !still && jump > 3 {
+			t.Fatalf("reduce motion %v: a frame moved the row %v (%v to %v): %v", still, jump, from.Y, end, ys)
+		}
+	}
+}

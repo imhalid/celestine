@@ -20,6 +20,11 @@ var fx struct {
 	noShaders bool // the shader effects are off
 }
 
+// rowGlide is how the rows of the tasks go to their places as rows come, go or move around them (#577): the rows
+// under a ticked task that leaves close its gap rather than jump. MyGo puts them there at once with reduced motion,
+// the system's or the app's (motionFrame). A collection's own order glides already, as Ryugo's Sortable moves a row.
+var rowGlide = ui.Smooth
+
 // shadersOn reports whether this frame draws the app's shader effects: not when they are turned off, and not with
 // reduced motion, as each of them moves.
 func shadersOn() bool { return !fx.noShaders && !fx.still }
