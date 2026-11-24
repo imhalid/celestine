@@ -3559,16 +3559,6 @@ func (msgs Messages) CommonFindPage() string {
 	return Catalog.Format(msgs.locale, "common_findPage", nil)
 }
 
-// CommonFirstLineIndent says "First-line indent"
-// in the language the app shows.
-func CommonFirstLineIndent() string { return In(i18n.Locale()).CommonFirstLineIndent() }
-
-// CommonFirstLineIndent says "First-line indent"
-// in the language of msgs.
-func (msgs Messages) CommonFirstLineIndent() string {
-	return Catalog.Format(msgs.locale, "common_firstLineIndent", nil)
-}
-
 // CommonFocusMode says "Focus mode"
 // in the language the app shows.
 func CommonFocusMode() string { return In(i18n.Locale()).CommonFocusMode() }
@@ -4801,16 +4791,6 @@ func EditorAfterEscHJ() string { return In(i18n.Locale()).EditorAfterEscHJ() }
 // in the language of msgs.
 func (msgs Messages) EditorAfterEscHJ() string {
 	return Catalog.Format(msgs.locale, "editor_afterEscHJ", nil)
-}
-
-// EditorAsPrintFirstLine says "Like in print, the first line of each paragraph is indented, except after a heading, list or quote."
-// in the language the app shows.
-func EditorAsPrintFirstLine() string { return In(i18n.Locale()).EditorAsPrintFirstLine() }
-
-// EditorAsPrintFirstLine says "Like in print, the first line of each paragraph is indented, except after a heading, list or quote."
-// in the language of msgs.
-func (msgs Messages) EditorAsPrintFirstLine() string {
-	return Catalog.Format(msgs.locale, "editor_asPrintFirstLine", nil)
 }
 
 // EditorAsWideAsPage says "page width"

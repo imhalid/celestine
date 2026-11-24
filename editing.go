@@ -37,14 +37,6 @@ func (a *app) paraGap() float32 {
 	return defaultParaGap
 }
 
-// firstIndent is how far the first line of a paragraph is set in, in ems.
-func (a *app) firstIndent() float32 {
-	if g := a.settings.Indent; g > 0 && g <= 4 {
-		return float32(g)
-	}
-	return 0
-}
-
 // setFontSize puts the text's size at s, as far as it can go, and keeps it.
 func (a *app) setFontSize(s float64) {
 	s = min(max(s, minFont), maxFont)
@@ -232,10 +224,9 @@ func (a *app) pilcrow(p *ui.Painter, x, y, h float32, col ui.Color) {
 }
 
 // settingsText is the editor's settings of how the text is set and kept: the room between paragraphs,
-// the first line's indent, when the page is saved, and the white space shown.
+// when the page is saved, and the white space shown.
 func (a *app) settingsText(c *ui.Context) {
 	gap := float64(a.paraGap())
-	ind := float64(a.firstIndent())
 	settingGroup(c, "set-space",
 		func() {
 			settingRow(c, locales.CommonParagraphSpacing(), locales.EditorTheRoomBetweenTwo(), func() {
@@ -243,26 +234,10 @@ func (a *app) settingsText(c *ui.Context) {
 					ryugo.Slider(c.Key("set-gap"), &gap, 0, 1.5, ryugo.SliderOptions{Label: locales.CommonParagraphSpacing(), Step: 0.05, Format: func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) + " em" }})
 				})
 			})
-		},
-		func() {
-			settingRow(c, locales.CommonFirstLineIndent(), locales.EditorAsPrintFirstLine(), func() {
-				ui.Box(c).Width(260).Children(func() {
-					ryugo.Slider(c.Key("set-indent"), &ind, 0, 3, ryugo.SliderOptions{Label: locales.CommonFirstLineIndent(), Step: 0.25, Format: func(v float64) string {
-						if v == 0 {
-							return locales.CommonNone()
-						}
-						return strconv.FormatFloat(v, 'f', 2, 64) + " em"
-					}})
-				})
-			})
 		})
 	if g := float32(gap); g != a.paraGap() {
 		v := gap
 		a.settings.ParaGap = &v
-		a.saveSettingsSoon()
-	}
-	if float32(ind) != a.firstIndent() {
-		a.settings.Indent = ind
 		a.saveSettingsSoon()
 	}
 

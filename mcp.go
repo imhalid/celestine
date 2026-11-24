@@ -55,7 +55,6 @@ type Settings struct {
 	PageWidth  float64 `json:"pageWidth,omitempty"`  // the text column's, 720
 	// how the text is set and kept (editing.go)
 	ParaGap        *float64                  `json:"paraGap,omitempty"`        // the room between paragraphs, in ems: 0.55 when not set
-	Indent         float64                   `json:"indent,omitempty"`         // the first line's indent, in ems
 	NoAutoSave     bool                      `json:"noAutoSave,omitempty"`     // the page is saved by ⌘S, not by itself
 	SaveAfter      float64                   `json:"saveAfter,omitempty"`      // seconds of stillness before it saves by itself: 0.7 when not set
 	ShowSpaces     bool                      `json:"showSpaces,omitempty"`     // white space shown over the text: spaces

@@ -875,7 +875,6 @@ func (a *app) frameTheme(c *ui.Context) (*ryugo.Tokens, *richtext.Theme) {
 	th := richtext.DefaultTheme(t)
 	th.Caret = invisible // ours is drawn over it
 	th.ParagraphSpacing = a.paraGap()
-	th.FirstLineIndent = a.firstIndent()
 	// A heading's lines are closer than the text's, as a type scale sets them, so that a heading that wraps
 	// reads as one (#349). Its room above stays under half such a line: the editor moves ↑ by the height of
 	// the line the caret is on, and from a heading that must land in the paragraph above, not in the heading's

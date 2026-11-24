@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,19 +141,66 @@ func TestPlainTextKey(t *testing.T) {
 	}
 }
 
-// Paragraph spacing and the first line's indent reach the editor's theme.
+// Paragraph spacing reaches the editor's theme.
 func TestParagraphSettings(t *testing.T) {
 	a, tt := newTestApp(t, "bir\n\niki\n")
 	tt.Frame()
-	if a.theme.ParagraphSpacing != defaultParaGap || a.theme.FirstLineIndent != 0 {
-		t.Fatalf("defaults: %v %v", a.theme.ParagraphSpacing, a.theme.FirstLineIndent)
+	if a.theme.ParagraphSpacing != defaultParaGap {
+		t.Fatalf("default: %v", a.theme.ParagraphSpacing)
 	}
 	g := 1.2
-	a.settings.ParaGap, a.settings.Indent = &g, 1.5
+	a.settings.ParaGap = &g
 	tt.Frame()
 	tt.Frame()
-	if a.theme.ParagraphSpacing != 1.2 || a.theme.FirstLineIndent != 1.5 {
-		t.Fatalf("set: %v %v", a.theme.ParagraphSpacing, a.theme.FirstLineIndent)
+	if a.theme.ParagraphSpacing != 1.2 {
+		t.Fatalf("set: %v", a.theme.ParagraphSpacing)
+	}
+}
+
+// A paragraph begins at the page's left edge, whatever is before it: Enter at the end of one that a table follows
+// puts the new paragraph and the caret where the one above begins, and the table there too, though the settings
+// were saved when a first-line indent could be set (#590).
+func TestNewParagraphNotIndented(t *testing.T) {
+	a, tt := newTestApp(t, "## Başlık\n\nilk paragraf\n\n"+tableMD)
+	f := filepath.Join(t.TempDir(), "s.json")
+	os.WriteFile(f, []byte(`{"indent":1,"fontSize":19}`), 0o644)
+	a.settingsFile = f
+	a.loadSettings()
+	tt.SetSize(1000, 700)
+	tt.Frame()
+	tt.Frame()
+	if a.theme.FirstLineIndent != 0 {
+		t.Fatalf("the first line is indented by %v em", a.theme.FirstLineIndent)
+	}
+	start := func(i int) float32 { // the caret's x at rune i
+		t.Helper()
+		a.doc.SetSelection(i, i)
+		tt.Frame()
+		r, ok := a.doc.CaretRect()
+		if !ok {
+			t.Fatalf("no caret at %d", i)
+		}
+		return r.X
+	}
+	txt := a.doc.Text().String()
+	first := len([]rune(txt[:strings.Index(txt, "ilk paragraf")]))
+	left := start(first)
+	end := first + len([]rune("ilk paragraf"))
+	a.doc.SetSelection(end, end)
+	tt.Frame()
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if r, _ := a.doc.CaretRect(); math.Abs(float64(r.X-left)) > 0.5 {
+		t.Fatalf("the caret after Enter is at %v, the paragraph above begins at %v", r.X, left)
+	}
+	tt.Type("yeni")
+	tt.Frame()
+	txt = a.doc.Text().String()
+	for _, w := range []string{"yeni", "önce", "\ufffc", "sonra"} {
+		i := len([]rune(txt[:strings.Index(txt, w)]))
+		if x := start(i); math.Abs(float64(x-left)) > 0.5 {
+			t.Fatalf("%q begins at %v, the paragraph above at %v", w, x, left)
+		}
 	}
 }
 
@@ -205,7 +253,7 @@ func TestWhiteSpaceMarks(t *testing.T) {
 func TestEditorSettingsDefaults(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	a.settings = Settings{}
-	if a.paraGap() != defaultParaGap || a.saveAfter() != 700*time.Millisecond || a.firstIndent() != 0 || a.settings.NoAutoSave {
+	if a.paraGap() != defaultParaGap || a.saveAfter() != 700*time.Millisecond || a.settings.NoAutoSave {
 		t.Fatal("defaults are not the old behaviour")
 	}
 	f := filepath.Join(t.TempDir(), "s.json")

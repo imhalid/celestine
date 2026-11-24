@@ -557,7 +557,7 @@ func TestMCPRunnableCommandsReviewed(t *testing.T) {
 		"accountProfile", "shortcutsAndHelp", "addASubPage", "appTypeface", "biggerText", "caret", "changeTheCaret",
 		"closeThePane", "codeTypeface", "collectionSettings", "common_alwaysShowFocusRing", "common_automaticCover",
 		"common_back", "common_backUpNow", "common_caretSleep", "common_colorTheme", "common_cornerRoundness",
-		"common_corners", "common_cursorFx", "common_firstLineIndent", "common_focusMode", "common_fontSize",
+		"common_corners", "common_cursorFx", "common_focusMode", "common_fontSize",
 		"common_fontWeight", "common_goDate", "common_jellyEffect", "common_language", "common_ligatures",
 		"common_lineLength", "common_lineSpacing", "common_pageWidth", "common_paragraphSpacing", "common_quickNote",
 		"common_save", "common_settings", "common_sidePanel", "common_statistics", "common_syncNow", "common_tabWidth",

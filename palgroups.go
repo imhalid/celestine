@@ -33,7 +33,6 @@ var cmdCategory = map[string]string{
 	"common_cornerRoundness":     "common_appearance",
 	"common_corners":             "common_appearance",
 	"common_cursorFx":            "common_appearance",
-	"common_firstLineIndent":     "writing",
 	"common_focusMode":           "common_appearance",
 	"common_fontSize":            "writing",
 	"common_fontWeight":          "writing",
