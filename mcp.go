@@ -96,6 +96,7 @@ type Settings struct {
 	WhiteInSel     bool                      `json:"whiteInSel,omitempty"`     // the white space is shown only in the selection
 	Keys           map[string]string         `json:"keys,omitempty"`           // a command (its title) to a key of its own (keys.go)
 	Macros         map[string][]string       `json:"macros,omitempty"`         // a name to the commands it runs one after another
+	Snippets       []Snippet                 `json:"snippets,omitempty"`       // abbreviations put out as their text as they are typed (snippets.go)
 	AlwaysRing     bool                      `json:"alwaysRing,omitempty"`     // the row the keys are on is ringed, in the normal mode or not (kb.go)
 	LineChars      int                       `json:"lineChars,omitempty"`      // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
 	HideStatus     bool                      `json:"hideStatus,omitempty"`     // the status bar is not shown at all

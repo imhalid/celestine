@@ -54,6 +54,7 @@ type settingDef struct {
 var settingsApart = map[string]string{
 	"sidebarWidth":   "dragged at the sidebar's edge",
 	"dayFold":        "folded by their headings under a day of the journal",
+	"snippets":       "abbreviations and their texts, typed in the settings' list",
 	"sidebarName":    "a name typed in the settings, not turned on or off",
 	"updateChannel":  "trial versions are the maintainer's, set in the settings file: not shown (#407)",
 	"panelWidth":     "dragged at the side panel's edge",

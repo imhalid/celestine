@@ -12179,6 +12179,82 @@ func (msgs Messages) StatsCleared() string {
 	return Catalog.Format(msgs.locale, "stats_cleared", nil)
 }
 
+// SnippetsAbbreviation says "Abbreviation"
+// in the language the app shows.
+func SnippetsAbbreviation() string { return In(i18n.Locale()).SnippetsAbbreviation() }
+
+// SnippetsAbbreviation says "Abbreviation"
+// in the language of msgs.
+func (msgs Messages) SnippetsAbbreviation() string {
+	return Catalog.Format(msgs.locale, "snippets_abbreviation", nil)
+}
+
+// SnippetsAdd says "Add a snippet"
+// in the language the app shows.
+func SnippetsAdd() string { return In(i18n.Locale()).SnippetsAdd() }
+
+// SnippetsAdd says "Add a snippet"
+// in the language of msgs.
+func (msgs Messages) SnippetsAdd() string {
+	return Catalog.Format(msgs.locale, "snippets_add", nil)
+}
+
+// SnippetsHelp says "Type an abbreviation as a word and end it with a space, Enter or a period: it becomes its text. Undo brings back what…"
+// in the language the app shows.
+func SnippetsHelp() string { return In(i18n.Locale()).SnippetsHelp() }
+
+// SnippetsHelp says "Type an abbreviation as a word and end it with a space, Enter or a period: it becomes its text. Undo brings back what…"
+// in the language of msgs.
+func (msgs Messages) SnippetsHelp() string {
+	return Catalog.Format(msgs.locale, "snippets_help", nil)
+}
+
+// SnippetsRemove says "Remove {abbr}"
+// in the language the app shows.
+func SnippetsRemove(abbr string) string { return In(i18n.Locale()).SnippetsRemove(abbr) }
+
+// SnippetsRemove says "Remove {abbr}"
+// in the language of msgs.
+func (msgs Messages) SnippetsRemove(abbr string) string {
+	return Catalog.Format(msgs.locale, "snippets_remove", map[string]any{"abbr": abbr})
+}
+
+// SnippetsText says "Text"
+// in the language the app shows.
+func SnippetsText() string { return In(i18n.Locale()).SnippetsText() }
+
+// SnippetsText says "Text"
+// in the language of msgs.
+func (msgs Messages) SnippetsText() string {
+	return Catalog.Format(msgs.locale, "snippets_text", nil)
+}
+
+// SnippetsTextPlaceholder says "What it becomes"
+// in the language the app shows.
+func SnippetsTextPlaceholder() string { return In(i18n.Locale()).SnippetsTextPlaceholder() }
+
+// SnippetsTextPlaceholder says "What it becomes"
+// in the language of msgs.
+func (msgs Messages) SnippetsTextPlaceholder() string {
+	return Catalog.Format(msgs.locale, "snippets_textPlaceholder", nil)
+}
+
+// SnippetsTitle says "Snippets"
+// in the language the app shows.
+//
+// A setting: abbreviations of the user’s own that are replaced by their
+// text as they are typed.
+func SnippetsTitle() string { return In(i18n.Locale()).SnippetsTitle() }
+
+// SnippetsTitle says "Snippets"
+// in the language of msgs.
+//
+// A setting: abbreviations of the user’s own that are replaced by their
+// text as they are typed.
+func (msgs Messages) SnippetsTitle() string {
+	return Catalog.Format(msgs.locale, "snippets_title", nil)
+}
+
 // SoundsBlurb says "Notification chimes and cinematic startup music"
 // in the language the app shows.
 func SoundsBlurb() string { return In(i18n.Locale()).SoundsBlurb() }

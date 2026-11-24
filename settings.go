@@ -631,6 +631,7 @@ func (a *app) settingsEditorRest(c *ui.Context, cl ryugo.Colors) {
 		a.settings.NoDayExtras = !extras
 		a.saveSettings()
 	}
+	a.settingsSnippets(c)
 	shake := !a.settings.NoWobble
 	settingGroup(c, "set-wobble", func() {
 		settingRow(c, locales.CommonShimmer(), locales.SettingsWhileAgentMcpAdds(), func() {

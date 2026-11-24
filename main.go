@@ -1657,7 +1657,7 @@ func (a *app) track(c *ui.Context) {
 		text, v = a.doc.Text(), a.doc.Version()
 		n = text.Len()
 	}
-	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) {
+	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) || a.expandSnippet(text, caret, keyed) {
 		_, caret = a.doc.Selection()
 		text, v = a.doc.Text(), a.doc.Version()
 		style = text.ParagraphStyleAt(caret)
