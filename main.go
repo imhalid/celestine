@@ -671,6 +671,11 @@ func main() {
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
+		if runtime.GOOS == "darwin" {
+			// the window's corners concentric with its cards' (cardR: frameR), where macOS 26 would draw them at 26,
+			// the cards then at 18; drawn by the system, they still widen near a display's rounded corners (#446)
+			opts.CornerRadius = frameR + frameW
+		}
 		if a.settings.Glass && runtime.GOOS == "darwin" {
 			opts.Transparent = true
 			opts.Vibrancy = mygo.VibrancyGlass
