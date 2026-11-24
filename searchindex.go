@@ -17,7 +17,10 @@ import (
 // frame after it opens (sxWarm), and a search that comes before that is the old scan.
 //
 // The pairs are hashed into 65 536 rows, so two pairs may share a row: the rows only ever hold more
-// pages than they should, never fewer.
+// pages than they should, never fewer. A row of few pages is a list of them (sparse), and becomes bits
+// past sxSparseMax: a row of bits is as long as the last page that has its pair, and a text of many
+// letters (Chinese, Japanese) has pairs in most rows, each met by a few pages: 82 MB of bits at ten
+// thousand pages, where the lists are a few (#196).
 
 const (
 	sxRows      = 1 << 16
@@ -25,6 +28,7 @@ const (
 	sxScoreCap  = 600                  // pages looked into at most, for a broad query with a limit
 	sxCountCap  = 10                   // occurrences counted for a score
 	sxLetterBit = 36                   // a letter that is not ASCII
+	sxSparseMax = 32                   // the pages a row holds as a list, before it becomes bits
 )
 
 // sxDoc is a page in the index, as it was read.
@@ -42,17 +46,19 @@ type sxDoc struct {
 }
 
 type searchIndex struct {
-	docs  []*sxDoc
-	rows  [sxRows][]uint64
-	seen  [sxRows / 64]uint64 // the pairs of the page being put in
-	cand  []uint64            // the pages a query may find
-	epoch int
-	ready bool // every page of the library has been taken in once
-	queue []*Page
-	qcoll []*Collection
-	qpos  int
-	dead  int
-	gen   int // counts the times it was made again: a page of an earlier one is not in it
+	docs   []*sxDoc
+	rows   [sxRows][]uint64    // the pages that have a pair, as bits; nil while sparse holds them
+	sparse [sxRows][]int32     // or as a list, while they are few
+	seen   [sxRows / 64]uint64 // the pairs of the page being put in
+	cand   []uint64            // the pages a query may find
+	one    []uint64            // a sparse row as bits, for a query
+	epoch  int
+	ready  bool // every page of the library has been taken in once
+	queue  []*Page
+	qcoll  []*Collection
+	qpos   int
+	dead   int
+	gen    int // counts the times it was made again: a page of an earlier one is not in it
 }
 
 func newSearchIndex() *searchIndex { return &searchIndex{} }
@@ -76,8 +82,8 @@ func (x *searchIndex) put(id int, s string, on bool) {
 					x.seen[w] |= m
 					x.set(k, id)
 				}
-			} else if b := x.rows[k]; id>>6 < len(b) {
-				b[id>>6] &^= 1 << (uint(id) & 63)
+			} else {
+				x.unset(k, id)
 			}
 		}
 		prev = r
@@ -86,11 +92,45 @@ func (x *searchIndex) put(id int, s string, on bool) {
 
 func (x *searchIndex) set(k uint16, id int) {
 	b := x.rows[k]
+	if b == nil {
+		sp := x.sparse[k]
+		if slices.Contains(sp, int32(id)) {
+			return
+		}
+		if len(sp) < sxSparseMax {
+			x.sparse[k] = append(sp, int32(id))
+			return
+		}
+		for _, o := range sp { // too many for a list: bits from now on
+			b = setBit(b, int(o))
+		}
+		x.sparse[k] = nil
+	}
+	x.rows[k] = setBit(b, id)
+}
+
+// unset clears page id from row k.
+func (x *searchIndex) unset(k uint16, id int) {
+	if b := x.rows[k]; b != nil {
+		if id>>6 < len(b) {
+			b[id>>6] &^= 1 << (uint(id) & 63)
+		}
+		return
+	}
+	sp := x.sparse[k]
+	if i := slices.Index(sp, int32(id)); i >= 0 {
+		sp[i] = sp[len(sp)-1]
+		x.sparse[k] = sp[:len(sp)-1]
+	}
+}
+
+// setBit sets bit id of b, made longer as needed.
+func setBit(b []uint64, id int) []uint64 {
 	for len(b) <= id>>6 {
 		b = append(b, 0)
 	}
 	b[id>>6] |= 1 << (uint(id) & 63)
-	x.rows[k] = b
+	return b
 }
 
 // take puts page p, of collection c, in the index, or again when it was written since; epoch says it is still there.
@@ -160,7 +200,7 @@ func (x *searchIndex) sync(a *app) {
 func (x *searchIndex) reset() {
 	x.docs, x.dead, x.ready, x.queue, x.qcoll = nil, 0, false, nil, nil
 	for i := range x.rows {
-		x.rows[i] = nil
+		x.rows[i], x.sparse[i] = nil, nil
 	}
 	x.gen++
 }
@@ -239,7 +279,20 @@ func (x *searchIndex) query(a *app, pq query, limit int) []sxHit {
 		var prev rune = -1
 		for _, r := range t {
 			if prev >= 0 {
-				row := x.rows[pairRow(prev, r)]
+				k := pairRow(prev, r)
+				row := x.rows[k]
+				if row == nil { // a list: as bits, for the AND
+					if cap(x.one) < nw {
+						x.one = make([]uint64, nw)
+					}
+					row = x.one[:nw]
+					clear(row)
+					for _, id := range x.sparse[k] {
+						if int(id)>>6 < nw {
+							row[id>>6] |= 1 << (uint(id) & 63)
+						}
+					}
+				}
 				for i := range cand {
 					if i < len(row) {
 						cand[i] &= row[i]

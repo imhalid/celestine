@@ -167,3 +167,47 @@ func TestIndexedKeystrokes(t *testing.T) {
 	}
 	_ = fmt.Sprint
 }
+
+// A text of many letters (Chinese here) has pairs in most rows of the index, each met by a few pages: those rows are
+// lists, not bits as long as the last page that has the pair, and the index still finds what the scan finds (#196).
+func TestIndexRarePairsAreLists(t *testing.T) {
+	a := indexApp(t, 2000)
+	rng := rand.New(rand.NewSource(7))
+	han := func(n int) string {
+		var b strings.Builder
+		for range n {
+			b.WriteRune(rune(0x4E00 + rng.Intn(6000)))
+		}
+		return b.String()
+	}
+	pages := a.lib.Collections[0].All()
+	var mark *Page
+	for i, p := range pages[len(pages)-300:] { // the last ones: the longest rows of bits
+		text := han(200)
+		if i == 150 {
+			text += "独一无二的词"
+			mark = p
+		}
+		if err := p.SaveText(text + "\n"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.searchPages("x", 1, false) // brings the index up to date
+	bits, lists := 0, 0
+	for k := range a.sx.rows {
+		bits += len(a.sx.rows[k]) * 8
+		lists += len(a.sx.sparse[k]) * 4
+	}
+	if dense := sxRows * len(a.sx.docs) / 8; bits+lists > dense/8 {
+		t.Fatalf("the rows hold %d bytes of bits and %d of lists, an eighth of all bits is %d", bits, lists, dense/8)
+	}
+	if hits := a.searchPages("独一无二", 10, false); len(hits) != 1 || hits[0].page != mark {
+		t.Fatalf("the word: %d hits", len(hits))
+	}
+	a.sx.ready = false
+	scan := a.searchPages("独一无二", 10, false)
+	a.sx.ready = true
+	if len(scan) != 1 {
+		t.Fatalf("the scan: %d hits", len(scan))
+	}
+}
