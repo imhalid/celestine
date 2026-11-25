@@ -36,11 +36,11 @@ func TestTypedLinkBecomesChip(t *testing.T) {
 	typeEach(tt, " [[Alfa]]")
 	tt.Frame()
 	tt.Frame()
-	if got := mdOf(a.doc); got != "Önce [[Alfa]]" {
+	if got := mdOf(a.pane().doc); got != "Önce [[Alfa]]" {
 		t.Fatalf("written: %q", got)
 	}
 	n := 0
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			if ch, ok := att.Data.(*chip); ok && ch.target == "Alfa" {
 				n++
@@ -51,7 +51,7 @@ func TestTypedLinkBecomesChip(t *testing.T) {
 		t.Fatalf("chips: %d", n)
 	}
 	typeEach(tt, "x")
-	if got := mdOf(a.doc); got != "Önce [[Alfa]]x" {
+	if got := mdOf(a.pane().doc); got != "Önce [[Alfa]]x" {
 		t.Fatalf("after: %q", got)
 	}
 }
@@ -75,7 +75,7 @@ func TestMoveItem(t *testing.T) {
 
 func chipTargets(a *app) []string {
 	var out []string
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			if ch, ok := att.Data.(*chip); ok {
 				out = append(out, ch.target)
@@ -90,7 +90,7 @@ func chipTargets(a *app) []string {
 func TestWikiMenu(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n")
 	for _, n := range []string{"Alfa", "Beta"} {
-		if _, err := a.page.Coll.NewPage(nil, n); err != nil {
+		if _, err := a.pane().page.Coll.NewPage(nil, n); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -99,7 +99,7 @@ func TestWikiMenu(t *testing.T) {
 	typeEach(tt, " [[")
 	tt.Frame()
 	tt.Frame()
-	if got := strings.TrimSpace(a.doc.Text().String()); got != "Önce [[]]" {
+	if got := strings.TrimSpace(a.pane().doc.Text().String()); got != "Önce [[]]" {
 		t.Fatalf("not closed: %q", got)
 	}
 	if !a.slash.open || a.slash.sign != "[[" {
@@ -116,7 +116,7 @@ func TestWikiMenu(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tt.Frame()
-	if got := mdOf(a.doc); got != "Önce [[Alfa]]" || a.slash.open {
+	if got := mdOf(a.pane().doc); got != "Önce [[Alfa]]" || a.slash.open {
 		t.Fatalf("not linked: %q open %v", got, a.slash.open)
 	}
 	if got := chipTargets(a); len(got) != 1 || got[0] != "Alfa" {
@@ -132,7 +132,7 @@ func TestWikiTypedClosing(t *testing.T) {
 	typeEach(tt, " [[Beta]]")
 	tt.Frame()
 	tt.Frame()
-	if got := mdOf(a.doc); got != "Önce [[Beta]]" {
+	if got := mdOf(a.pane().doc); got != "Önce [[Beta]]" {
 		t.Fatalf("written: %q", got)
 	}
 	if got := chipTargets(a); len(got) != 1 || got[0] != "Beta" {
@@ -149,7 +149,7 @@ func TestChipPosAndDateEdit(t *testing.T) {
 	a, tt := newTestApp(t, "Oku [[2026-11-05]] ve\n")
 	tt.Frame()
 	ch := &chip{kind: "date", target: "2026-11-05"}
-	if got := a.chipPos(ch); got != 4 {
+	if got := a.chipPos(a.pane(), ch); got != 4 {
 		t.Fatalf("chip at %d", got)
 	}
 	d, _ := parseDay(ch.target)
@@ -185,7 +185,7 @@ func TestSettingsTakeEffect(t *testing.T) {
 // Under a page, the pages that link to it.
 func TestBacklinks(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	b, _ := c.NewPage(nil, "Beta")
 	g, _ := c.NewPage(nil, "Gama")
 	b.SaveText("Bkz. [[Sayfa]] ve [[sayfa|takma ad]]\n")
@@ -206,7 +206,7 @@ func TestBacklinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page != b {
+	if a.pane().page != b {
 		t.Fatal("did not open the page that links")
 	}
 }
@@ -217,13 +217,13 @@ func TestJournalToday(t *testing.T) {
 	a.clock = func() time.Time { return time.Date(2026, 11, 6, 9, 0, 0, 0, time.Local) }
 	tt.Key(ui.Cmd, ui.KeyJ)
 	tt.Frame()
-	if a.page == nil || a.page.Title != "2026-11-06" || a.page.Coll.Name != journalName {
-		t.Fatalf("not today's page: %+v", a.page)
+	if a.pane().page == nil || a.pane().page.Title != "2026-11-06" || a.pane().page.Coll.Name != journalName {
+		t.Fatalf("not today's page: %+v", a.pane().page)
 	}
-	first := a.page
+	first := a.pane().page
 	a.open(a.lib.Collections[0].Pages[0])
 	a.openToday()
-	if a.page != first || len(first.Coll.All()) != 1 {
+	if a.pane().page != first || len(first.Coll.All()) != 1 {
 		t.Fatalf("a second page for the day: %d", len(first.Coll.All()))
 	}
 }
@@ -298,9 +298,9 @@ func TestJournalRules(t *testing.T) {
 	today := time.Date(2026, 11, 6, 9, 0, 0, 0, time.Local)
 	a.clock = func() time.Time { return today }
 	a.openToday()
-	j := a.page.Coll
-	if !j.Journal || a.page.Title != "2026-11-06" {
-		t.Fatalf("today's page: %+v", a.page)
+	j := a.pane().page.Coll
+	if !j.Journal || a.pane().page.Title != "2026-11-06" {
+		t.Fatalf("today's page: %+v", a.pane().page)
 	}
 	if _, err := j.NewPage(nil, "başka"); err == nil {
 		t.Fatal("the library made another page in the journal")
@@ -326,8 +326,8 @@ func TestJournalRules(t *testing.T) {
 	// a random day is another page
 	a.openToday()
 	a.openRandomDay()
-	if a.page == nil || a.page.Title == "2026-11-06" {
-		t.Fatalf("random: %+v", a.page)
+	if a.pane().page == nil || a.pane().page.Title == "2026-11-06" {
+		t.Fatalf("random: %+v", a.pane().page)
 	}
 	// the format: set, saved, every title follows
 	a.openCollSettings(j, 0)
@@ -344,7 +344,7 @@ func TestJournalRules(t *testing.T) {
 	a.openToday()
 	tt.Frame()
 	tt.Frame()
-	a.startRename(a.page, a.page.Title)
+	a.startRename(a.pane().page, a.pane().page.Title)
 	if a.renaming != nil {
 		t.Fatal("a day is renamed")
 	}
@@ -353,15 +353,15 @@ func TestJournalRules(t *testing.T) {
 // The sidebar's button closes every branch.
 func TestCollapseAll(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	child, _ := a.page.Coll.NewPage(a.page, "Çocuk")
+	child, _ := a.pane().page.Coll.NewPage(a.pane().page, "Çocuk")
 	_ = child
-	a.page.Open, a.page.Coll.Open = true, true
+	a.pane().page.Open, a.pane().page.Coll.Open = true, true
 	tt.Frame()
 	if err := tt.Click("Hepsini kapat"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page.Open || a.page.Coll.Open {
+	if a.pane().page.Open || a.pane().page.Coll.Open {
 		t.Fatal("not closed")
 	}
 }
@@ -372,9 +372,9 @@ func TestCalendarView(t *testing.T) {
 	if err := coll.SetView("calendar"); err != nil {
 		t.Fatal(err)
 	}
-	a.calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
+	a.pane().calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
 	a.openCollection(coll)
-	a.calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
+	a.pane().calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
 	tt.Frame()
 	tt.Frame()
 	if !tt.HasText("Kasım 2026") || !tt.HasText("Pzt") {
@@ -394,12 +394,12 @@ func TestCalendarView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	if !a.calOpen || !tt.HasText(locales.ViewsOpenLabel("Anna Karenina")) || !tt.HasText("25 Ekim 2026, Pazar") {
+	if !a.pane().calOpen || !tt.HasText(locales.ViewsOpenLabel("Anna Karenina")) || !tt.HasText("25 Ekim 2026, Pazar") {
 		t.Fatalf("the day did not open: %v", tt.Texts())
 	}
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(600 * time.Millisecond)
-	if a.calOpen {
+	if a.pane().calOpen {
 		t.Fatal("Esc did not close the day")
 	}
 	_ = a
@@ -469,21 +469,21 @@ func TestCalendarDayList(t *testing.T) {
 	}
 	coll.SetView("calendar")
 	a.openCollection(coll)
-	a.calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
+	a.pane().calMonth = time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
 	tt.Frame()
 	tt.Frame()
 	if err := tt.Click("Gün: 2026-11-04"); err != nil {
 		t.Fatalf("no day: %v %v", err, tt.Texts())
 	}
 	tt.Advance(600 * time.Millisecond)
-	if !a.calOpen || !tt.HasText("Beş") || !tt.HasText("4 Kasım 2026, Çarşamba") {
+	if !a.pane().calOpen || !tt.HasText("Beş") || !tt.HasText("4 Kasım 2026, Çarşamba") {
 		t.Fatalf("no list: %v", tt.Texts())
 	}
 	if err := tt.Click("Günü kapat"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	if a.calOpen {
+	if a.pane().calOpen {
 		t.Fatal("not closed")
 	}
 }
@@ -511,10 +511,10 @@ func TestCollectionScrolls(t *testing.T) {
 // come to.
 func TestTreeArrowKeys(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	b, _ := c.NewPage(nil, "Beta")
 	g, _ := c.NewPage(nil, "Gama")
-	first := a.page
+	first := a.pane().page
 	tt.Frame()
 	tt.Frame()
 	if err := tt.Click("Sayfa: Sayfa"); err != nil {
@@ -523,19 +523,19 @@ func TestTreeArrowKeys(t *testing.T) {
 	tt.Frame()
 	tt.Key(0, ui.KeyDown)
 	tt.Advance(200 * time.Millisecond)
-	if a.page != b {
-		t.Fatalf("↓ did not go to the page after: %v", a.page.Title)
+	if a.pane().page != b {
+		t.Fatalf("↓ did not go to the page after: %v", a.pane().page.Title)
 	}
 	tt.Key(0, ui.KeyDown)
 	tt.Advance(200 * time.Millisecond)
-	if a.page != g {
-		t.Fatalf("↓ again: %v", a.page.Title)
+	if a.pane().page != g {
+		t.Fatalf("↓ again: %v", a.pane().page.Title)
 	}
 	tt.Key(0, ui.KeyUp)
 	tt.Key(0, ui.KeyUp)
 	tt.Advance(200 * time.Millisecond)
-	if a.page != first {
-		t.Fatalf("↑↑ did not go back: %v", a.page.Title)
+	if a.pane().page != first {
+		t.Fatalf("↑↑ did not go back: %v", a.pane().page.Title)
 	}
 }
 
@@ -604,23 +604,23 @@ func TestPastedLinkBecomesChip(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n")
 	tt.Frame()
 	tt.Key(ui.Cmd, ui.KeyDown)
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	paste := " [[Logical Replication & Write-Ahead]] ve [[Ikinci]] son"
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(caret, caret, richtext.NewText(paste))
 		ed.Select(caret+len([]rune(paste)), caret+len([]rune(paste)))
 	})
 	tt.Frame()
 	tt.Frame()
 	if got := chipTargets(a); len(got) != 2 || got[0] != "Logical Replication & Write-Ahead" || got[1] != "Ikinci" {
-		t.Fatalf("chips: %v in %q", got, a.doc.Text().String())
+		t.Fatalf("chips: %v in %q", got, a.pane().doc.Text().String())
 	}
-	if got := mdOf(a.doc); got != "Önce [[Logical Replication & Write-Ahead]] ve [[Ikinci]] son" {
+	if got := mdOf(a.pane().doc); got != "Önce [[Logical Replication & Write-Ahead]] ve [[Ikinci]] son" {
 		t.Fatalf("written: %q", got)
 	}
-	_, c := a.doc.Selection()
-	if c != a.doc.Text().Len() {
-		t.Fatalf("the caret is not at the end: %d of %d", c, a.doc.Text().Len())
+	_, c := a.pane().doc.Selection()
+	if c != a.pane().doc.Text().Len() {
+		t.Fatalf("the caret is not at the end: %d of %d", c, a.pane().doc.Text().Len())
 	}
 }
 
@@ -630,11 +630,11 @@ func TestSettingsScreen(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.SetSize(1300, 800)
 	tt.Frame()
-	page := a.page
+	page := a.pane().page
 	a.openSettings()
 	tt.Frame()
 	tt.Advance(900 * time.Millisecond)
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("the settings did not open")
 	}
 	for _, s := range settingsSections {
@@ -653,28 +653,28 @@ func TestSettingsScreen(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if a.settingsTab != tabMCP {
-		t.Fatalf("tab %d", a.settingsTab)
+	if a.pane().settingsTab != tabMCP {
+		t.Fatalf("tab %d", a.pane().settingsTab)
 	}
 	// Esc goes back to the page
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(500 * time.Millisecond)
-	if a.settingsOpen || a.page != page {
-		t.Fatalf("Esc did not go back: settings %v, page %v", a.settingsOpen, a.page != nil)
+	if a.pane().settingsOpen || a.pane().page != page {
+		t.Fatalf("Esc did not go back: settings %v, page %v", a.pane().settingsOpen, a.pane().page != nil)
 	}
 	// ⌘, opens, and shuts
 	a.toggleSettings()
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("toggle did not open")
 	}
 	a.toggleSettings()
-	if a.settingsOpen || a.page != page {
+	if a.pane().settingsOpen || a.pane().page != page {
 		t.Fatal("toggle did not go back to the page")
 	}
 	// another view takes it away
 	a.openSettings()
 	a.openTrash()
-	if a.settingsOpen {
+	if a.pane().settingsOpen {
 		t.Fatal("the settings stayed under the trash")
 	}
 }

@@ -47,12 +47,12 @@ func spaced(spans []ui.Span) []ui.Span {
 
 // linkRoom leaves the room of its icon before each web link of paragraph p (linkcards.go), in the spans the editor
 // draws it with.
-func (a *app) linkRoom(p int, spans []ui.Span) []ui.Span {
-	if !linkIcons || a.doc == nil {
+func (a *app) linkRoom(pn *paneState, p int, spans []ui.Span) []ui.Span {
+	if !linkIcons || pn.doc == nil {
 		return spans
 	}
-	t := a.doc.Text()
-	pt := a.paraTableOf(t) // p is the paragraph's number, not a rune of it (#509)
+	t := pn.doc.Text()
+	pt := a.paraTableOf(pn, t) // p is the paragraph's number, not a rune of it (#509)
 	if p < 0 || p >= len(pt.start) {
 		return spans
 	}
@@ -114,13 +114,13 @@ func splitLinkRoom(spans []ui.Span, size float32, linkAt func(at int) string) []
 }
 
 // editorSpans are paragraph p's spans as the page editor draws them: spaced, and a block of code's colored.
-func (a *app) editorSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
+func (a *app) editorSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	// the room of a link's icon, the last: what splits or colors the spans before would take it with them
-	return a.linkRoom(p, a.paintSpans(p, st, spaced(spans)))
+	return a.linkRoom(pn, p, a.paintSpans(pn, p, st, spaced(spans)))
 }
 
 // paintSpans are paragraph p's spans colored and struck as the page editor draws them.
-func (a *app) paintSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
+func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans []ui.Span) []ui.Span {
 	if st.List == richtext.Tasks && st.Checked {
 		for i := range spans { // a fold's chip on a task done is not struck through (#494)
 			if spans[i].Text == string(richtext.ObjectReplacement) {
@@ -131,11 +131,11 @@ func (a *app) paintSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []u
 			return out
 		}
 	}
-	if a.grip.dragging && p >= a.grip.paras[0] && p <= a.grip.paras[1] { // the block dragged (blockui.go)
-		return a.blockSpans(p, spans)
+	if pn.grip.dragging && p >= pn.grip.paras[0] && p <= pn.grip.paras[1] { // the block dragged (blockui.go)
+		return a.blockSpans(pn, p, spans)
 	}
 	if !st.CodeBlock {
-		if out, ok := a.lapseSpans(p, spans); ok { // the words in the colors of their days
+		if out, ok := a.lapseSpans(pn, p, spans); ok { // the words in the colors of their days
 			return out
 		}
 	}
@@ -144,7 +144,7 @@ func (a *app) paintSpans(p int, st richtext.ParagraphStyle, spans []ui.Span) []u
 	}
 	lang, ok := strings.CutPrefix(st.ID, codeIDPrefix)
 	if !ok { // a line after the block's first, which holds the language
-		lang = a.codeLangOf(p)
+		lang = a.codeLangOf(pn, p)
 	}
 	l := editor.LanguageNamed(lang)
 	if l == nil || l.Tokenizer == nil {
@@ -196,8 +196,8 @@ type codeLangs struct {
 }
 
 // codeLangOf is the language of the block of code paragraph p is in: its first line's.
-func (a *app) codeLangOf(p int) string {
-	t := a.doc.Text()
+func (a *app) codeLangOf(pn *paneState, p int) string {
+	t := pn.doc.Text()
 	cl := &a.codeLangs
 	if cl.langs == nil || cl.text != t {
 		cl.text, cl.langs = t, cl.langs[:0]

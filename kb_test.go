@@ -112,34 +112,34 @@ func (k *kbd) frames() {
 func TestKbNormalModeEntersAndLeaves(t *testing.T) {
 	k := newKbd(t, "bir iki\n")
 	k.frames()
-	if !k.a.focused {
+	if !k.a.pane().focused {
 		t.Fatal("the editor has no focus to start with")
 	}
 	k.press("esc")
 	k.frames()
-	if !k.a.kb.normal || k.a.focused {
-		t.Fatalf("not in the normal mode: normal %v focused %v", k.a.kb.normal, k.a.focused)
+	if !k.a.kb.normal || k.a.pane().focused {
+		t.Fatalf("not in the normal mode: normal %v focused %v", k.a.kb.normal, k.a.pane().focused)
 	}
-	before := k.a.doc.Text().String()
+	before := k.a.pane().doc.Text().String()
 	k.press("j", "k", "l") // letters, here, are commands: they write nothing
-	if k.a.doc.Text().String() != before {
-		t.Fatalf("letters were written in the normal mode: %q", k.a.doc.Text().String())
+	if k.a.pane().doc.Text().String() != before {
+		t.Fatalf("letters were written in the normal mode: %q", k.a.pane().doc.Text().String())
 	}
 	k.press("i")
 	k.frames()
-	if k.a.kb.normal || !k.a.focused {
-		t.Fatalf("i did not go back to writing: normal %v focused %v", k.a.kb.normal, k.a.focused)
+	if k.a.kb.normal || !k.a.pane().focused {
+		t.Fatalf("i did not go back to writing: normal %v focused %v", k.a.kb.normal, k.a.pane().focused)
 	}
 	k.write("x")
-	if !strings.Contains(k.a.doc.Text().String(), "x") {
-		t.Fatalf("not writing: %q", k.a.doc.Text().String())
+	if !strings.Contains(k.a.pane().doc.Text().String(), "x") {
+		t.Fatalf("not writing: %q", k.a.pane().doc.Text().String())
 	}
 }
 
 // j and k move over the rows of a list, a count goes further, gg and G go to the ends, Enter opens.
 func TestKbListRows(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	for _, n := range []string{"B", "C", "D", "E"} {
 		c.NewPage(nil, n)
 	}
@@ -176,8 +176,8 @@ func TestKbListRows(t *testing.T) {
 	want := k.a.kb.selKey
 	k.press("enter")
 	k.frames()
-	if k.a.coll != nil || k.a.page == nil || !strings.HasSuffix(want, ":"+k.a.page.Dir) && !strings.HasSuffix(want, k.a.page.Dir) {
-		t.Fatalf("enter did not open %q: page %v coll %v", want, k.a.page, k.a.coll)
+	if k.a.pane().coll != nil || k.a.pane().page == nil || !strings.HasSuffix(want, ":"+k.a.pane().page.Dir) && !strings.HasSuffix(want, k.a.pane().page.Dir) {
+		t.Fatalf("enter did not open %q: page %v coll %v", want, k.a.pane().page, k.a.pane().coll)
 	}
 }
 
@@ -192,18 +192,18 @@ func TestKbLeader(t *testing.T) {
 	}
 	k.press("s")
 	k.frames()
-	if !k.a.settingsOpen {
+	if !k.a.pane().settingsOpen {
 		t.Fatal("Space s did not open the settings")
 	}
 	// Esc goes back
 	k.press("esc")
 	k.frames()
-	if k.a.settingsOpen {
+	if k.a.pane().settingsOpen {
 		t.Fatal("Esc did not leave the settings")
 	}
 	k.press("space", "i")
 	k.frames()
-	if !k.a.statsScreen {
+	if !k.a.pane().statsScreen {
 		t.Fatal("Space i: no statistics")
 	}
 	// a key that is nothing says so
@@ -216,9 +216,9 @@ func TestKbLeader(t *testing.T) {
 // m a marks the place, ' a goes back to it.
 func TestKbMarks(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	p2, _ := c.NewPage(nil, "Öteki")
-	first := k.a.page
+	first := k.a.pane().page
 	k.press("esc")
 	k.press("m", "a")
 	if _, ok := k.a.kb.marks['a']; !ok {
@@ -229,8 +229,8 @@ func TestKbMarks(t *testing.T) {
 	k.press("esc")
 	k.press("'", "a")
 	k.frames()
-	if k.a.page != first {
-		t.Fatalf("' a went to %v", k.a.page.Title)
+	if k.a.pane().page != first {
+		t.Fatalf("' a went to %v", k.a.pane().page.Title)
 	}
 	k.press("'", "q")
 	if !k.tt.HasText(locales.KeysNoMark("q")) {
@@ -241,7 +241,7 @@ func TestKbMarks(t *testing.T) {
 // f puts letters on what can be pressed; a letter presses it.
 func TestKbHints(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	c.NewPage(nil, "Hedef")
 	k.a.openCollection(c)
 	k.frames()
@@ -272,8 +272,8 @@ func TestKbHints(t *testing.T) {
 	if k.a.kb.hints {
 		t.Fatal("hints still shown")
 	}
-	if k.a.page == nil || k.a.coll != nil {
-		t.Fatalf("the letters did not open the page: page %v coll %v", k.a.page, k.a.coll)
+	if k.a.pane().page == nil || k.a.pane().coll != nil {
+		t.Fatalf("the letters did not open the page: page %v coll %v", k.a.pane().page, k.a.pane().coll)
 	}
 	// a letter that is no label cancels
 	k.press("esc")
@@ -336,8 +336,8 @@ func TestKbCommandLine(t *testing.T) {
 	k.frames()
 	k.press("enter")
 	k.frames()
-	_, caret := k.a.doc.Selection()
-	if got := k.a.doc.Text().Slice(caret, caret+2).String(); got != "üç" {
+	_, caret := k.a.pane().doc.Selection()
+	if got := k.a.pane().doc.Text().Slice(caret, caret+2).String(); got != "üç" {
 		t.Fatalf(":3 went to %q", got)
 	}
 	run := func(line string) {
@@ -364,12 +364,12 @@ func TestKbCommandLine(t *testing.T) {
 	if k.a.settings.Theme != 2 {
 		t.Fatalf("theme %d", k.a.settings.Theme)
 	}
-	k.a.dirty = true
+	k.a.pane().dirty = true
 	run("w")
-	if k.a.dirty {
+	if k.a.pane().dirty {
 		t.Fatal(":w did not save")
 	}
-	run("e " + k.a.page.Title)
+	run("e " + k.a.pane().page.Title)
 	for _, bad := range []string{"zzz", "set nope=1", "set fontsize=abc", "e hiçbirsayfaadı"} {
 		if it := k.a.paletteItems(":" + bad); len(it) == 0 || it[0].off == "" {
 			t.Errorf(":%s should say why not: %+v", bad, it)
@@ -382,12 +382,12 @@ func TestKbRegions(t *testing.T) {
 	k := newKbd(t, "x\n")
 	k.press("cmd+1")
 	k.frames()
-	if k.a.focused {
+	if k.a.pane().focused {
 		t.Fatal("the text kept the focus after ⌘1")
 	}
 	k.press("cmd+3")
 	k.frames()
-	if !k.a.focused {
+	if !k.a.pane().focused {
 		t.Fatal("⌘3 did not go to the text")
 	}
 }
@@ -424,20 +424,20 @@ func TestKbOnlyScenario(t *testing.T) {
 		}
 		t.Fatalf("%q does not give %q: %v", query, title, got)
 	}
-	pages := len(a.page.Coll.All())
-	cmd("yeni sayfa", "Yeni "+pageNoun(a.page.Coll)+": "+a.page.Coll.Name)
-	if len(a.page.Coll.All()) != pages+1 {
+	pages := len(a.pane().page.Coll.All())
+	cmd("yeni sayfa", "Yeni "+pageNoun(a.pane().page.Coll)+": "+a.pane().page.Coll.Name)
+	if len(a.pane().page.Coll.All()) != pages+1 {
 		t.Fatal("no new page")
 	}
 	k.press("enter") // the new page's title has the focus: Enter goes to the text
 	k.frames()
 	k.write("Klavyeyle yazılan satır")
 	k.frames()
-	if !strings.Contains(a.doc.Text().String(), "Klavyeyle yazılan satır") {
-		t.Fatalf("not written: %q", a.doc.Text().String())
+	if !strings.Contains(a.pane().doc.Text().String(), "Klavyeyle yazılan satır") {
+		t.Fatalf("not written: %q", a.pane().doc.Text().String())
 	}
-	if a.page.Coll.SubPages {
-		parent := a.page
+	if a.pane().page.Coll.SubPages {
+		parent := a.pane().page
 		cmd("alt sayfa", "Alt sayfa ekle: "+parent.Title)
 		if len(parent.Children) != 1 {
 			t.Fatal("no sub-page")
@@ -455,9 +455,9 @@ func TestKbOnlyScenario(t *testing.T) {
 	}
 	cmd("otomatik kayıt", "Otomatik kayıt: kapat")
 	cmd("geri al", "Geri al")
-	p := a.page
+	p := a.pane().page
 	cmd("çöpe taşı", "Çöpe taşı: "+p.Title)
-	if a.page == p {
+	if a.pane().page == p {
 		t.Fatal("the page was not thrown away")
 	}
 	k.press("cmd+k")
@@ -466,21 +466,21 @@ func TestKbOnlyScenario(t *testing.T) {
 	k.frames()
 	k.press("enter")
 	k.frames()
-	if a.page == nil || !strings.Contains(a.page.Title, "") {
+	if a.pane().page == nil || !strings.Contains(a.pane().page.Title, "") {
 		t.Fatal("search did not open a page")
 	}
 	cmd("markdown olarak dışa aktar (zip)", "Markdown olarak dışa aktar (zip)")
 }
 
-func (k *kbd) text() string { return k.a.doc.Text().String() }
+func (k *kbd) text() string { return k.a.pane().doc.Text().String() }
 
-func (k *kbd) caret() int { _, c := k.a.doc.Selection(); return c }
+func (k *kbd) caret() int { _, c := k.a.pane().doc.Selection(); return c }
 
 // With the setting, the page's normal mode moves and edits as Vim does.
 func TestKbVimMotions(t *testing.T) {
 	k := newKbd(t, "bir iki üç\n\ndört beş\n\naltı\n")
 	k.a.settings.VimKeys = true
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.frames()
 	k.press("esc")
 	k.frames()
@@ -521,7 +521,7 @@ func TestKbVimMotions(t *testing.T) {
 		t.Fatalf("j: %d", k.caret())
 	}
 	k.press("2", "j")
-	if k.a.doc.Text().ParagraphStyleAt(0).Heading != 0 {
+	if k.a.pane().doc.Text().ParagraphStyleAt(0).Heading != 0 {
 		t.Fatal("style")
 	}
 	k.press("g", "g")
@@ -559,8 +559,8 @@ func TestKbVimMotions(t *testing.T) {
 	// o opens a line below and writes in it
 	k.press("o")
 	k.frames()
-	if k.a.kb.normal || !k.a.focused {
-		t.Fatalf("o did not go to writing: normal %v focused %v", k.a.kb.normal, k.a.focused)
+	if k.a.kb.normal || !k.a.pane().focused {
+		t.Fatalf("o did not go to writing: normal %v focused %v", k.a.kb.normal, k.a.pane().focused)
 	}
 	k.write("yeni satır")
 	if !strings.Contains(k.text(), "yeni satır") {
@@ -584,11 +584,11 @@ func TestKbTurkishLayout(t *testing.T) {
 	}
 	k.tt.TypeKey(ui.Shift, ui.Key7, "/")
 	k.frames()
-	if !k.a.find.open || k.a.kb.help {
-		t.Fatalf("Shift+7, the / of Turkish Q: find %v, the keys %v", k.a.find.open, k.a.kb.help)
+	if !k.a.pane().find.open || k.a.kb.help {
+		t.Fatalf("Shift+7, the / of Turkish Q: find %v, the keys %v", k.a.pane().find.open, k.a.kb.help)
 	}
-	k.a.find.open = false
-	k.a.refocus = false
+	k.a.pane().find.open = false
+	k.a.pane().refocus = false
 	k.press("esc")
 	k.press("esc")
 	k.frames()
@@ -605,7 +605,7 @@ func TestKbTurkishLayout(t *testing.T) {
 // Without the setting, the normal mode leaves the text alone.
 func TestKbVimOff(t *testing.T) {
 	k := newKbd(t, "bir iki\n")
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.frames()
 	k.press("esc")
 	before := k.text()
@@ -619,7 +619,7 @@ func TestKbVimOff(t *testing.T) {
 func TestKbVimCount(t *testing.T) {
 	k := newKbd(t, "abcdefgh\n")
 	k.a.settings.VimKeys = true
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.frames()
 	k.press("esc")
 	k.press("3", "x")
@@ -636,7 +636,7 @@ func TestKbVimCount(t *testing.T) {
 func TestKbRepeat(t *testing.T) {
 	k := newKbd(t, "abcdef\n\nsatır bir\n\nsatır iki\n\nson\n")
 	k.a.settings.VimKeys = true
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.frames()
 	k.press("esc")
 	k.press("x", ".")
@@ -654,29 +654,29 @@ func TestKbRepeat(t *testing.T) {
 // ⌃O goes back, Tab forward, as ⌃O and ⌃I go through the places visited.
 func TestKbJumpList(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	p2, _ := c.NewPage(nil, "İkinci")
-	first := k.a.page
+	first := k.a.pane().page
 	k.a.open(p2)
 	k.frames()
 	k.press("esc")
 	k.press("ctrl+o")
 	k.frames()
-	if k.a.page != first {
-		t.Fatalf("⌃O: %v", k.a.page.Title)
+	if k.a.pane().page != first {
+		t.Fatalf("⌃O: %v", k.a.pane().page.Title)
 	}
 	k.press("esc")
 	k.press("tab")
 	k.frames()
-	if k.a.page != p2 {
-		t.Fatalf("Tab: %v", k.a.page.Title)
+	if k.a.pane().page != p2 {
+		t.Fatalf("Tab: %v", k.a.pane().page.Title)
 	}
 }
 
 // The ring: the row the keys are on is ringed without the normal mode, when the setting asks.
 func TestKbAlwaysRing(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	c.NewPage(nil, "Bir")
 	k.a.openCollection(c)
 	k.frames()
@@ -696,7 +696,7 @@ func TestKbAlwaysRing(t *testing.T) {
 // The board's cards, the calendar's days and the table's rows are rows for the keys.
 func TestKbOtherViews(t *testing.T) {
 	k := newKbd(t, "x\n")
-	c := k.a.page.Coll
+	c := k.a.pane().page.Coll
 	c.NewPage(nil, "Kart bir")
 	c.NewPage(nil, "Kart iki")
 	for _, v := range c.Views {
@@ -724,8 +724,8 @@ func TestSettingsSlashSearch(t *testing.T) {
 			k.a.openSettings()
 		}
 		k.frames()
-		if !k.a.settingsOpen || k.a.kb.normal != normal {
-			t.Fatalf("normal %v: settings %v, keys' mode %v", normal, k.a.settingsOpen, k.a.kb.normal)
+		if !k.a.pane().settingsOpen || k.a.kb.normal != normal {
+			t.Fatalf("normal %v: settings %v, keys' mode %v", normal, k.a.pane().settingsOpen, k.a.kb.normal)
 		}
 		k.tt.TypeKey(0, ui.KeySlash, "/")
 		k.frames()
@@ -733,8 +733,8 @@ func TestSettingsSlashSearch(t *testing.T) {
 		if !k.tt.Focused(locales.SettingsSearchSettings()) {
 			t.Fatalf("normal %v: / did not focus the search", normal)
 		}
-		if k.a.find.open || k.a.setSearch != "" {
-			t.Fatalf("normal %v: find %v, search %q", normal, k.a.find.open, k.a.setSearch)
+		if k.a.pane().find.open || k.a.setSearch != "" {
+			t.Fatalf("normal %v: find %v, search %q", normal, k.a.pane().find.open, k.a.setSearch)
 		}
 		k.write("font")
 		if k.a.setSearch != "font" {
@@ -747,15 +747,15 @@ func TestKbVimEmptyLastLineDD(t *testing.T) {
 	k := newKbd(t, "abc\n\ndef\n")
 	k.a.settings.VimKeys = true
 	// Add a trailing newline so the last line is truly empty.
-	n := k.a.doc.Text().Len()
-	k.a.doc.SetSelection(n, n)
+	n := k.a.pane().doc.Text().Len()
+	k.a.pane().doc.SetSelection(n, n)
 	k.tt.Key(0, ui.KeyEnter)
 	k.frames()
 
 	before := k.text()
 	beforeLines := strings.Count(before, "\n")
 	end := len([]rune(before))
-	k.a.doc.SetSelection(end, end)
+	k.a.pane().doc.SetSelection(end, end)
 	k.press("esc")
 	k.frames()
 	k.press("d", "d")
@@ -832,7 +832,7 @@ func TestAppKeyedOnce(t *testing.T) {
 func vimKbd(t *testing.T, src string) *kbd {
 	k := newKbd(t, src)
 	k.a.settings.VimKeys = true
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.frames()
 	k.press("esc")
 	k.frames()
@@ -865,7 +865,7 @@ func TestKbVimClusters(t *testing.T) {
 func TestKbVimWrappedLines(t *testing.T) {
 	long := strings.Repeat("kelime ", 120)
 	k := vimKbd(t, long+"\nson\n")
-	_, pe := k.a.doc.Text().ParagraphRange(0)
+	_, pe := k.a.pane().doc.Text().ParagraphRange(0)
 	k.press("j")
 	if c := k.caret(); c <= 0 || c >= pe {
 		t.Fatalf("j left the wrapped paragraph or stayed: %d of %d", c, pe)
@@ -909,12 +909,12 @@ func TestVimWordsCJK(t *testing.T) {
 // dd on a folded heading takes the line, and what the fold held stays (DATA-06, #128).
 func TestKbVimDDKeepsFolded(t *testing.T) {
 	k := vimKbd(t, "# Başlık\n\nBir\n\nİki\n\nSon\n")
-	k.a.fold(at(k.a.doc, "Başlık"))
+	k.a.fold(at(k.a.pane().doc, "Başlık"))
 	k.frames()
-	k.a.doc.SetSelection(0, 0)
+	k.a.pane().doc.SetSelection(0, 0)
 	k.press("d", "d")
 	k.frames()
-	if md := mdOf(k.a.doc); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
+	if md := mdOf(k.a.pane().doc); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
 		t.Fatalf("dd on the fold took what it held: %q", md)
 	}
 }

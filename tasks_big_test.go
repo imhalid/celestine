@@ -49,7 +49,7 @@ func TestToggleTaskSoon(t *testing.T) {
 	}
 	a.toggling.Wait()
 	tt.Frame()
-	body, _ := a.page.Body()
+	body, _ := a.pane().page.Body()
 	md := library.TextOfBody(body) // as the toggle handed it over
 	if fresh := bodyText(body); strings.TrimRight(md, "\n") != strings.TrimRight(fresh, "\n") {
 		t.Fatal("the Markdown handed over is not the page's")
@@ -69,7 +69,7 @@ func TestCompleteAllTasks(t *testing.T) {
 	a.openTasks()
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
-	if err := tt.Click("Açık görevlerin hepsini tamamla: " + a.page.Title); err != nil {
+	if err := tt.Click("Açık görevlerin hepsini tamamla: " + a.pane().page.Title); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(200 * time.Millisecond)
@@ -81,7 +81,7 @@ func TestCompleteAllTasks(t *testing.T) {
 	}
 	a.toggling.Wait()
 	tt.Advance(time.Second)
-	body, _ := a.page.Text()
+	body, _ := a.pane().page.Text()
 	if strings.Count(body, "- [x]") != 4 || strings.Contains(body, "- [ ]") {
 		t.Fatalf("not all done:\n%s", body)
 	}
@@ -91,7 +91,7 @@ func TestCompleteAllTasks(t *testing.T) {
 func taskIn(t *testing.T, a *app, text string) taskItem {
 	t.Helper()
 	for _, k := range a.allTasks(true) {
-		if k.page == a.page && k.text == text {
+		if k.page == a.pane().page && k.text == text {
 			return k
 		}
 	}
@@ -108,10 +108,10 @@ func TestTaskFindsItsParagraph(t *testing.T) {
 		{"> - [ ] quoted\n\n- [ ] one\n- [ ] two", "> - [ ] quoted", "- [x] one\n- [ ] two"},
 	} {
 		a, _ := newTestApp(t, c.src)
-		body, _ := a.page.Body()
+		body, _ := a.pane().page.Body()
 		tx, md := decodeBody(body), library.TextOfBody(body)
-		for _, k := range tasksOf(a.page, md) {
-			at, ok := taskParagraph(tx, md, a.page, k)
+		for _, k := range tasksOf(a.pane().page, md) {
+			at, ok := taskParagraph(tx, md, a.pane().page, k)
 			if k.text == "fake" {
 				if ok {
 					t.Fatalf("%q: the line in the HTML block found a paragraph", c.src)
@@ -127,7 +127,7 @@ func TestTaskFindsItsParagraph(t *testing.T) {
 			}
 		}
 		a.toggleTask(taskIn(t, a, "one"))
-		md, _ = a.page.Text()
+		md, _ = a.pane().page.Text()
 		if !strings.Contains(md, c.want) || !strings.Contains(md, c.other) {
 			t.Fatalf("%q: ticked as\n%s", c.src, md)
 		}
@@ -147,13 +147,13 @@ func TestCompleteAllFindsTheParagraphs(t *testing.T) {
 		a, _ := newTestApp(t, c.src)
 		var ts []taskItem
 		for _, k := range a.allTasks(true) {
-			if k.page == a.page {
+			if k.page == a.pane().page {
 				ts = append(ts, k)
 			}
 		}
-		a.closeTasks(a.page, ts)
+		a.closeTasks(a.pane().page, ts)
 		a.toggling.Wait()
-		if md, _ := a.page.Text(); strings.TrimRight(md, "\n") != c.want {
+		if md, _ := a.pane().page.Text(); strings.TrimRight(md, "\n") != c.want {
 			t.Fatalf("%q: closed as\n%s", c.src, md)
 		}
 	}
@@ -168,21 +168,21 @@ func TestToggleKeepsNewerEdits(t *testing.T) {
 		k := taskIn(t, a, "one")
 		now := a.clock()
 		prepare := func(r pageRead) taskToggle { return prepareToggle(k, r, now) }
-		j := prepare(readOf(a.page)) // read, as toggleAway reads it away from the window
+		j := prepare(readOf(a.pane().page)) // read, as toggleAway reads it away from the window
 		j.again = prepare
-		a.doc.SetText(importMarkdown("- [ ] one\n- [ ] two\n\ntyped meanwhile\n"))
-		a.dirty = true
+		a.pane().doc.SetText(importMarkdown("- [ ] one\n- [ ] two\n\ntyped meanwhile\n"))
+		a.pane().dirty = true
 		if saved {
 			a.save() // the autosave lands before the toggle is written
 		}
 		a.applyToggle(j)
 		a.toggling.Wait()
 		tt.Frame()
-		md, _ := a.page.Text()
+		md, _ := a.pane().page.Text()
 		if !strings.Contains(md, "typed meanwhile") || !strings.Contains(md, "- [x] one") || !strings.Contains(md, "- [ ] two") {
 			t.Fatalf("saved %v: the file is\n%s", saved, md)
 		}
-		if got := a.doc.Text().String(); !strings.Contains(got, "typed meanwhile") {
+		if got := a.pane().doc.Text().String(); !strings.Contains(got, "typed meanwhile") {
 			t.Fatalf("saved %v: the editor lost what was typed: %q", saved, got)
 		}
 		if !taskIn(t, a, "one").done {
@@ -196,7 +196,7 @@ func TestToggleKeepsNewerEdits(t *testing.T) {
 // (a pull reads the library again) is not written, and a tick that cannot be made is told (#561).
 func TestToggleKeepsAPull(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] one\n- [ ] two\n")
-	p := a.page
+	p := a.pane().page
 	pull := func(from, to string) { // what a pass writes: the file, through the store, the page not told
 		src, err := p.FS().ReadFile(p.File())
 		if err != nil {

@@ -121,8 +121,8 @@ func copyOut(fsys FS, file, dir string) (string, error) {
 // addFileFrom copies the file at src into the open page's folder (its name kept, numbered when it is taken) and puts
 // its chip in a line of its own after the caret's line.
 func (a *app) addFileFrom(src string) {
-	p := a.page
-	if p == nil || a.doc == nil || a.noPage() {
+	p := a.pane().page
+	if p == nil || a.pane().doc == nil || a.noPage() {
 		a.say(toastInfo, locales.PageDropFilePage())
 		return
 	}
@@ -132,7 +132,7 @@ func (a *app) addFileFrom(src string) {
 		return
 	}
 	a.readThen(src, maxFileBytes, func(data []byte, err error) { // a big file away from the window (#177)
-		if a.page != p || a.doc == nil {
+		if a.pane().page != p || a.pane().doc == nil {
 			return
 		}
 		if err != nil {

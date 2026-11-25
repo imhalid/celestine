@@ -37,8 +37,8 @@ func TestFootnotes(t *testing.T) {
 	a, tt := newTestApp(t, md)
 	tt.Frame()
 	a.goToNote("not")
-	_, c := a.doc.Selection()
-	if s := a.doc.Text().Slice(c, c+6).String(); s != "İkinci" {
+	_, c := a.pane().doc.Selection()
+	if s := a.pane().doc.Text().Slice(c, c+6).String(); s != "İkinci" {
 		t.Fatalf("the caret is not at the note: %q", s)
 	}
 	a.goToNote("yok")
@@ -52,19 +52,19 @@ func TestFootnotes(t *testing.T) {
 func TestChooseFootnote(t *testing.T) {
 	a, tt := newTestApp(t, "Bir cümle.[^1]\n\n[^1]: Birinci.\n")
 	tt.Frame()
-	s := a.doc.Text().String()
+	s := a.pane().doc.Text().String()
 	at := utf8.RuneCountInString(s[:strings.Index(s, ".")]) // before the full stop
-	a.doc.SetSelection(at, at)
+	a.pane().doc.SetSelection(at, at)
 	a.slash.start, a.slash.open = at, true
 	a.chooseFootnote()
 	tt.Frame()
-	a.doc.SetText(a.doc.Text()) // as saved
-	md := bodyMarkdown(a.doc.Text())
+	a.pane().doc.SetText(a.pane().doc.Text()) // as saved
+	md := bodyMarkdown(a.pane().doc.Text())
 	if !strings.Contains(md, "Bir cümle[^2].[^1]") || !strings.HasSuffix(strings.TrimSpace(md), "[^1]: Birinci.\n[^2]:") {
 		t.Fatalf("written as:\n%s", md)
 	}
-	_, c := a.doc.Selection()
-	if c != a.doc.Text().Len() {
-		t.Fatalf("the caret is at %d, not in the new note at the end (%d)", c, a.doc.Text().Len())
+	_, c := a.pane().doc.Selection()
+	if c != a.pane().doc.Text().Len() {
+		t.Fatalf("the caret is at %d, not in the new note at the end (%d)", c, a.pane().doc.Text().Len())
 	}
 }

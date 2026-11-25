@@ -17,8 +17,9 @@ import (
 
 // copySource is what is copied: the selection, or the whole page when nothing is selected.
 func (a *app) copySource() richtext.Text {
-	t := a.doc.Text()
-	sa, sc := a.doc.Selection()
+	doc := a.pane().doc
+	t := doc.Text()
+	sa, sc := doc.Selection()
 	if s, e := min(sa, sc), max(sa, sc); s < e {
 		return t.Slice(s, e)
 	}
@@ -27,7 +28,8 @@ func (a *app) copySource() richtext.Text {
 
 // copyAs puts the selection, or the page, on the clipboard as "markdown", "plain" or "html".
 func (a *app) copyAs(kind string) {
-	if a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() {
 		return
 	}
 	src := a.copySource()
@@ -40,13 +42,14 @@ func (a *app) copyAs(kind string) {
 		a.copyText(withoutChips(src).HTML())
 	}
 	a.say(toastOK, map[string]string{"markdown": locales.BlocksCopiedAsMarkdown(), "plain": locales.BlocksCopiedAsPlainText(), "html": locales.BlocksCopiedAsHtml()}[kind])
-	a.refocus = true
+	pn.refocus = true
 }
 
 // pasteAs puts what the clipboard has at the caret, over the selection: as "markdown", its lines made into blocks,
 // or as "plain" text, as it is.
 func (a *app) pasteAs(kind string) {
-	if a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() {
 		return
 	}
 	clip := a.readClip()
@@ -56,9 +59,9 @@ func (a *app) pasteAs(kind string) {
 	if kind == "markdown" {
 		a.insertBlocks(a.parse(clip))
 	} else {
-		a.doc.InsertText(clip)
+		pn.doc.InsertText(clip)
 	}
-	a.refocus = true
+	pn.refocus = true
 }
 
 // Copy and paste inside the app keep what a block is beyond its text: a code block's language, a task's kind, a
@@ -76,14 +79,14 @@ type ownClip struct {
 }
 
 // editorKeys are the keys the app takes before the editor: the / menu's, then copy and paste.
-func (a *app) editorKeys(key ui.Key, mods ui.Modifiers) bool {
-	return a.editorKey(key, mods) || a.clipKey(key, mods)
+func (a *app) editorKeys(pn *paneState, key ui.Key, mods ui.Modifiers) bool {
+	return a.editorKey(pn, key, mods) || a.clipKey(pn, key, mods)
 }
 
 // editorCommand takes an edit command of the menus before the editor does it: a Mac's menu bar sends ⌘V as
 // "paste", ⌘C as "copy", which the editor's keys never see (#509). They are done as their keys are.
-func (a *app) editorCommand(name string) bool {
-	if a.doc == nil {
+func (a *app) editorCommand(pn *paneState, name string) bool {
+	if pn.doc == nil {
 		return false
 	}
 	switch name {
@@ -96,8 +99,8 @@ func (a *app) editorCommand(name string) bool {
 }
 
 // clipKey notes a copy (⌘C, ⌘X) and lets the editor make it; it takes a paste (⌘V) of that copy.
-func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
-	if mods != ui.Cmd || a.doc == nil {
+func (a *app) clipKey(pn *paneState, key ui.Key, mods ui.Modifiers) bool {
+	if mods != ui.Cmd || pn.doc == nil {
 		return false
 	}
 	switch key {
@@ -112,15 +115,16 @@ func (a *app) clipKey(key ui.Key, mods ui.Modifiers) bool {
 // pasteLink makes the text selected a link when what is pasted over it is an address alone, as the bar's link
 // field would, with its flourish (#509): the text stays, the address is its link's.
 func (a *app) pasteLink() bool {
+	pn := a.pane()
 	if a.noPage() {
 		return false
 	}
-	anchor, caret := a.doc.Selection()
+	anchor, caret := pn.doc.Selection()
 	s, e := min(anchor, caret), max(anchor, caret)
 	if s == e {
 		return false
 	}
-	t := a.doc.Text()
+	t := pn.doc.Text()
 	if t.ParagraphStyleAt(s).CodeBlock || t.AttributesAt(s).Code || strings.TrimSpace(t.Slice(s, e).String()) == "" {
 		return false
 	}
@@ -128,8 +132,8 @@ func (a *app) pasteLink() bool {
 	if !pastedAddress(address) {
 		return false
 	}
-	a.doc.SetLink(address)
-	a.sel.wonSel, a.sel.wonAt = [2]int{s, e}, a.frameNow
+	pn.doc.SetLink(address)
+	pn.sel.wonSel, pn.sel.wonAt = [2]int{s, e}, a.frameNow
 	return true
 }
 
@@ -192,11 +196,12 @@ func looksMarkdown(text string) bool {
 // language, a divider, a task's kind), which the editor's Insert gives none of: to the first only when it starts
 // a paragraph, not when it joins the one the caret was in.
 func (a *app) insertBlocks(t richtext.Text) {
-	sa, sc := a.doc.Selection()
+	pn := a.pane()
+	sa, sc := pn.doc.Selection()
 	at := min(sa, sc)
-	ps, _ := a.doc.Text().ParagraphRange(at)
-	a.doc.Insert(t)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	ps, _ := pn.doc.Text().ParagraphRange(at)
+	pn.doc.Insert(t)
+	pn.doc.Edit(func(ed *richtext.Edit) {
 		for start, p := range t.Paragraphs() {
 			if p.Style.ID == "" || start == 0 && at != ps {
 				continue
@@ -205,15 +210,16 @@ func (a *app) insertBlocks(t richtext.Text) {
 			ed.FormatParagraphs(at+start, at+start, func(st *richtext.ParagraphStyle) { st.ID = id })
 		}
 	})
-	a.refocus = true
+	pn.refocus = true
 }
 
 // noteCopy keeps the selection as Markdown when a block in it has an ID the editor's copy would lose, and as it is
 // when it holds a chip.
 func (a *app) noteCopy() {
+	pn := a.pane()
 	a.ownClip = ownClip{}
-	t := a.doc.Text()
-	sa, sc := a.doc.Selection()
+	t := pn.doc.Text()
+	sa, sc := pn.doc.Selection()
 	s, e := min(sa, sc), max(sa, sc)
 	if s == e {
 		return
@@ -238,6 +244,7 @@ func (a *app) noteCopy() {
 // pasteOwn pastes the blocks of the last copy, or its text with chips of its own (copyChipsIn), when the clipboard
 // still holds its text; otherwise the editor pastes.
 func (a *app) pasteOwn() bool {
+	pn := a.pane()
 	c := a.ownClip
 	if c.md == "" && c.rich.Len() == 0 || a.readClip() != c.plain {
 		return false
@@ -247,12 +254,12 @@ func (a *app) pasteOwn() bool {
 		return true
 	}
 	t := a.copyChipsIn(c.rich)
-	sa, sc := a.doc.Selection()
+	sa, sc := pn.doc.Selection()
 	s, e := min(sa, sc), max(sa, sc)
-	a.doc.Edit(func(ed *richtext.Edit) { // as the editor pastes, in one step of undo
+	pn.doc.Edit(func(ed *richtext.Edit) { // as the editor pastes, in one step of undo
 		ed.Replace(s, e, t)
 		ed.Select(s+t.Len(), s+t.Len())
 	})
-	a.refocus = true
+	pn.refocus = true
 	return true
 }

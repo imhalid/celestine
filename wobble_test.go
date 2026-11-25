@@ -46,7 +46,7 @@ func TestShimmer(t *testing.T) {
 // A page written by an agent is what sends it.
 func TestShimmerOnWrite(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
-	if err := a.writeBody(a.page, strings.Repeat("kelime ", 200)); err != nil {
+	if err := a.writeBody(a.pane().page, strings.Repeat("kelime ", 200)); err != nil {
 		t.Fatal(err)
 	}
 	if !a.wobbleState().on {

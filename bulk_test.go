@@ -24,7 +24,7 @@ func TestBulk(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if !a.bulk.on || !tt.HasText("Satırlara tıklayarak seç") {
+	if !a.pane().bulk.on || !tt.HasText("Satırlara tıklayarak seç") {
 		t.Fatalf("not on: %v", tt.Texts())
 	}
 	if err := tt.Click(locales.ViewsOpenLabel("Dune")); err != nil {
@@ -34,10 +34,10 @@ func TestBulk(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.coll != coll || len(a.bulk.sel) != 2 || !tt.HasText("2 seçili") {
-		t.Fatalf("chosen %d, coll open %v", len(a.bulk.sel), a.coll == coll)
+	if a.pane().coll != coll || len(a.pane().bulk.sel) != 2 || !tt.HasText("2 seçili") {
+		t.Fatalf("chosen %d, coll open %v", len(a.pane().bulk.sel), a.pane().coll == coll)
 	}
-	pages := a.bulkPages(a.filtered(coll))
+	pages := a.bulkPages(a.pane(), a.filtered(a.pane(), coll))
 	// a tag
 	a.bulkAddTag(pages, "#okunacak")
 	for _, p := range pages {
@@ -61,7 +61,7 @@ func TestBulk(t *testing.T) {
 		}
 	}
 	// a move
-	for _, it := range a.bulkMoveMenu(pages) {
+	for _, it := range a.bulkMoveMenu(a.pane(), pages) {
 		if it.title == "Öteki" {
 			it.run()
 		}
@@ -71,11 +71,11 @@ func TestBulk(t *testing.T) {
 		t.Fatalf("moved: %d", len(other.Pages))
 	}
 	// the trash
-	a.bulkTrash(other.Pages[:1])
+	a.bulkTrash(a.pane(), other.Pages[:1])
 	if len(other.Pages) != 1 || len(a.lib.Trash()) == 0 {
 		t.Fatalf("trash: %d", len(other.Pages))
 	}
-	if a.bulk.on {
+	if a.pane().bulk.on {
 		t.Fatal("the bar stays")
 	}
 }

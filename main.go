@@ -98,8 +98,7 @@ type titleCaretSpec struct {
 type app struct {
 	lib *Library
 
-	paneState         // what the pane in use shows and keeps (panes.go): its page or screen, its editor, its scroll
-	ps        paneSet // the panes of the window (panes.go)
+	ps paneSet // the panes of the window (panes.go); a.pane() is the one in use
 
 	bars          map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
 	titles        titleIdx                // the pages by their titles, for the chips (chips.go)
@@ -396,6 +395,9 @@ type app struct {
 	calDays    calKept      // the calendar's pages by day, as they were last sorted (calendarDays)
 	chipHits   []chipHit    // the chips drawn this frame (chips.go)
 	chipSeen   []chipHit    // and last frame, for a click
+	tableHits  []tableHit   // table cells drawn this paint pass (tables.go -> sealed onto pn)
+	borderHits []colBorder  // column borders drawn this paint pass (tables.go -> sealed onto pn)
+	picHits    []picHit     // pictures drawn this paint pass (images.go -> sealed onto pn)
 	slash      slashMenu    // the / menu (slash.go)
 	tasks      taskFx       // the task boxes: what turns, and the confetti (taskkinds.go)
 	cs         collSettings // a collection\'s settings (collsettings.go)
@@ -411,7 +413,7 @@ type app struct {
 func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing(),
 		firstFrame: make(chan struct{})}
-	a.paneState = newPaneState()
+	a.ps.states = []*paneState{newPaneState()}
 	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
 	a.loadSettings()
@@ -639,8 +641,9 @@ func main() {
 			a.quick.leaving = true
 		}
 		a.mu.Lock()
-		if r := a.retitle; r.p != nil { // a title being typed: its links follow before the app goes
-			a.retitle = titleEdit{}
+		if pn := a.pane(); pn.retitle.p != nil { // a title being typed: its links follow before the app goes
+			r := pn.retitle
+			pn.retitle = titleEdit{}
 			a.relinkRenamed(r.p, r.from, false)
 		}
 		a.flush()
@@ -925,43 +928,50 @@ func (a *app) windowEvent(forward bool) {
 	}
 }
 
-// open shows page p, saving the page that was open first.
-func (a *app) open(p *Page) {
-	defer a.visit()
-	a.coll, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = nil, false, "", false, false, false
-	a.statsScreen, a.profileScreen = false, false
-	if p == a.page {
+// open shows page p in the active pane, saving the page that was open first.
+func (a *app) open(p *Page) { a.openIn(a.pane(), p) }
+
+// openIn shows page p in pn, saving the page that was open first.
+func (a *app) openIn(pn *paneState, p *Page) {
+	defer a.visitIn(pn)
+	pn.coll, pn.trashOpen, pn.tag, pn.tasksOpen, pn.searchOpen, pn.settingsOpen = nil, false, "", false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
+	if p == pn.page {
 		return
 	}
-	a.endTitleEdit()
-	a.flush()
-	if a.page != nil && a.dirty { // its save failed: its text is kept and saved when it can be, not dropped (#129)
+	a.endTitleEditIn(pn)
+	if pn == a.pane() {
+		a.flush()
+	} else if pn.page != nil && pn.dirty && pn.doc != nil {
+		a.savePane(pn)
+	}
+	if pn.page != nil && pn.dirty { // its save failed: its text is kept and saved when it can be, not dropped (#129)
 		if a.unsaved == nil {
 			a.unsaved = map[*Page]bool{}
 		}
-		a.unsaved[a.page] = true
+		a.unsaved[pn.page] = true
 	}
 	a.noteOpened(p)
 	doc := a.docFor(p)
-	a.page, a.doc, a.title = p, doc, p.Title
-	a.find.ver = 0 // another text to find in
+	pn.page, pn.doc, pn.title = p, doc, p.Title
+	pn.find.ver = 0 // another text to find in
 	_, caret := doc.Selection()
-	a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-	a.prevText = doc.Text()
-	a.dirty, a.saveErr, a.lastSave, a.lastWords = false, "", "", -1
+	pn.version, pn.length, pn.caretAt = doc.Version(), doc.Text().Len(), caret
+	pn.prevText = doc.Text()
+	pn.dirty, a.saveErr, pn.lastSave, pn.lastWords = false, "", "", -1
 	if a.unsaved[p] { // back to a page whose save failed: what it shows is still to be saved
 		delete(a.unsaved, p)
-		a.dirty, a.editAt = true, a.clock()
+		pn.dirty, pn.editAt = true, a.clock()
 	}
-	a.boxes = nil
-	*a.pageScroll = ui.ScrollState{}
+	pn.boxes = nil
+	*pn.pageScroll = ui.ScrollState{}
 	// a page opened starts clean: the caret is put in its place, not flown
 	// there from where it was in the last page, and what was laid out is gone
 	a.jelly.placed, a.mizan.seen, a.mizan.glide = false, false, nil
 	a.eachFX(func(c caretFX) { c.reset() })
 	a.jellied.reset()
 	a.sleep.wake()
-	a.editorR, a.caretPara, a.edH = ui.Rect{}, -1, 0
+	pn.editorR, pn.caretPara, pn.edH = ui.Rect{}, -1, 0
 	a.linksStale()
 	a.links.built = time.Time{} // asked for at once for the page opened
 }
@@ -1002,7 +1012,7 @@ func (a *app) touchDoc(p *Page) {
 	if len(a.docs) <= maxDocs {
 		return
 	}
-	shown := map[*Page]bool{p: true, a.page: true}
+	shown := map[*Page]bool{p: true, a.pane().page: true}
 	for q := range a.unsaved { // a text not yet saved is not let go
 		shown[q] = true
 	}
@@ -1035,8 +1045,9 @@ func (a *app) newPage(c *Collection, parent *Page) {
 
 // flush saves the open page now, if it changed.
 func (a *app) flush() {
-	if a.page != nil && a.dirty {
-		a.save()
+	pn := a.pane()
+	if pn.page != nil && pn.dirty {
+		a.savePane(pn)
 	}
 	if len(a.unsaved) > 0 {
 		a.retryUnsaved()
@@ -1098,7 +1109,8 @@ func (a *app) viewFrame(c *ui.Context) {
 	sleepAfter = a.caretSleep()
 	a.chipSeen, a.chipHits = a.chipHits, a.chipSeen[:0] // the last frame's, for a click now
 	tok, th := a.frameTheme(c)
-	if a.doc != nil {
+	pn := a.pane()
+	if pn.doc != nil {
 		a.track(c)
 	}
 
@@ -1109,7 +1121,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	// boxes of a checkbox, each at its own pace - and the change would show in pieces.
 	look := strconv.FormatBool(tok.Dark) + ":" + strconv.Itoa(a.settings.AppTheme)
 	if a.look != "" && a.look != look {
-		a.refocus = true // the editor was rebuilt, and has the focus again
+		pn.refocus = true // the editor was rebuilt, and has the focus again
 	}
 	a.look = look
 	c.Key("look:" + look)
@@ -1146,13 +1158,13 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.appKeys(c)
 	}
 	// Esc leaves the settings, back to where they were opened from
-	if a.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+	if pn.settingsOpen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeSettings()
 	}
-	if a.statsScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+	if pn.statsScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeStats()
 	}
-	if a.profileScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
+	if pn.profileScreen && !a.modal() && c.Shortcut(0, ui.KeyEscape) {
 		a.closeProfile()
 	}
 	// Esc takes back what was lit or left alone in the time-lapse; with none of that it is the editor's
@@ -1166,11 +1178,11 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	// ⌘V with a picture alone on the clipboard (watchClipboard): the editor
 	// pastes text, and nothing of a picture, so the key is ours then
-	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && a.page != nil && a.doc != nil {
+	if a.imgOnClip.Load() && c.Shortcut(ui.Cmd, ui.KeyV) && pn.page != nil && pn.doc != nil {
 		a.pasteImage()
 	}
-	if c.Shortcut(ui.Ctrl, ui.KeyN) && a.page != nil {
-		a.newPage(a.page.Coll, nil)
+	if c.Shortcut(ui.Ctrl, ui.KeyN) && pn.page != nil {
+		a.newPage(pn.page.Coll, nil)
 	}
 	content := func() { // the sidebar, the header, the panes and the status bar
 		a.kbAnchor(c)
@@ -1215,12 +1227,12 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.textOverlays(c)
 	}
 	a.contextView(c)
-	if !a.kb.normal && !a.modal() && !a.pal.open && !a.find.open && !a.slash.open {
+	if !a.kb.normal && !a.modal() && !a.pal.open && !pn.find.open && !a.slash.open {
 		// Esc, in the text or on a screen that has nothing to close: the keys are commands, when the settings say
 		// so (Vim's motions, or Esc enters the keyboard mode): a writer's Esc by habit, then letters typed, made a
 		// new page and an undo (#492, #207). The settings and the figures have their own Esc, which goes back.
 		escNormal := a.settings.EscNormal || a.settings.VimKeys
-		if escNormal && !a.settingsOpen && !a.statsScreen && !a.profileScreen && !lapseEsc && c.Shortcut(0, ui.KeyEscape) {
+		if escNormal && !pn.settingsOpen && !pn.statsScreen && !pn.profileScreen && !lapseEsc && c.Shortcut(0, ui.KeyEscape) {
 			a.kbEnter()
 		}
 	}
@@ -1259,7 +1271,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	// the palette over the dialogs: ⌘P with one open shows it above them, not behind (#483)
 	a.paletteView(c)
 	if a.modal() || a.ctx.open { // under a dialog or a menu the cell is let go
-		a.cellEd.open = false
+		pn.cellEd.open = false
 	}
 	a.lightboxView(c)
 	a.timeMachineView(c) // the page's history, over everything (timemachine.go)
@@ -1288,8 +1300,9 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.loadTrash()
 	}
 	a.toastView(c)
-	a.cursorFXView(c, root)            // over everything, the pointer's effect when one is chosen (cursorfx.go)
-	if a.doc != nil && a.coll == nil { // the boxes were read as the page's editor was built (pageBody)
+	a.cursorFXView(c, root)              // over everything, the pointer's effect when one is chosen (cursorfx.go)
+	pn = a.pane()                        // active pane may have changed during panesView/runLater
+	if pn.doc != nil && pn.coll == nil { // the boxes were read as the page's editor was built (pageBody)
 		a.autosave(c)
 	}
 }
@@ -1303,20 +1316,20 @@ func (a *app) bg(c *ui.Context) ui.Color {
 	return c.Theme().Background // a theme's page is its own color
 }
 
-// pageView is the open page: its title, its properties and its text, one
+// pageView is the open page in pn: its title, its properties and its text, one
 // page that scrolls as a whole. The editor is as tall as its text (and some
 // more, to lay out what is coming), so it has nothing to scroll in itself,
 // and the wheel passes to the scroll around it; where the caret is is kept
 // in view here (drawCaret asks for it).
-func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
-	p := a.page // where it is shows in the title bar
+func (a *app) pageView(c *ui.Context, pn *paneState, th *richtext.Theme) {
+	p := pn.page // where it is shows in the title bar
 	// the page is as wide as the window and scrolls in it, the bar at its edge;
 	// the text is a column in the middle, with margins either side
 	ui.Column(c).Fill().Children(func() {
 		sc := ui.Scroll(c.Key("page-scroll:" + p.Dir)).Grow(1)
-		a.scrolled(c, "page-scroll:"+p.Dir, a.pageScroll, sc, func() {
-			if a.topSpace > 0 {
-				ui.Box(c.Key("page-top")).FillWidth().Height(a.topSpace).DragWindow()
+		a.scrolledPane(c, pn, "page-scroll:"+p.Dir, pn.pageScroll, sc, func() {
+			if pn.topSpace > 0 {
+				ui.Box(c.Key("page-top")).FillWidth().Height(pn.topSpace).DragWindow()
 			}
 			// a cover is a band behind the top of the page, over its whole width
 			wrap := ui.Column(c.Key("page-wrap")).FillWidth()
@@ -1329,31 +1342,31 @@ func (a *app) pageView(c *ui.Context, th *richtext.Theme) {
 			wrap.Children(func() {
 				a.coverButtons(c, p)
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
-					ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, p, th) })
+					ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() { a.pageBody(c, pn, p, th) })
 				})
 			})
 		})
 		// a tree built anew (another theme) has no bounds for its page in its first frame: the last ones stand, or what
 		// is drawn over the text would be worked out for every paragraph of a long page, not those in view (#506)
 		if b := sc.LayoutBounds(); b.H > 0 {
-			a.scrollR = b
+			pn.scrollR = b
 		}
-		a.findBar(c) // over the page, at its top right: nothing under it moves
+		a.findBar(c, pn) // over the page, at its top right: nothing under it moves
 	})
 }
 
 // pageBody is the title, the properties and the text.
-func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
+func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme) {
 	head := ui.Column(c.Key("page-head")).FillWidth()
-	head.Children(func() { a.pageHead(c, p) })
-	a.headH = head.LayoutBounds().H
-	a.lapseAuto(c, p)                      // the time-lapse, as the settings say (lapseui.go)
+	head.Children(func() { a.pageHead(c, pn, p) })
+	pn.headH = head.LayoutBounds().H
+	a.lapseAuto(c, pn, p)                  // the time-lapse, as the settings say (lapseui.go)
 	if a.lapseOn(p) && a.lapse.solo != 0 { // one day's words alone, to look at: nothing to type in
-		a.focused = false
+		pn.focused = false
 		a.lapseView(c)
-		a.dayExtras(c, p)
-		a.backlinksView(c, p)
-		a.mentionsView(c, p)
+		a.dayExtras(c, pn, p)
+		a.backlinksView(c, pn, p)
+		a.mentionsView(c, pn, p)
 		return
 	}
 	if p.Unreadable != "" { // shown, not edited: the editor would save what it shows over the file
@@ -1365,70 +1378,69 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	linkPreviews = !a.settings.NoLinkPreviews                      // links' pages asked for, and shown on their cards (linkcards.go)
 	linkIcons = linkPreviews && !a.settings.NoLinkIcons            // the room of a link's icon, as well
 	a.codeTheme = editor.DefaultTheme(c.Theme())
-	ed := richtext.EditorBase(c, a.doc, richtext.EditorOptions{
+	ed := richtext.EditorBase(c, pn.doc, richtext.EditorOptions{
 		Label: locales.Page(), Font: a.font, Theme: th,
 		Placeholder: locales.AppEditorPlaceholder(),
-		Menu:        a.editorMenu,    // the app's menu, not the system's (fieldmenu.go)
-		OnKey:       a.editorKeys,    // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
-		OnCommand:   a.editorCommand, // the menus' copy and paste, as their keys (clipmodes.go)
-		Spans:       a.editorSpans,   // code colored, letters spaced (codecolors.go)
+		Menu:        a.editorMenu,                                                                                          // the app's menu, not the system's (fieldmenu.go)
+		OnKey:       func(k ui.Key, m ui.Modifiers) bool { return a.editorKeys(pn, k, m) },                                 // the / menu's keys, and copy and paste, before the editor's (slash.go, clipmodes.go)
+		OnCommand:   func(name string) bool { return a.editorCommand(pn, name) },                                           // the menus' copy and paste, as their keys (clipmodes.go)
+		Spans:       func(i int, st richtext.ParagraphStyle, s []ui.Span) []ui.Span { return a.editorSpans(pn, i, st, s) }, // code colored, letters spaced (codecolors.go)
 		// a click on a link is the app's to open (openLink, from the editor's click): richtext's own open of it,
 		// through the system, opened a web link a second time (#578)
 		OnLink:       func(string) {},
-		SpansVersion: a.spansVersion(),
-		Space:        a.paraRoom, // the room a block dragged opens where it would go (blockui.go), and a parent task's chip (subtasks.go)
+		SpansVersion: a.spansVersion(pn),
+		Space:        func(i int) float32 { return a.paraRoom(pn, i) }, // the room a block dragged opens where it would go (blockui.go), and a parent task's chip (subtasks.go)
 		ReadOnly:     p.Unreadable != "",
 		// the page scrolls as a whole, the editor as tall as its text, however long: no bar of its own beside the
 		// page's, which showed when a split pane narrowed it and the height worked out was a frame behind (#190), and
 		// no window on a long text scrolling in itself (#314)
 		NoScrollbar: true,
-	}).FillWidth().Height(a.editorH(c)).FocusRing(false) // the caret shows where the text has the focus
+	}).FillWidth().Height(a.editorH(c, pn)).FocusRing(false) // the caret shows where the text has the focus
 	// this editor's paragraphs, read right after it is built: with the page open in two panes, each pane's are its
 	// own, laid out at its width, and its height is worked out from them (#190)
-	a.boxes = a.doc.VisibleParagraphs()
+	pn.boxes = pn.doc.VisibleParagraphs()
 	// a new editor (another page, another look) takes the keyboard, as AutoFocus would give it, but the page stays where
 	// it is: AutoFocus scrolls the editor into view, which for a text taller than the window puts its top at the
 	// window's and the title out of sight, a moment after the page opened at its top. The caret is brought into view, if
 	// it must be, by revealCaret.
-	if a.editorIsNew(ed) && !a.titleFocused && !a.fresh && !a.treeNav && !a.inactivePane() && !a.kb.normal {
+	if a.editorIsNew(ed) && !pn.titleFocused && !pn.fresh && !a.treeNav && !a.isInactivePane(pn) && !a.kb.normal {
 		ed.Focus(ui.FocusOptions{PreventScroll: true})
 	}
-	if a.refocus {
+	if pn.refocus && !a.isInactivePane(pn) {
 		ed.Focus(ui.FocusOptions{PreventScroll: true})
-		a.refocus = false
+		pn.refocus = false
 	}
-	a.focused = ed.Focused()
-	if a.focused && a.cellEd.open && a.cellEd.was { // the text took the keyboard back from a cell: it is written and let go
-		a.commitCell()
-		a.cellEd.open = false
+	pn.focused = ed.Focused()
+	if pn.focused && pn.cellEd.open && pn.cellEd.was { // the text took the keyboard back from a cell: it is written and let go
+		a.commitCellIn(pn)
+		pn.cellEd.open = false
 	}
-	a.tabKey(c)
-	a.tableKeys(c)
-	a.edPressed = ed.Pressed()
-	a.trackGrip(ed)
-	a.settleRooms(ed) // the hole a block dropped left, shutting (blockui.go)
+	a.tabKey(c, pn)
+	a.tableKeys(c, pn)
+	pn.edPressed = ed.Pressed()
+	a.trackGrip(pn, ed)
+	a.settleRooms(pn, ed) // the hole a block dropped left, shutting (blockui.go)
 	a.hoverCh, a.hoverTag = nil, ""
-	a.tagSeen, a.tagHits = a.tagHits, a.tagSeen[:0] // this frame's are drawn after
-	a.linkSeen, a.linkHits = a.linkHits, a.linkSeen[:0]
-	a.picSeen, a.picHits = a.picHits, a.picSeen[:0]
-	x, y, over := a.textPointer(ed)
-	a.hoverLink(c, a.editorR.X+x, a.editorR.Y+y, over) // its card, after a moment (linkcards.go)
+	pn.tagSeen, pn.tagHits = pn.tagHits, pn.tagSeen[:0] // this frame's are drawn after
+	pn.linkSeen, pn.linkHits = pn.linkHits, pn.linkSeen[:0]
+	x, y, over := a.textPointer(pn, ed)
+	a.hoverLink(c, pn, pn.editorR.X+x, pn.editorR.Y+y, over) // its card, after a moment (linkcards.go)
 	if over {
 		a.edPtr = ui.Point{X: x, Y: y} // where a right click opens the menu
-		if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
+		if key, ok := a.tagAt(pn, pn.editorR.X+x, pn.editorR.Y+y); ok {
 			a.hoverTag = key
 			ed.Cursor(ui.CursorPointer)
 		}
-		if a.tableCellAt(a.editorR.X+x, a.editorR.Y+y) != nil {
+		if a.tableCellAt(pn, pn.editorR.X+x, pn.editorR.Y+y) != nil {
 			ed.Cursor(ui.CursorPointer)
 		}
-		if _, ok := a.linkAt(a.editorR.X+x, a.editorR.Y+y); ok {
+		if _, ok := a.linkAt(pn, pn.editorR.X+x, pn.editorR.Y+y); ok {
 			ed.Cursor(ui.CursorPointer)
 		}
-		if a.pictureAt(a.editorR.X+x, a.editorR.Y+y) != nil {
+		if a.pictureAt(pn, pn.editorR.X+x, pn.editorR.Y+y) != nil {
 			ed.Cursor(ui.CursorPointer)
 		}
-		if h := a.chipAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
+		if h := a.chipAt(pn, pn.editorR.X+x, pn.editorR.Y+y); h != nil {
 			a.hoverCh = h.ch
 			ed.Cursor(ui.CursorPointer)
 		}
@@ -1436,53 +1448,55 @@ func (a *app) pageBody(c *ui.Context, p *Page, th *richtext.Theme) {
 	for _, f := range ed.DroppedFiles() { // files dropped on the text
 		a.dropFile(f, true)
 	}
-	a.dragColumns(ed)
+	a.dragColumns(pn, ed)
 	if ed.Clicked() { // on a tag: its pages; on a chip: its page, or its day
 		x, y, _ := ed.PointerPosition()
-		sa, sc := a.doc.Selection()
+		sa, sc := pn.doc.Selection()
 		selecting := sa != sc
-		if h := a.tableCellAt(a.editorR.X+x, a.editorR.Y+y); h != nil {
-			a.doc.SetSelection(a.selPrevA, a.selPrevC)
-			a.clickCell(h)
+		if h := a.tableCellAt(pn, pn.editorR.X+x, pn.editorR.Y+y); h != nil {
+			pn.doc.SetSelection(pn.selPrevA, pn.selPrevC)
+			a.clickCell(pn, h)
 		} else if selecting { // the pointer selected text, it did not click what it ended on
-		} else if key, ok := a.tagAt(a.editorR.X+x, a.editorR.Y+y); ok {
-			a.openTag(key)
-		} else if url, ok := a.linkAt(a.editorR.X+x, a.editorR.Y+y); ok {
-			a.openLink(url)
-		} else if pic := a.pictureAt(a.editorR.X+x, a.editorR.Y+y); pic != nil {
+		} else if key, ok := a.tagAt(pn, pn.editorR.X+x, pn.editorR.Y+y); ok {
+			a.openTagIn(pn, key)
+		} else if url, ok := a.linkAt(pn, pn.editorR.X+x, pn.editorR.Y+y); ok {
+			a.openLinkIn(pn, url)
+		} else if pic := a.pictureAt(pn, pn.editorR.X+x, pn.editorR.Y+y); pic != nil {
 			a.lightbox = pic
 		} else {
-			a.clickChip(a.editorR.X+x, a.editorR.Y+y)
+			a.clickChip(pn, pn.editorR.X+x, pn.editorR.Y+y)
 		}
 	}
-	if !a.edPressed { // where the caret is when the pointer is not down: the click's own move is not kept
-		a.selPrevA, a.selPrevC = a.doc.Selection()
+	if !pn.edPressed { // where the caret is when the pointer is not down: the click's own move is not kept
+		pn.selPrevA, pn.selPrevC = pn.doc.Selection()
 	}
 	ed.DrawOver(func(p *ui.Painter, r ui.Rect) {
-		a.editorR = r
-		a.drawBlockSel(p, r)
-		a.drawMatches(p, r)
-		a.drawLinkPending(p, r) // the text a link is being made for, and one just made (linkfx.go)
-		a.drawLinkWon(p, r)
-		a.drawBlockDrop(p, r)
-		a.drawDividers(p, r)
-		a.drawListMarks(p, r)
-		a.drawTasks(p, r)
-		a.drawWhite(p, r)
-		a.drawFocusVeil(p, r)
-		a.drawTags(p, r)
-		a.sealTables()
+		pn.editorR = r
+		a.drawBlockSel(pn, p, r)
+		a.drawMatches(pn, p, r)
+		a.drawLinkPending(pn, p, r) // the text a link is being made for, and one just made (linkfx.go)
+		a.drawLinkWon(pn, p, r)
+		a.drawBlockDrop(pn, p, r)
+		a.drawDividers(pn, p, r)
+		a.drawListMarks(pn, p, r)
+		a.drawTasks(pn, p, r)
+		a.drawWhite(pn, p, r)
+		a.drawFocusVeil(pn, p, r)
+		a.drawTags(pn, p, r)
+		a.sealTables(pn)
+		a.sealPics(pn)
 	})
-	a.dayExtras(c, p)
-	a.backlinksView(c, p)
-	a.mentionsView(c, p)
+	a.dayExtras(c, pn, p)
+	a.backlinksView(c, pn, p)
+	a.mentionsView(c, pn, p)
 }
 
 // caretView draws the caret in a layer over the window - the editor clips
 // what it draws at its own edge, which cut the caret at the start of a
 // line - itself clipped to the page's room.
 func (a *app) caretView(c *ui.Context) {
-	if a.doc == nil || a.noPage() || a.page == nil {
+	pn := a.pane()
+	if pn.doc == nil || a.noPageOf(pn) || pn.page == nil {
 		return
 	}
 	ww, wh := c.Size()
@@ -1490,96 +1504,96 @@ func (a *app) caretView(c *ui.Context) {
 	ui.Overlay(c, func() {
 		ui.Box(c.Key("caret-layer")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
 			a.drawConfetti(p)
-			a.drawCaret(p, a.editorR)
-			if tc := a.titleCaret; tc.on {
-				a.paintCaret(p, tc.r, tc.cw, tc.box, kick{wrote: tc.wrote, edited: tc.edited}, tc.sel)
+			a.drawCaret(p, pn, pn.editorR)
+			if tc := pn.titleCaret; tc.on {
+				a.paintCaret(p, pn, tc.r, tc.cw, tc.box, kick{wrote: tc.wrote, edited: tc.edited}, tc.sel)
 			}
 		})
 	})
 }
 
 // pageHead is the page's title and its properties.
-func (a *app) pageHead(c *ui.Context, p *Page) {
+func (a *app) pageHead(c *ui.Context, pn *paneState, p *Page) {
 	ink := a.coverInk(c, p)
 	if a.coverKind(p) != coverKindNone { // the room of the cover above the title (cover.go)
 		ui.Box(c.Key("cover-room")).FillWidth().Height(a.coverRoomOf(p))
 	}
-	if a.retitle.p != nil && a.retitle.p != p { // the pane went on to another page while its title was typed
-		a.endTitleEdit()
+	if pn.retitle.p != nil && pn.retitle.p != p { // the pane went on to another page while its title was typed
+		a.endTitleEditIn(pn)
 	}
 	c.Key("title:" + p.Dir)
 	if p.Coll.Journal { // a day's title is the journal's format, not typed
 		c.Key("title:" + p.Dir)
-		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, a.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(locales.CommonTitle()).Selectable().Wrap().FillWidth().TextColor(ink)
-		a.titleMenu(ttl, p, false)
-		a.titleRoom(c, ttl, false)
-		a.titleFocused = false
+		ttl := ui.Text(c, p.Title).FontSize(a.titleSize(p.Title, pn.titleW)).FontWeight(titleWeight).Padding(6, 0, 10, 0).Label(locales.CommonTitle()).Selectable().Wrap().FillWidth().TextColor(ink)
+		a.titleMenu(pn, ttl, p, false)
+		a.titleRoom(c, pn, ttl, false)
+		pn.titleFocused = false
 		a.coverGap(c, p)
-		a.propsSection(c, p)
+		a.propsSection(c, pn, p)
 		return
 	}
 	// the title wraps, at a size its length gives it, and is as high as its lines (titlesize.go); it is one line of
 	// text all the same: a line break typed or pasted is not kept
-	size := a.titleSize(a.title, a.titleW)
-	_, textH := a.titleLayout(a.title, size, a.titleW).Size()
-	before := a.title
-	title := ui.TextAreaBase(c, &a.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
+	size := a.titleSize(pn.title, pn.titleW)
+	_, textH := a.titleLayout(pn.title, size, pn.titleW).Size()
+	before := pn.title
+	title := ui.TextAreaBase(c, &pn.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
 		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
-	a.titleMenu(title, p, true)
-	a.titleRoom(c, title, true)
+	a.titleMenu(pn, title, p, true)
+	a.titleRoom(c, pn, title, true)
 	enter := false
-	if strings.ContainsAny(a.title, "\r\n") {
+	if strings.ContainsAny(pn.title, "\r\n") {
 		// the area takes ↵ as a break: one break typed into the title as it was is ↵, which goes into the text below,
 		// as from the one-line input; a break pasted is a space
-		if enter = strings.Count(a.title, "\n") == 1 && strings.Replace(a.title, "\n", "", 1) == before; enter {
-			a.title = before
+		if enter = strings.Count(pn.title, "\n") == 1 && strings.Replace(pn.title, "\n", "", 1) == before; enter {
+			pn.title = before
 		} else {
-			a.title = strings.Join(strings.Fields(a.title), " ")
+			pn.title = strings.Join(strings.Fields(pn.title), " ")
 		}
 	}
-	if a.fresh {
+	if pn.fresh && !a.isInactivePane(pn) {
 		title.AutoFocus()
-		a.fresh = false
+		pn.fresh = false
 	}
 	if title.Changed() {
-		name := strings.TrimSpace(a.title)
+		name := strings.TrimSpace(pn.title)
 		if name == "" {
 			name = locales.CommonUntitled()
 		}
-		a.titleTyped(p, name)
+		a.titleTyped(pn, p, name)
 	}
-	a.titleFocused = title.Focused()
-	if !a.titleFocused && a.retitle.p == p { // the field left: the rename is done, and its links follow
-		a.endTitleEdit()
+	pn.titleFocused = title.Focused()
+	if !pn.titleFocused && pn.retitle.p == p { // the field left: the rename is done, and its links follow
+		a.endTitleEditIn(pn)
 	}
-	a.titleCaret = titleCaretSpec{}
+	pn.titleCaret = titleCaretSpec{}
 	if b := title.LayoutBounds(); title.Focused() && b.W > 0 { // the caret is ours, as the page's
 		anchor, caret := title.TextAnchorCaret()
-		cr, cw := a.inputCaretIn(a.title, caret, size, titleWeight, a.titleW, b.X, b.Y+6, b.H-16)
-		n := utf8.RuneCountInString(a.title)
+		cr, cw := a.inputCaretIn(pn.title, caret, size, titleWeight, pn.titleW, b.X, b.Y+6, b.H-16)
+		n := utf8.RuneCountInString(pn.title)
 		spec := titleCaretSpec{on: true, r: cr, cw: cw, box: b, sel: anchor != caret}
-		if a.titleSeen && n != a.titleLen {
-			spec.edited, spec.wrote = true, max(n-a.titleLen, 0)
+		if pn.titleSeen && n != pn.titleLen {
+			spec.edited, spec.wrote = true, max(n-pn.titleLen, 0)
 		}
-		a.titleSeen, a.titleLen = true, n
-		a.titleCaret = spec
+		pn.titleSeen, pn.titleLen = true, n
+		pn.titleCaret = spec
 	} else if !title.Focused() {
-		a.titleSeen = false
+		pn.titleSeen = false
 	}
 	a.coverGap(c, p)
 	// ↓ or ↵ in the title goes into the text
-	if title.Focused() && (enter || title.Shortcut(0, ui.KeyDown) && a.titleLastLine(size, titleCaretOf(title))) {
-		a.doc.SetSelection(0, 0)
-		a.refocus = true
+	if title.Focused() && (enter || title.Shortcut(0, ui.KeyDown) && a.titleLastLine(pn, size, titleCaretOf(title))) {
+		pn.doc.SetSelection(0, 0)
+		pn.refocus = true
 	}
-	a.propsSection(c, p)
+	a.propsSection(c, pn, p)
 }
 
 // editorH is editorHeight, asking for another frame while it grows.
-func (a *app) editorH(c *ui.Context) float32 {
-	h := a.editorHeight()
-	if h != a.edH {
-		a.edH = h
+func (a *app) editorH(c *ui.Context, pn *paneState) float32 {
+	h := a.editorHeight(pn)
+	if h != pn.edH {
+		pn.edH = h
 		c.Invalidate()
 	}
 	return h
@@ -1587,27 +1601,27 @@ func (a *app) editorH(c *ui.Context) float32 {
 
 // editorHeight is the editor's: its text, and more while there is text
 // still to lay out; at least what is left of the page's room.
-func (a *app) editorHeight() float32 {
-	least := max(a.scrollR.H-a.topSpace-a.headH-a.linksH-a.dayH-8, 160)
+func (a *app) editorHeight(pn *paneState) float32 {
+	least := max(pn.scrollR.H-pn.topSpace-pn.headH-pn.linksH-pn.dayH-8, 160)
 	// the text's height as the editor knows it, every paragraph measured or as tall as it was: with another theme or
 	// font the editor lays out again only what shows, and the rest as it comes into view (#506)
-	if h, ok := a.doc.ContentHeight(); ok {
+	if h, ok := pn.doc.ContentHeight(); ok {
 		return max(h+96, least)
 	}
-	n := len(a.boxes)
+	n := len(pn.boxes)
 	if n == 0 {
 		// nothing laid out yet (a page just opened): room for what the text
 		// should take, more than it will, so the editor does not scroll
 		// itself to the caret and then slide as it grows. However long the
 		// text: a long page is laid out whole in its first frame, once, rather
 		// than its height growing frame after frame, the page's bar with it (#314)
-		t := a.doc.Text()
+		t := pn.doc.Text()
 		line := a.fontSize() * a.lineHeight()
 		return min(max(least, (float32(t.ParagraphCount())+float32(t.Len())/55)*line*1.5+240), 4e6)
 	}
-	last := a.boxes[n-1]
-	slack := max(a.scrollR.H*2, 1600)
-	if last.Index >= a.doc.Text().ParagraphCount()-1 {
+	last := pn.boxes[n-1]
+	slack := max(pn.scrollR.H*2, 1600)
+	if last.Index >= pn.doc.Text().ParagraphCount()-1 {
 		slack = 96 // the last paragraph is in
 	}
 	return max(last.Top+last.Height+slack, least)
@@ -1616,114 +1630,115 @@ func (a *app) editorHeight() float32 {
 // track notes what the user did since the last frame: letters written (for
 // Mizan's pace), any other edit, and that the file needs saving.
 func (a *app) track(c *ui.Context) {
-	v := a.doc.Version()
-	_, caret := a.doc.Selection()
-	text := a.doc.Text()
+	pn := a.pane()
+	v := pn.doc.Version()
+	_, caret := pn.doc.Selection()
+	text := pn.doc.Text()
 	style := text.ParagraphStyleAt(caret)
-	if v == a.version {
-		if a.slash.open && caret != a.caretAt { // the caret moved: ↑ ↓ in the / menu
+	if v == pn.version {
+		if a.slash.open && caret != pn.caretAt { // the caret moved: ↑ ↓ in the / menu
 			a.trackSlash(text, caret, false, false)
-			_, caret = a.doc.Selection()
+			_, caret = pn.doc.Selection()
 		}
-		if caret != a.caretAt {
-			a.revealWant = true
+		if caret != pn.caretAt {
+			pn.revealWant = true
 		}
-		a.caretAt, a.style = caret, style
+		pn.caretAt, pn.style = caret, style
 		return
 	}
-	if a.keepHidden(a.prevText, text, caret) { // a fold's or a zoom's chip taken away: what it held, back
-		_, caret = a.doc.Selection()
-		text, v = a.doc.Text(), a.doc.Version()
+	if a.keepHidden(pn.prevText, text, caret) { // a fold's or a zoom's chip taken away: what it held, back
+		_, caret = pn.doc.Selection()
+		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)
 	}
 	n := text.Len()
 	// an edit that moves nothing - a box ticked, a mark changed - does not take the page to the caret:
 	// the caret may be far from what was clicked
-	if caret != a.caretAt || n != a.length {
-		a.revealWant = true
+	if caret != pn.caretAt || n != pn.length {
+		pn.revealWant = true
 	}
 	// An undo or a redo puts text back as it was: it was not typed now, and what typing turns into something else
 	// (a chip, a divider, the / menu) is not done to it again, as a new edit that took the redo away (#210). After an
 	// undo the document can redo, and after anything typed it cannot. A few letters to the caret are typed, as two
 	// keys that came in one frame (a slow frame, a key held) are: "---" with the last two at once is a divider.
-	undone := a.doc.CanRedo()
+	undone := pn.doc.CanRedo()
 	typed := func() bool {
-		grew := n - a.length
-		return !undone && grew >= 1 && grew <= 4 && caret-a.caretAt == grew
+		grew := n - pn.length
+		return !undone && grew >= 1 && grew <= 4 && caret-pn.caretAt == grew
 	}
 	// the / menu (slash.go)
-	if a.trackSlash(text, caret, true, !undone && n-a.length == 1 && caret-a.caretAt == 1) {
-		_, caret = a.doc.Selection()
-		text, v = a.doc.Text(), a.doc.Version()
+	if a.trackSlash(text, caret, true, !undone && n-pn.length == 1 && caret-pn.caretAt == 1) {
+		_, caret = pn.doc.Selection()
+		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)
 		n = text.Len()
-		a.length, a.caretAt = n, caret
+		pn.length, pn.caretAt = n, caret
 	}
 	// "---" and "```" typed: a divider, a block of code (blocks.go)
 	if a.blockShortcuts(text, caret, typed()) {
-		_, caret = a.doc.Selection()
-		text, v = a.doc.Text(), a.doc.Version()
+		_, caret = pn.doc.Selection()
+		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)
-		a.length, a.caretAt = text.Len()-1, caret-1 // still the letter typed, to the caret
+		pn.length, pn.caretAt = text.Len()-1, caret-1 // still the letter typed, to the caret
 		n = text.Len()
 	}
 	// "[[Page]]": the "]" typed over the one the "[[" wrote, then a chip (chips.go)
 	// typed, as it was before the one ] typed over the one written is taken away
 	keyed := typed()
-	if a.overtype(text, caret, !undone && n-a.length == 1 && caret-a.caretAt == 1) {
-		text, v = a.doc.Text(), a.doc.Version()
+	if a.overtype(text, caret, !undone && n-pn.length == 1 && caret-pn.caretAt == 1) {
+		text, v = pn.doc.Text(), pn.doc.Version()
 		n = text.Len()
 	}
 	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) || a.expandSnippet(text, caret, keyed) {
-		_, caret = a.doc.Selection()
-		text, v = a.doc.Text(), a.doc.Version()
+		_, caret = pn.doc.Selection()
+		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)
 		n = text.Len()
-		a.length, a.caretAt = n, caret
+		pn.length, pn.caretAt = n, caret
 	}
 	// pasted text with [[links]] in it: they are chips, as if typed (a link copied from
 	// the page's menu is such text)
-	if grew := n - a.length; !undone && grew > 1 && caret-a.caretAt == grew && (a.tableInPasted(caret-grew, caret) || a.chipsInPasted(caret-grew, caret)) {
-		_, caret = a.doc.Selection()
-		text, v = a.doc.Text(), a.doc.Version()
+	if grew := n - pn.length; !undone && grew > 1 && caret-pn.caretAt == grew && (a.tableInPasted(caret-grew, caret) || a.chipsInPasted(caret-grew, caret)) {
+		_, caret = pn.doc.Selection()
+		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)
 		n = text.Len()
-		a.length, a.caretAt = n, caret
+		pn.length, pn.caretAt = n, caret
 	}
-	switch grew := n - a.length; {
-	case grew > 0 && caret-a.caretAt == grew && grew <= 8:
-		a.wrote += grew
-		a.typed += strings.ReplaceAll(text.Slice(caret-grew, caret).String(), string(richtext.ObjectReplacement), "")
-	case grew < 0 && grew >= -48 && caret == a.caretAt+grew: // Backspace: what was behind the caret
-		a.eraseOf(a.prevText, caret, a.caretAt, -1)
-		a.edited = true
-	case grew < 0 && grew >= -48 && caret == a.caretAt: // Delete: what was ahead
-		a.eraseOf(a.prevText, caret, caret-grew, 1)
-		a.edited = true
+	switch grew := n - pn.length; {
+	case grew > 0 && caret-pn.caretAt == grew && grew <= 8:
+		pn.wrote += grew
+		pn.typed += strings.ReplaceAll(text.Slice(caret-grew, caret).String(), string(richtext.ObjectReplacement), "")
+	case grew < 0 && grew >= -48 && caret == pn.caretAt+grew: // Backspace: what was behind the caret
+		a.eraseOf(pn.prevText, caret, pn.caretAt, -1)
+		pn.edited = true
+	case grew < 0 && grew >= -48 && caret == pn.caretAt: // Delete: what was ahead
+		a.eraseOf(pn.prevText, caret, caret-grew, 1)
+		pn.edited = true
 	default:
-		a.edited = true
+		pn.edited = true
 	}
 	// A Markdown shortcut ("[] ", "# "…) just turned an empty paragraph into
 	// another kind: what is typed there starts plain. (MyGo's richtext took
 	// the empty paragraph's attributes from its end mark, which a bold word
 	// closed at the end of the paragraph above left bold; seen with v0.7.4.)
-	if s, e := text.ParagraphRange(caret); n < a.length && style != a.style && s == e {
-		a.doc.SetTypingAttributes(richtext.Attributes{})
+	if s, e := text.ParagraphRange(caret); n < pn.length && style != pn.style && s == e {
+		pn.doc.SetTypingAttributes(richtext.Attributes{})
 	}
-	a.version, a.length, a.caretAt, a.style = v, n, caret, style
-	a.prevText = text
-	a.dirty, a.editAt, a.saveErr = true, a.clock(), ""
+	pn.version, pn.length, pn.caretAt, pn.style = v, n, caret, style
+	pn.prevText = text
+	pn.dirty, pn.editAt, a.saveErr = true, a.clock(), ""
 }
 
 // revealCaret scrolls the page, when the caret was moved, to bring it into
 // view with some room around it.
-func (a *app) revealCaret(cr ui.Rect) {
-	if !a.revealWant || a.scrollR.H == 0 {
+func (a *app) revealCaret(pn *paneState, cr ui.Rect) {
+	if !pn.revealWant || pn.scrollR.H == 0 {
 		return
 	}
-	a.revealWant = false
+	pn.revealWant = false
 	const room = 56
-	vp := a.scrollR
+	vp := pn.scrollR
 	var d float32
 	switch {
 	case a.settings.Typewriter: // the line stays in the middle
@@ -1737,9 +1752,9 @@ func (a *app) revealCaret(cr ui.Rect) {
 		d = cr.Y + cr.H - (vp.Y + vp.H - room)
 	}
 	if d != 0 {
-		a.pageScroll.Y = max(0, a.pageScroll.Y+d)
-		if d < 0 && a.pageScroll.Y < a.headH+room { // near the top: the title and the properties too
-			a.pageScroll.Y = 0
+		pn.pageScroll.Y = max(0, pn.pageScroll.Y+d)
+		if d < 0 && pn.pageScroll.Y < pn.headH+room { // near the top: the title and the properties too
+			pn.pageScroll.Y = 0
 		}
 		if a.frame != nil {
 			a.frame()
@@ -1759,49 +1774,49 @@ type caretFallback struct {
 }
 
 // drawCaret paints the custom caret over the editor, falling back to cached CaretRect on oversized paragraphs (#213).
-func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
-	if !a.focused {
+func (a *app) drawCaret(p *ui.Painter, pn *paneState, r ui.Rect) {
+	if !pn.focused {
 		a.caretDraws++
 		// the find bar has the focus, and the match it steps to is the selection: the page goes to it all the same.
 		// Only the caret's place is needed, so it is the editor's own (CaretRect), not laid out again (#306).
-		if a.revealWant && a.find.open {
-			if cr, ok := a.doc.CaretRect(); ok {
+		if pn.revealWant && pn.find.open {
+			if cr, ok := pn.doc.CaretRect(); ok {
 				cr.X += r.X
 				cr.Y += r.Y
-				a.revealCaret(cr)
+				a.revealCaret(pn, cr)
 			}
 		}
 		return
 	}
-	_, caret := a.doc.Selection()
-	cb, ok := a.locateRune(caret, r.W)
+	_, caret := pn.doc.Selection()
+	cb, ok := a.locateRune(pn, caret, r.W)
 	if !ok {
-		b, hasBox := a.boxAt(caret)
-		if !hasBox && !a.revealWant {
+		b, hasBox := a.boxAt(pn, caret)
+		if !hasBox && !pn.revealWant {
 			return
 		}
-		if hasBox && a.scrollR.H > 0 && !a.revealWant && (r.Y+b.Top+b.Height <= a.scrollR.Y || r.Y+b.Top >= a.scrollR.Y+a.scrollR.H) {
+		if hasBox && pn.scrollR.H > 0 && !pn.revealWant && (r.Y+b.Top+b.Height <= pn.scrollR.Y || r.Y+b.Top >= pn.scrollR.Y+pn.scrollR.H) {
 			return
 		}
-		ver, spans := a.doc.Version(), a.spansVersion()
+		ver, spans := pn.doc.Version(), a.spansVersion(pn)
 		var cr ui.Rect
 		fb := &a.caretFB
-		if fb.doc == a.doc && fb.ver == ver && fb.spans == spans && fb.font == a.font && fb.at == caret && fb.w == r.W {
+		if fb.doc == pn.doc && fb.ver == ver && fb.spans == spans && fb.font == a.font && fb.at == caret && fb.w == r.W {
 			cr = fb.r
 		} else {
 			var cok bool
-			cr, cok = a.doc.CaretRect()
+			cr, cok = pn.doc.CaretRect()
 			if !cok {
 				return
 			}
 			a.caretFBReads++
-			*fb = caretFallback{doc: a.doc, ver: ver, spans: spans, font: a.font, at: caret, w: r.W, r: cr}
+			*fb = caretFallback{doc: pn.doc, ver: ver, spans: spans, font: a.font, at: caret, w: r.W, r: cr}
 		}
 		para, top := 0, cr.Y
 		if hasBox {
 			para, top = b.Start, b.Top
-		} else if a.doc != nil {
-			s, _ := a.doc.Text().ParagraphRange(caret)
+		} else if pn.doc != nil {
+			s, _ := pn.doc.Text().ParagraphRange(caret)
 			para = s
 		}
 		cw := cr.H * 0.5
@@ -1813,35 +1828,35 @@ func (a *app) drawCaret(p *ui.Painter, r ui.Rect) {
 	// scrolled: the caret went with its paragraph, the text under it the
 	// same - the jelly goes with it and is not kicked
 	top := r.Y + cb.top
-	if cb.para == a.caretPara && cb.r.Y-cb.top == a.caretRel && top != a.caretTop {
-		a.jelly.shift(0, top-a.caretTop)
-		a.mizan.shift(top - a.caretTop)
-		a.eachFX(func(c caretFX) { c.shift(top - a.caretTop) })
+	if cb.para == pn.caretPara && cb.r.Y-cb.top == pn.caretRel && top != pn.caretTop {
+		a.jelly.shift(0, top-pn.caretTop)
+		a.mizan.shift(top - pn.caretTop)
+		a.eachFX(func(c caretFX) { c.shift(top - pn.caretTop) })
 	}
-	a.caretPara, a.caretRel, a.caretTop = cb.para, cb.r.Y-cb.top, top
+	pn.caretPara, pn.caretRel, pn.caretTop = cb.para, cb.r.Y-cb.top, top
 	cr := cb.r
 	cr.X += r.X
 	cr.Y += r.Y
-	a.caretWin = cr
-	a.revealCaret(cr)
-	if a.scrollR.H > 0 && (cr.Y+cr.H <= a.scrollR.Y || cr.Y >= a.scrollR.Y+a.scrollR.H) {
+	pn.caretWin = cr
+	a.revealCaret(pn, cr)
+	if pn.scrollR.H > 0 && (cr.Y+cr.H <= pn.scrollR.Y || cr.Y >= pn.scrollR.Y+pn.scrollR.H) {
 		return
 	}
 	a.caretDraws++
-	anchor, caret := a.doc.Selection()
-	if a.caretBlinkOff(p, anchor, caret) { // the off half of a blink
+	anchor, caret := pn.doc.Selection()
+	if a.caretBlinkOff(p, pn, anchor, caret) { // the off half of a blink
 		return
 	}
 	if anchor != caret || a.settings.NoCaretFX || fx.still { // over a selection, with the effects off or reduced motion, a plain caret: the jelly would hide what is selected
-		a.paintCaret(p, cr, cb.cw, r, kick{}, true)
+		a.paintCaret(p, pn, cr, cb.cw, r, kick{}, true)
 		return
 	}
-	k := kick{wrote: a.wrote, edited: a.edited, erased: a.erased, dir: a.eraseDir, gone: a.gone, typed: a.typed, style: a.styleAt(caret)}
-	a.wrote, a.edited, a.erased, a.gone, a.typed = 0, false, 0, "", ""
-	doc, boxes, font, th := a.doc, a.boxes, a.font, a.theme
+	k := kick{wrote: pn.wrote, edited: pn.edited, erased: pn.erased, dir: pn.eraseDir, gone: pn.gone, typed: pn.typed, style: a.styleAt(caret)}
+	pn.wrote, pn.edited, pn.erased, pn.gone, pn.typed = 0, false, 0, "", ""
+	doc, boxes, font, th := pn.doc, pn.boxes, a.font, a.theme
 	a.nearFn = func(n int) []nearGlyph { return nearLetters(doc, boxes, r.X, r.Y, r.W, font, th, n) }
 	a.wordsFn = &caretWords{doc: doc, boxes: boxes, x: r.X, y: r.Y, w: r.W, font: font, th: th}
-	a.paintCaret(p, cr, cb.cw, r, k, false)
+	a.paintCaret(p, pn, cr, cb.cw, r, k, false)
 	a.nearFn, a.wordsFn = nil, nil
 }
 
@@ -1853,11 +1868,11 @@ type caretBlink struct {
 
 // caretBlinkOff reports whether the caret is in the off half of its blink: with the blink set, once it has stood
 // still a moment, it is hidden and shown again every CaretBlink ms; typing or moving it shows it at once.
-func (a *app) caretBlinkOff(p *ui.Painter, anchor, caret int) bool {
+func (a *app) caretBlinkOff(p *ui.Painter, pn *paneState, anchor, caret int) bool {
 	rate := time.Duration(a.settings.CaretBlink) * time.Millisecond
 	now := p.Now()
 	b := &a.blink
-	if b.anchor != anchor || b.caret != caret || a.wrote > 0 || a.edited || b.since.IsZero() {
+	if b.anchor != anchor || b.caret != caret || pn.wrote > 0 || pn.edited || b.since.IsZero() {
 		*b = caretBlink{anchor: anchor, caret: caret, since: now}
 	}
 	if rate <= 0 || anchor != caret {
@@ -1876,7 +1891,7 @@ func (a *app) caretBlinkOff(p *ui.Painter, anchor, caret int) bool {
 // paintCaret draws the caret cr, in the editor's box bounds (or an input's):
 // the slime or the mizan, as chosen, or a plain bar over a selection. wrote
 // is how many letters were just written, edited whether the text was changed.
-func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, k kick, selecting bool) {
+func (a *app) paintCaret(p *ui.Painter, pn *paneState, cr ui.Rect, cw float32, bounds ui.Rect, k kick, selecting bool) {
 	dark := p.Theme().Dark
 	if selecting {
 		p.Fill(ui.Rect{X: cr.X - 1, Y: cr.Y, W: 2, H: cr.H}, p.Theme().Accent, rad(1))
@@ -1900,7 +1915,10 @@ func (a *app) paintCaret(p *ui.Painter, cr ui.Rect, cw float32, bounds ui.Rect, 
 	}
 	// not clipped to the editor's box: at the start of a line the caret
 	// goes past its left edge
-	room := a.scrollR
+	var room ui.Rect
+	if pn != nil {
+		room = pn.scrollR
+	}
 	if room.H == 0 {
 		room = ui.Rect{X: bounds.X - 24, Y: bounds.Y - 12, W: bounds.W + 48, H: bounds.H + 24}
 	}
@@ -1954,7 +1972,7 @@ func (a *app) status(c *ui.Context) {
 			})
 			if m.Clicked() {
 				a.openSettings()
-				a.settingsTab = tabMCP
+				a.pane().settingsTab = tabMCP
 			}
 		}
 		a.agentStatus(c)
@@ -2021,7 +2039,8 @@ func (a *app) autosave(c *ui.Context) {
 			c.After(retrySave)
 		}
 	}
-	if !a.dirty || a.page == nil || a.settings.NoAutoSave {
+	pn := a.pane()
+	if !pn.dirty || pn.page == nil || a.settings.NoAutoSave {
 		return
 	}
 	if a.saveErr != "" { // it failed: again a while after, not at every frame
@@ -2030,15 +2049,15 @@ func (a *app) autosave(c *ui.Context) {
 			return
 		}
 	}
-	if wait := a.saveAfter() - a.clock().Sub(a.editAt); wait > 0 {
+	if wait := a.saveAfter() - a.clock().Sub(pn.editAt); wait > 0 {
 		c.After(wait)
 		return
 	}
-	if a.doc.Text().Len() >= bigSave {
+	if pn.doc.Text().Len() >= bigSave {
 		a.saveAway()
 		return
 	}
-	a.save()
+	a.savePane(pn)
 }
 
 // bigSave is the length of a page's text, in letters, from which its autosave is made away from the frame: a page of
@@ -2053,8 +2072,9 @@ func (a *app) saveAway() {
 	if a.savingAway {
 		return
 	}
+	pn := a.pane()
 	a.rollRecurring()
-	p, doc, t, ver := a.page, a.doc, a.doc.Text(), a.doc.Version()
+	p, doc, t, ver := pn.page, pn.doc, pn.doc.Text(), pn.doc.Version()
 	a.savingAway = true
 	go func() {
 		defer a.guard()
@@ -2062,37 +2082,39 @@ func (a *app) saveAway() {
 		body := encodeBody(t)
 		words := len(strings.Fields(unfoldText(t).PlainText()))
 		a.do(func() error {
-			if a.page != p || a.doc != doc || doc.Version() != ver || !a.dirty || a.settings.NoAutoSave {
+			if pn.page != p || pn.doc != doc || doc.Version() != ver || !pn.dirty || a.settings.NoAutoSave {
 				return nil
 			}
-			a.wroteBody(body, words)
+			a.wroteBody(pn, body, words)
 			return nil
 		})
 	}()
 }
 
-func (a *app) save() {
+func (a *app) save() { a.savePane(a.pane()) }
+
+func (a *app) savePane(pn *paneState) {
 	a.rollRecurring()
-	a.wroteBody(encodeBody(a.doc.Text()), -1)
+	a.wroteBody(pn, encodeBody(pn.doc.Text()), -1)
 }
 
-// wroteBody writes body as the open page's file, and notes it: words are its words, counted with a fold's lines too
+// wroteBody writes body as pn's page's file, and notes it: words are its words, counted with a fold's lines too
 // (folding is not writing, #128), or -1 to count them here, which is done only when the body is new.
-func (a *app) wroteBody(body string, words int) {
-	if body == a.lastSave {
-		a.dirty = false
+func (a *app) wroteBody(pn *paneState, body string, words int) {
+	if body == pn.lastSave {
+		pn.dirty = false
 		return
 	}
-	if err := a.page.Save(body); err != nil {
+	if err := pn.page.Save(body); err != nil {
 		a.saveErr, a.saveTried = err.Error(), a.clock()
 		return
 	}
 	a.saveErr = ""
 	if words < 0 {
-		words = len(strings.Fields(unfoldText(a.doc.Text()).PlainText()))
+		words = len(strings.Fields(unfoldText(pn.doc.Text()).PlainText()))
 	}
-	a.countWriting(a.lastWords, words)
-	a.lastSave, a.lastWords, a.dirty = body, words, false
+	a.countWriting(pn.lastWords, words)
+	pn.lastSave, pn.lastWords, pn.dirty = body, words, false
 	a.savedAt = a.clock()
 	a.linksStale()
 }
@@ -2118,14 +2140,15 @@ func (a *app) retryUnsaved() {
 
 // docStats are the open page's words and letters, counted again when the text changed.
 func (a *app) docStats() (words, chars int) {
-	if a.doc == nil {
+	pn := a.pane()
+	if pn.doc == nil {
 		return 0, 0
 	}
-	if v := a.doc.Version(); v != a.statsVer || a.statChars == 0 {
-		s := a.doc.Text().String()
-		a.statWords, a.statChars, a.statsVer = len(strings.Fields(s)), len([]rune(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), string(richtext.ObjectReplacement), ""))), v
+	if v := pn.doc.Version(); v != pn.statsVer || pn.statChars == 0 {
+		s := pn.doc.Text().String()
+		pn.statWords, pn.statChars, pn.statsVer = len(strings.Fields(s)), len([]rune(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), string(richtext.ObjectReplacement), ""))), v
 	}
-	return a.statWords, a.statChars
+	return pn.statWords, pn.statChars
 }
 
 // handleSecondInstance handles command-line arguments forwarded from another launch.

@@ -162,8 +162,8 @@ func notImage() string { return locales.PageNotImage() }
 // own after the caret's line: the file is made beside the page, and its
 // Markdown follows. It reports why it could not.
 func (a *app) addImage(name string, data []byte) error {
-	p := a.page
-	if p == nil || a.doc == nil {
+	p := a.pane().page
+	if p == nil || a.pane().doc == nil {
 		return errors.New(locales.PageNoOpenPage())
 	}
 	ext := imageExt(data)
@@ -195,8 +195,8 @@ func (a *app) addImage(name string, data []byte) error {
 // putBlock puts an attachment in a paragraph of its own: in the empty line the
 // caret is on, or under the line it is in.
 func (a *app) putBlock(att *richtext.Attachment) {
-	t := a.doc.Text()
-	_, caret := a.doc.Selection()
+	t := a.pane().doc.Text()
+	_, caret := a.pane().doc.Selection()
 	ps, pe := t.ParagraphRange(min(caret, t.Len()))
 	prefix, at := "", ps
 	if pe > ps { // a line with text: it goes under it
@@ -204,7 +204,7 @@ func (a *app) putBlock(att *richtext.Attachment) {
 	}
 	last := pe >= t.Len()
 	attrs := richtext.Attributes{Attachment: att}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ins := prefix + string(richtext.ObjectReplacement)
 		if last {
 			ins += "\n"
@@ -215,15 +215,15 @@ func (a *app) putBlock(att *richtext.Attachment) {
 		ed.FormatParagraphs(pos, pos, func(st *richtext.ParagraphStyle) { *st = richtext.ParagraphStyle{} })
 		ed.Select(pos+2, pos+2)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	a.pane().doc.SetTypingAttributes(richtext.Attributes{})
 }
 
 // addImageFile reads the picture at file and adds it to the open page: a big one read away from the window, and
 // added if that page is still the one open.
 func (a *app) addImageFile(file string) {
-	p := a.page
+	p := a.pane().page
 	a.readThen(file, maxImageBytes, func(data []byte, err error) {
-		if a.page != p {
+		if a.pane().page != p {
 			return
 		}
 		if err == nil {
@@ -326,9 +326,14 @@ type picHit struct {
 }
 
 // pictureAt is the picture at (x, y) of the window, as the last frame drew it.
-func (a *app) pictureAt(x, y float32) *picHit {
-	for i := range a.picSeen {
-		h := &a.picSeen[i]
+// (Wait - already edited pictureAt; let's check line 77 of images.go - line 77 stays a.picHits since pictureAttachment is in doc!)
+func (a *app) sealPics(pn *paneState) {
+	pn.picSeen = append(pn.picSeen[:0], a.picHits...)
+	a.picHits = a.picHits[:0]
+}
+func (a *app) pictureAt(pn *paneState, x, y float32) *picHit {
+	for i := range pn.picSeen {
+		h := &pn.picSeen[i]
 		if x >= h.r.X && x <= h.r.X+h.r.W && y >= h.r.Y && y <= h.r.Y+h.r.H {
 			return h
 		}

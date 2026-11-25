@@ -55,19 +55,21 @@ func (a *app) resetFont() {
 
 // saveNow writes the page, whether it saves by itself or not.
 func (a *app) saveNow() {
-	if a.page != nil && a.doc != nil && a.dirty {
+	pn := a.pane()
+	if pn.page != nil && pn.doc != nil && pn.dirty {
 		a.save()
 	}
 }
 
 // savedAt is the time of the last save, shown in the status bar.
 func (a *app) savedText() string {
+	pn := a.pane()
 	switch {
 	case a.saveErr != "":
 		return locales.EditorCouldNotSave(a.saveErr)
-	case a.dirty && a.settings.NoAutoSave:
+	case pn.dirty && a.settings.NoAutoSave:
 		return locales.EditorNotSaved()
-	case a.dirty:
+	case pn.dirty:
 		return locales.EditorSaving()
 	case !a.savedAt.IsZero():
 		return locales.EditorSavedAt(clockTime(a.savedAt))
@@ -87,22 +89,22 @@ const maxMarked = 4000
 // drawWhite marks the white space of the paragraphs in view over the text: a dot for a space, an arrow
 // for a tab, a pilcrow where a paragraph ends. They are thin and gray, so that the caret and the
 // selection are not hidden; spaces at the end of a line are in the warning color.
-func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
-	if !a.whiteMarks() || a.doc == nil {
+func (a *app) drawWhite(pn *paneState, p *ui.Painter, r ui.Rect) {
+	if !a.whiteMarks() || pn.doc == nil {
 		return
 	}
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	cl := ryugo.Painting(p).Colors
 	faint := cl.Muted.Alpha(0.55)
 	warn := cl.Warn.Alpha(0.75)
 	// only in the selection, when that is set: and nothing with none
-	sa, sc := a.doc.Selection()
+	sa, sc := pn.doc.Selection()
 	selS, selE := min(sa, sc), max(sa, sc)
 	onlySel := a.settings.WhiteInSel
 	if onlySel && selS == selE {
 		return
 	}
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		s, e := text.ParagraphRange(b.Start)
 		if e-s > maxMarked || onlySel && (e < selS || s >= selE) {
 			continue
@@ -120,7 +122,7 @@ func (a *app) drawWhite(p *ui.Painter, r ui.Rect) {
 		for _, run := range para.Runs {
 			line.WriteString(run.Text)
 		}
-		l, left := a.paraLayout(s, para, r.W)
+		l, left := a.paraLayout(pn, s, para, r.W)
 		runes := []rune(line.String())
 		pre := make([]int, len(runes)+1) // where each rune starts, in the layout's units: once, not once a rune (#198)
 		for i, r := range runes {

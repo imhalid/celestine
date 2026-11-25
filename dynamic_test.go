@@ -25,11 +25,11 @@ func TestDynamicCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	c := a.coll
+	c := a.pane().coll
 	if c == nil || !c.Dynamic() || c.Query != "#fikir" || c.SubPages {
 		t.Fatalf("collection: %+v", c)
 	}
-	if got := a.filtered(c); len(got) != 2 {
+	if got := a.filtered(a.pane(), c); len(got) != 2 {
 		t.Fatalf("pages: %d", len(got))
 	}
 	if !tt.HasText("Sayfa: İkinci") && !tt.HasText("İkinci") {
@@ -54,7 +54,7 @@ func TestDynamicCollection(t *testing.T) {
 	y.SaveText("şimdi #fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}
-	if got := a.filtered(c); len(got) != 3 {
+	if got := a.filtered(a.pane(), c); len(got) != 3 {
 		t.Fatalf("after tagging: %d", len(got))
 	}
 }

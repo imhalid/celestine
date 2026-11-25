@@ -14,7 +14,7 @@ import (
 // of it, right after it with its sub-pages and pictures, its link, its Markdown.
 func TestPageMoreMenu(t *testing.T) {
 	a, tt := newTestApp(t, "gövde\n")
-	p := a.page
+	p := a.pane().page
 	sub, _ := p.Coll.NewPage(p, "Alt")
 	sub.SaveText("altın metni\n")
 	if err := a.addImage("foto.png", pngBytes(20, 20)); err != nil {
@@ -51,8 +51,8 @@ func TestPageMoreMenu(t *testing.T) {
 	}
 	tt.Advance(100 * time.Millisecond)
 	pages := a.lib.Collections[0].Pages
-	if len(pages) != 2 || pages[0] != p || pages[1].Title != p.Title+" (kopya)" || a.page != pages[1] {
-		t.Fatalf("pages: %d, open %v", len(pages), a.page.Title)
+	if len(pages) != 2 || pages[0] != p || pages[1].Title != p.Title+" (kopya)" || a.pane().page != pages[1] {
+		t.Fatalf("pages: %d, open %v", len(pages), a.pane().page.Title)
 	}
 	cp := pages[1]
 	if len(cp.Children) != 1 || cp.Children[0].Title != "Alt" || cp.Children[0].Parent != cp {
@@ -83,7 +83,7 @@ func TestPageExport(t *testing.T) {
 	a.save()
 	dir := t.TempDir()
 	out := filepath.Join(dir, "sayfa.md")
-	if err := a.writeExport(a.page, a.currentMarkdown(a.page), out); err != nil {
+	if err := a.writeExport(a.pane().page, a.currentMarkdown(a.pane().page), out); err != nil {
 		t.Fatal(err)
 	}
 	md, _ := os.ReadFile(out)
@@ -100,8 +100,8 @@ func TestPageExportOverwritePrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.save()
-	md := a.currentMarkdown(a.page)
-	names := exportAttachmentNames(a.page, md)
+	md := a.currentMarkdown(a.pane().page)
+	names := exportAttachmentNames(a.pane().page, md)
 	if len(names) != 1 {
 		t.Fatalf("attachments = %v", names)
 	}
@@ -113,7 +113,7 @@ func TestPageExportOverwritePrompt(t *testing.T) {
 	}
 
 	// Cancel aborts without writing page.md or replacing the colliding attachment.
-	a.finishExport(a.page, md, out)
+	a.finishExport(a.pane().page, md, out)
 	if !a.asking.open {
 		t.Fatal("expected overwrite confirmation prompt")
 	}
@@ -133,7 +133,7 @@ func TestPageExportOverwritePrompt(t *testing.T) {
 	}
 
 	// Skip existing writes page.md while keeping the colliding attachment intact.
-	a.finishExport(a.page, md, out)
+	a.finishExport(a.pane().page, md, out)
 	tt.Frame()
 	if err := tt.Click(locales.PageExportSkipExisting()); err != nil {
 		t.Fatal(err, tt.Texts())
@@ -147,7 +147,7 @@ func TestPageExportOverwritePrompt(t *testing.T) {
 	}
 
 	// Overwrite writes page.md and replaces the colliding attachment.
-	a.finishExport(a.page, md, out)
+	a.finishExport(a.pane().page, md, out)
 	tt.Frame()
 	if err := tt.Click(locales.PageExportOverwriteAction()); err != nil {
 		t.Fatal(err, tt.Texts())

@@ -14,7 +14,7 @@ import (
 func TestLibraryReplace(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 800)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	mk := func(title, text string) *Page {
 		p, _ := c.NewPage(nil, title)
 		if err := p.SaveText(text); err != nil {

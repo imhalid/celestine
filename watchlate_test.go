@@ -14,14 +14,14 @@ import (
 // not take the page for one changed outside and leaves no conflict copy beside it.
 func TestWatchLateScan(t *testing.T) {
 	a, tt := newTestApp(t, "ilk\n")
-	p := a.page
+	p := a.pane().page
 	disk := scanLibrary(a.lib.FS, a.lib.Root) // the scan, before the save
 	time.Sleep(20 * time.Millisecond)         // the file's time moves
-	a.doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "kaydedildi"}}}))
-	a.dirty = true
+	a.pane().doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "kaydedildi"}}}))
+	a.pane().dirty = true
 	a.save()
-	a.doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "kaydedildi, sonra yazıldı"}}}))
-	a.dirty = true
+	a.pane().doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "kaydedildi, sonra yazıldı"}}}))
+	a.pane().dirty = true
 	a.applyDisk(disk, true)
 	tt.Frame()
 	ents, _ := os.ReadDir(p.Dir)
@@ -30,7 +30,7 @@ func TestWatchLateScan(t *testing.T) {
 			t.Fatalf("a conflict copy from a late scan: %s", filepath.Join(p.Dir, e.Name()))
 		}
 	}
-	if !strings.Contains(a.doc.Text().String(), "sonra yazıldı") {
-		t.Fatalf("what was typed is gone: %q", a.doc.Text().String())
+	if !strings.Contains(a.pane().doc.Text().String(), "sonra yazıldı") {
+		t.Fatalf("what was typed is gone: %q", a.pane().doc.Text().String())
 	}
 }

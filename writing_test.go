@@ -12,7 +12,7 @@ func TestWriting(t *testing.T) {
 	now := time.Date(2026, 11, 5, 14, 0, 0, 0, time.UTC) // a Thursday
 	a.clock = func() time.Time { return now }
 	tt.Frame()
-	a.lastWords = 2
+	a.pane().lastWords = 2
 	a.countWriting(2, 5)
 	a.countWriting(5, 1) // deleting counts nothing
 	if got := a.writtenOn(now); got != 3 {
@@ -38,7 +38,7 @@ func TestWriting(t *testing.T) {
 	// the save does it
 	a.settings.Writing = nil
 	a.settings.WriteGoal = 0
-	a.doc.SetSelection(7, 7)
+	a.pane().doc.SetSelection(7, 7)
 	tt.Type(" yeni kelimeler geldi")
 	tt.Advance(time.Second)
 	a.save()

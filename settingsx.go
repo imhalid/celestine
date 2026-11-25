@@ -501,7 +501,7 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 			g := ui.Row(c.Key("slg:"+d.name)).Padding(5, 9).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			g.Children(func() { ui.Icon(c, iconArrowRight).Width(14).Height(14).TextColor(cl.Text2) })
 			if g.Clicked() {
-				a.settingsTab, a.setSearch, a.setMode = tab, "", ""
+				a.pane().settingsTab, a.setSearch, a.setMode = tab, "", ""
 			}
 		})
 	})

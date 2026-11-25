@@ -13,10 +13,10 @@ import (
 func TestGripMenuAndDrag(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\nİki\n\nÜç\n")
 	tt.Advance(300 * time.Millisecond)
-	r := a.editorR
+	r := a.pane().editorR
 	box := func(s string) (float32, float32) {
-		start := at(a.doc, s)
-		for _, b := range a.boxes {
+		start := at(a.pane().doc, s)
+		for _, b := range a.pane().boxes {
 			if b.Start == start {
 				return r.Y + b.Top, b.Height
 			}
@@ -29,8 +29,8 @@ func TestGripMenuAndDrag(t *testing.T) {
 	tt.Frame()
 	tt.Frame()
 	g, ok := tt.Find("Blok tutamağı")
-	if !ok || a.grip.para != at(a.doc, "İki") {
-		t.Fatalf("no grip: %v %d", ok, a.grip.para)
+	if !ok || a.pane().grip.para != at(a.pane().doc, "İki") {
+		t.Fatalf("no grip: %v %d", ok, a.pane().grip.para)
 	}
 	// the menu: turn it into a heading
 	tt.Move(g.X+g.W/2, g.Y+g.H/2)
@@ -47,7 +47,7 @@ func TestGripMenuAndDrag(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Bir\n\n# İki\n\nÜç" {
+	if got := mdOf(a.pane().doc); got != "Bir\n\n# İki\n\nÜç" {
 		t.Fatalf("turned: %q", got)
 	}
 	// drag "Bir" below "Üç"
@@ -64,12 +64,12 @@ func TestGripMenuAndDrag(t *testing.T) {
 		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
 		tt.Frame()
 	}
-	if !a.grip.dragging {
+	if !a.pane().grip.dragging {
 		t.Fatal("no drag")
 	}
 	tt.Release(x0, y1)
 	tt.Advance(300 * time.Millisecond)
-	if got := mdOf(a.doc); got != "# İki\n\nÜç\n\nBir" {
+	if got := mdOf(a.pane().doc); got != "# İki\n\nÜç\n\nBir" {
 		t.Fatalf("dragged: %q", got)
 	}
 }
@@ -81,11 +81,11 @@ func TestContextMenus(t *testing.T) {
 	tt.SetSize(1500, 700)
 	tt.Frame()
 	tt.Frame()
-	y := a.editorR.Y + a.boxes[1].Top + 8
-	tt.RightClickAt(a.pageR.X+10, y)
+	y := a.pane().editorR.Y + a.pane().boxes[1].Top + 8
+	tt.RightClickAt(a.pane().pageR.X+10, y)
 	tt.Advance(200 * time.Millisecond)
-	if !a.grip.menu {
-		t.Fatalf("no block menu from the margin: %+v", a.grip)
+	if !a.pane().grip.menu {
+		t.Fatalf("no block menu from the margin: %+v", a.pane().grip)
 	}
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(100 * time.Millisecond)
@@ -115,9 +115,9 @@ func TestContextMenus(t *testing.T) {
 func TestBlockDragOpensRoom(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\nİki\n\nÜç\n\nDört\n")
 	tt.Advance(300 * time.Millisecond)
-	r := a.editorR
+	r := a.pane().editorR
 	topOf := func(i int) float32 {
-		for _, b := range a.boxes {
+		for _, b := range a.pane().boxes {
 			if b.Index == i {
 				return b.Top
 			}
@@ -126,7 +126,7 @@ func TestBlockDragOpensRoom(t *testing.T) {
 		return 0
 	}
 	before := topOf(2) // Üç
-	b0 := a.boxes[0]
+	b0 := a.pane().boxes[0]
 	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
 	tt.Frame()
 	tt.Frame()
@@ -142,28 +142,28 @@ func TestBlockDragOpensRoom(t *testing.T) {
 		tt.Frame()
 	}
 	tt.Advance(500 * time.Millisecond)
-	if !a.grip.dragging || a.grip.toIdx != 2 {
-		t.Fatalf("aim: dragging %v, toIdx %d", a.grip.dragging, a.grip.toIdx)
+	if !a.pane().grip.dragging || a.pane().grip.toIdx != 2 {
+		t.Fatalf("aim: dragging %v, toIdx %d", a.pane().grip.dragging, a.pane().grip.toIdx)
 	}
-	if room := a.blockRoom(2); room < a.grip.roomH-1 {
-		t.Fatalf("room %.1f, want %.1f", room, a.grip.roomH)
+	if room := a.blockRoom(a.pane(), 2); room < a.pane().grip.roomH-1 {
+		t.Fatalf("room %.1f, want %.1f", room, a.pane().grip.roomH)
 	}
-	if moved := topOf(2) - before; moved < a.grip.roomH-1 {
-		t.Fatalf("Üç moved %.1f, want %.1f", moved, a.grip.roomH)
+	if moved := topOf(2) - before; moved < a.pane().grip.roomH-1 {
+		t.Fatalf("Üç moved %.1f, want %.1f", moved, a.pane().grip.roomH)
 	}
 	// the aim holds though the room moved Üç down: it is read without the room
 	tt.Move(x0, y1+1)
 	tt.Frame()
-	if a.grip.toIdx != 2 {
-		t.Fatalf("aim moved with the room: %d", a.grip.toIdx)
+	if a.pane().grip.toIdx != 2 {
+		t.Fatalf("aim moved with the room: %d", a.pane().grip.toIdx)
 	}
 	tt.Release(x0, y1+1)
 	tt.Advance(300 * time.Millisecond)
-	if got := mdOf(a.doc); got != "İki\n\nBir\n\nÜç\n\nDört" {
+	if got := mdOf(a.pane().doc); got != "İki\n\nBir\n\nÜç\n\nDört" {
 		t.Fatalf("dragged: %q", got)
 	}
-	if len(a.grip.rooms) != 0 {
-		t.Fatalf("rooms left open: %v", a.grip.rooms)
+	if len(a.pane().grip.rooms) != 0 {
+		t.Fatalf("rooms left open: %v", a.pane().grip.rooms)
 	}
 }
 
@@ -172,8 +172,8 @@ func TestBlockDragOpensRoom(t *testing.T) {
 func TestBlockMenuKeys(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\nİki\n")
 	tt.Frame()
-	y := a.editorR.Y + a.boxes[1].Top + 6
-	tt.Move(a.editorR.X+30, y)
+	y := a.pane().editorR.Y + a.pane().boxes[1].Top + 6
+	tt.Move(a.pane().editorR.X+30, y)
 	tt.Frame()
 	tt.Frame()
 	g, ok := tt.Find("Blok tutamağı")
@@ -186,15 +186,15 @@ func TestBlockMenuKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if !a.grip.menu || !slices.Contains(tt.Menu(), "Dönüştür…") {
-		t.Fatalf("not open: %v %v", a.grip.menu, tt.Menu())
+	if !a.pane().grip.menu || !slices.Contains(tt.Menu(), "Dönüştür…") {
+		t.Fatalf("not open: %v %v", a.pane().grip.menu, tt.Menu())
 	}
 	if err := tt.ChooseMenuItem("Dönüştür…", "Başlık 1"); err != nil {
 		t.Fatal(err, tt.Menu())
 	}
 	tt.Advance(200 * time.Millisecond)
-	if a.grip.menu || a.doc.Text().ParagraphStyleAt(a.boxes[1].Start).Heading != 1 {
-		t.Fatalf("not turned: menu %v, style %+v", a.grip.menu, a.doc.Text().ParagraphStyleAt(a.boxes[1].Start))
+	if a.pane().grip.menu || a.pane().doc.Text().ParagraphStyleAt(a.pane().boxes[1].Start).Heading != 1 {
+		t.Fatalf("not turned: menu %v, style %+v", a.pane().grip.menu, a.pane().doc.Text().ParagraphStyleAt(a.pane().boxes[1].Start))
 	}
 	if err := tt.Click("Blok tutamağı"); err != nil {
 		t.Fatal(err)
@@ -202,7 +202,7 @@ func TestBlockMenuKeys(t *testing.T) {
 	tt.Advance(200 * time.Millisecond)
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(100 * time.Millisecond)
-	if a.grip.menu || tt.Menu() != nil {
+	if a.pane().grip.menu || tt.Menu() != nil {
 		t.Fatal("Esc did not close it")
 	}
 }
@@ -216,10 +216,10 @@ func TestGripDragScrollsAtEdge(t *testing.T) {
 	}
 	a, tt := newTestApp(t, text)
 	tt.Advance(300 * time.Millisecond)
-	if a.pageScroll.MaxY <= 0 {
+	if a.pane().pageScroll.MaxY <= 0 {
 		t.Fatal("the page does not scroll")
 	}
-	r, b := a.editorR, a.boxes[0]
+	r, b := a.pane().editorR, a.pane().boxes[0]
 	tt.Move(r.X+40, r.Y+b.Top+b.Height/2)
 	tt.Frame()
 	tt.Frame()
@@ -228,24 +228,24 @@ func TestGripDragScrollsAtEdge(t *testing.T) {
 		t.Fatal("no grip")
 	}
 	x0, y0 := g.X+g.W/2, g.Y+g.H/2
-	y1 := a.scrollR.Y + a.scrollR.H - 4
+	y1 := a.pane().scrollR.Y + a.pane().scrollR.H - 4
 	tt.Press(x0, y0)
 	for k := 1; k <= 10; k++ {
 		tt.Move(x0, y0+(y1-y0)*float32(k)/10)
 		tt.Frame()
 	}
-	if !a.grip.dragging {
+	if !a.pane().grip.dragging {
 		t.Fatal("no drag")
 	}
 	for k := 0; k < 30; k++ { // held still at the edge
 		tt.Frame()
 	}
-	if a.pageScroll.Y < 200 {
-		t.Fatalf("scrolled only %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y < 200 {
+		t.Fatalf("scrolled only %v", a.pane().pageScroll.Y)
 	}
 	tt.Release(x0, y1)
 	tt.Advance(300 * time.Millisecond)
-	if got := mdOf(a.doc); got[:len("Satır Aa")] == "Satır Aa" {
+	if got := mdOf(a.pane().doc); got[:len("Satır Aa")] == "Satır Aa" {
 		t.Fatalf("not moved: %q", got[:40])
 	}
 }
@@ -253,7 +253,7 @@ func TestGripDragScrollsAtEdge(t *testing.T) {
 func TestGripDragClearedOnModal(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci blok\n\nİkinci blok\n\nÜçüncü blok\n")
 	tt.Advance(300 * time.Millisecond)
-	r, b := a.editorR, a.boxes[0]
+	r, b := a.pane().editorR, a.pane().boxes[0]
 	tt.Move(r.X+40, r.Y+b.Top+b.Height/2)
 	tt.Frame()
 	tt.Frame()
@@ -265,18 +265,18 @@ func TestGripDragClearedOnModal(t *testing.T) {
 	tt.Press(x0, y0)
 	tt.Move(x0, y0+40)
 	tt.Frame()
-	if !a.grip.dragging {
+	if !a.pane().grip.dragging {
 		t.Fatal("expected active grip drag before opening modal")
 	}
 	a.openCommands()
 	tt.Frame()
 	tt.Frame()
-	if a.grip.dragging || a.grip.pressed {
-		t.Fatalf("modal should clear grip drag state, got dragging=%v pressed=%v", a.grip.dragging, a.grip.pressed)
+	if a.pane().grip.dragging || a.pane().grip.pressed {
+		t.Fatalf("modal should clear grip drag state, got dragging=%v pressed=%v", a.pane().grip.dragging, a.pane().grip.pressed)
 	}
 	tt.Release(x0, y0+40)
 	tt.Frame()
-	if got := mdOf(a.doc); !strings.HasPrefix(got, "Birinci blok") {
+	if got := mdOf(a.pane().doc); !strings.HasPrefix(got, "Birinci blok") {
 		t.Fatalf("cancelled grip drag should not reorder blocks, got %q", got)
 	}
 }
@@ -284,7 +284,7 @@ func TestGripDragClearedOnModal(t *testing.T) {
 func TestBlockMenuPaletteKeepsGripAndSelBar(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci blok\n\nİkinci blok\n")
 	tt.Advance(300 * time.Millisecond)
-	r, b0, b1 := a.editorR, a.boxes[0], a.boxes[1]
+	r, b0, b1 := a.pane().editorR, a.pane().boxes[0], a.pane().boxes[1]
 
 	// 1. Open the block menu on the first paragraph.
 	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
@@ -297,7 +297,7 @@ func TestBlockMenuPaletteKeepsGripAndSelBar(t *testing.T) {
 	tt.ClickAt(g.X+g.W/2, g.Y+g.H/2)
 	tt.Frame()
 	tt.Frame()
-	if !a.grip.menu {
+	if !a.pane().grip.menu {
 		t.Fatal("expected block menu to open")
 	}
 
@@ -318,14 +318,14 @@ func TestBlockMenuPaletteKeepsGripAndSelBar(t *testing.T) {
 	tt.Frame()
 	tt.Frame()
 	if _, ok := tt.Find(locales.BlocksBlockHandle()); !ok {
-		t.Fatalf("grip missing after block menu + palette round-trip (menu=%v para=%d)", a.grip.menu, a.grip.para)
+		t.Fatalf("grip missing after block menu + palette round-trip (menu=%v para=%d)", a.pane().grip.menu, a.pane().grip.para)
 	}
 	tt.ClickAt(r.X+40, r.Y+b1.Top+b1.Height/2)
 	tt.Frame()
-	a.doc.SetSelection(b1.Start, b1.Start+len("İkinci"))
+	a.pane().doc.SetSelection(b1.Start, b1.Start+len("İkinci"))
 	tt.Frame()
 	if _, ok := tt.Find(locales.SelectionBold()); !ok {
-		t.Fatalf("selection format bar missing after block menu + palette round-trip (menu=%v)", a.grip.menu)
+		t.Fatalf("selection format bar missing after block menu + palette round-trip (menu=%v)", a.pane().grip.menu)
 	}
 }
 
@@ -347,9 +347,9 @@ func TestBlockDropIsSmooth(t *testing.T) {
 			a, tt := newTestApp(t, text)
 			tt.SetSize(700, 900)
 			tt.Advance(300 * time.Millisecond)
-			r := a.editorR
+			r := a.pane().editorR
 			var fy, ty float32
-			for _, b := range a.boxes {
+			for _, b := range a.pane().boxes {
 				if b.Index == c.from {
 					fy = b.Top + b.Height/2
 				}
@@ -375,14 +375,14 @@ func TestBlockDropIsSmooth(t *testing.T) {
 			// where each paragraph is, by its first letters
 			tops := func() map[string]float32 {
 				m := map[string]float32{}
-				txt := a.doc.Text()
-				for _, b := range a.boxes {
+				txt := a.pane().doc.Text()
+				for _, b := range a.pane().boxes {
 					s, e := txt.ParagraphRange(b.Start)
 					m[txt.Slice(s, min(e, s+3)).String()] = b.Top
 				}
 				return m
 			}
-			moved := a.doc.Text().Slice(a.grip.from[0], a.grip.from[0]+3).String()
+			moved := a.pane().doc.Text().Slice(a.pane().grip.from[0], a.pane().grip.from[0]+3).String()
 			was := tops()
 			tt.Release(x0, y1)
 			tt.Frame()
@@ -401,10 +401,10 @@ func TestBlockDropIsSmooth(t *testing.T) {
 					}
 				}
 			}
-			if len(a.grip.settle) != 0 || !a.grip.landAt.IsZero() {
-				t.Fatalf("still settling after a second: %v, landed at %v", a.grip.settle, a.grip.landAt)
+			if len(a.pane().grip.settle) != 0 || !a.pane().grip.landAt.IsZero() {
+				t.Fatalf("still settling after a second: %v, landed at %v", a.pane().grip.settle, a.pane().grip.landAt)
 			}
-			if got := mdOf(a.doc); !strings.Contains(got, c.want) {
+			if got := mdOf(a.pane().doc); !strings.Contains(got, c.want) {
 				t.Fatalf("dropped: %q", got)
 			}
 		})
@@ -416,7 +416,7 @@ func TestBlockDropIsSmooth(t *testing.T) {
 func TestBlockLayKeepsChips(t *testing.T) {
 	a, tt := newTestApp(t, "Bu kitabı [[Sayfa]] ile birlikte okumak isterim.\n")
 	tt.Advance(100 * time.Millisecond)
-	l := a.blockLay(0, a.editorR.W)
+	l := a.blockLay(a.pane(), 0, a.pane().editorR.W)
 	if len(l.objs) != 1 || l.objs[0].att.Draw == nil {
 		t.Fatalf("the chip is not in the block's layout: %+v", l.objs)
 	}

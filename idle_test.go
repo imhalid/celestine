@@ -27,7 +27,7 @@ func TestIdleAsksNoFrames(t *testing.T) {
 		}
 		a, tt := newTestApp(t, "Bir paragraf, okunacak kadar uzun.\n\nİkincisi.\n")
 		a.setCaret(k)
-		a.doc.SetSelection(5, 5)
+		a.pane().doc.SetSelection(5, 5)
 		tt.Frame()
 		tt.Move(450, 300)
 		tt.Advance(caretRests() + 30*time.Second) // what moved last (a blink, a wound) is done by then

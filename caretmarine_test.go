@@ -68,7 +68,7 @@ func TestMarineStaysInTheField(t *testing.T) {
 			a.setCaret(k)
 		}
 	}
-	a.settingsOpen, a.settingsTab = true, 1
+	a.pane().settingsOpen, a.pane().settingsTab = true, 1
 	tt.Advance(900 * time.Millisecond)
 	if err := tt.Click(locales.EditorTryCaret()); err != nil {
 		t.Fatal(err)

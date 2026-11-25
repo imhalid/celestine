@@ -13,12 +13,12 @@ func TestTabInPlainText(t *testing.T) {
 	tt.Key(ui.Cmd, ui.KeyDown)
 	tt.Key(0, ui.KeyTab)
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "Önce\t" {
+	if got := a.pane().doc.Text().String(); got != "Önce\t" {
 		t.Fatalf("after Tab: %q", got)
 	}
 	tt.Key(ui.Shift, ui.KeyTab)
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "Önce" {
+	if got := a.pane().doc.Text().String(); got != "Önce" {
 		t.Fatalf("after ⇧Tab: %q", got)
 	}
 }
@@ -30,9 +30,14 @@ func TestTabInEveryParagraph(t *testing.T) {
 		md   string
 		want func(a *app) bool
 	}{
-		{"- bir\n", func(a *app) bool { _, c := a.doc.Selection(); return a.doc.Text().ParagraphStyleAt(c).Indent == 2 }},
-		{"```\nx\n```\n", func(a *app) bool { return a.doc.Text().String() != "" && containsTab(a.doc.Text().String()) }},
-		{"# Baş\n", func(a *app) bool { return containsTab(a.doc.Text().String()) }},
+		{"- bir\n", func(a *app) bool {
+			_, c := a.pane().doc.Selection()
+			return a.pane().doc.Text().ParagraphStyleAt(c).Indent == 2
+		}},
+		{"```\nx\n```\n", func(a *app) bool {
+			return a.pane().doc.Text().String() != "" && containsTab(a.pane().doc.Text().String())
+		}},
+		{"# Baş\n", func(a *app) bool { return containsTab(a.pane().doc.Text().String()) }},
 	} {
 		a, tt := newTestApp(t, c.md)
 		tt.Frame()
@@ -42,11 +47,11 @@ func TestTabInEveryParagraph(t *testing.T) {
 		tt.Frame()
 		tt.Key(0, ui.KeyTab)
 		tt.Frame()
-		if !a.focused {
+		if !a.pane().focused {
 			t.Errorf("%q: the text lost the focus", c.md)
 		}
 		if !c.want(a) {
-			t.Errorf("%q: after Tab: %q", c.md, a.doc.Text().String())
+			t.Errorf("%q: after Tab: %q", c.md, a.pane().doc.Text().String())
 		}
 	}
 }

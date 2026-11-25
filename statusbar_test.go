@@ -18,13 +18,13 @@ func TestStatusExtras(t *testing.T) {
 		t.Fatalf("the caret's place is shown before it is asked for")
 	}
 	a.settings.ShowPos = true
-	a.doc.SetSelection(13, 13) // in the second paragraph
+	a.pane().doc.SetSelection(13, 13) // in the second paragraph
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if texts := strings.Join(tt.Texts(), "|"); !strings.Contains(texts, "Satır 2, sütun") {
 		t.Fatalf("no caret place: %v", tt.Texts())
 	}
-	a.doc.SetSelection(0, 5)
+	a.pane().doc.SetSelection(0, 5)
 	tt.Frame()
 	tt.Advance(50 * time.Millisecond)
 	for _, gone := range []string{"harf seçili", "dk okuma", "geri bağlantı", "düzenlendi", "kelime"} {

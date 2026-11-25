@@ -64,10 +64,10 @@ func TestLinkIcons(t *testing.T) {
 	a, tt := newTestApp(t, "Read [the book]("+addr+") now\n")
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	if len(a.linkSeen) == 0 {
+	if len(a.pane().linkSeen) == 0 {
 		t.Fatal("the link was not drawn")
 	}
-	padded := a.linkSeen[0].r
+	padded := a.pane().linkSeen[0].r
 	waitFor(t, tt, "no site icon", func() bool { return a.siteIcon(addr) != nil })
 	// the card, once the pointer rests on the link
 	tt.Move(padded.X+padded.W/2, padded.Y+padded.H/2)
@@ -88,7 +88,7 @@ func TestLinkIcons(t *testing.T) {
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if plain := a.linkSeen[0].r; plain.X >= padded.X-a.font.Size {
+	if plain := a.pane().linkSeen[0].r; plain.X >= padded.X-a.font.Size {
 		t.Fatalf("the room stayed with previews off: %v, was %v", plain.X, padded.X)
 	}
 	if a.linkPage(addr, false) != nil {
@@ -102,7 +102,7 @@ func TestLinkFieldPreview(t *testing.T) {
 	srv := linkSite(t)
 	a, tt := newTestApp(t, "Bir iki üç\n")
 	tt.Frame()
-	a.doc.SetSelection(4, 7)
+	a.pane().doc.SetSelection(4, 7)
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
 	tt.Frame()
@@ -117,7 +117,7 @@ func TestLinkFieldPreview(t *testing.T) {
 	waitFor(t, tt, "no preview in the field", func() bool { return tt.HasText("Dune, the novel") })
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Bir [iki]("+srv.URL+"/dune) üç" {
+	if got := mdOf(a.pane().doc); got != "Bir [iki]("+srv.URL+"/dune) üç" {
 		t.Fatalf("not linked: %q", got)
 	}
 }
@@ -132,10 +132,10 @@ func TestLinkCardEditRemove(t *testing.T) {
 		t.Helper()
 		tt.Frame()
 		tt.Advance(100 * time.Millisecond)
-		if len(a.linkSeen) == 0 {
+		if len(a.pane().linkSeen) == 0 {
 			t.Fatal("the link was not drawn")
 		}
-		r := a.linkSeen[0].r
+		r := a.pane().linkSeen[0].r
 		tt.Move(r.X+r.W/2, r.Y+r.H/2)
 		tt.Advance(100 * time.Millisecond)
 		waitFor(t, tt, "no card", func() bool { return tt.HasText("example.com/x") })
@@ -145,25 +145,25 @@ func TestLinkCardEditRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if !a.sel.link || a.sel.url != addr || a.sel.linkSel != [2]int{5, 13} {
-		t.Fatalf("the field did not open on the link: %v %q %v", a.sel.link, a.sel.url, a.sel.linkSel)
+	if !a.pane().sel.link || a.pane().sel.url != addr || a.pane().sel.linkSel != [2]int{5, 13} {
+		t.Fatalf("the field did not open on the link: %v %q %v", a.pane().sel.link, a.pane().sel.url, a.pane().sel.linkSel)
 	}
-	if len(a.rangeRects(a.editorR, a.sel.linkSel[0], a.sel.linkSel[1])) == 0 {
+	if len(a.rangeRects(a.pane(), a.pane().editorR, a.pane().sel.linkSel[0], a.pane().sel.linkSel[1])) == 0 {
 		t.Fatal("the text the link is for is not shown")
 	}
 	typeEach(tt, "/y")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(100 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Read [the book]("+addr+"/y) now" {
+	if got := mdOf(a.pane().doc); got != "Read [the book]("+addr+"/y) now" {
 		t.Fatalf("not changed: %q", got)
 	}
-	if a.sel.wonAt.IsZero() {
+	if a.pane().sel.wonAt.IsZero() {
 		t.Fatal("no flourish for the link set")
 	}
 	for range 30 {
 		tt.Advance(50 * time.Millisecond)
 	}
-	if !a.sel.wonAt.IsZero() {
+	if !a.pane().sel.wonAt.IsZero() {
 		t.Fatal("the flourish did not end")
 	}
 	tt.Move(5, 5)
@@ -174,7 +174,7 @@ func TestLinkCardEditRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Read the book now" {
+	if got := mdOf(a.pane().doc); got != "Read the book now" {
 		t.Fatalf("not removed: %q", got)
 	}
 }
@@ -185,12 +185,12 @@ func TestLinkIconsSetting(t *testing.T) {
 	a, tt := newTestApp(t, "Read [the book](https://example.com/x) now\n")
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	padded := a.linkSeen[0].r
+	padded := a.pane().linkSeen[0].r
 	a.settings.NoLinkIcons = true
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	plain := a.linkSeen[0].r
+	plain := a.pane().linkSeen[0].r
 	if plain.X >= padded.X-a.font.Size {
 		t.Fatalf("the room stayed with the icons off: %v, was %v", plain.X, padded.X)
 	}
@@ -206,23 +206,23 @@ func TestPasteLinkOverSelection(t *testing.T) {
 	tt.Frame()
 	clip := " https://example.com/x \n"
 	a.clipRead = func() string { return clip }
-	a.doc.SetSelection(4, 7)
+	a.pane().doc.SetSelection(4, 7)
 	tt.Frame()
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Advance(50 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Bir [iki](https://example.com/x) üç" {
+	if got := mdOf(a.pane().doc); got != "Bir [iki](https://example.com/x) üç" {
 		t.Fatalf("not linked: %q", got)
 	}
-	if a.sel.wonAt.IsZero() {
+	if a.pane().sel.wonAt.IsZero() {
 		t.Fatal("no flourish for the link pasted")
 	}
 	// a Mac's menu bar sends ⌘V to the editor as the command "paste", not as the key
 	clip = "https://www.memurjet.com/indir"
-	a.doc.SetSelection(0, 3)
+	a.pane().doc.SetSelection(0, 3)
 	tt.Frame()
 	tt.Command("paste")
 	tt.Advance(50 * time.Millisecond)
-	if got := mdOf(a.doc); got != "[Bir](https://www.memurjet.com/indir) [iki](https://example.com/x) üç" {
+	if got := mdOf(a.pane().doc); got != "[Bir](https://www.memurjet.com/indir) [iki](https://example.com/x) üç" {
 		t.Fatalf("the menu's paste did not link: %q", got)
 	}
 	for _, c := range []string{"two words", "example.com"} {
@@ -238,10 +238,10 @@ func TestLinkIconOnce(t *testing.T) {
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if len(a.linkSeen) < 2 {
-		t.Fatalf("the link does not wrap: %d lines", len(a.linkSeen))
+	if len(a.pane().linkSeen) < 2 {
+		t.Fatalf("the link does not wrap: %d lines", len(a.pane().linkSeen))
 	}
-	first, second := a.linkSeen[0].r, a.linkSeen[1].r
+	first, second := a.pane().linkSeen[0].r, a.pane().linkSeen[1].r
 	if second.X >= first.X-a.font.Size {
 		t.Fatalf("the second line has the room too: %v, the first %v", second.X, first.X)
 	}
@@ -254,9 +254,9 @@ func TestPasteLinkFromMenu(t *testing.T) {
 	tt.SetSize(1100, 700)
 	tt.Advance(300 * time.Millisecond)
 	a.clipRead = func() string { return "https://www.memurjet.com/indir" }
-	a.doc.SetSelection(4, 7)
+	a.pane().doc.SetSelection(4, 7)
 	tt.Frame()
-	r := a.editorR
+	r := a.pane().editorR
 	tt.Move(r.X+40, r.Y+12)
 	tt.Frame()
 	tt.RightClickAt(r.X+40, r.Y+12)
@@ -276,7 +276,7 @@ func TestPasteLinkFromMenu(t *testing.T) {
 	a.ctx.open = false
 	paste()
 	tt.Frame()
-	if got := mdOf(a.doc); got != "Bir [iki](https://www.memurjet.com/indir) üç" {
+	if got := mdOf(a.pane().doc); got != "Bir [iki](https://www.memurjet.com/indir) üç" {
 		t.Fatalf("the menu's Paste did not link: %q", got)
 	}
 }
@@ -303,15 +303,15 @@ func TestLinkIconRTL(t *testing.T) {
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	if len(a.linkSeen) == 0 {
+	if len(a.pane().linkSeen) == 0 {
 		t.Fatal("the link was not drawn")
 	}
-	link := a.linkSeen[0].r
+	link := a.pane().linkSeen[0].r
 	a.settings.NoLinkIcons = true
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
-	plain := a.linkSeen[0].r
+	plain := a.pane().linkSeen[0].r
 	// the line is right-aligned: room at the link's right moves the link left by it; room at its left would not
 	// move it
 	linkIcons = true

@@ -17,7 +17,7 @@ func TestTopBar(t *testing.T) {
 	if tt.HasText("Test ›") || tt.HasText("›") {
 		t.Fatalf("a path is in the bar: %v", tt.Texts())
 	}
-	a.tasksOpen = true
+	a.pane().tasksOpen = true
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if _, ok := tt.Find("Üst çubuk"); !ok {

@@ -49,8 +49,8 @@ func TestPropertyKinds(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Frame()
-	if a.page != anna {
-		t.Fatalf("the link did not open its page: %v", a.page)
+	if a.pane().page != anna {
+		t.Fatalf("the link did not open its page: %v", a.pane().page)
 	}
 	// files
 	src := filepath.Join(t.TempDir(), "plan.pdf")

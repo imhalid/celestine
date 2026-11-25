@@ -42,7 +42,7 @@ func TestPressWavesSetting(t *testing.T) {
 	if a.settings.NoWaves {
 		t.Fatal("the waves start off")
 	}
-	a.settingsOpen, a.settingsTab = true, 0
+	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
 	title, ok := tt.Find(msg("common_pressWaves"))
 	if !ok {
@@ -79,7 +79,7 @@ func TestSidebarCardSetting(t *testing.T) {
 	if !a.wframe.on || !a.sideOnGround() || a.settings.SidebarCard {
 		t.Fatalf("framed %v, on the ground %v, card %v", a.wframe.on, a.sideOnGround(), a.settings.SidebarCard)
 	}
-	a.settingsOpen, a.settingsTab = true, 0
+	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
 	title, ok := tt.Find(locales.SettingsSidebarCard())
 	if !ok {
@@ -102,7 +102,7 @@ func TestSettingResetIcon(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 4600)
 	a.settings.ShowSpaces = true
-	a.settingsOpen, a.settingsTab = true, 1
+	a.pane().settingsOpen, a.pane().settingsTab = true, 1
 	tt.Advance(900 * time.Millisecond)
 	if _, ok := tt.Find(locales.SettingsResetThis(msg("showTabs"))); ok {
 		t.Fatal("a reset icon on a setting as it came")

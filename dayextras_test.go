@@ -14,7 +14,7 @@ import (
 func TestDayExtras(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.SetSize(1100, 900)
-	notes := a.page
+	notes := a.pane().page
 	now := time.Date(2026, 11, 9, 10, 0, 0, 0, time.Local)
 	journalDays(t, a, now, "2024-11-09", "2025-11-09", "2025-11-10", "2026-11-09")
 	if err := notes.SaveText("- [ ] due today [[2026-11-09]]\n- [ ] late [[2026-11-01]]\n- [ ] later [[2026-12-01]]\n- [x] done late [[2026-11-02]]\n"); err != nil {
@@ -48,8 +48,8 @@ func TestDayExtras(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.page == nil || a.page.Title != "2025-11-09" {
-		t.Fatalf("the year opened %v", a.page)
+	if a.pane().page == nil || a.pane().page.Title != "2025-11-09" {
+		t.Fatalf("the year opened %v", a.pane().page)
 	}
 	// that day's: no tasks due then, and 2024 in its earlier years
 	if tt.HasText("due today") || !tt.HasText("2024") {

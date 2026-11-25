@@ -318,7 +318,7 @@ var siteScenes = []siteScene{
 	}},
 	{"calendar-day", func(t *testing.T, s *siteShot) {
 		s.collection(t, "Journal")
-		s.a.calDay, s.a.calOpen = siteDay.Add(-3*24*time.Hour), true
+		s.a.pane().calDay, s.a.pane().calOpen = siteDay.Add(-3*24*time.Hour), true
 		s.tt.Advance(900 * time.Millisecond)
 		s.window(t, "calendar-day")
 	}},
@@ -449,7 +449,7 @@ func (s *siteShot) park() {
 // block is where the paragraph s of the open page is, in the window, in points: its box across the editor.
 func (s *siteShot) block(t *testing.T, text string) ui.Rect {
 	t.Helper()
-	start := at(s.a.doc, text)
+	start := at(s.a.pane().doc, text)
 	if start < 0 {
 		t.Fatalf("no paragraph %q", text)
 	}
@@ -459,8 +459,8 @@ func (s *siteShot) block(t *testing.T, text string) ui.Rect {
 // blockAt is where the paragraph that starts at rune start is, in the window.
 func (s *siteShot) blockAt(t *testing.T, start int) ui.Rect {
 	t.Helper()
-	r := s.a.editorR
-	for _, b := range s.a.boxes {
+	r := s.a.pane().editorR
+	for _, b := range s.a.pane().boxes {
 		if b.Start == start {
 			return ui.Rect{X: r.X, Y: r.Y + b.Top, W: r.W, H: b.Height}
 		}
@@ -472,7 +472,7 @@ func (s *siteShot) blockAt(t *testing.T, start int) ui.Rect {
 // blockEnd is the rune the paragraph text ends at.
 func (s *siteShot) blockEnd(t *testing.T, text string) int {
 	t.Helper()
-	start := at(s.a.doc, text)
+	start := at(s.a.pane().doc, text)
 	if start < 0 {
 		t.Fatalf("no paragraph %q", text)
 	}
@@ -509,7 +509,7 @@ var detailScenes = []siteScene{
 	{"table-block", func(t *testing.T, s *siteShot) {
 		s.page()
 		s.park()
-		a := s.blockAt(t, at(s.a.doc, "Where people come from")+len("Where people come from")+1)
+		a := s.blockAt(t, at(s.a.pane().doc, "Where people come from")+len("Where people come from")+1)
 		s.crop(t, "table-block", a.X-16, a.Y-3, 480, a.H+19, detailScale)
 	}},
 	{"grip", func(t *testing.T, s *siteShot) {
@@ -533,7 +533,7 @@ var detailScenes = []siteScene{
 	{"slash", func(t *testing.T, s *siteShot) {
 		s.page()
 		end := s.blockEnd(t, "The installer is signed, but the updater key changes on Friday. Nothing to do until then.")
-		s.a.doc.SetSelection(end, end)
+		s.a.pane().doc.SetSelection(end, end)
 		s.tt.Frame()
 		s.tt.Key(0, ui.KeyEnter)
 		s.tt.Frame()
@@ -545,7 +545,7 @@ var detailScenes = []siteScene{
 	{"at-menu", func(t *testing.T, s *siteShot) {
 		s.page()
 		end := s.blockEnd(t, "The installer is signed, but the updater key changes on Friday. Nothing to do until then.")
-		s.a.doc.SetSelection(end, end)
+		s.a.pane().doc.SetSelection(end, end)
 		s.tt.Frame()
 		s.tt.Key(0, ui.KeyEnter)
 		s.tt.Frame()
@@ -597,7 +597,7 @@ func caretShot(name string) siteScene {
 	return siteScene{"caret-" + name, func(t *testing.T, s *siteShot) {
 		s.page()
 		end := s.blockEnd(t, "The installer is signed, but the updater key changes on Friday. Nothing to do until then.")
-		s.a.doc.SetSelection(end, end)
+		s.a.pane().doc.SetSelection(end, end)
 		s.tt.Frame()
 		s.tt.Key(0, ui.KeyEnter)
 		s.tt.Frame()

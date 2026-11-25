@@ -12,16 +12,16 @@ import (
 // of paragraph: a Tab not claimed is a Tab lost.
 //
 // It is asked for in the frame the editor is made in, once its focus is known.
-func (a *app) tabKey(c *ui.Context) {
-	if !a.focused || a.doc == nil || a.page == nil {
+func (a *app) tabKey(c *ui.Context, pn *paneState) {
+	if !pn.focused || pn.doc == nil || pn.page == nil {
 		return
 	}
 	tab, back := c.Shortcut(0, ui.KeyTab), c.Shortcut(ui.Shift, ui.KeyTab)
 	if !tab && !back || a.slash.open {
 		return
 	}
-	anchor, caret := a.doc.Selection()
-	text := a.doc.Text()
+	anchor, caret := pn.doc.Selection()
+	text := pn.doc.Text()
 	st := text.ParagraphStyleAt(caret)
 	lo, hi := min(anchor, caret), max(anchor, caret)
 	_, end := text.ParagraphRange(lo)
@@ -29,20 +29,20 @@ func (a *app) tabKey(c *ui.Context) {
 	list := st.List != richtext.NoList
 	switch {
 	case tab && (several || list):
-		a.doc.Indent(1)
+		pn.doc.Indent(1)
 	case tab:
-		a.doc.InsertText(a.tabText())
+		pn.doc.InsertText(a.tabText())
 	case several || list:
-		a.doc.Indent(-1)
+		pn.doc.Indent(-1)
 	case anchor == caret && caret >= len(a.tabText()) && a.tabText() != "\t" && text.Slice(caret-len(a.tabText()), caret).String() == a.tabText():
-		a.doc.SetSelection(caret-len(a.tabText()), caret)
-		a.doc.InsertText("")
+		pn.doc.SetSelection(caret-len(a.tabText()), caret)
+		pn.doc.InsertText("")
 	case anchor == caret && caret > 0 && text.Slice(caret-1, caret).String() == "\t":
-		a.doc.SetSelection(caret-1, caret)
-		a.doc.InsertText("")
+		pn.doc.SetSelection(caret-1, caret)
+		pn.doc.InsertText("")
 	case st.Indent > 0:
-		a.doc.Indent(-1)
+		pn.doc.Indent(-1)
 	}
-	a.revealWant = true
+	pn.revealWant = true
 	c.Invalidate()
 }

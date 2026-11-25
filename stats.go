@@ -165,8 +165,8 @@ func (a *app) stirred() { a.activeAt = a.clock() }
 // statTick counts the time since the last frame as use, while there was something done in the last minute.
 func (a *app) statTick() {
 	now := a.clock()
-	if a.doc != nil && a.doc.Version() != a.statVer {
-		a.statVer = a.doc.Version()
+	if a.pane().doc != nil && a.pane().doc.Version() != a.statVer {
+		a.statVer = a.pane().doc.Version()
 		a.stirred()
 	}
 	last := a.statLast
@@ -184,16 +184,16 @@ func (a *app) statTick() {
 				d.Active += int(s.Seconds())
 				a.activeFrac -= s
 			}
-			if a.page != nil && !a.noPage() {
-				if a.pageFracOf != a.page.Dir {
-					a.pageFracOf, a.pageFrac = a.page.Dir, 0
+			if a.pane().page != nil && !a.noPage() {
+				if a.pageFracOf != a.pane().page.Dir {
+					a.pageFracOf, a.pageFrac = a.pane().page.Dir, 0
 				}
 				a.pageFrac += dt
 				if s := a.pageFrac.Truncate(time.Second); s > 0 {
 					if d.PageSecs == nil {
 						d.PageSecs = map[string]int{}
 					}
-					d.PageSecs[a.page.Dir] += int(s.Seconds())
+					d.PageSecs[a.pane().page.Dir] += int(s.Seconds())
 					a.pageFrac -= s
 				}
 			}
@@ -521,7 +521,7 @@ var dayKey = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 func (a *app) libraryStats() libStats {
 	var s libStats
 	a.linksStale() // the index keeps what each page said and reads again only a page that changed, so this is cheap
-	a.linksTo(a.page, a.clock(), true)
+	a.linksTo(a.pane().page, a.clock(), true)
 	titles := map[string][]*Page{}
 	sizes := map[string]int{}
 	for _, c := range a.lib.Collections {

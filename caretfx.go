@@ -133,8 +133,8 @@ type kick struct {
 
 // eraseOf notes letters erased from prev, between from and to, going dir.
 func (a *app) eraseOf(prev richtext.Text, from, to, dir int) {
-	a.erased += to - from
-	a.eraseDir = dir
+	a.pane().erased += to - from
+	a.pane().eraseDir = dir
 	if from >= 0 && to <= prev.Len() && to > from {
 		s := prev.Slice(from, to).String()
 		s = strings.Map(func(r rune) rune {
@@ -143,9 +143,9 @@ func (a *app) eraseOf(prev richtext.Text, from, to, dir int) {
 			}
 			return r
 		}, s)
-		a.gone = s + a.gone
-		if r := []rune(a.gone); len(r) > 40 {
-			a.gone = string(r[len(r)-40:])
+		a.pane().gone = s + a.pane().gone
+		if r := []rune(a.pane().gone); len(r) > 40 {
+			a.pane().gone = string(r[len(r)-40:])
 		}
 	}
 }

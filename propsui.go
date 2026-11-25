@@ -41,7 +41,7 @@ const (
 
 var iconChevronBack = icon(`<path d="M14.5 6.5 9 12l5.5 5.5"/>`)
 
-func (a *app) propsSection(c *ui.Context, p *Page) {
+func (a *app) propsSection(c *ui.Context, pn *paneState, p *Page) {
 	coll := p.Coll
 	ui.Column(c).Gap(1).Padding(0, 0, 14, 0).Children(func() {
 		for _, pr := range p.Properties() {
@@ -330,7 +330,7 @@ func numberOnly(s string) string {
 // commitValue writes a typed value; one that doesn't fit stays, marked.
 func (a *app) commitValue(p *Page, id, key, v string) {
 	a.propErr = ""
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	if err := p.SetValue(id, v); err != nil {
@@ -340,7 +340,7 @@ func (a *app) commitValue(p *Page, id, key, v string) {
 }
 
 func (a *app) setValue(p *Page, id, v string) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	if err := p.SetValue(id, v); err != nil {
@@ -453,7 +453,7 @@ func (a *app) editProp(p *Page, pr *Property) {
 // removePageProperty takes page p's own property id away, with a way back that brings its value too.
 func (a *app) removePageProperty(p *Page, id string) {
 	own, value := slices.Clone(p.Own), p.Props[id]
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	if err := p.RemoveProperty(id); err != nil {
@@ -465,7 +465,7 @@ func (a *app) removePageProperty(p *Page, id string) {
 		if value != "" {
 			p.Props[id] = value
 		}
-		if p == a.page {
+		if p == a.pane().page {
 			a.flush()
 		}
 		body, err := p.Body()

@@ -27,21 +27,21 @@ func statsApp(t *testing.T, src string) (*app, *ui.Tester) {
 // Words are counted by the hour, collection and page they were written in, and in a session.
 func TestStatsWords(t *testing.T) {
 	a, _ := statsApp(t, "x\n")
-	a.noteWords(a.page, 30)
+	a.noteWords(a.pane().page, 30)
 	a.setClock(2 * time.Minute)
-	a.noteWords(a.page, 20)
+	a.noteWords(a.pane().page, 20)
 	d := a.usage.Days["2026-11-07"]
 	if d == nil || d.Hours[10] != 50 {
 		t.Fatalf("hours: %+v", d)
 	}
-	if d.Colls[a.page.Coll.Name] != 50 || d.Pages[a.page.Dir] != 50 {
+	if d.Colls[a.pane().page.Coll.Name] != 50 || d.Pages[a.pane().page.Dir] != 50 {
 		t.Fatalf("by place: %+v %+v", d.Colls, d.Pages)
 	}
 	if a.sess.Words != 50 {
 		t.Fatalf("session %+v", a.sess)
 	}
 	a.setClock(10 * time.Minute) // a pause: the session ends, another starts
-	a.noteWords(a.page, 7)
+	a.noteWords(a.pane().page, 7)
 	if len(a.usage.Sessions) != 1 || a.usage.Sessions[0].Words != 50 || a.sess.Words != 7 {
 		t.Fatalf("sessions %+v now %+v", a.usage.Sessions, a.sess)
 	}
@@ -54,7 +54,7 @@ func TestStatsWords(t *testing.T) {
 // A save counts words; counting off counts nothing, and writes nothing.
 func TestStatsFromSaveAndSwitch(t *testing.T) {
 	a, tt := statsApp(t, "bir\n")
-	a.lastWords = 1
+	a.pane().lastWords = 1
 	tt.Type(" iki üç dört")
 	tt.Advance(time.Second)
 	a.save()
@@ -63,10 +63,10 @@ func TestStatsFromSaveAndSwitch(t *testing.T) {
 	}
 	a.settings.NoStats = true
 	before := a.writtenOn(a.clock())
-	a.noteOpened(a.page)
+	a.noteOpened(a.pane().page)
 	a.noteCommand("Görevler")
 	a.noteSearch()
-	a.noteWords(a.page, 100)
+	a.noteWords(a.pane().page, 100)
 	if a.usage.Cmds["Görevler"] != 0 || a.usage.Days["2026-11-07"].Opened > 1 && false {
 		t.Fatal("counted with it off")
 	}
@@ -81,12 +81,12 @@ func TestStatsFromSaveAndSwitch(t *testing.T) {
 // What is used is counted: pages opened, made and thrown away, searches, commands.
 func TestStatsUse(t *testing.T) {
 	a, tt := statsApp(t, "x\n")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	p2, _ := c.NewPage(nil, "İkinci")
 	a.open(p2)
-	a.open(a.page)
+	a.open(a.pane().page)
 	a.newPage(c, nil)
-	a.trashPage(a.page)
+	a.trashPage(a.pane().page)
 	a.openSearch("elma")
 	a.runItem(palItem{title: "Tasks: today", id: "Görevler: bugün", kind: palCommand, run: func() {}})
 	a.runItem(palItem{title: "Tasks: today", id: "Görevler: bugün", kind: palCommand, run: func() {}})
@@ -132,7 +132,7 @@ func TestStatsKept(t *testing.T) {
 	}
 	defer st.Close()
 	a.settingsStore = st
-	a.noteWords(a.page, 12)
+	a.noteWords(a.pane().page, 12)
 	a.noteSearch()
 	a.endSession()
 	a.saveUsage()
@@ -147,7 +147,7 @@ func TestStatsKept(t *testing.T) {
 // The page draws every section, and opens from ⌘P and goes back with Esc.
 func TestStatsPage(t *testing.T) {
 	a, tt := statsApp(t, "bir iki [[Yok Böyle]] #etiket\n")
-	a.noteWords(a.page, 40)
+	a.noteWords(a.pane().page, 40)
 	a.settings.WriteGoal = 100
 	tt.SetSize(1100, 2400)
 	a.openStats()
@@ -161,28 +161,28 @@ func TestStatsPage(t *testing.T) {
 	if !tt.HasText("Kırık [[bağlantı]] bulunan sayfa: 1") {
 		t.Errorf("no broken link found: %v", tt.Texts())
 	}
-	if !a.statsScreen || a.noPage() == false {
+	if !a.pane().statsScreen || a.noPage() == false {
 		t.Fatal("not a screen")
 	}
 	tt.Key(0, ui.KeyEscape)
 	tt.Advance(200 * time.Millisecond)
-	if a.statsScreen {
+	if a.pane().statsScreen {
 		t.Fatal("Esc did not leave")
 	}
 	// from the palette
 	runCmd(t, a, ">istatistikler", "İstatistikler")
 	tt.Frame()
-	if !a.statsScreen {
+	if !a.pane().statsScreen {
 		t.Fatal("the command did not open it")
 	}
 	// and in the history
 	a.openSettings()
 	tt.Frame()
-	if a.statsScreen {
+	if a.pane().statsScreen {
 		t.Fatal("two screens")
 	}
 	a.step(-1)
-	if !a.statsScreen {
+	if !a.pane().statsScreen {
 		t.Fatal("back did not return to the figures")
 	}
 }
@@ -190,7 +190,7 @@ func TestStatsPage(t *testing.T) {
 // The library's health: orphans, empty pages, broken links and same titles are found.
 func TestLibraryHealth(t *testing.T) {
 	a, _ := statsApp(t, "yalnız başına\n")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	p2, _ := c.NewPage(nil, "Bağlı")
 	p2.SaveText("[[Yok Sayfa]] ve [[Adsız]]\n")
 	p3, _ := c.NewPage(nil, "Boş")
@@ -222,7 +222,7 @@ func TestLibraryHealth(t *testing.T) {
 func TestStatsOut(t *testing.T) {
 	a, tt := statsApp(t, "x\n")
 	a.settings.Writing = map[string]int{"2026-11-06": 120, "2026-11-07": 40}
-	a.noteWords(a.page, 40)
+	a.noteWords(a.pane().page, 40)
 	msg, _ := a.exportStatsCSV()
 	path := strings.TrimPrefix(msg, strings.TrimSuffix(locales.StatsWrittenTo(""), ""))
 	f, err := os.Open(path)
@@ -245,10 +245,10 @@ func TestStatsOut(t *testing.T) {
 	}
 	a.writeWeekSummary()
 	tt.Frame()
-	body, _ := a.page.Body()
+	body, _ := a.pane().page.Body()
 	_ = body
-	if !strings.Contains(a.doc.Text().String(), "Haftalık özet") {
-		t.Fatalf("not in the journal page: %q", a.doc.Text().String())
+	if !strings.Contains(a.pane().doc.Text().String(), "Haftalık özet") {
+		t.Fatalf("not in the journal page: %q", a.pane().doc.Text().String())
 	}
 	a.resetUsage()
 	if len(a.settings.Writing) != 0 || len(a.usage.Days) != 0 {
@@ -266,7 +266,7 @@ func TestUsageCountedOnce(t *testing.T) {
 		a.stirred()
 		a.statTick()
 		d := a.useDay()
-		active, page := d.Active, d.PageSecs[a.page.Dir]
+		active, page := d.Active, d.PageSecs[a.pane().page.Dir]
 		for range int(3 * time.Second / gap) {
 			now = now.Add(gap)
 			a.stirred()
@@ -275,7 +275,7 @@ func TestUsageCountedOnce(t *testing.T) {
 		if got := d.Active - active; got != 3 {
 			t.Errorf("gap %v: %d seconds in use, want 3", gap, got)
 		}
-		if got := d.PageSecs[a.page.Dir] - page; got != 3 {
+		if got := d.PageSecs[a.pane().page.Dir] - page; got != 3 {
 			t.Errorf("gap %v: %d seconds in the page, want 3", gap, got)
 		}
 	}
@@ -330,7 +330,7 @@ func TestLibStatsOnlyWhenChanged(t *testing.T) {
 	if a.statCacheAt != first {
 		t.Fatal("counted again with nothing changed")
 	}
-	p, _ := a.page.Coll.NewPage(nil, "Yeni")
+	p, _ := a.pane().page.Coll.NewPage(nil, "Yeni")
 	p.SaveText("üç dört beş\n")
 	tt.Advance(11 * time.Second)
 	tt.Frame()

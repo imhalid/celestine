@@ -13,7 +13,7 @@ import (
 func TestPageAliases(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 700)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	also, err := c.AddProperty("Also", PropAliases, nil)
 	if err != nil {
 		t.Fatal(err)

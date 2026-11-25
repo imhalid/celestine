@@ -193,8 +193,8 @@ func TestPaletteModes(t *testing.T) {
 		t.Fatalf(":3 %+v", items)
 	}
 	a.runItem(items[0])
-	_, caret := a.doc.Selection()
-	if got := a.doc.Text().Slice(caret, caret+2).String(); got != "üç" {
+	_, caret := a.pane().doc.Selection()
+	if got := a.pane().doc.Text().Slice(caret, caret+2).String(); got != "üç" {
 		t.Fatalf("went to %q", got)
 	}
 	if len(a.paletteItems(":")) != 1 || a.paletteItems(":")[0].off == "" {
@@ -204,8 +204,8 @@ func TestPaletteModes(t *testing.T) {
 		t.Fatalf("past the end: %+v", got)
 	}
 	a.runItem(a.paletteItems("/dört")[0])
-	if !a.find.open || a.find.query != "dört" {
-		t.Fatalf("find: %+v", a.find)
+	if !a.pane().find.open || a.pane().find.query != "dört" {
+		t.Fatalf("find: %+v", a.pane().find)
 	}
 	help := a.paletteItems("?")
 	if len(help) != len(palModes) {

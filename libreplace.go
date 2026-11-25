@@ -136,7 +136,7 @@ func (a *app) replaceIn(pages []*Page, phrase, with string) {
 // what to put instead and the button that replaces in every page; nothing while the search is not plain text.
 func (a *app) replaceBar(c *ui.Context) {
 	r := &a.repl
-	phrase, ok := replaceable(a.searchQ)
+	phrase, ok := replaceable(a.pane().searchQ)
 	if !ok {
 		return
 	}
@@ -168,7 +168,7 @@ func (a *app) replaceBar(c *ui.Context) {
 
 // replaceRowButton is a search result's own replace, while the search's replace shows: it replaces in that page.
 func (a *app) replaceRowButton(c *ui.Context, p *Page) {
-	phrase, ok := replaceable(a.searchQ)
+	phrase, ok := replaceable(a.pane().searchQ)
 	if !ok || !a.repl.on {
 		return
 	}

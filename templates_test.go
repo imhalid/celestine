@@ -22,7 +22,7 @@ func TestExpandTemplate(t *testing.T) {
 func TestTemplates(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	tt.SetSize(1100, 800)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	c.Template = "## Varsayılan {{başlık}}\n"
 	c.Templates = []NamedTemplate{{Name: "Toplantı", Body: "# Toplantı {{tarih}}\n\n- [ ] karar\n"}, {Name: "", Body: "silinir"}}
 	if got := c.AllTemplates(); len(got) != 2 || got[0].Name != "Varsayılan" || got[1].Name != "Toplantı" {
@@ -41,13 +41,13 @@ func TestTemplates(t *testing.T) {
 	}
 	cmd.run()
 	tt.Advance(200 * time.Millisecond)
-	body, _ := a.page.Text()
+	body, _ := a.pane().page.Text()
 	if !strings.Contains(body, "# Toplantı [[2026-") || !strings.Contains(body, "- [ ] karar") {
 		t.Fatalf("page from the template: %q", body)
 	}
 	// from the / menu, in a page
-	a.fresh, a.refocus = false, true
-	a.doc.SetSelection(0, 0)
+	a.pane().fresh, a.pane().refocus = false, true
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
 	typeEach(tt, "/")
@@ -62,7 +62,7 @@ func TestTemplates(t *testing.T) {
 func TestTemplateSettings(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 900)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	a.openCollSettings(c, 3)
 	tt.Advance(600 * time.Millisecond)
 	if err := tt.Click("Şablon ekle"); err != nil {
@@ -103,7 +103,7 @@ func TestTemplateVariables(t *testing.T) {
 func TestTemplateAsksAndPlacesTheCaret(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	tt.SetSize(1100, 800)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	tpl := "Author: {{prompt:Author}}\n\n{{cursor}}\n\nBy {{prompt:Author}}\n"
 	before := len(c.Pages)
 	a.newPageFrom(c, nil, tpl)
@@ -123,16 +123,16 @@ func TestTemplateAsksAndPlacesTheCaret(t *testing.T) {
 	tt.Type("Herbert")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
-	if len(c.Pages) != before+1 || a.page == nil {
+	if len(c.Pages) != before+1 || a.pane().page == nil {
 		t.Fatalf("no page made: %d", len(c.Pages))
 	}
-	text := a.doc.Text().String()
+	text := a.pane().doc.Text().String()
 	if strings.Count(text, "Herbert") != 2 || strings.Contains(text, cursorMark) {
 		t.Fatalf("the page: %q", text)
 	}
-	_, caret := a.doc.Selection() // in the empty paragraph between the two lines, where {{cursor}} was alone
-	if want := strings.Index(text, "\n\n") + 1; caret != len([]rune(text[:want])) || a.fresh {
-		t.Fatalf("the caret at %d (want %d), the title to type %v, in %q", caret, len([]rune(text[:want])), a.fresh, text)
+	_, caret := a.pane().doc.Selection() // in the empty paragraph between the two lines, where {{cursor}} was alone
+	if want := strings.Index(text, "\n\n") + 1; caret != len([]rune(text[:want])) || a.pane().fresh {
+		t.Fatalf("the caret at %d (want %d), the title to type %v, in %q", caret, len([]rune(text[:want])), a.pane().fresh, text)
 	}
 }
 
@@ -141,7 +141,7 @@ func TestTemplateAsksAndPlacesTheCaret(t *testing.T) {
 func TestNewPageSplitButton(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	tt.SetSize(1100, 800)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	c.Templates = []NamedTemplate{{Name: "Toplantı", Body: "# Toplantı\n"}}
 	if err := tt.Click("Koleksiyon: " + c.Name); err != nil {
 		t.Fatal(err)

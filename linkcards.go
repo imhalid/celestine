@@ -217,11 +217,11 @@ func startsRTL(text string) bool {
 
 // hoverLink keeps the link the pointer is on, (x, y) of the window, and since when: its card shows after
 // linkHoverWait. Off the link, the card shown stays a moment, and as long as the pointer is on it.
-func (a *app) hoverLink(c *ui.Context, x, y float32, over bool) {
+func (a *app) hoverLink(c *ui.Context, pn *paneState, x, y float32, over bool) {
 	w := &a.web
 	address, r, pos := "", ui.Rect{}, 0
 	if over {
-		for _, h := range a.linkSeen {
+		for _, h := range pn.linkSeen {
 			if x >= h.r.X && x < h.r.X+h.r.W && y >= h.r.Y && y < h.r.Y+h.r.H {
 				address, r, pos = h.url, h.r, h.pos
 				break
@@ -229,7 +229,7 @@ func (a *app) hoverLink(c *ui.Context, x, y float32, over bool) {
 		}
 	}
 	now := c.Now()
-	busy := a.sel.link || a.edPressed
+	busy := pn.sel.link || pn.edPressed
 	if address == "" || busy {
 		if w.hover != "" && !busy && now.Sub(w.hoverAt) >= linkHoverWait {
 			if w.leftAt.IsZero() || w.onCard {
@@ -256,8 +256,9 @@ func (a *app) hoverLink(c *ui.Context, x, y float32, over bool) {
 // linkCardView is the card of the link the pointer rests on, under the link: a web page's picture, title and site
 // as they come, and at its foot the address with Edit and Remove (#509), for every link.
 func (a *app) linkCardView(c *ui.Context) {
+	pn := a.pane()
 	w := &a.web
-	if w.hover == "" || c.Now().Sub(w.hoverAt) < linkHoverWait || a.modal() || a.sel.link || a.doc == nil {
+	if w.hover == "" || c.Now().Sub(w.hoverAt) < linkHoverWait || a.modal() || pn.sel.link || pn.doc == nil {
 		w.onCard = false
 		return
 	}
@@ -347,7 +348,7 @@ func shownAddress(address string) string {
 // reports false when the text no longer has it there.
 func (a *app) hoveredLinkRange() (from, to int, ok bool) {
 	w := &a.web
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	pos := w.hoverPos
 	if w.hover == "" || pos < 0 || pos >= t.Len() || t.AttributesAt(pos).Link != w.hover {
 		return 0, 0, false
@@ -365,26 +366,28 @@ func (a *app) hoveredLinkRange() (from, to int, ok bool) {
 
 // editHoveredLink opens the bar's link field on the link of the card, its address in it to change.
 func (a *app) editHoveredLink() {
+	pn := a.pane()
 	from, to, ok := a.hoveredLinkRange()
 	if !ok {
 		return
 	}
-	a.doc.SetSelection(from, to)
-	a.sel.link, a.sel.url, a.sel.linkSel = true, a.web.hover, [2]int{from, to}
+	pn.doc.SetSelection(from, to)
+	pn.sel.link, pn.sel.url, pn.sel.linkSel = true, a.web.hover, [2]int{from, to}
 	a.web.hover, a.web.onCard = "", false
 }
 
 // removeHoveredLink takes the link of the card away, its text left as it is.
 func (a *app) removeHoveredLink() {
+	pn := a.pane()
 	from, to, ok := a.hoveredLinkRange()
 	if !ok {
 		return
 	}
-	a.doc.SetSelection(from, to)
-	a.doc.SetLink("")
-	a.doc.SetSelection(to, to)
+	pn.doc.SetSelection(from, to)
+	pn.doc.SetLink("")
+	pn.doc.SetSelection(to, to)
 	a.web.hover, a.web.onCard = "", false
-	a.refocus = true
+	pn.refocus = true
 }
 
 // linkPicH is the height of a page's picture shown width wide: as Open Graph pictures are made, 1.91 to 1.

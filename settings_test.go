@@ -40,7 +40,7 @@ func TestLibraryShowInFolder(t *testing.T) {
 	a.shellOpen = func(path string, reveal bool) { opened <- call{path, reveal} }
 	tt := ui.NewTester(a.view, 1100, 900)
 	tt.Advance(50 * time.Millisecond)
-	a.settingsOpen, a.settingsTab = true, tabLibrary
+	a.pane().settingsOpen, a.pane().settingsTab = true, tabLibrary
 	tt.Advance(900 * time.Millisecond)
 	if err := tt.Click(locales.PropsShowFolder()); err != nil {
 		t.Fatalf("no Show in folder: %v", tt.Texts())

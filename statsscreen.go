@@ -15,23 +15,27 @@ import (
 
 var iconStats = icon(`<path d="M5 20V11M12 20V5M19 20v-7"/>`)
 
-// openStats shows the page of figures.
-func (a *app) openStats() {
-	if a.statsScreen {
+// openStats shows the page of figures in the active pane.
+func (a *app) openStats() { a.openStatsIn(a.pane()) }
+
+func (a *app) openStatsIn(pn *paneState) {
+	if pn.statsScreen {
 		return
 	}
-	a.flush()
-	a.statsScreen, a.profileScreen, a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, false, false, nil, "", false, false, false
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.statsScreen, pn.profileScreen, pn.settingsOpen, pn.coll, pn.tag, pn.trashOpen, pn.tasksOpen, pn.searchOpen = true, false, false, nil, "", false, false, false
 	a.statCache = libStats{}
 	a.statCacheAt = time.Time{}
 	a.statLoading = false
-	a.visit()
+	a.visitIn(pn)
 }
 
 // closeStats goes back to where the page was opened from.
 func (a *app) closeStats() {
 	if !a.step(-1) {
-		a.statsScreen = false
+		a.pane().statsScreen = false
 	}
 }
 
@@ -101,7 +105,7 @@ func statList(c *ui.Context, key string, rows []count, empty string, open func(c
 }
 
 // statsView is the page.
-func (a *app) statsView(c *ui.Context) {
+func (a *app) statsView(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	s := a.stats()
 	now := startOfDay(a.clock())
@@ -125,7 +129,7 @@ func (a *app) statsView(c *ui.Context) {
 				}
 			})
 		})
-		a.scrolled(c, "stats-scroll", nil, ui.Scroll(c.Key("stats-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
+		a.scrolledPane(c, pn, "stats-scroll", nil, ui.Scroll(c.Key("stats-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
 			ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
 				ui.Column(c.Key("stats-body")).FillWidth().MaxWidth(viewMax).Gap(12).Padding(0, 4, 40, 0).Children(func() {
 					if a.statCacheAt.IsZero() && !a.statLoading { // the screen first, then the figures: opening is never the wait
@@ -426,13 +430,14 @@ func (a *app) writeWeekSummary() {
 		return
 	}
 	a.open(p)
-	if a.doc == nil {
+	pn := a.pane()
+	if pn.doc == nil {
 		return
 	}
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText("\n")
-	a.doc.Insert(a.parsePage(p, encodeBody(importMarkdown(md))))
+	n := pn.doc.Text().Len()
+	pn.doc.SetSelection(n, n)
+	pn.doc.InsertText("\n")
+	pn.doc.Insert(a.parsePage(p, encodeBody(importMarkdown(md))))
 	a.say(toastOK, locales.StatsWeekAdded())
 }
 

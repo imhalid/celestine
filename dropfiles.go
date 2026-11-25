@@ -52,15 +52,15 @@ func (a *app) dropFile(f string, overText bool) {
 		}
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
 		switch {
-		case overText && a.page != nil && a.doc != nil && !a.noPage():
+		case overText && a.pane().page != nil && a.pane().doc != nil && !a.noPage():
 			a.addImageFile(f)
-		case a.page != nil && !a.noPage():
-			a.coverFile(a.page, f)
+		case a.pane().page != nil && !a.noPage():
+			a.coverFile(a.pane().page, f)
 		default:
 			a.say(toastWarn, locales.DropThePictureOnAPage())
 		}
 	default:
-		if overText && a.page != nil && a.doc != nil && !a.noPage() { // any other file goes into the page, beside it
+		if overText && a.pane().page != nil && a.pane().doc != nil && !a.noPage() { // any other file goes into the page, beside it
 			a.addFileFrom(f)
 			return
 		}

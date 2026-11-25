@@ -18,7 +18,7 @@ func TestPaneBar(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
 	tt.SetSize(1200, 700)
 	tt.Advance(300 * time.Millisecond)
-	second, err := a.page.Coll.NewPage(nil, "İkinci")
+	second, err := a.pane().page.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,8 +54,8 @@ func TestPaneBar(t *testing.T) {
 	r := a.panesR
 	tt.Wheel(r.X+r.W*3/4, r.Y+300, 0, 600)
 	tt.Advance(600 * time.Millisecond)
-	if a.pageScroll.Y < a.headH {
-		t.Fatalf("the page did not scroll past its title: %v < %v", a.pageScroll.Y, a.headH)
+	if a.pane().pageScroll.Y < a.pane().headH {
+		t.Fatalf("the page did not scroll past its title: %v < %v", a.pane().pageScroll.Y, a.pane().headH)
 	}
 	if titles() != unscrolled+1 {
 		t.Fatalf("scrolled, the bar does not say the page's title: %d of it, %d before", titles(), unscrolled)
@@ -73,8 +73,8 @@ func TestPaneBar(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	if !a.noPage() || a.coll == nil || a.coll != second.Coll {
-		t.Fatalf("the page is still shown (%v), or not its collection (%v)", !a.noPage(), a.coll)
+	if !a.noPage() || a.pane().coll == nil || a.pane().coll != second.Coll {
+		t.Fatalf("the page is still shown (%v), or not its collection (%v)", !a.noPage(), a.pane().coll)
 	}
 }
 
@@ -97,8 +97,8 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	if frameW != 8 || frameR != 10 {
 		t.Fatalf("frame constants = (%d, %d), want (8, 10)", frameW, frameR)
 	}
-	if !ownWindowControls && (a.panesR.Y != frameW || a.scrollR.Y != frameTopH+1) {
-		t.Fatalf("single-pane card = (%v, %v), want (%d, %d)", a.panesR.Y, a.scrollR.Y, frameW, frameTopH+1)
+	if !ownWindowControls && (a.panesR.Y != frameW || a.pane().scrollR.Y != frameTopH+1) {
+		t.Fatalf("single-pane card = (%v, %v), want (%d, %d)", a.panesR.Y, a.pane().scrollR.Y, frameW, frameTopH+1)
 	}
 	sbBtn, ok := tt.Find(locales.SidebarSidebar())
 	if !ok {
@@ -112,18 +112,18 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 		t.Fatal("settings button in top-left chrome not found")
 	}
 	topLeft := ui.Rect{X: 0, Y: 0, W: max(84, setBtn.X+setBtn.W), H: frameTopH}
-	if len(a.boxes) == 0 {
+	if len(a.pane().boxes) == 0 {
 		t.Fatal("missing editor paragraph box")
 	}
-	firstPara := ui.Rect{X: a.editorR.X, Y: a.editorR.Y + a.boxes[0].Top, W: a.editorR.W, H: a.boxes[0].Height}
+	firstPara := ui.Rect{X: a.pane().editorR.X, Y: a.pane().editorR.Y + a.pane().boxes[0].Top, W: a.pane().editorR.W, H: a.pane().boxes[0].Height}
 	if rectsOverlap(topLeft, firstPara) {
 		t.Fatalf("top-left chrome %+v overlaps first paragraph %+v", topLeft, firstPara)
 	}
-	if titleR, ok := tt.Find(a.page.Title); ok && rectsOverlap(topLeft, titleR) {
+	if titleR, ok := tt.Find(a.pane().page.Title); ok && rectsOverlap(topLeft, titleR) {
 		t.Fatalf("top-left chrome %+v overlaps page title %+v", topLeft, titleR)
 	}
 
-	a.settingsOpen = true
+	a.pane().settingsOpen = true
 	tt.Frame() // set from outside a frame: a window at rest draws none of its own
 	tt.Advance(200 * time.Millisecond)
 	navApp, ok := tt.Find(locales.CommonAppearance())
@@ -133,7 +133,7 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	if rectsOverlap(topLeft, navApp) {
 		t.Fatalf("top-left chrome %+v overlaps Settings nav item %+v", topLeft, navApp)
 	}
-	a.settingsOpen = false
+	a.pane().settingsOpen = false
 	tt.Advance(200 * time.Millisecond)
 
 	// Open the sidebar again: both cards must share the exact same top edge and keep sidebar rows below buttons.
@@ -149,7 +149,7 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	tt.Advance(1200 * time.Millisecond)
 
 	if !ownWindowControls {
-		second, err := a.page.Coll.NewPage(nil, "İkinci")
+		second, err := a.pane().page.Coll.NewPage(nil, "İkinci")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -216,13 +216,13 @@ func TestScrolledContentClearsTopLeftButtons(t *testing.T) {
 	}
 
 	beforePage := tt.Image()
-	tt.Wheel(a.editorR.X+100, 300, 0, 500)
+	tt.Wheel(a.pane().editorR.X+100, 300, 0, 500)
 	tt.Advance(300 * time.Millisecond)
-	if a.pageScroll.Y < 200 {
-		t.Fatalf("page did not scroll enough: %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y < 200 {
+		t.Fatalf("page did not scroll enough: %v", a.pane().pageScroll.Y)
 	}
-	if a.scrollR.Y < frameTopH {
-		t.Fatalf("scroll viewport enters top-left chrome: scrollR.Y=%v < frameTopH=%d", a.scrollR.Y, frameTopH)
+	if a.pane().scrollR.Y < frameTopH {
+		t.Fatalf("scroll viewport enters top-left chrome: scrollR.Y=%v < frameTopH=%d", a.pane().scrollR.Y, frameTopH)
 	}
 	afterPage := tt.Image()
 	if diff := regionDiffPixels(beforePage, afterPage, trafficZone); diff != 0 {
@@ -231,16 +231,16 @@ func TestScrolledContentClearsTopLeftButtons(t *testing.T) {
 	checkNoTextOverlap("scrolled page")
 
 	// Settings also clears topLeft, keeps a non-scrolling top DragWindow strip, and stays clean when scrolled.
-	a.settingsOpen = true
+	a.pane().settingsOpen = true
 	tt.Advance(300 * time.Millisecond)
-	if !ownWindowControls && (a.headDragR.Y != frameW+1 || a.headDragR.H != frameTopH-frameW || a.headDragR.W < 300) {
-		t.Fatalf("Settings top DragWindow strip = %+v, want Y=%d H=%d W>300", a.headDragR, frameW+1, frameTopH-frameW)
+	if !ownWindowControls && (a.pane().headDragR.Y != frameW+1 || a.pane().headDragR.H != frameTopH-frameW || a.pane().headDragR.W < 300) {
+		t.Fatalf("Settings top DragWindow strip = %+v, want Y=%d H=%d W>300", a.pane().headDragR, frameW+1, frameTopH-frameW)
 	}
 	beforeSet := tt.Image()
 	tt.Wheel(420, 300, 0, 400)
 	tt.Advance(300 * time.Millisecond)
-	if !ownWindowControls && (a.headDragR.Y != frameW+1 || a.headDragR.H != frameTopH-frameW) {
-		t.Fatalf("Settings top DragWindow strip moved while scrolling: %+v", a.headDragR)
+	if !ownWindowControls && (a.pane().headDragR.Y != frameW+1 || a.pane().headDragR.H != frameTopH-frameW) {
+		t.Fatalf("Settings top DragWindow strip moved while scrolling: %+v", a.pane().headDragR)
 	}
 	afterSet := tt.Image()
 	if diff := regionDiffPixels(beforeSet, afterSet, trafficZone); diff != 0 {
@@ -300,7 +300,7 @@ func TestGlassSyncAndToggle(t *testing.T) {
 
 	// Settings shows the Liquid Glass restart badge only on darwin, Glass turned on since the window was made (#497).
 	a.settings.Glass, a.glassAtLaunch = true, false
-	a.settingsTab = 0
+	a.pane().settingsTab = 0
 	a.openSettings()
 	tt.SetSize(900, 1400)
 	tt.Advance(200 * time.Millisecond)
@@ -357,11 +357,11 @@ func TestFrameTabLongTitleMiddleTruncates(t *testing.T) {
 	prefix := "Çok uzun sayfa başlığı ortadan kısaltılmalı ve sonu görünmeli "
 	longTitle := prefix + "2026"
 	a, tt := newTestApp(t, "içerik\n")
-	first := a.page
+	first := a.pane().page
 	if err := first.SetTitle(longTitle); err != nil {
 		t.Fatal(err)
 	}
-	a.title = longTitle
+	a.pane().title = longTitle
 	second, err := first.Coll.NewPage(nil, "İkinci Sekme Başlığı Oldukça Uzun")
 	if err != nil {
 		t.Fatal(err)
@@ -419,17 +419,17 @@ func TestSplitKeepsThePaneStill(t *testing.T) {
 	tt.SetSize(900, 600)
 	a.wframe.on = true
 	tt.Advance(300 * time.Millisecond)
-	p, err := a.page.Coll.NewPage(nil, "İkinci")
+	p, err := a.pane().page.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
 	}
 	p.SaveText(longPage())
-	one := a.pageR // the window with one pane
+	one := a.pane().pageR // the window with one pane
 	a.openAtPane(a.paneCount(), place{"page", p.Dir})
 	var first ui.Rect
 	for i := 0; i < 40; i++ {
 		tt.Advance(16 * time.Millisecond)
-		r := a.pageR
+		r := a.pane().pageR
 		if r.W == 0 || r == one { // the Dock is not laid out yet
 			continue
 		}
@@ -449,7 +449,7 @@ func TestPaneBarDrag(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Advance(300 * time.Millisecond)
-	second, err := a.page.Coll.NewPage(nil, "İkinci")
+	second, err := a.pane().page.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
 	}

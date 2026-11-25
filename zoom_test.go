@@ -16,35 +16,35 @@ const zoomPage = "Before.\n\n# Notes\n\n```go\nx := 1\n```\n\n- [!] urgent\n\n##
 func TestZoomIntoBlock(t *testing.T) {
 	a, tt := newTestApp(t, zoomPage)
 	tt.Advance(100 * time.Millisecond)
-	at := strings.Index(a.doc.Text().String(), "Notes")
+	at := strings.Index(a.pane().doc.Text().String(), "Notes")
 	a.zoomIn(at)
 	tt.Frame()
-	shown := a.doc.Text().String()
+	shown := a.pane().doc.Text().String()
 	if strings.Contains(shown, "Before.") || strings.Contains(shown, "after") || !strings.Contains(shown, "inside") {
 		t.Fatalf("zoomed: %q", shown)
 	}
-	if top, end, _, _ := zoomChips(a.doc.Text()); top == nil || end == nil {
+	if top, end, _, _ := zoomChips(a.pane().doc.Text()); top == nil || end == nil {
 		t.Fatalf("no chip above or below: %q", shown)
 	}
 	// write in the zoomed block
 	i := utf8.RuneCountInString(shown[:strings.Index(shown, "inside")+len("inside")])
-	a.doc.SetSelection(i, i)
-	a.doc.InsertText(" too")
+	a.pane().doc.SetSelection(i, i)
+	a.pane().doc.InsertText(" too")
 	tt.Frame()
 	a.save()
 	whole := strings.Replace(zoomPage, "inside", "inside too", 1)
-	if md := a.currentMarkdown(a.page); md != whole {
+	if md := a.currentMarkdown(a.pane().page); md != whole {
 		t.Fatalf("the file while zoomed:\n%q\nwant\n%q", md, whole)
 	}
 	// a level deeper, and back up twice
-	at = strings.Index(a.doc.Text().String(), "Deeper")
+	at = strings.Index(a.pane().doc.Text().String(), "Deeper")
 	a.zoomIn(at)
-	if s := a.doc.Text().String(); strings.Contains(s, "urgent") || !strings.Contains(s, "inside too") {
+	if s := a.pane().doc.Text().String(); strings.Contains(s, "urgent") || !strings.Contains(s, "inside too") {
 		t.Fatalf("deeper: %q", s)
 	}
 	a.zoomOut()
-	if !a.zoomed() || !strings.Contains(a.doc.Text().String(), "urgent") {
-		t.Fatalf("one level up: %q", a.doc.Text().String())
+	if !a.zoomed() || !strings.Contains(a.pane().doc.Text().String(), "urgent") {
+		t.Fatalf("one level up: %q", a.pane().doc.Text().String())
 	}
 	a.zoomOut()
 	tt.Frame()
@@ -52,7 +52,7 @@ func TestZoomIntoBlock(t *testing.T) {
 		t.Fatal("still zoomed")
 	}
 	a.save()
-	if md := bodyMarkdown(a.doc.Text()); md != strings.TrimSuffix(whole, "\n") {
+	if md := bodyMarkdown(a.pane().doc.Text()); md != strings.TrimSuffix(whole, "\n") {
 		t.Fatalf("zoomed out:\n%q\nwant\n%q", md, whole)
 	}
 }
@@ -61,15 +61,15 @@ func TestZoomIntoBlock(t *testing.T) {
 func TestFoldKeepsBlocks(t *testing.T) {
 	a, tt := newTestApp(t, zoomPage)
 	tt.Advance(100 * time.Millisecond)
-	at := strings.Index(a.doc.Text().String(), "Notes")
+	at := strings.Index(a.pane().doc.Text().String(), "Notes")
 	a.fold(at)
 	tt.Frame()
 	a.save()
-	if md := a.currentMarkdown(a.page); md != zoomPage {
+	if md := a.currentMarkdown(a.pane().page); md != zoomPage {
 		t.Fatalf("the file while folded:\n%q", md)
 	}
 	a.toggleFold(at)
-	if md := bodyMarkdown(a.doc.Text()); md != strings.TrimSuffix(zoomPage, "\n") {
+	if md := bodyMarkdown(a.pane().doc.Text()); md != strings.TrimSuffix(zoomPage, "\n") {
 		t.Fatalf("unfolded:\n%q", md)
 	}
 }
@@ -81,9 +81,9 @@ func TestZoomKeys(t *testing.T) {
 	}
 	a, tt := newTestApp(t, zoomPage)
 	tt.Advance(100 * time.Millisecond)
-	at := strings.Index(a.doc.Text().String(), "Notes")
-	a.doc.SetSelection(at, at)
-	a.refocus = true
+	at := strings.Index(a.pane().doc.Text().String(), "Notes")
+	a.pane().doc.SetSelection(at, at)
+	a.pane().refocus = true
 	tt.Frame()
 	press := func(accel string) {
 		mods, key, _, ok := parseAccel(accel)
@@ -94,12 +94,12 @@ func TestZoomKeys(t *testing.T) {
 		tt.Advance(50 * time.Millisecond)
 	}
 	press(zoomInKey)
-	if !a.zoomed() || strings.Contains(a.doc.Text().String(), "Before.") {
-		t.Fatalf("%s did not zoom in: %q", zoomInKey, a.doc.Text().String())
+	if !a.zoomed() || strings.Contains(a.pane().doc.Text().String(), "Before.") {
+		t.Fatalf("%s did not zoom in: %q", zoomInKey, a.pane().doc.Text().String())
 	}
 	press(zoomOutKey)
-	if a.zoomed() || !strings.Contains(a.doc.Text().String(), "Before.") {
-		t.Fatalf("%s did not zoom out: %q", zoomOutKey, a.doc.Text().String())
+	if a.zoomed() || !strings.Contains(a.pane().doc.Text().String(), "Before.") {
+		t.Fatalf("%s did not zoom out: %q", zoomOutKey, a.pane().doc.Text().String())
 	}
 }
 
@@ -108,27 +108,27 @@ func TestZoomKeys(t *testing.T) {
 func TestChipTakenAwayKeepsLines(t *testing.T) {
 	a, tt := newTestApp(t, "# Başlık\n\nBir\n\nİki\n\n# Son\n\nüç\n")
 	tt.Frame()
-	a.fold(strings.Index(a.doc.Text().String(), "Başlık"))
+	a.fold(strings.Index(a.pane().doc.Text().String(), "Başlık"))
 	tt.Frame()
-	i := strings.Index(a.doc.Text().String(), "\n") // the chip ends the heading's line: Backspace from after it
-	runes := utf8.RuneCountInString(a.doc.Text().String()[:i])
-	a.doc.SetSelection(runes-1, runes)
-	a.doc.InsertText("")
+	i := strings.Index(a.pane().doc.Text().String(), "\n") // the chip ends the heading's line: Backspace from after it
+	runes := utf8.RuneCountInString(a.pane().doc.Text().String()[:i])
+	a.pane().doc.SetSelection(runes-1, runes)
+	a.pane().doc.InsertText("")
 	tt.Frame()
 	a.save()
-	if md := a.currentMarkdown(a.page); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
+	if md := a.currentMarkdown(a.pane().page); !strings.Contains(md, "Bir") || !strings.Contains(md, "İki") {
 		t.Fatalf("the fold's lines went with its chip:\n%q", md)
 	}
 
 	b, tb := newTestApp(t, zoomPage)
 	tb.Advance(100 * time.Millisecond)
-	b.zoomIn(strings.Index(b.doc.Text().String(), "Notes"))
+	b.zoomIn(strings.Index(b.pane().doc.Text().String(), "Notes"))
 	tb.Frame()
-	b.doc.SetSelection(0, b.doc.Text().Len())
-	b.doc.InsertText("yeni")
+	b.pane().doc.SetSelection(0, b.pane().doc.Text().Len())
+	b.pane().doc.InsertText("yeni")
 	tb.Frame()
 	b.save()
-	md := b.currentMarkdown(b.page)
+	md := b.currentMarkdown(b.pane().page)
 	if !strings.Contains(md, "Before.") || !strings.Contains(md, "after") || !strings.Contains(md, "yeni") {
 		t.Fatalf("the zoom's lines went with its chips:\n%q", md)
 	}

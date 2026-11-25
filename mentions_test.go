@@ -14,7 +14,7 @@ import (
 func TestUnlinkedMentions(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 1000)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	also, _ := c.AddProperty("Also", PropAliases, nil)
 	dune, _ := c.NewPage(nil, "Dune")
 	dune.SetValue(also.ID, "Arrakis")

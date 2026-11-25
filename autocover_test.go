@@ -92,7 +92,7 @@ func TestMoonPhase(t *testing.T) {
 // it back; the setting turns the made ones off.
 func TestAutoCoverKinds(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
-	p := a.page
+	p := a.pane().page
 	if a.coverKind(p) != coverKindNone {
 		t.Fatalf("off by default, a page with no cover: kind %d", a.coverKind(p))
 	}
@@ -102,8 +102,8 @@ func TestAutoCoverKinds(t *testing.T) {
 	}
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	if a.topSpace != 0 { // a cover begins at the very top of the window, behind the bar
-		t.Fatalf("the page does not start at the top for its cover: %v", a.topSpace)
+	if a.pane().topSpace != 0 { // a cover begins at the very top of the window, behind the bar
+		t.Fatalf("the page does not start at the top for its cover: %v", a.pane().topSpace)
 	}
 	a.removeCover(p)
 	src, _ := os.ReadFile(p.File())

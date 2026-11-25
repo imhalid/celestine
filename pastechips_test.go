@@ -12,7 +12,7 @@ import (
 // checksIn is the boxes of the tasks in the running text of a's page, in order.
 func checksIn(a *app) []*chip {
 	var out []*chip
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			if ch, ok := att.Data.(*chip); ok && ch.kind == "check" {
 				out = append(out, ch)
@@ -61,17 +61,17 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 	a.clipRead = func() string { return tt.Clipboard() }
 	tt.Advance(100 * time.Millisecond)
 	if n := len(checksIn(a)); n != 1 {
-		t.Fatalf("%d boxes in %s", n, encodeBody(a.doc.Text()))
+		t.Fatalf("%d boxes in %s", n, encodeBody(a.pane().doc.Text()))
 	}
-	s, e := a.doc.Text().ParagraphRange(0)
-	a.doc.SetSelection(s, e)
+	s, e := a.pane().doc.Text().ParagraphRange(0)
+	a.pane().doc.SetSelection(s, e)
 	tt.Key(ui.Cmd, ui.KeyC)
 	if a.ownClip.md != "" || a.ownClip.rich.Len() == 0 {
 		t.Fatalf("the copy was not noted as text with chips: %+v", a.ownClip)
 	}
-	a.doc.SetSelection(e, e)
-	a.doc.InsertText("\n")
-	before := a.doc.Text().String()
+	a.pane().doc.SetSelection(e, e)
+	a.pane().doc.InsertText("\n")
+	before := a.pane().doc.Text().String()
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	cs := checksIn(a)
@@ -81,14 +81,14 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 	// one undo takes the paste back whole; a redo brings it back with its own box
 	tt.Key(ui.Cmd, ui.KeyZ)
 	tt.Frame()
-	if got := a.doc.Text().String(); got != before || len(checksIn(a)) != 1 {
+	if got := a.pane().doc.Text().String(); got != before || len(checksIn(a)) != 1 {
 		t.Fatalf("one undo left %q, want %q", got, before)
 	}
 	tt.Key(ui.Cmd|ui.Shift, ui.KeyZ)
 	tt.Frame()
 	cs = checksIn(a)
 	if len(cs) != 2 || cs[0] == cs[1] {
-		t.Fatalf("boxes after the redo: %d in %q", len(cs), a.doc.Text().String())
+		t.Fatalf("boxes after the redo: %d in %q", len(cs), a.pane().doc.Text().String())
 	}
 	tick := func(ch *chip) {
 		t.Helper()
@@ -105,35 +105,35 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 	tick(cs[1])
 	cs = checksIn(a)
 	if len(cs) != 2 || cs[0].target != "" || cs[1].target != "x" {
-		t.Fatalf("after ticking the pasted one: %q", bodyMarkdown(a.doc.Text()))
+		t.Fatalf("after ticking the pasted one: %q", bodyMarkdown(a.pane().doc.Text()))
 	}
 
 	// the first box alone, pasted over the word "today" of the second line, selected from its end
 	first := -1
-	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for i, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil && att.Data == any(cs[0]) {
 			first = i
 			break
 		}
 	}
-	a.doc.SetSelection(first, first+1)
+	a.pane().doc.SetSelection(first, first+1)
 	tt.Key(ui.Cmd, ui.KeyC)
-	ps, pe := a.doc.Text().ParagraphRange(e + 1) // the second line
-	line := a.doc.Text().Slice(ps, pe).String()
+	ps, pe := a.pane().doc.Text().ParagraphRange(e + 1) // the second line
+	line := a.pane().doc.Text().Slice(ps, pe).String()
 	w := ps + len([]rune(line[:strings.Index(line, "today")]))
-	a.doc.SetSelection(w+len("today"), w)
+	a.pane().doc.SetSelection(w+len("today"), w)
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	cs = checksIn(a)
 	if len(cs) != 3 || cs[0] == cs[2] || cs[1] == cs[2] {
-		t.Fatalf("boxes after the box alone was pasted: %d in %q", len(cs), bodyMarkdown(a.doc.Text()))
+		t.Fatalf("boxes after the box alone was pasted: %d in %q", len(cs), bodyMarkdown(a.pane().doc.Text()))
 	}
 	tick(cs[2])
 	cs = checksIn(a)
 	if cs[0].target != "" || cs[1].target != "x" || cs[2].target != "x" {
-		t.Fatalf("after ticking the box pasted alone: %q", bodyMarkdown(a.doc.Text()))
+		t.Fatalf("after ticking the box pasted alone: %q", bodyMarkdown(a.pane().doc.Text()))
 	}
-	if md := bodyMarkdown(a.doc.Text()); !strings.Contains(md, "buy milk [ ] today") {
+	if md := bodyMarkdown(a.pane().doc.Text()); !strings.Contains(md, "buy milk [ ] today") {
 		t.Fatalf("the first line changed: %q", md)
 	}
 }
@@ -142,17 +142,17 @@ func TestPastedInlineTaskOwnBox(t *testing.T) {
 func TestDuplicatedInlineTaskOwnBox(t *testing.T) {
 	a, tt := newTestApp(t, "buy milk [ ] today\n")
 	tt.Advance(100 * time.Millisecond)
-	a.doc.SetSelection(2, 2)
+	a.pane().doc.SetSelection(2, 2)
 	tt.Key(ui.Cmd, ui.KeyD)
 	tt.Frame()
 	cs := checksIn(a)
 	if len(cs) != 2 || cs[0] == cs[1] {
-		t.Fatalf("boxes after ⌘D: %d in %q", len(cs), bodyMarkdown(a.doc.Text()))
+		t.Fatalf("boxes after ⌘D: %d in %q", len(cs), bodyMarkdown(a.pane().doc.Text()))
 	}
 	a.toggleCheckChip(cs[1])
 	tt.Frame()
 	if cs = checksIn(a); cs[0].target != "" || cs[1].target != "x" {
-		t.Fatalf("after ticking the copy: %q", bodyMarkdown(a.doc.Text()))
+		t.Fatalf("after ticking the copy: %q", bodyMarkdown(a.pane().doc.Text()))
 	}
 }
 
@@ -163,19 +163,19 @@ func TestPastedFoldOwnsItsChips(t *testing.T) {
 	tt.Advance(100 * time.Millisecond)
 	hidden := a.parse("milk [ ] today\n")
 	fold := &chip{kind: "fold", hidden: &hidden, lines: 1}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(5, 5, string(richtext.ObjectReplacement), richtext.Attributes{Attachment: a.attachment(fold)})
 	})
 	tt.Frame()
-	s, e := a.doc.Text().ParagraphRange(0)
-	a.doc.SetSelection(s, e)
+	s, e := a.pane().doc.Text().ParagraphRange(0)
+	a.pane().doc.SetSelection(s, e)
 	tt.Key(ui.Cmd, ui.KeyC)
-	a.doc.SetSelection(e, e)
-	a.doc.InsertText("\n")
+	a.pane().doc.SetSelection(e, e)
+	a.pane().doc.InsertText("\n")
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	var folds []*chip
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			if ch, ok := att.Data.(*chip); ok && ch.kind == "fold" {
 				folds = append(folds, ch)

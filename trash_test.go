@@ -80,7 +80,7 @@ func TestRestoreOnDisk(t *testing.T) {
 // it; thrown away again, the trash shows it and puts it back.
 func TestTrashUndoAndView(t *testing.T) {
 	a, tt := newTestApp(t, "metin")
-	page := a.page
+	page := a.pane().page
 	child, _ := page.Coll.NewPage(page, "Çocuk")
 	a.open(child)
 	tt.Advance(time.Second)
@@ -96,7 +96,7 @@ func TestTrashUndoAndView(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(100 * time.Millisecond)
-	if len(page.Children) != 1 || a.page != page.Children[0] {
+	if len(page.Children) != 1 || a.pane().page != page.Children[0] {
 		t.Fatalf("undo: %d children", len(page.Children))
 	}
 	tt.Advance(5 * time.Second) // the toast goes
@@ -107,7 +107,7 @@ func TestTrashUndoAndView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if !a.trashOpen || !tt.HasText("Çocuk") {
+	if !a.pane().trashOpen || !tt.HasText("Çocuk") {
 		t.Fatalf("trash view: %v", tt.Texts())
 	}
 	if err := tt.Click("Geri yükle"); err != nil {
@@ -127,7 +127,7 @@ func TestTrashShowsCollectionPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.lib.Collections = slices.DeleteFunc(a.lib.Collections, func(c *Collection) bool { return c == coll })
-	a.coll, a.page = nil, nil
+	a.pane().coll, a.pane().page = nil, nil
 	a.openTrash()
 	tt.Advance(500 * time.Millisecond)
 	n := locales.CommonPageCount(4)

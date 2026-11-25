@@ -46,7 +46,7 @@ func TestCaptureNote(t *testing.T) {
 	if _, err := a.captureNote(quickDay, "üçüncü"); err != nil {
 		t.Fatal(err)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "üçüncü") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "üçüncü") {
 		t.Fatalf("the open page: %q", md)
 	}
 	a.links.built = time.Time{}
@@ -114,15 +114,15 @@ func TestQuickNoticeOpens(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(100 * time.Millisecond)
-	if today, _ := a.todayPage(); a.page != today {
-		t.Fatalf("open %q", a.page.Title)
+	if today, _ := a.todayPage(); a.pane().page != today {
+		t.Fatalf("open %q", a.pane().page.Title)
 	}
 }
 
 // TestQuickKeySetting: the editor's settings have the key of the quick note.
 func TestQuickKeySetting(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	a.settingsOpen, a.settingsTab = true, 1
+	a.pane().settingsOpen, a.pane().settingsTab = true, 1
 	tt.Frame()
 	tt.Advance(600 * time.Millisecond)
 	if !tt.HasText(locales.SettingsQuickNoteKey()) {

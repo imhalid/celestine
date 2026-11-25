@@ -119,7 +119,7 @@ func TestFontSettingsPage(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	waitFonts(t, a)
 	a.openSettings()
-	a.settingsTab = tabFonts
+	a.pane().settingsTab = tabFonts
 	a.fonts.open = [3]bool{true, true, true}
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)

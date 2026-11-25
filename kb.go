@@ -111,7 +111,7 @@ func (a *app) kbEnter() { a.kb.park = true }
 // kbLeave goes back to writing.
 func (a *app) kbLeave() {
 	a.kb.normal, a.kb.hints, a.kb.which, a.kb.pending, a.kb.count = false, false, false, "", 0
-	a.refocus = true
+	a.pane().refocus = true
 }
 
 // rows are the list rows of the last frame.
@@ -179,7 +179,7 @@ var leaderKeys = []struct {
 	{'p', "common_commands", func(a *app) { a.openCommands() }},
 	{'o', "openPage", func(a *app) { a.openPalette() }},
 	{'f', "findInPage2", func(a *app) { a.openFind() }},
-	{'/', "searchTheLibrary", func(a *app) { a.openSearch(a.searchQ) }},
+	{'/', "searchTheLibrary", func(a *app) { a.openSearch(a.pane().searchQ) }},
 	{'t', "common_tasks", func(a *app) { a.openTasks() }},
 	{'d', "common_trash", func(a *app) { a.openTrash() }},
 	{'j', "todaysPage", func(a *app) { a.openToday() }},
@@ -203,7 +203,7 @@ func (a *app) kbKeys(c *ui.Context) {
 	k := &a.kb
 	chars := k.chars
 	k.chars = nil
-	on := func() bool { return k.normal && !a.modal() && !a.pal.open && !a.cellEd.open }
+	on := func() bool { return k.normal && !a.modal() && !a.pal.open && !a.pane().cellEd.open }
 	if !on() {
 		return
 	}
@@ -231,11 +231,11 @@ func (a *app) kbKey(r rune) {
 		case k.hints || k.which || k.pending != "" || k.count > 0:
 			k.hints, k.which, k.pending, k.count = false, false, "", 0
 			k.typed = ""
-		case a.statsScreen:
+		case a.pane().statsScreen:
 			a.closeStats()
-		case a.profileScreen:
+		case a.pane().profileScreen:
 			a.closeProfile()
-		case a.settingsOpen:
+		case a.pane().settingsOpen:
 			a.closeSettings()
 		default:
 			a.step(-1)
@@ -267,8 +267,8 @@ func (a *app) kbKey(r rune) {
 		case (p == "d" || p == "y") && a.vimPair(rune(p[0]), r):
 		case p == "g" && r == 'g':
 			if a.vimOn() {
-				a.doc.SetSelection(0, 0)
-				a.revealWant = true
+				a.pane().doc.SetSelection(0, 0)
+				a.pane().revealWant = true
 			} else {
 				a.kbTo(false)
 			}
@@ -314,7 +314,7 @@ func (a *app) kbKey(r rune) {
 		k.pending = string(r)
 		return
 	case r == 'l' || r == kbEnter:
-		if !a.kbOpen() && a.page != nil && !a.noPage() {
+		if !a.kbOpen() && a.pane().page != nil && !a.noPage() {
 			a.kbLeave()
 		}
 	case r == 'h':
@@ -330,11 +330,11 @@ func (a *app) kbKey(r rune) {
 		k.count = 0
 		return
 	case r == 'i' || r == 'a':
-		if a.page != nil && !a.noPage() {
+		if a.pane().page != nil && !a.noPage() {
 			a.kbLeave()
 		}
 	case r == 'V':
-		if a.page != nil && !a.noPage() {
+		if a.pane().page != nil && !a.noPage() {
 			a.startBlockSel()
 		}
 	case r == 'f':
@@ -346,7 +346,7 @@ func (a *app) kbKey(r rune) {
 		a.stepDay(-n)
 	case r == ']':
 		a.stepDay(n)
-	case r == '/' && a.settingsOpen: // the settings have no page to find in: their search
+	case r == '/' && a.pane().settingsOpen: // the settings have no page to find in: their search
 		a.setFocus = true
 	case r == '/':
 		a.openFind()
@@ -355,8 +355,8 @@ func (a *app) kbKey(r rune) {
 	case r == '?':
 		k.help = true
 	case r == 'u':
-		if a.doc != nil && a.page != nil && !a.noPage() {
-			a.doc.Undo()
+		if a.pane().doc != nil && a.pane().page != nil && !a.noPage() {
+			a.pane().doc.Undo()
 		}
 	case r == 'p':
 		a.openCommands()
@@ -375,8 +375,8 @@ func (a *app) kbKey(r rune) {
 	case r == 'w':
 		a.nextPane()
 	case r == kbRedo:
-		if a.doc != nil && a.page != nil && !a.noPage() {
-			a.doc.Redo()
+		if a.pane().doc != nil && a.pane().page != nil && !a.noPage() {
+			a.pane().doc.Redo()
 		}
 	}
 	k.count = 0
@@ -554,10 +554,10 @@ func (a *app) focusTree() {
 		a.toggleSidebar()
 	}
 	switch {
-	case a.page != nil && !a.noPage():
-		a.treeNav, a.treeFocus = true, any(a.page)
-	case a.coll != nil:
-		a.treeNav, a.treeFocus = true, any(a.coll)
+	case a.pane().page != nil && !a.noPage():
+		a.treeNav, a.treeFocus = true, any(a.pane().page)
+	case a.pane().coll != nil:
+		a.treeNav, a.treeFocus = true, any(a.pane().coll)
 	case len(a.lib.Collections) > 0:
 		a.treeNav, a.treeFocus = true, any(a.lib.Collections[0])
 	}
@@ -567,7 +567,7 @@ func (a *app) focusTree() {
 // back, wq both, e opens a page, tema/theme and set name=value change a setting, help shows the shortcuts.
 func (a *app) colonItems(q string) []palItem {
 	q = strings.TrimSpace(q)
-	hasPage := a.page != nil && a.doc != nil && !a.noPage()
+	hasPage := a.pane().page != nil && a.pane().doc != nil && !a.noPage()
 	item := func(title, sub string, run func()) palItem {
 		return palItem{title: title, sub: sub, glyph: iconPage, run: run}
 	}
@@ -582,7 +582,7 @@ func (a *app) colonItems(q string) []palItem {
 		if n < 1 {
 			return []palItem{{title: locales.PaletteParagraphFromOne(), glyph: iconPage, off: locales.PaletteTypeNumber()}}
 		}
-		total := countParagraphs(a.doc.Text())
+		total := countParagraphs(a.pane().doc.Text())
 		to := min(n, total)
 		return []palItem{item(locales.PaletteGoToParagraph(to), locales.PaletteOfParagraphs(total), func() { a.goToParagraph(to) })}
 	}
@@ -695,21 +695,22 @@ func (a *app) kbRun(r rune, n int, pair string) {
 
 // followAtCaret opens the link, tag or chip the caret is on.
 func (a *app) followAtCaret() {
-	if a.page == nil || a.noPage() || a.caretWin.W <= 0 && a.caretWin.H <= 0 {
+	pn := a.pane()
+	if pn.page == nil || a.noPage() || pn.caretWin.W <= 0 && pn.caretWin.H <= 0 {
 		a.say(toastWarn, locales.ThereIsNoLinkUnderThe())
 		return
 	}
-	x, y := a.caretWin.X+1, a.caretWin.Y+a.caretWin.H/2
-	if key, ok := a.tagAt(x, y); ok {
-		a.openTag(key)
+	x, y := pn.caretWin.X+1, pn.caretWin.Y+pn.caretWin.H/2
+	if key, ok := a.tagAt(pn, x, y); ok {
+		a.openTagIn(pn, key)
 		return
 	}
-	if url, ok := a.linkAt(x, y); ok {
-		a.openLink(url)
+	if url, ok := a.linkAt(pn, x, y); ok {
+		a.openLinkIn(pn, url)
 		return
 	}
-	if a.chipAt(x, y) != nil {
-		a.clickChip(x, y)
+	if a.chipAt(pn, x, y) != nil {
+		a.clickChip(pn, x, y)
 		return
 	}
 	a.say(toastWarn, locales.ThereIsNoLinkTagOr())

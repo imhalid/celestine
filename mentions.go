@@ -103,7 +103,7 @@ func (a *app) findMentions(p *Page) []mention {
 }
 
 // mentionsView is the section of unlinked mentions under the backlinks, while the page is one that can be named.
-func (a *app) mentionsView(c *ui.Context, p *Page) {
+func (a *app) mentionsView(c *ui.Context, pn *paneState, p *Page) {
 	m := &a.mentions
 	if p == nil || len(mentionNames(p)) == 0 {
 		return
@@ -156,7 +156,7 @@ func (a *app) mentionsView(c *ui.Context, p *Page) {
 					}
 				})
 				if col.Clicked() {
-					a.open(mn.page)
+					a.openIn(pn, mn.page)
 				}
 				if ryugo.Button(c.Key("mn-link"), locales.MentionsLink(), ryugo.ButtonOptions{Icon: iconLink, Size: ryugo.Sm, Variant: ryugo.Soft}).Clicked() {
 					a.later(func() { a.linkMention(p, mn) })
@@ -164,7 +164,7 @@ func (a *app) mentionsView(c *ui.Context, p *Page) {
 			})
 		}
 	})
-	a.linksH += box.LayoutBounds().H
+	pn.linksH += box.LayoutBounds().H
 }
 
 // linkMention makes the first unlinked mention of p in mn's page a [[link]]: by the name it uses, which resolves to
@@ -175,8 +175,8 @@ func (a *app) linkMention(p *Page, mn mention) {
 	if strings.EqualFold(mn.name, p.Title) {
 		ch.target = p.Title
 	}
-	for i := range a.ps.states { // shown in a pane: its text is changed there, and saved as typing is
-		if st := &a.ps.states[i]; st.page == q && a.docs[q] != nil {
+	for _, st := range a.ps.states { // shown in a pane: its text is changed there, and saved as typing is
+		if st.page == q && a.docs[q] != nil {
 			doc := a.docs[q]
 			t := doc.Text()
 			at := mentionIn(t, mn.name)

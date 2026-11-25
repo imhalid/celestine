@@ -28,7 +28,7 @@ func TestRelinkBody(t *testing.T) {
 // key; the toast's Undo puts them back.
 func TestRenameRelinks(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	p := a.page
+	p := a.pane().page
 	other, _ := p.Coll.NewPage(nil, "Beta")
 	if err := other.SaveText("Bkz. [[Sayfa]] ve [[sayfa|takma ad]]\n"); err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestRenameRelinks(t *testing.T) {
 // Links are kept when the new title is another page's: they would go to that page.
 func TestRenameRelinksNotOntoAnother(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	p := a.page
+	p := a.pane().page
 	other, _ := p.Coll.NewPage(nil, "Beta")
 	other.SaveText("Bkz. [[Sayfa]]\n")
 	p.Coll.NewPage(nil, "Gama")
@@ -93,7 +93,7 @@ func TestRenameRelinksNotOntoAnother(t *testing.T) {
 // The sidebar's rename writes the links too.
 func TestSidebarRenameRelinks(t *testing.T) {
 	a, tt := newTestApp(t, "x")
-	p := a.page
+	p := a.pane().page
 	other, _ := p.Coll.NewPage(nil, "Beta")
 	other.SaveText("[[Sayfa]]\n")
 	tt.Frame()
@@ -122,7 +122,7 @@ func TestRelinkBodyHeldBlocks(t *testing.T) {
 func TestRenameFromUntitledKeepsLinks(t *testing.T) {
 	for _, l := range languages {
 		a, tt := newTestApp(t, "Metin\n")
-		p := a.page
+		p := a.pane().page
 		name := locales.In(l.code).CommonUntitled()
 		other, _ := p.Coll.NewPage(nil, "Beta")
 		other.SaveText("See [[" + name + "]]\n")
@@ -141,16 +141,16 @@ func TestRenameFromUntitledKeepsLinks(t *testing.T) {
 // the next start; one being typed in a pane that is closed is ended with it (#560).
 func TestRenameEndedLater(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
-	p := a.page
+	p := a.pane().page
 	other, _ := p.Coll.NewPage(nil, "Beta")
 	other.SaveText("See [[Sayfa]]\n")
 	tt.Frame()
-	a.titleTyped(p, "Yeni")
+	a.titleTyped(a.pane(), p, "Yeni")
 	if a.settings.PendingRenames[p.Dir] != "Sayfa" {
 		t.Fatalf("the rename is not kept: %v", a.settings.PendingRenames)
 	}
 	// the app went: the next one finds the rename in its settings
-	a.retitle = titleEdit{}
+	a.pane().retitle = titleEdit{}
 	a.finishRenames()
 	tt.Frame()
 	if got, _ := other.Text(); !strings.Contains(got, "[[Yeni]]") {
@@ -166,7 +166,7 @@ func TestRenameEndedLater(t *testing.T) {
 	other.SaveText("See [[Gama]]\n")
 	a.openInSide(place{"page", third.Dir})
 	tt.Advance(300 * time.Millisecond)
-	a.titleTyped(third, "Delta")
+	a.titleTyped(a.pane(), third, "Delta")
 	a.closePane(a.ps.active)
 	tt.Advance(300 * time.Millisecond)
 	if got, _ := other.Text(); !strings.Contains(got, "[[Delta]]") {

@@ -40,33 +40,33 @@ func TestNoIDShown(t *testing.T) {
 	look("main", tt.Texts())
 	a.openSettings()
 	for tab := range settingsSections {
-		a.settingsTab = tab
+		a.pane().settingsTab = tab
 		frame()
 		look("settings", tt.Texts())
 	}
-	a.settingsOpen = false
-	a.tasksOpen = true
+	a.pane().settingsOpen = false
+	a.pane().tasksOpen = true
 	frame()
 	look("tasks", tt.Texts())
-	a.tasksOpen = false
-	a.openCollSettings(a.page.Coll, 0)
+	a.pane().tasksOpen = false
+	a.openCollSettings(a.pane().page.Coll, 0)
 	for i := 0; i < 4; i++ {
 		a.cs.tab = i
 		frame()
 		look("collsettings", tt.Texts())
 	}
 	a.cs.open = false
-	a.coll = a.page.Coll
+	a.pane().coll = a.pane().page.Coll
 	frame()
 	look("collection", tt.Texts())
-	a.statsScreen = true
+	a.pane().statsScreen = true
 	frame()
 	look("stats", tt.Texts())
-	a.statsScreen = false
-	a.trashOpen = true
+	a.pane().statsScreen = false
+	a.pane().trashOpen = true
 	frame()
 	look("trash", tt.Texts())
-	a.trashOpen = false
+	a.pane().trashOpen = false
 	a.kb.help = true
 	frame()
 	look("help", tt.Texts())

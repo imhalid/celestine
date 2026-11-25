@@ -10,38 +10,42 @@ type place struct {
 	dir  string
 }
 
-func (a *app) here() place {
+func (a *app) here() place { return a.hereOf(a.pane()) }
+
+func (a *app) hereOf(pn *paneState) place {
 	switch {
-	case a.settingsOpen:
+	case pn.settingsOpen:
 		return place{kind: "settings"}
-	case a.statsScreen:
+	case pn.statsScreen:
 		return place{kind: "stats"}
-	case a.profileScreen:
+	case pn.profileScreen:
 		return place{kind: "profile"}
-	case a.trashOpen:
+	case pn.trashOpen:
 		return place{kind: "trash"}
-	case a.searchOpen:
-		return place{"search", a.searchQ}
-	case a.tasksOpen:
+	case pn.searchOpen:
+		return place{"search", pn.searchQ}
+	case pn.tasksOpen:
 		return place{kind: "tasks"}
-	case a.tag != "":
-		return place{"tag", a.tag}
-	case a.coll != nil:
-		return place{"coll", a.coll.Dir}
-	case a.page != nil:
-		return place{"page", a.page.Dir}
+	case pn.tag != "":
+		return place{"tag", pn.tag}
+	case pn.coll != nil:
+		return place{"coll", pn.coll.Dir}
+	case pn.page != nil:
+		return place{"page", pn.page.Dir}
 	}
 	return place{}
 }
 
-// visit notes the place now shown, unless it was reached by going back or
+// visit notes the place now shown in the active pane, unless it was reached by going back or
 // forward: what was ahead of it is forgotten.
-func (a *app) visit() {
-	a.noteVisit()
+func (a *app) visit() { a.visitIn(a.pane()) }
+
+func (a *app) visitIn(pn *paneState) {
+	a.noteVisitIn(pn)
 	if a.going {
 		return
 	}
-	p := a.here()
+	p := a.hereOf(pn)
 	if p.kind == "" || (a.histAt >= 0 && a.histAt < len(a.hist) && a.hist[a.histAt] == p) {
 		return
 	}
@@ -65,47 +69,50 @@ func (a *app) canStep(dir int) bool {
 	return i >= 0 && i < len(a.hist)
 }
 
-// goTo shows place p, if it is still there.
-func (a *app) goTo(p place) bool {
+// goTo shows place p in the active pane, if it is still there.
+func (a *app) goTo(p place) bool { return a.goToIn(a.pane(), p) }
+
+// goToIn shows place p in pn, if it is still there.
+func (a *app) goToIn(pn *paneState, p place) bool {
 	a.going = true
 	defer func() { a.going = false }()
 	if p.kind == "trash" {
-		a.openTrash()
+		a.openTrashIn(pn)
 		return true
 	}
 	if p.kind == "stats" {
-		a.statsScreen = false
-		a.openStats()
+		pn.statsScreen = false
+		a.openStatsIn(pn)
 		return true
 	}
 	if p.kind == "profile" {
-		a.profileScreen = false
-		a.openProfile()
+		pn.profileScreen = false
+		a.openProfileIn(pn)
 		return true
 	}
 	if p.kind == "settings" {
-		a.settingsOpen = false
-		a.openSettings()
+		pn.settingsOpen = false
+		a.openSettingsIn(pn)
 		return true
 	}
 	if p.kind == "search" {
-		a.openSearch(p.dir)
+		a.openSearchIn(pn, p.dir)
 		return true
 	}
 	if p.kind == "tasks" {
-		a.openTasks()
+		a.openTasksIn(pn)
 		return true
 	}
 	if p.kind == "tag" {
 		if a.links.into != nil && len(a.tagPages(p.dir)) == 0 {
 			return false
 		}
-		a.openTag(p.dir)
+		a.openTagIn(pn, p.dir)
 		return true
 	}
 	for _, c := range a.lib.Collections {
 		if p.kind == "coll" && c.Dir == p.dir {
-			a.openCollection(c)
+			a.openCollectionIn(pn, c)
 			return true
 		}
 		if p.kind == "page" {
@@ -115,7 +122,7 @@ func (a *app) goTo(p place) bool {
 						up.Open = true // seen in the tree
 					}
 					c.Open = true
-					a.open(q)
+					a.openIn(pn, q)
 					return true
 				}
 			}

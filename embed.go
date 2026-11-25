@@ -153,9 +153,10 @@ func (a *app) drawEmbed(p *ui.Painter, r ui.Rect, ch *chip) {
 // insertEmbed takes the "/…" away and puts the card of a page in a block of
 // its own.
 func (a *app) insertEmbed(start int, title string) {
+	doc := a.pane().doc
 	s := &a.slash
-	_, caret := a.doc.Selection()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	_, caret := doc.Selection()
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})

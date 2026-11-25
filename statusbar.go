@@ -24,12 +24,12 @@ func caretPos(t richtext.Text, caret int) (line, col int) {
 // statusExtras draws the pieces of the status bar the settings ask for,
 // while a page is open.
 func (a *app) statusExtras(c *ui.Context) {
-	if a.page == nil || a.doc == nil || a.noPage() {
+	if a.pane().page == nil || a.pane().doc == nil || a.noPage() {
 		return
 	}
 	if a.settings.ShowPos {
-		_, caret := a.doc.Selection()
-		line, col := caretPos(a.doc.Text(), caret)
+		_, caret := a.pane().doc.Selection()
+		line, col := caretPos(a.pane().doc.Text(), caret)
 		ui.Text(c, locales.SidebarLineColumn(line, col)).FontSize(11.5).TextColor(c.Theme().TextMuted).MaxLines(1)
 	}
 }
@@ -45,23 +45,23 @@ func (a *app) hints() []hint {
 		return []hint{{"Esc", "back to the text"}}
 	case a.pal.open:
 		return []hint{{"↑↓", "choose2"}, {"↵", "on"}, {"Esc", "off3"}, {">", "commands3"}, {"#", "tags4"}, {":", "goToALine"}}
-	case a.find.open:
+	case a.pane().find.open:
 		return []hint{{"↵", "next"}, {"⇧↵", "previous"}, {"Esc", "off3"}}
 	case a.slash.open:
 		return []hint{{"↑↓", "choose2"}, {"↵", "insert"}, {"Esc", "off3"}}
 	case a.kb.normal:
 		return []hint{{"f", "letterLabels"}, {"i", "write2"}, {"j k", "move2"}, {"Space", "commands3"}, {"?", "allShortcuts"}}
-	case a.settingsOpen:
+	case a.pane().settingsOpen:
 		return []hint{{"/", "searchSettings2"}, {"Esc", "back3"}}
-	case a.statsScreen, a.profileScreen, a.trashOpen, a.tasksOpen, a.searchOpen, a.tag != "":
+	case a.pane().statsScreen, a.pane().profileScreen, a.pane().trashOpen, a.pane().tasksOpen, a.pane().searchOpen, a.pane().tag != "":
 		return []hint{{"Esc", "back3"}}
-	case a.coll != nil:
+	case a.pane().coll != nil:
 		return []hint{{"⌘N", "newPage3"}, {"⌘\\", "sidebar3"}}
-	case a.page != nil && !a.noPage() && a.cellEd.open:
+	case a.pane().page != nil && !a.noPage() && a.pane().cellEd.open:
 		return []hint{{"Tab", "nextCell"}, {"⇧Tab", "previousCell"}, {"↑↓", "row"}, {"↵", "keep"}}
-	case a.page != nil && !a.noPage() && a.titleFocused:
+	case a.pane().page != nil && !a.noPage() && a.pane().titleFocused:
 		return []hint{{"↵", "intoTheText"}}
-	case a.page != nil && !a.noPage() && a.doc != nil && a.focused:
+	case a.pane().page != nil && !a.noPage() && a.pane().doc != nil && a.pane().focused:
 		return a.editorHints() // the block the caret is in (blockhints.go)
 	}
 	return nil

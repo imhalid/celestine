@@ -28,7 +28,7 @@ func TestShot(t *testing.T) {
 		c.NewPage(p, "Alt sayfa: "+title)
 	}
 	a := newApp(lib)
-	a.doc.SetSelection(40, 40)
+	a.pane().doc.SetSelection(40, 40)
 	tt := ui.NewTester(a.view, 1180, 820)
 	tt.Advance(400 * time.Millisecond)
 	f, _ := os.Create(out)
@@ -242,13 +242,13 @@ func TestPropsShots(t *testing.T) {
 	}
 	tt.Advance(300 * time.Millisecond)
 	save("page-empty")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	c.AddProperty("Durum", PropChoice, []string{"Yapılacak", "Sürüyor", "Bitti"})
 	c.AddProperty("Yazar", PropText, nil)
 	c.AddProperty("Yıl", PropNumber, nil)
-	a.page.SetValue("durum", "Sürüyor")
-	a.page.SetValue("yazar", "Frank Herbert")
-	a.page.SetValue("yil", "1965")
+	a.pane().page.SetValue("durum", "Sürüyor")
+	a.pane().page.SetValue("yazar", "Frank Herbert")
+	a.pane().page.SetValue("yil", "1965")
 	tt.Advance(300 * time.Millisecond)
 	save("page-props")
 	tt.Click("Özellik ekle")
@@ -286,7 +286,7 @@ func TestChromeShots(t *testing.T) {
 	a.settings.Port = 0
 	a.setMCP(true)
 	defer a.setMCP(false)
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	save := func(name string) {
 		f, _ := os.Create(dir + "/" + name + ".png")
 		png.Encode(f, tt.Image())
@@ -398,10 +398,10 @@ func TestBlockShots(t *testing.T) {
 		f.Close()
 	}
 	tt.Advance(300 * time.Millisecond)
-	r := a.editorR
+	r := a.pane().editorR
 	box := func(s string) (float32, float32) {
-		start := at(a.doc, s)
-		for _, b := range a.boxes {
+		start := at(a.pane().doc, s)
+		for _, b := range a.pane().boxes {
 			if b.Start == start {
 				return r.Y + b.Top, b.Height
 			}
@@ -435,7 +435,7 @@ func TestBlockShots(t *testing.T) {
 	save("grip-drag")
 	tt.Release(x0+40, ys+hs/2)
 	tt.Advance(300 * time.Millisecond)
-	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
+	a.pane().doc.SetSelection(a.pane().doc.Text().Len(), a.pane().doc.Text().Len())
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	typeEach(tt, "/")
@@ -451,12 +451,12 @@ func TestChipShots(t *testing.T) {
 	}
 	a, tt := newTestApp(t, "Bu hafta [[Dune]] ve [[Anna Karenina|Anna]] okunacak, [[2026-11-07]] günü bitmeli. [[Olmayan sayfa]] da var.\n")
 	tt.SetSize(1000, 560)
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	coll.NewPage(nil, "Dune")
 	coll.NewPage(nil, "Anna Karenina")
 	coll.AddProperty("Durum", PropChoice, []string{"Okunacak", "Okunuyor", "Okundu"})
-	a.doc.SetText(a.parse("Bu hafta [[Dune]] ve [[Anna Karenina|Anna]] okunacak, [[2026-11-07]] günü bitmeli. [[Olmayan sayfa]] da var.\n"))
-	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
+	a.pane().doc.SetText(a.parse("Bu hafta [[Dune]] ve [[Anna Karenina|Anna]] okunacak, [[2026-11-07]] günü bitmeli. [[Olmayan sayfa]] da var.\n"))
+	a.pane().doc.SetSelection(a.pane().doc.Text().Len(), a.pane().doc.Text().Len())
 	tt.Frame()
 	tt.Key(0, ui.KeyEnter)
 	typeEach(tt, "Sonra @")
@@ -510,7 +510,7 @@ func TestLapseShots(t *testing.T) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1180, 820)
 	tt.Advance(50 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	p.Save("")
 	drafts := []string{
 		"The garden is small.",
@@ -565,7 +565,7 @@ func TestBlockDragShots(t *testing.T) {
 	}
 	a, tt := newTestApp(t, "Bir paragraf, kısa.\n\nİki: bu biraz daha uzun bir paragraf, sürüklenince önizlemesi kısaltılarak gösterilir; satırlar sürdükçe sürer ve kart onun yalnızca başını gösterir, gerisi üç noktayla biter.\n\nÜç\n\nDört\n\nBeş\n")
 	tt.Advance(300 * time.Millisecond)
-	r, b := a.editorR, a.boxes[1]
+	r, b := a.pane().editorR, a.pane().boxes[1]
 	tt.Move(r.X+40, r.Y+b.Top+6)
 	tt.Frame()
 	tt.Frame()
@@ -574,7 +574,7 @@ func TestBlockDragShots(t *testing.T) {
 		t.Fatal("no grip")
 	}
 	x0, y0 := g.X+g.W/2, g.Y+g.H/2
-	last := a.boxes[len(a.boxes)-2]
+	last := a.pane().boxes[len(a.pane().boxes)-2]
 	y1 := r.Y + last.Top + 2
 	tt.Press(x0, y0)
 	for k := 1; k <= 10; k++ {

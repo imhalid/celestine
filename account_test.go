@@ -260,7 +260,7 @@ func TestAccountSettingsPage(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.SyncMode = "server"
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	for _, want := range []string{"Giriş yap", "Davetle hesap aç", "E-posta", "Erişim kodu"} { // the invite first

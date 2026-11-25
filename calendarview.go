@@ -82,14 +82,14 @@ func (a *app) calendarDays(pages []*Page, field string) map[string][]*Page {
 	return byDay
 }
 
-func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) calendarView(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	now := a.clock()
-	if a.calMonth.IsZero() {
-		a.calMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	if pn.calMonth.IsZero() {
+		pn.calMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 	}
-	month := a.calMonth
+	month := pn.calMonth
 	field := v.DateField
 	if field == "" {
 		field = "created"
@@ -99,23 +99,23 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 	start := month.AddDate(0, 0, -offset)
 	days := month.AddDate(0, 1, -1).Day()
 	weeks := (offset + days + 6) / 7
-	if (a.calOpen || !a.calNext.IsZero()) && c.Shortcut(0, ui.KeyEscape) {
-		a.calOpen, a.calNext = false, time.Time{}
+	if (pn.calOpen || !pn.calNext.IsZero()) && c.Shortcut(0, ui.KeyEscape) {
+		pn.calOpen, pn.calNext = false, time.Time{}
 	}
-	dragging := a.calDrag.page != nil
+	dragging := pn.calDrag.page != nil
 	ui.Column(c).FillWidth().Gap(10).Children(func() {
 		// the month, and the way through the months
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, monthYear(month, false)).FontSize(20).FontWeight(680)
 			ui.Spacer(c)
 			if a.iconButton(c, iconBack, locales.CommonPreviousMonth()) {
-				a.calMonth, a.calOpen, a.calNext = month.AddDate(0, -1, 0), false, time.Time{}
+				pn.calMonth, pn.calOpen, pn.calNext = month.AddDate(0, -1, 0), false, time.Time{}
 			}
 			if ryugo.Button(c.Key("cal-today"), locales.CommonToday(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-				a.calMonth, a.calOpen, a.calNext = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), false, time.Time{}
+				pn.calMonth, pn.calOpen, pn.calNext = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), false, time.Time{}
 			}
 			if a.iconButton(c, iconChevron, locales.CommonNextMonth()) {
-				a.calMonth, a.calOpen, a.calNext = month.AddDate(0, 1, 0), false, time.Time{}
+				pn.calMonth, pn.calOpen, pn.calNext = month.AddDate(0, 1, 0), false, time.Time{}
 			}
 		})
 		ui.Row(c).FillWidth().Gap(calGap).Children(func() {
@@ -125,10 +125,10 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 		})
 		grid := ui.Column(c.Key("cal-grid")).FillWidth().Gap(calGap)
 		// how far the open day has come out of its cell, 0 to 1
-		prog := grid.AnimateTo("open", map[bool]float32{true: 1, false: 0}[a.calOpen], calSpring)
+		prog := grid.AnimateTo("open", map[bool]float32{true: 1, false: 0}[pn.calOpen], calSpring)
 		// another day was chosen while one was open: it opens once the first has nearly gone back into its cell
-		if !a.calNext.IsZero() && !a.calOpen && prog < 0.2 {
-			a.calDay, a.calOpen, a.calNext = a.calNext, true, time.Time{}
+		if !pn.calNext.IsZero() && !pn.calOpen && prog < 0.2 {
+			pn.calDay, pn.calOpen, pn.calNext = pn.calNext, true, time.Time{}
 		}
 		dayProg := prog // while a page is dragged the days are all there to be dropped on, the card unseen over them
 		if dragging {
@@ -142,7 +142,7 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 		}
 		openRows := min(3, weeks)
 		// the card's cells: it holds the day's own, so it starts where it can
-		oc, orow := int(a.calDay.Sub(start).Hours()/24+0.5)%7, int(a.calDay.Sub(start).Hours()/24+0.5)/7
+		oc, orow := int(pn.calDay.Sub(start).Hours()/24+0.5)%7, int(pn.calDay.Sub(start).Hours()/24+0.5)/7
 		c0 := min(oc, 7-int(openCols))
 		r0 := min(orow, weeks-openRows)
 		cardTo := ui.Rect{X: gb.X + float32(c0)*(colW+calGap), Y: gb.Y + float32(r0)*(calRow+calGap),
@@ -153,27 +153,27 @@ func (a *app) calendarView(c *ui.Context, coll *Collection, v *View, pages []*Pa
 				ui.Row(c.Key("week:" + start.AddDate(0, 0, 7*w).Format("2006-01-02"))).FillWidth().Gap(calGap).Children(func() {
 					for i := 0; i < 7; i++ {
 						d := start.AddDate(0, 0, 7*w+i)
-						a.calendarDay(c, coll, field, d, month, now, byDay, w, i, dayProg, [2]int{r0, c0}, [2]int{openRows, int(openCols)})
+						a.calendarDay(c, pn, coll, field, d, month, now, byDay, w, i, dayProg, [2]int{r0, c0}, [2]int{openRows, int(openCols)})
 					}
 				})
 			}
 		})
-		a.calGrid = gb
+		pn.calGrid = gb
 		if dragging {
-			a.calDrag.over = calDayAt(a.calDrag.pos, gb, colW, start, weeks)
+			pn.calDrag.over = calDayAt(pn.calDrag.pos, gb, colW, start, weeks)
 		}
-		if prog > 0.002 && gb.W > 0 && !a.calDay.IsZero() {
-			a.calendarCard(c, coll, field, a.calDay, byDay[a.calDay.Format("2006-01-02")], now, cardFrom, cardTo, prog)
+		if prog > 0.002 && gb.W > 0 && !pn.calDay.IsZero() {
+			a.calendarCard(c, pn, coll, field, pn.calDay, byDay[pn.calDay.Format("2006-01-02")], now, cardFrom, cardTo, prog)
 		}
 		if dragging {
-			a.calDragGhost(c)
+			a.calDragGhost(c, pn)
 		}
 	})
 }
 
 // calendarDay is one day: its number and a dot for each page; it draws back
 // from the card that is open.
-func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, month, now time.Time, byDay map[string][]*Page, row, col int, prog float32, at, size [2]int) {
+func (a *app) calendarDay(c *ui.Context, pn *paneState, coll *Collection, field string, d, month, now time.Time, byDay map[string][]*Page, row, col int, prog float32, at, size [2]int) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	key := d.Format("2006-01-02")
@@ -191,18 +191,18 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 	default:
 		cell.Background(cl.Card)
 	}
-	if cell.Hovered() && prog < 0.5 && a.calDrag.page == nil {
+	if cell.Hovered() && prog < 0.5 && pn.calDrag.page == nil {
 		cell.Background(cl.Fill)
 	}
-	if a.calDrag.page != nil && sameDay(a.calDrag.over, d) { // where the page dragged would go
+	if pn.calDrag.page != nil && sameDay(pn.calDrag.over, d) { // where the page dragged would go
 		cell.Background(ryugo.Mix(cl.Card, cl.Accent, 0.16)).Border(1.5, cl.Accent)
 	}
 	// the days away from the card draw back: away from its middle, fainter
 	inCard := row >= at[0] && row < at[0]+size[0] && col >= at[1] && col < at[1]+size[1]
-	if !a.calDay.IsZero() && inCard {
+	if !pn.calDay.IsZero() && inCard {
 		cell.Opacity(1 - prog) // under the card: it goes, so none of it shows at the card's edge
 	}
-	if !a.calDay.IsZero() && !inCard {
+	if !pn.calDay.IsZero() && !inCard {
 		cr, cc := float32(at[0])+float32(size[0]-1)/2, float32(at[1])+float32(size[1]-1)/2
 		dx, dy := float32(col)-cc, float32(row)-cr
 		cell.Translate(sign(dx)*14*prog, sign(dy)*10*prog).Opacity(1 - 0.6*prog)
@@ -232,22 +232,22 @@ func (a *app) calendarDay(c *ui.Context, coll *Collection, field string, d, mont
 	})
 	a.kbMark(cell, "d:"+d.Format("2006-01-02"), true, func() {
 		switch {
-		case !a.calDay.IsZero() && a.calOpen && sameDay(a.calDay, d):
-			a.calOpen = false
+		case !pn.calDay.IsZero() && pn.calOpen && sameDay(pn.calDay, d):
+			pn.calOpen = false
 		case len(list) > 0 || canMake:
-			a.openCalDay(d)
+			a.openCalDayIn(pn, d)
 		default:
-			a.calOpen, a.calNext = false, time.Time{}
+			pn.calOpen, pn.calNext = false, time.Time{}
 		}
 	})
 	if cell.Clicked() {
 		switch {
-		case !a.calDay.IsZero() && a.calOpen && sameDay(a.calDay, d):
-			a.calOpen = false
+		case !pn.calDay.IsZero() && pn.calOpen && sameDay(pn.calDay, d):
+			pn.calOpen = false
 		case len(list) > 0 || canMake:
-			a.openCalDay(d)
+			a.openCalDayIn(pn, d)
 		default:
-			a.calOpen, a.calNext = false, time.Time{}
+			pn.calOpen, pn.calNext = false, time.Time{}
 		}
 	}
 }
@@ -270,14 +270,14 @@ func (a *app) canMakeOn(coll *Collection, field string, d, now time.Time, list [
 
 // calendarCard is the open day: it grows out of its cell into the room of two
 // by three, with the day's pages and a way to make one.
-func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time.Time, list []*Page, now time.Time, from, to ui.Rect, prog float32) {
+func (a *app) calendarCard(c *ui.Context, pn *paneState, coll *Collection, field string, d time.Time, list []*Page, now time.Time, from, to ui.Rect, prog float32) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	lerp := func(a, b float32) float32 { return a + (b-a)*prog }
 	r := ui.Rect{X: lerp(from.X, to.X), Y: lerp(from.Y, to.Y), W: lerp(from.W, to.W), H: lerp(from.H, to.H)}
 	ui.Overlay(c, func() {
 		seen := min(1, prog*2.4)
-		if a.calDrag.page != nil { // still there, so that the drag goes on, but out of the way of the days
+		if pn.calDrag.page != nil { // still there, so that the drag goes on, but out of the way of the days
 			seen = 0
 		}
 		card := ui.Box(c.Key("day-card")).Absolute().Left(r.X).Top(r.Y).Size(r.W, r.H).Radius(rad(12)).Clip().
@@ -289,7 +289,7 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 				ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
 					ui.Text(c, formatDay("D MMMM YYYY, dddd", d)).FontSize(13).FontWeight(650).Grow(1).MaxLines(1)
 					if a.iconButton(c, iconClose, locales.CalendarCloseDay()) {
-						a.calOpen = false
+						pn.calOpen = false
 					}
 				})
 				a.scrolled(c, "calendarview:250", nil, ui.Scroll(c).Grow(1), func() {
@@ -306,14 +306,14 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 								ui.Icon(c, iconPage).Width(14).Height(14).TextColor(cl.Muted)
 								ui.Text(c, p.Title).FontSize(13).MaxLines(1)
 							})
-							a.kbMark(row, "c:"+p.Dir, true, func() { a.calOpen = false; a.open(p) })
+							a.kbMark(row, "c:"+p.Dir, true, func() { pn.calOpen = false; a.openIn(pn, p) })
 							held := false
 							if strings.HasPrefix(field, "prop:") && !coll.Journal {
-								held = a.calDragRow(c, row, coll, field, p)
+								held = a.calDragRow(c, pn, row, coll, field, p)
 							}
 							if row.Clicked() && !held {
-								a.calOpen = false
-								a.open(p)
+								pn.calOpen = false
+								a.openIn(pn, p)
 							}
 						}
 					})
@@ -321,8 +321,8 @@ func (a *app) calendarCard(c *ui.Context, coll *Collection, field string, d time
 				if a.canMakeOn(coll, field, d, now, list) {
 					if ryugo.Button(c.Key("day-make"), map[bool]string{true: "todaysPage", false: addToDayLabel(coll)}[coll.Journal],
 						ryugo.ButtonOptions{Size: ryugo.Sm, Icon: iconPlus, Color: cl.Accent, Variant: ryugo.Soft}).Clicked() {
-						a.calOpen = false
-						a.makeOnDay(coll, field, d)
+						pn.calOpen = false
+						a.makeOnDayIn(pn, coll, field, d)
 					}
 				}
 			})
@@ -345,8 +345,8 @@ type calDrag struct {
 // calDragRow follows a press on page p's row in the open day: a press that went a few DIPs picks the page up, and
 // letting it go over a day gives the page that day's date. It reports whether the page is held or was let go this
 // frame: the press is a drag, not a click.
-func (a *app) calDragRow(c *ui.Context, row ui.Element, coll *Collection, field string, p *Page) bool {
-	d := &a.calDrag
+func (a *app) calDragRow(c *ui.Context, pn *paneState, row ui.Element, coll *Collection, field string, p *Page) bool {
+	d := &pn.calDrag
 	dx, dy, pressed := row.Dragged()
 	pointer := func() ui.Point {
 		b := row.LayoutBounds()
@@ -369,7 +369,7 @@ func (a *app) calDragRow(c *ui.Context, row ui.Element, coll *Collection, field 
 	case !pressed && d.page == p: // let go
 		day := d.over
 		*d = calDrag{dropped: p}
-		a.calOpen = false
+		pn.calOpen = false
 		if !day.IsZero() {
 			if id, ok := strings.CutPrefix(field, "prop:"); ok {
 				if err := p.SetValue(id, day.Format("2006-01-02")); err != nil {
@@ -400,10 +400,10 @@ func calDayAt(pt ui.Point, grid ui.Rect, colW float32, start time.Time, weeks in
 }
 
 // calDragGhost is the page being dragged: its title on a little card under the pointer.
-func (a *app) calDragGhost(c *ui.Context) {
+func (a *app) calDragGhost(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	// the page and the place taken now: the overlay is built after the view, by when a drop may have let the page go
-	p, pos := a.calDrag.page, a.calDrag.pos
+	p, pos := pn.calDrag.page, pn.calDrag.pos
 	if p == nil {
 		return
 	}
@@ -421,6 +421,10 @@ func (a *app) calDragGhost(c *ui.Context) {
 // makeOnDay makes a page for day d: in the journal, today's; elsewhere a
 // page with the date property set to that day.
 func (a *app) makeOnDay(coll *Collection, field string, d time.Time) {
+	a.makeOnDayIn(a.pane(), coll, field, d)
+}
+
+func (a *app) makeOnDayIn(pn *paneState, coll *Collection, field string, d time.Time) {
 	if coll.Journal {
 		a.openToday()
 		return
@@ -435,16 +439,18 @@ func (a *app) makeOnDay(coll *Collection, field string, d time.Time) {
 			a.fail(err)
 		}
 	}
-	a.open(p)
-	a.fresh = true
+	a.openIn(pn, p)
+	pn.fresh = true
 }
 
 // openCalDay opens day d on the calendar. With another day open, that one closes first and d opens as it goes
 // (calendarView), so the card goes back into its cell and comes out of the new one instead of jumping there.
-func (a *app) openCalDay(d time.Time) {
-	if (a.calOpen || !a.calNext.IsZero()) && !a.calDay.IsZero() && !sameDay(a.calDay, d) {
-		a.calNext, a.calOpen = d, false
+func (a *app) openCalDay(d time.Time) { a.openCalDayIn(a.pane(), d) }
+
+func (a *app) openCalDayIn(pn *paneState, d time.Time) {
+	if (pn.calOpen || !pn.calNext.IsZero()) && !pn.calDay.IsZero() && !sameDay(pn.calDay, d) {
+		pn.calNext, pn.calOpen = d, false
 		return
 	}
-	a.calDay, a.calOpen, a.calNext = d, true, time.Time{}
+	pn.calDay, pn.calOpen, pn.calNext = d, true, time.Time{}
 }

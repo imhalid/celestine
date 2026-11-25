@@ -50,7 +50,7 @@ func viewsLibrary(t *testing.T) (*app, *ui.Tester, *Collection) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.coll != coll {
+	if a.pane().coll != coll {
 		t.Fatal("clicking the collection does not open its page")
 	}
 	return a, tt, coll
@@ -69,7 +69,7 @@ func TestListView(t *testing.T) {
 	if v := coll.View(); v.Type != "list" || v.Sort != "modified" || !v.Desc {
 		t.Fatalf("default view: %+v", v)
 	}
-	pages := a.filtered(coll)
+	pages := a.filtered(a.pane(), coll)
 	sortPages(pages, coll.View())
 	want := []string{"Dune", "Notlar: Dune", "Anna Karenina", "Yüzyıllık Yalnızlık"}
 	if got := titles(pages); !equal(got, want) {
@@ -80,19 +80,19 @@ func TestListView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.coll != nil || a.page.Title != "Notlar: Dune" {
-		t.Fatalf("open from the list: coll %v page %v", a.coll, a.page)
+	if a.pane().coll != nil || a.pane().page.Title != "Notlar: Dune" {
+		t.Fatalf("open from the list: coll %v page %v", a.pane().coll, a.pane().page)
 	}
 }
 
 func TestSearch(t *testing.T) {
 	a, _, coll := viewsLibrary(t)
-	a.search = "baharat" // in the text, not the title
-	if got := titles(a.filtered(coll)); !equal(got, []string{"Notlar: Dune"}) {
+	a.pane().search = "baharat" // in the text, not the title
+	if got := titles(a.filtered(a.pane(), coll)); !equal(got, []string{"Notlar: Dune"}) {
 		t.Fatalf("search: %v", got)
 	}
-	a.search = "KARENINA"
-	if got := titles(a.filtered(coll)); !equal(got, []string{"Anna Karenina"}) {
+	a.pane().search = "KARENINA"
+	if got := titles(a.filtered(a.pane(), coll)); !equal(got, []string{"Anna Karenina"}) {
 		t.Fatalf("search ignores case: %v", got)
 	}
 }
@@ -113,7 +113,7 @@ func TestTableViewSortsAndRemembers(t *testing.T) {
 	if v := coll.View(); v.Sort != "created" || v.Desc {
 		t.Fatalf("first click: %+v", v)
 	}
-	pages := a.filtered(coll)
+	pages := a.filtered(a.pane(), coll)
 	sortPages(pages, coll.View())
 	if got := titles(pages); !equal(got, []string{"Yüzyıllık Yalnızlık", "Dune", "Notlar: Dune", "Anna Karenina"}) {
 		t.Fatalf("by created, oldest first: %v", got)
@@ -144,8 +144,8 @@ func TestNewPageFromCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.coll != nil || a.page == nil || a.page.Title != "Adsız" || len(coll.Pages) != 4 {
-		t.Fatalf("new page: coll %v page %+v", a.coll, a.page)
+	if a.pane().coll != nil || a.pane().page == nil || a.pane().page.Title != "Adsız" || len(coll.Pages) != 4 {
+		t.Fatalf("new page: coll %v page %+v", a.pane().coll, a.pane().page)
 	}
 }
 
@@ -245,28 +245,28 @@ func TestTableRowOpensOrChooses(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	a.bulk.on = true
+	a.pane().bulk.on = true
 	tt.Advance(300 * time.Millisecond)
 	if err := tt.Click("Anna Karenina"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.coll == nil || len(a.bulk.sel) != 1 {
-		t.Fatalf("a click on a row while choosing: coll %v, chosen %d", a.coll, len(a.bulk.sel))
+	if a.pane().coll == nil || len(a.pane().bulk.sel) != 1 {
+		t.Fatalf("a click on a row while choosing: coll %v, chosen %d", a.pane().coll, len(a.pane().bulk.sel))
 	}
-	for p := range a.bulk.sel {
+	for p := range a.pane().bulk.sel {
 		if p.Title != "Anna Karenina" {
 			t.Fatalf("chose %q", p.Title)
 		}
 	}
-	a.bulkClear()
+	a.bulkClear(a.pane())
 	tt.Advance(300 * time.Millisecond)
 	if err := tt.Click("Anna Karenina"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.coll != nil || a.page == nil || a.page.Title != "Anna Karenina" {
-		t.Fatalf("a click on a row: coll %v page %v (of %v)", a.coll, a.page, coll.Name)
+	if a.pane().coll != nil || a.pane().page == nil || a.pane().page.Title != "Anna Karenina" {
+		t.Fatalf("a click on a row: coll %v page %v (of %v)", a.pane().coll, a.pane().page, coll.Name)
 	}
 }
 
@@ -285,7 +285,7 @@ func TestEmptyStates(t *testing.T) {
 	if !tt.HasText("Bu koleksiyon boş") {
 		t.Fatalf("an empty collection: %v", tt.Texts())
 	}
-	a.search = "yokböyle"
+	a.pane().search = "yokböyle"
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("Eşleşen sayfa yok") || !tt.HasText("Aramayı temizle") {
@@ -295,17 +295,17 @@ func TestEmptyStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.search != "" || !tt.HasText("Bu koleksiyon boş") {
-		t.Fatalf("search not cleared: %q", a.search)
+	if a.pane().search != "" || !tt.HasText("Bu koleksiyon boş") {
+		t.Fatalf("search not cleared: %q", a.pane().search)
 	}
-	a.coll, a.searchOpen = nil, true
-	a.searchQ = ""
+	a.pane().coll, a.pane().searchOpen = nil, true
+	a.pane().searchQ = ""
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("Kitaplıkta ara") {
 		t.Fatalf("the search page with no words: %v", tt.Texts())
 	}
-	a.searchQ = "hiçbiryerdeyok"
+	a.pane().searchQ = "hiçbiryerdeyok"
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("Eşleşen sayfa yok") {
@@ -340,8 +340,8 @@ func TestGalleryView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page == nil || a.page.Title != "Anna Karenina" {
-		t.Fatalf("the card did not open its page: %v", a.page)
+	if a.pane().page == nil || a.pane().page.Title != "Anna Karenina" {
+		t.Fatalf("the card did not open its page: %v", a.pane().page)
 	}
 }
 
@@ -519,7 +519,7 @@ func TestManualListDrag(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page == nil || a.page.Title != before[0] || a.coll != nil {
+	if a.pane().page == nil || a.pane().page.Title != before[0] || a.pane().coll != nil {
 		t.Fatal("a row's arrow does not open its page")
 	}
 }
@@ -636,7 +636,7 @@ func TestViewPagesKept(t *testing.T) {
 	if a.searchMade != searches {
 		t.Fatalf("searched %d times more in ten frames", a.searchMade-searches)
 	}
-	if got := titles(a.viewPages(dyn, dyn.View())); len(got) != 1 || got[0] != "Notlar: Dune" {
+	if got := titles(a.viewPages(a.pane(), dyn, dyn.View())); len(got) != 1 || got[0] != "Notlar: Dune" {
 		t.Fatalf("the dynamic collection: %v", got)
 	}
 }
@@ -744,7 +744,7 @@ func TestListShowsInSteps(t *testing.T) {
 	if a.more.n <= viewStep {
 		t.Fatal("the end of the list was reached and no more was shown")
 	}
-	a.search = "Kitap 01"
+	a.pane().search = "Kitap 01"
 	tt.Advance(100 * time.Millisecond)
 	if a.more.n != viewStep {
 		t.Fatalf("a new search did not start again from the first rows: %d", a.more.n)

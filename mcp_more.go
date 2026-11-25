@@ -54,7 +54,7 @@ func (a *app) addMoreTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 				if err != nil {
 					return err
 				}
-				if p == a.page {
+				if p == a.pane().page {
 					a.flush()
 				}
 				body, err := p.Text()

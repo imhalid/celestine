@@ -737,7 +737,7 @@ func (a *app) syncBadge(c *ui.Context) {
 	b.Children(func() { ui.Text(c, "⇅ "+a.sy.status).FontSize(11.5).TextColor(col) })
 	if b.Clicked() {
 		a.openSettings()
-		a.settingsTab = tabSync
+		a.pane().settingsTab = tabSync
 	}
 }
 
@@ -1120,7 +1120,7 @@ func (a *app) setSyncPassphrase(pass string) {
 // as at first.
 func (a *app) activity(root ui.Element) {
 	x, y, over := root.PointerPosition()
-	seen := fmt.Sprint(x, y, over, root.Pressed(), a.caretAt, a.version)
+	seen := fmt.Sprint(x, y, over, root.Pressed(), a.pane().caretAt, a.pane().version)
 	if seen == a.sy.seen {
 		return
 	}

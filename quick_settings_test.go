@@ -13,7 +13,7 @@ func TestGearMenu(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if a.settingsOpen {
+	if a.pane().settingsOpen {
 		t.Fatal("the gear opened the dialog, not a menu")
 	}
 	if err := tt.Click("Köşeler"); err != nil {
@@ -35,7 +35,7 @@ func TestGearMenu(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("the dialog did not open")
 	}
 }
@@ -50,7 +50,7 @@ func TestSettingsKeptSoon(t *testing.T) {
 	defer st.Close()
 	a.settingsStore = st
 	a.clock = tt.Now // the settings screen keeps what is set a moment after it stops: by the window's clock
-	a.settingsOpen = true
+	a.pane().settingsOpen = true
 	tt.Frame()
 	a.settings.PageWidth = 800
 	a.saveSettingsSoon()

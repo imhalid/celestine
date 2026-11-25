@@ -89,7 +89,7 @@ func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 		out = append(out, menuItem{title: "page_info", glyph: iconInfo, run: func() { a.open(p); a.showPanel() }})
 	}
 	if !p.Coll.Journal {
-		rename := func() { a.open(p); a.fresh = true }
+		rename := func() { a.open(p); a.pane().fresh = true }
 		if inPlace {
 			rename = func() { a.startRename(p, p.Title) }
 		}

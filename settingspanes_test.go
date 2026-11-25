@@ -16,7 +16,7 @@ func settingsAt(t *testing.T, a *app, name string) {
 	a.openSettings()
 	for i, s := range settingsSections {
 		if s.name == name {
-			a.settingsTab = i
+			a.pane().settingsTab = i
 			return
 		}
 	}

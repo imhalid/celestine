@@ -39,13 +39,13 @@ func (a *app) caretSleep() time.Duration {
 }
 
 // drawFocusVeil covers what is not the line or the paragraph of the caret, over the text.
-func (a *app) drawFocusVeil(p *ui.Painter, r ui.Rect) {
+func (a *app) drawFocusVeil(pn *paneState, p *ui.Painter, r ui.Rect) {
 	mode := a.focusMode()
-	if mode == "" || !a.focused || a.doc == nil {
+	if mode == "" || !pn.focused || pn.doc == nil {
 		return
 	}
-	_, caret := a.doc.Selection()
-	cb, ok := a.locateRune(caret, r.W)
+	_, caret := pn.doc.Selection()
+	cb, ok := a.locateRune(pn, caret, r.W)
 	if !ok {
 		return
 	}
@@ -54,7 +54,7 @@ func (a *app) drawFocusVeil(p *ui.Painter, r ui.Rect) {
 	if mode == "line" {
 		top, bottom = r.Y+cb.full.Y, r.Y+cb.full.Y+cb.full.H
 	} else {
-		for _, b := range a.boxes {
+		for _, b := range pn.boxes {
 			if b.Start == cb.para {
 				top, bottom = r.Y+b.Top, r.Y+b.Top+b.Height
 			}
@@ -71,7 +71,7 @@ func (a *app) drawFocusVeil(p *ui.Painter, r ui.Rect) {
 
 // revertToBeforeSave puts the page back to what it was before its last save.
 func (a *app) revertToBeforeSave() {
-	p := a.page
+	p := a.pane().page
 	if p == nil || a.noPage() {
 		a.say(toastWarn, locales.ThereIsNoOpenPage())
 		return

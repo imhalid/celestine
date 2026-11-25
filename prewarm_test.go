@@ -14,7 +14,7 @@ import (
 // a page's backlinks and a word in its text are found without the window reading the pages.
 func TestPrewarmFillsTheIndexes(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci [[İkinci]] #etiket\n")
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	second, _ := coll.NewPage(nil, "İkinci")
 	second.SaveText("benzersizkelime burada\n")
 	a.prewarm()
@@ -30,14 +30,14 @@ func TestPrewarmFillsTheIndexes(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if e := a.links.pages[a.page]; e == nil || len(e.links) != 1 || e.links[0] != "ikinci" || len(e.tags) == 0 {
+	if e := a.links.pages[a.pane().page]; e == nil || len(e.links) != 1 || e.links[0] != "ikinci" || len(e.tags) == 0 {
 		t.Fatalf("links' index: %+v", e)
 	}
 	if p := a.links.plain[second]; p == nil || p.folded == "" {
 		t.Fatalf("plain text: %+v", p)
 	}
 	tt.Frame()
-	if got := a.linksTo(second, a.clock(), true); len(got) != 1 || got[0] != a.page {
+	if got := a.linksTo(second, a.clock(), true); len(got) != 1 || got[0] != a.pane().page {
 		t.Fatalf("backlinks of İkinci: %v", got)
 	}
 }
@@ -110,7 +110,7 @@ func TestPrewarmWaitsForTheFirstFrame(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if a.links.pages[a.page] == nil {
+	if a.links.pages[a.pane().page] == nil {
 		t.Fatal("the page was not read")
 	}
 }

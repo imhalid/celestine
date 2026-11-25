@@ -161,14 +161,14 @@ func TestBoardDrag(t *testing.T) {
 	if got := titles(coll.Column("durum", "Sürüyor")); !equal(got, []string{"Dune"}) {
 		t.Fatalf("column %v", got)
 	}
-	if a.coll != coll {
+	if a.pane().coll != coll {
 		t.Fatal("the drop opened the page")
 	}
 	if err := tt.Click("Kart: Anna Karenina"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page == nil || a.page.Title != "Anna Karenina" || a.coll != nil {
+	if a.pane().page == nil || a.pane().page.Title != "Anna Karenina" || a.pane().coll != nil {
 		t.Fatal("a click on a card does not open its page")
 	}
 }
@@ -192,9 +192,9 @@ func TestPropertyOnPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
-	coll := a.page.Coll
-	if pr := a.page.Prop("durum"); pr == nil || len(pr.Options) != 3 || a.prop.open || coll.Prop("durum") != nil {
-		t.Fatalf("added: %+v, the collection's %+v", a.page.Own, coll.Properties)
+	coll := a.pane().page.Coll
+	if pr := a.pane().page.Prop("durum"); pr == nil || len(pr.Options) != 3 || a.prop.open || coll.Prop("durum") != nil {
+		t.Fatalf("added: %+v, the collection's %+v", a.pane().page.Own, coll.Properties)
 	}
 	if err := tt.Click("Durum değeri"); err != nil {
 		t.Fatal(err, tt.Texts())
@@ -204,10 +204,10 @@ func TestPropertyOnPage(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.page.Props["durum"] != "Bitti" {
-		t.Fatalf("value %q", a.page.Props["durum"])
+	if a.pane().page.Props["durum"] != "Bitti" {
+		t.Fatalf("value %q", a.pane().page.Props["durum"])
 	}
-	if body, _ := a.page.Text(); body != "gövde\n" {
+	if body, _ := a.pane().page.Text(); body != "gövde\n" {
 		t.Fatalf("the text after the value: %q", body)
 	}
 	// a text property, typed and left
@@ -219,8 +219,8 @@ func TestPropertyOnPage(t *testing.T) {
 	tt.Type("Herbert")
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if a.page.Props["yazar"] != "Herbert" {
-		t.Fatalf("text %q", a.page.Props["yazar"])
+	if a.pane().page.Props["yazar"] != "Herbert" {
+		t.Fatalf("text %q", a.pane().page.Props["yazar"])
 	}
 }
 
@@ -252,7 +252,7 @@ func TestBoardCardMoveMenu(t *testing.T) {
 	if got := titles(coll.Column("durum", "Bitti")); !equal(got, []string{"Dune"}) {
 		t.Fatalf("column %v", got)
 	}
-	if a.coll != coll {
+	if a.pane().coll != coll {
 		t.Fatal("the menu opened the page")
 	}
 }
@@ -290,7 +290,7 @@ func TestBoardCardSize(t *testing.T) {
 // else (#487); a choice's value is drawn as a badge. SHOT=file.png draws the properties.
 func TestNumberPropertyRefusesLetters(t *testing.T) {
 	a, tt := newTestApp(t, "gövde")
-	p := a.page
+	p := a.pane().page
 	if _, err := p.AddProperty("Sayfa sayısı", PropNumber, nil); err != nil {
 		t.Fatal(err)
 	}

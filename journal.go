@@ -335,7 +335,7 @@ func (a *app) openRandomDay() {
 	}
 	var days []*Page
 	for _, p := range c.All() {
-		if p != a.page {
+		if p != a.pane().page {
 			days = append(days, p)
 		}
 	}
@@ -357,8 +357,8 @@ func (a *app) retitleJournal(c *Collection) {
 				continue
 			}
 			rs = append(rs, renamed{p, from})
-			if p == a.page {
-				a.title = title
+			if p == a.pane().page {
+				a.pane().title = title
 			}
 		}
 	}
@@ -383,8 +383,8 @@ func (a *app) stepDay(n int) {
 		return
 	}
 	base := startOfDay(a.clock())
-	if a.page != nil && !a.noPage() && a.page.Coll == c {
-		base = dayOf(a.page)
+	if a.pane().page != nil && !a.noPage() && a.pane().page.Coll == c {
+		base = dayOf(a.pane().page)
 	}
 	var days []*Page // those on the side asked, the nearest first
 	for _, p := range c.All() {

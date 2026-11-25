@@ -38,10 +38,10 @@ func (a *app) saveSearch(q string) {
 
 // saveSearchButton is the search view's button to keep the query as a collection.
 func (a *app) saveSearchButton(c *ui.Context) {
-	if strings.TrimSpace(a.searchQ) == "" {
+	if strings.TrimSpace(a.pane().searchQ) == "" {
 		return
 	}
 	if ryugo.Button(c.Key("search-save"), locales.QuerySaveAsCollection(), ryugo.ButtonOptions{Icon: iconSearch, Size: ryugo.Sm}).Clicked() {
-		a.saveSearch(a.searchQ)
+		a.saveSearch(a.pane().searchQ)
 	}
 }

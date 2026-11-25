@@ -35,15 +35,15 @@ func TestBodyKeepsUnknownObjects(t *testing.T) {
 func TestEditingKeepsUnknownObjects(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.Advance(50 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	if err := p.Save(newerBody); err != nil {
 		t.Fatal(err)
 	}
 	a.takeOutside(p)
 	tt.Frame()
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText(" more")
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
+	a.pane().doc.InsertText(" more")
 	tt.Frame()
 	a.save()
 	body, err := p.Body()
@@ -71,16 +71,16 @@ func TestUnknownBlockThroughMarkdown(t *testing.T) {
 func TestAgentRewriteKeepsUnknownBlock(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.Advance(50 * time.Millisecond)
-	if err := a.page.Save(newerBody); err != nil {
+	if err := a.pane().page.Save(newerBody); err != nil {
 		t.Fatal(err)
 	}
-	a.takeOutside(a.page)
+	a.takeOutside(a.pane().page)
 	cs := agent(t, a)
-	id := a.idOf(a.page.Dir)
+	id := a.idOf(a.pane().page.Dir)
 	var read struct{ Markdown string }
 	call(t, cs, "read_page", map[string]any{"page": id}, &read)
 	call(t, cs, "update_page", map[string]any{"page": id, "markdown": strings.Replace(read.Markdown, "after", "after, changed", 1)}, nil)
-	body, _ := a.page.Body()
+	body, _ := a.pane().page.Body()
 	if !strings.Contains(body, newerObj) || !strings.Contains(body, "changed") {
 		t.Fatalf("rewritten: %s", body)
 	}
@@ -119,9 +119,9 @@ func TestDecodeBodyKeepsUnsafeFileTargetButOpenRefuses(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{"../../Applications/X.app", "/etc/passwd", "."} {
-		a.openAttachedFile(a.page, bad, false)
+		a.openAttachedFile(a.pane().page, bad, false)
 	}
-	a.openAttachedFile(a.page, "safe.pdf", false) // the one that may be opened: the hook sees it at once
+	a.openAttachedFile(a.pane().page, "safe.pdf", false) // the one that may be opened: the hook sees it at once
 	if len(opened) != 1 || filepath.Base(opened[0]) != "safe.pdf" {
 		t.Fatalf("opened %v, only safe.pdf may be", opened)
 	}

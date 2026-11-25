@@ -71,11 +71,11 @@ func (a *app) carried() {
 		return
 	}
 	if k.drop.Placed && a.ps.index(k.id) < 0 {
-		a.ps.states = append(a.ps.states, newPaneState())
+		np := newPaneState()
+		a.ps.states = append(a.ps.states, np)
 		a.ps.ids = append(a.ps.ids, k.id)
 		i := len(a.ps.states) - 1
-		pl := k.pl
-		a.withPane(i, func() { a.goTo(pl) })
+		a.goToIn(np, k.pl)
 		a.ps.want = i
 	}
 	*k = dockCarry{}
@@ -86,11 +86,9 @@ func (a *app) ensureLayout() {
 	if a.ps.layout != nil {
 		return
 	}
-	if len(a.ps.states) == 0 {
-		a.ps.states = []paneState{a.paneState}
-	}
+	pn := a.pane()
 	a.ps.ensureIDs()
-	a.ps.layout = ryugo.NewLayout(ryugo.DockArea(&ryugo.Pane{ID: a.ps.ids[0], Kind: "pane", Title: a.paneTitle()}))
+	a.ps.layout = ryugo.NewLayout(ryugo.DockArea(&ryugo.Pane{ID: a.ps.ids[0], Kind: "pane", Title: a.paneTitleOf(pn)}))
 }
 
 // carryChip is what a collection carried over the panes shows by the pointer: its name on a raised tile.

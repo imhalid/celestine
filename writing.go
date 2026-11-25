@@ -34,7 +34,7 @@ func (a *app) countWriting(prev, words int) {
 		a.settings.Writing = map[string]int{}
 	}
 	a.settings.Writing[a.clock().Format("2006-01-02")] += n
-	a.noteWords(a.page, n)
+	a.noteWords(a.pane().page, n)
 	if len(a.settings.Writing) > writingKeep {
 		days := a.writingDays()
 		for _, d := range days[:len(days)-writingKeep] {

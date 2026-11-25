@@ -12,7 +12,7 @@ import (
 // queryChips are the query blocks in the editor's text.
 func queryChips(a *app) []*chip {
 	var out []*chip
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	for i, r := range []rune(t.String()) {
 		if r != richtext.ObjectReplacement {
 			continue
@@ -31,13 +31,13 @@ func queryChips(a *app) []*chip {
 func TestQueryBlock(t *testing.T) {
 	a, tt := newTestApp(t, "önce\n\n```query\n#proje   @todo\n```\n\nsonra\n")
 	tt.SetSize(1100, 800)
-	x, _ := a.page.Coll.NewPage(nil, "Proje X")
+	x, _ := a.pane().page.Coll.NewPage(nil, "Proje X")
 	x.SaveText("#proje\n\n- [ ] yaz\n")
-	y, _ := a.page.Coll.NewPage(nil, "Proje Y")
+	y, _ := a.pane().page.Coll.NewPage(nil, "Proje Y")
 	y.SaveText("#proje bitti\n")
 	a.docs = map[*Page]*richtext.Document{}
-	self := a.page
-	a.page = nil
+	self := a.pane().page
+	a.pane().page = nil
 	a.open(self)
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -51,14 +51,14 @@ func TestQueryBlock(t *testing.T) {
 		t.Fatalf("hits %d", len(hits))
 	}
 	// the body keeps the query; Markdown is the fenced block
-	body := encodeBody(a.doc.Text())
+	body := encodeBody(a.pane().doc.Text())
 	if !strings.Contains(body, `"o":{"k":"query","q":"#proje @todo"}`) {
 		t.Fatalf("body %s", body)
 	}
 	if back := queryChips2(decodeBody(body)); back != "#proje @todo" {
 		t.Fatalf("read back %q", back)
 	}
-	md := a.pageMarkdown(a.page, a.doc.Text())
+	md := a.pageMarkdown(a.pane().page, a.pane().doc.Text())
 	if !strings.Contains(md, "\n```query\n#proje @todo\n```\n") || !strings.Contains(md, "sonra") {
 		t.Fatalf("markdown:\n%s", md)
 	}
@@ -78,8 +78,8 @@ func TestQueryBlock(t *testing.T) {
 	}
 	tt.ClickAt(hit.r.X+hit.r.W/2, hit.r.Y+queryHeadH+queryRowH/2)
 	tt.Advance(200 * time.Millisecond)
-	if a.page != x {
-		t.Fatalf("page %q", a.page.Title)
+	if a.pane().page != x {
+		t.Fatalf("page %q", a.pane().page.Title)
 	}
 	// the library changes: so do the results, once the cache is old
 	y.SaveText("#proje\n\n- [ ] oku\n")
@@ -107,11 +107,11 @@ func queryChips2(t richtext.Text) string {
 func TestQueryFromMenu(t *testing.T) {
 	a, tt := newTestApp(t, "satır\n\n")
 	tt.SetSize(1100, 800)
-	p, _ := a.page.Coll.NewPage(nil, "Fikirler")
+	p, _ := a.pane().page.Coll.NewPage(nil, "Fikirler")
 	p.SaveText("#fikir\n")
 	a.linksStale()
-	a.fresh, a.refocus = false, true
-	a.doc.SetSelection(0, 0)
+	a.pane().fresh, a.pane().refocus = false, true
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
 	typeEach(tt, "/")
@@ -127,7 +127,7 @@ func TestQueryFromMenu(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
 	if qs := queryChips(a); len(qs) != 1 || qs[0].target != "#fikir" {
-		t.Fatalf("blocks %v; text %q", qs, a.doc.Text().String())
+		t.Fatalf("blocks %v; text %q", qs, a.pane().doc.Text().String())
 	}
 }
 
@@ -135,13 +135,13 @@ func TestQueryFromMenu(t *testing.T) {
 func TestQueryBlockGrowsWithResults(t *testing.T) {
 	a, tt := newTestApp(t, "önce\n\n```query\n#proje @todo\n```\n\nsonra\n")
 	tt.SetSize(1100, 800)
-	x, _ := a.page.Coll.NewPage(nil, "Proje X")
+	x, _ := a.pane().page.Coll.NewPage(nil, "Proje X")
 	x.SaveText("#proje\n\n- [ ] bir\n")
-	y, _ := a.page.Coll.NewPage(nil, "Proje Y")
+	y, _ := a.pane().page.Coll.NewPage(nil, "Proje Y")
 	y.SaveText("#proje bitti\n")
 	a.docs = map[*Page]*richtext.Document{}
-	self := a.page
-	a.page = nil
+	self := a.pane().page
+	a.pane().page = nil
 	a.open(self)
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -166,7 +166,7 @@ func TestQueryBlockGrowsWithResults(t *testing.T) {
 
 	// Add two more matching pages so the query grows to 3 rows.
 	y.SaveText("#proje\n\n- [ ] iki\n")
-	z, _ := a.page.Coll.NewPage(nil, "Proje Z")
+	z, _ := a.pane().page.Coll.NewPage(nil, "Proje Z")
 	z.SaveText("#proje\n\n- [ ] üç\n")
 	a.linksStale()
 	a.links.built = time.Time{}

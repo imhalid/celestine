@@ -109,7 +109,7 @@ func (a *app) putBackVersion() (err error) {
 	if !ok {
 		return errors.New("version data not found")
 	}
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	a.keepBefore(p)
@@ -311,7 +311,7 @@ func (a *app) saveNamedVersion() {
 	if !ok {
 		return
 	}
-	if v.page == a.page {
+	if v.page == a.pane().page {
 		a.flush()
 	}
 	if h.SaveNamed(v.page.File(), name) {

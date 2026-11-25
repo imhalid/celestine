@@ -22,19 +22,20 @@ var iconExport = icon(`<path d="M12 4.5v10M8 8.5l4-4 4 4"/><path d="M5 14.5v3a2 
 // pageButtons are the side panel's button and the page menu's "…", at the
 // right end of the status bar while a page is open.
 func (a *app) pageButtons(c *ui.Context) {
-	if a.page == nil || a.noPage() {
+	pn := a.pane()
+	if pn.page == nil || a.noPage() {
 		return
 	}
 	ui.Row(c.Key("page-buttons")).Gap(2).Children(func() {
 		if !phone && a.barButton(c, iconPanel, locales.CommonSidePanel()+" (⇧⌘\\)") { // a phone has no side panel
 			a.togglePanel()
 		}
-		if _, ok := historyOf(a.page); ok && a.barButton(c, iconLapse, map[bool]string{false: locales.CommonTimeLapse(), true: locales.CommonBackText()}[a.lapse.on]) {
+		if _, ok := historyOf(pn.page); ok && a.barButton(c, iconLapse, map[bool]string{false: locales.CommonTimeLapse(), true: locales.CommonBackText()}[a.lapse.on]) {
 			a.toggleLapse()
 		}
 		if a.barButton(c, iconMore, locales.PageMenu()) {
 			ww, wh := c.Size()
-			a.showContext(ww-24, wh-34, a.pageMenu(a.page, false)) // opens upward, from the bar
+			a.showContext(ww-24, wh-34, a.pageMenu(pn.page, false)) // opens upward, from the bar
 		}
 	})
 }
@@ -165,7 +166,7 @@ func (a *app) secretCopyButton(c *ui.Context, key, text, label string) ui.Elemen
 // currentMarkdown is page p's Markdown as it is in the editor now, its
 // front matter left out.
 func (a *app) currentMarkdown(p *Page) string {
-	if p == a.page && a.doc != nil {
+	if pn := a.pane(); p == pn.page && pn.doc != nil {
 		a.flush()
 	}
 	body, _ := p.Text()
@@ -175,7 +176,7 @@ func (a *app) currentMarkdown(p *Page) string {
 // duplicatePage makes a copy of p, its sub-pages and pictures with it, right
 // after it, and opens it.
 func (a *app) duplicatePage(p *Page) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	fsys := p.FS()

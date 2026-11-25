@@ -58,20 +58,20 @@ func TestDividerShortcut(t *testing.T) {
 	tt.Frame()
 	typeEach(tt, "---")
 	typeEach(tt, "alt")
-	text := a.doc.Text()
+	text := a.pane().doc.Text()
 	st := styles(text)
 	if len(st) != 3 || st[1].ID != hrID || st[2].ID != "" || text.String() != "Üst\n\nalt" {
 		t.Fatalf("after ---: %q %+v", text.String(), st)
 	}
 	a.save()
-	if body, _ := a.page.Text(); body != "Üst\n\n---\n\nalt\n" {
+	if body, _ := a.pane().page.Text(); body != "Üst\n\n---\n\nalt\n" {
 		t.Fatalf("on disk: %q", body)
 	}
 	// Typing into a divider makes it a paragraph again.
 	tt.Key(0, ui.KeyUp)
 	tt.Frame()
 	typeEach(tt, "x")
-	if st := styles(a.doc.Text()); st[1].ID == hrID {
+	if st := styles(a.pane().doc.Text()); st[1].ID == hrID {
 		t.Fatal("still a divider with text in it")
 	}
 }
@@ -81,19 +81,19 @@ func TestCodeShortcut(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	typeEach(tt, "```")
 	typeEach(tt, "x := 1")
-	text := a.doc.Text()
+	text := a.pane().doc.Text()
 	if st := text.ParagraphStyleAt(0); !st.CodeBlock || text.String() != "x := 1" {
 		t.Fatalf("code: %q %+v", text.String(), st)
 	}
 	a.save()
-	if body, _ := a.page.Text(); !strings.Contains(body, "```\nx := 1\n```") {
+	if body, _ := a.pane().page.Text(); !strings.Contains(body, "```\nx := 1\n```") {
 		t.Fatalf("on disk: %q", body)
 	}
 	tt.Key(ui.Cmd, ui.KeyZ)
 	tt.Frame()
 	tt.Key(ui.Cmd, ui.KeyZ)
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "```" {
+	if got := a.pane().doc.Text().String(); got != "```" {
 		t.Fatalf("undo: %q", got)
 	}
 }
@@ -123,8 +123,8 @@ func TestDividerTwoKeysInAFrame(t *testing.T) {
 	typeEach(tt, "-")
 	tt.Type("--") // the tester builds a frame after each event: two letters in one are two in a frame
 	tt.Frame()
-	if st := styles(a.doc.Text()); len(st) < 2 || st[1].ID != hrID {
-		t.Fatalf("not a divider: %q %+v", a.doc.Text().String(), st)
+	if st := styles(a.pane().doc.Text()); len(st) < 2 || st[1].ID != hrID {
+		t.Fatalf("not a divider: %q %+v", a.pane().doc.Text().String(), st)
 	}
 }
 
@@ -134,9 +134,9 @@ func TestUndoNotTypedAgain(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n")
 	tt.Frame()
 	tt.Key(ui.Cmd, ui.KeyDown)
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	paste := " [[Bir]] ve [[İki]]"
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(caret, caret, richtext.NewText(paste))
 		ed.Select(caret+len([]rune(paste)), caret+len([]rune(paste)))
 	})
@@ -145,16 +145,16 @@ func TestUndoNotTypedAgain(t *testing.T) {
 	if got := chipTargets(a); len(got) != 2 {
 		t.Fatalf("no chips to start with: %v", got)
 	}
-	a.doc.Undo()
+	a.pane().doc.Undo()
 	tt.Frame()
 	tt.Frame()
-	if got := chipTargets(a); len(got) != 0 || !strings.Contains(a.doc.Text().String(), "[[İki]]") || !a.doc.CanRedo() {
-		t.Fatalf("the undo was made chips again: %v in %q, redo %v", got, a.doc.Text().String(), a.doc.CanRedo())
+	if got := chipTargets(a); len(got) != 0 || !strings.Contains(a.pane().doc.Text().String(), "[[İki]]") || !a.pane().doc.CanRedo() {
+		t.Fatalf("the undo was made chips again: %v in %q, redo %v", got, a.pane().doc.Text().String(), a.pane().doc.CanRedo())
 	}
-	a.doc.Redo()
+	a.pane().doc.Redo()
 	tt.Frame()
 	if got := chipTargets(a); len(got) != 2 {
-		t.Fatalf("the redo: %v in %q", got, a.doc.Text().String())
+		t.Fatalf("the redo: %v in %q", got, a.pane().doc.Text().String())
 	}
 
 	b, tb := newTestApp(t, "Önce\n")
@@ -167,9 +167,9 @@ func TestUndoNotTypedAgain(t *testing.T) {
 	}
 	tb.Key(0, ui.KeyBackspace)
 	tb.Frame()
-	b.doc.Undo()
+	b.pane().doc.Undo()
 	tb.Frame()
 	if b.slash.open {
-		t.Fatalf("the / an undo put back opened the menu: %q", b.doc.Text().String())
+		t.Fatalf("the / an undo put back opened the menu: %q", b.pane().doc.Text().String())
 	}
 }

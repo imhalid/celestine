@@ -188,7 +188,7 @@ func TestSyncPassphraseField(t *testing.T) {
 	a.settings.SyncMode, a.settings.SyncDir = "dir", t.TempDir()
 	a.settings.SyncKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText(locales.SyncEndEndEncryption()) {
@@ -281,7 +281,7 @@ func TestSyncSettingsPage(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.SyncMode = "dir"
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	for _, want := range []string{"Nereye", "Uçtan uca şifreleme", "Durum"} {
@@ -365,17 +365,17 @@ func TestResolveConflictUpdatesOpenPage(t *testing.T) {
 		}
 	}
 	b.open(pb) // the page is in the editor: the remote's text, which stayed
-	if !strings.Contains(b.doc.Text().String(), "A'nın metni") {
-		t.Fatalf("the editor has %q", b.doc.Text().String())
+	if !strings.Contains(b.pane().doc.Text().String(), "A'nın metni") {
+		t.Fatalf("the editor has %q", b.pane().doc.Text().String())
 	}
 	if err := b.resolveConflict(files[0], true); err != nil {
 		t.Fatal(err)
 	}
-	if b.doc == nil || !strings.Contains(b.doc.Text().String(), "B'nin metni") {
-		t.Fatalf("the editor does not show the choice: %v", b.doc)
+	if b.pane().doc == nil || !strings.Contains(b.pane().doc.Text().String(), "B'nin metni") {
+		t.Fatalf("the editor does not show the choice: %v", b.pane().doc)
 	}
 	b.flush()
-	disk, _ := b.page.Text()
+	disk, _ := b.pane().page.Text()
 	if !strings.Contains(disk, "B'nin metni") {
 		t.Fatalf("what is saved after the choice is %q", disk)
 	}
@@ -516,7 +516,7 @@ func TestSyncNewLibraryWaitsForTheAccount(t *testing.T) {
 	}
 	a.syncNow()
 	waitSync(t, a)
-	if !titles(a)["Welcome"] || a.page == nil || a.page.Title != "Welcome" {
+	if !titles(a)["Welcome"] || a.pane().page == nil || a.pane().page.Title != "Welcome" {
 		t.Fatalf("an empty account got no welcome page: %v", titles(a))
 	}
 	var notes *Collection
@@ -587,16 +587,16 @@ func TestSyncNewLibraryWithoutAccount(t *testing.T) {
 	}
 	first.syncNow()
 	waitSync(t, first)
-	if first.page == nil || first.page.Title != "Welcome" {
+	if first.pane().page == nil || first.pane().page.Title != "Welcome" {
 		t.Fatal("an empty account got no welcome page")
 	}
-	first.page.SaveText("the account's own welcome\n")
+	first.pane().page.SaveText("the account's own welcome\n")
 	first.syncNow()
 	waitSync(t, first)
 
 	time.Sleep(10 * time.Millisecond)
 	second := open("") // used without an account, then signed in
-	if second.sy.seedWait || second.page == nil || second.page.Title != "Welcome" {
+	if second.sy.seedWait || second.pane().page == nil || second.pane().page.Title != "Welcome" {
 		t.Fatalf("without an account, no welcome page at once: wait %v", second.sy.seedWait)
 	}
 	second.settings.AccountUser = "ali@ornek.com"
@@ -910,7 +910,7 @@ func TestSyncTrustRemoteAgainShown(t *testing.T) {
 	a.settings.SyncMode = "dir"
 	a.sy.refused = []string{"Not/Bir/page.json", "Not/İki/page.json"}
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	for _, want := range []string{locales.SyncRefusedFiles(2), locales.SyncTrustRemoteAgain(), "Not/İki/page.json"} {
@@ -962,7 +962,7 @@ func TestSyncFolderNotThereButton(t *testing.T) {
 	a.settings.SyncMode, a.settings.SyncDir = "dir", filepath.Join(t.TempDir(), "New")
 	a.sy.noFolder, a.sy.err = true, locales.SyncErrNoFolder()
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	r, ok := tt.Find(locales.SyncCreateFolder())

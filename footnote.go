@@ -87,13 +87,14 @@ func noteAt(t richtext.Text, id string) int {
 
 // goToNote puts the caret in the note of footnote id, and the page goes to it; without one, it says so.
 func (a *app) goToNote(id string) {
-	at := noteAt(a.doc.Text(), id)
+	pn := a.pane()
+	at := noteAt(pn.doc.Text(), id)
 	if at < 0 {
 		a.say(toastWarn, locales.EditorFootnoteMissing(id))
 		return
 	}
-	a.doc.SetSelection(at, at)
-	a.refocus, a.revealWant = true, true
+	pn.doc.SetSelection(at, at)
+	pn.refocus, pn.revealWant = true, true
 }
 
 var iconFootnote = icon(`<path d="M5 18h9M5 13h12M5 8h6"/><path d="M17.5 4.5v5M15.8 6h1.7"/>`)
@@ -101,11 +102,12 @@ var iconFootnote = icon(`<path d="M5 18h9M5 13h12M5 8h6"/><path d="M17.5 4.5v5M1
 // chooseFootnote takes the "/…" away, puts a reference at the caret, the next number the page has not used, and its
 // note at the end of the page, the caret in the note to write it.
 func (a *app) chooseFootnote() {
+	pn := a.pane()
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := pn.doc.Selection()
 	start := s.start
 	s.open = false
-	t := a.doc.Text()
+	t := pn.doc.Text()
 	n := 1
 	for _, r := range t.Runs(0, t.Len()) { // after the numbers used, references and notes alike
 		if att := r.Attributes.Attachment; att != nil {
@@ -123,7 +125,7 @@ func (a *app) chooseFootnote() {
 	ch := &chip{kind: "footnote", target: id}
 	attrs := t.AttributesAt(max(start-1, 0))
 	attrs.Attachment = a.footnoteAttachment(ch)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	pn.doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.ReplaceString(start, start, string(richtext.ObjectReplacement), attrs)
 		end := ed.Text().Len()
@@ -136,5 +138,5 @@ func (a *app) chooseFootnote() {
 		ed.FormatParagraphs(e, e, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 		ed.Select(e, e)
 	})
-	a.refocus, a.revealWant = true, true
+	pn.refocus, pn.revealWant = true, true
 }

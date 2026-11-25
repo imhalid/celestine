@@ -33,18 +33,18 @@ type subtaskState struct {
 	room  map[int]int          // by the first paragraph under a task: that task's paragraph
 }
 
-// subtasksOf is the counts of the open text, read again only when the text is another (paraTableOf's table).
-func (a *app) subtasksOf() *subtaskState {
+// subtasksOf is the counts of pn's text, read again only when the text is another (paraTableOf's table).
+func (a *app) subtasksOf(pn *paneState) *subtaskState {
 	st := &a.subtasks
-	if a.doc == nil {
+	if pn.doc == nil {
 		return st
 	}
-	t := a.doc.Text()
+	t := pn.doc.Text()
 	if st.count != nil && st.text.Same(t) {
 		return st
 	}
 	st.text, st.count, st.room = t, map[int]subtaskCount{}, map[int]int{}
-	paras := a.paraTableOf(t).paras
+	paras := a.paraTableOf(pn, t).paras
 	for i, p := range paras {
 		if p.Style.List != richtext.Tasks || paraFolded(p) {
 			continue
@@ -83,9 +83,9 @@ func paraFolded(p richtext.Paragraph) bool {
 }
 
 // paraRoom is the room the editor leaves above paragraph p: a dragged block's (blockui.go) and a parent task's chip.
-func (a *app) paraRoom(p int) float32 {
-	room := a.blockRoom(p)
-	if _, ok := a.subtasksOf().room[p]; ok {
+func (a *app) paraRoom(pn *paneState, p int) float32 {
+	room := a.blockRoom(pn, p)
+	if _, ok := a.subtasksOf(pn).room[p]; ok {
 		room += subtaskRoom
 	}
 	return room
@@ -107,26 +107,27 @@ func drawTaskPart(p *ui.Painter, at ui.Rect, n subtaskCount, color ui.Color) {
 // subtaskChips puts each task's chip in view in the room under its line, over the window: a click on it folds the
 // subtasks away (fold.go), where the fold's own chip says them.
 func (a *app) subtaskChips(c *ui.Context) {
-	if a.doc == nil || a.noPage() || a.editorR.W == 0 || a.modal() || a.grip.dragging {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() || pn.editorR.W == 0 || a.modal() || pn.grip.dragging {
 		return
 	}
-	st := a.subtasksOf()
+	st := a.subtasksOf(pn)
 	if len(st.count) == 0 {
 		return
 	}
-	r := a.editorR
+	r := pn.editorR
 	top, bottom := r.Y, r.Y+r.H
-	if a.scrollR.H > 0 {
-		top, bottom = max(top, a.scrollR.Y+a.barInset), min(bottom, a.scrollR.Y+a.scrollR.H)
+	if pn.scrollR.H > 0 {
+		top, bottom = max(top, pn.scrollR.Y+pn.barInset), min(bottom, pn.scrollR.Y+pn.scrollR.H)
 	}
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
-		for _, b := range a.shown(r) {
+		for _, b := range a.shown(pn, r) {
 			n, ok := st.count[b.Index]
 			if !ok {
 				continue
 			}
-			x, ok := a.taskTextX(b)
+			x, ok := a.taskTextX(pn, b)
 			if !ok {
 				continue
 			}
@@ -159,12 +160,12 @@ func (a *app) subtaskChips(c *ui.Context) {
 }
 
 // taskTextX is where the text of the task at paragraph box b starts, in the editor's element.
-func (a *app) taskTextX(b richtext.ParagraphBox) (float32, bool) {
+func (a *app) taskTextX(pn *paneState, b richtext.ParagraphBox) (float32, bool) {
 	if a.theme == nil {
 		return 0, false
 	}
-	s, e, para := a.paraOfBox(b)
-	cb, ok := locateIn(a.doc, b.Start, b, s, e, para, a.editorR.W, a.font, a.theme)
+	s, e, para := a.paraOfBox(pn, b)
+	cb, ok := locateIn(pn.doc, b.Start, b, s, e, para, pn.editorR.W, a.font, a.theme)
 	if !ok {
 		return 0, false
 	}

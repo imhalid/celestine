@@ -31,7 +31,7 @@ func TestSidePanel(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if _, caret := a.doc.Selection(); caret != hs[2].at {
+	if _, caret := a.pane().doc.Selection(); caret != hs[2].at {
 		t.Fatalf("caret %d, want %d", caret, hs[2].at)
 	}
 	tt.Key(ui.Cmd|ui.Shift, ui.KeyBackslash)

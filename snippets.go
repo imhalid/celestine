@@ -40,7 +40,7 @@ func snippetFor(list []Snippet, abbr string) (string, bool) {
 // expandSnippet puts out the abbreviation before the mark just typed at the caret as its text, and reports whether
 // it did. typed is whether the text grew by what was typed, not an undo nor a paste.
 func (a *app) expandSnippet(text richtext.Text, caret int, typed bool) bool {
-	if !typed || caret < 2 || len(a.settings.Snippets) == 0 || a.page == nil {
+	if !typed || caret < 2 || len(a.settings.Snippets) == 0 || a.pane().page == nil {
 		return false
 	}
 	end := []rune(text.Slice(caret-1, caret).String())
@@ -59,7 +59,7 @@ func (a *app) expandSnippet(text richtext.Text, caret int, typed bool) bool {
 	if !ok || body == "" {
 		return false
 	}
-	body = expandTemplate(body, a.page.Title, a.clock(), nil)
+	body = expandTemplate(body, a.pane().page.Title, a.clock(), nil)
 	var out richtext.Text
 	if strings.Contains(body, "\n") { // lines: Markdown, as a template's
 		out = a.parse(strings.TrimRight(body, "\n"))
@@ -70,7 +70,7 @@ func (a *app) expandSnippet(text richtext.Text, caret int, typed bool) bool {
 		out = out.Format(0, out.Len(), func(at *richtext.Attributes) { *at = attrs }) // the look of where it is typed
 	}
 	n := out.Len()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(ws, caret-1, out)
 		ed.Select(ws+n+1, ws+n+1)
 	})

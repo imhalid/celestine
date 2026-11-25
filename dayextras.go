@@ -48,8 +48,8 @@ func onThisDay(c *Collection, day time.Time) []*Page {
 }
 
 // dayExtras is what a day of the journal shows under its text, while the settings have it.
-func (a *app) dayExtras(c *ui.Context, p *Page) {
-	a.dayH = 0
+func (a *app) dayExtras(c *ui.Context, pn *paneState, p *Page) {
+	pn.dayH = 0
 	if a.settings.NoDayExtras || p == nil || p.Coll == nil || !p.Coll.Journal {
 		return
 	}
@@ -65,7 +65,7 @@ func (a *app) dayExtras(c *ui.Context, p *Page) {
 		ui.Box(c.Key("day-line")).FillWidth().Height(1).Background(cl.Hairline).Margin(0, 0, 10, 0)
 		if len(tasks) > 0 && a.daySection(c, dayFoldTasks, locales.JournalDayTasks(len(tasks))) {
 			for _, k := range tasks {
-				a.taskRow(c, cl, k)
+				a.taskRow(c, cl, pn, k)
 			}
 		}
 		if len(years) > 0 && a.daySection(c, dayFoldYears, locales.JournalOnThisDay()) {
@@ -82,12 +82,12 @@ func (a *app) dayExtras(c *ui.Context, p *Page) {
 					ui.Text(c, q.Title).FontSize(14).TextColor(cl.Text).MaxLines(1).Shrink(1).Grow(1)
 				})
 				if row.Clicked() {
-					a.open(q)
+					a.openIn(pn, q)
 				}
 			}
 		}
 	})
-	a.dayH = box.LayoutBounds().H
+	pn.dayH = box.LayoutBounds().H
 }
 
 // daySection is the heading of a section under a day, which folds it and unfolds it; it reports whether the

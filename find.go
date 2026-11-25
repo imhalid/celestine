@@ -30,16 +30,17 @@ type finder struct {
 }
 
 func (a *app) openFind() {
-	if a.page == nil || a.noPage() || a.doc == nil {
+	pn := a.pane()
+	if pn.page == nil || a.noPage() || pn.doc == nil {
 		return
 	}
-	f := &a.find
+	f := &pn.find
 	f.open, f.focus = true, true
-	if s, e := a.doc.Selection(); s != e { // what is selected is what is looked for
+	if s, e := pn.doc.Selection(); s != e { // what is selected is what is looked for
 		if s > e {
 			s, e = e, s
 		}
-		if sel := a.doc.Text().Slice(s, e).String(); !strings.Contains(sel, "\n") {
+		if sel := pn.doc.Text().Slice(s, e).String(); !strings.Contains(sel, "\n") {
 			f.query = sel
 		}
 	}
@@ -74,25 +75,25 @@ func foldRunes(s string) []rune {
 }
 
 // findAll finds the query in the text, again when either changed.
-func (a *app) findAll() {
-	f := &a.find
-	if f.ver == a.doc.Version() && f.q == f.query {
+func (a *app) findAll(pn *paneState) {
+	f := &pn.find
+	if f.ver == pn.doc.Version() && f.q == f.query {
 		return
 	}
 	queryChanged := f.q != f.query
-	f.ver, f.q, f.matches, f.hidden = a.doc.Version(), f.query, nil, 0
+	f.ver, f.q, f.matches, f.hidden = pn.doc.Version(), f.query, nil, 0
 	exact := findExact(f.query)
 	q := findRunes(f.query, exact)
 	if len(q) == 0 {
 		return
 	}
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	for _, m := range findIn(findRunes(text.String(), exact), q) {
 		f.matches = append(f.matches, m)
 	}
 	f.hidden = findHidden(text, q, exact)
 	if queryChanged { // the first match from the caret on
-		_, caret := a.doc.Selection()
+		_, caret := pn.doc.Selection()
 		f.cur = 0
 		for i, m := range f.matches {
 			if m[1] >= caret {
@@ -100,7 +101,7 @@ func (a *app) findAll() {
 				break
 			}
 		}
-		a.showMatch()
+		a.showMatch(pn)
 	}
 	f.cur = min(f.cur, max(len(f.matches)-1, 0))
 }
@@ -157,61 +158,61 @@ func findHidden(t richtext.Text, q []rune, exact bool) int {
 }
 
 // showMatch selects the match being looked at.
-func (a *app) showMatch() {
-	f := &a.find
+func (a *app) showMatch(pn *paneState) {
+	f := &pn.find
 	if f.cur < len(f.matches) {
 		m := f.matches[f.cur]
-		a.doc.SetSelection(m[0], m[1])
-		a.revealWant = true
+		pn.doc.SetSelection(m[0], m[1])
+		pn.revealWant = true
 	}
 }
 
-func (a *app) stepMatch(d int) {
-	f := &a.find
+func (a *app) stepMatch(pn *paneState, d int) {
+	f := &pn.find
 	if n := len(f.matches); n > 0 {
 		f.cur = (f.cur + d + n) % n
-		a.showMatch()
+		a.showMatch(pn)
 	}
 }
 
 // replaceMatch replaces the match being looked at, or all of them.
-func (a *app) replaceMatch(all bool) {
-	f := &a.find
+func (a *app) replaceMatch(pn *paneState, all bool) {
+	f := &pn.find
 	if len(f.matches) == 0 {
 		return
 	}
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	ms := f.matches[f.cur : f.cur+1]
 	if all {
 		ms = f.matches
 	}
-	a.doc.Edit(func(e *richtext.Edit) {
+	pn.doc.Edit(func(e *richtext.Edit) {
 		for i := len(ms) - 1; i >= 0; i-- {
 			m := ms[i]
 			e.ReplaceString(m[0], m[1], f.with, text.AttributesAt(m[0]))
 		}
 	})
 	f.ver = 0
-	a.findAll()
+	a.findAll(pn)
 	if !all {
-		a.showMatch()
+		a.showMatch(pn)
 	}
 }
 
 // findBar is the bar that drops from the top right of the page, over it: the page under it stays where it is.
-func (a *app) findBar(c *ui.Context) {
-	f := &a.find
+func (a *app) findBar(c *ui.Context, pn *paneState) {
+	f := &pn.find
 	if !f.open {
 		return
 	}
-	a.findAll()
+	a.findAll(pn)
 	t := ryugo.From(c)
 	cl := t.Colors
 	w := float32(440)
-	if a.pageR.W > 0 {
-		w = min(w, a.pageR.W-32)
+	if pn.pageR.W > 0 {
+		w = min(w, pn.pageR.W-32)
 	}
-	bar := ui.Column(c.Key("find-bar")).Absolute().Top(a.barInset+8).Right(18).Width(w).Gap(6).Padding(8).
+	bar := ui.Column(c.Key("find-bar")).Absolute().Top(pn.barInset+8).Right(18).Width(w).Gap(6).Padding(8).
 		Radius(rad(ryugo.RadiusControl)).Background(cl.Card).Border(1, cl.Hairline)
 	bar.Transition(findDrop) // it comes down from above, in a breath, and goes up again
 	bar.Children(func() {
@@ -226,12 +227,12 @@ func (a *app) findBar(c *ui.Context) {
 			}
 			switch {
 			case in.Shortcut(0, ui.KeyEscape):
-				a.closeFind()
+				a.closeFindIn(pn)
 				return
 			case in.Submitted() && c.Modifiers()&ui.Shift != 0:
-				a.stepMatch(-1)
+				a.stepMatch(pn, -1)
 			case in.Submitted():
-				a.stepMatch(1)
+				a.stepMatch(pn, 1)
 			}
 			count := "0/0"
 			if len(f.matches) > 0 {
@@ -239,13 +240,13 @@ func (a *app) findBar(c *ui.Context) {
 			}
 			ui.Text(c, count).FontSize(12.5).TextColor(cl.Muted).Width(48)
 			if a.iconButton(c, iconBack, locales.FindPrevious()) {
-				a.stepMatch(-1)
+				a.stepMatch(pn, -1)
 			}
 			if a.iconButton(c, iconChevron, locales.FindNext()) {
-				a.stepMatch(1)
+				a.stepMatch(pn, 1)
 			}
 			if a.iconButton(c, iconClose, locales.FindClose()) {
-				a.closeFind()
+				a.closeFindIn(pn)
 			}
 		})
 		if f.hidden > 0 {
@@ -255,13 +256,13 @@ func (a *app) findBar(c *ui.Context) {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 32).Children(func() {
 				in := a.fieldMenu(ryugo.Input(c.Key("find-with"), &f.with, ryugo.InputOptions{Label: locales.QueryReplaceWith(), Placeholder: locales.QueryReplaceWith(), Size: ryugo.Sm}), &f.with, fieldOpts{oneLine: true})
 				if in.Submitted() {
-					a.replaceMatch(false)
+					a.replaceMatch(pn, false)
 				}
 				if ryugo.Button(c.Key("replace-one"), locales.CommonChange(), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
-					a.replaceMatch(false)
+					a.replaceMatch(pn, false)
 				}
 				if ryugo.Button(c.Key("replace-all"), locales.QueryReplaceAll(), ryugo.ButtonOptions{Size: ryugo.Sm, Disabled: len(f.matches) == 0}).Clicked() {
-					a.replaceMatch(true)
+					a.replaceMatch(pn, true)
 				}
 			})
 		}
@@ -275,19 +276,21 @@ var findDrop = ui.ElementTransition{
 	Exit:      &ui.Motion{Opacity: 0, Y: -18},
 }
 
-func (a *app) closeFind() {
-	a.find.open, a.find.matches = false, nil
+func (a *app) closeFindIn(pn *paneState) {
+	pn.find.open, pn.find.matches = false, nil
 }
 
+func (a *app) closeFind() { a.closeFindIn(a.pane()) }
+
 // drawMatches lights the matches in view in the editor (DrawOver).
-func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
-	f := &a.find
+func (a *app) drawMatches(pn *paneState, p *ui.Painter, r ui.Rect) {
+	f := &pn.find
 	if !f.open || len(f.matches) == 0 {
 		return
 	}
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	warn := ryugo.Painting(p).Colors.Warn
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		s, e := text.ParagraphRange(b.Start)
 		var in [][2]int
 		cur := -1
@@ -308,7 +311,7 @@ func (a *app) drawMatches(p *ui.Painter, r ui.Rect) {
 			break
 		}
 		para.Style = text.ParagraphStyleAt(s)
-		l, left := a.paraLayout(s, para, r.W)
+		l, left := a.paraLayout(pn, s, para, r.W)
 		var line string
 		for _, run := range para.Runs {
 			line += run.Text

@@ -58,29 +58,29 @@ func docQueryAtts(t richtext.Text) []*richtext.Attachment {
 // refreshQueries updates query block attachment heights for the active document when the link
 // index or cache TTL advances, bumping queryVer so richtext re-lays out changed blocks.
 func (a *app) refreshQueries() {
-	if a.doc == nil {
+	if a.pane().doc == nil {
 		return
 	}
 	if a.queryDocs == nil {
 		a.queryDocs = map[*richtext.Document]*docQueries{}
 	}
 	now := a.clock()
-	dq := a.queryDocs[a.doc]
+	dq := a.queryDocs[a.pane().doc]
 	if dq == nil {
 		dq = &docQueries{
-			ver:   a.doc.Version(),
+			ver:   a.pane().doc.Version(),
 			built: a.links.built,
 			at:    now,
-			atts:  docQueryAtts(a.doc.Text()),
+			atts:  docQueryAtts(a.pane().doc.Text()),
 		}
-		a.queryDocs[a.doc] = dq
+		a.queryDocs[a.pane().doc] = dq
 	} else {
 		if len(dq.atts) == 0 && dq.built.Equal(a.links.built) {
 			return
 		}
 		if !dq.built.Equal(a.links.built) || now.Sub(dq.at) >= queryTTL {
-			if v := a.doc.Version(); dq.ver != v {
-				dq.atts = docQueryAtts(a.doc.Text())
+			if v := a.pane().doc.Version(); dq.ver != v {
+				dq.atts = docQueryAtts(a.pane().doc.Text())
 				dq.ver = v
 			}
 			dq.built = a.links.built
@@ -149,13 +149,13 @@ func queryRowAt(r ui.Rect, y float32) int {
 }
 
 // clickQuery opens the page of the row clicked, or the search with the query when the head is.
-func (a *app) clickQuery(h *chipHit, y float32) {
+func (a *app) clickQuery(pn *paneState, h *chipHit, y float32) {
 	hits := a.queryHits(h.ch.target)
 	if i := queryRowAt(h.r, y); i >= 0 && i < min(len(hits), queryRows) {
-		a.open(hits[i].page)
+		a.openIn(pn, hits[i].page)
 		return
 	}
-	a.openSearch(h.ch.target)
+	a.openSearchIn(pn, h.ch.target)
 }
 
 // drawQuery draws the block: the query and how many it finds, and a row for each page.
@@ -240,15 +240,16 @@ func queriesIn(t richtext.Text) richtext.Text {
 
 // insertQuery takes the "/…" away and puts the block of query q in.
 func (a *app) insertQuery(start int, q string) {
+	doc := a.pane().doc
 	s := &a.slash
-	_, caret := a.doc.Selection()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	_, caret := doc.Selection()
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
 	s.open = false
 	a.putBlock(a.queryAttachment(&chip{kind: "query", target: strings.TrimSpace(q)}))
-	delete(a.queryDocs, a.doc)
+	delete(a.queryDocs, doc)
 }
 
 // queryItems are the lines of the / menu's Sorgu: the query typed, to be put in, and how many it finds now.

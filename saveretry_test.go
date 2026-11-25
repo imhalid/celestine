@@ -25,10 +25,10 @@ func TestFailedSaveKept(t *testing.T) {
 	if a.saveErr != "" || !hasErrToast(a) {
 		t.Fatalf("saveErr %q", a.saveErr)
 	}
-	p := a.page
+	p := a.pane().page
 	other, _ := p.Coll.NewPage(nil, "Öteki")
-	a.doc.SetText(parseBody("yazıldı ama kaydedilemedi\n"))
-	a.dirty = true
+	a.pane().doc.SetText(parseBody("yazıldı ama kaydedilemedi\n"))
+	a.pane().dirty = true
 	if os.Getuid() == 0 {
 		t.Skip("root writes anywhere")
 	}

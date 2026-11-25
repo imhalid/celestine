@@ -67,15 +67,15 @@ func TestWelcomeAgainFromSettings(t *testing.T) {
 	a.wel.on, a.settings.WelcomeDone = false, true
 	tt := ui.NewTester(a.view, 900, 4200) // tall: the button is low on the page
 	a.openSettings()
-	a.settingsTab = tabAppearance
+	a.pane().settingsTab = tabAppearance
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if err := tt.Click("Yeniden başlat"); err != nil {
 		t.Fatalf("no button: %v %v", err, tt.Texts())
 	}
 	tt.Frame()
-	if !a.wel.on || a.settingsOpen || a.settings.WelcomeDone || !a.wel.goAt.IsZero() {
-		t.Fatalf("the welcome did not start again: on %v, settings %v, done %v", a.wel.on, a.settingsOpen, a.settings.WelcomeDone)
+	if !a.wel.on || a.pane().settingsOpen || a.settings.WelcomeDone || !a.wel.goAt.IsZero() {
+		t.Fatalf("the welcome did not start again: on %v, settings %v, done %v", a.wel.on, a.pane().settingsOpen, a.settings.WelcomeDone)
 	}
 	tt.Advance(500 * time.Millisecond)
 	if !a.wel.chosen {
@@ -89,7 +89,7 @@ func TestWelcomeLooks(t *testing.T) {
 	a.wel.on = false
 	tt := ui.NewTester(a.view, 900, 4200)
 	a.openSettings()
-	a.settingsTab = tabAppearance
+	a.pane().settingsTab = tabAppearance
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	pick := func(current, want string) {

@@ -19,8 +19,8 @@ type blockSel struct {
 }
 
 // blockSelRange is the text the chosen blocks take, from the start of the first to the end of the last.
-func (a *app) blockSelRange() (int, int) {
-	t := a.doc.Text()
+func (a *app) blockSelRange(pn *paneState) (int, int) {
+	t := pn.doc.Text()
 	as, ae := blockRange(t, min(a.bsel.anchor, t.Len()))
 	hs, he := blockRange(t, min(a.bsel.head, t.Len()))
 	return min(as, hs), max(ae, he)
@@ -28,11 +28,12 @@ func (a *app) blockSelRange() (int, int) {
 
 // startBlockSel chooses the block the caret is in.
 func (a *app) startBlockSel() {
-	if a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() {
 		return
 	}
-	_, at := a.doc.Selection()
-	s, _ := blockRange(a.doc.Text(), at)
+	_, at := pn.doc.Selection()
+	s, _ := blockRange(pn.doc.Text(), at)
 	a.bsel = blockSel{on: true, anchor: s, head: s}
 	if !a.kb.normal {
 		a.kbEnter() // the keys are the choice's
@@ -41,12 +42,13 @@ func (a *app) startBlockSel() {
 
 // blockSelKey does what key r does to the blocks chosen, and reports whether it did anything.
 func (a *app) blockSelKey(r rune) bool {
-	if !a.bsel.on || a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if !a.bsel.on || pn.doc == nil || a.noPage() {
 		a.bsel.on = false
 		return false
 	}
-	t := a.doc.Text()
-	s, e := a.blockSelRange()
+	t := pn.doc.Text()
+	s, e := a.blockSelRange(pn)
 	switch r {
 	case 0x1b: // Esc
 		a.bsel.on = false
@@ -63,17 +65,17 @@ func (a *app) blockSelKey(r rune) bool {
 		a.say(toastOK, locales.BlocksTheBlocksWereCopied())
 		a.bsel.on = false
 	case 'd', 'x':
-		deleteRange(a.doc, s, e)
+		deleteRange(pn.doc, s, e)
 		a.bsel.on = false
 	case 'J': // past the block after them
 		if e < t.Len() {
 			_, ne := blockRange(t, e+1)
-			at := moveBlockTo(a.doc, s, e, min(ne+1, a.doc.Text().Len()+1))
+			at := moveBlockTo(pn.doc, s, e, min(ne+1, pn.doc.Text().Len()+1))
 			a.reselect(at, e-s)
 		}
 	case 'K': // past the block before them
 		if ps, _, ok := prevBlock(t, s); ok {
-			at := moveBlockTo(a.doc, s, e, ps)
+			at := moveBlockTo(pn.doc, s, e, ps)
 			a.reselect(at, e-s)
 		}
 	default:
@@ -84,7 +86,7 @@ func (a *app) blockSelKey(r rune) bool {
 
 // reselect chooses the blocks of n runes that start at at: where the chosen blocks went.
 func (a *app) reselect(at, n int) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	a.bsel.anchor = at
 	a.bsel.head, _ = blockRange(t, blockHeadOf(t, min(at+n, t.Len())))
 	if a.bsel.head < at {
@@ -111,13 +113,13 @@ func deleteRange(doc *richtext.Document, s, e int) {
 }
 
 // drawBlockSel tints the chosen blocks, across the column, under the text.
-func (a *app) drawBlockSel(p *ui.Painter, r ui.Rect) {
-	if !a.bsel.on || a.doc == nil {
+func (a *app) drawBlockSel(pn *paneState, p *ui.Painter, r ui.Rect) {
+	if !a.bsel.on || a.isInactivePane(pn) || pn.doc == nil {
 		return
 	}
-	s, e := a.blockSelRange()
+	s, e := a.blockSelRange(pn)
 	top, bottom := float32(-1), float32(0)
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		if b.Start < s || b.Start > e {
 			continue
 		}
@@ -136,12 +138,13 @@ func (a *app) drawBlockSel(p *ui.Painter, r ui.Rect) {
 
 // openBlockMenu opens the menu of the block the caret is in, as its grip's click does: from the keyboard.
 func (a *app) openBlockMenu() {
-	if a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() {
 		return
 	}
-	_, at := a.doc.Selection()
-	s, _ := blockRange(a.doc.Text(), at)
-	g := &a.grip
+	_, at := pn.doc.Selection()
+	s, _ := blockRange(pn.doc.Text(), at)
+	g := &pn.grip
 	g.para = s
 	g.menu = true
 	if a.frame != nil {
@@ -151,16 +154,19 @@ func (a *app) openBlockMenu() {
 
 // openBlockBeside shows the page in the next pane at the block the caret is in.
 func (a *app) openBlockBeside() {
-	if a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() {
 		return
 	}
-	_, at := a.doc.Selection()
-	s, _ := blockRange(a.doc.Text(), at)
+	_, at := pn.doc.Selection()
+	s, _ := blockRange(pn.doc.Text(), at)
 	pl := a.here()
 	if phone {
 		a.gotoPos(s)
 		return
 	}
 	a.openInSide(pl)
-	a.withPane(a.ps.want, func() { a.gotoPos(s) })
+	if a.ps.want >= 0 && a.ps.want < len(a.ps.states) {
+		a.gotoPosIn(a.ps.states[a.ps.want], s)
+	}
 }

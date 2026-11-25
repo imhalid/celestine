@@ -22,39 +22,39 @@ func TestPageScrollsAsAWhole(t *testing.T) {
 	tt.SetSize(900, 500)
 	tt.Advance(300 * time.Millisecond)
 	// the wheel over the text scrolls the page
-	tt.Wheel(a.editorR.X+100, 300, 0, 600)
+	tt.Wheel(a.pane().editorR.X+100, 300, 0, 600)
 	tt.Advance(300 * time.Millisecond)
-	if a.pageScroll.Y < 300 {
-		t.Fatalf("the page did not scroll: %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y < 300 {
+		t.Fatalf("the page did not scroll: %v", a.pane().pageScroll.Y)
 	}
-	if a.pageScroll.Y <= a.headH {
-		t.Fatalf("the title did not scroll away: %v, its height %v", a.pageScroll.Y, a.headH)
+	if a.pane().pageScroll.Y <= a.pane().headH {
+		t.Fatalf("the title did not scroll away: %v, its height %v", a.pane().pageScroll.Y, a.pane().headH)
 	}
 	// the caret goes to the start, then to the end of a long page, and the
 	// page goes after it
-	a.doc.SetSelection(1, 1) // a page opens with its caret at the start (#454): moved off it first, so going back is a move
+	a.pane().doc.SetSelection(1, 1) // a page opens with its caret at the start (#454): moved off it first, so going back is a move
 	tt.Frame()
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Advance(400 * time.Millisecond)
 	tt.Advance(400 * time.Millisecond)
-	if a.pageScroll.Y > 1 {
-		t.Fatalf("the caret is at the start, the page is at %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y > 1 {
+		t.Fatalf("the caret is at the start, the page is at %v", a.pane().pageScroll.Y)
 	}
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
 	tt.Advance(400 * time.Millisecond)
 	tt.Advance(400 * time.Millisecond)
-	if !a.focused {
+	if !a.pane().focused {
 		t.Fatal("no focus")
 	}
-	cr := a.caretWin
-	vp := a.scrollR
+	cr := a.pane().caretWin
+	vp := a.pane().scrollR
 	if cr.Y < vp.Y || cr.Y+cr.H > vp.Y+vp.H {
 		t.Fatalf("the caret %+v is out of the page's room %+v", cr, vp)
 	}
 	typeEach(tt, "x")
 	tt.Advance(300 * time.Millisecond)
-	cr = a.caretWin
+	cr = a.pane().caretWin
 	if cr.Y < vp.Y || cr.Y+cr.H > vp.Y+vp.H {
 		t.Fatalf("typing: the caret %+v is out of %+v", cr, vp)
 	}
@@ -81,7 +81,7 @@ func TestLongPageScrollsAsAWhole(t *testing.T) {
 		}
 	}
 	a.linksStale()
-	if got := len(a.linksTo(a.page, a.clock(), true)); got != 3 {
+	if got := len(a.linksTo(a.pane().page, a.clock(), true)); got != 3 {
 		t.Fatalf("%d backlinks, want 3", got)
 	}
 	tt.SetSize(1100, 720)
@@ -91,51 +91,51 @@ func TestLongPageScrollsAsAWhole(t *testing.T) {
 		}
 	}
 	settle(10)
-	paras := a.doc.Text().ParagraphCount()
+	paras := a.pane().doc.Text().ParagraphCount()
 	whole := func(when string) {
 		t.Helper()
-		n := len(a.boxes)
-		if n == 0 || a.boxes[0].Index != 0 || a.boxes[n-1].Index != paras-1 {
+		n := len(a.pane().boxes)
+		if n == 0 || a.pane().boxes[0].Index != 0 || a.pane().boxes[n-1].Index != paras-1 {
 			t.Fatalf("%s: the editor does not hold its whole text: %d boxes of %d paragraphs", when, n, paras)
 		}
-		if a.boxes[0].Top < 0 {
-			t.Fatalf("%s: the editor scrolled in itself: its first paragraph at %v", when, a.boxes[0].Top)
+		if a.pane().boxes[0].Top < 0 {
+			t.Fatalf("%s: the editor scrolled in itself: its first paragraph at %v", when, a.pane().boxes[0].Top)
 		}
-		last := a.boxes[n-1]
-		if bottom := last.Top + last.Height; bottom > a.edH {
-			t.Fatalf("%s: the text (%v) is taller than the editor (%v)", when, bottom, a.edH)
+		last := a.pane().boxes[n-1]
+		if bottom := last.Top + last.Height; bottom > a.pane().edH {
+			t.Fatalf("%s: the text (%v) is taller than the editor (%v)", when, bottom, a.pane().edH)
 		}
-		if a.linksH == 0 {
+		if a.pane().linksH == 0 {
 			t.Fatalf("%s: no backlinks under the text", when)
 		}
 	}
 	whole("opened")
-	h, top := a.edH, a.boxes[0].Top
-	if a.pageScroll.MaxY < h/2 {
-		t.Fatalf("the page does not scroll as a whole: %v of a text %v tall", a.pageScroll.MaxY, h)
+	h, top := a.pane().edH, a.pane().boxes[0].Top
+	if a.pane().pageScroll.MaxY < h/2 {
+		t.Fatalf("the page does not scroll as a whole: %v of a text %v tall", a.pane().pageScroll.MaxY, h)
 	}
 	// the wheel scrolls the page, and nothing in it moves or changes its height
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	settle(5)
-	prev := a.pageScroll.Y
+	prev := a.pane().pageScroll.Y
 	for i := 0; i < 8; i++ {
-		tt.Wheel(a.editorR.X+100, 400, 0, 2000)
+		tt.Wheel(a.pane().editorR.X+100, 400, 0, 2000)
 		settle(2)
 		whole(fmt.Sprintf("wheel %d", i))
-		if a.edH != h || a.boxes[0].Top != top {
-			t.Fatalf("wheel %d: the editor %v tall (was %v), its first paragraph at %v (was %v)", i, a.edH, h, a.boxes[0].Top, top)
+		if a.pane().edH != h || a.pane().boxes[0].Top != top {
+			t.Fatalf("wheel %d: the editor %v tall (was %v), its first paragraph at %v (was %v)", i, a.pane().edH, h, a.pane().boxes[0].Top, top)
 		}
-		if a.pageScroll.Y <= prev && a.pageScroll.Y < a.pageScroll.MaxY {
-			t.Fatalf("wheel %d: the page did not scroll on: %v after %v", i, a.pageScroll.Y, prev)
+		if a.pane().pageScroll.Y <= prev && a.pane().pageScroll.Y < a.pane().pageScroll.MaxY {
+			t.Fatalf("wheel %d: the page did not scroll on: %v after %v", i, a.pane().pageScroll.Y, prev)
 		}
-		prev = a.pageScroll.Y
+		prev = a.pane().pageScroll.Y
 	}
 	// the caret at the end: the page takes it into view, and the backlinks are under it
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
 	settle(10)
 	whole("caret at the end")
-	if cr, vp := a.caretWin, a.scrollR; cr.Y < vp.Y || cr.Y+cr.H > vp.Y+vp.H {
+	if cr, vp := a.pane().caretWin, a.pane().scrollR; cr.Y < vp.Y || cr.Y+cr.H > vp.Y+vp.H {
 		t.Fatalf("the caret %+v is out of the page's room %+v", cr, vp)
 	}
 }
@@ -153,28 +153,28 @@ func TestPageScrollsBelowTheHeader(t *testing.T) {
 	if ownWindowControls {
 		top += a.paneBarH()
 	}
-	if a.scrollR.Y < top || a.scrollR.Y > top+1 || a.barInset != 0 {
-		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header and its pane's bar (%v)", a.scrollR.Y, a.barInset, top)
+	if a.pane().scrollR.Y < top || a.pane().scrollR.Y > top+1 || a.pane().barInset != 0 {
+		t.Fatalf("the page scrolls from y=%v under a bar of %v, not below the header and its pane's bar (%v)", a.pane().scrollR.Y, a.pane().barInset, top)
 	}
-	if a.topSpace != pageTop-barH+8 {
-		t.Fatalf("the page starts %v below the header, not %v", a.topSpace, pageTop-barH+8)
+	if a.pane().topSpace != pageTop-barH+8 {
+		t.Fatalf("the page starts %v below the header, not %v", a.pane().topSpace, pageTop-barH+8)
 	}
-	tt.Wheel(a.editorR.X+100, top+10, 0, 300) // just below the top edge, and the pane's bar
+	tt.Wheel(a.pane().editorR.X+100, top+10, 0, 300) // just below the top edge, and the pane's bar
 	tt.Advance(300 * time.Millisecond)
-	if a.pageScroll.Y < 100 {
-		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y < 100 {
+		t.Fatalf("the wheel near the top did not scroll the page: %v", a.pane().pageScroll.Y)
 	}
-	a.coll = a.lib.Collections[0]
+	a.pane().coll = a.lib.Collections[0]
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if a.barInset != 0 || a.topSpace != pageTop-barH+8 {
-		t.Fatalf("a collection: bar %v, starting %v below", a.barInset, a.topSpace)
+	if a.pane().barInset != 0 || a.pane().topSpace != pageTop-barH+8 {
+		t.Fatalf("a collection: bar %v, starting %v below", a.pane().barInset, a.pane().topSpace)
 	}
-	a.tasksOpen = true
+	a.pane().tasksOpen = true
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if a.barInset != 0 || a.topSpace != 0 {
-		t.Fatalf("the tasks have a head of their own: bar %v, top %v", a.barInset, a.topSpace)
+	if a.pane().barInset != 0 || a.pane().topSpace != 0 {
+		t.Fatalf("the tasks have a head of their own: bar %v, top %v", a.pane().barInset, a.pane().topSpace)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestPageOpensInPlace(t *testing.T) {
 	a, tt := newTestApp(t, longPage())
 	tt.SetSize(900, 600)
 	tt.Advance(300 * time.Millisecond)
-	first := a.page
+	first := a.pane().page
 	other, err := first.Coll.NewPage(nil, "Öteki")
 	if err != nil {
 		t.Fatal(err)
@@ -195,11 +195,11 @@ func TestPageOpensInPlace(t *testing.T) {
 		t.Helper()
 		for i := range 30 {
 			tt.Advance(16 * time.Millisecond)
-			if a.pageScroll.Y != 0 {
-				t.Fatalf("%s: frame %d, the page moved to %v", when, i, a.pageScroll.Y)
+			if a.pane().pageScroll.Y != 0 {
+				t.Fatalf("%s: frame %d, the page moved to %v", when, i, a.pane().pageScroll.Y)
 			}
 		}
-		if !a.focused {
+		if !a.pane().focused {
 			t.Fatalf("%s: the text does not have the keyboard", when)
 		}
 	}

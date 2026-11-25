@@ -64,8 +64,8 @@ func (a *app) saveCollSettings() {
 		cs.err = err.Error()
 		return
 	}
-	if a.coll == cs.coll {
-		a.collName = cs.coll.Name
+	if a.pane().coll == cs.coll {
+		a.pane().collName = cs.coll.Name
 	}
 	if cs.coll.Journal && formatOrDefault(cs.coll.JournalFormat) != formatOrDefault(oldFormat) {
 		a.retitleJournal(cs.coll) // every day by the new format

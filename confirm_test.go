@@ -9,7 +9,7 @@ import (
 func TestAskAndUndo(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	defer setLang("tr") // undoing a reset sets the language the settings had: the tests' own afterwards
-	p := a.page
+	p := a.pane().page
 	if _, err := a.lib.TrashPage(p); err != nil {
 		t.Fatal(err)
 	}

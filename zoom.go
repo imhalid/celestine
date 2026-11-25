@@ -27,15 +27,15 @@ func zoomKeys() (in, out string) {
 
 // zoomIn zooms into the block holding rune at.
 func (a *app) zoomIn(at int) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	bs, be := blockRange(t, at)
 	n := t.Len()
 	if bs == 0 && be >= n { // the block is the whole page
 		return
 	}
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	plain := func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} }
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		if be < n {
 			below := t.Slice(be+1, n)
 			ch := &chip{kind: "zoom", hidden: &below, lines: strings.Count(below.String(), "\n") + 1}
@@ -60,10 +60,10 @@ func (a *app) zoomIn(at int) {
 
 // zoomed reports whether the page is zoomed into a block.
 func (a *app) zoomed() bool {
-	if a.doc == nil {
+	if a.pane().doc == nil {
 		return false
 	}
-	top, end, _, _ := zoomChips(a.doc.Text())
+	top, end, _, _ := zoomChips(a.pane().doc.Text())
 	return top != nil || end != nil
 }
 
@@ -106,13 +106,13 @@ func chipIn(t richtext.Text, i int) *chip {
 
 // zoomOut goes a level up: the page as it was before the last zoom.
 func (a *app) zoomOut() {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	top, end, ti, ei := zoomChips(t)
 	if top == nil && end == nil {
 		return
 	}
-	_, caret := a.doc.Selection()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	_, caret := a.pane().doc.Selection()
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		// a chip is a paragraph of its own: the text it holds takes its place
 		if end != nil {
 			editReplaceKeepIDs(ed, ei, ei+1, *end.hidden)
@@ -124,7 +124,7 @@ func (a *app) zoomOut() {
 		caret = min(max(caret, 0), ed.Text().Len())
 		ed.Select(caret, caret)
 	})
-	a.prevText = a.doc.Text() // the chips went because what they held is back: not ones to put back (keepHidden)
+	a.pane().prevText = a.pane().doc.Text() // the chips went because what they held is back: not ones to put back (keepHidden)
 }
 
 // replaceKeepIDs is t.Replace(s, e, with), the paragraphs put in keeping their IDs: Replace gives them none, and

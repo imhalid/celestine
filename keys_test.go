@@ -56,7 +56,7 @@ func TestBoundKeyRuns(t *testing.T) {
 	tt.Frame()
 	tt.Key(ui.Cmd|ui.Shift, ui.KeyY)
 	tt.Advance(100 * time.Millisecond)
-	if !a.trashOpen {
+	if !a.pane().trashOpen {
 		t.Fatal("the key did not run the command")
 	}
 	shown := false
@@ -69,11 +69,11 @@ func TestBoundKeyRuns(t *testing.T) {
 		t.Fatal("the palette does not show the key")
 	}
 	a.unbindKey("common_trash")
-	a.trashOpen = false
+	a.pane().trashOpen = false
 	tt.Frame()
 	tt.Key(ui.Cmd|ui.Shift, ui.KeyY)
 	tt.Advance(100 * time.Millisecond)
-	if a.trashOpen {
+	if a.pane().trashOpen {
 		t.Fatal("a key taken off still runs")
 	}
 }
@@ -96,7 +96,7 @@ func TestMacros(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 	runCmd(t, a, ">makro", "Makro: Gün")
-	if !a.tasksOpen {
+	if !a.pane().tasksOpen {
 		t.Fatal("the macro did not run to its end")
 	}
 	if a.runMacro("yok") != 0 {

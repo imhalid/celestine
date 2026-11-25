@@ -76,21 +76,25 @@ func (a *app) keepSettings(c *ui.Context) {
 	a.saveSettings()
 }
 
-// openSettings shows the settings, as a screen of the window like a collection or the trash: it is
+// openSettings shows the settings in the active pane, as a screen of the window like a collection or the trash: it is
 // in the history, so ⌘[ goes back to where it was opened from.
-func (a *app) openSettings() {
-	if a.settingsOpen {
+func (a *app) openSettings() { a.openSettingsIn(a.pane()) }
+
+func (a *app) openSettingsIn(pn *paneState) {
+	if pn.settingsOpen {
 		return
 	}
-	a.flush()
-	a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, nil, "", false, false, false
-	a.statsScreen, a.profileScreen = false, false
-	a.visit()
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.settingsOpen, pn.coll, pn.tag, pn.trashOpen, pn.tasksOpen, pn.searchOpen = true, nil, "", false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
+	a.visitIn(pn)
 }
 
 // toggleSettings opens the settings, or, shown, goes back to where they were opened from.
 func (a *app) toggleSettings() {
-	if a.settingsOpen {
+	if a.pane().settingsOpen {
 		a.closeSettings()
 		return
 	}
@@ -100,13 +104,13 @@ func (a *app) toggleSettings() {
 // closeSettings goes back to the place before the settings, or, with none, to no page.
 func (a *app) closeSettings() {
 	if !a.step(-1) {
-		a.settingsOpen = false
+		a.pane().settingsOpen = false
 	}
 }
 
 // settingsScreen is the settings: the sections listed at the left and the one chosen at the right,
 // in groups. A setting changed is seen at once, as the window it is made in is the window.
-func (a *app) settingsScreen(c *ui.Context) {
+func (a *app) settingsScreen(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	rowReset = a.rowResets() // each row of a setting not as it came gets its way back (settingRow)
 	defer func() {
@@ -119,26 +123,26 @@ func (a *app) settingsScreen(c *ui.Context) {
 	}()
 	ui.Row(c).Fill().MaxWidth(viewMax).Gap(20).AlignItems(ui.Stretch).Children(func() {
 		if !phone { // on a phone the sections are a row of chips over the section (settingsChips)
-			a.settingsNav(c)
+			a.settingsNav(c, pn)
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			sec := settingsSections[min(a.settingsTab, len(settingsSections)-1)]
+			sec := settingsSections[min(pn.settingsTab, len(settingsSections)-1)]
 			if phone {
-				a.settingsChips(c)
+				a.settingsChips(c, pn)
 			}
 			// A section comes at once, its head and its settings: the bar over them stays, and a move under it only
 			// delays what was asked for.
-			ui.Column(c.Key("set-head:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
+			ui.Column(c.Key("set-head:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
 				ui.Text(c, msg(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
 				ui.Text(c, msg(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
 			})
 			a.settingsTop(c)
-			a.scrolled(c, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
-				ui.Column(c.Key("set-body:"+strconv.Itoa(a.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Children(func() {
+			a.scrolledPane(c, pn, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
+				ui.Column(c.Key("set-body:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Children(func() {
 					if a.settingsExtra(c) {
 						return
 					}
-					switch a.settingsTab {
+					switch pn.settingsTab {
 					case 0:
 						a.settingsAppearance(c)
 					case 1:
@@ -165,12 +169,12 @@ func (a *app) settingsScreen(c *ui.Context) {
 }
 
 // settingsChips are the sections on a phone: a row of chips that scrolls sideways, the one chosen lit.
-func (a *app) settingsChips(c *ui.Context) {
+func (a *app) settingsChips(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
-	a.scrolledSideways(c, "set-chips", nil, ui.ScrollHorizontal(c.Key("set-chips")).FillWidth().Shrink(0), func() {
+	a.scrolledSidewaysPane(c, pn, "set-chips", nil, ui.ScrollHorizontal(c.Key("set-chips")).FillWidth().Shrink(0), func() {
 		ui.Row(c).Gap(6).Padding(0, 0, 12, 0).Children(func() {
 			for i, s := range settingsSections {
-				i, sel := i, a.settingsTab == i
+				i, sel := i, pn.settingsTab == i
 				e := ui.Row(c.Key("schip:"+s.name)).Height(36).Padding(0, 14).Gap(7).Radius(rad(18)).AlignItems(ui.Center).Shrink(0).
 					Label(msg(s.name)).Role(ui.RoleButton).Border(1, cl.Hairline)
 				if sel {
@@ -183,7 +187,7 @@ func (a *app) settingsChips(c *ui.Context) {
 					ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(map[bool]int{true: 650, false: 540}[sel]).TextColor(cl.Text)
 				})
 				if e.Clicked() {
-					a.settingsTab = i
+					pn.settingsTab = i
 				}
 			}
 		})
@@ -192,12 +196,12 @@ func (a *app) settingsChips(c *ui.Context) {
 
 // settingsNav is the list of sections: the one chosen glows - the accent in a gentle gradient, as a
 // button is - and the others come up as the pointer does.
-func (a *app) settingsNav(c *ui.Context) {
+func (a *app) settingsNav(c *ui.Context, pn *paneState) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	ui.Column(c.Key("set-nav")).Width(190).Padding(4, 0, 12, 0).Gap(2).Shrink(0).Children(func() {
 		for i, s := range settingsSections {
-			sel := a.settingsTab == i && strings.TrimSpace(a.setSearch) == "" && a.setMode == "" // none over a search or a list
+			sel := pn.settingsTab == i && strings.TrimSpace(a.setSearch) == "" && a.setMode == "" // none over a search or a list
 			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
 				Label(msg(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
@@ -209,22 +213,24 @@ func (a *app) settingsNav(c *ui.Context) {
 				e.Background(cl.Fill.Alpha(hov))
 			}
 			e.Translate(2*on, 0)
-			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsGo(i) })
+			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsGoIn(pn, i) })
 			e.Children(func() {
 				ui.Icon(c, s.glyph).Width(16).Height(16).TextColor(ryugo.Mix(cl.Muted, cl.Accent, on))
 				ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
 			})
 			if e.Clicked() {
-				a.settingsGo(i)
+				a.settingsGoIn(pn, i)
 			}
 		}
 	})
 }
 
-// settingsGo shows the section i: a search's words are cleared and a list (Changed, Profiles and the others) closed,
+// settingsGo shows the section i in the active pane: a search's words are cleared and a list (Changed, Profiles and the others) closed,
 // as they stand in a section's place (#404).
-func (a *app) settingsGo(i int) {
-	a.settingsTab, a.setSearch, a.setMode = i, "", ""
+func (a *app) settingsGo(i int) { a.settingsGoIn(a.pane(), i) }
+
+func (a *app) settingsGoIn(pn *paneState, i int) {
+	pn.settingsTab, a.setSearch, a.setMode = i, "", ""
 }
 
 // settingGroup is a card of settings, a line between them.

@@ -71,7 +71,7 @@ func TestMenuNaturalDay(t *testing.T) {
 	tt.Frame()
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if md := mdOf(a.doc); !strings.Contains(md, "[[2026-11-20]]") {
+	if md := mdOf(a.pane().doc); !strings.Contains(md, "[[2026-11-20]]") {
 		t.Fatalf("no day: %q", md)
 	}
 }

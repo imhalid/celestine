@@ -17,27 +17,31 @@ import (
 
 var iconUser = icon(`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>`)
 
-// openProfile shows the profile.
-func (a *app) openProfile() {
-	if a.profileScreen {
+// openProfile shows the profile in the active pane.
+func (a *app) openProfile() { a.openProfileIn(a.pane()) }
+
+func (a *app) openProfileIn(pn *paneState) {
+	if pn.profileScreen {
 		return
 	}
-	a.flush()
-	a.profileScreen, a.statsScreen, a.settingsOpen, a.coll, a.tag, a.trashOpen, a.tasksOpen, a.searchOpen = true, false, false, nil, "", false, false, false
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.profileScreen, pn.statsScreen, pn.settingsOpen, pn.coll, pn.tag, pn.trashOpen, pn.tasksOpen, pn.searchOpen = true, false, false, nil, "", false, false, false
 	a.ac.meAt = time.Time{} // the server is asked again: the quota and the computers are what they are now
 	a.ac.err = ""
-	a.visit()
+	a.visitIn(pn)
 }
 
 // closeProfile goes back to where the profile was opened from.
 func (a *app) closeProfile() {
 	if !a.step(-1) {
-		a.profileScreen = false
+		a.pane().profileScreen = false
 	}
 }
 
 // profileView is the screen.
-func (a *app) profileView(c *ui.Context) {
+func (a *app) profileView(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	s := &a.settings
 	in := s.AccountUser != "" && s.SyncToken != ""
@@ -62,7 +66,7 @@ func (a *app) profileView(c *ui.Context) {
 				})
 			})
 		})
-		a.scrolled(c, "prof-scroll", nil, ui.Scroll(c.Key("prof-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
+		a.scrolledPane(c, pn, "prof-scroll", nil, ui.Scroll(c.Key("prof-scroll")).FillWidth().Grow(1).MinHeight(0), func() {
 			ui.Row(c).FillWidth().Justify(ui.Center).Children(func() {
 				ui.Column(c.Key("prof-body")).FillWidth().MaxWidth(viewMax).Gap(14).Padding(0, 4, 40, 0).Children(func() {
 					if !in {

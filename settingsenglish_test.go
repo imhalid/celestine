@@ -30,7 +30,7 @@ func TestLibrarySettingsInEnglish(t *testing.T) {
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1200, 1100)
 	tt.Advance(300 * time.Millisecond)
-	a.settingsOpen, a.settingsTab = true, 5
+	a.pane().settingsOpen, a.pane().settingsTab = true, 5
 	tt.Advance(900 * time.Millisecond)
 	texts := tt.Texts()
 	from, to := slices.Index(texts, msg("theFilesAndWhereTheyAre")), slices.Index(texts, "search settings")

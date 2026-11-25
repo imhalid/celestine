@@ -47,18 +47,18 @@ func TestTaskKindTypedAndTurned(t *testing.T) {
 	a, tt := newTestApp(t, "\n")
 	tt.SetSize(1000, 700)
 	tt.Frame()
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	typeEach(tt, "[!] ")
 	tt.Frame()
-	st := a.doc.Text().ParagraphStyleAt(0)
+	st := a.pane().doc.Text().ParagraphStyleAt(0)
 	if k, ok := taskKindOf(st); !ok || k.id != "important" {
 		t.Fatalf("typed [!]: %+v", st)
 	}
-	if a.doc.Text().Slice(0, a.doc.Text().Len()).String() != "" {
-		t.Fatalf("the box's letters stayed: %q", a.doc.Text().String())
+	if a.pane().doc.Text().Slice(0, a.pane().doc.Text().Len()).String() != "" {
+		t.Fatalf("the box's letters stayed: %q", a.pane().doc.Text().String())
 	}
-	turnInto(a.doc, 0, "task:question")
-	if k, ok := taskKindOf(a.doc.Text().ParagraphStyleAt(0)); !ok || k.id != "question" {
+	turnInto(a.pane().doc, 0, "task:question")
+	if k, ok := taskKindOf(a.pane().doc.Text().ParagraphStyleAt(0)); !ok || k.id != "question" {
 		t.Fatal("turned into a question, it is not one")
 	}
 	found := false
@@ -76,7 +76,7 @@ func TestTaskCheckTurnsAndBursts(t *testing.T) {
 	a, tt := newTestApp(t, "- [*] yıldız\n")
 	tt.SetSize(1000, 700)
 	tt.Advance(100 * time.Millisecond)
-	a.do(func() error { a.doc.ToggleChecked(0); return nil })
+	a.do(func() error { a.pane().doc.ToggleChecked(0); return nil })
 	tt.Frame() // a click draws the editor again; the tester draws only when asked
 	if len(a.tasks.flips) != 1 {
 		t.Fatalf("no turn: %d", len(a.tasks.flips))
@@ -89,14 +89,14 @@ func TestTaskCheckTurnsAndBursts(t *testing.T) {
 	if len(a.tasks.flips) != 0 || len(a.tasks.bits) != 0 {
 		t.Fatalf("still turning or flying: %d %d", len(a.tasks.flips), len(a.tasks.bits))
 	}
-	a.do(func() error { a.doc.ToggleChecked(0); return nil })
+	a.do(func() error { a.pane().doc.ToggleChecked(0); return nil })
 	tt.Frame() // a click draws the editor again; the tester draws only when asked
 	tt.Advance(600 * time.Millisecond)
 	if len(a.tasks.bits) != 0 {
 		t.Fatal("confetti for an uncheck")
 	}
 	// typing changes the text: no task turns for it
-	a.do(func() error { a.doc.SetSelection(3, 3); a.doc.InsertText("x"); return nil })
+	a.do(func() error { a.pane().doc.SetSelection(3, 3); a.pane().doc.InsertText("x"); return nil })
 	tt.Frame()
 	if len(a.tasks.flips) != 0 {
 		t.Fatal("a turn for typing")
@@ -117,13 +117,13 @@ func TestTaskBoxRightClickMenu(t *testing.T) {
 	a, tt := newTestApp(t, "- [*] yıldız\n- [ ] düz\n")
 	tt.SetSize(1000, 700)
 	tt.Advance(200 * time.Millisecond)
-	text := a.doc.Text()
-	b := a.boxes[0]
-	r, ok := a.taskBoxAt(b, text.ParagraphStyleAt(b.Start))
+	text := a.pane().doc.Text()
+	b := a.pane().boxes[0]
+	r, ok := a.taskBoxAt(a.pane(), b, text.ParagraphStyleAt(b.Start))
 	if !ok {
 		t.Fatal("no box")
 	}
-	x, y := a.editorR.X+r.X+r.W/2, a.editorR.Y+r.Y+r.H/2
+	x, y := a.pane().editorR.X+r.X+r.W/2, a.pane().editorR.Y+r.Y+r.H/2
 	tt.RightClickAt(x, y)
 	tt.Frame()
 	if !a.ctx.open || len(a.ctx.items) == 0 || len(a.ctx.items) != len(taskKinds)+1 {
@@ -137,14 +137,14 @@ func TestTaskBoxRightClickMenu(t *testing.T) {
 			it.run()
 		}
 	}
-	if k, ok := taskKindOf(a.doc.Text().ParagraphStyleAt(0)); !ok || k.id != "question" {
+	if k, ok := taskKindOf(a.pane().doc.Text().ParagraphStyleAt(0)); !ok || k.id != "question" {
 		t.Fatal("Soru chosen, the task is not one")
 	}
 	a.ctx.open = false
 	tt.Frame()
 	tt.ClickAt(x, y)
 	tt.Frame()
-	if !a.doc.Text().ParagraphStyleAt(0).Checked {
+	if !a.pane().doc.Text().ParagraphStyleAt(0).Checked {
 		t.Fatal("a click on the box did not tick it")
 	}
 }

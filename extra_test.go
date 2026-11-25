@@ -39,7 +39,7 @@ func TestPaletteContext(t *testing.T) {
 			t.Fatalf("a format without a selection: %q", it.title)
 		}
 	}
-	a.doc.SetSelection(0, 3)
+	a.pane().doc.SetSelection(0, 3)
 	var bold *palItem
 	items := a.commands()
 	for i := range items {
@@ -51,7 +51,7 @@ func TestPaletteContext(t *testing.T) {
 		t.Fatalf("no format commands for a selection: %+v", bold)
 	}
 	a.runItem(*bold)
-	if f := a.doc.Text().Slice(0, 3); !strings.Contains(f.String(), "bir") {
+	if f := a.pane().doc.Text().Slice(0, 3); !strings.Contains(f.String(), "bir") {
 		t.Fatal("text changed")
 	}
 	// page commands beat the same words elsewhere
@@ -204,7 +204,7 @@ func TestSettingsFile(t *testing.T) {
 
 func TestFocusVeilAndTabs(t *testing.T) {
 	a, tt := newTestApp(t, "bir\n\niki\n\nüç\n\ndört\n")
-	a.doc.SetSelection(5, 5)
+	a.pane().doc.SetSelection(5, 5)
 	tt.Advance(100 * time.Millisecond)
 	snap := func() *image.RGBA {
 		tt.Frame()
@@ -216,19 +216,19 @@ func TestFocusVeilAndTabs(t *testing.T) {
 	off := snap()
 	a.settings.Focus = "paragraph"
 	on := snap()
-	r := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+300)
+	r := image.Rect(int(a.pane().editorR.X), int(a.pane().editorR.Y), int(a.pane().editorR.X+a.pane().editorR.W), int(a.pane().editorR.Y)+300)
 	if d := pixelsDiffer(off, on, r, image.Rectangle{}); d < 100 {
 		t.Fatalf("nothing veiled: %d", d)
 	}
 	a.settings.Focus = ""
 	// a Tab
 	a.settings.TabSpaces = 4
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(50 * time.Millisecond)
-	if !strings.HasPrefix(a.doc.Text().String(), "    bir") {
-		t.Fatalf("tab as spaces: %q", a.doc.Text().String())
+	if !strings.HasPrefix(a.pane().doc.Text().String(), "    bir") {
+		t.Fatalf("tab as spaces: %q", a.pane().doc.Text().String())
 	}
 	tt.Key(ui.Shift, ui.KeyTab)
 	tt.Advance(50 * time.Millisecond)
@@ -269,8 +269,8 @@ func TestRevertToBeforeSave(t *testing.T) {
 func TestStatsTagsAndPageTime(t *testing.T) {
 	a, _ := statsApp(t, "iki kelime #meyve\n")
 	a.linksStale()
-	a.linksTo(a.page, a.clock(), true)
-	a.noteWords(a.page, 25)
+	a.linksTo(a.pane().page, a.clock(), true)
+	a.noteWords(a.pane().page, 25)
 	tags := a.sumBy(func(u *dayUse) map[string]int { return u.Tags })
 	if tags["meyve"] != 25 {
 		t.Fatalf("tags %v", tags)
@@ -282,7 +282,7 @@ func TestStatsTagsAndPageTime(t *testing.T) {
 		a.statTick()
 	}
 	secs := a.sumBy(func(u *dayUse) map[string]int { return u.PageSecs })
-	if secs[a.page.Dir] < 30 {
+	if secs[a.pane().page.Dir] < 30 {
 		t.Fatalf("page time %v", secs)
 	}
 }
@@ -290,7 +290,7 @@ func TestStatsTagsAndPageTime(t *testing.T) {
 // What dragging does in the sidebar, the palette does: a page up or down its row, out of its parent, into another collection.
 func TestMoveCommands(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	p2, _ := c.NewPage(nil, "İkinci")
 	p3, _ := c.NewPage(nil, "Üçüncü")
 	other, _ := a.lib.NewCollection("Başka")

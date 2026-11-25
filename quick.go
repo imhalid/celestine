@@ -92,7 +92,7 @@ func (a *app) captureNote(mode int, text string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	body, err := p.Body()

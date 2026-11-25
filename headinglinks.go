@@ -45,10 +45,10 @@ func headingsOf(p *Page) []string {
 // goToHeading puts the caret at the start of the open page's first heading that reads heading, any case, and the
 // page there; it reports whether there is one.
 func (a *app) goToHeading(heading string) bool {
-	if a.doc == nil {
+	if a.pane().doc == nil {
 		return false
 	}
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	for ps, para := range t.Paragraphs() {
 		if para.Style.Heading == 0 {
 			continue
@@ -56,7 +56,7 @@ func (a *app) goToHeading(heading string) bool {
 		_, pe := t.ParagraphRange(ps)
 		if strings.EqualFold(strings.TrimSpace(t.Slice(ps, pe).String()), heading) {
 			a.gotoPos(ps)
-			a.fresh = false
+			a.pane().fresh = false
 			return true
 		}
 	}

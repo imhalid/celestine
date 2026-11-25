@@ -79,7 +79,7 @@ func TestEnglishUI(t *testing.T) {
 			t.Errorf("no command %q", want)
 		}
 	}
-	a.statsScreen, a.settingsOpen = true, false
+	a.pane().statsScreen, a.pane().settingsOpen = true, false
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	if !tt.HasText("Statistics") || !tt.HasText("Library health") {

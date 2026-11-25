@@ -125,14 +125,16 @@ func withMore(out []menuItem, more func() []menuItem) []menuItem {
 // editorMenu is the page editor's menu (richtext.EditorOptions.Menu): the app's, where the pointer
 // was last seen over the text.
 func (a *app) editorMenu(*ui.Menu) {
+	pn := a.pane()
 	p := a.edPtr
-	a.showContext(a.editorR.X+p.X, a.editorR.Y+p.Y, a.editorItems(p.Y))
+	a.showContext(pn.editorR.X+p.X, pn.editorR.Y+p.Y, a.editorItems(p.Y))
 }
 
 // editorItems are the lines of the editor's menu, the pointer at y in it: the selection's text and
 // its formats, then the block under the pointer.
 func (a *app) editorItems(y float32) []menuItem {
-	doc := a.doc
+	pn := a.pane()
+	doc := pn.doc
 	sa, sc := doc.Selection()
 	s, e := min(sa, sc), max(sa, sc)
 	var out []menuItem
@@ -142,9 +144,9 @@ func (a *app) editorItems(y float32) []menuItem {
 			menuItem{title: "common_cut", hint: "⌘X", glyph: iconCut, run: func() {
 				a.copyText(md)
 				doc.Edit(func(ed *richtext.Edit) { ed.Replace(s, e, richtext.Text{}); ed.Select(s, s) })
-				a.refocus = true
+				pn.refocus = true
 			}},
-			menuItem{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); a.refocus = true }},
+			menuItem{title: "common_copy", hint: "⌘C", glyph: iconCopy, run: func() { a.copyText(md); pn.refocus = true }},
 			a.into(locales.PageCopyAs(), iconCopy, func() []menuItem {
 				return []menuItem{
 					{title: "Markdown", hint: "⇧⌘C", glyph: iconCopy, run: func() { a.copyAs("markdown") }},
@@ -164,7 +166,7 @@ func (a *app) editorItems(y float32) []menuItem {
 			// as ⌘V pastes: an address over the selection links it, the app's own copy keeps its blocks, Markdown is
 			// its blocks (#509)
 			if a.pasteLink() || a.pasteOwn() || a.pasteMarkdown() {
-				a.refocus = true
+				pn.refocus = true
 				return
 			}
 			if clip := a.readClip(); clip != "" {
@@ -174,11 +176,11 @@ func (a *app) editorItems(y float32) []menuItem {
 					doc.InsertText(clip)
 				}
 			}
-			a.refocus = true
+			pn.refocus = true
 		}},
 		menuItem{title: "common_selectAllText", hint: "⌘A", glyph: iconSelectAll, run: func() {
 			doc.SetSelection(0, doc.Text().Len())
-			a.refocus = true
+			pn.refocus = true
 		}})
 	if s < e {
 		for i, f := range []struct {
@@ -187,15 +189,15 @@ func (a *app) editorItems(y float32) []menuItem {
 		}{{"common_bold", "⌘B", doc.ToggleBold}, {"common_italic", "⌘I", doc.ToggleItalic}, {"common_underline", "⌘U", doc.ToggleUnderline},
 			{"common_strike", "", doc.ToggleStrikethrough}, {"code", "⌘E", doc.ToggleCode}} {
 			f := f
-			it := menuItem{title: f.name, hint: f.keys, glyph: iconFormat, run: func() { f.do(); a.refocus = true }}
+			it := menuItem{title: f.name, hint: f.keys, glyph: iconFormat, run: func() { f.do(); pn.refocus = true }}
 			if i == 0 {
 				it.group = "~"
 			}
 			out = append(out, it)
 		}
 	}
-	if box, ok := a.paraAtY(y); ok { // the block under the pointer, as its grip's menu has it
-		a.grip.para = box.Start
+	if box, ok := a.paraAtY(pn, y); ok { // the block under the pointer, as its grip's menu has it
+		pn.grip.para = box.Start
 		first := true
 		for _, it := range a.blockItems() { // Dönüştür… is a submenu of its kinds
 			if first {

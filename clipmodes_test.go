@@ -28,24 +28,24 @@ func TestCopyAndPasteAs(t *testing.T) {
 	if !strings.Contains(copied, "<h1>Heading</h1>") || !strings.Contains(copied, "<b>bold</b>") && !strings.Contains(copied, "<strong>bold</strong>") {
 		t.Fatalf("html: %q", copied)
 	}
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText("\n") // a new line to paste on
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
+	a.pane().doc.InsertText("\n") // a new line to paste on
 	clip := "- one\n- two"
 	a.clipRead = func() string { return clip }
 	a.pasteAs("markdown")
 	tt.Frame()
 	a.save()
-	if md := a.currentMarkdown(a.page); !strings.Contains(md, "- one\n- two") {
+	if md := a.currentMarkdown(a.pane().page); !strings.Contains(md, "- one\n- two") {
 		t.Fatalf("pasted as Markdown: %q", md)
 	}
-	n = a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText("\n")
+	n = a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
+	a.pane().doc.InsertText("\n")
 	clip = "# not a heading"
 	a.pasteAs("plain")
 	tt.Frame()
-	if md := a.currentMarkdown(a.page); !strings.Contains(md, "\\# not a heading") {
+	if md := a.currentMarkdown(a.pane().page); !strings.Contains(md, "\\# not a heading") {
 		t.Fatalf("pasted as plain text: %q", md)
 	}
 }
@@ -57,18 +57,18 @@ func TestCopyPasteKeepsBlocks(t *testing.T) {
 	a, tt := newTestApp(t, src)
 	a.clipRead = func() string { return tt.Clipboard() }
 	tt.Advance(100 * time.Millisecond)
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(0, n)
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(0, n)
 	tt.Key(ui.Cmd, ui.KeyC)
 	if a.ownClip.md == "" || tt.Clipboard() == "" {
 		t.Fatalf("not noted: %+v, clipboard %q", a.ownClip, tt.Clipboard())
 	}
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText("\n") // a new line to paste on
+	a.pane().doc.SetSelection(n, n)
+	a.pane().doc.InsertText("\n") // a new line to paste on
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	a.save()
-	md := a.currentMarkdown(a.page)
+	md := a.currentMarkdown(a.pane().page)
 	for _, want := range []string{"```go", "- [!] urgent", "---"} {
 		if strings.Count(md, want) != 2 {
 			t.Fatalf("%q not kept by the paste:\n%s", want, md)
@@ -79,7 +79,7 @@ func TestCopyPasteKeepsBlocks(t *testing.T) {
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Frame()
 	a.save()
-	if md := a.currentMarkdown(a.page); !strings.Contains(md, "plain words") || strings.Count(md, "```go") != 2 {
+	if md := a.currentMarkdown(a.pane().page); !strings.Contains(md, "plain words") || strings.Count(md, "```go") != 2 {
 		t.Fatalf("another app's copy: %q", md)
 	}
 }
@@ -91,10 +91,10 @@ func TestPasteMarkdownBlocks(t *testing.T) {
 	tt.Frame()
 	md := "## Önemli olan\n\n| Model | Ne çalışır |\n| :--- | :--- |\n| Anlık | Her şey |\n\n```rust\nlet x = 1;\n```\n\nBir paragraf.\n"
 	a.clipRead = func() string { return md }
-	if !a.clipKey(ui.KeyV, ui.Cmd) {
+	if !a.clipKey(a.pane(), ui.KeyV, ui.Cmd) {
 		t.Fatal("⌘V of Markdown was left to the editor's plain paste")
 	}
-	tx := a.doc.Text()
+	tx := a.pane().doc.Text()
 	heading, code, table := false, false, false
 	for _, p := range tx.Paragraphs() {
 		heading = heading || p.Style.Heading == 2
@@ -111,7 +111,7 @@ func TestPasteMarkdownBlocks(t *testing.T) {
 		t.Fatalf("heading %v, code with its language %v, table %v:\n%s", heading, code, table, bodyMarkdown(tx))
 	}
 	a.clipRead = func() string { return "just words, no blocks" }
-	if a.clipKey(ui.KeyV, ui.Cmd) {
+	if a.clipKey(a.pane(), ui.KeyV, ui.Cmd) {
 		t.Fatal("plain text was taken from the editor")
 	}
 }
@@ -129,7 +129,7 @@ func TestPasteDrawsLinksAndTables(t *testing.T) {
 		tt.Frame()
 
 		var linkDrawn, tableDrawn bool
-		for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+		for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 			att := r.Attributes.Attachment
 			if att == nil {
 				continue
@@ -155,7 +155,7 @@ func TestPasteDrawsLinksAndTables(t *testing.T) {
 			t.Fatalf("%s: linkDrawn=%v tableDrawn=%v", name, linkDrawn, tableDrawn)
 		}
 		after := tt.Image()
-		box := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y+a.editorR.H))
+		box := image.Rect(int(a.pane().editorR.X), int(a.pane().editorR.Y), int(a.pane().editorR.X+a.pane().editorR.W), int(a.pane().editorR.Y+a.pane().editorR.H))
 		if d := pixelsDiffer(&before, after, box, image.Rectangle{}); d < 40 {
 			t.Fatalf("%s: expected pasted link and table to draw pixels, got %d", name, d)
 		}

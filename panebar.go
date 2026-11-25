@@ -30,7 +30,7 @@ func (a *app) paneBarH() float32 {
 }
 
 // paneBar draws pane i's bar at the top of its column col.
-func (a *app) paneBar(c *ui.Context, col ui.Element, i int, h float32) {
+func (a *app) paneBar(c *ui.Context, col ui.Element, pn *paneState, i int, h float32) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	a.ps.ensureIDs()
@@ -46,19 +46,19 @@ func (a *app) paneBar(c *ui.Context, col ui.Element, i int, h float32) {
 	}
 	bar := ui.Row(c.Key("pane-bar")).FillWidth().Height(h).Shrink(0).Padding(0, 8, 0, left).Gap(4).AlignItems(ui.Center).
 		Label(locales.PanesBar())
-	a.headDragR = bar.LayoutBounds()
+	pn.headDragR = bar.LayoutBounds()
 	if !many {
 		bar.DragWindow() // one pane: the window, held by its top
 	} else {
-		a.dragPane(c, bar, id)
+		a.dragPane(c, bar, pn, id)
 	}
 	bar.Children(func() {
 		// the title, once the page's own has gone up out of sight; a screen without a big title of its own says it
 		// all the time
-		title := a.paneTitle()
+		title := a.paneTitleOf(pn)
 		show := float32(1)
-		if (a.page != nil && !a.noPage()) || a.coll != nil {
-			if a.headH == 0 || a.pageScroll.Y < a.headH-8 { // its own height not known yet: it is in sight
+		if (pn.page != nil && !a.noPageOf(pn)) || pn.coll != nil {
+			if pn.headH == 0 || pn.pageScroll.Y < pn.headH-8 { // its own height not known yet: it is in sight
 				show = 0
 			}
 		}
@@ -67,21 +67,21 @@ func (a *app) paneBar(c *ui.Context, col ui.Element, i int, h float32) {
 				Shrink(1).Opacity(k).Translate(0, 4*(1-k))
 		}
 		ui.Box(c).Grow(1).Height(h) // where the bar is held
-		if a.page != nil && !a.noPage() {
-			p := a.page
+		if pn.page != nil && !a.noPageOf(pn) {
+			p := pn.page
 			if m := a.paneBarButton(c, "pane-menu", iconMore, locales.PanesMenu()); m.Clicked() {
 				b := m.LayoutBounds()
 				a.showContext(b.X, b.Y+b.H+4, a.pageMenu(p, true))
 			}
 		}
-		closes := many || (a.page != nil && !a.noPage() && a.page.Coll != nil)
+		closes := many || (pn.page != nil && !a.noPageOf(pn) && pn.page.Coll != nil)
 		if closes {
 			label := locales.CloseThePane()
 			if !many {
 				label = locales.PanesClosePage()
 			}
 			if x := a.paneBarButton(c, "pane-close", iconWinClose, label); x.Clicked() {
-				a.later(func() { a.closeFromBar(i, id) })
+				a.later(func() { a.closeFromBar(pn, i, id) })
 			}
 		}
 	})
@@ -101,21 +101,21 @@ func (a *app) paneBarButton(c *ui.Context, key string, glyph *ui.SVG, label stri
 
 // closeFromBar is the X of pane i's bar: with other panes the pane goes; alone, its page closes, and its collection
 // is shown in its place.
-func (a *app) closeFromBar(i int, id string) {
+func (a *app) closeFromBar(pn *paneState, i int, id string) {
 	if len(a.ps.states) > 1 && a.ps.layout != nil {
 		a.flush()
 		a.ps.layout.ClosePane(id)
 		return
 	}
-	if a.page != nil && a.page.Coll != nil {
-		a.openCollection(a.page.Coll)
+	if pn.page != nil && pn.page.Coll != nil {
+		a.openCollectionIn(pn, pn.page.Coll)
 	}
 }
 
 // dragPane makes pane id's bar carry the pane: held and moved a little, it goes to the Dock as something dragged
 // in from outside does (DockOptions.Drop), the compass showing where it would go, and let go over a place it moves
 // there. Its title goes by the pointer.
-func (a *app) dragPane(c *ui.Context, bar ui.Element, id string) {
+func (a *app) dragPane(c *ui.Context, bar ui.Element, pn *paneState, id string) {
 	k := &a.paneDrag
 	dx, dy, pressed := bar.Dragged()
 	px, py, _ := bar.PointerPosition()
@@ -131,7 +131,7 @@ func (a *app) dragPane(c *ui.Context, bar ui.Element, id string) {
 			if p == nil {
 				return
 			}
-			a.carry = dockCarry{id: id, title: a.paneTitle(), glyph: a.paneGlyph(), drop: &ryugo.DockDrop{Pane: p}}
+			a.carry = dockCarry{id: id, title: a.paneTitleOf(pn), glyph: a.paneGlyphOf(pn), drop: &ryugo.DockDrop{Pane: p}}
 			k.active = true
 		}
 		if k.active && a.carry.drop != nil {

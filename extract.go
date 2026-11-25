@@ -55,12 +55,12 @@ func extractSplit(part richtext.Text) (title string, body richtext.Text) {
 // extractToPage makes a page of the blocks of the selection, or of the block the caret is in, and puts a link to it
 // in their place.
 func (a *app) extractToPage() {
-	p := a.page
-	if p == nil || a.noPage() || a.doc == nil {
+	p := a.pane().page
+	if p == nil || a.noPage() || a.pane().doc == nil {
 		return
 	}
-	t := a.doc.Text()
-	anchor, caret := a.doc.Selection()
+	t := a.pane().doc.Text()
+	anchor, caret := a.pane().doc.Selection()
 	s, e, ok := extractRange(t, anchor, caret)
 	if !ok {
 		a.say(toastWarn, locales.ExtractNothing())
@@ -95,13 +95,13 @@ func (a *app) extractToPage() {
 	a.noteCreated()
 	attrs := t.AttributesAt(s)
 	attrs.Attachment = a.attachment(&chip{kind: "page", target: np.Title})
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.FormatParagraphs(s, s, func(st *richtext.ParagraphStyle) { *st = richtext.ParagraphStyle{} })
 		ed.ReplaceString(s, e, string(richtext.ObjectReplacement), attrs)
 		ed.Select(s+1, s+1)
 	})
 	a.linksStale()
-	a.refocus = true
+	a.pane().refocus = true
 	a.say(toastOK, locales.ExtractDone(np.Title))
 }
 

@@ -97,9 +97,9 @@ func taskKindByMD(c string) (taskKind, bool) {
 
 // setTaskKind gives the task holding rune at the kind id; "" makes it a plain task.
 func (a *app) setTaskKind(at int, id string) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	s, _ := t.ParagraphRange(at)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) {
 			p.List, p.ID = richtext.Tasks, ""
 			if id != "" {
@@ -275,17 +275,17 @@ type confettiBit struct {
 
 // taskBoxAt is where the box of the task at paragraph box b is, in the editor's element, as richtext
 // draws it (paintMarker); false for a heading's task, whose font is another, or out of view.
-func (a *app) taskBoxAt(b richtext.ParagraphBox, st richtext.ParagraphStyle) (ui.Rect, bool) {
+func (a *app) taskBoxAt(pn *paneState, b richtext.ParagraphBox, st richtext.ParagraphStyle) (ui.Rect, bool) {
 	if st.Heading > 0 || a.theme == nil {
 		return ui.Rect{}, false
 	}
-	s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#314)
-	cb, ok := locateIn(a.doc, b.Start, b, s, e, para, a.editorR.W, a.font, a.theme)
+	s, e, para := a.paraOfBox(pn, b) // from the text's table, not read from its start (#314)
+	cb, ok := locateIn(pn.doc, b.Start, b, s, e, para, pn.editorR.W, a.font, a.theme)
 	if !ok {
 		return ui.Rect{}, false
 	}
 	size := a.font.Size
-	if a.markedTask(b.Index, st) { // a bullet or a number before it: the box at the end of the room (listmarks.go)
+	if a.markedTask(pn, b.Index, st) { // a bullet or a number before it: the box at the end of the room (listmarks.go)
 		return markedTaskBox(cb.full.X, cb.full, size), true
 	}
 	indent := size * a.theme.Indent
@@ -296,27 +296,27 @@ func (a *app) taskBoxAt(b richtext.ParagraphBox, st richtext.ParagraphStyle) (ui
 }
 
 // drawTasks draws every task's box in view over richtext's, turning those just checked or unchecked.
-func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
+func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 	fx := &a.tasks
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	now := p.Now()
-	same := fx.doc == a.doc && fx.n == text.Len()
+	same := fx.doc == pn.doc && fx.n == text.Len()
 	if !same || fx.seen == nil {
-		fx.doc, fx.n, fx.seen, fx.flips = a.doc, text.Len(), map[int]bool{}, map[int]taskTurn{}
+		fx.doc, fx.n, fx.seen, fx.flips = pn.doc, text.Len(), map[int]bool{}, map[int]taskTurn{}
 	}
 	th := p.Theme()
 	look := a.theme
 	busy := false
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		if b.Start > text.Len() {
 			continue
 		}
-		_, _, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
+		_, _, para := a.paraOfBox(pn, b) // from the text's table, not read from its start (#312)
 		st := para.Style
 		if st.List != richtext.Tasks {
 			continue
 		}
-		box, ok := a.taskBoxAt(b, st)
+		box, ok := a.taskBoxAt(pn, b, st)
 		if !ok {
 			continue
 		}
@@ -348,7 +348,7 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 					fx.strikeK = map[int]float32{}
 				}
 				fx.strikeK[b.Index] = max(k, 0)
-				a.drawStrike(p, r, b, k)
+				a.drawStrike(pn, p, r, b, k)
 			} else {
 				delete(fx.striking, b.Index)
 				delete(fx.strikeK, b.Index)
@@ -381,7 +381,7 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 			a.drawTaskBack(p, at, color, look.Checkmark)
 		} else {
 			a.drawTaskFace(p, at, kind, hasKind, look.Muted, th)
-			drawTaskPart(p, at, a.subtasksOf().count[b.Index], color) // as far as its subtasks are done (subtasks.go)
+			drawTaskPart(p, at, a.subtasksOf(pn).count[b.Index], color) // as far as its subtasks are done (subtasks.go)
 		}
 	}
 	if busy || len(fx.bits) > 0 {
@@ -391,12 +391,12 @@ func (a *app) drawTasks(p *ui.Painter, r ui.Rect) {
 
 // drawStrike draws the line through the task of paragraph box b as far as k (0 to 1) of its lines' length, from the
 // left, in the muted color of a task done; r is the editor's box.
-func (a *app) drawStrike(p *ui.Painter, r ui.Rect, b richtext.ParagraphBox, k float32) {
-	s, e, para := a.paraOfBox(b)
+func (a *app) drawStrike(pn *paneState, p *ui.Painter, r ui.Rect, b richtext.ParagraphBox, k float32) {
+	s, e, para := a.paraOfBox(pn, b)
 	if e-s > maxCaretParagraph {
 		return
 	}
-	l, left := longMemo.layout(a.doc, s, e-s, para, a.editorR.W, a.font, a.theme)
+	l, left := longMemo.layout(pn.doc, s, e-s, para, pn.editorR.W, a.font, a.theme)
 	lines := l.Lines()
 	total := float32(0)
 	for _, ln := range lines {
@@ -570,26 +570,27 @@ func (a *app) drawConfetti(p *ui.Painter) {
 // secondary button for its own menu (cut, copy, paste), so a right click on a box would never reach us.
 // A click on one ticks the task, as the editor would; a right click opens the menu of its kinds.
 func (a *app) taskBoxHits(c *ui.Context) {
-	if a.doc == nil || a.noPage() || a.editorR.W == 0 || a.modal() || a.grip.dragging {
+	pn := a.pane()
+	if pn.doc == nil || a.noPage() || pn.editorR.W == 0 || a.modal() || pn.grip.dragging {
 		return
 	}
-	r := a.editorR
+	r := pn.editorR
 	top, bottom := r.Y, r.Y+r.H // only where the page shows
-	if a.scrollR.H > 0 {
-		top, bottom = max(top, a.scrollR.Y+a.barInset), min(bottom, a.scrollR.Y+a.scrollR.H)
+	if pn.scrollR.H > 0 {
+		top, bottom = max(top, pn.scrollR.Y+pn.barInset), min(bottom, pn.scrollR.Y+pn.scrollR.H)
 	}
-	text := a.doc.Text()
+	text := pn.doc.Text()
 	ui.Overlay(c, func() {
-		for _, b := range a.shown(r) {
+		for _, b := range a.shown(pn, r) {
 			if b.Start > text.Len() {
 				continue
 			}
-			_, _, para := a.paraOfBox(b)
+			_, _, para := a.paraOfBox(pn, b)
 			st := para.Style
 			if st.List != richtext.Tasks {
 				continue
 			}
-			box, ok := a.taskBoxAt(b, st)
+			box, ok := a.taskBoxAt(pn, b, st)
 			if !ok {
 				continue
 			}
@@ -602,7 +603,7 @@ func (a *app) taskBoxHits(c *ui.Context) {
 			hit := ui.Box(c.Key("taskbox:"+strconv.Itoa(at))).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
 				Cursor(ui.CursorPointer).Role(ui.RoleCheckBox).Label(locales.CommonTask())
 			if hit.Clicked() {
-				a.doc.ToggleChecked(at)
+				pn.doc.ToggleChecked(at)
 			}
 			if x, y, ok := rightClick(hit); ok {
 				a.taskKindMenu(at, x, y)
@@ -613,7 +614,7 @@ func (a *app) taskBoxHits(c *ui.Context) {
 
 // taskKindMenu is the menu of the kinds a task can be, at x, y in the window: the one it is, ticked.
 func (a *app) taskKindMenu(at int, x, y float32) {
-	cur, _ := taskKindOf(a.doc.Text().ParagraphStyleAt(at))
+	cur, _ := taskKindOf(a.pane().doc.Text().ParagraphStyleAt(at))
 	items := []menuItem{{title: "common_task", glyph: kindIcon["tasks"], hint: tick(cur.id == ""), run: func() { a.setTaskKind(at, "") }}}
 	for _, k := range taskKinds {
 		id := k.id

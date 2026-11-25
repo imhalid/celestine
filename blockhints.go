@@ -56,7 +56,7 @@ func (a *app) editorHints() []hint {
 	if a.zoomed() {
 		add(a.cmdKey("zoomOut"), "zoomOut2")
 	}
-	anchor, caret := a.doc.Selection()
+	anchor, caret := a.pane().doc.Selection()
 	if anchor != caret { // a selection: its formats
 		add("⌘B", "bold")
 		add("⌘I", "italic")
@@ -65,7 +65,7 @@ func (a *app) editorHints() []hint {
 		add("⇧⌘X", "strikethrough")
 		return out
 	}
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	st := t.ParagraphStyleAt(caret)
 	ps, pe := t.ParagraphRange(caret)
 	empty := strings.TrimSpace(t.Slice(ps, pe).String()) == ""

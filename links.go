@@ -53,8 +53,8 @@ func linkSpans(p richtext.Paragraph) []linkSpan {
 }
 
 // linkAt is the link at (x, y) of the window, as the last frame drew it.
-func (a *app) linkAt(x, y float32) (string, bool) {
-	for _, h := range a.linkSeen {
+func (a *app) linkAt(pn *paneState, x, y float32) (string, bool) {
+	for _, h := range pn.linkSeen {
 		if x >= h.r.X && x < h.r.X+h.r.W && y >= h.r.Y && y < h.r.Y+h.r.H {
 			return h.url, true
 		}
@@ -65,12 +65,12 @@ func (a *app) linkAt(x, y float32) (string, bool) {
 // openExternal opens an address of the web, or a mail, in the system's app: a test sees what it is given instead.
 var openExternal = func(url string) { go mygo.Shell.OpenExternal(url) }
 
-// openLink goes where the address says.
-func (a *app) openLink(url string) {
+// openLinkIn goes where the address says, in pn.
+func (a *app) openLinkIn(pn *paneState, url string) {
 	switch {
 	case strings.HasPrefix(url, "page://"):
 		path := strings.Trim(strings.TrimPrefix(url, "page://"), "/")
-		if !a.openByPath(path) {
+		if !a.openByPathIn(pn, path) {
 			a.say(toastWarn, locales.PageLinkMissingAt(path))
 		}
 	case strings.HasPrefix(url, "http://"), strings.HasPrefix(url, "https://"), strings.HasPrefix(url, "mailto:"):
@@ -78,22 +78,28 @@ func (a *app) openLink(url string) {
 	}
 }
 
-// openByPath opens the page or the collection that the folders of path name:
+// openLink goes where the address says in the active pane.
+func (a *app) openLink(url string) { a.openLinkIn(a.pane(), url) }
+
+// openByPath opens the page or the collection that the folders of path name in the active pane.
+func (a *app) openByPath(path string) bool { return a.openByPathIn(a.pane(), path) }
+
+// openByPathIn opens the page or the collection that the folders of path name:
 // "koleksiyon/sayfa/alt-sayfa", from the library's root; failing that, the
 // one folder of that last name there is. It reports whether there was one.
-func (a *app) openByPath(path string) bool {
+func (a *app) openByPathIn(pn *paneState, path string) bool {
 	root := strings.TrimSuffix(filepath.ToSlash(a.lib.Root), "/") + "/"
 	last := path[strings.LastIndex(path, "/")+1:]
 	var byName *Page
 	names := 0
 	for _, c := range a.lib.Collections {
 		if rel := strings.TrimPrefix(filepath.ToSlash(c.Dir), root); rel == path {
-			a.openCollection(c)
+			a.openCollectionIn(pn, c)
 			return true
 		}
 		for _, p := range c.All() {
 			if strings.TrimPrefix(filepath.ToSlash(p.Dir), root) == path {
-				a.open(p)
+				a.openIn(pn, p)
 				return true
 			}
 			if filepath.Base(p.Dir) == last {
@@ -102,7 +108,7 @@ func (a *app) openByPath(path string) bool {
 		}
 	}
 	if names == 1 {
-		a.open(byName)
+		a.openIn(pn, byName)
 		return true
 	}
 	return false

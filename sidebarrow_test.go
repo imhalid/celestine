@@ -12,7 +12,7 @@ import (
 func TestRowTitleFullWidth(t *testing.T) {
 	a, tt := newTestApp(t, "x")
 	title := "Read Amplification in Log-Structured Merge Trees"
-	p, err := a.page.Coll.NewPage(nil, title)
+	p, err := a.pane().page.Coll.NewPage(nil, title)
 	if err != nil {
 		t.Fatal(err)
 	}

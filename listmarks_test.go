@@ -64,11 +64,11 @@ func TestListLooks(t *testing.T) {
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
 	a.setListSpec(0, listSpec{mark: iconMarkPrefix + "star"})
-	if it := a.listItemAt(1); it == nil || it.spec.mark != "icon:star" {
+	if it := a.listItemAt(a.pane(), 1); it == nil || it.spec.mark != "icon:star" {
 		t.Fatalf("the second item has not the star: %+v", it)
 	}
 	// the menu's lines for a numbered list, and Roman numerals from them
-	t2 := a.doc.Text()
+	t2 := a.pane().doc.Text()
 	at := strings.Index(t2.String(), "elma")
 	at = len([]rune(t2.String()[:at]))
 	var numbering *menuItem
@@ -86,22 +86,22 @@ func TestListLooks(t *testing.T) {
 		}
 	}
 	p := a.lists().byStart[at]
-	if it := a.listItemAt(p + 1); it == nil || listMarkText(it, richtext.Numbers) != "II." {
+	if it := a.listItemAt(a.pane(), p+1); it == nil || listMarkText(it, richtext.Numbers) != "II." {
 		t.Fatalf("not in Roman numerals: %+v", it)
 	}
 	// tasks, the numbers kept before the boxes
 	a.listToTasks(p)
-	st := a.doc.Text().ParagraphStyleAt(at)
-	if st.List != richtext.Tasks || !a.markedTask(p, st) || !a.markedTask(p+1, a.doc.Text().ParagraphStyleAt(at+5)) {
+	st := a.pane().doc.Text().ParagraphStyleAt(at)
+	if st.List != richtext.Tasks || !a.markedTask(a.pane(), p, st) || !a.markedTask(a.pane(), p+1, a.pane().doc.Text().ParagraphStyleAt(at+5)) {
 		t.Fatalf("not tasks with their numbers: %+v", st)
 	}
 	// a new item at the end, as Enter makes it: no ID, the list's look
-	end := a.doc.Text().Len()
-	a.doc.SetSelection(end, end)
-	a.doc.InsertText("\nkiraz")
+	end := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(end, end)
+	a.pane().doc.InsertText("\nkiraz")
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	if it := a.listItemAt(p + 2); it == nil || listMarkText(it, richtext.Tasks) != "III." {
+	if it := a.listItemAt(a.pane(), p+2); it == nil || listMarkText(it, richtext.Tasks) != "III." {
 		t.Fatalf("the new item has not the list's look: %+v", it)
 	}
 	// the box of a numbered task is at the end of the marker's room, and a click on it checks the task
@@ -109,10 +109,10 @@ func TestListLooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if !a.doc.Text().ParagraphStyleAt(at).Checked {
+	if !a.pane().doc.Text().ParagraphStyleAt(at).Checked {
 		t.Fatal("the numbered task's box did not check it")
 	}
-	body := encodeBody(a.doc.Text())
+	body := encodeBody(a.pane().doc.Text())
 	if !strings.Contains(body, listIDPrefix) || !strings.Contains(body, "num=ROMAN") {
 		t.Fatalf("the page did not keep the look: %s", body)
 	}
@@ -123,13 +123,13 @@ func TestListLooks(t *testing.T) {
 func TestInlineTask(t *testing.T) {
 	a, tt := newTestApp(t, "Ara\n")
 	tt.Frame()
-	end := a.doc.Text().Len()
-	a.doc.SetSelection(end, end)
+	end := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(end, end)
 	tt.Frame()
 	typeEach(tt, " süt al [ ] ve ekmek")
 	tt.Advance(200 * time.Millisecond)
-	if n := strings.Count(a.doc.Text().String(), string(richtext.ObjectReplacement)); n != 1 {
-		t.Fatalf("%d chips in %q", n, a.doc.Text().String())
+	if n := strings.Count(a.pane().doc.Text().String(), string(richtext.ObjectReplacement)); n != 1 {
+		t.Fatalf("%d chips in %q", n, a.pane().doc.Text().String())
 	}
 	tt.Frame()
 	if len(a.chipSeen) != 1 {
@@ -138,10 +138,10 @@ func TestInlineTask(t *testing.T) {
 	r := a.chipSeen[0].r
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(200 * time.Millisecond)
-	if md := mdOf(a.doc); !strings.Contains(md, `süt al \[x\] ve ekmek`) && !strings.Contains(md, "süt al [x] ve ekmek") {
-		t.Fatalf("not checked: %q", mdOf(a.doc))
+	if md := mdOf(a.pane().doc); !strings.Contains(md, `süt al \[x\] ve ekmek`) && !strings.Contains(md, "süt al [x] ve ekmek") {
+		t.Fatalf("not checked: %q", mdOf(a.pane().doc))
 	}
-	body := encodeBody(a.doc.Text())
+	body := encodeBody(a.pane().doc.Text())
 	if !strings.Contains(body, `"k":"check"`) || !strings.Contains(body, `"target":"x"`) {
 		t.Fatalf("the page did not keep the task: %s", body)
 	}
@@ -163,7 +163,7 @@ func TestListLooksOnlyWhenThere(t *testing.T) {
 	}
 	a, tt := newTestApp(t, b.String())
 	tt.Frame()
-	a.doc.SetSelection(3, 3)
+	a.pane().doc.SetSelection(3, 3)
 	tt.Type("x")
 	tt.Frame()
 	if a.listMarks != nil {
@@ -174,7 +174,7 @@ func TestListLooksOnlyWhenThere(t *testing.T) {
 	}
 	a.setListSpec(0, listSpec{mark: "★"})
 	tt.Frame()
-	if it := a.listItemAt(0); it == nil || it.spec.mark != "★" {
+	if it := a.listItemAt(a.pane(), 0); it == nil || it.spec.mark != "★" {
 		t.Fatalf("a list with a look has no mark: %+v", it)
 	}
 }

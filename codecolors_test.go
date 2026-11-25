@@ -15,7 +15,7 @@ func TestCodeColors(t *testing.T) {
 	a := &app{codeTheme: editor.DefaultTheme(ui.LightTheme())}
 	code := richtext.ParagraphStyle{CodeBlock: true, ID: codeIDPrefix + "go"}
 	in := []ui.Span{{Text: `func main() { s := "hi" }`}}
-	out := a.editorSpans(0, code, append([]ui.Span(nil), in...))
+	out := a.editorSpans(a.pane(), 0, code, append([]ui.Span(nil), in...))
 	var text strings.Builder
 	colors := map[ui.Color]bool{}
 	for _, s := range out {
@@ -28,7 +28,7 @@ func TestCodeColors(t *testing.T) {
 	if len(out) < 4 || len(colors) < 3 {
 		t.Fatalf("not colored by its tokens: %d spans, %d colors", len(out), len(colors))
 	}
-	plain := a.editorSpans(0, richtext.ParagraphStyle{}, append([]ui.Span(nil), in...))
+	plain := a.editorSpans(a.pane(), 0, richtext.ParagraphStyle{}, append([]ui.Span(nil), in...))
 	if len(plain) != 1 || plain[0].Color != (ui.Color{}) {
 		t.Fatalf("a paragraph of text was colored: %+v", plain)
 	}
@@ -42,7 +42,7 @@ func TestCodeColorsAfterTheFirstLine(t *testing.T) {
 		t.Fatal("no colors of code")
 	}
 	i := -1
-	for _, para := range a.doc.Text().Paragraphs() { // by where each starts: i counts them
+	for _, para := range a.pane().doc.Text().Paragraphs() { // by where each starts: i counts them
 		i++
 		if !para.Style.CodeBlock || strings.HasPrefix(para.Style.ID, codeIDPrefix) {
 			continue
@@ -53,7 +53,7 @@ func TestCodeColorsAfterTheFirstLine(t *testing.T) {
 			spans = append(spans, ui.Span{Text: r.Text})
 			line += r.Text
 		}
-		out := a.editorSpans(i, para.Style, spans)
+		out := a.editorSpans(a.pane(), i, para.Style, spans)
 		colors := map[ui.Color]bool{}
 		for _, s := range out {
 			colors[s.Color] = true

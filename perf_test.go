@@ -96,7 +96,7 @@ func TestPerfBudget(t *testing.T) {
 	}
 	t0 = time.Now()
 	a.linksStale()
-	a.linksTo(a.page, a.clock(), true)
+	a.linksTo(a.pane().page, a.clock(), true)
 	index := time.Since(t0)
 	t0 = time.Now()
 	items := a.paletteItems("sayfa 12")

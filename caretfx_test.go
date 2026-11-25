@@ -24,7 +24,7 @@ func TestCaretKindsDraw(t *testing.T) {
 		tt.Key(0, ui.KeyBackspace)
 		tt.Key(0, ui.KeyBackspace)
 		tt.Advance(80 * time.Millisecond)
-		a.doc.SetSelection(0, 0)
+		a.pane().doc.SetSelection(0, 0)
 		tt.Frame()
 		tt.Advance(120 * time.Millisecond)
 		a.setCaret((k + 1) % caretCount())
@@ -43,7 +43,7 @@ func TestCaretKindsDraw(t *testing.T) {
 func TestCaretTiles(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1000, 700)
-	a.settingsOpen, a.settingsTab = true, 1
+	a.pane().settingsOpen, a.pane().settingsTab = true, 1
 	tt.Advance(900 * time.Millisecond)
 	for k := caretKind(0); k < caretCount(); k++ {
 		if !tt.HasText(msg(caretName(k))) { // shown in the window's language: Line is Çizgi
@@ -124,13 +124,13 @@ func TestCaretStyleFollowsText(t *testing.T) {
 		{"[b ", true, false, '['},
 		{"{c", true, false, '{'},
 	} {
-		s := a.doc.Text().String()
+		s := a.pane().doc.Text().String()
 		i := strings.Index(s, c.find)
 		if i < 0 {
 			t.Fatalf("no %q in %q", c.find, s)
 		}
 		at := len([]rune(s[:i])) + len([]rune(c.find))
-		a.doc.SetSelection(at, at)
+		a.pane().doc.SetSelection(at, at)
 		tt.Frame()
 		st := a.styleAt(at)
 		if st.strike != c.strike || st.bracket != c.bracket {

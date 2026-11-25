@@ -84,9 +84,9 @@ type tagHit struct {
 	key string
 }
 
-// tagAt is the tag at (x, y) of the window, as the last frame drew it.
-func (a *app) tagAt(x, y float32) (string, bool) {
-	for _, h := range a.tagSeen {
+// tagAt is the tag at (x, y) of the window, as the last frame drew it in pn.
+func (a *app) tagAt(pn *paneState, x, y float32) (string, bool) {
+	for _, h := range pn.tagSeen {
 		if x >= h.r.X && x < h.r.X+h.r.W && y >= h.r.Y && y < h.r.Y+h.r.H {
 			return h.key, true
 		}
@@ -95,15 +95,15 @@ func (a *app) tagAt(x, y float32) (string, bool) {
 }
 
 // drawTags puts a soft pill over each tag of the paragraphs in view.
-func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
-	if a.doc == nil {
+func (a *app) drawTags(pn *paneState, p *ui.Painter, r ui.Rect) {
+	if pn.doc == nil {
 		return
 	}
 	th := ryugo.Painting(p).Colors
-	text := a.doc.Text()
-	a.tagHits, a.linkHits = a.tagHits[:0], a.linkHits[:0]
-	for _, b := range a.shown(r) {
-		s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
+	text := pn.doc.Text()
+	pn.tagHits, pn.linkHits = pn.tagHits[:0], pn.linkHits[:0]
+	for _, b := range a.shown(pn, r) {
+		s, e, para := a.paraOfBox(pn, b) // from the text's table, not read from its start (#312)
 		if e <= s {
 			continue
 		}
@@ -116,11 +116,11 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 		if len(spans) == 0 && len(links) == 0 {
 			continue
 		}
-		l, left := a.paraLayout(s, para, r.W)
+		l, left := a.paraLayout(pn, s, para, r.W)
 		for _, lk := range links { // where the links are, to be clicked, and the icons of the web's before them
 			for i, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lk.from), End: units(line, lk.to)}) {
 				at := ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}
-				a.linkHits = append(a.linkHits, linkHit{at, lk.url, s + lk.from})
+				pn.linkHits = append(pn.linkHits, linkHit{at, lk.url, s + lk.from})
 				if i == 0 && lk.first && linkIconPad(lk.url, a.font.Size) > 0 { // its first line's piece alone (#509)
 					rtl := startsRTL(string([]rune(line)[lk.from:lk.to]))
 					a.drawLinkIcon(p, linkIconBox(at, a.font.Size, rtl), lk.url, th.Muted)
@@ -136,24 +136,30 @@ func (a *app) drawTags(p *ui.Painter, r ui.Rect) {
 			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, sp.from), End: units(line, sp.to)}) {
 				box := ui.Rect{X: r.X + left + rc.X - 2, Y: r.Y + b.Top + rc.Y + 1, W: rc.W + 4, H: rc.H - 2}
 				p.Fill(box, th.Accent.Alpha(map[bool]float32{true: 0.26, false: 0.13}[hot]), rad(5))
-				a.tagHits = append(a.tagHits, tagHit{box, key})
+				pn.tagHits = append(pn.tagHits, tagHit{box, key})
 			}
 		}
 	}
 }
 
-// openTag shows the pages that have tag key.
-func (a *app) openTag(key string) {
-	a.flush()
-	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.searchOpen, a.settingsOpen = key, nil, false, false, false, false
-	a.statsScreen, a.profileScreen = false, false
-	a.visit()
+// openTag shows the pages that have tag key in the active pane.
+func (a *app) openTag(key string) { a.openTagIn(a.pane(), key) }
+
+func (a *app) openTagIn(pn *paneState, key string) {
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.tag, pn.coll, pn.trashOpen, pn.tasksOpen, pn.searchOpen, pn.settingsOpen = key, nil, false, false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
+	a.visitIn(pn)
 }
 
-// noPage reports that something other than a page is shown: a collection,
+// noPage reports that something other than a page is shown in the active pane: a collection,
 // the trash, a tag.
-func (a *app) noPage() bool {
-	return a.coll != nil || a.trashOpen || a.tag != "" || a.tasksOpen || a.searchOpen || a.settingsOpen || a.statsScreen || a.profileScreen
+func (a *app) noPage() bool { return a.noPageOf(a.pane()) }
+
+func (a *app) noPageOf(pn *paneState) bool {
+	return pn.coll != nil || pn.trashOpen || pn.tag != "" || pn.tasksOpen || pn.searchOpen || pn.settingsOpen || pn.statsScreen || pn.profileScreen
 }
 
 // tagList is every tag of the library, the most used first.
@@ -163,7 +169,7 @@ type tagInfo struct {
 }
 
 func (a *app) allTags() []tagInfo {
-	a.linksTo(a.page, a.clock(), false) // the index is made with the backlinks'
+	a.linksTo(a.pane().page, a.clock(), false) // the index is made with the backlinks'
 	var out []tagInfo
 	for k, ps := range a.links.tags {
 		out = append(out, tagInfo{k, a.links.tagNames[k], ps})
@@ -179,30 +185,30 @@ func (a *app) allTags() []tagInfo {
 
 // tagPages are the pages that have the tag, the last changed first.
 func (a *app) tagPages(key string) []*Page {
-	a.linksTo(a.page, a.clock(), false)
+	a.linksTo(a.pane().page, a.clock(), false)
 	out := append([]*Page{}, a.links.tags[key]...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Modified.After(out[j].Modified) })
 	return out
 }
 
 // tagView is the pages of a tag, with the other tags above them to go to.
-func (a *app) tagView(c *ui.Context) {
+func (a *app) tagView(c *ui.Context, pn *paneState) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
 	now := a.clock()
 	all := a.allTags()
-	name := a.tag
+	name := pn.tag
 	for _, ti := range all {
-		if ti.key == a.tag {
+		if ti.key == pn.tag {
 			name = ti.name
 		}
 	}
-	pages := a.tagPages(a.tag)
+	pages := a.tagPages(pn.tag)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
 			ui.Text(c, "#"+name).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0).Grow(1).MaxLines(1)
 			if ryugo.Button(c.Key("tag-rename-open"), locales.CommonRename(), ryugo.ButtonOptions{Icon: iconEdit, Size: ryugo.Sm}).Clicked() {
-				a.tagRen = tagRename{open: true, key: a.tag, name: name}
+				a.tagRen = tagRename{open: true, key: pn.tag, name: name}
 			}
 		})
 		sub := locales.TagsPagesWithTag(len(pages))
@@ -213,14 +219,14 @@ func (a *app) tagView(c *ui.Context) {
 		if len(all) > 1 {
 			ui.Row(c.Key("tag-cloud")).Wrap().Gap(6).Padding(0, 0, 6, 0).Children(func() {
 				for _, ti := range all {
-					a.tagPill(c, cl, ti, ti.key == a.tag)
+					a.tagPill(c, cl, pn, ti, ti.key == pn.tag)
 				}
 			})
 		}
-		a.scrolled(c, "tags:220", nil, ui.Scroll(c).Grow(1), func() {
+		a.scrolledPane(c, pn, "tags:220", nil, ui.Scroll(c).Grow(1), func() {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				// viewStep pages at first, and more as the reader gets to the end, as a collection's list (#195)
-				shown := pages[:min(len(pages), a.shownLimit("tag|"+a.tag))]
+				shown := pages[:min(len(pages), a.shownLimit("tag|"+pn.tag))]
 				defer a.moreRow(c, len(pages)-len(shown))
 				for _, q := range shown {
 					q := q
@@ -241,9 +247,9 @@ func (a *app) tagView(c *ui.Context) {
 							ui.Text(c, where+"  ·  "+ago(q.Modified, now)).FontSize(12.5).TextColor(t.TextMuted).MaxLines(1)
 						})
 					})
-					a.kbMark(row, "t:"+q.Dir, true, func() { a.open(q) })
+					a.kbMark(row, "t:"+q.Dir, true, func() { a.openIn(pn, q) })
 					if row.Clicked() {
-						a.open(q)
+						a.openIn(pn, q)
 					}
 				}
 			})
@@ -252,7 +258,7 @@ func (a *app) tagView(c *ui.Context) {
 }
 
 // tagPill is a tag as a small button: its name and how many pages have it.
-func (a *app) tagPill(c *ui.Context, cl ryugo.Colors, ti tagInfo, on bool) {
+func (a *app) tagPill(c *ui.Context, cl ryugo.Colors, pn *paneState, ti tagInfo, on bool) {
 	pill := ui.Row(c.Key("tag:"+ti.key)).Padding(3, 9).Gap(6).Radius(rad(11)).AlignItems(ui.Center).
 		Label(locales.TagsTagLabel(ti.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	hot := pill.AnimateTo("on", map[bool]float32{true: 1, false: 0}[on], fadeQuick)
@@ -266,7 +272,7 @@ func (a *app) tagPill(c *ui.Context, cl ryugo.Colors, ti tagInfo, on bool) {
 		ui.Text(c, strconv.Itoa(len(ti.pages))).FontSize(11.5).TextColor(cl.Muted)
 	})
 	if pill.Clicked() {
-		a.openTag(ti.key)
+		a.openTagIn(pn, ti.key)
 	}
 }
 
@@ -288,7 +294,7 @@ func (a *app) panelTags(c *ui.Context, cl ryugo.Colors) {
 				if !ok {
 					ti = tagInfo{key: tagKey(n), name: n}
 				}
-				a.tagPill(c, cl, ti, false)
+				a.tagPill(c, cl, a.pane(), ti, false)
 			}
 		})
 	})
@@ -296,11 +302,12 @@ func (a *app) panelTags(c *ui.Context, cl ryugo.Colors) {
 
 // pageTags are the tags in the open page's text, as it is now.
 func (a *app) pageTags() []string {
-	if a.doc == nil {
+	doc := a.pane().doc
+	if doc == nil {
 		return nil
 	}
-	if v := a.doc.Version(); v != a.ptagsVer || a.ptagsDoc != a.doc {
-		a.ptags, a.ptagsVer, a.ptagsDoc = tagsOf(bodyMarkdown(a.doc.Text())), v, a.doc
+	if v := doc.Version(); v != a.ptagsVer || a.ptagsDoc != doc {
+		a.ptags, a.ptagsVer, a.ptagsDoc = tagsOf(bodyMarkdown(doc.Text())), v, doc
 	}
 	return a.ptags
 }
@@ -333,17 +340,18 @@ func (a *app) tagItems(q string) []menuItem {
 // chooseTag puts the tag name in place of what was typed after the #, and a
 // space after it, for the next word.
 func (a *app) chooseTag(name string) {
+	doc := a.pane().doc
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := doc.Selection()
 	start := s.start
-	attrs := a.doc.Text().AttributesAt(max(start-1, 0))
+	attrs := doc.Text().AttributesAt(max(start-1, 0))
 	attrs.Attachment, attrs.Link, attrs.Code = nil, "", false
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(start, max(caret, start), "#"+name+" ", attrs)
 		n := start + utf8.RuneCountInString(name) + 2
 		ed.Select(n, n)
 	})
-	a.doc.SetTypingAttributes(attrs)
+	doc.SetTypingAttributes(attrs)
 }
 
 // tagRename is the dialog that renames a tag, or merges it into another.
@@ -528,8 +536,10 @@ func (a *app) applyTagRename() {
 		}
 		r.open = false
 		a.say(toastOK, locales.TagsChangedIn(n))
-		if a.tag == key {
-			a.openTag(tagKey(strings.TrimPrefix(strings.TrimSpace(name), "#")))
+		for _, pn := range a.ps.states {
+			if pn.tag == key {
+				a.openTagIn(pn, tagKey(strings.TrimPrefix(strings.TrimSpace(name), "#")))
+			}
 		}
 	})
 }

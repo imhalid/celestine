@@ -61,11 +61,11 @@ type funBar struct {
 }
 
 // bar is the bar of the area named key, made the first time.
-func (a *app) bar(key string, st *ui.ScrollState) *funBar {
+func (a *app) bar(pn *paneState, key string, st *ui.ScrollState) *funBar {
 	if a.bars == nil {
 		a.bars = map[string]*funBar{}
 	}
-	key = a.ps.key(a.ps.cur) + "/" + key // each pane its own
+	key = a.ps.paneKey(pn) + "/" + key // each pane its own
 	b := a.bars[key]
 	if b == nil {
 		b = &funBar{w: funBarRest}
@@ -81,19 +81,31 @@ func (a *app) bar(key string, st *ui.ScrollState) *funBar {
 // scrolled builds the scroll area el (ui.Scroll, sized as the view wants it) with children, under
 // the name key, with the app's bar. st is the scroll the view keeps, or nil.
 func (a *app) scrolled(c *ui.Context, key string, st *ui.ScrollState, el ui.Element, children func()) ui.Element {
-	return a.scrolledOn(c, key, st, el, children, false)
+	return a.scrolledOn(c, nil, key, st, el, children, false)
+}
+
+func (a *app) scrolledPane(c *ui.Context, pn *paneState, key string, st *ui.ScrollState, el ui.Element, children func()) ui.Element {
+	return a.scrolledOn(c, pn, key, st, el, children, false)
 }
 
 // scrolledSideways is scrolled for an area that scrolls sideways (ui.ScrollHorizontal): the bar runs
 // along its bottom.
 func (a *app) scrolledSideways(c *ui.Context, key string, st *ui.ScrollState, el ui.Element, children func()) ui.Element {
-	return a.scrolledOn(c, key, st, el, children, true)
+	return a.scrolledOn(c, nil, key, st, el, children, true)
+}
+
+func (a *app) scrolledSidewaysPane(c *ui.Context, pn *paneState, key string, st *ui.ScrollState, el ui.Element, children func()) ui.Element {
+	return a.scrolledOn(c, pn, key, st, el, children, true)
 }
 
 // scrolledList is scrolled for a ui.List, whose rows are its children: list builds the list in wrap, a box
 // it fills, and the strip that takes the pointer stands over it there.
 func (a *app) scrolledList(c *ui.Context, key string, st *ui.ScrollState, wrap ui.Element, list func() ui.Element) ui.Element {
-	b := a.bar(key, st)
+	return a.scrolledListPane(c, nil, key, st, wrap, list)
+}
+
+func (a *app) scrolledListPane(c *ui.Context, pn *paneState, key string, st *ui.ScrollState, wrap ui.Element, list func() ui.Element) ui.Element {
+	b := a.bar(pn, key, st)
 	b.horiz, b.cardR = false, a.cardRadius(c)
 	wrap.Children(func() {
 		el := list().TrackScroll(b.st).Scrollbars(false)
@@ -105,8 +117,8 @@ func (a *app) scrolledList(c *ui.Context, key string, st *ui.ScrollState, wrap u
 	return wrap
 }
 
-func (a *app) scrolledOn(c *ui.Context, key string, st *ui.ScrollState, el ui.Element, children func(), horiz bool) ui.Element {
-	b := a.bar(key, st)
+func (a *app) scrolledOn(c *ui.Context, pn *paneState, key string, st *ui.ScrollState, el ui.Element, children func(), horiz bool) ui.Element {
+	b := a.bar(pn, key, st)
 	b.horiz, b.cardR = horiz, a.cardRadius(c)
 	el.TrackScroll(b.st).Scrollbars(false)
 	b.over = el.Hovered()

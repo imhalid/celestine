@@ -38,14 +38,18 @@ func trashDaysLeft(item *TrashItem, now time.Time) int {
 	return max(0, int((left+24*time.Hour-1)/(24*time.Hour)))
 }
 
-// openTrash shows the trash instead of a page.
-func (a *app) openTrash() {
-	a.flush()
-	a.trashOpen, a.coll, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = true, nil, "", false, false, false
-	a.statsScreen, a.profileScreen = false, false
+// openTrash shows the trash instead of a page in the active pane.
+func (a *app) openTrash() { a.openTrashIn(a.pane()) }
+
+func (a *app) openTrashIn(pn *paneState) {
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.trashOpen, pn.coll, pn.tag, pn.tasksOpen, pn.searchOpen, pn.settingsOpen = true, nil, "", false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
 	a.purgeTrash()
 	a.loadTrash()
-	a.visit()
+	a.visitIn(pn)
 }
 
 // restore puts item back and opens it.
@@ -56,7 +60,7 @@ func (a *app) restore(item *TrashItem) {
 		return
 	}
 	a.loadTrash()
-	if a.trashOpen {
+	if a.pane().trashOpen {
 		a.say(toastOK, locales.TrashRestored(item.Title))
 		return
 	}
@@ -95,7 +99,7 @@ func (a *app) trashRow(c *ui.Context) {
 		a.tasksRow(c)
 		r := ui.Row(c.Key("trash-btn")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTrash()).Role(ui.RoleButton).Transition(rowMove)
-		st := navRowState(a.trashOpen, r.Hovered())
+		st := navRowState(a.pane().trashOpen, r.Hovered())
 		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(iconC)
@@ -112,7 +116,7 @@ func (a *app) trashRow(c *ui.Context) {
 }
 
 // trashView lists what is in the trash.
-func (a *app) trashView(c *ui.Context) {
+func (a *app) trashView(c *ui.Context, pn *paneState) {
 	t := c.Theme()
 	now := a.clock()
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
@@ -123,7 +127,7 @@ func (a *app) trashView(c *ui.Context) {
 			a.emptyState(c, iconTrash, locales.TheTrashIsEmpty(), locales.ThePagesYouThrowAwayWait(), "", nil)
 			return
 		}
-		a.scrolled(c, "trash:96", nil, ui.Scroll(c).Grow(1), func() {
+		a.scrolledPane(c, pn, "trash:96", nil, ui.Scroll(c).Grow(1), func() {
 			ui.Column(c).Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, item := range a.trashItems {
 					a.trashItemRow(c, item, now)
@@ -239,7 +243,7 @@ func (a *app) tasksRow(c *ui.Context) {
 	{
 		r := ui.Row(c.Key("tasks-row")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTasks()).Role(ui.RoleButton).Transition(rowMove)
-		st := navRowState(a.tasksOpen, r.Hovered())
+		st := navRowState(a.pane().tasksOpen, r.Hovered())
 		textC, iconC := sideRowLook(c, r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(iconC)

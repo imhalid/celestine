@@ -27,17 +27,17 @@ func (a *app) readClip() string {
 
 // titleMenu gives the page's title (a text input, or the journal's text) the page's menu, and the input its text's
 // lines while it is being edited.
-func (a *app) titleMenu(title ui.Element, p *Page, editable bool) {
+func (a *app) titleMenu(pn *paneState, title ui.Element, p *Page, editable bool) {
 	more := func() []menuItem { return a.pageMenu(p, false) }
 	if !editable { // a day's title is not typed: only the page's menu
 		a.popMenu(title, more)
 		return
 	}
-	a.fieldMenu(title, &a.title, fieldOpts{oneLine: true, editing: func() bool { return a.titleFocused }, more: more, changed: func() {
-		name := strings.TrimSpace(a.title)
+	a.fieldMenu(title, &pn.title, fieldOpts{oneLine: true, editing: func() bool { return pn.titleFocused }, more: more, changed: func() {
+		name := strings.TrimSpace(pn.title)
 		if name == "" {
 			name = locales.CommonUntitled()
 		}
-		a.titleTyped(p, name)
+		a.titleTyped(pn, p, name)
 	}})
 }

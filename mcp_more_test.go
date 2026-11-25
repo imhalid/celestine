@@ -187,7 +187,7 @@ func TestRunCommandKeepsAccess(t *testing.T) {
 	a, tt := newTestApp(t, "metin")
 	tt.Advance(50 * time.Millisecond)
 	cs := agent(t, a)
-	p := a.page
+	p := a.pane().page
 	key := filepath.Base(p.Coll.Dir)
 	a.settings.MCPAccess = map[string]string{key: mcpRead}
 	res, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "run_command", Arguments: map[string]any{"command": "Çöpe taşı: Sayfa"}})
@@ -277,7 +277,7 @@ func TestMCPHelpResourcesPrompts(t *testing.T) {
 	var made struct{ ID string }
 	call(t, cs, "create_page", map[string]any{"collection": "Tarifler", "title": "Menemen", "markdown": "Domates, biber, yumurta."}, &made)
 	call(t, cs, "open_page", map[string]any{"page": made.ID}, nil)
-	if a.page == nil || a.page.Title != "Menemen" {
+	if a.pane().page == nil || a.pane().page.Title != "Menemen" {
 		t.Fatal("open_page did not open it")
 	}
 	f := false
@@ -360,8 +360,8 @@ func TestMCPMoveTargetByDirJournalReorderAndHiddenCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.settings.MCPAccess[filepath.Base(hiddenColl.Dir)] = mcpOff
-	a.coll = hiddenColl
-	a.page = hiddenPage
+	a.pane().coll = hiddenColl
+	a.pane().page = hiddenPage
 
 	var cmds []struct {
 		Title string `json:"title"`

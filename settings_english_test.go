@@ -83,15 +83,15 @@ func TestSettingsInEnglish(t *testing.T) {
 		}
 	}
 	for tab := range settingsSections {
-		a.settingsTab = tab
+		a.pane().settingsTab = tab
 		look(msg(settingsSections[tab].name))
 	}
-	a.settingsTab = tabMCP
+	a.pane().settingsTab = tabMCP
 	a.settings.Port = 0
 	a.setMCP(true)
 	defer a.setMCP(false)
 	look("MCP on")
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	for _, mode := range []string{"dir", "server"} {
 		a.settings.SyncMode = mode
 		look("Sync " + mode)

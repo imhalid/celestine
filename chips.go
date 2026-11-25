@@ -273,7 +273,7 @@ func importMarkdown(md string) richtext.Text {
 }
 
 // parse reads Markdown into the editor's text, drawn, for the open page.
-func (a *app) parse(md string) richtext.Text { return a.dress(a.page, importMarkdown(md)) }
+func (a *app) parse(md string) richtext.Text { return a.dress(a.pane().page, importMarkdown(md)) }
 
 // withoutChips turns the chips in t back into the text of their links.
 func withoutChips(t richtext.Text) richtext.Text {
@@ -490,7 +490,7 @@ func (a *app) pageTitledWhole(title string) *Page {
 		if !strings.EqualFold(p.Title, title) {
 			continue
 		}
-		if a.page != nil && p.Coll == a.page.Coll {
+		if a.pane().page != nil && p.Coll == a.pane().page.Coll {
 			return p
 		}
 		if found == nil {
@@ -501,7 +501,7 @@ func (a *app) pageTitledWhole(title string) *Page {
 		return found
 	}
 	for _, p := range a.titleIndex()[strings.ToLower(title)] {
-		if a.page != nil && p.Coll == a.page.Coll {
+		if a.pane().page != nil && p.Coll == a.pane().page.Coll {
 			return p
 		}
 		if found == nil {
@@ -546,7 +546,7 @@ func (a *app) titleIndex() map[string][]*Page {
 }
 
 // chipAt is the chip drawn at x, y in the window, or nil.
-func (a *app) chipAt(x, y float32) *chipHit {
+func (a *app) chipAt(_ *paneState, x, y float32) *chipHit {
 	for i := range a.chipSeen {
 		h := &a.chipSeen[i]
 		if x >= h.r.X && x <= h.r.X+h.r.W && y >= h.r.Y && y <= h.r.Y+h.r.H {
@@ -556,11 +556,11 @@ func (a *app) chipAt(x, y float32) *chipHit {
 	return nil
 }
 
-// clickChip opens the page of the chip at x, y in the window, making it
+// clickChip opens the page of the chip at x, y in pn, making it
 // first if it is not there, and reports whether there was one; a date's
 // opens a calendar to change it.
-func (a *app) clickChip(x, y float32) bool {
-	if h := a.chipAt(x, y); h != nil {
+func (a *app) clickChip(pn *paneState, x, y float32) bool {
+	if h := a.chipAt(pn, x, y); h != nil {
 		if h.ch.kind == "fold" {
 			a.unfold(h.ch)
 			return true
@@ -574,11 +574,11 @@ func (a *app) clickChip(x, y float32) bool {
 			return true
 		}
 		if h.ch.kind == "file" { // the file, in the system's program for it
-			a.openAttachedFile(a.page, h.ch.target, false)
+			a.openAttachedFile(pn.page, h.ch.target, false)
 			return true
 		}
 		if h.ch.kind == "query" { // the page of the row, or the search
-			a.clickQuery(h, y)
+			a.clickQuery(pn, h, y)
 			return true
 		}
 		if h.ch.kind == "check" { // done, or not done again
@@ -591,7 +591,7 @@ func (a *app) clickChip(x, y float32) bool {
 		}
 		if h.ch.kind == "embed" { // the page it shows
 			if p := a.pageTitled(h.ch.target); p != nil {
-				a.open(p)
+				a.openIn(pn, p)
 			}
 			return true
 		}
@@ -608,9 +608,9 @@ func (a *app) clickChip(x, y float32) bool {
 		if p != nil && a.pageTitledWhole(h.ch.target) != nil {
 			heading = "" // a page so titled, "#" and all
 		}
-		if p == nil && a.page != nil {
+		if p == nil && pn.page != nil {
 			title, _ := splitHeading(h.ch.target)
-			np, err := a.page.Coll.NewPage(nil, title)
+			np, err := pn.page.Coll.NewPage(nil, title)
 			if err != nil {
 				a.fail(err)
 				return true
@@ -618,7 +618,7 @@ func (a *app) clickChip(x, y float32) bool {
 			p = np
 		}
 		if p != nil {
-			a.open(p)
+			a.openIn(pn, p)
 			if heading != "" {
 				a.goToHeading(heading)
 			}
@@ -636,9 +636,9 @@ type dateEdit struct {
 	cal  time.Time
 }
 
-// chipPos is where the chip is in the text, or -1.
-func (a *app) chipPos(ch *chip) int {
-	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+// chipPos is where the chip is in pn's text, or -1.
+func (a *app) chipPos(pn *paneState, ch *chip) int {
+	for i, r := range pn.doc.Text().Runs(0, pn.doc.Text().Len()) {
 		if att := r.Attributes.Attachment; att != nil {
 			// the text keeps its own copies of what an attachment carries: by value
 			if other, ok := att.Data.(*chip); ok && sameChip(other, ch) {
@@ -653,7 +653,7 @@ func (a *app) chipPos(ch *chip) int {
 // chosen changes the chip; a click elsewhere or Esc closes it.
 func (a *app) dateEditView(c *ui.Context) {
 	d := &a.dateEdit
-	if !d.open || a.doc == nil {
+	if !d.open || a.pane().doc == nil {
 		return
 	}
 	if c.Shortcut(0, ui.KeyEscape) {
@@ -683,11 +683,12 @@ func (a *app) dateEditView(c *ui.Context) {
 				return
 			}
 			if cal := ui.Calendar(c, &d.cal); cal.Changed() {
-				if i := a.chipPos(d.ch); i >= 0 {
+				pn := a.pane()
+				if i := a.chipPos(pn, d.ch); i >= 0 {
 					nc := &chip{kind: "date", target: d.cal.Format("2006-01-02")}
-					attrs := a.doc.Text().AttributesAt(i)
+					attrs := pn.doc.Text().AttributesAt(i)
 					attrs.Attachment = a.attachment(nc)
-					a.doc.Edit(func(ed *richtext.Edit) {
+					pn.doc.Edit(func(ed *richtext.Edit) {
 						ed.ReplaceString(i, i+1, string(richtext.ObjectReplacement), attrs)
 					})
 				}
@@ -714,14 +715,15 @@ func (a *app) chipShortcut(text richtext.Text, caret int, typed bool) bool {
 	if m == nil {
 		return false
 	}
+	doc := a.pane().doc
 	start := ps + utf8.RuneCountInString(line[:m[0]])
 	attrs := text.AttributesAt(start)
 	attrs.Attachment = a.attachment(chipOf(line[m[2]:m[3]]))
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(start, caret, string(richtext.ObjectReplacement), attrs)
 		ed.Select(start+1, start+1)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	doc.SetTypingAttributes(richtext.Attributes{})
 	return true
 }
 
@@ -729,7 +731,8 @@ func (a *app) chipShortcut(text richtext.Text, caret int, typed bool) bool {
 // in, into chips, outside code; the caret stays after what it was after. It
 // reports whether there was one.
 func (a *app) chipsInPasted(from, to int) bool {
-	t := a.doc.Text()
+	doc := a.pane().doc
+	t := doc.Text()
 	if from < 0 || to > t.Len() {
 		return false
 	}
@@ -739,7 +742,7 @@ func (a *app) chipsInPasted(from, to int) bool {
 	}
 	locs := wikiInText.FindAllStringSubmatchIndex(s, -1)
 	removed, done := 0, false
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		for i := len(locs) - 1; i >= 0; i-- {
 			m := locs[i]
 			start := from + utf8.RuneCountInString(s[:m[0]])
@@ -756,7 +759,7 @@ func (a *app) chipsInPasted(from, to int) bool {
 		ed.Select(to-removed, to-removed)
 	})
 	if done {
-		a.doc.SetTypingAttributes(richtext.Attributes{})
+		doc.SetTypingAttributes(richtext.Attributes{})
 	}
 	return done
 }
@@ -774,7 +777,8 @@ func (a *app) overtype(text richtext.Text, caret int, typed bool) bool {
 	if !wikiOpen.MatchString(text.Slice(ps, caret-1).String()) {
 		return false
 	}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc := a.pane().doc
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(caret, caret+1, richtext.Text{})
 		ed.Select(caret, caret)
 	})
@@ -784,21 +788,22 @@ func (a *app) overtype(text richtext.Text, caret int, typed bool) bool {
 // insertChip puts a chip in place of the text from start to the caret,
 // with a space after it.
 func (a *app) insertChip(start int, ch *chip) {
-	_, caret := a.doc.Selection()
+	doc := a.pane().doc
+	_, caret := doc.Selection()
 	// a "[[" the menu closed itself with "]]": they go with what was typed
-	if t := a.doc.Text(); a.slash.sign == "[[" && caret+2 <= t.Len() && t.Slice(caret, caret+2).String() == "]]" {
+	if t := doc.Text(); a.slash.sign == "[[" && caret+2 <= t.Len() && t.Slice(caret, caret+2).String() == "]]" {
 		caret += 2
 	}
-	attrs := a.doc.Text().AttributesAt(start)
+	attrs := doc.Text().AttributesAt(start)
 	attrs.Attachment = nil
 	plain := attrs
 	attrs.Attachment = a.attachment(ch)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(start, caret, string(richtext.ObjectReplacement), attrs)
 		ed.ReplaceString(start+1, start+1, " ", plain)
 		ed.Select(start+2, start+2)
 	})
-	a.doc.SetTypingAttributes(plain)
+	doc.SetTypingAttributes(plain)
 }
 
 // parseDay reads a day written 2026-11-05.

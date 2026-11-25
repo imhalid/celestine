@@ -37,9 +37,9 @@ func TestSnippet(t *testing.T) {
 func TestLibrarySearch(t *testing.T) {
 	a, tt := newTestApp(t, "bu sayfada çay demlemek anlatılır\n")
 	tt.SetSize(1100, 800)
-	b, _ := a.page.Coll.NewPage(nil, "Çay notları")
+	b, _ := a.pane().page.Coll.NewPage(nil, "Çay notları")
 	b.SaveText("sadece başlıkta çay var gibi\n")
-	c, _ := a.page.Coll.NewPage(nil, "Kahve")
+	c, _ := a.pane().page.Coll.NewPage(nil, "Kahve")
 	c.SaveText("kahve ve çay birlikte, ayrıca demlemek\n")
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -67,7 +67,7 @@ func TestLibrarySearch(t *testing.T) {
 	// the view, from its key
 	tt.Key(ui.Cmd|ui.Shift, ui.KeyF)
 	tt.Advance(300 * time.Millisecond)
-	if !a.searchOpen {
+	if !a.pane().searchOpen {
 		t.Fatal("the key does not open it")
 	}
 	typeEach(tt, "demlemek")
@@ -79,11 +79,11 @@ func TestLibrarySearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if a.page != c || a.searchOpen {
-		t.Fatalf("page %q", a.page.Title)
+	if a.pane().page != c || a.pane().searchOpen {
+		t.Fatalf("page %q", a.pane().page.Title)
 	}
-	_, caret := a.doc.Selection()
-	txt := a.doc.Text().String()
+	_, caret := a.pane().doc.Selection()
+	txt := a.pane().doc.Text().String()
 	if want := utf8.RuneCountInString(txt[:strings.Index(txt, "demlemek")]); caret != want {
 		t.Fatalf("caret %d", caret)
 	}
@@ -165,7 +165,7 @@ func TestSearchLanguage(t *testing.T) {
 	a, tt := newTestApp(t, "çay demlenir\n\n- [ ] demlik al\n")
 	now := time.Date(2026, 11, 9, 10, 0, 0, 0, time.Local)
 	a.clock = func() time.Time { return now }
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	b, _ := coll.NewPage(nil, "Kahve")
 	b.SaveText("kahve ve süt\n\n- [x] fincan yıka\n")
 	c, _ := coll.NewPage(nil, "Süt")
@@ -179,7 +179,7 @@ func TestSearchLanguage(t *testing.T) {
 	c.SetValue(pr.ID, "1")
 	b.SetValue(st.ID, "Sürüyor")
 	c.SetValue(st.ID, "Bitti")
-	a.page.Created, a.page.Modified = now.AddDate(0, 0, -20), now.AddDate(0, 0, -10)
+	a.pane().page.Created, a.pane().page.Modified = now.AddDate(0, 0, -20), now.AddDate(0, 0, -10)
 	b.Created, b.Modified = now.AddDate(0, 0, -5), now.Add(-time.Hour)
 	c.Created, c.Modified = now.AddDate(0, -2, 0), now.AddDate(0, -2, 0)
 	a.linksStale()
@@ -199,7 +199,7 @@ func TestSearchLanguage(t *testing.T) {
 			slices.Sort(out)
 			return strings.Join(out, ",")
 		}
-		self := a.page.Title
+		self := a.pane().page.Title
 		for q, want := range map[string]string{
 			"çay OR kahve":                    "Kahve," + self,
 			"süt -kahve":                      "Süt",
@@ -235,7 +235,7 @@ func TestSearchFilters(t *testing.T) {
 	other, _ := a.lib.NewCollection("Öteki")
 	x, _ := other.NewPage(nil, "Çay rehberi")
 	x.SaveText("su sıcak olmalı #çay\n")
-	y, _ := a.page.Coll.NewPage(nil, "Üçüncü")
+	y, _ := a.pane().page.Coll.NewPage(nil, "Üçüncü")
 	y.SaveText("çay ve #fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}

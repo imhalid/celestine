@@ -11,7 +11,7 @@ import (
 
 // embeds counts the cards in the editor's text.
 func embeds(a *app) (n int, titles []string) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	for i, r := range []rune(t.String()) {
 		if r != richtext.ObjectReplacement {
 			continue
@@ -31,11 +31,11 @@ func embeds(a *app) (n int, titles []string) {
 func TestEmbed(t *testing.T) {
 	a, tt := newTestApp(t, "önce\n\n![[Hedef Sayfa]]\n\nsonra ![[Hedef Sayfa]] aynı satırda\n")
 	tt.SetSize(1100, 800)
-	target, _ := a.page.Coll.NewPage(nil, "Hedef Sayfa")
+	target, _ := a.pane().page.Coll.NewPage(nil, "Hedef Sayfa")
 	target.SaveText("# Hedef Sayfa\n\nilk satır **kalın**\n\n- madde bir\n- [ ] görev\n")
 	a.docs = map[*Page]*richtext.Document{}
-	other := a.page
-	a.page = nil
+	other := a.pane().page
+	a.pane().page = nil
 	a.open(other)
 	a.linksStale()
 	tt.Frame()
@@ -44,7 +44,7 @@ func TestEmbed(t *testing.T) {
 	if n != 1 || titles[0] != "Hedef Sayfa" {
 		t.Fatalf("cards %d %v", n, titles)
 	}
-	md := a.pageMarkdown(a.page, a.doc.Text())
+	md := a.pageMarkdown(a.pane().page, a.pane().doc.Text())
 	if !strings.Contains(md, "\n![[Hedef Sayfa]]\n") || !strings.Contains(md, "sonra [[Hedef Sayfa]] aynı satırda") && !strings.Contains(md, "sonra ![[Hedef Sayfa]]") {
 		t.Fatalf("markdown:\n%s", md)
 	}
@@ -66,8 +66,8 @@ func TestEmbed(t *testing.T) {
 	}
 	tt.ClickAt(hit.r.X+hit.r.W/2, hit.r.Y+hit.r.H/2)
 	tt.Advance(200 * time.Millisecond)
-	if a.page != target {
-		t.Fatalf("page %q", a.page.Title)
+	if a.pane().page != target {
+		t.Fatalf("page %q", a.pane().page.Title)
 	}
 }
 
@@ -75,11 +75,11 @@ func TestEmbed(t *testing.T) {
 func TestEmbedFromMenu(t *testing.T) {
 	a, tt := newTestApp(t, "satır\n\n")
 	tt.SetSize(1100, 800)
-	target, _ := a.page.Coll.NewPage(nil, "Gömülecek")
+	target, _ := a.pane().page.Coll.NewPage(nil, "Gömülecek")
 	target.SaveText("içerik\n")
 	a.linksStale()
-	a.fresh, a.refocus = false, true
-	a.doc.SetSelection(0, 0)
+	a.pane().fresh, a.pane().refocus = false, true
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
 	typeEach(tt, "/")
@@ -95,9 +95,9 @@ func TestEmbedFromMenu(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
 	if n, titles := embeds(a); n != 1 || titles[0] != "Gömülecek" {
-		t.Fatalf("cards %d %v; text %q", n, titles, a.doc.Text().String())
+		t.Fatalf("cards %d %v; text %q", n, titles, a.pane().doc.Text().String())
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "![[Gömülecek]]") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "![[Gömülecek]]") {
 		t.Fatalf("%q", md)
 	}
 }

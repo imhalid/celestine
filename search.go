@@ -217,8 +217,8 @@ func (a *app) searchKept(q string, limit int, force, snips bool) []searchHit {
 	}
 	a.linksTo(nil, a.clock(), force)
 	k := searchKey{q: q, limit: limit, snips: snips, pages: PagesGen.Load(), writes: a.libWrites() + SavesGen.Load(), built: a.links.built, day: a.clock().Format("2006-01-02")}
-	if a.doc != nil {
-		k.text = a.doc.Version()
+	if a.pane().doc != nil {
+		k.text = a.pane().doc.Version()
 	}
 	if hits, ok := a.searchCache[k]; ok {
 		return hits
@@ -298,46 +298,52 @@ func (a *app) findPages(q string, limit int, snips bool) []searchHit {
 	return out
 }
 
-// openSearch shows the search, with q asked.
-func (a *app) openSearch(q string) {
-	a.flush()
+// openSearch shows the search in the active pane, with q asked.
+func (a *app) openSearch(q string) { a.openSearchIn(a.pane(), q) }
+
+func (a *app) openSearchIn(pn *paneState, q string) {
+	if pn == a.pane() {
+		a.flush()
+	}
 	if strings.TrimSpace(q) != "" {
 		a.noteSearch()
 	}
-	a.searchOpen, a.searchQ, a.searchFocus = true, q, true
-	a.tag, a.coll, a.trashOpen, a.tasksOpen, a.settingsOpen = "", nil, false, false, false
-	a.statsScreen, a.profileScreen = false, false
+	pn.searchOpen, pn.searchQ, pn.searchFocus = true, q, true
+	pn.tag, pn.coll, pn.trashOpen, pn.tasksOpen, pn.settingsOpen = "", nil, false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
 	a.linksStale()
-	a.visit()
+	a.visitIn(pn)
 }
 
 // openFound opens the page of a result with the caret where the word is.
-func (a *app) openFound(h searchHit) {
-	a.open(h.page)
-	if a.doc == nil {
+func (a *app) openFound(h searchHit) { a.openFoundIn(a.pane(), h) }
+
+func (a *app) openFoundIn(pn *paneState, h searchHit) {
+	a.openIn(pn, h.page)
+	if pn.doc == nil {
 		return
 	}
-	if at := runeIndex([]rune(foldText(a.doc.Text().String())), []rune(h.at)); at >= 0 {
-		a.gotoPos(at)
+	if at := runeIndex([]rune(foldText(pn.doc.Text().String())), []rune(h.at)); at >= 0 {
+		a.gotoPosIn(pn, at)
 	}
 }
 
 // searchView is the search: a field, and the pages it finds.
-func (a *app) searchView(c *ui.Context) {
+func (a *app) searchView(c *ui.Context, pn *paneState) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
-	hits := a.searchPages(a.searchQ, 80, a.links.stale)
+	hits := a.searchPages(pn.searchQ, 80, a.links.stale)
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Text(c, locales.CommonSearch()).FontSize(32).FontWeight(720).Padding(2, 0, 2, 0)
-		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &a.searchQ, ryugo.InputOptions{Label: locales.SearchTheLibrary(), Placeholder: locales.QuerySearchPagesTitlesText(), PrefixIcon: iconSearch, Clearable: true}), &a.searchQ, fieldOpts{oneLine: true})
-		if a.searchFocus {
+		in := a.fieldMenu(ryugo.Input(c.Key("search-q"), &pn.searchQ, ryugo.InputOptions{Label: locales.SearchTheLibrary(), Placeholder: locales.QuerySearchPagesTitlesText(), PrefixIcon: iconSearch, Clearable: true}), &pn.searchQ, fieldOpts{oneLine: true})
+		if pn.searchFocus {
 			in.Focus()
-			a.searchFocus = false
+			pn.searchFocus = false
 		}
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() { a.saveSearchButton(c); a.replaceBar(c) }) // replaceBar: libreplace.go
 		sub := locales.QueryPagesWithEveryWord()
 		switch {
-		case strings.TrimSpace(a.searchQ) == "":
+		case strings.TrimSpace(pn.searchQ) == "":
 		case len(hits) == 0:
 			sub = locales.SearchNoMatches()
 		default:
@@ -348,14 +354,14 @@ func (a *app) searchView(c *ui.Context) {
 		}
 		ui.Text(c, sub).FontSize(13.5).TextColor(t.TextMuted).Padding(2, 0, 4, 0)
 		if len(hits) == 0 {
-			if strings.TrimSpace(a.searchQ) == "" {
+			if strings.TrimSpace(pn.searchQ) == "" {
 				a.emptyState(c, iconSearch, locales.SearchTheLibrary(), locales.SearchThePagesTitlesAndText(), "", nil)
 			} else {
 				a.emptyState(c, iconSearch, locales.CommonNoPageMatches(), locales.TryAnotherWordOrTakeThe(), "", nil)
 			}
 			return
 		}
-		a.scrolled(c, "search-scroll", nil, ui.Scroll(c.Key("search-scroll")).Grow(1), func() {
+		a.scrolledPane(c, pn, "search-scroll", nil, ui.Scroll(c.Key("search-scroll")).Grow(1), func() {
 			ui.Column(c).FillWidth().Gap(2).Padding(0, 0, 40, 0).Children(func() {
 				for _, h := range hits {
 					h := h
@@ -388,9 +394,9 @@ func (a *app) searchView(c *ui.Context) {
 							ui.RichText(c, spans...).Padding(0, 0, 0, 24).MaxLines(2)
 						}
 					})
-					a.kbMark(row, "s:"+h.page.Dir, true, func() { a.openFound(h) })
+					a.kbMark(row, "s:"+h.page.Dir, true, func() { a.openFoundIn(pn, h) })
 					if row.Clicked() {
-						a.openFound(h)
+						a.openFoundIn(pn, h)
 					}
 				}
 			})

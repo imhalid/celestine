@@ -30,7 +30,7 @@ type appCmd struct {
 
 // noPageOff is why a command of the page cannot run: there is no page.
 func noPageOff(a *app) string {
-	if a.page == nil || a.doc == nil || a.noPage() {
+	if a.pane().page == nil || a.pane().doc == nil || a.noPage() {
 		return locales.CommandsNoPageOpen()
 	}
 	return ""
@@ -46,7 +46,7 @@ func onePaneOff(a *app) string {
 
 // appCommands is the list. It is made anew each time: the commands are closures on nothing but the app.
 func appCommands() []appCmd {
-	caret := func(a *app) int { _, c := a.doc.Selection(); return c }
+	caret := func(a *app) int { _, c := a.pane().doc.Selection(); return c }
 	return []appCmd{
 		{title: "common_settings", accel: "cmd+,", menu: "app", dots: true, glyph: iconSettings, run: (*app).toggleSettings},
 		{title: "showTheWelcomeScreen", glyph: iconSearch, run: (*app).welcomeAgain},
@@ -54,10 +54,10 @@ func appCommands() []appCmd {
 
 		{title: "common_newPage", accel: "cmd+n", menu: "file", noPal: true, glyph: iconPlus, run: func(a *app) {
 			switch {
-			case a.coll != nil:
-				a.newPage(a.coll, nil)
-			case a.page != nil:
-				a.newPage(a.page.Coll, nil)
+			case a.pane().coll != nil:
+				a.newPage(a.pane().coll, nil)
+			case a.pane().page != nil:
+				a.newPage(a.pane().page.Coll, nil)
 			case len(a.lib.Collections) > 0:
 				a.newPage(a.lib.Collections[0], nil)
 			}
@@ -97,9 +97,9 @@ func appCommands() []appCmd {
 			return ""
 		}},
 
-		{title: "moveTheBlockUp", accel: "cmd+shift+up", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, -1) }, off: noPageOff},
-		{title: "moveTheBlockDown", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.doc, 1) }, off: noPageOff},
-		{title: "duplicateTheBlock", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.doc, caret(a), a.copyChipsIn) }, off: noPageOff},
+		{title: "moveTheBlockUp", accel: "cmd+shift+up", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.pane().doc, -1) }, off: noPageOff},
+		{title: "moveTheBlockDown", accel: "cmd+shift+down", menu: "block", glyph: iconStack, run: func(a *app) { moveBlock(a.pane().doc, 1) }, off: noPageOff},
+		{title: "duplicateTheBlock", accel: "cmd+d", menu: "block", glyph: iconStack, run: func(a *app) { duplicateBlock(a.pane().doc, caret(a), a.copyChipsIn) }, off: noPageOff},
 		{title: "foldUnfold", accel: "cmd+/", menu: "block", glyph: iconChevron, run: func(a *app) { a.toggleFold(caret(a)) }, off: noPageOff},
 		{title: "zoomIntoTheBlock", accel: zoomInKey, menu: "block", glyph: iconChevron, run: func(a *app) { a.zoomIn(caret(a)) }, off: noPageOff},
 		{title: "zoomOut", accel: zoomOutKey, menu: "block", glyph: iconChevron, run: (*app).zoomOut, off: func(a *app) string {
@@ -122,7 +122,7 @@ func appCommands() []appCmd {
 		{title: "common_commands", accel: "cmd+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
 		{title: "commandsP", accel: "cmd+shift+p", menu: "go", dots: true, noPal: true, glyph: iconSearch, run: (*app).openCommands},
 		{title: "findInPage2", accel: "cmd+f", menu: "go", dots: true, glyph: iconSearch, run: (*app).openFind, off: noPageOff},
-		{title: "searchTheLibrary", accel: "cmd+shift+f", menu: "go", dots: true, glyph: iconSearch, run: func(a *app) { a.openSearch(a.searchQ) }},
+		{title: "searchTheLibrary", accel: "cmd+shift+f", menu: "go", dots: true, glyph: iconSearch, run: func(a *app) { a.openSearch(a.pane().searchQ) }},
 		{title: "todaysPage", accel: "cmd+j", menu: "go", sep: true, glyph: iconCalendar, run: (*app).openToday},
 		{title: "previousDay", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(-1) }},
 		{title: "nextDay", menu: "go", glyph: iconCalendar, run: func(a *app) { a.stepDay(1) }},

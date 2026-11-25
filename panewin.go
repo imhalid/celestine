@@ -42,8 +42,8 @@ func (a *app) host() ryugo.DockHost {
 func (a *app) paneKinds(th *richtext.Theme) []ryugo.DockKind {
 	n := a.paneCount()
 	return []ryugo.DockKind{{Kind: "pane", Title: locales.CommonPane(), Icon: iconPanel, Build: func(c *ui.Context, p *ryugo.Pane) {
-		if i := a.ps.index(p.ID); i >= 0 {
-			a.withPane(i, func() { a.paneColumn(c, th, i, n, true) })
+		if i := a.ps.index(p.ID); i >= 0 && i < len(a.ps.states) {
+			a.paneColumn(c, th, a.ps.states[i], i, n, true)
 		}
 	}}}
 }

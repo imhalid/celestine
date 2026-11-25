@@ -16,7 +16,7 @@ import (
 func TestCover(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	tt.SetSize(1000, 800)
-	p := a.page
+	p := a.pane().page
 	if err := a.setCover(p, []byte("hello")); err == nil {
 		t.Fatal("a text for a cover")
 	}
@@ -113,7 +113,7 @@ func TestCoverOnCards(t *testing.T) {
 // A page file that is not JSON is not written over by what only wants to change the cover: it is told, and left.
 func TestCorruptPageIsLeftAlone(t *testing.T) {
 	a, _ := newTestApp(t, "x")
-	p := a.page
+	p := a.pane().page
 	if err := p.FS().WriteFile(p.File(), []byte(`{"meta": bozuk`)); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestCorruptPageIsLeftAlone(t *testing.T) {
 func TestCoverFrameless(t *testing.T) {
 	a, tt := newTestApp(t, "text\n")
 	tt.SetSize(1200, 900)
-	p := a.page
+	p := a.pane().page
 	a.open(p)
 	if err := a.setCover(p, pngBytes(400, 100)); err != nil { // 4:1
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestCoverFrameless(t *testing.T) {
 func TestCoverReposition(t *testing.T) {
 	a, tt := newTestApp(t, "text\n")
 	tt.SetSize(1200, 900)
-	p := a.page
+	p := a.pane().page
 	a.open(p)
 	if err := a.setCover(p, pngBytes(100, 100)); err != nil { // square: cropped to the band, room to move
 		t.Fatal(err)

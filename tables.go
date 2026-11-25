@@ -283,9 +283,10 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	cl := ryugo.Painting(p).Colors
 	size := a.fontSize() * 0.95
 	cw := ch.tw
-	if a.colDrag.active && a.colDrag.ch == ch {
+	colDrag := a.activeColDrag()
+	if colDrag.active && colDrag.ch == ch {
 		cw = append([]float32(nil), cw...)
-		cw[a.colDrag.col] = max(a.colDrag.w0+a.colDrag.dx, 36)
+		cw[colDrag.col] = max(colDrag.w0+colDrag.dx, 36)
 	}
 	total := float32(0)
 	for _, w := range cw {
@@ -312,8 +313,8 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	})
 	// the part of the table in view: a table of thousands of rows draws its rows in view
 	viewTop, viewBot := float32(-1e9), float32(1e9)
-	if a.editorR.H > 0 {
-		viewTop, viewBot = a.editorR.Y-tableRowH, a.editorR.Y+a.editorR.H
+	if vr := p.Visible(); vr.H > 0 {
+		viewTop, viewBot = vr.Y-tableRowH, vr.Y+vr.H
 	}
 	line := func(y float32, alpha float32) {
 		p.Fill(ui.Rect{X: inner.X, Y: y, W: inner.W, H: 1}, th.Border.Alpha(alpha), 0)
@@ -324,7 +325,7 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	for c := range m.cols {
 		x += cw[c]
 		if c < len(m.cols)-1 {
-			hot := a.colDrag.active && a.colDrag.ch == ch && a.colDrag.col == c || a.hoverBorder == (borderKey{ch, c})
+			hot := colDrag.active && colDrag.ch == ch && colDrag.col == c || a.hoverBorder == (borderKey{ch, c})
 			p.Fill(ui.Rect{X: x, Y: inner.Y + 1, W: map[bool]float32{true: 2, false: 1}[hot], H: inner.H - 2}, map[bool]ui.Color{true: cl.Accent, false: th.Border.Alpha(0.5)}[hot], 0)
 		}
 		a.borderHits = append(a.borderHits, colBorder{ui.Rect{X: x - 4, Y: box.Y, W: 8, H: box.H}, ch, c, cw[c]})
@@ -443,16 +444,26 @@ func (a *app) placeText(p *ui.Painter, cell ui.Rect, spans []ui.Span, align int,
 // sealTables keeps what the editor's last painting drew of the tables, once
 // it is drawn (the tables are drawn as it paints): a frame that paints nothing
 // leaves the last painting's cells where they were for the pointer.
-func (a *app) sealTables() {
-	a.tableSeen = append(a.tableSeen[:0], a.tableHits...)
-	a.borderSeen = append(a.borderSeen[:0], a.borderHits...)
+func (a *app) activeColDrag() colDragState {
+	for _, st := range a.ps.states {
+		if st.colDrag.active {
+			return st.colDrag
+		}
+	}
+	return colDragState{}
+}
+
+// sealTables leaves the last painting's cells and column borders on pn for the pointer.
+func (a *app) sealTables(pn *paneState) {
+	pn.tableSeen = append(pn.tableSeen[:0], a.tableHits...)
+	pn.borderSeen = append(pn.borderSeen[:0], a.borderHits...)
 	a.tableHits, a.borderHits = a.tableHits[:0], a.borderHits[:0]
 }
 
 // tableCellAt is the cell at (x, y) of the window, as the last frame drew it.
-func (a *app) tableCellAt(x, y float32) *tableHit {
-	for i := range a.tableSeen {
-		h := &a.tableSeen[i]
+func (a *app) tableCellAt(pn *paneState, x, y float32) *tableHit {
+	for i := range pn.tableSeen {
+		h := &pn.tableSeen[i]
 		if x >= h.r.X && x < h.r.X+h.r.W && y >= h.r.Y && y < h.r.Y+h.r.H {
 			return h
 		}
@@ -461,9 +472,9 @@ func (a *app) tableCellAt(x, y float32) *tableHit {
 }
 
 // borderAt is the border at (x, y) of the window, as the last frame drew it.
-func (a *app) borderAt(x, y float32) *colBorder {
-	for i := range a.borderSeen {
-		b := &a.borderSeen[i]
+func (a *app) borderAt(pn *paneState, x, y float32) *colBorder {
+	for i := range pn.borderSeen {
+		b := &pn.borderSeen[i]
 		if x >= b.r.X && x < b.r.X+b.r.W && y >= b.r.Y && y < b.r.Y+b.r.H {
 			return b
 		}
@@ -473,9 +484,11 @@ func (a *app) borderAt(x, y float32) *colBorder {
 
 // ---- changing a table ----
 
-// tablePos is where the table's object is in the text, or -1.
-func (a *app) tablePos(ch *chip) int {
-	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+// tablePos is where the table's object is in the active pane's text, or -1.
+func (a *app) tablePos(ch *chip) int { return a.tablePosIn(a.pane(), ch) }
+
+func (a *app) tablePosIn(pn *paneState, ch *chip) int {
+	for i, r := range pn.doc.Text().Runs(0, pn.doc.Text().Len()) {
 		if at := r.Attributes.Attachment; at != nil {
 			if other, ok := at.Data.(*chip); ok && sameChip(other, ch) {
 				return i
@@ -485,20 +498,25 @@ func (a *app) tablePos(ch *chip) int {
 	return -1
 }
 
-// editTable changes a table: a copy is changed, and takes the table's place
-// in the text. It returns the table that is there now.
+// editTable changes a table in the active pane.
 func (a *app) editTable(ch *chip, change func(m *tableModel)) *chip {
-	pos := a.tablePos(ch)
+	return a.editTableIn(a.pane(), ch, change)
+}
+
+// editTableIn changes a table: a copy is changed, and takes the table's place
+// in pn's text. It returns the table that is there now.
+func (a *app) editTableIn(pn *paneState, ch *chip, change func(m *tableModel)) *chip {
+	pos := a.tablePosIn(pn, ch)
 	if pos < 0 {
 		return ch
 	}
 	m := ch.tbl.clone()
 	change(m)
 	nc := a.tableChip(m)
-	an, ca := a.doc.Selection()
-	attrs := a.doc.Text().AttributesAt(pos)
+	an, ca := pn.doc.Selection()
+	attrs := pn.doc.Text().AttributesAt(pos)
 	attrs.Attachment = a.tableAttachment(nc)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	pn.doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(pos, pos+1, string(richtext.ObjectReplacement), attrs)
 		ed.Select(an, ca)
 	})
@@ -511,7 +529,8 @@ func (a *app) insertTable(start int) *chip { return a.insertTableOf(start, newTa
 
 // insertTableOf puts the table m where insertTable would put a new one.
 func (a *app) insertTableOf(start int, m *tableModel) *chip {
-	t := a.doc.Text()
+	doc := a.pane().doc
+	t := doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	at, prefix := ps, ""
 	if pe > ps { // a line with text: the table goes under it
@@ -520,13 +539,13 @@ func (a *app) insertTableOf(start int, m *tableModel) *chip {
 	ch := a.tableChip(m)
 	first := at + utf8.RuneCountInString(prefix)
 	attrs := richtext.Attributes{Attachment: a.tableAttachment(ch)}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(at, at, richtext.NewText(prefix+string(richtext.ObjectReplacement)+"\n"))
 		ed.ReplaceString(first, first+1, string(richtext.ObjectReplacement), attrs)
 		ed.FormatParagraphs(first, first+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 		ed.Select(first+2, first+2)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	doc.SetTypingAttributes(richtext.Attributes{})
 	return ch
 }
 
@@ -548,8 +567,8 @@ type cellEdit struct {
 }
 
 // openCell opens the cell h to be written in.
-func (a *app) openCell(h *tableHit) {
-	a.cellEd = cellEdit{open: true, ch: h.ch, row: h.row, col: h.col, text: cellText(h.ch.tbl, h.row, h.col), fresh: true}
+func (a *app) openCell(pn *paneState, h *tableHit) {
+	pn.cellEd = cellEdit{open: true, ch: h.ch, row: h.row, col: h.col, text: cellText(h.ch.tbl, h.row, h.col), fresh: true}
 }
 
 // cellText is what a cell is written as: row -2 is the filter's words.
@@ -560,16 +579,16 @@ func cellText(m *tableModel, row, col int) string {
 	return m.cell(row, col)
 }
 
-// clickCell is a click on a cell: a check is ticked, the rest is opened.
-func (a *app) clickCell(h *tableHit) {
+// clickCell is a click on a cell in pn: a check is ticked, the rest is opened.
+func (a *app) clickCell(pn *paneState, h *tableHit) {
 	if h.row == -3 { // the cross of the filter
-		a.cellEd.open = false
-		a.editTable(h.ch, func(m *tableModel) { m.Filter = "" })
+		pn.cellEd.open = false
+		a.editTableIn(pn, h.ch, func(m *tableModel) { m.Filter = "" })
 		return
 	}
 	if h.row >= 0 && h.ch.tbl.cols[h.col].Kind == kindCheck {
-		a.cellEd.open = false
-		a.editTable(h.ch, func(m *tableModel) {
+		pn.cellEd.open = false
+		a.editTableIn(pn, h.ch, func(m *tableModel) {
 			if m.rows[h.row][h.col] == "" {
 				m.rows[h.row][h.col] = "1"
 			} else {
@@ -578,12 +597,15 @@ func (a *app) clickCell(h *tableHit) {
 		})
 		return
 	}
-	a.openCell(h)
+	a.openCell(pn, h)
 }
 
-// commitCell writes the cell as it was typed.
-func (a *app) commitCell() {
-	ce := &a.cellEd
+// commitCell writes the cell as it was typed in the active pane.
+func (a *app) commitCell() { a.commitCellIn(a.pane()) }
+
+// commitCellIn writes the cell as it was typed in pn.
+func (a *app) commitCellIn(pn *paneState) {
+	ce := &pn.cellEd
 	if !ce.open {
 		return
 	}
@@ -592,17 +614,18 @@ func (a *app) commitCell() {
 		return
 	}
 	if ce.row == -2 {
-		ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.Filter = text })
+		ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.Filter = text })
 		return
 	}
-	ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.setCell(ce.row, ce.col, text) })
+	ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.setCell(ce.row, ce.col, text) })
 }
 
 // stepCell goes on to another cell, writing this one: a row is added when it
 // goes past the last. A check has no text to write, it is passed.
 func (a *app) stepCell(dr, dc int) {
-	ce := &a.cellEd
-	a.commitCell()
+	pn := a.pane()
+	ce := &pn.cellEd
+	a.commitCellIn(pn)
 	m := ce.ch.tbl
 	vis := m.visible() // a step goes through the rows that show
 	d := -1
@@ -625,7 +648,7 @@ func (a *app) stepCell(dr, dc int) {
 	}
 	d = max(d, -1)
 	if d >= len(vis) {
-		ce.ch = a.editTable(ce.ch, func(m *tableModel) { m.addRow(len(m.rows) - 1) })
+		ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.addRow(len(m.rows) - 1) })
 		m = ce.ch.tbl
 		vis = m.visible()
 		d = len(vis) - 1
@@ -639,14 +662,16 @@ func (a *app) stepCell(dr, dc int) {
 
 // lastShownRow reports whether the cell being written is in the last row that shows.
 func (a *app) lastShownRow() bool {
-	vis := a.cellEd.ch.tbl.visible()
-	return len(vis) > 0 && a.cellEd.row == vis[len(vis)-1] || len(vis) == 0 && a.cellEd.row == -1
+	ce := &a.pane().cellEd
+	vis := ce.ch.tbl.visible()
+	return len(vis) > 0 && ce.row == vis[len(vis)-1] || len(vis) == 0 && ce.row == -1
 }
 
 // leaveTable writes the cell and goes back to the text, the caret before the table (dir -1) or after it.
 func (a *app) leaveTable(dir int) {
-	a.commitCell()
-	pos := a.tablePos(a.cellEd.ch)
+	pn := a.pane()
+	a.commitCellIn(pn)
+	pos := a.tablePosIn(pn, pn.cellEd.ch)
 	a.closeCell()
 	if pos < 0 {
 		return
@@ -654,12 +679,12 @@ func (a *app) leaveTable(dir int) {
 	if dir > 0 {
 		pos++
 	}
-	a.doc.SetSelection(pos, pos)
+	pn.doc.SetSelection(pos, pos)
 }
 
-// tableAt is the table whose object is at position i of the text, or nil.
-func (a *app) tableAt(i int) *chip {
-	text := a.doc.Text()
+// tableAt is the table whose object is at position i of pn's text, or nil.
+func (a *app) tableAt(pn *paneState, i int) *chip {
+	text := pn.doc.Text()
 	if i < 0 || i >= text.Len() {
 		return nil
 	}
@@ -673,42 +698,44 @@ func (a *app) tableAt(i int) *chip {
 
 // tableKeys takes the keyboard from the text into a table: ↓ with the caret just before the table opens
 // the first cell of its header, ↑ with the caret just after it the first cell of its last row.
-func (a *app) tableKeys(c *ui.Context) {
-	if !a.focused || a.doc == nil || a.page == nil || a.cellEd.open || a.slash.open {
+func (a *app) tableKeys(c *ui.Context, pn *paneState) {
+	if !pn.focused || pn.doc == nil || pn.page == nil || pn.cellEd.open || a.slash.open {
 		return
 	}
-	anchor, caret := a.doc.Selection()
+	anchor, caret := pn.doc.Selection()
 	if anchor != caret {
 		return
 	}
-	if ch := a.tableAt(caret); ch != nil && c.Shortcut(0, ui.KeyDown) {
-		a.cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: cellText(ch.tbl, -1, 0), fresh: true}
+	if ch := a.tableAt(pn, caret); ch != nil && c.Shortcut(0, ui.KeyDown) {
+		pn.cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: cellText(ch.tbl, -1, 0), fresh: true}
 		return
 	}
-	if ch := a.tableAt(caret - 1); ch != nil && c.Shortcut(0, ui.KeyUp) {
+	if ch := a.tableAt(pn, caret-1); ch != nil && c.Shortcut(0, ui.KeyUp) {
 		row := -1
 		if vis := ch.tbl.visible(); len(vis) > 0 {
 			row = vis[len(vis)-1]
 		}
-		a.cellEd = cellEdit{open: true, ch: ch, row: row, col: 0, text: cellText(ch.tbl, row, 0), fresh: true}
+		pn.cellEd = cellEdit{open: true, ch: ch, row: row, col: 0, text: cellText(ch.tbl, row, 0), fresh: true}
 	}
 }
 
 // closeCell shuts the cell's box and gives the keyboard back to the text, where
 // ⌘Z and ⇧⌘Z undo and redo what was done to the table, as to any text.
 func (a *app) closeCell() {
-	a.cellEd.open = false
-	a.refocus = true
+	pn := a.pane()
+	pn.cellEd.open = false
+	pn.refocus = true
 }
 
 // wheelToPage has the wheel over el, which is in an overlay, scroll the page under it: the overlay is
 // not in the page's scroll container, and would keep the page still under an open cell.
 func (a *app) wheelToPage(el ui.Element) {
+	pn := a.pane()
 	el.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind != ui.InputScroll || ev.DY == 0 {
 			return false
 		}
-		a.pageScroll.Y = max(0, min(a.pageScroll.Y+ev.DY, a.pageScroll.MaxY))
+		pn.pageScroll.Y = max(0, min(pn.pageScroll.Y+ev.DY, pn.pageScroll.MaxY))
 		if a.frame != nil {
 			a.frame()
 		}
@@ -719,15 +746,16 @@ func (a *app) wheelToPage(el ui.Element) {
 // cellEditView is the box a cell is written in, over the cell, and under it
 // the buttons for rows and columns, and for what the column is.
 func (a *app) cellEditView(c *ui.Context) {
-	ce := &a.cellEd
+	pn := a.pane()
+	ce := &pn.cellEd
 	a.cellBar = ui.Rect{}
-	if !ce.open || a.doc == nil || a.noPage() {
+	if !ce.open || pn.doc == nil || a.noPage() {
 		ce.open = false
 		return
 	}
 	var hit *tableHit
-	for i := range a.tableSeen {
-		h := &a.tableSeen[i]
+	for i := range pn.tableSeen {
+		h := &pn.tableSeen[i]
 		if h.ch == ce.ch && h.row == ce.row && h.col == ce.col {
 			hit = h
 		}
@@ -735,7 +763,7 @@ func (a *app) cellEditView(c *ui.Context) {
 	if hit == nil {
 		switch {
 		case ce.fresh:
-		case a.chipInText(ce.ch):
+		case a.chipInText(pn, ce.ch):
 			// out of view: the editor paints only the paragraphs that show (#314), so the table was not drawn and
 			// gave no place for its cells; the cell stays open as it was, and takes the keyboard when it is back.
 			// Meanwhile MyGo gives the focus its input had to the page, which had it before (#588): that is not the
@@ -809,7 +837,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		switch side := ce.side; {
 		case side < 0 && (ce.row != -1 || ce.col > 0):
 			a.stepCell(0, -1)
-			a.cellEd.atStart = true // the caret at the far edge the way it goes: another ← goes on
+			ce.atStart = true // the caret at the far edge the way it goes: another ← goes on
 			return
 		case side > 0 && !(a.lastShownRow() && ce.col == len(ce.ch.tbl.cols)-1): // the last cell: no row is added
 			a.stepCell(0, 1)
@@ -846,7 +874,7 @@ func (a *app) cellEditView(c *ui.Context) {
 			ce.seen, ce.lastLen = true, n
 			ww, wh := c.Size()
 			ui.Box(c.Key("cell-caret")).Absolute().Left(0).Top(0).Size(ww, wh).PassThrough().Draw(func(p *ui.Painter, _ ui.Rect) {
-				a.paintCaret(p, cr, cw, box, kick{wrote: wrote, edited: edited}, anchor != caret)
+				a.paintCaret(p, pn, cr, cw, box, kick{wrote: wrote, edited: edited}, anchor != caret)
 			})
 		}
 		if ce.row == -2 {
@@ -906,13 +934,13 @@ func (a *app) cellEditView(c *ui.Context) {
 				}
 				fb.Children(func() { ui.Icon(c, iconFilter).Width(16).Height(16).TextColor(cl.Muted) })
 				if fb.Clicked() {
-					a.commitCell()
-					nc := a.editTable(ce.ch, func(m *tableModel) {
+					a.commitCellIn(pn)
+					nc := a.editTableIn(pn, ce.ch, func(m *tableModel) {
 						if m.Filter == "" {
 							m.Filter = " " // the strip shows, to be written in
 						}
 					})
-					a.cellEd = cellEdit{open: true, ch: nc, row: -2, text: strings.TrimSpace(nc.tbl.Filter), fresh: true}
+					pn.cellEd = cellEdit{open: true, ch: nc, row: -2, text: strings.TrimSpace(nc.tbl.Filter), fresh: true}
 				}
 				btn(iconCopy, locales.TablesCopyCSV(), false, nil)
 				// undo and redo, faint when there is nothing to go back or forward to
@@ -925,13 +953,13 @@ func (a *app) cellEditView(c *ui.Context) {
 					}
 					b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(cl.Muted) })
 					if b.Clicked() && can {
-						a.commitCell()
+						a.commitCellIn(pn)
 						run()
 						a.closeCell()
 					}
 				}
-				history(iconUndo, "Geri al (⌘Z)", a.doc.CanUndo(), a.doc.Undo)
-				history(iconRedo, "Yinele (⇧⌘Z)", a.doc.CanRedo(), a.doc.Redo)
+				history(iconUndo, "Geri al (⌘Z)", pn.doc.CanUndo(), pn.doc.Undo)
+				history(iconRedo, "Yinele (⇧⌘Z)", pn.doc.CanRedo(), pn.doc.Redo)
 			})
 	})
 }
@@ -945,7 +973,8 @@ var iconCopy = icon(`<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><pat
 // which has just come into the text from..to, into a table, the first row its
 // header. It reports whether it did.
 func (a *app) tableInPasted(from, to int) bool {
-	t := a.doc.Text()
+	doc := a.pane().doc
+	t := doc.Text()
 	if from < 0 || to > t.Len() || t.ParagraphStyleAt(from).CodeBlock {
 		return false
 	}
@@ -965,13 +994,13 @@ func (a *app) tableInPasted(from, to int) bool {
 	first := from + utf8.RuneCountInString(prefix)
 	ch := a.tableChip(m)
 	attrs := richtext.Attributes{Attachment: a.tableAttachment(ch)}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(from, to, richtext.NewText(prefix+string(richtext.ObjectReplacement)+"\n"))
 		ed.ReplaceString(first, first+1, string(richtext.ObjectReplacement), attrs)
 		ed.FormatParagraphs(first, first+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 		ed.Select(first+2, first+2)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	doc.SetTypingAttributes(richtext.Attributes{})
 	return true
 }
 
@@ -987,7 +1016,7 @@ func (a *app) pasteTable() {
 		a.say(toastWarn, locales.TheTextOnTheClipboardIs())
 		return
 	}
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	a.insertTableOf(caret, m)
 }
 
@@ -1008,9 +1037,9 @@ var (
 // the bar is drawn over the text without being in it, and the cell, border
 // or chip under it would take the pointer too, its cursor and its light
 // coming and going as the pointer goes along the bar's buttons.
-func (a *app) textPointer(ed ui.Element) (x, y float32, over bool) {
+func (a *app) textPointer(pn *paneState, ed ui.Element) (x, y float32, over bool) {
 	x, y, over = ed.PointerPosition()
-	if over && a.cellBar.Contains(a.editorR.X+x, a.editorR.Y+y) {
+	if over && a.cellBar.Contains(pn.editorR.X+x, pn.editorR.Y+y) {
 		over = false
 	}
 	return x, y, over
@@ -1019,34 +1048,34 @@ func (a *app) textPointer(ed ui.Element) (x, y float32, over bool) {
 // dragColumns follows the pointer over the borders of the tables: the cursor
 // there, and a drag of one, which resizes its column and, let go, keeps the
 // width in the table.
-func (a *app) dragColumns(ed ui.Element) {
+func (a *app) dragColumns(pn *paneState, ed ui.Element) {
 	a.hoverBorder = borderKey{}
-	x, y, over := a.textPointer(ed)
-	px, py := a.editorR.X+x, a.editorR.Y+y
-	if over && !a.colDrag.active {
-		if b := a.borderAt(px, py); b != nil {
+	x, y, over := a.textPointer(pn, ed)
+	px, py := pn.editorR.X+x, pn.editorR.Y+y
+	if over && !pn.colDrag.active {
+		if b := a.borderAt(pn, px, py); b != nil {
 			a.hoverBorder = borderKey{b.ch, b.col}
 			ed.Cursor(ui.CursorResizeEW)
-			if a.edPressed {
-				a.colDrag = colDragState{active: true, ch: b.ch, col: b.col, w0: b.w}
+			if pn.edPressed {
+				pn.colDrag = colDragState{active: true, ch: b.ch, col: b.col, w0: b.w}
 			}
 		}
 	}
-	if !a.colDrag.active {
+	if !pn.colDrag.active {
 		return
 	}
 	ed.Cursor(ui.CursorResizeEW)
 	if dx, _, ok := ed.Dragged(); ok {
-		a.colDrag.dx += dx
+		pn.colDrag.dx += dx
 	}
-	if !a.edPressed { // let go
-		d := a.colDrag
-		a.colDrag = colDragState{}
+	if !pn.edPressed { // let go
+		d := pn.colDrag
+		pn.colDrag = colDragState{}
 		if d.dx != 0 {
 			w := max(d.w0+d.dx, 36)
-			a.editTable(d.ch, func(m *tableModel) { m.cols[d.col].W = w })
+			a.editTableIn(pn, d.ch, func(m *tableModel) { m.cols[d.col].W = w })
 		}
-		a.doc.SetSelection(a.selPrevA, a.selPrevC)
+		pn.doc.SetSelection(pn.selPrevA, pn.selPrevC)
 	}
 }
 

@@ -130,11 +130,11 @@ func (a *app) warmLinks(budget time.Duration) bool {
 }
 
 // backlinksView is the section under the text: who links here.
-func (a *app) backlinksView(c *ui.Context, p *Page) {
+func (a *app) backlinksView(c *ui.Context, pn *paneState, p *Page) {
 	links := a.linksTo(p, a.clock(), false)
 	box := ui.Column(c.Key("backlinks")).FillWidth().Gap(2).Padding(14, 0, 24, 0)
 	if len(links) == 0 {
-		a.linksH = 0
+		pn.linksH = 0
 		return
 	}
 	t := ryugo.From(c)
@@ -161,11 +161,11 @@ func (a *app) backlinksView(c *ui.Context, p *Page) {
 				}
 			})
 			if row.Clicked() {
-				a.open(q)
+				a.openIn(pn, q)
 			}
 		}
 	})
-	a.linksH = box.LayoutBounds().H
+	pn.linksH = box.LayoutBounds().H
 }
 
 // linkContext is the line of page q that links to page p, as the words one

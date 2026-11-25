@@ -15,7 +15,7 @@ func TestPaletteInEnglish(t *testing.T) {
 	seen := map[string]bool{}
 	var out []string
 	add := func(where, s string) {
-		if s != "" && turkish(msg(s)) && !seen[s] && !strings.Contains(s, a.page.Title) && !strings.Contains(s, a.page.Coll.Name) {
+		if s != "" && turkish(msg(s)) && !seen[s] && !strings.Contains(s, a.pane().page.Title) && !strings.Contains(s, a.pane().page.Coll.Name) {
 			seen[s] = true
 			out = append(out, where+"\t"+msg(s))
 		}
@@ -41,9 +41,9 @@ func TestPaletteInEnglish(t *testing.T) {
 		}
 	}
 	walk("slash", a.menuItems(""))
-	if a.page != nil {
-		walk("page", a.pageMenu(a.page, true))
-		walk("coll", a.collectionMenu(a.page.Coll))
+	if a.pane().page != nil {
+		walk("page", a.pageMenu(a.pane().page, true))
+		walk("coll", a.collectionMenu(a.pane().page.Coll))
 	}
 	sort.Strings(out)
 	if len(out) > 0 {

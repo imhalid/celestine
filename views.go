@@ -23,19 +23,23 @@ import (
 
 const viewMax = 920
 
-// openCollection shows collection c's page, saving the page that was open.
-func (a *app) openCollection(c *Collection) {
-	a.flush()
-	a.coll, a.collName, a.search, a.trashOpen, a.tag, a.tasksOpen, a.searchOpen, a.settingsOpen = c, c.Name, "", false, "", false, false, false
-	a.statsScreen, a.profileScreen = false, false
-	a.bulkClear()
-	a.calMonth = time.Time{} // this month, until the calendar goes elsewhere
+// openCollection shows collection c's page in the active pane, saving the page that was open.
+func (a *app) openCollection(c *Collection) { a.openCollectionIn(a.pane(), c) }
+
+func (a *app) openCollectionIn(pn *paneState, c *Collection) {
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.coll, pn.collName, pn.search, pn.trashOpen, pn.tag, pn.tasksOpen, pn.searchOpen, pn.settingsOpen = c, c.Name, "", false, "", false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
+	a.bulkClear(pn)
+	pn.calMonth = time.Time{} // this month, until the calendar goes elsewhere
 	c.Open = true
-	a.visit()
+	a.visitIn(pn)
 }
 
-func (a *app) collectionView(c *ui.Context) {
-	a.collScope(c, a.coll, func() { a.collectionViewIn(c) })
+func (a *app) collectionView(c *ui.Context, pn *paneState) {
+	a.collScope(c, pn.coll, func() { a.collectionViewIn(c, pn) })
 }
 
 // collScope builds a collection's view in its color, when it has one (#358): a Ryugo scope (MyGo's Themed) whose
@@ -54,16 +58,16 @@ func (a *app) collScope(c *ui.Context, coll *Collection, build func()) {
 }
 
 // collectionViewIn is the collection's view, in its scope.
-func (a *app) collectionViewIn(c *ui.Context) {
+func (a *app) collectionViewIn(c *ui.Context, pn *paneState) {
 	t := c.Theme()
-	coll := a.coll
+	coll := pn.coll
 	v := coll.View()
 	// the whole page scrolls - its icon and name, its toolbar and its view - over
 	// the window's width, its bar at the edge, as a page of text does
 	ui.Column(c).Fill().Children(func() { // as tall as the room: the scroll in it has a height to scroll in
-		a.scrolled(c, "coll-scroll:"+coll.Dir, nil, ui.Scroll(c.Key("coll-scroll:"+coll.Dir)).Grow(1), func() {
-			if a.topSpace > 0 { // below the title bar, which lies over the top
-				ui.Box(c.Key("coll-top")).FillWidth().Height(a.topSpace).DragWindow()
+		a.scrolledPane(c, pn, "coll-scroll:"+coll.Dir, nil, ui.Scroll(c.Key("coll-scroll:"+coll.Dir)).Grow(1), func() {
+			if pn.topSpace > 0 { // below the title bar, which lies over the top
+				ui.Box(c.Key("coll-top")).FillWidth().Height(pn.topSpace).DragWindow()
 			}
 			ui.Column(c).FillWidth().Gap(10).Children(func() {
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
@@ -77,14 +81,14 @@ func (a *app) collectionViewIn(c *ui.Context) {
 							}
 						})
 						c.Key("coll-name:" + coll.Dir)
-						name := ui.TextInputBase(c, &a.collName).Label(locales.ViewsCollectionName()).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
-						a.fieldMenu(name, &a.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
-							if err := coll.Rename(cmp.Or(strings.TrimSpace(a.collName), locales.ViewsUntitledCollection())); err != nil {
+						name := ui.TextInputBase(c, &pn.collName).Label(locales.ViewsCollectionName()).FontSize(32).FontWeight(720).Padding(2, 0, 6, 0)
+						a.fieldMenu(name, &pn.collName, fieldOpts{oneLine: true, more: func() []menuItem { return a.collectionMenu(coll) }, changed: func() {
+							if err := coll.Rename(cmp.Or(strings.TrimSpace(pn.collName), locales.ViewsUntitledCollection())); err != nil {
 								a.fail(err)
 							}
 						}})
 						if name.Changed() {
-							n := strings.TrimSpace(a.collName)
+							n := strings.TrimSpace(pn.collName)
 							if n == "" {
 								n = locales.ViewsUntitledCollection()
 							}
@@ -129,7 +133,7 @@ func (a *app) collectionViewIn(c *ui.Context) {
 									a.editViewFilters(coll, v)
 								}
 							}
-							a.fieldMenu(ryugo.Input(c.Key("search:"+coll.Dir), &a.search, ryugo.InputOptions{Label: locales.ViewsSearch(), Placeholder: locales.ViewsSearchPlaceholder(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.search, fieldOpts{oneLine: true}).Width(220).MinWidth(140).Shrink(1)
+							a.fieldMenu(ryugo.Input(c.Key("search:"+coll.Dir), &pn.search, ryugo.InputOptions{Label: locales.ViewsSearch(), Placeholder: locales.ViewsSearchPlaceholder(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &pn.search, fieldOpts{oneLine: true}).Width(220).MinWidth(140).Shrink(1)
 							if coll.Journal { // a random day, and today's page
 								if ryugo.Button(c.Key("random-day"), locales.RandomDay(), ryugo.ButtonOptions{Icon: iconDice, Size: ryugo.Sm}).Clicked() {
 									a.openRandomDay()
@@ -142,11 +146,11 @@ func (a *app) collectionViewIn(c *ui.Context) {
 								}
 							}
 							if v.Type == "list" || v.Type == "table" {
-								if ryugo.Button(c.Key("bulk-on"), map[bool]string{true: locales.ViewsDoneSelecting(), false: locales.ViewsSelect()}[a.bulk.on], ryugo.ButtonOptions{Icon: iconTask, Size: ryugo.Sm}).Clicked() {
-									if a.bulk.on {
-										a.bulkClear()
+								if ryugo.Button(c.Key("bulk-on"), map[bool]string{true: locales.ViewsDoneSelecting(), false: locales.ViewsSelect()}[pn.bulk.on], ryugo.ButtonOptions{Icon: iconTask, Size: ryugo.Sm}).Clicked() {
+									if pn.bulk.on {
+										a.bulkClear(pn)
 									} else {
-										a.bulk.on = true
+										pn.bulk.on = true
 									}
 								}
 							}
@@ -182,11 +186,11 @@ func (a *app) collectionViewIn(c *ui.Context) {
 				}
 				ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, 32).Children(func() {
 					ui.Column(c).FillWidth().MaxWidth(maxW).Children(func() {
-						pages := a.viewPages(coll, v)
+						pages := a.viewPages(pn, coll, v)
 						if v.Type == "board" || v.Type == "calendar" {
-							a.bulkClear()
+							a.bulkClear(pn)
 						}
-						a.bulkBar(c, coll, pages)
+						a.bulkBar(c, pn, coll, pages)
 						func() {
 							// A body per view: switching views drops the old one at once and
 							// fades the new one in; within a view, rows come, go and move one by one.
@@ -194,23 +198,23 @@ func (a *app) collectionViewIn(c *ui.Context) {
 							ui.Column(c).Gap(2).Padding(4, 0, 40, 0).Transition(viewSwap).Children(func() {
 								switch {
 								case v.Type == "calendar": // a month shows even with nothing in it
-									a.calendarView(c, coll, v, pages)
-								case len(pages) == 0 && len(v.Filters) > 0 && a.search == "":
+									a.calendarView(c, pn, coll, v, pages)
+								case len(pages) == 0 && len(v.Filters) > 0 && pn.search == "":
 									a.emptyState(c, iconFilter, locales.ViewsNoPageMeetsThis(), locales.ViewsTheViewShowsOnly(), locales.ViewsEditFilters(), func() { a.editViewFilters(coll, v) })
-								case len(pages) == 0 && a.search != "":
-									a.emptyState(c, iconSearch, locales.ViewsNoMatchTitle(), locales.ViewsNoMatchHelp(a.search), locales.ViewsClearSearch(), func() { a.search = "" })
+								case len(pages) == 0 && pn.search != "":
+									a.emptyState(c, iconSearch, locales.ViewsNoMatchTitle(), locales.ViewsNoMatchHelp(pn.search), locales.ViewsClearSearch(), func() { pn.search = "" })
 								case len(pages) == 0 && coll.Dynamic():
 									a.emptyState(c, iconSearch, locales.NoPageMatchesTheQuery(), msg("thisCollectionShowsThePagesIts2")+coll.Query, "", nil)
 								case len(pages) == 0:
 									a.emptyState(c, collGlyph(coll), locales.ViewsEmptyTitle(), locales.ViewsEmptyHelp(), "", nil)
 								case v.Type == "board":
-									a.boardView(c, coll, v, pages)
+									a.boardView(c, pn, coll, v, pages)
 								case v.Type == "table":
-									a.tableView(c, coll, v, pages)
+									a.tableView(c, pn, coll, v, pages)
 								case v.Type == "gallery":
-									a.galleryView(c, coll, v, pages)
+									a.galleryView(c, pn, coll, v, pages)
 								default:
-									a.listView(c, coll, v, pages)
+									a.listView(c, pn, coll, v, pages)
 								}
 							})
 						}()
@@ -273,16 +277,16 @@ func (a *app) boardColumns(coll *Collection, prop string) map[string][]*Page {
 
 // viewPages are the pages view v of collection coll shows, filtered and sorted: kept while what they come from is as
 // it was, as they were made again at every frame, a sort of 5 000 pages each (#194). A copy: the caller's to change.
-func (a *app) viewPages(coll *Collection, v *View) []*Page {
+func (a *app) viewPages(pn *paneState, coll *Collection, v *View) []*Page {
 	vb, _ := json.Marshal(v)
-	k := viewKey{coll: coll, view: string(vb), search: a.search, pages: PagesGen.Load(), writes: a.libWrites() + SavesGen.Load(), built: a.links.built}
-	if a.doc != nil {
-		k.text = a.doc.Version()
+	k := viewKey{coll: coll, view: string(vb), search: pn.search, pages: PagesGen.Load(), writes: a.libWrites() + SavesGen.Load(), built: a.links.built}
+	if pn.doc != nil {
+		k.text = pn.doc.Version()
 	}
 	if a.viewCache.have && a.viewCache.key == k {
 		return slices.Clone(a.viewCache.pages)
 	}
-	pages := a.filtered(coll)
+	pages := a.filtered(pn, coll)
 	if len(v.Filters) > 0 { // the view's own conditions
 		pages = slices.DeleteFunc(pages, func(p *Page) bool { return !v.Match(coll, p) })
 	}
@@ -293,7 +297,7 @@ func (a *app) viewPages(coll *Collection, v *View) []*Page {
 }
 
 // filtered is the collection's pages, those matching the search when there is one.
-func (a *app) filtered(coll *Collection) []*Page {
+func (a *app) filtered(pn *paneState, coll *Collection) []*Page {
 	all := coll.All()
 	if coll.Dynamic() { // the pages the query finds, wherever they are
 		all = all[:0:0]
@@ -301,7 +305,7 @@ func (a *app) filtered(coll *Collection) []*Page {
 			all = append(all, h.page)
 		}
 	}
-	q := strings.ToLower(strings.TrimSpace(a.search))
+	q := strings.ToLower(strings.TrimSpace(pn.search))
 	if q == "" {
 		return all
 	}
@@ -357,13 +361,13 @@ func compareValues(pr *Property, a, b string) int { return CompareValues(pr, a, 
 // listView shows the pages under headings of when they changed (or were made,
 // as the view is sorted), each with the start of its text; or, grouped by a
 // choice, under its options (listGroups).
-func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) listView(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	if pr := coll.Prop(v.GroupBy); pr != nil && pr.Type == PropChoice {
-		a.listGroups(c, coll, v, pr, pages)
+		a.listGroups(c, pn, coll, v, pr, pages)
 		return
 	}
 	if v.Sort == "manual" && !coll.Dynamic() {
-		a.manualList(c, coll, v, pages)
+		a.manualList(c, pn, coll, v, pages)
 		return
 	}
 	now := a.clock()
@@ -388,7 +392,7 @@ func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) 
 		groups[len(groups)-1].pages = append(groups[len(groups)-1].pages, p)
 	}
 	seen := map[string]int{} // a group coming again (an order not by date) gets a key of its own
-	budget := a.viewLimit(coll, v)
+	budget := a.viewLimit(pn, coll, v)
 	for _, g := range groups {
 		if budget <= 0 {
 			break
@@ -402,11 +406,11 @@ func (a *app) listView(c *ui.Context, coll *Collection, v *View, pages []*Page) 
 		budget -= len(rows)
 		listCard(c, key, func() {
 			for i, p := range rows {
-				a.listRow(c, v, p, now, i > 0)
+				a.listRow(c, pn, v, p, now, i > 0)
 			}
 		})
 	}
-	a.moreRow(c, len(pages)-a.viewLimit(coll, v))
+	a.moreRow(c, len(pages)-a.viewLimit(pn, coll, v))
 }
 
 // viewMore is how many pages a view shows, by its collection, the view and the search: a list or a gallery of
@@ -420,8 +424,8 @@ type viewMore struct {
 const viewStep = 200
 
 // viewLimit is how many pages view v of collection coll shows now.
-func (a *app) viewLimit(coll *Collection, v *View) int {
-	return a.shownLimit(coll.Dir + "|" + v.ID + "|" + a.search)
+func (a *app) viewLimit(pn *paneState, coll *Collection, v *View) int {
+	return a.shownLimit(coll.Dir + "|" + v.ID + "|" + pn.search)
 }
 
 // shownLimit is how many pages the list named key shows now: viewStep, from the start again when it is another.
@@ -470,7 +474,7 @@ func listCard(c *ui.Context, key string, rows func()) {
 
 // listGroups shows the pages under the options of choice pr, in the options' order, those with none last; each
 // group's heading folds it (kept in the view, as a board's columns are), and an empty group is not shown.
-func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property, pages []*Page) {
+func (a *app) listGroups(c *ui.Context, pn *paneState, coll *Collection, v *View, pr *Property, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
 	// the pages by their choice, in one pass: a pass for each option was options × pages a frame
@@ -479,7 +483,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		byChoice[p.Value(pr)] = append(byChoice[p.Value(pr)], p)
 	}
 	// as the list does, viewStep pages at first and more as the reader gets to the end; a group's count is all its pages
-	budget, left := a.viewLimit(coll, v), 0
+	budget, left := a.viewLimit(pn, coll, v), 0
 	for _, s := range append(slices.Clone(pr.Options), "") {
 		group := byChoice[s]
 		if len(group) == 0 {
@@ -520,7 +524,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 		left += len(group) - len(rows)
 		listCard(c, "lgroup:"+s, func() {
 			for i, p := range rows {
-				a.listRow(c, v, p, now, i > 0)
+				a.listRow(c, pn, v, p, now, i > 0)
 			}
 		})
 	}
@@ -529,7 +533,7 @@ func (a *app) listGroups(c *ui.Context, coll *Collection, v *View, pr *Property,
 
 // manualList is a list in the collection's own order: its rows are dragged into place (Ryugo's Sortable), and the
 // order is kept in the pages (Collection.SetManual), the rows a search or a filter hides keeping theirs.
-func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) manualList(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	key := coll.Dir + "|" + v.ID
 	if a.sortLists == nil {
@@ -566,10 +570,10 @@ func (a *app) manualList(c *ui.Context, coll *Collection, v *View, pages []*Page
 			open := ryugo.Button(c.Key("open:"+p.Dir), locales.ViewsOpenLabel(p.Title), ryugo.ButtonOptions{Icon: iconChevron, IconOnly: true, Variant: ryugo.Soft, Size: ryugo.Sm})
 			a.contextOn(open, func() []menuItem { return a.pageMenu(p, false) })
 			if open.Clicked() {
-				a.open(p)
+				a.openIn(pn, p)
 			}
 		})
-		a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
+		a.kbMark(row, "p:"+p.Dir, true, func() { a.openIn(pn, p) })
 	})
 	if !slices.Equal(*items, pages) { // a row was moved
 		if err := coll.SetManual(*items); err != nil {
@@ -603,7 +607,7 @@ func samePages(a, b []*Page) bool {
 
 // listRow is page p's row in a list: its title, the properties the view shows, when it changed, the start of its
 // text and its cover.
-func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time, divider bool) {
+func (a *app) listRow(c *ui.Context, pn *paneState, v *View, p *Page, now time.Time, divider bool) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
 	if divider { // a hairline between the rows of a card, in from its edges
@@ -617,11 +621,11 @@ func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time, divider bo
 	} else {
 		row.Background(t.SurfaceHover.Alpha(0))
 	}
-	if a.bulk.sel[p] {
+	if pn.bulk.sel[p] {
 		row.Background(ryugo.From(c).Colors.Accent.Alpha(0.12))
 	}
 	row.Children(func() {
-		a.bulkMark(c, p)
+		a.bulkMark(c, pn, p)
 		// the page's mark on a soft tile, the same place in every row for the eye to run down
 		ui.Box(c).Size(30, 30).Shrink(0).Radius(rad(8)).Background(ryugo.Mix(cl.Card, cl.Text, 0.05)).Center().Children(func() {
 			ui.Icon(c, iconPage).Width(15).Height(15).TextColor(cl.Muted)
@@ -645,22 +649,22 @@ func (a *app) listRow(c *ui.Context, v *View, p *Page, now time.Time, divider bo
 			a.coverThumb(c, p, 72, 52, 8)
 		}
 	})
-	a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) })
-	if a.bulkRowClicked(p, row.Clicked()) {
+	a.kbMark(row, "p:"+p.Dir, true, func() { a.openIn(pn, p) })
+	if a.bulkRowClicked(pn, p, row.Clicked()) {
 		// chosen, not opened
 	} else if row.Clicked() {
-		a.open(p)
+		a.openIn(pn, p)
 	}
 }
 
 // galleryView shows the pages as cards in rows that wrap: each its picture across the top (its cover, or else the
 // first picture in its text, or else a field of a color its title gives, with its first letter), then its title,
 // the start of its text and the properties the view shows.
-func (a *app) galleryView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) galleryView(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	cl := ryugo.From(c).Colors
 	all := len(pages)
-	pages = pages[:min(all, a.viewLimit(coll, v))]
+	pages = pages[:min(all, a.viewLimit(pn, coll, v))]
 	defer a.moreRow(c, all-len(pages))
 	ui.Row(c.Key("gallery")).FillWidth().Wrap().Gap(14).Padding(6, 0, 0, 0).Children(func() {
 		for _, p := range pages {
@@ -683,9 +687,9 @@ func (a *app) galleryView(c *ui.Context, coll *Collection, v *View, pages []*Pag
 					ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Padding(0, 2).Children(func() { a.fieldChips(c, p, v) })
 				}
 			})
-			a.kbMark(card, "g:"+p.Dir, true, func() { a.open(p) })
+			a.kbMark(card, "g:"+p.Dir, true, func() { a.openIn(pn, p) })
 			if card.Clicked() {
-				a.open(p)
+				a.openIn(pn, p)
 			}
 		}
 	})
@@ -985,7 +989,7 @@ func pageSortValue(col column, p *Page) any {
 // by hairlines, a column sorted by a click on its header, moved by dragging it
 // and resized by its edge, pages under it. A click on a row opens its page (or
 // chooses it, while rows are chosen), a right click is the page's menu.
-func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) tableView(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	now := a.clock()
 	tu := a.tableOf(coll, v)
@@ -1040,11 +1044,11 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 		}
 		cols = append(cols, rc)
 	}
-	// the rows chosen are the app's (a.bulk): the table shows them, and says what is chosen in it
+	// the rows chosen are the pane's (pn.bulk): the table shows them, and says what is chosen in it
 	tu.st.Selected = nil
-	if a.bulk.on && len(a.bulk.sel) > 0 {
+	if pn.bulk.on && len(pn.bulk.sel) > 0 {
 		tu.st.Selected = map[any]bool{}
-		for p := range a.bulk.sel {
+		for p := range pn.bulk.sel {
 			tu.st.Selected[p] = true
 		}
 	}
@@ -1117,28 +1121,28 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	}
 	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: locales.Pages(), Height: height + 2,
-		Selectable: a.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
+		Selectable: pn.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
 		Pin:     true, // the title stays as the table is scrolled sideways
 		Striped: true, // every other row tinted, so a row is followed across
 		Group:   groupOf, GroupLabel: groupLabel, Reorder: reorder,
 		Open: func(p *Page) {
-			if a.bulk.on {
-				a.bulkToggle(p) // chosen, not opened; the table's own choice follows, or it would be taken back below
+			if pn.bulk.on {
+				a.bulkToggle(pn, p) // chosen, not opened; the table's own choice follows, or it would be taken back below
 				if tu.st.Selected == nil {
 					tu.st.Selected = map[any]bool{}
 				}
-				if a.bulk.sel[p] {
+				if pn.bulk.sel[p] {
 					tu.st.Selected[p] = true
 				} else {
 					delete(tu.st.Selected, p)
 				}
 				return
 			}
-			a.open(p)
+			a.openIn(pn, p)
 		},
 		Row: func(row ui.Element, p *Page) {
 			a.contextOn(row, func() []menuItem { return a.pageMenu(p, false) })
-			a.kbMark(row, "p:"+p.Dir, true, func() { a.open(p) }) // the keys move over the rows of the table, too
+			a.kbMark(row, "p:"+p.Dir, true, func() { a.openIn(pn, p) }) // the keys move over the rows of the table, too
 		},
 	})
 	if group != nil { // the groups folded, kept in the view
@@ -1158,11 +1162,11 @@ func (a *app) tableView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 			}
 		}
 	}
-	if a.bulk.on { // what was chosen in the table, by its boxes
-		a.bulk.sel = map[*Page]bool{}
+	if pn.bulk.on { // what was chosen in the table, by its boxes
+		pn.bulk.sel = map[*Page]bool{}
 		for k := range tu.st.Selected {
 			if p, ok := k.(*Page); ok {
-				a.bulk.sel[p] = true
+				pn.bulk.sel[p] = true
 			}
 		}
 	}
@@ -1186,7 +1190,7 @@ func choiceTone(pr *Property, v string) ryugo.Tone {
 // boardView shows the pages in a column per status, as Ryugo's board: a
 // card dragged to another column takes its status, and its place among
 // the column's cards; a click opens it.
-func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page) {
+func (a *app) boardView(c *ui.Context, pn *paneState, coll *Collection, v *View, pages []*Page) {
 	t := c.Theme()
 	pr := coll.Prop(v.GroupBy)
 	if pr == nil {
@@ -1202,9 +1206,9 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 	// is wider and shows what its cards say, the others as they were; too many for the room
 	// scroll sideways instead of narrowing.
 	cl := ryugo.From(c).Colors
-	focus := a.boardFocus
+	focus := pn.boardFocus
 	ui.Column(c.Key("board-wrap")).FillWidth().Children(func() { // the fades at its edges lie over the scroll
-		a.scrolledSideways(c, "board:"+coll.Dir+"|"+v.ID, a.boardScroll, ui.ScrollHorizontal(c), func() {
+		a.scrolledSidewaysPane(c, pn, "board:"+coll.Dir+"|"+v.ID, pn.boardScroll, ui.ScrollHorizontal(c), func() {
 			ui.Row(c).Gap(10).AlignItems(ui.Stretch).Padding(0, 0, 8, 0).Children(func() {
 				for _, s := range append([]string{""}, pr.Options...) {
 					var col []*Page
@@ -1222,7 +1226,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 					tone := columnTone(c, s)
 					opened := a.boardOpened[id]
 					if slices.Contains(v.Collapsed, s) || (s == "" && len(col) == 0 && !opened) { // the empty "none" column is a strip; the stages are drop places
-						a.boardStrip(c, coll, v, s, title, len(col), id)
+						a.boardStrip(c, pn, coll, v, s, title, len(col), id)
 						continue
 					}
 					wrap := ui.Column(c.Key("colwrap:" + s)).Gap(6).Shrink(0)
@@ -1248,9 +1252,9 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 							})
 							if name.Clicked() {
 								if focus == id {
-									a.boardFocus = ""
+									pn.boardFocus = ""
 								} else {
-									a.boardFocus = id
+									pn.boardFocus = id
 								}
 							}
 							if a.iconButton(c, iconFold, locales.ViewsCollapseLabel(title)) {
@@ -1276,9 +1280,9 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 									}
 								}).Label(locales.ViewsCardLabel(p.Title))
 								a.contextOn(card, func() []menuItem { return a.boardCardMenu(c, coll, pr, p) })
-								a.kbMark(card, "b:"+p.Dir, true, func() { a.open(p) })
+								a.kbMark(card, "b:"+p.Dir, true, func() { a.openIn(pn, p) })
 								if card.Clicked() {
-									a.open(p)
+									a.openIn(pn, p)
 								}
 							}
 						}, func(p *Page, index int) {
@@ -1290,7 +1294,7 @@ func (a *app) boardView(c *ui.Context, coll *Collection, v *View, pages []*Page)
 				}
 			})
 		})
-		a.edgeFades(c, a.boardScroll)
+		a.edgeFades(c, pn.boardScroll)
 	})
 }
 
@@ -1363,7 +1367,7 @@ func columnTone(c *ui.Context, name string) ui.Color {
 	return []ui.Color{cl.C1, cl.C2, cl.C3, cl.C4, cl.C5, cl.C6, cl.C7, cl.C8}[h%8]
 }
 
-func (a *app) boardStrip(c *ui.Context, coll *Collection, v *View, s, title string, n int, id string) {
+func (a *app) boardStrip(c *ui.Context, pn *paneState, coll *Collection, v *View, s, title string, n int, id string) {
 	cl := ryugo.From(c).Colors
 	b := ui.Column(c.Key("strip:"+s)).Width(44).MinHeight(200).Gap(10).Padding(10, 0).Radius(rad(18)).AlignItems(ui.Center).
 		Background(cl.Well).Border(1, cl.WellBorder).Label(locales.ViewsOpen() + title).Role(ui.RoleButton).Shrink(0)

@@ -45,33 +45,33 @@ var (
 
 // selectionBar draws the bar over the selection, when there is one to show.
 func (a *app) selectionBar(c *ui.Context) {
-	b := &a.sel
-	if a.doc == nil || a.noPage() || a.page == nil || a.slash.open || a.ctx.open || a.grip.menu || a.dateEdit.open || a.modal() {
+	b := &a.pane().sel
+	if a.pane().doc == nil || a.noPage() || a.pane().page == nil || a.slash.open || a.ctx.open || a.pane().grip.menu || a.dateEdit.open || a.modal() {
 		b.link = false
 		return
 	}
-	anchor, caret := a.doc.Selection()
+	anchor, caret := a.pane().doc.Selection()
 	s, e := min(anchor, caret), max(anchor, caret)
 	if b.link && [2]int{s, e} != b.linkSel {
 		b.link = false
 	}
-	if s == e || !(a.focused || b.link) || (a.edPressed && !b.link) {
+	if s == e || !(a.pane().focused || b.link) || (a.pane().edPressed && !b.link) {
 		b.link = false
 		return
 	}
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	if t.ParagraphStyleAt(s).CodeBlock || strings.TrimSpace(t.Slice(s, e).String()) == "" {
 		return
 	}
 	// where: over the start of the selection, under it when there is no room above
-	cb, ok := a.locateRune(s, a.editorR.W)
+	cb, ok := a.locateRune(a.pane(), s, a.pane().editorR.W)
 	if !ok {
 		return
 	}
-	x, y := a.editorR.X+cb.r.X, a.editorR.Y+cb.r.Y
+	x, y := a.pane().editorR.X+cb.r.X, a.pane().editorR.Y+cb.r.Y
 	tth := ryugo.From(c)
 	cl := tth.Colors
-	f := a.doc.Formatting()
+	f := a.pane().doc.Formatting()
 	w := float32(6*selBtn + 2*selPad + 5*2)
 	ww, _ := c.Size()
 	h := float32(selBtn + 2*selPad)
@@ -96,7 +96,7 @@ func (a *app) selectionBar(c *ui.Context) {
 	}
 	left := max(8, min(x-8, ww-w-8))
 	top := y - full - 10
-	if top < a.scrollR.Y+a.barInset+4 {
+	if top < a.pane().scrollR.Y+a.pane().barInset+4 {
 		top = y + cb.r.H + 10
 	}
 	ui.Overlay(c, func() {
@@ -127,10 +127,10 @@ func (a *app) selectionBar(c *ui.Context) {
 					fn()
 				}
 			}
-			btn("sb-bold", iconBold, locales.SelectionBold(), f.Bold == richtext.FormatOn, a.doc.ToggleBold)
-			btn("sb-italic", iconItalic, locales.SelectionItalic(), f.Italic == richtext.FormatOn, a.doc.ToggleItalic)
-			btn("sb-strike", iconStrike, locales.SelectionStrike(), f.Strikethrough == richtext.FormatOn, a.doc.ToggleStrikethrough)
-			btn("sb-code", kindIcon["code"], "code", f.Code == richtext.FormatOn, a.doc.ToggleCode)
+			btn("sb-bold", iconBold, locales.SelectionBold(), f.Bold == richtext.FormatOn, a.pane().doc.ToggleBold)
+			btn("sb-italic", iconItalic, locales.SelectionItalic(), f.Italic == richtext.FormatOn, a.pane().doc.ToggleItalic)
+			btn("sb-strike", iconStrike, locales.SelectionStrike(), f.Strikethrough == richtext.FormatOn, a.pane().doc.ToggleStrikethrough)
+			btn("sb-code", kindIcon["code"], "code", f.Code == richtext.FormatOn, a.pane().doc.ToggleCode)
 			btn("sb-link", iconLink, locales.SelectionLink(), f.Link != "", func() {
 				// a link there is edited: its address in the field, which emptied takes it away (#509)
 				b.link, b.url, b.linkSel = true, f.Link, [2]int{s, e}
@@ -171,15 +171,15 @@ func (a *app) linkField(c *ui.Context, b *selBar, page *linkInfo, address string
 			switch {
 			case in.Shortcut(0, ui.KeyEscape):
 				b.link = false
-				a.refocus = true
+				a.pane().refocus = true
 			case in.Submitted():
-				a.doc.SetSelection(b.linkSel[0], b.linkSel[1])
-				a.doc.SetLink(address)
+				a.pane().doc.SetSelection(b.linkSel[0], b.linkSel[1])
+				a.pane().doc.SetLink(address)
 				if address != "" {
 					b.wonSel, b.wonAt = b.linkSel, c.Now()
 				}
 				b.link = false
-				a.refocus = true
+				a.pane().refocus = true
 			}
 		})
 		if page != nil {

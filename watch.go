@@ -260,13 +260,15 @@ func (a *app) applyDisk(disk diskState, late bool) {
 	if pages != len(disk.pages) {
 		reload = true
 	}
-	// the open page first: what is typed in it is never lost
-	if p := a.page; p != nil {
-		if _, ok := disk.pages[p.Dir]; !ok && a.dirty {
-			if err := a.lib.FS.MkdirAll(p.Dir); err == nil {
-				a.save()
-				a.say(toastOK, locales.PageRestoredAfterDelete(p.Title))
-				return // the next look sees it back
+	// the open pages first: what is typed in them is never lost
+	for _, st := range a.ps.states {
+		if p := st.page; p != nil && st.dirty {
+			if _, ok := disk.pages[p.Dir]; !ok {
+				if err := a.lib.FS.MkdirAll(p.Dir); err == nil {
+					a.savePane(st)
+					a.say(toastOK, locales.PageRestoredAfterDelete(p.Title))
+					return // the next look sees it back
+				}
 			}
 		}
 	}
@@ -290,8 +292,14 @@ func (a *app) takeOutside(p *Page) {
 	}
 	p.Modified = ModTime(p.FS(), p.File())
 	// what was shown of a page that could not be read is not the page: nothing of it is kept over the file
-	ours := p == a.page && a.dirty && p.Unreadable == ""
-	if bad != nil && !ours { // a file that cannot be read now: its meta and text are not taken for
+	var ours *paneState
+	for _, st := range a.ps.states {
+		if st.page == p && st.dirty && p.Unreadable == "" {
+			ours = st
+			break
+		}
+	}
+	if bad != nil && ours == nil { // a file that cannot be read now: its meta and text are not taken for
 		// the page's, it is shown read-only, and nothing is written over it (#125)
 		p.Unreadable = bad.Error()
 		return
@@ -299,8 +307,10 @@ func (a *app) takeOutside(p *Page) {
 	if t := meta["title"]; bad == nil && t != "" {
 		p.Title = t
 		PagesChanged()
-		if p == a.page && !a.dirty {
-			a.title = t
+		for _, st := range a.ps.states {
+			if st.page == p && !st.dirty {
+				st.title = t
+			}
 		}
 	}
 	if bad == nil {
@@ -314,23 +324,25 @@ func (a *app) takeOutside(p *Page) {
 	if doc == nil {
 		return
 	}
-	if ours {
+	if ours != nil {
 		// both kept: theirs next to the page, ours over it
 		name := "page (çakışma " + time.Now().Format("2006-01-02 15-04-05") + ").json"
 		if err := p.FS().WriteFile(filepath.Join(p.Dir, name), src); err != nil {
 			a.fail(err)
 			return
 		}
-		a.save()
+		a.savePane(ours)
 		a.say(toastOK, locales.PageChangedOutside(p.Title, name))
 		return
 	}
 	doc.SetText(a.parsePage(p, body))
-	if p == a.page {
-		a.dirty, a.saveErr = false, ""
-		_, caret := doc.Selection()
-		a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-		a.lastSave, a.lastWords = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText()))
+	for _, st := range a.ps.states {
+		if st.page == p {
+			st.dirty, a.saveErr = false, ""
+			_, caret := doc.Selection()
+			st.version, st.length, st.caretAt = doc.Version(), doc.Text().Len(), caret
+			st.lastSave, st.lastWords = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText()))
+		}
 	}
 }
 
@@ -354,24 +366,14 @@ func (a *app) reloadLibrary() {
 			}
 		}
 	}
-	pageDir, collDir := "", ""
-	if a.page != nil {
-		pageDir = a.page.Dir
-	}
-	if a.coll != nil {
-		collDir = a.coll.Dir
-	}
-	side := a.paneRefs()
+	refs := a.paneRefs()
+	activePageDir := refs[a.ps.active].page
 	*a.lib = *fresh
 	a.docs = map[*Page]*richtext.Document{}
-	a.page, a.coll = nil, nil
 	a.docUse = nil // the pages are new ones: what is kept is listed again below
 	for _, c := range a.lib.Collections {
 		if o, ok := open[c.Dir]; ok {
 			c.Open = o
-		}
-		if c.Dir == collDir {
-			a.coll = c
 		}
 		for _, p := range c.All() {
 			if o, ok := open[p.Dir]; ok {
@@ -381,24 +383,16 @@ func (a *app) reloadLibrary() {
 				a.docs[p] = d
 				a.docUse = append(a.docUse, p)
 			}
-			if p.Dir == pageDir {
-				a.page = p
-			}
 		}
 	}
-	a.restorePanes(side)
+	a.restorePanes(refs)
 	a.agentRemap() // what the agents changed, followed to the new pages (#180)
 	// what was being done to what is gone is let go
 	a.drag = dragState{}
 	a.renaming = nil
 	a.prop.open = false
 	a.loadTrash()
-	if a.page != nil {
-		a.doc = a.docs[a.page]
-		return
-	}
-	a.doc = nil
-	if pageDir != "" && !a.noPage() { // the open page is gone: its collection, or the first
+	if pn := a.pane(); pn.page == nil && activePageDir != "" && !a.noPage() { // the open page is gone: its collection, or the first
 		for _, c := range a.lib.Collections {
 			a.openCollection(c)
 			break

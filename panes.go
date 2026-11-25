@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,11 +13,10 @@ import (
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// A window has one pane or two, side by side, each showing a screen of its own: a page, a
+// A window has one pane or more, side by side, each showing a screen of its own: a page, a
 // collection, the settings, the trash, the tasks, a search, a tag. What a pane shows and keeps is
-// paneState, which the app has in itself, embedded, for the pane in use: all the code that says
-// a.page or a.doc is of the pane in use. A pane that is not in use has its paneState put aside
-// (panes); to build it, it is swapped in, built, and swapped out again.
+// a *paneState in ps.states; ps.active indexes the pane in use (a.pane()). Each pane's UI and
+// paint closures capture its *paneState directly, with no state swapping.
 type paneState struct {
 	page          *Page              // the page open
 	doc           *richtext.Document // its text
@@ -122,16 +122,15 @@ type paneState struct {
 }
 
 // newPaneState is a pane with nothing in it: its scrolls and lists are its own.
-func newPaneState() paneState {
-	return paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: &ui.ListState{MoveAnimation: &rowGlide}, grip: gripState{para: -1}}
+func newPaneState() *paneState {
+	return &paneState{pageScroll: new(ui.ScrollState), boardScroll: new(ui.ScrollState), taskList: &ui.ListState{MoveAnimation: &rowGlide}, grip: gripState{para: -1}}
 }
 
-// paneSet is the panes of the window: one, or two side by side. The pane in use has its state in
-// the app (embedded paneState); states holds the others, and a stale copy for the one in use.
+// paneSet is the panes of the window: one, or two side by side. Each pane lives at its own
+// *paneState pointer in states; active is the pane in use.
 type paneSet struct {
-	states []paneState
+	states []*paneState
 	active int  // the pane in use
-	cur    int  // the pane whose state is in the app now: the one in use, or one being built
 	want   int  // a pane to take the use at the end of the frame; -1 none
 	settle int  // frames after a change of use in which the focus still being in the old pane is not a request for it back
 	focus  bool // the pane just put in use has no text of its own: it takes the keyboard
@@ -176,26 +175,34 @@ func (s *paneSet) key(i int) string {
 	return strconv.Itoa(i)
 }
 
+// paneKey names pn for the scrollbars and elements built in it, or "app" for app-level areas.
+func (s *paneSet) paneKey(pn *paneState) string {
+	if pn == nil {
+		return "app"
+	}
+	if i := slices.Index(s.states, pn); i >= 0 {
+		return s.key(i)
+	}
+	return s.key(s.active)
+}
+
+// pane returns the pane in use, creating one if none exists yet.
+func (a *app) pane() *paneState {
+	if len(a.ps.states) == 0 {
+		a.ps.states = []*paneState{newPaneState()}
+		a.ps.active = 0
+	}
+	if a.ps.active < 0 || a.ps.active >= len(a.ps.states) {
+		a.ps.active = 0
+	}
+	return a.ps.states[a.ps.active]
+}
+
 // paneCount is how many panes there are.
 func (a *app) paneCount() int { return max(1, len(a.ps.states)) }
 
-// inactivePane reports whether the pane whose state is in the app is not the one in use.
-func (a *app) inactivePane() bool { return a.ps.cur != a.ps.active }
-
-// withPane runs fn with pane i's state in the app, and puts it back.
-func (a *app) withPane(i int, fn func()) {
-	if i == a.ps.active || i < 0 || i >= len(a.ps.states) {
-		fn()
-		return
-	}
-	a.ps.states[a.ps.active] = a.paneState
-	a.paneState = a.ps.states[i]
-	a.ps.cur = i
-	fn()
-	a.ps.states[i] = a.paneState
-	a.paneState = a.ps.states[a.ps.active]
-	a.ps.cur = a.ps.active
-}
+// isInactivePane reports whether pn is not the pane in use.
+func (a *app) isInactivePane(pn *paneState) bool { return pn != a.pane() }
 
 // usePane makes pane i the one in use: the page being written is saved first.
 func (a *app) usePane(i int) {
@@ -203,11 +210,9 @@ func (a *app) usePane(i int) {
 		return
 	}
 	a.flush()
-	a.ps.states[a.ps.active] = a.paneState
-	a.ps.active, a.ps.cur = i, i
-	a.paneState = a.ps.states[i]
-	a.resyncDoc()
-	a.refocus = true // its text takes the keyboard
+	a.ps.active = i
+	a.resyncDoc(a.pane())
+	a.pane().refocus = true // its text takes the keyboard
 	a.ps.settle, a.ps.focus = 4, true
 	if a.frame != nil {
 		a.frame()
@@ -217,7 +222,7 @@ func (a *app) usePane(i int) {
 // addPane makes a pane beside the one in use, at the end of the list, and says where it is.
 func (a *app) addPane() int {
 	if len(a.ps.states) == 0 {
-		a.ps.states = []paneState{{}}
+		a.ps.states = []*paneState{newPaneState()}
 	}
 	a.ps.ensureIDs()
 	a.ps.states = append(a.ps.states, newPaneState())
@@ -234,7 +239,7 @@ func (a *app) addPane() int {
 // past the last), and puts that pane in use.
 func (a *app) openAtPane(i int, pl place) {
 	if len(a.ps.states) == 0 { // only the one, not yet in the list
-		a.ps.states = []paneState{{}}
+		a.ps.states = []*paneState{newPaneState()}
 	}
 	if i == len(a.ps.states) { // one past the last: a new pane
 		i = a.addPane()
@@ -242,7 +247,7 @@ func (a *app) openAtPane(i int, pl place) {
 	if i < 0 || i >= len(a.ps.states) {
 		return
 	}
-	a.withPane(i, func() { a.goTo(pl) })
+	a.goToIn(a.ps.states[i], pl)
 	a.ps.want = i
 	if a.frame != nil {
 		a.frame()
@@ -278,7 +283,6 @@ func (a *app) closePane(i int) {
 
 // dropPane forgets pane i: the pane in use goes to a neighbor if it was that one.
 func (a *app) dropPane(i int) {
-	a.ps.states[a.ps.active] = a.paneState
 	a.endRename(a.ps.states[i].retitle) // a title being typed in it: its links follow (#560)
 	a.ps.states[i].retitle = titleEdit{}
 	active := a.ps.active
@@ -287,15 +291,14 @@ func (a *app) dropPane(i int) {
 		active--
 	case i == active:
 		active = min(i, len(a.ps.states)-2)
-		a.refocus = true
+		a.ps.states[active].refocus = true
 	}
 	a.ps.states = append(a.ps.states[:i:i], a.ps.states[i+1:]...)
 	a.ps.ids = append(a.ps.ids[:i:i], a.ps.ids[i+1:]...)
 	if len(a.ps.states) < 2 {
 		a.ps.layout = nil
 	}
-	a.ps.active, a.ps.cur, a.ps.want = active, active, -1
-	a.paneState = a.ps.states[active]
+	a.ps.active, a.ps.want = active, -1
 	if a.frame != nil {
 		a.frame()
 	}
@@ -327,10 +330,11 @@ func (a *app) syncPanes() {
 	}
 	for _, id := range l.PaneIDs() { // a pane the Dock has and the app has not
 		if a.ps.index(id) < 0 {
-			a.ps.states = append(a.ps.states, newPaneState())
+			np := newPaneState()
+			a.ps.states = append(a.ps.states, np)
 			a.ps.ids = append(a.ps.ids, id)
 			if pl := a.here(); pl.kind != "" { // split by the user: two views of what the pane in use shows
-				a.withPane(len(a.ps.states)-1, func() { a.goTo(pl) })
+				a.goToIn(np, pl)
 			}
 		}
 	}
@@ -339,28 +343,31 @@ func (a *app) syncPanes() {
 	}
 }
 
-// paneTitle is what pane in use shows, in a word: the tab of its area.
-func (a *app) paneTitle() string {
+// paneTitle is what the pane in use shows, in a word: the tab of its area.
+func (a *app) paneTitle() string { return a.paneTitleOf(a.pane()) }
+
+// paneTitleOf is what pn shows, in a word: the tab of its area.
+func (a *app) paneTitleOf(pn *paneState) string {
 	switch {
-	case a.settingsOpen:
+	case pn.settingsOpen:
 		return locales.CommonSettings()
-	case a.statsScreen:
+	case pn.statsScreen:
 		return locales.CommonStatistics()
-	case a.profileScreen:
+	case pn.profileScreen:
 		return locales.CommonProfile()
-	case a.trashOpen:
+	case pn.trashOpen:
 		return locales.CommonTrash()
-	case a.tag != "":
-		return "#" + a.tag
-	case a.tasksOpen:
+	case pn.tag != "":
+		return "#" + pn.tag
+	case pn.tasksOpen:
 		return locales.CommonTasks()
-	case a.searchOpen:
+	case pn.searchOpen:
 		return locales.CommonSearch()
-	case a.coll != nil:
-		return a.coll.Name
-	case a.page != nil && !a.noPage():
-		if a.page.Title != "" {
-			return a.page.Title
+	case pn.coll != nil:
+		return pn.coll.Name
+	case pn.page != nil && !a.noPageOf(pn):
+		if pn.page.Title != "" {
+			return pn.page.Title
 		}
 		return locales.CommonUntitled()
 	}
@@ -368,23 +375,26 @@ func (a *app) paneTitle() string {
 }
 
 // paneGlyph is the icon of what the pane in use shows, beside its title on its tab.
-func (a *app) paneGlyph() *ui.SVG {
+func (a *app) paneGlyph() *ui.SVG { return a.paneGlyphOf(a.pane()) }
+
+// paneGlyphOf is the icon of what pn shows, beside its title on its tab.
+func (a *app) paneGlyphOf(pn *paneState) *ui.SVG {
 	switch {
-	case a.settingsOpen:
+	case pn.settingsOpen:
 		return iconSettings
-	case a.statsScreen:
+	case pn.statsScreen:
 		return iconStats
-	case a.profileScreen:
+	case pn.profileScreen:
 		return iconUser
-	case a.trashOpen:
+	case pn.trashOpen:
 		return iconTrash
-	case a.tag != "":
+	case pn.tag != "":
 		return iconTag
-	case a.tasksOpen:
+	case pn.tasksOpen:
 		return iconTask
-	case a.searchOpen:
+	case pn.searchOpen:
 		return iconSearch
-	case a.coll != nil:
+	case pn.coll != nil:
 		return iconStack
 	}
 	return iconPage
@@ -395,19 +405,19 @@ func (a *app) paneGlyph() *ui.SVG {
 // tabs and closes.
 func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	if len(a.ps.states) == 0 {
-		a.ps.states = []paneState{{}}
+		a.ps.states = []*paneState{newPaneState()}
 	}
 	a.syncPanes()
 	a.keepPanes()
 	var el ui.Element
 	if phone { // one pane: the one in use, the whole window (mobile.go)
 		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
-			a.withPane(a.ps.active, func() { a.paneColumn(c, th, a.ps.active, 1, false) })
+			a.paneColumn(c, th, a.pane(), a.ps.active, 1, false)
 		})
 	} else if a.ps.layout == nil {
 		el = ui.Row(c).Grow(1).AlignItems(ui.Stretch)
 		if a.wframe.on { // in the window's frame, a card of its own, as the Dock's areas are (windowframe.go)
-			cardBg := a.pageBg
+			cardBg := a.paneBg(c, a.ps.states[0])
 			if a.glassLive(c) {
 				cardBg = cardBg.Alpha(glassOpacity(c, 0.50))
 			}
@@ -415,14 +425,14 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 			el.Clip()
 		}
 		el.Children(func() {
-			a.withPane(0, func() { a.paneColumn(c, th, 0, 1, false) })
+			a.paneColumn(c, th, a.ps.states[0], 0, 1, false)
 		})
 	} else {
 		a.unstackPanes() // side by side, never on top of each other: the panes have no tabs (panebar.go)
 		a.ps.ensureIDs()
 		for i, id := range a.ps.ids { // the tab of each area says what its pane shows
-			if p := a.ps.layout.FindPane(id); p != nil {
-				a.withPane(i, func() { p.Title = a.paneTitle() })
+			if p := a.ps.layout.FindPane(id); p != nil && i < len(a.ps.states) {
+				p.Title = a.paneTitleOf(a.ps.states[i])
 			}
 		}
 		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop, NoHeaders: a.wframe.on}).Grow(1)
@@ -441,103 +451,102 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 	a.ps.want = -1
 }
 
-// noteVisit asks for the use of the pane that is being built, when something is opened in it.
-func (a *app) noteVisit() {
-	if a.ps.cur != a.ps.active {
-		a.ps.want = a.ps.cur
+// paneBg is the card background for pane pn (a.pageBg when unused; helper keeps single-pane visual identical).
+func (a *app) paneBg(c *ui.Context, _ *paneState) ui.Color { return a.pageBg }
+
+// noteVisitIn asks for the use of pn when something is opened in it.
+func (a *app) noteVisitIn(pn *paneState) {
+	if i := slices.Index(a.ps.states, pn); i >= 0 && i != a.ps.active {
+		a.ps.want = i
 	}
 }
 
 // paneColumn is pane i of n: its title bar, its screen - a page, a collection, the settings, the
 // trash, the tasks, a search, a tag - and the bar over it. In the Dock (docked) the window's bar is
 // above the areas and each area has its own header, so the pane has neither.
-func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked bool) {
+func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, pn *paneState, i, n int, docked bool) {
 	// It takes the keyboard when there is no text to: a region named after what it shows, so that the focus
 	// coming to it says where it is (#362).
-	col := ui.Column(c.Key("pane:" + a.ps.key(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false).Role(ui.RoleRegion).Label(a.paneTitle())
-	// what is drawn later, after the view is built, is drawn with this pane's state in the app: it is
-	// swapped in as the pane starts to be drawn, and out as it is done
-	col.Draw(func(*ui.Painter, ui.Rect) { a.paintIn(i) })
-	col.DrawOver(func(*ui.Painter, ui.Rect) { a.paintOut(i) })
-	if i == a.ps.active && a.ps.focus && (a.page == nil || a.noPage()) { // no text to take the keyboard: the pane takes it
+	col := ui.Column(c.Key("pane:" + a.ps.key(i))).Grow(1).MinWidth(0).Focusable().FocusRing(false).Role(ui.RoleRegion).Label(a.paneTitleOf(pn))
+	if i == a.ps.active && a.ps.focus && (pn.page == nil || a.noPageOf(pn)) { // no text to take the keyboard: the pane takes it
 		col.Focus()
 		a.ps.focus = false
 	}
-	if i == a.ps.active && a.ps.focus && a.page != nil && !a.noPage() {
+	if i == a.ps.active && a.ps.focus && pn.page != nil && !a.noPageOf(pn) {
 		a.ps.focus = false
 	}
 	col.Children(func() {
 		// the page scrolls over the whole width, its bar at the window's edge:
 		// the margins are inside it
 		padX := pageMargin()
-		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && !a.profileScreen && (a.coll != nil || a.page != nil) {
+		if !pn.trashOpen && pn.tag == "" && !pn.tasksOpen && !pn.searchOpen && !pn.settingsOpen && !pn.statsScreen && !pn.profileScreen && (pn.coll != nil || pn.page != nil) {
 			padX = 0
 		}
 		topPad := float32(pageTop - barH + 8)
 		if phone { // a phone's screen starts near its header
 			topPad = 12
 		}
-		if a.coverKind(a.page) != coverKindNone && !a.noPage() { // the cover starts under the bar
+		if a.coverKind(pn.page) != coverKindNone && !a.noPageOf(pn) { // the cover starts under the bar
 			topPad = 0
 		}
 		// a page and a collection scroll as a whole, from under the header, with their room above the title in
 		// the scroll: a cover begins right under the header
-		a.barInset, a.topSpace = 0, 0
-		if !a.trashOpen && a.tag == "" && !a.tasksOpen && !a.searchOpen && !a.settingsOpen && !a.statsScreen && !a.profileScreen && (a.coll != nil || a.page != nil) {
-			a.topSpace, topPad = topPad, 0
+		pn.barInset, pn.topSpace = 0, 0
+		if !pn.trashOpen && pn.tag == "" && !pn.tasksOpen && !pn.searchOpen && !pn.settingsOpen && !pn.statsScreen && !pn.profileScreen && (pn.coll != nil || pn.page != nil) {
+			pn.topSpace, topPad = topPad, 0
 		}
-		a.headDragR = ui.Rect{}
+		pn.headDragR = ui.Rect{}
 		if h := a.paneBarH(); h > 0 { // its bar: its title, its menu and close; held, it moves the pane or the window (panebar.go)
-			a.paneBar(c, col, i, h)
+			a.paneBar(c, col, pn, i, h)
 		}
 		pageRow := ui.Row(c).Grow(1).Justify(ui.Center).Padding(topPad, padX, 0, padX)
-		defer func() { a.pageR = pageRow.LayoutBounds() }()
+		defer func() { pn.pageR = pageRow.LayoutBounds() }()
 		pageRow.Children(func() {
-			if a.settingsOpen {
-				a.focused = false
-				a.settingsScreen(c)
+			if pn.settingsOpen {
+				pn.focused = false
+				a.settingsScreen(c, pn)
 				return
 			}
-			if a.statsScreen {
-				a.focused = false
-				a.statsView(c)
+			if pn.statsScreen {
+				pn.focused = false
+				a.statsView(c, pn)
 				return
 			}
-			if a.profileScreen {
-				a.focused = false
-				a.profileView(c)
+			if pn.profileScreen {
+				pn.focused = false
+				a.profileView(c, pn)
 				return
 			}
-			if a.trashOpen {
-				a.focused = false
-				a.trashView(c)
+			if pn.trashOpen {
+				pn.focused = false
+				a.trashView(c, pn)
 				return
 			}
-			if a.tag != "" {
-				a.focused = false
-				a.tagView(c)
+			if pn.tag != "" {
+				pn.focused = false
+				a.tagView(c, pn)
 				return
 			}
-			if a.tasksOpen {
-				a.focused = false
-				a.tasksView(c)
+			if pn.tasksOpen {
+				pn.focused = false
+				a.tasksView(c, pn)
 				return
 			}
-			if a.searchOpen {
-				a.focused = false
-				a.searchView(c)
+			if pn.searchOpen {
+				pn.focused = false
+				a.searchView(c, pn)
 				return
 			}
-			if a.coll != nil {
-				a.focused = false
-				a.collectionView(c)
+			if pn.coll != nil {
+				pn.focused = false
+				a.collectionView(c, pn)
 				return
 			}
-			if a.page == nil {
+			if pn.page == nil {
 				a.emptyState(c, iconPage, locales.PickAPage(), locales.OpenAPageFromTheTree(), "", nil)
 				return
 			}
-			a.pageView(c, th)
+			a.pageView(c, pn, th)
 		})
 	})
 	if a.ps.rects == nil {
@@ -547,25 +556,6 @@ func (a *app) paneColumn(c *ui.Context, th *richtext.Theme, i, n int, docked boo
 	if i != a.ps.active && a.ps.settle == 0 && col.FocusWithin() { // the user went into it
 		a.ps.want = i
 	}
-}
-
-// paintIn puts pane i's state in the app for what is drawn of it; paintOut puts the pane in use back.
-func (a *app) paintIn(i int) {
-	if i == a.ps.active || i >= len(a.ps.states) || a.ps.cur != a.ps.active {
-		return
-	}
-	a.ps.states[a.ps.active] = a.paneState
-	a.paneState = a.ps.states[i]
-	a.ps.cur = i
-}
-
-func (a *app) paintOut(i int) {
-	if a.ps.cur != i || i == a.ps.active {
-		return
-	}
-	a.ps.states[i] = a.paneState
-	a.paneState = a.ps.states[a.ps.active]
-	a.ps.cur = a.ps.active
 }
 
 // paneAtPoint is the pane drawn under p, -1 when none is.
@@ -620,13 +610,10 @@ func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 // library is read again from disk.
 type paneRef struct{ page, coll string }
 
-// paneRefs notes what the panes not in use show.
+// paneRefs notes what every pane shows.
 func (a *app) paneRefs() map[int]paneRef {
 	refs := map[int]paneRef{}
 	for i, st := range a.ps.states {
-		if i == a.ps.active {
-			continue
-		}
 		var r paneRef
 		if st.page != nil {
 			r.page = st.page.Dir
@@ -639,14 +626,14 @@ func (a *app) paneRefs() map[int]paneRef {
 	return refs
 }
 
-// restorePanes finds again, in the library read anew, what the panes not in use showed: a page or
+// restorePanes finds again, in the library read anew, what each pane showed: a page or
 // a collection that is no more leaves the pane empty.
 func (a *app) restorePanes(refs map[int]paneRef) {
 	for i, r := range refs {
 		if i >= len(a.ps.states) {
 			continue
 		}
-		st := &a.ps.states[i]
+		st := a.ps.states[i]
 		st.page, st.coll, st.doc = nil, nil, nil
 		for _, c := range a.lib.Collections {
 			if r.coll != "" && c.Dir == r.coll {
@@ -680,10 +667,10 @@ func (a *app) panesSnapshot() string {
 	}
 	save := paneSave{Layout: raw, Places: map[string][2]string{}, Active: a.ps.ids[a.ps.active]}
 	for i, id := range a.ps.ids {
-		a.withPane(i, func() {
-			pl := a.here()
+		if i < len(a.ps.states) {
+			pl := a.hereOf(a.ps.states[i])
 			save.Places[id] = [2]string{pl.kind, pl.dir}
-		})
+		}
 	}
 	b, err := json.Marshal(save)
 	if err != nil {
@@ -718,7 +705,7 @@ func (a *app) restorePaneLayout() {
 	if len(ids) < 2 || len(ids) > 12 {
 		return
 	}
-	a.ps.states = make([]paneState, len(ids))
+	a.ps.states = make([]*paneState, len(ids))
 	for i := range a.ps.states {
 		a.ps.states[i] = newPaneState()
 	}
@@ -729,37 +716,35 @@ func (a *app) restorePaneLayout() {
 		}
 	}
 	active := max(a.ps.index(save.Active), 0)
-	a.ps.active, a.ps.cur, a.ps.want = active, active, -1
-	a.paneState = a.ps.states[active]
+	a.ps.active, a.ps.want = active, -1
 	for i, id := range ids {
 		if pl, ok := save.Places[id]; ok && pl[0] != "" {
-			a.withPane(i, func() { a.goTo(place{pl[0], pl[1]}) })
+			a.goToIn(a.ps.states[i], place{pl[0], pl[1]})
 		}
 	}
 }
 
-// resyncDoc takes the pane in use up with its text, if the text was written while the pane was not in
+// resyncDoc takes pn up with its text, if the text was written while the pane was not in
 // use (the same page in another pane, an agent, a sync): track would read the difference as a paste and
 // make of it what a paste is made of.
-func (a *app) resyncDoc() {
-	if a.doc == nil || a.page == nil || a.doc.Version() == a.version {
+func (a *app) resyncDoc(pn *paneState) {
+	if pn.doc == nil || pn.page == nil || pn.doc.Version() == pn.version {
 		return
 	}
-	_, caret := a.doc.Selection()
-	a.version, a.length, a.caretAt = a.doc.Version(), a.doc.Text().Len(), caret
-	a.prevText = a.doc.Text()
-	a.lastSave, a.lastWords, a.dirty = encodeBody(a.doc.Text()), -1, false
-	a.statsVer = 0
+	_, caret := pn.doc.Selection()
+	pn.version, pn.length, pn.caretAt = pn.doc.Version(), pn.doc.Text().Len(), caret
+	pn.prevText = pn.doc.Text()
+	pn.lastSave, pn.lastWords, pn.dirty = encodeBody(pn.doc.Text()), -1, false
+	pn.statsVer = 0
 }
 
 // dropFromPanes takes what was thrown away out of the panes that are not in use: each shows the collection
 // of its page instead (the pane in use is the caller's). page and coll say what is gone.
 func (a *app) dropFromPanes(page func(*Page) bool, coll func(*Collection) bool) {
-	for i := range a.ps.states {
+	for i, st := range a.ps.states {
 		if i == a.ps.active {
 			continue
 		}
-		st := &a.ps.states[i]
 		if st.page != nil && (page(st.page) || coll(st.page.Coll)) {
 			c := st.page.Coll
 			st.page, st.doc, st.title, st.dirty = nil, nil, "", false
@@ -776,13 +761,9 @@ func (a *app) dropFromPanes(page func(*Page) bool, coll func(*Collection) bool) 
 // flushPanes saves the pages written in the panes that are not in use: one is dirty only when it was left
 // so, but what is not saved is lost when the window closes.
 func (a *app) flushPanes() {
-	for i := range a.ps.states {
-		if i != a.ps.active && a.ps.states[i].dirty && a.ps.states[i].page != nil {
-			a.withPane(i, func() {
-				if a.page != nil && a.doc != nil && a.dirty {
-					a.save()
-				}
-			})
+	for i, st := range a.ps.states {
+		if i != a.ps.active && st.dirty && st.page != nil && st.doc != nil {
+			a.savePane(st)
 		}
 	}
 }

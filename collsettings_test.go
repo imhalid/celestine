@@ -61,7 +61,7 @@ func TestCollSettings(t *testing.T) {
 	// a new page starts with the template
 	tt.Click("Yeni kitap")
 	tt.Frame()
-	if body, _ := a.page.Text(); body != "## Notlar\n" {
+	if body, _ := a.pane().page.Text(); body != "## Notlar\n" {
 		t.Fatalf("template: %q", body)
 	}
 }

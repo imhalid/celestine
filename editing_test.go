@@ -35,7 +35,7 @@ func pixelsDiffer(a, b *image.RGBA, in, skip image.Rectangle) int {
 
 func fileText(t *testing.T, a *app) string {
 	t.Helper()
-	b, err := a.page.Body()
+	b, err := a.pane().page.Body()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestAutoSaveOff(t *testing.T) {
 	tt.Frame()
 	tt.Type("yeni")
 	tt.Advance(3 * time.Second)
-	if !a.dirty {
+	if !a.pane().dirty {
 		t.Fatal("saved by itself")
 	}
 	if got := a.savedText(); got != "kaydedilmedi" {
@@ -58,7 +58,7 @@ func TestAutoSaveOff(t *testing.T) {
 	}
 	tt.Key(ui.Cmd, ui.KeyS)
 	tt.Advance(50 * time.Millisecond)
-	if a.dirty {
+	if a.pane().dirty {
 		t.Fatal("⌘S did not save")
 	}
 	if a.savedText() == "kaydedildi" || a.savedAt.IsZero() {
@@ -67,9 +67,9 @@ func TestAutoSaveOff(t *testing.T) {
 	// leaving the page keeps what was typed
 	tt.Type("daha")
 	tt.Advance(100 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	a.flush()
-	if a.dirty {
+	if a.pane().dirty {
 		t.Fatal("flush did not save")
 	}
 	if got := fileText(t, a); got == "" || p == nil {
@@ -85,11 +85,11 @@ func TestAutoSaveDelay(t *testing.T) {
 	tt.Frame()
 	tt.Type("a")
 	tt.Advance(2 * time.Second)
-	if !a.dirty {
+	if !a.pane().dirty {
 		t.Fatal("saved before the delay")
 	}
 	tt.Advance(4 * time.Second)
-	if a.dirty {
+	if a.pane().dirty {
 		t.Fatal("not saved after the delay")
 	}
 }
@@ -129,14 +129,14 @@ func TestPlainTextKey(t *testing.T) {
 	tt.Key(ui.Cmd|ui.Alt, ui.KeyEqual) // a size of its own, which a reset would take away
 	tt.Advance(20 * time.Millisecond)
 	size := a.fontSize()
-	a.doc.SetSelection(3, 3) // in the heading
+	a.pane().doc.SetSelection(3, 3) // in the heading
 	tt.Frame()
-	if a.doc.Text().ParagraphStyleAt(0).Heading != 1 {
+	if a.pane().doc.Text().ParagraphStyleAt(0).Heading != 1 {
 		t.Fatal("the test's page has no heading")
 	}
 	tt.Key(ui.Cmd|ui.Alt, ui.Key0)
 	tt.Advance(20 * time.Millisecond)
-	if h := a.doc.Text().ParagraphStyleAt(0).Heading; h != 0 || a.fontSize() != size {
+	if h := a.pane().doc.Text().ParagraphStyleAt(0).Heading; h != 0 || a.fontSize() != size {
 		t.Fatalf("⌥⌘0 in a heading: heading %d, size %v (was %v)", h, a.fontSize(), size)
 	}
 }
@@ -174,28 +174,28 @@ func TestNewParagraphNotIndented(t *testing.T) {
 	}
 	start := func(i int) float32 { // the caret's x at rune i
 		t.Helper()
-		a.doc.SetSelection(i, i)
+		a.pane().doc.SetSelection(i, i)
 		tt.Frame()
-		r, ok := a.doc.CaretRect()
+		r, ok := a.pane().doc.CaretRect()
 		if !ok {
 			t.Fatalf("no caret at %d", i)
 		}
 		return r.X
 	}
-	txt := a.doc.Text().String()
+	txt := a.pane().doc.Text().String()
 	first := len([]rune(txt[:strings.Index(txt, "ilk paragraf")]))
 	left := start(first)
 	end := first + len([]rune("ilk paragraf"))
-	a.doc.SetSelection(end, end)
+	a.pane().doc.SetSelection(end, end)
 	tt.Frame()
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if r, _ := a.doc.CaretRect(); math.Abs(float64(r.X-left)) > 0.5 {
+	if r, _ := a.pane().doc.CaretRect(); math.Abs(float64(r.X-left)) > 0.5 {
 		t.Fatalf("the caret after Enter is at %v, the paragraph above begins at %v", r.X, left)
 	}
 	tt.Type("yeni")
 	tt.Frame()
-	txt = a.doc.Text().String()
+	txt = a.pane().doc.Text().String()
 	for _, w := range []string{"yeni", "önce", "\ufffc", "sonra"} {
 		i := len([]rune(txt[:strings.Index(txt, w)]))
 		if x := start(i); math.Abs(float64(x-left)) > 0.5 {
@@ -207,22 +207,22 @@ func TestNewParagraphNotIndented(t *testing.T) {
 // White space is drawn over the text, and not at all when it is not asked for.
 func TestWhiteSpaceMarks(t *testing.T) {
 	a, tt := newTestApp(t, "bir iki  üç sekme \n\n"+strings.Repeat("dolgu\n\n", 9)+"son")
-	a.doc.SetSelection(3, 3)
-	a.doc.InsertText("\t") // the page text takes a tab as a space: this one is the editor's own
-	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
+	a.pane().doc.SetSelection(3, 3)
+	a.pane().doc.InsertText("\t") // the page text takes a tab as a space: this one is the editor's own
+	a.pane().doc.SetSelection(a.pane().doc.Text().Len(), a.pane().doc.Text().Len())
 	tt.Advance(100 * time.Millisecond)
 	tt.Advance(100 * time.Millisecond)
 	// the caret and what moves round it are left out: only the marks are looked at
-	last := a.boxes[len(a.boxes)-1].Start
-	a.doc.SetSelection(last, last)
+	last := a.pane().boxes[len(a.pane().boxes)-1].Start
+	a.pane().doc.SetSelection(last, last)
 	tt.Advance(100 * time.Millisecond)
 	tt.Advance(100 * time.Millisecond)
-	cb, ok := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme)
+	cb, ok := locate(a.pane().doc, a.pane().boxes, a.pane().editorR.W, a.font, a.theme)
 	if !ok || cb.r.Y < 100 {
 		t.Fatalf("caret not placed: %+v", cb)
 	}
-	skip := image.Rect(int(a.editorR.X+cb.r.X)-80, int(a.editorR.Y+cb.r.Y)-80, int(a.editorR.X+cb.r.X)+80, int(a.editorR.Y+cb.r.Y+cb.r.H)+80)
-	text := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+120) // the first lines
+	skip := image.Rect(int(a.pane().editorR.X+cb.r.X)-80, int(a.pane().editorR.Y+cb.r.Y)-80, int(a.pane().editorR.X+cb.r.X)+80, int(a.pane().editorR.Y+cb.r.Y+cb.r.H)+80)
+	text := image.Rect(int(a.pane().editorR.X), int(a.pane().editorR.Y), int(a.pane().editorR.X+a.pane().editorR.W), int(a.pane().editorR.Y)+120) // the first lines
 	snap := func() *image.RGBA {
 		tt.Frame() // what the settings changed is painted by a frame
 		tt.Advance(40 * time.Millisecond)
@@ -269,11 +269,11 @@ func TestEditorSettingsDefaults(t *testing.T) {
 // the spaces has them there.
 func TestWhiteSpaceOnlyInSelection(t *testing.T) {
 	a, tt := newTestApp(t, "one two three four\n\n"+strings.Repeat("filler\n\n", 9)+"end")
-	end := a.doc.Text().Len()
-	a.doc.SetSelection(end, end) // the caret far from the first line
+	end := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(end, end) // the caret far from the first line
 	tt.Advance(100 * time.Millisecond)
 	tt.Advance(100 * time.Millisecond)
-	first := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+40)
+	first := image.Rect(int(a.pane().editorR.X), int(a.pane().editorR.Y), int(a.pane().editorR.X+a.pane().editorR.W), int(a.pane().editorR.Y)+40)
 	snap := func() *image.RGBA {
 		tt.Frame()
 		tt.Advance(40 * time.Millisecond)
@@ -296,16 +296,16 @@ func TestWhiteSpaceOnlyInSelection(t *testing.T) {
 func TestCaretBlink(t *testing.T) {
 	a, tt := newTestApp(t, "one two\n")
 	a.settings.NoCaretFX = true // a plain caret: nothing else moves round it
-	a.doc.SetSelection(3, 3)
+	a.pane().doc.SetSelection(3, 3)
 	tt.Advance(100 * time.Millisecond)
-	box := image.Rect(int(a.editorR.X), int(a.editorR.Y), int(a.editorR.X+a.editorR.W), int(a.editorR.Y)+40)
+	box := image.Rect(int(a.pane().editorR.X), int(a.pane().editorR.Y), int(a.pane().editorR.X+a.pane().editorR.W), int(a.pane().editorR.Y)+40)
 	snap := func() *image.RGBA {
 		im := *tt.Image()
 		im.Pix = append([]byte(nil), im.Pix...)
 		return &im
 	}
 	a.settings.CaretBlink = 500
-	a.doc.SetSelection(4, 4) // moved: shown
+	a.pane().doc.SetSelection(4, 4) // moved: shown
 	tt.Frame()
 	shown := snap()
 	tt.Advance(700 * time.Millisecond) // still past the first half: hidden
@@ -331,13 +331,13 @@ func TestCaretBlink(t *testing.T) {
 func TestFindAndVimCosts(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("a long line of words to find in, ", 3000)+"\n")
 	tt.Frame()
-	a.find.query = "words"
+	a.pane().find.query = "words"
 	allocs := testing.AllocsPerRun(3, func() {
-		a.find.ver = 0 // found again
-		a.findAll()
+		a.pane().find.ver = 0 // found again
+		a.findAll(a.pane())
 	})
-	if len(a.find.matches) != 3000 || allocs > 100 {
-		t.Fatalf("%d matches, %v allocations a search", len(a.find.matches), allocs)
+	if len(a.pane().find.matches) != 3000 || allocs > 100 {
+		t.Fatalf("%d matches, %v allocations a search", len(a.pane().find.matches), allocs)
 	}
 	a.settings.VimKeys = true
 	if !a.vimOn() {
@@ -360,19 +360,19 @@ func TestAutoSaveBigPage(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("Bir paragraf, biraz metin ve biraz daha metin burada.\n\n", bigSave/50))
 	a.clock = tt.Now
 	tt.Frame()
-	if a.doc.Text().Len() < bigSave {
-		t.Fatalf("not big: %d", a.doc.Text().Len())
+	if a.pane().doc.Text().Len() < bigSave {
+		t.Fatalf("not big: %d", a.pane().doc.Text().Len())
 	}
-	read := func() string { b, _ := a.page.Text(); return b }
+	read := func() string { b, _ := a.pane().page.Text(); return b }
 	edit := func(s string) {
-		a.doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(0, 0, s, richtext.Attributes{}) })
-		a.dirty, a.editAt = true, a.clock()
+		a.pane().doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(0, 0, s, richtext.Attributes{}) })
+		a.pane().dirty, a.pane().editAt = true, a.clock()
 	}
 	tt.Type("ilk")
-	for i := 0; i < 400 && a.dirty; i++ {
+	for i := 0; i < 400 && a.pane().dirty; i++ {
 		tt.Advance(50 * time.Millisecond)
 	}
-	if a.dirty || !strings.Contains(read(), "ilk") {
+	if a.pane().dirty || !strings.Contains(read(), "ilk") {
 		t.Fatal("the big page was not autosaved")
 	}
 	// begun, then changed before it is written: the goroutine's a.do waits for the lock held here
@@ -390,8 +390,8 @@ func TestAutoSaveBigPage(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if strings.Contains(read(), "ikinci") || !a.dirty {
-		t.Fatalf("a text older than the page's was written, or the page left clean: dirty %v", a.dirty)
+	if strings.Contains(read(), "ikinci") || !a.pane().dirty {
+		t.Fatalf("a text older than the page's was written, or the page left clean: dirty %v", a.pane().dirty)
 	}
 	a.flush()
 	if got := read(); !strings.Contains(got, "üçüncü ikinci ilk") {

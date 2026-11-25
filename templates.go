@@ -70,13 +70,13 @@ func plainTemplate(body, title string, now time.Time) string {
 // takeCursorMark takes the first cursorMark out of the open page and puts the caret there, and the rest out too.
 // It reports whether there was one.
 func (a *app) takeCursorMark() bool {
-	if a.doc == nil {
+	if a.pane().doc == nil {
 		return false
 	}
 	mark := []rune(cursorMark)[0]
 	var at []int
 	i := 0
-	for _, r := range a.doc.Text().String() {
+	for _, r := range a.pane().doc.Text().String() {
 		if r == mark {
 			at = append(at, i)
 		}
@@ -85,13 +85,13 @@ func (a *app) takeCursorMark() bool {
 	if len(at) == 0 {
 		return false
 	}
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		for k := len(at) - 1; k >= 0; k-- {
 			ed.Replace(at[k], at[k]+1, richtext.Text{})
 		}
 		ed.Select(at[0], at[0])
 	})
-	a.fresh, a.refocus, a.revealWant = false, true, true
+	a.pane().fresh, a.pane().refocus, a.pane().revealWant = false, true, true
 	return true
 }
 
@@ -185,7 +185,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 			}
 		}
 		a.open(p)
-		a.fresh = true
+		a.pane().fresh = true
 		a.takeCursorMark()
 	})
 }
@@ -218,9 +218,9 @@ var iconTemplate = icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="2.5"/>
 // insertTemplate puts a template's text in the open page at the line the
 // caret is in (the empty line, or under the line with text).
 func (a *app) insertTemplate(start int, tpl NamedTemplate) {
-	page := a.page
+	page := a.pane().page
 	a.askTemplate(tpl.Body, func(vals map[string]string) {
-		if a.page != page || a.doc == nil { // another page is open now
+		if a.pane().page != page || a.pane().doc == nil { // another page is open now
 			return
 		}
 		a.insertExpanded(start, a.parse(expandTemplate(tpl.Body, page.Title, a.clock(), vals)))
@@ -230,10 +230,10 @@ func (a *app) insertTemplate(start int, tpl NamedTemplate) {
 
 // insertExpanded puts text, a template filled in, in the open page at the line the caret is in, as insertTemplate.
 func (a *app) insertExpanded(start int, text richtext.Text) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	n := text.Len()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		if pe == ps {
 			ed.Replace(ps, pe, text)
 			ed.Select(ps+n, ps+n)
@@ -243,15 +243,15 @@ func (a *app) insertExpanded(start int, text richtext.Text) {
 		ed.Replace(pe+1, pe+1, text)
 		ed.Select(pe+1+n, pe+1+n)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	a.pane().doc.SetTypingAttributes(richtext.Attributes{})
 }
 
 // chooseTemplate takes the "/…" away and puts the template in.
 func (a *app) chooseTemplate(tpl NamedTemplate) {
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	start := s.start
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
@@ -261,11 +261,11 @@ func (a *app) chooseTemplate(tpl NamedTemplate) {
 
 // templateItems are the collection's templates, as lines of the Ekle… menu.
 func (a *app) templateItems(q string) []menuItem {
-	if a.page == nil {
+	if a.pane().page == nil {
 		return nil
 	}
 	var out []menuItem
-	for _, t := range a.page.Coll.AllTemplates() {
+	for _, t := range a.pane().page.Coll.AllTemplates() {
 		t := t
 		if q != "" && match(q, "Şablon "+t.Name) < 0 && match(q, locales.TemplatesTemplateLabel(t.Name)) < 0 {
 			continue

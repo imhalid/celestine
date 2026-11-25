@@ -17,12 +17,12 @@ func TestSubtaskCounts(t *testing.T) {
 	t.Cleanup(func() { setLang("tr") })
 	a, tt := newTestApp(t, subtaskPage)
 	tt.SetSize(1100, 900)
-	a.open(a.page)
+	a.open(a.pane().page)
 	tt.Advance(300 * time.Millisecond)
 	a.mu.Lock()
-	st := a.subtasksOf()
+	st := a.subtasksOf(a.pane())
 	launch, bug := st.count[0], st.count[3]
-	room := a.paraRoom(1)
+	room := a.paraRoom(a.pane(), 1)
 	a.mu.Unlock()
 	if launch != (subtaskCount{done: 2, total: 4}) || bug != (subtaskCount{done: 1, total: 2}) {
 		t.Fatalf("counts: Launch %+v, Bug %+v", launch, bug)
@@ -36,8 +36,8 @@ func TestSubtaskCounts(t *testing.T) {
 	}
 	tt.Advance(200 * time.Millisecond)
 	a.mu.Lock()
-	ch := foldOf(a.doc.Text(), 0)
-	_, still := a.subtasksOf().count[0]
+	ch := foldOf(a.pane().doc.Text(), 0)
+	_, still := a.subtasksOf(a.pane()).count[0]
 	a.mu.Unlock()
 	if ch == nil || still {
 		t.Fatalf("the chip did not fold the subtasks: fold %v, counted %v", ch != nil, still)
@@ -47,7 +47,7 @@ func TestSubtaskCounts(t *testing.T) {
 	}
 	a.mu.Lock()
 	a.unfold(ch)
-	md := a.currentMarkdown(a.page)
+	md := a.currentMarkdown(a.pane().page)
 	a.mu.Unlock()
 	if !strings.Contains(md, "    - [ ] Bug\n        - [ ] Reproduce") || strings.Contains(md, "2/4") {
 		t.Fatalf("the file is not the nested list:\n%s", md)

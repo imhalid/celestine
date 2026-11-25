@@ -50,7 +50,7 @@ func TestSidebarFolds(t *testing.T) {
 // TestBranchFolds: a page's chevron hides its children, and they come back.
 func TestBranchFolds(t *testing.T) {
 	a, tt := newTestApp(t, "x")
-	parent := a.page
+	parent := a.pane().page
 	if _, err := parent.Coll.NewPage(parent, "Çocuk"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestBranchFolds(t *testing.T) {
 // field; Enter keeps the name typed, Escape the old one.
 func TestRenameInPlace(t *testing.T) {
 	a, tt := newTestApp(t, "x")
-	p := a.page
+	p := a.pane().page
 	if err := tt.RightClick("Sayfa: Sayfa"); err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +85,8 @@ func TestRenameInPlace(t *testing.T) {
 	tt.Type("Yeni ad")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(50 * time.Millisecond)
-	if a.renaming != nil || p.Title != "Yeni ad" || a.title != "Yeni ad" {
-		t.Fatalf("after Enter: renaming %v, title %q, field %q", a.renaming, p.Title, a.title)
+	if a.renaming != nil || p.Title != "Yeni ad" || a.pane().title != "Yeni ad" {
+		t.Fatalf("after Enter: renaming %v, title %q, field %q", a.renaming, p.Title, a.pane().title)
 	}
 	if again, _ := OpenLibrary(a.lib.Root); again.Collections[0].Pages[0].Title != "Yeni ad" {
 		t.Fatal("the name is not on disk")
@@ -107,7 +107,7 @@ func TestRenameInPlace(t *testing.T) {
 // not (#266).
 func TestRenameOnDoubleClick(t *testing.T) {
 	a, tt := newTestApp(t, "x")
-	p := a.page
+	p := a.pane().page
 	if err := tt.Click("Sayfa: Sayfa"); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestRenameOnDoubleClick(t *testing.T) {
 // into the library's trash; the open page closes to its parent.
 func TestTrashPage(t *testing.T) {
 	a, tt := newTestApp(t, "x")
-	parent := a.page
+	parent := a.pane().page
 	child, _ := parent.Coll.NewPage(parent, "Çocuk")
 	grand, _ := parent.Coll.NewPage(child, "Torun")
 	a.open(grand)
@@ -147,8 +147,8 @@ func TestTrashPage(t *testing.T) {
 		t.Fatal(err, tt.Menu())
 	}
 	tt.Advance(50 * time.Millisecond)
-	if len(parent.Children) != 0 || a.page != parent {
-		t.Fatalf("after trash: children %d, open %v", len(parent.Children), a.page.Title)
+	if len(parent.Children) != 0 || a.pane().page != parent {
+		t.Fatalf("after trash: children %d, open %v", len(parent.Children), a.pane().page.Title)
 	}
 	if _, err := os.Stat(child.Dir); !os.IsNotExist(err) {
 		t.Fatal("the folder is still in place")
@@ -196,8 +196,8 @@ func TestBigLibraryStartsClosed(t *testing.T) {
 	}
 	a.collapseBigLibrary()
 	for _, c := range cols {
-		if want := c == a.page.Coll; c.Open != want {
-			t.Fatalf("%s: open %v, want %v (the page open is in %s)", c.Name, c.Open, want, a.page.Coll.Name)
+		if want := c == a.pane().page.Coll; c.Open != want {
+			t.Fatalf("%s: open %v, want %v (the page open is in %s)", c.Name, c.Open, want, a.pane().page.Coll.Name)
 		}
 	}
 }
@@ -308,8 +308,8 @@ func TestSidebarCollectionSticks(t *testing.T) {
 	}
 	tt.ClickAt(head.X+20, head.Y+head.H/2)
 	tt.Advance(300 * time.Millisecond)
-	if a.coll != c || !a.noPage() {
-		t.Fatalf("a click on the held row opened %v, page %v", a.coll, a.page)
+	if a.pane().coll != c || !a.noPage() {
+		t.Fatalf("a click on the held row opened %v, page %v", a.pane().coll, a.pane().page)
 	}
 	// to the end: the next collection has pushed it away, and is held in its place
 	tt.Wheel(100, 400, 0, 4000)
@@ -332,7 +332,7 @@ func TestContextMenuKey(t *testing.T) {
 		func() { tt.Key(ui.Shift, ui.KeyF10) },
 		func() { tt.Key(0, ui.KeyContextMenu) },
 	} {
-		a.treeFocus = a.page
+		a.treeFocus = a.pane().page
 		tt.Frame()
 		tt.Frame()
 		press()
@@ -354,27 +354,27 @@ func TestTreeKept(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.clock = tt.Now
 	c := a.lib.Collections[0]
-	if _, err := c.NewPage(a.page, "Alt"); err != nil {
+	if _, err := c.NewPage(a.pane().page, "Alt"); err != nil {
 		t.Fatal(err)
 	}
-	a.page.Open = false
+	a.pane().page.Open = false
 	tt.Advance(2 * time.Second)
 	if rows := a.treeCensus().rows; rows != 2 {
 		t.Fatalf("rows %d, want the collection and its page", rows)
 	}
-	a.page.Open = true
+	a.pane().page.Open = true
 	tt.Advance(100 * time.Millisecond)
 	if rows := a.treeCensus().rows; rows != 3 {
 		t.Fatalf("rows %d, want the child too", rows)
 	}
 	tt.Advance(1100 * time.Millisecond)
-	if !slices.Contains(a.settings.TreeOpen, a.page.Dir) {
+	if !slices.Contains(a.settings.TreeOpen, a.pane().page.Dir) {
 		t.Fatalf("not kept within a second: %v", a.settings.TreeOpen)
 	}
-	a.page.Open = false
+	a.pane().page.Open = false
 	tt.Frame()
 	a.keepTree(true) // as the app quits
-	if slices.Contains(a.settings.TreeOpen, a.page.Dir) {
+	if slices.Contains(a.settings.TreeOpen, a.pane().page.Dir) {
 		t.Fatalf("not kept at once: %v", a.settings.TreeOpen)
 	}
 }

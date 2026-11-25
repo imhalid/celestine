@@ -80,24 +80,24 @@ func caretMatches(t *testing.T, spacing int) {
 	a, tt := newTestApp(t, sample)
 	a.settings.LetterSpacing = spacing
 	tt.Frame()
-	n := a.doc.Text().Len()
+	n := a.pane().doc.Text().Len()
 	checked := 0
 	for i := 0; i <= n; i++ {
-		a.doc.SetSelection(i, i)
+		a.pane().doc.SetSelection(i, i)
 		tt.Frame()
 		want, ok := tt.TextCaret()
 		if !ok {
 			t.Fatal("the editor has no caret: is it focused?")
 		}
-		got, ok := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme)
+		got, ok := locate(a.pane().doc, a.pane().boxes, a.pane().editorR.W, a.font, a.theme)
 		if !ok {
 			continue // out of view
 		}
 		g := got.full
-		g.X += a.editorR.X
-		g.Y += a.editorR.Y
+		g.X += a.pane().editorR.X
+		g.Y += a.pane().editorR.Y
 		if math.Abs(float64(g.X-want.X)) > 0.75 || math.Abs(float64(g.Y-want.Y)) > 0.75 || math.Abs(float64(g.H-want.H)) > 0.75 {
-			t.Fatalf("rune %d: ours %+v, the editor's %+v (paragraph style %+v)", i, g, want, a.doc.Text().ParagraphStyleAt(min(i, n-1)))
+			t.Fatalf("rune %d: ours %+v, the editor's %+v (paragraph style %+v)", i, g, want, a.pane().doc.Text().ParagraphStyleAt(min(i, n-1)))
 		}
 		checked++
 	}
@@ -121,7 +121,7 @@ func TestMarkdownNeverSeen(t *testing.T) {
 	}
 	keys("# Başlık\n- bir **iki** üç\n[] iş\n\n> söz") // an empty item's Enter leaves the list
 	tt.Advance(50 * time.Millisecond)
-	text := a.doc.Text()
+	text := a.pane().doc.Text()
 	for _, mark := range []string{"#", "*", "[]", ">"} {
 		if strings.Contains(text.String(), mark) {
 			t.Fatalf("%q is left in the text: %q", mark, text.String())
@@ -151,15 +151,15 @@ func TestSaveAndReload(t *testing.T) {
 	tt.Type("x")
 	now = now.Add(time.Second)
 	tt.Advance(time.Second)
-	if a.dirty {
+	if a.pane().dirty {
 		t.Fatalf("not saved (err %q)", a.saveErr)
 	}
-	body, err := a.page.Text()
+	body, err := a.pane().page.Text()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := parseBody(body); !b.Equal(a.doc.Text()) {
-		t.Fatalf("reloaded text differs:\n%s\n---\n%s", b.Markdown(), a.doc.Text().Markdown())
+	if b := parseBody(body); !b.Equal(a.pane().doc.Text()) {
+		t.Fatalf("reloaded text differs:\n%s\n---\n%s", b.Markdown(), a.pane().doc.Text().Markdown())
 	}
 }
 
@@ -168,11 +168,11 @@ func TestUndoGivesMarksBack(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	tt.Type("#")
 	tt.Type(" ")
-	if a.doc.Text().ParagraphStyleAt(0).Heading != 1 {
+	if a.pane().doc.Text().ParagraphStyleAt(0).Heading != 1 {
 		t.Fatal("no heading")
 	}
 	tt.Key(ui.Cmd, ui.KeyZ)
-	if s := a.doc.Text().String(); s != "# " || a.doc.Text().ParagraphStyleAt(0).Heading != 0 {
+	if s := a.pane().doc.Text().String(); s != "# " || a.pane().doc.Text().ParagraphStyleAt(0).Heading != 0 {
 		t.Fatalf("after undo: %q", s)
 	}
 }
@@ -191,26 +191,26 @@ func TestUnits(t *testing.T) {
 // each frame took minutes), and a long one has its layout kept while it is as it was.
 func TestLongParagraphCaret(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("kelime ", 6000)+"\n\nson")
-	a.doc.SetSelection(3, 3)
+	a.pane().doc.SetSelection(3, 3)
 	tt.Frame()
-	if _, ok := locate(a.doc, a.boxes, 600, a.font, a.theme); ok {
+	if _, ok := locate(a.pane().doc, a.pane().boxes, 600, a.font, a.theme); ok {
 		t.Fatal("a paragraph over maxCaretParagraph got a caret")
 	}
 	short, tt2 := newTestApp(t, strings.Repeat("kelime ", 400)+"\n\nson")
-	short.doc.SetSelection(3, 3)
+	short.pane().doc.SetSelection(3, 3)
 	tt2.Frame()
-	short.doc.SetSelection(3, 3)
-	cb, ok := locate(short.doc, short.boxes, 600, short.font, short.theme)
+	short.pane().doc.SetSelection(3, 3)
+	cb, ok := locate(short.pane().doc, short.pane().boxes, 600, short.font, short.theme)
 	if !ok {
 		t.Fatal("no caret in a paragraph of 2800 runes")
 	}
 	l1 := longMemo.l
-	cb2, _ := locate(short.doc, short.boxes, 600, short.font, short.theme)
+	cb2, _ := locate(short.pane().doc, short.pane().boxes, 600, short.font, short.theme)
 	if longMemo.l != l1 || cb2.r != cb.r {
 		t.Fatal("the layout of a long paragraph was made again, the doc as it was")
 	}
-	short.doc.SetSelection(40, 40)
-	if _, ok := locate(short.doc, short.boxes, 600, short.font, short.theme); !ok || longMemo.l != l1 {
+	short.pane().doc.SetSelection(40, 40)
+	if _, ok := locate(short.pane().doc, short.pane().boxes, 600, short.font, short.theme); !ok || longMemo.l != l1 {
 		t.Fatal("the caret moving made the layout again")
 	}
 }
@@ -220,28 +220,28 @@ func TestLongParagraphCaret(t *testing.T) {
 func TestCaretRectMatchesEditor(t *testing.T) {
 	a, tt := newTestApp(t, sample)
 	tt.Frame()
-	n := a.doc.Text().Len()
+	n := a.pane().doc.Text().Len()
 	checked := 0
 	for i := 0; i <= n; i++ {
-		a.doc.SetSelection(i, i)
+		a.pane().doc.SetSelection(i, i)
 		tt.Frame()
 		want, ok := tt.TextCaret()
 		if !ok {
 			t.Fatal("the editor has no caret: is it focused?")
 		}
-		got, ok := a.doc.CaretRect()
+		got, ok := a.pane().doc.CaretRect()
 		if !ok {
 			continue // out of view
 		}
-		got.X += a.editorR.X
-		got.Y += a.editorR.Y
+		got.X += a.pane().editorR.X
+		got.Y += a.pane().editorR.Y
 		if math.Abs(float64(got.X-want.X)) > 0.75 || math.Abs(float64(got.Y-want.Y)) > 0.75 || math.Abs(float64(got.H-want.H)) > 0.75 {
 			t.Fatalf("rune %d: CaretRect %+v, the editor's %+v", i, got, want)
 		}
-		if cb, ok := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme); ok {
+		if cb, ok := locate(a.pane().doc, a.pane().boxes, a.pane().editorR.W, a.font, a.theme); ok {
 			g := cb.full
-			g.X += a.editorR.X
-			g.Y += a.editorR.Y
+			g.X += a.pane().editorR.X
+			g.Y += a.pane().editorR.Y
 			if math.Abs(float64(g.X-got.X)) > 0.75 || math.Abs(float64(g.Y-got.Y)) > 0.75 {
 				t.Fatalf("rune %d: locate %+v, CaretRect %+v", i, g, got)
 			}
@@ -260,29 +260,29 @@ func TestLongParagraphCaretDraws(t *testing.T) {
 	// Place caret inside the oversized (> maxCaretParagraph) second paragraph.
 	wantPara := len([]rune("ilk paragraf\n"))
 	caretPos := wantPara + 10
-	a.doc.SetSelection(caretPos, caretPos)
+	a.pane().doc.SetSelection(caretPos, caretPos)
 	a.setCaret(caretMizan) // block-style caret relies on caretPara and caretTop
 	tt.Frame()
 	tt.Frame()
 
-	if !a.focused {
+	if !a.pane().focused {
 		t.Fatal("editor is not focused")
 	}
 	if a.caretFBReads != 1 {
 		t.Fatalf("expected 1 CaretRect fallback evaluation on steady state, got %d", a.caretFBReads)
 	}
-	if a.caretWin.H <= 0 {
-		t.Fatalf("caret not positioned on oversized paragraph: %+v", a.caretWin)
+	if a.pane().caretWin.H <= 0 {
+		t.Fatalf("caret not positioned on oversized paragraph: %+v", a.pane().caretWin)
 	}
-	if a.caretPara != wantPara {
-		t.Fatalf("caretPara = %d, want %d", a.caretPara, wantPara)
+	if a.pane().caretPara != wantPara {
+		t.Fatalf("caretPara = %d, want %d", a.pane().caretPara, wantPara)
 	}
-	if b, ok := a.boxAt(caretPos); !ok || a.caretTop != a.editorR.Y+b.Top {
-		t.Fatalf("caretTop = %v, want %v (box ok=%v)", a.caretTop, a.editorR.Y+b.Top, ok)
+	if b, ok := a.boxAt(a.pane(), caretPos); !ok || a.pane().caretTop != a.pane().editorR.Y+b.Top {
+		t.Fatalf("caretTop = %v, want %v (box ok=%v)", a.pane().caretTop, a.pane().editorR.Y+b.Top, ok)
 	}
 
 	// Verify pixels change around caretWin when toggled off via CaretBlink vs painted on.
-	cr := a.caretWin
+	cr := a.pane().caretWin
 	region := image.Rect(max(0, int(cr.X)-6), max(0, int(cr.Y)-6), int(cr.X+cr.W)+16, int(cr.Y+cr.H)+6)
 	withCaret := *tt.Image()
 	withCaret.Pix = append([]byte(nil), withCaret.Pix...)
@@ -297,14 +297,14 @@ func TestLongParagraphCaretDraws(t *testing.T) {
 
 	// Scroll caret out of the visible viewport: offscreen caret must not draw.
 	beforeScrollDraws := a.caretDraws
-	a.pageScroll.Y = cr.Y + 500
+	a.pane().pageScroll.Y = cr.Y + 500
 	tt.Frame()
 	if a.caretDraws != beforeScrollDraws {
 		t.Fatalf("expected no caret draw when scrolled out of view, draws %d -> %d", beforeScrollDraws, a.caretDraws)
 	}
 	// Reset scroll and move caret back to 0 (outside region) to compare painted caret pixels in region.
-	a.pageScroll.Y = 0
-	a.doc.SetSelection(0, 0)
+	a.pane().pageScroll.Y = 0
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	withoutCaret := tt.Image()
 	if pixelsDiffer(&withCaret, withoutCaret, region, image.Rectangle{}) < 4 {
@@ -317,11 +317,11 @@ func TestLongParagraphCaretDraws(t *testing.T) {
 func TestPageOpensWithCaretAtStart(t *testing.T) {
 	a, tt := newTestApp(t, sample)
 	tt.Frame()
-	if _, c := a.doc.Selection(); c != 0 {
-		t.Fatalf("the first page opens with the caret at %d of %d", c, a.doc.Text().Len())
+	if _, c := a.pane().doc.Selection(); c != 0 {
+		t.Fatalf("the first page opens with the caret at %d of %d", c, a.pane().doc.Text().Len())
 	}
-	first := a.page
-	a.doc.SetSelection(5, 5)
+	first := a.pane().page
+	a.pane().doc.SetSelection(5, 5)
 	other, err := first.Coll.NewPage(nil, "Other")
 	if err != nil {
 		t.Fatal(err)
@@ -331,12 +331,12 @@ func TestPageOpensWithCaretAtStart(t *testing.T) {
 	}
 	a.open(other)
 	tt.Frame()
-	if _, c := a.doc.Selection(); c != 0 {
-		t.Fatalf("another page opens with the caret at %d of %d", c, a.doc.Text().Len())
+	if _, c := a.pane().doc.Selection(); c != 0 {
+		t.Fatalf("another page opens with the caret at %d of %d", c, a.pane().doc.Text().Len())
 	}
 	a.open(first)
 	tt.Frame()
-	if _, c := a.doc.Selection(); c != 5 {
+	if _, c := a.pane().doc.Selection(); c != 5 {
 		t.Fatalf("back to the first page, the caret is at %d, not where it was left (5)", c)
 	}
 }
@@ -346,19 +346,19 @@ func TestPageOpensWithCaretAtStart(t *testing.T) {
 func TestCaretAtAWrap(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("kelime ", 60)+"\n\nikinci\n")
 	tt.Frame()
-	a.doc.SetSelection(3, 3)
+	a.pane().doc.SetSelection(3, 3)
 	tt.Frame()
 	same := func(what string) {
 		t.Helper()
 		tt.Frame()
 		want, ok := tt.TextCaret()
-		got, ok2 := locate(a.doc, a.boxes, a.editorR.W, a.font, a.theme)
+		got, ok2 := locate(a.pane().doc, a.pane().boxes, a.pane().editorR.W, a.font, a.theme)
 		if !ok || !ok2 {
 			t.Fatalf("%s: no caret (%v, %v)", what, ok, ok2)
 		}
 		g := got.full
-		if d := math.Abs(float64(g.X+a.editorR.X-want.X)) + math.Abs(float64(g.Y+a.editorR.Y-want.Y)); d > 1 {
-			t.Fatalf("%s: ours at %.0f,%.0f, the editor's at %.0f,%.0f", what, g.X+a.editorR.X, g.Y+a.editorR.Y, want.X, want.Y)
+		if d := math.Abs(float64(g.X+a.pane().editorR.X-want.X)) + math.Abs(float64(g.Y+a.pane().editorR.Y-want.Y)); d > 1 {
+			t.Fatalf("%s: ours at %.0f,%.0f, the editor's at %.0f,%.0f", what, g.X+a.pane().editorR.X, g.Y+a.pane().editorR.Y, want.X, want.Y)
 		}
 	}
 	for _, k := range []struct {
@@ -369,10 +369,10 @@ func TestCaretAtAWrap(t *testing.T) {
 		same(k.what)
 	}
 	// a click past the end of the first line, in its middle
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
-	tt.ClickAt(a.editorR.X+a.editorR.W-4, a.editorR.Y+a.boxes[0].Top+a.font.Size*0.7)
-	if _, at := a.doc.Selection(); at == 0 {
+	tt.ClickAt(a.pane().editorR.X+a.pane().editorR.W-4, a.pane().editorR.Y+a.pane().boxes[0].Top+a.font.Size*0.7)
+	if _, at := a.pane().doc.Selection(); at == 0 {
 		t.Fatal("the click did not move the caret")
 	}
 	same("a click past the line's end")

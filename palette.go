@@ -146,15 +146,15 @@ func (a *app) commands() []palItem {
 		}
 	}
 	mark()
-	if p := a.page; p != nil && !a.noPage() {
-		if sa, sc := a.doc.Selection(); sa != sc { // text is selected: its formats
+	if p := a.pane().page; p != nil && !a.noPage() {
+		if sa, sc := a.pane().doc.Selection(); sa != sc { // text is selected: its formats
 			for _, f := range []struct {
 				name string
 				do   func()
-			}{{"makeTheSelectionBold", a.doc.ToggleBold}, {"makeTheSelectionItalic", a.doc.ToggleItalic}, {"underlineTheSelection", a.doc.ToggleUnderline},
-				{"strikeTheSelectionThrough", a.doc.ToggleStrikethrough}, {"makeTheSelectionCode", a.doc.ToggleCode}} {
+			}{{"makeTheSelectionBold", a.pane().doc.ToggleBold}, {"makeTheSelectionItalic", a.pane().doc.ToggleItalic}, {"underlineTheSelection", a.pane().doc.ToggleUnderline},
+				{"strikeTheSelectionThrough", a.pane().doc.ToggleStrikethrough}, {"makeTheSelectionCode", a.pane().doc.ToggleCode}} {
 				f := f
-				it := cmd(f.name, "", iconEditing, func() { f.do(); a.refocus = true })
+				it := cmd(f.name, "", iconEditing, func() { f.do(); a.pane().refocus = true })
 				it.coll = p.Coll
 				out = append(out, it)
 			}
@@ -172,9 +172,9 @@ func (a *app) commands() []palItem {
 			it.coll = p.Coll
 			out = append(out, it)
 		}
-		undoIt := cmd("common_undo2", "⌘Z", iconBack, func() { a.doc.Undo(); a.refocus = true })
+		undoIt := cmd("common_undo2", "⌘Z", iconBack, func() { a.pane().doc.Undo(); a.pane().refocus = true })
 		undoIt.coll = p.Coll
-		redoIt := cmd("redo", "⇧⌘Z", iconChevron, func() { a.doc.Redo(); a.refocus = true })
+		redoIt := cmd("redo", "⇧⌘Z", iconChevron, func() { a.pane().doc.Redo(); a.pane().refocus = true })
 		redoIt.coll = p.Coll
 		pasteIt := cmd("pasteATableCsv", "", iconKind, func() { a.pasteTable() })
 		pasteIt.coll = p.Coll
@@ -183,7 +183,7 @@ func (a *app) commands() []palItem {
 		out = append(out, undoIt, redoIt, pasteIt, trashIt)
 	}
 	mark()
-	if c := a.coll; c != nil {
+	if c := a.pane().coll; c != nil {
 		for i := range c.Views {
 			v := c.Views[i]
 			it := cmd("view: "+viewLabel(v), "", iconStack, func() {
@@ -311,10 +311,10 @@ func (a *app) commands() []palItem {
 // currentColl is the collection of what is shown.
 func (a *app) currentColl() *Collection {
 	switch {
-	case a.coll != nil:
-		return a.coll
-	case a.page != nil:
-		return a.page.Coll
+	case a.pane().coll != nil:
+		return a.pane().coll
+	case a.pane().page != nil:
+		return a.pane().page.Coll
 	case len(a.lib.Collections) > 0:
 		return a.lib.Collections[0]
 	}
@@ -584,12 +584,12 @@ func (a *app) modeItems(mode byte, q string) []palItem {
 	case ':':
 		return a.colonItems(q)
 	case '/':
-		if a.page == nil || a.doc == nil || a.noPage() {
+		if a.pane().page == nil || a.pane().doc == nil || a.noPage() {
 			out = append(out, palItem{title: locales.PaletteSearchPage(), sub: locales.PaletteNoPageOpen(), glyph: iconSearch, off: locales.PaletteOpenPageToSearch()})
 		} else {
 			out = append(out, palItem{title: locales.PaletteSearchPageFor(q), sub: "⌘F", glyph: iconSearch, run: func() {
 				a.openFind()
-				a.find.query, a.find.ver = q, 0
+				a.pane().find.query, a.pane().find.ver = q, 0
 			}})
 		}
 	case '!':
@@ -630,15 +630,15 @@ func countParagraphs(t richtext.Text) int {
 // goToParagraph puts the caret at the start of paragraph n (from 1) and shows it.
 func (a *app) goToParagraph(n int) {
 	i := 0
-	for at := range a.doc.Text().Paragraphs() {
+	for at := range a.pane().doc.Text().Paragraphs() {
 		i++
 		if i == n {
-			a.doc.SetSelection(at, at)
+			a.pane().doc.SetSelection(at, at)
 			break
 		}
 	}
-	a.refocus = true
-	a.revealWant = true
+	a.pane().refocus = true
+	a.pane().revealWant = true
 }
 
 // foldText is s for matching: lower case, Turkish letters as their ASCII. Its name is not fold, which folds
@@ -858,8 +858,8 @@ func (a *app) paletteView(c *ui.Context) {
 // they were every command with its closures, the backups read from the disk, every page of the library (#186).
 func (a *app) palLines() []palItem {
 	k := palKey{query: a.pal.query, cat: a.pal.cat, pages: PagesGen.Load(), theme: a.settings.Theme, look: a.settings.AppTheme, caret: a.caretKind}
-	if a.doc != nil {
-		k.text = a.doc.Version()
+	if a.pane().doc != nil {
+		k.text = a.pane().doc.Version()
 	}
 	if !a.pal.have || a.pal.key != k {
 		a.pal.items, a.pal.key, a.pal.have = a.paletteItems(a.pal.query), k, true

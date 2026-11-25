@@ -11,14 +11,14 @@ func TestUpFromHeading(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\n# Başlık\n\n## Alt\n\n### Üç\n\nSon\n")
 	tt.Frame()
 	for _, s := range []string{"Başlık", "Alt", "Üç", "Son"} {
-		p := at(a.doc, s) + 2
-		a.doc.SetSelection(p, p)
+		p := at(a.pane().doc, s) + 2
+		a.pane().doc.SetSelection(p, p)
 		tt.Frame()
 		tt.Key(0, ui.KeyUp)
 		tt.Frame()
-		_, c := a.doc.Selection()
-		if c >= at(a.doc, s) {
-			t.Errorf("%s: ↑ from %d went to %d, not above (paragraph at %d)", s, p, c, at(a.doc, s))
+		_, c := a.pane().doc.Selection()
+		if c >= at(a.pane().doc, s) {
+			t.Errorf("%s: ↑ from %d went to %d, not above (paragraph at %d)", s, p, c, at(a.pane().doc, s))
 		}
 	}
 }

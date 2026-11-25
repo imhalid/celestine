@@ -39,7 +39,7 @@ func foldOf(t richtext.Text, at int) *chip {
 
 // fold takes what is under the line at at out, behind a chip.
 func (a *app) fold(at int) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	hs, he := t.ParagraphRange(at)
 	if foldOf(t, at) != nil || !blockHasKids(t, at) {
 		return
@@ -47,17 +47,17 @@ func (a *app) fold(at int) {
 	_, be := blockRange(t, hs)
 	if be >= t.Len() { // the block ends the text: a line after it to hold the end
 		n := t.Len()
-		a.doc.Edit(func(ed *richtext.Edit) {
+		a.pane().doc.Edit(func(ed *richtext.Edit) {
 			ed.Replace(n, n, richtext.NewText("\n"))
 			ed.FormatParagraphs(n+1, n+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 		})
-		t = a.doc.Text()
+		t = a.pane().doc.Text()
 	}
 	hidden := t.Slice(he+1, be+1)
 	ch := &chip{kind: "fold", hidden: &hidden, lines: strings.Count(hidden.String(), "\n")}
 	attrs := t.AttributesAt(hs)
 	attrs.Attachment = a.attachment(ch)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(he+1, be+1, richtext.Text{})
 		ed.ReplaceString(he, he, string(richtext.ObjectReplacement), attrs)
 		ed.Select(he, he)
@@ -66,12 +66,13 @@ func (a *app) fold(at int) {
 
 // unfold puts back what the chip holds.
 func (a *app) unfold(ch *chip) {
-	i := a.chipPos(ch)
+	pn := a.pane()
+	i := a.chipPos(pn, ch)
 	if i < 0 || ch.hidden == nil {
 		return
 	}
-	_, pe := a.doc.Text().ParagraphRange(i)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	_, pe := pn.doc.Text().ParagraphRange(i)
+	pn.doc.Edit(func(ed *richtext.Edit) {
 		if pe >= ed.Text().Len() { // the line after the fold is gone: one for what it holds, not glued to its line
 			ed.Replace(pe, pe, richtext.NewText("\n"))
 			ed.FormatParagraphs(pe+1, pe+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
@@ -80,12 +81,12 @@ func (a *app) unfold(ch *chip) {
 		ed.Replace(i, i+1, richtext.Text{})
 		ed.Select(i, i)
 	})
-	a.prevText = a.doc.Text() // the chip went because what it held is back: not one to put back (keepHidden)
+	a.pane().prevText = a.pane().doc.Text() // the chip went because what it held is back: not one to put back (keepHidden)
 }
 
 // toggleFold folds the block the caret is in, or unfolds it.
 func (a *app) toggleFold(at int) {
-	if ch := foldOf(a.doc.Text(), at); ch != nil {
+	if ch := foldOf(a.pane().doc.Text(), at); ch != nil {
 		a.unfold(ch)
 		return
 	}
@@ -184,7 +185,7 @@ func (a *app) keepHidden(prev, now richtext.Text, caret int) bool {
 		return false
 	}
 	paras := paragraphsOf(now)
-	grow, from := now.Len()-prev.Len(), min(a.caretAt, caret)
+	grow, from := now.Len()-prev.Len(), min(a.pane().caretAt, caret)
 	caretPara, shift := paraIndex(now, caret), 0
 	// from the last to the first, so that what goes in does not move where the next goes
 	for i := len(folds) - 1; i >= 0; i-- {
@@ -213,7 +214,7 @@ func (a *app) keepHidden(prev, now richtext.Text, caret int) bool {
 	full := richtext.TextOf(paras...)
 	styles := paraStyles(full)
 	n := now.Len()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(0, n, full)
 		restyle(ed, 0, styles)
 		at := min(caret+shift, full.Len())

@@ -315,14 +315,14 @@ func lookOf(th *richtext.Theme) layLook {
 	return layLook{th.Indent, th.CodeSize, th.CodeFont, th.CodeBlockPadding, th.Headings, linkIcons, textSpacing, sizedGen}
 }
 
-// paraLayout is the paragraph para of the open page, starting at rune s, laid out at width w as the editor lays it
+// paraLayout is the paragraph para of pn's page, starting at rune s, laid out at width w as the editor lays it
 // out, kept for this version of the text.
-func (a *app) paraLayout(s int, para richtext.Paragraph, w float32) (*ui.TextLayout, float32) {
+func (a *app) paraLayout(pn *paneState, s int, para richtext.Paragraph, w float32) (*ui.TextLayout, float32) {
 	n := 0
 	for _, r := range para.Runs {
 		n += utf8.RuneCountInString(r.Text)
 	}
-	return longMemo.layout(a.doc, s, n, para, w, a.font, a.theme)
+	return longMemo.layout(pn.doc, s, n, para, w, a.font, a.theme)
 }
 
 type shortLaid struct {

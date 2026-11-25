@@ -19,7 +19,7 @@ func TestTwoPanesDifferentPages(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	second, err := first.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
@@ -30,8 +30,8 @@ func TestTwoPanesDifferentPages(t *testing.T) {
 	if a.paneCount() != 2 {
 		t.Fatalf("panes: %d", a.paneCount())
 	}
-	if a.ps.active != 1 || a.page != second {
-		t.Fatalf("the new pane is not in use: active %d page %v", a.ps.active, a.page)
+	if a.ps.active != 1 || a.pane().page != second {
+		t.Fatalf("the new pane is not in use: active %d page %v", a.ps.active, a.pane().page)
 	}
 	if a.ps.states[0].page != first {
 		t.Fatalf("the first pane lost its page: %v", a.ps.states[0].page)
@@ -40,7 +40,7 @@ func TestTwoPanesDifferentPages(t *testing.T) {
 	tt.Key(ui.Cmd, ui.KeyDown)
 	typeEach(tt, "abc")
 	tt.Advance(1200 * time.Millisecond)
-	if got := a.doc.Text().String(); got != "Öteki"+"abc" {
+	if got := a.pane().doc.Text().String(); got != "Öteki"+"abc" {
 		t.Fatalf("second page: %q", got)
 	}
 	if got := a.docs[first].Text().String(); got != "Birinci" {
@@ -49,13 +49,13 @@ func TestTwoPanesDifferentPages(t *testing.T) {
 	// go to the first pane, and write there
 	a.usePane(0)
 	tt.Advance(300 * time.Millisecond)
-	if a.page != first {
-		t.Fatalf("not in the first: %v", a.page)
+	if a.pane().page != first {
+		t.Fatalf("not in the first: %v", a.pane().page)
 	}
 	tt.Key(ui.Cmd, ui.KeyDown)
 	typeEach(tt, "xyz")
 	tt.Advance(1200 * time.Millisecond)
-	if got := a.doc.Text().String(); got != "Birinci"+"xyz" {
+	if got := a.pane().doc.Text().String(); got != "Birinci"+"xyz" {
 		t.Fatalf("first page: %q", got)
 	}
 	if got := a.docs[second].Text().String(); got != "Öteki"+"abc" {
@@ -72,15 +72,15 @@ func TestTwoPanesSamePage(t *testing.T) {
 	a, tt := newTestApp(t, "Aynı\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	a.openInSide(place{"page", a.page.Dir})
+	a.openInSide(place{"page", a.pane().page.Dir})
 	tt.Advance(300 * time.Millisecond)
-	if a.paneCount() != 2 || a.ps.states[0].page != a.page {
+	if a.paneCount() != 2 || a.ps.states[0].page != a.pane().page {
 		t.Fatalf("panes %d", a.paneCount())
 	}
 	tt.Key(ui.Cmd, ui.KeyDown)
 	typeEach(tt, "hey")
 	tt.Advance(400 * time.Millisecond)
-	if a.ps.states[0].doc != a.doc {
+	if a.ps.states[0].doc != a.pane().doc {
 		t.Fatal("two texts for one page")
 	}
 }
@@ -90,19 +90,19 @@ func TestPaneForAScreen(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	page := a.page
+	page := a.pane().page
 	a.openInSide(place{kind: "settings"})
 	tt.Advance(500 * time.Millisecond)
 	if !tt.HasText("Görünüm") {
 		t.Fatalf("the page and the settings are not both there: %v", tt.Texts())
 	}
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("the pane in use is not the settings")
 	}
 	a.closePane(a.ps.active)
 	tt.Advance(300 * time.Millisecond)
-	if a.paneCount() != 1 || a.page != page || a.settingsOpen {
-		t.Fatalf("after closing: %d panes, page %v, settings %v", a.paneCount(), a.page, a.settingsOpen)
+	if a.paneCount() != 1 || a.pane().page != page || a.pane().settingsOpen {
+		t.Fatalf("after closing: %d panes, page %v, settings %v", a.paneCount(), a.pane().page, a.pane().settingsOpen)
 	}
 	if tt.HasText("Görünüm") {
 		t.Fatal("the settings stayed")
@@ -114,7 +114,7 @@ func TestDragToSide(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	second, _ := first.Coll.NewPage(nil, "İkinci")
 	second.SaveText("Öteki\n")
 	a.open(first)
@@ -136,8 +136,8 @@ func TestDragToSide(t *testing.T) {
 	if a.paneCount() != 2 {
 		t.Fatalf("panes: %d", a.paneCount())
 	}
-	if a.page != second || a.ps.states[0].page != first {
-		t.Fatalf("not where it was dropped: in use %v, first pane %v", a.page, a.ps.states[0].page)
+	if a.pane().page != second || a.ps.states[0].page != first {
+		t.Fatalf("not where it was dropped: in use %v, first pane %v", a.pane().page, a.ps.states[0].page)
 	}
 	// the page did not move in the tree
 	if len(first.Coll.Pages) != 2 || first.Coll.Pages[0] != first {
@@ -151,7 +151,7 @@ func TestOpenInPaneMenus(t *testing.T) {
 	tt.SetSize(1400, 800)
 	tt.Frame()
 	found := false
-	for _, it := range a.pageMenu(a.page, false) {
+	for _, it := range a.pageMenu(a.pane().page, false) {
 		if it.title == "openInASidePane" {
 			found = true
 			it.run()
@@ -165,7 +165,7 @@ func TestOpenInPaneMenus(t *testing.T) {
 		t.Fatalf("panes: %d", a.paneCount())
 	}
 	found = false
-	for _, it := range a.collectionMenu(a.page.Coll) {
+	for _, it := range a.collectionMenu(a.pane().page.Coll) {
 		if it.title == "openInASidePane" {
 			found = true
 		}
@@ -189,16 +189,16 @@ func TestPanesSurviveReload(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	firstDir := a.page.Dir
-	second, _ := a.page.Coll.NewPage(nil, "İkinci")
+	firstDir := a.pane().page.Dir
+	second, _ := a.pane().page.Coll.NewPage(nil, "İkinci")
 	second.SaveText("Öteki\n")
 	a.openInSide(place{"page", second.Dir})
 	tt.Advance(300 * time.Millisecond)
-	secondDir := a.page.Dir
+	secondDir := a.pane().page.Dir
 	a.reloadLibrary()
 	tt.Advance(300 * time.Millisecond)
-	if a.page == nil || a.page.Dir != secondDir || a.doc == nil {
-		t.Fatalf("the pane in use lost its page: %v", a.page)
+	if a.pane().page == nil || a.pane().page.Dir != secondDir || a.pane().doc == nil {
+		t.Fatalf("the pane in use lost its page: %v", a.pane().page)
 	}
 	other := a.ps.states[1-a.ps.active]
 	if other.page == nil || other.page.Dir != firstDir || other.doc == nil {
@@ -212,7 +212,7 @@ func TestManyPanes(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1600, 900)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	var titles []string
 	for _, name := range []string{"İkinci", "Üçüncü", "Dördüncü"} {
 		p, err := first.Coll.NewPage(nil, name)
@@ -260,7 +260,7 @@ func TestManyPanes(t *testing.T) {
 	if a.paneCount() != 1 || a.ps.layout != nil {
 		t.Fatalf("with one left the Dock goes: %d panes, layout %v", a.paneCount(), a.ps.layout)
 	}
-	if a.page == nil {
+	if a.pane().page == nil {
 		t.Fatal("the pane left shows nothing")
 	}
 }
@@ -271,7 +271,7 @@ func TestPanesComeBack(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1600, 900)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	var pages []*Page
 	for _, name := range []string{"İkinci", "Üçüncü"} {
 		p, _ := first.Coll.NewPage(nil, name)
@@ -291,8 +291,7 @@ func TestPanesComeBack(t *testing.T) {
 	// a window opened again from the same settings and library
 	b := newApp(a.lib)
 	b.settings.Panes = a.settings.Panes
-	b.ps = paneSet{}
-	b.paneState = newPaneState()
+	b.ps = paneSet{states: []*paneState{newPaneState()}}
 	b.restorePaneLayout()
 	if b.paneCount() != 3 || len(b.ps.layout.PaneIDs()) != 3 {
 		t.Fatalf("panes: %d", b.paneCount())
@@ -303,7 +302,7 @@ func TestPanesComeBack(t *testing.T) {
 	if b.ps.states[0].coll == nil || b.ps.states[0].coll.Dir != first.Coll.Dir {
 		t.Fatalf("the first pane does not show the collection: %+v", b.ps.states[0].coll)
 	}
-	if b.page == nil || b.page.Dir != pages[0].Dir {
+	if b.pane().page == nil || b.pane().page.Dir != pages[0].Dir {
 		t.Fatalf("the pane in use shows %v", b.here())
 	}
 	if b.ps.states[2].page == nil || b.ps.states[2].page.Dir != pages[1].Dir {
@@ -326,7 +325,7 @@ func TestTearOffPane(t *testing.T) {
 	a, tt := newTestApp(t, "merhaba\n")
 	tt.SetSize(1000, 700)
 	tt.Advance(200 * time.Millisecond)
-	page := a.page
+	page := a.pane().page
 	a.mu.Lock()
 	a.tearOffPane()
 	a.mu.Unlock()
@@ -344,8 +343,8 @@ func TestTearOffPane(t *testing.T) {
 	if a.paneWindow(1-a.ps.active) != "main" {
 		t.Fatal("the main window has no pane")
 	}
-	if a.page != page {
-		t.Fatalf("the pane torn off shows %v, not the page", a.page)
+	if a.pane().page != page {
+		t.Fatalf("the pane torn off shows %v, not the page", a.pane().page)
 	}
 	// once more does nothing: it is in its own window already
 	a.mu.Lock()
@@ -378,7 +377,7 @@ func TestDragIntoDock(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	second, _ := first.Coll.NewPage(nil, "İkinci")
 	second.SaveText("Öteki\n")
 	a.open(first)
@@ -393,8 +392,8 @@ func TestDragIntoDock(t *testing.T) {
 	holdTo(tt, row.X+row.W/2, row.Y+row.H/2, r.X+r.W/2, r.Y+r.H/2+14)
 	tt.Release(r.X+r.W/2, r.Y+r.H/2+14)
 	tt.Advance(600 * time.Millisecond)
-	if a.paneCount() != 2 || a.page != second {
-		t.Fatalf("panes %d, in use %v", a.paneCount(), a.page)
+	if a.paneCount() != 2 || a.pane().page != second {
+		t.Fatalf("panes %d, in use %v", a.paneCount(), a.pane().page)
 	}
 	ids := a.ps.layout.PaneIDs()
 	if len(ids) != 2 {
@@ -414,8 +413,8 @@ func TestDragIntoDock(t *testing.T) {
 	holdTo(tt, crow.X+crow.W/2, crow.Y+crow.H/2, bx, by)
 	tt.Release(bx, by)
 	tt.Advance(600 * time.Millisecond)
-	if a.paneCount() != 3 || a.coll != coll {
-		t.Fatalf("panes %d, collection in use %v", a.paneCount(), a.coll)
+	if a.paneCount() != 3 || a.pane().coll != coll {
+		t.Fatalf("panes %d, collection in use %v", a.paneCount(), a.pane().coll)
 	}
 	if root := a.ps.layout.Windows[0].Root; root.Dir != ryugo.DockColumn || len(root.Children) != 2 {
 		t.Fatalf("not along the bottom: %+v", root)
@@ -430,7 +429,7 @@ func TestDragIntoDockAndBack(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	second, _ := a.page.Coll.NewPage(nil, "İkinci")
+	second, _ := a.pane().page.Coll.NewPage(nil, "İkinci")
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	row, _ := tt.Find("İkinci")
@@ -454,7 +453,7 @@ func TestTrashedPageLeavesOtherPane(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	second, err := first.Coll.NewPage(nil, "İkinci")
 	if err != nil {
 		t.Fatal(err)
@@ -479,7 +478,7 @@ func TestSamePageOtherPaneResync(t *testing.T) {
 	a, tt := newTestApp(t, "Birinci\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	p := a.page
+	p := a.pane().page
 	a.openInSide(place{"page", p.Dir})
 	tt.Advance(300 * time.Millisecond)
 	a.usePane(0)
@@ -488,12 +487,12 @@ func TestSamePageOtherPaneResync(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.usePane(1)
-	if v := a.doc.Version(); a.version != v || a.length != a.doc.Text().Len() {
-		t.Fatalf("pane 1 not up with the text: version %d/%d length %d/%d", a.version, v, a.length, a.doc.Text().Len())
+	if v := a.pane().doc.Version(); a.pane().version != v || a.pane().length != a.pane().doc.Text().Len() {
+		t.Fatalf("pane 1 not up with the text: version %d/%d length %d/%d", a.pane().version, v, a.pane().length, a.pane().doc.Text().Len())
 	}
 	a.usePane(0)
-	if v := a.doc.Version(); a.version != v {
-		t.Fatalf("pane 0 not up with the text: version %d/%d", a.version, v)
+	if v := a.pane().doc.Version(); a.pane().version != v {
+		t.Fatalf("pane 0 not up with the text: version %d/%d", a.pane().version, v)
 	}
 }
 
@@ -512,22 +511,22 @@ func TestDocsAreBounded(t *testing.T) {
 		pages = append(pages, p)
 	}
 	a.open(pages[0])
-	a.doc.SetText(importMarkdown("değişti\n")) // written in, and left: saved as it goes
-	a.dirty = true
+	a.pane().doc.SetText(importMarkdown("değişti\n")) // written in, and left: saved as it goes
+	a.pane().dirty = true
 	for _, p := range pages[1:] {
 		a.open(p)
 	}
 	if len(a.docs) > maxDocs {
 		t.Fatalf("%d texts kept, at most %d", len(a.docs), maxDocs)
 	}
-	if a.docs[a.page] == nil || a.docs[pages[len(pages)-1]] == nil {
+	if a.docs[a.pane().page] == nil || a.docs[pages[len(pages)-1]] == nil {
 		t.Fatal("the page shown has no text")
 	}
 	if a.docs[pages[0]] != nil {
 		t.Fatal("the longest unused is kept")
 	}
 	a.open(pages[0]) // read again from its file
-	if got := a.doc.Text().String(); !strings.Contains(got, "değişti") {
+	if got := a.pane().doc.Text().String(); !strings.Contains(got, "değişti") {
 		t.Fatalf("what was written is lost: %q", got)
 	}
 }
@@ -538,7 +537,7 @@ func TestPaneBoxesOwn(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("Uzunca bir paragraf, bölme daraldıkça daha çok satıra kırılır. ", 8)+"\n\nİkinci paragraf.\n")
 	tt.SetSize(1600, 800)
 	tt.Frame()
-	first := a.page
+	first := a.pane().page
 	a.openInSide(place{"page", first.Dir})
 	tt.Advance(400 * time.Millisecond)
 	if a.paneCount() != 2 || a.ps.active != 1 {
@@ -586,13 +585,12 @@ func TestRestoreTagPaneColdIndex(t *testing.T) {
 
 	b := newApp(a.lib)
 	b.settings.Panes = a.settings.Panes
-	b.ps = paneSet{}
-	b.paneState = newPaneState()
+	b.ps = paneSet{states: []*paneState{newPaneState()}}
 	b.prewarming = true // simulate startup prewarm running before index is built
 	b.links = linkIndex{}
 	b.restorePaneLayout()
-	if b.tag != "fikir" {
-		t.Fatalf("active restored pane tag = %q, want %q", b.tag, "fikir")
+	if b.pane().tag != "fikir" {
+		t.Fatalf("active restored pane tag = %q, want %q", b.pane().tag, "fikir")
 	}
 }
 
@@ -602,7 +600,7 @@ func TestBlockDragLeavesOtherPane(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\nİki\n\nÜç\n\nDört\n")
 	tt.SetSize(1400, 800)
 	tt.Frame()
-	a.openInSide(place{"page", a.page.Dir})
+	a.openInSide(place{"page", a.pane().page.Dir})
 	tt.Advance(400 * time.Millisecond)
 	if a.paneCount() != 2 || a.ps.active != 1 {
 		t.Fatalf("panes %d, active %d", a.paneCount(), a.ps.active)
@@ -615,14 +613,14 @@ func TestBlockDragLeavesOtherPane(t *testing.T) {
 		return out
 	}
 	still := tops(a.ps.states[0].boxes)
-	r := a.editorR
+	r := a.pane().editorR
 	var before float32
-	for _, b := range a.boxes {
+	for _, b := range a.pane().boxes {
 		if b.Index == 2 {
 			before = b.Top
 		}
 	}
-	b0 := a.boxes[0]
+	b0 := a.pane().boxes[0]
 	tt.Move(r.X+40, r.Y+b0.Top+b0.Height/2)
 	tt.Frame()
 	tt.Frame()
@@ -638,8 +636,8 @@ func TestBlockDragLeavesOtherPane(t *testing.T) {
 		tt.Frame()
 	}
 	tt.Advance(500 * time.Millisecond)
-	if !a.grip.dragging || a.grip.toIdx != 2 {
-		t.Fatalf("aim: dragging %v, toIdx %d", a.grip.dragging, a.grip.toIdx)
+	if !a.pane().grip.dragging || a.pane().grip.toIdx != 2 {
+		t.Fatalf("aim: dragging %v, toIdx %d", a.pane().grip.dragging, a.pane().grip.toIdx)
 	}
 	other := a.ps.states[0]
 	if other.grip.dragging || len(other.grip.rooms) != 0 {
@@ -650,7 +648,7 @@ func TestBlockDragLeavesOtherPane(t *testing.T) {
 	}
 	tt.Release(x0, y1+1)
 	tt.Advance(400 * time.Millisecond)
-	if got := mdOf(a.doc); got != "İki\n\nBir\n\nÜç\n\nDört" || a.ps.states[0].doc != a.doc {
+	if got := mdOf(a.pane().doc); got != "İki\n\nBir\n\nÜç\n\nDört" || a.ps.states[0].doc != a.pane().doc {
 		t.Fatalf("dropped: %q", got)
 	}
 }

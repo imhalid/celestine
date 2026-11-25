@@ -21,7 +21,7 @@ func siblingsOf(p *Page) []*Page {
 // moveCommands are the commands that move the page that is open, and the collection that is shown.
 func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func()) palItem) []palItem {
 	var out []palItem
-	if p := a.page; p != nil && !a.noPage() && !p.Coll.Journal {
+	if p := a.pane().page; p != nil && !a.noPage() && !p.Coll.Journal {
 		done := func(what string) {
 			a.linksStale()
 			p.Coll.Open = true
@@ -84,7 +84,7 @@ func (a *app) moveCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 			out = append(out, it)
 		}
 	}
-	if c := a.coll; c != nil {
+	if c := a.pane().coll; c != nil {
 		up := cmd("moveTheCollectionUp", "", iconBack, func() {
 			if err := a.lib.MoveCollection(c, -1); err != nil {
 				a.fail(err)

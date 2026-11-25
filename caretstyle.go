@@ -21,9 +21,9 @@ var bracketPairs = map[rune]rune{')': '(', ']': '[', '}': '{'}
 
 // styleAt is the style of the caret at caret: what the next letter written would be, and the bracket it is in.
 func (a *app) styleAt(caret int) caretStyle {
-	at := a.doc.TypingAttributes()
+	at := a.pane().doc.TypingAttributes()
 	st := caretStyle{strike: at.Strikethrough}
-	text := a.doc.Text()
+	text := a.pane().doc.Text()
 	s, _ := text.ParagraphRange(caret)
 	if caret > s {
 		var open []rune

@@ -253,20 +253,20 @@ func TestMCPListLooksKept(t *testing.T) {
 		para(item(richtext.Tasks, 0, listSpec{task: "number"}.id()), "one"),
 		para(item(richtext.Tasks, 0, ""), "two"),
 	)
-	if err := a.writeBody(a.page, bodyMarkdown(tx)); err != nil {
+	if err := a.writeBody(a.pane().page, bodyMarkdown(tx)); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	before, _ := a.page.Body()
+	before, _ := a.pane().page.Body()
 	if before != encodeBody(tx) {
 		t.Fatalf("written as\n%s\nnot\n%s", before, encodeBody(tx))
 	}
-	id := a.idOf(a.page.Dir)
+	id := a.idOf(a.pane().page.Dir)
 	var read struct{ Markdown string }
 	call(t, cs, "read_page", map[string]any{"page": id}, &read)
 	call(t, cs, "update_page", map[string]any{"page": id, "markdown": read.Markdown}, nil)
 	tt.Frame()
-	if after, _ := a.page.Body(); after != before {
+	if after, _ := a.pane().page.Body(); after != before {
 		t.Fatalf("the agent's rewrite changed it:\n%s\n%s\nthrough\n%s", before, after, read.Markdown)
 	}
 }
@@ -276,7 +276,7 @@ func TestMCPListLooksKept(t *testing.T) {
 func TestNumberedTasksTicked(t *testing.T) {
 	src := "<!--celestine:list num=roman&task=number-->\n1. [ ] one\n2. [ ] two\n\nbetween\n\n1. [ ] three\n2. [ ] four\n"
 	a, _ := newTestApp(t, src)
-	body, _ := a.page.Body()
+	body, _ := a.pane().page.Body()
 	if !strings.Contains(body, "num=roman") {
 		t.Fatalf("the look was not read: %s", body)
 	}
@@ -284,7 +284,7 @@ func TestNumberedTasksTicked(t *testing.T) {
 	a.toggling.Wait()
 	a.toggleTask(taskIn(t, a, "three"))
 	a.toggling.Wait()
-	md, _ := a.page.Text()
+	md, _ := a.pane().page.Text()
 	if !strings.Contains(md, "<!--celestine:list num=roman&task=number-->\n1. [ ] one\n2. [x] two") || !strings.Contains(md, "1. [x] three\n2. [ ] four") {
 		t.Fatalf("ticked as\n%s", md)
 	}
@@ -293,16 +293,16 @@ func TestNumberedTasksTicked(t *testing.T) {
 	}
 	var ts []taskItem
 	for _, k := range a.allTasks(true) {
-		if k.page == a.page && !k.done {
+		if k.page == a.pane().page && !k.done {
 			ts = append(ts, k)
 		}
 	}
 	if len(ts) != 2 {
 		t.Fatalf("%d open tasks", len(ts))
 	}
-	a.closeTasks(a.page, ts)
+	a.closeTasks(a.pane().page, ts)
 	a.toggling.Wait()
-	md, _ = a.page.Text()
+	md, _ = a.pane().page.Text()
 	if strings.Contains(md, "[ ]") || strings.Count(md, "[x]") != 4 || !strings.Contains(md, "<!--celestine:list num=roman&task=number-->\n1. [x] one") {
 		t.Fatalf("closed as\n%s", md)
 	}

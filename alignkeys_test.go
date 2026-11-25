@@ -15,18 +15,18 @@ func TestNoAlignKeys(t *testing.T) {
 	}
 	a, tt := newTestApp(t, "hello world\n")
 	tt.Advance(100 * time.Millisecond)
-	a.refocus = true
+	a.pane().refocus = true
 	tt.Frame()
-	a.doc.SetSelection(2, 2)
+	a.pane().doc.SetSelection(2, 2)
 	tt.Frame()
 	for _, k := range []ui.Key{ui.KeyR, ui.KeyE, ui.KeyL} {
 		tt.Key(ui.Cmd, k)
 		tt.Frame()
-		if al := a.doc.Text().ParagraphStyleAt(2).Align; al != 0 {
+		if al := a.pane().doc.Text().ParagraphStyleAt(2).Align; al != 0 {
 			t.Fatalf("key %v aligned the paragraph: %v", k, al)
 		}
 	}
-	if a.doc.Text().String() != "hello world" {
-		t.Fatalf("the text changed: %q", a.doc.Text().String())
+	if a.pane().doc.Text().String() != "hello world" {
+		t.Fatalf("the text changed: %q", a.pane().doc.Text().String())
 	}
 }

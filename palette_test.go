@@ -25,7 +25,7 @@ func TestPaletteGoes(t *testing.T) {
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
-	if a.pal.open || a.page == nil || a.page.Title != "Yüzyıllık Yalnızlık" {
+	if a.pal.open || a.pane().page == nil || a.pane().page.Title != "Yüzyıllık Yalnızlık" {
 		t.Fatalf("went to %v", a.here())
 	}
 	// empty, it has the places last shown
@@ -56,7 +56,7 @@ func TestPaletteGoes(t *testing.T) {
 	tt.Frame()
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if !a.trashOpen {
+	if !a.pane().trashOpen {
 		t.Fatal("the command did not run")
 	}
 	a.openPalette()
@@ -111,42 +111,42 @@ func TestMatchScores(t *testing.T) {
 // TestFindInPage finds, steps through and replaces.
 func TestFindInPage(t *testing.T) {
 	a, tt := newTestApp(t, "Bir elma, iki ELMA.\n\nÜç elma, dört armut.\n")
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Key(ui.Cmd, ui.KeyF)
 	tt.Advance(200 * time.Millisecond)
-	if !a.find.open {
+	if !a.pane().find.open {
 		t.Fatal("not open")
 	}
 	tt.Type("elma")
 	tt.Frame()
-	if len(a.find.matches) != 3 || !tt.HasText("1/3") {
-		t.Fatalf("matches %v", a.find.matches)
+	if len(a.pane().find.matches) != 3 || !tt.HasText("1/3") {
+		t.Fatalf("matches %v", a.pane().find.matches)
 	}
-	if s, e := a.doc.Selection(); s != 4 || e != 8 {
+	if s, e := a.pane().doc.Selection(); s != 4 || e != 8 {
 		t.Fatalf("selected %d-%d", s, e)
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if a.find.cur != 1 || !tt.HasText("2/3") {
-		t.Fatalf("next: %d", a.find.cur)
+	if a.pane().find.cur != 1 || !tt.HasText("2/3") {
+		t.Fatalf("next: %d", a.pane().find.cur)
 	}
 	tt.Key(ui.Shift, ui.KeyEnter)
 	tt.Frame()
-	if a.find.cur != 0 {
-		t.Fatalf("back: %d", a.find.cur)
+	if a.pane().find.cur != 0 {
+		t.Fatalf("back: %d", a.pane().find.cur)
 	}
-	a.find.replace, a.find.with = true, "armut"
+	a.pane().find.replace, a.pane().find.with = true, "armut"
 	tt.Frame()
 	if err := tt.Click("Tümünü değiştir"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "Bir armut, iki armut.\nÜç armut, dört armut." || len(a.find.matches) != 0 {
+	if got := a.pane().doc.Text().String(); got != "Bir armut, iki armut.\nÜç armut, dört armut." || len(a.pane().find.matches) != 0 {
 		t.Fatalf("replaced: %q", got)
 	}
-	a.doc.Undo() // one step undoes it
+	a.pane().doc.Undo() // one step undoes it
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "Bir elma, iki ELMA.\nÜç elma, dört armut." {
+	if got := a.pane().doc.Text().String(); got != "Bir elma, iki ELMA.\nÜç elma, dört armut." {
 		t.Fatalf("undo: %q", got)
 	}
 }
@@ -193,7 +193,7 @@ func TestAppTheme(t *testing.T) {
 			tt.Frame()
 		}
 	}
-	a.settingsOpen, a.settingsTab = true, 0
+	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
 	if !tt.HasText("Renk teması") {
 		t.Fatalf("no picker: %v", tt.Texts())
@@ -328,7 +328,7 @@ func TestPaletteOverDialog(t *testing.T) {
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if !a.trashOpen {
+	if !a.pane().trashOpen {
 		t.Fatalf("the palette's line did not run over the dialog: open %v cs %v lines %v", a.pal.open, a.cs.open, len(a.palLines()))
 	}
 }

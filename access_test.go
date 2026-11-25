@@ -51,7 +51,7 @@ func TestAccessNames(t *testing.T) {
 	check("trash")
 	a.openSettings()
 	for i := range settingsSections {
-		a.settingsTab = i
+		a.pane().settingsTab = i
 		check(fmt.Sprint("settings tab ", i))
 	}
 	a.openTag("tag")

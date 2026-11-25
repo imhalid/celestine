@@ -26,7 +26,7 @@ func TestTasksOf(t *testing.T) {
 func TestTaskView(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] ilk görev\n- [x] yapılmış\n\nmetin\n")
 	tt.SetSize(1100, 800)
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("- [ ] öteki görev\n")
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -35,8 +35,8 @@ func TestTaskView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if !a.tasksOpen || !tt.HasText("ilk görev") || !tt.HasText("öteki görev") || tt.HasText("yapılmış") {
-		t.Fatalf("view: open %v %v", a.tasksOpen, tt.Texts())
+	if !a.pane().tasksOpen || !tt.HasText("ilk görev") || !tt.HasText("öteki görev") || tt.HasText("yapılmış") {
+		t.Fatalf("view: open %v %v", a.pane().tasksOpen, tt.Texts())
 	}
 	if !tt.HasText("Açık 2/3") || !tt.HasText("Tamamlanan 1/3") { // the stats beside the title
 		t.Fatalf("count: %v", tt.Texts())
@@ -58,15 +58,15 @@ func TestTaskView(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	body, _ := a.page.Text()
-	src, _ := os.ReadFile(a.page.File())
+	body, _ := a.pane().page.Text()
+	src, _ := os.ReadFile(a.pane().page.File())
 	if !strings.Contains(body, "- [x] ilk görev") || len(src) == 0 {
 		t.Fatalf("file: %q", body)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "- [x] ilk görev") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "- [x] ilk görev") {
 		t.Fatalf("the editor's text: %q", md)
 	}
-	if !a.lib.Collections[0].Pages[0].Modified.IsZero() && a.dirty {
+	if !a.lib.Collections[0].Pages[0].Modified.IsZero() && a.pane().dirty {
 		t.Fatal("left dirty")
 	}
 	// the filter: done ones
@@ -91,9 +91,9 @@ func TestTaskView(t *testing.T) {
 // they were in the view; opened again, the view sorts the pages as they are then.
 func TestTickingKeepsTheOrder(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] ilk görev\n")
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("- [ ] öteki görev\n")
-	other.Modified = a.page.Modified.Add(time.Hour) // changed last: first
+	other.Modified = a.pane().page.Modified.Add(time.Hour) // changed last: first
 	a.openTasks()
 	tt.Frame()
 	pages := func() []*Page {
@@ -110,16 +110,16 @@ func TestTickingKeepsTheOrder(t *testing.T) {
 		t.Fatalf("not the one changed last first: %v", before)
 	}
 	for _, k := range a.allTasks(true) {
-		if k.page == a.page {
+		if k.page == a.pane().page {
 			a.toggleTask(k)
 		}
 	}
-	a.page.Modified = other.Modified.Add(time.Hour) // as the save makes it, whatever the clock
+	a.pane().page.Modified = other.Modified.Add(time.Hour) // as the save makes it, whatever the clock
 	if after := pages(); after[0] != before[0] || after[1] != before[1] {
 		t.Fatalf("ticked, the order changed: %v, was %v", after, before)
 	}
 	a.openTasks()
-	if again := pages(); again[0] != a.page {
+	if again := pages(); again[0] != a.pane().page {
 		t.Fatalf("opened again, not the one changed last first: %v", again)
 	}
 }
@@ -157,7 +157,7 @@ func TestTaskDue(t *testing.T) {
 // TestTaskGoesToItsLine: a task's text opens its page with the caret on it.
 func TestTaskGoesToItsLine(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] ilk\n\nmetin\n\n- [ ] ikinci [[2026-11-10]]\n- [ ] üçüncü\n")
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("başka\n")
 	a.open(other)
 	a.linksStale()
@@ -169,12 +169,12 @@ func TestTaskGoesToItsLine(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.page.Title != "Sayfa" || a.tasksOpen {
-		t.Fatalf("page %q", a.page.Title)
+	if a.pane().page.Title != "Sayfa" || a.pane().tasksOpen {
+		t.Fatalf("page %q", a.pane().page.Title)
 	}
-	_, caret := a.doc.Selection()
-	ps, pe := a.doc.Text().ParagraphRange(caret)
-	if got := a.doc.Text().Slice(ps, pe).String(); got != "üçüncü" {
+	_, caret := a.pane().doc.Selection()
+	ps, pe := a.pane().doc.Text().ParagraphRange(caret)
+	if got := a.pane().doc.Text().Slice(ps, pe).String(); got != "üçüncü" {
 		t.Fatalf("the caret is in %q", got)
 	}
 }
@@ -229,7 +229,7 @@ func TestRecurringTask(t *testing.T) {
 		}
 	}
 	a.toggleTask(daily)
-	body, _ := a.page.Text()
+	body, _ := a.pane().page.Text()
 	for _, want := range []string{
 		"- [x] çöpü çıkar [[2026-11-05]]\n",
 		"- [ ] çöpü çıkar [[2026-11-12]] every:hafta",
@@ -247,7 +247,7 @@ func TestRecurringTask(t *testing.T) {
 			a.toggleTask(k)
 		}
 	}
-	if body, _ = a.page.Text(); !strings.Contains(body, "- [x] bir kez") || strings.Count(body, "bir kez") != 1 {
+	if body, _ = a.pane().page.Text(); !strings.Contains(body, "- [x] bir kez") || strings.Count(body, "bir kez") != 1 {
 		t.Fatalf("%s", body)
 	}
 }
@@ -257,15 +257,15 @@ func TestRecurringInText(t *testing.T) {
 	a, tt := newTestApp(t, "- [ ] çöpü çıkar [[2026-11-05]] every:hafta\n- [ ] başka\n")
 	a.clock = func() time.Time { return time.Date(2026, 11, 5, 14, 0, 0, 0, time.UTC) }
 	tt.Frame()
-	a.doc.ToggleChecked(0)
+	a.pane().doc.ToggleChecked(0)
 	tt.Frame()
 	a.save()
-	md := a.pageMarkdown(a.page, a.doc.Text())
+	md := a.pageMarkdown(a.pane().page, a.pane().doc.Text())
 	if !strings.Contains(md, "- [x] çöpü çıkar [[2026-11-05]]\n") || !strings.Contains(md, "- [ ] çöpü çıkar [[2026-11-12]] every:hafta\n") || !strings.Contains(md, "- [ ] başka") {
 		t.Fatalf("%q", md)
 	}
 	a.save()
-	if again := a.pageMarkdown(a.page, a.doc.Text()); again != md {
+	if again := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); again != md {
 		t.Fatalf("it rolls on again:\n%q\n%q", md, again)
 	}
 }
@@ -319,7 +319,7 @@ func TestTasksViewBuildsOnlyWhatShows(t *testing.T) {
 	}
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1000, 700)
-	a.tasksOpen, a.coll = true, nil
+	a.pane().tasksOpen, a.pane().coll = true, nil
 	tt.Frame()
 	tt.Advance(500 * time.Millisecond)
 	if !tt.HasText("4000") { // the open ones, beside the title
@@ -373,7 +373,7 @@ func TestTasksFilterSearchFold(t *testing.T) {
 	p2.SaveText("- [ ] boya al\n- [ ] kapak ölç\n")
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1100, 760)
-	a.tasksOpen, a.coll = true, nil
+	a.pane().tasksOpen, a.pane().coll = true, nil
 	tt.Frame()
 	tt.Advance(400 * time.Millisecond)
 	for _, s := range []string{"baharat siparişi", "boya al", "kapak ölç", "kapak tartışması"} {
@@ -381,26 +381,26 @@ func TestTasksFilterSearchFold(t *testing.T) {
 			t.Fatalf("no task %q: %v", s, tt.Texts())
 		}
 	}
-	a.taskQuery = "kapak"
+	a.pane().taskQuery = "kapak"
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if tt.HasText("baharat siparişi") || tt.HasText("boya al") || !tt.HasText("kapak ölç") || !tt.HasText("kapak tartışması") {
 		t.Fatalf("search kapak: %v", tt.Texts())
 	}
-	a.taskQuery = "TADİLAT" // a page's title, folded once a frame (#195)
+	a.pane().taskQuery = "TADİLAT" // a page's title, folded once a frame (#195)
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("boya al") || !tt.HasText("kapak ölç") || tt.HasText("baharat siparişi") {
 		t.Fatalf("search by a page's title: %v", tt.Texts())
 	}
-	a.taskQuery = "KAPAK"
-	a.taskColl = k2.Dir
+	a.pane().taskQuery = "KAPAK"
+	a.pane().taskColl = k2.Dir
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if tt.HasText("kapak tartışması") || !tt.HasText("kapak ölç") {
 		t.Fatalf("search kapak in Projeler: %v", tt.Texts())
 	}
-	a.taskQuery = "yok böyle bir şey"
+	a.pane().taskQuery = "yok böyle bir şey"
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
 	if !tt.HasText("Bu filtreye uyan görev yok") || !tt.HasText("Filtreleri temizle") {
@@ -410,8 +410,8 @@ func TestTasksFilterSearchFold(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.taskQuery != "" || a.taskColl != "" || !tt.HasText("baharat siparişi") {
-		t.Fatalf("filters not cleared: %q %q", a.taskQuery, a.taskColl)
+	if a.pane().taskQuery != "" || a.pane().taskColl != "" || !tt.HasText("baharat siparişi") {
+		t.Fatalf("filters not cleared: %q %q", a.pane().taskQuery, a.pane().taskColl)
 	}
 	// a page's tasks fold away, and come back
 	if err := tt.Click("Görevleri kapat: Dune"); err != nil {
@@ -441,15 +441,15 @@ func TestTickingABoxKeepsThePage(t *testing.T) {
 	a, tt := newTestApp(t, b.String())
 	tt.SetSize(1200, 700)
 	tt.Advance(400 * time.Millisecond)
-	a.pageScroll.Y = 0
+	a.pane().pageScroll.Y = 0
 	tt.Advance(200 * time.Millisecond)
-	at := strings.Index(a.doc.Text().String(), "iki")
-	a.doc.ToggleChecked(at)
+	at := strings.Index(a.pane().doc.Text().String(), "iki")
+	a.pane().doc.ToggleChecked(at)
 	tt.Advance(600 * time.Millisecond)
-	if a.pageScroll.Y != 0 {
-		t.Fatalf("the page went to %v", a.pageScroll.Y)
+	if a.pane().pageScroll.Y != 0 {
+		t.Fatalf("the page went to %v", a.pane().pageScroll.Y)
 	}
-	if !strings.Contains(a.doc.Text().String(), "iki") {
+	if !strings.Contains(a.pane().doc.Text().String(), "iki") {
 		t.Fatal("the task is gone")
 	}
 }
@@ -473,14 +473,14 @@ func TestTaskKinds(t *testing.T) {
 	p1.SaveText("- [!] faturayı öde\n- [/] raporu yaz\n- [ ] çiçekleri sula\n")
 	a := newApp(lib)
 	tt := ui.NewTester(a.view, 1100, 760)
-	a.tasksOpen, a.coll = true, nil
+	a.pane().tasksOpen, a.pane().coll = true, nil
 	tt.Frame()
 	tt.Advance(400 * time.Millisecond)
 	if !tt.HasText("faturayı öde") || !tt.HasText("raporu yaz") || !tt.HasText("çiçekleri sula") {
 		t.Fatalf("not all: %v", tt.Texts())
 	}
 	for kind, want := range map[string]string{"important": "faturayı öde", "progress": "raporu yaz", "plain": "çiçekleri sula"} {
-		a.taskKindF = kind
+		a.pane().taskKindF = kind
 		tt.Frame()
 		tt.Advance(300 * time.Millisecond)
 		n := 0
@@ -494,10 +494,10 @@ func TestTaskKinds(t *testing.T) {
 		}
 	}
 	// a kind no open task is any more is let go
-	a.taskKindF = "error"
+	a.pane().taskKindF = "error"
 	tt.Frame()
-	if a.taskKindF != "" {
-		t.Fatalf("kept %q", a.taskKindF)
+	if a.pane().taskKindF != "" {
+		t.Fatalf("kept %q", a.pane().taskKindF)
 	}
 }
 
@@ -505,7 +505,7 @@ func TestTaskKinds(t *testing.T) {
 // else: a starred task, an alignment, empty lines and underline stay as they were (#123).
 func TestBodyEditsKeepTheRest(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
-	p := a.page
+	p := a.pane().page
 	star := richtext.ParagraphStyle{List: richtext.Tasks, ID: taskIDPrefix + "star"}
 	under := richtext.Attributes{Underline: true}
 	rich := func(firstDone bool) richtext.Text {
@@ -567,11 +567,11 @@ func TestInlineTasksInView(t *testing.T) {
 	a.mu.Unlock()
 	a.toggling.Wait()
 	tt.Frame()
-	_, done := checkChips(a.doc.Text())
+	_, done := checkChips(a.pane().doc.Text())
 	if fmt.Sprint(done) != "[true true false]" {
 		t.Fatalf("the chips after the tick: %v", done)
 	}
-	if a.doc.Text().ParagraphStyleAt(a.doc.Text().Len() - 1).Checked {
+	if a.pane().doc.Text().ParagraphStyleAt(a.pane().doc.Text().Len() - 1).Checked {
 		t.Fatal("the line's task was ticked too")
 	}
 	// an agent's set_task: by its line and its box, at once (toggleTask)
@@ -581,7 +581,7 @@ func TestInlineTasksInView(t *testing.T) {
 			a.toggleTask(k)
 		}
 	}
-	if _, done := checkChips(a.doc.Text()); fmt.Sprint(done) != "[true false false]" {
+	if _, done := checkChips(a.pane().doc.Text()); fmt.Sprint(done) != "[true false false]" {
 		t.Fatalf("the chips after the agent's untick: %v", done)
 	}
 	a.linksStale()
@@ -592,7 +592,7 @@ func TestInlineTasksInView(t *testing.T) {
 		}
 	}
 	a.mu.Lock()
-	a.closeTasks(a.page, open)
+	a.closeTasks(a.pane().page, open)
 	a.mu.Unlock()
 	a.toggling.Wait()
 	tt.Frame()

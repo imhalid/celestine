@@ -111,12 +111,12 @@ func TestInsertRawBlocks(t *testing.T) {
 	for _, r := range rawTemplates() {
 		a, tt := newTestApp(t, "Önce\n")
 		tt.Frame()
-		n := a.doc.Text().Len()
-		a.doc.SetSelection(n, n)
+		n := a.pane().doc.Text().Len()
+		a.pane().doc.SetSelection(n, n)
 		tt.Frame()
 		a.insertRaw(n, r)
 		tt.Frame()
-		md := bodyMarkdown(a.doc.Text())
+		md := bodyMarkdown(a.pane().doc.Text())
 		if !strings.Contains(md, strings.Join(r.lines, "\n")) {
 			t.Fatalf("%s: not written as Markdown: %q", r.name, md)
 		}
@@ -133,38 +133,38 @@ func TestFoldAndUnfold(t *testing.T) {
 	src := "# Başlık\n\nBir\n\nİki\n\n# Sonraki\n\n- a\n  - a1\n  - a2\n- b"
 	a, tt := newTestApp(t, src+"\n")
 	tt.Frame()
-	whole := mdOf(a.doc)
-	a.fold(at(a.doc, "Başlık"))
+	whole := mdOf(a.pane().doc)
+	a.fold(at(a.pane().doc, "Başlık"))
 	tt.Frame()
-	if shown := a.doc.Text().String(); strings.Contains(shown, "Bir") || strings.Contains(shown, "İki") {
+	if shown := a.pane().doc.Text().String(); strings.Contains(shown, "Bir") || strings.Contains(shown, "İki") {
 		t.Fatalf("not hidden: %q", shown)
 	}
-	if ch := foldOf(a.doc.Text(), at(a.doc, "Başlık")); ch == nil || ch.lines < 2 {
+	if ch := foldOf(a.pane().doc.Text(), at(a.pane().doc, "Başlık")); ch == nil || ch.lines < 2 {
 		t.Fatalf("no fold chip: %+v", ch)
 	}
-	if got := mdOf(a.doc); got != whole {
+	if got := mdOf(a.pane().doc); got != whole {
 		t.Fatalf("the file would change:\n%q\n%q", got, whole)
 	}
 	// a list item with items under it
-	a.fold(at(a.doc, "a"))
-	if got := mdOf(a.doc); got != whole {
+	a.fold(at(a.pane().doc, "a"))
+	if got := mdOf(a.pane().doc); got != whole {
 		t.Fatalf("the file would change with a list folded:\n%q\n%q", got, whole)
 	}
 	// nested: fold the heading again with the list's fold inside it, then put it all back
-	a.toggleFold(at(a.doc, "Sonraki"))
-	if got := mdOf(a.doc); got != whole {
+	a.toggleFold(at(a.pane().doc, "Sonraki"))
+	if got := mdOf(a.pane().doc); got != whole {
 		t.Fatalf("nested folds change the file:\n%q\n%q", got, whole)
 	}
 	for range 3 {
 		for _, s := range []string{"Başlık", "Sonraki", "a"} {
-			if p := at(a.doc, s); p >= 0 {
-				if ch := foldOf(a.doc.Text(), p); ch != nil {
+			if p := at(a.pane().doc, s); p >= 0 {
+				if ch := foldOf(a.pane().doc.Text(), p); ch != nil {
 					a.unfold(ch)
 				}
 			}
 		}
 	}
-	if got := mdOf(a.doc); got != whole || strings.Contains(a.doc.Text().String(), "⋯") {
+	if got := mdOf(a.pane().doc); got != whole || strings.Contains(a.pane().doc.Text().String(), "⋯") {
 		t.Fatalf("not back:\n%q", got)
 	}
 }
@@ -175,10 +175,10 @@ func TestCodeBlockIsOneBlock(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n\n```go\nbir\niki\nüç\n```\n\nSonra\n")
 	tt.SetSize(900, 600)
 	tt.Frame()
-	t0 := a.doc.Text()
-	first := at(a.doc, "bir")
-	mid := at(a.doc, "iki")
-	last := at(a.doc, "üç")
+	t0 := a.pane().doc.Text()
+	first := at(a.pane().doc, "bir")
+	mid := at(a.pane().doc, "iki")
+	last := at(a.pane().doc, "üç")
 	s0, e0 := blockRange(t0, first)
 	s1, e1 := blockRange(t0, mid)
 	s2, e2 := blockRange(t0, last)
@@ -189,17 +189,17 @@ func TestCodeBlockIsOneBlock(t *testing.T) {
 		t.Fatalf("the block: %q", got)
 	}
 	// the grip of the middle line is the first's
-	for _, b := range a.boxes {
+	for _, b := range a.pane().boxes {
 		if b.Start == mid {
-			a.gripAt(b)
+			a.gripAt(a.pane(), b)
 		}
 	}
-	if a.grip.para != first {
-		t.Fatalf("the grip of a middle line is at %d, not the first line %d", a.grip.para, first)
+	if a.pane().grip.para != first {
+		t.Fatalf("the grip of a middle line is at %d, not the first line %d", a.pane().grip.para, first)
 	}
 	// deleting from the middle takes the whole block
-	deleteBlock(a.doc, mid)
-	if got := mdOf(a.doc); got != "Önce\n\nSonra" {
+	deleteBlock(a.pane().doc, mid)
+	if got := mdOf(a.pane().doc); got != "Önce\n\nSonra" {
 		t.Fatalf("after: %q", got)
 	}
 }

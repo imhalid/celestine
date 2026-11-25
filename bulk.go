@@ -21,24 +21,24 @@ type bulkState struct {
 	focus   bool
 }
 
-func (a *app) bulkClear() { a.bulk = bulkState{} }
+func (a *app) bulkClear(pn *paneState) { pn.bulk = bulkState{} }
 
-func (a *app) bulkToggle(p *Page) {
-	if a.bulk.sel == nil {
-		a.bulk.sel = map[*Page]bool{}
+func (a *app) bulkToggle(pn *paneState, p *Page) {
+	if pn.bulk.sel == nil {
+		pn.bulk.sel = map[*Page]bool{}
 	}
-	if a.bulk.sel[p] {
-		delete(a.bulk.sel, p)
+	if pn.bulk.sel[p] {
+		delete(pn.bulk.sel, p)
 	} else {
-		a.bulk.sel[p] = true
+		pn.bulk.sel[p] = true
 	}
 }
 
 // bulkPages are the chosen pages among pages, in their order.
-func (a *app) bulkPages(pages []*Page) []*Page {
+func (a *app) bulkPages(pn *paneState, pages []*Page) []*Page {
 	var out []*Page
 	for _, p := range pages {
-		if a.bulk.sel[p] {
+		if pn.bulk.sel[p] {
 			out = append(out, p)
 		}
 	}
@@ -46,34 +46,34 @@ func (a *app) bulkPages(pages []*Page) []*Page {
 }
 
 // bulkMark is the box at the start of a row that shows whether it is chosen.
-func (a *app) bulkMark(c *ui.Context, p *Page) {
-	if !a.bulk.on {
+func (a *app) bulkMark(c *ui.Context, pn *paneState, p *Page) {
+	if !pn.bulk.on {
 		return
 	}
-	on := a.bulk.sel[p]
+	on := pn.bulk.sel[p]
 	box := ryugo.Checkbox(c.Key("mark"), &on, "", ryugo.CheckOptions{}).Shrink(0).Margin(0, 10, 0, 0)
 	if box.Clicked() {
-		a.bulkToggle(p)
+		a.bulkToggle(pn, p)
 	}
 }
 
 // bulkRowClicked says a click on the row of p: when rows are being chosen it
 // marks the page, and reports true, so that the page is not opened.
-func (a *app) bulkRowClicked(p *Page, clicked bool) bool {
-	if !a.bulk.on || !clicked {
+func (a *app) bulkRowClicked(pn *paneState, p *Page, clicked bool) bool {
+	if !pn.bulk.on || !clicked {
 		return false
 	}
-	a.bulkToggle(p)
+	a.bulkToggle(pn, p)
 	return true
 }
 
 // bulkBar is the bar over the rows while they are being chosen.
-func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
-	if !a.bulk.on {
+func (a *app) bulkBar(c *ui.Context, pn *paneState, coll *Collection, pages []*Page) {
+	if !pn.bulk.on {
 		return
 	}
 	cl := ryugo.From(c).Colors
-	chosen := a.bulkPages(pages)
+	chosen := a.bulkPages(pn, pages)
 	ui.Row(c.Key("bulk-bar")).FillWidth().Gap(8).Padding(6, 10).Radius(rad(12)).AlignItems(ui.Center).Wrap().Background(cl.Accent.Alpha(0.1)).Border(1, cl.Accent.Alpha(0.3)).Children(func() {
 		msg := locales.BulkSelectedCount(len(chosen))
 		if len(chosen) == 0 {
@@ -82,30 +82,30 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 		ui.Text(c, msg).FontSize(13).FontWeight(650).TextColor(cl.Text).Padding(0, 6)
 		if ryugo.Button(c.Key("bulk-all"), locales.CommonSelectAll(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
 			for _, p := range pages {
-				if a.bulk.sel == nil {
-					a.bulk.sel = map[*Page]bool{}
+				if pn.bulk.sel == nil {
+					pn.bulk.sel = map[*Page]bool{}
 				}
-				a.bulk.sel[p] = true
+				pn.bulk.sel[p] = true
 			}
 		}
 		ui.Spacer(c)
 		off := len(chosen) == 0
-		if a.bulk.tagging {
-			in := a.fieldMenu(ryugo.Input(c.Key("bulk-tag"), &a.bulk.tag, ryugo.InputOptions{Label: locales.BulkTag(), Placeholder: locales.BulkTagPlaceholder(), PrefixIcon: iconTag, Size: ryugo.Sm}), &a.bulk.tag, fieldOpts{oneLine: true}).Width(150)
-			if a.bulk.focus {
+		if pn.bulk.tagging {
+			in := a.fieldMenu(ryugo.Input(c.Key("bulk-tag"), &pn.bulk.tag, ryugo.InputOptions{Label: locales.BulkTag(), Placeholder: locales.BulkTagPlaceholder(), PrefixIcon: iconTag, Size: ryugo.Sm}), &pn.bulk.tag, fieldOpts{oneLine: true}).Width(150)
+			if pn.bulk.focus {
 				in.Focus()
-				a.bulk.focus = false
+				pn.bulk.focus = false
 			}
 			if in.Submitted() || ryugo.Button(c.Key("bulk-tag-ok"), locales.CommonAdd(), ryugo.ButtonOptions{Color: cl.Accent, Variant: ryugo.Solid, Size: ryugo.Sm}).Clicked() {
-				a.bulkAddTag(chosen, a.bulk.tag)
-				a.bulk.tagging, a.bulk.tag = false, ""
+				a.bulkAddTag(chosen, pn.bulk.tag)
+				pn.bulk.tagging, pn.bulk.tag = false, ""
 			}
 		} else if ryugo.Button(c.Key("bulk-tagb"), locales.BulkAddTag(), ryugo.ButtonOptions{Icon: iconTag, Size: ryugo.Sm, Disabled: off}).Clicked() {
-			a.bulk.tagging, a.bulk.focus = true, true
+			pn.bulk.tagging, pn.bulk.focus = true, true
 		}
 		if ryugo.Button(c.Key("bulk-move"), locales.BlocksMove(), ryugo.ButtonOptions{Icon: iconMoveDown, Size: ryugo.Sm, Disabled: off}).Clicked() {
 			ww, _ := c.Size()
-			a.showContext(ww-420, 230, a.bulkMoveMenu(chosen))
+			a.showContext(ww-420, 230, a.bulkMoveMenu(pn, chosen))
 		}
 		if choices := a.bulkChoices(coll, chosen); len(choices) > 0 {
 			if ryugo.Button(c.Key("bulk-prop"), locales.BlocksSetProperty(), ryugo.ButtonOptions{Icon: iconSettings, Size: ryugo.Sm, Disabled: off}).Clicked() {
@@ -114,10 +114,10 @@ func (a *app) bulkBar(c *ui.Context, coll *Collection, pages []*Page) {
 			}
 		}
 		if ryugo.Button(c.Key("bulk-trash"), locales.BlocksThrowAway(), ryugo.ButtonOptions{Icon: iconTrash, Color: cl.Up, Variant: ryugo.Soft, Size: ryugo.Sm, Disabled: off}).Clicked() {
-			a.bulkTrash(chosen)
+			a.bulkTrash(pn, chosen)
 		}
 		if ryugo.Button(c.Key("bulk-done"), locales.BulkDone(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-			a.bulkClear()
+			a.bulkClear(pn)
 		}
 	})
 }
@@ -131,7 +131,7 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 	}
 	n := 0
 	for _, p := range pages {
-		if p == a.page {
+		if p == a.pane().page {
 			a.flush()
 		}
 		text, err := p.Text()
@@ -165,23 +165,23 @@ func (a *app) bulkAddTag(pages []*Page, tag string) {
 }
 
 // bulkMoveMenu lists the collections the pages can go to.
-func (a *app) bulkMoveMenu(pages []*Page) []menuItem {
+func (a *app) bulkMoveMenu(pn *paneState, pages []*Page) []menuItem {
 	var out []menuItem
 	for _, co := range a.lib.Collections {
 		co := co
 		if co.Dynamic() || co.Journal {
 			continue
 		}
-		out = append(out, menuItem{title: co.Name, glyph: collGlyph(co), run: func() { a.later(func() { a.bulkMove(pages, co) }) }})
+		out = append(out, menuItem{title: co.Name, glyph: collGlyph(co), run: func() { a.later(func() { a.bulkMove(pn, pages, co) }) }})
 	}
 	return out
 }
 
 // bulkMove puts the pages at the end of the top of collection to.
-func (a *app) bulkMove(pages []*Page, to *Collection) {
+func (a *app) bulkMove(pn *paneState, pages []*Page, to *Collection) {
 	n := 0
 	for _, p := range pages {
-		if p == a.page {
+		if p == a.pane().page {
 			a.flush()
 		}
 		if p.Coll == to && p.Parent == nil {
@@ -194,7 +194,7 @@ func (a *app) bulkMove(pages []*Page, to *Collection) {
 		n++
 	}
 	a.linksStale()
-	a.bulkClear()
+	a.bulkClear(pn)
 	a.say(toastOK, locales.BulkMovedTo(n, to.Name))
 }
 
@@ -222,19 +222,19 @@ func (a *app) bulkChoices(coll *Collection, pages []*Page) []menuItem {
 }
 
 // bulkTrash moves the pages to the trash.
-func (a *app) bulkTrash(pages []*Page) {
+func (a *app) bulkTrash(pn *paneState, pages []*Page) {
 	a.flush() // what is written is saved before the pages go: not after, into a folder that is not there
 	n := 0
 	for _, p := range pages {
 		if _, err := a.lib.TrashPage(p); err == nil {
 			n++
 			a.dropFromPanes(func(q *Page) bool { return pageUnder(q, p) }, func(*Collection) bool { return false })
-			if pageUnder(a.page, p) {
-				a.page, a.doc = nil, nil
+			if ap := a.pane(); pageUnder(ap.page, p) {
+				ap.page, ap.doc = nil, nil
 			}
 		}
 	}
 	a.linksStale()
-	a.bulkClear()
+	a.bulkClear(pn)
 	a.say(toastOK, locales.BulkMovedToTrash(n))
 }

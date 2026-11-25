@@ -15,12 +15,12 @@ func TestExtractToPage(t *testing.T) {
 	a, tt := newTestApp(t, "Intro\n\n# Plan\n\nstep one\n\nstep two\n\nAfter\n")
 	tt.SetSize(1100, 700)
 	tt.Advance(300 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	p.Coll.SubPages = true
-	text := a.doc.Text().String()
+	text := a.pane().doc.Text().String()
 	from := strings.Index(text, "Plan")
 	to := strings.Index(text, "step two") + 3
-	a.doc.SetSelection(from, to)
+	a.pane().doc.SetSelection(from, to)
 	a.extractToPage()
 	tt.Frame()
 	var np *Page
@@ -36,25 +36,25 @@ func TestExtractToPage(t *testing.T) {
 	if err != nil || !strings.Contains(body, "step one") || !strings.Contains(body, "step two") || strings.Contains(body, "Plan") {
 		t.Fatalf("the new page's text %q (%v)", body, err)
 	}
-	md := bodyMarkdown(a.doc.Text())
+	md := bodyMarkdown(a.pane().doc.Text())
 	if !strings.Contains(md, "[[Plan]]") || strings.Contains(md, "step one") || !strings.Contains(md, "Intro") || !strings.Contains(md, "After") {
 		t.Fatalf("the page after: %q", md)
 	}
-	a.doc.Undo()
+	a.pane().doc.Undo()
 	tt.Frame()
-	if md := bodyMarkdown(a.doc.Text()); !strings.Contains(md, "# Plan") || !strings.Contains(md, "step two") || strings.Contains(md, "[[Plan]]") {
+	if md := bodyMarkdown(a.pane().doc.Text()); !strings.Contains(md, "# Plan") || !strings.Contains(md, "step two") || strings.Contains(md, "[[Plan]]") {
 		t.Fatalf("after undo: %q", md)
 	}
 	// the caret's block, with no selection
-	at := strings.Index(a.doc.Text().String(), "After")
-	a.doc.SetSelection(at+2, at+2)
+	at := strings.Index(a.pane().doc.Text().String(), "After")
+	a.pane().doc.SetSelection(at+2, at+2)
 	a.extractToPage()
 	tt.Frame()
 	found := false
 	for _, q := range p.Children {
 		found = found || q.Title == "After"
 	}
-	if md := bodyMarkdown(a.doc.Text()); !found || !strings.Contains(md, "[[After]]") {
+	if md := bodyMarkdown(a.pane().doc.Text()); !found || !strings.Contains(md, "[[After]]") {
 		t.Fatalf("the caret's block: found %v, the page %q", found, md)
 	}
 	// a file the blocks name goes with them

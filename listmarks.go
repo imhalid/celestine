@@ -174,9 +174,11 @@ func listsOf(t richtext.Text) *listMarks {
 	return m
 }
 
-// lists is what the lists of the page's text are.
-func (a *app) lists() *listMarks {
-	t := a.doc.Text()
+// lists is what the lists of the active page's text are.
+func (a *app) lists() *listMarks { return a.listsIn(a.pane()) }
+
+func (a *app) listsIn(pn *paneState) *listMarks {
+	t := pn.doc.Text()
 	if a.listMarks == nil || a.listMarks.text != t {
 		a.listMarks = listsOf(t)
 	}
@@ -186,11 +188,11 @@ func (a *app) lists() *listMarks {
 // listLooks is lists for what is drawn at every frame: the lists that have a look (items). A text whose paragraphs
 // have no look at all, as most have, makes none of the maps of every item, which lists made again after each change:
 // 5 ms a key on a page of thirty thousand paragraphs (#543).
-func (a *app) listLooks() *listMarks {
-	t := a.doc.Text()
+func (a *app) listLooks(pn *paneState) *listMarks {
+	t := pn.doc.Text()
 	if a.looks == nil || a.looks.text != t {
 		if hasListLook(t) {
-			a.looks = a.lists()
+			a.looks = a.listsIn(pn)
 		} else {
 			a.looks = &listMarks{text: t}
 		}
@@ -209,19 +211,19 @@ func hasListLook(t richtext.Text) bool {
 }
 
 // listItemAt is the item paragraph index p is, with its list's spec; nil when its list has none.
-func (a *app) listItemAt(p int) *listItem {
-	if a.doc == nil {
+func (a *app) listItemAt(pn *paneState, p int) *listItem {
+	if pn.doc == nil {
 		return nil
 	}
-	return a.listLooks().items[p]
+	return a.listLooks(pn).items[p]
 }
 
 // markedTask reports whether the task of paragraph index p has a bullet or a number before its box.
-func (a *app) markedTask(p int, st richtext.ParagraphStyle) bool {
+func (a *app) markedTask(pn *paneState, p int, st richtext.ParagraphStyle) bool {
 	if st.List != richtext.Tasks {
 		return false
 	}
-	it := a.listItemAt(p)
+	it := a.listItemAt(pn, p)
 	return it != nil && it.spec.task != ""
 }
 
@@ -248,27 +250,27 @@ func listMarkText(it *listItem, kind richtext.ListKind) string {
 }
 
 // drawListMarks draws the marks of the lists that have a spec over richtext's, in view; r is the editor's box.
-func (a *app) drawListMarks(p *ui.Painter, r ui.Rect) {
-	if a.doc == nil || a.theme == nil {
+func (a *app) drawListMarks(pn *paneState, p *ui.Painter, r ui.Rect) {
+	if pn.doc == nil || a.theme == nil {
 		return
 	}
-	lm := a.listLooks()
+	lm := a.listLooks(pn)
 	if len(lm.items) == 0 {
 		return
 	}
 	size := a.font.Size
 	indent := size * a.theme.Indent
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		it := lm.items[b.Index]
 		if it == nil {
 			continue
 		}
-		s, e, para := a.paraOfBox(b)
+		s, e, para := a.paraOfBox(pn, b)
 		st := para.Style
 		if st.Heading > 0 || st.List != it.group.kind {
 			continue
 		}
-		cb, ok := locateIn(a.doc, b.Start, b, s, e, para, a.editorR.W, a.font, a.theme)
+		cb, ok := locateIn(pn.doc, b.Start, b, s, e, para, pn.editorR.W, a.font, a.theme)
 		if !ok {
 			continue
 		}
@@ -347,7 +349,7 @@ func (a *app) setListSpec(p int, spec listSpec) {
 		return
 	}
 	g, id := it.group, spec.id()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		for k, at := range g.start {
 			ed.FormatParagraphs(at, at, func(st *richtext.ParagraphStyle) {
 				switch {
@@ -381,7 +383,7 @@ func (a *app) listToTasks(p int) {
 	}
 	g := it.group
 	id := spec.id()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		for k, at := range g.start {
 			ed.FormatParagraphs(at, at, func(st *richtext.ParagraphStyle) {
 				st.List, st.Checked = richtext.Tasks, false
@@ -499,11 +501,11 @@ func (a *app) checkShortcut(text richtext.Text, caret int, typed bool) bool {
 	}
 	attrs := text.AttributesAt(start)
 	attrs.Attachment = a.attachment(ch)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.ReplaceString(start, caret, string(richtext.ObjectReplacement), attrs)
 		ed.Select(start+1, start+1)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	a.pane().doc.SetTypingAttributes(richtext.Attributes{})
 	return true
 }
 
@@ -536,8 +538,9 @@ func (a *app) drawCheckChip(p *ui.Painter, r ui.Rect, ch *chip) {
 
 // toggleCheckChip marks a task in the running text done, or not done again.
 func (a *app) toggleCheckChip(ch *chip) {
+	doc := a.pane().doc
 	at := -1
-	for i, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) { // this chip, not one that says the same
+	for i, r := range doc.Text().Runs(0, doc.Text().Len()) { // this chip, not one that says the same
 		if att := r.Attributes.Attachment; att != nil && att.Data == any(ch) {
 			at = i
 			break
@@ -550,7 +553,7 @@ func (a *app) toggleCheckChip(ch *chip) {
 	if ch.target != "x" {
 		next.target = "x"
 	}
-	attrs := a.doc.Text().AttributesAt(at)
+	attrs := doc.Text().AttributesAt(at)
 	attrs.Attachment = a.attachment(next)
-	a.doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(at, at+1, string(richtext.ObjectReplacement), attrs) })
+	doc.Edit(func(ed *richtext.Edit) { ed.ReplaceString(at, at+1, string(richtext.ObjectReplacement), attrs) })
 }

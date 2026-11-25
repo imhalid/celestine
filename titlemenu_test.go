@@ -48,13 +48,13 @@ func TestTitleRightClickMenu(t *testing.T) {
 	run("Tümünü seç")
 	open()
 	run("Kopyala")
-	if copied != a.title {
-		t.Fatalf("copied %q, the title %q", copied, a.title)
+	if copied != a.pane().title {
+		t.Fatalf("copied %q, the title %q", copied, a.pane().title)
 	}
 	open()
 	run("Yapıştır") // over the whole title, selected
-	if a.title != "Yeni ad" || a.page.Title != "Yeni ad" {
-		t.Fatalf("pasted: %q %q", a.title, a.page.Title)
+	if a.pane().title != "Yeni ad" || a.pane().page.Title != "Yeni ad" {
+		t.Fatalf("pasted: %q %q", a.pane().title, a.pane().page.Title)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestTitleMenuIsThePageMenu(t *testing.T) {
 		}
 		return tt.Menu()
 	}
-	a.refocus = true // the caret in the text, not the title
+	a.pane().refocus = true // the caret in the text, not the title
 	tt.Frame()
 	title := rightClick(msg("common_title"))
 	tt.CloseMenu()

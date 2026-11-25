@@ -279,7 +279,7 @@ func (a *app) timeMachineView(c *ui.Context) {
 		t.in = back.AnimateTo("tm-in", map[bool]float32{false: 1}[t.closing], tmInOut)
 		if t.closing && t.in < 0.02 {
 			*t = timeMachine{}
-			a.refocus = true // back into the editor, the caret where it was
+			a.pane().refocus = true // back into the editor, the caret where it was
 			return
 		}
 		back.Opacity(t.in)
@@ -334,7 +334,7 @@ func (a *app) tmVersionPage(i int) *Page {
 
 // tmPageArea is the area the page is in: each copy is laid out in a room that size.
 func (a *app) tmPageArea(ww, wh float32) ui.Rect {
-	r := a.pageR
+	r := a.pane().pageR
 	if r.W < 320 || r.H < 240 {
 		r = ui.Rect{X: 252, Y: 0, W: max(320, ww-252), H: wh}
 	}
@@ -411,8 +411,8 @@ func (a *app) tmStack(c *ui.Context, ox, aw, wh, pos float32, vp ui.Point) {
 // the page is. The page now is the page's own document.
 func (a *app) tmDoc(i int) *richtext.Document {
 	t := &a.tm
-	if i == 0 && a.doc != nil && t.page == a.page {
-		return a.doc
+	if i == 0 && a.pane().doc != nil && t.page == a.pane().page {
+		return a.pane().doc
 	}
 	if d, ok := t.docs[i]; ok {
 		return d
@@ -447,8 +447,8 @@ func (a *app) tmPage(c *ui.Context, i int, lw, lh float32, shape bool) {
 		})
 	}
 	wrap.Children(func() {
-		if a.topSpace > 0 {
-			ui.Box(c.Key("tm-top:" + itoa(i))).FillWidth().Height(a.topSpace)
+		if a.pane().topSpace > 0 {
+			ui.Box(c.Key("tm-top:" + itoa(i))).FillWidth().Height(a.pane().topSpace)
 		}
 		ui.Row(c).FillWidth().Justify(ui.Center).Padding(0, pageMargin()).Children(func() {
 			ui.Column(c).FillWidth().MaxWidth(a.pageWidth()).Gap(4).Children(func() {
@@ -575,7 +575,7 @@ func (a *app) tmKeepNamed() {
 	if name == "" {
 		name = locales.HistoryKeptVersion()
 	}
-	if t.page == a.page {
+	if t.page == a.pane().page {
 		a.flush()
 	}
 	if h.SaveNamed(t.page.File(), name) {

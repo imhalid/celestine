@@ -34,13 +34,13 @@ func TestTagsOf(t *testing.T) {
 func TestTagView(t *testing.T) {
 	a, tt := newTestApp(t, "bir #fikir burada\n")
 	tt.SetSize(1100, 800)
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("başka #Fikir ve #plan\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
-	if len(a.tagHits)+len(a.tagSeen) == 0 {
+	if len(a.pane().tagHits)+len(a.pane().tagSeen) == 0 {
 		t.Fatal("the tag is not drawn")
 	}
 	all := a.allTags()
@@ -61,24 +61,24 @@ func TestTagView(t *testing.T) {
 		t.Fatalf("no tags in the panel: %v", tt.Texts())
 	}
 	// a click on the tag in the text opens its view
-	h := a.tagSeen[0]
+	h := a.pane().tagSeen[0]
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(300 * time.Millisecond)
-	if a.tag != "fikir" || !tt.HasText("#fikir") || !tt.HasText("Sayfa: Öteki") {
-		t.Fatalf("tag %q: %v", a.tag, tt.Texts())
+	if a.pane().tag != "fikir" || !tt.HasText("#fikir") || !tt.HasText("Sayfa: Öteki") {
+		t.Fatalf("tag %q: %v", a.pane().tag, tt.Texts())
 	}
 	// a page of it opens; back returns to the tag
 	if err := tt.Click("Sayfa: Öteki"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if a.tag != "" || a.page != other {
-		t.Fatalf("page %v tag %q", a.page.Title, a.tag)
+	if a.pane().tag != "" || a.pane().page != other {
+		t.Fatalf("page %v tag %q", a.pane().page.Title, a.pane().tag)
 	}
 	a.step(-1)
 	tt.Advance(100 * time.Millisecond)
-	if a.tag != "fikir" {
-		t.Fatalf("back: %q", a.tag)
+	if a.pane().tag != "fikir" {
+		t.Fatalf("back: %q", a.pane().tag)
 	}
 }
 
@@ -87,12 +87,12 @@ func TestTagView(t *testing.T) {
 func TestTagMenu(t *testing.T) {
 	a, tt := newTestApp(t, "ilk\n")
 	tt.SetSize(1100, 800)
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("başka #fikir ve #plan\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
-	a.doc.SetSelection(3, 3)
+	a.pane().doc.SetSelection(3, 3)
 	tt.Frame()
 	typeEach(tt, " gün ")
 	tt.Type("#")
@@ -107,7 +107,7 @@ func TestTagMenu(t *testing.T) {
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(100 * time.Millisecond)
-	if got := a.doc.Text().String(); got != "ilk gün #fikir \n" && got != "ilk gün #fikir " {
+	if got := a.pane().doc.Text().String(); got != "ilk gün #fikir \n" && got != "ilk gün #fikir " {
 		t.Fatalf("text %q", got)
 	}
 	if a.slash.open {
@@ -121,7 +121,7 @@ func TestTagMenu(t *testing.T) {
 	}
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(100 * time.Millisecond)
-	if got := a.doc.Text().String(); !strings.Contains(got, "#fikir ve #yeni ") {
+	if got := a.pane().doc.Text().String(); !strings.Contains(got, "#fikir ve #yeni ") {
 		t.Fatalf("text %q", got)
 	}
 	// a space in the name closes it
@@ -135,7 +135,7 @@ func TestTagMenu(t *testing.T) {
 // TestHashAtLineStart: # at the start of a line is a heading's: no menu.
 func TestHashAtLineStart(t *testing.T) {
 	a, tt := newTestApp(t, "")
-	other, _ := a.page.Coll.NewPage(nil, "Öteki")
+	other, _ := a.pane().page.Coll.NewPage(nil, "Öteki")
 	other.SaveText("#fikir\n")
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -145,8 +145,8 @@ func TestHashAtLineStart(t *testing.T) {
 	if a.slash.open {
 		t.Fatal("a menu on a heading's #")
 	}
-	if st := a.doc.Text().ParagraphStyleAt(0); st.Heading != 1 {
-		t.Fatalf("not a heading: %+v %q", st, a.doc.Text().String())
+	if st := a.pane().doc.Text().ParagraphStyleAt(0); st.Heading != 1 {
+		t.Fatalf("not a heading: %+v %q", st, a.pane().doc.Text().String())
 	}
 }
 
@@ -164,9 +164,9 @@ func TestReplaceTag(t *testing.T) {
 func TestTagRename(t *testing.T) {
 	a, tt := newTestApp(t, "bir #fikir burada\n")
 	tt.SetSize(1100, 800)
-	b, _ := a.page.Coll.NewPage(nil, "İki")
+	b, _ := a.pane().page.Coll.NewPage(nil, "İki")
 	b.SaveText("#Fikir ve #plan\n")
-	c3, _ := a.page.Coll.NewPage(nil, "Üç")
+	c3, _ := a.pane().page.Coll.NewPage(nil, "Üç")
 	c3.SaveText("#fikirler dokunulmaz\n")
 	a.linksStale()
 	a.links.built = time.Time{}
@@ -184,10 +184,10 @@ func TestTagRename(t *testing.T) {
 	if a.tagRen.open {
 		t.Fatalf("dialog stays: %q", a.tagRen.err)
 	}
-	if body, _ := a.page.Text(); !strings.Contains(body, "bir #tasarım burada") {
+	if body, _ := a.pane().page.Text(); !strings.Contains(body, "bir #tasarım burada") {
 		t.Fatalf("open page file: %q", body)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "#tasarım") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "#tasarım") {
 		t.Fatalf("open page text: %q", md)
 	}
 	if body, _ := b.Text(); !strings.Contains(body, "#tasarım ve #plan") {
@@ -196,8 +196,8 @@ func TestTagRename(t *testing.T) {
 	if body, _ := c3.Text(); !strings.Contains(body, "#fikirler") {
 		t.Fatalf("a longer tag changed: %q", body)
 	}
-	if a.tag != "tasarım" {
-		t.Fatalf("view on %q", a.tag)
+	if a.pane().tag != "tasarım" {
+		t.Fatalf("view on %q", a.pane().tag)
 	}
 	// merged into one that is there
 	if n, err := a.renameTag("tasarım", "plan"); err != nil || n != 2 {
@@ -215,13 +215,13 @@ func TestTagRename(t *testing.T) {
 func TestLinkContext(t *testing.T) {
 	a, tt := newTestApp(t, "hedef sayfa\n")
 	tt.SetSize(1100, 800)
-	src, _ := a.page.Coll.NewPage(nil, "Kaynak")
+	src, _ := a.pane().page.Coll.NewPage(nil, "Kaynak")
 	src.SaveText("ilk satır\n\nBu cümlede [[Sayfa|hedefe]] bağlanıyor, **kalın** bir de.\n\nson\n")
 	a.linksStale()
 	a.links.built = time.Time{}
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	segs := a.linkContext(src, a.page)
+	segs := a.linkContext(src, a.pane().page)
 	var all, hit string
 	for _, s := range segs {
 		all += s.text
@@ -242,7 +242,7 @@ func TestLinkContext(t *testing.T) {
 // keeps what was saved, the tag renamed in it too (#195).
 func TestTagRenameSoonKeepsAWrite(t *testing.T) {
 	a, tt := newTestApp(t, "bir #fikir\n")
-	b, _ := a.page.Coll.NewPage(nil, "İki")
+	b, _ := a.pane().page.Coll.NewPage(nil, "İki")
 	b.SaveText("#fikir ve fazlası\n")
 	tt.Frame()
 	done := make(chan int, 1)
@@ -275,7 +275,7 @@ func TestTagPillsKeptLaidOut(t *testing.T) {
 	a, tt := newTestApp(t, strings.Repeat("Bir paragraf #etiket ve [bağlantı](https://example.com) ile biraz metin.\n\n", 30))
 	tt.SetSize(1100, 900)
 	tt.Advance(time.Second)
-	if len(a.tagHits) == 0 {
+	if len(a.pane().tagHits) == 0 {
 		t.Fatal("no pills drawn")
 	}
 	before := paraLayouts

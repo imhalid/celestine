@@ -22,16 +22,16 @@ func TestAttachFile(t *testing.T) {
 	a.dropFile(src, true)
 	tt.Frame()
 	for _, name := range []string{"plan b.pdf", "plan b (2).pdf"} {
-		if b, err := os.ReadFile(filepath.Join(a.page.Dir, name)); err != nil || string(b) != "%PDF" {
+		if b, err := os.ReadFile(filepath.Join(a.pane().page.Dir, name)); err != nil || string(b) != "%PDF" {
 			t.Fatalf("%s is not in the page's folder: %v", name, err)
 		}
 	}
 	a.save()
-	md := a.currentMarkdown(a.page)
+	md := a.currentMarkdown(a.pane().page)
 	if !strings.Contains(md, "[plan b.pdf](<plan b.pdf>)") || !strings.Contains(md, "[plan b (2).pdf](<plan b (2).pdf>)") {
 		t.Fatalf("Markdown: %q", md)
 	}
-	body, _ := a.page.Body()
+	body, _ := a.pane().page.Body()
 	if !strings.Contains(body, `"k":"file"`) {
 		t.Fatalf("not kept as a file: %s", body)
 	}

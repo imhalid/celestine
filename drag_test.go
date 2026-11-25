@@ -151,7 +151,7 @@ func TestDragInTree(t *testing.T) {
 	if ps["C"].Parent != ps["A"] || filepath.Dir(ps["C"].Dir) != ps["A"].Dir {
 		t.Fatalf("into: parent %v", ps["C"].Parent)
 	}
-	if a.page != ps["A"] {
+	if a.pane().page != ps["A"] {
 		t.Fatal("the drop opened the page as a click would")
 	}
 	// B onto the top edge of A: before it.
@@ -187,8 +187,8 @@ func TestClickAfterDrag(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.page != ps["C"] {
-		t.Fatalf("the click after a drag was swallowed: open %v", a.page.Title)
+	if a.pane().page != ps["C"] {
+		t.Fatalf("the click after a drag was swallowed: open %v", a.pane().page.Title)
 	}
 }
 

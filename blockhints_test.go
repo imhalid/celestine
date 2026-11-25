@@ -14,15 +14,15 @@ import (
 func TestHintsFollowTheBlock(t *testing.T) {
 	a, tt := newTestApp(t, "Intro\n\n# Notes\n\ntext under it\n\n- one\n  - two\n\nplain\n")
 	tt.Advance(100 * time.Millisecond)
-	a.refocus = true
+	a.pane().refocus = true
 	tt.Frame()
 	whats := func(at string, sel int) []string {
 		t.Helper()
-		i := strings.Index(a.doc.Text().String(), at)
+		i := strings.Index(a.pane().doc.Text().String(), at)
 		if at == "" {
-			i = a.doc.Text().Len()
+			i = a.pane().doc.Text().Len()
 		}
-		a.doc.SetSelection(i, i+sel)
+		a.pane().doc.SetSelection(i, i+sel)
 		tt.Frame()
 		var out []string
 		for _, h := range a.hints() {
@@ -33,7 +33,7 @@ func TestHintsFollowTheBlock(t *testing.T) {
 		}
 		return out
 	}
-	if !a.focused {
+	if !a.pane().focused {
 		t.Fatal("the text has not the focus")
 	}
 	if h := whats("Notes", 0); !slices.Contains(h, "zoom into the section") || !slices.Contains(h, "fold") || !slices.Contains(h, "heading level") {
@@ -51,9 +51,9 @@ func TestHintsFollowTheBlock(t *testing.T) {
 	if h := whats("plain", 0); !slices.Contains(h, "move") || !slices.Contains(h, "duplicate") {
 		t.Fatalf("a paragraph's: %v", h)
 	}
-	n := a.doc.Text().Len()
-	a.doc.SetSelection(n, n)
-	a.doc.InsertText("\n") // an empty line at the end
+	n := a.pane().doc.Text().Len()
+	a.pane().doc.SetSelection(n, n)
+	a.pane().doc.InsertText("\n") // an empty line at the end
 	if h := whats("", 0); len(h) == 0 || h[0] != "add a block" {
 		t.Fatalf("an empty line's: %v", h)
 	}
@@ -70,7 +70,7 @@ func TestHintsFollowTheBlock(t *testing.T) {
 		t.Fatalf("the rebound key is not shown: %+v", a.hints())
 	}
 	// zoomed: zooming out comes first
-	a.zoomIn(strings.Index(a.doc.Text().String(), "one"))
+	a.zoomIn(strings.Index(a.pane().doc.Text().String(), "one"))
 	tt.Frame()
 	if h := a.hints(); len(h) == 0 || h[0].what != "zoomOut2" {
 		t.Fatalf("while zoomed: %+v", h)
@@ -81,8 +81,8 @@ func TestHintsFollowTheBlock(t *testing.T) {
 func TestHintsNoZoomIntoTheWholePage(t *testing.T) {
 	a, tt := newTestApp(t, "# Only\n\ntext under it\n")
 	tt.Advance(100 * time.Millisecond)
-	a.refocus = true
-	a.doc.SetSelection(1, 1)
+	a.pane().refocus = true
+	a.pane().doc.SetSelection(1, 1)
 	tt.Frame()
 	for _, h := range a.hints() {
 		if h.what == "zoom into the section" {

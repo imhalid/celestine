@@ -144,7 +144,7 @@ func kindByID(id string) (struct{ kind, name, md string }, bool) {
 func (a *app) slashBack() menuItem {
 	s := &a.slash
 	return menuItem{title: "common_back", hint: msg(viewTitle[s.view]), glyph: iconBack, nav: true, back: true, run: func() {
-		a.doc.SetSelection(s.at, s.at)
+		a.pane().doc.SetSelection(s.at, s.at)
 		a.enterView("")
 	}}
 }
@@ -161,7 +161,7 @@ func (a *app) slashFirst() int {
 func (a *app) enterView(v string) {
 	s := &a.slash
 	if hasField(s.view) { // the field goes: the editor takes the focus back
-		a.refocus = true
+		a.pane().refocus = true
 	}
 	s.view, s.sel, s.seen, s.scroll = v, 0, -1, ui.ScrollState{}
 	s.sel = a.slashFirst()
@@ -212,7 +212,7 @@ func (a *app) aliasLinks(q string, start, n int, group string) (out []menuItem, 
 	}
 	for _, c := range a.lib.Collections {
 		for _, p := range c.All() {
-			if a.page != nil && p.Dir == a.page.Dir {
+			if a.pane().page != nil && p.Dir == a.pane().page.Dir {
 				continue
 			}
 			for _, al := range p.Aliases() {
@@ -241,7 +241,7 @@ func (a *app) wikiItems(q string) []menuItem {
 	}
 	exact, n := false, 0
 	for _, it := range a.places() {
-		if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
 			continue
 		}
 		if strings.EqualFold(it.title, tq) {
@@ -258,9 +258,9 @@ func (a *app) wikiItems(q string) []menuItem {
 	if hs := a.headingLinks(tq, start); len(hs) > 0 { // "Page#…": its headings, first
 		out, exact = append(hs, out...), true
 	}
-	if tq != "" && !exact && a.page != nil {
+	if tq != "" && !exact && a.pane().page != nil {
 		out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
-			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
+			if _, err := a.pane().page.Coll.NewPage(nil, tq); err != nil {
 				a.fail(err)
 				return
 			}
@@ -303,9 +303,9 @@ func (a *app) rawItems(q string) []menuItem {
 // chooseImage takes the "/…" away and asks for the picture.
 func (a *app) chooseImage() {
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	start := s.start
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
@@ -316,9 +316,9 @@ func (a *app) chooseImage() {
 // chooseRaw takes the "/…" away and puts the block in.
 func (a *app) chooseRaw(r rawTemplate) {
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	start := s.start
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
@@ -330,21 +330,21 @@ func (a *app) chooseRaw(r rawTemplate) {
 // to be written in.
 func (a *app) chooseTable() {
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := a.pane().doc.Selection()
 	start := s.start
-	a.doc.Edit(func(ed *richtext.Edit) {
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
 	ch := a.insertTable(start)
 	s.open = false
-	a.cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: ch.tbl.cell(-1, 0), fresh: true}
+	a.pane().cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: ch.tbl.cell(-1, 0), fresh: true}
 }
 
 // choiceItems are the values of the page's choices, for q.
 func (a *app) choiceItems(q string) []menuItem {
 	var out []menuItem
-	p := a.page
+	p := a.pane().page
 	if p == nil {
 		return nil
 	}
@@ -396,7 +396,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 	case "link":
 		exact, n := false, 0
 		for _, it := range a.places() {
-			if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
 				continue
 			}
 			if strings.EqualFold(it.title, tq) {
@@ -413,9 +413,9 @@ func (a *app) viewItems(view, q string) []menuItem {
 		if hs := a.headingLinks(tq, start); len(hs) > 0 {
 			out, exact = append(hs, out...), true
 		}
-		if tq != "" && !exact && a.page != nil {
+		if tq != "" && !exact && a.pane().page != nil {
 			out = append(out, menuItem{title: locales.SlashNewPageNamed(tq), glyph: iconPlus, run: func() {
-				if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
+				if _, err := a.pane().page.Coll.NewPage(nil, tq); err != nil {
 					a.fail(err)
 					return
 				}
@@ -425,7 +425,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 	case "embed":
 		n := 0
 		for _, it := range a.places() {
-			if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
 				continue
 			}
 			if n++; n > 40 {
@@ -462,7 +462,7 @@ func (a *app) searchItems(q string) []menuItem {
 	// pages
 	exact, n := false, 0
 	for _, it := range a.places() {
-		if it.to.kind != "page" || (a.page != nil && it.to.dir == a.page.Dir) || (q != "" && match(q, it.title) < 0) {
+		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
 			continue
 		}
 		if strings.EqualFold(it.title, tq) {
@@ -477,7 +477,7 @@ func (a *app) searchItems(q string) []menuItem {
 	als, _ := a.aliasLinks(q, start, 4, "link")
 	pages = append(pages, als...)
 	// the page's choices
-	if p := a.page; p != nil {
+	if p := a.pane().page; p != nil {
 		for i := range p.Coll.Properties {
 			pr := &p.Coll.Properties[i]
 			if pr.Type != PropChoice {
@@ -497,9 +497,9 @@ func (a *app) searchItems(q string) []menuItem {
 		}
 	}
 	// last, a page of what is typed, when none is called so
-	if tq != "" && !exact && a.page != nil {
+	if tq != "" && !exact && a.pane().page != nil {
 		fresh = append(fresh, menuItem{title: locales.SlashNewPageNamed(tq), group: "slash_groupNew", glyph: iconPlus, run: func() {
-			if _, err := a.page.Coll.NewPage(nil, tq); err != nil {
+			if _, err := a.pane().page.Coll.NewPage(nil, tq); err != nil {
 				a.fail(err)
 				return
 			}
@@ -522,8 +522,9 @@ func (a *app) searchItems(q string) []menuItem {
 
 // dropQuery takes away the sign and what was typed after it.
 func (a *app) dropQuery(start int) {
-	_, caret := a.doc.Selection()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc := a.pane().doc
+	_, caret := doc.Selection()
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, caret, richtext.Text{})
 		ed.Select(start, start)
 	})
@@ -531,8 +532,9 @@ func (a *app) dropQuery(start int) {
 
 // slashQuery is what is typed after the sign.
 func (a *app) slashQuery() string {
-	_, caret := a.doc.Selection()
-	return a.slashQueryAt(a.doc.Text(), caret)
+	doc := a.pane().doc
+	_, caret := doc.Selection()
+	return a.slashQueryAt(doc.Text(), caret)
 }
 
 func (a *app) slashQueryAt(text richtext.Text, caret int) string {
@@ -551,6 +553,7 @@ func (a *app) slashQueryAt(text richtext.Text, caret int) string {
 // trackSlash opens, follows and closes the menu, after an edit or a move
 // of the caret; it reports whether it changed the text.
 func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool {
+	doc := a.pane().doc
 	s := &a.slash
 	if !s.open {
 		if !typed || caret == 0 {
@@ -564,7 +567,7 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 		if sign == "[" && caret >= 2 && text.Slice(caret-2, caret-1).String() == "[" {
 			// "[[": it is closed with "]]", and the menu lists the pages
 			if text.Slice(caret, min(caret+2, text.Len())).String() != "]]" {
-				a.doc.Edit(func(ed *richtext.Edit) {
+				doc.Edit(func(ed *richtext.Edit) {
 					ed.Replace(caret, caret, richtext.NewText("]]"))
 					ed.Select(caret, caret)
 				})
@@ -600,7 +603,7 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 	items := a.menuItems(q)
 	switch {
 	case s.view != "" && !edited && caret < s.start+len(s.sign) && caret >= ps: // ← before the sign: a menu back
-		a.doc.SetSelection(s.at, s.at)
+		doc.SetSelection(s.at, s.at)
 		a.enterView("")
 		return false
 	case caret < s.start+len(s.sign) || caret > pe:
@@ -624,9 +627,9 @@ func (a *app) trackSlash(text richtext.Text, caret int, edited, typed bool) bool
 
 // editorKey takes the keys of the menu under the caret before the editor acts on them (EditorOptions.OnKey): ↑ and ↓
 // move the choice, ↵ makes it, Esc goes back a menu or closes it. With no menu open the keys are the editor's.
-func (a *app) editorKey(key ui.Key, mods ui.Modifiers) bool {
+func (a *app) editorKey(pn *paneState, key ui.Key, mods ui.Modifiers) bool {
 	s := &a.slash
-	if !s.open || hasField(s.view) || mods != 0 || a.doc == nil {
+	if !s.open || hasField(s.view) || mods != 0 || pn.doc == nil {
 		return false
 	}
 	switch key {
@@ -671,24 +674,25 @@ func (a *app) editorKey(key ui.Key, mods ui.Modifiers) bool {
 
 // chooseSlash takes the "/…" away and turns the line into the kind chosen.
 func (a *app) chooseSlash(k struct{ kind, name, md string }) {
+	doc := a.pane().doc
 	s := &a.slash
-	_, caret := a.doc.Selection()
+	_, caret := doc.Selection()
 	start := s.start
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)
 	})
 	if k.kind == "hr" {
-		a.doc.Edit(func(ed *richtext.Edit) {
+		doc.Edit(func(ed *richtext.Edit) {
 			ed.Replace(start, start, richtext.NewText("\n"))
 			ed.FormatParagraphs(start, start, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{ID: hrID} })
 			ed.FormatParagraphs(start+1, start+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 			ed.Select(start+1, start+1)
 		})
 	} else {
-		turnInto(a.doc, start, k.kind)
+		turnInto(doc, start, k.kind)
 	}
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	doc.SetTypingAttributes(richtext.Attributes{})
 	a.useKind(k.kind)
 	s.open = false
 }
@@ -756,18 +760,19 @@ var viewTitle = map[string]string{"format": "slash_groupFormat", "insert": "slas
 
 // slashView is the menu under the caret.
 func (a *app) slashView(c *ui.Context) {
+	pn := a.pane()
 	s := &a.slash
-	if !s.open || a.doc == nil || a.noPage() {
+	if !s.open || pn.doc == nil || a.noPage() {
 		return
 	}
 	if hasField(s.view) && c.Shortcut(0, ui.KeyEscape) { // in the text, the editor gives its keys (editorKey)
 		a.enterView("")
 		return
 	}
-	if a.refocus {
+	if pn.refocus {
 		c.Invalidate() // a frame in which the editor takes the focus
 	}
-	if hasField(s.view) && s.fin && a.focused { // a click in the text
+	if hasField(s.view) && s.fin && pn.focused { // a click in the text
 		s.open = false
 		return
 	}
@@ -784,7 +789,7 @@ func (a *app) slashView(c *ui.Context) {
 	s.sel = max(0, min(s.sel, len(items)-1))
 	t := ryugo.From(c)
 	cl := t.Colors
-	cr := a.caretWin
+	cr := pn.caretWin
 	extra := float32(0)
 	if s.view == "date" {
 		extra = menuCal + 3 // the gaps, a divider and the calendar
@@ -802,7 +807,7 @@ func (a *app) slashView(c *ui.Context) {
 	}
 	keepInSight(s.sel, &s.seen, &s.scroll, pl)
 	choose := func(it menuItem) {
-		a.doc.SetSelection(s.at, s.at)
+		pn.doc.SetSelection(s.at, s.at)
 		s.open = false
 		it.run()
 		s.open = it.nav
@@ -860,14 +865,14 @@ func (a *app) slashView(c *ui.Context) {
 			switch {
 			case in.Shortcut(0, ui.KeyEscape):
 				a.enterView("")
-				a.doc.SetSelection(s.at, s.at)
+				pn.doc.SetSelection(s.at, s.at)
 			case in.Shortcut(0, ui.KeyDown):
 				s.sel = min(s.sel+1, len(items)-1)
 			case in.Shortcut(0, ui.KeyUp):
 				s.sel = max(s.sel-1, 0)
 			case s.field == "" && in.Shortcut(0, ui.KeyBackspace): // nothing to delete: back
 				a.enterView("")
-				a.doc.SetSelection(s.at, s.at)
+				pn.doc.SetSelection(s.at, s.at)
 			case in.Submitted() && len(items) > 0:
 				choose(items[max(0, min(s.sel, len(items)-1))])
 			}

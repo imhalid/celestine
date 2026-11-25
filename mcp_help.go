@@ -129,7 +129,7 @@ func (a *app) addHelpTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 			if err != nil {
 				return err
 			}
-			if p == a.page {
+			if p == a.pane().page {
 				a.flush()
 			}
 			md, err := p.Text()

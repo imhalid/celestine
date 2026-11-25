@@ -210,7 +210,7 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
-				if p == a.page {
+				if p == a.pane().page {
 					a.flush() // what is typed, too
 				}
 				body, err := p.Text()
@@ -404,9 +404,9 @@ func (a *app) newMCPServer() *mcp.Server {
 					if t == "" {
 						return errors.New("an empty title")
 					}
-					if p == a.page {
+					if p == a.pane().page {
 						a.flush()
-						a.title = t
+						a.pane().title = t
 					}
 					from := p.Title
 					if err := p.SetTitle(t); err != nil {
@@ -415,7 +415,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					a.relinkRenamed(p, from, true) // the links to it follow (relink.go)
 				}
 				if in.Markdown != nil || in.Append != "" {
-					if p == a.page {
+					if p == a.pane().page {
 						a.flush()
 					}
 					body, err := p.Text()
@@ -484,7 +484,7 @@ func (a *app) newMCPServer() *mcp.Server {
 						index++
 					}
 				}
-				if p == a.page {
+				if p == a.pane().page {
 					a.flush()
 				}
 				fromColl, fromParent, fromAt := p.Coll.Dir, "", indexOf(p.Coll.Pages, p)
@@ -513,7 +513,7 @@ func (a *app) newMCPServer() *mcp.Server {
 					if now := indexOf(siblings, q); now >= 0 && now < at { // among the siblings but itself, as above
 						at++
 					}
-					if q == a.page {
+					if q == a.pane().page {
 						a.flush()
 					}
 					return a.lib.MovePage(q, c, parent, at)
@@ -697,10 +697,10 @@ func (a *app) mcpMayChange(it palItem) error {
 				c = x
 			}
 		}
-	case a.page != nil:
-		c = a.page.Coll
+	case a.pane().page != nil:
+		c = a.pane().page.Coll
 	default:
-		c = a.coll
+		c = a.pane().coll
 	}
 	if c == nil {
 		return nil

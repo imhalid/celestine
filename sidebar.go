@@ -216,7 +216,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 					a.drag.x -= 8 // the rows start inside the padding
 					a.well(c, tree)
 					a.treeVirtual = a.treeCensus().rows >= treeVirtualFrom && !a.moving()
-					if b := a.bars[a.ps.key(a.ps.cur)+"/sidebar:133"]; b != nil { // where the tree is scrolled, last frame
+					if b := a.bars[a.ps.paneKey(nil)+"/sidebar:133"]; b != nil { // where the tree is scrolled, last frame
 						a.treeTop, a.treeView = b.st.Y, b.view
 					}
 					a.rowsLast = append(a.rowsLast[:0], a.rows...)
@@ -500,13 +500,13 @@ func (a *app) commitRename() {
 		if err = x.SetTitle(name); err == nil {
 			a.later(func() { a.relinkRenamed(x, from, false) }) // its links follow (relink.go)
 		}
-		if x == a.page {
-			a.title = name
+		if x == a.pane().page {
+			a.pane().title = name
 		}
 	case *Collection:
 		err = x.Rename(name)
-		if x == a.coll {
-			a.collName = name
+		if x == a.pane().coll {
+			a.pane().collName = name
 		}
 	}
 	if err != nil {
@@ -519,7 +519,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 	sticky := coll.Open && len(coll.Pages) > 0 && !a.moving() && !a.cdrag.active
 	top, n := float32(len(a.rows))*rowH, float32(collRows(coll))*rowH // where its rows lie in the tree
 	row, chev, add := a.treeRow(c, rowSpec{key: "coll:" + coll.Dir, sticky: sticky, stuck: sticky && a.treeTop > top+0.5 && a.treeTop < top+n, label: locales.CommonCollectionLabel(coll.Name), glyph: collGlyph(coll), tint: &tint, name: coll.Name,
-		strong: true, selected: coll == a.coll, has: len(coll.Pages) > 0, open: coll.Open, plus: !coll.Dynamic(), item: coll,
+		strong: true, selected: coll == a.pane().coll, has: len(coll.Pages) > 0, open: coll.Open, plus: !coll.Dynamic(), item: coll,
 		pin: func() { a.pinCollection(coll, !coll.Pinned) }, pinned: coll.Pinned,
 		menu: func() []menuItem { return a.collectionMenu(coll) }})
 	switch {
@@ -534,7 +534,7 @@ func (a *app) collectionRow(c *ui.Context, coll *Collection) {
 
 func (a *app) pageRow(c *ui.Context, p *Page) {
 	row, chev, add := a.treeRow(c, rowSpec{key: "page:" + p.Dir, label: locales.CommonPageLabel(p.Title), depth: p.Depth() + 1, glyph: iconPage, name: p.Title,
-		selected: p == a.page && !a.noPage(), has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
+		selected: p == a.pane().page && !a.noPage(), has: len(p.Children) > 0, open: p.Open, plus: p.Coll.SubPages, item: p,
 		menu: func() []menuItem { return a.pageMenu(p, true) }})
 	switch {
 	case add:
@@ -719,7 +719,7 @@ func (a *app) mustBuild(p *Page) bool {
 // open, the page above it opens, or the collection.
 func (a *app) trashPage(p *Page) {
 	a.noteDeleted()
-	open := pageUnder(a.page, p)
+	open := pageUnder(a.pane().page, p)
 	a.flushPanes()
 	if open {
 		a.flush()
@@ -732,7 +732,7 @@ func (a *app) trashPage(p *Page) {
 	a.trashed = item
 	a.dropFromPanes(func(q *Page) bool { return pageUnder(q, p) }, func(*Collection) bool { return false })
 	if open {
-		a.page, a.doc = nil, nil
+		a.pane().page, a.pane().doc = nil, nil
 		if p.Parent != nil {
 			a.open(p.Parent)
 		} else {
@@ -757,9 +757,9 @@ func (a *app) trashCollection(c *Collection) {
 		a.say(toastWarn, locales.TheJournalCannotBeMovedTo())
 		return
 	}
-	if a.page != nil && a.page.Coll == c {
+	if a.pane().page != nil && a.pane().page.Coll == c {
 		a.flush()
-		a.page, a.doc = nil, nil
+		a.pane().page, a.pane().doc = nil, nil
 	}
 	item, err := a.lib.TrashCollection(c)
 	if err != nil {
@@ -768,10 +768,10 @@ func (a *app) trashCollection(c *Collection) {
 	}
 	a.trashed = item
 	a.dropFromPanes(func(*Page) bool { return false }, func(x *Collection) bool { return x == c })
-	if a.coll == c {
-		a.coll = nil
+	if a.pane().coll == c {
+		a.pane().coll = nil
 	}
-	if a.page == nil && a.coll == nil {
+	if a.pane().page == nil && a.pane().coll == nil {
 		for _, o := range a.lib.Collections {
 			a.openCollection(o)
 			break
@@ -1202,6 +1202,6 @@ func (a *app) collapseBigLibrary() {
 		return
 	}
 	for _, c := range a.lib.Collections {
-		c.Open = a.page != nil && a.page.Coll == c
+		c.Open = a.pane().page != nil && a.pane().page.Coll == c
 	}
 }

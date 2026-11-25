@@ -198,7 +198,7 @@ func (f *film) follow(z float64) {
 	if !ok {
 		return
 	}
-	e := f.a.editorR
+	e := f.a.pane().editorR
 	x := float64(e.X + e.W/2)
 	if w, margin := demoW/z, 24.0; w < float64(e.W)+2*margin {
 		x = math.Max(float64(e.X)-margin+w/2, math.Min(float64(e.X+e.W)+margin-w/2, float64(r.X)-w*0.1))

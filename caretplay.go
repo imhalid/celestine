@@ -102,7 +102,7 @@ func (a *app) caretPlayground(c *ui.Context) {
 			ct.pending = kick{}
 			a.nearFn = func(n int) []nearGlyph { return a.tryLetters(text, caret, size, left, top, r.H, n) }
 			a.wordsFn = &tryWords{a: a, text: text, caret: caret, size: size, left: left, top: top, h: r.H}
-			a.paintCaret(p, cr, cw, r, k, focused && anchor != caret)
+			a.paintCaret(p, a.pane(), cr, cw, r, k, focused && anchor != caret)
 			a.nearFn, a.wordsFn = nil, nil
 		})
 		ui.Text(c, locales.EditorASpaceEnterErasing()).FontSize(ryugo.FsSm).TextColor(cl.Muted)

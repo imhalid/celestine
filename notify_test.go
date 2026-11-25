@@ -118,7 +118,7 @@ func TestNotifyClickOpens(t *testing.T) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.notifyClicked(notifySync)
-	if !a.settingsOpen || a.settingsTab != tabSync {
-		t.Fatalf("open %v tab %d", a.settingsOpen, a.settingsTab)
+	if !a.pane().settingsOpen || a.pane().settingsTab != tabSync {
+		t.Fatalf("open %v tab %d", a.pane().settingsOpen, a.pane().settingsTab)
 	}
 }

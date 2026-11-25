@@ -24,7 +24,7 @@ func TestReducedMotionCaret(t *testing.T) {
 	}
 	a.settings.ReduceMotion = true
 	a.openSettings()
-	a.settingsTab = 1
+	a.pane().settingsTab = 1
 	tt.Frame()
 	tt.Frame()
 	if has() {
@@ -33,7 +33,7 @@ func TestReducedMotionCaret(t *testing.T) {
 	if tt.HasText(msg(caretName(caretSlime))) {
 		t.Fatalf("the caret card: %v", tt.Texts())
 	}
-	a.settingsTab = 0
+	a.pane().settingsTab = 0
 	tt.Frame()
 	if !tt.HasText(locales.SettingsReduceMotion()) || tt.HasText(locales.SettingsShaderEffects()) || tt.HasText(locales.CommonPressWaves()) {
 		t.Fatalf("the motion's switches: %v", tt.Texts())
@@ -67,8 +67,8 @@ func TestSettingsNavClearsSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.setSearch != "" || a.settingsTab != 1 || tt.HasText("motion") {
-		t.Fatalf("search %q tab %d: %v", a.setSearch, a.settingsTab, tt.Texts())
+	if a.setSearch != "" || a.pane().settingsTab != 1 || tt.HasText("motion") {
+		t.Fatalf("search %q tab %d: %v", a.setSearch, a.pane().settingsTab, tt.Texts())
 	}
 	a.setMode = "changed"
 	tt.Frame()
@@ -76,7 +76,7 @@ func TestSettingsNavClearsSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if a.setMode != "" || a.settingsTab != 0 {
-		t.Fatalf("mode %q tab %d", a.setMode, a.settingsTab)
+	if a.setMode != "" || a.pane().settingsTab != 0 {
+		t.Fatalf("mode %q tab %d", a.setMode, a.pane().settingsTab)
 	}
 }

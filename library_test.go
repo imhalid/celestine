@@ -67,13 +67,13 @@ func TestLibraryOnDisk(t *testing.T) {
 func TestSidebarMakesSubPage(t *testing.T) {
 	a, tt := newTestApp(t, "gövde")
 	a.clock = tt.Now // the autosave's delay, in the tester's time
-	parent := a.page
+	parent := a.pane().page
 	if err := tt.Click("Ekle: Sayfa"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(50 * time.Millisecond)
-	if len(parent.Children) != 1 || a.page != parent.Children[0] || a.page.Title != "Adsız" {
-		t.Fatalf("sub-page: %+v, open %v", parent.Children, a.page)
+	if len(parent.Children) != 1 || a.pane().page != parent.Children[0] || a.pane().page.Title != "Adsız" {
+		t.Fatalf("sub-page: %+v, open %v", parent.Children, a.pane().page)
 	}
 	if _, err := os.Stat(filepath.Join(parent.Dir, "adsiz", PageFileName)); err != nil {
 		t.Fatal(err)
@@ -82,8 +82,8 @@ func TestSidebarMakesSubPage(t *testing.T) {
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("Toplantı notları")
 	tt.Advance(50 * time.Millisecond)
-	if a.page.Title != "Toplantı notları" {
-		t.Fatalf("title: %q", a.page.Title)
+	if a.pane().page.Title != "Toplantı notları" {
+		t.Fatalf("title: %q", a.pane().page.Title)
 	}
 	if again, _ := OpenLibrary(a.lib.Root); again.Collections[0].Pages[0].Children[0].Title == "Toplantı notları" {
 		t.Fatal("the title was written at once, at a key")
@@ -97,7 +97,7 @@ func TestSidebarMakesSubPage(t *testing.T) {
 // TestSwitchingPagesSaves edits a page, opens another: the edit is on disk.
 func TestSwitchingPagesSaves(t *testing.T) {
 	a, tt := newTestApp(t, "ilk")
-	first := a.page
+	first := a.pane().page
 	tt.Type("!")
 	tt.Frame()
 	other, _ := first.Coll.NewPage(nil, "İkinci")
@@ -107,7 +107,7 @@ func TestSwitchingPagesSaves(t *testing.T) {
 		t.Fatalf("not saved on leaving: %q", body)
 	}
 	a.open(first) // its document, undo and all, is kept
-	if !strings.Contains(a.doc.Text().String(), "!") {
+	if !strings.Contains(a.pane().doc.Text().String(), "!") {
 		t.Fatal("the edit is gone on coming back")
 	}
 }

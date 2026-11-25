@@ -146,14 +146,14 @@ func TestCSVSafeCell(t *testing.T) {
 func TestTableSortFilterUI(t *testing.T) {
 	a, tt := newTestApp(t, tableMD)
 	tt.SetSize(1000, 700)
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
 	var copied string
 	a.clipText = func(s string) { copied = s }
 	cell := func(row, col int) tableHit {
-		for _, h := range a.tableSeen {
+		for _, h := range a.pane().tableSeen {
 			if h.row == row && h.col == col {
 				return h
 			}
@@ -162,7 +162,7 @@ func TestTableSortFilterUI(t *testing.T) {
 		return tableHit{}
 	}
 	model := func() *tableModel {
-		for _, h := range a.tableSeen {
+		for _, h := range a.pane().tableSeen {
 			return h.ch.tbl
 		}
 		return nil
@@ -185,8 +185,8 @@ func TestTableSortFilterUI(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if !a.cellEd.open || a.cellEd.row != -2 {
-		t.Fatalf("the filter is not open to be written: %+v", a.cellEd)
+	if !a.pane().cellEd.open || a.pane().cellEd.row != -2 {
+		t.Fatalf("the filter is not open to be written: %+v", a.pane().cellEd)
 	}
 	tt.Type("elma")
 	tt.Key(0, ui.KeyEnter)
@@ -196,7 +196,7 @@ func TestTableSortFilterUI(t *testing.T) {
 		t.Fatalf("filter %q shows %v", m.Filter, m.visible())
 	}
 	shown := 0
-	for _, hh := range a.tableSeen {
+	for _, hh := range a.pane().tableSeen {
 		if hh.row >= 0 && hh.col == 0 {
 			shown++
 		}
@@ -229,17 +229,17 @@ func TestTableSortFilterUI(t *testing.T) {
 func TestTablePaste(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1000, 700)
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
-	_, caret := a.doc.Selection()
-	a.doc.Edit(func(ed *richtext.Edit) {
+	_, caret := a.pane().doc.Selection()
+	a.pane().doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(caret, caret, richtext.NewText("Ad\tSayı\nelma\t3\narmut\t12"))
 	})
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
 	n := 0
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if at := r.Attributes.Attachment; at != nil {
 			if ch, ok := at.Data.(*chip); ok && ch.tbl != nil && len(ch.tbl.rows) == 2 && ch.tbl.cols[1].Kind == kindNumber {
 				n++
@@ -247,13 +247,13 @@ func TestTablePaste(t *testing.T) {
 		}
 	}
 	if n != 1 {
-		t.Fatalf("no table out of the paste: %q", a.doc.Text().String())
+		t.Fatalf("no table out of the paste: %q", a.pane().doc.Text().String())
 	}
 	a.clipRead = func() string { return "a;b\n1;2\n" }
 	a.pasteTable()
 	tt.Advance(200 * time.Millisecond)
 	count := 0
-	for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if at := r.Attributes.Attachment; at != nil {
 			if ch, ok := at.Data.(*chip); ok && ch.tbl != nil {
 				count++
@@ -276,12 +276,12 @@ func TestTablePaste(t *testing.T) {
 func TestTableUndo(t *testing.T) {
 	a, tt := newTestApp(t, tableMD)
 	tt.SetSize(1000, 700)
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Frame()
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
 	first := func() string {
-		for _, r := range a.doc.Text().Runs(0, a.doc.Text().Len()) {
+		for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 			if at := r.Attributes.Attachment; at != nil {
 				if ch, ok := at.Data.(*chip); ok && ch.tbl != nil {
 					return ch.tbl.cell(0, 0)
@@ -291,7 +291,7 @@ func TestTableUndo(t *testing.T) {
 		return "?"
 	}
 	open := func(row, col int) {
-		for _, h := range a.tableSeen {
+		for _, h := range a.pane().tableSeen {
 			if h.row == row && h.col == col {
 				tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 				tt.Advance(200 * time.Millisecond)
@@ -324,8 +324,8 @@ func TestTableUndo(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(300 * time.Millisecond)
-	if first() != "elma" || a.cellEd.open {
-		t.Fatalf("the button: %q open %v", first(), a.cellEd.open)
+	if first() != "elma" || a.pane().cellEd.open {
+		t.Fatalf("the button: %q open %v", first(), a.pane().cellEd.open)
 	}
 	open(1, 0)
 	if err := tt.Click("Yinele (⇧⌘Z)"); err != nil {

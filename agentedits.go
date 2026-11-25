@@ -29,7 +29,7 @@ type agentEdits struct {
 
 // agentTouch is called before an agent writes page p: its file is kept, the first time, and as a version each time.
 func (a *app) agentTouch(p *Page) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	if h, ok := historyOf(p); ok {
@@ -118,7 +118,7 @@ func (a *app) agentDiffers(p *Page) bool {
 	if a.agent.made[p] {
 		return true
 	}
-	if p == a.page && a.dirty {
+	if p == a.pane().page && a.pane().dirty {
 		return true
 	}
 	now, err := p.FS().ReadFile(p.File())
@@ -171,7 +171,7 @@ func (a *app) undoAgent() {
 			n++
 			continue
 		}
-		if p == a.page {
+		if p == a.pane().page {
 			a.flush()
 		}
 		now, _ := p.FS().ReadFile(p.File())

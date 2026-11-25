@@ -54,7 +54,7 @@ func TestPaletteOpensSettings(t *testing.T) {
 	tt.Frame()
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(400 * time.Millisecond)
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("the settings did not open")
 	}
 }
@@ -98,7 +98,7 @@ func TestAppThemeWellAlphaAndSurface(t *testing.T) {
 	a, tt := newTestApp(t, "# Midnight Theme Check\n\nSome content in the editor.\n")
 	tt.SetSize(1180, 760)
 	a.setAppTheme(1) // midnight
-	a.settingsOpen, a.settingsTab = true, 0
+	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(500 * time.Millisecond)
 
 	save := func(name string) {
@@ -118,7 +118,7 @@ func TestAppThemeWellAlphaAndSurface(t *testing.T) {
 
 	for _, dark := range []bool{false, true} {
 		tt.SetDark(dark)
-		a.settingsTab = 0 // Appearance / theme picker + well groups
+		a.pane().settingsTab = 0 // Appearance / theme picker + well groups
 		tt.Advance(400 * time.Millisecond)
 		label := map[bool]string{false: "light", true: "dark"}[dark]
 		save("settings-" + label)

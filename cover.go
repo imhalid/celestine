@@ -48,7 +48,7 @@ func checkImage(data []byte) (string, error) {
 
 // putCover makes data, a picture checked, page p's cover.
 func (a *app) putCover(p *Page, data []byte, ext string) error {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	name := "kapak-" + a.clock().Format("20060102-150405") + ext
@@ -81,7 +81,7 @@ func (a *app) removeCover(p *Page) {
 	if p.Cover == CoverNone {
 		return
 	}
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	oldShift := p.CoverShift
@@ -107,7 +107,7 @@ func (a *app) removeCover(p *Page) {
 
 // restoreAutoCover puts the made cover back on a page that had none.
 func (a *app) restoreAutoCover(p *Page) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	old := p.Cover
@@ -411,7 +411,7 @@ func (a *app) coverReposition(c *ui.Context, p *Page) {
 
 // saveCoverShift writes p's cover position into its page file.
 func (a *app) saveCoverShift(p *Page) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	body, err := p.Body()

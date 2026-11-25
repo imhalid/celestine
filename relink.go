@@ -27,24 +27,24 @@ type titleEdit struct {
 // titleTyped gives page p the title name, typed in its title field: the first change remembers the title it had,
 // for its links to be written when the field is left (endTitleEdit), and keeps it in the settings too, so that a
 // rename the app did not live to end is ended at its next start (finishRenames).
-func (a *app) titleTyped(p *Page, name string) {
-	if a.retitle.p != p {
-		a.endTitleEdit()
-		a.retitle = titleEdit{p: p, from: p.Title}
+func (a *app) titleTyped(pn *paneState, p *Page, name string) {
+	if pn.retitle.p != p {
+		a.endTitleEditIn(pn)
+		pn.retitle = titleEdit{p: p, from: p.Title}
 		if a.settings.PendingRenames == nil {
 			a.settings.PendingRenames = map[string]string{}
 		}
 		a.settings.PendingRenames[p.Dir] = p.Title
 		a.saveSettingsSoon()
 	}
-	a.retitled(p, name)
+	a.retitled(pn, p, name)
 }
 
 // retitled gives page p the title name in memory at once, and has it written with the page's next save: a key typed
 // in a title wrote the whole page's file at each key (#192). The open page is saved by its autosave; another, as a
 // side pane's, at once.
-func (a *app) retitled(p *Page, name string) {
-	if p != a.page || a.doc == nil {
+func (a *app) retitled(pn *paneState, p *Page, name string) {
+	if p != pn.page || pn.doc == nil {
 		if err := p.SetTitle(name); err != nil {
 			a.fail(err)
 		}
@@ -52,17 +52,20 @@ func (a *app) retitled(p *Page, name string) {
 	}
 	p.Title = name
 	PagesChanged()
-	a.lastSave = ""                     // what is saved next is written, the body unchanged or not, with the title
-	a.dirty, a.editAt = true, a.clock() // saved once the typing pauses, as the text is
+	pn.lastSave = ""                      // what is saved next is written, the body unchanged or not, with the title
+	pn.dirty, pn.editAt = true, a.clock() // saved once the typing pauses, as the text is
 }
 
-// endTitleEdit ends the rename being typed in this pane, if there is one: the links to the page are written after
-// the view (a pane's view runs as that pane, and the pages written may be shown in others).
-func (a *app) endTitleEdit() {
-	r := a.retitle
-	a.retitle = titleEdit{}
+// endTitleEditIn ends the rename being typed in pn, if there is one: the links to the page are written after
+// the view (the pages written may be shown in other panes).
+func (a *app) endTitleEditIn(pn *paneState) {
+	r := pn.retitle
+	pn.retitle = titleEdit{}
 	a.endRename(r)
 }
+
+// endTitleEdit ends the rename being typed in the active pane, if there is one.
+func (a *app) endTitleEdit() { a.endTitleEditIn(a.pane()) }
 
 // endRename writes the links of rename r, typed in a pane that is done with it, after the view.
 func (a *app) endRename(r titleEdit) {
@@ -229,14 +232,7 @@ func (a *app) undoRelink(changes []linkChange) {
 }
 
 // takeOutsideAll takes the text of page p as it is on disk now, in every pane that shows it.
-func (a *app) takeOutsideAll(p *Page) {
-	a.takeOutside(p)
-	for i := range a.ps.states {
-		if i != a.ps.active && a.ps.states[i].page == p {
-			a.withPane(i, func() { a.takeOutside(p) })
-		}
-	}
-}
+func (a *app) takeOutsideAll(p *Page) { a.takeOutside(p) }
 
 // relinkBody is body with its links to the pages renamed written to their titles now (to: each old title, trimmed
 // and in lower case, and the title it is now), and how many: the links and embeds, what they say instead of the

@@ -14,7 +14,7 @@ import (
 func TestHeadingLinks(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1100, 800)
-	c := a.page.Coll
+	c := a.pane().page.Coll
 	dune, _ := c.NewPage(nil, "Dune")
 	dune.SaveText("intro\n\n## Plot\n\nstory\n\n## Ecology\n\nsand\n")
 	cs, _ := c.NewPage(nil, "C#")
@@ -56,12 +56,12 @@ func TestHeadingLinks(t *testing.T) {
 	tt.ClickAt(hit.r.X+hit.r.W/2, hit.r.Y+hit.r.H/2)
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
-	_, caret := a.doc.Selection()
-	if a.page != dune {
-		t.Fatalf("opened %v", a.page)
+	_, caret := a.pane().doc.Selection()
+	if a.pane().page != dune {
+		t.Fatalf("opened %v", a.pane().page)
 	}
-	if ps, pe := a.doc.Text().ParagraphRange(caret); a.doc.Text().Slice(ps, pe).String() != "Ecology" {
-		t.Fatalf("the caret is in %q", a.doc.Text().Slice(ps, pe).String())
+	if ps, pe := a.pane().doc.Text().ParagraphRange(caret); a.pane().doc.Text().Slice(ps, pe).String() != "Ecology" {
+		t.Fatalf("the caret is in %q", a.pane().doc.Text().Slice(ps, pe).String())
 	}
 	// a rename keeps the heading
 	body, _ := notes.Body()

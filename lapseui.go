@@ -77,11 +77,12 @@ var lapsePara = ui.ElementTransition{
 
 // toggleLapse turns the time-lapse's colors on or off for every page: it is a way the editor looks, kept in the settings.
 func (a *app) toggleLapse() {
-	if a.page == nil || a.noPage() {
+	pn := a.pane()
+	if pn.page == nil || a.noPage() {
 		return
 	}
 	if a.settings.NoLapse {
-		if _, ok := historyOf(a.page); !ok {
+		if _, ok := historyOf(pn.page); !ok {
 			a.say(toastInfo, locales.VersionHistoryIsKeptOnlyIn())
 			return
 		}
@@ -89,14 +90,14 @@ func (a *app) toggleLapse() {
 	a.settings.NoLapse = !a.settings.NoLapse
 	a.saveSettings()
 	a.lapse = lapseState{}
-	a.refocus = true
+	pn.refocus = true
 }
 
 // lapseAuto keeps the time-lapse as the settings say, for the page the active pane shows: it is on when the page has a history, worked
 // out in the background; and it is worked out again once the text has been still, so that what was written since is counted.
-func (a *app) lapseAuto(c *ui.Context, p *Page) {
+func (a *app) lapseAuto(c *ui.Context, pn *paneState, p *Page) {
 	l := &a.lapse
-	if a.inactivePane() || a.doc == nil {
+	if a.isInactivePane(pn) || pn.doc == nil {
 		return
 	}
 	_, ok := historyOf(p)
@@ -118,7 +119,7 @@ func (a *app) lapseAuto(c *ui.Context, p *Page) {
 		}
 		return
 	}
-	if v := a.doc.Version(); v != l.docSeen {
+	if v := pn.doc.Version(); v != l.docSeen {
 		l.docSeen, l.seenAt = v, c.Now()
 	}
 	if l.docSeen != l.docVer && !l.busy {
@@ -132,16 +133,16 @@ func (a *app) lapseAuto(c *ui.Context, p *Page) {
 
 // spansVersion tells the editor when what its spans do has changed: the letters' spacing, the theme, the time-lapse's colors,
 // or dynamic query block heights.
-func (a *app) spansVersion() int {
+func (a *app) spansVersion(pn *paneState) int {
 	v := a.settings.LetterSpacing*100 + a.settings.AppTheme + (a.queryVer&0x3f)*20000000
-	if l := &a.lapse; l.on && l.page == a.page {
+	if l := &a.lapse; l.on && l.page == pn.page {
 		v += l.ver * 100000
 	}
 	v += a.tasks.ver * 7919 // a task's line being drawn through it (strikeSpans)
 	if !linkIcons {         // no room before links for their icons (linkcards.go)
 		v += 1 << 40
 	}
-	if a.grip.dragging { // the block dragged, drawn faded (blockSpans)
+	if pn.grip.dragging { // the block dragged, drawn faded (blockSpans)
 		v = -v - 1
 	}
 	return v
@@ -150,6 +151,7 @@ func (a *app) spansVersion() int {
 // startLapse works out the time-lapse of the page: the copies are read here,
 // the words set against each other outside the lock.
 func (a *app) startLapse() {
+	pn := a.pane()
 	l := &a.lapse
 	p := l.page
 	h, ok := historyOf(p)
@@ -166,8 +168,8 @@ func (a *app) startLapse() {
 	if at.IsZero() {
 		at = a.clock()
 	}
-	l.busy, l.docVer, l.docSeen = true, a.doc.Version(), a.doc.Version()
-	paras := strings.Split(a.doc.Text().String(), "\n") // the editor's paragraphs, which the words are given to
+	l.busy, l.docVer, l.docSeen = true, pn.doc.Version(), pn.doc.Version()
+	paras := strings.Split(pn.doc.Text().String(), "\n") // the editor's paragraphs, which the words are given to
 	go func() {
 		defer a.guard()
 		// the copies read here, away from the window: every one the page kept, at each page opened and each pause in
@@ -248,10 +250,10 @@ func lapseParas(ws []Word, paras []string) map[int][]lapseTok {
 // lapseSpans colors the words of paragraph p of the editor by the version each was written in; ok is false where the time-lapse has
 // nothing to say (it is off, there is one version only, the paragraph is a block of code, or a view of its own is up). What is typed
 // since the words were worked out is told by what is the same before it and after it: the rest in between is the latest version's.
-func (a *app) lapseSpans(p int, spans []ui.Span) (out []ui.Span, ok bool) {
+func (a *app) lapseSpans(pn *paneState, p int, spans []ui.Span) (out []ui.Span, ok bool) {
 	l := &a.lapse
 	// one day only has nothing to tell apart: it is colored when its chip is clicked (v1), as the one day lit
-	if !l.on || l.page != a.page || l.solo != 0 || len(l.days) == 0 || (len(l.days) < 2 && l.lit == 0) || len(spans) == 0 {
+	if !l.on || l.page != pn.page || l.solo != 0 || len(l.days) == 0 || (len(l.days) < 2 && l.lit == 0) || len(spans) == 0 {
 		return nil, false
 	}
 	var text strings.Builder
@@ -423,7 +425,7 @@ func (a *app) lapseView(c *ui.Context) {
 // on hover: a click lights it, a double click leaves it alone.
 func (a *app) lapseChips(c *ui.Context) {
 	l := &a.lapse
-	if l.on && l.page != a.page { // another page is open: its editor
+	if l.on && l.page != a.pane().page { // another page is open: its editor
 		*l = lapseState{}
 	}
 	if !l.on || len(l.days) == 0 || a.noPage() { // only with the page's editor: not over the settings or another screen (#411)

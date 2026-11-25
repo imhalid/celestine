@@ -40,7 +40,7 @@ func TestAtMenu(t *testing.T) {
 	a, tt := newTestApp(t, "")
 	now := time.Date(2026, 11, 5, 10, 0, 0, 0, time.Local)
 	a.clock = func() time.Time { return now }
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	dune, _ := coll.NewPage(nil, "Dune")
 	coll.AddProperty("Durum", PropChoice, []string{"Açık", "Bitti"})
 	tt.Frame()
@@ -61,30 +61,30 @@ func TestAtMenu(t *testing.T) {
 	typeEach(tt, "@bitti")
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
-	if got := strings.TrimSpace(bodyMarkdown(a.doc.Text())); got != "Oku [[Dune]] ve [[2026-11-06]]" {
+	if got := strings.TrimSpace(bodyMarkdown(a.pane().doc.Text())); got != "Oku [[Dune]] ve [[2026-11-06]]" {
 		t.Fatalf("text: %q", got)
 	}
-	if a.page.Props["durum"] != "Bitti" {
-		t.Fatalf("choice: %+v", a.page.Props)
+	if a.pane().page.Props["durum"] != "Bitti" {
+		t.Fatalf("choice: %+v", a.pane().page.Props)
 	}
 	// a click on the page's chip opens it
 	tt.Advance(100 * time.Millisecond)
 	x, y := chipAt(t, a, "Dune")
 	tt.ClickAt(x, y)
 	tt.Frame()
-	if a.page != dune {
+	if a.pane().page != dune {
 		t.Fatalf("opened %v", a.here())
 	}
 	// a link to a page not there makes it
 	tt.Key(ui.Cmd, ui.KeyBracketLeft)
 	tt.Frame()
-	a.doc.SetSelection(a.doc.Text().Len(), a.doc.Text().Len())
-	a.insertChip(a.doc.Text().Len(), &chip{kind: "page", target: "Yeni fikir"})
+	a.pane().doc.SetSelection(a.pane().doc.Text().Len(), a.pane().doc.Text().Len())
+	a.insertChip(a.pane().doc.Text().Len(), &chip{kind: "page", target: "Yeni fikir"})
 	tt.Advance(100 * time.Millisecond)
 	x, y = chipAt(t, a, "Yeni fikir")
 	tt.ClickAt(x, y)
 	tt.Frame()
-	if a.page == nil || a.page.Title != "Yeni fikir" || a.page.Coll != coll {
+	if a.pane().page == nil || a.pane().page.Title != "Yeni fikir" || a.pane().page.Coll != coll {
 		t.Fatalf("made: %v", a.here())
 	}
 }

@@ -35,7 +35,7 @@ func TestSlashMenu(t *testing.T) {
 		t.Fatal("still open")
 	}
 	typeEach(tt, "Başlık")
-	if got := mdOf(a.doc); got != "Önce\n\n## Başlık" {
+	if got := mdOf(a.pane().doc); got != "Önce\n\n## Başlık" {
 		t.Fatalf("chosen: %q", got)
 	}
 	// Esc closes it; the "/" stays as typed
@@ -124,7 +124,7 @@ func TestMenuInto(t *testing.T) {
 	if !tt.HasText(msg("findAPage4")) || !tt.HasText(msg("common_back")) {
 		t.Fatal("no field or way back")
 	}
-	if got := mdOf(a.doc); got != "Önce\n\n@" {
+	if got := mdOf(a.pane().doc); got != "Önce\n\n@" {
 		t.Fatalf("the text changed: %q", got)
 	}
 	n := len(a.menuItems("")) - 1 // without ← Geri, the first line
@@ -173,8 +173,8 @@ func TestMenuDateAndRecent(t *testing.T) {
 	tt.Key(0, ui.KeyEnter) // the first: today
 	tt.Frame()
 	tt.Frame()
-	if a.slash.open || !strings.Contains(mdOf(a.doc), "[[20") {
-		t.Fatalf("no date chip: %q", mdOf(a.doc))
+	if a.slash.open || !strings.Contains(mdOf(a.pane().doc), "[[20") {
+		t.Fatalf("no date chip: %q", mdOf(a.pane().doc))
 	}
 	// a kind used is the first suggestion next time
 	typeEach(tt, "/")
@@ -219,13 +219,13 @@ func TestMenuInWindow(t *testing.T) {
 func TestGripInMargin(t *testing.T) {
 	a, tt := newTestApp(t, "Bir\n\nİki\n")
 	tt.Frame()
-	if a.editorR.W == 0 {
+	if a.pane().editorR.W == 0 {
 		t.Fatal("no editor")
 	}
-	tt.Move(a.editorR.X-12, a.editorR.Y+8)
+	tt.Move(a.pane().editorR.X-12, a.pane().editorR.Y+8)
 	tt.Frame()
-	if a.grip.para < 0 {
-		t.Fatalf("no grip with the pointer in the margin: %+v", a.grip)
+	if a.pane().grip.para < 0 {
+		t.Fatalf("no grip with the pointer in the margin: %+v", a.pane().grip)
 	}
 }
 
@@ -234,7 +234,7 @@ func TestGripInMargin(t *testing.T) {
 func TestMenuField(t *testing.T) {
 	a, tt := newTestApp(t, "Önce\n")
 	for _, n := range []string{"Alfa", "Beta"} {
-		if _, err := a.page.Coll.NewPage(nil, n); err != nil {
+		if _, err := a.pane().page.Coll.NewPage(nil, n); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -256,7 +256,7 @@ func TestMenuField(t *testing.T) {
 	if a.slash.field != "alf" {
 		t.Fatalf("not typed in the field: %q", a.slash.field)
 	}
-	if got := mdOf(a.doc); got != "Önce\n\n@" {
+	if got := mdOf(a.pane().doc); got != "Önce\n\n@" {
 		t.Fatalf("the text changed: %q", got)
 	}
 	if items := a.menuItems(a.slash.field); len(items) != 3 || items[1].title != "Alfa" { // ← Geri, Alfa, and a new page of that name
@@ -265,8 +265,8 @@ func TestMenuField(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tt.Frame()
-	if a.slash.open || !strings.Contains(mdOf(a.doc), "[[Alfa]]") {
-		t.Fatalf("not linked: open %v, %q", a.slash.open, mdOf(a.doc))
+	if a.slash.open || !strings.Contains(mdOf(a.pane().doc), "[[Alfa]]") {
+		t.Fatalf("not linked: open %v, %q", a.slash.open, mdOf(a.pane().doc))
 	}
 	typeEach(tt, "@")
 	tt.Frame()
@@ -287,8 +287,8 @@ func TestMenuField(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Frame()
 	tomorrow := a.clock().AddDate(0, 0, 1).Format("2006-01-02")
-	if !strings.Contains(mdOf(a.doc), "[["+tomorrow+"]]") {
-		t.Fatalf("no date: %q", mdOf(a.doc))
+	if !strings.Contains(mdOf(a.pane().doc), "[["+tomorrow+"]]") {
+		t.Fatalf("no date: %q", mdOf(a.pane().doc))
 	}
 }
 
@@ -316,21 +316,21 @@ func TestGutterReachesPageEdge(t *testing.T) {
 	tt.SetSize(1800, 1000) // a wide window: the text is centered, the margin is wide
 	tt.Frame()
 	tt.Frame()
-	if a.pageR.W == 0 || a.pageR.X >= a.editorR.X-gutterW {
-		t.Fatalf("the page area %+v is no wider than the text %+v", a.pageR, a.editorR)
+	if a.pane().pageR.W == 0 || a.pane().pageR.X >= a.pane().editorR.X-gutterW {
+		t.Fatalf("the page area %+v is no wider than the text %+v", a.pane().pageR, a.pane().editorR)
 	}
-	y := a.editorR.Y + a.boxes[len(a.boxes)-1].Top + 6
-	tt.Move(a.pageR.X+6, y)
+	y := a.pane().editorR.Y + a.pane().boxes[len(a.pane().boxes)-1].Top + 6
+	tt.Move(a.pane().pageR.X+6, y)
 	tt.Frame()
 	tt.Frame()
-	if a.grip.para < 0 {
-		t.Fatalf("no grip far left: %+v", a.grip)
+	if a.pane().grip.para < 0 {
+		t.Fatalf("no grip far left: %+v", a.pane().grip)
 	}
-	tt.ClickAt(a.pageR.X+6, y)
+	tt.ClickAt(a.pane().pageR.X+6, y)
 	tt.Frame()
 	tt.Frame()
-	if _, caret := a.doc.Selection(); caret != a.grip.para {
-		t.Fatalf("the caret %d, not at the start of the line %d", caret, a.grip.para)
+	if _, caret := a.pane().doc.Selection(); caret != a.pane().grip.para {
+		t.Fatalf("the caret %d, not at the start of the line %d", caret, a.pane().grip.para)
 	}
 }
 
@@ -357,7 +357,7 @@ func TestChipHover(t *testing.T) {
 			t.Fatalf("%q not hovered", h.ch.label())
 		}
 	}
-	tt.Move(a.editorR.X+a.editorR.W-10, a.editorR.Y+300)
+	tt.Move(a.pane().editorR.X+a.pane().editorR.W-10, a.pane().editorR.Y+300)
 	tt.Frame()
 	if a.hoverCh != nil {
 		t.Fatal("hovered away from any chip")

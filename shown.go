@@ -14,21 +14,21 @@ import (
 // over the editor (dividers, tags, tables, matches) needs only those the page
 // shows, and each of them costs several reads of the text: shown is these.
 
-// shown is the boxes of a.boxes in the page's view, and a margin of half a
+// shown is the boxes of pn.boxes in the page's view, and a margin of half a
 // screen to each side, for r, the editor's rectangle in the window.
-func (a *app) shown(r ui.Rect) []richtext.ParagraphBox {
-	n := len(a.boxes)
-	if n == 0 || a.scrollR.H <= 0 {
-		return a.boxes
+func (a *app) shown(pn *paneState, r ui.Rect) []richtext.ParagraphBox {
+	n := len(pn.boxes)
+	if n == 0 || pn.scrollR.H <= 0 {
+		return pn.boxes
 	}
-	margin := a.scrollR.H/2 + 200
-	lo, hi := a.scrollR.Y-margin-r.Y, a.scrollR.Y+a.scrollR.H+margin-r.Y // in the editor's own y
-	first := sort.Search(n, func(i int) bool { return a.boxes[i].Top+a.boxes[i].Height >= lo })
+	margin := pn.scrollR.H/2 + 200
+	lo, hi := pn.scrollR.Y-margin-r.Y, pn.scrollR.Y+pn.scrollR.H+margin-r.Y // in the editor's own y
+	first := sort.Search(n, func(i int) bool { return pn.boxes[i].Top+pn.boxes[i].Height >= lo })
 	last := first
-	for last < n && a.boxes[last].Top <= hi {
+	for last < n && pn.boxes[last].Top <= hi {
 		last++
 	}
-	return a.boxes[first:last]
+	return pn.boxes[first:last]
 }
 
 // paraTable is the paragraphs of a text, each with the rune it starts at, read in one pass. A paragraph found
@@ -42,8 +42,8 @@ type paraTable struct {
 }
 
 // paraTableOf is the table of t, read again only when t is another text.
-func (a *app) paraTableOf(t richtext.Text) *paraTable {
-	pt := &a.paras
+func (a *app) paraTableOf(pn *paneState, t richtext.Text) *paraTable {
+	pt := &pn.paras
 	if pt.start != nil && pt.text.Same(t) {
 		return pt
 	}
@@ -58,9 +58,9 @@ func (a *app) paraTableOf(t richtext.Text) *paraTable {
 // paraOfBox is the paragraph of box b in the document's text: where it starts and ends (before its newline),
 // its style and its runs. A box laid out before the text last changed may not be its paragraph any more: then
 // it is read by its rune, as it was before the table.
-func (a *app) paraOfBox(b richtext.ParagraphBox) (s, e int, para richtext.Paragraph) {
-	t := a.doc.Text()
-	pt := a.paraTableOf(t)
+func (a *app) paraOfBox(pn *paneState, b richtext.ParagraphBox) (s, e int, para richtext.Paragraph) {
+	t := pn.doc.Text()
+	pt := a.paraTableOf(pn, t)
 	if i := b.Index; i >= 0 && i < len(pt.start) && pt.start[i] == b.Start {
 		para = pt.paras[i]
 		s, e = b.Start, b.Start
@@ -109,8 +109,8 @@ func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
 }
 
 // boxAt returns the laid-out paragraph box holding rune at, or false if none covers it.
-func (a *app) boxAt(at int) (richtext.ParagraphBox, bool) {
-	boxes := a.boxes
+func (a *app) boxAt(pn *paneState, at int) (richtext.ParagraphBox, bool) {
+	boxes := pn.boxes
 	for i, b := range boxes {
 		if b.Start <= at && (i+1 == len(boxes) || at < boxes[i+1].Start) {
 			return b, true
@@ -121,21 +121,21 @@ func (a *app) boxAt(at int) (richtext.ParagraphBox, bool) {
 
 // locateRune is locateAt for the rune at in the page's editor, its paragraph from the text's table: the caret is
 // found every frame, and on a long page reading its paragraph from the start of the text was a part of each (#314).
-func (a *app) locateRune(at int, w float32) (caretBox, bool) {
-	if b, ok := a.boxAt(at); ok {
-		s, e, para := a.paraOfBox(b)
-		return locateIn(a.doc, at, b, s, e, para, w, a.font, a.theme)
+func (a *app) locateRune(pn *paneState, at int, w float32) (caretBox, bool) {
+	if b, ok := a.boxAt(pn, at); ok {
+		s, e, para := a.paraOfBox(pn, b)
+		return locateIn(pn.doc, at, b, s, e, para, w, a.font, a.theme)
 	}
 	return caretBox{}, false
 }
 
 // chipInText reports whether ch is an object of the page's text, from the text's table: a table out of view is not
 // drawn, and is told apart this way from one taken away.
-func (a *app) chipInText(ch *chip) bool {
-	if ch == nil || a.doc == nil {
+func (a *app) chipInText(pn *paneState, ch *chip) bool {
+	if ch == nil || pn.doc == nil {
 		return false
 	}
-	pt := a.paraTableOf(a.doc.Text())
+	pt := a.paraTableOf(pn, pn.doc.Text())
 	for _, p := range pt.paras {
 		for _, r := range p.Runs {
 			if at := r.Attributes.Attachment; at != nil && at.Data == ch {

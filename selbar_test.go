@@ -16,19 +16,19 @@ func TestSelectionBar(t *testing.T) {
 	if tt.HasText("Kalın (⌘B)") {
 		t.Fatal("a bar with nothing selected")
 	}
-	a.doc.SetSelection(4, 7) // "iki"
+	a.pane().doc.SetSelection(4, 7) // "iki"
 	tt.Frame()
 	tt.Advance(200 * time.Millisecond)
 	tt.Frame()
 	if !tt.HasText("Kalın (⌘B)") {
-		an, ca := a.doc.Selection()
-		t.Fatalf("no bar: sel %d,%d focused %v pressed %v boxes %d slash %v", an, ca, a.focused, a.edPressed, len(a.boxes), a.slash.open)
+		an, ca := a.pane().doc.Selection()
+		t.Fatalf("no bar: sel %d,%d focused %v pressed %v boxes %d slash %v", an, ca, a.pane().focused, a.pane().edPressed, len(a.pane().boxes), a.slash.open)
 	}
 	if err := tt.Click("Kalın (⌘B)"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if got := mdOf(a.doc); got != "Bir **iki** üç" {
+	if got := mdOf(a.pane().doc); got != "Bir **iki** üç" {
 		t.Fatalf("not bold: %q", got)
 	}
 	// the selection stayed, the bar too: a link
@@ -39,7 +39,7 @@ func TestSelectionBar(t *testing.T) {
 	typeEach(tt, "https://example.com")
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
-	if got := mdOf(a.doc); !strings.Contains(got, "[**iki**](https://example.com)") && !strings.Contains(got, "](https://example.com)") {
+	if got := mdOf(a.pane().doc); !strings.Contains(got, "[**iki**](https://example.com)") && !strings.Contains(got, "](https://example.com)") {
 		t.Fatalf("not linked: %q", got)
 	}
 }

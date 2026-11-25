@@ -11,25 +11,25 @@ import (
 // A link written as page://collection/page opens that page when it is clicked.
 func TestPageLinkClick(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	target, err := coll.NewPage(nil, "PostgreSQL Internals & Query Optimizer")
 	if err != nil {
 		t.Fatal(err)
 	}
 	rel := filepath.Base(coll.Dir) + "/" + filepath.Base(target.Dir)
 	body := `[{"r":[{"t":"Alt modül: "},{"t":"PostgreSQL Internals & Query Optimizer","l":"page://` + rel + `"}]}]`
-	a.doc.SetText(decodeBody(body))
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetText(decodeBody(body))
+	a.pane().doc.SetSelection(0, 0)
 	tt.SetSize(900, 500)
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if len(a.linkSeen) == 0 {
+	if len(a.pane().linkSeen) == 0 {
 		t.Fatal("no link was drawn")
 	}
-	r := a.linkSeen[0].r
+	r := a.pane().linkSeen[0].r
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(300 * time.Millisecond)
-	if a.page != target {
+	if a.pane().page != target {
 		t.Fatalf("the link did not open the page: %v", a.here())
 	}
 	// a path nobody has says so
@@ -45,7 +45,7 @@ func TestPageLinkClick(t *testing.T) {
 func TestPageLinkClickInFirstPane(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	tt.SetSize(1400, 800)
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	target, err := coll.NewPage(nil, "Hedef")
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestPageLinkClickInFirstPane(t *testing.T) {
 		t.Fatal(err)
 	}
 	rel := filepath.Base(coll.Dir) + "/" + filepath.Base(target.Dir)
-	a.doc.SetText(decodeBody(`[{"r":[{"t":"Hedef","l":"page://` + rel + `"},{"t":" sayfa"}]}]`))
+	a.pane().doc.SetText(decodeBody(`[{"r":[{"t":"Hedef","l":"page://` + rel + `"},{"t":" sayfa"}]}]`))
 	a.openInSide(place{"page", other.Dir}) // the second pane, in use, with no link
 	tt.Advance(300 * time.Millisecond)
 	first := a.ps.states[0]
@@ -65,7 +65,7 @@ func TestPageLinkClickInFirstPane(t *testing.T) {
 	b := first.boxes[0]
 	tt.ClickAt(first.editorR.X+8, first.editorR.Y+b.Top+b.Height/2)
 	tt.Advance(300 * time.Millisecond)
-	if a.ps.active != 0 || a.page != target {
+	if a.ps.active != 0 || a.pane().page != target {
 		t.Fatalf("the link in the first pane did not open: pane %d, %v", a.ps.active, a.here())
 	}
 }
@@ -74,20 +74,20 @@ func TestPageLinkClickInFirstPane(t *testing.T) {
 // only a click does.
 func TestLinkSelectDoesNotOpen(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	target, err := coll.NewPage(nil, "Hedef")
 	if err != nil {
 		t.Fatal(err)
 	}
 	rel := filepath.Base(coll.Dir) + "/" + filepath.Base(target.Dir)
 	body := `[{"r":[{"t":"Önce yazı "},{"t":"Hedef sayfa","l":"page://` + rel + `"}]}]`
-	a.doc.SetText(decodeBody(body))
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetText(decodeBody(body))
+	a.pane().doc.SetSelection(0, 0)
 	tt.SetSize(900, 500)
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	here := a.page
-	r := a.linkSeen[0].r
+	here := a.pane().page
+	r := a.pane().linkSeen[0].r
 	y := r.Y + r.H/2
 	tt.Press(r.X-60, y)
 	for k := 1; k <= 6; k++ {
@@ -96,10 +96,10 @@ func TestLinkSelectDoesNotOpen(t *testing.T) {
 	}
 	tt.Release(r.X+r.W/2, y)
 	tt.Advance(300 * time.Millisecond)
-	if a.page != here {
+	if a.pane().page != here {
 		t.Fatal("selecting over a link followed it")
 	}
-	if sa, sc := a.doc.Selection(); sa == sc {
+	if sa, sc := a.pane().doc.Selection(); sa == sc {
 		t.Fatal("nothing was selected")
 	}
 }
@@ -111,15 +111,15 @@ func TestWebLinkOpensOnce(t *testing.T) {
 	was := openExternal
 	openExternal = func(url string) { opened = append(opened, url) }
 	t.Cleanup(func() { openExternal = was })
-	a.doc.SetText(decodeBody(`[{"r":[{"t":"See "},{"t":"the site","l":"https://example.com/"}]}]`))
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetText(decodeBody(`[{"r":[{"t":"See "},{"t":"the site","l":"https://example.com/"}]}]`))
+	a.pane().doc.SetSelection(0, 0)
 	tt.SetSize(900, 500)
 	tt.Frame()
 	tt.Advance(300 * time.Millisecond)
-	if len(a.linkSeen) == 0 {
+	if len(a.pane().linkSeen) == 0 {
 		t.Fatal("no link was drawn")
 	}
-	r := a.linkSeen[0].r
+	r := a.pane().linkSeen[0].r
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(300 * time.Millisecond)
 	if n := len(opened) + len(tt.OpenedURLs()); n != 1 {

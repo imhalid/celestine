@@ -36,7 +36,7 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 	s, e := text.ParagraphRange(caret)
 	st := text.ParagraphStyleAt(s)
 	if st.ID == hrID && s != e {
-		a.doc.Edit(func(ed *richtext.Edit) {
+		a.pane().doc.Edit(func(ed *richtext.Edit) {
 			ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { p.ID = "" })
 		})
 		return true
@@ -45,7 +45,7 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 	if typed && caret == e && !st.CodeBlock && st.Heading == 0 && st.List != richtext.Numbers {
 		if m := typedTaskBox.FindStringSubmatch(text.Slice(s, e).String()); m != nil {
 			if k, ok := taskKindByMD(m[1]); ok {
-				a.doc.Edit(func(ed *richtext.Edit) {
+				a.pane().doc.Edit(func(ed *richtext.Edit) {
 					ed.ReplaceString(s, e, "", richtext.Attributes{})
 					ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) {
 						p.List, p.Checked, p.ID = richtext.Tasks, false, taskIDPrefix+k.id
@@ -61,14 +61,14 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 	}
 	switch text.Slice(s, e).String() {
 	case "---", "***", "___":
-		a.doc.Edit(func(ed *richtext.Edit) {
+		a.pane().doc.Edit(func(ed *richtext.Edit) {
 			ed.ReplaceString(s, e, "\n", richtext.Attributes{})
 			ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{ID: hrID} })
 			ed.FormatParagraphs(s+1, s+1, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 			ed.Select(s+1, s+1)
 		})
 	case "```":
-		a.doc.Edit(func(ed *richtext.Edit) {
+		a.pane().doc.Edit(func(ed *richtext.Edit) {
 			ed.ReplaceString(s, e, "", richtext.Attributes{})
 			ed.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{CodeBlock: true, Indent: p.Indent} })
 			ed.Select(s, s)
@@ -76,7 +76,7 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 	default:
 		return false
 	}
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	a.pane().doc.SetTypingAttributes(richtext.Attributes{})
 	return true
 }
 
@@ -84,14 +84,14 @@ func (a *app) blockShortcuts(text richtext.Text, caret int, typed bool) bool {
 // in view, a hairline across the column in the middle of their line; and
 // the name of a block of code's language, or of a raw block's kind, at its
 // top right corner.
-func (a *app) drawDividers(p *ui.Painter, r ui.Rect) {
-	text := a.doc.Text()
+func (a *app) drawDividers(pn *paneState, p *ui.Painter, r ui.Rect) {
+	text := pn.doc.Text()
 	th := p.Theme()
-	for _, b := range a.shown(r) {
+	for _, b := range a.shown(pn, r) {
 		if b.Start > text.Len() {
 			continue
 		}
-		s, e, para := a.paraOfBox(b) // from the text's table, not read from its start (#312)
+		s, e, para := a.paraOfBox(pn, b) // from the text's table, not read from its start (#312)
 		st := para.Style
 		if st.ID == hrID {
 			if s == e {
@@ -169,7 +169,8 @@ func rawTemplates() []rawTemplate {
 // insertRaw puts a raw block at start (the empty line the caret is on, or
 // under the line it is in), with an empty paragraph after it to write on.
 func (a *app) insertRaw(start int, r rawTemplate) (first int) {
-	t := a.doc.Text()
+	doc := a.pane().doc
+	t := doc.Text()
 	ps, pe := t.ParagraphRange(min(start, t.Len()))
 	at, prefix := ps, ""
 	if pe > ps { // a line with text: the block goes under it
@@ -177,7 +178,7 @@ func (a *app) insertRaw(start int, r rawTemplate) (first int) {
 	}
 	body := strings.Join(r.lines, "\n")
 	first = at + utf8.RuneCountInString(prefix)
-	a.doc.Edit(func(ed *richtext.Edit) {
+	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(at, at, richtext.NewText(prefix+body+"\n"))
 		pos := first
 		for i, ln := range r.lines {
@@ -198,7 +199,7 @@ func (a *app) insertRaw(start int, r rawTemplate) (first int) {
 		c += utf8.RuneCountInString(r.lines[r.caret])
 		ed.Select(c, c)
 	})
-	a.doc.SetTypingAttributes(richtext.Attributes{})
+	doc.SetTypingAttributes(richtext.Attributes{})
 	return first
 }
 
@@ -249,20 +250,21 @@ const codeCopyW = 24
 // codeCopyView is a copy button at the top right corner of each block of code in view: a click puts the block's
 // text on the clipboard as it is, its lines and nothing else.
 func (a *app) codeCopyView(c *ui.Context) {
-	if phone || a.doc == nil || a.noPage() {
+	pn := a.pane()
+	if phone || pn.doc == nil || a.noPage() {
 		return
 	}
-	text := a.doc.Text()
-	r := a.editorR
+	text := pn.doc.Text()
+	r := pn.editorR
 	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
 		// the paragraphs the page shows, not every one laid out: each style asked is a read of the text from its
 		// start, and on a long page all of them were most of a frame (#312)
-		for _, b := range a.shown(r) {
+		for _, b := range a.shown(pn, r) {
 			if b.Start > text.Len() {
 				continue
 			}
-			_, _, para := a.paraOfBox(b)
+			_, _, para := a.paraOfBox(pn, b)
 			st := para.Style
 			if !st.CodeBlock || !strings.HasPrefix(st.ID, codeIDPrefix) {
 				continue

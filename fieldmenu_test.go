@@ -14,7 +14,7 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.SetSize(1100, 700)
 	tt.Advance(300 * time.Millisecond)
-	coll := a.page.Coll
+	coll := a.pane().page.Coll
 	coll.AddProperty("Yazar", PropText, nil)
 	tt.Advance(300 * time.Millisecond)
 	a.clipRead = func() string { return "Herbert" }
@@ -41,8 +41,8 @@ func TestFieldsOpenTheAppMenu(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(100 * time.Millisecond)
-	if a.page.Props["yazar"] != "Herbert" {
-		t.Fatalf("pasted: %q", a.page.Props["yazar"])
+	if a.pane().page.Props["yazar"] != "Herbert" {
+		t.Fatalf("pasted: %q", a.pane().page.Props["yazar"])
 	}
 	// the collection's property is deleted in its settings, not from a page (#487)
 	if items := open("Özellik: Yazar"); !has(items, "props_editPropertyMenu") || has(items, "common_deleteProperty") {
@@ -64,9 +64,9 @@ func TestEditorOpensTheAppMenu(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	var copied string
 	a.clipText = func(s string) { copied = s }
-	a.doc.SetSelection(0, a.doc.Text().Len())
+	a.pane().doc.SetSelection(0, a.pane().doc.Text().Len())
 	tt.Frame()
-	r := a.editorR
+	r := a.pane().editorR
 	tt.Move(r.X+60, r.Y+12)
 	tt.Frame()
 	tt.RightClickAt(r.X+60, r.Y+12)

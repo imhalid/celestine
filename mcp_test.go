@@ -133,10 +133,10 @@ func TestMCPTools(t *testing.T) {
 func TestMCPEditsOpenPage(t *testing.T) {
 	a, tt := newTestApp(t, "ilk")
 	cs := agent(t, a)
-	a.doc.SetSelection(3, 3) // after "ilk": a page opens with the caret at its start (#454)
+	a.pane().doc.SetSelection(3, 3) // after "ilk": a page opens with the caret at its start (#454)
 	tt.Type("x")
 	tt.Frame()
-	id := a.idOf(a.page.Dir)
+	id := a.idOf(a.pane().page.Dir)
 	var read struct{ Markdown string }
 	call(t, cs, "read_page", map[string]any{"page": id}, &read)
 	if read.Markdown != "ilkx\n" {
@@ -144,11 +144,11 @@ func TestMCPEditsOpenPage(t *testing.T) {
 	}
 	call(t, cs, "update_page", map[string]any{"page": id, "markdown": "Ajan yazdı.\n\n---\n\nSon."}, nil)
 	tt.Frame()
-	if got := a.doc.Text().String(); got != "Ajan yazdı.\n\nSon." {
+	if got := a.pane().doc.Text().String(); got != "Ajan yazdı.\n\nSon." {
 		t.Fatalf("the window shows %q", got)
 	}
 	tt.Advance(2 * time.Second) // no save of the old text over it
-	if body, _ := a.page.Text(); body != "Ajan yazdı.\n\n---\n\nSon.\n" {
+	if body, _ := a.pane().page.Text(); body != "Ajan yazdı.\n\n---\n\nSon.\n" {
 		t.Fatalf("on disk: %q", body)
 	}
 }
@@ -196,7 +196,7 @@ func TestSettingsDialog(t *testing.T) {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(500 * time.Millisecond)
-	a.settingsTab = tabMCP
+	a.pane().settingsTab = tabMCP
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
 	if err := tt.Click("MCP sunucusunu aç"); err != nil {
@@ -251,7 +251,7 @@ func TestMCPInStatusBar(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if !a.settingsOpen {
+	if !a.pane().settingsOpen {
 		t.Fatal("the settings did not open")
 	}
 }
@@ -510,7 +510,7 @@ func TestMCPSettingsSwitchReflectsExternalServer(t *testing.T) {
 	}
 
 	a.openSettings()
-	a.settingsTab = tabMCP
+	a.pane().settingsTab = tabMCP
 	tt.Frame()
 	sw, ok := tt.AccessByRole(ui.RoleSwitch, locales.SettingsTurnMcpServer())
 	if !ok {

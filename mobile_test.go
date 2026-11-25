@@ -31,15 +31,15 @@ func TestPhoneLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	if a.page != coll.Pages[0] || a.drawerOpen {
-		t.Fatalf("a page opened from the drawer: page %v, drawer %v", a.page, a.drawerOpen)
+	if a.pane().page != coll.Pages[0] || a.drawerOpen {
+		t.Fatalf("a page opened from the drawer: page %v, drawer %v", a.pane().page, a.drawerOpen)
 	}
 	a.mu.Lock()
 	a.openInSide(place{kind: "tasks"})
 	a.mu.Unlock()
 	tt.Frame()
-	if a.paneCount() != 1 || !a.tasksOpen {
-		t.Fatalf("beside on a phone: %d panes, tasks %v", a.paneCount(), a.tasksOpen)
+	if a.paneCount() != 1 || !a.pane().tasksOpen {
+		t.Fatalf("beside on a phone: %d panes, tasks %v", a.paneCount(), a.pane().tasksOpen)
 	}
 	for _, it := range a.commands() {
 		switch it.title {

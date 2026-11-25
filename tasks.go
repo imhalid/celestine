@@ -199,21 +199,23 @@ func (a *app) allTasks(force bool) []taskItem {
 }
 
 // openTask opens the page of task k with the caret in the task's line, or at its box in the running text.
-func (a *app) openTask(k taskItem) {
-	a.open(k.page)
+func (a *app) openTask(k taskItem) { a.openTaskIn(a.pane(), k) }
+
+func (a *app) openTaskIn(pn *paneState, k taskItem) {
+	a.openIn(pn, k.page)
 	body, _ := k.page.Text()
 	if k.inl > 0 {
-		if at, ok := inlineChip(a.doc.Text(), body, k.page, k); ok {
-			a.gotoPos(at)
+		if at, ok := inlineChip(pn.doc.Text(), body, k.page, k); ok {
+			a.gotoPosIn(pn, at)
 		}
 		return
 	}
 	// the slots of the editor's text, without taskParagraphs' check that the two count the same: a fold in it
 	// hides tasks after the one gone to, and a caret in the wrong line changes nothing
-	slots := taskSlots(a.doc.Text())
+	slots := taskSlots(pn.doc.Text())
 	for i, t := range tasksOf(k.page, body) {
 		if t.line == k.line && i < len(slots) && slots[i] >= 0 {
-			a.gotoPos(slots[i])
+			a.gotoPosIn(pn, slots[i])
 			return
 		}
 	}
@@ -228,14 +230,18 @@ func paraText(p richtext.Paragraph) string {
 	return sb.String()
 }
 
-// openTasks shows the task view.
-func (a *app) openTasks() {
-	a.flush()
-	a.tasksOpen, a.tag, a.coll, a.trashOpen, a.searchOpen, a.settingsOpen = true, "", nil, false, false, false
-	a.statsScreen, a.profileScreen = false, false
+// openTasks shows the task view in the active pane.
+func (a *app) openTasks() { a.openTasksIn(a.pane()) }
+
+func (a *app) openTasksIn(pn *paneState) {
+	if pn == a.pane() {
+		a.flush()
+	}
+	pn.tasksOpen, pn.tag, pn.coll, pn.trashOpen, pn.searchOpen, pn.settingsOpen = true, "", nil, false, false, false
+	pn.statsScreen, pn.profileScreen = false, false
 	a.links.taskRank, a.links.sorted = nil, nil // the pages as they are now, the changed last first
 	a.linksStale()
-	a.visit()
+	a.visitIn(pn)
 }
 
 // taskToggle is a task ticked off, or on again, as its page's new body: made away from the window (prepareToggle),
@@ -471,7 +477,7 @@ func prepareClose(p *Page, ts []taskItem, r pageRead, now time.Time) taskToggle 
 // closeTasks ticks off the open tasks of ts, page p's: the list shows them done at once, the page is written away
 // from the window, after any toggle before (#505).
 func (a *app) closeTasks(p *Page, ts []taskItem) {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	ts = append([]taskItem(nil), ts...)
@@ -488,13 +494,18 @@ func (a *app) closeTasks(p *Page, ts []taskItem) {
 			}
 		}
 	}
-	if a.taskFilter == 0 && !stillNow() { // in the open ones they go out, as one ticked off does
-		if a.taskLeaving == nil {
-			a.taskLeaving = map[string]time.Time{}
-		}
-		for _, t := range ts {
-			if open[taskKey(t)] {
-				a.taskLeaving[taskKey(t)] = a.frameNow
+	if !stillNow() {
+		for _, pn := range a.ps.states {
+			if pn.taskFilter != 0 {
+				continue
+			}
+			if pn.taskLeaving == nil {
+				pn.taskLeaving = map[string]time.Time{}
+			}
+			for _, t := range ts {
+				if open[taskKey(t)] {
+					pn.taskLeaving[taskKey(t)] = a.frameNow
+				}
 			}
 		}
 	}
@@ -538,7 +549,7 @@ func (a *app) toggleTask(t taskItem) {
 // and written away from the window, one toggle after another, so that a page of thousands of tasks does not hold
 // the window (#504).
 func (a *app) toggleTaskSoon(t taskItem) {
-	if t.page == a.page {
+	if t.page == a.pane().page {
 		a.flush()
 	}
 	for _, list := range [][]taskItem{a.links.tasks, a.links.sorted} { // as it will be
@@ -695,7 +706,7 @@ func withInlineBox(md string, t taskItem, done bool) (string, bool) {
 }
 
 // tasksView is the view: a filter, and the tasks under their pages.
-func (a *app) tasksView(c *ui.Context) {
+func (a *app) tasksView(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	all := a.allTasks(a.links.stale) // a tick shows at once
 	now := a.clock()
@@ -712,24 +723,24 @@ func (a *app) tasksView(c *ui.Context) {
 			kinds[taskKindKey(k)]++
 		}
 	}
-	if a.taskKindF != "" && kinds[a.taskKindF] == 0 {
-		a.taskKindF = "" // no open task of that kind now
+	if pn.taskKindF != "" && kinds[pn.taskKindF] == 0 {
+		pn.taskKindF = "" // no open task of that kind now
 	}
-	if a.taskColl != "" && !slices.ContainsFunc(a.lib.Collections, func(co *Collection) bool { return co.Dir == a.taskColl && colls[co] > 0 }) {
-		a.taskColl = "" // that collection has no tasks now
+	if pn.taskColl != "" && !slices.ContainsFunc(a.lib.Collections, func(co *Collection) bool { return co.Dir == pn.taskColl && colls[co] > 0 }) {
+		pn.taskColl = "" // that collection has no tasks now
 	}
 	ui.Column(c).Fill().MaxWidth(viewMax).Gap(10).Children(func() {
 		ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Padding(2, 0, 4, 0).Children(func() {
 			ui.Text(c, locales.CommonTasks()).FontSize(32).FontWeight(720).Grow(1)
-			a.taskStatBars(c, cl, st)
+			a.taskStatBars(c, cl, pn, st)
 		})
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Wrap().Children(func() {
-			ryugo.Segmented(c.Key("task-filter"), &a.taskFilter, []string{locales.TasksOpen(), locales.TasksDone(), locales.TasksAll()}, ryugo.SegmentedOptions{Label: locales.CommonTasks(), Size: ryugo.Sm})
-			if a.taskFilter == 0 { // the open ones by their day
-				ryugo.Segmented(c.Key("task-due"), &a.taskDue, []string{locales.TasksDueAll(), locales.TasksDueToday(), locales.TasksDueWeek(), locales.TasksDueLate()}, ryugo.SegmentedOptions{Label: locales.TasksDay(), Size: ryugo.Sm})
+			ryugo.Segmented(c.Key("task-filter"), &pn.taskFilter, []string{locales.TasksOpen(), locales.TasksDone(), locales.TasksAll()}, ryugo.SegmentedOptions{Label: locales.CommonTasks(), Size: ryugo.Sm})
+			if pn.taskFilter == 0 { // the open ones by their day
+				ryugo.Segmented(c.Key("task-due"), &pn.taskDue, []string{locales.TasksDueAll(), locales.TasksDueToday(), locales.TasksDueWeek(), locales.TasksDueLate()}, ryugo.SegmentedOptions{Label: locales.TasksDay(), Size: ryugo.Sm})
 			}
 			ui.Spacer(c)
-			if len(kinds) > 1 || a.taskKindF != "" {
+			if len(kinds) > 1 || pn.taskKindF != "" {
 				opts := []ryugo.Option[string]{{Value: "", Label: locales.TasksAllKinds()}, {Value: "plain", Label: locales.TasksPlainTask() + "  ·  " + strconv.Itoa(kinds["plain"])}}
 				for _, tk := range taskKinds {
 					if kinds[tk.id] > 0 {
@@ -737,7 +748,7 @@ func (a *app) tasksView(c *ui.Context) {
 					}
 				}
 				ui.Box(c.Key("task-kind-wrap")).Width(176).Children(func() {
-					ryugo.Select(c.Key("task-kind"), &a.taskKindF, opts, ryugo.SelectOptions{Label: locales.CommonKind(), Size: ryugo.Sm})
+					ryugo.Select(c.Key("task-kind"), &pn.taskKindF, opts, ryugo.SelectOptions{Label: locales.CommonKind(), Size: ryugo.Sm})
 				})
 			}
 			if len(colls) > 1 {
@@ -748,12 +759,12 @@ func (a *app) tasksView(c *ui.Context) {
 					}
 				}
 				ui.Box(c.Key("task-coll-wrap")).Width(176).Children(func() {
-					ryugo.Select(c.Key("task-coll"), &a.taskColl, opts, ryugo.SelectOptions{Label: locales.Collection(), Size: ryugo.Sm})
+					ryugo.Select(c.Key("task-coll"), &pn.taskColl, opts, ryugo.SelectOptions{Label: locales.Collection(), Size: ryugo.Sm})
 				})
 			}
-			a.fieldMenu(ryugo.Input(c.Key("task-q"), &a.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &a.taskQuery, fieldOpts{oneLine: true}).Width(176)
+			a.fieldMenu(ryugo.Input(c.Key("task-q"), &pn.taskQuery, ryugo.InputOptions{Label: locales.TasksSearchTasks(), Placeholder: locales.TasksSearchTasks2(), PrefixIcon: iconSearch, Clearable: true, Size: ryugo.Sm}), &pn.taskQuery, fieldOpts{oneLine: true}).Width(176)
 		})
-		q := foldText(strings.TrimSpace(a.taskQuery))
+		q := foldText(strings.TrimSpace(pn.taskQuery))
 		titles := map[*Page]string{} // each page's title folded once a frame, not once a task
 		titleHas := func(p *Page) bool {
 			t, ok := titles[p]
@@ -765,41 +776,41 @@ func (a *app) tasksView(c *ui.Context) {
 		}
 		var shown []taskItem
 		for _, k := range all {
-			_, leaving := a.taskLeaving[taskKey(k)]
+			_, leaving := pn.taskLeaving[taskKey(k)]
 			switch {
-			case leaving && a.taskFilter == 0 && k.done: // just done: it stays while it goes out (#494)
+			case leaving && pn.taskFilter == 0 && k.done: // just done: it stays while it goes out (#494)
 				shown = append(shown, k)
-			case a.taskFilter != 2 && (a.taskFilter == 0) == k.done:
-			case a.taskFilter == 0 && !dueMatches(k, a.taskDue, now):
-			case a.taskColl != "" && k.page.Coll.Dir != a.taskColl:
-			case a.taskKindF != "" && (k.done || taskKindKey(k) != a.taskKindF):
+			case pn.taskFilter != 2 && (pn.taskFilter == 0) == k.done:
+			case pn.taskFilter == 0 && !dueMatches(k, pn.taskDue, now):
+			case pn.taskColl != "" && k.page.Coll.Dir != pn.taskColl:
+			case pn.taskKindF != "" && (k.done || taskKindKey(k) != pn.taskKindF):
 			case q != "" && !strings.Contains(k.folded, q) && !titleHas(k.page):
 			default:
 				shown = append(shown, k)
 			}
 		}
 		if len(shown) == 0 {
-			a.noTasks(c, len(all) == 0)
+			a.noTasks(c, pn, len(all) == 0)
 			return
 		}
 		// 20000 tasks are 20000 rows: only those in view are built (ui.List), the pages' heads and
 		// their tasks in one list
-		rows := taskRows(shown, a.taskFolded)
-		a.taskList.Key = func(i int) any {
+		rows := taskRows(shown, pn.taskFolded)
+		pn.taskList.Key = func(i int) any {
 			if i == len(rows) {
 				return "end"
 			}
 			return rows[i].key()
 		}
-		a.scrolledList(c, "tasks-list", nil, ui.Box(c.Key("tasks-wrap")).FillWidth().Grow(1).MinHeight(0), func() ui.Element {
-			return ui.List(c.Key("tasks-list"), a.taskList, len(rows)+1, func(i int) {
+		a.scrolledListPane(c, pn, "tasks-list", nil, ui.Box(c.Key("tasks-wrap")).FillWidth().Grow(1).MinHeight(0), func() ui.Element {
+			return ui.List(c.Key("tasks-list"), pn.taskList, len(rows)+1, func(i int) {
 				switch {
 				case i == len(rows): // the room under the last task
 					ui.Box(c.Key("tasks-end")).FillWidth().Height(taskEndRoom)
 				case rows[i].head:
-					a.taskHead(c, cl, rows[i], i > 0)
+					a.taskHead(c, cl, pn, rows[i], i > 0)
 				default:
-					a.taskRow(c, cl, rows[i].task)
+					a.taskRow(c, cl, pn, rows[i].task)
 				}
 			}).Fill()
 		})
@@ -833,7 +844,7 @@ func (s *taskStats) count(k taskItem, now time.Time) {
 // taskStatBars are the small stats beside the title: the open and the done tasks, of all of them, and the
 // open ones of today and late, of the open ones, each a card of ticks in a bright color of its own, the same in
 // both themes. A click on one shows those.
-func (a *app) taskStatBars(c *ui.Context, cl ryugo.Colors, s taskStats) {
+func (a *app) taskStatBars(c *ui.Context, cl ryugo.Colors, pn *paneState, s taskStats) {
 	all, open := max(1, s.open+s.done), max(1, s.open)
 	stats := []struct {
 		key, label string
@@ -849,8 +860,8 @@ func (a *app) taskStatBars(c *ui.Context, cl ryugo.Colors, s taskStats) {
 	}
 	ui.Row(c.Key("task-stats")).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
 		for _, st := range stats {
-			on := a.taskFilter == st.filter && (st.filter != 0 || a.taskDue == st.due)
-			a.taskStatCard(c, cl, st.key, st.label, st.n, st.of, st.col, on, func() { a.taskFilter, a.taskDue = st.filter, st.due })
+			on := pn.taskFilter == st.filter && (st.filter != 0 || pn.taskDue == st.due)
+			a.taskStatCard(c, cl, st.key, st.label, st.n, st.of, st.col, on, func() { pn.taskFilter, pn.taskDue = st.filter, st.due })
 		}
 	})
 }
@@ -906,20 +917,20 @@ func (a *app) taskStatCard(c *ui.Context, cl ryugo.Colors, key, label string, n,
 }
 
 // noTasks says there are no tasks to show: none at all, or none with the filters.
-func (a *app) noTasks(c *ui.Context, none bool) {
+func (a *app) noTasks(c *ui.Context, pn *paneState, none bool) {
 	o := ryugo.EmptyStateOptions{Icon: iconTask, Title: locales.TasksNoTaskFitsThis(), Description: locales.TasksLoosenFilterTheyShow()}
 	switch {
 	case none:
 		o.Title, o.Description = locales.TasksEmptyTitle(), locales.TasksEmptyHelp()
-	case a.taskFilter == 1:
+	case pn.taskFilter == 1:
 		o.Title, o.Description = locales.TasksNoneDone(), locales.TasksNoneDoneHelp()
-	case a.taskFilter == 0 && a.taskDue == 0 && a.taskColl == "" && a.taskKindF == "" && strings.TrimSpace(a.taskQuery) == "":
+	case pn.taskFilter == 0 && pn.taskDue == 0 && pn.taskColl == "" && pn.taskKindF == "" && strings.TrimSpace(pn.taskQuery) == "":
 		o.Title, o.Description = locales.TasksNoneOpen(), locales.TasksAllDone()
 	}
-	if !none && (a.taskColl != "" || strings.TrimSpace(a.taskQuery) != "" || a.taskDue != 0 || a.taskKindF != "") {
+	if !none && (pn.taskColl != "" || strings.TrimSpace(pn.taskQuery) != "" || pn.taskDue != 0 || pn.taskKindF != "") {
 		o.Action = func() {
 			if ryugo.Button(c.Key("task-clear-filters"), locales.TasksClearFilters(), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() {
-				a.taskColl, a.taskQuery, a.taskDue, a.taskKindF = "", "", 0, ""
+				pn.taskColl, pn.taskQuery, pn.taskDue, pn.taskKindF = "", "", 0, ""
 			}
 		}
 	}
@@ -964,9 +975,9 @@ func taskRows(shown []taskItem, folded map[*Page]bool) []taskListRow {
 
 // taskHead is the head of a page's tasks: a chevron that folds them away, its title
 // and collection, which open it, and how many tasks it has.
-func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) {
+func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, pn *paneState, r taskListRow, gap bool) {
 	p := r.task.page
-	folded := a.taskFolded[p]
+	folded := pn.taskFolded[p]
 	c.Key("tgh:" + p.Dir)
 	head := ui.Row(c).FillWidth().Padding(2, 8, 2, 2).Gap(4).Radius(rad(8)).AlignItems(ui.Center).
 		Label(locales.CommonPageLabel(p.Title)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
@@ -1014,12 +1025,12 @@ func (a *app) taskHead(c *ui.Context, cl ryugo.Colors, r taskListRow, gap bool) 
 	})
 	switch {
 	case fold.Clicked():
-		if a.taskFolded == nil {
-			a.taskFolded = map[*Page]bool{}
+		if pn.taskFolded == nil {
+			pn.taskFolded = map[*Page]bool{}
 		}
-		a.taskFolded[p] = !folded
+		pn.taskFolded[p] = !folded
 	case head.Clicked():
-		a.open(p)
+		a.openIn(pn, p)
 	}
 }
 
@@ -1036,13 +1047,13 @@ func taskKey(k taskItem) string {
 // for a moment, then its row slides a little and closes (#494, #508).
 const taskLeave = 700 * time.Millisecond
 
-func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
+func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, pn *paneState, k taskItem) {
 	c.Key("tk:" + taskKey(k))
 	row := ui.Row(c).FillWidth().Padding(3, 8, 3, 14).Gap(8).Radius(rad(8)).AlignItems(ui.Center)
 	leave := float32(-1) // how far it has gone out, 0 to 1; -1 when it is not going
-	if t0, ok := a.taskLeaving[taskKey(k)]; ok {
+	if t0, ok := pn.taskLeaving[taskKey(k)]; ok {
 		if leave = float32(c.Now().Sub(t0)) / float32(taskLeave); leave >= 1 || stillNow() {
-			delete(a.taskLeaving, taskKey(k))
+			delete(pn.taskLeaving, taskKey(k))
 			leave = 1
 		}
 		c.Invalidate()
@@ -1083,16 +1094,16 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, k taskItem) {
 				})
 			}
 		})
-		a.kbMark(body, "k:"+k.page.Dir+":"+itoa(k.line), true, func() { a.openTask(k) })
+		a.kbMark(body, "k:"+k.page.Dir+":"+itoa(k.line), true, func() { a.openTaskIn(pn, k) })
 		if body.Clicked() {
-			a.openTask(k)
+			a.openTaskIn(pn, k)
 		}
 		if on != k.done {
-			if on && a.taskFilter == 0 && !stillNow() { // done in the open ones: it goes out, not at once
-				if a.taskLeaving == nil {
-					a.taskLeaving = map[string]time.Time{}
+			if on && pn.taskFilter == 0 && !stillNow() { // done in the open ones: it goes out, not at once
+				if pn.taskLeaving == nil {
+					pn.taskLeaving = map[string]time.Time{}
 				}
-				a.taskLeaving[taskKey(k)] = c.Now()
+				pn.taskLeaving[taskKey(k)] = c.Now()
 			}
 			a.toggleTaskSoon(k)
 		}
@@ -1264,10 +1275,11 @@ func comesAgain(line string, now time.Time) (string, bool) {
 // that comes again (every:week): the done one loses its mark, and the next is
 // made under it. A task ticked from the task view is done by toggleTask.
 func (a *app) rollRecurring() {
-	if a.doc == nil || a.page == nil {
+	pn := a.pane()
+	if pn.doc == nil || pn.page == nil {
 		return
 	}
-	rollRecurringIn(a.doc, a.clock(), a.parse)
+	rollRecurringIn(pn.doc, a.clock(), a.parse)
 }
 
 // rollRecurringIn is rollRecurring in doc, the text of what comes again made with parse.

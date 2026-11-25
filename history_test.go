@@ -90,7 +90,7 @@ func TestVersionDialog(t *testing.T) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	p.SaveText("birinci metin\nortak satır\n")
 	*now = now.Add(10 * time.Minute)
 	p.SaveText("ikinci metin\nortak satır\nyeni satır\n")
@@ -124,7 +124,7 @@ func TestVersionDialog(t *testing.T) {
 	if !strings.Contains(body, "birinci metin") || a.vhist.open {
 		t.Fatalf("body %q, open %v", body, a.vhist.open)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "birinci metin") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "birinci metin") {
 		t.Fatalf("the editor: %q", md)
 	}
 	last := st.Versions(p.File())[0]
@@ -188,7 +188,7 @@ func TestTimeMachineKeepNamed(t *testing.T) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Advance(900 * time.Millisecond)
 	a.tm.label = "Bugünkü hâl"
 	tt.Frame()
@@ -200,7 +200,7 @@ func TestTimeMachineKeepNamed(t *testing.T) {
 	tt.Frame()
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	tt.Advance(200 * time.Millisecond)
-	if vers := st.Versions(a.page.File()); len(vers) == 0 || vers[0].Label != "Bugünkü hâl" {
+	if vers := st.Versions(a.pane().page.File()); len(vers) == 0 || vers[0].Label != "Bugünkü hâl" {
 		t.Fatalf("%+v", vers)
 	}
 	said := false
@@ -223,7 +223,7 @@ func lapsePage(t *testing.T) (*app, *ui.Tester) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	p.Save("") // the seeded text is not one of the days:
 	// its copy, stamped with the computer's clock, would fall on one of the days below after 15:00 and be its last copy
 	st.DB.Exec(`DELETE FROM versions WHERE path = ?`, Clean(p.File()))
@@ -273,7 +273,7 @@ func TestTimeLapse(t *testing.T) {
 	// the words in the colors of their days: The 1, black 2, cat 1, lay 3, on 1, the 1, rug 4
 	line := "The black cat lay on the rug"
 	colors := func(text string) map[string]ui.Color {
-		out, ok := a.lapseSpans(0, []ui.Span{{Text: text}})
+		out, ok := a.lapseSpans(a.pane(), 0, []ui.Span{{Text: text}})
 		if !ok {
 			t.Fatalf("no colors for %q", text)
 		}
@@ -347,7 +347,7 @@ func TestTimeLapse(t *testing.T) {
 	if !a.settings.NoLapse || a.lapse.on || tt.HasText("v1") {
 		t.Fatalf("off: setting %v, on %v", a.settings.NoLapse, a.lapse.on)
 	}
-	if _, ok := a.lapseSpans(0, []ui.Span{{Text: line}}); ok {
+	if _, ok := a.lapseSpans(a.pane(), 0, []ui.Span{{Text: line}}); ok {
 		t.Fatal("colors with it off")
 	}
 	if err := tt.Click(msg("common_timeLapse")); err != nil {
@@ -368,7 +368,7 @@ func TestTimeLapse(t *testing.T) {
 // and goes back to the editor, Esc leaves with nothing changed (#25).
 func TestTimeMachine(t *testing.T) {
 	a, tt := lapsePage(t)
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	tt.Advance(700 * time.Millisecond)
 	if !a.tm.open || len(a.tm.vers) != 3 || !tt.HasText(locales.HistoryPageHistoryAt(locales.HistoryTodayNow())) {
@@ -385,11 +385,11 @@ func TestTimeMachine(t *testing.T) {
 	if a.tm.open {
 		t.Fatal("Esc did not leave it")
 	}
-	if text, _ := a.page.Text(); !strings.Contains(text, "rug") {
+	if text, _ := a.pane().page.Text(); !strings.Contains(text, "rug") {
 		t.Fatalf("Esc changed the page: %q", text)
 	}
 	// again: the copy of the 8th put back
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	tt.Key(0, ui.KeyLeft)
 	tt.Key(0, ui.KeyLeft)
@@ -400,7 +400,7 @@ func TestTimeMachine(t *testing.T) {
 	if a.tm.open {
 		t.Fatal("still open after putting back")
 	}
-	if text, _ := a.page.Text(); !strings.Contains(text, "The black cat sat on the mat") {
+	if text, _ := a.pane().page.Text(); !strings.Contains(text, "The black cat sat on the mat") {
 		t.Fatalf("not put back: %q", text)
 	}
 }
@@ -409,13 +409,13 @@ func TestTimeMachine(t *testing.T) {
 // their values (the copy's own) and the text.
 func TestTimeMachineShowsTheWholePage(t *testing.T) {
 	a, tt := lapsePage(t)
-	pr, err := a.page.Coll.AddProperty("Konu", "text", nil)
+	pr, err := a.pane().page.Coll.AddProperty("Konu", "text", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.setValue(a.page, pr.ID, "kediler")
+	a.setValue(a.pane().page, pr.ID, "kediler")
 	a.flush()
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	tt.Advance(900 * time.Millisecond)
 	if !tt.HasText("Konu") || !tt.HasText("kediler") || !strings.Contains(a.tmDoc(0).Text().String(), "The black cat lay on the rug") ||
@@ -423,10 +423,10 @@ func TestTimeMachineShowsTheWholePage(t *testing.T) {
 		t.Fatalf("not the whole page: %v", tt.Texts())
 	}
 	old := a.tmVersionPage(3)
-	if old == a.page || old.Props[pr.ID] != "" || a.tmVersionPage(0).Props[pr.ID] != "kediler" {
+	if old == a.pane().page || old.Props[pr.ID] != "" || a.tmVersionPage(0).Props[pr.ID] != "kediler" {
 		t.Fatalf("a copy has the page's values, not its own: %q now %q", old.Props[pr.ID], a.tmVersionPage(0).Props[pr.ID])
 	}
-	if old.Dir != a.page.Dir || old.Coll != a.page.Coll {
+	if old.Dir != a.pane().page.Dir || old.Coll != a.pane().page.Coll {
 		t.Fatal("the copy is not of this page")
 	}
 }
@@ -444,11 +444,11 @@ func TestTimeLapseOneDay(t *testing.T) {
 	l.days, l.sizes = l.days[:1], l.sizes[:1]
 	spans := []ui.Span{{Text: "The black cat"}}
 	l.paras = map[int][]lapseTok{0: {{"The", 1}, {"black", 1}, {"cat", 1}}} // all of it written on the one day
-	if _, ok := a.lapseSpans(0, spans); ok {
+	if _, ok := a.lapseSpans(a.pane(), 0, spans); ok {
 		t.Fatal("one day colors the text without being asked")
 	}
 	l.lit = 1
-	out, ok := a.lapseSpans(0, spans)
+	out, ok := a.lapseSpans(a.pane(), 0, spans)
 	if !ok {
 		t.Fatal("v1 lit: nothing lights")
 	}
@@ -463,7 +463,7 @@ func TestTimeLapseOneDay(t *testing.T) {
 // history is open changes nothing.
 func TestTimeMachineReadsTextAsThePageDoes(t *testing.T) {
 	a, tt := lapsePage(t)
-	p := a.page
+	p := a.pane().page
 	p.SaveText("Bir paragraf.\n\nİlgili: [[Welcome]]\n")
 	a.takeOutside(p)
 	tt.Advance(100 * time.Millisecond)
@@ -496,7 +496,7 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if a.sidebarShown > 1 {
 		t.Fatalf("the sidebar is not folded: %v", a.sidebarShown)
 	}
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	settle()
 	var got []int
@@ -506,7 +506,7 @@ func TestTimeMachineTimeline(t *testing.T) {
 	if want := []int{101, 91, 81, 70, 61}; !slices.Equal(got, want) { // the 10th (the page now) … the 7th, with none … the 6th
 		t.Fatalf("the days are %v, not %v", got, want)
 	}
-	if a.sidebarShown < 100 || !tt.HasText(locales.HistoryCopies()) || !tt.HasText(a.page.Title) {
+	if a.sidebarShown < 100 || !tt.HasText(locales.HistoryCopies()) || !tt.HasText(a.pane().page.Title) {
 		t.Fatalf("no timeline in the sidebar (%v wide): %v", a.sidebarShown, tt.Texts())
 	}
 	if err := tt.Click(locales.HistoryPageHistoryAt(shortDate(time.Date(2026, 11, 8, 0, 0, 0, 0, time.Local)))); err != nil {
@@ -568,7 +568,7 @@ func TestTimeMachineDays(t *testing.T) {
 func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 	a, tt := lapsePage(t)
 	a.settings.AutoCover = true // made covers are off by default (#388)
-	p := a.page
+	p := a.pane().page
 	st := p.FS().(*Store)
 	st.DB.Exec(`UPDATE versions SET data = replace(data, '"title"', '"cover":"none","title"') WHERE id = ?`, st.Versions(p.File())[1].ID) // the copy of the 8th had no cover
 	if a.coverKind(p) == coverKindNone {
@@ -618,7 +618,7 @@ func TestTimeMachineRestoresTheWholeCopy(t *testing.T) {
 // lines beside the page's, and back; the arrows go on choosing the copy.
 func TestTimeMachineDifferences(t *testing.T) {
 	a, tt := lapsePage(t)
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	tt.Key(0, ui.KeyDown)
 	if err := tt.Click(locales.HistoryShowDifferences()); err != nil {
@@ -650,7 +650,7 @@ func TestTimeMachineDifferences(t *testing.T) {
 // whole a little later; after Esc it fades, and then the editor is back. Only its layers move.
 func TestTimeMachineComesAndGoes(t *testing.T) {
 	a, tt := lapsePage(t)
-	a.openTimeMachine(a.page)
+	a.openTimeMachine(a.pane().page)
 	tt.Frame()
 	if !tt.HasText(locales.HistoryPageHistoryAt(locales.HistoryTodayNow())) || !tt.HasText(locales.HistoryRestore()) {
 		t.Fatalf("the first frame is not the history: %v", tt.Texts())
@@ -685,13 +685,13 @@ func TestTimeMachineComesAndGoes(t *testing.T) {
 // page and its history (#265).
 func TestHistoryFromThePageMenu(t *testing.T) {
 	a, tt := lapsePage(t)
-	p := a.page
+	p := a.pane().page
 	for _, c := range a.lib.Collections {
-		if !c.Journal && !c.Dynamic() && a.page == p {
+		if !c.Journal && !c.Dynamic() && a.pane().page == p {
 			a.newPage(c, nil) // another page, which the history is opened from
 		}
 	}
-	if a.page == p {
+	if a.pane().page == p {
 		t.Fatal("no other page to stand on")
 	}
 	tt.Frame()
@@ -706,8 +706,8 @@ func TestHistoryFromThePageMenu(t *testing.T) {
 		t.Fatal("no \"Sürüm geçmişi…\" in the page's menu")
 	}
 	tt.Advance(700 * time.Millisecond)
-	if a.page != p || !a.tm.open || a.tm.page != p || len(a.tm.vers) != 3 {
-		t.Fatalf("not the page's history: page %q, open %v, %d copies", a.page.Title, a.tm.open, len(a.tm.vers))
+	if a.pane().page != p || !a.tm.open || a.tm.page != p || len(a.tm.vers) != 3 {
+		t.Fatalf("not the page's history: page %q, open %v, %d copies", a.pane().page.Title, a.tm.open, len(a.tm.vers))
 	}
 }
 
@@ -715,7 +715,7 @@ func TestHistoryFromThePageMenu(t *testing.T) {
 // card, the copy over the page as it was, keys and clicks not taken; only after it does the editor come back.
 func TestTimeMachineRestoreSweeps(t *testing.T) {
 	a, tt := lapsePage(t)
-	p := a.page
+	p := a.pane().page
 	before, _ := p.Text()
 	a.openTimeMachine(p)
 	tt.Frame()
@@ -752,7 +752,7 @@ func TestTimeMachineRestoreSweeps(t *testing.T) {
 // closing as if the page had been restored (#225).
 func TestTimeMachineRestoreFailureIsSaid(t *testing.T) {
 	a, tt := lapsePage(t)
-	p := a.page
+	p := a.pane().page
 	st := p.FS().(*Store)
 	before, _ := p.Text()
 	a.openTimeMachine(p)
@@ -809,7 +809,7 @@ func TestTimeMachineCachesNear(t *testing.T) {
 	a.clock = func() time.Time { return *now }
 	tt := ui.NewTester(a.view, 1100, 800)
 	tt.Advance(50 * time.Millisecond)
-	p := a.page
+	p := a.pane().page
 	for i := range 60 {
 		*now = now.Add(time.Hour)
 		p.SaveText(fmt.Sprintf("copy %d\n", i))

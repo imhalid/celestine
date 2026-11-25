@@ -26,13 +26,13 @@ func TestJournalStepDay(t *testing.T) {
 	now := time.Date(2026, 11, 9, 10, 0, 0, 0, time.Local)
 	journalDays(t, a, now, "2026-11-01", "2026-11-03", "2026-11-06", "2026-11-09")
 	tt.Frame()
-	notes := a.page
+	notes := a.pane().page
 	shown := func() string {
 		t.Helper()
-		if a.page == nil {
+		if a.pane().page == nil {
 			return ""
 		}
-		return a.page.Title
+		return a.pane().page.Title
 	}
 	// from a page not of the journal: the days around today
 	a.stepDay(-1)
@@ -107,8 +107,8 @@ func TestJournalGoToDate(t *testing.T) {
 		t.Fatalf("first: %+v", items[0])
 	}
 	a.runItem(items[0])
-	if a.page == nil || a.page.Title != "2026-11-06" {
-		t.Fatalf("opened %+v", a.page)
+	if a.pane().page == nil || a.pane().page.Title != "2026-11-06" {
+		t.Fatalf("opened %+v", a.pane().page)
 	}
 	if it := a.dateItems("go to date last tuesday"); len(it) != 1 || it[0].off != "" {
 		t.Fatalf("in English: %+v", it)
@@ -143,15 +143,15 @@ func TestJournalKeys(t *testing.T) {
 	}
 	tt.TypeKey(0, ui.KeyBracketLeft, "[")
 	tt.Frame()
-	if a.page == nil || a.page.Title != "2026-11-06" {
-		t.Fatalf("[: %+v", a.page)
+	if a.pane().page == nil || a.pane().page.Title != "2026-11-06" {
+		t.Fatalf("[: %+v", a.pane().page)
 	}
 	tt.TypeKey(0, ui.KeyBracketLeft, "[")
 	tt.Frame()
 	tt.TypeKey(0, ui.KeyBracketRight, "]")
 	tt.Frame()
-	if a.page.Title != "2026-11-06" {
-		t.Fatalf("[ ]: %q", a.page.Title)
+	if a.pane().page.Title != "2026-11-06" {
+		t.Fatalf("[ ]: %q", a.pane().page.Title)
 	}
 }
 

@@ -30,7 +30,7 @@ func TestNoLoginGate(t *testing.T) {
 		t.Fatalf("the app does not open without an account: %v", tt.Texts())
 	}
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
@@ -112,7 +112,7 @@ func TestInviteSteps(t *testing.T) {
 	a.settingsFile = t.TempDir() + "/s.json"
 	a.settings.SyncURL = srv.URL
 	a.openSettings()
-	a.settingsTab = tabSync
+	a.pane().settingsTab = tabSync
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
 	tt.Frame()
@@ -186,8 +186,8 @@ func TestProfileScreen(t *testing.T) {
 	a.openProfile()
 	tt.Frame()
 	tt.Advance(100 * time.Millisecond)
-	if !a.profileScreen || a.paneTitle() != "Profil" || a.here().kind != "profile" {
-		t.Fatalf("the profile is not shown: screen %v, title %q, place %v", a.profileScreen, a.paneTitle(), a.here())
+	if !a.pane().profileScreen || a.paneTitle() != "Profil" || a.here().kind != "profile" {
+		t.Fatalf("the profile is not shown: screen %v, title %q, place %v", a.pane().profileScreen, a.paneTitle(), a.here())
 	}
 	for _, want := range []string{"Profil", locales.AccountNotSignedYourLibrary(), "Giriş yap", "Davetle hesap aç", "E-posta"} {
 		if !tt.HasText(want) {
@@ -232,14 +232,14 @@ func TestProfileScreen(t *testing.T) {
 
 	// it is a place in the history: from the figures, back goes to it; Esc leaves it
 	a.openStats()
-	if a.profileScreen || !a.statsScreen {
+	if a.pane().profileScreen || !a.pane().statsScreen {
 		t.Fatal("the figures did not take the screen")
 	}
-	if !a.step(-1) || !a.profileScreen {
+	if !a.step(-1) || !a.pane().profileScreen {
 		t.Fatal("back from the figures did not come to the profile")
 	}
 	a.closeProfile()
-	if a.profileScreen {
+	if a.pane().profileScreen {
 		t.Fatal("the profile did not close")
 	}
 }
@@ -287,7 +287,7 @@ func TestSyncProbe(t *testing.T) {
 func TestServerHistoryPutsBack(t *testing.T) {
 	withLang(t, "tr")
 	a, tt := newTestApp(t, "yeni metin\n")
-	p := a.page
+	p := a.pane().page
 	if p == nil {
 		t.Fatal("no page")
 	}
@@ -346,7 +346,7 @@ func TestSecretCopyNoUnconcealedFallback(t *testing.T) {
 	}
 	tt.SetSize(1180, 760)
 	a.openSettings()
-	a.settingsTab = int(tabMCP)
+	a.pane().settingsTab = int(tabMCP)
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
 

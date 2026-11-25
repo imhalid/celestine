@@ -470,7 +470,7 @@ func values(p *Page) map[string]string {
 
 // setValues gives page p the values vs, by property name or id.
 func (a *app) setValues(p *Page, vs map[string]string) error {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	for name, v := range vs {
@@ -504,7 +504,7 @@ func bodyOf(md string) string {
 // writeBody gives page p the text body, on disk and in its document if it
 // is open: the window shows it at once. What was typed in it is saved first.
 func (a *app) writeBody(p *Page, md string) error {
-	if p == a.page {
+	if p == a.pane().page {
 		a.flush()
 	}
 	body := encodeBody(importMarkdown(md))
@@ -515,10 +515,10 @@ func (a *app) writeBody(p *Page, md string) error {
 	a.linksStale()
 	if doc := a.docs[p]; doc != nil {
 		doc.SetText(a.parsePage(p, body))
-		if p == a.page {
+		if p == a.pane().page {
 			_, caret := doc.Selection()
-			a.version, a.length, a.caretAt = doc.Version(), doc.Text().Len(), caret
-			a.lastSave, a.lastWords, a.dirty = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText())), false
+			a.pane().version, a.pane().length, a.pane().caretAt = doc.Version(), doc.Text().Len(), caret
+			a.pane().lastSave, a.pane().lastWords, a.pane().dirty = encodeBody(doc.Text()), len(strings.Fields(doc.Text().PlainText())), false
 		}
 	}
 	return nil

@@ -43,12 +43,12 @@ type heading struct {
 
 // outline is the headings of the page's text, in order.
 func (a *app) outline() []heading {
-	if a.doc == nil {
+	if a.pane().doc == nil {
 		return nil
 	}
-	if v := a.doc.Version(); v != a.outlineVer || a.outlineDoc != a.doc {
-		a.outlineOf, a.outlineVer, a.outlineDoc = nil, v, a.doc
-		t := a.doc.Text()
+	if v := a.pane().doc.Version(); v != a.outlineVer || a.outlineDoc != a.pane().doc {
+		a.outlineOf, a.outlineVer, a.outlineDoc = nil, v, a.pane().doc
+		t := a.pane().doc.Text()
 		pos := 0
 		for _, ln := range strings.Split(t.String(), "\n") {
 			n := utf8.RuneCountInString(ln)
@@ -61,10 +61,15 @@ func (a *app) outline() []heading {
 	return a.outlineOf
 }
 
-// gotoPos puts the caret at at and brings it into view.
-func (a *app) gotoPos(at int) {
-	a.doc.SetSelection(at, at)
-	a.revealWant, a.refocus = true, true
+// gotoPos puts the caret at at and brings it into view in the active pane.
+func (a *app) gotoPos(at int) { a.gotoPosIn(a.pane(), at) }
+
+func (a *app) gotoPosIn(pn *paneState, at int) {
+	if pn.doc == nil {
+		return
+	}
+	pn.doc.SetSelection(at, at)
+	pn.revealWant, pn.refocus = true, true
 }
 
 // panelFloat is the panel's coming and going: in from the right, out the same way.
@@ -80,12 +85,12 @@ var panelFloat = ui.ElementTransition{
 const sidePanelGlass = 0.8
 
 func (a *app) sidePanel(c *ui.Context) {
-	if !(a.settings.PanelOpen && a.page != nil && !a.noPage()) {
+	if !(a.settings.PanelOpen && a.pane().page != nil && !a.noPage()) {
 		return
 	}
 	t := ryugo.From(c)
 	cl := t.Colors
-	p := a.page
+	p := a.pane().page
 	top := a.contentTop(c) + 10
 	maxH := float32(560)
 	if a.winRect.H > 0 {

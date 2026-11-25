@@ -15,7 +15,7 @@ import (
 // keys, and the text is edited with the keys it always was.
 
 func (a *app) vimOn() bool {
-	return a.settings.VimKeys && a.page != nil && a.doc != nil && !a.noPage() && len(a.kb.rows()) == 0
+	return a.settings.VimKeys && a.pane().page != nil && a.pane().doc != nil && !a.noPage() && len(a.kb.rows()) == 0
 }
 
 func vimIsWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' }
@@ -112,7 +112,7 @@ func (a *app) vimKey(r rune, n int) bool {
 	if !a.vimOn() {
 		return false
 	}
-	d := a.doc
+	d := a.pane().doc
 	t := d.Text()
 	_, caret := d.Selection()
 	// the text's runes, for the word motions alone: made at every key, they were the whole page's (#198)
@@ -128,7 +128,7 @@ func (a *app) vimKey(r rune, n int) bool {
 	put := func(i int) {
 		i = min(max(i, 0), total)
 		d.SetSelection(i, i)
-		a.revealWant = true
+		a.pane().revealWant = true
 	}
 	if strings.ContainsRune("xpoOAI", r) {
 		a.kb.again.r, a.kb.again.n, a.kb.again.pair = r, n, ""
@@ -191,7 +191,7 @@ func (a *app) vimKey(r rune, n int) bool {
 				ed.Replace(pe, pe, ins.Insert(0, richtext.NewText("\n")))
 				ed.Select(pe+1, pe+1)
 			})
-			a.revealWant = true
+			a.pane().revealWant = true
 		}
 	case 'o', 'O':
 		at := pe
@@ -222,10 +222,10 @@ func (a *app) vimKey(r rune, n int) bool {
 // vimLaid is the paragraph from ps to pe laid out as the editor lays it out, and its text, for the motions that
 // go by what is seen; ok is false where it cannot be: no editor yet, or a paragraph too long to lay out again.
 func (a *app) vimLaid(ps, pe int) (l *ui.TextLayout, line string, ok bool) {
-	if a.editorR.W <= 0 || pe-ps > maxCaretParagraph || a.theme == nil {
+	if a.pane().editorR.W <= 0 || pe-ps > maxCaretParagraph || a.theme == nil {
 		return nil, "", false
 	}
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	var para richtext.Paragraph
 	for _, p := range t.Slice(ps, pe).Paragraphs() {
 		para = p
@@ -235,7 +235,7 @@ func (a *app) vimLaid(ps, pe int) (l *ui.TextLayout, line string, ok bool) {
 	for _, r := range para.Runs {
 		line += r.Text
 	}
-	l, _ = longMemo.layout(a.doc, ps, pe-ps, para, a.editorR.W, a.font, a.theme)
+	l, _ = longMemo.layout(a.pane().doc, ps, pe-ps, para, a.pane().editorR.W, a.font, a.theme)
 	return l, line, l != nil
 }
 
@@ -260,7 +260,7 @@ func (a *app) vimStep(ps, pe, i, dir int) int {
 // i is when x is below 0; it gives the x it kept, for the next line of a count. A long paragraph is walked line
 // by line, not jumped over (#206); where there is no layout, the line is the paragraph, at the same column.
 func (a *app) vimLine(i, dir int, x float32) (int, float32) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	ps, pe := t.ParagraphRange(i)
 	l, line, ok := a.vimLaid(ps, pe)
 	if !ok {
@@ -334,7 +334,7 @@ func (a *app) vimPair(first, second rune) bool {
 	if !a.vimOn() || first != second || (first != 'd' && first != 'y') {
 		return false
 	}
-	d := a.doc
+	d := a.pane().doc
 	t := d.Text()
 	_, caret := d.Selection()
 	ps, pe := t.ParagraphRange(caret)

@@ -18,13 +18,13 @@ const linkWonTime = 1100 * time.Millisecond
 
 // rangeRects are where the runes from to to of the text are drawn, in the window, in the paragraphs in view of
 // the editor drawn in r.
-func (a *app) rangeRects(r ui.Rect, from, to int) []ui.Rect {
+func (a *app) rangeRects(pn *paneState, r ui.Rect, from, to int) []ui.Rect {
 	var out []ui.Rect
-	if a.doc == nil || to <= from {
+	if pn.doc == nil || to <= from {
 		return nil
 	}
-	for _, b := range a.shown(r) {
-		s, e, para := a.paraOfBox(b)
+	for _, b := range a.shown(pn, r) {
+		s, e, para := a.paraOfBox(pn, b)
 		lo, hi := max(from, s), min(to, e)
 		if hi <= lo {
 			continue
@@ -33,7 +33,7 @@ func (a *app) rangeRects(r ui.Rect, from, to int) []ui.Rect {
 		for _, run := range para.Runs {
 			line += run.Text
 		}
-		l, left := a.paraLayout(s, para, r.W)
+		l, left := a.paraLayout(pn, s, para, r.W)
 		for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, lo-s), End: units(line, hi-s)}) {
 			out = append(out, ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H})
 		}
@@ -60,12 +60,12 @@ func slantBand(box ui.Rect, x, w float32) *ui.Path {
 }
 
 // drawLinkPending tints the text the bar's link field is open for, a shimmer going across it.
-func (a *app) drawLinkPending(p *ui.Painter, r ui.Rect) {
-	b := &a.sel
+func (a *app) drawLinkPending(pn *paneState, p *ui.Painter, r ui.Rect) {
+	b := &pn.sel
 	if !b.link {
 		return
 	}
-	rects := a.rangeRects(r, b.linkSel[0], b.linkSel[1])
+	rects := a.rangeRects(pn, r, b.linkSel[0], b.linkSel[1])
 	if len(rects) == 0 {
 		return
 	}
@@ -90,8 +90,8 @@ func (a *app) drawLinkPending(p *ui.Painter, r ui.Rect) {
 }
 
 // drawLinkWon draws the flourish over the text of a link just set.
-func (a *app) drawLinkWon(p *ui.Painter, r ui.Rect) {
-	b := &a.sel
+func (a *app) drawLinkWon(pn *paneState, p *ui.Painter, r ui.Rect) {
+	b := &pn.sel
 	if b.wonAt.IsZero() {
 		return
 	}
@@ -101,7 +101,7 @@ func (a *app) drawLinkWon(p *ui.Painter, r ui.Rect) {
 		return
 	}
 	p.AnimationFrame()
-	rects := a.rangeRects(r, b.wonSel[0], b.wonSel[1])
+	rects := a.rangeRects(pn, r, b.wonSel[0], b.wonSel[1])
 	if len(rects) == 0 {
 		return
 	}

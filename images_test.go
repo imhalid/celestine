@@ -32,7 +32,7 @@ func pngBytes(w, h int) []byte {
 
 // pictures counts the pictures in the editor's text, and those with their image.
 func pictures(a *app) (n, shown int) {
-	t := a.doc.Text()
+	t := a.pane().doc.Text()
 	for i, r := range []rune(t.String()) {
 		if r != richtext.ObjectReplacement {
 			continue
@@ -60,11 +60,11 @@ func TestAddImage(t *testing.T) {
 	if n, shown := pictures(a); n != 1 || shown != 1 {
 		t.Fatalf("pictures %d, shown %d", n, shown)
 	}
-	md := a.pageMarkdown(a.page, a.doc.Text())
+	md := a.pageMarkdown(a.pane().page, a.pane().doc.Text())
 	if !strings.Contains(md, "![foto](resim-") || !strings.HasPrefix(md, "metin\n") {
 		t.Fatalf("markdown:\n%s", md)
 	}
-	files, _ := filepath.Glob(filepath.Join(a.page.Dir, "resim-*.png"))
+	files, _ := filepath.Glob(filepath.Join(a.pane().page.Dir, "resim-*.png"))
 	if len(files) != 1 {
 		t.Fatalf("files: %v", files)
 	}
@@ -72,7 +72,7 @@ func TestAddImage(t *testing.T) {
 	// read again, as another start would
 	a.docs = map[*Page]*richtext.Document{}
 	a.images = nil
-	a.page = nil
+	a.pane().page = nil
 	a.open(a.lib.Collections[0].Pages[0])
 	tt.Frame()
 	if n, shown := pictures(a); n != 1 || shown != 1 {
@@ -85,13 +85,13 @@ func TestAddImage(t *testing.T) {
 	os.Remove(files[0])
 	a.docs = map[*Page]*richtext.Document{}
 	a.images = nil
-	a.page = nil
+	a.pane().page = nil
 	a.open(a.lib.Collections[0].Pages[0])
 	tt.Frame()
 	if n, shown := pictures(a); n != 1 || shown != 0 {
 		t.Fatalf("missing: pictures %d, shown %d", n, shown)
 	}
-	if md := a.pageMarkdown(a.page, a.doc.Text()); !strings.Contains(md, "![foto](resim-") {
+	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, "![foto](resim-") {
 		t.Fatalf("a missing picture's line was lost:\n%s", md)
 	}
 }
@@ -102,7 +102,7 @@ func TestImageDropAndPaste(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	file := filepath.Join(t.TempDir(), "bir.png")
 	os.WriteFile(file, pngBytes(30, 30), 0o644)
-	r := a.editorR
+	r := a.pane().editorR
 	if r.W == 0 {
 		t.Fatal("no editor")
 	}
@@ -136,7 +136,7 @@ func TestImageInFile(t *testing.T) {
 	if err := a.addImage("foto.png", pngBytes(20, 20)); err != nil {
 		t.Fatal(err)
 	}
-	es, _ := st.ReadDir(a.page.Dir)
+	es, _ := st.ReadDir(a.pane().page.Dir)
 	found := false
 	for _, e := range es {
 		found = found || strings.HasPrefix(e.Name(), "resim-")
@@ -151,11 +151,11 @@ func TestPasteTextStaysText(t *testing.T) {
 	a, tt := newTestApp(t, "metin\n")
 	a.clipImage = func() []byte { return pngBytes(10, 10) }
 	tt.SetClipboard("yapıştı")
-	a.doc.SetSelection(0, 0)
+	a.pane().doc.SetSelection(0, 0)
 	tt.Key(ui.Cmd, ui.KeyV)
 	tt.Advance(100 * time.Millisecond)
-	if n, _ := pictures(a); n != 0 || !strings.Contains(a.doc.Text().String(), "yapıştı") {
-		t.Fatalf("pictures %d, text %q", n, a.doc.Text().String())
+	if n, _ := pictures(a); n != 0 || !strings.Contains(a.pane().doc.Text().String(), "yapıştı") {
+		t.Fatalf("pictures %d, text %q", n, a.pane().doc.Text().String())
 	}
 }
 
@@ -167,18 +167,18 @@ func TestPicturesSwept(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.save()
-	kept, _ := filepath.Glob(filepath.Join(a.page.Dir, "resim-*.png"))
-	orphan := filepath.Join(a.page.Dir, "resim-20200101-010101.png")
-	mine := filepath.Join(a.page.Dir, "benim.png")
+	kept, _ := filepath.Glob(filepath.Join(a.pane().page.Dir, "resim-*.png"))
+	orphan := filepath.Join(a.pane().page.Dir, "resim-20200101-010101.png")
+	mine := filepath.Join(a.pane().page.Dir, "benim.png")
 	os.WriteFile(orphan, pngBytes(5, 5), 0o644)
 	os.WriteFile(mine, pngBytes(5, 5), 0o644)
 	old := a.clock().Add(-time.Hour)
 	os.Chtimes(orphan, old, old)
-	fresh := filepath.Join(a.page.Dir, "resim-20200101-020202.png") // a sync brought it before its page
+	fresh := filepath.Join(a.pane().page.Dir, "resim-20200101-020202.png") // a sync brought it before its page
 	os.WriteFile(fresh, pngBytes(5, 5), 0o644)
 	os.Chtimes(fresh, a.clock(), a.clock())
 	a.docs = map[*Page]*richtext.Document{}
-	a.page = nil
+	a.pane().page = nil
 	a.open(a.lib.Collections[0].Pages[0])
 	if _, err := os.Stat(orphan); err == nil {
 		t.Fatal("the orphan stays")
@@ -207,10 +207,10 @@ func TestPictureLightbox(t *testing.T) {
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
 	tt.Frame()
-	if len(a.picSeen) == 0 {
+	if len(a.pane().picSeen) == 0 {
 		t.Fatal("the picture is not drawn")
 	}
-	h := a.picSeen[0]
+	h := a.pane().picSeen[0]
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(300 * time.Millisecond)
 	if a.lightbox == nil {
@@ -236,18 +236,18 @@ func TestImageComesLater(t *testing.T) {
 	a, _ := newTestApp(t, "x")
 	now := time.Date(2026, 11, 8, 10, 0, 0, 0, time.UTC)
 	a.clock = func() time.Time { return now }
-	file := filepath.Join(a.page.Dir, "sonra.png")
-	if a.loadImage(a.page, file) != nil {
+	file := filepath.Join(a.pane().page.Dir, "sonra.png")
+	if a.loadImage(a.pane().page, file) != nil {
 		t.Fatal("a picture that is not there")
 	}
-	if err := a.page.FS().WriteFile(file, pngBytes(8, 8)); err != nil {
+	if err := a.pane().page.FS().WriteFile(file, pngBytes(8, 8)); err != nil {
 		t.Fatal(err)
 	}
-	if a.loadImage(a.page, file) != nil {
+	if a.loadImage(a.pane().page, file) != nil {
 		t.Fatal("tried again at once, every frame")
 	}
 	now = now.Add(imageRetry + time.Second)
-	if a.loadImage(a.page, file) == nil {
+	if a.loadImage(a.pane().page, file) == nil {
 		t.Fatal("the picture that came is not read")
 	}
 }
@@ -289,7 +289,7 @@ func TestSettingsPrivate(t *testing.T) {
 func TestUnreadablePageKept(t *testing.T) {
 	for _, bad := range []string{`{"meta":{"title":"Kesik"},"body":[{"r":[{"t":"yar`, `{"meta":{"title":"Yeni"},"body":{"v":2,"blocks":[]}}`} {
 		a, _ := newTestApp(t, "ilk hâli\n")
-		p := a.page
+		p := a.pane().page
 		a.save()
 		pic := filepath.Join(p.Dir, "resim-20200101-010101.png")
 		os.WriteFile(pic, pngBytes(5, 5), 0o644)
@@ -297,13 +297,13 @@ func TestUnreadablePageKept(t *testing.T) {
 		os.Chtimes(pic, old, old)
 		os.WriteFile(p.File(), []byte(bad), 0o644)
 		a.docs = map[*Page]*richtext.Document{}
-		a.page = nil
+		a.pane().page = nil
 		a.open(p)
 		if p.Unreadable == "" {
 			t.Fatalf("%q: not seen as unreadable", bad)
 		}
-		a.doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "x"}}}))
-		a.dirty = true
+		a.pane().doc.SetText(richtext.TextOf(richtext.Paragraph{Runs: []richtext.Run{{Text: "x"}}}))
+		a.pane().dirty = true
 		a.save()
 		if b, _ := os.ReadFile(p.File()); string(b) != bad {
 			t.Fatalf("%q: written over: %s", bad, b)
@@ -318,8 +318,8 @@ func TestUnreadablePageKept(t *testing.T) {
 		}
 		os.WriteFile(p.File(), JoinPage(map[string]string{"title": "Kesik"}, `[{"r":[{"t":"onarıldı"}]}]`), 0o644)
 		a.takeOutside(p)
-		if p.Unreadable != "" || !strings.Contains(a.doc.Text().String(), "onarıldı") {
-			t.Fatalf("%q: a mended file is not taken: %q %q", bad, p.Unreadable, a.doc.Text().String())
+		if p.Unreadable != "" || !strings.Contains(a.pane().doc.Text().String(), "onarıldı") {
+			t.Fatalf("%q: a mended file is not taken: %q %q", bad, p.Unreadable, a.pane().doc.Text().String())
 		}
 	}
 }
@@ -328,7 +328,7 @@ func TestUnreadablePageKept(t *testing.T) {
 // not refused until it is opened (#541).
 func TestUnreadablePageMendedClosed(t *testing.T) {
 	a, _ := newTestApp(t, "ilk\n")
-	p, _ := a.page.Coll.NewPage(nil, "Kapalı")
+	p, _ := a.pane().page.Coll.NewPage(nil, "Kapalı")
 	p.SaveText("metin\n")
 	os.WriteFile(p.File(), []byte(`{"meta":{"title":"Kapalı"},"body":[{"r":[{"t":"yar`), 0o644)
 	a.takeOutside(p)
