@@ -147,7 +147,7 @@ func findHidden(t richtext.Text, q []rune, exact bool) int {
 		case (ch.kind == "fold" || ch.kind == "zoom") && ch.hidden != nil:
 			n += len(findIn(findRunes(ch.hidden.String(), exact), q)) + findHidden(*ch.hidden, q, exact)
 		case ch.kind == "table" && ch.tbl != nil:
-			for _, row := range ch.tbl.rows {
+			for _, row := range ch.tbl.Rows {
 				for _, cell := range row {
 					n += len(findIn(findRunes(cell, exact), q))
 				}

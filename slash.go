@@ -338,7 +338,7 @@ func (a *app) chooseTable() {
 	})
 	ch := a.insertTable(start)
 	s.open = false
-	a.pane().cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: ch.tbl.cell(-1, 0), fresh: true}
+	a.pane().cellEd = cellEdit{open: true, ch: ch, row: -1, col: 0, text: ch.tbl.Cell(-1, 0), fresh: true}
 }
 
 // choiceItems are the values of the page's choices, for q.

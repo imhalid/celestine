@@ -11,15 +11,15 @@ import (
 
 func sample3() *tableModel {
 	m := newTable(2, 0)
-	m.cols[0].Name = "Ad"
-	m.cols[1] = tableCol{Name: "Sayı", Kind: kindNumber, Align: 2, Calc: "sum"}
-	m.rows = [][]string{{"muz", "12"}, {"elma", "3"}, {"Çilek", "7"}, {"armut", ""}, {"incir", "100"}}
+	m.Cols[0].Name = "Ad"
+	m.Cols[1] = tableCol{Name: "Sayı", Kind: kindNumber, Align: 2, Calc: "sum"}
+	m.Rows = [][]string{{"muz", "12"}, {"elma", "3"}, {"Çilek", "7"}, {"armut", ""}, {"incir", "100"}}
 	return m
 }
 
 func col(m *tableModel, c int) string {
 	var out []string
-	for _, r := range m.rows {
+	for _, r := range m.Rows {
 		out = append(out, r[c])
 	}
 	return strings.Join(out, ",")
@@ -27,52 +27,52 @@ func col(m *tableModel, c int) string {
 
 func TestTableSort(t *testing.T) {
 	m := sample3()
-	m.toggleSort(1) // rising; the empty last
+	m.ToggleSort(1) // rising; the empty last
 	if got := col(m, 1); got != "3,7,12,100," {
 		t.Fatalf("rising: %s", got)
 	}
-	if !m.sortedAsc(1) {
+	if !m.SortedAsc(1) {
 		t.Fatal("not told it is rising")
 	}
-	m.toggleSort(1) // and again: falling, the empty still last
+	m.ToggleSort(1) // and again: falling, the empty still last
 	if got := col(m, 1); got != "100,12,7,3," {
 		t.Fatalf("falling: %s", got)
 	}
-	m.toggleSort(0) // the alphabet's, Turkish: Ç after C, before D
+	m.ToggleSort(0) // the alphabet's, Turkish: Ç after C, before D
 	if got := col(m, 0); got != "armut,Çilek,elma,incir,muz" {
 		t.Fatalf("text: %s", got)
 	}
 	// rows keep their cells together
-	if m.rows[1][1] != "7" {
-		t.Fatalf("a row came apart: %v", m.rows)
+	if m.Rows[1][1] != "7" {
+		t.Fatalf("a row came apart: %v", m.Rows)
 	}
 }
 
 func TestTableFilter(t *testing.T) {
 	m := sample3()
 	m.Filter = "  "
-	if len(m.visible()) != 5 || m.filtering() {
+	if len(m.Visible()) != 5 || m.Filtering() {
 		t.Fatal("a blank filter hides rows")
 	}
 	m.Filter = "elma"
-	if got := m.visible(); len(got) != 1 || got[0] != 1 {
+	if got := m.Visible(); len(got) != 1 || got[0] != 1 {
 		t.Fatalf("elma: %v", got)
 	}
 	m.Filter = "cilek" // the Turkish letters are matched as plain ones
-	if got := m.visible(); len(got) != 1 || got[0] != 2 {
+	if got := m.Visible(); len(got) != 1 || got[0] != 2 {
 		t.Fatalf("cilek: %v", got)
 	}
 	m.Filter = "12 muz" // every word, in any cell
-	if got := m.visible(); len(got) != 1 || got[0] != 0 {
+	if got := m.Visible(); len(got) != 1 || got[0] != 0 {
 		t.Fatalf("two words: %v", got)
 	}
 	// a row with nothing in it stays, and the foot counts what shows
-	m.rows = append(m.rows, []string{"", ""})
+	m.Rows = append(m.Rows, []string{"", ""})
 	m.Filter = "elma"
-	if got := m.visible(); len(got) != 2 {
+	if got := m.Visible(); len(got) != 2 {
 		t.Fatalf("blank row: %v", got)
 	}
-	if got := m.calc(1); got != "3" {
+	if got := m.Calc(1); got != "3" {
 		t.Fatalf("the foot counts rows that are hidden: %s", got)
 	}
 	// it is kept with the page
@@ -92,17 +92,17 @@ func TestTableFilter(t *testing.T) {
 
 func TestTableCSV(t *testing.T) {
 	m := sample3()
-	m.rows[0][0] = `muz, "sarı"`
-	out := m.csvText(',')
+	m.Rows[0][0] = `muz, "sarı"`
+	out := m.CSVText(',')
 	if !strings.HasPrefix(out, "Ad,Sayı\n\"muz, \"\"sarı\"\"\",12\n") {
 		t.Fatalf("csv: %q", out)
 	}
 	back := tableFromCSV(out)
-	if back == nil || back.rows[0][0] != `muz, "sarı"` || back.cols[1].Kind != kindNumber || len(back.rows) != 5 {
+	if back == nil || back.Rows[0][0] != `muz, "sarı"` || back.Cols[1].Kind != kindNumber || len(back.Rows) != 5 {
 		t.Fatalf("read back: %+v", back)
 	}
 	for _, in := range []string{"a\tb\n1\t2\n", "a;b\n1;2\n", "a,b\r\n1,2\r\n"} {
-		if got := tableFromCSV(in); got == nil || len(got.cols) != 2 || got.rows[0][1] != "2" {
+		if got := tableFromCSV(in); got == nil || len(got.Cols) != 2 || got.Rows[0][1] != "2" {
 			t.Fatalf("%q: %+v", in, got)
 		}
 	}
@@ -111,33 +111,6 @@ func TestTableCSV(t *testing.T) {
 	}
 	if !tabular("a\tb\n1\t2") || tabular("a\tb\n1") || tabular("tek satır\tiki") || tabular("düz\nmetin") {
 		t.Fatal("tabular")
-	}
-}
-
-func TestCSVSafeCell(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{"-5", "-5"},
-		{"+3.2", "+3.2"},
-		{"-0.25", "-0.25"},
-		{"-", "'-"},
-		{"+", "'+"},
-		{"- madde", "'- madde"},
-		{"-1_000", "'-1_000"},
-		{"-Inf", "'-Inf"},
-		{"+NaN", "'+NaN"},
-		{"=SUM(A1)", "'=SUM(A1)"},
-		{"@SUM(A1)", "'@SUM(A1)"},
-		{"\tcmd", "'\tcmd"},
-		{"\rcmd", "'\rcmd"},
-		{"plain", "plain"},
-		{"", ""},
-	}
-	for _, tc := range cases {
-		if got := csvSafeCell(tc.in); got != tc.want {
-			t.Errorf("csvSafeCell(%q) = %q, want %q", tc.in, got, tc.want)
-		}
 	}
 }
 
@@ -192,8 +165,8 @@ func TestTableSortFilterUI(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
-	if m := model(); m.Filter != "elma" || len(m.visible()) != 1 {
-		t.Fatalf("filter %q shows %v", m.Filter, m.visible())
+	if m := model(); m.Filter != "elma" || len(m.Visible()) != 1 {
+		t.Fatalf("filter %q shows %v", m.Filter, m.Visible())
 	}
 	shown := 0
 	for _, hh := range a.pane().tableSeen {
@@ -209,7 +182,7 @@ func TestTableSortFilterUI(t *testing.T) {
 	tt.ClickAt(x.r.X+x.r.W/2, x.r.Y+x.r.H/2)
 	tt.Advance(300 * time.Millisecond)
 	tt.Frame()
-	if m := model(); m.Filter != "" || len(m.visible()) != 2 {
+	if m := model(); m.Filter != "" || len(m.Visible()) != 2 {
 		t.Fatalf("not cleared: %q", m.Filter)
 	}
 	// CSV
@@ -241,7 +214,7 @@ func TestTablePaste(t *testing.T) {
 	n := 0
 	for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 		if at := r.Attributes.Attachment; at != nil {
-			if ch, ok := at.Data.(*chip); ok && ch.tbl != nil && len(ch.tbl.rows) == 2 && ch.tbl.cols[1].Kind == kindNumber {
+			if ch, ok := at.Data.(*chip); ok && ch.tbl != nil && len(ch.tbl.Rows) == 2 && ch.tbl.Cols[1].Kind == kindNumber {
 				n++
 			}
 		}
@@ -284,7 +257,7 @@ func TestTableUndo(t *testing.T) {
 		for _, r := range a.pane().doc.Text().Runs(0, a.pane().doc.Text().Len()) {
 			if at := r.Attributes.Attachment; at != nil {
 				if ch, ok := at.Data.(*chip); ok && ch.tbl != nil {
-					return ch.tbl.cell(0, 0)
+					return ch.tbl.Cell(0, 0)
 				}
 			}
 		}

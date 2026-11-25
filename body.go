@@ -120,12 +120,12 @@ var bodyObjectDecoders = map[string]func(*bodyObj) *richtext.Attachment{
 		if len(o.Cols) == 0 {
 			return nil
 		}
-		m := &tableModel{cols: o.Cols, rows: o.Rows, Filter: o.Q}
-		for i, r := range m.rows {
-			for len(r) < len(m.cols) {
+		m := &tableModel{Cols: o.Cols, Rows: o.Rows, Filter: o.Q}
+		for i, r := range m.Rows {
+			for len(r) < len(m.Cols) {
 				r = append(r, "")
 			}
-			m.rows[i] = r[:len(m.cols)]
+			m.Rows[i] = r[:len(m.Cols)]
 		}
 		return &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: m}}
 	},
@@ -209,7 +209,7 @@ func objOf(at *richtext.Attachment) *bodyObj {
 		}
 		switch d.kind {
 		case "table":
-			return &bodyObj{K: "table", Cols: d.tbl.cols, Rows: d.tbl.rows, Q: d.tbl.Filter}
+			return &bodyObj{K: "table", Cols: d.tbl.Cols, Rows: d.tbl.Rows, Q: d.tbl.Filter}
 		case "query":
 			return &bodyObj{K: "query", Q: d.target}
 		case unknownKind:

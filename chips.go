@@ -197,7 +197,7 @@ func (a *app) chipAttachment(ch *chip) *richtext.Attachment {
 func (a *app) copyChip(ch *chip) *chip {
 	c := *ch
 	if ch.tbl != nil {
-		c.tbl = ch.tbl.clone()
+		c.tbl = ch.tbl.Clone()
 	}
 	c.tw = slices.Clone(ch.tw)
 	c.raw = slices.Clone(ch.raw)

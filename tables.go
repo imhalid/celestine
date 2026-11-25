@@ -31,33 +31,6 @@ const (
 	tableFilterW = 180 // a table with a filter is at least this wide, for its strip
 )
 
-// splitCells reads a line of a Markdown table into its cells (for the tables
-// of other tools, read once): the pipes at its edges are not cells, "\|" is
-// a pipe in one.
-func splitCells(line string) []string {
-	line = strings.TrimSpace(line)
-	line = strings.TrimPrefix(line, "|")
-	var cells []string
-	var cur strings.Builder
-	rs := []rune(line)
-	for i := 0; i < len(rs); i++ {
-		switch {
-		case rs[i] == '\\' && i+1 < len(rs) && rs[i+1] == '|':
-			cur.WriteRune('|')
-			i++
-		case rs[i] == '|':
-			cells = append(cells, strings.TrimSpace(cur.String()))
-			cur.Reset()
-		default:
-			cur.WriteRune(rs[i])
-		}
-	}
-	if s := strings.TrimSpace(cur.String()); s != "" || len(cells) == 0 {
-		cells = append(cells, s)
-	}
-	return cells
-}
-
 // tableChip is the object of a table: its model, and its columns' widths.
 func (a *app) tableChip(m *tableModel) *chip {
 	return &chip{kind: "table", tbl: m, tw: a.tableWidths(m)}
@@ -75,8 +48,8 @@ func (a *app) tableAttachment(ch *chip) *richtext.Attachment {
 
 // tableHeight is how tall the table is: its header, its rows and its foot.
 func tableHeight(m *tableModel) float32 {
-	h := float32(len(m.shown())+1)*tableRowH + 2
-	if m.hasCalc() {
+	h := float32(len(m.Shown())+1)*tableRowH + 2
+	if m.HasCalc() {
 		h += tableFootH
 	}
 	if m.Filter != "" { // the strip that says what the filter is
@@ -115,8 +88,8 @@ func tableWeight(head bool) int {
 // tableWidths are the widths of the columns: the width a column was given,
 // or as wide as its widest cell. Together they are no wider than the page.
 func (a *app) tableWidths(m *tableModel) []float32 {
-	cw := make([]float32, len(m.cols))
-	for c, col := range m.cols {
+	cw := make([]float32, len(m.Cols))
+	for c, col := range m.Cols {
 		switch {
 		case col.W > 0:
 			cw[c] = max(col.W, 36)
@@ -126,12 +99,12 @@ func (a *app) tableWidths(m *tableModel) []float32 {
 			continue
 		}
 		w := a.cellWidth(col.Name, true)
-		for _, r := range m.rows {
+		for _, r := range m.Rows {
 			if r[c] != "" {
 				w = max(w, a.cellWidth(a.shownText(col, r[c]), false))
 			}
 		}
-		if v := m.calc(c); v != "" { // the foot says its calculation, and its number
+		if v := m.Calc(c); v != "" { // the foot says its calculation, and its number
 			w = max(w, a.cellWidth(footText(col, v), false)*0.9)
 		}
 		cw[c] = min(max(w+2*tablePadX, tableMinW), tableMaxW)
@@ -296,15 +269,15 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	p.Fill(box, th.Border, rad(9))
 	inner := ui.Rect{X: box.X + 1, Y: box.Y + 1, W: box.W - 2, H: box.H - 2}
 	p.Fill(inner, a.pageBg, rad(8))
-	vis := m.shown()
+	vis := m.Shown()
 	rowsH := float32(len(vis)+1) * tableRowH
 	footH := float32(0)
-	if m.hasCalc() {
+	if m.HasCalc() {
 		footH = tableFootH
 	}
 	p.Clip(inner, rad(8), func() {
 		p.Fill(ui.Rect{X: inner.X, Y: inner.Y, W: inner.W, H: tableRowH}, th.Text.Alpha(0.055), 0)
-		if m.hasCalc() {
+		if m.HasCalc() {
 			p.Fill(ui.Rect{X: inner.X, Y: inner.Y + rowsH, W: inner.W, H: tableFootH}, th.Text.Alpha(0.03), 0)
 		}
 		if m.Filter != "" {
@@ -322,9 +295,9 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 	line(inner.Y+tableRowH-1, 1)
 	// the columns' lines: each a border to be dragged
 	x := inner.X
-	for c := range m.cols {
+	for c := range m.Cols {
 		x += cw[c]
-		if c < len(m.cols)-1 {
+		if c < len(m.Cols)-1 {
 			hot := colDrag.active && colDrag.ch == ch && colDrag.col == c || a.hoverBorder == (borderKey{ch, c})
 			p.Fill(ui.Rect{X: x, Y: inner.Y + 1, W: map[bool]float32{true: 2, false: 1}[hot], H: inner.H - 2}, map[bool]ui.Color{true: cl.Accent, false: th.Border.Alpha(0.5)}[hot], 0)
 		}
@@ -343,20 +316,20 @@ func (a *app) drawTable(p *ui.Painter, r ui.Rect, ch *chip) {
 			line(top-1, 0.6)
 		}
 		x := inner.X
-		for c, col := range m.cols {
+		for c, col := range m.Cols {
 			cell := ui.Rect{X: x, Y: top, W: cw[c], H: tableRowH}
 			x += cw[c]
 			a.tableHits = append(a.tableHits, tableHit{cell, ch, row, c})
-			a.drawCell(p, cell, m.cell(row, c), col, row < 0, size, th, cl)
+			a.drawCell(p, cell, m.Cell(row, c), col, row < 0, size, th, cl)
 		}
 	}
-	if m.hasCalc() && inner.Y+rowsH <= viewBot {
+	if m.HasCalc() && inner.Y+rowsH <= viewBot {
 		line(inner.Y+rowsH-1, 1)
 		x := inner.X
-		for c, col := range m.cols {
+		for c, col := range m.Cols {
 			cell := ui.Rect{X: x, Y: inner.Y + rowsH, W: cw[c], H: tableFootH}
 			x += cw[c]
-			v := m.calc(c)
+			v := m.Calc(c)
 			if v == "" {
 				continue
 			}
@@ -393,7 +366,7 @@ func (a *app) drawFilterStrip(p *ui.Painter, strip ui.Rect, ch *chip, shown int,
 	a.tableHits = append(a.tableHits, tableHit{strip, ch, -2, 0})
 	a.placeText(p, ui.Rect{X: strip.X, Y: strip.Y, W: strip.W - 26, H: strip.H}, label, 0, strip.H)
 	if words != "" {
-		count := []ui.Span{{Text: locales.TablesRowsShown(shown, len(m.rows)), Size: size * 0.8, Color: th.TextMuted}}
+		count := []ui.Span{{Text: locales.TablesRowsShown(shown, len(m.Rows)), Size: size * 0.8, Color: th.TextMuted}}
 		lw, _ := p.MeasureText(4000, label...)
 		cwid, _ := p.MeasureText(4000, count...)
 		if lw+cwid+2*tablePadX+30 <= strip.W { // the count only where the words leave room
@@ -510,7 +483,7 @@ func (a *app) editTableIn(pn *paneState, ch *chip, change func(m *tableModel)) *
 	if pos < 0 {
 		return ch
 	}
-	m := ch.tbl.clone()
+	m := ch.tbl.Clone()
 	change(m)
 	nc := a.tableChip(m)
 	an, ca := pn.doc.Selection()
@@ -576,7 +549,7 @@ func cellText(m *tableModel, row, col int) string {
 	if row == -2 {
 		return strings.TrimSpace(m.Filter)
 	}
-	return m.cell(row, col)
+	return m.Cell(row, col)
 }
 
 // clickCell is a click on a cell in pn: a check is ticked, the rest is opened.
@@ -586,13 +559,13 @@ func (a *app) clickCell(pn *paneState, h *tableHit) {
 		a.editTableIn(pn, h.ch, func(m *tableModel) { m.Filter = "" })
 		return
 	}
-	if h.row >= 0 && h.ch.tbl.cols[h.col].Kind == kindCheck {
+	if h.row >= 0 && h.ch.tbl.Cols[h.col].Kind == kindCheck {
 		pn.cellEd.open = false
 		a.editTableIn(pn, h.ch, func(m *tableModel) {
-			if m.rows[h.row][h.col] == "" {
-				m.rows[h.row][h.col] = "1"
+			if m.Rows[h.row][h.col] == "" {
+				m.Rows[h.row][h.col] = "1"
 			} else {
-				m.rows[h.row][h.col] = ""
+				m.Rows[h.row][h.col] = ""
 			}
 		})
 		return
@@ -617,7 +590,7 @@ func (a *app) commitCellIn(pn *paneState) {
 		ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.Filter = text })
 		return
 	}
-	ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.setCell(ce.row, ce.col, text) })
+	ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.SetCell(ce.row, ce.col, text) })
 }
 
 // stepCell goes on to another cell, writing this one: a row is added when it
@@ -627,7 +600,7 @@ func (a *app) stepCell(dr, dc int) {
 	ce := &pn.cellEd
 	a.commitCellIn(pn)
 	m := ce.ch.tbl
-	vis := m.visible() // a step goes through the rows that show
+	vis := m.Visible() // a step goes through the rows that show
 	d := -1
 	for i, r := range vis {
 		if r == ce.row {
@@ -636,34 +609,34 @@ func (a *app) stepCell(dr, dc int) {
 	}
 	d, col := d+dr, ce.col+dc
 	for dc != 0 {
-		if col >= len(m.cols) {
+		if col >= len(m.Cols) {
 			col, d = 0, d+1
 		} else if col < 0 {
-			col, d = len(m.cols)-1, d-1
+			col, d = len(m.Cols)-1, d-1
 		}
-		if d < 0 || m.cols[col].Kind != kindCheck {
+		if d < 0 || m.Cols[col].Kind != kindCheck {
 			break
 		}
 		col += dc
 	}
 	d = max(d, -1)
 	if d >= len(vis) {
-		ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.addRow(len(m.rows) - 1) })
+		ce.ch = a.editTableIn(pn, ce.ch, func(m *tableModel) { m.AddRow(len(m.Rows) - 1) })
 		m = ce.ch.tbl
-		vis = m.visible()
+		vis = m.Visible()
 		d = len(vis) - 1
 	}
 	row := -1
 	if d >= 0 {
 		row = vis[d]
 	}
-	*ce = cellEdit{open: true, ch: ce.ch, row: row, col: col, text: m.cell(row, col), fresh: true}
+	*ce = cellEdit{open: true, ch: ce.ch, row: row, col: col, text: m.Cell(row, col), fresh: true}
 }
 
 // lastShownRow reports whether the cell being written is in the last row that shows.
 func (a *app) lastShownRow() bool {
 	ce := &a.pane().cellEd
-	vis := ce.ch.tbl.visible()
+	vis := ce.ch.tbl.Visible()
 	return len(vis) > 0 && ce.row == vis[len(vis)-1] || len(vis) == 0 && ce.row == -1
 }
 
@@ -712,7 +685,7 @@ func (a *app) tableKeys(c *ui.Context, pn *paneState) {
 	}
 	if ch := a.tableAt(pn, caret-1); ch != nil && c.Shortcut(0, ui.KeyUp) {
 		row := -1
-		if vis := ch.tbl.visible(); len(vis) > 0 {
+		if vis := ch.tbl.Visible(); len(vis) > 0 {
 			row = vis[len(vis)-1]
 		}
 		pn.cellEd = cellEdit{open: true, ch: ch, row: row, col: 0, text: cellText(ch.tbl, row, 0), fresh: true}
@@ -778,7 +751,7 @@ func (a *app) cellEditView(c *ui.Context) {
 	cl := t.Colors
 	r := hit.r
 	if c.Shortcut(0, ui.KeyEscape) {
-		if ce.row == -2 && !ce.ch.tbl.filtering() && ce.ch.tbl.Filter != "" { // a filter that was never written
+		if ce.row == -2 && !ce.ch.tbl.Filtering() && ce.ch.tbl.Filter != "" { // a filter that was never written
 			a.editTable(ce.ch, func(m *tableModel) { m.Filter = "" })
 		}
 		a.closeCell()
@@ -839,7 +812,7 @@ func (a *app) cellEditView(c *ui.Context) {
 			a.stepCell(0, -1)
 			ce.atStart = true // the caret at the far edge the way it goes: another ← goes on
 			return
-		case side > 0 && !(a.lastShownRow() && ce.col == len(ce.ch.tbl.cols)-1): // the last cell: no row is added
+		case side > 0 && !(a.lastShownRow() && ce.col == len(ce.ch.tbl.Cols)-1): // the last cell: no row is added
 			a.stepCell(0, 1)
 			return
 		}
@@ -880,7 +853,7 @@ func (a *app) cellEditView(c *ui.Context) {
 		if ce.row == -2 {
 			return
 		}
-		col := ce.ch.tbl.cols[ce.col]
+		col := ce.ch.tbl.Cols[ce.col]
 		// the cell's bar keeps the focus in the cell as its buttons are pressed, as a spreadsheet's does: the press of
 		// one took it, and MyGo gives it back now to what had it before the cell opened, the page (#588)
 		bar := ui.Row(c.Key("cell-bar")).Absolute().Left(r.X).Top(r.Y+r.H+4).Padding(3).Radius(rad(10)).Background(cl.Card).Border(1, cl.Hairline).KeepFocus()
@@ -902,7 +875,7 @@ func (a *app) cellEditView(c *ui.Context) {
 					if b.Clicked() {
 						a.commitCell()
 						if do == nil { // not a change: the table is copied as it is
-							a.copyText(ce.ch.tbl.csvText(','))
+							a.copyText(ce.ch.tbl.CSVText(','))
 							a.say(toastOK, locales.TheTableWasCopiedAsCsv())
 						} else {
 							a.editTable(ce.ch, do)
@@ -911,18 +884,18 @@ func (a *app) cellEditView(c *ui.Context) {
 					}
 				}
 				row, ci := ce.row, ce.col
-				btn(iconRowAdd, locales.TablesAddRowBelow(), false, func(m *tableModel) { m.addRow(row) })
-				btn(iconColAdd, locales.TablesAddColumnRight(), false, func(m *tableModel) { m.addCol(ci) })
-				btn(iconRowDel, locales.TablesDeleteRow(), true, func(m *tableModel) { m.delRow(row) })
-				btn(iconColDel, locales.TablesDeleteColumn(), true, func(m *tableModel) { m.delCol(ci) })
-				btn(iconKind, locales.TablesColumnKind(kindName(col.Kind)), false, func(m *tableModel) { m.setKind(ci, nextOf(tableKinds, m.cols[ci].Kind)) })
-				btn(iconAlign, "Hizalama", false, func(m *tableModel) { m.cols[ci].Align = (m.cols[ci].Align + 1) % 3 })
-				btn(iconCalc, locales.TablesFooter(calcName(col.Calc)), false, func(m *tableModel) { m.cols[ci].Calc = m.cols[ci].nextCalc() })
+				btn(iconRowAdd, locales.TablesAddRowBelow(), false, func(m *tableModel) { m.AddRow(row) })
+				btn(iconColAdd, locales.TablesAddColumnRight(), false, func(m *tableModel) { m.AddCol(ci) })
+				btn(iconRowDel, locales.TablesDeleteRow(), true, func(m *tableModel) { m.DelRow(row) })
+				btn(iconColDel, locales.TablesDeleteColumn(), true, func(m *tableModel) { m.DelCol(ci) })
+				btn(iconKind, locales.TablesColumnKind(kindName(col.Kind)), false, func(m *tableModel) { m.SetKind(ci, nextOf(tableKinds, m.Cols[ci].Kind)) })
+				btn(iconAlign, "Hizalama", false, func(m *tableModel) { m.Cols[ci].Align = (m.Cols[ci].Align + 1) % 3 })
+				btn(iconCalc, locales.TablesFooter(calcName(col.Calc)), false, func(m *tableModel) { m.Cols[ci].Calc = m.Cols[ci].NextCalc() })
 				sortLabel := locales.TablesSortBy()
-				if ce.ch.tbl.sortedAsc(ci) {
+				if ce.ch.tbl.SortedAsc(ci) {
 					sortLabel = locales.TablesSortByDesc()
 				}
-				btn(iconSort, sortLabel, false, func(m *tableModel) { m.toggleSort(ci) })
+				btn(iconSort, sortLabel, false, func(m *tableModel) { m.ToggleSort(ci) })
 				filterLabel := "Filtrele"
 				if ce.ch.tbl.Filter != "" {
 					filterLabel = locales.TablesEditFilter()
@@ -1073,7 +1046,7 @@ func (a *app) dragColumns(pn *paneState, ed ui.Element) {
 		pn.colDrag = colDragState{}
 		if d.dx != 0 {
 			w := max(d.w0+d.dx, 36)
-			a.editTableIn(pn, d.ch, func(m *tableModel) { m.cols[d.col].W = w })
+			a.editTableIn(pn, d.ch, func(m *tableModel) { m.Cols[d.col].W = w })
 		}
 		pn.doc.SetSelection(pn.selPrevA, pn.selPrevC)
 	}
@@ -1134,7 +1107,7 @@ func tablesIn(t richtext.Text) richtext.Text {
 // of code the file has as its fenced block; a table with other text in its
 // paragraph is parted from it.
 func tableAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes) richtext.Text {
-	return fencedAsText(t, i, ch.tbl.text(), tableLang, plain)
+	return fencedAsText(t, i, ch.tbl.Text(), tableLang, plain)
 }
 
 // fencedAsText puts txt where the object at i in t is, as a block of code in language lang: the fenced block

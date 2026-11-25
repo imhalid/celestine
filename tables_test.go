@@ -25,19 +25,19 @@ func TestSplitCells(t *testing.T) {
 
 func TestTableModelFile(t *testing.T) {
 	m := newTable(2, 2)
-	m.cols[0].Name = "Ad"
-	m.cols[1] = tableCol{Name: "Sayı", Kind: kindNumber, Align: 2, Calc: "sum"}
-	m.rows[0] = []string{"elma \"x\"", "3"}
-	m.rows[1] = []string{"armut", "12,5"}
-	back, ok := parseTable(m.text())
-	if !ok || back.text() != m.text() || back.rows[0][0] != "elma \"x\"" {
-		t.Fatalf("%q -> %+v %v", m.text(), back, ok)
+	m.Cols[0].Name = "Ad"
+	m.Cols[1] = tableCol{Name: "Sayı", Kind: kindNumber, Align: 2, Calc: "sum"}
+	m.Rows[0] = []string{"elma \"x\"", "3"}
+	m.Rows[1] = []string{"armut", "12,5"}
+	back, ok := parseTable(m.Text())
+	if !ok || back.Text() != m.Text() || back.Rows[0][0] != "elma \"x\"" {
+		t.Fatalf("%q -> %+v %v", m.Text(), back, ok)
 	}
-	if got := m.calc(1); got != "15.5" {
+	if got := m.Calc(1); got != "15.5" {
 		t.Fatalf("sum: %q", got)
 	}
-	m.cols[1].Calc = "avg"
-	if got := m.calc(1); got != "7.75" {
+	m.Cols[1].Calc = "avg"
+	if got := m.Calc(1); got != "7.75" {
 		t.Fatalf("avg: %q", got)
 	}
 	if _, ok := parseTable("bu bir tablo değil"); ok {
@@ -47,31 +47,31 @@ func TestTableModelFile(t *testing.T) {
 
 func TestTableModelEdits(t *testing.T) {
 	m := newTable(2, 2)
-	m.rows[0][0], m.rows[1][0] = "a", "b"
-	c := m.clone()
-	c.addRow(0)
-	c.addCol(0)
-	if len(m.rows) != 2 || len(m.cols) != 2 || len(c.rows) != 3 || len(c.cols) != 3 || c.rows[2][0] != "b" || c.rows[1][0] != "" {
+	m.Rows[0][0], m.Rows[1][0] = "a", "b"
+	c := m.Clone()
+	c.AddRow(0)
+	c.AddCol(0)
+	if len(m.Rows) != 2 || len(m.Cols) != 2 || len(c.Rows) != 3 || len(c.Cols) != 3 || c.Rows[2][0] != "b" || c.Rows[1][0] != "" {
 		t.Fatalf("clone shares: %+v / %+v", m, c)
 	}
-	c.delCol(0)
-	c.delCol(0)
-	c.delCol(0)
-	if len(c.cols) != 1 {
-		t.Fatalf("the last column went: %d", len(c.cols))
+	c.DelCol(0)
+	c.DelCol(0)
+	c.DelCol(0)
+	if len(c.Cols) != 1 {
+		t.Fatalf("the last column went: %d", len(c.Cols))
 	}
-	m.setKind(0, kindCheck)
-	if m.rows[0][0] != "1" || m.cols[0].Align != 1 {
+	m.SetKind(0, kindCheck)
+	if m.Rows[0][0] != "1" || m.Cols[0].Align != 1 {
 		t.Fatalf("check: %+v", m)
 	}
-	if got := m.cols[0].nextCalc(); got != "count" {
+	if got := m.Cols[0].NextCalc(); got != "count" {
 		t.Fatalf("a check's calculations: %q", got)
 	}
 }
 
 func TestTableFromMarkdown(t *testing.T) {
 	m := tableFromMarkdown([]string{"| Ad | Sayı |", "| --- | ---: |", "| elma | 3 |", "| armut | 12 |"})
-	if m == nil || len(m.cols) != 2 || len(m.rows) != 2 || m.cols[1].Kind != kindNumber || m.cols[1].Align != 2 || m.cols[0].Kind != kindText {
+	if m == nil || len(m.Cols) != 2 || len(m.Rows) != 2 || m.Cols[1].Kind != kindNumber || m.Cols[1].Align != 2 || m.Cols[0].Kind != kindText {
 		t.Fatalf("%+v", m)
 	}
 }
@@ -140,8 +140,8 @@ func TestTableCellEdit(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	tt.Advance(200 * time.Millisecond)
 	tt.Frame()
-	if m := model(); m.cell(0, 0) != "kiraz" || a.pane().cellEd.open {
-		t.Fatalf("after Enter: %q open %v", m.cell(0, 0), a.pane().cellEd.open)
+	if m := model(); m.Cell(0, 0) != "kiraz" || a.pane().cellEd.open {
+		t.Fatalf("after Enter: %q open %v", m.Cell(0, 0), a.pane().cellEd.open)
 	}
 	// Tab goes to the next cell, and writes this one
 	h = cell(0, 1)
@@ -154,24 +154,24 @@ func TestTableCellEdit(t *testing.T) {
 	if !a.pane().cellEd.open || a.pane().cellEd.row != 1 || a.pane().cellEd.col != 0 || a.pane().cellEd.text != "armut" {
 		t.Fatalf("after Tab: %+v", a.pane().cellEd)
 	}
-	if m := model(); m.cell(0, 1) != "7" {
-		t.Fatalf("Tab did not write: %+v", m.rows)
+	if m := model(); m.Cell(0, 1) != "7" {
+		t.Fatalf("Tab did not write: %+v", m.Rows)
 	}
 	// Tab past the last cell: a new row
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(100 * time.Millisecond)
 	tt.Key(0, ui.KeyTab)
 	tt.Advance(200 * time.Millisecond)
-	if m := model(); len(m.rows) != 3 || a.pane().cellEd.row != 2 {
-		t.Fatalf("no new row: %d rows, editing %+v", len(m.rows), a.pane().cellEd)
+	if m := model(); len(m.Rows) != 3 || a.pane().cellEd.row != 2 {
+		t.Fatalf("no new row: %d rows, editing %+v", len(m.Rows), a.pane().cellEd)
 	}
 	// the buttons: a column, and then it is taken away; a row away
 	if err := tt.Click("Sağa sütun ekle"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(200 * time.Millisecond)
-	if m := model(); len(m.cols) != 3 {
-		t.Fatalf("columns %d", len(m.cols))
+	if m := model(); len(m.Cols) != 3 {
+		t.Fatalf("columns %d", len(m.Cols))
 	}
 	h = cell(-1, 1)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
@@ -180,8 +180,8 @@ func TestTableCellEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if m := model(); len(m.cols) != 2 {
-		t.Fatalf("columns %d after delete", len(m.cols))
+	if m := model(); len(m.Cols) != 2 {
+		t.Fatalf("columns %d after delete", len(m.Cols))
 	}
 	h = cell(2, 0)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
@@ -190,22 +190,22 @@ func TestTableCellEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(200 * time.Millisecond)
-	if m := model(); len(m.rows) != 2 {
-		t.Fatalf("rows %d after delete", len(m.rows))
+	if m := model(); len(m.Rows) != 2 {
+		t.Fatalf("rows %d after delete", len(m.Rows))
 	}
 	// the foot: a column that is a number sums
 	h = cell(0, 1)
 	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
 	tt.Advance(200 * time.Millisecond)
-	if model().cols[1].Kind != kindNumber {
-		t.Fatalf("the column was read as %q", model().cols[1].Kind)
+	if model().Cols[1].Kind != kindNumber {
+		t.Fatalf("the column was read as %q", model().Cols[1].Kind)
 	}
 	if err := tt.Click("Alt satır: Hesap yok"); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
 	tt.Advance(200 * time.Millisecond)
-	if m := model(); m.cols[1].Calc != "sum" || m.calc(1) != "19" {
-		t.Fatalf("foot: %q %q", m.cols[1].Calc, m.calc(1))
+	if m := model(); m.Cols[1].Calc != "sum" || m.Calc(1) != "19" {
+		t.Fatalf("foot: %q %q", m.Cols[1].Calc, m.Calc(1))
 	}
 	if md := a.pageMarkdown(a.pane().page, a.pane().doc.Text()); !strings.Contains(md, `"calc":"sum"`) || !strings.Contains(md, "sonra") {
 		t.Fatalf("what is written: %q", md)
@@ -213,8 +213,8 @@ func TestTableCellEdit(t *testing.T) {
 	// undo brings back the table as it was
 	a.pane().doc.Undo()
 	tt.Frame()
-	if m := model(); m.cols[1].Calc != "" {
-		t.Fatalf("undo left the foot: %+v", m.cols)
+	if m := model(); m.Cols[1].Calc != "" {
+		t.Fatalf("undo left the foot: %+v", m.Cols)
 	}
 }
 
@@ -251,8 +251,8 @@ func TestTableCellLetGo(t *testing.T) {
 	if a.pane().cellEd.open || !a.pane().focused {
 		t.Fatalf("the table kept the focus: open %v, text focused %v", a.pane().cellEd.open, a.pane().focused)
 	}
-	if m := a.pane().tableSeen[0].ch.tbl; m.cell(0, 0) != "kiraz" {
-		t.Fatalf("the cell was not written: %q", m.cell(0, 0))
+	if m := a.pane().tableSeen[0].ch.tbl; m.Cell(0, 0) != "kiraz" {
+		t.Fatalf("the cell was not written: %q", m.Cell(0, 0))
 	}
 	tt.Type("z")
 	tt.Advance(200 * time.Millisecond)
@@ -401,7 +401,7 @@ func TestTableColumnDrag(t *testing.T) {
 	tt.Frame()
 	var w float32
 	for _, h := range a.pane().tableSeen {
-		w = h.ch.tbl.cols[0].W
+		w = h.ch.tbl.Cols[0].W
 	}
 	if w < b.w+60 || a.pane().colDrag.active {
 		t.Fatalf("the column is %v wide, was %v", w, b.w)
@@ -464,7 +464,7 @@ func TestTableArrowKeys(t *testing.T) {
 	if an, ca := a.pane().doc.Selection(); an != pos+1 || ca != pos+1 {
 		t.Fatalf("out of the table the caret is at %d,%d, not after it (%d)", an, ca, pos+1)
 	}
-	if n := len(ch.tbl.rows); n != 2 {
+	if n := len(ch.tbl.Rows); n != 2 {
 		t.Fatalf("↓ added a row: %d", n)
 	}
 	tt.Key(0, ui.KeyUp)

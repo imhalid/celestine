@@ -349,17 +349,17 @@ func TestMCPBridgeChallengesBounded(t *testing.T) {
 	var cs mcpChallenges
 	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
 	cn, sn := mcpNonce(), mcpNonce()
-	cs.add(hex.EncodeToString(sn), cn, now)
-	if !cs.check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
+	cs.Add(hex.EncodeToString(sn), cn, now)
+	if !cs.Check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
 		t.Fatal("the right proof was refused")
 	}
 	for i := range 3 * mcpChallengeMax {
-		cs.add(hex.EncodeToString(mcpNonce()), mcpNonce(), now.Add(time.Duration(i)*time.Millisecond))
+		cs.Add(hex.EncodeToString(mcpNonce()), mcpNonce(), now.Add(time.Duration(i)*time.Millisecond))
 	}
-	if len(cs.m) > mcpChallengeMax {
-		t.Fatalf("%d nonces kept", len(cs.m))
+	if cs.Len() > mcpChallengeMax {
+		t.Fatalf("%d nonces kept", cs.Len())
 	}
-	if !cs.check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
+	if !cs.Check(hex.EncodeToString(sn), hex.EncodeToString(mcpProof("t", "client", cn, sn)), "t", now) {
 		t.Fatal("a nonce in use was dropped for new ones")
 	}
 
@@ -371,23 +371,23 @@ func TestMCPBridgeChallengesBounded(t *testing.T) {
 	for i := range mcpChallengeMax {
 		p := pair{mcpNonce(), mcpNonce()}
 		at := now.Add(time.Duration(i) * time.Second)
-		cs.add(hex.EncodeToString(p.sn), p.cn, at)
-		if !cs.check(hex.EncodeToString(p.sn), hex.EncodeToString(mcpProof("t", "client", p.cn, p.sn)), "t", at) {
+		cs.Add(hex.EncodeToString(p.sn), p.cn, at)
+		if !cs.Check(hex.EncodeToString(p.sn), hex.EncodeToString(mcpProof("t", "client", p.cn, p.sn)), "t", at) {
 			t.Fatal("the right proof was refused")
 		}
 		pairs = append(pairs, p)
 	}
 	later := now.Add(time.Hour)
 	cn, sn = mcpNonce(), mcpNonce()
-	cs.add(hex.EncodeToString(sn), cn, later)
-	if len(cs.m) != mcpChallengeMax || cs.m[hex.EncodeToString(sn)] == nil {
-		t.Fatalf("no room for a new nonce: %d", len(cs.m))
+	cs.Add(hex.EncodeToString(sn), cn, later)
+	if cs.Len() != mcpChallengeMax || !cs.Has(hex.EncodeToString(sn)) {
+		t.Fatalf("no room for a new nonce: %d", cs.Len())
 	}
-	if cs.m[hex.EncodeToString(pairs[0].sn)] != nil {
+	if cs.Has(hex.EncodeToString(pairs[0].sn)) {
 		t.Fatal("the nonce used longest ago was kept")
 	}
 	last := pairs[len(pairs)-1]
-	if !cs.check(hex.EncodeToString(last.sn), hex.EncodeToString(mcpProof("t", "client", last.cn, last.sn)), "t", later) {
+	if !cs.Check(hex.EncodeToString(last.sn), hex.EncodeToString(mcpProof("t", "client", last.cn, last.sn)), "t", later) {
 		t.Fatal("the nonce used last was dropped")
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/textnorm"
 )
 
 // Lists of the app's own look and tasks in the running text, in Markdown (#536). Markdown has no word for either
@@ -45,7 +46,7 @@ const (
 )
 
 // listMarkStart starts the comment over a list that says its look.
-const listMarkStart = "<!--celestine:list "
+const listMarkStart = textnorm.ListMarkStart
 
 var (
 	// listMarkLine is the comment over a list: what is before it (a quote's marks, the list's indent) and the look.

@@ -6,12 +6,12 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/textnorm"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -641,110 +641,15 @@ func (a *app) goToParagraph(n int) {
 	a.pane().revealWant = true
 }
 
-// foldText is s for matching: lower case, Turkish letters as their ASCII. Its name is not fold, which folds
-// a block of the page (fold.go).
-func foldText(s string) string {
-	ascii := true
-	for i := 0; i < len(s); i++ {
-		if s[i] >= utf8.RuneSelf {
-			ascii = false
-			break
-		}
-	}
-	if ascii {
-		return strings.ToLower(s)
-	}
-	// one pass, as TurkishFold, strings.ToLower and TurkishFold again would: a page's whole text is folded for the
-	// search (#504)
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		if c, ok := turkishASCII(r); ok {
-			b.WriteByte(c)
-			continue
-		}
-		r = unicode.ToLower(r)
-		if c, ok := turkishASCII(r); ok {
-			b.WriteByte(c)
-			continue
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
-}
+// foldText normalizes s for matching via textnorm.Fold.
+func foldText(s string) string { return textnorm.Fold(s) }
 
-// turkishASCII is the ASCII letter TurkishFold gives a Turkish letter.
-func turkishASCII(r rune) (byte, bool) {
-	switch r {
-	case 'ç', 'Ç':
-		return 'c', true
-	case 'ğ', 'Ğ':
-		return 'g', true
-	case 'ı', 'İ':
-		return 'i', true
-	case 'ö', 'Ö':
-		return 'o', true
-	case 'ş', 'Ş':
-		return 's', true
-	case 'ü', 'Ü':
-		return 'u', true
-	}
-	return 0, false
-}
+// match scores how well q matches s via textnorm.Match.
+func match(q, s string) int { return textnorm.Match(q, s) }
 
-// match scores how well q matches s: the words of q all in s, nearer the
-// start and at the start of words better; the letters of q in order, worse;
-// -1 for no match.
-func match(q, s string) int {
-	q = foldText(strings.TrimSpace(q))
-	if q == "" {
-		return 0
-	}
-	return matchFolded(q, strings.Fields(q), []rune(strings.ReplaceAll(q, " ", "")), foldText(s))
-}
-
-// matchFolded is match for a q that was folded and taken apart once (its words, its letters without
-// spaces) and an s that is folded already, so that the same q goes through many s.
+// matchFolded scores a pre-folded query against a pre-folded target string via textnorm.MatchFolded.
 func matchFolded(q string, words []string, qr []rune, s string) int {
-	if q == "" {
-		return 0
-	}
-	score := 0
-	all := true
-	for _, w := range words {
-		i := strings.Index(s, w)
-		if i < 0 {
-			all = false
-			break
-		}
-		score += 100 - min(i, 60)
-		if i == 0 || s[i-1] == ' ' || s[i-1] == '-' || s[i-1] == ':' {
-			score += 40
-		}
-	}
-	if all {
-		if strings.HasPrefix(s, q) {
-			score += 80
-		}
-		return score + 200
-	}
-	// the letters in order, as "ypl" in "yapılacaklar"
-	j, gaps, last := 0, 0, -1
-	i := -1
-	for _, r := range s {
-		i++
-		if j < len(qr) && r == qr[j] {
-			if last >= 0 {
-				gaps += i - last - 1
-			}
-			last = i
-			j++
-		}
-	}
-	if j < len(qr) {
-		return -1
-	}
-	return max(1, 100-gaps*4)
+	return textnorm.MatchFolded(q, words, qr, s)
 }
 
 // paletteView shows the palette while it is open.

@@ -142,7 +142,7 @@ func TestFindCountsWhatIsHidden(t *testing.T) {
 	a.fold(at(a.pane().doc, "Başlık"))
 	tt.Frame()
 	ch := a.insertTableOf(a.pane().doc.Text().Len(), newTable(2, 1))
-	ch.tbl.setCell(0, 1, "kırmızı elma")
+	ch.tbl.SetCell(0, 1, "kırmızı elma")
 	tt.Frame()
 	a.openFind()
 	a.pane().find.query = "elma"

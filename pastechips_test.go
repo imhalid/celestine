@@ -27,11 +27,11 @@ func checksIn(a *app) []*chip {
 func TestCopyChipOwnsWhatItHolds(t *testing.T) {
 	a, _ := newTestApp(t, "x\n")
 	tb := a.tableChip(newTable(2, 1))
-	tb.tbl.setCell(0, 0, "a")
+	tb.tbl.SetCell(0, 0, "a")
 	tc := a.copyChip(tb)
-	tc.tbl.setCell(0, 0, "b")
-	if tb.tbl == tc.tbl || tb.tbl.cell(0, 0) != "a" || tc.tbl.cell(0, 0) != "b" {
-		t.Fatalf("the table's rows are shared: %q %q", tb.tbl.cell(0, 0), tc.tbl.cell(0, 0))
+	tc.tbl.SetCell(0, 0, "b")
+	if tb.tbl == tc.tbl || tb.tbl.Cell(0, 0) != "a" || tc.tbl.Cell(0, 0) != "b" {
+		t.Fatalf("the table's rows are shared: %q %q", tb.tbl.Cell(0, 0), tc.tbl.Cell(0, 0))
 	}
 	hidden := a.parse("milk [ ] today\n")
 	fold := &chip{kind: "fold", hidden: &hidden, lines: 1}
