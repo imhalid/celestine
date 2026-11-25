@@ -301,6 +301,9 @@ func TestCatalogs(t *testing.T) {
 	// table ("collectionSettings", "moveToTrash: " + a title)
 	var code strings.Builder
 	srcs, _ := filepath.Glob("*.go")
+	if intSrcs, _ := filepath.Glob("internal/*/*.go"); len(intSrcs) > 0 {
+		srcs = append(srcs, intSrcs...)
+	}
 	for _, f := range srcs {
 		if !strings.HasSuffix(f, "_test.go") && f != "i18n_keys.go" {
 			b, _ := os.ReadFile(f)

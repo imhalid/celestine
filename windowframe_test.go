@@ -119,7 +119,9 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	if rectsOverlap(topLeft, firstPara) {
 		t.Fatalf("top-left chrome %+v overlaps first paragraph %+v", topLeft, firstPara)
 	}
-	if titleR, ok := tt.Find(a.pane().page.Title); ok && rectsOverlap(topLeft, titleR) {
+	if titleR, ok := tt.Find(locales.CommonTitle()); !ok {
+		t.Fatal("page title input not found")
+	} else if rectsOverlap(topLeft, titleR) {
 		t.Fatalf("top-left chrome %+v overlaps page title %+v", topLeft, titleR)
 	}
 

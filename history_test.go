@@ -353,11 +353,13 @@ func TestTimeLapse(t *testing.T) {
 	if err := tt.Click(msg("common_timeLapse")); err != nil {
 		t.Fatal(err, tt.Texts())
 	}
-	for range 50 {
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		tt.Frame()
 		tt.Advance(20 * time.Millisecond)
 		if a.lapse.words != nil {
 			break
 		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	if a.settings.NoLapse || !a.lapse.on || a.lapse.words == nil {
 		t.Fatalf("on again: setting %v, on %v", a.settings.NoLapse, a.lapse.on)
