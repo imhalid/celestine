@@ -603,6 +603,7 @@ func main() {
 		a.loadSettings()
 		a.seedNew(empty && store != nil)
 		a.applyTree()
+		a.restorePaneLayout()
 		a.finishRenames()         // a title being typed when the app last went: its links follow now (#560)
 		if a.keychainErr != nil { // its secrets not read: said, as no sign-out is (#163)
 			a.say(toastWarn, locales.KeychainNoAnswer())
@@ -647,7 +648,8 @@ func main() {
 			a.relinkRenamed(r.p, r.from, false)
 		}
 		a.flush()
-		a.keepTree(true)     // what was opened in the tree in its last second
+		a.keepTree(true) // what was opened in the tree in its last second
+		a.keepPanes()
 		if a.settingsDirty { // what saveSettingsSoon left
 			a.saveSettings()
 		}

@@ -652,3 +652,86 @@ func TestBlockDragLeavesOtherPane(t *testing.T) {
 		t.Fatalf("dropped: %q", got)
 	}
 }
+
+func TestPaneRestoreByPageIDAcrossMove(t *testing.T) {
+	a, tt := newTestApp(t, "İlk sayfa\n")
+	c1 := a.pane().page.Coll
+	c2, _ := a.lib.NewCollection("Hedef")
+	p2, _ := c1.NewPage(nil, "Taşınacak")
+	p2.SaveText("içerik burada\n")
+	if p2.ID == "" {
+		t.Fatal("expected generated Page.ID")
+	}
+	a.openInSide(place{"page", p2.Dir})
+	tt.Frame()
+	if a.paneCount() != 2 || a.ps.states[1].page != p2 {
+		t.Fatalf("expected side pane on %v, got %v", p2, a.ps.states[1].page)
+	}
+	snap := a.panesSnapshot()
+	if snap == "" {
+		t.Fatal("expected non-empty panes snapshot")
+	}
+
+	// Move p2 to c2, changing its Dir while preserving its Page.ID.
+	if err := a.lib.MovePage(p2, c2, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	refs := a.paneRefs()
+	a.restorePanes(refs)
+	if a.ps.states[1].page == nil || a.ps.states[1].page.ID != p2.ID {
+		t.Fatalf("restorePanes lost moved page: got %v want ID %q", a.ps.states[1].page, p2.ID)
+	}
+
+	// Simulate fresh restart reading snapshot from settings after the move.
+	a2 := newApp(a.lib)
+	a2.settings.Panes = snap
+	a2.restorePaneLayout()
+	if len(a2.ps.states) != 2 || a2.ps.states[1].page == nil || a2.ps.states[1].page.ID != p2.ID {
+		t.Fatalf("restorePaneLayout lost moved page: states=%v", a2.ps.states)
+	}
+}
+
+func TestPanesPersistThroughSettingsStoreReload(t *testing.T) {
+	file := t.TempDir() + "/panes.db"
+	st, err := OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	lib, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("Notlar")
+	p1, _ := c.NewPage(nil, "Bir")
+	p1.SaveText("bir\n")
+	p2, _ := c.NewPage(nil, "İki")
+	p2.SaveText("iki\n")
+
+	a := newApp(lib)
+	a.settingsStore = st
+	tt := ui.NewTester(a.view, 1200, 800)
+	tt.Frame()
+	a.openInSide(place{"page", p2.Dir})
+	tt.Advance(200 * time.Millisecond)
+	a.usePane(0)
+	tt.Frame()
+	a.keepPanes()
+	a.saveSettings()
+
+	// Replicate main() startup order: newApp(lib2) runs before settingsStore & loadSettings().
+	lib2, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newApp(lib2)
+	b.settingsStore = st
+	b.loadSettings()
+	b.restorePaneLayout()
+	if b.paneCount() != 2 || b.ps.active != 0 {
+		t.Fatalf("expected 2 panes with active=0 after reload, got count=%d active=%d", b.paneCount(), b.ps.active)
+	}
+	if b.ps.states[1].page == nil || b.ps.states[1].page.ID != p2.ID {
+		t.Fatalf("expected second pane to restore %q, got %v", p2.ID, b.ps.states[1].page)
+	}
+}

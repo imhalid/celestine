@@ -166,13 +166,13 @@ func (a *app) stampDays(c *Collection) {
 			var done []stampJob
 			var after uint64 // the writes when the last batch had written, inside it: no one else writes then
 			for chunk := range slices.Chunk(jobs, stampChunk) {
-				err := library.InBatch(fsys, func() error {
+				err := library.InBatch(fsys, func(tx library.FS) error {
 					for _, j := range chunk {
-						if ok, err := library.StampMeta(fsys, j.file, journalDayKey, j.day); ok && err == nil {
+						if ok, err := library.StampMeta(tx, j.file, journalDayKey, j.day); ok && err == nil {
 							done = append(done, j)
 						}
 					}
-					after, _ = fsWrites(fsys)
+					after, _ = fsWrites(tx)
 					return nil
 				})
 				if err != nil {

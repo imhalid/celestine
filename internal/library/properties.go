@@ -84,7 +84,7 @@ type Property struct {
 }
 
 // reserved are the front matter keys of the page itself.
-var reserved = []string{"title", "created", "order", "rank", "manualrank", "cover", "covershift", "properties"}
+var reserved = []string{"id", "title", "created", "order", "rank", "manualrank", "cover", "covershift", "properties"}
 
 // renamedKeys are the reserved keys that were reserved after properties came: before, a property could have one
 // for its id (one named "Properties" had "properties"), and its values are under that key in the pages' files. Such
@@ -287,12 +287,14 @@ func (p *Page) RemoveProperty(id string) error {
 }
 
 // saveMeta writes page p with the body it has.
-func (p *Page) saveMeta() error {
-	body, err := p.Body()
+func (p *Page) saveMeta() error { return p.saveMetaTo(p.FS()) }
+
+func (p *Page) saveMetaTo(fsys FS) error {
+	body, err := p.bodyFrom(fsys)
 	if err != nil {
 		return err
 	}
-	return p.Save(body)
+	return p.saveTo(fsys, body)
 }
 
 func CleanOptions(options []string) []string {
@@ -528,11 +530,11 @@ func (c *Collection) renameReserved() bool {
 		changed = true
 	}
 	if changed {
-		InBatch(c.FS, func() error { // cut short where it is not one change, the next rename takes the same ids again
+		InBatch(c.FS, func(tx FS) error { // cut short where it is not one change, the next rename takes the same ids again
 			for _, p := range touched {
-				p.saveMeta() // one that cannot be written keeps the value in its file under the old key, as the page's own field
+				p.saveMetaTo(tx) // one that cannot be written keeps the value in its file under the old key, as the page's own field
 			}
-			return c.Save()
+			return c.saveTo(tx)
 		})
 	}
 	return changed
@@ -692,17 +694,17 @@ func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
 	}
 	p.Props[id] = v
 	// one change of the store: all of them or none (#138)
-	return InBatch(c.FS, func() error {
+	return InBatch(c.FS, func(tx FS) error {
 		for i, q := range col {
 			if q.Rank == i+1 && q != p {
 				continue
 			}
 			q.Rank = i + 1
-			body, err := q.Body()
+			body, err := q.bodyFrom(tx)
 			if err != nil {
 				return err
 			}
-			if err := q.Save(body); err != nil {
+			if err := q.saveTo(tx, body); err != nil {
 				return err
 			}
 		}
@@ -743,17 +745,17 @@ func (c *Collection) SetManual(pages []*Page) error {
 		}
 	}
 	// one change of the store: all of them or none (#138)
-	return InBatch(c.FS, func() error {
+	return InBatch(c.FS, func(tx FS) error {
 		for i, p := range all {
 			if p.Manual == i+1 {
 				continue
 			}
 			p.Manual = i + 1
-			body, err := p.Body()
+			body, err := p.bodyFrom(tx)
 			if err != nil {
 				return err
 			}
-			if err := p.Save(body); err != nil {
+			if err := p.saveTo(tx, body); err != nil {
 				return err
 			}
 		}

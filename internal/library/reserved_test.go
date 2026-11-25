@@ -251,3 +251,53 @@ func TestReservedRenameInterrupted(t *testing.T) {
 		t.Fatalf("values: Dune %v, Emma %v", d.Props, e.Props)
 	}
 }
+
+func TestPageIDPersistenceAndLookup(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes, _ := lib.NewCollection("Notes")
+	other, _ := lib.NewCollection("Archive")
+	p1, err := notes.NewPage(nil, "First")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := notes.NewPage(nil, "Second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1.ID == "" || p2.ID == "" || p1.ID == p2.ID {
+		t.Fatalf("expected distinct non-empty IDs, got %q and %q", p1.ID, p2.ID)
+	}
+	origID := p1.ID
+	if lib.PageByID(origID) != p1 {
+		t.Fatalf("PageByID(%q) = %v, want %v", origID, lib.PageByID(origID), p1)
+	}
+	if lib.PageByID("") != nil || lib.PageByID("missing") != nil {
+		t.Fatal("expected nil for empty or unknown PageID")
+	}
+
+	// Reserved "id" property cannot be overwritten via SetValue or AddProperty.
+	notes.Properties = append(notes.Properties, Property{ID: "id", Name: "id", Type: PropText})
+	if err := p1.SetValue("id", "custom-value"); err == nil {
+		t.Fatal("expected SetValue(\"id\", ...) to be rejected")
+	}
+
+	// Move across collections and reload from disk; ID stays identical while Dir changes.
+	oldDir := p1.Dir
+	if err := lib.MovePage(p1, other, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	if p1.Dir == oldDir || p1.ID != origID {
+		t.Fatalf("after MovePage: dir %q (was %q), id %q (want %q)", p1.Dir, oldDir, p1.ID, origID)
+	}
+	reloaded, err := OpenLibrary(lib.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reloaded.PageByID(origID)
+	if got == nil || got.Title != "First" || got.Dir != p1.Dir {
+		t.Fatalf("reloaded PageByID(%q) = %+v", origID, got)
+	}
+}

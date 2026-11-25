@@ -323,8 +323,9 @@ func dataDir() string {
 }
 
 // Batcher is a file system whose writes can be made one change: all of them or none.
+// fn receives a transaction-scoped FS to run those reads and writes on.
 type Batcher interface {
-	Batch(fn func() error) error
+	Batch(fn func(tx FS) error) error
 }
 
 // TimeKeeper is a file system that can write a file over and leave it the time it was last written: a change to a
@@ -369,6 +370,40 @@ func StampMeta(fsys FS, file, key, value string) (bool, error) {
 	return true, nil
 }
 
+// PageIndexTask is the persisted form of a parsed Markdown task for a cached page index.
+type PageIndexTask struct {
+	Line   int    `json:"l"`
+	Done   bool   `json:"d,omitempty"`
+	Text   string `json:"t"`
+	Due    int64  `json:"u,omitempty"`
+	Every  string `json:"e,omitempty"`
+	Kind   string `json:"k,omitempty"`
+	Inl    int    `json:"i,omitempty"`
+	Col    int    `json:"c,omitempty"`
+	Folded string `json:"f,omitempty"`
+}
+
+// PageIndex is the derived per-page index payload cached by path, mtime and byte size.
+type PageIndex struct {
+	Path   string          `json:"-"`
+	MTime  int64           `json:"-"`
+	Size   int64           `json:"-"`
+	Tasks  []PageIndexTask `json:"t,omitempty"`
+	Tags   []string        `json:"g,omitempty"`
+	Links  []string        `json:"l,omitempty"`
+	Words  int             `json:"w"`
+	Empty  bool            `json:"e,omitempty"`
+	Folded string          `json:"x,omitempty"`
+}
+
+// PrewarmRow is one node returned by ReadPrewarmFrom: either a fresh cached Index blob or raw page Src.
+type PrewarmRow struct {
+	MTime int64
+	Size  int64
+	Index []byte
+	Src   []byte
+}
+
 // sealedBatcher is a Batcher whose Batch other goroutines' reads and writes wait for: the store of a file, which
 // has one connection. The browser's store only holds its writes back.
 type sealedBatcher interface {
@@ -383,11 +418,11 @@ func BatchSeals(fsys FS) bool {
 	return ok
 }
 
-// InBatch runs fn, whose writes go to fsys, as one change of it when it can be one: a reorder that writes every
+// InBatch runs fn, whose writes go to tx, as one change of fsys when it can be one: a reorder that writes every
 // sibling is not left half done (#138).
-func InBatch(fsys FS, fn func() error) error {
+func InBatch(fsys FS, fn func(tx FS) error) error {
 	if b, ok := fsys.(Batcher); ok {
 		return b.Batch(fn)
 	}
-	return fn()
+	return fn(fsys)
 }

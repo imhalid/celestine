@@ -606,9 +606,9 @@ func (a *app) paneCommands(cmd func(title, keys string, glyph *ui.SVG, run func(
 	}
 }
 
-// paneRef is what a pane that is not in use shows, by where it is, to be found again when the
-// library is read again from disk.
-type paneRef struct{ page, coll string }
+// paneRef is what a pane that is not in use shows, by ID and folder path, to be found again
+// when the library is read again from disk.
+type paneRef struct{ page, pageID, coll string }
 
 // paneRefs notes what every pane shows.
 func (a *app) paneRefs() map[int]paneRef {
@@ -617,6 +617,7 @@ func (a *app) paneRefs() map[int]paneRef {
 		var r paneRef
 		if st.page != nil {
 			r.page = st.page.Dir
+			r.pageID = st.page.ID
 		}
 		if st.coll != nil {
 			r.coll = st.coll.Dir
@@ -635,13 +636,21 @@ func (a *app) restorePanes(refs map[int]paneRef) {
 		}
 		st := a.ps.states[i]
 		st.page, st.coll, st.doc = nil, nil, nil
+		if r.pageID != "" {
+			if p := a.lib.PageByID(r.pageID); p != nil {
+				st.page, st.doc = p, a.docFor(p)
+			}
+		}
 		for _, c := range a.lib.Collections {
 			if r.coll != "" && c.Dir == r.coll {
 				st.coll = c
 			}
-			for _, p := range c.All() {
-				if r.page != "" && p.Dir == r.page {
-					st.page, st.doc = p, a.docFor(p) // a page whose text was never read has none yet: drawn so, it would fail
+			if st.page == nil && r.page != "" {
+				for _, p := range c.All() {
+					if p.Dir == r.page {
+						st.page, st.doc = p, a.docFor(p) // a page whose text was never read has none yet: drawn so, it would fail
+						break
+					}
 				}
 			}
 		}
@@ -650,9 +659,10 @@ func (a *app) restorePanes(refs map[int]paneRef) {
 
 // paneSave is the panes as they are kept in the settings: the Dock's tree, what each pane shows, and the one in use.
 type paneSave struct {
-	Layout json.RawMessage      `json:"layout"`
-	Places map[string][2]string `json:"places"` // a pane's ID to the kind and the place of what it shows
-	Active string               `json:"active"`
+	Layout  json.RawMessage      `json:"layout"`
+	Places  map[string][2]string `json:"places"`            // a pane's ID to the kind and the place of what it shows
+	PageIDs map[string]string    `json:"pageIDs,omitempty"` // a pane's ID to the stable page ID when kind == "page"
+	Active  string               `json:"active"`
 }
 
 // panesSnapshot is the panes in the form they are kept in: "" with one pane.
@@ -668,8 +678,15 @@ func (a *app) panesSnapshot() string {
 	save := paneSave{Layout: raw, Places: map[string][2]string{}, Active: a.ps.ids[a.ps.active]}
 	for i, id := range a.ps.ids {
 		if i < len(a.ps.states) {
-			pl := a.hereOf(a.ps.states[i])
+			pn := a.ps.states[i]
+			pl := a.hereOf(pn)
 			save.Places[id] = [2]string{pl.kind, pl.dir}
+			if pl.kind == "page" && pn.page != nil && pn.page.ID != "" {
+				if save.PageIDs == nil {
+					save.PageIDs = map[string]string{}
+				}
+				save.PageIDs[id] = pn.page.ID
+			}
 		}
 	}
 	b, err := json.Marshal(save)
@@ -719,9 +736,24 @@ func (a *app) restorePaneLayout() {
 	a.ps.active, a.ps.want = active, -1
 	for i, id := range ids {
 		if pl, ok := save.Places[id]; ok && pl[0] != "" {
+			if pl[0] == "page" && save.PageIDs[id] != "" {
+				if p := a.lib.PageByID(save.PageIDs[id]); p != nil {
+					for up := p.Parent; up != nil; up = up.Parent {
+						up.Open = true
+					}
+					if p.Coll != nil {
+						p.Coll.Open = true
+					}
+					a.going = true
+					a.openIn(a.ps.states[i], p)
+					a.going = false
+					continue
+				}
+			}
 			a.goToIn(a.ps.states[i], place{pl[0], pl[1]})
 		}
 	}
+	a.ps.want = -1
 }
 
 // resyncDoc takes pn up with its text, if the text was written while the pane was not in

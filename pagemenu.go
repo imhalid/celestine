@@ -198,6 +198,7 @@ func (a *app) duplicatePage(p *Page) {
 	for _, ch := range cp.Children {
 		ch.Parent = cp
 	}
+	reissueCopyIDs(cp.Children)
 	siblings := &p.Coll.Pages
 	if p.Parent != nil {
 		siblings = &p.Parent.Children
@@ -216,6 +217,16 @@ func (a *app) duplicatePage(p *Page) {
 		a.fail(err)
 	}
 	a.open(cp)
+}
+
+func reissueCopyIDs(ps []*Page) {
+	for _, ch := range ps {
+		ch.ID = ""
+		if body, err := ch.Body(); err == nil {
+			_ = ch.Save(body)
+		}
+		reissueCopyIDs(ch.Children)
+	}
 }
 
 // exportPage writes the page as a Markdown file where a dialog says, its

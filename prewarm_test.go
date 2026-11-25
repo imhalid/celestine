@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -146,5 +147,85 @@ func TestPrewarmInParts(t *testing.T) {
 		if e := a.links.plain[p]; e == nil || !strings.Contains(e.folded, fmt.Sprintf("kelime%d", i)) {
 			t.Fatalf("page %d not read: %+v", i, e)
 		}
+	}
+}
+
+func waitPrewarm(t *testing.T, a *app) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		a.mu.Lock()
+		w := a.prewarming
+		a.mu.Unlock()
+		if !w {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("still prewarming")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestPrewarmUsesSQLitePageIndexCache(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "k.db")
+	st, err := OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	lib, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("Kitaplar")
+	p1, _ := c.NewPage(nil, "Birinci")
+	p1.SaveText("- [ ] Oku [[2026-11-30]] #okuma [[İkinci]]\n")
+	p2, _ := c.NewPage(nil, "İkinci")
+	p2.SaveText("gizliarama kelimesi\n")
+
+	// First cold start populates page_index (all misses).
+	a1 := newApp(lib)
+	close(a1.firstFrame)
+	a1.prewarm()
+	waitPrewarm(t, a1)
+	if a1.links.warmMisses != 2 || a1.links.warmHits != 0 {
+		t.Fatalf("first prewarm hits=%d misses=%d, want 0 hits 2 misses", a1.links.warmHits, a1.links.warmMisses)
+	}
+
+	// Second cold open hydrates entirely from SQLite page_index cache without re-parsing.
+	lib2, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2 := newApp(lib2)
+	close(a2.firstFrame)
+	a2.prewarm()
+	waitPrewarm(t, a2)
+	if a2.links.warmHits != 2 || a2.links.warmMisses != 0 {
+		t.Fatalf("cached prewarm hits=%d misses=%d, want 2 hits 0 misses", a2.links.warmHits, a2.links.warmMisses)
+	}
+	q1, q2 := lib2.PageByID(p1.ID), lib2.PageByID(p2.ID)
+	if e := a2.links.pages[q1]; e == nil || !slices.Contains(e.links, "ikinci") || len(e.tasks) != 1 || len(e.tags) != 1 {
+		t.Fatalf("hydrated pageIdx mismatch: %+v", e)
+	}
+	if pl := a2.links.plain[q2]; pl == nil || !strings.Contains(pl.folded, "gizliarama") {
+		t.Fatalf("hydrated plainIdx mismatch: %+v", pl)
+	}
+
+	// Updating one page invalidates only that page; unchanged peer still hits cache.
+	q2.SaveText("yenidenyazilan kelime\n")
+	lib3, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a3 := newApp(lib3)
+	close(a3.firstFrame)
+	a3.prewarm()
+	waitPrewarm(t, a3)
+	if a3.links.warmHits != 1 || a3.links.warmMisses != 1 {
+		t.Fatalf("after one edit hits=%d misses=%d, want 1 hit 1 miss", a3.links.warmHits, a3.links.warmMisses)
+	}
+	if pl := a3.links.plain[lib3.PageByID(p2.ID)]; pl == nil || !strings.Contains(pl.folded, "yenidenyazilan") {
+		t.Fatalf("re-indexed plainIdx mismatch: %+v", pl)
 	}
 }

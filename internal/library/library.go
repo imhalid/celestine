@@ -1,6 +1,7 @@
 package library
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -184,6 +185,7 @@ func (c *Collection) All() []*Page {
 }
 
 type Page struct {
+	ID         string // stable unique page identifier persisted in page.json ("id")
 	Title      string
 	Created    time.Time
 	Modified   time.Time         // when its file was last written
@@ -305,7 +307,7 @@ func ReadPages(dir string, c *Collection, parent *Page) []*Page {
 			}
 		}
 		meta := PageMeta(src)
-		p := &Page{Title: meta["title"], Dir: pdir, Coll: c, Parent: parent}
+		p := &Page{ID: meta["id"], Title: meta["title"], Dir: pdir, Coll: c, Parent: parent}
 		if p.Title == "" {
 			p.Title = e.Name()
 		}
@@ -341,13 +343,15 @@ func (l *Library) NewCollection(name string) (*Collection, error) {
 	return c, nil
 }
 
-func (c *Collection) Save() error {
+func (c *Collection) Save() error { return c.saveTo(c.FS) }
+
+func (c *Collection) saveTo(fsys FS) error {
 	data, _ := json.MarshalIndent(c, "", "  ")
 	file := filepath.Join(c.Dir, CollectionFile)
-	if err := c.FS.WriteFile(file, append(data, '\n')); err != nil {
+	if err := fsys.WriteFile(file, append(data, '\n')); err != nil {
 		return err
 	}
-	c.Seen = ModTime(c.FS, file)
+	c.Seen = ModTime(fsys, file)
 	SavesGen.Add(1)
 	return nil
 }
@@ -385,7 +389,7 @@ func (c *Collection) NewPage(parent *Page, title string) (*Page, error) {
 	if parent != nil {
 		siblings = parent.Children
 	}
-	p := &Page{Title: title, Created: time.Now().Truncate(time.Second), Dir: dir, Coll: c, Parent: parent, Order: lastOrder(siblings) + 1}
+	p := &Page{ID: newPageID(), Title: title, Created: time.Now().Truncate(time.Second), Dir: dir, Coll: c, Parent: parent, Order: lastOrder(siblings) + 1}
 	if err := p.Save(""); err != nil {
 		return nil, err
 	}
@@ -410,8 +414,10 @@ func (p *Page) FS() FS {
 }
 
 // Body reads the page's body, as the file keeps it (body.go).
-func (p *Page) Body() (string, error) {
-	src, err := p.FS().ReadFile(p.File())
+func (p *Page) Body() (string, error) { return p.bodyFrom(p.FS()) }
+
+func (p *Page) bodyFrom(fsys FS) (string, error) {
+	src, err := fsys.ReadFile(p.File())
 	if err != nil {
 		return "", err
 	}
@@ -515,9 +521,22 @@ func (m *memoTexts) get(body string, make func(string) string) string {
 func (p *Page) SaveText(md string) error { return p.Save(Format.FromMarkdown(md)) }
 
 // Save writes the page: its body, and what is known of it.
-func (p *Page) Save(body string) error {
+func (p *Page) Save(body string) error { return p.saveTo(p.FS(), body) }
+
+func newPageID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func (p *Page) saveTo(fsys FS, body string) error {
 	if p.Unreadable != "" {
 		return fmt.Errorf("%w: %s", ErrUnreadable, p.Unreadable)
+	}
+	if p.ID == "" {
+		p.ID = newPageID()
 	}
 	meta := map[string]string{}
 	for k, v := range p.Props {
@@ -525,6 +544,7 @@ func (p *Page) Save(body string) error {
 			meta[k] = v
 		}
 	}
+	meta["id"] = p.ID
 	meta["title"] = p.Title
 	if !p.Created.IsZero() {
 		meta["created"] = p.Created.Format(time.RFC3339)
@@ -554,10 +574,10 @@ func (p *Page) Save(body string) error {
 	if err != nil {
 		return err
 	}
-	if err := p.FS().WriteFile(p.File(), src); err != nil {
+	if err := fsys.WriteFile(p.File(), src); err != nil {
 		return err
 	}
-	p.Modified = ModTime(p.FS(), p.File())
+	p.Modified = ModTime(fsys, p.File())
 	p.Writes++
 	SavesGen.Add(1)
 	return nil
@@ -1121,17 +1141,17 @@ func Renumber(ps []*Page) error {
 	for i, p := range ps {
 		was[i] = p.Order
 	}
-	err := InBatch(ps[0].FS(), func() error {
+	err := InBatch(ps[0].FS(), func(tx FS) error {
 		for i, p := range ps {
 			if p.Order == i+1 {
 				continue
 			}
 			p.Order = i + 1
-			body, err := p.Body()
+			body, err := p.bodyFrom(tx)
 			if err != nil {
 				return err
 			}
-			if err := p.Save(body); err != nil {
+			if err := p.saveTo(tx, body); err != nil {
 				return err
 			}
 		}
@@ -1323,6 +1343,21 @@ func (l *Library) PageAt(path string) *Page {
 	}
 	if names == 1 {
 		return byName
+	}
+	return nil
+}
+
+// PageByID returns the page with stable identifier id across the library, or nil.
+func (l *Library) PageByID(id string) *Page {
+	if id == "" || l == nil {
+		return nil
+	}
+	for _, c := range l.Collections {
+		for _, p := range c.All() {
+			if p.ID == id {
+				return p
+			}
+		}
 	}
 	return nil
 }

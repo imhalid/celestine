@@ -581,8 +581,24 @@ func (s *Store) ReadNamedFrom(base, after string, limit int) (map[string][]byte,
 
 // Batch runs fn with the writes to the browser's storage held, and writes them once after: there is one value to
 // write, so it is whole or not written.
-func (s *Store) Batch(fn func() error) error {
+func (s *Store) Batch(fn func(tx FS) error) error {
 	s.Fast(true)
 	defer s.Fast(false)
-	return fn()
+	return fn(s)
 }
+
+// ReadPrewarmFrom delegates to ReadNamedFrom on browser storage.
+func (s *Store) ReadPrewarmFrom(base, after string, limit int) (map[string]PrewarmRow, string, error) {
+	raw, last, err := s.ReadNamedFrom(base, after, limit)
+	if err != nil {
+		return nil, last, err
+	}
+	out := make(map[string]PrewarmRow, len(raw))
+	for p, data := range raw {
+		out[p] = PrewarmRow{Src: data}
+	}
+	return out, last, nil
+}
+
+// WritePageIndexes is a no-op on browser storage.
+func (s *Store) WritePageIndexes([]PageIndex) error { return nil }

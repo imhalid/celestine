@@ -16,8 +16,8 @@ func (s *Store) clock() time.Time {
 
 // snapshotBefore keeps what the page file at n holds, before data is
 // written over it, unless it is the same or a copy was kept lately.
-func (s *Store) snapshotBefore(n string, data []byte) {
-	old, mtime := s.oldFile(n)
+func (s *Store) snapshotBefore(q querier, n string, data []byte) {
+	old, mtime := s.oldFile(q, n)
 	if old == nil || bytes.Equal(old, data) || blankBody(old) {
 		return
 	}
@@ -27,16 +27,16 @@ func (s *Store) snapshotBefore(n string, data []byte) {
 		}
 	}
 	var taken int64
-	s.db().QueryRow(`SELECT coalesce(max(taken), 0) FROM versions WHERE path = ?`, n).Scan(&taken)
+	q.QueryRow(`SELECT coalesce(max(taken), 0) FROM versions WHERE path = ?`, n).Scan(&taken)
 	if taken != 0 && s.clock().Sub(time.Unix(0, taken)) < historyEvery {
 		return // a copy of this stretch of writing is kept already
 	}
-	s.keep(n, old, mtime)
+	s.keep(q, n, old, mtime)
 }
 
 // oldFile is the file at n, and when it was written; nil when there is none.
-func (s *Store) oldFile(n string) ([]byte, time.Time) {
-	d, data, mt, err := s.node(n)
+func (s *Store) oldFile(q querier, n string) ([]byte, time.Time) {
+	d, data, mt, err := s.node(q, n)
 	if err != nil || d {
 		return nil, time.Time{}
 	}
@@ -48,12 +48,12 @@ const maxVersions = 200
 
 // keep stores data as a version of n written at at, and lets the copies of
 // every page taken more than HistoryDays ago go, but the named ones.
-func (s *Store) keep(n string, data []byte, at time.Time) {
+func (s *Store) keep(q querier, n string, data []byte, at time.Time) {
 	now := s.clock()
-	s.db().Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), now.UnixNano(), data)
-	s.db().Exec(`DELETE FROM versions WHERE label = '' AND taken < ?`, now.AddDate(0, 0, -HistoryDays).UnixNano())
+	q.Exec(`INSERT INTO versions (path, at, taken, data) VALUES (?, ?, ?, ?)`, n, at.UnixNano(), now.UnixNano(), data)
+	q.Exec(`DELETE FROM versions WHERE label = '' AND taken < ?`, now.AddDate(0, 0, -HistoryDays).UnixNano())
 	// and no more than maxVersions of a page, the oldest unnamed going first (#139)
-	s.db().Exec(`DELETE FROM versions WHERE path = ?1 AND label = '' AND id NOT IN
+	q.Exec(`DELETE FROM versions WHERE path = ?1 AND label = '' AND id NOT IN
 		(SELECT id FROM versions WHERE path = ?1 AND label = '' ORDER BY taken DESC LIMIT ?2)`, n, maxVersions)
 }
 
@@ -61,11 +61,11 @@ func (s *Store) keep(n string, data []byte, at time.Time) {
 // a page is about to be put back to an earlier text.
 func (s *Store) SnapshotNow(name string) {
 	n := Clean(name)
-	if old, mt := s.oldFile(n); old != nil && !blankBody(old) {
+	if old, mt := s.oldFile(s.DB, n); old != nil && !blankBody(old) {
 		var last []byte
-		s.db().QueryRow(`SELECT data FROM versions WHERE path = ? ORDER BY id DESC LIMIT 1`, n).Scan(&last)
+		s.DB.QueryRow(`SELECT data FROM versions WHERE path = ? ORDER BY id DESC LIMIT 1`, n).Scan(&last)
 		if !bytes.Equal(last, old) {
-			s.keep(n, old, mt)
+			s.keep(s.DB, n, old, mt)
 		}
 	}
 }
@@ -74,17 +74,17 @@ func (s *Store) SnapshotNow(name string) {
 // it is kept whatever was kept lately, and never goes to make room.
 func (s *Store) SaveNamed(name, label string) bool {
 	n := Clean(name)
-	old, _ := s.oldFile(n)
+	old, _ := s.oldFile(s.DB, n)
 	if old == nil {
 		return false
 	}
-	s.db().Exec(`INSERT INTO versions (path, at, taken, label, data) VALUES (?, ?, ?, ?, ?)`, n, s.clock().UnixNano(), s.clock().UnixNano(), label, old)
+	s.DB.Exec(`INSERT INTO versions (path, at, taken, label, data) VALUES (?, ?, ?, ?, ?)`, n, s.clock().UnixNano(), s.clock().UnixNano(), label, old)
 	return true
 }
 
 // Versions are the copies kept of the file at name, the latest first.
 func (s *Store) Versions(name string) []Version {
-	rows, err := s.db().Query(`SELECT id, at, length(data), label FROM versions WHERE path = ? ORDER BY id DESC`, Clean(name))
+	rows, err := s.DB.Query(`SELECT id, at, length(data), label FROM versions WHERE path = ? ORDER BY id DESC`, Clean(name))
 	if err != nil {
 		return nil
 	}
@@ -104,7 +104,7 @@ func (s *Store) Versions(name string) []Version {
 // VersionData is what version id of the file at name held.
 func (s *Store) VersionData(name string, id int64) ([]byte, bool) {
 	var data []byte
-	if s.db().QueryRow(`SELECT data FROM versions WHERE path = ? AND id = ?`, Clean(name), id).Scan(&data) != nil {
+	if s.DB.QueryRow(`SELECT data FROM versions WHERE path = ? AND id = ?`, Clean(name), id).Scan(&data) != nil {
 		return nil, false
 	}
 	return data, true

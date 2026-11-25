@@ -258,9 +258,11 @@ func (a *app) libWrites() uint64 {
 	return n
 }
 
-// fsWrites is the count of writes to fsys, and whether it keeps one: the store's own, or countFS's.
+// fsWrites is the count of writes to fsys, and whether it keeps one: the store's own, a batch store's, or countFS's.
 func fsWrites(fsys FS) (uint64, bool) {
 	switch fs := fsys.(type) {
+	case interface{ WriteCount() uint64 }:
+		return fs.WriteCount(), true
 	case *Store:
 		return fs.Writes.Load(), true
 	case *countFS:

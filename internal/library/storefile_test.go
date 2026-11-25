@@ -110,8 +110,8 @@ func TestReorderVersionsRestore(t *testing.T) {
 		}
 	}
 	// a batch that fails is undone whole
-	err = st.Batch(func() error {
-		ps[0].SaveText("değişti\n")
+	err = st.Batch(func(tx FS) error {
+		ps[0].saveTo(tx, Format.FromMarkdown("değişti\n"))
 		return errors.New("stop")
 	})
 	if b, _ := ps[0].Text(); err == nil || strings.Contains(b, "değişti") {
@@ -155,7 +155,7 @@ func TestStoreSubtreeRange(t *testing.T) {
 	for _, f := range []string{"/a/page.json", "/a/b/page.json", "/a-b/page.json", "/a0/page.json"} {
 		st.WriteFile(f, []byte(`{"meta":{},"body":[]}`))
 	}
-	st.keep("/a/b/page.json", []byte("eski"), time.Now())
+	st.keep(st.DB, "/a/b/page.json", []byte("eski"), time.Now())
 	if err := st.Rename("/a", "/x/a"); err != nil {
 		t.Fatal(err)
 	}
@@ -238,8 +238,8 @@ func TestBatchKeepsOtherWrites(t *testing.T) {
 	var synced error
 	watch("failing batch", func() {
 		wrote := make(chan struct{})
-		err := st.Batch(func() error {
-			if err := st.WriteFile("/c/b/"+PageFileName, []byte("batch")); err != nil {
+		err := st.Batch(func(tx FS) error {
+			if err := tx.WriteFile("/c/b/"+PageFileName, []byte("batch")); err != nil {
 				return err
 			}
 			go func() { defer close(wrote); synced = st.WriteFile("/c/a/"+PageFileName, []byte("v2")) }()
@@ -264,25 +264,26 @@ func TestBatchKeepsOtherWrites(t *testing.T) {
 		t.Fatalf("the failed batch's own write was kept: %q", b)
 	}
 
-	// what fn does through the store goes into the batch: a save with its copy, a read, a move, a folder, a removal
-	ops := func() error {
-		if err := st.WriteFile("/c/b/"+PageFileName, []byte("batch text\n")); err != nil {
+	// what fn does through tx goes into the batch: a save with its copy, a read, a move, a folder, a removal
+	ops := func(tx FS) error {
+		if err := tx.WriteFile("/c/b/"+PageFileName, []byte("batch text\n")); err != nil {
 			return err
 		}
-		if read("/c/b/"+PageFileName) != "batch text\n" {
+		b, err := tx.ReadFile("/c/b/" + PageFileName)
+		if err != nil || string(b) != "batch text\n" {
 			return errors.New("the batch does not read its own write")
 		}
-		if err := st.Rename("/c/b", "/c/d"); err != nil {
+		if err := tx.Rename("/c/b", "/c/d"); err != nil {
 			return err
 		}
-		if err := st.MkdirAll("/c/e/f"); err != nil {
+		if err := tx.MkdirAll("/c/e/f"); err != nil {
 			return err
 		}
-		return st.RemoveAll("/c/a")
+		return tx.RemoveAll("/c/a")
 	}
 	watch("failing batch of every kind", func() {
-		if err := st.Batch(func() error {
-			if err := ops(); err != nil {
+		if err := st.Batch(func(tx FS) error {
+			if err := ops(tx); err != nil {
 				t.Error(err)
 			}
 			return errors.New("stop")
@@ -310,7 +311,7 @@ func TestBatchKeepsOtherWrites(t *testing.T) {
 	// a panic in fn leaves the store to the others
 	func() {
 		defer func() { recover() }()
-		st.Batch(func() error { panic("boom") })
+		st.Batch(func(tx FS) error { panic("boom") })
 	}()
 	watch("after a panic", func() {
 		if err := st.SetMeta("k", []byte("v")); err != nil {
@@ -358,5 +359,105 @@ func TestStoreReadNamedFrom(t *testing.T) {
 	}
 	if len(seen) != 7 || parts != 3 || seen["/c/p4/page.json"] != "4" {
 		t.Fatalf("%d files in %d parts: %v", len(seen), parts, seen)
+	}
+}
+
+func TestStorePageIndexLifecycle(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "idx.db")
+	st, err := OpenStore(dbFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.MkdirAll("/c/p1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WriteFile("/c/p1/"+PageFileName, []byte(`{"meta":{"title":"One"},"body":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Initial read misses cache and returns raw Src with node metadata.
+	rows, _, err := st.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rows["/c/p1/"+PageFileName]
+	if len(r.Index) != 0 || len(r.Src) == 0 {
+		t.Fatalf("expected cache miss on initial read, got %+v", r)
+	}
+
+	// Persisting index yields a cache hit without raw Src bytes.
+	if err := st.WritePageIndexes([]PageIndex{{
+		Path:   "/c/p1/" + PageFileName,
+		MTime:  r.MTime,
+		Size:   r.Size,
+		Tags:   []string{"work"},
+		Words:  5,
+		Folded: "one",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	rows, _, err = st.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r = rows["/c/p1/"+PageFileName]
+	if len(r.Index) == 0 || r.Src != nil {
+		t.Fatalf("expected cache hit with omitted Src, got index=%d src=%v", len(r.Index), r.Src)
+	}
+
+	// Rename moves page_index cleanly along with nodes.
+	if err := st.Rename("/c/p1", "/c/p1-moved"); err != nil {
+		t.Fatal(err)
+	}
+	rows, _, err = st.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved := rows["/c/p1-moved/"+PageFileName]; len(moved.Index) == 0 || moved.Src != nil {
+		t.Fatalf("expected cache hit after Rename, got %+v", moved)
+	}
+
+	// WriteFileKeepTime invalidates cached index row even when mtime is unchanged.
+	if err := st.WriteFileKeepTime("/c/p1-moved/"+PageFileName, []byte(`{"meta":{"title":"One","day":"2026-11-25"},"body":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+	rows, _, err = st.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stale := rows["/c/p1-moved/"+PageFileName]; len(stale.Index) != 0 || len(stale.Src) == 0 {
+		t.Fatalf("expected WriteFileKeepTime to invalidate cache, got %+v", stale)
+	}
+
+	// WriteFile also invalidates and RemoveAll removes rows.
+	if err := st.WritePageIndexes([]PageIndex{{Path: "/c/p1-moved/" + PageFileName, MTime: rows["/c/p1-moved/"+PageFileName].MTime, Size: rows["/c/p1-moved/"+PageFileName].Size, Folded: "x"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RemoveAll("/c/p1-moved"); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := st.DB.QueryRow(`SELECT count(*) FROM page_index`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("expected empty page_index after RemoveAll, count=%d err=%v", count, err)
+	}
+
+	// Legacy read-only Store without page_index falls back to ReadNamedFrom without mutating DB.
+	_, _ = st.DB.Exec(`DROP TABLE page_index`)
+	ro, err := OpenStoreReadOnly(dbFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.Close()
+	if err := st.MkdirAll("/c/ro"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WriteFile("/c/ro/"+PageFileName, []byte(`{"meta":{"title":"RO"},"body":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+	roRows, _, err := ro.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil || len(roRows["/c/ro/"+PageFileName].Src) == 0 {
+		t.Fatalf("expected ReadOnly fallback to return Src, err=%v rows=%+v", err, roRows)
 	}
 }

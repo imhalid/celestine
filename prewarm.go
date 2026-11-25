@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // As the app opens, every page's text is read once, away from the window: its links, tags, tasks and
@@ -21,10 +24,14 @@ const prewarmBatch = 300
 type prewarmJob struct {
 	p      *Page
 	fs     FS
+	store  *Store
 	name   string
 	mod    time.Time
 	writes int
-	src    []byte // its file, read with others (a library's file): nil to be read by itself
+	mtime  int64
+	size   int64
+	cached []byte // cached derived index JSON read from Store
+	src    []byte // raw page file read with others (Store), nil to read individually
 }
 
 // prewarmChunk is how many page files of a library's file are read at once: the reading holds that many, not all.
@@ -32,9 +39,11 @@ type prewarmJob struct {
 var prewarmChunk = 2000
 
 type prewarmRead struct {
-	j     prewarmJob
-	idx   *pageIdx
-	plain *plainIdx
+	j      prewarmJob
+	idx    *pageIdx
+	plain  *plainIdx
+	save   *library.PageIndex
+	cached bool
 }
 
 // prewarmWait is how long the reading waits for the window's first frame, which it would otherwise take the cores
@@ -57,7 +66,16 @@ func (a *app) prewarm() {
 	first := a.firstFrame
 	go func() {
 		defer a.guard()
-		defer a.do(func() error { a.prewarming = false; return nil })
+		hits, misses := 0, 0
+		defer func() {
+			h, m := hits, misses
+			a.do(func() error {
+				a.links.warmHits = h
+				a.links.warmMisses = m
+				a.prewarming = false
+				return nil
+			})
+		}()
 		select {
 		case <-first:
 		case <-time.After(prewarmWait):
@@ -71,6 +89,18 @@ func (a *app) prewarm() {
 				defer wg.Done()
 				defer a.guard()
 				for j := range in {
+					if len(j.cached) > 0 {
+						var pi library.PageIndex
+						if json.Unmarshal(j.cached, &pi) == nil {
+							out <- prewarmRead{
+								j:      j,
+								idx:    idxFromPersisted(j.p, j.mod, j.writes, &pi),
+								plain:  &plainIdx{mod: j.mod, writes: j.writes, folded: pi.Folded},
+								cached: true,
+							}
+							continue
+						}
+					}
 					src := j.src
 					if src == nil {
 						var err error
@@ -80,7 +110,12 @@ func (a *app) prewarm() {
 					}
 					_, body := SplitPage(src)
 					e, plain := readPageIdxAt(j.p, j.mod, j.writes, TextOfBody(body))
-					out <- prewarmRead{j, e, &plainIdx{mod: j.mod, writes: j.writes, folded: foldText(plain)}}
+					folded := foldText(plain)
+					var save *library.PageIndex
+					if j.store != nil {
+						save = persistablePageIndex(j.name, j.mtime, j.size, e, folded)
+					}
+					out <- prewarmRead{j: j, idx: e, plain: &plainIdx{mod: j.mod, writes: j.writes, folded: folded}, save: save}
 				}
 			}()
 		}
@@ -92,19 +127,77 @@ func (a *app) prewarm() {
 			close(out)
 		}()
 		var got []prewarmRead
+		var toSave map[*Store][]library.PageIndex
 		for r := range out {
+			if r.cached {
+				hits++
+			} else {
+				misses++
+			}
+			if r.save != nil && r.j.store != nil {
+				if toSave == nil {
+					toSave = map[*Store][]library.PageIndex{}
+				}
+				toSave[r.j.store] = append(toSave[r.j.store], *r.save)
+			}
 			if got = append(got, r); len(got) >= prewarmBatch {
 				a.takePrewarm(got)
 				got = nil
 			}
 		}
 		a.takePrewarm(got)
+		for st, entries := range toSave {
+			_ = st.WritePageIndexes(entries)
+		}
 	}()
+}
+
+func persistablePageIndex(path string, mtime, size int64, e *pageIdx, folded string) *library.PageIndex {
+	var tasks []library.PageIndexTask
+	if len(e.tasks) > 0 {
+		tasks = make([]library.PageIndexTask, len(e.tasks))
+		for i, t := range e.tasks {
+			var due int64
+			if !t.due.IsZero() {
+				due = t.due.UnixNano()
+			}
+			tasks[i] = library.PageIndexTask{
+				Line: t.line, Done: t.done, Text: t.text, Due: due,
+				Every: t.every, Kind: t.kind, Inl: t.inl, Col: t.col, Folded: t.folded,
+			}
+		}
+	}
+	return &library.PageIndex{
+		Path: path, MTime: mtime, Size: size,
+		Tasks: tasks, Tags: e.tags, Links: e.links,
+		Words: e.words, Empty: e.empty, Folded: folded,
+	}
+}
+
+func idxFromPersisted(p *Page, mod time.Time, writes int, pi *library.PageIndex) *pageIdx {
+	var tasks []taskItem
+	if len(pi.Tasks) > 0 {
+		tasks = make([]taskItem, len(pi.Tasks))
+		for i, t := range pi.Tasks {
+			var due time.Time
+			if t.Due != 0 {
+				due = time.Unix(0, t.Due).UTC()
+			}
+			tasks[i] = taskItem{
+				page: p, line: t.Line, done: t.Done, text: t.Text, due: due,
+				every: t.Every, kind: t.Kind, inl: t.Inl, col: t.Col, folded: t.Folded,
+			}
+		}
+	}
+	return &pageIdx{
+		mod: mod, writes: writes, tasks: tasks, tags: pi.Tags,
+		links: pi.Links, words: pi.Words, empty: pi.Empty,
+	}
 }
 
 // feedPrewarm gives the workers the jobs, the pages of a library's file with their files read in parts of
 // prewarmChunk, in the order of their paths, a query a part: the files of a part are let go once its pages are
-// handed on, where all of them were read and held at once (#196). The others read their own.
+// handed on, where all of them were read and held at once (#196). Up-to-date cached derived indexes skip raw page bytes.
 func feedPrewarm(jobs []prewarmJob, in chan<- prewarmJob) {
 	stores := map[*Store][]prewarmJob{}
 	for _, j := range jobs {
@@ -118,11 +211,18 @@ func feedPrewarm(jobs []prewarmJob, in chan<- prewarmJob) {
 		slices.SortFunc(js, func(x, y prewarmJob) int { return strings.Compare(Clean(x.name), Clean(y.name)) })
 		after := ""
 		for i := 0; i < len(js); {
-			part, last, err := st.ReadNamedFrom(PageFileName, after, prewarmChunk)
+			part, last, err := st.ReadPrewarmFrom(PageFileName, after, prewarmChunk)
 			done := err != nil || len(part) < prewarmChunk // the last part: what is left is read by itself
 			for ; i < len(js) && (done || Clean(js[i].name) <= last); i++ {
-				js[i].src = part[Clean(js[i].name)]
+				if row, ok := part[Clean(js[i].name)]; ok {
+					js[i].store = st
+					js[i].mtime = row.MTime
+					js[i].size = row.Size
+					js[i].cached = row.Index
+					js[i].src = row.Src
+				}
 				in <- js[i]
+				js[i].cached = nil
 				js[i].src = nil
 			}
 			after = last
