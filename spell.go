@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 
 	"github.com/egoist/mygo/ui"
@@ -61,9 +62,25 @@ func (a *app) spellLook() {
 		return
 	}
 	s.looked = true
-	if root := spellRoot(); root != "" && model.Installed(model.Dir(root)) {
+	root := spellRoot()
+	switch {
+	case root == "":
+	case model.Installed(model.Dir(root)):
 		s.status = spellReady
+	case a.settings.SpellCheck && a.spellBegun(root): // on, and a file added since (the context model): it alone
+		a.spellDownload(false)
 	}
+}
+
+// spellBegun reports whether some of the model's files are on the device under root: those a download left, or the
+// files of before one was added to the model.
+func (a *app) spellBegun(root string) bool {
+	for _, f := range model.Files {
+		if _, err := os.Stat(filepath.Join(model.Dir(root), f.Name)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // spellDownload downloads the model, the files not there yet, or all of them again when again is set; the
@@ -219,15 +236,25 @@ func (a *app) setSpellCheck(on bool) {
 // spellChecks is how many paragraphs' checks are kept, by their text, before they are made again from none.
 const spellChecks = 4000
 
+// spellQueue is how many paragraphs wait to be checked at most: the newest asked for (what is being typed, what
+// came into view); the context model makes a check cost some milliseconds, not to be spent on a text already gone.
+const spellQueue = 6
+
 // spellEngineState is the engine loaded from the model, and the checks of the paragraphs it made.
 type spellEngineState struct {
-	eng     *spell.Engine
-	loading bool
-	checks  map[string]spell.InspectResult // by the paragraph's text as checked (spellText)
-	queue   []string                       // texts to check, in the order asked
-	working bool                           // a goroutine checks the queue
-	gen     int                            // moved by each change of what the underlines show
+	eng      *spell.Engine
+	loading  bool
+	checks   map[string]spell.InspectResult // by the paragraph's text as checked (spellText)
+	queue    []string                       // texts to check, in the order asked
+	ctxQueue []string                       // texts checked without the context model, to be checked with it
+	lastFast time.Time                      // when the last check without the context ended
+	working  bool                           // a goroutine checks the queues
+	gen      int                            // moved by each change of what the underlines show
 }
+
+// spellSettle is how long the text stays as it is before its paragraphs are checked with the context model too: the
+// check without it is a few milliseconds and comes at once, the one with it some hundreds, and not for every key.
+const spellSettle = 800 * time.Millisecond
 
 // spellOn reports whether the spell checker is on and its engine loaded, loading it the first time it is asked for.
 func (a *app) spellOn() *spell.Engine {
@@ -304,6 +331,9 @@ func (a *app) spellCheckOf(eng *spell.Engine, text string) (spell.InspectResult,
 	}
 	if !slices.Contains(s.queue, text) {
 		s.queue = append(s.queue, text)
+		if len(s.queue) > spellQueue { // the oldest asked for: a paragraph's text of a few keys ago, or out of view
+			s.queue = slices.Delete(s.queue, 0, len(s.queue)-spellQueue)
+		}
 	}
 	if !s.working {
 		s.working = true
@@ -312,30 +342,58 @@ func (a *app) spellCheckOf(eng *spell.Engine, text string) (spell.InspectResult,
 	return spell.InspectResult{}, false
 }
 
-// spellWork checks the paragraphs asked for, one after another, the newest first (what is being typed, or shown
-// last), until none is left.
+// spellWork checks the paragraphs asked for, in two passes (#623): first without the context model, a few
+// milliseconds each, the newest first (what is being typed, or came into view last), whose underlines come at once;
+// then, once nothing new was asked for spellSettle, with the context model too, the newest first again, its result
+// taking the first's place. A paragraph asked for meanwhile goes first; one checked with the context is not again
+// until its text changes. Without a context model the first pass is the whole check.
 func (a *app) spellWork(eng *spell.Engine) {
 	defer a.guard()
 	for {
 		var text string
-		var ok bool
+		var withContext, ok bool
+		var wait time.Duration
 		a.do(func() error {
 			s := &a.spellEng
-			if s.eng != eng || len(s.queue) == 0 {
+			switch {
+			case s.eng != eng:
 				s.working = false
-				return nil
+			case len(s.queue) > 0:
+				text, s.queue, ok = s.queue[len(s.queue)-1], s.queue[:len(s.queue)-1], true
+			case len(s.ctxQueue) > 0:
+				if left := spellSettle - time.Since(s.lastFast); left > 0 {
+					wait = left
+					return nil
+				}
+				text, s.ctxQueue, ok, withContext = s.ctxQueue[len(s.ctxQueue)-1], s.ctxQueue[:len(s.ctxQueue)-1], true, true
+			default:
+				s.working = false
 			}
-			text, s.queue, ok = s.queue[len(s.queue)-1], s.queue[:len(s.queue)-1], true
 			return nil
 		})
+		if wait > 0 {
+			time.Sleep(wait)
+			continue
+		}
 		if !ok {
 			return
 		}
-		r := eng.Inspect(text, spell.CheckOptions{})
+		r := eng.Inspect(text, spell.CheckOptions{NoContext: !withContext})
 		a.do(func() error {
-			if s := &a.spellEng; s.eng == eng {
-				s.checks[text] = r
-				s.gen++
+			s := &a.spellEng
+			if s.eng != eng {
+				return nil
+			}
+			s.checks[text] = r
+			s.gen++
+			if !withContext {
+				s.lastFast = time.Now()
+				if eng.HasContext() && !slices.Contains(s.ctxQueue, text) {
+					s.ctxQueue = append(s.ctxQueue, text)
+					if len(s.ctxQueue) > spellQueue {
+						s.ctxQueue = slices.Delete(s.ctxQueue, 0, len(s.ctxQueue)-spellQueue)
+					}
+				}
 			}
 			return nil
 		})
@@ -425,7 +483,9 @@ func (a *app) spellFixTyped(text richtext.Text, caret int, typed bool) bool {
 		return false
 	}
 	kinds := []string{spell.KindTurkishLetters, spell.KindApostropheFix, spell.KindJoinedSeparate, spell.KindSpelling}
-	fixes := eng.Check(string(runes), spell.CheckOptions{Range: &[2]int{ws, w}, Kinds: kinds})
+	// the core pass alone: the frame does not wait for the context model, whose decisions come with the paragraph's
+	// check, as underlines with their fixes
+	fixes := eng.Check(string(runes), spell.CheckOptions{Range: &[2]int{ws, w}, Kinds: kinds, NoContext: true})
 	var take []spell.Fix
 	for _, f := range fixes {
 		if f.From >= 0 && f.To <= w && f.From < f.To { // before the mark typed, the caret's word and what it joins

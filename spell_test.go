@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -161,5 +162,103 @@ func TestSpellInTheEditor(t *testing.T) {
 	tt.Frame()
 	if got := pn.doc.Text().String(); !strings.HasSuffix(got, "Bugün cok ") {
 		t.Fatalf("undone: %q", got)
+	}
+}
+
+// A device that has the model's files of before one was added (the context model) downloads that one alone, as the
+// spell checker is on, and none of the others again (#623).
+func TestSpellModelAddedFileAlone(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	saved, savedBase := model.Files, spellBase
+	defer func() { model.Files, spellBase = saved, savedBase }()
+	body := map[string]string{"lexicon.bin": "lexicon", "context.onnx": "the context model"}
+	model.Files = nil
+	for _, name := range []string{"lexicon.bin", "context.onnx"} {
+		sum := sha256.Sum256([]byte(body[name]))
+		model.Files = append(model.Files, model.File{Name: name, Size: int64(len(body[name])), SHA256: hex.EncodeToString(sum[:])})
+	}
+	var asked []string
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		asked = append(asked, r.URL.Path)
+		mu.Unlock()
+		w.Write([]byte(body[strings.TrimPrefix(r.URL.Path, "/")]))
+	}))
+	defer srv.Close()
+	spellBase = srv.URL + "/"
+	dir := model.Dir(spellRoot())
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "lexicon.bin"), []byte(body["lexicon.bin"]), 0o644) // the files of before
+	a, _ := newTestApp(t, "x\n")
+	a.settings.SpellCheck = true
+	a.spellLook()
+	for range 400 {
+		var st spellStatus
+		a.do(func() error { st = a.spell.status; return nil })
+		if st == spellReady {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if a.spell.status != spellReady || len(asked) != 1 || asked[0] != "/context.onnx" {
+		t.Fatalf("status %d, asked %v", a.spell.status, asked)
+	}
+}
+
+// A paragraph is checked at once without the context model and, once the text settles, with it too: "Su" in "Su
+// beni o kadar geriyor ki!" becomes "Şu" only by the context, and its fix comes with the second check (#623).
+func TestSpellContextAfterSettling(t *testing.T) {
+	data := os.Getenv("TINYFIX_DATA")
+	if data == "" {
+		t.Skip("TINYFIX_DATA: the folder of tinyfix-tr's files")
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	dir := model.Dir(spellRoot())
+	os.MkdirAll(dir, 0o755)
+	for _, f := range model.Files {
+		b, err := os.ReadFile(filepath.Join(data, f.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.WriteFile(filepath.Join(dir, f.Name), b, 0o644)
+	}
+	const text = "Su beni o kadar geriyor ki!"
+	a, tt := newTestApp(t, text+"\n")
+	tt.SetSize(1000, 700)
+	a.settings.SpellCheck = true
+	byContext := func() bool {
+		for _, f := range a.spellEng.checks[text].Fixes {
+			if f.ByContext && f.Replacement == "Şu" {
+				return true
+			}
+		}
+		return false
+	}
+	sawFast := false
+	for range 1000 {
+		tt.Frame()
+		var done bool
+		a.do(func() error {
+			if r, ok := a.spellEng.checks[text]; ok && !sawFast {
+				sawFast = true
+				for _, f := range r.Fixes { // the first check: without the context, no fix of its
+					if f.ByContext {
+						t.Errorf("the first check decided by the context: %+v", f)
+					}
+				}
+			}
+			done = byContext()
+			return nil
+		})
+		if done {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !a.spellEng.eng.HasContext() || !sawFast || !byContext() {
+		t.Fatalf("context %v, first check %v, the context's fix %v: %+v", a.spellEng.eng.HasContext(), sawFast, byContext(), a.spellEng.checks[text])
 	}
 }

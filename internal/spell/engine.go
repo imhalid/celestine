@@ -104,6 +104,9 @@ type CheckOptions struct {
 	// PriorTypoOriginals, with a context model only, are the spans autocorrect changed as typos and what was typed
 	// there: the model may pick a better candidate from the whole sentence ("hber" -> "her" -> "haber").
 	PriorTypoOriginals []PriorTypo
+	// NoContext runs the core pass alone, the context model left out though it is loaded: what a check must answer
+	// at once, as a word ends while it is typed, does not wait for the network (Celestine's own, #623).
+	NoContext bool
 }
 
 // BALANCED are the balanced settings: a little bolder than CAREFUL.
@@ -252,7 +255,8 @@ type Engine struct {
 	model     ContextModel
 }
 
-// Load reads lexicon.bin, morph.bin and known.tsv from dir and builds an engine in mode ("" is careful).
+// Load reads lexicon.bin, morph.bin and known.tsv from dir and builds an engine in mode ("" is careful), with its
+// context model on when context.onnx is there too.
 func Load(dir string, mode Mode) (*Engine, error) {
 	lexBytes, err := os.ReadFile(filepath.Join(dir, "lexicon.bin"))
 	if err != nil {
@@ -274,7 +278,18 @@ func Load(dir string, mode Mode) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEngine(lexicon, KnownMisspellingsFromTSV(string(knownText)), morphology, mode), nil
+	e := NewEngine(lexicon, KnownMisspellingsFromTSV(string(knownText)), morphology, mode)
+	// the context model, when it is there: the engine's context on, as the npm package's context: true
+	if b, err := os.ReadFile(filepath.Join(dir, "context.onnx")); err == nil {
+		model, err := LoadContextModel(b)
+		if err != nil {
+			return nil, err
+		}
+		e.SetContextModel(model)
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	return e, nil
 }
 
 // NewEngine is an engine of parts already loaded; known and morphology may be nil, and mode "" is careful.
@@ -434,7 +449,7 @@ func (e *Engine) run(text string, opts CheckOptions, collectFlags bool) (result 
 	e.corrector.Settings = settingsFor(mode, kindFilter)
 	defer func() { e.corrector.Settings = settingsByMode[e.mode] }()
 	options := CorrectOptions{AutoMarked: opts.AutoMarked}
-	if e.model != nil {
+	if e.model != nil && !opts.NoContext {
 		options.PriorTypoOriginals = opts.PriorTypoOriginals
 		result = e.corrector.runModelPass(text, e.model, options, collectFlags)
 	} else {

@@ -31,12 +31,14 @@ type File struct {
 	SHA256 string
 }
 
-// Files are the files the engine reads: the lexicon, the morphology and the known misspellings. The context model
-// (context.onnx) joins them when the engine reads it.
+// Files are the files the engine reads: the lexicon, the morphology, the known misspellings, and the context model,
+// which settles what the words alone cannot ("oldu"/"öldü", "de"/"da", "ki", "mi"). A device that has the others
+// before the context model was added downloads it alone.
 var Files = []File{
 	{"lexicon.bin", 5587966, "cfeb4b8c7e195e63875ea8ab8bbfc5afd28c3c9b31072990dd811097630ce670"},
 	{"morph.bin", 337652, "72040edbf47168150c2922f022e8b8d90a87e4860e438a24ab0dfe2eacbcccfb"},
 	{"known.tsv", 353276, "87881d027a20413aff3b25674ac16bed642e17326610611d8d7ad311da4c4dc6"},
+	{"context.onnx", 3016774, "fb9732a4b9904ce701df0ffdb67e362904387d045457736459f43b4af931a261"},
 }
 
 // TotalSize is the size of all the files, in bytes.
