@@ -1108,7 +1108,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	var root ui.Element
 	if framed { // the window's frame around the content, a card in it, and the status bar under (windowframe.go)
 		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Padding(0, frameW, 0, frameW)
-		switch g, dark := frameGroundOf(c), tok.Dark; {
+		switch g, dark := frameGroundOf(c, a.pageBg), tok.Dark; {
 		case a.wallActive() && a.wall.ok: // the wallpaper, the same whatever is behind the window (#606)
 			root.Draw(func(p *ui.Painter, r ui.Rect) { a.paintWallGround(p, r, g, dark) })
 		case !useGlass:

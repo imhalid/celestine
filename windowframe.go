@@ -81,15 +81,21 @@ type frameGround struct {
 	top, mid, low, bottom, tint ui.Color
 }
 
-// frameGroundOf is the frame's ground in c's theme, so that it goes with the color theme in use (#619): made in
-// OKLCH in the theme's own hue from top to bottom, at the lightness of a step off the sidebar's surface toward the
-// text, the accent's chroma lighting it at the top and easing off downward without going to gray, the hue turning a
-// little on the way down so that the foot keeps a color of its own, and the accent faintly again toward the right;
-// in light and in dark alike, as the theme's colors are. A gray accent gives a gray ground.
-func frameGroundOf(c *ui.Context) frameGround {
+// frameGroundOf is the frame's ground in c's theme, around cards of the page's color page, so that it goes with the
+// color theme in use (#619): made in OKLCH in the theme's own hue from top to bottom, the accent's chroma lighting it
+// at the top and easing off downward without going to gray, the hue turning a little on the way down so that the
+// foot keeps a color of its own, and the accent faintly again toward the right; in light and in dark alike, as the
+// theme's colors are. A gray accent gives a gray ground. Its lightness is a step off the page's, over it in dark and
+// under it in light, the step the default theme has (#620): taken from the sidebar's color, it was the page's own in
+// a theme whose sidebar is darker than its page, and the page's card did not show on it.
+func frameGroundOf(c *ui.Context, page ui.Color) frameGround {
 	t := c.Theme()
-	base := ryugo.Mix(t.Surface, t.Text, 0.06)
-	l, _, _ := ryugo.OklchOf(base)
+	l, _, _ := ryugo.OklchOf(page)
+	if t.Dark {
+		l += frameStepDark
+	} else {
+		l -= frameStepLight
+	}
 	_, ac, ah := ryugo.OklchOf(t.Accent)
 	k := min(ac, 0.2) // the accent's chroma, held to what a ground can bear
 	if t.Dark {
@@ -110,6 +116,12 @@ func frameGroundOf(c *ui.Context) frameGround {
 		tint:   at(lift, 0.45, -18).Alpha(0.1),
 	}
 }
+
+// The frame's ground's step off the page's lightness (OKLCH), dark and light: the default theme's (#620).
+const (
+	frameStepDark  = 0.1
+	frameStepLight = 0.11
+)
 
 // paint paints the ground over r: one gradient blended in OKLCH, top at the top, mid at 38%, low at 70% and bottom at
 // the foot, and the tint from clear at 35% of the width to itself at the right.
