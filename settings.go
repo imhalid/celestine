@@ -662,6 +662,7 @@ func (a *app) settingsEditor(c *ui.Context) {
 		a.setCaret(caretKind(caret))
 	}
 	a.settingsEditorRest(c, cl)
+	a.settingsTasks(c) // the task boxes (taskstyle.go)
 }
 
 // settingsCaret is the caret's card: the caret, chosen on tiles and tried over them, the jelly and the pointer's

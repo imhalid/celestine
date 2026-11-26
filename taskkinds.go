@@ -34,11 +34,14 @@ type taskKind struct {
 }
 
 var taskKinds = []taskKind{
-	{"star", "starredTask", "*", "#f59f00", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
-	{"important", "importantTask", "!", "#f76707", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
-	{"question", "question", "?", "#7048e8", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
-	{"progress", "taskInProgress", "/", "#1c7ed6", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M8 16 16 8"/>`)},
-	{"error", "failedTask", "e", "#e03131", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="m9 9 6 6M15 9l-6 6"/>`)},
+	{"star", "starredTask", "*", "#F5B301", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
+	{"important", "importantTask", "!", "#F0506E", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
+	{"question", "question", "?", "#8B5CF6", icon(`<path d="M4.5 19.5V8a3.5 3.5 0 0 1 3.5-3.5h8A3.5 3.5 0 0 1 19.5 8v8a3.5 3.5 0 0 1-3.5 3.5z"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
+	{"progress", "taskInProgress", "/", "#06B6D4", icon(`<circle cx="12" cy="12" r="7.5"/><path d="m10.5 9 4 3-4 3z"/>`)},
+	{"blocked", "tasks_blocked", "w", "#F59E0B", icon(`<rect x="4" y="7" width="16" height="10" rx="5" stroke-dasharray="2.5 2"/><path d="M10.5 10v4M13.5 10v4"/>`)},
+	{"billable", "tasks_billable", "$", "#34D399", icon(`<circle cx="12" cy="12" r="7.5"/><path d="M14.3 9.6c-.4-.8-1.3-1.2-2.3-1.2-1.3 0-2.3.7-2.3 1.7 0 2.4 4.8 1.2 4.8 3.7 0 1-1.1 1.8-2.5 1.8-1.1 0-2-.5-2.4-1.3M12 7v10"/>`)},
+	{"error", "failedTask", "e", "#F97316", icon(`<path d="M12 4.5 20 18.5H4z"/><path d="M12 10v4"/><circle cx="12" cy="16.3" r=".6"/>`)},
+	{"canceled", "tasks_canceled", "-", "#94A3B8", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="m8 16 8-8"/>`)},
 }
 
 func init() {
@@ -258,6 +261,7 @@ type taskFx struct {
 	striking map[int]time.Time
 	strikeK  map[int]float32 // how far each one's line is, as last drawn
 	ver      int
+	pick     taskPick // the picker of a task's status (taskstyle.go)
 }
 
 type taskTurn struct {
@@ -271,6 +275,7 @@ type confettiBit struct {
 	x, y, vx, vy, rot, vr, w, h float64 // in the window, DIPs
 	color                       ui.Color
 	t0                          time.Time
+	shape                       int // a strip of paper, a star, or a round glint (burstOf)
 }
 
 // taskBoxAt is where the box of the task at paragraph box b is, in the editor's element, as richtext
@@ -304,9 +309,8 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 	if !same || fx.seen == nil {
 		fx.doc, fx.n, fx.seen, fx.flips = pn.doc, text.Len(), map[int]bool{}, map[int]taskTurn{}
 	}
-	th := p.Theme()
 	look := a.theme
-	busy := false
+	busy, moving := false, false
 	for _, b := range a.shown(pn, r) {
 		if b.Start > text.Len() {
 			continue
@@ -321,17 +325,17 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 			continue
 		}
 		box.X, box.Y = box.X+r.X, box.Y+r.Y
-		kind, hasKind := taskKindOf(st)
-		color := look.Checkbox
-		if hasKind {
-			color = ui.Hex(kind.color)
-		}
+		s, e, _ := a.paraOfBox(pn, b)
+		face := a.faceOf(st, paraLine(text, s, e))
+		color := face.color
 		if was, ok := fx.seen[b.Start]; ok && same && was != st.Checked {
 			fx.flips[b.Start] = taskTurn{t0: now, checked: st.Checked, color: color}
 			if st.Checked {
 				// the confetti with the click, not half a turn after it, which felt late (#494)
 				fx.flips[b.Start] = taskTurn{t0: now, checked: true, color: color, burst: true}
-				a.burstConfetti(float64(box.X+box.W/2), float64(box.Y+box.H/2), color, now)
+				if !a.settings.TaskNoFX {
+					a.burstConfetti(float64(box.X+box.W/2), float64(box.Y+box.H/2), face, now)
+				}
 				if fx.striking == nil {
 					fx.striking = map[int]time.Time{}
 				}
@@ -356,6 +360,9 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 			}
 		}
 		fx.seen[b.Start] = st.Checked
+		if a.settings.TaskTint && !st.Checked && face.id != "" { // the row in its status's color, fading (#597)
+			rowTint(p, box, r.W*0.55, color)
+		}
 		// richtext's box, covered
 		p.Fill(ui.Rect{X: box.X - 2, Y: box.Y - 2, W: box.W + 4, H: box.H + 4}, a.pageBg, 0)
 		back := st.Checked // what shows: its back (checked) or its face
@@ -378,11 +385,19 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 		h := box.H * (1 + grow) * max(sy, 0.04)
 		at := ui.Rect{X: box.X + (box.W-w)/2, Y: box.Y + (box.H-h)/2, W: w, H: h}
 		if back {
-			a.drawTaskBack(p, at, color, look.Checkmark)
+			drawFaceBack(p, at, face)
 		} else {
-			a.drawTaskFace(p, at, kind, hasKind, look.Muted, th)
-			drawTaskPart(p, at, a.subtasksOf(pn).count[b.Index], color) // as far as its subtasks are done (subtasks.go)
+			a.drawFace(p, at, face, look.Muted, now)
+			if face.id == "" || face.id == "blocked" {
+				drawTaskPart(p, at, a.subtasksOf(pn).count[b.Index], color) // as far as its subtasks are done (subtasks.go)
+			}
+			if face.id != "" && a.settings.TaskMotion && !stillNow() {
+				moving = true
+			}
 		}
+	}
+	if moving { // the ambient motions: a slow pace is enough for them
+		p.AnimationFrameRate(30)
 	}
 	if busy || len(fx.bits) > 0 {
 		p.AnimationFrame()
@@ -434,90 +449,9 @@ func easeInOut(k float64) float64 {
 	return k * k * (3 - 2*k)
 }
 
-// drawTaskFace is a box not done: richtext's plain one, or the kind's, its mark in it. at may be squashed
-// as it turns: the mark is squashed with it.
-func (a *app) drawTaskFace(p *ui.Painter, at ui.Rect, kind taskKind, hasKind bool, muted ui.Color, th *ui.Theme) {
-	s := at.W
-	if !hasKind {
-		p.Stroke(at, muted, s*0.25, 1.25)
-		return
-	}
-	c := ui.Hex(kind.color)
-	sy := at.H / at.W
-	pt := func(x, y float32) (float32, float32) { return at.X + x*s, at.Y + y*s*sy }
-	stroke := max(1.5, s*0.12)
-	if kind.id == "star" { // a star, not a box
-		var path ui.Path
-		for i := 0; i < 10; i++ {
-			r := float32(0.52)
-			if i%2 == 1 {
-				r = 0.22
-			}
-			a := -math.Pi/2 + float64(i)*math.Pi/5
-			x, y := pt(0.5+r*f32(math.Cos(a)), 0.53+r*f32(math.Sin(a)))
-			if i == 0 {
-				path.MoveTo(x, y)
-			} else {
-				path.LineTo(x, y)
-			}
-		}
-		path.Close()
-		p.FillPath(&path, c.Alpha(0.2))
-		p.StrokePath(&path, max(1.25, s*0.09), c)
-		return
-	}
-	p.Fill(at, c.Alpha(0.14), s*0.25)
-	p.Stroke(at, c, s*0.25, 1.4)
-	line := func(x0, y0, x1, y1 float32) {
-		var path ui.Path
-		X0, Y0 := pt(x0, y0)
-		X1, Y1 := pt(x1, y1)
-		path.MoveTo(X0, Y0).LineTo(X1, Y1)
-		p.StrokePath(&path, stroke, c)
-	}
-	dot := func(x, y float32) {
-		X, Y := pt(x, y)
-		r := stroke * 0.65
-		p.Fill(ui.Rect{X: X - r, Y: Y - r*sy, W: 2 * r, H: 2 * r * sy}, c, r)
-	}
-	switch kind.id {
-	case "important":
-		line(0.5, 0.24, 0.5, 0.56)
-		dot(0.5, 0.76)
-	case "question":
-		var path ui.Path
-		x0, y0 := pt(0.33, 0.38)
-		path.MoveTo(x0, y0)
-		for i := 1; i <= 8; i++ { // the hook: a half circle and down
-			a := math.Pi + float64(i)*math.Pi/8*1.25
-			x, y := pt(0.5+0.17*f32(math.Cos(a)), 0.38+0.15*f32(math.Sin(a)))
-			path.LineTo(x, y)
-		}
-		x1, y1 := pt(0.5, 0.6)
-		path.LineTo(x1, y1)
-		p.StrokePath(&path, stroke, c)
-		dot(0.5, 0.78)
-	case "progress": // half of it done
-		p.Clip(ui.Rect{X: at.X, Y: at.Y, W: at.W / 2, H: at.H}, 0, func() { p.Fill(at, c, s*0.25) })
-	case "error":
-		line(0.3, 0.3, 0.7, 0.7)
-		line(0.7, 0.3, 0.3, 0.7)
-	}
-}
-
-// drawTaskBack is a box done: filled in its color, ticked.
-func (a *app) drawTaskBack(p *ui.Painter, at ui.Rect, color, mark ui.Color) {
-	s := at.W
-	sy := at.H / at.W
-	p.Fill(at, color, s*0.25)
-	var path ui.Path
-	path.MoveTo(at.X+s*0.25, at.Y+s*0.52*sy).LineTo(at.X+s*0.43, at.Y+s*0.7*sy).LineTo(at.X+s*0.76, at.Y+s*0.32*sy)
-	p.StrokePath(&path, max(1.5, s*0.12), mark)
-}
-
 // burstConfetti throws confetti up from x, y (the window's), in the task's color and others.
-func (a *app) burstConfetti(x, y float64, color ui.Color, now time.Time) {
-	colors := []ui.Color{color, ui.Hex("#ff6b6b"), ui.Hex("#ffd43b"), ui.Hex("#51cf66"), ui.Hex("#339af0"), ui.Hex("#cc5de8"), color}
+func (a *app) burstConfetti(x, y float64, face taskFace, now time.Time) {
+	colors, shape := burstOf(face) // each status its own bits and colors (#597)
 	r := splitmix(uint64(now.UnixNano()))
 	// a small burst, close to the box: a few bits that rise a little and fall, not a shower over the window (#494)
 	for i := 0; i < 26; i++ {
@@ -526,7 +460,7 @@ func (a *app) burstConfetti(x, y float64, color ui.Color, now time.Time) {
 		a.tasks.bits = append(a.tasks.bits, confettiBit{
 			x: x, y: y, vx: math.Cos(ang) * sp, vy: math.Sin(ang) * sp,
 			rot: r.in(0, math.Pi), vr: r.in(-8, 8), w: r.in(4, 7), h: r.in(2.5, 4),
-			color: colors[i%len(colors)], t0: now,
+			color: colors[i%len(colors)], t0: now, shape: shape,
 		})
 	}
 }
@@ -558,7 +492,17 @@ func (a *app) drawConfetti(p *ui.Painter) {
 		alpha := 1 - smooth(0.65, 1, t/life)
 		spin := math.Abs(math.Cos(b.rot + b.vr*t)) // it turns as it falls: seen edge on, it narrows
 		w, h := f32(b.w*(0.45+0.55*spin)), f32(b.h)
-		p.Fill(ui.Rect{X: f32(x) - w/2, Y: f32(y) - h/2, W: w, H: h}, b.color.Alpha(f32(alpha)), 1)
+		col := b.color.Alpha(f32(alpha))
+		switch b.shape {
+		case 1: // a star
+			r := f32(b.w) * 0.8
+			sparkle(p, box{at: ui.Rect{X: f32(x), Y: f32(y), W: 1, H: 1}, s: 1, sy: 1}, 0, 0, r, col)
+		case 2: // a glint
+			d := f32(b.h) * 1.3
+			p.Fill(ui.Rect{X: f32(x) - d/2, Y: f32(y) - d/2, W: d, H: d}, col, d/2)
+		default:
+			p.Fill(ui.Rect{X: f32(x) - w/2, Y: f32(y) - h/2, W: w, H: h}, col, 1)
+		}
 	}
 	fx.bits = keep
 	if len(keep) > 0 { // until the last bit has fallen
@@ -603,7 +547,12 @@ func (a *app) taskBoxHits(c *ui.Context) {
 			hit := ui.Box(c.Key("taskbox:"+strconv.Itoa(at))).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
 				Cursor(ui.CursorPointer).Role(ui.RoleCheckBox).Label(locales.CommonTask())
 			if hit.Clicked() {
-				pn.doc.ToggleChecked(at)
+				if hit.ClickModifiers()&ui.Alt != 0 { // ⌥-click: the picker of its status (#597)
+					b := hit.LayoutBounds()
+					a.tasks.pick = taskPick{open: true, at: at, x: b.X, y: b.Y + b.H + 4, pn: pn}
+				} else {
+					pn.doc.ToggleChecked(at)
+				}
 			}
 			if x, y, ok := rightClick(hit); ok {
 				a.taskKindMenu(at, x, y)

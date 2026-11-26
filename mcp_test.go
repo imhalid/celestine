@@ -556,7 +556,7 @@ func TestMCPRunnableCommandsReviewed(t *testing.T) {
 	for _, id := range []string{
 		"accountProfile", "shortcutsAndHelp", "addASubPage", "appTypeface", "biggerText", "caret", "changeTheCaret",
 		"closeThePane", "codeTypeface", "collectionSettings", "common_alwaysShowFocusRing", "common_automaticCover",
-		"common_back", "common_backUpNow", "common_caretSleep", "common_colorTheme", "common_cornerRoundness", "icon_appIcon",
+		"common_back", "common_backUpNow", "common_caretSleep", "common_colorTheme", "common_cornerRoundness", "icon_appIcon", "tasks_look", "tasks_motion", "tasks_burst", "tasks_tint", "tasks_counts",
 		"common_corners", "common_cursorFx", "common_focusMode", "common_fontSize",
 		"common_fontWeight", "common_goDate", "common_jellyEffect", "common_language", "common_ligatures",
 		"common_lineLength", "common_lineSpacing", "common_pageWidth", "common_paragraphSpacing", "common_quickNote",

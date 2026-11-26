@@ -136,7 +136,15 @@ func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans
 		return a.blockSpans(pn, p, spans)
 	}
 	if !st.CodeBlock {
-		spans = a.inlineDoneSpans(pn, p, spans)        // the words of a task in the running text, done (#599)
+		spans = a.inlineDoneSpans(pn, p, spans)                                                 // the words of a task in the running text, done (#599)
+		spans = a.tagStatusSpans(st, spans)                                                     // a task's status tag as a pill of its color (#597)
+		if k, ok := taskKindOf(st); ok && k.id == "canceled" && !st.Checked && a.theme != nil { // a task canceled: faint
+			for i := range spans {
+				if spans[i].ObjectWidth == 0 {
+					spans[i].Color = a.theme.Muted
+				}
+			}
+		}
 		if out, ok := a.lapseSpans(pn, p, spans); ok { // the words in the colors of their days
 			return out
 		}

@@ -133,9 +133,15 @@ func (a *app) drawTags(pn *paneState, p *ui.Painter, r ui.Rect) {
 			}
 			key := tagKey(sp.name)
 			hot := key == a.hoverTag
+			pill := th.Accent
+			if para.Style.List == richtext.Tasks { // a task's status tag: in its status's color (taskstyle.go, #597)
+				if c, ok := a.tagStatusColor(strings.TrimPrefix(sp.name, "#")); ok {
+					pill = c
+				}
+			}
 			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, sp.from), End: units(line, sp.to)}) {
 				box := ui.Rect{X: r.X + left + rc.X - 2, Y: r.Y + b.Top + rc.Y + 1, W: rc.W + 4, H: rc.H - 2}
-				p.Fill(box, th.Accent.Alpha(map[bool]float32{true: 0.26, false: 0.13}[hot]), rad(5))
+				p.Fill(box, pill.Alpha(map[bool]float32{true: 0.26, false: 0.13}[hot]), rad(5))
 				pn.tagHits = append(pn.tagHits, tagHit{box, key})
 			}
 		}

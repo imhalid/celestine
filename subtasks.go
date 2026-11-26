@@ -29,6 +29,7 @@ type subtaskCount struct{ done, total int }
 // their parent's chip above them.
 type subtaskState struct {
 	text  richtext.Text
+	off   bool                 // the settings hide the counts (TaskNoCounts): none were read
 	count map[int]subtaskCount // by the task's paragraph
 	room  map[int]int          // by the first paragraph under a task: that task's paragraph
 }
@@ -40,10 +41,13 @@ func (a *app) subtasksOf(pn *paneState) *subtaskState {
 		return st
 	}
 	t := pn.doc.Text()
-	if st.count != nil && st.text.Same(t) {
+	if st.count != nil && st.text.Same(t) && st.off == a.settings.TaskNoCounts {
 		return st
 	}
-	st.text, st.count, st.room = t, map[int]subtaskCount{}, map[int]int{}
+	st.text, st.count, st.room, st.off = t, map[int]subtaskCount{}, map[int]int{}, a.settings.TaskNoCounts
+	if st.off {
+		return st
+	}
 	paras := a.paraTableOf(pn, t).paras
 	for i, p := range paras {
 		if p.Style.List != richtext.Tasks || paraFolded(p) {
@@ -54,6 +58,9 @@ func (a *app) subtasksOf(pn *paneState) *subtaskState {
 			q := paras[j].Style
 			if q.List == 0 || q.Indent <= p.Style.Indent {
 				break
+			}
+			if k, ok := taskKindOf(q); ok && k.id == "canceled" && !q.Checked { // a subtask canceled is not one to do (#597)
+				continue
 			}
 			if q.Indent == p.Style.Indent+1 && q.List == richtext.Tasks {
 				n.total++
@@ -140,10 +147,25 @@ func (a *app) subtaskChips(c *ui.Context) {
 			chip := ui.Row(c.Key("subtasks:"+strconv.Itoa(at))).Absolute().Left(r.X+x-4).Top(y).Height(subtaskChipH).
 				Padding(0, 7, 0, 4).Gap(5).AlignItems(ui.Center).Radius(subtaskChipH / 2).
 				Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label).Tooltip(locales.TasksFoldSubtasks())
-			if chip.Hovered() {
-				chip.Background(cl.Fill)
-			}
 			done := n.done == n.total
+			par := pn.doc.Text().ParagraphStyleAt(at)
+			ps, pe, _ := a.paraOfBox(pn, b)
+			face := a.faceOf(par, paraLine(pn.doc.Text(), ps, pe))
+			tint := cl.Fill // the pill in the parent's state's color (#597)
+			switch {
+			case done || par.Checked:
+				tint = cl.Down.Alpha(0.16)
+			case face.id == "canceled":
+				tint = cl.Muted.Alpha(0.14)
+			case face.urgent():
+				tint = ui.Hex("#EF4444").Alpha(0.14)
+			case face.id != "":
+				tint = face.color.Alpha(0.14)
+			}
+			chip.Background(tint)
+			if chip.Hovered() {
+				chip.Background(ryugo.Mix(tint, cl.Fill, 0.6))
+			}
 			ink := map[bool]ui.Color{true: cl.Down, false: cl.Muted}[done]
 			chip.Children(func() {
 				ui.Icon(c, iconChevronDown).Width(11).Height(11).TextColor(cl.Muted)

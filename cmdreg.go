@@ -52,6 +52,7 @@ type settingDef struct {
 
 // settingsApart are the fields of Settings that are not settings to change by a command, and why.
 var settingsApart = map[string]string{
+	"taskTags":       "the names of the tag statuses, typed in the settings' fields (taskstyle.go)",
 	"sidebarWidth":   "dragged at the sidebar's edge",
 	"dayFold":        "folded by their headings under a day of the journal",
 	"snippets":       "abbreviations and their texts, typed in the settings' list",
@@ -158,6 +159,24 @@ func settingDefsFor(macOS bool) []settingDef {
 			}
 			return out
 		}},
+		{name: "tasks_look", alias: "task checkbox görev kutu preset neon vivid minimal", fields: []string{"taskLook"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, l := range taskLooks {
+				id := l.id
+				out = append(out, settingChoice{name: l.name, current: a.settings.TaskLook == id,
+					set:     func(a *app) { a.settings.TaskLook = id; a.saveSettings() },
+					preview: func(a *app) { a.settings.TaskLook = id }})
+			}
+			return out
+		}},
+		tog("tasks_motion", "task animation görev hareket", []string{"taskMotion"},
+			func(a *app) bool { return a.settings.TaskMotion }, func(a *app, v bool) { a.settings.TaskMotion = v; a.saveSettings() }),
+		tog("tasks_burst", "task confetti görev konfeti efekt", []string{"taskNoFx"},
+			func(a *app) bool { return !a.settings.TaskNoFX }, func(a *app, v bool) { a.settings.TaskNoFX = !v; a.saveSettings() }),
+		tog("tasks_tint", "task row tint görev satır renk", []string{"taskTint"},
+			func(a *app) bool { return a.settings.TaskTint }, func(a *app, v bool) { a.settings.TaskTint = v; a.saveSettings() }),
+		tog("tasks_counts", "subtask count alt görev sayı", []string{"taskNoCounts"},
+			func(a *app) bool { return !a.settings.TaskNoCounts }, func(a *app, v bool) { a.settings.TaskNoCounts = !v; a.saveSettings() }),
 		{name: "icon_appIcon", alias: "app icon dock simge uygulama", fields: []string{"appIcon"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for _, it := range iconLookIDs {

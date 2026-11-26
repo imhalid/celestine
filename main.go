@@ -1198,6 +1198,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	if !a.activeElsewhere() { // the pane in use is in a window of its own, which draws these (panewin.go)
 		a.textOverlays(c)
 	}
+	a.taskPickerView(c) // the picker of a task's status, ⌥-click on its box (taskstyle.go)
 	a.contextView(c)
 	if !a.kb.normal && !a.modal() && !a.pal.open && !pn.find.open && !a.slash.open {
 		// Esc, in the text or on a screen that has nothing to close: the keys are commands, when the settings say

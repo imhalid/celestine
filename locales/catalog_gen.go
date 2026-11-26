@@ -14451,6 +14451,196 @@ func (msgs Messages) TasksAllKinds() string {
 	return Catalog.Format(msgs.locale, "tasks_allKinds", nil)
 }
 
+// TasksBillable says "Billable"
+// in the language the app shows.
+func TasksBillable() string { return In(i18n.Locale()).TasksBillable() }
+
+// TasksBillable says "Billable"
+// in the language of msgs.
+func (msgs Messages) TasksBillable() string {
+	return Catalog.Format(msgs.locale, "tasks_billable", nil)
+}
+
+// TasksBlocked says "Waiting"
+// in the language the app shows.
+func TasksBlocked() string { return In(i18n.Locale()).TasksBlocked() }
+
+// TasksBlocked says "Waiting"
+// in the language of msgs.
+func (msgs Messages) TasksBlocked() string {
+	return Catalog.Format(msgs.locale, "tasks_blocked", nil)
+}
+
+// TasksBurst says "Effect when done"
+// in the language the app shows.
+func TasksBurst() string { return In(i18n.Locale()).TasksBurst() }
+
+// TasksBurst says "Effect when done"
+// in the language of msgs.
+func (msgs Messages) TasksBurst() string {
+	return Catalog.Format(msgs.locale, "tasks_burst", nil)
+}
+
+// TasksBurstHelp says "A small burst in the task's colors as it is ticked."
+// in the language the app shows.
+func TasksBurstHelp() string { return In(i18n.Locale()).TasksBurstHelp() }
+
+// TasksBurstHelp says "A small burst in the task's colors as it is ticked."
+// in the language of msgs.
+func (msgs Messages) TasksBurstHelp() string {
+	return Catalog.Format(msgs.locale, "tasks_burstHelp", nil)
+}
+
+// TasksCanceled says "Canceled"
+// in the language the app shows.
+func TasksCanceled() string { return In(i18n.Locale()).TasksCanceled() }
+
+// TasksCanceled says "Canceled"
+// in the language of msgs.
+func (msgs Messages) TasksCanceled() string {
+	return Catalog.Format(msgs.locale, "tasks_canceled", nil)
+}
+
+// TasksCounts says "Subtask counts"
+// in the language the app shows.
+func TasksCounts() string { return In(i18n.Locale()).TasksCounts() }
+
+// TasksCounts says "Subtask counts"
+// in the language of msgs.
+func (msgs Messages) TasksCounts() string {
+	return Catalog.Format(msgs.locale, "tasks_counts", nil)
+}
+
+// TasksCountsHelp says "Under a task with subtasks, how many are done."
+// in the language the app shows.
+func TasksCountsHelp() string { return In(i18n.Locale()).TasksCountsHelp() }
+
+// TasksCountsHelp says "Under a task with subtasks, how many are done."
+// in the language of msgs.
+func (msgs Messages) TasksCountsHelp() string {
+	return Catalog.Format(msgs.locale, "tasks_countsHelp", nil)
+}
+
+// TasksLook says "Task boxes"
+// in the language the app shows.
+func TasksLook() string { return In(i18n.Locale()).TasksLook() }
+
+// TasksLook says "Task boxes"
+// in the language of msgs.
+func (msgs Messages) TasksLook() string {
+	return Catalog.Format(msgs.locale, "tasks_look", nil)
+}
+
+// TasksLookMinimal says "Minimal Crisp"
+// in the language the app shows.
+func TasksLookMinimal() string { return In(i18n.Locale()).TasksLookMinimal() }
+
+// TasksLookMinimal says "Minimal Crisp"
+// in the language of msgs.
+func (msgs Messages) TasksLookMinimal() string {
+	return Catalog.Format(msgs.locale, "tasks_lookMinimal", nil)
+}
+
+// TasksLookNeon says "Neon Glass"
+// in the language the app shows.
+func TasksLookNeon() string { return In(i18n.Locale()).TasksLookNeon() }
+
+// TasksLookNeon says "Neon Glass"
+// in the language of msgs.
+func (msgs Messages) TasksLookNeon() string {
+	return Catalog.Format(msgs.locale, "tasks_lookNeon", nil)
+}
+
+// TasksLookVivid says "Vivid Solid"
+// in the language the app shows.
+func TasksLookVivid() string { return In(i18n.Locale()).TasksLookVivid() }
+
+// TasksLookVivid says "Vivid Solid"
+// in the language of msgs.
+func (msgs Messages) TasksLookVivid() string {
+	return Catalog.Format(msgs.locale, "tasks_lookVivid", nil)
+}
+
+// TasksMotion says "Ambient motion"
+// in the language the app shows.
+func TasksMotion() string { return In(i18n.Locale()).TasksMotion() }
+
+// TasksMotion says "Ambient motion"
+// in the language of msgs.
+func (msgs Messages) TasksMotion() string {
+	return Catalog.Format(msgs.locale, "tasks_motion", nil)
+}
+
+// TasksMotionHelp says "The boxes of tasks with a status move a little: a ring turns, a star twinkles. Never with reduced motion."
+// in the language the app shows.
+func TasksMotionHelp() string { return In(i18n.Locale()).TasksMotionHelp() }
+
+// TasksMotionHelp says "The boxes of tasks with a status move a little: a ring turns, a star twinkles. Never with reduced motion."
+// in the language of msgs.
+func (msgs Messages) TasksMotionHelp() string {
+	return Catalog.Format(msgs.locale, "tasks_motionHelp", nil)
+}
+
+// TasksStatusPicker says "Task status"
+// in the language the app shows.
+func TasksStatusPicker() string { return In(i18n.Locale()).TasksStatusPicker() }
+
+// TasksStatusPicker says "Task status"
+// in the language of msgs.
+func (msgs Messages) TasksStatusPicker() string {
+	return Catalog.Format(msgs.locale, "tasks_statusPicker", nil)
+}
+
+// TasksTagSlot says "Tag status {n}"
+// in the language the app shows.
+func TasksTagSlot(n int) string { return In(i18n.Locale()).TasksTagSlot(n) }
+
+// TasksTagSlot says "Tag status {n}"
+// in the language of msgs.
+func (msgs Messages) TasksTagSlot(n int) string {
+	return Catalog.Format(msgs.locale, "tasks_tagSlot", map[string]any{"n": n})
+}
+
+// TasksTagStatuses says "Tag statuses"
+// in the language the app shows.
+func TasksTagStatuses() string { return In(i18n.Locale()).TasksTagStatuses() }
+
+// TasksTagStatuses says "Tag statuses"
+// in the language of msgs.
+func (msgs Messages) TasksTagStatuses() string {
+	return Catalog.Format(msgs.locale, "tasks_tagStatuses", nil)
+}
+
+// TasksTagStatusesHelp says "A task with one of these tags gets its drawing; the tag stays a plain tag. ⌥-click a box to pick, 1–7, 0 for none."
+// in the language the app shows.
+func TasksTagStatusesHelp() string { return In(i18n.Locale()).TasksTagStatusesHelp() }
+
+// TasksTagStatusesHelp says "A task with one of these tags gets its drawing; the tag stays a plain tag. ⌥-click a box to pick, 1–7, 0 for none."
+// in the language of msgs.
+func (msgs Messages) TasksTagStatusesHelp() string {
+	return Catalog.Format(msgs.locale, "tasks_tagStatusesHelp", nil)
+}
+
+// TasksTint says "Row tint"
+// in the language the app shows.
+func TasksTint() string { return In(i18n.Locale()).TasksTint() }
+
+// TasksTint says "Row tint"
+// in the language of msgs.
+func (msgs Messages) TasksTint() string {
+	return Catalog.Format(msgs.locale, "tasks_tint", nil)
+}
+
+// TasksTintHelp says "A soft tint of the status's color along a task's line."
+// in the language the app shows.
+func TasksTintHelp() string { return In(i18n.Locale()).TasksTintHelp() }
+
+// TasksTintHelp says "A soft tint of the status's color along a task's line."
+// in the language of msgs.
+func (msgs Messages) TasksTintHelp() string {
+	return Catalog.Format(msgs.locale, "tasks_tintHelp", nil)
+}
+
 // TasksToggleNotMade says "The task couldn't be ticked: its page changed meanwhile. Try again."
 // in the language the app shows.
 func TasksToggleNotMade() string { return In(i18n.Locale()).TasksToggleNotMade() }
