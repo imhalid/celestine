@@ -65,7 +65,7 @@ func TestWallpaperGround(t *testing.T) {
 	pixel := func() color.NRGBA { // the frame's ground, at its left edge under the sidebar's buttons
 		return color.NRGBAModel.Convert(tt.Image().At(3, 350)).(color.NRGBA)
 	}
-	if p := pixel(); p.R <= p.B+20 {
+	if p := pixel(); int(p.R) <= int(p.B)+20 {
 		t.Fatalf("the ground is not the red wallpaper's: %v", p)
 	}
 	if dir := os.Getenv("WALL_SHOT_DIR"); dir != "" {
@@ -82,7 +82,7 @@ func TestWallpaperGround(t *testing.T) {
 	if !a.wall.dark || !a.wall.ok {
 		t.Fatalf("dark: %+v", a.wall)
 	}
-	if p := pixel(); p.B <= p.R+10 || int(p.R)+int(p.G)+int(p.B) > 3*110 {
+	if p := pixel(); int(p.B) <= int(p.R)+10 || int(p.R)+int(p.G)+int(p.B) > 3*110 {
 		t.Fatalf("the dark ground is not the blue wallpaper's, deep: %v", p)
 	}
 	mu.Lock()
@@ -104,7 +104,7 @@ func TestWallpaperGround(t *testing.T) {
 	if a.wall.ok {
 		t.Fatal("a wallpaper that cannot be read is taken")
 	}
-	if p := pixel(); p.R > p.B+20 {
+	if p := pixel(); int(p.R) > int(p.B)+20 { // in int: a blue of 236 and over made 20 more wrap round in uint8
 		t.Fatalf("still the old wallpaper: %v", p)
 	}
 	a.settings.WallpaperFrame = false

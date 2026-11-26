@@ -81,31 +81,44 @@ type frameGround struct {
 	top, mid, low, bottom, tint ui.Color
 }
 
-// frameGroundOf is the frame's ground in c's theme, so that it goes with the color theme in use: a step off the
-// sidebar's surface toward the text, lit at the top with the theme's accent and fading out of it downward, and the
-// accent faintly again toward the right; in light and in dark alike, as the theme's colors are.
+// frameGroundOf is the frame's ground in c's theme, so that it goes with the color theme in use (#619): made in
+// OKLCH in the theme's own hue from top to bottom, at the lightness of a step off the sidebar's surface toward the
+// text, the accent's chroma lighting it at the top and easing off downward without going to gray, the hue turning a
+// little on the way down so that the foot keeps a color of its own, and the accent faintly again toward the right;
+// in light and in dark alike, as the theme's colors are. A gray accent gives a gray ground.
 func frameGroundOf(c *ui.Context) frameGround {
 	t := c.Theme()
 	base := ryugo.Mix(t.Surface, t.Text, 0.06)
+	l, _, _ := ryugo.OklchOf(base)
+	_, ac, ah := ryugo.OklchOf(t.Accent)
+	k := min(ac, 0.2) // the accent's chroma, held to what a ground can bear
+	if t.Dark {
+		k *= 0.8 // a dark ground shows its color more
+	}
+	at := func(dl, chroma, turn float64) ui.Color {
+		return ui.Oklch(float32(l+dl), float32(k*chroma), float32(math.Mod(ah+turn+360, 360)))
+	}
+	lift := 0.02 // the top a little lighter on a dark ground, a little deeper on a light one
+	if !t.Dark {
+		lift = -0.01
+	}
 	return frameGround{
-		top:    ryugo.Mix(base, t.Accent, 0.16),
-		mid:    ryugo.Mix(base, t.Accent, 0.07),
-		low:    base,
-		bottom: ryugo.Mix(base, t.Text, 0.04),
-		tint:   t.Accent.Alpha(0.10),
+		top:    at(lift, 0.3, 0),
+		mid:    at(lift/3, 0.19, 10),
+		low:    at(0, 0.13, 22),
+		bottom: at(-lift/3, 0.1, 34),
+		tint:   at(lift, 0.45, -18).Alpha(0.1),
 	}
 }
 
-// paint paints the ground over r: the gradient in three steps, top to mid over the top 38%, mid to low over the
-// next 32%, low to bottom over the rest, and the tint from clear at 35% of the width to itself at the right.
+// paint paints the ground over r: one gradient blended in OKLCH, top at the top, mid at 38%, low at 70% and bottom at
+// the foot, and the tint from clear at 35% of the width to itself at the right.
 func (g frameGround) paint(p *ui.Painter, r ui.Rect) {
-	h1, h2 := r.H*0.38, r.H*0.32
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: h1 + 1}, ui.LinearGradient{From: g.top, To: g.mid, Angle: 180}, 0)
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1, W: r.W, H: h2 + 1}, ui.LinearGradient{From: g.mid, To: g.low, Angle: 180}, 0)
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1 + h2, W: r.W, H: r.H - h1 - h2}, ui.LinearGradient{From: g.low, To: g.bottom, Angle: 180}, 0)
+	p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
+		{Color: g.top}, {Color: g.mid, At: 0.38}, {Color: g.low, At: 0.7}, {Color: g.bottom, At: 1}}}), 0)
 	clear := g.tint
 	clear.A = 0
-	p.FillGradient(r, ui.LinearGradient{From: clear, To: g.tint, Angle: 90, Start: 0.35, End: 1}, 0)
+	p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{From: clear, To: g.tint, Angle: 90, Start: 0.35, End: 1}), 0)
 }
 
 // frameCard gives el the look of a card on the frame's ground: its fill, lit faintly from the top and fading to
