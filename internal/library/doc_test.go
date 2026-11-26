@@ -142,3 +142,31 @@ func TestLibraryFormatIsTheDocument(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// A task in the running text can end before its line does: its end is an object of the page, written as a comment no
+// other reader shows right after its words, read back from it, and kept as text in code (#610).
+func TestInlineTaskEnd(t *testing.T) {
+	md := "Buy [ ] milk<!--/task--> and more, [x] call Ana<!--/task--> too\n\n`code <!--/task-->`"
+	d := ImportMarkdown(md)
+	var kinds []string
+	for _, r := range d[0].R {
+		if r.O != nil {
+			kinds = append(kinds, r.O.K)
+		}
+	}
+	if strings.Join(kinds, ",") != "check,checkend,check,checkend" {
+		t.Fatalf("objects: %v", kinds)
+	}
+	if strings.Contains(d[1].text(), "") || !strings.Contains(d[1].text(), "<!--/task-->") {
+		t.Fatalf("in code: %q", d[1].text())
+	}
+	if got := d.ExportMarkdown(); got != md {
+		t.Fatalf("written:\n%s\nnot:\n%s", got, md)
+	}
+	if body := EncodeBody(d); !strings.Contains(body, `"k":"checkend"`) || BodyReadable(body) != nil {
+		t.Fatalf("body: %s", body)
+	}
+	if p, _, _ := strings.Cut(Format.Plain(EncodeBody(d)), "\n"); strings.Contains(p, "task-->") {
+		t.Fatalf("plain: %q", p)
+	}
+}

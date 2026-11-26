@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/internal/textnorm"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -58,6 +59,9 @@ func (ch *chip) markdown() string {
 	if ch.kind == "check" {
 		return "[" + map[bool]string{true: "x", false: " "}[ch.target == "x"] + "]"
 	}
+	if ch.kind == "checkend" {
+		return textnorm.InlineTaskEnd
+	}
 	if ch.alias != "" {
 		return "[[" + ch.target + "|" + ch.alias + "]]"
 	}
@@ -77,6 +81,9 @@ func (ch *chip) label() string {
 			return locales.ListsInlineTaskDone()
 		}
 		return locales.ListsInlineTask()
+	}
+	if ch.kind == "checkend" {
+		return checkEndLabel()
 	}
 	if ch.kind == "zoom" {
 		if ch.top {
@@ -138,6 +145,9 @@ func chipOf(inside string) *chip {
 // attachment is the chip as richtext's attachment; how it is drawn
 // depends on the app (its pages, its colors), so the app gives it.
 func (a *app) attachment(ch *chip) *richtext.Attachment {
+	if ch.kind == "checkend" { // a thin bar (inlinetask.go)
+		return &richtext.Attachment{Width: checkEndW(a.fontSize()), Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawCheckEnd(p, r, ch) }}
+	}
 	if ch.kind == "check" { // a box, no words (listmarks.go)
 		return &richtext.Attachment{Width: checkChipW(a.fontSize()), Height: chipBox, Name: ch.label(), Data: ch, Draw: func(p *ui.Painter, r ui.Rect) { a.drawCheckChip(p, r, ch) }}
 	}

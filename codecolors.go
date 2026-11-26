@@ -137,6 +137,7 @@ func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans
 	}
 	if !st.CodeBlock {
 		spans = a.inlineDoneSpans(pn, p, spans)                                                 // the words of a task in the running text, done (#599)
+		spans = a.inlineActiveSpans(pn, p, spans)                                               // and the one the caret is in, shown as one (#610)
 		spans = a.tagStatusSpans(st, spans)                                                     // a task's status tag as a pill of its color (#597)
 		if k, ok := taskKindOf(st); ok && k.id == "canceled" && !st.Checked && a.theme != nil { // a task canceled: faint
 			for i := range spans {
@@ -201,8 +202,8 @@ func (a *app) inlineDoneSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
 			continue
 		}
 		if att := t.AttributesAt(start + i).Attachment; att != nil {
-			if ch, ok := att.Data.(*chip); ok && ch.kind == "check" {
-				boxes = append(boxes, inlineBox{at: i, done: ch.target == "x"})
+			if ch, ok := att.Data.(*chip); ok && (ch.kind == "check" || ch.kind == "checkend") {
+				boxes = append(boxes, inlineBox{at: i, done: ch.target == "x", end: ch.kind == "checkend"})
 			}
 		}
 	}
@@ -222,6 +223,7 @@ func (a *app) inlineDoneSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
 type inlineBox struct {
 	at   int
 	done bool
+	end  bool // not a box: where the task before it ends (#610)
 }
 
 // inlineDoneSegments are the runes of line, [from, to), that the boxes done own, as inlineTasksOf reads a task's
@@ -230,19 +232,10 @@ type inlineBox struct {
 func inlineDoneSegments(line []rune, boxes []inlineBox) [][2]int {
 	var out [][2]int
 	for k, b := range boxes {
-		if !b.done {
+		if !b.done || b.end {
 			continue
 		}
-		from, to := b.at+1, len(line)
-		if k+1 < len(boxes) {
-			to = boxes[k+1].at
-		}
-		if strings.TrimFunc(string(line[from:to]), notWord) == "" {
-			from, to = 0, b.at
-			if k > 0 {
-				from = boxes[k-1].at + 1
-			}
-		}
+		from, to, _ := inlineSegment(line, boxes, k)
 		for from < to && (notWord(line[from]) || line[from] == richtext.ObjectReplacement) {
 			from++
 		}

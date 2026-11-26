@@ -138,8 +138,9 @@ func (a *app) spansVersion(pn *paneState) int {
 	if l := &a.lapse; l.on && l.page == pn.page {
 		v += l.ver * 100000
 	}
-	v += a.tasks.ver * 7919 // a task's line being drawn through it (strikeSpans)
-	if !linkIcons {         // no room before links for their icons (linkcards.go)
+	v += a.tasks.ver * 7919           // a task's line being drawn through it (strikeSpans)
+	v += a.inlineTaskKey(pn) * 104729 // the task in the running text the caret is in, shown as one (#610)
+	if !linkIcons {                   // no room before links for their icons (linkcards.go)
 		v += 1 << 40
 	}
 	if pn.grip.dragging { // the block dragged, drawn faded (blockSpans)

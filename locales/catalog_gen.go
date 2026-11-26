@@ -7441,6 +7441,16 @@ func (msgs Messages) List() string {
 	return Catalog.Format(msgs.locale, "list", nil)
 }
 
+// ListsInlineTaskEnd says "End of the task"
+// in the language the app shows.
+func ListsInlineTaskEnd() string { return In(i18n.Locale()).ListsInlineTaskEnd() }
+
+// ListsInlineTaskEnd says "End of the task"
+// in the language of msgs.
+func (msgs Messages) ListsInlineTaskEnd() string {
+	return Catalog.Format(msgs.locale, "lists_inlineTaskEnd", nil)
+}
+
 // LockOn says "Lock-on"
 // in the language the app shows.
 func LockOn() string { return In(i18n.Locale()).LockOn() }

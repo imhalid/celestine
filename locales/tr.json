@@ -732,6 +732,7 @@
   "links_pageHeading": "{page} › {heading}",
   "links_updated": "{count, plural, one {# bağlantı güncellendi} other {# bağlantı güncellendi}}",
   "list": "liste",
+  "lists_inlineTaskEnd": "Görevin sonu",
   "lockOn": "Kilit",
   "log": "Günlük",
   "macro": "Makro",

@@ -20,6 +20,11 @@ func (a *app) tabKey(c *ui.Context, pn *paneState) {
 	if !tab && !back || a.slash.open {
 		return
 	}
+	if tab && a.tabOutOfInlineTask(pn) { // in a task of the running text: out of it, not a level in (#610)
+		pn.revealWant = true
+		c.Invalidate()
+		return
+	}
 	anchor, caret := pn.doc.Selection()
 	text := pn.doc.Text()
 	st := text.ParagraphStyleAt(caret)

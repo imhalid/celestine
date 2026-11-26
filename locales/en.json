@@ -824,6 +824,7 @@
   "links_updated": "{count, plural, one {Updated # link} other {Updated # links}}",
   "@links_updated": {"placeholders": {"count": {"type": "int"}}},
   "list": "list",
+  "lists_inlineTaskEnd": "End of the task",
   "lockOn": "Lock-on",
   "log": "Log",
   "macro": "Macro",

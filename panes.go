@@ -90,10 +90,11 @@ type paneState struct {
 	statsVer      uint64    // the version of the text the counts are of
 	statWords     int
 	statChars     int
-	settingsTab   int       // the settings' tab
-	settingsBack  []int     // the sections shown before it, for the settings' ‹ (#605)
-	settingsFwd   []int     // and those gone back from, for ›
-	calDay        time.Time // the day open on the calendar, and whether it is
+	settingsTab   int          // the settings' tab
+	inlineAct     inlineActive // the task in the running text the caret is in, as the spans were last asked for (inlinetask.go)
+	settingsBack  []int        // the sections shown before it, for the settings' ‹ (#605)
+	settingsFwd   []int        // and those gone back from, for ›
+	calDay        time.Time    // the day open on the calendar, and whether it is
 	calOpen       bool
 	calNext       time.Time // the day to open once the open one has closed: one day goes before the next comes
 	calGrid       ui.Rect

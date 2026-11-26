@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/internal/textnorm"
 	"regexp"
 	"slices"
 	"sort"
@@ -122,15 +123,23 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 			if k+1 < len(spots) && spots[k+1].Line == s.Line && spots[k+1].Col > s.Col {
 				to = spots[k+1].Col
 			}
+			ended := false
+			if e := strings.Index(ln[from:to], textnorm.InlineTaskEnd); e >= 0 { // its end, before the next box (#610)
+				to, ended = from+e, true
+			}
 			raw = ln[from:to]
-			if strings.TrimFunc(raw, notWord) == "" { // nothing after it: what is before it
+			if !ended && strings.TrimFunc(raw, notWord) == "" { // nothing after it: what is before it
 				start := 0
 				if k > 0 && spots[k-1].Line == s.Line && spots[k-1].Col >= 0 {
 					start = spots[k-1].Col + 3
 				}
+				if e := strings.LastIndex(ln[start:s.Col], textnorm.InlineTaskEnd); e >= 0 { // after the task before it
+					start += e + len(textnorm.InlineTaskEnd)
+				}
 				raw = ln[start:s.Col]
 			}
 		}
+		raw = strings.ReplaceAll(raw, textnorm.InlineTaskEnd, "")
 		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
 		text, due, every := taskWords(raw)
 		out = append(out, taskItem{page: p, line: s.Line, done: s.Done, text: text, due: due, every: every, inl: inl, col: s.Col, folded: foldText(text)})

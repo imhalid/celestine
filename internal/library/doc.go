@@ -120,7 +120,7 @@ func (o *Obj) MarshalJSON() ([]byte, error) {
 }
 
 // KnownObjKinds are the kinds of object this version reads.
-var KnownObjKinds = map[string]bool{"page": true, "date": true, "embed": true, "file": true, "footnote": true, "check": true,
+var KnownObjKinds = map[string]bool{"page": true, "date": true, "embed": true, "file": true, "footnote": true, "check": true, "checkend": true,
 	"table": true, "query": true, "image": true}
 
 // Known reports whether the object is of a kind this version reads.

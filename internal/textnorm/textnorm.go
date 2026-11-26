@@ -15,11 +15,14 @@ var (
 	mdWiki = regexp.MustCompile(`\[\[([^\[\]|]*\|)?([^\[\]]*)\]\]`)
 )
 
+// InlineTaskEnd is the end of a task in the running text, in Markdown: a comment no reader shows (#610).
+const InlineTaskEnd = "<!--/task-->"
+
 // Plain renders Markdown as visible plain words on a single line: link labels are kept, line
 // markers (headings, quotes, list markers, task boxes) and fenced code markers are stripped,
 // and emphasis/table bars become spaces.
 func Plain(md string) string {
-	s := md
+	s := strings.ReplaceAll(md, InlineTaskEnd, "")
 	if strings.Contains(s, "](") {
 		s = mdLink.ReplaceAllString(s, "$1")
 	}

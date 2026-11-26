@@ -176,6 +176,7 @@ func PageFromMarkdown(md string) Doc {
 		}
 		l = protectInline(l)
 		if !plain {
+			l = taskEndsIn(l)
 			l = inlineChecksIn(l, refX)
 			toks := ""
 			if look >= 0 {
@@ -306,6 +307,9 @@ func foreignHTML(s string) bool {
 			slashes++
 		}
 		if slashes%2 == 1 {
+			continue
+		}
+		if s[m[0]:m[1]] == textnorm.InlineTaskEnd { // the end of a task in the running text: ours (#610)
 			continue
 		}
 		tag := strings.TrimPrefix(s[m[0]+1:m[1]-1], "/")
@@ -503,10 +507,11 @@ const (
 	tokLook     = '\uE004' // a list's look: tokLook, its number among the page's looks, tokEnd
 	tokNumbered = '\uE006' // an item of a numbered list of tasks: tokNumbered, its number in the list, tokEnd
 	tokEnd      = '\uE005'
+	tokTaskEnd  = '\uE007' // where a task in the running text ends (#610)
 	// listTokens are the characters that start a token of lists in the text, and listRunes all of its characters: a
 	// text that has one already, as an icon font's letter, is read and written as before, without tokens.
-	listTokens = "\uE002\uE003\uE004\uE006"
-	listRunes  = "\uE002\uE003\uE004\uE005\uE006"
+	listTokens = "\uE002\uE003\uE004\uE006\uE007"
+	listRunes  = "\uE002\uE003\uE004\uE005\uE006\uE007"
 )
 
 var (
@@ -581,6 +586,14 @@ func inlineChecksIn(l string, refX bool) string {
 		l = l[:at[k]] + string(tok) + l[at[k]+3:]
 	}
 	return l
+}
+
+// taskEndsIn puts a token in the place of each end of a task in the running text in line l, outside code.
+func taskEndsIn(l string) string {
+	if !strings.Contains(l, textnorm.InlineTaskEnd) {
+		return l
+	}
+	return OutsideCode(l, func(s string) string { return strings.ReplaceAll(s, textnorm.InlineTaskEnd, string(tokTaskEnd)) })
 }
 
 // listMarkAt is the look the comment on line i says of the list under it; false when line i is not one, or what
@@ -660,6 +673,15 @@ func listTokensIn(d Doc, looks []string) Doc {
 			for j := 0; j < len(s); {
 				c, n := utf8.DecodeRuneInString(s[j:])
 				switch c {
+				case tokTaskEnd:
+					if code || r.C { // in code, the comment it was
+						sb.WriteString(textnorm.InlineTaskEnd)
+						break
+					}
+					flush()
+					t := r
+					t.T, t.O = ObjectChar, &Obj{K: "checkend"}
+					runs = append(runs, t)
 				case tokCheck, tokChecked:
 					if code || r.C { // in code, the box it was
 						sb.WriteString(checkMarkdown(c == tokChecked))
@@ -1017,7 +1039,7 @@ func listTokensOut(d Doc) (Doc, []string, bool) {
 			if r.O == nil && strings.ContainsAny(r.T, listRunes) {
 				return checksAsText(d), nil, false
 			}
-			if r.O != nil && r.O.K == "check" {
+			if r.O != nil && (r.O.K == "check" || r.O.K == "checkend") {
 				has = true
 			}
 		}
@@ -1035,6 +1057,9 @@ func listTokensOut(d Doc) (Doc, []string, bool) {
 						tok = tokChecked
 					}
 					r.O, r.T = nil, string(tok)
+				}
+				if r.O != nil && r.O.K == "checkend" {
+					r.O, r.T = nil, string(tokTaskEnd)
 				}
 				runs = append(runs, r)
 			}
@@ -1092,6 +1117,9 @@ func checksAsText(d Doc) Doc {
 		for _, r := range d[i].R {
 			if r.O != nil && r.O.K == "check" {
 				r.T, r.O = checkMarkdown(r.O.Target == "x"), nil
+			}
+			if r.O != nil && r.O.K == "checkend" { // no word for it in a text read as before
+				continue
 			}
 			runs = append(runs, r)
 		}
@@ -1151,6 +1179,7 @@ func listMarksOut(lines []string, looks []string) []string {
 // checksOut writes the tasks in the running text of line l, of Markdown: a bare box where it is read back as a
 // task (InlineBoxes), else escaped, as text. refX says the page has a reference "[x]:".
 func checksOut(l string, refX bool) string {
+	l = strings.ReplaceAll(l, string(tokTaskEnd), textnorm.InlineTaskEnd)
 	for {
 		i := strings.IndexAny(l, "\uE002\uE003")
 		if i < 0 {
@@ -1184,6 +1213,7 @@ func InCode(l string, i int) bool {
 
 // checksBare writes the tasks in the running text of s bare: in code, where nothing is escaped.
 func checksBare(s string) string {
+	s = strings.ReplaceAll(s, string(tokTaskEnd), textnorm.InlineTaskEnd)
 	if !strings.ContainsAny(s, "\uE002\uE003") {
 		return s
 	}

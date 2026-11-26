@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/imhalid/celestine/internal/table"
+	"github.com/imhalid/celestine/internal/textnorm"
 )
 
 // The objects of a page in its Markdown (#595): a link to a page or a day ([[Page]], [[2026-11-26]]), a page's card
@@ -295,7 +296,7 @@ func ObjectsAsText(d Doc) Doc {
 func objectsAsText(p Para) []Para {
 	k, at := -1, 0
 	for i, r := range p.R {
-		if r.O != nil && r.O.K != "check" && r.O.K != "image" {
+		if r.O != nil && r.O.K != "check" && r.O.K != "checkend" && r.O.K != "image" {
 			k = i
 		}
 	}
@@ -339,6 +340,8 @@ func ObjMarkdown(o *Obj) string {
 		return "[^" + o.Target + "]"
 	case "check":
 		return checkMarkdown(o.Target == "x")
+	case "checkend":
+		return textnorm.InlineTaskEnd
 	case "file":
 		ref := o.Target
 		if strings.ContainsAny(ref, " ()") {
