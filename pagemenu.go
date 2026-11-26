@@ -108,12 +108,21 @@ func styleRaisedControl(e ui.Element, t *ryugo.Tokens) {
 	case e.Hovered():
 		f = t.ControlHover
 	}
-	stops := []ui.GradientStop{
-		{Color: ryugo.Brightness(cl.ControlTop, f), At: 0},
-		{Color: ryugo.Brightness(cl.ControlBottom, f), At: 0.72},
-		{Color: ryugo.Brightness(ryugo.Mix(cl.ControlBottom, cl.ControlTop, 0.45), f), At: 1},
+	// blended first, then each stop brightened, as Ryugo's raised controls are: the other order is a shade off
+	// on hover
+	g := ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
+		{Color: cl.ControlTop, At: 0},
+		{Color: cl.ControlBottom, At: 0.72},
+		{Color: ryugo.Mix(cl.ControlBottom, cl.ControlTop, 0.45), At: 1},
+	}})
+	if f != 1 {
+		stops := make([]ui.GradientStop, len(g.Stops))
+		for i, s := range g.Stops {
+			stops[i] = ui.GradientStop{Color: ryugo.Brightness(s.Color, f), At: s.At}
+		}
+		g.Stops = stops
 	}
-	e.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: stops})).
+	e.LinearGradient(g).
 		Border(1, ryugo.Brightness(cl.ControlBorder, f)).
 		FocusRing(false).
 		Transition(ui.ElementTransition{Duration: 150 * time.Millisecond, Colors: true, Ease: ui.EaseOut})
