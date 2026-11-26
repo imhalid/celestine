@@ -28,6 +28,8 @@ type app struct {
 	notice   string      // a short word at the bottom, gone after a moment
 	noticeAt time.Time   // when it was said
 
+	sy syncState // the account and the sync (sync.go)
+
 	menuOpen bool // the menu covers the screen
 	plusOpen bool // the + has opened its list of what to make
 	moreOpen bool // a page's sheet of what to do with it
@@ -35,7 +37,9 @@ type app struct {
 
 // settings are the phone's own: kept in the app's folder, not the library's, as they are this device's.
 type settings struct {
-	Theme string `json:"theme,omitempty"` // "", "light" or "dark": "" follows the system
+	Theme       string `json:"theme,omitempty"`       // "", "light" or "dark": "" follows the system
+	AccountUser string `json:"accountUser,omitempty"` // the account signed in to, its token and key in the secret store
+	SyncURL     string `json:"syncURL,omitempty"`     // the server, when not the account's own (a test's)
 }
 
 func newApp(dir string) *app {
@@ -81,6 +85,7 @@ const (
 	pathTasks    = "/tasks"
 	pathSearch   = "/search"
 	pathSettings = "/settings"
+	pathSignIn   = "/signin"
 )
 
 // view is a frame of the window: the theme, the screen the router shows, and over it the + and what it and the menu
@@ -96,6 +101,7 @@ func (a *app) view(c *ui.Context) {
 		return
 	}
 	a.lockDays() // a day turns past at midnight
+	a.syncTick(c.Now())
 	over := a.menuOpen || a.plusOpen || a.moreOpen
 	screen := ui.Box(c.Key("screen")).Fill()
 	veil := screen.Animate("veil", b2f(over), 260*time.Millisecond)
@@ -115,6 +121,8 @@ func (a *app) view(c *ui.Context) {
 				a.searchScreen(c)
 			case r.Match(pathSettings):
 				a.settingsScreen(c)
+			case r.Match(pathSignIn):
+				a.signInScreen(c)
 			case r.Match("/c/{dir}"):
 				if coll := a.collAt(r.Param("dir")); coll != nil {
 					r.Title(coll.Name)
@@ -138,7 +146,7 @@ func (a *app) view(c *ui.Context) {
 			}
 		})
 	}
-	if !strings.HasPrefix(a.router.Path(), "/p/") && !a.menuOpen {
+	if !strings.HasPrefix(a.router.Path(), "/p/") && a.router.Path() != pathSignIn && !a.menuOpen {
 		a.plusButton(c)
 	}
 	a.menuView(c)

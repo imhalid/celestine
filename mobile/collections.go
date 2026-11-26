@@ -88,4 +88,5 @@ func (a *app) trash(p *library.Page) {
 	delete(plains, p)
 	delete(mds, p)
 	a.say(locales.PageTrashed())
+	a.syncSoon()
 }

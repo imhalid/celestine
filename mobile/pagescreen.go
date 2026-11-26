@@ -74,7 +74,9 @@ func (a *app) flush() {
 	}
 	if err := p.Save(library.EncodeBody(docOf(a.ed.doc.Text()))); err != nil {
 		a.say(locales.PageSaveFailed(err.Error()))
+		return
 	}
+	a.syncSoon()
 }
 
 // leaveEditor saves the page that was being written once the router shows another screen. A screen left still draws

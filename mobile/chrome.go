@@ -8,8 +8,8 @@ import (
 )
 
 // The app's chrome is its own: no bar of tabs. A round button at the top left opens the menu, which fills the screen
-// over the screen blurred, its places coming in one after another; a round + at the bottom opens what can be made,
-// rising over it in a column, the + turning to a ×. A page's ··· opens a sheet from the bottom.
+// over the screen blurred, its places coming in one after another; a round + at the bottom right opens what can be
+// made, rising over it in a column at the right, the + turning to a ×. A page's ··· opens a sheet from the bottom.
 
 // motionIn is how what opens comes in: a spring that overshoots a little.
 func motionIn(delay time.Duration) ui.Animation {
@@ -57,7 +57,7 @@ func bigTitle(c *ui.Context, title, sub string) {
 func (a *app) plusButton(c *ui.Context) {
 	ui.Overlay(c, func() {
 		_, _, bottom, _ := c.SafeArea() // an overlay is laid out over the system's bars: kept above them
-		anchor := ui.Column(c.Key("plus-col")).Absolute().Left(0).Right(0).Bottom(18 + bottom).AlignItems(ui.Center).Gap(10)
+		anchor := ui.Column(c.Key("plus-col")).Absolute().Right(side).Bottom(18 + bottom).AlignItems(ui.End).Gap(10)
 		k := anchor.AnimateTo("open", b2f(a.plusOpen), motionIn(0))
 		anchor.Children(func() {
 			if k > 0.01 || a.plusOpen {
@@ -98,15 +98,17 @@ func (a *app) plusActions() []plusAct {
 		{iconCalendar, tints[1], locales.ActionToday(), func() { a.newNote(a.journalColl()) }},
 		{iconPage, tints[0], locales.ActionNote(), func() { a.newNote(nil) }},
 	}
-	n := 0
-	for i, k := range a.lib.Collections {
+	first, n := true, 0 // the first collection of notes is New note's; the next two have a line of their own
+	for _, k := range a.lib.Collections {
 		if k.Journal || k.Dynamic() || n == 2 {
 			continue
 		}
-		if n > 0 || i > 0 {
-			k := k
-			acts = append(acts, plusAct{iconFolder, collTint(k), locales.ActionIn(k.Name), func() { a.newNote(k) }})
+		if first {
+			first = false
+			continue
 		}
+		k := k
+		acts = append(acts, plusAct{iconFolder, collTint(k), locales.ActionIn(k.Name), func() { a.newNote(k) }})
 		n++
 	}
 	acts = append(acts, plusAct{iconSearch, tints[3], locales.ActionSearch(), func() { a.goTo(pathSearch) }})

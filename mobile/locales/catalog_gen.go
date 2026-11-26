@@ -631,16 +631,6 @@ func (msgs Messages) SettingsSync() string {
 	return Catalog.Format(msgs.locale, "settings_sync", nil)
 }
 
-// SettingsSyncSoon says "Sign in to the same account as on your computer to see your pages here. Coming soon."
-// in the language the app shows.
-func SettingsSyncSoon() string { return In(i18n.Locale()).SettingsSyncSoon() }
-
-// SettingsSyncSoon says "Sign in to the same account as on your computer to see your pages here. Coming soon."
-// in the language of msgs.
-func (msgs Messages) SettingsSyncSoon() string {
-	return Catalog.Format(msgs.locale, "settings_syncSoon", nil)
-}
-
 // SettingsSystem says "System"
 // in the language the app shows.
 func SettingsSystem() string { return In(i18n.Locale()).SettingsSystem() }
@@ -659,6 +649,216 @@ func SettingsVersion() string { return In(i18n.Locale()).SettingsVersion() }
 // in the language of msgs.
 func (msgs Messages) SettingsVersion() string {
 	return Catalog.Format(msgs.locale, "settings_version", nil)
+}
+
+// SyncAbout says "Sign in with the account you use on your computer: your pages sync between them, end-to-end encrypted."
+// in the language the app shows.
+func SyncAbout() string { return In(i18n.Locale()).SyncAbout() }
+
+// SyncAbout says "Sign in with the account you use on your computer: your pages sync between them, end-to-end encrypted."
+// in the language of msgs.
+func (msgs Messages) SyncAbout() string {
+	return Catalog.Format(msgs.locale, "sync_about", nil)
+}
+
+// SyncCame says "{count, plural, one {# page came from your other devices} other {# pages came from your other devices}}"
+// in the language the app shows.
+func SyncCame(count int) string { return In(i18n.Locale()).SyncCame(count) }
+
+// SyncCame says "{count, plural, one {# page came from your other devices} other {# pages came from your other devices}}"
+// in the language of msgs.
+func (msgs Messages) SyncCame(count int) string {
+	return Catalog.Format(msgs.locale, "sync_came", map[string]any{"count": count})
+}
+
+// SyncConflicts says "{count, plural, one {# page was changed on two devices: both copies are kept} other {# pages were changed on two devi…"
+// in the language the app shows.
+func SyncConflicts(count int) string { return In(i18n.Locale()).SyncConflicts(count) }
+
+// SyncConflicts says "{count, plural, one {# page was changed on two devices: both copies are kept} other {# pages were changed on two devi…"
+// in the language of msgs.
+func (msgs Messages) SyncConflicts(count int) string {
+	return Catalog.Format(msgs.locale, "sync_conflicts", map[string]any{"count": count})
+}
+
+// SyncEmail says "Email"
+// in the language the app shows.
+func SyncEmail() string { return In(i18n.Locale()).SyncEmail() }
+
+// SyncEmail says "Email"
+// in the language of msgs.
+func (msgs Messages) SyncEmail() string {
+	return Catalog.Format(msgs.locale, "sync_email", nil)
+}
+
+// SyncErrDecrypt says "The account's key couldn't be opened."
+// in the language the app shows.
+func SyncErrDecrypt() string { return In(i18n.Locale()).SyncErrDecrypt() }
+
+// SyncErrDecrypt says "The account's key couldn't be opened."
+// in the language of msgs.
+func (msgs Messages) SyncErrDecrypt() string {
+	return Catalog.Format(msgs.locale, "sync_errDecrypt", nil)
+}
+
+// SyncErrServer says "The server answered {status}."
+// in the language the app shows.
+func SyncErrServer(status string) string { return In(i18n.Locale()).SyncErrServer(status) }
+
+// SyncErrServer says "The server answered {status}."
+// in the language of msgs.
+func (msgs Messages) SyncErrServer(status string) string {
+	return Catalog.Format(msgs.locale, "sync_errServer", map[string]any{"status": status})
+}
+
+// SyncErrTooMany says "Too many tries. Try again later."
+// in the language the app shows.
+func SyncErrTooMany() string { return In(i18n.Locale()).SyncErrTooMany() }
+
+// SyncErrTooMany says "Too many tries. Try again later."
+// in the language of msgs.
+func (msgs Messages) SyncErrTooMany() string {
+	return Catalog.Format(msgs.locale, "sync_errTooMany", nil)
+}
+
+// SyncErrWrong says "Wrong email or password"
+// in the language the app shows.
+func SyncErrWrong() string { return In(i18n.Locale()).SyncErrWrong() }
+
+// SyncErrWrong says "Wrong email or password"
+// in the language of msgs.
+func (msgs Messages) SyncErrWrong() string {
+	return Catalog.Format(msgs.locale, "sync_errWrong", nil)
+}
+
+// SyncFailed says "Couldn't sync: {error}"
+// in the language the app shows.
+func SyncFailed(error string) string { return In(i18n.Locale()).SyncFailed(error) }
+
+// SyncFailed says "Couldn't sync: {error}"
+// in the language of msgs.
+func (msgs Messages) SyncFailed(error string) string {
+	return Catalog.Format(msgs.locale, "sync_failed", map[string]any{"error": error})
+}
+
+// SyncFill says "Type your email and password."
+// in the language the app shows.
+func SyncFill() string { return In(i18n.Locale()).SyncFill() }
+
+// SyncFill says "Type your email and password."
+// in the language of msgs.
+func (msgs Messages) SyncFill() string {
+	return Catalog.Format(msgs.locale, "sync_fill", nil)
+}
+
+// SyncLast says "Synced {when}"
+// in the language the app shows.
+func SyncLast(when string) string { return In(i18n.Locale()).SyncLast(when) }
+
+// SyncLast says "Synced {when}"
+// in the language of msgs.
+func (msgs Messages) SyncLast(when string) string {
+	return Catalog.Format(msgs.locale, "sync_last", map[string]any{"when": when})
+}
+
+// SyncNever says "Not synced yet"
+// in the language the app shows.
+func SyncNever() string { return In(i18n.Locale()).SyncNever() }
+
+// SyncNever says "Not synced yet"
+// in the language of msgs.
+func (msgs Messages) SyncNever() string {
+	return Catalog.Format(msgs.locale, "sync_never", nil)
+}
+
+// SyncOffline says "Offline: it syncs once it can"
+// in the language the app shows.
+func SyncOffline() string { return In(i18n.Locale()).SyncOffline() }
+
+// SyncOffline says "Offline: it syncs once it can"
+// in the language of msgs.
+func (msgs Messages) SyncOffline() string {
+	return Catalog.Format(msgs.locale, "sync_offline", nil)
+}
+
+// SyncPassword says "Password"
+// in the language the app shows.
+func SyncPassword() string { return In(i18n.Locale()).SyncPassword() }
+
+// SyncPassword says "Password"
+// in the language of msgs.
+func (msgs Messages) SyncPassword() string {
+	return Catalog.Format(msgs.locale, "sync_password", nil)
+}
+
+// SyncRefused says "This phone was signed out of the account. Sign in again."
+// in the language the app shows.
+func SyncRefused() string { return In(i18n.Locale()).SyncRefused() }
+
+// SyncRefused says "This phone was signed out of the account. Sign in again."
+// in the language of msgs.
+func (msgs Messages) SyncRefused() string {
+	return Catalog.Format(msgs.locale, "sync_refused", nil)
+}
+
+// SyncSignIn says "Sign in"
+// in the language the app shows.
+func SyncSignIn() string { return In(i18n.Locale()).SyncSignIn() }
+
+// SyncSignIn says "Sign in"
+// in the language of msgs.
+func (msgs Messages) SyncSignIn() string {
+	return Catalog.Format(msgs.locale, "sync_signIn", nil)
+}
+
+// SyncSignInNote says "The password never leaves this phone. No account yet? Open one in Celestine on your computer."
+// in the language the app shows.
+func SyncSignInNote() string { return In(i18n.Locale()).SyncSignInNote() }
+
+// SyncSignInNote says "The password never leaves this phone. No account yet? Open one in Celestine on your computer."
+// in the language of msgs.
+func (msgs Messages) SyncSignInNote() string {
+	return Catalog.Format(msgs.locale, "sync_signInNote", nil)
+}
+
+// SyncSignOut says "Sign out"
+// in the language the app shows.
+func SyncSignOut() string { return In(i18n.Locale()).SyncSignOut() }
+
+// SyncSignOut says "Sign out"
+// in the language of msgs.
+func (msgs Messages) SyncSignOut() string {
+	return Catalog.Format(msgs.locale, "sync_signOut", nil)
+}
+
+// SyncSigningIn says "Signing in…"
+// in the language the app shows.
+func SyncSigningIn() string { return In(i18n.Locale()).SyncSigningIn() }
+
+// SyncSigningIn says "Signing in…"
+// in the language of msgs.
+func (msgs Messages) SyncSigningIn() string {
+	return Catalog.Format(msgs.locale, "sync_signingIn", nil)
+}
+
+// SyncSyncNow says "Sync now"
+// in the language the app shows.
+func SyncSyncNow() string { return In(i18n.Locale()).SyncSyncNow() }
+
+// SyncSyncNow says "Sync now"
+// in the language of msgs.
+func (msgs Messages) SyncSyncNow() string {
+	return Catalog.Format(msgs.locale, "sync_syncNow", nil)
+}
+
+// SyncSyncing says "Syncing…"
+// in the language the app shows.
+func SyncSyncing() string { return In(i18n.Locale()).SyncSyncing() }
+
+// SyncSyncing says "Syncing…"
+// in the language of msgs.
+func (msgs Messages) SyncSyncing() string {
+	return Catalog.Format(msgs.locale, "sync_syncing", nil)
 }
 
 // TabLibrary says "Library"

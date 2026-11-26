@@ -28,15 +28,15 @@ in a little under a finger, their corners kept.
 
 - **No bar of tabs.** A round button at the top left opens the menu, which covers the screen over the screen blurred,
   its places (Home, Library, Tasks, Search, Settings) large and coming in one after another. A round **+** at the bottom
-  is the only other control: tapped, the screen blurs and what it makes rises over it (today's page, a note, a note in a
-  collection, a search), the + turning to a ×. Android's back closes what is open first.
+  right is the only other control: tapped, the screen blurs and what it makes rises over it at the right (today's page, a note,
+  a note in another collection, a search), the + turning to a ×. Android's back closes what is open first.
 - **Home** is blocks: the day, large, on a field of soft colors that drift slowly (a shader, still with reduced
   motion); today's page with its first lines and words; the tasks open in the library and the days in a row the
   journal has words; the collections, colored, in a row that scrolls sideways; the pages written lately.
 - **Library** is the collections two to a row; a collection is its pages as blocks under its name, in its color.
 - **Tasks** are every task not done, by page; a task taps through to its page.
 - **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).
-- **Settings** choose light, dark or the system's look as three blocks (the system's bars follow).
+- **Settings** choose light, dark or the system's look as three blocks (the system's bars follow), and sign in to sync.
 - **A page** is the whole screen to write in and nothing else: its collection, its title (asked for first on a new
   note), its text; a line's Markdown makes it a heading, a list or a checklist (`# `, `- `, `[] `); Done at the top puts
   the keyboard away, ··· opens a sheet (copy the text, move to the trash). Saved 0.8 s after the typing stops, as the
@@ -72,9 +72,25 @@ screens with MyGo's Tester.
 - **The time zone** is the phone's: MyGo asks the host for it as Go starts, so `time.Local` is right for the journal's
   days.
 
+## Sync
+
+The phone signs in with the account the computer uses and syncs as the desktop does (#634):
+
+- **One protocol.** The account's keys and the server's calls are `internal/account`, which the desktop's `account.go`
+  wraps too: the keys are made from the password on the phone, only their proof leaves it, and the data key comes back
+  sealed and is opened here.
+- **One sync.** `mobile/sync.go` makes the desktop's pass (`library.SyncCounted`) over the phone's folder, through the
+  same end-to-end encrypted remote, its state and the pages as last synced in the app's folder. A new library's own
+  files (its journal) are marked pristine, so the first pass takes the account's copies with no conflict.
+- **When.** As the app opens and comes back after 20 s away, 2 s after the typing stops or a page goes to the trash,
+  every 5 minutes while it shows, and from Settings. Pages that came are read again into the screens; a page being
+  read shows what came.
+- **Secrets.** The token and the data key are in MyGo's secret store, encrypted with a key of Android's keystore; the
+  settings keep only the account's address. Signing out forgets both; the pages stay.
+- **Tested** against the sync Worker on this machine (`scripts/worker-test.sh` runs `TestSyncLive`): a page written
+  on a computer comes to the phone, and the phone's journal and notes go to the computer, with no conflict.
+
 ## Next
 
-- Sync: signing in to the account and syncing the library, as the desktop does (`syncapp.go`, `account.go`), its
-  protocol and keys moved to a package both use.
 - Sharing text into the app (Android's share menu) and a widget for today's page.
 - Trying it on a phone (Samsung Galaxy S21), and a release build signed for Google Play.

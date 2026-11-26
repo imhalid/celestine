@@ -1,20 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/pbkdf2"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"slices"
 	"strconv"
@@ -23,200 +12,48 @@ import (
 
 	"github.com/egoist/mygo/netproxy"
 	"github.com/egoist/mygo/ui"
-	"github.com/imhalid/celestine/internal/library"
+	"github.com/imhalid/celestine/internal/account"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
 
-// The account (cloudflare/sync/auth.js, docs/22-hesap-ve-bekleme-listesi.md): an email address, a password and, once, the
-// access code the waitlist sent to that address (an account of before has a username where the address is). The
-// password does not leave this computer. From it, and the address, two things are
-// made here: "auth" (what the server takes as proof of who one is) and a key that seals the data key. The data
-// key is made at random when the account is opened; the server keeps it sealed and cannot open it. It is the key
-// of end-to-end encryption (sync.go): whoever has the password has it on any computer, and whoever has the server
-// has nothing. Forget the password and the data is gone, unless the recovery key (the data key in words) was kept.
+// The account: its protocol and its keys are internal/account's, which the phone's app speaks too (#634); here are
+// the desktop's names for them, its errors in the window's language, and the account's part of the settings.
 
 // defaultServer is where accounts are opened and the waitlist is.
-const defaultServer = "https://celestine.halid.dev"
+const defaultServer = account.DefaultServer
 
-const acctIterations = 200_000
+// The account's types, by the desktop's names.
+type (
+	acctClient = account.Client
+	DeviceInfo = account.DeviceInfo
+	AcctMe     = account.Me
+)
 
-// An account's password is stretched as its kdf says (#154), which the server keeps beside the account and gives
-// before a sign-in (/api/prelogin): "argon2id$time$memory$threads$salt", the salt random and in hex, for an account
-// made or given a password since; "" for one of before, whose stretching is PBKDF2 with the address for salt. A
-// leak of the server then has what checks a guess at a cost in memory as well as time, and no salt shared by every
-// server that has the address.
-
-// newKDF is the stretching of a password set now: Argon2id at the library's cost, with a salt of its own.
-func newKDF() (string, error) {
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("argon2id$%d$%d$%d$%x", library.ArgonTime, library.ArgonMemory, library.ArgonThreads, salt), nil
+func newKDF() (string, error) { return account.NewKDF() }
+func acctKeys(username, password, kdf string) (string, []byte, error) {
+	return account.Keys(username, password, kdf)
 }
+func recoveryAuth(key []byte) string                     { return account.RecoveryAuth(key) }
+func recoveryAuthOfBefore(key []byte) string             { return account.RecoveryAuthOfBefore(key) }
+func wrapDataKey(kek, key []byte) (string, error)        { return account.WrapDataKey(kek, key) }
+func unwrapDataKey(kek []byte, s string) ([]byte, error) { return account.UnwrapDataKey(kek, s) }
 
-// parseKDF reads a kdf the server gave. Its costs are held to bounds: a server cannot ask for a stretching that
-// costs a guess less than the library's lowest, nor one that takes this computer's memory.
-func parseKDF(kdf string) (t, m uint32, p uint8, salt []byte, err error) {
-	f := strings.Split(kdf, "$")
-	bad := errors.New("the server gave a stretching this app does not take")
-	if len(f) != 5 || f[0] != "argon2id" {
-		return 0, 0, 0, nil, bad
-	}
-	nt, e1 := strconv.ParseUint(f[1], 10, 32)
-	nm, e2 := strconv.ParseUint(f[2], 10, 32)
-	np, e3 := strconv.ParseUint(f[3], 10, 8)
-	salt, e4 := hex.DecodeString(f[4])
-	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || nt < 2 || nt > 10 || nm < 19*1024 || nm > 1<<20 || np < 1 || np > 16 || len(salt) < 16 {
-		return 0, 0, 0, nil, bad
-	}
-	return uint32(nt), uint32(nm), uint8(np), salt, nil
-}
-
-// acctKeys makes, from the name, the password and how the account stretches it, the proof for the server and the key
-// that seals the data key.
-func acctKeys(username, password, kdf string) (auth string, kek []byte, err error) {
-	var master []byte
-	if kdf == "" { // an account of before
-		master, err = pbkdf2.Key(sha256.New, password, []byte("celestine/v1/"+strings.ToLower(strings.TrimSpace(username))), acctIterations, 32)
-	} else {
-		var t, m uint32
-		var p uint8
-		var salt []byte
-		if t, m, p, salt, err = parseKDF(kdf); err == nil {
-			master = library.StretchPassword(password, salt, t, m, p)
-		}
-	}
-	if err != nil {
-		return "", nil, err
-	}
-	part := func(label string) []byte {
-		m := hmac.New(sha256.New, master)
-		m.Write([]byte(label))
-		return m.Sum(nil)
-	}
-	return hex.EncodeToString(part("auth")), part("kek"), nil
-}
-
-// recoveryAuth is what the recovery key proves to the server (/api/recover): made from the data key, so that it is the same wherever the key is,
-// and one way, so that the server, holding only its hash, cannot make the key from it. It is a key of its own made from
-// the data key (library.RecoveryProof, #162); recoveryAuthOfBefore is what an account of before has the hash of.
-func recoveryAuth(key []byte) string { return library.RecoveryProof(key) }
-
-func recoveryAuthOfBefore(key []byte) string {
-	m := hmac.New(sha256.New, key)
-	m.Write([]byte("celestine/recovery-auth"))
-	return hex.EncodeToString(m.Sum(nil))
-}
-
-func wrapDataKey(kek, key []byte) (string, error) {
-	blk, err := aes.NewCipher(kek)
-	if err != nil {
-		return "", err
-	}
-	g, err := cipher.NewGCM(blk)
-	if err != nil {
-		return "", err
-	}
-	nonce := make([]byte, g.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(g.Seal(nonce, nonce, key, nil)), nil
-}
-
-func unwrapDataKey(kek []byte, s string) ([]byte, error) {
-	raw, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return nil, errors.New("anahtar bozuk")
-	}
-	blk, err := aes.NewCipher(kek)
-	if err != nil {
-		return nil, err
-	}
-	g, err := cipher.NewGCM(blk)
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) < g.NonceSize() {
-		return nil, errors.New("anahtar bozuk")
-	}
-	key, err := g.Open(nil, raw[:g.NonceSize()], raw[g.NonceSize():], nil)
-	if err != nil {
-		return nil, errors.New(locales.AccountErrDecrypt()) // the server said the proof was good, so this is a damaged blob
-	}
-	return key, nil
-}
-
-// An acctClient speaks to the account part of the server.
-type acctClient struct {
-	base string
-	hc   *http.Client
-}
-
+// newAcctClient is a client of the server at base, through the system's proxy, this computer named as deviceName says,
+// its errors in the window's language.
 func newAcctClient(base string) *acctClient {
-	if strings.TrimSpace(base) == "" {
-		base = defaultServer
-	}
-	return &acctClient{strings.TrimRight(base, "/"), &http.Client{Timeout: 30 * time.Second, Transport: netproxy.Transport()}}
-}
-
-// A DeviceInfo is a computer signed in to the account.
-type DeviceInfo struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Created int64  `json:"created"`
-	Seen    int64  `json:"seen"`
-	Current bool   `json:"current"`
-}
-
-// AcctMe is what the server says of the account.
-type AcctMe struct {
-	Username string       `json:"username"`
-	Bytes    int64        `json:"bytes"`
-	Quota    int64        `json:"quota"`
-	Devices  []DeviceInfo `json:"devices"`
-}
-
-func (c *acctClient) call(method, path, token string, in, out any) error {
-	if err := HTTPSOnly(c.base); err != nil {
-		return err
-	}
-	var body io.Reader
-	if in != nil {
-		b, _ := json.Marshal(in)
-		body = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, c.base+path, body)
-	if err != nil {
-		return err
-	}
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode/100 != 2 {
-		var e struct {
-			Error string `json:"error"`
+	cl := account.New(base, netproxy.Transport(), deviceName)
+	cl.Messages = func(err error) error {
+		var st account.StatusError
+		switch {
+		case errors.Is(err, account.ErrDecrypt): // the server said the proof was good, so this is a damaged blob
+			return errors.New(locales.AccountErrDecrypt())
+		case errors.As(err, &st):
+			return errors.New(locales.AccountErrServer(strconv.Itoa(st.Status)))
 		}
-		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
-			return errors.New(e.Error)
-		}
-		return errors.New(locales.AccountErrServer(strconv.Itoa(resp.StatusCode)))
+		return err
 	}
-	if out != nil {
-		return json.Unmarshal(raw, out)
-	}
-	return nil
+	return cl
 }
 
 // deviceName is what this computer is called in the account's list of computers: the name given to it in the
@@ -231,170 +68,11 @@ func deviceName() string {
 	return "cihaz"
 }
 
+// acctName is an address or a username as the server and the keys take it.
+func acctName(s string) string { return account.Name(s) }
+
 // ownDeviceName is the name the settings give this computer (Settings.DeviceName), set as they are read and changed.
 var ownDeviceName string
-
-// RenameDevice gives this computer, the one of token, another name in the account's list.
-func (c *acctClient) RenameDevice(token, name string) error {
-	return c.call("POST", "/api/device", token, map[string]string{"name": name}, nil)
-}
-
-// CheckInvite asks whether code is the access code sent to email, unused, and the address has no account yet; it spends nothing.
-func (c *acctClient) CheckInvite(email, code string) error {
-	return c.call("POST", "/api/invite", "", map[string]string{"email": acctName(email), "code": code}, nil)
-}
-
-// acctName is an address or a username as the server and the keys take it.
-func acctName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
-
-// Register opens an account for email with the access code sent to it. It makes the data key; the token is this computer's.
-func (c *acctClient) Register(email, password, code string) (token string, key []byte, err error) {
-	kdf, err := newKDF()
-	if err != nil {
-		return "", nil, err
-	}
-	auth, kek, err := acctKeys(email, password, kdf)
-	if err != nil {
-		return "", nil, err
-	}
-	key = make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return "", nil, err
-	}
-	wrapped, err := wrapDataKey(kek, key)
-	if err != nil {
-		return "", nil, err
-	}
-	var out struct {
-		Token string `json:"token"`
-	}
-	err = c.call("POST", "/api/register", "", map[string]string{
-		"email": acctName(email), "auth": auth, "wrapped": wrapped, "code": code, "device": deviceName(), "recovery": recoveryAuth(key), "kdf": kdf,
-	}, &out)
-	if err != nil {
-		return "", nil, err
-	}
-	return out.Token, key, nil
-}
-
-// kdfOf is how the account of username stretches its password, as the server says. A name with no account gets an
-// answer like one's, the same each time, so that what the server says does not tell who has an account.
-func (c *acctClient) kdfOf(username string) (string, error) {
-	var out struct {
-		KDF string `json:"kdf"`
-	}
-	err := c.call("POST", "/api/prelogin", "", map[string]string{"username": acctName(username)}, &out)
-	return out.KDF, err
-}
-
-// keysOf is acctKeys for the account of username, its stretching asked of the server.
-func (c *acctClient) keysOf(username, password string) (auth string, kek []byte, err error) {
-	kdf, err := c.kdfOf(username)
-	if err != nil {
-		return "", nil, err
-	}
-	return acctKeys(username, password, kdf)
-}
-
-// Login signs this computer in and brings the data key back, opened here.
-func (c *acctClient) Login(username, password string) (token string, key []byte, err error) {
-	auth, kek, err := c.keysOf(username, password)
-	if err != nil {
-		return "", nil, err
-	}
-	var out struct {
-		Token   string `json:"token"`
-		Wrapped string `json:"wrapped"`
-	}
-	if err := c.call("POST", "/api/login", "", map[string]string{
-		"username": strings.ToLower(strings.TrimSpace(username)), "auth": auth, "device": deviceName(),
-	}, &out); err != nil {
-		return "", nil, err
-	}
-	key, err = unwrapDataKey(kek, out.Wrapped)
-	if err == nil {
-		// an account made before the recovery key could be used has none on the server: it is put there now, with the proof of the password.
-		// The server takes it once; a failure here is not one of the sign-in.
-		c.call("POST", "/api/recovery", out.Token, map[string]string{"auth": auth, "recovery": recoveryAuth(key)}, nil)
-	}
-	return out.Token, key, err
-}
-
-// Recover is for a forgotten password: the recovery key (the words that were shown when the account was made) says who one is, and a new
-// password is set; the data key stays, so what is on the server is still readable. Every other computer is signed out.
-func (c *acctClient) Recover(username, recovery, newPassword string) (token string, key []byte, err error) {
-	key, err = KeyFromRecovery(recovery)
-	if err != nil {
-		return "", nil, err
-	}
-	kdf, err := newKDF()
-	if err != nil {
-		return "", nil, err
-	}
-	newAuth, newKek, err := acctKeys(username, newPassword, kdf)
-	if err != nil {
-		return "", nil, err
-	}
-	wrapped, err := wrapDataKey(newKek, key)
-	if err != nil {
-		return "", nil, err
-	}
-	var out struct {
-		Token string `json:"token"`
-	}
-	// an account of before has the hash of the proof of before: the server takes either, and keeps this one's
-	err = c.call("POST", "/api/recover", "", map[string]string{
-		"username": strings.ToLower(strings.TrimSpace(username)), "recovery": recoveryAuth(key), "recoveryBefore": recoveryAuthOfBefore(key),
-		"newAuth": newAuth, "newWrapped": wrapped, "newKdf": kdf, "device": deviceName(),
-	}, &out)
-	if err != nil {
-		return "", nil, err
-	}
-	return out.Token, key, nil
-}
-
-func (c *acctClient) Me(token string) (AcctMe, error) {
-	var me AcctMe
-	return me, c.call("GET", "/api/me", token, nil, &me)
-}
-
-func (c *acctClient) Logout(token string) error {
-	return c.call("POST", "/api/logout", token, struct{}{}, nil)
-}
-
-func (c *acctClient) RemoveDevice(token, id string) error {
-	return c.call("DELETE", "/api/devices/"+id, token, struct{}{}, nil)
-}
-
-// ChangePassword seals the data key anew under the new password; the server signs the other computers out.
-func (c *acctClient) ChangePassword(token, username, oldPassword, newPassword string, key []byte) error {
-	oldAuth, _, err := c.keysOf(username, oldPassword)
-	if err != nil {
-		return err
-	}
-	kdf, err := newKDF() // a password set anew is stretched as one set now: an account of before moves on here
-	if err != nil {
-		return err
-	}
-	newAuth, newKek, err := acctKeys(username, newPassword, kdf)
-	if err != nil {
-		return err
-	}
-	wrapped, err := wrapDataKey(newKek, key)
-	if err != nil {
-		return err
-	}
-	return c.call("POST", "/api/password", token, map[string]string{"auth": oldAuth, "newAuth": newAuth, "newWrapped": wrapped, "newKdf": kdf}, nil)
-}
-
-// DeleteAccount removes the account and what is on the server.
-func (c *acctClient) DeleteAccount(token, username, password string) error {
-	auth, _, err := c.keysOf(username, password)
-	if err != nil {
-		return err
-	}
-	return c.call("DELETE", "/api/account", token, map[string]string{"auth": auth}, nil)
-}
 
 // ---- the app's side ----
 

@@ -2,7 +2,8 @@
 # The sync Worker's tests (#164): the Worker of cloudflare/sync, run on this machine by wrangler dev with a database
 # and a bucket of its own, made for the run and thrown away after it, and the tests that speak to a real Worker run
 # against it: an account's life and its recovery (account_test.go), a sync through it and its limits (the quota, a
-# write that lost a race giving its room back, the sign-ins a name may try; sync_worker_test.go). Nothing is deployed.
+# write that lost a race giving its room back, the sign-ins a name may try; sync_worker_test.go), and the phone's app
+# signing in and syncing with a computer (mobile/sync_test.go). Nothing is deployed.
 #
 #   scripts/worker-test.sh              (npm ci in cloudflare/sync first; the nightly runs it)
 #
@@ -36,8 +37,10 @@ done
 # each test on its own, the counters of tries emptied before it: every test comes from this one address, which the
 # Worker counts the tries of (ten codes an hour), as it would a guesser's
 status=0
-for test in $(go test -list 'Live$' . | grep '^Test'); do
-	(cd cloudflare/sync && npx wrangler d1 execute celestine --local --persist-to "$state" --command "DELETE FROM hits" >/dev/null)
-	CELESTINE_SYNC_URL="http://localhost:$port" CELESTINE_ADMIN_TOKEN="$admin" go test -count=1 -run "^$test\$" -v . "$@" || status=1
+for pkg in . ./mobile; do # the desktop's, and the phone's signing in and syncing with it (#634)
+	for test in $(go test -list 'Live$' "$pkg" | grep '^Test'); do
+		(cd cloudflare/sync && npx wrangler d1 execute celestine --local --persist-to "$state" --command "DELETE FROM hits" >/dev/null)
+		CELESTINE_SYNC_URL="http://localhost:$port" CELESTINE_ADMIN_TOKEN="$admin" go test -count=1 -run "^$test\$" -v "$pkg" "$@" || status=1
+	done
 done
 exit $status

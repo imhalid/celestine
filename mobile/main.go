@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -36,8 +37,21 @@ func main() {
 	}
 	mygo.App.WhenReady(func() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "Celestine", Width: 412, Height: 860, Content: ui.View(a.view)})
+		a.syncNow() // what the other devices wrote, as the app opens
+		go func() { // a frame every few minutes, whose syncTick makes the pass that is due
+			for range time.Tick(time.Minute) {
+				a.update(func() {})
+			}
+		}()
 	})
 	mygo.Power.OnSuspend(func() { a.flush() }) // to the background: what was typed is saved before the system may end it
+	mygo.App.OnActivate(func(bool) {           // back in the foreground: what was written elsewhere meanwhile comes
+		a.update(func() {
+			if time.Since(a.sy.tried) >= syncOnActivate {
+				a.syncNow()
+			}
+		})
+	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -54,8 +68,12 @@ func (a *app) open() error {
 		return err
 	}
 	a.lib = lib
+	fresh := len(lib.Collections) == 0
 	if _, err := a.journal(); err != nil {
 		return err
+	}
+	if fresh { // a new library's first pass takes the account's pages, its own journal no conflict
+		a.markPristine()
 	}
 	a.lockDays()
 	return nil

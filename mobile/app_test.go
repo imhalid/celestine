@@ -182,3 +182,20 @@ func TestStreak(t *testing.T) {
 		t.Fatalf("streak %d, want 2", n)
 	}
 }
+
+// The + makes today's page, a note, a note in each further collection (two at most) and a search: the first
+// collection of notes is New note's alone.
+func TestPlusActions(t *testing.T) {
+	a, _ := newTestApp(t)
+	for _, name := range []string{"Notes", "İş", "Okuma", "Fikirler"} {
+		a.lib.NewCollection(name)
+	}
+	var labels []string
+	for _, act := range a.plusActions() {
+		labels = append(labels, act.label)
+	}
+	want := []string{locales.ActionToday(), locales.ActionNote(), locales.ActionIn("İş"), locales.ActionIn("Okuma"), locales.ActionSearch()}
+	if strings.Join(labels, "|") != strings.Join(want, "|") {
+		t.Fatalf("%q", labels)
+	}
+}
