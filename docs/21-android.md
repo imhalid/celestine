@@ -1,59 +1,80 @@
-# 21 — Android (M)
+# 21 — Android
 
-Yol 1 kuruldu: web sürümü bir WebView'da. Emülatörde (`-gpu host` ile; `swiftshader_indirect` ile emülatör çöküyor) ve gerçek telefonda
-(Samsung Galaxy S21) çalıştı: açılış, sayfa, ekran klavyesiyle yazma, kaydetme, kapatıp açınca yazı yerinde.
+The Android app is `mobile/`: an app of its own, written for a phone, on the same library as the desktop (#633). It
+replaced the web build in a WebView that was here before (`android/`, removed), which this page described until then.
 
-## Yapılan
+## The way chosen
 
-- `android/`: küçük bir Gradle projesi (Kotlin, minSdk 26, compileSdk 36). `MainActivity` bir WebView açar; `assets/web/` içindeki web sürümünü
-  `https://appassets.celestine.local/` kökeninden sunar (`shouldInterceptRequest`: wasm doğru MIME türüyle yüklenir, sayfanın IndexedDB için bir kökeni olur).
-  "Paylaş" menüsünden gelen metin adrese `#share=` olarak eklenir. Geri tuşu uygulamanın kendi geçmişine (⌘[) gider. Sistem çubuklarının, kesik
-  ekranın ve ekran klavyesinin boşluğu WebView'ı tutan görünümün dolgusu (Android 15+ kenardan kenara çizer).
-- `scripts/android.sh`: web sürümünü derler, `android/app/src/main/assets/web`'e kopyalar, Gradle'ı (JDK 17/21) çalıştırır; `install` ile adb'ye yükleyip başlatır.
-- Veri WebView'ın IndexedDB'sinde; masaüstüyle eşitlemek için senkron (L).
-- APK temiz derlemede ≈31 MB; artımlı hata ayıklama derlemesi eski wasm'lar yüzünden 69 MB'a çıkabiliyor (`./gradlew clean`). wasm APK içinde
-  sıkıştırılırsa 11,4 MB olur; açılışa etkisi ölçülmeden açılmadı (docs/17).
+Of the three ways #573 weighed (the WebView, a Kotlin client with the library bound through gomobile, MyGo's own
+Android host), the app is the third, with a twist the maintainer asked for: not the desktop app drawn on a phone, but a
+second program with an interface made for a hand, sharing only the library.
 
-## Telefona göre tasarım
+- **One library, two interfaces.** `mobile/` is `package main` in the same module, so it imports `internal/library`
+  as the desktop does: the page file, the document (`library.Doc`), collections, properties, the trash and, next, sync.
+  A page written on the phone is the desktop's page. Nothing of the desktop's interface (`package main` at the root,
+  Ryugo) is in it, and nothing of it is in the desktop.
+- **MyGo's Android host.** The Go code is a shared library drawn with OpenGL ES by MyGo's Kotlin host
+  (`mygo build -platform android`): native text input with Gboard's suggestions and Turkish letters, the system's back,
+  the safe area and the keyboard's room, Material's bars and ripples (`ui/mobile`).
+- **The desktop's rules, kept the same.** The journal is the desktop's collection marked Journal; a day is the page
+  whose `celestine:day` property is that day, titled in the journal's format; past days are locked (the library refuses
+  their edits) and no day goes to the trash. `mobile/journal.go` follows `journal.go` of the desktop for this.
 
-**Dokunma** (`web/touch.js`, web sürümü ve uygulama ortak): MyGo'nun tuvali parmağı fare sayıyordu, parmakla çekmek metin seçiyor ya da satır
-sürüklüyordu; tarayıcının kendi kaydırması kapalı (`touch-action: none`). Betik dokunuşları MyGo'dan önce (pencerede, yakalama evresinde) alır:
+## The app
 
-| hareket | ne olur |
-|---|---|
-| parmakla çekmek (9 px'ten fazla) | kaydırma, iki yönde; bırakınca süzülerek durur |
-| kısa dokunuş | tıklama (iki dokunuş art arda çift tık) |
-| uzun basış (0,48 sn) | sağ tık: satırın, metnin menüsü (kısa bir titreşimle) |
-| ikinci parmak | yok sayılır (sayfa yakınlaşmasın) |
+Its look is its own, made for a hand, not the desktop's nor Material's: blocks of rounded paper on a warm ground (soft
+ink on a deep one by night), Geist for the words and heavy for what is big, a color for each collection. Blocks press
+in a little under a finger, their corners kept.
 
-Ekran klavyesi: MyGo'nun gizli `textarea`'sı metin alanı odaklanana kadar `inputmode=none`; bir dokunuştan sonra metin istediğinde odak
-dokunuşun sayıldığı süre içinde yeniden verilir, klavye açılır. Sayfa yakınlaşması kapalı (`user-scalable=no`). Betik `touchstart`'ı **iptal etmez**: iptal, tarayıcının "tap" hareketini de
-iptal eder ve Chrome klavyeyi o harekette gösterir (S21'de klavye bu yüzden açılmıyordu); kaymayı ve yakınlaşmayı tuvalin `touch-action: none`'ı
-engeller. Hata ayıklama derlemesinde sayfanın konsolu logcat'te (`celestine` etiketi).
+- **No bar of tabs.** A round button at the top left opens the menu, which covers the screen over the screen blurred,
+  its places (Home, Library, Tasks, Search, Settings) large and coming in one after another. A round **+** at the bottom
+  is the only other control: tapped, the screen blurs and what it makes rises over it (today's page, a note, a note in a
+  collection, a search), the + turning to a ×. Android's back closes what is open first.
+- **Home** is blocks: the day, large, on a field of soft colors that drift slowly (a shader, still with reduced
+  motion); today's page with its first lines and words; the tasks open in the library and the days in a row the
+  journal has words; the collections, colored, in a row that scrolls sideways; the pages written lately.
+- **Library** is the collections two to a row; a collection is its pages as blocks under its name, in its color.
+- **Tasks** are every task not done, by page; a task taps through to its page.
+- **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).
+- **Settings** choose light, dark or the system's look as three blocks (the system's bars follow).
+- **A page** is the whole screen to write in and nothing else: its collection, its title (asked for first on a new
+  note), its text; a line's Markdown makes it a heading, a list or a checklist (`# `, `- `, `[] `); Done at the top puts
+  the keyboard away, ··· opens a sheet (copy the text, move to the trash). Saved 0.8 s after the typing stops, as the
+  screen is left, and as the app goes to the background.
 
-**Telefon düzeni** (`mobile.go`, tarayıcıda 760 DIP'ten dar pencere):
-- **Kenar çubuğu bir çekmece:** üst çubuktaki ☰ ile soldan kayarak gelir, arkası kararır; kararan yere, ✕'e dokunmak ya da bir sayfa/ekran açmak
-  kapatır. Çekmecenin başında uygulamanın adı.
-- **Üst çubuk** 50 pt: ☰, geri, başlık, sayfa arama, komutlar (⋯). Pencere düğmeleri, yan panel düğmesi yok.
-- **Tek bölme:** bölünmüş görünüm, ayrı pencere, yüzen yan panel yok; "yan bölmede aç" burada açar, menülerde görünmez, komutları soluk ("Telefonda yok").
-- **Dokunma boyutu:** ağaç satırları 42 pt, simge düğmeleri en az 38 pt, ipucu balonları yok; blok tutamağı ve oluk (fareyle çıkan) çizilmez;
-  durum çubuğu kısayol listelemez.
-- **Ekranlar:** kenar boşlukları 16 pt, ekranların üstü 12 pt. Ayarlar: bölümler üstte yatay kayan çipler, her ayarın denetimi adının altında,
-  seçim kutucukları satıra sarılır, arama kendi satırında. Tur kartı ekran genişliğinde.
-- Masaüstü ve geniş tarayıcı penceresi değişmedi. `TestPhoneLayout`.
+What the rich text has no run for (a link to a page, a day, a table, a picture, a footnote) rides through the editor as
+an attachment carrying the library's object, written back as it came (`mobile/body.go`): a page from the desktop loses
+nothing for having been opened on the phone.
 
-**Denendi (emülatör ve S21):** parmakla kaydırma, ☰ ile çekmece, çekmeceden ekran açınca kapanması, uzun basışla satır menüsü, metne
-dokununca klavye ve yazma. APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+The library is a folder of page files in the app's own storage, not the desktop's SQLite file: modernc's SQLite calls
+`lstat` directly, which the seccomp filter of Android's x86_64 emulator refuses, and sync works on a folder as well.
 
-**Kalan:** kenardan kaydırarak çekmece açma, çimdikle yazı büyütme, metin seçme tutamakları (uzun basış şimdilik menü açıyor), sürükle-bırak
-(dokunmada yok), pano kartını parmakla taşıma; sesle yazma, kamera, bildirimden hızlı not; açılış süresi telefonda ölçülmedi.
+## Building
 
-## Yollar
+```sh
+scripts/android.sh            # mobile/dist/android/: an .apk and an .aab for every ABI
+scripts/android.sh install    # for the ABI adb sees, installed and started
+scripts/android.sh dev        # mygo dev: rebuilt as the Go code changes
+```
 
-| Yol | İş | Artı | Eksi |
-|---|---|---|---|
-| **1. Web sürümü + WebView** (yapıldı) | | tek kod tabanı; senkronla masaüstüyle eşit | WebGL 2 performansı ve ekran klavyesi ölçülmeli |
-| **2. Go çekirdeği + Kotlin/Compose** | `gomobile bind` 3 gün + zengin metin düzenleyiciyi yeniden yazmak 4–8 hafta | yerel his, bildirim/widget/paylaşım menüsü | büyük iş |
-| **3. MyGo'yu Android'e taşımak** | MyGo'ya katkı | tek arayüz kodu | MyGo'nun sahibine bağlı |
+It needs Android Studio's SDK, its NDK and a JDK; `go run github.com/egoist/mygo/cmd/mygo doctor` (from `mobile/`) says
+what is missing. On this machine the emulator boots only with `-gpu host`. The icon is the app's
+(`mobile/resources/`, made by `scripts/icons.sh`), adaptive on Android 8 and later. `go test ./mobile` drives the
+screens with MyGo's Tester.
 
-2 ve 3 yapılmadı; web sarmalayıcı yetersiz kalırsa.
+## Found on the way
+
+- **A message asked for at the program's start froze MyGo's backend.** The desktop's table labels were a package
+  variable filled with messages, and asking for a message asks MyGo for the locale, which makes its backend. On Android
+  that happened as the library loaded, before the host was there, and the app never got past its splash. They are made
+  as a table is drawn now (`views.go`), which also has them follow a change of language. Nothing that reaches MyGo may
+  run in a package's initialization.
+- **The time zone** is the phone's: MyGo asks the host for it as Go starts, so `time.Local` is right for the journal's
+  days.
+
+## Next
+
+- Sync: signing in to the account and syncing the library, as the desktop does (`syncapp.go`, `account.go`), its
+  protocol and keys moved to a package both use.
+- Sharing text into the app (Android's share menu) and a widget for today's page.
+- Trying it on a phone (Samsung Galaxy S21), and a release build signed for Google Play.

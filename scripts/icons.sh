@@ -60,22 +60,12 @@ go run ./scripts/winicon
 
 cp assets/icon-256.png web/icon-256.png
 cp assets/icon-512.png web/icon-512.png
-cp assets/icon-256.png android/app/src/main/assets/web/icon-256.png
-cp assets/icon-512.png android/app/src/main/assets/web/icon-512.png
 site=${CELESTINE_SITE:-../celestine-site}
 if [ -d "$site/static" ]; then cp assets/icon-256.png "$site/static/icon.png"; else echo "no site checkout at $site: its icon is left as it is" >&2; fi
 
-# Android: the legacy icon fills its square with rounded corners; the adaptive one's foreground is the picture
-# within the middle 60%, which every launcher's mask leaves whole, on the paper ground
-res=android/app/src/main/res
-for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
-	dir=${d%:*} n=${d#*:}
-	square "$n" "$work/a.png"
-	r=$((n * 18 / 100))
-	magick -size "${n}x$n" xc:black -fill white -draw "roundrectangle 0,0 $((n - 1)),$((n - 1)) $r,$r" "$work/am.png"
-	magick "$work/a.png" "$work/am.png" -alpha off -compose copy_opacity -composite "$res/mipmap-$dir/ic_launcher.png"
-	f=$((n * 9 / 4))
-	inner=$((f * 60 / 100))
-	square "$inner" "$work/fg.png"
-	magick -size "${f}x$f" xc:'#F7F6F2' "$work/fg.png" -gravity center -composite "$res/mipmap-$dir/ic_launcher_foreground.png"
-done
+# Android (mobile/, #633): the legacy icon is the square picture, which the launcher rounds; the adaptive one's
+# foreground is the picture within the middle 60%, which every launcher's mask leaves whole, on the paper ground that
+# mobile/mygo.json names (android.adaptiveIcon)
+square 1024 mobile/resources/icon.png
+square 648 "$work/fg.png"
+magick -size 1080x1080 xc:none "$work/fg.png" -gravity center -composite mobile/resources/icon-foreground.png

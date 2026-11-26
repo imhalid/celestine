@@ -1,8 +1,8 @@
 # Celestine
 
-A notes app in Go: one binary, native UI on MyGo (`github.com/egoist/mygo`, replaced by the fork
-`github.com/imhalid/mygo` in `go.mod`) and the Ryugo kit (`github.com/imhalid/ryu-go`). docs/architecture.md has the
-file-by-file table; `docs/` has the design notes (the older ones in Turkish; new ones in English).
+A notes app in Go: one binary, native UI on MyGo (`github.com/egoist/mygo`, itself, with no patch of ours waiting: the
+fork `github.com/imhalid/mygo` replaces it in `go.mod` only while one does) and the Ryugo kit
+(`github.com/imhalid/ryu-go`). docs/architecture.md has the file-by-file table; `docs/` has the design notes (the older ones in Turkish; new ones in English).
 
 ## Layout
 
@@ -22,7 +22,8 @@ file-by-file table; `docs/` has the design notes (the older ones in Turkish; new
   `textOf`, `docObjectsOf`) and dresses its objects to be drawn (`dress`, chips.go).
 - The app cannot add methods to the library's types: a function in the app (`dayTitle(c, d)`) or a method in
   the library.
-- `web/`, `android/` and `cloudflare/` (the sync and update Workers) are the other targets; `scripts/` builds them.
+- `web/`, `mobile/` (the Android app, a program of its own on the same library, #633) and `cloudflare/` (the sync and
+  update Workers) are the other targets; `scripts/` builds them.
 
 ## Commands
 

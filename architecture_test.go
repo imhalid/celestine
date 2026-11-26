@@ -44,7 +44,7 @@ func TestArchitectureLayoutComplete(t *testing.T) {
 		}
 	}
 
-	for _, dir := range []string{"internal/library/", "locales/", "web/", "android/", "cloudflare/", "scripts/"} {
+	for _, dir := range []string{"internal/library/", "locales/", "web/", "mobile/", "cloudflare/", "scripts/"} {
 		if !listed[dir] {
 			t.Errorf("directory %q missing from docs/architecture.md Layout table", dir)
 		}
@@ -55,7 +55,7 @@ func TestArchitectureLayoutComplete(t *testing.T) {
 		"prototypes": true,
 		"cloudflare": true,
 		"web":        true,
-		"android":    true,
+		"mobile":     true, // documented as mobile/: an app of its own
 		"locales":    true, // documented as locales/
 		"scripts":    true, // documented as scripts/
 	}

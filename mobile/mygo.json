@@ -1,0 +1,16 @@
+{
+  "name": "Celestine",
+  "identifier": "dev.halid.celestine",
+  "i18n": {
+    "dir": "locales",
+    "source": "en"
+  },
+  "android": {
+    "minSdk": 26,
+    "splash": "#F7F5F2",
+    "adaptiveIcon": {
+      "foreground": "resources/icon-foreground.png",
+      "background": "#F7F6F2"
+    }
+  }
+}

@@ -3,7 +3,7 @@ module github.com/imhalid/celestine
 go 1.27.4
 
 require (
-	github.com/egoist/mygo v0.10.1-0.20261124041827-c16fc5b6d8ed
+	github.com/egoist/mygo v0.10.1-0.20261126193412-58b3c83fce37
 	github.com/imhalid/ryu-go v0.1.1-0.20261126112231-d855fbc9ed58
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
@@ -34,5 +34,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
-
-replace github.com/egoist/mygo => github.com/imhalid/mygo v0.8.4-0.20261124113646-cd0ae0bf8fdf

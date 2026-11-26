@@ -863,12 +863,16 @@ func (a *app) takeLayout(c *ui.Context, coll *Collection, v *View, tu *tableUI) 
 // layoutSettle is how long the columns are still before what the user did to them is saved.
 const layoutSettle = 400 * time.Millisecond
 
-// tableLabels are the table's words.
-var tableLabels = ryugo.TableLabels{
-	Search: locales.ViewsSearch(), Selected: locales.ViewsSelectedFormat(), Clear: locales.ViewsClear(),
-	SelectRow: locales.ViewsSelectRow(), SelectAll: locales.ViewsSelectAll(), Details: locales.ViewsDetails(),
-	NoRows: locales.ViewsNoRows(), LoadError: locales.ViewsLoadError(), TryAgain: locales.ViewsTryAgain(),
-	Pagination: ryugo.PaginationLabels{Group: locales.ViewsPages(), Of: "/", Previous: locales.ViewsPreviousPage(), Next: locales.ViewsNextPage(), Page: locales.ViewsPage(), Current: locales.ViewsCurrent()},
+// tableLabels are the table's words, in the language of the frame: made as a table is drawn, not at the program's
+// start, where a message asked for froze in the language of then and, on Android, made MyGo's backend before its
+// host was there, so that the app never started (#633).
+func tableLabels() ryugo.TableLabels {
+	return ryugo.TableLabels{
+		Search: locales.ViewsSearch(), Selected: locales.ViewsSelectedFormat(), Clear: locales.ViewsClear(),
+		SelectRow: locales.ViewsSelectRow(), SelectAll: locales.ViewsSelectAll(), Details: locales.ViewsDetails(),
+		NoRows: locales.ViewsNoRows(), LoadError: locales.ViewsLoadError(), TryAgain: locales.ViewsTryAgain(),
+		Pagination: ryugo.PaginationLabels{Group: locales.ViewsPages(), Of: "/", Previous: locales.ViewsPreviousPage(), Next: locales.ViewsNextPage(), Page: locales.ViewsPage(), Current: locales.ViewsCurrent()},
+	}
 }
 
 // pagesCalc is what a table's foot says under column col for rows: the sum, the mean, the least or the most of a
@@ -1121,7 +1125,7 @@ func (a *app) tableView(c *ui.Context, pn *paneState, coll *Collection, v *View,
 	}
 	ryugo.Table(c.Key("table:"+coll.Dir+"|"+v.ID), &tu.st, cols, pages, ryugo.TableOptions[*Page]{
 		Key: func(p *Page) any { return p }, Label: locales.Pages(), Height: height + 2,
-		Selectable: pn.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels,
+		Selectable: pn.bulk.on, HideSelectionBar: true, PageSize: tablePageSize, Labels: tableLabels(),
 		Pin:     true, // the title stays as the table is scrolled sideways
 		Striped: true, // every other row tinted, so a row is followed across
 		Group:   groupOf, GroupLabel: groupLabel, Reorder: reorder,

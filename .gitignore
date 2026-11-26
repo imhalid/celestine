@@ -35,3 +35,7 @@ cloudflare/sync/admin.bin
 /update.json
 /release-notes.md
 /notes.md
+
+# the Android app's builds and MyGo's work (mobile/)
+/mobile/dist/
+/mobile/.mygo/
