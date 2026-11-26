@@ -14631,6 +14631,126 @@ func (msgs Messages) TasksStatusPicker() string {
 	return Catalog.Format(msgs.locale, "tasks_statusPicker", nil)
 }
 
+// TasksPickStatus says "Status"
+// in the language the app shows.
+func TasksPickStatus() string { return In(i18n.Locale()).TasksPickStatus() }
+
+// TasksPickStatus says "Status"
+// in the language of msgs.
+func (msgs Messages) TasksPickStatus() string {
+	return Catalog.Format(msgs.locale, "tasks_pickStatus", nil)
+}
+
+// TasksPickCustom says "Custom status"
+// in the language the app shows.
+func TasksPickCustom() string { return In(i18n.Locale()).TasksPickCustom() }
+
+// TasksPickCustom says "Custom status"
+// in the language of msgs.
+func (msgs Messages) TasksPickCustom() string {
+	return Catalog.Format(msgs.locale, "tasks_pickCustom", nil)
+}
+
+// TasksPickNone says "None"
+// in the language the app shows.
+func TasksPickNone() string { return In(i18n.Locale()).TasksPickNone() }
+
+// TasksPickNone says "None"
+// in the language of msgs.
+func (msgs Messages) TasksPickNone() string {
+	return Catalog.Format(msgs.locale, "tasks_pickNone", nil)
+}
+
+// TasksPickNoneHint says "remove tag"
+// in the language the app shows.
+func TasksPickNoneHint() string { return In(i18n.Locale()).TasksPickNoneHint() }
+
+// TasksPickNoneHint says "remove tag"
+// in the language of msgs.
+func (msgs Messages) TasksPickNoneHint() string {
+	return Catalog.Format(msgs.locale, "tasks_pickNoneHint", nil)
+}
+
+// TasksPickFoot says "1–7 pick · 0 clear · Esc close"
+// in the language the app shows.
+func TasksPickFoot() string { return In(i18n.Locale()).TasksPickFoot() }
+
+// TasksPickFoot says "1–7 pick · 0 clear · Esc close"
+// in the language of msgs.
+func (msgs Messages) TasksPickFoot() string {
+	return Catalog.Format(msgs.locale, "tasks_pickFoot", nil)
+}
+
+// TasksTagKawaii says "Kawaii"
+// in the language the app shows.
+func TasksTagKawaii() string { return In(i18n.Locale()).TasksTagKawaii() }
+
+// TasksTagKawaii says "Kawaii"
+// in the language of msgs.
+func (msgs Messages) TasksTagKawaii() string {
+	return Catalog.Format(msgs.locale, "tasks_tagKawaii", nil)
+}
+
+// TasksTagBug says "Bug"
+// in the language the app shows.
+func TasksTagBug() string { return In(i18n.Locale()).TasksTagBug() }
+
+// TasksTagBug says "Bug"
+// in the language of msgs.
+func (msgs Messages) TasksTagBug() string {
+	return Catalog.Format(msgs.locale, "tasks_tagBug", nil)
+}
+
+// TasksTagDraft says "Draft"
+// in the language the app shows.
+func TasksTagDraft() string { return In(i18n.Locale()).TasksTagDraft() }
+
+// TasksTagDraft says "Draft"
+// in the language of msgs.
+func (msgs Messages) TasksTagDraft() string {
+	return Catalog.Format(msgs.locale, "tasks_tagDraft", nil)
+}
+
+// TasksTagDeadline says "Deadline"
+// in the language the app shows.
+func TasksTagDeadline() string { return In(i18n.Locale()).TasksTagDeadline() }
+
+// TasksTagDeadline says "Deadline"
+// in the language of msgs.
+func (msgs Messages) TasksTagDeadline() string {
+	return Catalog.Format(msgs.locale, "tasks_tagDeadline", nil)
+}
+
+// TasksTagFlower says "Flower"
+// in the language the app shows.
+func TasksTagFlower() string { return In(i18n.Locale()).TasksTagFlower() }
+
+// TasksTagFlower says "Flower"
+// in the language of msgs.
+func (msgs Messages) TasksTagFlower() string {
+	return Catalog.Format(msgs.locale, "tasks_tagFlower", nil)
+}
+
+// TasksTagSun says "Sun"
+// in the language the app shows.
+func TasksTagSun() string { return In(i18n.Locale()).TasksTagSun() }
+
+// TasksTagSun says "Sun"
+// in the language of msgs.
+func (msgs Messages) TasksTagSun() string {
+	return Catalog.Format(msgs.locale, "tasks_tagSun", nil)
+}
+
+// TasksTagMoon says "Moon"
+// in the language the app shows.
+func TasksTagMoon() string { return In(i18n.Locale()).TasksTagMoon() }
+
+// TasksTagMoon says "Moon"
+// in the language of msgs.
+func (msgs Messages) TasksTagMoon() string {
+	return Catalog.Format(msgs.locale, "tasks_tagMoon", nil)
+}
+
 // TasksTagSlot says "Tag status {n}"
 // in the language the app shows.
 func TasksTagSlot(n int) string { return In(i18n.Locale()).TasksTagSlot(n) }

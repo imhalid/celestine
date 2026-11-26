@@ -34,12 +34,12 @@ type taskKind struct {
 }
 
 var taskKinds = []taskKind{
-	{"star", "starredTask", "*", "#F5B301", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
-	{"important", "importantTask", "!", "#F0506E", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
-	{"question", "question", "?", "#8B5CF6", icon(`<path d="M4.5 19.5V8a3.5 3.5 0 0 1 3.5-3.5h8A3.5 3.5 0 0 1 19.5 8v8a3.5 3.5 0 0 1-3.5 3.5z"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
-	{"progress", "taskInProgress", "/", "#06B6D4", icon(`<circle cx="12" cy="12" r="7.5"/><path d="m10.5 9 4 3-4 3z"/>`)},
+	{"star", "starredTask", "*", "#FACC15", icon(`<path d="m12 4.5 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>`)},
+	{"important", "importantTask", "!", "#FB7185", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6"/>`)},
+	{"question", "question", "?", "#A78BFA", icon(`<path d="M4.5 19.5V8a3.5 3.5 0 0 1 3.5-3.5h8A3.5 3.5 0 0 1 19.5 8v8a3.5 3.5 0 0 1-3.5 3.5z"/><path d="M10 10a2 2 0 1 1 2.9 1.8c-.6.3-.9.8-.9 1.4v.3"/><circle cx="12" cy="16.2" r=".6"/>`)},
+	{"progress", "taskInProgress", "/", "#22D3EE", icon(`<circle cx="12" cy="12" r="7.5"/><path d="m10.5 9 4 3-4 3z"/>`)},
 	{"blocked", "tasks_blocked", "w", "#F59E0B", icon(`<rect x="4" y="7" width="16" height="10" rx="5" stroke-dasharray="2.5 2"/><path d="M10.5 10v4M13.5 10v4"/>`)},
-	{"billable", "tasks_billable", "$", "#34D399", icon(`<circle cx="12" cy="12" r="7.5"/><path d="M14.3 9.6c-.4-.8-1.3-1.2-2.3-1.2-1.3 0-2.3.7-2.3 1.7 0 2.4 4.8 1.2 4.8 3.7 0 1-1.1 1.8-2.5 1.8-1.1 0-2-.5-2.4-1.3M12 7v10"/>`)},
+	{"billable", "tasks_billable", "$", "#4ADE80", icon(`<circle cx="12" cy="12" r="7.5"/><path d="M14.3 9.6c-.4-.8-1.3-1.2-2.3-1.2-1.3 0-2.3.7-2.3 1.7 0 2.4 4.8 1.2 4.8 3.7 0 1-1.1 1.8-2.5 1.8-1.1 0-2-.5-2.4-1.3M12 7v10"/>`)},
 	{"error", "failedTask", "e", "#F97316", icon(`<path d="M12 4.5 20 18.5H4z"/><path d="M12 10v4"/><circle cx="12" cy="16.3" r=".6"/>`)},
 	{"canceled", "tasks_canceled", "-", "#94A3B8", icon(`<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="m8 16 8-8"/>`)},
 }
@@ -196,7 +196,6 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 	if !same || fx.seen == nil {
 		fx.doc, fx.n, fx.seen, fx.flips = pn.doc, text.Len(), map[int]bool{}, map[int]taskTurn{}
 	}
-	look := a.theme
 	busy, moving := false, false
 	for _, b := range a.shown(pn, r) {
 		if b.Start > text.Len() {
@@ -247,8 +246,8 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 			}
 		}
 		fx.seen[b.Start] = st.Checked
-		if a.settings.TaskTint && !st.Checked && face.id != "" { // the row in its status's color, fading (#597)
-			rowTint(p, box, r.W*0.55, color)
+		if tint := face.spec().tint; !a.settings.TaskNoTint && !st.Checked && tint.A > 0 { // the row in its status's color, fading (#597)
+			rowTint(p, box, r.X+r.W, tint)
 		}
 		// richtext's box, covered
 		p.Fill(ui.Rect{X: box.X - 2, Y: box.Y - 2, W: box.W + 4, H: box.H + 4}, a.pageBg, 0)
@@ -272,13 +271,13 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 		h := box.H * (1 + grow) * max(sy, 0.04)
 		at := ui.Rect{X: box.X + (box.W-w)/2, Y: box.Y + (box.H-h)/2, W: w, H: h}
 		if back {
-			drawFaceBack(p, at, face)
+			a.drawFaceBack(p, at, face, now)
 		} else {
-			a.drawFace(p, at, face, look.Muted, now)
+			a.drawFace(p, at, face, now)
 			if face.id == "" || face.id == "blocked" {
 				drawTaskPart(p, at, a.subtasksOf(pn).count[b.Index], color) // as far as its subtasks are done (subtasks.go)
 			}
-			if face.id != "" && a.settings.TaskMotion && !stillNow() {
+			if face.id != "" && a.faceClock(now) >= 0 {
 				moving = true
 			}
 		}
@@ -383,7 +382,7 @@ func (a *app) drawConfetti(p *ui.Painter) {
 		switch b.shape {
 		case 1: // a star
 			r := f32(b.w) * 0.8
-			sparkle(p, box{at: ui.Rect{X: f32(x), Y: f32(y), W: 1, H: 1}, s: 1, sy: 1}, 0, 0, r, col)
+			drawGlyph(p, &glyphSpark, ui.Rect{X: f32(x) - r, Y: f32(y) - r, W: 2 * r, H: 2 * r}, paint{from: col})
 		case 2: // a glint
 			d := f32(b.h) * 1.3
 			p.Fill(ui.Rect{X: f32(x) - d/2, Y: f32(y) - d/2, W: d, H: d}, col, d/2)

@@ -418,14 +418,19 @@ func paraEmpty(para richtext.Paragraph) bool {
 	return true
 }
 
-// drawTaskRing is the ring of a folded task's sub-tasks, round cx, cy (#494): a dash for each, going green as it is
-// done, from the top clockwise; past ten, one ring, green as far as the share done.
+// drawTaskRing is the ring of a task's subtasks, round cx, cy (#494), as BetterTask draws it (#611): a dash for each,
+// in done's color as it is done, from the top clockwise, one subtask six dashes; past ten, one ring, in done's color
+// as far as the share done. Its measures are BetterTask's, for a ring of radius 5.4 in a box 16 wide.
 func drawTaskRing(p *ui.Painter, cx, cy, radius float32, n, done int, rest, green ui.Color) {
-	arc := func(from, to float64, c ui.Color) {
+	if n <= 0 {
+		return
+	}
+	k := radius / 5.4
+	arc := func(from, to float64, width float32, c ui.Color) {
 		path := &ui.Path{}
 		steps := max(2, int((to-from)/0.12))
 		for i := 0; i <= steps; i++ {
-			ang := from + (to-from)*float64(i)/float64(steps) - math.Pi/2
+			ang := from + (to-from)*float64(i)/float64(steps)
 			x, y := cx+radius*f32(math.Cos(ang)), cy+radius*f32(math.Sin(ang))
 			if i == 0 {
 				path.MoveTo(x, y)
@@ -433,27 +438,42 @@ func drawTaskRing(p *ui.Painter, cx, cy, radius float32, n, done int, rest, gree
 				path.LineTo(x, y)
 			}
 		}
-		p.StrokePath(path.Cap(ui.RoundCap), 1.7, c)
+		p.StrokePath(path.Cap(ui.RoundCap), width*k, c)
 	}
-	whole := 2 * math.Pi
+	done = min(max(done, 0), n)
+	top := -math.Pi / 2
 	if n > 10 {
-		arc(0, whole, rest)
+		arc(top, top+2*math.Pi, 1.9, rest)
 		if done > 0 {
-			arc(0, whole*float64(done)/float64(n), green)
+			arc(top, top+2*math.Pi*float64(done)/float64(n), 1.9, green)
 		}
 		return
 	}
-	gap := 0.5
+	shown, filled := n, done
 	if n == 1 {
-		gap = 0
+		shown, filled = 6, 6*done
 	}
-	each := whole / float64(n)
-	for i := 0; i < n; i++ {
+	sw := map[bool]float64{true: 1.85, false: map[bool]float64{true: 1.75, false: 1.55}[shown <= 7]}[shown <= 4]
+	gap := 1.2
+	switch {
+	case shown <= 3:
+		gap = 2.6
+	case shown <= 5:
+		gap = 2.0
+	case shown <= 7:
+		gap = 1.65
+	}
+	const r = 5.4
+	seg := 2 * math.Pi * r / float64(shown)
+	d := max(0.4, seg-gap-sw)
+	start := top + (seg-d)/2/r
+	for i := 0; i < shown; i++ {
 		c := rest
-		if i < done {
+		if i < filled {
 			c = green
 		}
-		arc(float64(i)*each+gap/2, float64(i+1)*each-gap/2, c)
+		from := start + float64(i)*seg/r
+		arc(from, from+d/r, float32(sw), c)
 	}
 }
 

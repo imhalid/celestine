@@ -49,9 +49,9 @@ type Settings struct {
 	TaskLook string `json:"taskLook,omitempty"` // "" Neon Glass, "vivid", "minimal"
 	// WallpaperFrame makes the desktop's wallpaper, blurred, the frame's ground where Glass does not (wallpaper.go)
 	WallpaperFrame bool     `json:"wallpaperFrame,omitempty"`
-	TaskMotion     bool     `json:"taskMotion,omitempty"`   // the boxes' small ambient motions; off by default
+	TaskStill      bool     `json:"taskStill,omitempty"`    // none of the boxes' small ambient motions
 	TaskNoFX       bool     `json:"taskNoFx,omitempty"`     // no burst as a task is done
-	TaskTint       bool     `json:"taskTint,omitempty"`     // a task's row tinted in its status's color; off by default
+	TaskNoTint     bool     `json:"taskNoTint,omitempty"`   // no tint along a task's row in its status's color
 	TaskNoCounts   bool     `json:"taskNoCounts,omitempty"` // no count of a task's subtasks under it
 	TaskTags       []string `json:"taskTags,omitempty"`     // the names of the seven tag statuses, "" for a slot's own
 	AppIcon        string   `json:"appIcon,omitempty"`      // the icon's look (appicon.go): "" Paper, "auto", or a look of internal/appicon

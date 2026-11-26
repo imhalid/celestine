@@ -39,16 +39,16 @@ func TestTagStatusFound(t *testing.T) {
 		slot int
 		tag  string
 	}{
-		{"Ödev #Moon bitmedi", 0, "#Moon"}, {"#bug in the parser", 5, "#bug"}, {"a#bug, not one", -1, ""},
-		{"#bugs are many", -1, ""}, {"plain", -1, ""}, {"çiçek #flower #sun", 2, "#flower"},
+		{"Ödev #Moon bitmedi", 6, "#Moon"}, {"#bug in the parser", 1, "#bug"}, {"a#bug, not one", -1, ""},
+		{"#bugs are many", -1, ""}, {"plain", -1, ""}, {"çiçek #flower #sun", 4, "#flower"},
 	} {
 		slot, from, to := a.tagStatusIn(c.line)
 		if slot != c.slot || slot >= 0 && string([]rune(c.line)[from:to]) != c.tag {
 			t.Errorf("%q: slot %d at %d-%d, want %d %q", c.line, slot, from, to, c.slot, c.tag)
 		}
 	}
-	a.settings.TaskTags = []string{"#gece"}
-	if slot, _, _ := a.tagStatusIn("iş #gece"); slot != 0 {
+	a.settings.TaskTags = []string{"", "", "", "", "", "", "#gece"}
+	if slot, _, _ := a.tagStatusIn("iş #gece"); slot != 6 {
 		t.Fatal("a slot renamed is not found by its name")
 	}
 	if slot, _, _ := a.tagStatusIn("iş #moon"); slot != -1 {
@@ -78,7 +78,7 @@ func TestTaskStatusPicker(t *testing.T) {
 	tt.Key(0, ui.Key1)
 	tt.Frame()
 	line := func() string { s, e := pn.doc.Text().ParagraphRange(0); return paraLine(pn.doc.Text(), s, e) }
-	if a.tasks.pick.open || line() != "ödev #moon" {
+	if a.tasks.pick.open || line() != "ödev #kawaii" {
 		t.Fatalf("1: %q, picker %v", line(), a.tasks.pick.open)
 	}
 	if f := a.faceOf(pn.doc.Text().ParagraphStyleAt(0), line()); f.id != "tag" || f.slot != 0 {
@@ -116,7 +116,7 @@ func TestTaskStatusSpansAndCounts(t *testing.T) {
 	spans := a.paintSpans(pn, 0, pn.doc.Text().ParagraphStyleAt(0), spansOfPara(a, 0))
 	pill := false
 	for _, s := range spans {
-		if s.Text == "#deadline" && s.Color == ui.Hex(tagStatusSlots[3].color) {
+		if s.Text == "#deadline" && s.Color == a.tagColor(3) {
 			pill = true
 		}
 	}
@@ -147,15 +147,18 @@ func TestTaskFacesDrawn(t *testing.T) {
 		"- [ ] moon #moon\n- [ ] kawaii #kawaii\n- [ ] flower #flower\n- [ ] deadline #deadline\n- [ ] draft #draft\n- [ ] bug #bug\n- [ ] sun #sun\n" +
 		"- [x] done\n- [x] done star\n"
 	for _, look := range []string{taskLookNeon, taskLookVivid, taskLookMinimal} {
-		a, tt := newTestApp(t, md)
-		a.settings.TaskLook = look
-		a.settings.TaskTint = look == taskLookNeon
-		tt.SetSize(900, 1100)
-		tt.Advance(400 * time.Millisecond)
-		if dir := os.Getenv("TASK_SHOT_DIR"); dir != "" {
-			f, _ := os.Create(filepath.Join(dir, "tasks-"+map[string]string{"": "neon"}[look]+look+".png"))
-			png.Encode(f, tt.Image())
-			f.Close()
+		for _, theme := range []int{1, 2} { // light and dark
+			a, tt := newTestApp(t, md)
+			a.settings.TaskLook, a.settings.Theme = look, theme
+			a.settings.TaskNoTint = look != taskLookNeon
+			tt.SetSize(900, 1100)
+			tt.Advance(400 * time.Millisecond)
+			if dir := os.Getenv("TASK_SHOT_DIR"); dir != "" {
+				name := "tasks-" + map[string]string{"": "neon"}[look] + look + map[int]string{1: "-light", 2: "-dark"}[theme] + ".png"
+				f, _ := os.Create(filepath.Join(dir, name))
+				png.Encode(f, tt.Image())
+				f.Close()
+			}
 		}
 	}
 }
@@ -184,7 +187,7 @@ func TestTaskSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	typeEach(tt, "gece") // in an empty field, "moon" faint in it
+	typeEach(tt, "gece") // in an empty field, "kawaii" faint in it
 	tt.Frame()
 	tt.Frame()
 	if n := a.tagNames()[0]; n != "gece" {
@@ -194,7 +197,7 @@ func TestTaskSettings(t *testing.T) {
 		tt.Key(0, ui.KeyBackspace)
 		tt.Frame()
 	}
-	if n := a.tagNames()[0]; n != "moon" || a.settings.TaskTags[0] != "" {
+	if n := a.tagNames()[0]; n != "kawaii" || a.settings.TaskTags[0] != "" {
 		t.Fatalf("cleared: slot 1 named %q, kept %q", n, a.settings.TaskTags[0])
 	}
 }

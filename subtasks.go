@@ -2,11 +2,11 @@ package main
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/locales"
-	ryugo "github.com/imhalid/ryu-go"
 )
 
 // Subtasks (#477). A task nests under the one above it with Tab, as any list line does, and the page stays plain
@@ -22,8 +22,9 @@ const (
 	subtaskChipH = 18
 )
 
-// subtaskCount is a task's direct subtasks, and how many of them are done.
-type subtaskCount struct{ done, total int }
+// subtaskCount is a task's direct subtasks, how many of them are done, and of those not done how many are in progress
+// and how many cannot wait (an alert, important, a bug, a deadline): what its badge's color says (#611).
+type subtaskCount struct{ done, total, started, urgent int }
 
 // subtaskState is the counts of the text last read, by paragraph index, and the paragraphs that have the room of
 // their parent's chip above them.
@@ -66,6 +67,17 @@ func (a *app) subtasksOf(pn *paneState) *subtaskState {
 				n.total++
 				if q.Checked {
 					n.done++
+					continue
+				}
+				var line strings.Builder
+				for _, r := range paras[j].Runs {
+					line.WriteString(r.Text)
+				}
+				switch f := a.faceOf(q, line.String()); {
+				case f.urgent():
+					n.urgent++
+				case f.id == "progress":
+					n.started++
 				}
 			}
 		}
@@ -127,7 +139,6 @@ func (a *app) subtaskChips(c *ui.Context) {
 	if pn.scrollR.H > 0 {
 		top, bottom = max(top, pn.scrollR.Y+pn.barInset), min(bottom, pn.scrollR.Y+pn.scrollR.H)
 	}
-	cl := ryugo.From(c).Colors
 	ui.Overlay(c, func() {
 		for _, b := range a.shown(pn, r) {
 			n, ok := st.count[b.Index]
@@ -144,41 +155,60 @@ func (a *app) subtaskChips(c *ui.Context) {
 			}
 			at := b.Start
 			label := locales.TasksSubtasksDone(n.done, n.total)
-			chip := ui.Row(c.Key("subtasks:"+strconv.Itoa(at))).Absolute().Left(r.X+x-4).Top(y).Height(subtaskChipH).
-				Padding(0, 7, 0, 4).Gap(5).AlignItems(ui.Center).Radius(subtaskChipH / 2).
-				Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label).Tooltip(locales.TasksFoldSubtasks())
-			done := n.done == n.total
-			par := pn.doc.Text().ParagraphStyleAt(at)
-			ps, pe, _ := a.paraOfBox(pn, b)
-			face := a.faceOf(par, paraLine(pn.doc.Text(), ps, pe))
-			tint := cl.Fill // the pill in the parent's state's color (#597)
+			state := "open" // BetterTask's badge (#611): its colors by how its subtasks are
 			switch {
-			case done || par.Checked:
-				tint = cl.Down.Alpha(0.16)
-			case face.id == "canceled":
-				tint = cl.Muted.Alpha(0.14)
-			case face.urgent():
-				tint = ui.Hex("#EF4444").Alpha(0.14)
-			case face.id != "":
-				tint = face.color.Alpha(0.14)
+			case n.done >= n.total:
+				state = "done"
+			case n.urgent > 0:
+				state = "urgent"
+			case n.started > 0:
+				state = "started"
 			}
-			chip.Background(tint)
+			bg, edge, ink, fg, track := subBadgeColors(state, darkBg(a.pageBg))
+			chip := ui.Row(c.Key("subtasks:"+strconv.Itoa(at))).Absolute().Left(r.X+x-4).Top(y).Height(subtaskChipH).
+				Padding(0, 8, 0, 3).Gap(4).AlignItems(ui.Center).Radius(subtaskChipH/2).Border(1, edge).Background(bg).
+				Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label).Tooltip(locales.TasksFoldSubtasks())
 			if chip.Hovered() {
-				chip.Background(ryugo.Mix(tint, cl.Fill, 0.6))
+				chip.Background(bg.Alpha(1.8))
 			}
-			ink := map[bool]ui.Color{true: cl.Down, false: cl.Muted}[done]
 			chip.Children(func() {
-				ui.Icon(c, iconChevronDown).Width(11).Height(11).TextColor(cl.Muted)
-				ui.Text(c, strconv.Itoa(n.done)+"/"+strconv.Itoa(n.total)).FontSize(11.5).FontWeight(560).TextColor(ink)
-				ui.Box(c).Size(12, 12).Draw(func(p *ui.Painter, rr ui.Rect) {
-					drawTaskRing(p, rr.X+rr.W/2, rr.Y+rr.H/2, 5, n.total, n.done, cl.Muted.Alpha(0.55), cl.Down)
+				ui.Box(c).Size(13, 13).Draw(func(p *ui.Painter, rr ui.Rect) {
+					drawTaskRing(p, rr.X+rr.W/2, rr.Y+rr.H/2, rr.W*5.4/16, n.total, n.done, track, fg)
 				})
+				ui.Text(c, strconv.Itoa(n.done)+"/"+strconv.Itoa(n.total)).FontSize(11).FontWeight(600).Font(monoStack).TextColor(ink)
 			})
 			if chip.Clicked() {
 				a.toggleFold(at)
 			}
 		}
 	})
+}
+
+// subBadgeColors are the colors of BetterTask's subtask badge in state (open, started, urgent, done): its back,
+// border and text, and its ring's color and track.
+func subBadgeColors(state string, dark bool) (bg, edge, ink, ring, track ui.Color) {
+	if dark {
+		track = rgba(148, 163, 184, 0.34)
+		switch state {
+		case "started":
+			return rgba(34, 211, 238, 0.09), rgba(34, 211, 238, 0.38), ui.Hex("#67e8f9"), ui.Hex("#22d3ee"), track
+		case "urgent":
+			return rgba(244, 63, 94, 0.12), rgba(251, 113, 133, 0.44), ui.Hex("#fda4af"), ui.Hex("#fb7185"), track
+		case "done":
+			return rgba(16, 185, 129, 0.13), rgba(52, 211, 153, 0.46), ui.Hex("#6ee7b7"), ui.Hex("#10b981"), track
+		}
+		return rgba(148, 163, 184, 0.09), rgba(148, 163, 184, 0.24), rgba(226, 232, 240, 0.84), ui.Hex("#38bdf8"), track
+	}
+	track = rgba(71, 85, 105, 0.28)
+	switch state {
+	case "started":
+		return rgba(2, 132, 199, 0.08), rgba(2, 132, 199, 0.32), ui.Hex("#0369a1"), ui.Hex("#0284c7"), track
+	case "urgent":
+		return rgba(225, 29, 72, 0.08), rgba(225, 29, 72, 0.32), ui.Hex("#be123c"), ui.Hex("#e11d48"), track
+	case "done":
+		return rgba(5, 150, 105, 0.10), rgba(5, 150, 105, 0.36), ui.Hex("#047857"), ui.Hex("#059669"), track
+	}
+	return rgba(15, 23, 42, 0.045), rgba(71, 85, 105, 0.22), rgba(30, 41, 59, 0.84), ui.Hex("#0284c7"), track
 }
 
 // taskTextX is where the text of the task at paragraph box b starts, in the editor's element.
