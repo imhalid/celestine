@@ -211,7 +211,7 @@ func (a *app) gripView(c *ui.Context) {
 		a.cancelGripDrag(pn)
 		return
 	}
-	if phone || pn.doc == nil || a.noPage() || g.para < 0 || g.para > pn.doc.Text().Len() {
+	if phone || pn.doc == nil || a.noPage() || a.pageLocked(pn.page) || g.para < 0 || g.para > pn.doc.Text().Len() { // a past day has no grip to move nor change its blocks (#622)
 		g.hover = false
 		return
 	}

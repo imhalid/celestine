@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -77,7 +78,13 @@ func (a *app) toast(text string) { a.toastOf(toastInfo, text, "", nil) }
 // fail says that something did not work, in an error toast. The open page's own save keeps its error in saveErr,
 // shown in the status bar; nothing else does, so another failure neither shows as "could not save" nor holds the
 // page's autosave back (#216).
-func (a *app) fail(err error) { a.toastOf(toastErr, err.Error(), "", nil) }
+func (a *app) fail(err error) {
+	if errors.Is(err, ErrLocked) { // a past day of the journal (#622): said as what it is, not as a fault
+		a.sayLocked()
+		return
+	}
+	a.toastOf(toastErr, err.Error(), "", nil)
+}
 
 // toastAction puts up a toast that says text, with a button labelled action that runs fn and closes it.
 func (a *app) toastAction(text, action string, fn func()) { a.toastOf(toastInfo, text, action, fn) }

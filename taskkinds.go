@@ -432,6 +432,12 @@ func (a *app) taskBoxHits(c *ui.Context) {
 			at := b.Start
 			hit := ui.Box(c.Key("taskbox:"+strconv.Itoa(at))).Absolute().Left(box.X).Top(box.Y).Size(box.W, box.H).
 				Cursor(ui.CursorPointer).Role(ui.RoleCheckBox).Label(locales.CommonTask())
+			if a.pageLocked(pn.page) { // a past day (#622): its tasks stay as they were
+				if hit.Clicked() || hit.RightClicked() {
+					a.sayLocked()
+				}
+				continue
+			}
 			if hit.Clicked() {
 				if hit.ClickModifiers()&ui.Alt != 0 { // ⌥-click: the picker of its status (#597)
 					b := hit.LayoutBounds()

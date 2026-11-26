@@ -212,6 +212,12 @@ type Page struct {
 	// with what was shown (#125). A restore of an earlier copy clears it.
 	Unreadable string
 
+	// Locked says why the page is not to be changed, while it is set: a past day of the journal, which the app marks
+	// (#622). Nothing of it is written (Save, SetTitle and SetValue refuse, ErrLocked), it does not go to the trash,
+	// and it does not leave its collection; the app's own stamps of its meta (StampMeta) and a sync's writes are not
+	// its edits, and still reach its file.
+	Locked string
+
 	// ownText is the "properties" of its file when they could not be read as properties (a value of a property
 	// that had that id before it was reserved, or what a newer client wrote): written back as it was, never
 	// dropped (#531).
@@ -535,6 +541,9 @@ func (p *Page) saveTo(fsys FS, body string) error {
 	if p.Unreadable != "" {
 		return fmt.Errorf("%w: %s", ErrUnreadable, p.Unreadable)
 	}
+	if p.Locked != "" {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	if p.ID == "" {
 		p.ID = newPageID()
 	}
@@ -626,9 +635,15 @@ var imageRef = regexp.MustCompile(`!\[[^\[\]]*\]\((?:<([^>]+)>|([^)\s]+))(?:\s+"
 // ErrUnreadable is what Save says of a page whose text could not be read (Page.Unreadable).
 var ErrUnreadable = errors.New("the page could not be read, so it is not written over")
 
+// ErrLocked is what Save, TrashPage and MovePage say of a page the app locked (Page.Locked).
+var ErrLocked = errors.New("the page is locked")
+
 // SetTitle) renames the page; its folder keeps its name.
 func (p *Page) SetTitle(title string) error {
 	defer PagesChanged()
+	if p.Locked != "" { // before its title is changed in memory
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	body, err := p.Body()
 	if err != nil {
 		return err
@@ -742,6 +757,9 @@ func (l *Library) MoveToTrash(dir string, item TrashItem) (*TrashItem, error) {
 // TrashPage moves page p, its sub-pages with it, to the trash.
 func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
 	defer PagesChanged()
+	if locked := lockedIn(p); locked != nil { // it, or a page under it
+		return nil, fmt.Errorf("%w: %s", ErrLocked, locked.Locked)
+	}
 	where := p.Coll.Name
 	if crumb := Parents(p); crumb != "" {
 		where += " › " + crumb
@@ -756,6 +774,19 @@ func (l *Library) TrashPage(p *Page) (*TrashItem, error) {
 		p.Coll.Pages = without(p.Coll.Pages, p)
 	}
 	return item, nil
+}
+
+// lockedIn is p, or a page under it, that is locked (Page.Locked), or nil.
+func lockedIn(p *Page) *Page {
+	if p.Locked != "" {
+		return p
+	}
+	for _, ch := range p.Children {
+		if q := lockedIn(ch); q != nil {
+			return q
+		}
+	}
+	return nil
 }
 
 // TrashCollection moves collection c, its pages with it, to the trash.
@@ -1070,6 +1101,9 @@ func (p *Page) Contains(q *Page) bool {
 // collection without sub-pages.
 func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) error {
 	defer PagesChanged()
+	if locked := lockedIn(p); locked != nil && c != p.Coll { // out of its collection: a past day out of the journal
+		return fmt.Errorf("%w: %s", ErrLocked, locked.Locked)
+	}
 	if parent != nil && p.Contains(parent) {
 		return errors.New("a page cannot go under itself")
 	}

@@ -248,6 +248,42 @@ func (a *app) journal() (*Collection, error) {
 	return c, nil
 }
 
+// lockDays marks the past days of the journal locked (#622): what was written on a day stays as it was, not edited,
+// renamed, given values, sent to the trash nor moved out (the library refuses each, Page.Locked); today's page is
+// not, and a day turns past at midnight. Done once a frame, it reads again only when the day or the pages changed.
+func (a *app) lockDays() {
+	c := a.journalColl()
+	if c == nil {
+		return
+	}
+	today := startOfDay(a.clock())
+	key := lockKey{day: today, pages: PagesGen.Load(), coll: c}
+	if a.locked == key {
+		return
+	}
+	a.locked = key
+	why := locales.JournalPastDayLocked()
+	for _, p := range c.All() {
+		p.Locked = ""
+		if dayOf(p).Before(today) {
+			p.Locked = why
+		}
+	}
+}
+
+// lockKey is what the locks of the journal's days were marked for: the day, the pages, the journal.
+type lockKey struct {
+	day   time.Time
+	pages uint64
+	coll  *Collection
+}
+
+// pageLocked reports whether p is locked, a past day of the journal (#622).
+func (a *app) pageLocked(p *Page) bool { return p != nil && p.Locked != "" }
+
+// sayLocked says that a past day is locked, as an edit of one is refused.
+func (a *app) sayLocked() { a.say(toastWarn, locales.JournalPastDayLocked()) }
+
 // journalColl is the journal's collection if the library has one, and makes none: what is drawn each frame asks it.
 func (a *app) journalColl() *Collection {
 	for _, c := range a.lib.Collections {

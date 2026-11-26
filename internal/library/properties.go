@@ -584,6 +584,9 @@ func (p *Page) Value(pr *Property) string {
 // takes one of its options (any case) or nothing; a number, a number; a
 // date, a day as 2006-01-02.
 func (p *Page) SetValue(id, v string) error {
+	if p.Locked != "" { // before its value is changed in memory
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	pr := p.Prop(id)
 	if pr == nil {
 		return fmt.Errorf("%s has no property %q", p.Title, id)
@@ -686,6 +689,9 @@ func byRank(a, b *Page) int {
 // MoveOnBoard gives p value v of choice id and puts it at index among that
 // column's other pages; the pages whose place changed are written.
 func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
+	if p.Locked != "" {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	col := slices.DeleteFunc(c.Column(id, v), func(q *Page) bool { return q == p })
 	index = max(0, min(index, len(col)))
 	col = slices.Insert(col, index, p)

@@ -6801,6 +6801,26 @@ func (msgs Messages) JournalViewTable() string {
 	return Catalog.Format(msgs.locale, "journal_viewTable", nil)
 }
 
+// JournalPastDayLocked says "Past days of the journal are locked: this one stays as it was written."
+// in the language the app shows.
+func JournalPastDayLocked() string { return In(i18n.Locale()).JournalPastDayLocked() }
+
+// JournalPastDayLocked says "Past days of the journal are locked: this one stays as it was written."
+// in the language of msgs.
+func (msgs Messages) JournalPastDayLocked() string {
+	return Catalog.Format(msgs.locale, "journal_pastDayLocked", nil)
+}
+
+// JournalLockedBadge says "A past day: locked"
+// in the language the app shows.
+func JournalLockedBadge() string { return In(i18n.Locale()).JournalLockedBadge() }
+
+// JournalLockedBadge says "A past day: locked"
+// in the language of msgs.
+func (msgs Messages) JournalLockedBadge() string {
+	return Catalog.Format(msgs.locale, "journal_lockedBadge", nil)
+}
+
 // Keep says "save"
 // in the language the app shows.
 func Keep() string { return In(i18n.Locale()).Keep() }

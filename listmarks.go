@@ -538,6 +538,10 @@ func (a *app) drawCheckChip(p *ui.Painter, r ui.Rect, ch *chip) {
 
 // toggleCheckChip marks a task in the running text done, or not done again.
 func (a *app) toggleCheckChip(ch *chip) {
+	if a.pageLocked(a.pane().page) { // a past day (#622)
+		a.sayLocked()
+		return
+	}
 	doc := a.pane().doc
 	at := -1
 	for i, r := range doc.Text().Runs(0, doc.Text().Len()) { // this chip, not one that says the same

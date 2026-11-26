@@ -24,6 +24,9 @@ const CollectionFile = library.CollectionFile
 
 var CopyTree = library.CopyTree
 
+// ErrLocked is what the library says of a past day of the journal it is asked to change (#622).
+var ErrLocked = library.ErrLocked
+
 const CoverNone = library.CoverNone
 
 var DeriveKey = library.DeriveKey

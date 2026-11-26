@@ -748,6 +748,8 @@
   "journal_viewCalendar": "Calendar",
   "journal_viewList": "List",
   "journal_viewTable": "Table",
+  "journal_pastDayLocked": "Past days of the journal are locked: this one stays as it was written.",
+  "journal_lockedBadge": "A past day: locked",
   "keep": "save",
   "keyboardMode": "Keyboard mode",
   "keys_aNameCommandsSeparated": "A name, then commands separated by +, e.g. “Daily tasks” and “Today's page + Tasks”. It shows up in ⌘P as “Macro: name”.",

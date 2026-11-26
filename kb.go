@@ -710,7 +710,7 @@ func (a *app) followAtCaret() {
 		return
 	}
 	if a.chipAt(pn, x, y) != nil {
-		a.clickChip(pn, x, y)
+		a.clickChip(pn, x, y, false)
 		return
 	}
 	a.say(toastWarn, locales.ThereIsNoLinkTagOr())

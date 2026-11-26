@@ -231,6 +231,7 @@ type app struct {
 	shellOpen    func(string, bool) // test seam for opening/revealing attached files (path, reveal)
 	runOnUI      func(func())       // UI-thread dispatcher when the event loop is active (#173)
 	daysStamped  bool               // the journal's pages have their days kept (stampDays)
+	locked       lockKey            // what the journal's past days were locked for (lockDays, #622)
 	stamping     sync.WaitGroup     // the journal's days being written: a test waits for them
 	stampHold    func()             // a test holds the writing of the journal's days here
 	storeErr     string             // the library store's last write error, as shown
@@ -1060,6 +1061,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 	a.frameSeq++
 	a.frameNow = c.Now()
+	a.lockDays()          // the journal's past days locked, today's not (journal.go, #622)
 	if a.wel.win != nil { // it changes with full screen and back
 		a.winRadius = a.wel.win.CornerRadius()
 	}
@@ -1349,6 +1351,13 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 	if p.Unreadable != "" { // shown, not edited: the editor would save what it shows over the file
 		ui.Text(c, locales.AppThisPageCouldNot()+"\n"+p.Unreadable).FontSize(13).TextColor(ryugo.From(c).Colors.Warn).Wrap().FillWidth().Padding(0, 0, 8, 0)
 	}
+	if a.pageLocked(p) { // a past day of the journal, read only (#622): said once, faint, under the head
+		cl := ryugo.From(c).Colors
+		ui.Row(c.Key("locked-day")).Gap(6).AlignItems(ui.Center).Padding(0, 0, 10, 0).Label(locales.JournalPastDayLocked()).Children(func() {
+			ui.Icon(c, iconLock).Width(13).Height(13).TextColor(cl.Muted)
+			ui.Text(c, locales.JournalLockedBadge()).FontSize(12).TextColor(cl.Muted)
+		})
+	}
 	c.Key("body:" + p.Dir)
 	a.refreshQueries()
 	textSpacing = spacingOf(a.settings.LetterSpacing, a.font.Size) // the editor's spans and the caret's layout (codecolors.go)
@@ -1367,7 +1376,7 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 		OnLink:       func(string) {},
 		SpansVersion: a.spansVersion(pn),
 		Space:        func(i int) float32 { return a.paraRoom(pn, i) }, // the room a block dragged opens where it would go (blockui.go), and a parent task's chip (subtasks.go)
-		ReadOnly:     p.Unreadable != "",
+		ReadOnly:     p.Unreadable != "" || a.pageLocked(p),            // a past day of the journal is read only (#622)
 		// the page scrolls as a whole, the editor as tall as its text, however long: no bar of its own beside the
 		// page's, which showed when a split pane narrowed it and the height worked out was a frame behind (#190), and
 		// no window on a long text scrolling in itself (#314)
@@ -1441,7 +1450,7 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 		} else if pic := a.pictureAt(pn, pn.editorR.X+x, pn.editorR.Y+y); pic != nil {
 			a.lightbox = pic
 		} else {
-			a.clickChip(pn, pn.editorR.X+x, pn.editorR.Y+y)
+			a.clickChip(pn, pn.editorR.X+x, pn.editorR.Y+y, c.Modifiers()&ui.Alt != 0) // the editor keeps no modifiers of its clicks: those held now
 		}
 	}
 	if !pn.edPressed { // where the caret is when the pointer is not down: the click's own move is not kept
@@ -1520,6 +1529,9 @@ func (a *app) pageHead(c *ui.Context, pn *paneState, p *Page) {
 	before := pn.title
 	title := ui.TextAreaBase(c, &pn.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
 		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
+	if a.pageLocked(p) { // a past day of the journal: its title is read only too (#622)
+		title.ReadOnly(true)
+	}
 	if pn.blank {
 		title.Placeholder(locales.CommonUntitled()).PlaceholderColor(ink.Alpha(0.32))
 	}
@@ -2095,6 +2107,12 @@ func (a *app) wroteBody(pn *paneState, body string, words int) {
 		return
 	}
 	if err := pn.page.Save(body); err != nil {
+		if errors.Is(err, ErrLocked) { // a past day (#622): an edit that reached its text is put back
+			pn.dirty = false
+			a.takeOutside(pn.page)
+			a.sayLocked()
+			return
+		}
 		a.saveErr, a.saveTried = err.Error(), a.clock()
 		return
 	}

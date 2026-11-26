@@ -363,11 +363,11 @@ func TestChipHover(t *testing.T) {
 		t.Fatal("hovered away from any chip")
 	}
 	h := hits[0]
-	tt.ClickAt(h.r.X+h.r.W/2, h.r.Y+h.r.H/2)
+	tt.ClickAtWith(ui.Alt, h.r.X+h.r.W/2, h.r.Y+h.r.H/2) // ⌥-click: its calendar; a click opens its day (#621)
 	tt.Frame()
 	tt.Frame()
 	if !a.dateEdit.open {
-		t.Fatal("a date did not open its calendar")
+		t.Fatal("⌥-click on a date did not open its calendar")
 	}
 }
 

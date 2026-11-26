@@ -564,8 +564,8 @@ func (a *app) chipAt(_ *paneState, x, y float32) *chipHit {
 
 // clickChip opens the page of the chip at x, y in pn, making it
 // first if it is not there, and reports whether there was one; a date's
-// opens a calendar to change it.
-func (a *app) clickChip(pn *paneState, x, y float32) bool {
+// opens its day, and with alt (⌥-click) a calendar to change it (#621).
+func (a *app) clickChip(pn *paneState, x, y float32, alt bool) bool {
 	if h := a.chipAt(pn, x, y); h != nil {
 		if h.ch.kind == "fold" {
 			a.unfold(h.ch)
@@ -602,11 +602,16 @@ func (a *app) clickChip(pn *paneState, x, y float32) bool {
 			return true
 		}
 		if h.ch.kind == "date" {
-			d, err := time.Parse("2006-01-02", h.ch.target)
-			if err != nil {
-				d = a.clock()
+			d, err := time.ParseInLocation("2006-01-02", h.ch.target, time.Local)
+			switch {
+			case alt && !a.pageLocked(pn.page): // the calendar, to change it
+				if err != nil {
+					d = a.clock()
+				}
+				a.dateEdit = dateEdit{open: true, ch: h.ch, at: h.r, cal: d}
+			case err == nil: // its day, as a page's link opens its page
+				a.openDay(d)
 			}
-			a.dateEdit = dateEdit{open: true, ch: h.ch, at: h.r, cal: d}
 			return true
 		}
 		p := a.pageTitled(h.ch.target)

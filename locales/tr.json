@@ -669,6 +669,8 @@
   "journal_viewCalendar": "Takvim",
   "journal_viewList": "Liste",
   "journal_viewTable": "Tablo",
+  "journal_pastDayLocked": "Günlüğün geçmiş günleri kilitli: bu gün yazıldığı gibi kalır.",
+  "journal_lockedBadge": "Geçmiş bir gün: kilitli",
   "keep": "kaydet",
   "keyboardMode": "Klavye kipi",
   "keys_aNameCommandsSeparated": "Bir ad, sonra + ile ayrılmış komutlar: örn. “Günlük görev” ve “Bugünün sayfası + Görevler”. ⌘P'de “Makro: ad” olarak çıkar.",

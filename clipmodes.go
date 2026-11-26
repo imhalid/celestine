@@ -80,6 +80,15 @@ type ownClip struct {
 
 // editorKeys are the keys the app takes before the editor: the / menu's, then copy and paste.
 func (a *app) editorKeys(pn *paneState, key ui.Key, mods ui.Modifiers) bool {
+	if a.pageLocked(pn.page) { // a past day (#622): the editor reads only, and none of the app's edits is made
+		switch {
+		case mods == ui.Cmd && key == ui.KeyC:
+			a.noteCopy()
+		case mods == ui.Cmd && (key == ui.KeyV || key == ui.KeyX), mods == 0 && (key == ui.KeyTab || key == ui.KeyEnter || key == ui.KeyBackspace || key == ui.KeyDelete):
+			a.sayLocked()
+		}
+		return false
+	}
 	return a.editorKey(pn, key, mods) || a.clipKey(pn, key, mods)
 }
 
@@ -88,6 +97,10 @@ func (a *app) editorKeys(pn *paneState, key ui.Key, mods ui.Modifiers) bool {
 func (a *app) editorCommand(pn *paneState, name string) bool {
 	if pn.doc == nil {
 		return false
+	}
+	if a.pageLocked(pn.page) && name != "copy" { // a past day (#622): nothing pasted nor cut
+		a.sayLocked()
+		return true
 	}
 	switch name {
 	case "copy", "cut":
