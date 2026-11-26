@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -57,11 +58,46 @@ type menuItem struct {
 func slashItems(q string) []struct{ kind, name, md string } {
 	var out []struct{ kind, name, md string }
 	for _, k := range blockKinds {
-		if q == "" || match(q, names(k.name)) >= 0 || strings.HasPrefix(k.md, q) {
+		if q == "" || menuHas(q, names(k.name)) || strings.HasPrefix(k.md, q) {
 			out = append(out, k)
 		}
 	}
+	slices.SortStableFunc(out, func(x, y struct{ kind, name, md string }) int {
+		return menuRank(q, names(x.name)) - menuRank(q, names(y.name))
+	})
 	return out
+}
+
+// menuHas reports whether one of texts contains q, folded as the app's search folds (Turkish letters, case): what a
+// line of the / menu is found by. A name in each language is one of them (names), so the letters typed are found
+// together in a name, never one in the English name and the next in the Turkish one (#609).
+func menuHas(q string, texts ...string) bool {
+	fq := foldText(strings.TrimSpace(q))
+	for _, t := range texts {
+		if strings.Contains(foldText(t), fq) {
+			return true
+		}
+	}
+	return false
+}
+
+// menuRank is where a line found by q stands among the others: 0 when its name starts with q, 1 when a word of one of
+// its names does, 2 when q is only within one.
+func menuRank(q string, text string) int {
+	fq := foldText(strings.TrimSpace(q))
+	if fq == "" {
+		return 0
+	}
+	f := foldText(text)
+	if strings.HasPrefix(f, fq) {
+		return 0
+	}
+	for _, w := range strings.Fields(f) {
+		if strings.HasPrefix(w, fq) {
+			return 1
+		}
+	}
+	return 2
 }
 
 type namedDay struct {
@@ -241,7 +277,7 @@ func (a *app) wikiItems(q string) []menuItem {
 	}
 	exact, n := false, 0
 	for _, it := range a.places() {
-		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
+		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && !menuHas(q, it.title)) {
 			continue
 		}
 		if strings.EqualFold(it.title, tq) {
@@ -274,25 +310,25 @@ func (a *app) wikiItems(q string) []menuItem {
 // for, for q.
 func (a *app) rawItems(q string) []menuItem {
 	var out []menuItem
-	if q == "" || match(q, "Resim") >= 0 {
+	if q == "" || menuHas(q, names("slash_image"), "Resim") {
 		out = append(out, menuItem{title: "slash_image", sub: "slash_imageSub", glyph: iconImage, group: "slash_groupInsert", run: a.chooseImage})
 	}
-	if q == "" || match(q, names("slash_embed")) >= 0 || match(q, "embed") >= 0 {
+	if q == "" || menuHas(q, names("slash_embed"), "embed") {
 		out = append(out, menuItem{title: "slash_embed", sub: "slash_embedSub", glyph: iconPage, group: "slash_groupInsert", nav: true, run: func() { a.enterView("embed") }})
 	}
-	if q == "" || match(q, names("common_query")) >= 0 || match(q, "query") >= 0 {
+	if q == "" || menuHas(q, names("common_query"), "query") {
 		out = append(out, menuItem{title: "query2", sub: locales.SlashThePagesSearchFinds(), glyph: iconSearch, group: "slash_groupInsert", nav: true, run: func() { a.enterView("query") }})
 	}
 	out = append(out, a.templateItems(q)...)
-	if q == "" || match(q, names("slash_table")) >= 0 {
+	if q == "" || menuHas(q, names("slash_table")) {
 		out = append(out, menuItem{title: "slash_table", sub: "slash_tableSub", glyph: iconTable, group: "slash_groupInsert", run: a.chooseTable})
 	}
-	if q == "" || match(q, locales.SlashFootnote()) >= 0 || match(q, "footnote") >= 0 || match(q, "dipnot") >= 0 {
+	if q == "" || menuHas(q, locales.SlashFootnote(), "footnote", "dipnot") {
 		out = append(out, menuItem{title: locales.SlashFootnote(), sub: locales.SlashAMarkHereNote(), glyph: iconFootnote, group: "slash_groupInsert", run: a.chooseFootnote})
 	}
 	for _, r := range rawTemplates() {
 		r := r
-		if q != "" && match(q, r.name) < 0 {
+		if q != "" && !menuHas(q, names(r.name)) {
 			continue
 		}
 		out = append(out, menuItem{title: r.name, sub: r.sub, glyph: r.glyph, group: "slash_groupInsert", run: func() { a.chooseRaw(r) }})
@@ -356,7 +392,7 @@ func (a *app) choiceItems(q string) []menuItem {
 		}
 		for _, o := range pr.Options {
 			label := pr.Name + ": " + o
-			if q != "" && match(q, label) < 0 {
+			if q != "" && !menuHas(q, label) {
 				continue
 			}
 			id, o := pr.ID, o
@@ -396,7 +432,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 	case "link":
 		exact, n := false, 0
 		for _, it := range a.places() {
-			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
+			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && !menuHas(q, it.title)) {
 				continue
 			}
 			if strings.EqualFold(it.title, tq) {
@@ -425,7 +461,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 	case "embed":
 		n := 0
 		for _, it := range a.places() {
-			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
+			if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && !menuHas(q, it.title)) {
 				continue
 			}
 			if n++; n > 40 {
@@ -462,7 +498,7 @@ func (a *app) searchItems(q string) []menuItem {
 	// pages
 	exact, n := false, 0
 	for _, it := range a.places() {
-		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
+		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && !menuHas(q, it.title)) {
 			continue
 		}
 		if strings.EqualFold(it.title, tq) {
@@ -485,7 +521,7 @@ func (a *app) searchItems(q string) []menuItem {
 			}
 			for _, o := range pr.Options {
 				label := pr.Name + ": " + o
-				if q != "" && match(q, label) < 0 {
+				if q != "" && !menuHas(q, label) {
 					continue
 				}
 				id, o := pr.ID, o
@@ -678,6 +714,13 @@ func (a *app) chooseSlash(k struct{ kind, name, md string }) {
 	s := &a.slash
 	_, caret := doc.Selection()
 	start := s.start
+	if ps, _ := doc.Text().ParagraphRange(start); k.kind == "tasks" && start > ps && !doc.Text().ParagraphStyleAt(start).CodeBlock {
+		// in a line, after its words: a task of the running text where it was typed, not the line made a task (#609)
+		a.insertChip(start, &chip{kind: "check"})
+		a.useKind(k.kind)
+		s.open = false
+		return
+	}
 	doc.Edit(func(ed *richtext.Edit) {
 		ed.Replace(start, max(caret, start), richtext.Text{})
 		ed.Select(start, start)

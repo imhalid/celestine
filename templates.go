@@ -267,7 +267,7 @@ func (a *app) templateItems(q string) []menuItem {
 	var out []menuItem
 	for _, t := range a.pane().page.Coll.AllTemplates() {
 		t := t
-		if q != "" && match(q, "Şablon "+t.Name) < 0 && match(q, locales.TemplatesTemplateLabel(t.Name)) < 0 {
+		if q != "" && !menuHas(q, "Şablon "+t.Name, locales.TemplatesTemplateLabel(t.Name)) {
 			continue
 		}
 		out = append(out, menuItem{title: locales.TemplatesTemplateLabel(t.Name), sub: firstLine(t.Body), glyph: iconTemplate, group: "templates_group", run: func() { a.chooseTemplate(t) }})

@@ -519,3 +519,69 @@ func TestSlashHeadingInEnglish(t *testing.T) {
 		t.Fatal("heading after a query is not English")
 	}
 }
+
+// The / menu finds the lines whose name has what is typed in it, in either language, the letters together: "ta" is not
+// found in "Bulleted list" by the t of one name and the a of the other; those whose name starts with it come first
+// (#609).
+func TestSlashFindsWhatNamesContain(t *testing.T) {
+	for _, l := range []string{"en", "tr"} {
+		setLang(l)
+		for _, q := range []string{"t", "ta", "task", "gör", "list"} {
+			for _, k := range slashItems(q) {
+				if !strings.Contains(foldText(names(k.name)), foldText(q)) && !strings.HasPrefix(k.md, q) {
+					t.Errorf("%s: %q found %q, which has no %q", l, q, msg(k.name), q)
+				}
+			}
+		}
+		for _, k := range slashItems("ta") {
+			if k.kind == "bullets" {
+				t.Errorf("%s: \"ta\" found the bulleted list", l)
+			}
+		}
+	}
+	setLang("en")
+	got := slashItems("task")
+	if len(got) < 2 || got[0].kind != "tasks" {
+		t.Fatalf("task: %v", got)
+	}
+	for i, k := range got {
+		if i > 0 && menuRank("task", names(k.name)) < menuRank("task", names(got[i-1].name)) {
+			t.Fatalf("%q before %q", msg(got[i-1].name), msg(k.name))
+		}
+	}
+	setLang("tr")
+}
+
+// Task chosen from the / menu in a line, after its words, is a task in the running text where it was typed; at the
+// start of a line it makes the line a task, as before (#609).
+func TestSlashTaskInLine(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	tt.SetSize(1000, 800)
+	tt.Frame()
+	tt.Key(ui.Cmd, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "Süt al /görev")
+	tt.Advance(200 * time.Millisecond)
+	if !a.slash.open {
+		t.Fatal("the menu is not open")
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(200 * time.Millisecond)
+	if got := mdOf(a.pane().doc); got != "x\n\nSüt al [ ]" {
+		t.Fatalf("in a line: %q", got)
+	}
+	if boxes := checksIn(a); len(boxes) != 1 {
+		t.Fatalf("%d tasks in the running text", len(boxes))
+	}
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	typeEach(tt, "/görev")
+	tt.Advance(200 * time.Millisecond)
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(200 * time.Millisecond)
+	typeEach(tt, "yap")
+	if got := mdOf(a.pane().doc); got != "x\n\nSüt al [ ] \n\n- [ ] yap" { // a space after the box, as after every chip put in
+		t.Fatalf("at a line's start: %q", got)
+	}
+}
