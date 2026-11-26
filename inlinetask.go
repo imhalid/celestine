@@ -121,8 +121,8 @@ func (a *app) inlineTaskKey(pn *paneState) int {
 	return 1 + act.p*7919 + act.box*31 + act.to
 }
 
-// inlineActiveSpans shows the words of the task the caret is in as one: a soft band of BetterTask's cyan under them
-// (#613), its box and its end lit with it.
+// inlineActiveSpans shows the task the caret is in as one: a soft band of BetterTask's cyan under its box, its words
+// and its end (#613), the box and the end lit with it.
 func (a *app) inlineActiveSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
 	act := pn.inlineAct
 	if !act.ok || act.p != p || a.theme == nil {
@@ -133,7 +133,7 @@ func (a *app) inlineActiveSpans(pn *paneState, p int, spans []ui.Span) []ui.Span
 	if act.end >= 0 { // the band takes in its end, its closing bracket
 		to = act.end + 1
 	}
-	return restyleRunes(spans, [][2]int{{act.box + 1, to}}, func(s *ui.Span) {
+	return restyleRunes(spans, [][2]int{{act.box, to}}, func(s *ui.Span) {
 		s.Background, s.Radius = band, 5
 	})
 }
