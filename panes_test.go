@@ -735,3 +735,46 @@ func TestPanesPersistThroughSettingsStoreReload(t *testing.T) {
 		t.Fatalf("expected second pane to restore %q, got %v", p2.ID, b.ps.states[1].page)
 	}
 }
+
+// With panes open, a frame in which neither the layout nor what a pane shows nor the pane in use changed makes no
+// snapshot of them, typing and scrolling included; a change of any of them is kept as before (#592).
+func TestPanesSnapshotOnlyWhenChanged(t *testing.T) {
+	a, tt := newTestApp(t, "Birinci\n")
+	tt.SetSize(1600, 900)
+	tt.Frame()
+	first := a.pane().page
+	p, _ := first.Coll.NewPage(nil, "İkinci")
+	p.SaveText("İkinci\n")
+	a.openAtPane(a.paneCount(), place{"page", p.Dir})
+	tt.Advance(300 * time.Millisecond)
+	if a.paneCount() != 2 || a.settings.Panes == "" {
+		t.Fatalf("panes %d, kept %q", a.paneCount(), a.settings.Panes)
+	}
+	n := a.ps.snaps
+	for range 20 { // at rest, the caret blinking
+		tt.Advance(50 * time.Millisecond)
+	}
+	typeEach(tt, "abc")
+	tt.Advance(100 * time.Millisecond)
+	if a.ps.snaps != n {
+		t.Fatalf("%d snapshots in frames that changed none of the panes", a.ps.snaps-n)
+	}
+	was := a.settings.Panes
+	a.usePane(0) // the pane in use
+	tt.Advance(300 * time.Millisecond)
+	if a.ps.snaps == n || a.settings.Panes == was {
+		t.Fatal("the pane in use changed and was not kept")
+	}
+	n, was = a.ps.snaps, a.settings.Panes
+	a.openAtPane(1, place{"coll", first.Coll.Dir}) // what a pane shows
+	tt.Advance(300 * time.Millisecond)
+	if a.ps.snaps == n || a.settings.Panes == was {
+		t.Fatal("a pane went elsewhere and was not kept")
+	}
+	n = a.ps.snaps
+	a.ps.rev++ // the Dock's OnChange: an edge let go
+	tt.Frame()
+	if a.ps.snaps != n+1 {
+		t.Fatalf("the layout changed: %d snapshots, want 1", a.ps.snaps-n)
+	}
+}

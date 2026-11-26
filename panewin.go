@@ -136,6 +136,7 @@ func (a *app) tearOffPane() {
 	if b, err := json.Marshal(l); err == nil {
 		if fixed, err := ryugo.ParseLayout(b); err == nil {
 			a.ps.layout = fixed
+			a.ps.rev++
 		}
 	}
 	if a.dockHost != nil {

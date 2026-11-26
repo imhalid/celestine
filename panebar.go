@@ -109,6 +109,7 @@ func (a *app) closeFromBar(pn *paneState, i int, id string) {
 	if len(a.ps.states) > 1 && a.ps.layout != nil {
 		a.flush()
 		a.ps.layout.ClosePane(id)
+		a.ps.rev++
 		return
 	}
 	if pn.page != nil && pn.page.Coll != nil {
@@ -190,5 +191,6 @@ func (a *app) unstackPanes() {
 		l.RemovePane(stacked.ID)
 		l.AddPane(beside, ryugo.DockRow, stacked)
 		l.ShowPane(stacked.ID)
+		a.ps.rev++
 	}
 }

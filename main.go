@@ -648,7 +648,8 @@ func main() {
 			a.relinkRenamed(r.p, r.from, false)
 		}
 		a.flush()
-		a.keepTree(true) // what was opened in the tree in its last second
+		a.keepTree(true)     // what was opened in the tree in its last second
+		a.ps.kept.ok = false // made whatever it was made from: the last word on the panes
 		a.keepPanes()
 		if a.settingsDirty { // what saveSettingsSoon left
 			a.saveSettings()

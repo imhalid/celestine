@@ -142,6 +142,30 @@ type paneSet struct {
 	next   int
 	layout *ryugo.Layout
 	rects  map[string]ui.Rect // where each pane was drawn, for the zone a page held would go into
+
+	// rev counts the changes to layout that the panes' own state does not show: the Dock's (OnChange) and the
+	// app's own moves of panes in it. kept is what the panes kept in the settings were made from, so that a frame
+	// in which nothing of it changed makes no JSON to find so (#592); snaps counts the snapshots made, for a test.
+	rev   uint64
+	kept  paneKey
+	snaps int
+}
+
+// paneKey is what panesSnapshot makes the panes kept in the settings from, as it can be compared at every frame:
+// the layout and its changes, the pane in use, and what each pane shows (#592).
+type paneKey struct {
+	ok     bool
+	layout *ryugo.Layout
+	rev    uint64
+	active int
+	places []paneKeyPlace
+}
+
+// paneKeyPlace is what a pane shows, as paneKey compares it.
+type paneKeyPlace struct {
+	id     string
+	at     place
+	pageID string
 }
 
 // newID is a name for a pane that has none.
@@ -233,6 +257,7 @@ func (a *app) addPane() int {
 		a.ps.layout = ryugo.NewLayout(ryugo.DockArea(&ryugo.Pane{ID: a.ps.ids[0], Kind: "pane"}))
 	}
 	a.ps.layout.AddPane(a.ps.ids[a.ps.active], ryugo.DockRow, &ryugo.Pane{ID: id, Kind: "pane"})
+	a.ps.rev++
 	return len(a.ps.states) - 1
 }
 
@@ -278,6 +303,7 @@ func (a *app) closePane(i int) {
 	a.ps.ensureIDs()
 	if a.ps.layout != nil {
 		a.ps.layout.RemovePane(a.ps.ids[i])
+		a.ps.rev++
 	}
 	a.dropPane(i)
 }
@@ -436,7 +462,8 @@ func (a *app) panesView(c *ui.Context, th *richtext.Theme) {
 				p.Title = a.paneTitleOf(a.ps.states[i])
 			}
 		}
-		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop, NoHeaders: a.wframe.on}).Grow(1)
+		el = ryugo.Dock(c.Key("panes"), a.ps.layout, ryugo.DockOptions{Kinds: a.paneKinds(th), MinSize: 240, Host: a.host(), Drop: a.carry.drop, NoHeaders: a.wframe.on,
+			OnChange: func() { a.ps.rev++ }}).Grow(1)
 		a.carried()
 	}
 	if b := el.LayoutBounds(); b.W > 0 { // a Dock just made is not laid out yet
@@ -672,6 +699,7 @@ func (a *app) panesSnapshot() string {
 		return ""
 	}
 	a.ps.ensureIDs()
+	a.ps.snaps++
 	raw, err := a.ps.layout.MarshalJSON()
 	if err != nil {
 		return ""
@@ -697,12 +725,44 @@ func (a *app) panesSnapshot() string {
 	return string(b)
 }
 
-// keepPanes writes the panes in the settings when they changed, and clears them when there is one pane again.
+// keepPanes writes the panes in the settings when they changed, and clears them when there is one pane again. It
+// runs at every frame: the snapshot, JSON of the whole layout, is made only when what it is made from changed (#592).
 func (a *app) keepPanes() {
+	if a.panesKept() {
+		return
+	}
 	if snap := a.panesSnapshot(); snap != a.settings.Panes {
 		a.settings.Panes = snap
 		a.saveSettingsSoon()
 	}
+}
+
+// panesKept reports whether nothing the panes' snapshot is made from changed since the last one was made, and notes
+// what it is now when something did.
+func (a *app) panesKept() bool {
+	k := &a.ps.kept
+	same := k.ok && k.layout == a.ps.layout && k.rev == a.ps.rev && k.active == a.ps.active && len(k.places) == len(a.ps.states)
+	a.ps.ensureIDs()
+	for i := 0; same && i < len(a.ps.states); i++ {
+		pn := a.ps.states[i]
+		same = k.places[i].id == a.ps.ids[i] && k.places[i].at == a.hereOf(pn) && k.places[i].pageID == pageIDOf(pn)
+	}
+	if same {
+		return true
+	}
+	k.ok, k.layout, k.rev, k.active, k.places = true, a.ps.layout, a.ps.rev, a.ps.active, k.places[:0]
+	for i, pn := range a.ps.states {
+		k.places = append(k.places, paneKeyPlace{id: a.ps.ids[i], at: a.hereOf(pn), pageID: pageIDOf(pn)})
+	}
+	return false
+}
+
+// pageIDOf is the ID of the page pane pn shows, "" for none.
+func pageIDOf(pn *paneState) string {
+	if pn.page == nil {
+		return ""
+	}
+	return pn.page.ID
 }
 
 // restorePaneLayout opens the panes kept in the settings, each at what it showed: the window opens as it was closed.
