@@ -779,11 +779,12 @@ func (a *app) paletteView(c *ui.Context) {
 								h = "common_commands"
 							}
 						}
+						headed := false
 						if h != "" && h != head {
-							head = h
+							head, headed = h, true
 							ui.Text(c.Key("head:"+h), msg(h)).FontSize(10.5).FontWeight(650).TextColor(cl.Muted).Padding(6, 8, 3, 8)
 						}
-						a.paletteRow(c, i, it)
+						a.paletteRow(c, i, it, headed, i == len(items)-1)
 					}
 				})
 			})
@@ -856,7 +857,9 @@ func palPlaceholder(mode byte) string {
 	return locales.GoToAPageCommandTag()
 }
 
-func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
+// paletteRow is line i of the palette's list, it; headed when its group's heading is over it, and last when it is the
+// list's last.
+func (a *app) paletteRow(c *ui.Context, i int, it palItem, headed, last bool) {
 	t := ryugo.From(c)
 	cl := t.Colors
 	height := float32(28)
@@ -880,15 +883,26 @@ func (a *app) paletteRow(c *ui.Context, i int, it palItem) {
 			c.Invalidate()
 		}
 	}
+	reveal := false
 	if i == a.pal.sel {
-		if a.pal.reveal {
-			row.ScrollIntoView()
-			a.pal.reveal = false
-		}
+		reveal, a.pal.reveal = a.pal.reveal, false
 		row.LinearGradient(chosenFill(t))
 		text, muted = cl.OnAccent, cl.OnAccent.Alpha(0.75)
 	}
 	row.Children(func() {
+		// shown with room around it: what is scrolled into view is a box a point wide, centered on the row and taller
+		// than it, which every row has so that it is laid out before it is asked for (#617)
+		room := float32(8)
+		if headed { // its group's heading over it
+			room = 30
+		}
+		if last { // the list's room under it, clear of the card's round corners (#602)
+			room = max(room, 12)
+		}
+		rv := ui.Box(c.Key("reveal")).Width(1).Height(height+2*room).Shrink(0).Margin(0, -9, 0, 0)
+		if reveal {
+			rv.ScrollIntoView()
+		}
 		ui.Icon(c, it.glyph).Width(14).Height(14).TextColor(muted)
 		if len(it.snip) > 0 { // the page, and the words around what was asked, marked
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {

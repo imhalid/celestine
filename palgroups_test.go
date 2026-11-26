@@ -197,3 +197,37 @@ func TestPaletteArrowsKeepTheChoice(t *testing.T) {
 		}
 	}
 }
+
+// Down to the list's last row shows it with the list's room under it, clear of the card's edge, and Up back to the
+// first shows its group's heading over it: the rows reached with the keys need no scrolling with the pointer (#617).
+func TestPaletteArrowsShowTheRoom(t *testing.T) {
+	a, tt := newTestApp(t, "Metin\n")
+	tt.SetSize(1000, 700)
+	tt.Frame()
+	a.openCommands()
+	tt.Frame()
+	items := a.palLines()
+	for range len(items) {
+		tt.Key(0, ui.KeyDown)
+		tt.Frame()
+	}
+	tt.Frame()
+	card, ok := tt.Find(a.palLabel())
+	last, ok2 := tt.Find(items[len(items)-1].title)
+	if !ok || !ok2 {
+		t.Fatal("no card or no last row")
+	}
+	if gap := card.Y + card.H - (last.Y + last.H); gap < 8 {
+		t.Fatalf("the last row is %.1f from the card's bottom edge", gap)
+	}
+	for range len(items) {
+		tt.Key(0, ui.KeyUp)
+		tt.Frame()
+	}
+	tt.Frame()
+	head, ok := tt.Find(msg(items[0].group))
+	first, _ := tt.Find(items[0].title)
+	if !ok || head.Y > first.Y || head.Y < card.Y {
+		t.Fatalf("the first row's heading is not shown: %+v over %+v in %+v", head, first, card)
+	}
+}
