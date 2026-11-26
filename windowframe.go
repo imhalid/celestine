@@ -5,6 +5,7 @@ import (
 	"math"
 	"runtime"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -53,6 +54,14 @@ const (
 	frameTopH = 42
 	frameTabH = 30
 )
+
+// chromeMid is the line macOS's window buttons, the sidebar's buttons at the top left and the pane bar's title are
+// centered on: the middle of the strip at the top of the card, under the frame's thin top edge (#604).
+const chromeMid = frameW + (frameTopH-frameW)/2
+
+// trafficLights is where macOS's window buttons go (14 high): on chromeMid, and in from the card's corner by more than
+// the frame's width, as macOS's own apps keep them clear of their rounded corner (#604).
+func trafficLights() *mygo.Point { return &mygo.Point{X: frameW + 12, Y: chromeMid - 14/2} }
 
 // frameState is what a frame of the window knows of the window's frame.
 type frameState struct {
@@ -215,8 +224,8 @@ func (a *app) frameTop(c *ui.Context) {
 		}
 		btns := ui.Row(c.Key("frame-top-left")).Height(frameTopH).AlignItems(ui.Center).Shrink(0)
 		a.topLeftR = btns.LayoutBounds()
-		if !ownWindowControls {
-			btns.Padding(0, 0, 0, left).DragWindow()
+		if !ownWindowControls { // under the frame's top edge, on chromeMid with the window's buttons and the bars' titles
+			btns.Padding(frameW, 0, 0, left).DragWindow()
 		}
 		btns.Children(func() {
 			ui.Row(c.Key("frame-sidebar-buttons")).Shrink(0).AlignItems(ui.Center).Children(func() {

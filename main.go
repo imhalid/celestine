@@ -675,7 +675,7 @@ func main() {
 		a.watchSync()       // sync waits while offline, and runs at full speed out of sight (netsync.go)
 		a.rememberLibrary() // the library opened, in the system's recent documents (recent.go)
 		opts := mygo.WindowOptions{Title: "celestine", Width: 1180, Height: 760, MinWidth: 640, MinHeight: 420,
-			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: &mygo.Point{X: frameW + 8, Y: (frameTopH - 14) / 2},
+			TitleBarStyle: mygo.TitleBarHiddenInset, TrafficLightPosition: trafficLights(),
 			HideWindowButtons: ownWindowControls, Content: ui.View(a.view)}
 		if runtime.GOOS == "darwin" {
 			// the window's corners concentric with its cards' (cardR) at the Corners setting's measure, where

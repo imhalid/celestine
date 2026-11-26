@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"math"
 	"runtime"
 	"strings"
 	"testing"
@@ -512,4 +513,40 @@ func TestCardRadiusFollowsTheWindow(t *testing.T) {
 	radiusScale = 1
 	a.winRadius = 26
 	tt.Frame() // drawn with it: the sidebar's card, the page's, and the pane's (cardRadius) take cardR
+}
+
+// macOS's window buttons, the top-left buttons and the title of the pane's bar (always shown on Tasks and Trash) are
+// centered on one line, and the title keeps room after the last button (#604).
+func TestTopLeftChromeSharesTheBarsMiddle(t *testing.T) {
+	if p := trafficLights(); p.Y+14/2 != chromeMid || p.X <= frameW+8 {
+		t.Fatalf("window buttons at %+v: middle %v, want %v, and further in than %v", *p, p.Y+7, chromeMid, frameW+8)
+	}
+	if !ownWindowControls && float32(chromeMid) != frameW+(&app{wframe: frameState{on: true}}).paneBarH()/2 {
+		t.Fatalf("chromeMid %v is not the middle of the pane's bar", chromeMid)
+	}
+	if ownWindowControls {
+		t.Skip("the window draws its own controls here: the top-left buttons are in a strip of their own")
+	}
+	a, tt := newTestApp(t, "x\n")
+	tt.SetTitleBar(ui.TitleBar{Left: 84, Height: frameTopH})
+	tt.SetSize(900, 600)
+	a.toggleSidebar()
+	tt.Advance(1200 * time.Millisecond)
+	a.openTasks()
+	tt.Advance(600 * time.Millisecond)
+	btn, ok := tt.Find(locales.SidebarSidebar())
+	if !ok {
+		t.Fatal("sidebar button not found")
+	}
+	set, _ := tt.Find(locales.CommonSettings())
+	title, ok := tt.Find(a.paneTitleOf(a.pane()))
+	if !ok {
+		t.Fatal("the pane bar's title not found")
+	}
+	if mid := btn.Y + btn.H/2; math.Abs(float64(mid-chromeMid)) > 0.5 || math.Abs(float64(title.Y+title.H/2-chromeMid)) > 1 {
+		t.Fatalf("button middle %v, title middle %v, want both %v", mid, title.Y+title.H/2, chromeMid)
+	}
+	if gap := title.X - (set.X + set.W); gap < paneBarAfterButtons {
+		t.Fatalf("the title is %v after the last button, want at least %v", gap, paneBarAfterButtons)
+	}
 }

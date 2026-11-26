@@ -29,6 +29,10 @@ func (a *app) paneBarH() float32 {
 	}
 }
 
+// paneBarAfterButtons is the room between the last of the top-left buttons and the title of the pane's bar beside
+// them, as wide as the room between the window's buttons and the first of them and a little more (#604).
+const paneBarAfterButtons = 16
+
 // paneBar draws pane i's bar at the top of its column col.
 func (a *app) paneBar(c *ui.Context, col ui.Element, pn *paneState, i int, h float32) {
 	t := ryugo.From(c)
@@ -37,11 +41,11 @@ func (a *app) paneBar(c *ui.Context, col ui.Element, pn *paneState, i int, h flo
 	id := a.ps.ids[i]
 	many := len(a.ps.states) > 1 && a.ps.layout != nil
 	// the window's buttons and the sidebar's lie over the left end of the leftmost pane's bar on macOS: its title
-	// starts after them
+	// starts after them, with room between (#604)
 	left := float32(14)
 	if !ownWindowControls {
 		if cb := col.LayoutBounds(); cb.W > 0 && a.topLeftR.W > 0 && cb.X < a.topLeftR.X+a.topLeftR.W {
-			left = max(left, a.topLeftR.X+a.topLeftR.W-cb.X+10)
+			left = max(left, a.topLeftR.X+a.topLeftR.W-cb.X+paneBarAfterButtons)
 		}
 	}
 	bar := ui.Row(c.Key("pane-bar")).FillWidth().Height(h).Shrink(0).Padding(0, 8, 0, left).Gap(4).AlignItems(ui.Center).
