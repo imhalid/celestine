@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -210,7 +211,7 @@ func (a *app) cellSpans(md string, size float32, weight int, th *ui.Theme, accen
 			defer add(seg[len(seg)-trail:], richtext.Attributes{}, false)
 		}
 		seg = strings.TrimSpace(seg)
-		md := richtext.ParseMarkdown(seg)
+		md := textOf(library.ReadMarkdown(seg))
 		for _, r := range md.Runs(0, md.Len()) {
 			text := r.Text
 			if r.Attributes.Code {

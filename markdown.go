@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 )
 
@@ -170,8 +171,8 @@ func parseBody(md string) richtext.Text {
 		afterHeld = false
 		i++
 	}
-	kinds := taskKindsIn(out) // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
-	t := withTaskKinds(richtext.ParseMarkdown(strings.Join(out, "\n")), kinds)
+	kinds := taskKindsIn(out)                                                        // the boxes richtext has no kind for: "[*]", "[!]"… (taskkinds.go)
+	t := withTaskKinds(textOf(library.ReadMarkdown(strings.Join(out, "\n"))), kinds) // the library's reader (#595)
 	if filled {
 		t = withoutRune(t, []rune(emptyTaskFill)[0])
 	}
@@ -419,7 +420,7 @@ func bodyMarkdown(t richtext.Text) string {
 		t = t.ReplaceString(sp.s, sp.e, blockToken(k), richtext.Attributes{})
 		t = t.FormatParagraphs(sp.s, sp.s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
 	}
-	lines := strings.Split(t.Markdown(), "\n")
+	lines := strings.Split(docOfText(t).WriteMarkdown(), "\n") // the library's writer (#595)
 	markTaskKinds(t, lines)
 	if marked {
 		lines = listMarksOut(lines, looks)

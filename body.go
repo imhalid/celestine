@@ -32,7 +32,7 @@ func styleOf(st richtext.ParagraphStyle) bodyStyle {
 // paraStyle is the editor's style of a paragraph of the page file.
 func paraStyle(b bodyStyle) richtext.ParagraphStyle {
 	return richtext.ParagraphStyle{Heading: b.Heading, List: richtext.ListKind(b.List), Checked: b.Checked, Indent: b.Indent,
-		Align: ui.Align(b.Align), Quote: b.Quote, CodeBlock: b.CodeBlock, ID: b.ID}
+		Align: ui.Align(b.Align), Quote: b.Quote, QuoteDepth: b.QuoteDepth, CodeBlock: b.CodeBlock, ID: b.ID}
 }
 
 // unknownKind marks an object of a kind this version does not know, in the editor: shown as a placeholder,
@@ -152,6 +152,12 @@ func decodeBody(s string) richtext.Text {
 	if err != nil || len(paras) == 0 {
 		return richtext.Text{}
 	}
+	return textOf(paras)
+}
+
+// textOf is the library's document as the editor's text: its objects as attachments that carry what they are and
+// are not yet drawn, in the marks of the text they are in.
+func textOf(paras library.Doc) richtext.Text {
 	out := make([]richtext.Paragraph, 0, len(paras))
 	for _, bp := range paras {
 		p := richtext.Paragraph{}
@@ -173,6 +179,34 @@ func decodeBody(s string) richtext.Text {
 		out = append(out, p)
 	}
 	return richtext.TextOf(out...)
+}
+
+// docOfText is the editor's text as the library's document, as its Markdown is written from it (bodyMarkdown): every
+// object a picture of its name and its URL, in the marks of the text it is in, and the depths of its quotes kept.
+// Its chips are their text by then (withoutChips), and what is left is pictures.
+func docOfText(t richtext.Text) library.Doc {
+	var d library.Doc
+	for _, p := range t.Paragraphs() {
+		bp := bodyPara{}
+		if p.Style != (richtext.ParagraphStyle{}) {
+			st := styleOf(p.Style)
+			st.QuoteDepth = p.Style.QuoteDepth
+			bp.S = &st
+		}
+		for _, r := range p.Runs {
+			a := r.Attributes
+			run := bodyRun{T: r.Text, I: a.Italic, U: a.Underline, X: a.Strikethrough, C: a.Code, L: a.Link, G: a.Tag}
+			if a.Weight != 0 && a.Weight != 400 {
+				run.W = a.Weight
+			}
+			if at := a.Attachment; at != nil {
+				run.T, run.O = library.ObjectChar, &bodyObj{K: "image", Alt: at.Name, Ref: at.URL}
+			}
+			bp.R = append(bp.R, run)
+		}
+		d = append(d, bp)
+	}
+	return d
 }
 
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.

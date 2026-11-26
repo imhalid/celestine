@@ -3,6 +3,7 @@ package main
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -89,5 +90,22 @@ func TestArchitectureLayoutComplete(t *testing.T) {
 	}
 	if len(missing) > 0 {
 		t.Errorf("non-test .go files missing from docs/architecture.md Layout table:\n  %s", strings.Join(missing, "\n  "))
+	}
+}
+
+// TestLibraryImportsNoUI: the library and the table package depend on nothing of MyGo's but its Markdown parser,
+// which imports nothing of MyGo's own, and on no catalog of words (CLAUDE.md, #595).
+func TestLibraryImportsNoUI(t *testing.T) {
+	for _, pkg := range []string{"./internal/library", "./internal/table"} {
+		out, err := exec.Command("go", "list", "-deps", pkg).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, dep := range strings.Fields(string(out)) {
+			if strings.HasPrefix(dep, "github.com/egoist/mygo") && dep != "github.com/egoist/mygo/ui/markdown/parser" ||
+				dep == "github.com/imhalid/celestine/locales" {
+				t.Errorf("%s depends on %s", pkg, dep)
+			}
+		}
 	}
 }

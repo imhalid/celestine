@@ -35,6 +35,9 @@ type ParaStyle struct {
 	Quote     bool   `json:"quote,omitempty"`
 	CodeBlock bool   `json:"codeBlock,omitempty"`
 	ID        string `json:"id,omitempty"`
+	// QuoteDepth is how many quotations deep a quote is, when more than one: what Markdown read in says, which the
+	// page file does not keep.
+	QuoteDepth int `json:"-"`
 }
 
 // A Run is a piece of a paragraph with the same marks, or an object.
@@ -122,7 +125,10 @@ func EncodeBody(d Doc) string {
 		}
 		for _, r := range p.R {
 			if r.O != nil {
-				r.T = ObjectChar
+				if r.O.K == "image" && r.O.Ref == "" { // a picture shown from data the file does not keep (ReadHTML)
+					continue
+				}
+				r = Run{T: ObjectChar, O: r.O} // nor the marks of the text an object is in
 				q.R = append(q.R, r)
 				continue
 			}

@@ -9,8 +9,10 @@ file-by-file table; `docs/` has the design notes (the older ones in Turkish; new
 - The root is the app: `package main`, the window and everything drawn in it. One `app` struct (main.go) holds
   its state; a feature keeps its own in a struct of its own (`paneState`, `syncUI`, `welcomeState`).
 - `internal/library/` is the library: collections, pages, the page file, properties, the one-file store
-  (`store_sql.go`, `store_js.go` for the browser), versions, the trash, sync, the Markdown export. It never
-  imports `mygo`, `mygo/ui` or the app. New library code goes there.
+  (`store_sql.go`, `store_js.go` for the browser), versions, the trash, sync, the page's document and its Markdown,
+  the Markdown export. It never imports `mygo`, `mygo/ui` or the app; the one package of MyGo's it imports is its
+  Markdown parser (`mygo/ui/markdown/parser`), which imports nothing of MyGo's own (#595, `TestLibraryImportsNoUI`).
+  New library code goes there.
 - `core_alias.go` gives the library's names to the app unqualified (`type Page = library.Page`). A library name
   the app needs is exported and gets its line there (or the app writes `library.X`). A variable is not aliased
   but pointed at (`PagesGen`); `library.AllowHTTP` and `library.Format` are set as they are.
