@@ -113,7 +113,7 @@ func styleRaisedControl(e ui.Element, t *ryugo.Tokens) {
 		{Color: ryugo.Brightness(cl.ControlBottom, f), At: 0.72},
 		{Color: ryugo.Brightness(ryugo.Mix(cl.ControlBottom, cl.ControlTop, 0.45), f), At: 1},
 	}
-	e.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, Stops: stops}).
+	e.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: stops})).
 		Border(1, ryugo.Brightness(cl.ControlBorder, f)).
 		FocusRing(false).
 		Transition(ui.ElementTransition{Duration: 150 * time.Millisecond, Colors: true, Ease: ui.EaseOut})

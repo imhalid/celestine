@@ -110,7 +110,7 @@ func (a *app) updateChip(c *ui.Context) {
 			top, bottom = top.Mix(white, 0.12), bottom.Mix(white, 0.08)
 		}
 		if busy { // the track: the green, dimmed; what has come in fills it from the left
-			p.FillGradient(r, ui.LinearGradient{From: top.Mix(black, 0.32), To: bottom.Mix(black, 0.32), Angle: 180, Oklab: true}, h/2)
+			p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{From: top.Mix(black, 0.32), To: bottom.Mix(black, 0.32), Angle: 180}), h/2)
 			// a pill of its own, not a rectangle clipped to the track, so its ends are as smooth as the chip's
 			part := ui.Rect{X: r.X, Y: r.Y, W: max(r.W*f, h), H: r.H}
 			if f < 0 { // the size is not told: a part of it runs along, inside the track
@@ -119,11 +119,11 @@ func (a *app) updateChip(c *ui.Context) {
 				part = ui.Rect{X: r.X + (r.W-r.W*0.4)*t, Y: r.Y, W: r.W * 0.4, H: r.H}
 			}
 			if f != 0 {
-				p.FillGradient(part, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
+				p.FillGradient(part, ryugo.InOklch(ui.LinearGradient{From: top, To: bottom, Angle: 180}), h/2)
 			}
 			p.AnimationFrame() // the fill follows the download whatever is drawn with shaders
 		} else { // the body: lighter at the top, as a button's face
-			p.FillGradient(r, ui.LinearGradient{From: top, To: bottom, Angle: 180, Oklab: true}, h/2)
+			p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{From: top, To: bottom, Angle: 180}), h/2)
 		}
 		// the gloss: a light on its upper half, as on glass, following the pill and fading out with no edge of its own
 		lit := 1 - q // the soft chip has no gloss, and a hairline for its edge
@@ -413,7 +413,7 @@ func updBadge(c *ui.Context, from, to ui.Color, ic *ui.SVG, key string) {
 	const d = 24
 	m := ui.Box(c.Key(key + "-mark")).Width(d).Height(d).Radius(d / 2).AlignItems(ui.Center).Justify(ui.Center).Shrink(0)
 	m.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.FillGradient(r, ui.LinearGradient{From: from, To: to, Angle: 180, Oklab: true}, d/2)
+		p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{From: from, To: to, Angle: 180}), d/2)
 		p.Clip(r, d/2, func() { // the gloss on its upper half follows the circle and fades out, with no edge of its own
 			p.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H * 0.55}, ui.LinearGradient{From: white.Alpha(0.3), To: white.Alpha(0), Angle: 180}, 0)
 		})
@@ -478,8 +478,8 @@ func (a *app) updBar(c *ui.Context, cl ryugo.Colors, key string) {
 			fill.Background(light.Alpha(0.5))
 		} else {
 			v = fill.AnimateTo("v", f, springSheet)
-			fill.LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true,
-				Stops: []ui.GradientStop{{Color: cl.ColorAccent600, At: 0}, {Color: cl.ColorAccent400, At: 0.55}, {Color: light, At: 1}}})
+			fill.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 90,
+				Stops: []ui.GradientStop{{Color: cl.ColorAccent600, At: 0}, {Color: cl.ColorAccent400, At: 0.55}, {Color: light, At: 1}}}))
 		}
 		fill.WidthPercent(100 * min(max(v, 0), 1))
 		if v > 0.001 {

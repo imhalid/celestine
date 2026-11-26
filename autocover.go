@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // An automatic cover: a page with no cover of its own gets one made from its seed - the
@@ -972,8 +973,8 @@ func (ac *autoCover) paint(pt *ui.Painter, band ui.Rect, fade ui.Color) {
 			pt.ImageRegion(ac.lifeBm, ui.Rect{W: autoW, H: autoFullH}, tile, opts)
 		}
 		const foot = 96 // how far up the fade reaches
-		pt.FillGradient(ui.Rect{X: band.X, Y: band.Y + band.H - foot, W: band.W, H: foot}, ui.LinearGradient{Angle: 180, Oklab: true,
-			Stops: []ui.GradientStop{{Color: fade.Alpha(0), At: 0}, {Color: fade.Alpha(0.62), At: 0.5}, {Color: fade, At: 1}}}, 0)
+		pt.FillGradient(ui.Rect{X: band.X, Y: band.Y + band.H - foot, W: band.W, H: foot}, ryugo.InOklch(ui.LinearGradient{Angle: 180,
+			Stops: []ui.GradientStop{{Color: fade.Alpha(0), At: 0}, {Color: fade.Alpha(0.62), At: 0.5}, {Color: fade, At: 1}}}), 0)
 	})
 	if !fx.still {
 		pt.AnimationFrameRate(coverFPS)

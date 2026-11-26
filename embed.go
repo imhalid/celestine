@@ -120,7 +120,7 @@ func (a *app) drawEmbed(p *ui.Painter, r ui.Rect, ch *chip) {
 		// the foot fades into the card
 		fade := ui.Rect{X: r.X + 1, Y: r.Y + r.H - 40, W: r.W - 2, H: 39}
 		bg := map[bool]ui.Color{true: cl.Fill, false: cl.Well}[hover]
-		p.FillGradient(fade, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{{Color: bg.Alpha(0), At: 0}, {Color: bg, At: 1}}}, 0)
+		p.FillGradient(fade, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{{Color: bg.Alpha(0), At: 0}, {Color: bg, At: 1}}}), 0)
 	})
 }
 

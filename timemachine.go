@@ -286,10 +286,10 @@ func (a *app) timeMachineView(c *ui.Context) {
 		pos := back.AnimateTo("tm-pos", float32(t.sel), ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.05}})
 		vp := ui.Point{X: ox + (aw-tmBarsWidth())/2, Y: wh * 0.12} // where the stack goes off to
 		// the window's own ground, a little deeper; the accent's light far off, where the copies go
-		back.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Surface2, cl.Accent, 0.04), To: cl.Bg}).
+		back.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, From: ryugo.Mix(cl.Surface2, cl.Accent, 0.04), To: cl.Bg})).
 			Draw(func(p *ui.Painter, r ui.Rect) {
-				p.FillRadialGradient(r, ui.RadialGradient{Center: ui.Point{X: (vp.X - ox) / r.W, Y: vp.Y / r.H}, Radius: r.W * 0.55, Oklab: true,
-					Stops: []ui.GradientStop{{Color: cl.Accent.Alpha(0.10), At: 0}, {Color: cl.Accent.Alpha(0), At: 1}}}, 0)
+				p.FillRadialGradient(r, ryugo.RadialInOklch(ui.RadialGradient{Center: ui.Point{X: (vp.X - ox) / r.W, Y: vp.Y / r.H}, Radius: r.W * 0.55,
+					Stops: []ui.GradientStop{{Color: cl.Accent.Alpha(0.10), At: 0}, {Color: cl.Accent.Alpha(0), At: 1}}}), 0)
 			})
 		if t.diff && t.sel > 0 {
 			a.tmDiffView(c, ox, aw, wh)

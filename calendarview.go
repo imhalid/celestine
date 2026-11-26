@@ -224,8 +224,8 @@ func (a *app) calendarDay(c *ui.Context, pn *paneState, coll *Collection, field 
 						break
 					}
 					// a small soft button: a gentle gradient of the accent and its hairline
-					ui.Box(c).Size(9, 9).Radius(rad(3)).LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true,
-						From: ryugo.Mix(cl.Card, cl.Accent, 0.42), To: ryugo.Mix(cl.Card, cl.Accent, 0.26)}).Border(1, cl.Accent.Alpha(0.5))
+					ui.Box(c).Size(9, 9).Radius(rad(3)).LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180,
+						From: ryugo.Mix(cl.Card, cl.Accent, 0.42), To: ryugo.Mix(cl.Card, cl.Accent, 0.26)})).Border(1, cl.Accent.Alpha(0.5))
 				}
 			})
 		}

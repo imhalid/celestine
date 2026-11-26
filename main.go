@@ -2003,7 +2003,7 @@ func (a *app) pulseDot(c *ui.Context) {
 		}
 		breath := 1 + 0.07*float32(math.Sin(float64(beat)*2*math.Pi))
 		ui.Box(c.Key("drop")).Size(10, 10).Radius(5).
-			LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(base, ui.Hex("#ffffff"), 0.55), To: ryugo.Mix(base, ui.Hex("#000000"), 0.1)}).
+			LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, From: ryugo.Mix(base, ui.Hex("#ffffff"), 0.55), To: ryugo.Mix(base, ui.Hex("#000000"), 0.1)})).
 			Border(1, ryugo.Mix(base, ui.Hex("#d6ffe0"), 0.75)).
 			InsetShadow(0, 1, 0, 0, ui.Hex("#ffffff").Alpha(0.35)).
 			Scale(breath, breath)

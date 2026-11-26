@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The rocket, the pointer's effect (#287): a place, a speed and a heading of its own, steered toward the
@@ -152,23 +153,23 @@ func (r *rocket) draw(p *ui.Painter, m pointerAt) {
 			fin.QuadTo(x-8, y+9*s, x-14, y+10.5*s)
 			fin.LineTo(at(-11.5, 3.5*s))
 			fin.Close()
-			p.FillPathGradient(fin, ui.LinearGradient{Angle: 90, Oklab: true, Stops: []ui.GradientStop{{Color: m.col, At: 0}, {Color: mix(m.col, ui.Hex("#000000"), 0.35), At: 1}}})
+			p.FillPathGradient(fin, ryugo.InOklch(ui.LinearGradient{Angle: 90, Stops: []ui.GradientStop{{Color: m.col, At: 0}, {Color: mix(m.col, ui.Hex("#000000"), 0.35), At: 1}}}))
 			p.StrokePath(fin, 0.8, edge)
 		}
 		// the hull, lit from one side; a band of the accent, the nose in red, a gleam along it
-		p.FillPathGradient(body, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-			{Color: ui.Hex("#ffffff"), At: 0.1}, {Color: ui.Hex("#e2e8f0"), At: 0.5}, {Color: ui.Hex("#94a3b8"), At: 1}}})
+		p.FillPathGradient(body, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
+			{Color: ui.Hex("#ffffff"), At: 0.1}, {Color: ui.Hex("#e2e8f0"), At: 0.5}, {Color: ui.Hex("#94a3b8"), At: 1}}}))
 		p.ClipPath(body, func() {
 			p.Fill(ui.Rect{X: x - 8, Y: y - 5, W: 2.4, H: 10}, m.col, 0)
-			p.FillPathGradient(rrect(x+7, y-5, 10, 10, 0), ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
-				{Color: ui.Hex("#fb7185"), At: 0}, {Color: ui.Hex("#dc2626"), At: 0.55}, {Color: ui.Hex("#991b1b"), At: 1}}})
+			p.FillPathGradient(rrect(x+7, y-5, 10, 10, 0), ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
+				{Color: ui.Hex("#fb7185"), At: 0}, {Color: ui.Hex("#dc2626"), At: 0.55}, {Color: ui.Hex("#991b1b"), At: 1}}}))
 			p.Fill(ui.Rect{X: x - 10, Y: y - 3.1, W: 15, H: 1}, ui.RGBA(255, 255, 255, 0.7), 0.5)
 		})
 		p.StrokePath(body, 0.9, edge)
 		// its window: a rim, the glass, a glint
 		p.FillPath((&ui.Path{}).Circle(x+1.5, y, 2.6), ui.Hex("#cbd5e1"))
-		p.FillPathGradient((&ui.Path{}).Circle(x+1.5, y, 1.8), ui.LinearGradient{Angle: 135, Oklab: true, Stops: []ui.GradientStop{
-			{Color: mix(m.col, ui.Hex("#ffffff"), 0.55), At: 0}, {Color: mix(m.col, ui.Hex("#000000"), 0.4), At: 1}}})
+		p.FillPathGradient((&ui.Path{}).Circle(x+1.5, y, 1.8), ryugo.InOklch(ui.LinearGradient{Angle: 135, Stops: []ui.GradientStop{
+			{Color: mix(m.col, ui.Hex("#ffffff"), 0.55), At: 0}, {Color: mix(m.col, ui.Hex("#000000"), 0.4), At: 1}}}))
 		p.FillPath((&ui.Path{}).Circle(x+0.9, y-0.7, 0.55), ui.RGBA(255, 255, 255, 0.9))
 	})
 }

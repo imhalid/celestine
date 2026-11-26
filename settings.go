@@ -269,8 +269,8 @@ func (a *app) settingsNav(c *ui.Context, pn *paneState) {
 			on := e.AnimateTo("on", b2f(sel), selSpring)
 			hov := e.AnimateTo("hov", b2f(e.Hovered() && !sel), fadeQuick)
 			if on > 0.01 {
-				e.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true,
-					From: ryugo.Mix(cl.Card, cl.Accent, 0.22*on), To: ryugo.Mix(cl.Card, cl.Accent, 0.12*on)}).Border(1, cl.Accent.Alpha(0.38*on))
+				e.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180,
+					From: ryugo.Mix(cl.Card, cl.Accent, 0.22*on), To: ryugo.Mix(cl.Card, cl.Accent, 0.12*on)})).Border(1, cl.Accent.Alpha(0.38*on))
 			} else if hov > 0.01 {
 				e.Background(cl.Fill.Alpha(hov))
 			}
@@ -291,7 +291,7 @@ func (a *app) settingsNav(c *ui.Context, pn *paneState) {
 func sectionBadge(c *ui.Context, s settingsSection, size, on float32) {
 	col := ui.Hex(s.color)
 	b := ui.Box(c.Key("badge:"+s.name)).Size(size, size).Shrink(0).Radius(rad(size*0.28)).Justify(ui.Center).AlignItems(ui.Center).
-		LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(col, ui.Hex("#ffffff"), 0.22), To: col}).
+		LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, From: ryugo.Mix(col, ui.Hex("#ffffff"), 0.22), To: col})).
 		Border(0.5, col.Alpha(0.6))
 	if on > 0.01 {
 		b.Shadow(0, 1, 6*on, 0, col.Alpha(0.55*on))
@@ -466,7 +466,7 @@ func choiceTile(c *ui.Context, key, label string, on bool, preview func()) bool 
 		Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 	lift := e.AnimateTo("lift", b2f(e.Hovered()), fadeQuick)
 	sel := e.AnimateTo("sel", b2f(on), selSpring)
-	e.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: cl.ControlTop, To: cl.ControlBottom}).
+	e.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, From: cl.ControlTop, To: cl.ControlBottom})).
 		Border(1.5, ryugo.Mix(cl.ControlBorder, cl.Accent, sel))
 	if on {
 		t.Shadows.Ring.Apply(e)
@@ -896,7 +896,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 // through its frame and sidebar.
 func windowStyleMock(c *ui.Context, glass bool) {
 	cl := ryugo.From(c).Colors
-	ground := ui.LinearGradient{Angle: 135, Oklab: true, From: ui.Hex("#7aa7ff"), To: ui.Hex("#f39bc4")}
+	ground := ryugo.InOklch(ui.LinearGradient{Angle: 135, From: ui.Hex("#7aa7ff"), To: ui.Hex("#f39bc4")})
 	ui.Box(c).Width(112).Height(66).LinearGradient(ground).Padding(8).Children(func() {
 		frame := cl.Bg
 		side := cl.Fill

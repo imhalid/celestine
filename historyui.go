@@ -178,7 +178,7 @@ func (a *app) historyView(c *ui.Context) {
 							Label(locales.HistoryVersionLabel(dateTime(ver.At, false))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 						switch {
 						case i == v.sel:
-							row.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(cl.Card, cl.Accent, 0.26), To: ryugo.Mix(cl.Card, cl.Accent, 0.14)}).Border(1, cl.Accent.Alpha(0.4))
+							row.LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 180, From: ryugo.Mix(cl.Card, cl.Accent, 0.26), To: ryugo.Mix(cl.Card, cl.Accent, 0.14)})).Border(1, cl.Accent.Alpha(0.4))
 						case row.Hovered():
 							row.Background(cl.Fill)
 						}

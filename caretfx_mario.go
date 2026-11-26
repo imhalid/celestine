@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // ---- Mario: the box in his colors, with an eye ----
@@ -106,16 +107,16 @@ func (m *mario) drawBody(p *ui.Painter, f caretFrame, box ui.Rect, air bool) {
 		// see-through as the slime is, lit from above, the cap's red melting into the overalls' blue through
 		// the middle (in Oklab, so the blend between them is not a muddy grey), with a rim that blends the same way
 		top := mix(cap, ui.RGBA(255, 255, 255, 1), 0.45)
-		p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+		p.FillPathGradient(path, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
 			{Color: withAlpha(top, 0.62), At: 0},
 			{Color: withAlpha(cap, 0.42), At: 0.3},
 			{Color: withAlpha(overalls, 0.4), At: 0.7},
 			{Color: withAlpha(overalls, 0.5), At: 1},
-		}})
-		p.StrokePathGradient(path, 1.25, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+		}}))
+		p.StrokePathGradient(path, 1.25, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
 			{Color: withAlpha(cap, 0.95), At: 0.3},
 			{Color: withAlpha(overalls, 0.95), At: 0.7},
-		}})
+		}}))
 		// a gloss down its upper left side
 		a := float32(0.55)
 		if !f.dark {

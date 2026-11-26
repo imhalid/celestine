@@ -22,11 +22,11 @@ func glassPath(p *ui.Painter, path *ui.Path, col ui.Color, dark bool) {
 		p.StrokePath(path, w, withAlpha(col, glow*[]float64{0.035, 0.06, 0.09}[i]))
 	}
 	top := mix(col, ui.RGBA(255, 255, 255, 1), 0.45)
-	p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+	p.FillPathGradient(path, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
 		{Color: withAlpha(top, 0.62), At: 0},
 		{Color: withAlpha(col, 0.38), At: 0.55},
 		{Color: withAlpha(col, 0.5), At: 1},
-	}})
+	}}))
 	p.StrokePath(path, 1.25, withAlpha(col, 0.95))
 }
 

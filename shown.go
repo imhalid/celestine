@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // The editor is as tall as its text (editorHeight), however long, and the page
@@ -100,9 +101,9 @@ func (a *app) edgeFades(c *ui.Context, s *ui.ScrollState) {
 	}{{"fade-left", s.X > 1, true}, {"fade-right", s.X < s.MaxX-1, false}} {
 		e := ui.Box(c.Key(side.key)).Absolute().Top(0).Bottom(0).Width(w).PassThrough()
 		if side.left {
-			e.Left(0).LinearGradient(ui.LinearGradient{Angle: 90, Oklab: true, Stops: stops})
+			e.Left(0).LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 90, Stops: stops}))
 		} else {
-			e.Right(0).LinearGradient(ui.LinearGradient{Angle: 270, Oklab: true, Stops: stops})
+			e.Right(0).LinearGradient(ryugo.InOklch(ui.LinearGradient{Angle: 270, Stops: stops}))
 		}
 		e.Opacity(e.AnimateTo("o", map[bool]float32{true: 1, false: 0}[side.on], fadeQuick))
 	}

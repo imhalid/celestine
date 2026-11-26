@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	ryugo "github.com/imhalid/ryu-go"
 )
 
 // What the carets of Cursor-Smith's effects share: letters drawn turned and scaled, colors from
@@ -125,16 +126,16 @@ func glassBody(p *ui.Painter, f caretFrame, box ui.Rect, col ui.Color, alpha, gl
 // from above, with a rim that melts the same way.
 func glassFill(p *ui.Painter, path *ui.Path, top, bottom ui.Color, dark bool, alpha float64) {
 	light := mix(top, ui.RGBA(255, 255, 255, 1), 0.45)
-	p.FillPathGradient(path, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+	p.FillPathGradient(path, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
 		{Color: withAlpha(light, 0.62*alpha), At: 0},
 		{Color: withAlpha(top, 0.4*alpha), At: 0.4},
 		{Color: withAlpha(bottom, 0.42*alpha), At: 0.65},
 		{Color: withAlpha(bottom, 0.52*alpha), At: 1},
-	}})
-	p.StrokePathGradient(path, 1.25, ui.LinearGradient{Angle: 180, Oklab: true, Stops: []ui.GradientStop{
+	}}))
+	p.StrokePathGradient(path, 1.25, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
 		{Color: withAlpha(top, 0.95*alpha), At: 0.3},
 		{Color: withAlpha(bottom, 0.95*alpha), At: 0.7},
-	}})
+	}}))
 }
 
 // glassGloss is the glint down a glass body's upper left side.

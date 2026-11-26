@@ -197,8 +197,8 @@ func (a *app) toastOne(c *ui.Context, t *toastItem, in, beam, out float64, cl ry
 		Radius(r).Background(ryugo.Mix(cl.Surface, tone, 0.05)).Border(1, tone.Alpha(0.30)).Role(ui.RoleStatus).Label(t.text).
 		Shadow(0, 8, 24, -4, ui.RGBA(0, 0, 0, 0.14))
 	card.Draw(func(p *ui.Painter, b ui.Rect) {
-		p.FillRadialGradient(b, ui.RadialGradient{Center: ui.Point{X: 0.001, Y: 0.001}, Radius: b.W * 0.8, Oklab: true,
-			Stops: []ui.GradientStop{{Color: tint, At: 0}, {Color: tint.Alpha(0), At: 1}}}, r)
+		p.FillRadialGradient(b, ryugo.RadialInOklch(ui.RadialGradient{Center: ui.Point{X: 0.001, Y: 0.001}, Radius: b.W * 0.8,
+			Stops: []ui.GradientStop{{Color: tint, At: 0}, {Color: tint.Alpha(0), At: 1}}}), r)
 	})
 	if toastShaders && shadersOn() && (in < 1 || beam < 1 || out > 0) {
 		card.Effect(toastShader.Effect(shader.Options{

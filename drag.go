@@ -408,8 +408,8 @@ func cloud(t *ryugo.Tokens, e ui.Element, over float32) {
 			cy := 0.5 + 0.45*noise(s*0.17+k+40)
 			rad := max(r.W, r.H) * float32(0.42+0.12*noise(s*0.3+k+80))
 			al := over * float32(0.16+0.05*noise(s*0.4+k+120))
-			p.FillRadialGradient(r, ui.RadialGradient{Center: ui.Point{X: float32(cx), Y: float32(cy)}, Radius: rad, Oklab: true,
-				Stops: []ui.GradientStop{{Color: accent.Alpha(al), At: 0}, {Color: accent.Alpha(al * 0.45), At: 0.45}, {Color: accent.Alpha(0), At: 1}}}, 7)
+			p.FillRadialGradient(r, ryugo.RadialInOklch(ui.RadialGradient{Center: ui.Point{X: float32(cx), Y: float32(cy)}, Radius: rad,
+				Stops: []ui.GradientStop{{Color: accent.Alpha(al), At: 0}, {Color: accent.Alpha(al * 0.45), At: 0.45}, {Color: accent.Alpha(0), At: 1}}}), 7)
 		}
 		p.AnimationFrame()
 	})

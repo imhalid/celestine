@@ -48,11 +48,16 @@ func keepInSight(sel int, seen *int, scroll *ui.ScrollState, pl placed) {
 }
 
 // chosenFill is the fill of the row chosen: the accent as a button has it,
-// a gentle turn from top to bottom, softer than the flat accent.
+// a gentle turn from top to bottom, softer than the flat accent. It is made
+// in OKLCH (#618): its foot is the accent a step darker with its chroma and
+// hue kept, where the 700 step it went into before has less chroma and grayed
+// it, and the two are blended in OKLCH.
 func chosenFill(t *ryugo.Tokens) ui.LinearGradient {
 	cl := t.Colors
-	return ui.LinearGradient{Angle: 180, Oklab: true,
-		From: ryugo.Mix(cl.ColorAccent500, cl.ColorAccent600, 0.7), To: ryugo.Mix(cl.ColorAccent600, cl.ColorAccent700, 0.5)}
+	top := ryugo.Mix(cl.ColorAccent500, cl.ColorAccent600, 0.7)
+	l, ch, h := ryugo.OklchOf(top)
+	foot := ui.Oklch(float32(l-0.07), float32(ch), float32(h))
+	return ryugo.InOklch(ui.LinearGradient{Angle: 180, From: top, To: foot})
 }
 
 // menuPanel is a menu to draw.
