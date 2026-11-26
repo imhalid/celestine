@@ -249,3 +249,30 @@ func TestToggleKeepsAPull(t *testing.T) {
 		t.Fatalf("a page the library no longer holds: notice %q, written %v", a.notice, a.libWrites() != writes)
 	}
 }
+
+// TestTaskViewTicksEveryKind: a page with tasks of every kind, those of #597 too (waiting, billable, canceled), and
+// one with a tag status, is read whole by the task view, and each of its tasks is ticked from there and opened
+// again, in its page's file and the view (#614).
+func TestTaskViewTicksEveryKind(t *testing.T) {
+	src := "- [w] waiting\n- [$] billable\n- [-] canceled\n- [/] started\n- [ ] moon #moon\n- [ ] plain"
+	a, _ := newTestApp(t, src)
+	md, _ := a.pane().page.Text()
+	if n := len(tasksOf(a.pane().page, md)); n != 6 {
+		t.Fatalf("read %d tasks of 6", n)
+	}
+	for _, name := range []string{"waiting", "billable", "canceled", "started", "moon #moon", "plain"} {
+		a.toggleTask(taskIn(t, a, name))
+		md, _ := a.pane().page.Text()
+		if !strings.Contains(md, "- [x] "+name) || !taskIn(t, a, name).done {
+			t.Fatalf("%q not ticked:\n%s", name, md)
+		}
+		a.toggleTask(taskIn(t, a, name))
+		if taskIn(t, a, name).done {
+			t.Fatalf("%q not opened again", name)
+		}
+	}
+	md, _ = a.pane().page.Text()
+	if strings.TrimRight(md, "\n") != src {
+		t.Fatalf("ticked and opened again, the page is\n%s", md)
+	}
+}

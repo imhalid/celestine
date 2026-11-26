@@ -22,10 +22,21 @@ import (
 // with the backlinks' index (backlinks.go), in the same pass; ticking one
 // writes the page's file (and the page's text, if it is open) at once.
 
-var taskLine = regexp.MustCompile(`^(\s*)(?:[-*+]|\d+[.)])\s+\[([ xX*!?/e])\]\s*(.*?)\s*$`)
+var taskLine = regexp.MustCompile(`^(\s*)(?:[-*+]|\d+[.)])\s+\[(` + taskMarks + `)\]\s*(.*?)\s*$`)
 
 // taskBox is the box of a task's line, and what is before it: a kind of task's too (taskkinds.go).
-var taskBox = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[[ xX*!?/e]\]`)
+var taskBox = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[` + taskMarks + `\]`)
+
+// taskMarks is what a task's box holds in Markdown, as a character class: open, done, or a kind's character, every
+// kind the library knows (library.TaskKindMarks), so that a kind added there is a task here too: those of #597 were
+// not, and a page with one could not be ticked from the task view (#614).
+var taskMarks = func() string {
+	class := " xX"
+	for _, k := range library.TaskKindMarks {
+		class += strings.ReplaceAll(regexp.QuoteMeta(k.MD), "-", `\-`)
+	}
+	return "[" + class + "]"
+}()
 
 // taskItem is a task: its page, which line of the page's Markdown, whether
 // it is done, and what it says.
@@ -1075,10 +1086,7 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, pn *paneState, k taskItem)
 	}
 	row.Children(func() {
 		on := k.done || leave >= 0
-		ryugo.Checkbox(c.Key("ck"), &on, "", ryugo.CheckOptions{}).Label(locales.TasksTaskLabel(k.text))
-		if tk, ok := taskKindByID(k.kind); ok && !k.done { // its kind, in its color
-			ui.Icon(c.Key("kind"), tk.icon).Width(15).Height(15).TextColor(ui.Hex(tk.color)).Label(msg(tk.name))
-		}
+		a.taskCheck(c.Key("ck"), &on, a.faceOfTask(k.kind, k.text), locales.TasksTaskLabel(k.text)) // its box as its page draws it (#614)
 		col, st := cl.Text, false
 		if k.done || leave >= 0 {
 			col, st = cl.Muted, true
@@ -1187,7 +1195,7 @@ func parseEvery(s string) (recur, bool) {
 }
 
 // taskLineRe matches a markdown task list item with its checkbox marker.
-var taskLineRe = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[[ xX*!?/e]\](\s*)(.*)$`)
+var taskLineRe = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+)\[` + taskMarks + `\](\s*)(.*)$`)
 
 // next returns the first recurrence date after d.
 func (r recur) next(d time.Time) time.Time { return r.nextN(d, 1) }

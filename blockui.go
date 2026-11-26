@@ -770,7 +770,7 @@ func (a *app) blockItems() []menuItem {
 		var out []menuItem
 		for _, k := range blockKinds {
 			k := k
-			out = append(out, menuItem{title: k.name, glyph: kindIcon[k.kind], run: done(func() { a.turnBlock(at, k.kind) })})
+			out = append(out, menuItem{title: k.name, glyph: a.kindGlyph(k.kind), colored: taskKindLine(k.kind), run: done(func() { a.turnBlock(at, k.kind) })})
 		}
 		return out
 	}

@@ -224,7 +224,7 @@ func (a *app) menuItems(q string) []menuItem {
 	var out []menuItem
 	for _, id := range a.recentKinds() {
 		if k, ok := kindByID(id); ok {
-			out = append(out, menuItem{title: k.name, glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
+			out = append(out, menuItem{title: k.name, glyph: a.kindGlyph(k.kind), colored: taskKindLine(k.kind), run: func() { a.chooseSlash(k) }})
 		}
 	}
 	nav := func(title, sub, view string, glyph *ui.SVG) {
@@ -416,7 +416,7 @@ func (a *app) viewItems(view, q string) []menuItem {
 		for _, k := range slashItems(q) {
 			k := k
 			if formatKinds[k.kind] == (view == "format") {
-				out = append(out, menuItem{title: k.name, glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
+				out = append(out, menuItem{title: k.name, glyph: a.kindGlyph(k.kind), colored: taskKindLine(k.kind), run: func() { a.chooseSlash(k) }})
 			}
 		}
 		if view == "insert" {
@@ -489,7 +489,7 @@ func (a *app) searchItems(q string) []menuItem {
 	// the kinds of line
 	for _, k := range slashItems(q) {
 		k := k
-		kinds = append(kinds, menuItem{title: k.name, group: "slash_groupFormat", glyph: kindIcon[k.kind], run: func() { a.chooseSlash(k) }})
+		kinds = append(kinds, menuItem{title: k.name, group: "slash_groupFormat", glyph: a.kindGlyph(k.kind), colored: taskKindLine(k.kind), run: func() { a.chooseSlash(k) }})
 	}
 	// dates
 	for _, d := range a.dayChoices(q) {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/richtext"
 )
 
 // The faces of the task boxes are BetterTask's (#611), the Thymer plugin's design taken whole: each status's box
@@ -713,6 +714,44 @@ func (a *app) drawOpenLit(p *ui.Painter, at ui.Rect) {
 	drawGlyph(p, &glyphCheck, grow(at, -at.W*0.16), paint{from: ghost.Alpha(0.65)})
 }
 
+// taskCheck is a task's box outside its page, as the task view shows it (#614): MyGo's check box without a look,
+// drawn as the page draws the task's box, its face f or, checked, its done look, lit under the pointer as a plain
+// box is, its motions going on as on the page.
+func (a *app) taskCheck(c *ui.Context, checked *bool, f taskFace, label string) ui.Element {
+	e := ui.CheckboxBase(c, checked).Label(label).Cursor(ui.CursorPointer)
+	if k, ok := taskKindByID(f.id); ok {
+		e.Tooltip(msg(k.name))
+	}
+	lit := e.Hovered() || e.FocusVisible()
+	e.Children(func() {
+		ui.Box(c).Size(18, 18).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
+			box := grow(r, -0.5)
+			switch {
+			case *checked:
+				a.drawFaceBack(p, box, f, p.Now())
+			case lit && f.id == "":
+				a.drawOpenLit(p, box)
+			default:
+				a.drawFace(p, box, f, p.Now())
+				if f.id != "" && a.faceClock(p.Now()) >= 0 {
+					p.AnimationFrameRate(30)
+					p.AnimationFrame()
+				}
+			}
+		})
+	})
+	return e
+}
+
+// faceOfTask is the face of task k of the task view: its kind, or the status its tag gives it.
+func (a *app) faceOfTask(kind, text string) taskFace {
+	st := richtext.ParagraphStyle{List: richtext.Tasks}
+	if kind != "" {
+		st.ID = taskIDPrefix + kind
+	}
+	return a.faceOf(st, text)
+}
+
 // inlineAccent is BetterTask's cyan, as the task in the running text the caret is in is lit with it.
 func inlineAccent(dark bool) ui.Color {
 	if dark {
@@ -881,6 +920,18 @@ func faceIcon(f taskFace, dark bool) *ui.SVG {
 	ic := ui.MustParseSVG([]byte(src))
 	faceIcons.Store(key, ic)
 	return ic
+}
+
+// taskKindLine reports whether kind, a kind of line of the menus (blockKinds), is a task: a plain one or of a kind.
+func taskKindLine(kind string) bool { return kind == "tasks" || strings.HasPrefix(kind, "task:") }
+
+// kindGlyph is the icon of kind, a kind of line, in the menus: a task's box as it looks, in its colors (#614), or the
+// kind's own glyph.
+func (a *app) kindGlyph(kind string) *ui.SVG {
+	if !taskKindLine(kind) {
+		return kindIcon[kind]
+	}
+	return faceIcon(taskFace{id: strings.TrimPrefix(strings.TrimPrefix(kind, "tasks"), "task:"), slot: -1}, darkBg(a.pageBg))
 }
 
 // svgStop is the color attributes of a gradient's stop of color c.
