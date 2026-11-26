@@ -733,7 +733,8 @@ func (a *app) paletteView(c *ui.Context) {
 			})
 			ui.Box(c).Height(1).Background(line)
 			a.scrolled(c, "palette-list", nil, ui.Scroll(c).MaxHeight(300), func() {
-				ui.Column(c).Padding(4).Gap(1).Children(func() {
+				// more room under the last row than over the first: its highlight clear of the card's round corners (#602)
+				ui.Column(c).Padding(4, 4, 8, 4).Gap(1).Children(func() {
 					if len(items) == 0 {
 						ui.Text(c, locales.PaletteNothingMatches()).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
 						return
