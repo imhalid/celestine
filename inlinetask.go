@@ -121,21 +121,31 @@ func (a *app) inlineTaskKey(pn *paneState) int {
 	return 1 + act.p*7919 + act.box*31 + act.to
 }
 
-// inlineActiveSpans shows the words of the task the caret is in as one: a soft band of the accent under them.
+// inlineActiveSpans shows the words of the task the caret is in as one: a soft band of BetterTask's cyan under them
+// (#613), its box and its end lit with it.
 func (a *app) inlineActiveSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
 	act := pn.inlineAct
 	if !act.ok || act.p != p || a.theme == nil {
 		return spans
 	}
-	band := a.theme.Selection
-	if c := a.theme.Checkbox; c.A > 0 {
-		band = c.Alpha(0.12)
+	band := mix(a.pageBg, inlineAccent(darkBg(a.pageBg)), 0.13) // opaque: where its pieces meet it is not darker
+	to := act.to
+	if act.end >= 0 { // the band takes in its end, its closing bracket
+		to = act.end + 1
 	}
-	return restyleRunes(spans, [][2]int{{act.box, act.to}}, func(s *ui.Span) {
-		if s.ObjectWidth == 0 {
-			s.Background, s.Radius = band, 4
-		}
+	return restyleRunes(spans, [][2]int{{act.box + 1, to}}, func(s *ui.Span) {
+		s.Background, s.Radius = band, 5
 	})
+}
+
+// inlineChipActive reports whether ch is the box of the task in the running text the caret is in.
+func (a *app) inlineChipActive(ch *chip) bool {
+	act := a.pane().inlineAct
+	if !act.ok || act.box+act.ps >= act.text.Len() {
+		return false
+	}
+	att := act.text.AttributesAt(act.ps + act.box).Attachment
+	return att != nil && att.Data == any(ch)
 }
 
 // tabOutOfInlineTask is Tab in a task in the running text: past its end when it has one, else an end put where the
@@ -170,24 +180,31 @@ func (a *app) tabOutOfInlineTask(pn *paneState) bool {
 }
 
 // checkEndW is how wide the end of a task in the running text is in its line.
-func checkEndW(size float32) float32 { return max(5, size*0.32) }
+func checkEndW(size float32) float32 { return max(6, size*0.4) }
 
-// drawCheckEnd draws the end of a task in the running text: a thin bar as tall as the letters, in the accent while the
-// caret is in its task, faint otherwise.
+// drawCheckEnd draws the end of a task in the running text as its closing bracket, as tall as the letters (#613): in
+// BetterTask's cyan while the caret is in its task, faint otherwise.
 func (a *app) drawCheckEnd(p *ui.Painter, r ui.Rect, ch *chip) {
 	th := a.theme
 	if th == nil {
 		return
 	}
 	size := a.fontSize()
-	h := size * 0.9
-	bottom := r.Y + r.H + size*0.12
-	col := th.Muted.Alpha(0.45)
-	if act := a.pane().inlineAct; act.ok && act.end >= 0 {
-		col = th.Checkbox.Alpha(0.8)
+	dark := darkBg(a.pageBg)
+	h := size * 0.86
+	bottom := r.Y + r.H + size*0.1
+	col := rgba(148, 163, 184, map[bool]float32{true: 0.5, false: 0.6}[dark])
+	if act := a.pane().inlineAct; act.ok && act.end >= 0 && act.ps+act.end < act.text.Len() {
+		if att := act.text.AttributesAt(act.ps + act.end).Attachment; att != nil && att.Data == any(ch) {
+			col = inlineAccent(dark).Alpha(0.9)
+		}
 	}
-	w := max(1.5, size*0.1)
-	p.Fill(ui.Rect{X: r.X + r.W/2 - w/2, Y: bottom - h, W: w, H: h}, col, w/2)
+	w := max(1.4, size*0.09)
+	x := r.X + r.W/2 + size*0.06
+	hook := size * 0.16
+	var path ui.Path
+	path.MoveTo(x-hook, bottom-h).LineTo(x, bottom-h).LineTo(x, bottom).LineTo(x-hook, bottom)
+	p.StrokePath(path.Cap(ui.RoundCap).Join(ui.RoundJoin), w, col)
 }
 
 // checkEndLabel is what the end of a task says to assistive technology.

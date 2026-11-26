@@ -698,6 +698,29 @@ func (a *app) drawBoxIn(p *ui.Painter, r ui.Rect, f taskFace, done bool, now tim
 	}
 }
 
+// drawOpenLit draws a plain task's box as BetterTask lights it under the pointer: a cyan border and back, a soft glow,
+// and its ghost tick.
+func (a *app) drawOpenLit(p *ui.Painter, at ui.Rect) {
+	dark := darkBg(a.pageBg)
+	k := at.W / 16
+	border, back, ghost := rgba(125, 211, 252, 0.9), rgba(56, 189, 248, 0.10), rgba(148, 163, 184, 0.5)
+	if !dark {
+		border, back, ghost = ui.Hex("#0284c7"), rgba(2, 132, 199, 0.10), rgba(71, 85, 105, 0.45)
+	}
+	lk := faceOpen.box
+	lk.glossy = false
+	a.drawShell(p, at, k, lk, border, paint{from: back}, glow{rgba(56, 189, 248, 0.22), 8}, false, dark)
+	drawGlyph(p, &glyphCheck, grow(at, -at.W*0.16), paint{from: ghost.Alpha(0.65)})
+}
+
+// inlineAccent is BetterTask's cyan, as the task in the running text the caret is in is lit with it.
+func inlineAccent(dark bool) ui.Color {
+	if dark {
+		return ui.Hex("#38bdf8")
+	}
+	return ui.Hex("#0284c7")
+}
+
 // drawShell draws a box's shell in the square r, k points to BetterTask's one: its glow, back, a coin's inner ring,
 // the light along its top edge and its border, dashed when dashed is set.
 func (a *app) drawShell(p *ui.Painter, r ui.Rect, k float32, lk faceLook, border ui.Color, back paint, gl glow, dashed, dark bool) {

@@ -512,28 +512,28 @@ func (a *app) checkShortcut(text richtext.Text, caret int, typed bool) bool {
 // checkChipW is how wide a task in the running text is, in text of size: its box and a little room round it.
 func checkChipW(size float32) float32 { return size*0.9 + 6 }
 
-// drawCheckChip draws a task in the running text: a box as a line's task has, filled and ticked when done.
+// drawCheckChip draws a task in the running text as a line's task is drawn (#613): BetterTask's open box, lit as it
+// lights a box under the pointer while the pointer is on it or the caret is in its task, or its done tile with the
+// white tick.
 func (a *app) drawCheckChip(p *ui.Painter, r ui.Rect, ch *chip) {
 	size := a.fontSize()
 	s := size * 0.82
 	mid := r.Y + r.H - 0.36*size
 	box := ui.Rect{X: r.X + (r.W-s)/2, Y: mid - s/2, W: s, H: s}
 	a.chipHits = append(a.chipHits, chipHit{ui.Rect{X: box.X - 3, Y: box.Y - 3, W: box.W + 6, H: box.H + 6}, ch})
-	th := a.theme
-	if th == nil {
+	if a.theme == nil {
 		return
 	}
+	f := taskFace{slot: -1, color: ui.Hex(taskDone)}
 	if ch.target == "x" {
-		p.Fill(box, th.Checkbox, s*0.25)
-		var path ui.Path
-		path.MoveTo(box.X+s*0.25, box.Y+s*0.52).LineTo(box.X+s*0.43, box.Y+s*0.7).LineTo(box.X+s*0.76, box.Y+s*0.32)
-		p.StrokePath(&path, max(1.5, s*0.12), th.Checkmark)
+		a.drawFaceBack(p, box, f, p.Now())
 		return
 	}
-	if a.hoverCh == ch {
-		p.Fill(box, th.Muted.Alpha(0.14), s*0.25)
+	if a.hoverCh == ch || a.inlineChipActive(ch) {
+		a.drawOpenLit(p, box)
+		return
 	}
-	p.Stroke(box, th.Muted, s*0.25, 1.25)
+	a.drawFace(p, box, f, p.Now())
 }
 
 // toggleCheckChip marks a task in the running text done, or not done again.
