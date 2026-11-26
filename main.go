@@ -325,56 +325,57 @@ type app struct {
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
 	// inKeychain is each secret of the settings the keychain holds, as it was put there (keychain.go)
-	inKeychain    map[string]string
-	importNote    string                             // what the last import said, in the settings
-	embedCache    map[string][]string                // the first lines of the pages embedded (embed.go)
-	queryCache    map[string]queryResult             // what the query blocks found (queryblock.go)
-	queryDocs     map[*richtext.Document]*docQueries // query block attachments tracked per document (queryblock.go)
-	queryVer      int                                // incremented when dynamic query block heights change (spansVersion)
-	ctxCache      map[string][]seg                   // the lines that link to a page (backlinks.go)
-	chipW         map[string]float32                 // how wide the text of each chip is (chips.go)
-	autoCovers    map[uint64]*autoCover              // the patterns made for the covers of the pages shown lately (autocover.go)
-	tables        map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
-	sortLists     map[string]*manualState            // each list in its own order, by collection and view (views.go)
-	writingSaved  time.Time
-	exportNote    string                    // what the last export said, in the settings
-	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
-	images        map[string]ui.ImageSource // the pictures read, by their file (images.go), the ones used last (limits.go)
-	imageUsed     map[string]uint64         // when each was used last, by imageClock
-	imageClock    uint64
-	imageMiss     map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
-	clipText      func(string)                              // the clipboard to write; the system's when nil
-	clipWrite     func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
-	clipRead      func() string                             // and to read
-	ownClip       ownClip                                   // the blocks or chips of the last copy in the editor (clipmodes.go)
-	carry         dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
-	panesR        ui.Rect                                   // where the panes were, last frame
-	sidebarR      ui.Rect                                   // where the sidebar was, last frame
-	prewarming    bool                                      // the pages are being read away from the window (prewarm.go)
-	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
-	nextFrame     []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
-	winRadius     float64                                   // the window's corners' radius as the system draws them, read each frame (cardR)
-	keychainErr   error                                     // the keychain did not answer as the settings were read: said, not taken for a sign-out
-	firstFrame    chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
-	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
-	edPtr         ui.Point                                  // the pointer over the page's text, last frame
-	cellBar       ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
-	tagDrafts     map[string]*string                        // what is typed in the fields of tags and numbers (tagfield.go)
-	countEditing  string                                    // the number field being typed in
-	tagPop        map[string]bool                           // a field of tags whose last was taken away with ⌫
-	clipImage     func() []byte                             // the clipboard's picture; the system's when nil
-	outlineOf     []heading                                 // the page's headings, for the side panel
-	outlineVer    uint64
-	outlineDoc    *richtext.Document
-	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
-	settingsDirty bool        // changed, not yet written (saveSettingsSoon)
-	wob           wobble      // the shimmer, when an agent writes (wobble.go)
-	wobMu         sync.Mutex  // guards it: an agent's goroutine sends it
-	settingsAt    time.Time   // when
-	savedAt       time.Time   // the last save of the page, shown in the status bar
-	mcpServer     *http.Server
-	agent         agentEdits // what agents changed, to put back
-	mcpErr        string
+	inKeychain      map[string]string
+	importNote      string                             // what the last import said, in the settings
+	embedCache      map[string][]string                // the first lines of the pages embedded (embed.go)
+	queryCache      map[string]queryResult             // what the query blocks found (queryblock.go)
+	queryDocs       map[*richtext.Document]*docQueries // query block attachments tracked per document (queryblock.go)
+	queryVer        int                                // incremented when dynamic query block heights change (spansVersion)
+	ctxCache        map[string][]seg                   // the lines that link to a page (backlinks.go)
+	chipW           map[string]float32                 // how wide the text of each chip is (chips.go)
+	autoCovers      map[uint64]*autoCover              // the patterns made for the covers of the pages shown lately (autocover.go)
+	tables          map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
+	sortLists       map[string]*manualState            // each list in its own order, by collection and view (views.go)
+	writingSaved    time.Time
+	exportNote      string                    // what the last export said, in the settings
+	docUse          []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
+	images          map[string]ui.ImageSource // the pictures read, by their file (images.go), the ones used last (limits.go)
+	imageUsed       map[string]uint64         // when each was used last, by imageClock
+	imageClock      uint64
+	imageMiss       map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
+	clipText        func(string)                              // the clipboard to write; the system's when nil
+	clipWrite       func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
+	clipRead        func() string                             // and to read
+	ownClip         ownClip                                   // the blocks or chips of the last copy in the editor (clipmodes.go)
+	carry           dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
+	panesR          ui.Rect                                   // where the panes were, last frame
+	sidebarR        ui.Rect                                   // where the sidebar was, last frame
+	prewarming      bool                                      // the pages are being read away from the window (prewarm.go)
+	rowsBuilt       int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
+	nextFrame       []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
+	winRadius       float64                                   // the window's corners' radius as the system draws them, read each frame (cardR)
+	keychainErr     error                                     // the keychain did not answer as the settings were read: said, not taken for a sign-out
+	firstFrame      chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
+	pageIndexWrites sync.WaitGroup                            // the writes of keepPageIndexes going on away from the window (backlinks.go)
+	fieldSels       map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
+	edPtr           ui.Point                                  // the pointer over the page's text, last frame
+	cellBar         ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
+	tagDrafts       map[string]*string                        // what is typed in the fields of tags and numbers (tagfield.go)
+	countEditing    string                                    // the number field being typed in
+	tagPop          map[string]bool                           // a field of tags whose last was taken away with ⌫
+	clipImage       func() []byte                             // the clipboard's picture; the system's when nil
+	outlineOf       []heading                                 // the page's headings, for the side panel
+	outlineVer      uint64
+	outlineDoc      *richtext.Document
+	imgOnClip       atomic.Bool // a picture, and no text, is on the clipboard
+	settingsDirty   bool        // changed, not yet written (saveSettingsSoon)
+	wob             wobble      // the shimmer, when an agent writes (wobble.go)
+	wobMu           sync.Mutex  // guards it: an agent's goroutine sends it
+	settingsAt      time.Time   // when
+	savedAt         time.Time   // the last save of the page, shown in the status bar
+	mcpServer       *http.Server
+	agent           agentEdits // what agents changed, to put back
+	mcpErr          string
 
 	prop        propEdit                  // the property dialog
 	propBuf     map[string]*string        // the text of the properties' fields, by page and property
@@ -651,7 +652,8 @@ func main() {
 		a.keepTree(true)     // what was opened in the tree in its last second
 		a.ps.kept.ok = false // made whatever it was made from: the last word on the panes
 		a.keepPanes()
-		if a.settingsDirty { // what saveSettingsSoon left
+		a.keepPageIndexes(true) // the pages read again since the last write, for the next start (#594)
+		if a.settingsDirty {    // what saveSettingsSoon left
 			a.saveSettings()
 		}
 		a.endSession()

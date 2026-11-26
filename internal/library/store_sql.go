@@ -31,6 +31,8 @@ type Store struct {
 	Writes atomic.Uint64
 
 	batchMu sync.Mutex // one Batch at a time
+
+	readOnly bool // opened by OpenStoreReadOnly: the derived page_index is neither written nor pruned (#594)
 }
 
 // WriteCount returns the count of writes made to the store so far.
@@ -104,7 +106,7 @@ func OpenStoreReadOnly(file string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Store{DB: db, File: file}, nil
+	return &Store{DB: db, File: file, readOnly: true}, nil
 }
 
 // WriteError is nil for a library file: its writes say at once when they fail. The browser's store writes later,
@@ -525,7 +527,7 @@ func (s *Store) ReadPrewarmFrom(base, after string, limit int) (map[string]Prewa
 // WritePageIndexes persists computed derived page index rows in one transaction. Each insert verifies the node's
 // current mtime and size so concurrent writes are never overwritten by stale index data.
 func (s *Store) WritePageIndexes(entries []PageIndex) error {
-	if len(entries) == 0 {
+	if len(entries) == 0 || s.readOnly {
 		return nil
 	}
 	s.batchMu.Lock()
@@ -553,6 +555,22 @@ func (s *Store) WritePageIndexes(entries []PageIndex) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// PrunePageIndex deletes the page_index rows of paths that are no page in nodes: a row a manual edit of the file, or
+// an older client that did not know the table, left behind when it removed or renamed a page (#594). A read-only
+// store, and one from before the table, are left as they are. It reports how many rows it deleted.
+func (s *Store) PrunePageIndex() (int64, error) {
+	if s.readOnly {
+		return 0, nil
+	}
+	s.batchMu.Lock()
+	defer s.batchMu.Unlock()
+	r, err := s.DB.Exec(`DELETE FROM page_index WHERE NOT EXISTS (SELECT 1 FROM nodes n WHERE n.path = page_index.path AND n.dir = 0)`)
+	if err != nil {
+		return 0, err
+	}
+	return r.RowsAffected()
 }
 
 // storeSnap is the whole table, read in one pass, for opening the library: the folders and pages of a

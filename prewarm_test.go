@@ -229,3 +229,74 @@ func TestPrewarmUsesSQLitePageIndexCache(t *testing.T) {
 		t.Fatalf("re-indexed plainIdx mismatch: %+v", pl)
 	}
 }
+
+// A page written while the app is open is read again for the index, and what was read is kept in the library file's
+// page_index as the index is made: the next start reads none of its pages, the edited one included. A new page is
+// kept the same way (#594).
+func TestPageIndexKeptAfterMidSessionEdits(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "k.db")
+	st, err := OpenStore(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	lib, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := lib.NewCollection("Kitaplar")
+	p1, _ := c.NewPage(nil, "Birinci")
+	p1.SaveText("- [ ] Oku #okuma [[İkinci]]\n")
+	p2, _ := c.NewPage(nil, "İkinci")
+	p2.SaveText("ilk kelime\n")
+
+	a := newApp(lib)
+	close(a.firstFrame)
+	a.prewarm()
+	waitPrewarm(t, a)
+	a.linksTo(nil, a.clock(), true)
+
+	// mid-session: one page written, one made
+	p2.SaveText("yeniyazilan kelime #yeni\n")
+	p3, _ := c.NewPage(nil, "Üçüncü")
+	p3.SaveText("ucuncusayfa\n")
+	a.mu.Lock()
+	a.linksStale()
+	a.linksTo(nil, a.clock().Add(time.Minute), true)
+	a.mu.Unlock()
+	a.pageIndexWrites.Wait()
+
+	lib2, err := OpenLibraryIn(st, StoreRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newApp(lib2)
+	close(b.firstFrame)
+	b.prewarm()
+	waitPrewarm(t, b)
+	if b.links.warmMisses != 0 || b.links.warmHits != 3 {
+		t.Fatalf("after the edits were kept: hits=%d misses=%d, want 3 hits 0 misses", b.links.warmHits, b.links.warmMisses)
+	}
+	q2 := lib2.PageByID(p2.ID)
+	if pl := b.links.plain[q2]; pl == nil || !strings.Contains(pl.folded, "yeniyazilan") {
+		t.Fatalf("the edited page's text from the cache: %+v", pl)
+	}
+	if e := b.links.pages[q2]; e == nil || len(e.tags) != 1 || e.tags[0] != "yeni" {
+		t.Fatalf("the edited page's index from the cache: %+v", e)
+	}
+
+	// a page written after it was read is not kept with what was read of it
+	p2.SaveText("sonraki\n")
+	a.mu.Lock()
+	a.links.toKeep = map[*Page]bool{p2: true}
+	a.keepPageIndexes(true)
+	a.mu.Unlock()
+	lib3, _ := OpenLibraryIn(st, StoreRoot)
+	d := newApp(lib3)
+	close(d.firstFrame)
+	d.prewarm()
+	waitPrewarm(t, d)
+	if d.links.warmMisses != 1 {
+		t.Fatalf("a page written since it was read: misses=%d, want 1", d.links.warmMisses)
+	}
+}

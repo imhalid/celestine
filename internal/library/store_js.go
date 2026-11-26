@@ -602,3 +602,6 @@ func (s *Store) ReadPrewarmFrom(base, after string, limit int) (map[string]Prewa
 
 // WritePageIndexes is a no-op on browser storage.
 func (s *Store) WritePageIndexes([]PageIndex) error { return nil }
+
+// PrunePageIndex has nothing to prune in the browser's store, which keeps no page_index.
+func (s *Store) PrunePageIndex() (int64, error) { return 0, nil }

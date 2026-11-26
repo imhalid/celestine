@@ -461,3 +461,69 @@ func TestStorePageIndexLifecycle(t *testing.T) {
 		t.Fatalf("expected ReadOnly fallback to return Src, err=%v rows=%+v", err, roRows)
 	}
 }
+
+// PrunePageIndex deletes the rows of paths that are no page any more, as a manual edit of the file or an older client
+// leaves them, and keeps the others; a read-only store neither writes nor prunes the index (#594).
+func TestStorePrunePageIndex(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "prune.db")
+	st, err := OpenStore(dbFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	for _, d := range []string{"/c/keep", "/c/gone"} {
+		if err := st.MkdirAll(d); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.WriteFile(d+"/"+PageFileName, []byte(`{"meta":{"title":"x"},"body":[]}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, _, err := st.ReadPrewarmFrom(PageFileName, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entries []PageIndex
+	for p, r := range rows {
+		entries = append(entries, PageIndex{Path: p, MTime: r.MTime, Size: r.Size, Folded: "x"})
+	}
+	if err := st.WritePageIndexes(entries); err != nil {
+		t.Fatal(err)
+	}
+	// as an older client would: the page's node deleted, its index row left
+	if _, err := st.DB.Exec(`DELETE FROM nodes WHERE path = ?`, "/c/gone/"+PageFileName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO page_index (path, mtime, size, data) VALUES ('/nowhere/page.json', 1, 1, x'7b7d')`); err != nil {
+		t.Fatal(err)
+	}
+	ro, err := OpenStoreReadOnly(dbFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.Close()
+	if n, err := ro.PrunePageIndex(); err != nil || n != 0 {
+		t.Fatalf("a read-only store pruned %d rows: %v", n, err)
+	}
+	if err := ro.WritePageIndexes(entries); err != nil {
+		t.Fatalf("a read-only store's write of the index: %v", err)
+	}
+	n, err := st.PrunePageIndex()
+	if err != nil || n != 2 {
+		t.Fatalf("pruned %d rows, want 2: %v", n, err)
+	}
+	var left []string
+	r, err := st.DB.Query(`SELECT path FROM page_index`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	for r.Next() {
+		var p string
+		r.Scan(&p)
+		left = append(left, p)
+	}
+	if len(left) != 1 || left[0] != "/c/keep/"+PageFileName {
+		t.Fatalf("rows left: %v", left)
+	}
+}

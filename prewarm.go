@@ -128,6 +128,7 @@ func (a *app) prewarm() {
 		}()
 		var got []prewarmRead
 		var toSave map[*Store][]library.PageIndex
+		pruned := map[*Store]bool{}
 		for r := range out {
 			if r.cached {
 				hits++
@@ -148,6 +149,14 @@ func (a *app) prewarm() {
 		a.takePrewarm(got)
 		for st, entries := range toSave {
 			_ = st.WritePageIndexes(entries)
+		}
+		for _, j := range jobs { // the rows of pages that are no more, which an older client or a hand left (#594)
+			if st, ok := j.fs.(*Store); ok {
+				if !pruned[st] {
+					pruned[st] = true
+					_, _ = st.PrunePageIndex()
+				}
+			}
 		}
 	}()
 }

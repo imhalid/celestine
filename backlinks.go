@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/internal/library"
 	"regexp"
 	"slices"
 	"strconv"
@@ -34,6 +35,9 @@ type linkIndex struct {
 	warmAt     int
 	warmHits   int // cached SQLite page_index hits on last prewarm
 	warmMisses int // pages parsed during last prewarm
+	// toKeep are the pages of a library file read again since the app opened (written, or new): what was read of
+	// them goes into the file's page_index as the index is made, so that the next start does not read them (#594)
+	toKeep map[*Page]bool
 }
 
 // linksStale says the pages changed since the index was made.
@@ -61,7 +65,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 					if err != nil {
 						continue
 					}
-					e = readPageIdx(q, body)
+					e = a.reread(q, body)
 				}
 				kept[q] = e
 				l.tasks = append(l.tasks, e.tasks...)
@@ -83,6 +87,7 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 				delete(l.plain, q)
 			}
 		}
+		a.keepPageIndexes(false)
 	}
 	if p == nil { // only the index was wanted (tags.go)
 		return nil
@@ -96,6 +101,72 @@ func (a *app) linksTo(p *Page, now time.Time, force bool) []*Page {
 		}
 	}
 	return out
+}
+
+// reread reads what the index needs of page q, whose text is body, on the window's side: for a page of a library file,
+// its plain text too, both to be kept in the file's page_index (keepPageIndexes).
+func (a *app) reread(q *Page, body string) *pageIdx {
+	if _, ok := q.FS().(*Store); !ok {
+		return readPageIdx(q, body)
+	}
+	e, plain := readPageIdxPlain(q, body)
+	l := &a.links
+	if l.plain == nil {
+		l.plain = map[*Page]*plainIdx{}
+	}
+	if l.toKeep == nil {
+		l.toKeep = map[*Page]bool{}
+	}
+	l.plain[q] = &plainIdx{mod: q.Modified, writes: q.Writes, folded: foldText(plain)}
+	l.toKeep[q] = true
+	return e
+}
+
+// keepPageIndexes writes what was read again of the pages of a library file (toKeep) into its page_index, each
+// with the time and size its file has: what the next start reads in place of the page, if the file is still so. It
+// runs as the index is made again, the writes away from the window, and at the quit, waited for (wait). A page
+// written since it was read is left for the next time.
+func (a *app) keepPageIndexes(wait bool) {
+	l := &a.links
+	if len(l.toKeep) == 0 {
+		return
+	}
+	byStore := map[*Store][]library.PageIndex{}
+	for q := range l.toKeep {
+		st, ok := q.FS().(*Store)
+		e, pl := l.pages[q], l.plain[q]
+		if !ok || e == nil || pl == nil || q.Modified.IsZero() || !e.mod.Equal(q.Modified) || e.writes != q.Writes ||
+			!pl.mod.Equal(q.Modified) || pl.writes != q.Writes {
+			if !ok || e == nil {
+				delete(l.toKeep, q) // trashed, or no page of a library file
+			}
+			continue
+		}
+		delete(l.toKeep, q)
+		info, err := st.Stat(q.File())
+		if err != nil || !info.ModTime().Equal(q.Modified) {
+			continue
+		}
+		byStore[st] = append(byStore[st], *persistablePageIndex(q.File(), q.Modified.UnixNano(), info.Size(), e, pl.folded))
+	}
+	if len(byStore) == 0 {
+		return
+	}
+	write := func() {
+		for st, entries := range byStore {
+			_ = st.WritePageIndexes(entries) // a cache: what is not written is read again at the next start
+		}
+	}
+	if wait {
+		write()
+		return
+	}
+	a.pageIndexWrites.Add(1)
+	go func() {
+		defer a.pageIndexWrites.Done()
+		defer a.guard()
+		write()
+	}()
 }
 
 // linksWarmBudget is how long a frame reads the pages' files for the index, the first time.
@@ -124,7 +195,7 @@ func (a *app) warmLinks(budget time.Duration) bool {
 			return false
 		}
 		if body, err := q.Text(); err == nil {
-			l.pages[q] = readPageIdx(q, body)
+			l.pages[q] = a.reread(q, body)
 		}
 	}
 	l.warm, l.warmAt = nil, 0
