@@ -14,7 +14,7 @@ import (
 // (body.go), and dresses the objects to be drawn. The JSON is the file's, and the names in it are the files':
 //
 //	[{"s":{"heading":1},"r":[{"t":"Başlık"}]},
-//	 {"r":[{"t":"bir "},{"t":"kalın","w":700},{"t":"￼","o":{"k":"page","target":"Dune"}}]}]
+//	 {"r":[{"t":"bir "},{"t":"kalın","w":700},{"t":"\uFFFC","o":{"k":"page","target":"Dune"}}]}]
 
 // A Doc is a page's body: its paragraphs, in order.
 type Doc []Para

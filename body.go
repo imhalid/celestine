@@ -201,12 +201,48 @@ func docOfText(t richtext.Text) library.Doc {
 			}
 			if at := a.Attachment; at != nil {
 				run.T, run.O = library.ObjectChar, &bodyObj{K: "image", Alt: at.Name, Ref: at.URL}
+				switch d := at.Data.(type) {
+				case *checkKept:
+					run.O = &bodyObj{K: "check", Target: map[bool]string{true: "x"}[d.done]}
+				case *chip:
+					if d.kind == "check" {
+						run.O = &bodyObj{K: "check", Target: d.target}
+					}
+				}
 			}
 			bp.R = append(bp.R, run)
 		}
 		d = append(d, bp)
 	}
 	return d
+}
+
+// checkKept is a task in the running text kept as one through withoutChips, which writes every other chip as its
+// text: the library writes it (pageDoc).
+type checkKept struct{ done bool }
+
+// pageDoc is the editor's text as the library writes its page's Markdown (library.Doc.PageMarkdown): folds put back,
+// every chip but a task in the running text its text, as the file has it.
+func pageDoc(t richtext.Text) library.Doc {
+	t = unfoldText(t)
+	type at struct {
+		i int
+		a richtext.Attributes
+	}
+	var checks []at
+	for i, r := range t.Runs(0, t.Len()) {
+		if att := r.Attributes.Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok && ch.kind == "check" {
+				a := r.Attributes
+				a.Attachment = &richtext.Attachment{Name: att.Name, Data: &checkKept{ch.target == "x"}}
+				checks = append(checks, at{i, a})
+			}
+		}
+	}
+	for k := len(checks) - 1; k >= 0; k-- {
+		t = t.ReplaceString(checks[k].i, checks[k].i+1, string(richtext.ObjectReplacement), checks[k].a)
+	}
+	return docOfText(withoutChips(t))
 }
 
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.

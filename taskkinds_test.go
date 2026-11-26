@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // A kind of task is read from its Markdown box and written back to it; a done one is "[x]".
@@ -146,5 +147,18 @@ func TestTaskBoxRightClickMenu(t *testing.T) {
 	tt.Frame()
 	if !a.pane().doc.Text().ParagraphStyleAt(0).Checked {
 		t.Fatal("a click on the box did not tick it")
+	}
+}
+
+// The kinds of task the app draws are the kinds the library reads and writes in Markdown, each by the same character
+// in its box (#595).
+func TestTaskKindMarksAgree(t *testing.T) {
+	if len(taskKinds) != len(library.TaskKindMarks) {
+		t.Fatalf("%d kinds, the library has %d", len(taskKinds), len(library.TaskKindMarks))
+	}
+	for i, k := range taskKinds {
+		if m := library.TaskKindMarks[i]; m.ID != k.id || m.MD != k.md {
+			t.Errorf("kind %d: the app's %s [%s], the library's %s [%s]", i, k.id, k.md, m.ID, m.MD)
+		}
 	}
 }

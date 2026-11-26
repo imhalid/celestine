@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/imhalid/celestine/internal/library"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ import (
 //     paragraph turns it into code at once. (richtext makes one only with
 //     Enter after "```".)
 
-const hrID = "celestine:hr"
+const hrID = library.HrID
 
 // typedTaskBox is a box of a kind of task typed at a line's start, and the space after it.
 var typedTaskBox = regexp.MustCompile(`^\[(.)\] $`)

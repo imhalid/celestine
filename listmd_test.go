@@ -333,11 +333,11 @@ func TestInlineTaskSpots(t *testing.T) {
 		}
 		lines := strings.Split(md, "\n")
 		for k, s := range spots {
-			if s.done != done[k] {
-				t.Errorf("%q: task %d done %v, its chip %v", md, k, s.done, done[k])
+			if s.Done != done[k] {
+				t.Errorf("%q: task %d done %v, its chip %v", md, k, s.Done, done[k])
 			}
-			if s.col >= 0 && lines[s.line][s.col] != '[' {
-				t.Errorf("%q: task %d at %d:%d is no box", md, k, s.line, s.col)
+			if s.Col >= 0 && lines[s.Line][s.Col] != '[' {
+				t.Errorf("%q: task %d at %d:%d is no box", md, k, s.Line, s.Col)
 			}
 		}
 	}

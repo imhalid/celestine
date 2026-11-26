@@ -24,7 +24,7 @@ func ReadMarkdown(s string) Doc {
 	// Invalid UTF-8 becomes U+FFFD: the halves of a broken sequence, apart in the source, would meet in the text as
 	// one rune, which the runs count as two.
 	if !utf8.ValidString(s) {
-		s = strings.ToValidUTF8(s, "�")
+		s = strings.ToValidUTF8(s, "\uFFFD")
 	}
 	d := parser.New(parser.GFM | parser.ExtFootnotes)
 	d.Set(s)

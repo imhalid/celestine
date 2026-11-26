@@ -2,13 +2,13 @@ package main
 
 import (
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -24,7 +24,7 @@ import (
 // Checked, a box turns over on its X axis - its face goes, its back comes, done - and confetti bursts
 // from it; unchecked it turns back, without the confetti.
 
-const taskIDPrefix = "celestine:task:"
+const taskIDPrefix = library.TaskIDPrefix
 
 type taskKind struct {
 	id, name string
@@ -114,84 +114,8 @@ func (a *app) setTaskKind(at int, id string) {
 
 // ---- Markdown ----
 
-// taskBoxLine is an item of a list in Markdown with a box: what comes before the box, and what is in it.
-// listItemLine is a line that starts an item of a list.
-var listItemLine = regexp.MustCompile(`^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s`)
-
-var taskBoxLine = regexp.MustCompile(`^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+)\[(.)\](\s|$)`)
-
-// taskKindsIn takes the kinds out of the boxes of md's lines, which richtext reads as plain ones,
-// and gives them back in the order of the tasks: "" for a plain one or a done one.
-func taskKindsIn(lines []string) []string {
-	var kinds []string
-	inCode, prevBlank, prevList := false, true, false
-	for i, l := range lines {
-		// an indented block of code (four spaces after a blank line, not under a list item) is code: a box in it is
-		// text, not to be rewritten, or the count of tasks differs and every task loses its kind (#131)
-		if strings.TrimSpace(l) == "" {
-			prevBlank = true
-			continue
-		}
-		indent := len(strings.ReplaceAll(l, "\t", "    ")) - len(strings.TrimLeft(strings.ReplaceAll(l, "\t", "    "), " "))
-		switch {
-		case inCode && indent >= 4:
-			prevBlank = false
-			continue
-		case !inCode && indent >= 4 && prevBlank && !prevList:
-			inCode, prevBlank = true, false
-			continue
-		}
-		inCode = false
-		prevList = listItemLine.MatchString(l) || prevList && indent >= 2
-		prevBlank = false
-		m := taskBoxLine.FindStringSubmatchIndex(l)
-		if m == nil {
-			continue
-		}
-		c := l[m[4]:m[5]]
-		switch c {
-		case " ", "x", "X":
-			kinds = append(kinds, "")
-		default:
-			k, ok := taskKindByMD(c)
-			if !ok {
-				continue // not a box richtext takes: no task
-			}
-			kinds = append(kinds, k.id)
-			lines[i] = l[:m[4]] + " " + l[m[5]:]
-		}
-	}
-	return kinds
-}
-
-// withTaskKinds gives t's tasks, in order, the kinds read from their Markdown: only when there are as
-// many, or one of them could land on another task.
-func withTaskKinds(t richtext.Text, kinds []string) richtext.Text {
-	has := false
-	for _, k := range kinds {
-		has = has || k != ""
-	}
-	if !has {
-		return t
-	}
-	var tasks []int
-	for _, at := range paraStarts(t) {
-		if t.ParagraphStyleAt(at).List == richtext.Tasks {
-			tasks = append(tasks, at)
-		}
-	}
-	if len(tasks) != len(kinds) {
-		return t
-	}
-	for i, at := range tasks {
-		if kinds[i] == "" {
-			continue
-		}
-		id := taskIDPrefix + kinds[i]
-		t = t.FormatParagraphs(at, at, func(p *richtext.ParagraphStyle) { p.ID = id })
-	}
-	return t
-}
+// A kind of task is written as the character in its box, and read from it, by the library
+// (library.TaskKindMarks, mdpage.go); TestTaskKindMarksAgree holds taskKinds to it.
 
 // paraStarts is where t's paragraphs start, first first (starts, in markdown.go, has them last first).
 func paraStarts(t richtext.Text) []int {
@@ -200,43 +124,6 @@ func paraStarts(t richtext.Text) []int {
 		out = append(out, at)
 	}
 	return out
-}
-
-// markTaskKinds writes the kinds of t's tasks in their boxes in md's lines, as richtext wrote them plain.
-func markTaskKinds(t richtext.Text, lines []string) {
-	var kinds []string
-	has := false
-	for _, para := range t.Paragraphs() { // their styles as they come, not asked one by one (#504)
-		st := para.Style
-		if st.List != richtext.Tasks {
-			continue
-		}
-		k, ok := taskKindOf(st)
-		has = has || ok
-		if ok && !st.Checked {
-			kinds = append(kinds, k.md)
-		} else {
-			kinds = append(kinds, "")
-		}
-	}
-	if !has { // no task of a kind: nothing to write
-		return
-	}
-	var at []int
-	for i, l := range lines {
-		if m := taskBoxLine.FindStringSubmatchIndex(l); m != nil && (l[m[4]:m[5]] == " " || l[m[4]:m[5]] == "x") {
-			at = append(at, i)
-		}
-	}
-	if len(at) != len(kinds) {
-		return
-	}
-	for i, li := range at {
-		if kinds[i] != "" {
-			m := taskBoxLine.FindStringSubmatchIndex(lines[li])
-			lines[li] = lines[li][:m[4]] + kinds[i] + lines[li][m[5]:]
-		}
-	}
 }
 
 // ---- drawn ----

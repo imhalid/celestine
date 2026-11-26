@@ -111,29 +111,29 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 	lines := strings.Split(body, "\n")
 	var out []taskItem
 	for k, s := range spots {
-		ln := lines[s.line]
+		ln := lines[s.Line]
 		inl := 1
-		for j := k - 1; j >= 0 && spots[j].line == s.line; j-- {
+		for j := k - 1; j >= 0 && spots[j].Line == s.Line; j-- {
 			inl++
 		}
 		raw := ln
-		if s.col >= 0 {
-			from, to := s.col+3, len(ln)
-			if k+1 < len(spots) && spots[k+1].line == s.line && spots[k+1].col > s.col {
-				to = spots[k+1].col
+		if s.Col >= 0 {
+			from, to := s.Col+3, len(ln)
+			if k+1 < len(spots) && spots[k+1].Line == s.Line && spots[k+1].Col > s.Col {
+				to = spots[k+1].Col
 			}
 			raw = ln[from:to]
 			if strings.TrimFunc(raw, notWord) == "" { // nothing after it: what is before it
 				start := 0
-				if k > 0 && spots[k-1].line == s.line && spots[k-1].col >= 0 {
-					start = spots[k-1].col + 3
+				if k > 0 && spots[k-1].Line == s.Line && spots[k-1].Col >= 0 {
+					start = spots[k-1].Col + 3
 				}
-				raw = ln[start:s.col]
+				raw = ln[start:s.Col]
 			}
 		}
 		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
 		text, due, every := taskWords(raw)
-		out = append(out, taskItem{page: p, line: s.line, done: s.done, text: text, due: due, every: every, inl: inl, col: s.col, folded: foldText(text)})
+		out = append(out, taskItem{page: p, line: s.Line, done: s.Done, text: text, due: due, every: every, inl: inl, col: s.Col, folded: foldText(text)})
 	}
 	return out
 }
