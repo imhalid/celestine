@@ -44,6 +44,7 @@ func TestPressWavesSetting(t *testing.T) {
 	if a.settings.NoWaves {
 		t.Fatal("the waves start off")
 	}
+	a.sidebarClosed = true // room for the rows' switches beside their titles, past the settings' own sidebar (#605)
 	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
 	title, ok := tt.Find(msg("common_pressWaves"))
@@ -54,7 +55,7 @@ func TestPressWavesSetting(t *testing.T) {
 	flip := func() bool {
 		was := a.settings.NoWaves
 		for dy := float32(0); dy <= 40; dy += 8 {
-			for x := float32(990); x > title.X+title.W; x -= 6 {
+			for x := float32(1000+2*frameW+frameGap) - 4; x > title.X+title.W; x -= 6 {
 				tt.ClickAt(x, title.Y+title.H/2+dy)
 				tt.Advance(50 * time.Millisecond)
 				if a.settings.NoWaves != was {
@@ -81,6 +82,7 @@ func TestSidebarCardSetting(t *testing.T) {
 	if !a.wframe.on || !a.sideOnGround() || a.settings.SidebarCard {
 		t.Fatalf("framed %v, on the ground %v, card %v", a.wframe.on, a.sideOnGround(), a.settings.SidebarCard)
 	}
+	a.sidebarClosed = true // room for the rows' switches beside their titles, past the settings' own sidebar (#605)
 	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
 	title, ok := tt.Find(locales.SettingsSidebarCard())
@@ -88,7 +90,7 @@ func TestSidebarCardSetting(t *testing.T) {
 		t.Fatal("no Sidebar background row")
 	}
 	for dy := float32(0); dy <= 40 && !a.settings.SidebarCard; dy += 8 {
-		for x := float32(990); x > title.X+title.W && !a.settings.SidebarCard; x -= 6 {
+		for x := float32(1000+2*frameW+frameGap) - 4; x > title.X+title.W && !a.settings.SidebarCard; x -= 6 {
 			tt.ClickAt(x, title.Y+title.H/2+dy)
 			tt.Advance(50 * time.Millisecond)
 		}

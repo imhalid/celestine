@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 type settingsSection struct {
 	name, blurb string
 	glyph       *ui.SVG
+	color       string // its badge's, in the list of sections: a color of its own, as a system's settings have (#605)
 }
 
 var (
@@ -47,15 +49,15 @@ const (
 )
 
 var settingsSections = []settingsSection{
-	{"common_appearance", "themeAndThePagesWidth", iconTheme},
-	{"editor", "textLineSpacingAndCaret", iconEditing},
-	{"typeface", "theTypefacesOfTheAppThe", iconFont},
-	{"statusBar", "whatIsShownAtTheBottom", iconBar},
-	{"mcp", "agentsConnectingToTheLibrary", iconPlug},
-	{"common_library", "theFilesAndWhereTheyAre", iconLibrary},
-	{"sync4", "matchingOtherComputersEncryption", iconSync},
-	{"updates", "newVersionsAndReleaseNotes", iconUpdate},
-	{"common_sounds", "sounds_blurb", iconSound},
+	{"common_appearance", "themeAndThePagesWidth", iconTheme, "#A55EEA"},
+	{"editor", "textLineSpacingAndCaret", iconEditing, "#2F80ED"},
+	{"typeface", "theTypefacesOfTheAppThe", iconFont, "#F2683A"},
+	{"statusBar", "whatIsShownAtTheBottom", iconBar, "#6B7A90"},
+	{"mcp", "agentsConnectingToTheLibrary", iconPlug, "#1FA9B8"},
+	{"common_library", "theFilesAndWhereTheyAre", iconLibrary, "#2FB36B"},
+	{"sync4", "matchingOtherComputersEncryption", iconSync, "#5B5BD6"},
+	{"updates", "newVersionsAndReleaseNotes", iconUpdate, "#E8456B"},
+	{"common_sounds", "sounds_blurb", iconSound, "#F59E0B"},
 }
 
 // selSpring is the list's choice settling, and a tile picked.
@@ -78,7 +80,14 @@ func (a *app) keepSettings(c *ui.Context) {
 
 // openSettings shows the settings in the active pane, as a screen of the window like a collection or the trash: it is
 // in the history, so ⌘[ goes back to where it was opened from.
-func (a *app) openSettings() { a.openSettingsIn(a.pane()) }
+// Where a window of its own can be, they are in it (setwin.go, #605).
+func (a *app) openSettings() {
+	if a.settingsInWindow() {
+		a.showSettingsWindow()
+		return
+	}
+	a.openSettingsIn(a.pane())
+}
 
 func (a *app) openSettingsIn(pn *paneState) {
 	if pn.settingsOpen {
@@ -111,7 +120,6 @@ func (a *app) closeSettings() {
 // settingsScreen is the settings: the sections listed at the left and the one chosen at the right,
 // in groups. A setting changed is seen at once, as the window it is made in is the window.
 func (a *app) settingsScreen(c *ui.Context, pn *paneState) {
-	cl := ryugo.From(c).Colors
 	rowReset = a.rowResets() // each row of a setting not as it came gets its way back (settingRow)
 	defer func() {
 		rowReset = nil
@@ -126,17 +134,13 @@ func (a *app) settingsScreen(c *ui.Context, pn *paneState) {
 			a.settingsNav(c, pn)
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			sec := settingsSections[min(pn.settingsTab, len(settingsSections)-1)]
 			if phone {
 				a.settingsChips(c, pn)
+				ui.Box(c.Key("set-search-row")).FillWidth().Padding(0, 0, 10, 0).Children(func() { a.settingsSearch(c) })
 			}
 			// A section comes at once, its head and its settings: the bar over them stays, and a move under it only
 			// delays what was asked for.
-			ui.Column(c.Key("set-head:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(4).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
-				ui.Text(c, msg(sec.name)).FontSize(map[bool]float32{true: 24, false: 32}[phone]).FontWeight(720).TextColor(cl.Text)
-				ui.Text(c, msg(sec.blurb)).FontSize(ryugo.FsMd).TextColor(cl.Muted)
-			})
-			a.settingsTop(c)
+			a.settingsHead(c, pn)
 			a.scrolledPane(c, pn, "set-scroll", nil, ui.Scroll(c.Key("set-scroll")).Grow(1).MinHeight(0), func() {
 				ui.Column(c.Key("set-body:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(18).Padding(0, 4, 40, 0).Children(func() {
 					if a.settingsExtra(c) {
@@ -168,6 +172,61 @@ func (a *app) settingsScreen(c *ui.Context, pn *paneState) {
 	})
 }
 
+// settingsHead is the head of the section shown: ‹ and › through the sections shown before, its name and what it
+// holds, and the settings' own pages (Changed, Profiles, Shortcuts, File) at its end (#605).
+func (a *app) settingsHead(c *ui.Context, pn *paneState) {
+	cl := ryugo.From(c).Colors
+	sec := settingsSections[min(pn.settingsTab, len(settingsSections)-1)]
+	title, blurb := msg(sec.name), msg(sec.blurb)
+	switch {
+	case strings.TrimSpace(a.setSearch) != "":
+		title, blurb = locales.SettingsSearchSettings(), a.setSearch
+	case a.setMode != "":
+		for _, m := range settingsModes {
+			if m.id == a.setMode {
+				title = msg(m.name)
+			}
+		}
+		blurb = ""
+	}
+	ui.Column(c.Key("set-head:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(10).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
+		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key("set-hist")).Gap(4).Shrink(0).Children(func() {
+				if a.settingsHistButton(c, "set-back", iconBack, locales.SettingsBackSection(), len(pn.settingsBack) > 0) {
+					a.settingsStep(pn, -1)
+				}
+				if a.settingsHistButton(c, "set-fwd", iconChevron, locales.SettingsForwardSection(), len(pn.settingsFwd) > 0) {
+					a.settingsStep(pn, 1)
+				}
+			})
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+				ui.Text(c, title).FontSize(map[bool]float32{true: 22, false: 26}[phone]).FontWeight(720).TextColor(cl.Text).MaxLines(1)
+				if blurb != "" {
+					ui.Text(c, blurb).FontSize(ryugo.FsSm).TextColor(cl.Muted).MaxLines(2)
+				}
+			})
+		})
+		ui.Row(c.Key("set-modes")).Gap(6).Wrap().Children(func() { a.settingsModesRow(c) })
+	})
+}
+
+// settingsHistButton is ‹ or › in the settings' head: faint, and nothing when clicked, with nowhere to go.
+func (a *app) settingsHistButton(c *ui.Context, key string, glyph *ui.SVG, label string, can bool) bool {
+	cl := ryugo.From(c).Colors
+	b := ui.Box(c.Key(key)).Size(28, 28).Radius(rad(8)).Justify(ui.Center).AlignItems(ui.Center).Label(label).Role(ui.RoleButton).
+		Border(1, cl.Hairline).Background(cl.Card)
+	if !can {
+		b.Opacity(0.35).Disabled(true)
+	} else {
+		b.Cursor(ui.CursorPointer)
+		if b.Hovered() {
+			b.Background(cl.Fill)
+		}
+	}
+	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(cl.Text2) })
+	return can && b.Clicked()
+}
+
 // settingsChips are the sections on a phone: a row of chips that scrolls sideways, the one chosen lit.
 func (a *app) settingsChips(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
@@ -194,28 +253,31 @@ func (a *app) settingsChips(c *ui.Context, pn *paneState) {
 	})
 }
 
-// settingsNav is the list of sections: the one chosen glows - the accent in a gentle gradient, as a
-// button is - and the others come up as the pointer does.
+// settingsNav is the settings' sidebar: the search over everything, a word of how the library and the app stand, and
+// the sections, each with a badge of its own color (#605); the one chosen glows - the accent in a gentle gradient,
+// as a button is - and the others come up as the pointer does.
 func (a *app) settingsNav(c *ui.Context, pn *paneState) {
 	t := ryugo.From(c)
 	cl := t.Colors
-	ui.Column(c.Key("set-nav")).Width(190).Padding(4, 0, 12, 0).Gap(2).Shrink(0).Children(func() {
+	ui.Column(c.Key("set-nav")).Width(220).Padding(4, 0, 12, 0).Gap(2).Shrink(0).Children(func() {
+		ui.Box(c.Key("set-nav-search")).FillWidth().Padding(0, 0, 8, 0).Children(func() { a.settingsSearch(c) })
+		a.settingsStanding(c)
 		for i, s := range settingsSections {
 			sel := pn.settingsTab == i && strings.TrimSpace(a.setSearch) == "" && a.setMode == "" // none over a search or a list
-			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(rad(9)).AlignItems(ui.Center).
+			e := ui.Row(c.Key("snav:"+s.name)).FillWidth().Height(36).Padding(0, 8).Gap(10).Radius(rad(9)).AlignItems(ui.Center).
 				Label(msg(s.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			on := e.AnimateTo("on", b2f(sel), selSpring)
 			hov := e.AnimateTo("hov", b2f(e.Hovered() && !sel), fadeQuick)
 			if on > 0.01 {
 				e.LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true,
-					From: ryugo.Mix(cl.Card, cl.Accent, 0.26*on), To: ryugo.Mix(cl.Card, cl.Accent, 0.14*on)}).Border(1, cl.Accent.Alpha(0.42*on))
+					From: ryugo.Mix(cl.Card, cl.Accent, 0.22*on), To: ryugo.Mix(cl.Card, cl.Accent, 0.12*on)}).Border(1, cl.Accent.Alpha(0.38*on))
 			} else if hov > 0.01 {
 				e.Background(cl.Fill.Alpha(hov))
 			}
 			e.Translate(2*on, 0)
 			a.kbMark(e, "snav:"+s.name, true, func() { a.settingsGoIn(pn, i) })
 			e.Children(func() {
-				ui.Icon(c, s.glyph).Width(16).Height(16).TextColor(ryugo.Mix(cl.Muted, cl.Accent, on))
+				sectionBadge(c, s, 24, on)
 				ui.Text(c, msg(s.name)).FontSize(13.5).FontWeight(int(540 + 120*on)).TextColor(ryugo.Mix(cl.Text2, cl.Text, on)).Grow(1).MaxLines(1)
 			})
 			if e.Clicked() {
@@ -225,12 +287,77 @@ func (a *app) settingsNav(c *ui.Context, pn *paneState) {
 	})
 }
 
+// sectionBadge is a section's icon in a rounded square of its color, white on it, lit a little more when chosen (on).
+func sectionBadge(c *ui.Context, s settingsSection, size, on float32) {
+	col := ui.Hex(s.color)
+	b := ui.Box(c.Key("badge:"+s.name)).Size(size, size).Shrink(0).Radius(rad(size*0.28)).Justify(ui.Center).AlignItems(ui.Center).
+		LinearGradient(ui.LinearGradient{Angle: 180, Oklab: true, From: ryugo.Mix(col, ui.Hex("#ffffff"), 0.22), To: col}).
+		Border(0.5, col.Alpha(0.6))
+	if on > 0.01 {
+		b.Shadow(0, 1, 6*on, 0, col.Alpha(0.55*on))
+	}
+	b.Children(func() { ui.Icon(c, s.glyph).Width(size * 0.62).Height(size * 0.62).TextColor(ui.Hex("#ffffff")) })
+}
+
+// settingsStanding is a word at the top of the settings' sidebar of how things stand: the version of the app, and the
+// synchronization's state when it is on, each with a dot of its color.
+func (a *app) settingsStanding(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c.Key("set-standing")).FillWidth().Gap(5).Padding(8, 10).Margin(0, 0, 8, 0).Radius(rad(10)).Background(cl.Fill.Alpha(0.6)).
+		Children(func() {
+			line := func(key string, dot ui.Color, text string) {
+				ui.Row(c.Key(key)).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Size(8, 8).Radius(4).Background(dot).Shrink(0)
+					ui.Text(c, text).FontSize(12).TextColor(cl.Text2).MaxLines(1).Shrink(1)
+				})
+			}
+			ver := locales.SettingsVersionLine(version)
+			verDot := ui.Hex("#2FB36B")
+			if a.updRel != nil {
+				ver, verDot = locales.SettingsUpdateWaits(a.updRel.Version), cl.Accent
+			}
+			line("set-st-ver", verDot, ver)
+			if a.settings.SyncMode != "" {
+				dot := ui.Hex("#2FB36B")
+				switch {
+				case a.sy.busy:
+					dot = cl.Accent
+				case a.sy.offline:
+					dot = cl.Muted
+				case a.sy.err != "" || a.sy.conflict > 0:
+					dot = ui.Hex("#F59E0B")
+				}
+				line("set-st-sync", dot, cmp.Or(a.sy.status, msg("sync4")))
+			}
+		})
+}
+
 // settingsGo shows the section i in the active pane: a search's words are cleared and a list (Changed, Profiles and the others) closed,
 // as they stand in a section's place (#404).
 func (a *app) settingsGo(i int) { a.settingsGoIn(a.pane(), i) }
 
 func (a *app) settingsGoIn(pn *paneState, i int) {
+	if i != pn.settingsTab { // a section of its own: the one left is gone back to with ‹ (#605)
+		pn.settingsBack = append(pn.settingsBack, pn.settingsTab)
+		pn.settingsFwd = nil
+	}
 	pn.settingsTab, a.setSearch, a.setMode = i, "", ""
+}
+
+// settingsStep goes back (-1) or forward (1) through the sections shown in pn, and reports whether there was one.
+func (a *app) settingsStep(pn *paneState, dir int) bool {
+	from, to := &pn.settingsBack, &pn.settingsFwd
+	if dir > 0 {
+		from, to = to, from
+	}
+	if len(*from) == 0 {
+		return false
+	}
+	i := (*from)[len(*from)-1]
+	*from = (*from)[:len(*from)-1]
+	*to = append(*to, pn.settingsTab)
+	pn.settingsTab, a.setSearch, a.setMode = i, "", ""
+	return true
 }
 
 // settingGroup is a card of settings, a line between them.
@@ -462,7 +589,15 @@ func (a *app) settingsAppearance(c *ui.Context) {
 					})
 					ui.Text(c, locales.SettingsGlassHelp()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
 				})
-				ryugo.Switch(c.Key("set-glass-sw"), &glassOn, ryugo.SwitchOptions{}).Label(locales.SettingsGlass())
+			})
+			// the window's two styles as tiles, each a little window in it (#605)
+			ui.Row(c).Gap(14).Wrap().Margin(14, 0, 0, 0).Children(func() {
+				if choiceTile(c, "tile-classic", locales.SettingsWindowClassic(), !glassOn, func() { windowStyleMock(c, false) }) {
+					glassOn = false
+				}
+				if choiceTile(c, "tile-glass", locales.SettingsGlass(), glassOn, func() { windowStyleMock(c, true) }) {
+					glassOn = true
+				}
 			})
 		})
 		if glassOn != a.settings.Glass {
@@ -733,6 +868,7 @@ func (a *app) settingsStatus(c *ui.Context) {
 			}
 		}
 	}
+	settingGroup(c, "set-status-preview", func() { a.statusPreview(c) })
 	settingGroup(c, "set-status",
 		toggle("set-saved", "saveStatus", "savedSaving", &a.settings.HideSaved, true),
 		toggle("set-chars", "letterCount", "spacesAndLineEndsAreNot", &a.settings.ShowChars, false),
@@ -740,6 +876,64 @@ func (a *app) settingsStatus(c *ui.Context) {
 		toggle("set-pos", "lineAndColumn", "theCaretsParagraphAndItsPlace", &a.settings.ShowPos, false),
 		toggle("set-hints", "shortcutHints", "theKeysThatCanBeUsed", &a.settings.HideHints, true),
 	)
+}
+
+// windowStyleMock is a little window in a style: classic, opaque on its ground, or glass, the ground's colors showing
+// through its frame and sidebar.
+func windowStyleMock(c *ui.Context, glass bool) {
+	cl := ryugo.From(c).Colors
+	ground := ui.LinearGradient{Angle: 135, Oklab: true, From: ui.Hex("#7aa7ff"), To: ui.Hex("#f39bc4")}
+	ui.Box(c).Width(112).Height(66).LinearGradient(ground).Padding(8).Children(func() {
+		frame := cl.Bg
+		side := cl.Fill
+		if glass {
+			frame, side = cl.Bg.Alpha(0.55), cl.Bg.Alpha(0.25)
+		}
+		ui.Row(c).Fill().Radius(rad(6)).Clip().Background(frame).Border(1, cl.Hairline).Children(func() {
+			ui.Box(c).Width(24).FillHeight().Background(side)
+			ui.Column(c).Grow(1).Padding(6).Gap(4).Children(func() {
+				ui.Box(c).Width(34).Height(4).Radius(2).Background(cl.Text.Alpha(0.7))
+				ui.Box(c).Width(48).Height(3).Radius(2).Background(cl.Text.Alpha(0.3))
+				ui.Box(c).Width(40).Height(3).Radius(2).Background(cl.Text.Alpha(0.3))
+			})
+		})
+	})
+}
+
+// statusPreview is the status bar as the switches under it make it, in a little window (#605): what each shows comes
+// and goes as it is turned on or off, and with the bar hidden there is only the window's edge.
+func (a *app) statusPreview(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c.Key("status-preview")).FillWidth().Height(92).Radius(rad(10)).Clip().Background(cl.Card).Border(1, cl.Hairline).
+		Label(msg("statusBar")).Children(func() {
+		ui.Column(c).Grow(1).Padding(12, 16).Gap(6).Children(func() {
+			ui.Box(c).Width(160).Height(7).Radius(rad(3)).Background(cl.Text.Alpha(0.75))
+			ui.Box(c).Width(260).Height(5).Radius(rad(2)).Background(cl.Text.Alpha(0.25))
+			ui.Box(c).Width(220).Height(5).Radius(rad(2)).Background(cl.Text.Alpha(0.25))
+		})
+		if a.settings.HideStatus {
+			ui.Box(c.Key("sp-edge")).FillWidth().Height(6).Background(cl.Fill)
+			return
+		}
+		item := func(key, text string) {
+			ui.Text(c.Key(key), text).FontSize(11).TextColor(cl.Muted).MaxLines(1)
+		}
+		ui.Row(c.Key("sp-bar")).FillWidth().Height(26).Padding(0, 12).Gap(14).AlignItems(ui.Center).Background(cl.Fill).Children(func() {
+			if !a.settings.HideHints {
+				item("sp-hints", "⌘K  ⌘P  /")
+			}
+			ui.Box(c).Grow(1)
+			if a.settings.ShowPos {
+				item("sp-pos", locales.SidebarLineColumn(3, 14))
+			}
+			if a.settings.ShowChars {
+				item("sp-chars", locales.StatusChars(1284))
+			}
+			if !a.settings.HideSaved {
+				item("sp-saved", locales.EditorSaved())
+			}
+		})
+	})
 }
 
 func (a *app) settingsLibrary(c *ui.Context) {

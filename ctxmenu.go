@@ -15,13 +15,14 @@ import (
 
 type ctxMenu struct {
 	open  bool
+	inSet bool // opened in the settings' window, and drawn there (setwin.go)
 	x, y  float32
 	items []menuItem // what the menu offers; nil when none is open
 }
 
 // showContext opens the menu at x, y in the window.
 func (a *app) showContext(x, y float32, items []menuItem) {
-	a.ctx = ctxMenu{open: true, x: x, y: y, items: phoneItems(items)}
+	a.ctx = ctxMenu{open: true, x: x, y: y, items: phoneItems(items), inSet: a.sw.building}
 	if a.frame != nil { // asked for after the menu's anchor was built in this frame: it opens in the next
 		a.frame()
 	}
@@ -68,7 +69,7 @@ func (a *app) into(title string, glyph *ui.SVG, items func() []menuItem) menuIte
 // when the line runs. A line that opens another menu (showContext) leaves it open with the new lines.
 func (a *app) contextView(c *ui.Context) {
 	m := &a.ctx
-	if m.items == nil {
+	if m.items == nil || !a.overlayHere(m.inSet) {
 		return
 	}
 	items := m.items

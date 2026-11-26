@@ -225,6 +225,36 @@ func (a *app) fontPreset(kind string) bool {
 	return false
 }
 
+// fontPresetTiles are the ways of writing as tiles (#605): each shows "Aa" and a line in the typeface it would put in,
+// the one the editor's font is now lit; one with no typeface of its kind installed is not offered.
+func (a *app) fontPresetTiles(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	ui.Column(c).Gap(14).Children(func() {
+		settingTitle(c, cl, msg("typefacePreset"))
+		ui.Row(c).Gap(14).Wrap().Children(func() {
+			for _, p := range []struct {
+				id    string
+				fonts []string
+			}{{"reading", serifFonts}, {"writing", sansFonts}, {"code", monoFonts}} {
+				f := a.firstInstalled(p.fonts)
+				if f == "" {
+					continue
+				}
+				on := a.settings.FontEditor == f
+				id := p.id
+				if choiceTile(c, "tile-preset-"+id, msg(id), on, func() {
+					ui.Column(c).Width(112).Height(66).Padding(8, 10).Gap(2).Background(cl.Card).Children(func() {
+						ui.Text(c, "Aa").Font(f).FontSize(26).FontWeight(500).TextColor(cl.Text)
+						ui.Text(c, f).Font(f).FontSize(10.5).TextColor(cl.Muted).MaxLines(1)
+					})
+				}) {
+					a.fontPreset(id)
+				}
+			}
+		})
+	})
+}
+
 // fontRows are the families of a list: the starred, those used last, and then all, narrowed by the
 // search, at most 80 at once (the rest are a search away).
 func (a *app) fontRows(r fontRole) (rows []string, more int) {
@@ -277,6 +307,7 @@ func (a *app) fontRows(r fontRole) (rows []string, more int) {
 // settingsFonts is the settings' page of the typefaces.
 func (a *app) settingsFonts(c *ui.Context) {
 	cl := ryugo.From(c).Colors
+	settingGroup(c, "set-font-presets", func() { a.fontPresetTiles(c) })
 	for ri := range fontRoles {
 		r := fontRole(ri)
 		role := fontRoles[ri]

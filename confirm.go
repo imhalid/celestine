@@ -15,22 +15,23 @@ type askState struct {
 	alt                 string // optional secondary choice beside action and Cancel
 	altRun              func()
 	keep                func() // what not doing it does, or nothing
+	inSet               bool   // asked in the settings' window, and drawn there (setwin.go)
 }
 
 // ask puts the question title, with body under it, before run; action is the label of the button that runs it.
 func (a *app) ask(title, body, action string, run func()) {
-	a.asking = askState{open: true, title: title, body: body, action: action, run: run}
+	a.asking = askState{open: true, title: title, body: body, action: action, run: run, inSet: a.sw.building}
 }
 
 // askChoice puts the question title with two actions beside Cancel: alt/altRun and action/run.
 func (a *app) askChoice(title, body, alt string, altRun func(), action string, run func()) {
-	a.asking = askState{open: true, title: title, body: body, action: action, run: run, alt: alt, altRun: altRun}
+	a.asking = askState{open: true, title: title, body: body, action: action, run: run, alt: alt, altRun: altRun, inSet: a.sw.building}
 }
 
 // askView is the question, while there is one.
 func (a *app) askView(c *ui.Context) {
 	q := &a.asking
-	if q.run == nil {
+	if q.run == nil || !a.overlayHere(q.inSet) {
 		return
 	}
 	was := q.open

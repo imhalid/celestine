@@ -738,8 +738,7 @@ func (a *app) syncBadge(c *ui.Context) {
 	}
 	b.Children(func() { ui.Text(c, "⇅ "+a.sy.status).FontSize(11.5).TextColor(col) })
 	if b.Clicked() {
-		a.openSettings()
-		a.pane().settingsTab = tabSync
+		a.openSettingsAt(tabSync)
 	}
 }
 

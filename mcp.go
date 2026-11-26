@@ -270,6 +270,7 @@ func (s *Settings) normalize() {
 
 func (a *app) saveSettings() {
 	a.settingsDirty = false
+	a.settingsGen++
 	kept := a.settingsToSave()
 	data, _ := json.MarshalIndent(kept, "", "  ")
 	if a.settingsStore != nil {
@@ -292,6 +293,7 @@ func (a *app) saveSettings() {
 // at every frame, and a write to the file at each would hold the frames back.
 func (a *app) saveSettingsSoon() {
 	a.settingsDirty, a.settingsAt = true, a.clock()
+	a.settingsGen++
 }
 
 func newToken() string {

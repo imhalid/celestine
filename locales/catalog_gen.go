@@ -10713,6 +10713,26 @@ func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
 }
 
+// SettingsBackSection says "Previous section"
+// in the language the app shows.
+func SettingsBackSection() string { return In(i18n.Locale()).SettingsBackSection() }
+
+// SettingsBackSection says "Previous section"
+// in the language of msgs.
+func (msgs Messages) SettingsBackSection() string {
+	return Catalog.Format(msgs.locale, "settings_backSection", nil)
+}
+
+// SettingsForwardSection says "Next section"
+// in the language the app shows.
+func SettingsForwardSection() string { return In(i18n.Locale()).SettingsForwardSection() }
+
+// SettingsForwardSection says "Next section"
+// in the language of msgs.
+func (msgs Messages) SettingsForwardSection() string {
+	return Catalog.Format(msgs.locale, "settings_forwardSection", nil)
+}
+
 // SettingsLinkIcons says "Site icons"
 // in the language the app shows.
 func SettingsLinkIcons() string { return In(i18n.Locale()).SettingsLinkIcons() }
@@ -11605,6 +11625,30 @@ func (msgs Messages) SettingsUnitSpaces(value string, count int) string {
 	return Catalog.Format(msgs.locale, "settings_unitSpaces", map[string]any{"value": value, "count": count})
 }
 
+// SettingsUpdateWaits says "Version {version} is ready"
+// in the language the app shows.
+func SettingsUpdateWaits(version string) string {
+	return In(i18n.Locale()).SettingsUpdateWaits(version)
+}
+
+// SettingsUpdateWaits says "Version {version} is ready"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateWaits(version string) string {
+	return Catalog.Format(msgs.locale, "settings_updateWaits", map[string]any{"version": version})
+}
+
+// SettingsVersionLine says "Celestine {version}"
+// in the language the app shows.
+func SettingsVersionLine(version string) string {
+	return In(i18n.Locale()).SettingsVersionLine(version)
+}
+
+// SettingsVersionLine says "Celestine {version}"
+// in the language of msgs.
+func (msgs Messages) SettingsVersionLine(version string) string {
+	return Catalog.Format(msgs.locale, "settings_versionLine", map[string]any{"version": version})
+}
+
 // SettingsWelcomeScreen says "Welcome screen"
 // in the language the app shows.
 func SettingsWelcomeScreen() string { return In(i18n.Locale()).SettingsWelcomeScreen() }
@@ -11663,6 +11707,16 @@ func SettingsSoundsSub() string { return In(i18n.Locale()).SettingsSoundsSub() }
 // in the language of msgs.
 func (msgs Messages) SettingsSoundsSub() string {
 	return Catalog.Format(msgs.locale, "settings_soundsSub", nil)
+}
+
+// SettingsWindowClassic says "Classic"
+// in the language the app shows.
+func SettingsWindowClassic() string { return In(i18n.Locale()).SettingsWindowClassic() }
+
+// SettingsWindowClassic says "Classic"
+// in the language of msgs.
+func (msgs Messages) SettingsWindowClassic() string {
+	return Catalog.Format(msgs.locale, "settings_windowClassic", nil)
 }
 
 // SettingsWriteZip says "Export zip"

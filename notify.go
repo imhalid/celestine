@@ -91,8 +91,7 @@ func (a *app) notify(id, title, body string) {
 func (a *app) notifyClicked(id string) {
 	switch id {
 	case notifySync:
-		a.openSettings()
-		a.pane().settingsTab = tabSync
+		a.openSettingsAt(tabSync)
 	case notifyUpdate:
 		if a.updRel != nil {
 			a.updOpen = true

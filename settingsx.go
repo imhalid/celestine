@@ -323,60 +323,47 @@ func (a *app) pickSettingsFile() {
 
 // ---- the screen's top: search, changed, profiles ----
 
-// settingsTop is the bar over a section: the search, the list of changed settings, the profiles.
-func (a *app) settingsTop(c *ui.Context) {
+// settingsModes are the settings' own pages, which stand in a section's place.
+var settingsModes = []struct{ id, name string }{{"changed", "changed"}, {"profiles", "profiles"}, {"keys", "shortcuts"}, {"file", "common_file"}}
+
+// settingsSearch is the search of the settings, at the top of their sidebar (#605): / gives it the keys, as the status
+// bar says.
+func (a *app) settingsSearch(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	search := func() {
-		q := a.setSearch
-		in := ui.TextInputBase(c.Key("set-search"), &q).Label(locales.SettingsSearchSettings()).Placeholder(locales.SettingsSearchSettings2()).PlaceholderColor(cl.Muted).
-			FontSize(13).Padding(7, 11).Radius(rad(9)).Grow(1).FocusRing(false)
-		fieldLook(in, cl, in.Focused()) // a well of its own, and a border of the accent while it has the focus (#410, #491)
-		a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
-		if phone {
-			in.FillWidth().Padding(10, 12)
+	q := a.setSearch
+	in := ui.TextInputBase(c.Key("set-search"), &q).Label(locales.SettingsSearchSettings()).Placeholder(locales.SettingsSearchSettings2()).PlaceholderColor(cl.Muted).
+		FontSize(13).Padding(7, 11).Radius(rad(9)).FillWidth().FocusRing(false)
+	fieldLook(in, cl, in.Focused()) // a well of its own, and a border of the accent while it has the focus (#410, #491)
+	a.fieldMenu(in, &q, fieldOpts{oneLine: true, changed: func() { a.setSearch = q }})
+	if phone {
+		in.Padding(10, 12)
+	}
+	if in.Changed() {
+		if a.setSlash { // the text of the / that focused it comes after the key: not a search
+			q = strings.TrimSuffix(q, "/")
 		}
-		if in.Changed() {
-			if a.setSlash { // the text of the / that focused it comes after the key: not a search
-				q = strings.TrimSuffix(q, "/")
-			}
-			a.setSearch, a.setSlash = q, false
-		}
-		if a.setFocus || !c.FocusTakesText() && c.Shortcut(0, ui.KeySlash) { // / as the status bar says
-			a.setFocus, a.setSlash = false, true
-			in.Focus()
+		a.setSearch, a.setSlash = q, false
+	}
+	if a.setFocus || !c.FocusTakesText() && c.Shortcut(0, ui.KeySlash) { // / as the status bar says
+		a.setFocus, a.setSlash = false, true
+		in.Focus()
+	}
+}
+
+// settingsModesRow is the buttons of the settings' own pages: a page open is lit, and closed by its button.
+func (a *app) settingsModesRow(c *ui.Context) {
+	cl := ryugo.From(c).Colors
+	for _, m := range settingsModes {
+		m := m
+		on := a.setMode == m.id
+		b := ui.Row(c.Key("set-mode:"+m.id)).Padding(6, 12).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[on]).
+			Label(msg(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+		b.Children(func() { ui.Text(c, msg(m.name)).FontSize(12.5).TextColor(cl.Text) })
+		if b.Clicked() {
+			a.setMode = map[bool]string{true: "", false: m.id}[on]
+			a.setSearch = ""
 		}
 	}
-	modes := func() {
-		for _, m := range []struct{ id, name string }{{"changed", "changed"}, {"profiles", "profiles"}, {"keys", "shortcuts"}, {"file", "common_file"}} {
-			m := m
-			on := a.setMode == m.id
-			b := ui.Row(c.Key("set-mode:"+m.id)).Padding(7, 12).Radius(rad(8)).Background(map[bool]ui.Color{true: cl.Accent.Alpha(0.2), false: cl.Fill}[on]).
-				Label(msg(m.name)).Role(ui.RoleButton).Cursor(ui.CursorPointer)
-			b.Children(func() { ui.Text(c, msg(m.name)).FontSize(12.5).TextColor(cl.Text) })
-			if b.Clicked() {
-				a.setMode = map[bool]string{true: "", false: m.id}[on]
-				a.setSearch = ""
-			}
-		}
-	}
-	box := ui.Box(c.Key("set-top-box")).FillWidth()
-	narrow := phone
-	if b := box.LayoutBounds(); b.W > 0 && b.W < 560 { // a small window: no room for the search beside the pages
-		narrow = true
-	}
-	box.Children(func() {
-		if narrow { // the search on a line of its own, the pages under it
-			ui.Column(c.Key("set-top")).FillWidth().Gap(8).Padding(0, 0, 10, 0).Children(func() {
-				search()
-				ui.Row(c).Gap(6).Wrap().Children(modes)
-			})
-			return
-		}
-		ui.Row(c.Key("set-top")).FillWidth().Gap(8).AlignItems(ui.Center).Padding(0, 0, 10, 0).Children(func() {
-			search()
-			modes()
-		})
-	})
 }
 
 // settingsExtra draws the search results or the special pages in place of a section; it reports that it did.
@@ -501,7 +488,7 @@ func (a *app) settingLine(c *ui.Context, d settingDef, withReset bool) {
 			g := ui.Row(c.Key("slg:"+d.name)).Padding(5, 9).Radius(rad(7)).Background(cl.Fill).Label(locales.SettingsGoLabel(msg(d.name))).Role(ui.RoleButton).Cursor(ui.CursorPointer)
 			g.Children(func() { ui.Icon(c, iconArrowRight).Width(14).Height(14).TextColor(cl.Text2) })
 			if g.Clicked() {
-				a.pane().settingsTab, a.setSearch, a.setMode = tab, "", ""
+				a.settingsGoIn(a.settingsPane(), tab)
 			}
 		})
 	})

@@ -330,14 +330,17 @@ type app struct {
 	settingsAt    time.Time   // when
 	savedAt       time.Time   // the last save of the page, shown in the status bar
 
-	prop        propEdit                  // the property dialog
-	propBuf     map[string]*string        // the text of the properties' fields, by page and property
-	propEditing string                    // the field being typed in
-	propErr     string                    // the field whose value did not fit
-	invalidate  func()                    // asks the window for a frame, from any goroutine
-	pal         palette                   // the command palette (palette.go)
-	searchCache map[searchKey][]searchHit // the last searches' hits (searchKept)
-	viewCache   struct {                  // the pages of the view shown (viewPages)
+	prop        propEdit                                  // the property dialog
+	propBuf     map[string]*string                        // the text of the properties' fields, by page and property
+	propEditing string                                    // the field being typed in
+	propErr     string                                    // the field whose value did not fit
+	invalidate  func()                                    // asks the window for a frame, from any goroutine
+	pal         palette                                   // the command palette (palette.go)
+	sw          setWinState                               // the settings' window (setwin.go)
+	newSetWin   func(view func(*ui.Context)) *mygo.Window // a test makes the settings' window here (nil: none, the test draws it)
+	settingsGen uint64                                    // counts the changes of the settings, for the other window to follow (setwin.go)
+	searchCache map[searchKey][]searchHit                 // the last searches' hits (searchKept)
+	viewCache   struct {                                  // the pages of the view shown (viewPages)
 		key   viewKey
 		pages []*Page
 		have  bool
@@ -365,6 +368,7 @@ func newApp(lib *Library) *app {
 	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, noSound: testing.Testing(),
 		indexState: indexState{sx: newSearchIndex(), firstFrame: make(chan struct{})}}
 	a.ps.states = []*paneState{newPaneState()}
+	a.sw.view = a.settingsWindowView
 	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
 	a.loadSettings()
@@ -1268,6 +1272,7 @@ func (a *app) viewFrame(c *ui.Context) {
 		a.loadTrash()
 	}
 	a.toastView(c)
+	a.followSettingsWindow()             // a setting changed here is shown in the settings' window (setwin.go)
 	a.cursorFXView(c, root)              // over everything, the pointer's effect when one is chosen (cursorfx.go)
 	pn = a.pane()                        // active pane may have changed during panesView/runLater
 	if pn.doc != nil && pn.coll == nil { // the boxes were read as the page's editor was built (pageBody)
@@ -1952,8 +1957,7 @@ func (a *app) status(c *ui.Context) {
 				ui.Text(c, locales.Mcp()).FontSize(11.5).FontWeight(600).TextColor(t.TextMuted)
 			})
 			if m.Clicked() {
-				a.openSettings()
-				a.pane().settingsTab = tabMCP
+				a.openSettingsAt(tabMCP)
 			}
 		}
 		a.agentStatus(c)
