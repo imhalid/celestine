@@ -13,7 +13,6 @@ import (
 	"errors"
 	"log"
 	"math"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -100,31 +99,31 @@ type app struct {
 
 	ps paneSet // the panes of the window (panes.go); a.pane() is the one in use
 
-	bars          map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
-	titles        titleIdx                // the pages by their titles, for the chips (chips.go)
-	nearFn        func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
-	wordsFn       caretText               // and the words round it
-	caretTry      caretTry                // the caret's playground in the settings (caretplay.go)
-	census        census                  // the sidebar's tree, counted once a frame (sidebar.go)
-	frameSeq      uint64                  // the frames built, counted
-	frameNow      time.Time               // the window's time this frame (c.Now): what the app's own animations are timed by
-	barLeft       float32                 // where macOS's window buttons end, as the frame's top edge last read it (frameTop)
-	topLeftR      ui.Rect                 // where the window's top-left buttons are, the sidebar's (frameTop): a pane's bar starts after them
-	paneDrag      paneDragState           // a pane carried by its bar (panebar.go)
-	edBuilt       map[uint64]uint64       // the frame each editor (by its element) was last built in (editorIsNew)
-	meter         frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
-	wframe        frameState              // the window's frame (windowframe.go)
-	glassTint     string                  // last CSS rgba() tint applied to macOS Liquid Glass
-	glassBg       ui.Color                // the page background glassTint was made from
-	glassDark     bool                    // and whether the window was dark
-	glassHasTint  bool                    // whether glassBg and glassDark are those of the last tint made
-	glassTintRuns int                     // counts glassTint() string builds for verifying per-frame skip
-	caretDraws    int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
-	caretFB       caretFallback           // cached editor CaretRect fallback for oversized paragraphs (#213)
-	caretFBReads  int                     // CaretRect fallback evaluations, for verifying no per-frame layout (#213)
-	noSound       bool                    // no sound is heard, whatever the settings say: in tests (sound.go)
-	soundAt       map[soundKind]time.Time // when each sound was last heard, so a burst of notices chimes once
-	soundPlay     func(soundKind)         // a test hears the sounds here instead
+	// The state of the app grouped by what it is about (appstate.go, #596): their fields are the app's own,
+	// a.links as before, and each says which lock holds it.
+	indexState
+	updateRuntime
+	mcpRuntime
+	syncRuntime
+	chromeState
+
+	bars         map[string]*funBar      // the scroll bars of the scroll areas, by name (funbar.go)
+	nearFn       func(n int) []nearGlyph // the letters near the text's caret, while it is being painted (caret.go)
+	wordsFn      caretText               // and the words round it
+	caretTry     caretTry                // the caret's playground in the settings (caretplay.go)
+	census       census                  // the sidebar's tree, counted once a frame (sidebar.go)
+	frameSeq     uint64                  // the frames built, counted
+	frameNow     time.Time               // the window's time this frame (c.Now): what the app's own animations are timed by
+	paneDrag     paneDragState           // a pane carried by its bar (panebar.go)
+	edBuilt      map[uint64]uint64       // the frame each editor (by its element) was last built in (editorIsNew)
+	meter        frameMeter              // what CELESTINE_FRAMES counts and the debug mode shows (framemeter.go)
+	wframe       frameState              // the window's frame (windowframe.go)
+	caretDraws   int                     // the caret's paints, counted: a window at rest has none (TestIdleAsksNoFrames)
+	caretFB      caretFallback           // cached editor CaretRect fallback for oversized paragraphs (#213)
+	caretFBReads int                     // CaretRect fallback evaluations, for verifying no per-frame layout (#213)
+	noSound      bool                    // no sound is heard, whatever the settings say: in tests (sound.go)
+	soundAt      map[soundKind]time.Time // when each sound was last heard, so a burst of notices chimes once
+	soundPlay    func(soundKind)         // a test hears the sounds here instead
 
 	forcePhone bool  // a phone's layout in any window (the tests); a narrow browser window has it anyway (mobile.go)
 	drawerOpen bool  // on a phone, the sidebar is open over the page
@@ -157,58 +156,35 @@ type app struct {
 	jelly     *slime
 	mizan     *mizanCaret
 
-	// Updates (update.go), shortcuts and macros of one's own, and the settings' search.
-	updKey       string      // a test's key for releases
-	updBusy      atomic.Bool // a check or a download goes on
-	updErr       string      // what the last check said, when it failed
-	updState     updateState // where an update the user asked for is
-	updChipAt    time.Time   // when the chip began to unfold: its light's passes are timed from it (updatepanel.go)
-	updPanelAt   time.Time   // when the update card began to open
-	updHeldAt    time.Time   // when the pointer was last on the update card: it stays updStay from then (updatepanel.go)
-	updEase      updEase     // the chip's fill as it is drawn, following the download smoothly
-	hello        helloState  // the note of the version just installed, at its first start (updhello.go)
-	statusH      float32     // the status bar's height, as it was laid out
-	updProg      updProgress // how far the download is
-	updRel       *Release    // the newer version found
-	updAuto      bool        // a check found a release and the settings say to put it in place
-	updNotes     bool        // the dialog shows the notes of the version installed, not a new one
-	updOpen      bool        // the dialog of it
-	keyCmd       string      // the command and the key being typed for a shortcut of one's own
+	// Shortcuts and macros of one's own, and the settings' search.
+	keyCmd       string // the command and the key being typed for a shortcut of one's own
 	keyAccel     string
 	macroName    string
 	macroList    string
-	setSearch    string                               // the search of the settings
-	setFocus     bool                                 // the settings' search takes the keys in the next frame (/)
-	setSlash     bool                                 // the / that focused the settings' search is still to come as text
-	setMode      string                               // the settings' special page: "changed", "profiles", "file"
-	profName     string                               // the name being typed for a profile
-	charW        map[string]float32                   // the width of n zeros in a font, for the line length (editing.go)
-	sy           syncUI                               // the state of synchronization (syncapp.go)
-	nt           notifyState                          // the system's notifications (notify.go)
-	libPath      string                               // the library opened: its file, or the folder of a folder library (recent.go)
-	keepRunning  func(reason string) (release func()) // MyGo's Power.KeepRunning, for a sync pass; nil in tests (netsync.go)
-	subtasks     subtaskState                         // the counts of tasks' subtasks (subtasks.go)
-	ac           acctUI                               // the account: signing in, its devices (account.go)
-	vimReg       richtext.Text                        // what dd and yy took, for p
-	kb           kbState                              // the keyboard's normal mode, the letters on what can be pressed (kb.go)
-	winW, winH   float32                              // the window's size, last frame
-	wel          welcomeState                         // the first opening (welcome.go)
-	winOnce      sync.Once                            // the window coming forward and going behind (windowEvent)
-	winWake      chan struct{}                        // the worker is woken to take winLast
-	winLast      atomic.Bool                          // the window's last state: in front
-	codeTheme    *editor.Theme                        // the colors of code, in the window's theme (codecolors.go)
-	codeLangs    codeLangs                            // the languages of the page's lines of code, by paragraph (codecolors.go)
-	blink        caretBlink                           // when the caret last moved, for it to blink once still (caretBlinkOff)
-	bsel         blockSel                             // blocks chosen from the keyboard (blocksel.go)
-	toasts       toastState                           // the toasts up (toast.go)
-	statCache    libStats                             // the library's figures, read at most every ten seconds
+	setSearch    string             // the search of the settings
+	setFocus     bool               // the settings' search takes the keys in the next frame (/)
+	setSlash     bool               // the / that focused the settings' search is still to come as text
+	setMode      string             // the settings' special page: "changed", "profiles", "file"
+	profName     string             // the name being typed for a profile
+	charW        map[string]float32 // the width of n zeros in a font, for the line length (editing.go)
+	nt           notifyState        // the system's notifications (notify.go)
+	libPath      string             // the library opened: its file, or the folder of a folder library (recent.go)
+	subtasks     subtaskState       // the counts of tasks' subtasks (subtasks.go)
+	vimReg       richtext.Text      // what dd and yy took, for p
+	kb           kbState            // the keyboard's normal mode, the letters on what can be pressed (kb.go)
+	wel          welcomeState       // the first opening (welcome.go)
+	winOnce      sync.Once          // the window coming forward and going behind (windowEvent)
+	winWake      chan struct{}      // the worker is woken to take winLast
+	winLast      atomic.Bool        // the window's last state: in front
+	codeTheme    *editor.Theme      // the colors of code, in the window's theme (codecolors.go)
+	codeLangs    codeLangs          // the languages of the page's lines of code, by paragraph (codecolors.go)
+	blink        caretBlink         // when the caret last moved, for it to blink once still (caretBlinkOff)
+	bsel         blockSel           // blocks chosen from the keyboard (blocksel.go)
+	statCache    libStats           // the library's figures, read at most every ten seconds
 	statCacheAt  time.Time
 	statCacheGen uint64   // the library's moves when they were read: they are read again only when it moved
 	statUnused   []string // the commands never run, found with the figures (statsUse)
 	statUnusedAt time.Time
-	sx           *searchIndex        // the text of every page, for the palette and the search (searchindex.go)
-	px           placeIdx            // the palette's places, folded once (palette.go)
-	edge         edgeDrag            // the sidebar or the side panel being dragged wider or narrower
 	statLoading  bool                // the first frame of the stats screen is drawn before the figures are read
 	setClock     func(time.Duration) // a test moves the clock
 	statReset    bool                // the reset asked once: the next click does it
@@ -247,7 +223,6 @@ type app struct {
 	sleep        sleeper                  // the caret asleep after five seconds (caretextras.go)
 	demos        map[caretKind]*caretDemo // the tiles of the carets in the settings, each at its own game
 	cursor       cursorState              // the effect of the mouse pointer (cursorfx.go)
-	winRect      ui.Rect                  // the window, as the caret layer was last made: the torch darkens all of it
 	saveErr      string
 	saveTried    time.Time      // when the open page's save last failed: autosave tries again a while after
 	savingAway   bool           // a big page's autosave is being made away from the frame (saveAway)
@@ -259,32 +234,24 @@ type app struct {
 	stamping     sync.WaitGroup     // the journal's days being written: a test waits for them
 	stampHold    func()             // a test holds the writing of the journal's days here
 	storeErr     string             // the library store's last write error, as shown
-	notice       string             // a toast to show
 	trashed      *TrashItem         // just thrown away: a toast offers it back
 
 	quick         *quickNote // the panel for a note, over everything (quick.go)
 	quickKeyDraft string     // the key being typed in the settings
 	quickKeyErr   string
-	tagRen        tagRename   // the dialog to rename a tag (tags.go)
-	vhist         histView    // the dialog of a page's versions (historyui.go)
-	tm            timeMachine // the page's history as a stack and a timeline (timemachine.go)
-	tmSide        tmSideState // what the timeline in the sidebar shows, while it is there and as it fades (tmside.go)
-	lapse         lapseState  // the time-lapse of the page, in place of its editor (lapseui.go)
-	noticePage    *Page       // the page the notice is about, to open from it
-	noticeUndo    func()      // takes back what the notice says was done: the notice has a Geri al
-	noticeTone    *toastKind  // the notice's kind, which a.say tells; none is news
-	hoverTag      string
-	coverHover    bool    // the pointer is in the cover band
-	coverW        float32 // the width the picture cover was last laid out at: its height follows it (cover.go)
-	coverMenu     bool    // the cover's menu is open
-	coverFix      *Page   // the page whose cover picture is being repositioned: dragged inside its band (cover.go)
-	coverDrag     bool    // the picture is held, its position not yet written
-	coverAt       float32 // its position while held, finer than the page's whole numbers
-	bannerMenu    bool    // and the collection banner's (banner.go)
-	hoverBorder   borderKey
+	tagRen        tagRename          // the dialog to rename a tag (tags.go)
+	vhist         histView           // the dialog of a page's versions (historyui.go)
+	tm            timeMachine        // the page's history as a stack and a timeline (timemachine.go)
+	tmSide        tmSideState        // what the timeline in the sidebar shows, while it is there and as it fades (tmside.go)
+	lapse         lapseState         // the time-lapse of the page, in place of its editor (lapseui.go)
+	coverW        float32            // the width the picture cover was last laid out at: its height follows it (cover.go)
+	coverMenu     bool               // the cover's menu is open
+	coverFix      *Page              // the page whose cover picture is being repositioned: dragged inside its band (cover.go)
+	coverDrag     bool               // the picture is held, its position not yet written
+	coverAt       float32            // its position while held, finer than the page's whole numbers
+	bannerMenu    bool               // and the collection banner's (banner.go)
 	cellW         map[string]float32 // how wide a cell's text is drawn, by its text (tables.go)
 	win           *mygo.Window       // the window, for its own controls (windowcontrols.go)
-	winBehind     bool               // the window is not the one in front: the glass is matte (glassLive)
 	lightbox      *picHit            // the picture shown large
 	ptags         []string           // the open page's tags, for the side panel
 	ptagsVer      uint64
@@ -306,14 +273,12 @@ type app struct {
 	collRects     map[*Collection]ui.Rect
 	ctx           ctxMenu        // the context menu (ctxmenu.go)
 	frame         func()         // asks for a frame that builds the view
-	links         linkIndex      // who links to whom (backlinks.go)
 	web           webLinks       // the web pages links go to, as far as they are known (linkcards.go)
 	wholeBlock    wholeBlock     // whether the block at the start of the page's text is all of it (blockhints.go)
 	listMarks     *listMarks     // the lists of the page's text and their looks, read once for each text (listmarks.go)
 	looks         *listMarks     // the lists that have a look, for the paint: none made for a text with no look (listLooks)
 	toggleMu      sync.Mutex     // held by the toggle of a task read and written away from the window (toggleTaskSoon)
 	toggling      sync.WaitGroup // the toggles going on: a test waits for them
-	hoverCh       *chip          // the chip the pointer is over
 	dateEdit      dateEdit       // the calendar a date chip opens
 
 	// The settings, and the MCP server they turn on (mcp.go). A frame and
@@ -325,57 +290,45 @@ type app struct {
 	// in it; settingsFile then is only where they were before.
 	settingsStore *Store
 	// inKeychain is each secret of the settings the keychain holds, as it was put there (keychain.go)
-	inKeychain      map[string]string
-	importNote      string                             // what the last import said, in the settings
-	embedCache      map[string][]string                // the first lines of the pages embedded (embed.go)
-	queryCache      map[string]queryResult             // what the query blocks found (queryblock.go)
-	queryDocs       map[*richtext.Document]*docQueries // query block attachments tracked per document (queryblock.go)
-	queryVer        int                                // incremented when dynamic query block heights change (spansVersion)
-	ctxCache        map[string][]seg                   // the lines that link to a page (backlinks.go)
-	chipW           map[string]float32                 // how wide the text of each chip is (chips.go)
-	autoCovers      map[uint64]*autoCover              // the patterns made for the covers of the pages shown lately (autocover.go)
-	tables          map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
-	sortLists       map[string]*manualState            // each list in its own order, by collection and view (views.go)
-	writingSaved    time.Time
-	exportNote      string                    // what the last export said, in the settings
-	docUse          []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
-	images          map[string]ui.ImageSource // the pictures read, by their file (images.go), the ones used last (limits.go)
-	imageUsed       map[string]uint64         // when each was used last, by imageClock
-	imageClock      uint64
-	imageMiss       map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
-	clipText        func(string)                              // the clipboard to write; the system's when nil
-	clipWrite       func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
-	clipRead        func() string                             // and to read
-	ownClip         ownClip                                   // the blocks or chips of the last copy in the editor (clipmodes.go)
-	carry           dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
-	panesR          ui.Rect                                   // where the panes were, last frame
-	sidebarR        ui.Rect                                   // where the sidebar was, last frame
-	prewarming      bool                                      // the pages are being read away from the window (prewarm.go)
-	rowsBuilt       int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
-	nextFrame       []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
-	winRadius       float64                                   // the window's corners' radius as the system draws them, read each frame (cardR)
-	keychainErr     error                                     // the keychain did not answer as the settings were read: said, not taken for a sign-out
-	firstFrame      chan struct{}                             // closed once the window's first frame is built: the reading of the pages waits for it (prewarm.go)
-	pageIndexWrites sync.WaitGroup                            // the writes of keepPageIndexes going on away from the window (backlinks.go)
-	fieldSels       map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
-	edPtr           ui.Point                                  // the pointer over the page's text, last frame
-	cellBar         ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
-	tagDrafts       map[string]*string                        // what is typed in the fields of tags and numbers (tagfield.go)
-	countEditing    string                                    // the number field being typed in
-	tagPop          map[string]bool                           // a field of tags whose last was taken away with ⌫
-	clipImage       func() []byte                             // the clipboard's picture; the system's when nil
-	outlineOf       []heading                                 // the page's headings, for the side panel
-	outlineVer      uint64
-	outlineDoc      *richtext.Document
-	imgOnClip       atomic.Bool // a picture, and no text, is on the clipboard
-	settingsDirty   bool        // changed, not yet written (saveSettingsSoon)
-	wob             wobble      // the shimmer, when an agent writes (wobble.go)
-	wobMu           sync.Mutex  // guards it: an agent's goroutine sends it
-	settingsAt      time.Time   // when
-	savedAt         time.Time   // the last save of the page, shown in the status bar
-	mcpServer       *http.Server
-	agent           agentEdits // what agents changed, to put back
-	mcpErr          string
+	inKeychain    map[string]string
+	importNote    string                             // what the last import said, in the settings
+	embedCache    map[string][]string                // the first lines of the pages embedded (embed.go)
+	queryCache    map[string]queryResult             // what the query blocks found (queryblock.go)
+	queryDocs     map[*richtext.Document]*docQueries // query block attachments tracked per document (queryblock.go)
+	queryVer      int                                // incremented when dynamic query block heights change (spansVersion)
+	chipW         map[string]float32                 // how wide the text of each chip is (chips.go)
+	autoCovers    map[uint64]*autoCover              // the patterns made for the covers of the pages shown lately (autocover.go)
+	tables        map[string]*tableUI                // the state of each collection table, by collection and view (views.go)
+	sortLists     map[string]*manualState            // each list in its own order, by collection and view (views.go)
+	writingSaved  time.Time
+	exportNote    string                    // what the last export said, in the settings
+	docUse        []*Page                   // the pages whose texts are kept, the longest unused first (touchDoc)
+	images        map[string]ui.ImageSource // the pictures read, by their file (images.go), the ones used last (limits.go)
+	imageUsed     map[string]uint64         // when each was used last, by imageClock
+	imageClock    uint64
+	imageMiss     map[string]time.Time                      // the pictures that could not be read, and when: they are tried again after imageRetry (images.go)
+	clipText      func(string)                              // the clipboard to write; the system's when nil
+	clipWrite     func(string, mygo.ClipboardOptions) error // overrides mygo.Clipboard.Write in tests; nil uses system clipboard
+	clipRead      func() string                             // and to read
+	ownClip       ownClip                                   // the blocks or chips of the last copy in the editor (clipmodes.go)
+	carry         dockCarry                                 // a page or a collection carried from the sidebar over the panes (dockdrop.go)
+	rowsBuilt     int                                       // the rows of the tree built in the last frame: the others are gaps (#581)
+	nextFrame     []func()                                  // what goroutines found that the paint reads: done as the next frame starts (doNextFrame)
+	keychainErr   error                                     // the keychain did not answer as the settings were read: said, not taken for a sign-out
+	fieldSels     map[*string]fieldSel                      // a selection the menu of a field left, to set on it (fieldmenu.go)
+	edPtr         ui.Point                                  // the pointer over the page's text, last frame
+	cellBar       ui.Rect                                   // the bar of the cell being written, as last laid out: the text under it has no pointer there (tables.go)
+	tagDrafts     map[string]*string                        // what is typed in the fields of tags and numbers (tagfield.go)
+	countEditing  string                                    // the number field being typed in
+	tagPop        map[string]bool                           // a field of tags whose last was taken away with ⌫
+	clipImage     func() []byte                             // the clipboard's picture; the system's when nil
+	outlineOf     []heading                                 // the page's headings, for the side panel
+	outlineVer    uint64
+	outlineDoc    *richtext.Document
+	imgOnClip     atomic.Bool // a picture, and no text, is on the clipboard
+	settingsDirty bool        // changed, not yet written (saveSettingsSoon)
+	settingsAt    time.Time   // when
+	savedAt       time.Time   // the last save of the page, shown in the status bar
 
 	prop        propEdit                  // the property dialog
 	propBuf     map[string]*string        // the text of the properties' fields, by page and property
@@ -404,16 +357,13 @@ type app struct {
 	cs         collSettings // a collection\'s settings (collsettings.go)
 	hist       []visited    // where the app went, and where it is in that (nav.go)
 	histAt     int
-	going      bool     // going back or forward: no new place in the history
-	menuBar    bool     // the menu bar has the shortcuts, not the window
-	pageBg     ui.Color // the page's background this frame (bg)
-	// glassAtLaunch is the Glass setting as the window was made with it: turned on since, it shows after a restart
-	glassAtLaunch bool
+	going      bool // going back or forward: no new place in the history
+	menuBar    bool // the menu bar has the shortcuts, not the window
 }
 
 func newApp(lib *Library) *app {
-	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, sx: newSearchIndex(), noSound: testing.Testing(),
-		firstFrame: make(chan struct{})}
+	a := &app{lib: lib, docs: map[*Page]*richtext.Document{}, jelly: newSlime(), mizan: &mizanCaret{}, clock: time.Now, noSound: testing.Testing(),
+		indexState: indexState{sx: newSearchIndex(), firstFrame: make(chan struct{})}}
 	a.ps.states = []*paneState{newPaneState()}
 	a.histAt = -1
 	a.meter.hud.Store(debugOnStart)
