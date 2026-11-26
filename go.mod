@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/egoist/mygo v0.10.1-0.20261124041827-c16fc5b6d8ed
-	github.com/imhalid/ryu-go v0.1.1-0.20261126111951-3a853df50c9a
+	github.com/imhalid/ryu-go v0.1.1-0.20261126112231-d855fbc9ed58
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.59.0
