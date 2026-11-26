@@ -1086,6 +1086,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	}
 
 	a.pageBg = a.bg(c)
+	a.syncWallpaper(tok.Dark) // the wallpaper as the frame's ground, read again as it changes (wallpaper.go)
 	a.syncGlassTint(c)
 	a.syncIcon(tok.Dark)
 	// A new look (light or dark, or another color theme) is a new tree: what was there
@@ -1107,8 +1108,10 @@ func (a *app) viewFrame(c *ui.Context) {
 	var root ui.Element
 	if framed { // the window's frame around the content, a card in it, and the status bar under (windowframe.go)
 		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Padding(0, frameW, 0, frameW)
-		if !useGlass {
-			g := frameGroundOf(c)
+		switch g, dark := frameGroundOf(c), tok.Dark; {
+		case a.wallActive() && a.wall.ok: // the wallpaper, the same whatever is behind the window (#606)
+			root.Draw(func(p *ui.Painter, r ui.Rect) { a.paintWallGround(p, r, g, dark) })
+		case !useGlass:
 			root.Draw(func(p *ui.Painter, r ui.Rect) { g.paint(p, r) })
 		}
 	} else {

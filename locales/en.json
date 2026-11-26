@@ -1300,6 +1300,8 @@
   "@settings_updateWaits": {"placeholders": {"version": {"type": "String"}}},
   "settings_versionLine": "Celestine {version}",
   "@settings_versionLine": {"placeholders": {"version": {"type": "String"}}},
+  "settings_wallpaperFrame": "Wallpaper behind the frame",
+  "settings_wallpaperFrameHelp": "The desktop's wallpaper, blurred, as the window's ground, where the window stands on its display. With Liquid Glass on a Mac it always is.",
   "settings_welcomeScreen": "Welcome screen",
   "settings_whatAgentsMayDo": "What agents can do with each collection. Hidden collections don't appear to agents at all.",
   "settings_whatFileSetWhat": "Settings in the file are applied; the rest stay as they are.",

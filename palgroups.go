@@ -33,6 +33,7 @@ var cmdCategory = map[string]string{
 	"common_colorTheme":          "common_appearance",
 	"icon_appIcon":               "common_appearance",
 	"tasks_look":                 "common_appearance",
+	"settings_wallpaperFrame":    "common_appearance",
 	"tasks_motion":               "common_appearance",
 	"tasks_burst":                "common_appearance",
 	"tasks_tint":                 "common_appearance",

@@ -46,21 +46,23 @@ type Settings struct {
 	// Appearance and the editor; zero is the default.
 	Theme int `json:"theme,omitempty"` // 0 the system's, 1 light, 2 dark
 	// the task boxes (taskstyle.go, #597): their preset, the switches of their extras, the names of the tag statuses
-	TaskLook     string   `json:"taskLook,omitempty"`     // "" Neon Glass, "vivid", "minimal"
-	TaskMotion   bool     `json:"taskMotion,omitempty"`   // the boxes' small ambient motions; off by default
-	TaskNoFX     bool     `json:"taskNoFx,omitempty"`     // no burst as a task is done
-	TaskTint     bool     `json:"taskTint,omitempty"`     // a task's row tinted in its status's color; off by default
-	TaskNoCounts bool     `json:"taskNoCounts,omitempty"` // no count of a task's subtasks under it
-	TaskTags     []string `json:"taskTags,omitempty"`     // the names of the seven tag statuses, "" for a slot's own
-	AppIcon      string   `json:"appIcon,omitempty"`      // the icon's look (appicon.go): "" Paper, "auto", or a look of internal/appicon
-	AppTheme     int      `json:"appTheme,omitempty"`     // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
-	Caret        int      `json:"caret,omitempty"`        // 0 Slime, 1 Mizan
-	CaretName    string   `json:"caretName,omitempty"`    // the caret by name: its number moves as carets are taken away
-	Jelly        bool     `json:"jelly,omitempty"`        // the jelly, put on any caret but the slime
-	CursorFX     string   `json:"cursorFx,omitempty"`     // the effect of the mouse pointer, by name (cursorfx.go): "" none
-	FontSize     float64  `json:"fontSize,omitempty"`     // the text's, 16.5
-	LineHeight   float64  `json:"lineHeight,omitempty"`   // 1.55
-	PageWidth    float64  `json:"pageWidth,omitempty"`    // the text column's, 720
+	TaskLook string `json:"taskLook,omitempty"` // "" Neon Glass, "vivid", "minimal"
+	// WallpaperFrame makes the desktop's wallpaper, blurred, the frame's ground where Glass does not (wallpaper.go)
+	WallpaperFrame bool     `json:"wallpaperFrame,omitempty"`
+	TaskMotion     bool     `json:"taskMotion,omitempty"`   // the boxes' small ambient motions; off by default
+	TaskNoFX       bool     `json:"taskNoFx,omitempty"`     // no burst as a task is done
+	TaskTint       bool     `json:"taskTint,omitempty"`     // a task's row tinted in its status's color; off by default
+	TaskNoCounts   bool     `json:"taskNoCounts,omitempty"` // no count of a task's subtasks under it
+	TaskTags       []string `json:"taskTags,omitempty"`     // the names of the seven tag statuses, "" for a slot's own
+	AppIcon        string   `json:"appIcon,omitempty"`      // the icon's look (appicon.go): "" Paper, "auto", or a look of internal/appicon
+	AppTheme       int      `json:"appTheme,omitempty"`     // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
+	Caret          int      `json:"caret,omitempty"`        // 0 Slime, 1 Mizan
+	CaretName      string   `json:"caretName,omitempty"`    // the caret by name: its number moves as carets are taken away
+	Jelly          bool     `json:"jelly,omitempty"`        // the jelly, put on any caret but the slime
+	CursorFX       string   `json:"cursorFx,omitempty"`     // the effect of the mouse pointer, by name (cursorfx.go): "" none
+	FontSize       float64  `json:"fontSize,omitempty"`     // the text's, 16.5
+	LineHeight     float64  `json:"lineHeight,omitempty"`   // 1.55
+	PageWidth      float64  `json:"pageWidth,omitempty"`    // the text column's, 720
 	// how the text is set and kept (editing.go)
 	ParaGap        *float64                  `json:"paraGap,omitempty"`        // the room between paragraphs, in ems: 0.55 when not set
 	NoAutoSave     bool                      `json:"noAutoSave,omitempty"`     // the page is saved by ⌘S, not by itself

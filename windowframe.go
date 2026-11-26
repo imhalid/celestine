@@ -181,12 +181,13 @@ func (a *app) syncGlassTint(c *ui.Context) {
 	}
 	dark := ryugo.From(c).Dark
 	alpha := glassOpacity(c, 0.56)
-	if a.glassHasTint && a.glassBg == a.pageBg && a.glassDark == dark {
+	base := a.wallTintBase() // the page's background, and the wallpaper's color when it is the ground (#606)
+	if a.glassHasTint && a.glassBg == base && a.glassDark == dark {
 		return
 	}
-	tint := glassTint(a.pageBg, alpha)
+	tint := glassTint(base, alpha)
 	a.glassTintRuns++
-	a.glassTint, a.glassBg, a.glassDark, a.glassHasTint = tint, a.pageBg, dark, true
+	a.glassTint, a.glassBg, a.glassDark, a.glassHasTint = tint, base, dark, true
 	if a.wel.win != nil {
 		a.wel.win.SetVibrancyTint(tint)
 	}

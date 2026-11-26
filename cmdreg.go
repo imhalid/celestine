@@ -169,6 +169,8 @@ func settingDefsFor(macOS bool) []settingDef {
 			}
 			return out
 		}},
+		tog("settings_wallpaperFrame", "wallpaper desktop duvar kağıdı arka plan frame", []string{"wallpaperFrame"},
+			func(a *app) bool { return a.settings.WallpaperFrame }, func(a *app, v bool) { a.settings.WallpaperFrame = v; a.saveSettings() }),
 		tog("tasks_motion", "task animation görev hareket", []string{"taskMotion"},
 			func(a *app) bool { return a.settings.TaskMotion }, func(a *app, v bool) { a.settings.TaskMotion = v; a.saveSettings() }),
 		tog("tasks_burst", "task confetti görev konfeti efekt", []string{"taskNoFx"},

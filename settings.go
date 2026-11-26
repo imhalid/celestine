@@ -554,6 +554,19 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	a.settingsMotion(c) // reduce motion, the shader effects (motion.go)
 	a.settingsWaves(c)
 	card := a.settings.SidebarCard
+	if runtime.GOOS != "darwin" || !a.settings.Glass { // with Glass on macOS the wallpaper is the ground anyway (#606)
+		wall := a.settings.WallpaperFrame
+		settingGroup(c, "set-wallpaper", func() {
+			settingRow(c, locales.SettingsWallpaperFrame(), locales.SettingsWallpaperFrameHelp(), func() {
+				ryugo.Switch(c.Key("set-wallpaper-sw"), &wall, ryugo.SwitchOptions{}).Label(locales.SettingsWallpaperFrame())
+			})
+		})
+		if wall != a.settings.WallpaperFrame {
+			a.settings.WallpaperFrame = wall
+			a.wall.checked = time.Time{} // looked for at once
+			a.saveSettings()
+		}
+	}
 	settingGroup(c, "set-sidebar-card", func() {
 		settingRow(c, locales.SettingsSidebarCard(), locales.SettingsSidebarCardHelp(), func() {
 			ryugo.Switch(c.Key("set-sidebar-card-sw"), &card, ryugo.SwitchOptions{}).Label(locales.SettingsSidebarCard())

@@ -1142,6 +1142,8 @@
   "@settings_updateWaits": {"placeholders": {"version": {"type": "String"}}},
   "settings_versionLine": "Celestine {version}",
   "@settings_versionLine": {"placeholders": {"version": {"type": "String"}}},
+  "settings_wallpaperFrame": "Çerçevenin ardında duvar kağıdı",
+  "settings_wallpaperFrameHelp": "Masaüstünün duvar kağıdı, bulanık, pencerenin zemini olarak; pencerenin ekranda durduğu yerden. Mac'te Liquid Glass açıkken hep öyledir.",
   "settings_welcomeScreen": "Karşılama ekranı",
   "settings_whatAgentsMayDo": "Ajanların her koleksiyonla neler yapabileceği. Gizli koleksiyonlar ajanlara hiç görünmez.",
   "settings_whatFileSetWhat": "Dosyadaki ayarlar uygulanır; dosyada olmayanlar olduğu gibi kalır.",

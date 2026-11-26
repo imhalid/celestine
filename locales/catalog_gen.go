@@ -11649,6 +11649,26 @@ func (msgs Messages) SettingsVersionLine(version string) string {
 	return Catalog.Format(msgs.locale, "settings_versionLine", map[string]any{"version": version})
 }
 
+// SettingsWallpaperFrame says "Wallpaper behind the frame"
+// in the language the app shows.
+func SettingsWallpaperFrame() string { return In(i18n.Locale()).SettingsWallpaperFrame() }
+
+// SettingsWallpaperFrame says "Wallpaper behind the frame"
+// in the language of msgs.
+func (msgs Messages) SettingsWallpaperFrame() string {
+	return Catalog.Format(msgs.locale, "settings_wallpaperFrame", nil)
+}
+
+// SettingsWallpaperFrameHelp says "The desktop's wallpaper, blurred, as the window's ground, where the window stands on its display. With Liquid Glass o…"
+// in the language the app shows.
+func SettingsWallpaperFrameHelp() string { return In(i18n.Locale()).SettingsWallpaperFrameHelp() }
+
+// SettingsWallpaperFrameHelp says "The desktop's wallpaper, blurred, as the window's ground, where the window stands on its display. With Liquid Glass o…"
+// in the language of msgs.
+func (msgs Messages) SettingsWallpaperFrameHelp() string {
+	return Catalog.Format(msgs.locale, "settings_wallpaperFrameHelp", nil)
+}
+
 // SettingsWelcomeScreen says "Welcome screen"
 // in the language the app shows.
 func SettingsWelcomeScreen() string { return In(i18n.Locale()).SettingsWelcomeScreen() }
