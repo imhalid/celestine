@@ -50,6 +50,7 @@ type menuItem struct {
 	danger             bool              // in red: deletes
 	items              func() []menuItem // a submenu, in the menus MyGo draws (popmenu.go)
 	glyph              *ui.SVG
+	colored            bool      // the glyph in its own colors, not the text's (#612)
 	dot                *ui.Color // a dot of this color where the glyph goes (a group's)
 	run                func()
 }

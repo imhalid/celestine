@@ -31,7 +31,7 @@ func fillMenu(m *ui.Menu, items []menuItem, chosen func()) {
 		if it.items != nil {
 			sub := it.items
 			mi := m.Submenu(msg(it.title), func(sm *ui.Menu) { fillMenu(sm, sub(), chosen) })
-			mi.Icon(menuIcon(it.glyph))
+			mi.Icon(menuIcon(it.glyph, it.colored))
 			continue
 		}
 		mi := m.Item(msg(it.title))
@@ -45,9 +45,9 @@ func fillMenu(m *ui.Menu, items []menuItem, chosen func()) {
 			mi.Danger()
 		}
 		if it.dot != nil {
-			mi.Icon(menuIcon(iconDot)).IconColor(*it.dot)
+			mi.Icon(menuIcon(iconDot, false)).IconColor(*it.dot)
 		} else {
-			mi.Icon(menuIcon(it.glyph))
+			mi.Icon(menuIcon(it.glyph, it.colored))
 		}
 		if mi.Chosen() && it.run != nil {
 			chosen()
@@ -62,15 +62,16 @@ var iconDot = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" vi
 // menuIcons are the menu icons made of the app's glyphs, each made once.
 var menuIcons sync.Map // *ui.SVG → ui.MenuIcon
 
-// menuIcon is glyph as a menu item's icon, in the color of the item's text; nil for none.
-func menuIcon(glyph *ui.SVG) ui.MenuIcon {
+// menuIcon is glyph as a menu item's icon, in the color of the item's text, or in its own colors when colored is set;
+// nil for none. A glyph is always one or the other.
+func menuIcon(glyph *ui.SVG, colored bool) ui.MenuIcon {
 	if glyph == nil {
 		return nil
 	}
 	if ic, ok := menuIcons.Load(glyph); ok {
 		return ic.(ui.MenuIcon)
 	}
-	ic, err := mygo.NewMenuIconSVG(glyph, true)
+	ic, err := mygo.NewMenuIconSVG(glyph, !colored)
 	if err != nil {
 		menuIcons.Store(glyph, ui.MenuIcon(nil))
 		return nil

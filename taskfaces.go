@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -16,9 +17,12 @@ import (
 // Crisp, and its small motions. What CSS draws there with borders, masks and box shadows is drawn here with paths,
 // clips and shadows; the measures are BetterTask's, for a box 16 points wide, and scale with the box.
 
-// glyphPart is a part of a glyph: its path, filled, or stroked stroke units wide with round ends.
+// glyphPart is a part of a glyph: its path (and its data, d), filled (even-odd when odd is set), or stroked stroke
+// units wide with round ends.
 type glyphPart struct {
 	path   *ui.Path
+	d      string
+	odd    bool
 	stroke float32
 }
 
@@ -35,10 +39,11 @@ func glyphOf(dy float32, parts ...string) glyph {
 	for _, s := range parts {
 		kind, d, _ := strings.Cut(s, " ")
 		path := ui.MustParsePath(d)
-		gp := glyphPart{path: path}
+		gp := glyphPart{path: path, d: d}
 		switch {
 		case kind == "e":
 			path.FillRule(ui.EvenOdd)
+			gp.odd = true
 		case strings.HasPrefix(kind, "s"):
 			w, err := strconv.ParseFloat(kind[1:], 32)
 			if err != nil {
@@ -99,16 +104,22 @@ var (
 const starPath = "M12 3.2L14.65 8.55L20.55 9.4L16.28 13.55L17.28 19.42L12 16.65L6.72 19.42L7.72 13.55L3.45 9.4L9.35 8.55L12 3.2Z"
 
 // BetterTask's drawings in their own colors: the alert's triangle, the kawaii face and the flower.
-var (
-	artAlert  = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ef4444"/></linearGradient></defs><path d="M10.45 4.2C11.15 2.95 12.85 2.95 13.55 4.2L21.3 18.2C21.98 19.42 21.1 21 19.7 21H4.3C2.9 21 2.02 19.42 2.7 18.2L10.45 4.2Z" fill="url(#g)"/><rect x="10.7" y="9" width="2.6" height="6.1" rx="1.3" fill="#ffffff"/><circle cx="12" cy="17.8" r="1.4" fill="#ffffff"/></svg>`))
-	artKawaii = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><radialGradient id="f" cx="0.38" cy="0.32" r="0.8"><stop offset="0" stop-color="#fff1f8"/><stop offset="1" stop-color="#f9a8d4"/></radialGradient></defs><path d="M5.2 7.4 L4.6 3.2 L8.6 5.2 Z M18.8 7.4 L19.4 3.2 L15.4 5.2 Z" fill="#f472b6"/><circle cx="12" cy="13" r="9" fill="url(#f)" stroke="#ec4899" stroke-width="1.1"/><path d="M7.4 12.1 q1.35 -1.9 2.7 0 M13.9 12.1 q1.35 -1.9 2.7 0" fill="none" stroke="#4a1d3d" stroke-width="1.45" stroke-linecap="round"/><ellipse cx="6.9" cy="15" rx="1.7" ry="1.05" fill="#fb7185" opacity="0.75"/><ellipse cx="17.1" cy="15" rx="1.7" ry="1.05" fill="#fb7185" opacity="0.75"/><path d="M10.5 15.2 q0.75 0.9 1.5 0 q0.75 0.9 1.5 0" fill="none" stroke="#4a1d3d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
-	artFlower = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fdf4ff"/><stop offset="1" stop-color="#f0abfc"/></linearGradient></defs>` +
+const (
+	svgAlert  = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ef4444"/></linearGradient></defs><path d="M10.45 4.2C11.15 2.95 12.85 2.95 13.55 4.2L21.3 18.2C21.98 19.42 21.1 21 19.7 21H4.3C2.9 21 2.02 19.42 2.7 18.2L10.45 4.2Z" fill="url(#g)"/><rect x="10.7" y="9" width="2.6" height="6.1" rx="1.3" fill="#ffffff"/><circle cx="12" cy="17.8" r="1.4" fill="#ffffff"/></svg>`
+	svgKawaii = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><radialGradient id="f" cx="0.38" cy="0.32" r="0.8"><stop offset="0" stop-color="#fff1f8"/><stop offset="1" stop-color="#f9a8d4"/></radialGradient></defs><path d="M5.2 7.4 L4.6 3.2 L8.6 5.2 Z M18.8 7.4 L19.4 3.2 L15.4 5.2 Z" fill="#f472b6"/><circle cx="12" cy="13" r="9" fill="url(#f)" stroke="#ec4899" stroke-width="1.1"/><path d="M7.4 12.1 q1.35 -1.9 2.7 0 M13.9 12.1 q1.35 -1.9 2.7 0" fill="none" stroke="#4a1d3d" stroke-width="1.45" stroke-linecap="round"/><ellipse cx="6.9" cy="15" rx="1.7" ry="1.05" fill="#fb7185" opacity="0.75"/><ellipse cx="17.1" cy="15" rx="1.7" ry="1.05" fill="#fb7185" opacity="0.75"/><path d="M10.5 15.2 q0.75 0.9 1.5 0 q0.75 0.9 1.5 0" fill="none" stroke="#4a1d3d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+	svgFlower = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fdf4ff"/><stop offset="1" stop-color="#f0abfc"/></linearGradient></defs>` +
 		`<ellipse cx="12" cy="6.7" rx="3.2" ry="4.3" transform="rotate(0 12 12)" fill="url(#p)" stroke="#d946ef" stroke-width="0.8"/>` +
 		`<ellipse cx="12" cy="6.7" rx="3.2" ry="4.3" transform="rotate(72 12 12)" fill="url(#p)" stroke="#d946ef" stroke-width="0.8"/>` +
 		`<ellipse cx="12" cy="6.7" rx="3.2" ry="4.3" transform="rotate(144 12 12)" fill="url(#p)" stroke="#d946ef" stroke-width="0.8"/>` +
 		`<ellipse cx="12" cy="6.7" rx="3.2" ry="4.3" transform="rotate(216 12 12)" fill="url(#p)" stroke="#d946ef" stroke-width="0.8"/>` +
 		`<ellipse cx="12" cy="6.7" rx="3.2" ry="4.3" transform="rotate(288 12 12)" fill="url(#p)" stroke="#d946ef" stroke-width="0.8"/>` +
-		`<circle cx="12" cy="12" r="3.1" fill="#fde047" stroke="#f59e0b" stroke-width="0.9"/><circle cx="11.1" cy="11.1" r="0.8" fill="#fffbeb"/></svg>`))
+		`<circle cx="12" cy="12" r="3.1" fill="#fde047" stroke="#f59e0b" stroke-width="0.9"/><circle cx="11.1" cy="11.1" r="0.8" fill="#fffbeb"/></svg>`
+)
+
+var (
+	artAlert  = ui.MustParseSVG([]byte(svgAlert))
+	artKawaii = ui.MustParseSVG([]byte(svgKawaii))
+	artFlower = ui.MustParseSVG([]byte(svgFlower))
 )
 
 // paint is what a box or a glyph is filled with: a color (from), or a gradient from from to to, linear at a CSS
@@ -170,6 +181,7 @@ type faceSpec struct {
 	inset     float32 // the glyph's margin, a fraction of the box
 	ink, inkL paint
 	art       *ui.SVG
+	artSrc    string // art's SVG, for the menus' icons
 	artInset  float32
 	drop      glow
 	done      faceLook
@@ -231,7 +243,7 @@ var faceSpecs = map[string]*faceSpec{
 		tint:  rgba(167, 139, 250, 0.08), colors: hex3("#c084fc", "#a78bfa", "#ede9fe"),
 	},
 	"error": {key: "alert",
-		art: artAlert, artInset: -0.05, drop: glow{rgba(239, 68, 68, 0.58), 5},
+		art: artAlert, artSrc: svgAlert, artInset: -0.05, drop: glow{rgba(239, 68, 68, 0.58), 5},
 		done: faceLook{radii: sq(5), border: ui.Hex("#f97316"), back: lin(145, "#fb923c", "#dc2626"), glow: glow{rgba(239, 68, 68, 0.38), 9}, gloss: 0.34},
 		tint: rgba(239, 68, 68, 0.11), colors: hex3("#ef4444", "#f97316", "#fde047"),
 	},
@@ -254,7 +266,7 @@ var faceSpecs = map[string]*faceSpec{
 // tagSpecs are the tag statuses' looks, by slot (tagStatusSlots).
 var tagSpecs = [7]*faceSpec{
 	{key: "kawaii",
-		art: artKawaii, artInset: -0.10, drop: glow{rgba(244, 114, 182, 0.45), 3},
+		art: artKawaii, artSrc: svgKawaii, artInset: -0.10, drop: glow{rgba(244, 114, 182, 0.45), 3},
 		done: faceLook{round: true, border: ui.Hex("#f472b6"), back: lin(145, "#f9a8d4", "#db2777"), glow: glow{rgba(244, 114, 182, 0.42), 9}, gloss: 0.4},
 		tint: rgba(244, 114, 182, 0.09), chip: ui.Hex("#f472b6"), chipL: ui.Hex("#db2777"), colors: hex3("#f9a8d4", "#f472b6", "#c4b5fd"),
 	},
@@ -280,7 +292,7 @@ var tagSpecs = [7]*faceSpec{
 		tint: rgba(249, 115, 22, 0.10), chip: ui.Hex("#fb923c"), chipL: ui.Hex("#c2410c"), colors: hex3("#fb923c", "#f97316", "#fed7aa"),
 	},
 	{key: "flower",
-		art: artFlower, artInset: -0.12, drop: glow{rgba(232, 121, 249, 0.45), 3},
+		art: artFlower, artSrc: svgFlower, artInset: -0.12, drop: glow{rgba(232, 121, 249, 0.45), 3},
 		done: faceLook{round: true, border: ui.Hex("#e879f9"), back: lin(145, "#f0abfc", "#a21caf"), glow: glow{rgba(232, 121, 249, 0.42), 9}, gloss: 0.4},
 		tint: rgba(232, 121, 249, 0.08), chip: ui.Hex("#e879f9"), chipL: ui.Hex("#a21caf"), colors: hex3("#f0abfc", "#e879f9", "#fde68a"),
 	},
@@ -754,4 +766,109 @@ func burstOf(f taskFace) ([]ui.Color, int) {
 		return cs, 2
 	}
 	return cs, 0
+}
+
+// ---- as a menu's icon ----
+
+// faceIcons are the faces made as SVGs for the menus, by face and theme, each made once.
+var faceIcons sync.Map // string → *ui.SVG
+
+// faceIcon is face f as an SVG in its own colors, for a menu's icon (#612): its Neon Glass box, border and glyph, in
+// the dark or the light inks, without the glow and the motions the menus cannot show.
+func faceIcon(f taskFace, dark bool) *ui.SVG {
+	sp := f.spec()
+	key := sp.key + map[bool]string{true: "/dark", false: "/light"}[dark]
+	if ic, ok := faceIcons.Load(key); ok {
+		return ic.(*ui.SVG)
+	}
+	var b strings.Builder
+	var defs strings.Builder
+	n := 0
+	paintOf := func(pt paint) string { // a fill's or a stroke's paint, a gradient made in defs (one color: both its stops)
+		if pt.to.A == 0 && pt.angle == 0 && !pt.radial {
+			pt.to = pt.from
+		}
+		n++
+		id := "g" + strconv.Itoa(n)
+		if pt.radial {
+			fmt.Fprintf(&defs, `<radialGradient id="%s" cx="%g" cy="%g" r="1">`, id, pt.cx, pt.cy)
+			fmt.Fprintf(&defs, `<stop offset="0" %s/><stop offset="1" %s/></radialGradient>`, svgStop(pt.from), svgStop(pt.to))
+		} else {
+			ang := float64(pt.angle) * math.Pi / 180
+			dx, dy := math.Sin(ang)/2, -math.Cos(ang)/2
+			fmt.Fprintf(&defs, `<linearGradient id="%s" x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f">`, id, 0.5-dx, 0.5-dy, 0.5+dx, 0.5+dy)
+			fmt.Fprintf(&defs, `<stop offset="0" %s/><stop offset="1" %s/></linearGradient>`, svgStop(pt.from), svgStop(pt.to))
+		}
+		return `url(#` + id + `)`
+	}
+	if sp.art != nil {
+		ic := ui.MustParseSVG([]byte(sp.artSrc))
+		faceIcons.Store(key, ic)
+		return ic
+	}
+	lk := sp.box
+	border, back, ink := lk.border, lk.back, sp.ink
+	if !dark {
+		if sp.borderL.A > 0 {
+			border = sp.borderL
+		}
+		if !sp.backL.zero() {
+			back = sp.backL
+		}
+		if !sp.inkL.zero() {
+			ink = sp.inkL
+		}
+	}
+	shape := func(r ui.Rect, inset float32) string {
+		if lk.round {
+			return fmt.Sprintf(`<circle cx="8" cy="8" r="%g"`, 8-inset)
+		}
+		rr := scaled(lk.radii, 1, -inset)
+		return `<path d="` + svgRoundRect(grow(r, -inset), rr) + `"`
+	}
+	box := ui.Rect{W: 16, H: 16}
+	if !back.zero() {
+		b.WriteString(shape(box, 0) + ` fill="` + paintOf(back) + `"/>`)
+	}
+	dash := ""
+	if lk.dashed {
+		dash = ` stroke-dasharray="3 2"`
+	}
+	b.WriteString(shape(box, 0.8) + ` fill="none" stroke-width="1.6" stroke="` + paintOf(paint{from: border}) + `"` + dash + `/>`)
+	if lk.coin.A > 0 {
+		b.WriteString(fmt.Sprintf(`<circle cx="8" cy="8" r="5.6" fill="none" stroke-width="1.2" stroke="%s"/>`, paintOf(paint{from: lk.coin})))
+	}
+	if g := sp.glyph; g != nil {
+		k := 16 * (1 - 2*sp.inset) / 24
+		fmt.Fprintf(&b, `<g transform="translate(%g %g) scale(%g)">`, 16*sp.inset, 16*sp.inset+g.dy*k, k)
+		for _, gp := range g.parts {
+			fill := paintOf(ink)
+			switch {
+			case gp.stroke > 0:
+				fmt.Fprintf(&b, `<path d="%s" fill="none" stroke="%s" stroke-width="%g" stroke-linecap="round" stroke-linejoin="round"/>`, gp.d, fill, gp.stroke)
+			case gp.odd:
+				fmt.Fprintf(&b, `<path d="%s" fill="%s" fill-rule="evenodd"/>`, gp.d, fill)
+			default:
+				fmt.Fprintf(&b, `<path d="%s" fill="%s"/>`, gp.d, fill)
+			}
+		}
+		b.WriteString(`</g>`)
+	}
+	src := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16"><defs>` + defs.String() + `</defs>` + b.String() + `</svg>`
+	ic := ui.MustParseSVG([]byte(src))
+	faceIcons.Store(key, ic)
+	return ic
+}
+
+// svgStop is the color attributes of a gradient's stop of color c.
+func svgStop(c ui.Color) string {
+	return fmt.Sprintf(`stop-color="#%02x%02x%02x" stop-opacity="%.3f"`, c.R, c.G, c.B, float32(c.A)/255)
+}
+
+// svgRoundRect is the path data of r with corners of radii, clockwise from the top left.
+func svgRoundRect(r ui.Rect, radii [4]float32) string {
+	tl, tr, br, bl := radii[0], radii[1], radii[2], radii[3]
+	x0, y0, x1, y1 := r.X, r.Y, r.X+r.W, r.Y+r.H
+	return fmt.Sprintf("M%g %gH%gA%g %g 0 0 1 %g %gV%gA%g %g 0 0 1 %g %gH%gA%g %g 0 0 1 %g %gV%gA%g %g 0 0 1 %g %gZ",
+		x0+tl, y0, x1-tr, tr, tr, x1, y0+tr, y1-br, br, br, x1-br, y1, x0+bl, bl, bl, x0, y1-bl, y0+tl, tl, tl, x0+tl, y0)
 }

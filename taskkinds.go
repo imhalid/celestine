@@ -450,10 +450,11 @@ func (a *app) taskBoxHits(c *ui.Context) {
 // taskKindMenu is the menu of the kinds a task can be, at x, y in the window: the one it is, ticked.
 func (a *app) taskKindMenu(at int, x, y float32) {
 	cur, _ := taskKindOf(a.pane().doc.Text().ParagraphStyleAt(at))
-	items := []menuItem{{title: "common_task", glyph: kindIcon["tasks"], hint: tick(cur.id == ""), run: func() { a.setTaskKind(at, "") }}}
+	dark := darkBg(a.pageBg) // each kind as its box looks (#612)
+	items := []menuItem{{title: "common_task", glyph: faceIcon(taskFace{slot: -1}, dark), colored: true, hint: tick(cur.id == ""), run: func() { a.setTaskKind(at, "") }}}
 	for _, k := range taskKinds {
 		id := k.id
-		items = append(items, menuItem{title: k.name, glyph: k.icon, hint: tick(cur.id == id), run: func() { a.setTaskKind(at, id) }})
+		items = append(items, menuItem{title: k.name, glyph: faceIcon(taskFace{id: id, slot: -1}, dark), colored: true, hint: tick(cur.id == id), run: func() { a.setTaskKind(at, id) }})
 	}
 	a.showContext(x, y, items)
 }

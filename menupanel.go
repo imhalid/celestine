@@ -142,6 +142,8 @@ func (a *app) drawMenu(c *ui.Context, t *ryugo.Tokens, m *menuPanel) ui.Element 
 							ui.Box(c).Width(13).Height(13).Shrink(0).Center().Children(func() {
 								ui.Box(c).Size(8, 8).Radius(rad(3)).Background(*it.dot).Border(1, cl.OnAccent.Alpha(map[bool]float32{true: 0.7, false: 0}[i == m.sel]))
 							})
+						} else if it.glyph != nil && it.colored {
+							ui.Image(c, it.glyph).Width(15).Height(15)
 						} else if it.glyph != nil {
 							ui.Icon(c, it.glyph).Width(13).Height(13).TextColor(muted)
 						}
