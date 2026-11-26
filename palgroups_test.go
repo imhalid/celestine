@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 // With nothing typed, the commands are in groups, and a family of many (a move to each of 40
@@ -56,7 +58,7 @@ func TestPaletteGroupsCommands(t *testing.T) {
 	}
 }
 
-// A group's line opens the group: its commands, a family of them as one line, and the way back.
+// A group's line opens the group: its commands and a family of them as one line, with no line to go back by (#603).
 func TestPaletteOpensAGroup(t *testing.T) {
 	a, tt := newTestApp(t, "Metin\n")
 	tt.Frame()
@@ -82,11 +84,79 @@ func TestPaletteOpensAGroup(t *testing.T) {
 			t.Fatalf("%q under %q", it.title, it.group)
 		}
 	}
-	if !titles["Bütün gruplar"] || !titles["Caret…"] || !titles["Renk teması…"] {
+	if titles["Bütün gruplar"] || !titles["Caret…"] || !titles["Renk teması…"] {
 		t.Fatalf("lines: %v", titles)
 	}
-	a.runItem(items[0]) // back
+	a.palBack()
 	if a.pal.cat != "" || !a.pal.open {
 		t.Fatalf("not back: %+v", a.pal)
+	}
+}
+
+// With nothing typed, Right opens the group or the family chosen and Left goes back out to it, chosen again;
+// with words typed, the arrows move the caret and do not leave the list (#603).
+func TestPaletteArrowsOpenAndLeave(t *testing.T) {
+	a, tt := newTestApp(t, "Metin\n")
+	tt.SetSize(1000, 700)
+	tt.Frame()
+	a.openCommands()
+	tt.Frame()
+	items := a.palLines()
+	g := -1
+	for i, it := range items {
+		if it.group == "groups" && it.title == msg("common_appearance") {
+			g = i
+		}
+	}
+	if g < 0 {
+		t.Fatal("no Görünüm group")
+	}
+	a.pal.sel = g
+	tt.Frame()
+	tt.Key(0, ui.KeyRight)
+	tt.Frame()
+	if a.pal.cat != "common_appearance" || !a.pal.open {
+		t.Fatalf("Right did not open the group: %+v", a.pal.cat)
+	}
+	fam := -1
+	for i, it := range a.palLines() {
+		if it.drill {
+			fam = i
+		}
+	}
+	if fam < 0 {
+		t.Fatal("no family in the group")
+	}
+	a.pal.sel = fam
+	tt.Frame()
+	tt.Key(0, ui.KeyRight)
+	tt.Frame()
+	if a.pal.cat != "" || !strings.HasSuffix(a.pal.query, ": ") {
+		t.Fatalf("Right did not open the family: %q", a.pal.query)
+	}
+	tt.Key(0, ui.KeyLeft)
+	tt.Frame()
+	if a.pal.cat != "common_appearance" || a.pal.sel != fam {
+		t.Fatalf("Left did not go back to the group: cat %q sel %d, want %d", a.pal.cat, a.pal.sel, fam)
+	}
+	tt.Key(0, ui.KeyLeft)
+	tt.Frame()
+	if a.pal.cat != "" || a.pal.query != ">" || a.pal.sel != g || !a.pal.open {
+		t.Fatalf("Left did not go back to the groups: cat %q query %q sel %d, want %d", a.pal.cat, a.pal.query, a.pal.sel, g)
+	}
+	tt.Key(0, ui.KeyRight)
+	tt.Frame()
+	tt.Key(0, ui.KeyBackspace)
+	tt.Frame()
+	if a.pal.cat != "" || a.pal.sel != g || !a.pal.open {
+		t.Fatalf("⌫ did not go back to the groups: cat %q sel %d", a.pal.cat, a.pal.sel)
+	}
+	typeEach(tt, "tema")
+	tt.Frame()
+	tt.Key(0, ui.KeyLeft)
+	tt.Key(0, ui.KeyRight)
+	tt.Frame()
+	if a.pal.query != ">tema" || a.pal.cat != "" || !a.pal.open {
+		t.Fatalf("the arrows left the typed query: %q cat %q", a.pal.query, a.pal.cat)
 	}
 }

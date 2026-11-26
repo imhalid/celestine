@@ -37,8 +37,11 @@ type palette struct {
 	cat    string    // the group of commands opened, with nothing typed (palgroups.go)
 	items  []palItem // the lines for key, kept: made again only when what they come from changed (#186)
 	key    palKey
-	have   bool // items are made for key (none at all is a list too)
-	made   int  // how many times the lines were made, counted for a test
+	have   bool   // items are made for key (none at all is a list too)
+	made   int    // how many times the lines were made, counted for a test
+	up     *palUp // the list the group or the family shown was opened from (#603)
+	opened string // the query the group or the family opened with: Left goes back while it is unchanged
+	move   int    // -1 out of the list shown, 1 into the row chosen: asked by a key in the field (#603)
 }
 
 // palKey is what the palette's lines come from: the query, the group opened, the pages of the library, the open page's
@@ -74,6 +77,7 @@ type palItem struct {
 	name             string // an app command's Turkish title, as the code names it (appcmds.go), whatever the language
 	id               string // what it is whatever the language: a command's or a setting's title as the code writes it; the recent commands and the keys of one's own are kept by it
 	kind             palKind
+	drill            bool        // it opens a list (a group, a family): Right opens it as Enter does (#603)
 	coll             *Collection // collection named by or owning the target of this command, for MCP visibility
 	destDir          string      // destination collection folder for moveThePage, matched by Dir rather than Name
 }
@@ -720,9 +724,30 @@ func (a *app) paletteView(c *ui.Context) {
 						a.pal.query = string(m) + a.pal.text
 					}
 				}
+				// the field takes the arrows and ⌫ before any shortcut around it: what they do in the list is
+				// asked of it as they come, and done as the palette is built next (#603)
+				drill := a.pal.text == "" && len(items) > 0 && items[a.pal.sel].drill
+				canBack, inGroup := a.palCanBack(), a.pal.cat != "" && a.pal.text == ""
+				in.OnTextKey(func(k ui.TextKey) bool {
+					switch {
+					case k.Mods != 0:
+						return false
+					case k.Key == ui.KeyLeft && canBack, k.Key == ui.KeyBackspace && inGroup:
+						a.pal.move = -1 // out of the group or the family, not a caret move
+					case k.Key == ui.KeyRight && drill:
+						a.pal.move = 1 // into the group or the family chosen
+					default:
+						return false
+					}
+					return true
+				})
+				move := a.pal.move
+				a.pal.move = 0
 				switch {
-				case a.pal.cat != "" && a.pal.text == "" && in.Shortcut(0, ui.KeyBackspace): // out of the group opened
-					a.pal.cat = ""
+				case move < 0:
+					a.palBack()
+				case move > 0 && len(items) > 0:
+					a.runItem(items[a.pal.sel])
 				case in.Shortcut(0, ui.KeyDown):
 					a.pal.sel, a.pal.reveal = min(a.pal.sel+1, len(items)-1), true
 				case in.Shortcut(0, ui.KeyUp):

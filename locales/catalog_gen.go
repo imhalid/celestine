@@ -8577,16 +8577,6 @@ func (msgs Messages) PagesAreNotAddedToA() string {
 	return Catalog.Format(msgs.locale, "pagesAreNotAddedToA", nil)
 }
 
-// PaletteAllGroups says "All groups"
-// in the language the app shows.
-func PaletteAllGroups() string { return In(i18n.Locale()).PaletteAllGroups() }
-
-// PaletteAllGroups says "All groups"
-// in the language of msgs.
-func (msgs Messages) PaletteAllGroups() string {
-	return Catalog.Format(msgs.locale, "palette_allGroups", nil)
-}
-
 // PaletteCloseBack says "Close: go back"
 // in the language the app shows.
 func PaletteCloseBack() string { return In(i18n.Locale()).PaletteCloseBack() }

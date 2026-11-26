@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -162,16 +163,15 @@ func (a *app) groupCommands(items []palItem) []palItem {
 		it.group = it.cat
 		byCat[it.cat] = append(byCat[it.cat], it)
 	}
-	if c := a.pal.cat; c != "" { // a group opened: its commands, and the way back
-		back := palItem{title: locales.PaletteAllGroups(), glyph: iconBack, group: c, run: func() { a.pal = palette{open: true, query: ">"} }}
-		return append([]palItem{back}, byCat[c]...)
+	if c := a.pal.cat; c != "" { // a group opened: its commands; Left, Backspace or Esc go back (#603)
+		return byCat[c]
 	}
 	out := here
 	for _, g := range cmdCats { // each group a line, which opens it
 		if n := len(byCat[g]); n > 0 {
 			name := g
 			out = append(out, palItem{title: msg(name), keys: locales.PaletteOptions(n), glyph: catGlyph(byCat[name]), group: "groups",
-				run: func() { a.pal = palette{open: true, query: ">", cat: name} }})
+				drill: true, run: func() { a.palDrill(">", name) }})
 		}
 	}
 	return out
@@ -186,5 +186,33 @@ func catGlyph(items []palItem) *ui.SVG {
 func (a *app) famItem(it palItem, n int) palItem {
 	name := msg(it.fam)
 	return palItem{title: name + "…", keys: locales.PaletteOptions(n), glyph: it.glyph, cat: it.cat, boost: it.boost,
-		run: func() { a.pal = palette{open: true, query: ">" + name + ": "} }}
+		drill: true, run: func() { a.palDrill(">"+name+": ", "") }}
+}
+
+// palUp is the list a group or a family was opened from: what Left goes back to, with its row chosen again.
+type palUp struct {
+	query, cat string
+	sel        int
+	up         *palUp
+}
+
+// palDrill opens a group (cat) or a family (query) from the list shown, keeping that list to go back to.
+func (a *app) palDrill(query, cat string) {
+	up := &palUp{query: a.pal.query, cat: a.pal.cat, sel: a.pal.sel, up: a.pal.up}
+	a.pal = palette{open: true, query: query, cat: cat, up: up, opened: query}
+}
+
+// palCanBack is whether Left goes back out: a group or a family is open and nothing was typed in it since.
+func (a *app) palCanBack() bool {
+	return (a.pal.up != nil || a.pal.cat != "") && a.pal.query == cmp.Or(a.pal.opened, ">")
+}
+
+// palBack goes back to the list the group or the family was opened from, with the row it was opened by chosen.
+func (a *app) palBack() {
+	u := a.pal.up
+	if u == nil {
+		u = &palUp{query: ">"}
+	}
+	a.pal = palette{open: true, query: u.query, cat: u.cat, sel: u.sel, was: u.query, hseen: -1, reveal: true, up: u.up,
+		opened: u.query}
 }
