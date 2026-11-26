@@ -232,6 +232,8 @@ type app struct {
 	runOnUI      func(func())       // UI-thread dispatcher when the event loop is active (#173)
 	daysStamped  bool               // the journal's pages have their days kept (stampDays)
 	locked       lockKey            // what the journal's past days were locked for (lockDays, #622)
+	spell        spellState         // the spell checker's model (spell.go, #623)
+	spellEng     spellEngineState   // and its engine, and the paragraphs it checked
 	stamping     sync.WaitGroup     // the journal's days being written: a test waits for them
 	stampHold    func()             // a test holds the writing of the journal's days here
 	storeErr     string             // the library store's last write error, as shown
@@ -1408,6 +1410,7 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 	a.settleRooms(pn, ed) // the hole a block dropped left, shutting (blockui.go)
 	a.hoverCh, a.hoverTag = nil, ""
 	pn.tagSeen, pn.tagHits = pn.tagHits, pn.tagSeen[:0] // this frame's are drawn after
+	pn.spellSeen, pn.spellHits = pn.spellHits, pn.spellSeen[:0]
 	pn.linkSeen, pn.linkHits = pn.linkHits, pn.linkSeen[:0]
 	x, y, over := a.textPointer(pn, ed)
 	a.hoverLink(c, pn, pn.editorR.X+x, pn.editorR.Y+y, over) // its card, after a moment (linkcards.go)
@@ -1469,6 +1472,7 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 		a.drawWhite(pn, p, r)
 		a.drawFocusVeil(pn, p, r)
 		a.drawTags(pn, p, r)
+		a.spellPlaces(pn, r) // where the words the spell checker found are, for the editor's menu (spell.go)
 		a.sealTables(pn)
 		a.sealPics(pn)
 	})
@@ -1691,7 +1695,7 @@ func (a *app) track(c *ui.Context) {
 		text, v = pn.doc.Text(), pn.doc.Version()
 		n = text.Len()
 	}
-	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) || a.expandSnippet(text, caret, keyed) {
+	if a.chipShortcut(text, caret, keyed) || a.checkShortcut(text, caret, keyed) || a.expandSnippet(text, caret, keyed) || a.spellFixTyped(text, caret, keyed) {
 		_, caret = pn.doc.Selection()
 		text, v = pn.doc.Text(), pn.doc.Version()
 		style = text.ParagraphStyleAt(caret)

@@ -54,6 +54,7 @@ type Settings struct {
 	TaskNoTint     bool     `json:"taskNoTint,omitempty"`   // no tint along a task's row in its status's color
 	TaskNoCounts   bool     `json:"taskNoCounts,omitempty"` // no count of a task's subtasks under it
 	TaskTags       []string `json:"taskTags,omitempty"`     // the names of the seven tag statuses, "" for a slot's own
+	SpellCheck     bool     `json:"spellCheck,omitempty"`   // Turkish spell checking, its model downloaded once (spell.go, #623)
 	AppIcon        string   `json:"appIcon,omitempty"`      // the icon's look (appicon.go): "" Paper, "auto", or a look of internal/appicon
 	AppTheme       int      `json:"appTheme,omitempty"`     // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
 	Caret          int      `json:"caret,omitempty"`        // 0 Slime, 1 Mizan

@@ -1,0 +1,62 @@
+Third-Party Notices
+
+This directory (internal/spell/morph) is a Go port of the src/morphology/ directory of tinyfix-tr
+(https://github.com/imhalid/tinyfix-tr), whose TypeScript was adapted from Zemberek-NLP.
+
+Zemberek-NLP
+  Upstream project: https://github.com/ahmetaa/zemberek-nlp
+  Copyright 2018 Ahmet A. Akın, Mehmet D. Akın
+  License: Apache License, Version 2.0 (below)
+
+Adapted components, through the TypeScript:
+
+1. types.go and phonetics.go
+   Adapted from AttributesHelper.java, SurfaceTransition.java, SuffixTransition.java, and Zemberek's root and
+   phonetic attribute definitions (RootAttribute, PhoneticAttribute). Root and phonetic attributes are 32-bit
+   bit masks; Zemberek's suffix template notation (A, I, +x, >x, ~x, !x) is kept.
+
+2. morphotactics.go
+   Adapted from TurkishMorphotactics.java and Conditions.java: the Turkish finite-state morphotactics of nouns,
+   compounds (CompoundP3sg), su/akarsu, adjectives, numerals, nominal predicates (ek-fiil and değil), pronouns,
+   adverbs, postpositives, verbs (tenses, compound tenses, negation, ability, voice, verbal nouns, participles,
+   converbs, the irregular demek/yemek), standalone question particles, and imek. Modified for the precision of
+   formal spell checking: the colloquial vowel-dropped locative and ablative contractions
+   (connectLastVowelDropWords: burda, içerde, ilerde...) are left out, the nominalization of closed-class
+   function adjectives (nasıl, öyle, her...) and the locative of "daha" are restricted, pronominal -ki routes its
+   cases through pronAfterRel_S to reject forms without the buffer consonant (*evdekiyi), and the productive -daş
+   (>dAş) derivation is added.
+
+3. dictionary.go and binary.go
+   Adapted from StemTransitionsBase.java and Zemberek's .dict lexicon format (master-dictionary.dict,
+   non-tdk.dict, informal.dict, proper.dict): .dict parsing, the inference of Turkish root attributes
+   (Aorist_A/Aorist_I, Passive_In, Causative_t, ProgressiveVowelDrop, the voicing of non-verbs), the dummy
+   CompoundP3sgRoot stems, and the special root alternations (ben/ban, sen/san, de/di, ye/yi, birbiri/birbir,
+   çoğu/çok). The [A:Ext] and [A:Informal] entries and a few non-TDK entries of master-dictionary.dict are left
+   out so that common misspellings are not accepted.
+
+4. analyzer.go
+   Adapted from RuleBasedAnalyzer.java, SearchPath.java and StemTransitionsMapBased.java, redesigned as a
+   low-allocation forward search (offsets instead of substrings, linked path nodes, 64-entry per-transition
+   surface caches, circumflex verification, a bounded result cache).
+
+prior.go, fuzzy.go and morph.go are tinyfix-tr's own (the generative prior, the error-tolerant search and the
+entry point) and use the adapted components above.
+
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+Copyright 2018 Ahmet A. Akın, Mehmet D. Akın
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

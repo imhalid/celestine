@@ -177,6 +177,8 @@ func settingDefsFor(macOS bool) []settingDef {
 			func(a *app) bool { return !a.settings.TaskNoFX }, func(a *app, v bool) { a.settings.TaskNoFX = !v; a.saveSettings() }),
 		tog("tasks_tint", "task row tint görev satır renk", []string{"taskNoTint"},
 			func(a *app) bool { return !a.settings.TaskNoTint }, func(a *app, v bool) { a.settings.TaskNoTint = !v; a.saveSettings() }),
+		tog("spell_title", "spell check yazım denetimi imla", []string{"spellCheck"},
+			func(a *app) bool { return a.settings.SpellCheck }, func(a *app, v bool) { a.setSpellCheck(v) }),
 		tog("tasks_counts", "subtask count alt görev sayı", []string{"taskNoCounts"},
 			func(a *app) bool { return !a.settings.TaskNoCounts }, func(a *app, v bool) { a.settings.TaskNoCounts = !v; a.saveSettings() }),
 		{name: "icon_appIcon", alias: "app icon dock simge uygulama", fields: []string{"appIcon"}, kind: setChoice, choices: func(a *app) []settingChoice {

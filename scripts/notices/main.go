@@ -1,7 +1,8 @@
 // Command notices writes the notices of the third-party software compiled into the app, as Markdown: each module
 // the builds link (macOS, Linux, Windows and the browser's), with its licence's text as the module ships it. The
 // release packs it beside the program (THIRD_PARTY_NOTICES.md): MIT, BSD and Apache-2.0 ask that their notice go
-// with the binaries (#256). NOTICE.md, by hand, holds what is drawn after other works without their code.
+// with the binaries (#256). NOTICE.md, by hand, holds what is drawn after other works without their code; it goes at
+// the end, with Zemberek-NLP's notice of the code adapted from it (internal/spell/morph/NOTICE).
 //
 //	go run ./scripts/notices > dist/THIRD_PARTY_NOTICES.md
 package main
@@ -81,6 +82,21 @@ func main() {
 		for _, t := range texts {
 			fmt.Fprintf(w, "```\n%s\n```\n", strings.TrimRight(t, "\n"))
 		}
+	}
+	// what the app's own code was adapted from, and the notices it carries: NOTICE.md, and Zemberek-NLP's, whose
+	// Apache 2.0 asks that it go with the program (the spell checker's morphology, #623)
+	for _, f := range []string{"NOTICE.md", filepath.Join("internal", "spell", "morph", "NOTICE")} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "no", f)
+			missing++
+			continue
+		}
+		text := string(b) // NOTICE.md is Markdown already, its code blocks its own
+		if !strings.HasSuffix(f, ".md") {
+			text = "```\n" + strings.TrimRight(strings.ReplaceAll(text, "```", "'''"), "\n") + "\n```"
+		}
+		fmt.Fprintf(w, "\n---\n\n%s\n", strings.TrimRight(text, "\n"))
 	}
 	if missing > 0 {
 		w.Flush()

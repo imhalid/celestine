@@ -137,7 +137,7 @@ func (a *app) editorItems(y float32) []menuItem {
 	doc := pn.doc
 	sa, sc := doc.Selection()
 	s, e := min(sa, sc), max(sa, sc)
-	var out []menuItem
+	out := a.spellItems(a.spellAt(pn, pn.editorR.X+a.edPtr.X, pn.editorR.Y+a.edPtr.Y)) // a word the spell checker found: its fixes first (spell.go)
 	if s < e {
 		md := strings.TrimSuffix(bodyMarkdown(doc.Text().Slice(s, e)), "\n")
 		out = append(out,

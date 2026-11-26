@@ -140,6 +140,7 @@ func (a *app) spansVersion(pn *paneState) int {
 	}
 	v += a.tasks.ver * 7919           // a task's line being drawn through it (strikeSpans)
 	v += a.inlineTaskKey(pn) * 104729 // the task in the running text the caret is in, shown as one (#610)
+	v += a.spellKey(pn) * 15485863    // the spell checker's underlines: its checks, and the word being typed (spell.go)
 	if !linkIcons {                   // no room before links for their icons (linkcards.go)
 		v += 1 << 40
 	}

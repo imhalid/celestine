@@ -115,6 +115,8 @@ type paneState struct {
 	// or a click in one is tested against what another drew (#390).
 	tagHits    []tagHit // the tags (tags.go)
 	tagSeen    []tagHit
+	spellHits  []spellHit // the words the spell checker found (spell.go)
+	spellSeen  []spellHit
 	linkHits   []linkHit // the links (links.go)
 	linkSeen   []linkHit
 	picHits    []picHit // the pictures (images.go)

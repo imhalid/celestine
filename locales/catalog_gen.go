@@ -12603,6 +12603,138 @@ func (msgs Messages) SnippetsTitle() string {
 	return Catalog.Format(msgs.locale, "snippets_title", nil)
 }
 
+// SpellTitle says "Spell check (Turkish)"
+// in the language the app shows.
+func SpellTitle() string { return In(i18n.Locale()).SpellTitle() }
+
+// SpellTitle says "Spell check (Turkish)"
+// in the language of msgs.
+func (msgs Messages) SpellTitle() string {
+	return Catalog.Format(msgs.locale, "spell_title", nil)
+}
+
+// SpellHelp says "Fixes the words it is sure of as you type, and underlines those it is not, with suggestions. Offline: your text never…"
+// in the language the app shows.
+func SpellHelp() string { return In(i18n.Locale()).SpellHelp() }
+
+// SpellHelp says "Fixes the words it is sure of as you type, and underlines those it is not, with suggestions. Offline: your text never…"
+// in the language of msgs.
+func (msgs Messages) SpellHelp() string {
+	return Catalog.Format(msgs.locale, "spell_help", nil)
+}
+
+// SpellIgnore says "Ignore “{word}”"
+// in the language the app shows.
+func SpellIgnore(word string) string { return In(i18n.Locale()).SpellIgnore(word) }
+
+// SpellIgnore says "Ignore “{word}”"
+// in the language of msgs.
+func (msgs Messages) SpellIgnore(word string) string {
+	return Catalog.Format(msgs.locale, "spell_ignore", map[string]any{"word": word})
+}
+
+// SpellModel says "Model"
+// in the language the app shows.
+func SpellModel() string { return In(i18n.Locale()).SpellModel() }
+
+// SpellModel says "Model"
+// in the language of msgs.
+func (msgs Messages) SpellModel() string {
+	return Catalog.Format(msgs.locale, "spell_model", nil)
+}
+
+// SpellModelMissing says "Not downloaded: {size} from Hugging Face, once."
+// in the language the app shows.
+func SpellModelMissing(size string) string { return In(i18n.Locale()).SpellModelMissing(size) }
+
+// SpellModelMissing says "Not downloaded: {size} from Hugging Face, once."
+// in the language of msgs.
+func (msgs Messages) SpellModelMissing(size string) string {
+	return Catalog.Format(msgs.locale, "spell_modelMissing", map[string]any{"size": size})
+}
+
+// SpellModelReady says "Downloaded, {size}, on this device."
+// in the language the app shows.
+func SpellModelReady(size string) string { return In(i18n.Locale()).SpellModelReady(size) }
+
+// SpellModelReady says "Downloaded, {size}, on this device."
+// in the language of msgs.
+func (msgs Messages) SpellModelReady(size string) string {
+	return Catalog.Format(msgs.locale, "spell_modelReady", map[string]any{"size": size})
+}
+
+// SpellModelDownloading says "Downloading… {done} of {total}"
+// in the language the app shows.
+func SpellModelDownloading(done string, total string) string {
+	return In(i18n.Locale()).SpellModelDownloading(done, total)
+}
+
+// SpellModelDownloading says "Downloading… {done} of {total}"
+// in the language of msgs.
+func (msgs Messages) SpellModelDownloading(done string, total string) string {
+	return Catalog.Format(msgs.locale, "spell_modelDownloading", map[string]any{"done": done, "total": total})
+}
+
+// SpellModelFailed says "The download failed: {error}"
+// in the language the app shows.
+func SpellModelFailed(error string) string { return In(i18n.Locale()).SpellModelFailed(error) }
+
+// SpellModelFailed says "The download failed: {error}"
+// in the language of msgs.
+func (msgs Messages) SpellModelFailed(error string) string {
+	return Catalog.Format(msgs.locale, "spell_modelFailed", map[string]any{"error": error})
+}
+
+// SpellDownload says "Download"
+// in the language the app shows.
+func SpellDownload() string { return In(i18n.Locale()).SpellDownload() }
+
+// SpellDownload says "Download"
+// in the language of msgs.
+func (msgs Messages) SpellDownload() string {
+	return Catalog.Format(msgs.locale, "spell_download", nil)
+}
+
+// SpellDownloadAgain says "Download again"
+// in the language the app shows.
+func SpellDownloadAgain() string { return In(i18n.Locale()).SpellDownloadAgain() }
+
+// SpellDownloadAgain says "Download again"
+// in the language of msgs.
+func (msgs Messages) SpellDownloadAgain() string {
+	return Catalog.Format(msgs.locale, "spell_downloadAgain", nil)
+}
+
+// SpellDownloaded says "The spell checker's model is downloaded."
+// in the language the app shows.
+func SpellDownloaded() string { return In(i18n.Locale()).SpellDownloaded() }
+
+// SpellDownloaded says "The spell checker's model is downloaded."
+// in the language of msgs.
+func (msgs Messages) SpellDownloaded() string {
+	return Catalog.Format(msgs.locale, "spell_downloaded", nil)
+}
+
+// SpellDeleted says "The spell checker's model is deleted."
+// in the language the app shows.
+func SpellDeleted() string { return In(i18n.Locale()).SpellDeleted() }
+
+// SpellDeleted says "The spell checker's model is deleted."
+// in the language of msgs.
+func (msgs Messages) SpellDeleted() string {
+	return Catalog.Format(msgs.locale, "spell_deleted", nil)
+}
+
+// SpellCredits says "tinyfix-tr. Word counts from Turkish Wikipedia and OpenSubtitles (CC BY-SA 4.0); morphology from Zemberek-NLP (Apache…"
+// in the language the app shows.
+func SpellCredits() string { return In(i18n.Locale()).SpellCredits() }
+
+// SpellCredits says "tinyfix-tr. Word counts from Turkish Wikipedia and OpenSubtitles (CC BY-SA 4.0); morphology from Zemberek-NLP (Apache…"
+// in the language of msgs.
+func (msgs Messages) SpellCredits() string {
+	return Catalog.Format(msgs.locale, "spell_credits", nil)
+}
+
 // SoundsBlurb says "Notification chimes and cinematic startup music"
 // in the language the app shows.
 func SoundsBlurb() string { return In(i18n.Locale()).SoundsBlurb() }

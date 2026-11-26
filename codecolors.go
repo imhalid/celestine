@@ -139,6 +139,7 @@ func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans
 		spans = a.inlineDoneSpans(pn, p, spans)                                                 // the words of a task in the running text, done (#599)
 		spans = a.inlineActiveSpans(pn, p, spans)                                               // and the one the caret is in, shown as one (#610)
 		spans = a.tagStatusSpans(st, spans)                                                     // a task's status tag as a pill of its color (#597)
+		spans = a.spellSpans(pn, p, spans)                                                      // the words the spell checker found, under a wave (spell.go, #623)
 		if k, ok := taskKindOf(st); ok && k.id == "canceled" && !st.Checked && a.theme != nil { // a task canceled: faint
 			for i := range spans {
 				if spans[i].ObjectWidth == 0 {
