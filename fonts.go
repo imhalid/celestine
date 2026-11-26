@@ -225,30 +225,30 @@ func (a *app) fontPreset(kind string) bool {
 	return false
 }
 
-// fontPresetTiles are the ways of writing as tiles (#605): each shows "Aa" and a line in the typeface it would put in,
-// the one the editor's font is now lit; one with no typeface of its kind installed is not offered.
+// fontPresetTiles are the ways of writing as tiles (#605): each shows "Aa" and the name of the typeface it would put
+// in, in it, the one the editor's font is now lit; one with no typeface of its kind installed says so when chosen.
 func (a *app) fontPresetTiles(c *ui.Context) {
 	cl := ryugo.From(c).Colors
 	ui.Column(c).Gap(14).Children(func() {
-		settingTitle(c, cl, msg("typefacePreset"))
+		ui.Column(c).Gap(3).Children(func() {
+			settingTitle(c, cl, locales.FontsTypefacePresets())
+			ui.Text(c, locales.FontsReadingSerifWritingSans()).FontSize(ryugo.FsSm).TextColor(cl.Muted)
+		})
 		ui.Row(c).Gap(14).Wrap().Children(func() {
 			for _, p := range []struct {
 				id    string
 				fonts []string
 			}{{"reading", serifFonts}, {"writing", sansFonts}, {"code", monoFonts}} {
-				f := a.firstInstalled(p.fonts)
-				if f == "" {
-					continue
-				}
-				on := a.settings.FontEditor == f
+				f := a.firstInstalled(p.fonts) // "": none of its kind installed, which the tile says when chosen
+				on := f != "" && a.settings.FontEditor == f
 				id := p.id
 				if choiceTile(c, "tile-preset-"+id, msg(id), on, func() {
 					ui.Column(c).Width(112).Height(66).Padding(8, 10).Gap(2).Background(cl.Card).Children(func() {
-						ui.Text(c, "Aa").Font(f).FontSize(26).FontWeight(500).TextColor(cl.Text)
+						ui.Text(c, locales.FontsSample()).Font(f).FontSize(26).FontWeight(500).TextColor(cl.Text)
 						ui.Text(c, f).Font(f).FontSize(10.5).TextColor(cl.Muted).MaxLines(1)
 					})
-				}) {
-					a.fontPreset(id)
+				}) && !a.fontPreset(id) {
+					a.say(toastWarn, locales.FontsNoneFound(id))
 				}
 			}
 		})
@@ -307,7 +307,6 @@ func (a *app) fontRows(r fontRole) (rows []string, more int) {
 // settingsFonts is the settings' page of the typefaces.
 func (a *app) settingsFonts(c *ui.Context) {
 	cl := ryugo.From(c).Colors
-	settingGroup(c, "set-font-presets", func() { a.fontPresetTiles(c) })
 	for ri := range fontRoles {
 		r := fontRole(ri)
 		role := fontRoles[ri]
@@ -374,20 +373,8 @@ func (a *app) settingsFonts(c *ui.Context) {
 			})
 		})
 	}
-	// the shape of the letters
-	settingGroup(c, "set-font-presets",
-		func() {
-			settingRow(c, locales.FontsTypefacePresets(), locales.FontsReadingSerifWritingSans(), func() {
-				ui.Row(c).Gap(8).Children(func() {
-					for _, k := range []string{"reading", "writing", "code"} {
-						k := k
-						if ryugo.Button(c.Key("fpreset"+k), msg(k), ryugo.ButtonOptions{Size: ryugo.Sm}).Clicked() && !a.fontPreset(k) {
-							a.say(toastWarn, locales.FontsNoneFound(k))
-						}
-					}
-				})
-			})
-		})
+	// the shape of the letters: the ways of writing as tiles in their typefaces (#605)
+	settingGroup(c, "set-font-presets", func() { a.fontPresetTiles(c) })
 	lig := !a.settings.NoLigatures
 	tab := a.settings.TabularNums
 	weight := float64(a.fontWeight())

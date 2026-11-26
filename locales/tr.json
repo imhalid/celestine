@@ -534,6 +534,7 @@
   "fonts_noneFound": "Bu bilgisayarda “{style}” için uygun bir yazı tipi yok.",
   "fonts_pairsLikeFiFl": "fi, fl gibi harf çiftleri tek bir harf gibi çizilir. Kod yazarken kapatmak işe yarar.",
   "fonts_readingSerifWritingSans": "Okumak için serif, yazmak için sans, kod için tek aralıklı; bilgisayarında yüklü olan ilki kullanılır.",
+  "fonts_sample": "Aa",
   "fonts_scanningTypefaces": "Yazı tipleri taranıyor…",
   "fonts_searchTypefaces": "Yazı tipi ara",
   "fonts_searchTypefaces2": "Yazı tipi ara…",

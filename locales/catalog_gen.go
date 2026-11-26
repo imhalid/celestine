@@ -5423,6 +5423,16 @@ func (msgs Messages) FontsReadingSerifWritingSans() string {
 	return Catalog.Format(msgs.locale, "fonts_readingSerifWritingSans", nil)
 }
 
+// FontsSample says "Aa"
+// in the language the app shows.
+func FontsSample() string { return In(i18n.Locale()).FontsSample() }
+
+// FontsSample says "Aa"
+// in the language of msgs.
+func (msgs Messages) FontsSample() string {
+	return Catalog.Format(msgs.locale, "fonts_sample", nil)
+}
+
 // FontsScanningTypefaces says "Scanning typefaces…"
 // in the language the app shows.
 func FontsScanningTypefaces() string { return In(i18n.Locale()).FontsScanningTypefaces() }

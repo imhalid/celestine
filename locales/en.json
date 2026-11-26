@@ -600,6 +600,7 @@
   "@fonts_noneFound": {"placeholders": {"style": {"type": "String"}}},
   "fonts_pairsLikeFiFl": "Letter pairs like fi and fl are drawn as a single glyph. Turning this off helps when writing code.",
   "fonts_readingSerifWritingSans": "Serif for reading, sans for writing, monospaced for code; the first one installed on your computer is used.",
+  "fonts_sample": "Aa",
   "fonts_scanningTypefaces": "Scanning typefaces…",
   "fonts_searchTypefaces": "Search typefaces",
   "fonts_searchTypefaces2": "Search typefaces…",
