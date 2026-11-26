@@ -45,6 +45,7 @@ type Settings struct {
 	PendingRenames map[string]string `json:"pendingRenames,omitempty"`
 	// Appearance and the editor; zero is the default.
 	Theme      int     `json:"theme,omitempty"`      // 0 the system's, 1 light, 2 dark
+	AppIcon    string  `json:"appIcon,omitempty"`    // the icon's look (appicon.go): "" Paper, "auto", or a look of internal/appicon
 	AppTheme   int     `json:"appTheme,omitempty"`   // the accent's color: an index of appThemes (appthemes.go), 0 Ryugo's blue
 	Caret      int     `json:"caret,omitempty"`      // 0 Slime, 1 Mizan
 	CaretName  string  `json:"caretName,omitempty"`  // the caret by name: its number moves as carets are taken away

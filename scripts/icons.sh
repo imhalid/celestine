@@ -1,7 +1,8 @@
 #!/bin/sh
 # Makes the app's icon at every size from its drawings in assets/ (ImageMagick with librsvg, png2icns):
 #
-#   assets/icon.svg       the icon: two crystal carets as stickers on a paper ground, for 48 px and up
+#   assets/icon.svg       the icon: two crystal carets as stickers on a paper ground, for 48 px and up; written, with
+#                         assets/brand/icon-<look>.svg, by scripts/iconsvg from the one drawing of internal/appicon
 #   assets/icon-16.svg    the same carets alone on whole pixels, for 16 to 24 px, where an outline cannot be seen
 #   assets/icon-32.svg    the same, for 32 to 40 px
 #
@@ -10,14 +11,16 @@
 # Android launcher (its ground in values/ic_launcher_background.xml is the paper tone) and the site's top bar on the
 # dark page (static/icon.png of the celestine-site repository, when its checkout is at $CELESTINE_SITE, ../celestine-site by default).
 #
-# assets/brand/ keeps the icon's dark and blue versions for branding, each drawn at 1024 px in the Dock's shape and
-# filling its square; no build reads them, and this script leaves them as they are. The site's favicon and Apple touch
+# assets/brand/ keeps the icon's other looks (internal/appicon: dark, blue, violet, emerald, amber, graphite), which
+# the app draws itself when the settings choose one (appicon.go), and the dark and blue drawn at 1024 px for branding,
+# in the Dock's shape and filling its square; no build reads them, and this script leaves the PNGs as they are. The site's favicon and Apple touch
 # icon (static/icon-blue.png, static/apple-touch-icon.png) and its top bar's icon on the light page (static/icon-dark.png)
 # are made from them by hand, at 256 and 180 px.
 #
 #   scripts/icons.sh
 set -eu
 cd "$(dirname "$0")/.."
+go run ./scripts/iconsvg >/dev/null # the SVGs from the one drawing (internal/appicon)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 

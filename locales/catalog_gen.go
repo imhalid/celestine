@@ -6475,6 +6475,106 @@ func (msgs Messages) HowTheAppsWindowComesAfter() string {
 	return Catalog.Format(msgs.locale, "howTheAppsWindowComesAfter", nil)
 }
 
+// IconAmber says "Amber"
+// in the language the app shows.
+func IconAmber() string { return In(i18n.Locale()).IconAmber() }
+
+// IconAmber says "Amber"
+// in the language of msgs.
+func (msgs Messages) IconAmber() string {
+	return Catalog.Format(msgs.locale, "icon_amber", nil)
+}
+
+// IconAppIcon says "App icon"
+// in the language the app shows.
+func IconAppIcon() string { return In(i18n.Locale()).IconAppIcon() }
+
+// IconAppIcon says "App icon"
+// in the language of msgs.
+func (msgs Messages) IconAppIcon() string {
+	return Catalog.Format(msgs.locale, "icon_appIcon", nil)
+}
+
+// IconAppIconHelp says "The icon in the Dock, the title bar and the taskbar. Auto follows light and dark."
+// in the language the app shows.
+func IconAppIconHelp() string { return In(i18n.Locale()).IconAppIconHelp() }
+
+// IconAppIconHelp says "The icon in the Dock, the title bar and the taskbar. Auto follows light and dark."
+// in the language of msgs.
+func (msgs Messages) IconAppIconHelp() string {
+	return Catalog.Format(msgs.locale, "icon_appIconHelp", nil)
+}
+
+// IconAuto says "Auto"
+// in the language the app shows.
+func IconAuto() string { return In(i18n.Locale()).IconAuto() }
+
+// IconAuto says "Auto"
+// in the language of msgs.
+func (msgs Messages) IconAuto() string {
+	return Catalog.Format(msgs.locale, "icon_auto", nil)
+}
+
+// IconBlue says "Blue"
+// in the language the app shows.
+func IconBlue() string { return In(i18n.Locale()).IconBlue() }
+
+// IconBlue says "Blue"
+// in the language of msgs.
+func (msgs Messages) IconBlue() string {
+	return Catalog.Format(msgs.locale, "icon_blue", nil)
+}
+
+// IconEmerald says "Emerald"
+// in the language the app shows.
+func IconEmerald() string { return In(i18n.Locale()).IconEmerald() }
+
+// IconEmerald says "Emerald"
+// in the language of msgs.
+func (msgs Messages) IconEmerald() string {
+	return Catalog.Format(msgs.locale, "icon_emerald", nil)
+}
+
+// IconGraphite says "Graphite"
+// in the language the app shows.
+func IconGraphite() string { return In(i18n.Locale()).IconGraphite() }
+
+// IconGraphite says "Graphite"
+// in the language of msgs.
+func (msgs Messages) IconGraphite() string {
+	return Catalog.Format(msgs.locale, "icon_graphite", nil)
+}
+
+// IconObsidian says "Obsidian"
+// in the language the app shows.
+func IconObsidian() string { return In(i18n.Locale()).IconObsidian() }
+
+// IconObsidian says "Obsidian"
+// in the language of msgs.
+func (msgs Messages) IconObsidian() string {
+	return Catalog.Format(msgs.locale, "icon_obsidian", nil)
+}
+
+// IconPaper says "Paper"
+// in the language the app shows.
+func IconPaper() string { return In(i18n.Locale()).IconPaper() }
+
+// IconPaper says "Paper"
+// in the language of msgs.
+func (msgs Messages) IconPaper() string {
+	return Catalog.Format(msgs.locale, "icon_paper", nil)
+}
+
+// IconViolet says "Violet"
+// in the language the app shows.
+func IconViolet() string { return In(i18n.Locale()).IconViolet() }
+
+// IconViolet says "Violet"
+// in the language of msgs.
+func (msgs Messages) IconViolet() string {
+	return Catalog.Format(msgs.locale, "icon_violet", nil)
+}
+
 // IfYouWereApprovedFromThe says "If you've been approved from the waitlist, you got an access code by email."
 // in the language the app shows.
 func IfYouWereApprovedFromThe() string { return In(i18n.Locale()).IfYouWereApprovedFromThe() }

@@ -31,6 +31,7 @@ var cmdCategory = map[string]string{
 	"common_backUpNow":           "filesAndSync",
 	"common_caretSleep":          "common_appearance",
 	"common_colorTheme":          "common_appearance",
+	"icon_appIcon":               "common_appearance",
 	"common_cornerRoundness":     "common_appearance",
 	"common_corners":             "common_appearance",
 	"common_cursorFx":            "common_appearance",

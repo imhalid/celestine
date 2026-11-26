@@ -38,7 +38,9 @@ func TestDamagedSettingsKept(t *testing.T) {
 // off; the setting is what Ryugo's Root is given (frameTheme).
 func TestPressWavesSetting(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	tt.SetSize(1000+2*frameW+frameGap, 2400) // the content 1000 wide inside the window's frame and its gap (windowframe.go)
+	// the content 1000 wide inside the window's frame and its gap (windowframe.go); tall enough for the whole Appearance
+	// page, the row clicked included, which the app icon's tiles took further down (#601)
+	tt.SetSize(1000+2*frameW+frameGap, 3000)
 	if a.settings.NoWaves {
 		t.Fatal("the waves start off")
 	}
@@ -74,7 +76,7 @@ func TestPressWavesSetting(t *testing.T) {
 // background gives it a card (#381, #489).
 func TestSidebarCardSetting(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	tt.SetSize(1000+2*frameW+frameGap, 2400)
+	tt.SetSize(1000+2*frameW+frameGap, 3000) // the whole Appearance page, the app icon's tiles in it (#601)
 	tt.Advance(100 * time.Millisecond)
 	if !a.wframe.on || !a.sideOnGround() || a.settings.SidebarCard {
 		t.Fatalf("framed %v, on the ground %v, card %v", a.wframe.on, a.sideOnGround(), a.settings.SidebarCard)

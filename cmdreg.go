@@ -158,6 +158,14 @@ func settingDefsFor(macOS bool) []settingDef {
 			}
 			return out
 		}},
+		{name: "icon_appIcon", alias: "app icon dock simge uygulama", fields: []string{"appIcon"}, kind: setChoice, choices: func(a *app) []settingChoice {
+			var out []settingChoice
+			for _, it := range iconLookIDs {
+				id := it.id
+				out = append(out, settingChoice{name: it.name, current: a.appIconMode() == id, set: func(a *app) { a.setAppIcon(id) }})
+			}
+			return out
+		}},
 		{name: "caret", alias: "imleç", fields: []string{"caret", "caretName"}, kind: setChoice, choices: func(a *app) []settingChoice {
 			var out []settingChoice
 			for k := caretKind(0); k < caretCount(); k++ {

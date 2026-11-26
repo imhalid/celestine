@@ -89,6 +89,9 @@ type chromeState struct {
 	glassTintRuns int      // counts glassTint() string builds for verifying per-frame skip
 	// glassAtLaunch is the Glass setting as the window was made with it: turned on since, it shows after a restart
 	glassAtLaunch bool
+	iconShown     string                     // the look the Dock's and the window's icon are in (appicon.go)
+	iconSet       func(dock, square []byte)  // a test takes the icon put on them here
+	iconImages    map[iconKey]ui.ImageSource // each look's icon at a size, for the window to show
 
 	toasts     toastState // the toasts up (toast.go)
 	notice     string     // a toast to show

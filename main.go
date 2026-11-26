@@ -686,6 +686,7 @@ func main() {
 			w.SetIcon(appIcon) // the title bar and taskbar (Linux)
 		}
 		mygo.App.Dock.SetIcon(appIcon) // the Dock (macOS)
+		a.iconShown = "paper"          // the first frame puts the look the settings choose on them (syncIcon)
 		if runtime.GOOS != "js" {      // a browser has no global key, and the panel's window would name the tab
 			a.quick = newQuick(a)
 		}
@@ -1082,6 +1083,7 @@ func (a *app) viewFrame(c *ui.Context) {
 
 	a.pageBg = a.bg(c)
 	a.syncGlassTint(c)
+	a.syncIcon(tok.Dark)
 	// A new look (light or dark, or another color theme) is a new tree: what was there
 	// would take each color over a moment of its own - the sidebar, the inputs, the
 	// boxes of a checkbox, each at its own pace - and the change would show in pieces.

@@ -396,6 +396,7 @@ func (a *app) settingsAppearance(c *ui.Context) {
 		a.saveSettings()
 	}
 	settingGroup(c, "set-accent", func() { a.appThemePicker(c) })
+	settingGroup(c, "set-icon", func() { a.appIconPicker(c) })
 	w := float64(a.pageWidth())
 	settingGroup(c, "set-width", func() {
 		settingRow(c, locales.CommonPageWidth(), locales.SettingsTheWidthTextColumn(), func() {

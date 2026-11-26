@@ -4,7 +4,6 @@ import (
 	"math"
 	"os"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -430,15 +429,6 @@ func (a *app) openingView(c *ui.Context) {
 	a.view(c)
 }
 
-// welcomeLogo is the app's icon for the welcome, read from its bytes once.
-var welcomeLogo = sync.OnceValue(func() ui.ImageSource {
-	img, err := ui.DecodeImage(appIcon)
-	if err != nil {
-		return nil
-	}
-	return img
-})
-
 // welcomeView is the app's logo and its name (the same in every language) and Başla, over the ground, and nothing
 // else, which keeps the welcome quiet (#507): the ground starts on the first frame, and the words and the button rise in one after another as it
 // comes. Başla (or Enter) starts the opening from the button; Esc goes straight to the app. They lift off as the
@@ -478,7 +468,7 @@ func (a *app) welcomeView(c *ui.Context, onStage bool) {
 		stage := ui.Column(c.Key("welcome")).Absolute().Left(0).Top(0).Width(w).Height(h).AlignItems(ui.Center).Justify(ui.Center)
 		stage.Opacity(float32(1-min(1, prog*3))).Translate(0, float32(-24*prog))
 		stage.Children(func() {
-			if logo := welcomeLogo(); logo != nil {
+			if logo := a.iconImage(a.iconLook(ryugo.From(c).Dark), 256); logo != nil {
 				rises(ui.Image(c.Key("w-logo"), logo).Size(112, 112), welHead)
 				ui.Box(c.Key("w-gap1")).Height(4)
 			}
