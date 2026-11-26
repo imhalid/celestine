@@ -956,7 +956,7 @@ func (a *app) openIn(pn *paneState, p *Page) {
 	}
 	a.noteOpened(p)
 	doc := a.docFor(p)
-	pn.page, pn.doc, pn.title = p, doc, p.Title
+	pn.page, pn.doc, pn.title, pn.blank = p, doc, p.Title, false
 	pn.find.ver = 0 // another text to find in
 	_, caret := doc.Selection()
 	pn.version, pn.length, pn.caretAt = doc.Version(), doc.Text().Len(), caret
@@ -1044,6 +1044,16 @@ func (a *app) newPage(c *Collection, parent *Page) {
 		return
 	}
 	a.newPageFrom(c, parent, c.Template) // it starts as the collection says
+}
+
+// freshTitle readies the title of the page just made in pn to be typed: focused, and empty with "Untitled" as its
+// placeholder rather than the word to be typed over. The page keeps "Untitled" as its title, in the file, the
+// sidebar and the tabs, until another is typed, and the field shows it again if it is left with nothing typed (#598).
+func (a *app) freshTitle(pn *paneState) {
+	pn.fresh = true
+	if pn.page != nil && untitled(pn.page.Title) {
+		pn.title, pn.blank = "", true
+	}
 }
 
 // flush saves the open page now, if it changed.
@@ -1537,11 +1547,18 @@ func (a *app) pageHead(c *ui.Context, pn *paneState, p *Page) {
 	}
 	// the title wraps, at a size its length gives it, and is as high as its lines (titlesize.go); it is one line of
 	// text all the same: a line break typed or pasted is not kept
-	size := a.titleSize(pn.title, pn.titleW)
-	_, textH := a.titleLayout(pn.title, size, pn.titleW).Size()
+	shown := pn.title // what the field shows, its placeholder while a new page's title is empty: what it is measured by
+	if shown == "" {
+		shown = locales.CommonUntitled()
+	}
+	size := a.titleSize(shown, pn.titleW)
+	_, textH := a.titleLayout(shown, size, pn.titleW).Size()
 	before := pn.title
 	title := ui.TextAreaBase(c, &pn.title).Label(locales.CommonTitle()).FontSize(size).FontWeight(titleWeight).Padding(6, 0, 10, 0).
 		FillWidth().Height(textH + 16).TextColor(ink).CaretWidth(0)
+	if pn.blank {
+		title.Placeholder(locales.CommonUntitled()).PlaceholderColor(ink.Alpha(0.32))
+	}
 	a.titleMenu(pn, title, p, true)
 	a.titleRoom(c, pn, title, true)
 	enter := false
@@ -1564,6 +1581,12 @@ func (a *app) pageHead(c *ui.Context, pn *paneState, p *Page) {
 			name = locales.CommonUntitled()
 		}
 		a.titleTyped(pn, p, name)
+	}
+	if pn.blank && pn.titleFocused && !title.Focused() { // a new page's title left: "Untitled" if nothing was typed
+		pn.blank = false
+		if strings.TrimSpace(pn.title) == "" {
+			pn.title = p.Title
+		}
 	}
 	pn.titleFocused = title.Focused()
 	if !pn.titleFocused && pn.retitle.p == p { // the field left: the rename is done, and its links follow

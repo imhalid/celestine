@@ -440,7 +440,7 @@ func (a *app) makeOnDayIn(pn *paneState, coll *Collection, field string, d time.
 		}
 	}
 	a.openIn(pn, p)
-	pn.fresh = true
+	a.freshTitle(pn)
 }
 
 // openCalDay opens day d on the calendar. With another day open, that one closes first and d opens as it goes

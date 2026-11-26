@@ -25,6 +25,7 @@ type paneState struct {
 	collName      string             // its name field's text
 	search        string             // its search field's text
 	fresh         bool               // the page was just made: its title takes the focus
+	blank         bool               // the page was just made: its title field starts empty, "Untitled" its placeholder (#598)
 	version       uint64
 	length        int
 	caretAt       int

@@ -308,7 +308,7 @@ func (a *app) takeOutside(p *Page) {
 		p.Title = t
 		PagesChanged()
 		for _, st := range a.ps.states {
-			if st.page == p && !st.dirty {
+			if st.page == p && !st.dirty && !(st.blank && untitled(t)) { // a new page's empty field stays empty
 				st.title = t
 			}
 		}

@@ -185,7 +185,7 @@ func (a *app) newPageFrom(c *Collection, parent *Page, tpl string) {
 			}
 		}
 		a.open(p)
-		a.pane().fresh = true
+		a.freshTitle(a.pane())
 		a.takeCursorMark()
 	})
 }
