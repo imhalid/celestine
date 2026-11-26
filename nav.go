@@ -12,6 +12,33 @@ type place struct {
 
 func (a *app) here() place { return a.hereOf(a.pane()) }
 
+// visited is a place in the history of going back and forward: a page's is kept by its ID too, which stays when the
+// page is moved to another collection or parent or renamed, as its folder does not (#593).
+type visited struct {
+	place
+	id string // the page's ID, "" for another place or a page that has none
+}
+
+// visitedOf is what pn shows, as the history keeps it.
+func (a *app) visitedOf(pn *paneState) visited {
+	v := visited{place: a.hereOf(pn)}
+	if v.kind == "page" && pn.page != nil {
+		v.id = pn.page.ID
+	}
+	return v
+}
+
+// placeNow is where v is now: a page found by its ID wherever it went, else the place as it was kept (a page with
+// no ID, from before IDs, by its folder).
+func (a *app) placeNow(v visited) place {
+	if v.kind == "page" && v.id != "" {
+		if p := a.lib.PageByID(v.id); p != nil {
+			return place{"page", p.Dir}
+		}
+	}
+	return v.place
+}
+
 func (a *app) hereOf(pn *paneState) place {
 	switch {
 	case pn.settingsOpen:
@@ -45,18 +72,18 @@ func (a *app) visitIn(pn *paneState) {
 	if a.going {
 		return
 	}
-	p := a.hereOf(pn)
-	if p.kind == "" || (a.histAt >= 0 && a.histAt < len(a.hist) && a.hist[a.histAt] == p) {
+	v := a.visitedOf(pn)
+	if v.kind == "" || (a.histAt >= 0 && a.histAt < len(a.hist) && a.placeNow(a.hist[a.histAt]) == v.place) {
 		return
 	}
-	a.hist = append(a.hist[:a.histAt+1], p)
+	a.hist = append(a.hist[:a.histAt+1], v)
 	a.histAt = len(a.hist) - 1
 }
 
 // step goes back (-1) or forward (1) to the nearest place still there.
 func (a *app) step(dir int) bool {
 	for i := a.histAt + dir; i >= 0 && i < len(a.hist); i += dir {
-		if a.goTo(a.hist[i]) {
+		if a.goTo(a.placeNow(a.hist[i])) {
 			a.histAt = i
 			return true
 		}

@@ -353,7 +353,7 @@ func (a *app) recent(n int) []palItem {
 	seen := map[place]bool{a.here(): true}
 	all := a.places()
 	for i := len(a.hist) - 1; i >= 0 && len(out) < n; i-- {
-		pl := a.hist[i]
+		pl := a.placeNow(a.hist[i])
 		if seen[pl] {
 			continue
 		}

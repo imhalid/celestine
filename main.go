@@ -401,7 +401,7 @@ type app struct {
 	slash      slashMenu    // the / menu (slash.go)
 	tasks      taskFx       // the task boxes: what turns, and the confetti (taskkinds.go)
 	cs         collSettings // a collection\'s settings (collsettings.go)
-	hist       []place      // where the app went, and where it is in that (nav.go)
+	hist       []visited    // where the app went, and where it is in that (nav.go)
 	histAt     int
 	going      bool     // going back or forward: no new place in the history
 	menuBar    bool     // the menu bar has the shortcuts, not the window

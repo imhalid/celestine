@@ -78,3 +78,49 @@ func TestBackForwardAnyLayout(t *testing.T) {
 		t.Fatalf("the mouse's back: %v", a.here())
 	}
 }
+
+// Back and forward find a page by its ID: moved to another collection, under another page, or renamed, a page
+// visited is still gone back to; a place kept without an ID is found by its folder as before (#593).
+func TestBackForwardFollowsMovedPages(t *testing.T) {
+	lib, ps, one, two := dragLibrary(t)
+	a := newApp(lib)
+	tt := ui.NewTester(a.view, 1180, 900)
+	tt.Advance(time.Second)
+	for _, n := range []string{"A", "B", "C"} {
+		if ps[n].ID == "" {
+			t.Fatalf("%s has no ID", n)
+		}
+	}
+	a.open(ps["A"])
+	a.open(ps["B"])
+	a.open(ps["C"])
+	tt.Frame()
+	oldA, oldB := ps["A"].Dir, ps["B"].Dir
+	if err := lib.MovePage(ps["A"], two, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.MovePage(ps["B"], one, ps["C"], 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := ps["B"].SetTitle("Bee"); err != nil {
+		t.Fatal(err)
+	}
+	if ps["A"].Dir == oldA || ps["B"].Dir == oldB {
+		t.Fatal("the moves did not change the folders")
+	}
+	if !a.step(-1) || a.pane().page != ps["B"] {
+		t.Fatalf("back to B, moved under C and renamed: %v", a.here())
+	}
+	if !a.step(-1) || a.pane().page != ps["A"] {
+		t.Fatalf("back to A, moved to another collection: %v", a.here())
+	}
+	if !a.step(1) || a.pane().page != ps["B"] {
+		t.Fatalf("forward to B: %v", a.here())
+	}
+	// a place from before IDs: by its folder
+	a.hist = []visited{{place: place{"page", ps["C"].Dir}}, {place: place{"page", ps["A"].Dir}}}
+	a.histAt = 1
+	if !a.step(-1) || a.pane().page != ps["C"] {
+		t.Fatalf("a place without an ID: %v", a.here())
+	}
+}
