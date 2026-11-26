@@ -757,9 +757,15 @@ func (a *app) paletteView(c *ui.Context) {
 				}
 			})
 			ui.Box(c).Height(1).Background(line)
-			a.scrolled(c, "palette-list", nil, ui.Scroll(c).MaxHeight(300), func() {
-				// more room under the last row than over the first: its highlight clear of the card's round corners (#602)
-				ui.Column(c).Padding(4, 4, 8, 4).Gap(1).Children(func() {
+			a.scrolled(c, "palette-list", nil, ui.Scroll(c).MaxHeight(palListMax), func() {
+				// more room under the last row than over the first: its highlight clear of the card's round corners
+				// (#602); at the right, while the list scrolls, room for the scrollbar, which the chosen row's
+				// highlight ran under (#616)
+				right := float32(6)
+				if palListH(items, a.palQuery() == "") > palListMax {
+					right = 14
+				}
+				ui.Column(c).Padding(6, right, 10, 6).Gap(1).Children(func() {
 					if len(items) == 0 {
 						ui.Text(c, locales.PaletteNothingMatches()).FontSize(12).TextColor(cl.Muted).Padding(9, 8)
 						return
@@ -783,6 +789,30 @@ func (a *app) paletteView(c *ui.Context) {
 			})
 		})
 	})
+}
+
+// palListMax is how tall the palette's list may be before it scrolls.
+const palListMax = 300
+
+// palListH is about how tall the palette's list of items is, its rows and their groups' heads: whether it scrolls.
+// Nothing typed, the rows without a group of their own are under a head too.
+func palListH(items []palItem, empty bool) float32 {
+	h, head := float32(16), ""
+	for _, it := range items {
+		g := it.group
+		if g == "" && empty {
+			g = "-"
+		}
+		if g != "" && g != head {
+			head = g
+			h += 22
+		}
+		h += 29
+		if len(it.snip) > 0 {
+			h += 16
+		}
+	}
+	return h
 }
 
 // palLines are the palette's lines for its query, made only when what they come from changed: made at every frame,

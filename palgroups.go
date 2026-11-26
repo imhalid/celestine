@@ -206,7 +206,16 @@ type palUp struct {
 // palDrill opens a group (cat) or a family (query) from the list shown, keeping that list to go back to.
 func (a *app) palDrill(query, cat string) {
 	up := &palUp{query: a.pal.query, cat: a.pal.cat, sel: a.pal.sel, up: a.pal.up}
-	a.pal = palette{open: true, query: query, cat: cat, up: up, opened: query}
+	a.pal = a.palKept(palette{open: true, query: query, cat: cat, up: up, opened: query})
+}
+
+// palKept is next, a list the palette goes to with Right or Left, with what the palette keeps whatever list it shows
+// (#616): where the pointer was, so that a pointer resting over the list does not take the choice from the keys, and
+// the settings as they were before a preview, put back when it closes.
+func (a *app) palKept(next palette) palette {
+	next.hx, next.hy, next.hseen = a.pal.hx, a.pal.hy, -1
+	next.snap, next.pvKey = a.pal.snap, a.pal.pvKey
+	return next
 }
 
 // palCanBack is whether Left goes back out: a group or a family is open and nothing was typed in it since.
@@ -220,6 +229,6 @@ func (a *app) palBack() {
 	if u == nil {
 		u = &palUp{query: ">"}
 	}
-	a.pal = palette{open: true, query: u.query, cat: u.cat, sel: u.sel, was: u.query, hseen: -1, reveal: true, up: u.up,
-		opened: u.query}
+	a.pal = a.palKept(palette{open: true, query: u.query, cat: u.cat, sel: u.sel, was: u.query, reveal: true, up: u.up,
+		opened: u.query})
 }

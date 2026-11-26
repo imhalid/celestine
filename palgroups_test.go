@@ -160,3 +160,40 @@ func TestPaletteArrowsOpenAndLeave(t *testing.T) {
 		t.Fatalf("the arrows left the typed query: %q cat %q", a.pal.query, a.pal.cat)
 	}
 }
+
+// With the pointer resting over the list, Right and Left choose what the keys choose: the list shown anew does not
+// take the row under the pointer for one it moved to, and Left goes back to the group's row (#616).
+func TestPaletteArrowsKeepTheChoice(t *testing.T) {
+	a, tt := newTestApp(t, "Metin\n")
+	tt.SetSize(1000, 700)
+	tt.Frame()
+	a.openCommands()
+	tt.Frame()
+	g := -1
+	for i, it := range a.palLines() {
+		if it.group == "groups" && it.title == msg("common_appearance") {
+			g = i
+		}
+	}
+	if g < 0 {
+		t.Fatal("no Görünüm group")
+	}
+	tt.Move(500, 260) // over the list, and resting there
+	tt.Frame()
+	a.pal.sel = g
+	tt.Frame()
+	tt.Key(0, ui.KeyRight)
+	for range 4 {
+		tt.Frame()
+		if a.pal.cat != "common_appearance" || a.pal.sel != 0 {
+			t.Fatalf("in the group: cat %q, row %d, want the first", a.pal.cat, a.pal.sel)
+		}
+	}
+	tt.Key(0, ui.KeyLeft)
+	for range 4 {
+		tt.Frame()
+		if a.pal.cat != "" || a.pal.sel != g {
+			t.Fatalf("back: row %d, want the group's %d", a.pal.sel, g)
+		}
+	}
+}
