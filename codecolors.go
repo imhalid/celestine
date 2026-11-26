@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -135,6 +136,7 @@ func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans
 		return a.blockSpans(pn, p, spans)
 	}
 	if !st.CodeBlock {
+		spans = a.inlineDoneSpans(pn, p, spans)        // the words of a task in the running text, done (#599)
 		if out, ok := a.lapseSpans(pn, p, spans); ok { // the words in the colors of their days
 			return out
 		}
@@ -156,6 +158,131 @@ func (a *app) paintSpans(pn *paneState, p int, st richtext.ParagraphStyle, spans
 	}
 	toks, _ := l.Tokenizer.Tokenize(line.String(), 0, nil) // a line on its own: a string or comment of many lines is colored by its lines
 	return colorSpans(spans, toks, a.codeTheme)
+}
+
+// inlineDoneSpans strikes and mutes the words of each task done in paragraph p's running text: those its box owns
+// as the task view reads them (inlineTasksOf), the words after it up to the next box, or before it when none come
+// after. Other chips in them, and the words of a task not done, stay as they are (#599).
+func (a *app) inlineDoneSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
+	if pn.doc == nil || a.theme == nil {
+		return spans
+	}
+	objects := false
+	for _, s := range spans {
+		if s.ObjectWidth != 0 {
+			objects = true
+			break
+		}
+	}
+	if !objects {
+		return spans
+	}
+	t := pn.doc.Text()
+	pt := a.paraTableOf(pn, t)
+	if p < 0 || p >= len(pt.start) {
+		return spans
+	}
+	var line []rune
+	for _, s := range spans {
+		line = append(line, []rune(s.Text)...)
+	}
+	start := pt.start[p]
+	var boxes []inlineBox
+	for i, r := range line {
+		if r != richtext.ObjectReplacement {
+			continue
+		}
+		if att := t.AttributesAt(start + i).Attachment; att != nil {
+			if ch, ok := att.Data.(*chip); ok && ch.kind == "check" {
+				boxes = append(boxes, inlineBox{at: i, done: ch.target == "x"})
+			}
+		}
+	}
+	segs := inlineDoneSegments(line, boxes)
+	if len(segs) == 0 {
+		return spans
+	}
+	ink := a.theme.Muted
+	return restyleRunes(spans, segs, func(s *ui.Span) {
+		if s.ObjectWidth == 0 && strings.TrimSpace(s.Text) != "" {
+			s.Strikethrough, s.Color = true, ink
+		}
+	})
+}
+
+// inlineBox is a task's box in a paragraph's running text: the rune it is, and whether it is done.
+type inlineBox struct {
+	at   int
+	done bool
+}
+
+// inlineDoneSegments are the runes of line, [from, to), that the boxes done own, as inlineTasksOf reads a task's
+// words: from after the box to the next box, or from the box before (or the start) to it when no word comes after.
+// The spaces and stops at their ends are left out.
+func inlineDoneSegments(line []rune, boxes []inlineBox) [][2]int {
+	var out [][2]int
+	for k, b := range boxes {
+		if !b.done {
+			continue
+		}
+		from, to := b.at+1, len(line)
+		if k+1 < len(boxes) {
+			to = boxes[k+1].at
+		}
+		if strings.TrimFunc(string(line[from:to]), notWord) == "" {
+			from, to = 0, b.at
+			if k > 0 {
+				from = boxes[k-1].at + 1
+			}
+		}
+		for from < to && (notWord(line[from]) || line[from] == richtext.ObjectReplacement) {
+			from++
+		}
+		for to > from && (notWord(line[to-1]) || line[to-1] == richtext.ObjectReplacement) {
+			to--
+		}
+		if from < to {
+			out = append(out, [2]int{from, to})
+		}
+	}
+	return out
+}
+
+// restyleRunes splits spans where the ranges of runes segs start and end, and gives each piece inside one to f.
+func restyleRunes(spans []ui.Span, segs [][2]int, f func(*ui.Span)) []ui.Span {
+	out := make([]ui.Span, 0, len(spans)+2*len(segs))
+	at := 0
+	for _, s := range spans {
+		rs := []rune(s.Text)
+		if len(rs) == 0 {
+			out = append(out, s)
+			continue
+		}
+		end := at + len(rs)
+		cuts := []int{at, end}
+		for _, g := range segs {
+			for _, c := range g {
+				if c > at && c < end {
+					cuts = append(cuts, c)
+				}
+			}
+		}
+		slices.Sort(cuts)
+		cuts = slices.Compact(cuts)
+		for i := 0; i+1 < len(cuts); i++ {
+			piece := s
+			piece.Text = string(rs[cuts[i]-at : cuts[i+1]-at])
+			for _, g := range segs {
+				if cuts[i] >= g[0] && cuts[i+1] <= g[1] {
+					f(&piece)
+					break
+				}
+			}
+			out = append(out, piece)
+		}
+		at = end
+	}
+	return out
 }
 
 // colorSpans splits spans where the tokens of their text start and end, and colors each piece as its token is.
