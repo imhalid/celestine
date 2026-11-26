@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/imhalid/celestine/internal/textnorm"
-	"github.com/imhalid/celestine/locales"
 )
 
 // Visible returns indices of rows matching Filter, preserving blank rows so new empty rows stay visible.
@@ -209,7 +208,7 @@ func FromCSV(s string) *Model {
 			name = strings.TrimSpace(recs[0][c])
 		}
 		if name == "" {
-			name = locales.TablesColumnN(c + 1)
+			name = ColumnName(c + 1)
 		}
 		m.Cols = append(m.Cols, Col{Name: name})
 	}

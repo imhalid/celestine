@@ -5,8 +5,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-
-	"github.com/imhalid/celestine/locales"
 )
 
 // Lang is the fenced code block language used to serialize tables in Markdown.
@@ -23,38 +21,12 @@ const (
 // Kinds lists the available column kinds in cycle order.
 var Kinds = []string{KindText, KindNumber, KindDate, KindCheck}
 
-// KindName returns the localized display name of column kind k.
-func KindName(k string) string {
-	switch k {
-	case KindNumber:
-		return locales.TablesKindNumber()
-	case KindDate:
-		return locales.TablesKindDate()
-	case KindCheck:
-		return locales.TablesKindCheck()
-	}
-	return locales.TablesKindText()
-}
-
 // Calcs lists the footer calculations in cycle order.
 var Calcs = []string{"", "sum", "avg", "count", "min", "max"}
 
-// CalcName returns the localized display name of footer calculation k.
-func CalcName(k string) string {
-	switch k {
-	case "sum":
-		return locales.TablesCalcSum()
-	case "avg":
-		return locales.TablesCalcAvg()
-	case "count":
-		return locales.TablesCalcCount()
-	case "min":
-		return locales.TablesCalcMin()
-	case "max":
-		return locales.TablesCalcMax()
-	}
-	return locales.TablesCalcNone()
-}
+// ColumnName is the name a column made without one is given, n from 1. The package says nothing in a language of
+// the window's: the app gives its own words (table_alias.go), and without it a column is "Column n" (#595).
+var ColumnName = func(n int) string { return "Column " + strconv.Itoa(n) }
 
 // Col describes one column of a table.
 type Col struct {
@@ -78,7 +50,7 @@ type Model struct {
 func New(ncols, nrows int) *Model {
 	m := &Model{}
 	for c := 0; c < ncols; c++ {
-		m.Cols = append(m.Cols, Col{Name: locales.TablesColumnN(c + 1)})
+		m.Cols = append(m.Cols, Col{Name: ColumnName(c + 1)})
 	}
 	for r := 0; r < nrows; r++ {
 		m.Rows = append(m.Rows, make([]string, ncols))
@@ -140,7 +112,7 @@ func (m *Model) DelRow(row int) {
 // AddCol inserts an empty column after index after (-1 inserts at the start).
 func (m *Model) AddCol(after int) {
 	after = max(-1, min(after, len(m.Cols)-1))
-	m.Cols = append(m.Cols[:after+1], append([]Col{{Name: locales.TablesColumnN(len(m.Cols) + 1)}}, m.Cols[after+1:]...)...)
+	m.Cols = append(m.Cols[:after+1], append([]Col{{Name: ColumnName(len(m.Cols) + 1)}}, m.Cols[after+1:]...)...)
 	for i, r := range m.Rows {
 		m.Rows[i] = append(r[:after+1], append([]string{""}, r[after+1:]...)...)
 	}

@@ -14,8 +14,9 @@ file-by-file table; `docs/` has the design notes (the older ones in Turkish; new
 - `core_alias.go` gives the library's names to the app unqualified (`type Page = library.Page`). A library name
   the app needs is exported and gets its line there (or the app writes `library.X`). A variable is not aliased
   but pointed at (`PagesGen`); `library.AllowHTTP` and `library.Format` are set as they are.
-- The body of a page is the editor's format (`body.go`); the library reads it through `library.Format`
-  (`BodyFormat`), which `body.go` sets at init. A library test alone has a plain Markdown format instead.
+- The body of a page is the library's document (`internal/library/doc.go`, its JSON the page file's); the app turns
+  it into the editor's text and back (`body.go`). Its Markdown is the editor's, which `body.go` gives the library at
+  init as `library.Format` (`BodyFormat`); a library test alone reads and writes it with the library's own (`docmd.go`).
 - The app cannot add methods to the library's types: a function in the app (`dayTitle(c, d)`) or a method in
   the library.
 - `web/`, `android/` and `cloudflare/` (the sync and update Workers) are the other targets; `scripts/` builds them.
