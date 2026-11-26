@@ -213,31 +213,6 @@ func (a *app) drawQuery(p *ui.Painter, r ui.Rect, ch *chip, att *richtext.Attach
 	})
 }
 
-// queriesIn turns the fenced ```query blocks of t into query blocks.
-func queriesIn(t richtext.Text) richtext.Text {
-	ps := starts(t)
-	for k := len(ps) - 1; k >= 0; k-- {
-		s, e := t.ParagraphRange(ps[k])
-		if st := t.ParagraphStyleAt(s); !st.CodeBlock || st.ID != codeIDPrefix+queryLang {
-			continue
-		}
-		lines := []string{t.Slice(s, e).String()}
-		for j := k + 1; j < len(ps); j++ { // the block's other lines, after its first
-			s2, e2 := t.ParagraphRange(ps[j])
-			if st2 := t.ParagraphStyleAt(s2); !st2.CodeBlock || st2.ID != "" {
-				break
-			}
-			lines = append(lines, t.Slice(s2, e2).String())
-			e = e2
-		}
-		q := strings.TrimSpace(strings.Join(strings.Fields(strings.Join(lines, " ")), " "))
-		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: locales.CommonQuery(), Data: &chip{kind: "query", target: q}}}
-		t = t.ReplaceString(s, e, string(richtext.ObjectReplacement), attrs)
-		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
-	}
-	return t
-}
-
 // insertQuery takes the "/…" away and puts the block of query q in.
 func (a *app) insertQuery(start int, q string) {
 	doc := a.pane().doc

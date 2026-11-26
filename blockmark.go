@@ -2,9 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"regexp"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui/richtext"
@@ -19,8 +16,6 @@ import (
 // it back whole (MCP), or a page exported and imported again, keeps it.
 
 const blockMarkStart = "<!--celestine:block "
-
-var blockMark = regexp.MustCompile(`^<!--celestine:block ([A-Za-z0-9+/]+)-->$`)
 
 // blockMarkAsText puts the mark of the block in chip ch, at rune i of t, on a line of its own, as a raw HTML block.
 func blockMarkAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes) richtext.Text {
@@ -39,34 +34,3 @@ func blockMarkAsText(t richtext.Text, i int, ch *chip, plain richtext.Attributes
 		*p = richtext.ParagraphStyle{CodeBlock: true, ID: rawIDPrefix + "html"}
 	})
 }
-
-// blockMarksIn turns the marks of blocks in t, read from Markdown, back into the blocks.
-func blockMarksIn(t richtext.Text) richtext.Text {
-	if !strings.Contains(t.String(), blockMarkStart) {
-		return t
-	}
-	for _, at := range starts(t) {
-		s, e := t.ParagraphRange(at)
-		m := blockMark.FindStringSubmatch(strings.TrimSpace(t.Slice(s, e).String()))
-		if m == nil {
-			continue
-		}
-		raw, err := base64.RawStdEncoding.DecodeString(m[1])
-		if err != nil || len(raw) == 0 {
-			continue
-		}
-		var meta struct {
-			K string `json:"k"`
-		}
-		if json.Unmarshal(raw, &meta) != nil || meta.K == "" || isKnownBlockKind(meta.K) {
-			continue
-		}
-		ch := &chip{kind: unknownKind, raw: raw}
-		t = t.ReplaceString(s, e, string(richtext.ObjectReplacement), richtext.Attributes{Attachment: &richtext.Attachment{Name: ch.label(), Data: ch}})
-		t = t.FormatParagraphs(s, s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
-	}
-	return t
-}
-
-// isKnownBlockKind reports whether k is one of the body object kinds handled by attachmentOf.
-func isKnownBlockKind(k string) bool { return knownBlockKinds[k] }

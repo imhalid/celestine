@@ -1,7 +1,6 @@
 package main
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -15,34 +14,6 @@ import (
 // Footnotes (#308). A reference, [^1] in the text, is a chip of kind "footnote", drawn as a small raised mark; a
 // click on it goes to its note. The note, [^1]: … on a line of its own, is a paragraph of the page that starts so,
 // written in as any other. Both are written to Markdown as they came.
-
-// footRefInText is a footnote's reference as it is typed: [^1], [^note].
-var footRefInText = regexp.MustCompile(`\[\^([^\]\s]+)\]`)
-
-// footnotesIn turns the references in t into chips, outside code, and not the one that starts a note.
-func footnotesIn(t richtext.Text) richtext.Text {
-	s := t.String()
-	if !strings.Contains(s, "[^") {
-		return t
-	}
-	locs := footRefInText.FindAllStringSubmatchIndex(s, -1)
-	for i := len(locs) - 1; i >= 0; i-- {
-		m := locs[i]
-		start := utf8.RuneCountInString(s[:m[0]])
-		end := start + utf8.RuneCountInString(s[m[0]:m[1]])
-		if t.ParagraphStyleAt(start).CodeBlock || t.AttributesAt(start).Code {
-			continue
-		}
-		if ps, _ := t.ParagraphRange(start); ps == start && strings.HasPrefix(s[m[1]:], ":") { // a note's own
-			continue
-		}
-		ch := &chip{kind: "footnote", target: s[m[2]:m[3]]}
-		attrs := t.AttributesAt(start)
-		attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
-		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
-	}
-	return t
-}
 
 const footSize = 10 // the reference's mark: smaller than the text, raised
 

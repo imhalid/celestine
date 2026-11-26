@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strings"
-
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/internal/library"
@@ -71,19 +69,6 @@ var bodyObjectDecoders = map[string]func(*bodyObj) *richtext.Attachment{
 		return &richtext.Attachment{Name: o.Alt, URL: o.Ref}
 	},
 }
-
-// knownBlockKinds is derived directly from inlineChipKinds and bodyObjectDecoders so blockmark.go
-// recognizes every body object kind handled by attachmentOf without maintaining a duplicate list.
-var knownBlockKinds = func() map[string]bool {
-	m := make(map[string]bool, len(inlineChipKinds)+len(bodyObjectDecoders))
-	for k := range inlineChipKinds {
-		m[k] = true
-	}
-	for k := range bodyObjectDecoders {
-		m[k] = true
-	}
-	return m
-}()
 
 // encodeBody writes the editor's text as the body: what is folded is put
 // back (a fold is the editor's, never the page's).
@@ -181,10 +166,11 @@ func textOf(paras library.Doc) richtext.Text {
 	return richtext.TextOf(out...)
 }
 
-// docOfText is the editor's text as the library's document, as its Markdown is written from it (bodyMarkdown): every
-// object a picture of its name and its URL, in the marks of the text it is in, and the depths of its quotes kept.
-// Its chips are their text by then (withoutChips), and what is left is pictures.
-func docOfText(t richtext.Text) library.Doc {
+// docObjectsOf is the editor's text as the library's document with its objects, as a page's Markdown is written from
+// it (library.Doc.ExportMarkdown): each chip the object the file has for it (objOf) and anything else drawn a picture
+// of its name and its URL, each in the marks of the text it is in, and the depths of quotes kept. Folds and zooms
+// are the editor's alone: unfoldText first.
+func docObjectsOf(t richtext.Text) library.Doc {
 	var d library.Doc
 	for _, p := range t.Paragraphs() {
 		bp := bodyPara{}
@@ -200,14 +186,9 @@ func docOfText(t richtext.Text) library.Doc {
 				run.W = a.Weight
 			}
 			if at := a.Attachment; at != nil {
-				run.T, run.O = library.ObjectChar, &bodyObj{K: "image", Alt: at.Name, Ref: at.URL}
-				switch d := at.Data.(type) {
-				case *checkKept:
-					run.O = &bodyObj{K: "check", Target: map[bool]string{true: "x"}[d.done]}
-				case *chip:
-					if d.kind == "check" {
-						run.O = &bodyObj{K: "check", Target: d.target}
-					}
+				run.T, run.O = library.ObjectChar, objOf(at)
+				if run.O == nil {
+					run.O = &bodyObj{K: "image", Alt: at.Name, Ref: at.URL}
 				}
 			}
 			bp.R = append(bp.R, run)
@@ -215,34 +196,6 @@ func docOfText(t richtext.Text) library.Doc {
 		d = append(d, bp)
 	}
 	return d
-}
-
-// checkKept is a task in the running text kept as one through withoutChips, which writes every other chip as its
-// text: the library writes it (pageDoc).
-type checkKept struct{ done bool }
-
-// pageDoc is the editor's text as the library writes its page's Markdown (library.Doc.PageMarkdown): folds put back,
-// every chip but a task in the running text its text, as the file has it.
-func pageDoc(t richtext.Text) library.Doc {
-	t = unfoldText(t)
-	type at struct {
-		i int
-		a richtext.Attributes
-	}
-	var checks []at
-	for i, r := range t.Runs(0, t.Len()) {
-		if att := r.Attributes.Attachment; att != nil {
-			if ch, ok := att.Data.(*chip); ok && ch.kind == "check" {
-				a := r.Attributes
-				a.Attachment = &richtext.Attachment{Name: att.Name, Data: &checkKept{ch.target == "x"}}
-				checks = append(checks, at{i, a})
-			}
-		}
-	}
-	for k := len(checks) - 1; k >= 0; k-- {
-		t = t.ReplaceString(checks[k].i, checks[k].i+1, string(richtext.ObjectReplacement), checks[k].a)
-	}
-	return docOfText(withoutChips(t))
 }
 
 // attachmentOf is the attachment of an object: the data of it, to be drawn later.
@@ -268,16 +221,3 @@ func bodyText(body string) string { return bodyMarkdown(decodeBody(body)) }
 
 // appendLine puts a paragraph of text at the end of a body (library.AppendLine).
 func appendLine(body, line string) string { return library.AppendLine(body, line) }
-
-// editorFormat is the editor's format, which the library reads its bodies in (internal/library/bodyformat.go).
-type editorFormat struct{}
-
-func (editorFormat) Markdown(body string) string   { return bodyText(body) }
-func (editorFormat) Plain(body string) string      { return decodeBody(body).PlainText() }
-func (editorFormat) FromMarkdown(md string) string { return encodeBody(importMarkdown(md)) }
-
-func (editorFormat) Blank(body string) bool {
-	return strings.TrimSpace(strings.ReplaceAll(decodeBody(body).String(), "\n", "")) == ""
-}
-
-func init() { library.Format = editorFormat{} }

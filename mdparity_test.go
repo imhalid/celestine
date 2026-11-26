@@ -64,7 +64,7 @@ func mdCorpus(n int) []string {
 func TestMarkdownReaderParity(t *testing.T) {
 	bad := 0
 	for _, md := range mdCorpus(4000) {
-		want := docOfText(richtext.ParseMarkdown(md))
+		want := docObjectsOf(richtext.ParseMarkdown(md))
 		got := library.ReadMarkdown(md)
 		dw, dg := strings.TrimRight(depths(want), ","), strings.TrimRight(depths(got), ",")
 		if w, g := library.EncodeBody(want), library.EncodeBody(got); w != g || dw != dg {
@@ -84,7 +84,7 @@ func TestMarkdownWriterParity(t *testing.T) {
 	bad := 0
 	for _, md := range mdCorpus(4000) {
 		text := richtext.ParseMarkdown(md)
-		want, got := text.Markdown(), docOfText(text).WriteMarkdown()
+		want, got := text.Markdown(), docObjectsOf(text).WriteMarkdown()
 		if want != got {
 			if bad++; bad <= 8 {
 				t.Errorf("%q:\nrichtext %q\nlibrary  %q", md, want, got)
@@ -103,7 +103,7 @@ func FuzzMarkdownParity(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, md string) {
 		text := richtext.ParseMarkdown(md)
-		want, got := docOfText(text), library.ReadMarkdown(md)
+		want, got := docObjectsOf(text), library.ReadMarkdown(md)
 		if w, g := library.EncodeBody(want), library.EncodeBody(got); w != g {
 			t.Fatalf("%q read:\nrichtext %s\nlibrary  %s", md, w, g)
 		}

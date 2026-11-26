@@ -3,6 +3,7 @@ package library
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/imhalid/celestine/internal/table"
@@ -51,6 +52,27 @@ type Run struct {
 	L string `json:"l,omitempty"` // link
 	G string `json:"g,omitempty"` // the app's own mark
 	O *Obj   `json:"o,omitempty"`
+}
+
+// The kinds of list a paragraph is an item of, as the page file numbers them (the editor's).
+const (
+	ListNone = iota
+	ListBullets
+	ListNumbers
+	ListTasks
+)
+
+// text is the paragraph's text, its objects as the character they stand as.
+func (p Para) text() string {
+	var b strings.Builder
+	for _, r := range p.R {
+		if r.O != nil {
+			b.WriteString(ObjectChar)
+			continue
+		}
+		b.WriteString(r.T)
+	}
+	return b.String()
 }
 
 // ObjectChar is the character an object stands as in its run's text.
@@ -110,6 +132,24 @@ func DecodeBody(s string) (Doc, error) {
 	var d Doc
 	if err := json.Unmarshal([]byte(s), &d); err != nil {
 		return nil, err
+	}
+	for i := range d { // a table's rows as long as its columns, and a table without columns none, as the editor reads them
+		rs := d[i].R[:0]
+		for _, r := range d[i].R {
+			if o := r.O; o != nil && o.K == "table" {
+				if len(o.Cols) == 0 {
+					continue
+				}
+				for k, row := range o.Rows {
+					for len(row) < len(o.Cols) {
+						row = append(row, "")
+					}
+					o.Rows[k] = row[:len(o.Cols)]
+				}
+			}
+			rs = append(rs, r)
+		}
+		d[i].R = mergeRuns(rs)
 	}
 	return d, nil
 }
@@ -172,6 +212,9 @@ func BodyReadable(s string) error {
 		}
 		return errors.New("the page's text is in a form this version cannot read: " + err.Error())
 	}
+	if _, err := dec.Token(); err != io.EOF { // something after the document, which reading it would drop
+		return errors.New("the page's text is in a form this version cannot read: more after its paragraphs")
+	}
 	return nil
 }
 
@@ -186,24 +229,21 @@ func AppendLine(body, line string) string {
 	return t[:len(t)-1] + "," + string(b) + "]"
 }
 
-// Plain is the document's text alone, a line to a paragraph, an object as the one character it stands as: what the
-// editor's own text of it says, without the editor.
-func (d Doc) Plain() string {
+// Plain is the document's text alone, a line to a paragraph, its objects left out: what the editor's text of it says
+// as plain text, without the editor.
+func (d Doc) Plain() string { return strings.ReplaceAll(d.text(), ObjectChar, "") }
+
+// text is the document's text, a line to a paragraph, an object as the one character it stands as.
+func (d Doc) text() string {
 	var b strings.Builder
 	for i, p := range d {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
-		for _, r := range p.R {
-			if r.O != nil {
-				b.WriteString(ObjectChar)
-				continue
-			}
-			b.WriteString(r.T)
-		}
+		b.WriteString(p.text())
 	}
 	return b.String()
 }
 
 // Blank reports whether the document holds no text and no object.
-func (d Doc) Blank() bool { return strings.TrimSpace(strings.ReplaceAll(d.Plain(), "\n", "")) == "" }
+func (d Doc) Blank() bool { return strings.TrimSpace(strings.ReplaceAll(d.text(), "\n", "")) == "" }

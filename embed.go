@@ -1,9 +1,7 @@
 package main
 
 import (
-	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -18,30 +16,6 @@ import (
 // the page, faded at the foot.
 
 const embedH = 200
-
-var embedLine = regexp.MustCompile(`(?m)^!\[\[([^\[\]|\n]+)\]\]$`)
-
-// embedsIn makes the cards of the lines ![[Page]] of t that stand alone.
-func embedsIn(t richtext.Text) richtext.Text {
-	s := t.String()
-	if !strings.Contains(s, "![[") {
-		return t
-	}
-	locs := embedLine.FindAllStringSubmatchIndex(s, -1)
-	for i := len(locs) - 1; i >= 0; i-- {
-		m := locs[i]
-		start := utf8.RuneCountInString(s[:m[0]])
-		end := start + utf8.RuneCountInString(s[m[0]:m[1]])
-		if t.ParagraphStyleAt(start).CodeBlock {
-			continue
-		}
-		attrs := t.AttributesAt(start)
-		ch := &chip{kind: "embed", target: strings.TrimSpace(s[m[2]:m[3]])}
-		attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
-		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
-	}
-	return t
-}
 
 // embedAttachment is the card of an embed.
 func (a *app) embedAttachment(ch *chip) *richtext.Attachment {

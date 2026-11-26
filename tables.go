@@ -1055,55 +1055,6 @@ func (a *app) dragColumns(pn *paneState, ed ui.Element) {
 
 // ---- the text and the file ----
 
-// tablesIn turns the tables a page has into objects: the fenced blocks
-// the app writes, and the Markdown tables other tools write (made tables of
-// their own, written as such from now on).
-func tablesIn(t richtext.Text) richtext.Text {
-	ps := starts(t)
-	for i, j := 0, len(ps)-1; i < j; i, j = i+1, j-1 {
-		ps[i], ps[j] = ps[j], ps[i]
-	}
-	type found struct {
-		s, e int
-		m    *tableModel
-	}
-	var all []found
-	for i := 0; i < len(ps); i++ {
-		s, e := t.ParagraphRange(ps[i])
-		st := t.ParagraphStyleAt(s)
-		legacy := st.ID == rawIDPrefix+"table"
-		if !st.CodeBlock || !(legacy || st.ID == codeIDPrefix+tableLang) {
-			continue
-		}
-		lines := []string{t.Slice(s, e).String()}
-		for i+1 < len(ps) {
-			s2, e2 := t.ParagraphRange(ps[i+1])
-			if st2 := t.ParagraphStyleAt(s2); !st2.CodeBlock || st2.ID != "" {
-				break
-			}
-			lines = append(lines, t.Slice(s2, e2).String())
-			e = e2
-			i++
-		}
-		var m *tableModel
-		if legacy {
-			m = tableFromMarkdown(lines)
-		} else if tm, ok := parseTable(strings.Join(lines, "\n")); ok {
-			m = tm
-		}
-		if m != nil {
-			all = append(all, found{s, e, m})
-		}
-	}
-	for k := len(all) - 1; k >= 0; k-- {
-		f := all[k]
-		attrs := richtext.Attributes{Attachment: &richtext.Attachment{Name: locales.BlocksRawTable(), Data: &chip{kind: "table", tbl: f.m}}}
-		t = t.ReplaceString(f.s, f.e, string(richtext.ObjectReplacement), attrs)
-		t = t.FormatParagraphs(f.s, f.s, func(p *richtext.ParagraphStyle) { *p = richtext.ParagraphStyle{} })
-	}
-	return t
-}
-
 // tableAsText puts a table's text where its object is at i in t, as a block
 // of code the file has as its fenced block; a table with other text in its
 // paragraph is parted from it.

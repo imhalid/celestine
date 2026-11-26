@@ -954,8 +954,11 @@ func writeHeld(h heldBlock) string {
 		return "---"
 	case "code":
 		fence := "```"
+		if strings.Contains(h.lang, "`") { // a backtick in its language: no backticks' fence may hold it, tildes do
+			fence = "~~~"
+		}
 		for strings.Contains(h.text, fence) {
-			fence += "`"
+			fence += fence[:1]
 		}
 		return fence + h.lang + "\n" + h.text + "\n" + fence
 	}

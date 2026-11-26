@@ -39,8 +39,9 @@ var rawNames = map[string]func() string{"table": locales.BlocksRawTable, "html":
 // parseBody reads a page's Markdown into the editor's text.
 func parseBody(md string) richtext.Text { return textOf(library.PageFromMarkdown(md)) }
 
-// bodyMarkdown writes the editor's text as the page's Markdown.
-func bodyMarkdown(t richtext.Text) string { return pageDoc(t).PageMarkdown() }
+// bodyMarkdown writes the editor's text as the page's Markdown: its folds and zooms put back, its chips the objects the
+// library writes (docObjectsOf).
+func bodyMarkdown(t richtext.Text) string { return docObjectsOf(unfoldText(t)).ExportMarkdown() }
 
 // rawBlock reports whether a block Markdown's codec would lose starts at line i, and its lines (library.RawBlockOf).
 func rawBlock(lines []string, i int, paraStart bool) (string, int) {

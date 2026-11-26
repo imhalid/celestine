@@ -470,8 +470,20 @@ func escapeBlockStart(s string) string {
 	return s
 }
 
-// markdownURL is a URL as the destination of a link.
+// markdownURL is a URL as the destination of a link: its control characters, which no destination may hold, in
+// percent escapes, so that the link reads back as one (the codec of the editor wrote them as they were).
 func markdownURL(u string) string {
+	if strings.IndexFunc(u, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		var b strings.Builder
+		for _, r := range u {
+			if r < 0x20 || r == 0x7f {
+				b.WriteString("%" + strings.ToUpper(strconv.FormatInt(int64(r)+0x100, 16)[1:]))
+				continue
+			}
+			b.WriteRune(r)
+		}
+		u = b.String()
+	}
 	if strings.ContainsAny(u, " ()<>") {
 		return "<" + strings.NewReplacer("<", "%3C", ">", "%3E").Replace(u) + ">"
 	}

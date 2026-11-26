@@ -63,29 +63,61 @@ func TestBodyReadableAndAppend(t *testing.T) {
 	}
 }
 
-// The library reads and writes a document's Markdown on its own: headings, lists, tasks, quotes, code, links to
-// pages and days, embeds and boxes in the text, and the marks of its runs.
-func TestDocMarkdown(t *testing.T) {
-	md := "# Başlık\nbir [[Dune|D]] ve [[2026-11-26]]\n- madde\n  - alt\n1. bir\n2. iki\n- [ ] yap #iş\n- [x] bitti\n> alıntı\n![[Gömülü]]\nsatır [x] içi\n```go\nfmt.Println()\n```"
-	d := DocFromMarkdown(md)
-	if got := d.Markdown(); got != md {
-		t.Fatalf("written back:\n%s\nnot:\n%s", got, md)
+// The library reads and writes a page's Markdown on its own, as the editor did (#595): its objects (links to pages and
+// days, a card, a footnote, a task in the running text, a table, a query), its tasks of a kind, its held blocks, and the
+// marks of its runs; what it writes it reads back the same.
+func TestPageMarkdownAlone(t *testing.T) {
+	md := "# Başlık\n\nbir [[Dune|D]] ve [[2026-11-26]] not[^1]\n\n- [*] yıldız\n- [ ] yap #iş\n- [x] bitti\n\nsatır [ ] içi\n\n" +
+		"![[Gömülü]]\n\n```go\nfmt.Println()\n```\n\n```query\n#proje\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n[^1]: not"
+	d := ImportMarkdown(md)
+	kinds := map[string]int{}
+	for _, p := range d {
+		for _, r := range p.R {
+			if r.O != nil {
+				kinds[r.O.K]++
+			}
+		}
 	}
-	if d[1].R[1].O.K != "page" || d[1].R[1].O.Alias != "D" || d[1].R[3].O.K != "date" {
-		t.Fatalf("links: %+v", d[1].R)
+	for _, k := range []string{"page", "date", "footnote", "check", "embed", "query", "table"} {
+		if kinds[k] != 1 {
+			t.Errorf("%s objects: %d, want 1 (%v)", k, kinds[k], kinds)
+		}
 	}
-	if st := d[6].S; st.List != ListTasks || st.Checked || !d[7].S.Checked {
-		t.Fatalf("tasks: %+v %+v", d[6].S, d[7].S)
+	if st := d[2].S; st == nil || st.ID != TaskIDPrefix+"star" {
+		t.Fatalf("the star task: %+v", st)
 	}
-	if st := d[3].S; st.List != ListBullets || st.Indent != 1 {
-		t.Fatalf("the nested item: %+v", st)
+	out := d.ExportMarkdown()
+	if again := ImportMarkdown(out).ExportMarkdown(); again != out {
+		t.Fatalf("written:\n%s\nread and written again:\n%s", out, again)
 	}
-	if d[11].S == nil || !d[11].S.CodeBlock || d[11].S.ID != "celestine:code:go" {
-		t.Fatalf("code: %+v", d[11].S)
+	for _, want := range []string{"[[Dune|D]]", "[[2026-11-26]]", "- [*] yıldız", "satır [ ] içi", "![[Gömülü]]", "```go\nfmt.Println()\n```", "```query\n#proje\n```", "```celestine-table\n"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%q not written in:\n%s", want, out)
+		}
 	}
 	marks := Doc{{R: []Run{{T: "kalın", W: 700}, {T: " "}, {T: "eğik", I: true}, {T: " "}, {T: "kod", C: true}, {T: " "}, {T: "site", L: "https://x.y"}}}}
-	if got := marks.Markdown(); got != "**kalın** *eğik* `kod` [site](https://x.y)" {
+	if got := marks.PageMarkdown(); got != "**kalın** *eğik* `kod` [site](https://x.y)" {
 		t.Fatal(got)
+	}
+}
+
+// A query block right after the lines of another block of code takes its own lines, not those (#608).
+func TestQueryAfterCodeKeepsTheCode(t *testing.T) {
+	d := ImportMarkdown("<img src=\"a.png\">\nbir satır\nikinci satır\n\n```query\n#proje @todo\n```\n")
+	var q string
+	var code []string
+	for _, p := range d {
+		for _, r := range p.R {
+			if r.O != nil && r.O.K == "query" {
+				q = r.O.Q
+			}
+		}
+		if p.S != nil && p.S.CodeBlock {
+			code = append(code, p.text())
+		}
+	}
+	if q != "#proje @todo" || strings.Join(code, "|") != "<img src=\"a.png\">|bir satır|ikinci satır" {
+		t.Fatalf("query %q, code %q", q, code)
 	}
 }
 
@@ -93,14 +125,14 @@ func TestDocMarkdown(t *testing.T) {
 // Markdown, its text and whether it is blank from it; a body that is a JSON string is read as its Markdown.
 func TestLibraryFormatIsTheDocument(t *testing.T) {
 	f := docFormat{}
-	body := f.FromMarkdown("# T\n- [ ] yap [[P]]")
+	body := f.FromMarkdown("# T\n\n- [ ] yap [[P]]")
 	if !strings.HasPrefix(body, "[") || BodyReadable(body) != nil {
 		t.Fatalf("not a document: %s", body)
 	}
-	if got := f.Markdown(body); got != "# T\n- [ ] yap [[P]]" {
+	if got := f.Markdown(body); got != "# T\n\n- [ ] yap [[P]]" {
 		t.Fatal(got)
 	}
-	if got := f.Plain(body); got != "T\nyap "+ObjectChar {
+	if got := f.Plain(body); got != "T\nyap " {
 		t.Fatalf("%q", got)
 	}
 	if f.Blank(body) || !f.Blank(`[{"r":[{"t":"  "}]}]`) || !f.Blank("[]") {

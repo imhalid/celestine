@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
 )
@@ -152,29 +153,6 @@ func (a *app) attachment(ch *chip) *richtext.Attachment {
 
 var wikiInText = regexp.MustCompile(`\[\[([^\[\]\n]+?)\]\]`)
 
-// chipsIn turns the [[links]] in t, outside code, into chips: attachments
-// that carry what they are and are not yet drawn (dress draws them).
-func chipsIn(t richtext.Text) richtext.Text {
-	s := t.String()
-	if !strings.Contains(s, "[[") {
-		return t
-	}
-	locs := wikiInText.FindAllStringSubmatchIndex(s, -1)
-	for i := len(locs) - 1; i >= 0; i-- {
-		m := locs[i]
-		start := utf8.RuneCountInString(s[:m[0]])
-		end := start + utf8.RuneCountInString(s[m[0]:m[1]])
-		if t.ParagraphStyleAt(start).CodeBlock || t.AttributesAt(start).Code {
-			continue
-		}
-		ch := chipOf(s[m[2]:m[3]])
-		attrs := t.AttributesAt(start)
-		attrs.Attachment = &richtext.Attachment{Name: ch.label(), Data: ch}
-		t = t.ReplaceString(start, end, string(richtext.ObjectReplacement), attrs)
-	}
-	return t
-}
-
 // chipAttachment is chip ch drawn, as its kind is: a chip in the line, a page embedded, a footnote, a query, a table.
 func (a *app) chipAttachment(ch *chip) *richtext.Attachment {
 	switch ch.kind {
@@ -268,9 +246,7 @@ func (a *app) dress(p *Page, t richtext.Text) richtext.Text {
 // importMarkdown reads Markdown into text: what comes in from outside (a
 // file dropped or imported, what an agent writes, a template). It is not
 // how a page is kept.
-func importMarkdown(md string) richtext.Text {
-	return footnotesIn(chipsIn(embedsIn(queriesIn(tablesIn(blockMarksIn(parseBody(md)))))))
-}
+func importMarkdown(md string) richtext.Text { return textOf(library.ImportMarkdown(md)) }
 
 // parse reads Markdown into the editor's text, drawn, for the open page.
 func (a *app) parse(md string) richtext.Text { return a.dress(a.pane().page, importMarkdown(md)) }

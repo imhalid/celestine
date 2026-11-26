@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/internal/library"
 )
 
 // The edits made to a page from outside its editor (a task ticked in the Tasks view, a quick note, a tag renamed)
@@ -21,7 +22,7 @@ func paragraphsOf(t richtext.Text) []richtext.Paragraph {
 
 // appendBody is body with the paragraphs of add after its own; an empty body is replaced.
 func appendBody(body string, add richtext.Text) string {
-	if (editorFormat{}).Blank(body) {
+	if library.Format.Blank(body) {
 		return encodeBody(add)
 	}
 	return encodeBody(richtext.TextOf(append(paragraphsOf(decodeBody(body)), paragraphsOf(add)...)...))
