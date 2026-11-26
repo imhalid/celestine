@@ -75,6 +75,9 @@ func (a *app) showSettingsWindow() {
 				opts.Transparent = true
 				opts.Vibrancy = mygo.VibrancyGlass
 			}
+			if ownWindowControls { // framed as the main window: its title bar its own (setWinBar), the menu bar out of sight
+				opts.TitleBarStyle, opts.HideWindowButtons, opts.AutoHideMenuBar = mygo.TitleBarHidden, true, true
+			}
 			return mygo.NewWindow(opts)
 		}
 	}
@@ -125,7 +128,12 @@ func (a *app) settingsWindowView(c *ui.Context) {
 			a.settingsStep(pn, 1)
 		}
 	}
-	ui.Column(c.Key("setwin")).Fill().Padding(18, 20, 0, 20).Children(func() {
+	top := float32(18)
+	if ownWindowControls {
+		a.setWinBar(c)
+		top = 4
+	}
+	ui.Column(c.Key("setwin")).FillWidth().Grow(1).MinHeight(0).Padding(top, 20, 0, 20).Children(func() {
 		a.settingsScreen(c, pn)
 	})
 	a.contextView(c)
@@ -138,6 +146,23 @@ func (a *app) settingsWindowView(c *ui.Context) {
 			a.invalidate()
 		}
 	}
+}
+
+// setWinBarH is how tall the settings' window's own title bar is.
+const setWinBarH = 38
+
+// setWinBar is the settings' window's own title bar, where the window has the app's controls, not the system's (#615):
+// across its top, dragged to move the window, its title at the middle and the app's minimize, maximize and close at
+// its right end, as the main window's header has them.
+func (a *app) setWinBar(c *ui.Context) {
+	t := c.Theme()
+	ui.Row(c.Key("setwin-bar")).FillWidth().Height(setWinBarH).Shrink(0).AlignItems(ui.Center).Padding(0, 8, 0, 14).
+		DragWindow().Children(func() {
+		ui.Box(c).Width(84) // as wide as the buttons: the title at the middle
+		ui.Text(c, locales.CommonSettings()).FontSize(12).FontWeight(560).TextColor(t.TextMuted).MaxLines(1).Grow(1).
+			TextAlign(ui.Center).MinWidth(0)
+		ui.Row(c).Width(84).Justify(ui.End).Children(func() { a.windowButtons(c, a.sw.w) })
+	})
 }
 
 // followSettingsWindow is the main window's side: a setting it changed is shown in the settings' window.

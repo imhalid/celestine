@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/locales"
 	ryugo "github.com/imhalid/ryu-go"
@@ -27,8 +28,11 @@ var (
 )
 
 // windowControls draws the three buttons, at the header's right end, in its row.
-func (a *app) windowControls(c *ui.Context) {
-	if a.win == nil {
+func (a *app) windowControls(c *ui.Context) { a.windowButtons(c, a.win) }
+
+// windowButtons draws the three buttons of window w, in a row: the main window's, or the settings' (#615).
+func (a *app) windowButtons(c *ui.Context, w *mygo.Window) {
+	if w == nil {
 		return
 	}
 	t := c.Theme()
@@ -53,8 +57,8 @@ func (a *app) windowControls(c *ui.Context) {
 				do()
 			}
 		}
-		btn(iconMinimize, locales.WindowMinimize(), false, a.win.Minimize)
-		btn(iconMaximize, locales.WindowMaximize(), false, a.win.ToggleMaximize)
-		btn(iconWinClose, "close", true, a.win.Close)
+		btn(iconMinimize, locales.WindowMinimize(), false, w.Minimize)
+		btn(iconMaximize, locales.WindowMaximize(), false, w.ToggleMaximize)
+		btn(iconWinClose, "close", true, w.Close)
 	})
 }

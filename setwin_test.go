@@ -38,6 +38,9 @@ func TestSettingsWindow(t *testing.T) {
 	if _, ok := wt.Find(locales.SettingsSearchSettings()); !ok {
 		t.Fatal("no search in the window")
 	}
+	if _, ok := wt.Find(locales.CommonSettings()); ownWindowControls && !ok { // its own title bar (#615)
+		t.Fatal("no title bar of its own")
+	}
 	for _, s := range settingsSections {
 		if _, ok := wt.Find(msg(s.name)); !ok {
 			t.Fatalf("no section %q", msg(s.name))
