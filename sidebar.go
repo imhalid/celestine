@@ -131,7 +131,7 @@ func (a *app) sidebar(c *ui.Context) float32 {
 	switch {
 	case a.sideOnGround(): // no card: it lies on the frame's ground
 	case a.wframe.on: // in the window's frame, a card of its own, the ground's tint coming through (windowframe.go)
-		frameCard(c, sb, t.Surface.Alpha(sideAlpha), rad(a.cardR()), 1)
+		frameCard(c, sb, t.Surface.Alpha(sideAlpha), a.cardR(), 1)
 	default:
 		if useGlass {
 			sb.Background(t.Surface.Alpha(sideAlpha))

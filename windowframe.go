@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 
 	"github.com/egoist/mygo/ui"
@@ -18,21 +19,29 @@ import (
 // card has a bar of its own (panebar.go, #468). macOS's window buttons stay in the card's corner, beside the
 // sidebar's buttons.
 
-// frameW is the frame's width around the card, and frameR the card's corner where the window has no rounded corners
-// to follow (cardR), in DIPs.
+// frameW is the frame's width around the card, and frameR the card's corner at the design's measure (radius.go):
+// with the window's corners frameR+frameW, as a titled macOS window without a toolbar draws its own (#600).
 const (
 	frameW = 8
-	frameR = 10
+	frameR = 8
 )
 
-// cardR is the corner of the frame's cards: the window's own radius less the frame's width, so that the card's
-// corners are concentric with the window's (on macOS 26 a window with a toolbar has 26, the cards 18), or frameR
-// where the window's corners are square or the system does not tell them (#517).
+// winCorner is the corner radius the window is opened with: the card's corner at the measure of the Corners
+// setting, and the frame's width around it, so that the two are concentric (#600). The window's radius cannot be
+// changed once it is open: a new measure reaches it at the next launch, and the cards follow the window's until then.
+func winCorner(percent int) int {
+	return frameW + int(math.Round(float64(frameR)*float64(percent)/100))
+}
+
+// cardR is the corner of the frame's cards, as drawn: the window's own radius less the frame's width, so that the
+// card's corners are concentric with the window's (on macOS 26 a window with a toolbar has 26, the cards 18), or
+// frameR at the measure where the window's corners are square or the system does not tell them (#517, #600). It is
+// not scaled again by rad: the window's radius already is.
 func (a *app) cardR() float32 {
 	if r := float32(a.winRadius) - frameW; r > 0 {
 		return r
 	}
-	return frameR
+	return rad(frameR)
 }
 
 // frameGap is the room between the cards in the frame: the sidebar, the panes, the Dock's areas.

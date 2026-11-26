@@ -94,8 +94,8 @@ func TestNoTabsCardClearTopLeftButtons(t *testing.T) {
 	if a.sidebarShown > 0.1 {
 		t.Fatalf("sidebar did not close: %v", a.sidebarShown)
 	}
-	if frameW != 8 || frameR != 10 {
-		t.Fatalf("frame constants = (%d, %d), want (8, 10)", frameW, frameR)
+	if frameW != 8 || frameR != 8 {
+		t.Fatalf("frame constants = (%d, %d), want (8, 8)", frameW, frameR)
 	}
 	if !ownWindowControls && (a.panesR.Y != frameW || a.pane().scrollR.Y != frameTopH+1) {
 		t.Fatalf("single-pane card = (%v, %v), want (%d, %d)", a.panesR.Y, a.pane().scrollR.Y, frameW, frameTopH+1)
@@ -482,17 +482,34 @@ func TestPaneBarDrag(t *testing.T) {
 // that and a gap left of the compass's middle.
 func compassTileOf() float32 { return 30 }
 
-// The cards' corners follow the window's: its radius less the frame's width, concentric with it, or frameR where
-// its corners are square or not told (#517).
+// The cards' corners follow the window's: its radius less the frame's width, concentric with it, or frameR at the
+// Corners measure where its corners are square or not told (#517). The window opens with the card's corner at that
+// measure and the frame around it, so the two stay concentric at every measure (#600).
 func TestCardRadiusFollowsTheWindow(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.wframe.on = true
+	defer func(s float32) { radiusScale = s }(radiusScale)
+	radiusScale = 1
 	for _, c := range []struct{ win, want float64 }{{26, 18}, {16, 8}, {0, frameR}, {6, frameR}} {
 		a.winRadius = c.win
 		if got := a.cardR(); float64(got) != c.want {
 			t.Errorf("a window of %v: cards of %v, want %v", c.win, got, c.want)
 		}
 	}
+	for _, p := range []int{0, 50, 100, 150, 200} {
+		radiusScale = float32(p) / 100
+		a.winRadius = float64(winCorner(p))
+		if got, want := a.cardR(), rad(frameR); a.winRadius > frameW && got != want {
+			t.Errorf("Corners at %d%%: a window of %v, cards of %v, want %v", p, a.winRadius, got, want)
+		}
+		if got := float32(a.winRadius) - a.cardR(); a.winRadius > frameW && got != frameW {
+			t.Errorf("Corners at %d%%: window %v and cards %v are not concentric", p, a.winRadius, a.cardR())
+		}
+	}
+	if winCorner(100) != 16 {
+		t.Errorf("the window's corner at 100%% is %d, want 16", winCorner(100))
+	}
+	radiusScale = 1
 	a.winRadius = 26
 	tt.Frame() // drawn with it: the sidebar's card, the page's, and the pane's (cardRadius) take cardR
 }
