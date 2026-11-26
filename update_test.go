@@ -526,15 +526,26 @@ func TestInstallApp(t *testing.T) {
 	w.Write([]byte("yeni"))
 	zw.Close()
 	f.Close()
-	old, err := installApp(zp, app)
+	before, _ := os.Stat(app)
+	target, old, err := installApp(zp, app)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if target != filepath.Join(app, "Contents") {
+		t.Fatalf("replaced %q", target)
 	}
 	if b, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "celestine")); string(b) != "yeni" {
 		t.Fatalf("%q", b)
 	}
-	if b, _ := os.ReadFile(filepath.Join(old, "Contents", "MacOS", "celestine")); string(b) != "eski" {
-		t.Fatal("old bundle not kept")
+	if b, _ := os.ReadFile(filepath.Join(old, "MacOS", "celestine")); string(b) != "eski" {
+		t.Fatal("old contents not kept")
+	}
+	// the bundle's folder is the one it was, which the Dock's icon points at (#627)
+	if after, _ := os.Stat(app); !os.SameFile(before, after) {
+		t.Fatal("the bundle's folder was replaced")
+	}
+	if _, err := os.Stat(app + ".new"); !os.IsNotExist(err) {
+		t.Fatal("the staging folder was left")
 	}
 	// a zip with a path that climbs out is refused
 	evil := filepath.Join(dir, "evil.zip")
@@ -544,7 +555,7 @@ func TestInstallApp(t *testing.T) {
 	w.Write([]byte("x"))
 	zw.Close()
 	f.Close()
-	if _, err := installApp(evil, app); err == nil {
+	if _, _, err := installApp(evil, app); err == nil {
 		t.Fatal("a zip that climbs out was unpacked")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "kaçtı")); err == nil {
@@ -584,7 +595,7 @@ func TestInstallAppHardening(t *testing.T) {
 		sw, _ := zw.CreateHeader(sh)
 		sw.Write([]byte("celestine"))
 	})
-	if _, err := installApp(good, app); err != nil {
+	if _, _, err := installApp(good, app); err != nil {
 		t.Fatalf("installApp good: %v", err)
 	}
 	if _, err := os.Stat(good); !os.IsNotExist(err) {
@@ -652,7 +663,7 @@ func TestInstallAppHardening(t *testing.T) {
 	} {
 		zp := filepath.Join(dir, tc.name+".zip")
 		writeZip(zp, tc.add)
-		if _, err := installApp(zp, app); err == nil {
+		if _, _, err := installApp(zp, app); err == nil {
 			t.Fatalf("%s unexpectedly succeeded", tc.name)
 		}
 	}
@@ -666,7 +677,7 @@ func TestInstallAppHardening(t *testing.T) {
 		w, _ := zw.Create("celestine.app/Contents/MacOS/celestine")
 		w.Write([]byte("0123456789"))
 	})
-	_, err := installApp(big, app)
+	_, _, err := installApp(big, app)
 	if err == nil || err.Error() != locales.UpdateErrZipTooLarge() {
 		t.Fatalf("size limit err = %v, want %q", err, locales.UpdateErrZipTooLarge())
 	}
@@ -788,8 +799,9 @@ func TestWhatsNew(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
 	a.settings.UpdateFor, a.settings.UpdateNotes = "v3.0.0", "- yeni şeyler"
 	tt.Frame()
-	tt.Advance(helloDelay + helloRise + 500*time.Millisecond)
-	// on the desktop no dialog: a note at the bottom right, with what changed and the changelog (updhello.go)
+	tt.Frame()
+	// on the desktop no dialog: a note at the bottom right, with what changed and the changelog, there at once with no
+	// wave over the window (updhello.go, #630)
 	if !tt.HasText(locales.UpdateWhatsNew("3.0.0")) || !tt.HasText("yeni şeyler") || a.updOpen {
 		t.Fatalf("%v", tt.Texts())
 	}
@@ -923,31 +935,6 @@ func TestHelloSummary(t *testing.T) {
 	}
 }
 
-// TestHelloWaitsForTheWindow: the wave after an update starts only once the window has drawn a few frames and a moment
-// has gone, and its clock moves a frame's time at most, so a restarted window shows it from its start (#392).
-func TestHelloWaitsForTheWindow(t *testing.T) {
-	old := version
-	version = "v3.0.0"
-	defer func() { version = old }()
-	a, tt := newTestApp(t, "x\n")
-	a.settings.UpdateFor = "v3.0.0"
-	tt.Frame()
-	tt.Frame()
-	if a.hello.at.IsZero() || a.hello.going {
-		t.Fatalf("hello: %+v", a.hello)
-	}
-	tt.Advance(helloDelay + 200*time.Millisecond)
-	if !a.hello.going || a.hello.run <= 0 || a.hello.run > 200*time.Millisecond+helloStep {
-		t.Fatalf("the wave's clock: going %v, at %v", a.hello.going, a.hello.run)
-	}
-	a.hello.last = a.hello.last.Add(-2 * time.Second) // a frame that came two seconds late
-	before := a.hello.run
-	tt.Frame()
-	if a.hello.run-before > helloStep {
-		t.Fatalf("a late frame moved the wave %v", a.hello.run-before)
-	}
-}
-
 // TestUpdateReducedMotion: with reduced motion the update flow goes through without waiting on any motion: the card is
 // there and answers at once, the chip comes at once after Later, and after an update the note shows at once with no
 // wave (#399).
@@ -972,8 +959,8 @@ func TestUpdateReducedMotion(t *testing.T) {
 	b.settings.UpdateFor = "v3.0.0"
 	tb.Frame()
 	tb.Frame()
-	if !tb.HasText(locales.UpdateWhatsNew("3.0.0")) || b.hello.run < helloWave {
-		t.Fatalf("hello: run %v: %v", b.hello.run, tb.Texts())
+	if !tb.HasText(locales.UpdateWhatsNew("3.0.0")) {
+		t.Fatalf("hello: %v", tb.Texts())
 	}
 }
 

@@ -672,9 +672,7 @@ func main() {
 			// thread, as the window's are, and not under a lock the main thread could be waiting on (#567)
 			time.AfterFunc(1500*time.Millisecond, func() { mygo.RunOnMain(show) })
 		}
-		if ownWindowControls {
-			a.win = w
-		}
+		a.win = w // the settings' window beside it, the app icon's look, the wallpaper's place: on every system (#629)
 		a.invalidate = w.Invalidate
 		a.runOnUI = mygo.RunOnMain
 		if runtime.GOOS != "js" { // a browser has one window: the panes stay in it
@@ -684,6 +682,9 @@ func main() {
 		mygo.App.OnSecondInstance(func(args []string, _ string) {
 			a.handleSecondInstance(args)
 		})
+		if runtime.GOOS == "darwin" {
+			keepInDock(w) // on macOS the window closed is hidden, and the app stays in the Dock (#632)
+		}
 		w.OnClosed(mygo.App.Quit) // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(a.windowIn)     // back from another device: what it wrote comes
 		w.OnBlur(a.windowOut)     // the server is not asked for changes behind other windows
@@ -1126,7 +1127,6 @@ func (a *app) viewFrame(c *ui.Context) {
 		root = ui.Row(c).Fill().AlignItems(ui.Stretch).Background(bg)
 	}
 	a.welcomeRoot(c, root) // and the app hidden, then opened by a shader
-	a.helloRoot(c, root)   // the first start after an update: a wave of light up the window (updhello.go)
 	a.shake(c, root)
 	// the sync's asks rest while nobody is here
 	a.activity(root)

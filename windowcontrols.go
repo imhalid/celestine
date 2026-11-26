@@ -27,8 +27,13 @@ var (
 	iconWinClose = icon(`<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>`)
 )
 
-// windowControls draws the three buttons, at the header's right end, in its row.
-func (a *app) windowControls(c *ui.Context) { a.windowButtons(c, a.win) }
+// windowControls draws the three buttons, at the header's right end, in its row, where the app draws them: macOS has
+// its own, though the main window is kept there too (#629).
+func (a *app) windowControls(c *ui.Context) {
+	if ownWindowControls {
+		a.windowButtons(c, a.win)
+	}
+}
 
 // windowButtons draws the three buttons of window w, in a row: the main window's, or the settings' (#615).
 func (a *app) windowButtons(c *ui.Context, w *mygo.Window) {
@@ -60,5 +65,29 @@ func (a *app) windowButtons(c *ui.Context, w *mygo.Window) {
 		btn(iconMinimize, locales.WindowMinimize(), false, w.Minimize)
 		btn(iconMaximize, locales.WindowMaximize(), false, w.ToggleMaximize)
 		btn(iconWinClose, "close", true, w.Close)
+	})
+}
+
+// keepInDock has the window w, the app's main one, closed as a Mac app's is (#632): its close button and ⌘W hide it,
+// and the app stays in the Dock, whose icon brings it back, as opening the app again does. A quit (⌘Q, the Dock's
+// Quit, the system's logout) closes it all the same, and the app with it.
+func keepInDock(w *mygo.Window) {
+	quitting, hidden := false, false
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { quitting = true })
+	mygo.App.OnQuitCanceled(func() { quitting = false })
+	w.OnClose(func(e *mygo.CloseEvent) {
+		if quitting {
+			return
+		}
+		e.PreventDefault()
+		hidden = true
+		w.Hide()
+	})
+	mygo.App.OnActivate(func(bool) {
+		if hidden {
+			hidden = false
+			w.Show()
+			w.Focus()
+		}
 	})
 }

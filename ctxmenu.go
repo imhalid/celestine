@@ -122,9 +122,10 @@ func (a *app) pageMenu(p *Page, inPlace bool) []menuItem {
 	if _, ok := historyOf(p); ok { // the history is the page's room: the page is opened, then its history (#265)
 		out = append(out, menuItem{title: "page_versionHistory", glyph: iconHistory, run: func() { a.open(p); a.openTimeMachine(p) }})
 	}
-	out = append(out,
-		menuItem{title: "page_exportFile", glyph: iconExport, run: func() { a.exportPage(p) }},
-		menuItem{title: "moveToTrash", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
+	out = append(out, menuItem{title: "page_exportFile", glyph: iconExport, run: func() { a.exportPage(p) }})
+	if !a.journalDay(p) { // a day of the journal is not deleted (#631)
+		out = append(out, menuItem{title: "moveToTrash", group: "~", glyph: iconTrash, danger: true, run: func() { a.trashPage(p) }})
+	}
 	return out
 }
 

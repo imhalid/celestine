@@ -73,30 +73,23 @@ func TestPressWavesSetting(t *testing.T) {
 	}
 }
 
-// TestSidebarCardSetting: in the window's frame the sidebar lies on the frame's ground, and the setting of its
-// background gives it a card (#381, #489).
-func TestSidebarCardSetting(t *testing.T) {
+// TestSidebarOnGround: in the window's frame the sidebar lies on the frame's ground, and the settings have no switch
+// that gives it a background of its own (#381, #489, #629).
+func TestSidebarOnGround(t *testing.T) {
 	a, tt := newTestApp(t, "x\n")
-	tt.SetSize(1000+2*frameW+frameGap, 3000) // the whole Appearance page, the app icon's tiles in it (#601)
+	tt.SetSize(1000+2*frameW+frameGap, 3000) // the whole Appearance page
 	tt.Advance(100 * time.Millisecond)
-	if !a.wframe.on || !a.sideOnGround() || a.settings.SidebarCard {
-		t.Fatalf("framed %v, on the ground %v, card %v", a.wframe.on, a.sideOnGround(), a.settings.SidebarCard)
+	if !a.wframe.on || !a.sideOnGround() {
+		t.Fatalf("framed %v, on the ground %v", a.wframe.on, a.sideOnGround())
 	}
-	a.sidebarClosed = true // room for the rows' switches beside their titles, past the settings' own sidebar (#605)
+	a.sidebarClosed = true
 	a.pane().settingsOpen, a.pane().settingsTab = true, 0
 	tt.Advance(900 * time.Millisecond)
-	title, ok := tt.Find(locales.SettingsSidebarCard())
-	if !ok {
-		t.Fatal("no Sidebar background row")
+	if _, ok := tt.Find("Sidebar background"); ok {
+		t.Fatal("a Sidebar background row")
 	}
-	for dy := float32(0); dy <= 40 && !a.settings.SidebarCard; dy += 8 {
-		for x := float32(1000+2*frameW+frameGap) - 4; x > title.X+title.W && !a.settings.SidebarCard; x -= 6 {
-			tt.ClickAt(x, title.Y+title.H/2+dy)
-			tt.Advance(50 * time.Millisecond)
-		}
-	}
-	if !a.settings.SidebarCard || a.sideOnGround() {
-		t.Fatalf("the switch: card %v, on the ground %v", a.settings.SidebarCard, a.sideOnGround())
+	if _, ok := tt.Find(locales.SettingsSidebarName()); !ok {
+		t.Fatal("not the Appearance page")
 	}
 }
 

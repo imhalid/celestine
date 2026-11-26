@@ -6,10 +6,10 @@ import (
 )
 
 // The secrets of the settings - the key of end-to-end encryption, the device's sync token, the MCP server's token -
-// are kept in the system's keychain (macOS's Keychain, the Secret Service on Linux, Windows' Credential Manager)
-// where there is one, and not in the settings, which lie in a file anyone with the disk can read. Where none answers,
-// and in the browser, they stay in the settings as before. A secret the settings held before is moved over at the
-// first start that finds a keychain.
+// are kept in the system's keychain (the Secret Service on Linux, Windows' Credential Manager; on macOS a file of the
+// app's own, keychain_file.go) where there is one, and not in the settings, which lie in a file anyone with the disk
+// can read. Where none answers, and in the browser, they stay in the settings as before. A secret the settings held
+// before is moved over at the first start that finds a keychain.
 
 // A secretKeeper keeps secrets by name: the system's keychain, or a test's.
 type secretKeeper interface {

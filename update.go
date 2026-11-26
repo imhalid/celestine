@@ -612,19 +612,22 @@ func zipEntryDst(staging, rawName string, root *string) (string, error) {
 	return dst, nil
 }
 
-// installApp unpacks a zipped macOS .app beside the program's bundle and swaps the two; app is the
-// bundle's path (…/celestine.app). The old bundle is kept as app.old, and zipFile is removed on success.
-func installApp(zipFile, app string) (old string, err error) {
+// installApp unpacks a zipped macOS .app beside the program's bundle and puts its Contents in place of the bundle's;
+// app is the bundle's path (…/celestine.app). The bundle's folder stays the one it was: the Dock's icon kept in it,
+// Finder and Launch Services know a bundle by its folder, not by its path, and a bundle swapped whole came up as
+// another app beside the old one, which the Dock went on pointing at (#627). The old Contents are kept as app.old,
+// what is replaced is target (app's Contents), and zipFile is removed on success.
+func installApp(zipFile, app string) (target, old string, err error) {
 	zr, err := zip.OpenReader(zipFile)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer zr.Close()
 	staging := app + ".new"
 	os.RemoveAll(staging)
-	fail := func(err error) (string, error) {
+	fail := func(err error) (string, string, error) {
 		os.RemoveAll(staging)
-		return "", err
+		return "", "", err
 	}
 	type zipSym struct {
 		f   *zip.File
@@ -721,17 +724,24 @@ func installApp(zipFile, app string) (old string, err error) {
 			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
 		}
 	}
+	target, next := filepath.Join(app, "Contents"), filepath.Join(staging, "Contents")
+	if st, err := os.Stat(next); err != nil || !st.IsDir() {
+		return fail(errors.New(locales.UpdateErrZipPath("Contents")))
+	}
 	old = app + ".old"
 	os.RemoveAll(old)
-	if err := os.Rename(app, old); err != nil {
+	if err := os.Rename(target, old); err != nil {
 		return fail(err)
 	}
-	if err := os.Rename(staging, app); err != nil {
-		os.Rename(old, app)
+	if err := os.Rename(next, target); err != nil {
+		os.Rename(old, target)
 		return fail(err)
 	}
+	os.RemoveAll(staging)
+	now := time.Now()
+	_ = os.Chtimes(app, now, now) // Launch Services reads the bundle's Info.plist again
 	_ = os.Remove(zipFile)
-	return old, nil
+	return target, old, nil
 }
 
 // startedStamp is the line an update's first start adds to its mark before anything else can fail.
@@ -845,8 +855,7 @@ func (a *app) startUpdate() {
 		var old, target string
 		if err == nil {
 			if bundle != "" {
-				target = bundle
-				old, err = installApp(file, target)
+				target, old, err = installApp(file, bundle)
 			} else {
 				target = exe
 				old, err = installBinary(file, exe)

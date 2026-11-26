@@ -114,3 +114,51 @@ func TestDateLinkOpensItsDay(t *testing.T) {
 		t.Fatalf("a click did not open the day: %v", a.pane().page.Title)
 	}
 }
+
+// A day of the journal, today's too, is not moved to the trash: its menu has no Move to trash, a trash asked for some
+// other way is refused and said, and a bulk trash leaves it; a page that is not a day goes (#631).
+func TestJournalDayNotTrashed(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	now := time.Date(2026, 11, 27, 10, 0, 0, 0, time.Local)
+	a.clock = func() time.Time { return now }
+	j, err := a.journal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	today, err := a.makeDay(j, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tomorrow, err := a.makeDay(j, now.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.journalDay(today) || !a.journalDay(tomorrow) || a.journalDay(a.lib.Collections[0].Pages[0]) {
+		t.Fatal("which pages are days")
+	}
+	for _, it := range a.pageMenu(today, false) {
+		if it.title == "moveToTrash" {
+			t.Fatal("today's menu moves it to the trash")
+		}
+	}
+	a.trashPage(today)
+	if !a.inLibrary(today) || a.trashed != nil {
+		t.Fatal("today's page went to the trash")
+	}
+	if !strings.Contains(a.notice, msg("journal_dayCannotBeTrashed")) {
+		t.Fatalf("not said: %q", a.notice)
+	}
+	a.bulkTrash(a.pane(), []*Page{tomorrow})
+	if !a.inLibrary(tomorrow) {
+		t.Fatal("a bulk trash took a coming day")
+	}
+	other := a.lib.Collections[0].Pages[0]
+	if other.Coll == j {
+		t.Fatal("the first collection is the journal")
+	}
+	a.trashPage(other)
+	if a.inLibrary(other) {
+		t.Fatal("a page that is not a day stayed")
+	}
+}

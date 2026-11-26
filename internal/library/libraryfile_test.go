@@ -55,6 +55,14 @@ func TestLibraryFileIn(t *testing.T) {
 	if b, _ := os.ReadFile(libraryFileIn(exe, data3)); string(b) != "eskide" {
 		t.Fatal("the library in the bundle an update left was not taken")
 	}
+	// an update since #627 keeps the bundle's Contents alone beside it
+	kept := filepath.Join(apps, "celestine.app.old", "MacOS")
+	os.MkdirAll(kept, 0o755)
+	os.WriteFile(filepath.Join(kept, "kitaplik.db"), []byte("içerikte"), 0o644)
+	data4 := filepath.Join(t.TempDir(), "celestine")
+	if b, _ := os.ReadFile(libraryFileIn(exe, data4)); string(b) != "içerikte" {
+		t.Fatal("the library in the Contents an update left was not taken")
+	}
 	// one already in the data folder is never written over
 	os.WriteFile(filepath.Join(old, "kitaplik.db"), []byte("başka"), 0o644)
 	if b, _ := os.ReadFile(libraryFileIn(exe, data3)); string(b) != "eskide" {

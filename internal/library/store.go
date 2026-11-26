@@ -238,9 +238,11 @@ func libraryFileIn(dir, data string) string {
 		os.MkdirAll(data, 0o700)
 		_ = os.Chmod(data, 0o700)
 		to := filepath.Join(data, "kitaplik.db")
-		// an update keeps the bundle it replaced beside the new one, as name.app.old, for a day
-		old := strings.Replace(filepath.ToSlash(dir), ".app/Contents/MacOS", ".app.old/Contents/MacOS", 1)
-		for _, from := range []string{beside, filepath.Join(filepath.FromSlash(old), "kitaplik.db")} {
+		// an update keeps what it replaced beside the bundle, as name.app.old, for a day: the bundle's Contents, and
+		// before #627 the whole bundle
+		old := strings.Replace(filepath.ToSlash(dir), ".app/Contents/MacOS", ".app.old/MacOS", 1)
+		older := strings.Replace(filepath.ToSlash(dir), ".app/Contents/MacOS", ".app.old/Contents/MacOS", 1)
+		for _, from := range []string{beside, filepath.Join(filepath.FromSlash(old), "kitaplik.db"), filepath.Join(filepath.FromSlash(older), "kitaplik.db")} {
 			if moveLibrary(from, to) {
 				break
 			}

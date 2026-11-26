@@ -182,9 +182,12 @@ func (a *app) commands() []palItem {
 		redoIt.coll = p.Coll
 		pasteIt := cmd("pasteATableCsv", "", iconKind, func() { a.pasteTable() })
 		pasteIt.coll = p.Coll
-		trashIt := cmd("moveToTrash: "+p.Title, "", iconTrash, func() { a.trashPage(p) })
-		trashIt.coll = p.Coll
-		out = append(out, undoIt, redoIt, pasteIt, trashIt)
+		out = append(out, undoIt, redoIt, pasteIt)
+		if !a.journalDay(p) { // a day of the journal is not deleted (#631)
+			trashIt := cmd("moveToTrash: "+p.Title, "", iconTrash, func() { a.trashPage(p) })
+			trashIt.coll = p.Coll
+			out = append(out, trashIt)
+		}
 	}
 	mark()
 	if c := a.pane().coll; c != nil {

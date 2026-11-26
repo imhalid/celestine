@@ -61,24 +61,18 @@ func TestSettingsWindow(t *testing.T) {
 	if pn.settingsTab != tabSync {
 		t.Fatalf("section %d, want Sync", pn.settingsTab)
 	}
-	if err := wt.Click(locales.SettingsBackSection()); err != nil {
-		t.Fatal(err)
+	if _, ok := wt.Find("Previous section"); ok { // no ‹ › in the head (#629)
+		t.Fatal("a back button in the settings' head")
 	}
+	wt.Key(ui.Cmd, ui.KeyBracketLeft) // ⌘[ still goes back
 	wt.Frame()
 	if pn.settingsTab != tabEditor {
-		t.Fatalf("‹: section %d, want Editor", pn.settingsTab)
+		t.Fatalf("⌘[: section %d, want Editor", pn.settingsTab)
 	}
-	wt.Key(ui.Cmd, ui.KeyBracketLeft)
+	wt.Key(ui.Cmd, ui.KeyBracketRight)
 	wt.Frame()
-	if pn.settingsTab != tabAppearance {
-		t.Fatalf("⌘[: section %d, want Appearance", pn.settingsTab)
-	}
-	if err := wt.Click(locales.SettingsForwardSection()); err != nil {
-		t.Fatal(err)
-	}
-	wt.Frame()
-	if pn.settingsTab != tabEditor || len(pn.settingsFwd) != 1 {
-		t.Fatalf("›: section %d, forward %v", pn.settingsTab, pn.settingsFwd)
+	if pn.settingsTab != tabSync || len(pn.settingsFwd) != 0 {
+		t.Fatalf("⌘]: section %d, forward %v", pn.settingsTab, pn.settingsFwd)
 	}
 	a.openSettingsAt(tabMCP) // the status bar's MCP, a notification's Sync
 	if pn.settingsTab != tabMCP || a.pane().settingsOpen {

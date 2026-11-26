@@ -100,9 +100,9 @@ func (a *app) sidebarButtons(c *ui.Context, menuX, menuY float32) {
 	}
 }
 
-// sideOnGround reports whether the sidebar lies on the window frame's ground without a card of its own: in the
-// frame, unless the settings give it a card (SidebarCard): a card behind it looked heavy (#489).
-func (a *app) sideOnGround() bool { return a.wframe.on && !a.settings.SidebarCard }
+// sideOnGround reports whether the sidebar lies on the window frame's ground without a card of its own: always in the
+// frame, as a card behind it looked heavy (#489), and no setting gives it one (#629).
+func (a *app) sideOnGround() bool { return a.wframe.on }
 
 func (a *app) toggleSidebar() {
 	a.sidebarClosed = !a.sidebarClosed
@@ -716,8 +716,12 @@ func (a *app) mustBuild(p *Page) bool {
 }
 
 // trashPage moves p to the library's trash; when it, or a page under it, is
-// open, the page above it opens, or the collection.
+// open, the page above it opens, or the collection. A day of the journal is not moved, and the writer is told.
 func (a *app) trashPage(p *Page) {
+	if a.journalDay(p) { // a day of the journal stays (#631)
+		a.say(toastWarn, locales.JournalDayCannotBeTrashed())
+		return
+	}
 	a.noteDeleted()
 	open := pageUnder(a.pane().page, p)
 	a.flushPanes()

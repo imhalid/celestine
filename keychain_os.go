@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"runtime"
 
 	"github.com/egoist/mygo"
 )
@@ -29,4 +30,14 @@ func (osKeychain) Get(name string) (string, error) {
 
 func (osKeychain) Set(name, secret string) error { return secrets.Set(name, []byte(secret)) }
 func (osKeychain) Delete(name string) error      { return secrets.Delete(name) }
-func systemKeychain() secretKeeper               { return osKeychain{} }
+
+// systemKeychain is where the secrets are kept: the system's keychain, but on macOS a file of the app's own, which asks
+// for no password after an update (keychain_file.go, #626).
+func systemKeychain() secretKeeper {
+	if runtime.GOOS == "darwin" {
+		if f := secretsFile(); f != "" {
+			return &fileKeychain{path: f, old: osKeychain{}}
+		}
+	}
+	return osKeychain{}
+}

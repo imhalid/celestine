@@ -534,6 +534,9 @@ func (a *app) newMCPServer() *mcp.Server {
 				if err != nil {
 					return err
 				}
+				if a.journalDay(p) { // a day of the journal stays (#631)
+					return errors.New("a day of the journal cannot be moved to the trash")
+				}
 				a.trashPage(p)
 				if a.saveErr != "" {
 					return errors.New(a.saveErr)

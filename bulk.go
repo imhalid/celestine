@@ -226,6 +226,9 @@ func (a *app) bulkTrash(pn *paneState, pages []*Page) {
 	a.flush() // what is written is saved before the pages go: not after, into a folder that is not there
 	n := 0
 	for _, p := range pages {
+		if a.journalDay(p) { // a day of the journal stays (#631)
+			continue
+		}
 		if _, err := a.lib.TrashPage(p); err == nil {
 			n++
 			a.dropFromPanes(func(q *Page) bool { return pageUnder(q, p) }, func(*Collection) bool { return false })

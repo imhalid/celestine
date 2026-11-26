@@ -172,8 +172,9 @@ func (a *app) settingsScreen(c *ui.Context, pn *paneState) {
 	})
 }
 
-// settingsHead is the head of the section shown: ‹ and › through the sections shown before, its name and what it
-// holds, and the settings' own pages (Changed, Profiles, Shortcuts, File) at its end (#605).
+// settingsHead is the head of the section shown: its name and what it holds, and the settings' own pages (Changed,
+// Profiles, Shortcuts, File) at its end (#605). It has no ‹ ›: the sidebar goes to a section, and ⌘[ ⌘] still go
+// through the ones shown before (#629).
 func (a *app) settingsHead(c *ui.Context, pn *paneState) {
 	cl := ryugo.From(c).Colors
 	sec := settingsSections[min(pn.settingsTab, len(settingsSections)-1)]
@@ -191,14 +192,6 @@ func (a *app) settingsHead(c *ui.Context, pn *paneState) {
 	}
 	ui.Column(c.Key("set-head:"+strconv.Itoa(pn.settingsTab))).FillWidth().Gap(10).Padding(2, 0, 14, 0).Shrink(0).Children(func() {
 		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-			ui.Row(c.Key("set-hist")).Gap(4).Shrink(0).Children(func() {
-				if a.settingsHistButton(c, "set-back", iconBack, locales.SettingsBackSection(), len(pn.settingsBack) > 0) {
-					a.settingsStep(pn, -1)
-				}
-				if a.settingsHistButton(c, "set-fwd", iconChevron, locales.SettingsForwardSection(), len(pn.settingsFwd) > 0) {
-					a.settingsStep(pn, 1)
-				}
-			})
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				ui.Text(c, title).FontSize(map[bool]float32{true: 22, false: 26}[phone]).FontWeight(720).TextColor(cl.Text).MaxLines(1)
 				if blurb != "" {
@@ -208,23 +201,6 @@ func (a *app) settingsHead(c *ui.Context, pn *paneState) {
 		})
 		ui.Row(c.Key("set-modes")).Gap(6).Wrap().Children(func() { a.settingsModesRow(c) })
 	})
-}
-
-// settingsHistButton is ‹ or › in the settings' head: faint, and nothing when clicked, with nowhere to go.
-func (a *app) settingsHistButton(c *ui.Context, key string, glyph *ui.SVG, label string, can bool) bool {
-	cl := ryugo.From(c).Colors
-	b := ui.Box(c.Key(key)).Size(28, 28).Radius(rad(8)).Justify(ui.Center).AlignItems(ui.Center).Label(label).Role(ui.RoleButton).
-		Border(1, cl.Hairline).Background(cl.Card)
-	if !can {
-		b.Opacity(0.35).Disabled(true)
-	} else {
-		b.Cursor(ui.CursorPointer)
-		if b.Hovered() {
-			b.Background(cl.Fill)
-		}
-	}
-	b.Children(func() { ui.Icon(c, glyph).Width(15).Height(15).TextColor(cl.Text2) })
-	return can && b.Clicked()
 }
 
 // settingsChips are the sections on a phone: a row of chips that scrolls sideways, the one chosen lit.
@@ -553,7 +529,6 @@ func (a *app) settingsAppearance(c *ui.Context) {
 	}
 	a.settingsMotion(c) // reduce motion, the shader effects (motion.go)
 	a.settingsWaves(c)
-	card := a.settings.SidebarCard
 	if runtime.GOOS != "darwin" || !a.settings.Glass { // with Glass on macOS the wallpaper is the ground anyway (#606)
 		wall := a.settings.WallpaperFrame
 		settingGroup(c, "set-wallpaper", func() {
@@ -566,15 +541,6 @@ func (a *app) settingsAppearance(c *ui.Context) {
 			a.wall.checked = time.Time{} // looked for at once
 			a.saveSettings()
 		}
-	}
-	settingGroup(c, "set-sidebar-card", func() {
-		settingRow(c, locales.SettingsSidebarCard(), locales.SettingsSidebarCardHelp(), func() {
-			ryugo.Switch(c.Key("set-sidebar-card-sw"), &card, ryugo.SwitchOptions{}).Label(locales.SettingsSidebarCard())
-		})
-	})
-	if card != a.settings.SidebarCard {
-		a.settings.SidebarCard = card
-		a.saveSettings()
 	}
 	name := a.settings.SidebarName
 	settingGroup(c, "set-sidebar-name", func() {

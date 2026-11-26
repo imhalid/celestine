@@ -281,6 +281,13 @@ type lockKey struct {
 // pageLocked reports whether p is locked, a past day of the journal (#622).
 func (a *app) pageLocked(p *Page) bool { return p != nil && p.Locked != "" }
 
+// journalDay reports whether p is a day of the journal: a page of it at its top, which is not moved to the trash, today's
+// and a coming day's as much as a past one (#631). A page under a day is the writer's to delete.
+func (a *app) journalDay(p *Page) bool {
+	c := a.journalColl()
+	return p != nil && c != nil && p.Coll == c && p.Parent == nil
+}
+
 // sayLocked says that a past day is locked, as an edit of one is refused.
 func (a *app) sayLocked() { a.say(toastWarn, locales.JournalPastDayLocked()) }
 

@@ -111,7 +111,6 @@ type Settings struct {
 	AlwaysRing     bool                      `json:"alwaysRing,omitempty"`     // the row the keys are on is ringed, in the normal mode or not (kb.go)
 	LineChars      int                       `json:"lineChars,omitempty"`      // the text column is at most this many characters wide: 0, as wide as the page (editing.go)
 	HideStatus     bool                      `json:"hideStatus,omitempty"`     // the status bar is not shown at all
-	SidebarCard    bool                      `json:"sidebarCard,omitempty"`    // in the window's frame the sidebar has a card of its own; without, it lies on the frame's ground (#489)
 	SidebarName    string                    `json:"sidebarName,omitempty"`    // the name over the sidebar's list, "" none (#489)
 	Glass          bool                      `json:"glass,omitempty"`          // experimental macOS Liquid Glass window/panel background (off by default)
 	Panes          string                    `json:"panes,omitempty"`          // the panes of the window: the Dock's tree and what each shows (panes.go)

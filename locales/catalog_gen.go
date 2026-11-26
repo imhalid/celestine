@@ -6801,6 +6801,16 @@ func (msgs Messages) JournalViewTable() string {
 	return Catalog.Format(msgs.locale, "journal_viewTable", nil)
 }
 
+// JournalDayCannotBeTrashed says "A day of the journal can't be moved to the trash: its words can be deleted, not the day."
+// in the language the app shows.
+func JournalDayCannotBeTrashed() string { return In(i18n.Locale()).JournalDayCannotBeTrashed() }
+
+// JournalDayCannotBeTrashed says "A day of the journal can't be moved to the trash: its words can be deleted, not the day."
+// in the language of msgs.
+func (msgs Messages) JournalDayCannotBeTrashed() string {
+	return Catalog.Format(msgs.locale, "journal_dayCannotBeTrashed", nil)
+}
+
 // JournalPastDayLocked says "Past days of the journal are locked: this one stays as it was written."
 // in the language the app shows.
 func JournalPastDayLocked() string { return In(i18n.Locale()).JournalPastDayLocked() }
@@ -10753,26 +10763,6 @@ func (msgs Messages) SettingsFile() string {
 	return Catalog.Format(msgs.locale, "settingsFile", nil)
 }
 
-// SettingsBackSection says "Previous section"
-// in the language the app shows.
-func SettingsBackSection() string { return In(i18n.Locale()).SettingsBackSection() }
-
-// SettingsBackSection says "Previous section"
-// in the language of msgs.
-func (msgs Messages) SettingsBackSection() string {
-	return Catalog.Format(msgs.locale, "settings_backSection", nil)
-}
-
-// SettingsForwardSection says "Next section"
-// in the language the app shows.
-func SettingsForwardSection() string { return In(i18n.Locale()).SettingsForwardSection() }
-
-// SettingsForwardSection says "Next section"
-// in the language of msgs.
-func (msgs Messages) SettingsForwardSection() string {
-	return Catalog.Format(msgs.locale, "settings_forwardSection", nil)
-}
-
 // SettingsLinkIcons says "Site icons"
 // in the language the app shows.
 func SettingsLinkIcons() string { return In(i18n.Locale()).SettingsLinkIcons() }
@@ -10831,26 +10821,6 @@ func SettingsShaderEffectsHelp() string { return In(i18n.Locale()).SettingsShade
 // in the language of msgs.
 func (msgs Messages) SettingsShaderEffectsHelp() string {
 	return Catalog.Format(msgs.locale, "settings_shaderEffectsHelp", nil)
-}
-
-// SettingsSidebarCard says "Sidebar background"
-// in the language the app shows.
-func SettingsSidebarCard() string { return In(i18n.Locale()).SettingsSidebarCard() }
-
-// SettingsSidebarCard says "Sidebar background"
-// in the language of msgs.
-func (msgs Messages) SettingsSidebarCard() string {
-	return Catalog.Format(msgs.locale, "settings_sidebarCard", nil)
-}
-
-// SettingsSidebarCardHelp says "On, the sidebar is a card of its own, as the page is. Off, it lies on the window's ground."
-// in the language the app shows.
-func SettingsSidebarCardHelp() string { return In(i18n.Locale()).SettingsSidebarCardHelp() }
-
-// SettingsSidebarCardHelp says "On, the sidebar is a card of its own, as the page is. Off, it lies on the window's ground."
-// in the language of msgs.
-func (msgs Messages) SettingsSidebarCardHelp() string {
-	return Catalog.Format(msgs.locale, "settings_sidebarCardHelp", nil)
 }
 
 // SettingsSidebarName says "Sidebar name"
