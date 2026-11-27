@@ -134,7 +134,8 @@ func (a *app) tasksScreen(c *ui.Context) {
 		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
 				ui.Column(c).Padding(6, 0, 10, 0).Gap(4).Children(func() {
-					ui.Text(c, locales.TasksTitle()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1)
+					ui.Text(c.Key("title"), locales.TasksTitle()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1).
+						AlignSelf(ui.Start).Transition(titleFlight(pathTasks))
 					if len(open) > 0 {
 						ui.Text(c, strconv.Itoa(len(open))+" "+locales.HomeTasks(len(open))).FontSize(15).TextColor(pal.muted)
 					}

@@ -60,9 +60,10 @@ func (a *app) screenScroll(c *ui.Context) ui.Element {
 }
 
 // bigTitle is a screen's title, large, under its top bar.
-func bigTitle(c *ui.Context, title, sub string) {
+func bigTitle(c *ui.Context, title, sub, path string) {
 	ui.Column(c).Padding(6, side, 18, side).Gap(4).Shrink(0).Children(func() {
-		ui.Text(c, title).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Role(ui.RoleHeading).Level(1)
+		ui.Text(c.Key("title"), title).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Role(ui.RoleHeading).Level(1).
+			AlignSelf(ui.Start).Transition(titleFlight(path))
 		if sub != "" {
 			ui.Text(c, sub).FontSize(15).TextColor(pal.muted)
 		}
@@ -202,7 +203,10 @@ func (a *app) menuItem(c *ui.Context, i int, pl menuPlace) {
 	pressable(row)
 	row.Children(func() {
 		ui.Icon(c, pl.glyph).Size(26, 26).TextColor(color)
-		ui.Text(c, pl.name).FontSize(34).FontWeight(750).TextColor(color)
+		name := ui.Text(c.Key("name"), pl.name).FontSize(34).FontWeight(750).TextColor(color)
+		if !here { // flown into the title of the screen it opens
+			name.Transition(titleFlight(pl.path))
+		}
 	})
 	if row.Clicked() && a.menuOpen {
 		a.goTo(pl.path)

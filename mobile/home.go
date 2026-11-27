@@ -369,6 +369,25 @@ func cardFlight(k *library.Collection) ui.ElementTransition {
 		Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.1}}}
 }
 
+// pageMatch is the identity a page's block in a list shares with its page's screen, which comes out of it.
+type pageMatch struct{ id string }
+
+// pageFlight is how a page's block grows into its page and back (#649): the page's screen, scaled from its own size,
+// comes out of the block.
+func pageFlight(id string, scale bool) ui.ElementTransition {
+	return ui.ElementTransition{Match: pageMatch{id}, Fly: true, ScaleContent: scale,
+		Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.08}}}
+}
+
+// titleMatch is the identity a place of the menu shares with its screen's title, the same word.
+type titleMatch struct{ path string }
+
+// titleFlight is how a place of the menu flies into its screen's title (#649), its words scaled as they go.
+func titleFlight(path string) ui.ElementTransition {
+	return ui.ElementTransition{Match: titleMatch{path}, Fly: true, ScaleContent: true,
+		Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 400 * time.Millisecond, Bounce: 0.08}}}
+}
+
 // collCard is what a collection's card shows, at scale s: its icon and how many pages, and its name.
 func collCard(c *ui.Context, k *library.Collection, t tones, s float32) {
 	sub := locales.LibraryPages(len(k.All()))

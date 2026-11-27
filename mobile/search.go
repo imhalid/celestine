@@ -57,7 +57,8 @@ func (a *app) searchScreen(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() {
 		a.topBar(c, false, nil)
 		ui.Column(c).Padding(6, side, 14, side).Gap(14).Shrink(0).Children(func() {
-			ui.Text(c, locales.TabSearch()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1)
+			ui.Text(c.Key("title"), locales.TabSearch()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1).
+				AlignSelf(ui.Start).Transition(titleFlight(pathSearch))
 			field := ui.Row(c.Key("field")).FillWidth().Height(58).Padding(0, 18).Gap(12).AlignItems(ui.Center).
 				Radius(29).Background(pal.block)
 			shadow(field)

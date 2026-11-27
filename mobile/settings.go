@@ -15,7 +15,8 @@ func (a *app) settingsScreen(c *ui.Context) {
 		a.topBar(c, false, nil)
 		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
-				ui.Text(c, locales.TabSettings()).FontSize(38).FontWeight(800).Padding(6, 0, 6, 0).Role(ui.RoleHeading).Level(1)
+				ui.Text(c.Key("title"), locales.TabSettings()).FontSize(38).FontWeight(800).Padding(6, 0, 6, 0).
+					Role(ui.RoleHeading).Level(1).AlignSelf(ui.Start).Transition(titleFlight(pathSettings))
 				label(c, locales.SettingsAppearance())
 				ui.Row(c).FillWidth().Gap(10).Children(func() {
 					a.lookTile(c, "", locales.SettingsSystem(), iconGear)

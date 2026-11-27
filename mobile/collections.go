@@ -18,7 +18,7 @@ func (a *app) libraryScreen(c *ui.Context) {
 		a.topBar(c, false, nil)
 		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 140, 0).Children(func() {
-				bigTitle(c, locales.TabLibrary(), locales.LibraryCount(len(colls)))
+				bigTitle(c, locales.TabLibrary(), locales.LibraryCount(len(colls)), pathLibrary)
 				ui.Column(c).FillWidth().Padding(0, side).Children(func() { a.collGrid(c, colls) })
 			})
 		})

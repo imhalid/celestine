@@ -193,7 +193,7 @@ func b2f(b bool) float32 {
 // openPage shows page p to be written in.
 func (a *app) openPage(p *library.Page) {
 	a.closeAll()
-	a.router.Transition = ui.TransitionAuto
+	a.router.Transition = ui.TransitionMatch // its block in a list grows into it (#649)
 	a.router.Push(pagePath(p))
 }
 
@@ -204,12 +204,11 @@ func (a *app) openCollection(c *library.Collection) {
 	a.router.Push("/c/" + url.PathEscape(c.Dir))
 }
 
-// goTo shows a screen of the menu: home is the bottom of the history, the others one screen over it. The menu's
-// places fade into each other, as places side by side, where a page or a collection slides in over the screen it
-// was opened from.
+// goTo shows a screen of the menu: home is the bottom of the history, the others one screen over it. The screens
+// cross-fade, the menu's place flying into the screen's title.
 func (a *app) goTo(path string) {
 	a.closeAll()
-	a.router.Transition = ui.TransitionFade
+	a.router.Transition = ui.TransitionMatch // a place of the menu flies into its screen's title (#649)
 	if a.router.Path() == path {
 		return
 	}

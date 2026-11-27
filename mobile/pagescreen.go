@@ -113,7 +113,11 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 		a.flush()
 	}
 	day := a.journalDay(p)
-	ui.Column(c).Fill().Children(func() {
+	screen := ui.Column(c.Key("page")).Fill().Background(pal.bg)
+	if !ed.writing { // its block in a list grows into it (#649); not while the keyboard is up, so that it resizes at once
+		screen.Transition(pageFlight(p.ID, true))
+	}
+	screen.Children(func() {
 		a.topBar(c, true, func() {
 			if !live {
 				return
