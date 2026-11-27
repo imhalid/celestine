@@ -29,6 +29,7 @@ type editorState struct {
 	saveAt   time.Time          // when it is saved, the typing having stopped
 	writing  bool               // its text has the keyboard: the bar of formats shows
 	opened   time.Time          // when its screen came, its text shown once it has landed
+	keyboard bool               // the keyboard was up in the frame before
 	letters  []letter           // its letters as they hop into place, where the editor shows them
 	probed   bool               // the letters were found
 	hopped   time.Time          // when they started to hop
@@ -364,6 +365,23 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 	if live && ed.writing {
 		a.taskButton(c, ed)
 	}
+	if live {
+		a.letGo(c, ed)
+	}
+}
+
+// letGo has the page's text let go of the focus as the keyboard goes (#656): Android's back puts the keyboard away but
+// leaves the text focused, its caret and the task button showing. The keyboard is in the bottom of the safe area, far
+// taller than the system's bar; as it falls, the focus goes to a still element of the page.
+func (a *app) letGo(c *ui.Context, ed *editorState) {
+	_, _, bottom, _ := c.SafeArea()
+	up := bottom > 150
+	sink := ui.Box(c.Key("focus-sink")).Size(0, 0).Focusable().Label(locales.PageTitle())
+	if ed.keyboard && !up { // the title's caret too
+		sink.Focus(ui.FocusOptions{PreventScroll: true})
+		ed.writing = false
+	}
+	ed.keyboard = up
 }
 
 // touchLayer lies over a page's text and takes the finger (#654): MyGo's editor takes it as a mouse, pressing at once,
