@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/mobile/locales"
 )
@@ -93,6 +94,7 @@ func (a *app) plusButton(c *ui.Context) {
 			shadow(pressable(b))
 			b.Children(func() { ui.Icon(c, iconPlus).Size(28, 28).TextColor(pal.accentText).Rotate(45 * k) })
 			if b.Clicked() {
+				mygo.Haptics.Light()
 				a.plusOpen = !a.plusOpen
 				a.menuOpen = false
 			}

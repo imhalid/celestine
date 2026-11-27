@@ -198,10 +198,10 @@ func (a *app) openPage(p *library.Page) {
 	a.router.Push(pagePath(p))
 }
 
-// openCollection shows the pages of collection c.
+// openCollection shows the pages of collection c, its card growing into its screen's head (#646).
 func (a *app) openCollection(c *library.Collection) {
 	a.closeAll()
-	a.router.Transition = ui.TransitionAuto
+	a.router.Transition = ui.TransitionMatch
 	a.router.Push("/c/" + url.PathEscape(c.Dir))
 }
 

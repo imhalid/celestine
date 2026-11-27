@@ -349,7 +349,7 @@ func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
 	t := tonesOf(k)
 	b := block(c, k, t.card, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
-		Role(ui.RoleButton).Label(k.Name)
+		Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
 	if a.collSheet == k.Dir || (a.cs.dir == k.Dir && a.csLifted) {
 		b.Opacity(0)
 	}
@@ -361,6 +361,15 @@ func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
 		a.openCollection(k)
 	}
 	return b
+}
+
+// cardMatch is the identity a collection's card shares with its screen's head, which it grows into.
+type cardMatch struct{ dir string }
+
+// cardFlight is how a collection's card flies to its screen's head and back, as the screens cross-fade.
+func cardFlight(k *library.Collection) ui.ElementTransition {
+	return ui.ElementTransition{Match: cardMatch{k.Dir}, Fly: true,
+		Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.1}}}
 }
 
 // collCard is what a collection's card shows, at scale s: its icon and how many pages, and its name.

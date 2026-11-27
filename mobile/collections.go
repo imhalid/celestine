@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/url"
+
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/mobile/locales"
@@ -36,21 +38,18 @@ func (a *app) collPages(k *library.Collection) []*library.Page {
 func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 	t := tonesOf(k)
 	ps := a.collPages(k)
+	if a.router.Path() == "/c/"+url.PathEscape(k.Dir) { // back home, its head flies into its card again
+		a.router.Transition = ui.TransitionMatch
+	}
 	ui.Column(c).Fill().Children(func() {
 		a.topBar(c, true, nil)
 		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
-				// Its icon, how many pages and its name, in its color; held, its sheet.
-				head := ui.Column(c.Key("head")).FillWidth().Gap(gap).Radius(smallR).Role(ui.RoleButton).Label(k.Name)
+				// Its head is its card, larger: the card on home and in the Library grows into it (#646). Held, its sheet.
+				head := ui.Column(c.Key("head")).FillWidth().Height(168).Padding(20).Justify(ui.SpaceBetween).
+					Radius(smallR + 8).Background(t.card).Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
 				pressable(head)
-				head.Children(func() {
-					ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
-						ui.Icon(c, collGlyph(k)).Size(30, 30).TextColor(t.color)
-						ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
-					})
-					ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).
-						Role(ui.RoleHeading).Level(1)
-				})
+				head.Children(func() { collCard(c, k, t, 1.35) })
 				if head.LongPressed() {
 					a.holdCollection(k, head.Bounds())
 				}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/mobile/locales"
@@ -94,6 +95,7 @@ func (a *app) tick(t openTask, done bool) {
 		return // the page changed under the list: it is read again
 	}
 	d[t.para].S.Checked = done
+	mygo.Haptics.Light()
 	if err := p.Save(library.EncodeBody(d)); err != nil {
 		a.say(locales.PageSaveFailed(err.Error()))
 		return

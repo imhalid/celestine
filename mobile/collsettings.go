@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/mobile/locales"
@@ -33,6 +34,7 @@ func (a *app) holdCollection(k *library.Collection, from ui.Rect) {
 	}
 	a.cs = collSettings{dir: k.Dir, from: from, name: k.Name}
 	a.collSheet = k.Dir
+	mygo.Haptics.Medium() // it lands in the hand (#646)
 }
 
 // keepName gives the collection whose sheet was open the name typed in it.
@@ -213,6 +215,7 @@ func (a *app) iconGrid(c *ui.Context, k *library.Collection) {
 
 // setCollLook gives collection k its color and its icon, and keeps them.
 func (a *app) setCollLook(k *library.Collection, color, icon string) {
+	mygo.Haptics.Selection()
 	k.Color, k.Icon = color, icon
 	if err := k.Save(); err != nil {
 		a.say(locales.PageSaveFailed(err.Error()))
