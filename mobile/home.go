@@ -46,11 +46,15 @@ func greeting(now time.Time) string {
 
 func (a *app) homeScreen(c *ui.Context) {
 	now := time.Now()
-	h := &a.home // the screen is laid out under the system's bar, which the root's ground fills (view)
+	h := &a.home // the screen is laid out under the system's bar
 	y := max(h.scroll.Y, 0)
+	top, _, _, _ := c.SafeArea()
 	home := ui.Column(c.Key("home")).Fill()
-	heroField(c, home, summarySky(now), 0)
 	home.Children(func() {
+		// The field goes on under the system's bar, so that the summary is one ground up to the screen's edge (#644).
+		field := ui.Box(c.Key("field")).Absolute().Top(-top).Left(0).Right(0).Bottom(0).ZIndex(-1).
+			HitTest(func(x, y float32, r ui.Rect) bool { return false }) // under all, and taking no touch
+		heroField(c, field, summarySky(now), 0)
 		a.dateRow(c, now)
 		ui.Box(c.Key("home-body")).Grow(1).Basis(0).FillWidth().Children(func() {
 			// Its corners round: the sheet scrolled under the date row keeps the corners it has unscrolled (#639).
