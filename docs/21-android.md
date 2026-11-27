@@ -38,7 +38,8 @@ in a little under a finger, their corners kept.
   in coral, the pages and the days in a row, on a field of the hour's colors deepened almost to black, standing still.
   A sheet comes over it, with no labels over its parts: the tasks open in one row, the collections two to a row, the
   pages written lately; today's page is the +'s. Scrolled up, the sheet covers the sentence, which moves a third as
-  fast and fades, and goes under the date with its corners kept round (#639).
+  fast and fades; once its top reaches the date, it stays there with its handle and its corners round, and what is
+  on it scrolls under (#639).
 - **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
   icon, the desktop's: their block, their icon's ground, their icon and their name are all of that color in tones, so
   that collections tell apart by their colors. A collection held (its block, or its name on its screen) opens its sheet:

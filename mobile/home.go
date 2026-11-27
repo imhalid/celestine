@@ -26,8 +26,9 @@ var (
 
 // homeState is what the home screen keeps between frames.
 type homeState struct {
-	scroll ui.ScrollState
-	bars   mygo.BarStyle // the system bars' icons as last set
+	scroll  ui.ScrollState
+	summary float32       // the height of the summary under the date row, as the last frame laid it out
+	bars    mygo.BarStyle // the system bars' icons as last set
 }
 
 // greeting is what the screen says at the hour of now.
@@ -51,17 +52,28 @@ func (a *app) homeScreen(c *ui.Context) {
 	heroField(c, home, summarySky(now), 0)
 	home.Children(func() {
 		a.dateRow(c, now)
-		// Its corners round: the sheet scrolled under the date row keeps the corners it has unscrolled (#639).
-		scroll := ui.Scroll(c.Key("home-scroll")).Grow(1).Basis(0).FillWidth().TrackScroll(&h.scroll).Radius(30, 30, 0, 0).Clip()
-		a.pullMenu(scroll)
-		scroll.Children(func() {
-			ui.Column(c).FillWidth().Children(func() {
-				// The rest of the summary scrolls a third as fast as the sheet, which comes over it.
-				sum := ui.Column(c.Key("summary")).FillWidth().Padding(6, side+4, 58, side+4).Gap(18)
-				sum.Opacity(max(0, 1-y/220)).Translate(0, y*0.65)
-				sum.Children(func() { a.summaryView(c, now) })
-				a.homeSheet(c, now)
+		ui.Box(c.Key("home-body")).Grow(1).Basis(0).FillWidth().Children(func() {
+			// Its corners round: the sheet scrolled under the date row keeps the corners it has unscrolled (#639).
+			scroll := ui.Scroll(c.Key("home-scroll")).Fill().TrackScroll(&h.scroll).Radius(30, 30, 0, 0).Clip()
+			a.pullMenu(scroll)
+			scroll.Children(func() {
+				ui.Column(c).FillWidth().Children(func() {
+					// The rest of the summary scrolls a third as fast as the sheet, which comes over it.
+					sum := ui.Column(c.Key("summary")).FillWidth().Padding(6, side+4, 58, side+4).Gap(18)
+					sum.Opacity(max(0, 1-y/220)).Translate(0, y*0.65)
+					sum.Children(func() { a.summaryView(c, now) })
+					if b := sum.LayoutBounds(); b.H > 0 {
+						h.summary = b.H
+					}
+					a.homeSheet(c, now)
+				})
 			})
+			// Once the sheet's top reaches the date row, it stays there with its handle, and what is on the sheet
+			// scrolls under it.
+			if h.summary > 0 && y >= h.summary-sheetOver {
+				ui.Box(c.Key("sheet-top")).Absolute().Top(0).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
+					Radius(30, 30, 0, 0).Children(func() { sheetHandle(c) })
+			}
 		})
 	})
 }
@@ -151,15 +163,28 @@ func figure(c *ui.Context, glyph *ui.SVG, s string) {
 	})
 }
 
+// The sheet's top: how far it comes over the summary unscrolled, and the height of its top, where its handle is.
+const (
+	sheetOver = 30
+	sheetTop  = 28
+)
+
+// sheetHandle is the handle on the sheet's top.
+func sheetHandle(c *ui.Context) {
+	ui.Row(c).FillWidth().Justify(ui.Center).Padding(11, 0, 0, 0).Children(func() {
+		ui.Box(c).Size(40, 5).Radius(3).Background(pal.line)
+	})
+}
+
 // homeSheet is the sheet over the summary: the tasks, the collections, the pages written lately.
 func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	_, _, bottom, _ := c.SafeArea()
 	_, winH := c.Size()
-	sheet := ui.Column(c.Key("sheet")).FillWidth().MinHeight(winH-100).Background(pal.bg).Margin(-30, 0, 0, 0).
-		Padding(10, side, 140+bottom, side).Gap(gap)
+	sheet := ui.Column(c.Key("sheet")).FillWidth().MinHeight(winH-100).Background(pal.bg).Margin(-sheetOver, 0, 0, 0).
+		Padding(0, side, 140+bottom, side).Gap(gap)
 	sheet.Radius(30, 30, 0, 0)
 	sheet.Children(func() {
-		ui.Box(c).Size(40, 5).Radius(3).Background(pal.line).AlignSelf(ui.Center).Margin(0, 0, 6, 0)
+		ui.Box(c).FillWidth().Height(sheetTop - gap).Children(func() { sheetHandle(c) })
 		a.tasksBlock(c)
 		a.collGrid(c, a.orderedCollections())
 		for _, p := range a.recentPages(8) {
