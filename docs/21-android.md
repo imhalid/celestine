@@ -73,9 +73,11 @@ in a little under a finger, their corners kept.
 - **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).
 - **Settings** choose light, dark or the system's look as three blocks (the system's bars follow), and sign in to sync.
 - **A page** is the whole screen to write in and nothing else: its collection, its title (asked for first on a new
-  note), its text; a line's Markdown makes it a heading, a list or a checklist (`# `, `- `, `[] `); Done at the top puts
-  the keyboard away and a round task button beside it makes the caret's line a task or a line again
-  (#653), ··· opens a sheet (copy the text, move to the trash). Saved 0.8 s after the typing stops, as the
+  note), its text; a line's Markdown makes it a heading, a list or a checklist (`# `, `- `, `[] `); Android's back puts the keyboard
+  away; while writing a round task button at the bottom right, over the keyboard, makes the caret's line a task or
+  a line again (#653, #654); ··· opens a sheet (copy the text, move to the trash). The page scrolls as a whole and a
+  layer over its text takes the finger, as MyGo's editor takes it as a mouse: a drag scrolls, a tap puts the caret
+  where it fell, a tap on a task's box ticks it (#654). Saved 0.8 s after the typing stops, as the
   screen is left, and as the app goes to the background.
 
 What the rich text has no run for (a link to a page, a day, a table, a picture, a footnote) rides through the editor as

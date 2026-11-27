@@ -372,3 +372,27 @@ func TestTaskButton(t *testing.T) {
 		t.Fatalf("saved %q", md)
 	}
 }
+
+// A tap on a task's box ticks it and does not focus the text; a tap on the text focuses it (#654).
+func TestTapTaskBox(t *testing.T) {
+	a, tt := newTestApp(t)
+	c, _ := a.lib.NewCollection("Notes")
+	p, _ := c.NewPage(nil, "Alışveriş")
+	p.SaveText("- [ ] süt al")
+	a.openPage(p)
+	tt.Advance(2 * time.Second)
+	boxes := a.ed.doc.VisibleParagraphs()
+	if len(boxes) == 0 {
+		t.Fatal("no paragraphs shown")
+	}
+	var body ui.Element // the focus is read back from the frame
+	a.tapText(&a.ed, body, 1, boxes[0].Top+4)
+	tt.Advance(saveQuiet + 200*time.Millisecond)
+	tt.Frame()
+	if md, _ := p.Text(); !strings.Contains(md, "- [x] süt al") {
+		t.Fatalf("saved %q", md)
+	}
+	if a.ed.writing {
+		t.Fatal("the text took the focus at a tap on its box")
+	}
+}

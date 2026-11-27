@@ -88,22 +88,29 @@ func (a *app) stateOf(p *library.Page) editorState {
 func pagePath(p *library.Page) string { return "/p/" + url.PathEscape(p.ID) }
 
 // taskButton makes the line the caret is on a task, or a task a line again (#653): on a phone "[] " at a line's start
-// is hard to type and nobody finds it. It is filled while the line is a task, and keeps the keyboard up.
+// is hard to type and nobody finds it. Round at the bottom right while writing, over the keyboard (#654); filled while
+// the line is a task, and keeping the keyboard up.
 func (a *app) taskButton(c *ui.Context, ed *editorState) {
-	on := ed.doc.Formatting().Paragraph.List == richtext.Tasks
-	bg, fg := pal.block, pal.text
-	if on {
-		bg, fg = pal.accent, pal.accentText
-	}
-	b := ui.Box(c.Key("task")).Size(46, 46).Radius(23).AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
-		Background(bg).Border(1, pal.line).Role(ui.RoleCheckBox).Checked(on).Label(locales.PageTask()).KeepFocus()
-	pressable(b)
-	b.Children(func() { ui.Icon(c, iconTasks).Size(22, 22).TextColor(fg) })
-	if b.Clicked() {
-		ed.doc.ToggleList(richtext.Tasks)
-		a.typed(c.Now())
-		mygo.Haptics.Selection()
-	}
+	ui.Overlay(c, func() {
+		_, _, bottom, _ := c.SafeArea() // the keyboard's room too
+		on := ed.doc.Formatting().Paragraph.List == richtext.Tasks
+		b := ui.Box(c.Key("task")).Absolute().Right(side).Bottom(14+bottom).Size(58, 58).Radius(29).
+			AlignItems(ui.Center).Justify(ui.Center).Role(ui.RoleCheckBox).Checked(on).Label(locales.PageTask()).KeepFocus()
+		fg := pal.text
+		if on {
+			b.Gradient(pal.accent, pal.accent.Mix(ui.Hex("#8B5CF6"), 0.45), 135)
+			fg = pal.accentText
+		} else {
+			b.Background(pal.block).Border(1, pal.line)
+		}
+		shadow(pressable(b))
+		b.Children(func() { ui.Icon(c, iconTasks).Size(26, 26).TextColor(fg) })
+		if b.Clicked() {
+			ed.doc.ToggleList(richtext.Tasks)
+			a.typed(c.Now())
+			mygo.Haptics.Selection()
+		}
+	})
 }
 
 // letterHop has a page's letters hop into place as it is shown (#652). MyGo's editor draws its text whole, so the
@@ -292,70 +299,138 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 			if !live {
 				return
 			}
-			if ed.writing {
-				a.taskButton(c, ed)
-			}
-			if ed.writing { // Done puts the keyboard away: it takes the focus from the text
-				done := ui.Row(c.Key("done")).Height(46).Padding(0, 20).Radius(23).AlignItems(ui.Center).
-					Background(pal.accent).Role(ui.RoleButton).Label(locales.PageDone()).Focusable()
-				pressable(done)
-				done.Children(func() { ui.Text(c, locales.PageDone()).FontSize(16).FontWeight(700).TextColor(pal.accentText) })
-				if done.Clicked() {
-					done.Focus()
-					a.flush()
-				}
-				return
-			}
 			if roundButton(c, "more", iconMore, locales.PageMore()) {
 				a.moreOpen = true
 			}
 		})
-		ui.Column(c).Grow(1).Basis(0).FillWidth().Padding(0, side+4).Children(func() {
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(8, 0, 6, 0).Children(func() {
-				if p.Coll != nil {
-					collChip(c, p.Coll)
+		// The page scrolls as a whole, its text as tall as it is, so that a finger scrolls it (#654).
+		ui.Scroll(c.Key("page-scroll")).Grow(1).Basis(0).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().Padding(0, side+4, 0, side+4).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(8, 0, 6, 0).Children(func() {
+					if p.Coll != nil {
+						collChip(c, p.Coll)
+					}
+					if ed.readOnly != "" {
+						ui.Icon(c, iconLock).Size(16, 16).TextColor(pal.faint)
+					}
+				})
+				if day || ed.readOnly != "" || !live {
+					ui.Text(c, titleOf(p)).FontSize(32).FontWeight(800).LineHeight(1.1).Wrap().Padding(4, 0, 14, 0)
+				} else {
+					in := ui.TextInput(c.Key("title"), &ed.title).Placeholder(locales.PageTitle()).FontSize(32).FontWeight(800).
+						Background(pal.bg).Border(0, pal.bg).Padding(4, 0, 14, 0).Label(locales.PageTitle())
+					if a.fresh == p.ID {
+						in.AutoFocus()
+						a.fresh = ""
+					}
+					if in.Changed() {
+						a.typed(c.Now())
+					}
 				}
 				if ed.readOnly != "" {
-					ui.Icon(c, iconLock).Size(16, 16).TextColor(pal.faint)
+					ui.Text(c, ed.readOnly).FontSize(14).LineHeight(1.4).TextColor(pal.muted).Wrap().Padding(12, 16).Radius(16).
+						Background(pal.raised).Margin(0, 0, 14, 0)
 				}
-			})
-			if day || ed.readOnly != "" || !live {
-				ui.Text(c, titleOf(p)).FontSize(32).FontWeight(800).LineHeight(1.1).Wrap().Padding(4, 0, 14, 0)
-			} else {
-				in := ui.TextInput(c.Key("title"), &ed.title).Placeholder(locales.PageTitle()).FontSize(32).FontWeight(800).
-					Background(pal.bg).Border(0, pal.bg).Padding(4, 0, 14, 0).Label(locales.PageTitle())
-				if a.fresh == p.ID {
-					in.AutoFocus()
-					a.fresh = ""
+				// Its room: as tall as its text and some, the screen's rest at least.
+				_, winH := c.Size()
+				room := winH * 0.6
+				if h, ok := ed.doc.ContentHeight(); ok {
+					room = max(room, h+160)
 				}
-				if in.Changed() {
+				// Its text once it has landed, and not as it goes: in the meantime its room, empty.
+				if !live || c.Now().Sub(ed.opened) < landing {
+					if live {
+						c.AnimationFrame()
+					}
+					ui.Box(c.Key("body-room")).FillWidth().Height(room)
+					return
+				}
+				var body ui.Element
+				ui.Box(c.Key("body-box")).FillWidth().Height(room).Children(func() {
+					body = richtext.EditorBase(c.Key("body:"+p.ID), ed.doc, richtext.EditorOptions{
+						Label: titleOf(p), Placeholder: locales.PagePlaceholder(), ReadOnly: ed.readOnly != "" || !live,
+						Font: ui.Font{Family: fontFamily, Size: 18, LineHeight: 1.55}, Theme: textTheme(),
+					}).Fill()
+					a.letterHop(c, ed)
+					a.touchLayer(c, ed, body)
+				})
+				if body.Changed() && live {
 					a.typed(c.Now())
 				}
-			}
-			if ed.readOnly != "" {
-				ui.Text(c, ed.readOnly).FontSize(14).LineHeight(1.4).TextColor(pal.muted).Wrap().Padding(12, 16).Radius(16).
-					Background(pal.raised).Margin(0, 0, 14, 0)
-			}
-			// Its text once it has landed, and not as it goes: in the meantime its room, empty.
-			if !live || c.Now().Sub(ed.opened) < landing {
-				if live {
-					c.AnimationFrame()
-				}
-				ui.Box(c.Key("body-room")).Grow(1).Basis(0).FillWidth()
-				return
-			}
-			var body ui.Element
-			ui.Box(c.Key("body-box")).Grow(1).Basis(0).FillWidth().Children(func() {
-				body = richtext.EditorBase(c.Key("body:"+p.ID), ed.doc, richtext.EditorOptions{
-					Label: titleOf(p), Placeholder: locales.PagePlaceholder(), ReadOnly: ed.readOnly != "" || !live,
-					Font: ui.Font{Family: fontFamily, Size: 18, LineHeight: 1.55}, Theme: textTheme(),
-				}).Fill()
-				a.letterHop(c, ed)
+				ed.writing = live && body.Focused() && ed.readOnly == ""
 			})
-			if body.Changed() && live {
-				a.typed(c.Now())
-			}
-			ed.writing = live && body.Focused() && ed.readOnly == ""
 		})
 	})
+	if live && ed.writing {
+		a.taskButton(c, ed)
+	}
+}
+
+// touchLayer lies over a page's text and takes the finger (#654): MyGo's editor takes it as a mouse, pressing at once,
+// so that the keyboard came up as the page was only to be scrolled, a drag selected rather than scrolled, and a tap on
+// a task's box brought up the menu of cut and copy. Over it a drag scrolls the page; a tap on a task's box ticks it,
+// and a tap elsewhere puts the caret where it fell, bringing up the keyboard. It keeps the editor's focus.
+func (a *app) touchLayer(c *ui.Context, ed *editorState, body ui.Element) {
+	l := ui.Box(c.Key("touch")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.Color{}).KeepFocus()
+	if !l.Clicked() {
+		return
+	}
+	x, y, _ := l.PointerPosition()
+	a.tapText(ed, body, x, y)
+}
+
+// tapText takes a tap at (x, y) in page's text: on a task's box it ticks the task, elsewhere it puts the caret at the
+// letter nearest and focuses the text, which brings up the keyboard; a page read only takes neither.
+func (a *app) tapText(ed *editorState, body ui.Element, x, y float32) {
+	doc := ed.doc
+	text := doc.Text()
+	boxes := doc.VisibleParagraphs()
+	if len(boxes) == 0 || ed.readOnly != "" {
+		return
+	}
+	// The paragraph under the tap, or the nearest; below the text, its end.
+	at := -1
+	for i, b := range boxes {
+		if y < b.Top+b.Height+6 {
+			at = i
+			break
+		}
+	}
+	caret := func(i int) ui.Rect {
+		doc.SetSelection(i, i)
+		r, _ := doc.CaretRect()
+		return r
+	}
+	if at < 0 {
+		end := text.Len()
+		doc.SetSelection(end, end)
+		body.Focus()
+		return
+	}
+	start, end := text.ParagraphRange(boxes[at].Index)
+	if text.ParagraphStyleAt(start).List == richtext.Tasks && x < caret(start).X-2 {
+		doc.ToggleChecked(start)
+		a.typed(time.Now())
+		mygo.Haptics.Light()
+		if !body.Focused() {
+			doc.SetSelection(start, start)
+		}
+		return
+	}
+	// The letter nearest on the line the tap fell on.
+	best := start
+	for i := start; i <= end; i++ {
+		r := caret(i)
+		if y < r.Y || y >= r.Y+r.H {
+			if r.Y > y {
+				break
+			}
+			continue
+		}
+		if r.X <= x+4 {
+			best = i
+		}
+	}
+	doc.SetSelection(best, best)
+	body.Focus()
 }
