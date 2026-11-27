@@ -51,10 +51,15 @@ func (a *app) signInScreen(c *ui.Context) {
 
 // field is a text field of a form, in a block of its own, as input makes it.
 func field(c *ui.Context, key string, input func() ui.Element) ui.Element {
+	return fieldOn(c, key, pal.block, input)
+}
+
+// fieldOn is a text field in a block of color bg, for a form on another block.
+func fieldOn(c *ui.Context, key string, bg ui.Color, input func() ui.Element) ui.Element {
 	var in ui.Element
-	ui.Row(c.Key("f:"+key)).FillWidth().Height(60).Padding(0, 20).AlignItems(ui.Center).Radius(20).Background(pal.block).
+	ui.Row(c.Key("f:"+key)).FillWidth().Height(56).Padding(0, 18).AlignItems(ui.Center).Radius(18).Background(bg).
 		Children(func() {
-			in = input().FontSize(17).Grow(1).Background(pal.block).Border(0, pal.block)
+			in = input().FontSize(17).Grow(1).Background(bg).Border(0, bg)
 		})
 	return in
 }

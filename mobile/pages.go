@@ -153,7 +153,7 @@ func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool) ui.Elemen
 // collChip is collection k's name in a chip of its color.
 func collChip(c *ui.Context, k *library.Collection) {
 	t := tonesOf(k)
-	ui.Row(c.Key("chip")).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Background(t.ground).Shrink(0).Children(func() {
+	ui.Row(c.Key("chip")).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Gradient(t.top, t.ground, 160).Shrink(0).Children(func() {
 		ui.Icon(c, collGlyph(k)).Size(13, 13).TextColor(t.color)
 		ui.Text(c, k.Name).FontSize(12).FontWeight(650).TextColor(t.ink).MaxLines(1)
 	})
@@ -242,18 +242,30 @@ func namedColor(s string) (ui.Color, bool) {
 	return ui.Color{}, false
 }
 
-// tones are a collection's colors, all of its one color: its block's ground, its icon's ground, its icon, its words.
-type tones struct{ ground, mark, color, ink ui.Color }
+// tones are a collection's colors, all of its one color: its block's ground, from its top to its bottom, its mark's
+// ground likewise, under a white icon, and its words.
+type tones struct{ top, ground, markTop, markBottom, color, ink ui.Color }
 
-// tonesOf are collection k's tones.
+// tonesOf are collection k's tones (#640).
 func tonesOf(k *library.Collection) tones {
 	col := collColor(k)
+	t := tones{color: col, markTop: col.MixOklab(ui.Hex("#FFFFFF"), 0.22), markBottom: col.MixOklab(ui.Hex("#000000"), 0.12)}
 	if dark {
-		return tones{ground: pal.block.MixOklab(col, 0.2), mark: pal.block.MixOklab(col, 0.38), color: col,
-			ink: col.MixOklab(ui.Hex("#FFFFFF"), 0.55)}
+		t.top, t.ground = pal.block.MixOklab(col, 0.32), pal.block.MixOklab(col, 0.12)
+		t.ink = col.MixOklab(ui.Hex("#FFFFFF"), 0.62)
+	} else {
+		t.top, t.ground = pal.block.MixOklab(col, 0.22), pal.block.MixOklab(col, 0.07)
+		t.ink = col.MixOklab(ui.Hex("#000000"), 0.42)
 	}
-	return tones{ground: pal.block.MixOklab(col, 0.13), mark: pal.block.MixOklab(col, 0.26), color: col,
-		ink: col.MixOklab(ui.Hex("#000000"), 0.45)}
+	return t
+}
+
+// collMark is collection k's icon, white, on a rounded square of its color, size across.
+func collMark(c *ui.Context, k *library.Collection, size float32) {
+	t := tonesOf(k)
+	ui.Box(c.Key("mark")).Size(size, size).Radius(size*0.32).Gradient(t.markTop, t.markBottom, 160).
+		AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
+		Children(func() { ui.Icon(c, collGlyph(k)).Size(size*0.54, size*0.54).TextColor(ui.Hex("#FFFFFF")) })
 }
 
 // collGlyph is collection k's icon.

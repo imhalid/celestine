@@ -45,15 +45,14 @@ func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 				pressable(head)
 				head.Children(func() {
 					ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
-						ui.Box(c).Size(46, 46).Radius(15).Background(t.mark).AlignItems(ui.Center).Justify(ui.Center).
-							Children(func() { ui.Icon(c, collGlyph(k)).Size(24, 24).TextColor(t.color) })
+						collMark(c, k, 46)
 						ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
 					})
 					ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).TextColor(t.ink).
 						Role(ui.RoleHeading).Level(1)
 				})
-				if head.LongPressed() && !k.Dynamic() {
-					a.collSheet = k.Dir
+				if head.LongPressed() {
+					a.holdCollection(k, head.Bounds())
 				}
 				if len(ps) == 0 {
 					ui.Text(c, locales.LibraryEmpty()).FontSize(16).TextColor(pal.muted).Wrap().Padding(8, 2)

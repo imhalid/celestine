@@ -31,7 +31,7 @@ type app struct {
 	sy   syncState // the account and the sync (sync.go)
 	home homeState // the home screen's scrolling and the system bars
 
-	cs        collSettings    // a collection's settings being changed (collsettings.go)
+	cs        collSettings    // the collection held, its sheet's (collsettings.go)
 	collSheet string          // the folder of the collection whose sheet is open; "" for none
 	pull      ui.RefreshState // a screen pulled down past its top, which opens the menu
 	ticked    map[string]bool // the tasks ticked off on the Tasks screen, shown done until it is left
@@ -132,10 +132,6 @@ func (a *app) view(c *ui.Context) {
 				a.settingsScreen(c)
 			case r.Match(pathSignIn):
 				a.signInScreen(c)
-			case r.Match("/c/{dir}/settings"):
-				if coll := a.collAt(r.Param("dir")); coll != nil {
-					a.collSettingsScreen(c, coll)
-				}
 			case r.Match("/c/{dir}"):
 				if coll := a.collAt(r.Param("dir")); coll != nil {
 					r.Title(coll.Name)

@@ -12,8 +12,8 @@ import (
 )
 
 // The home screen is a summary of the day on a dark ground, and a sheet over it: the weekday and the date, a
-// sentence of the day with its numbers marked, a row of figures; on the sheet the tasks open, the collections
-// and the pages written lately. The date's row stays where it is: scrolled up, the sheet comes over the
+// sentence of the day with its numbers marked, a row of figures; on the sheet the collections and the pages
+// written lately. The date's row stays where it is: scrolled up, the sheet comes over the
 // rest of the summary and goes under the row (#637, #638). Pulled down past its top, the screen opens the menu.
 
 // The summary's own colors: it is dark on the light look too.
@@ -73,6 +73,9 @@ func (a *app) homeScreen(c *ui.Context) {
 			if h.summary > 0 && y >= h.summary-sheetOver {
 				ui.Box(c.Key("sheet-top")).Absolute().Top(0).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
 					Radius(30, 30, 0, 0).Children(func() { sheetHandle(c) })
+				// Under it what scrolls fades in, rather than meeting it at a sharp edge (#640).
+				ui.Box(c.Key("sheet-fade")).Absolute().Top(sheetTop).Left(0).Right(0).Height(30).
+					Gradient(pal.bg, pal.bg.Alpha(0), 180)
 			}
 		})
 	})
@@ -176,7 +179,7 @@ func sheetHandle(c *ui.Context) {
 	})
 }
 
-// homeSheet is the sheet over the summary: the tasks, the collections, the pages written lately.
+// homeSheet is the sheet over the summary: the collections, the pages written lately.
 func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	_, _, bottom, _ := c.SafeArea()
 	_, winH := c.Size()
@@ -185,7 +188,6 @@ func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	sheet.Radius(30, 30, 0, 0)
 	sheet.Children(func() {
 		ui.Box(c).FillWidth().Height(sheetTop - gap).Children(func() { sheetHandle(c) })
-		a.tasksBlock(c)
 		a.collGrid(c, a.orderedCollections())
 		for _, p := range a.recentPages(8) {
 			a.pageBlock(c, p, true)
@@ -207,23 +209,6 @@ func (a *app) daysWritten(now time.Time) int {
 		}
 	}
 	return n
-}
-
-// tasksBlock is one row: how many tasks are open in the library, which opens them.
-func (a *app) tasksBlock(c *ui.Context) {
-	n := len(a.openTasks())
-	b := block(c, "tasks", pal.block, blockR).FillWidth().Padding(14, 16).Role(ui.RoleButton).Label(locales.NavTasks())
-	b.Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-			ui.Box(c).Size(36, 36).Radius(12).Background(pal.accent.Alpha(0.14)).AlignItems(ui.Center).Justify(ui.Center).
-				Children(func() { ui.Icon(c, iconTasks).Size(19, 19).TextColor(pal.accent) })
-			ui.Text(c, strconv.Itoa(n)+" "+locales.HomeTasks(n)).FontSize(16).FontWeight(650).Grow(1)
-			ui.Icon(c, iconArrow).Size(18, 18).TextColor(pal.faint)
-		})
-	})
-	if b.Clicked() {
-		a.goTo(pathTasks)
-	}
 }
 
 // streak is how many days in a row up to today, or yesterday when today has none yet, the journal has words.
@@ -274,18 +259,17 @@ func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
 	if k.Dynamic() {
 		sub = locales.LibrarySaved()
 	}
-	b := block(c, k, t.ground, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
-		Role(ui.RoleButton).Label(k.Name)
+	b := block(c, k, t.ground, smallR+4).Gradient(t.top, t.ground, 160).Height(132).Padding(16).Justify(ui.SpaceBetween).
+		MinWidth(0).Role(ui.RoleButton).Label(k.Name)
 	b.Children(func() {
-		ui.Box(c).Size(40, 40).Radius(13).Background(t.mark).AlignItems(ui.Center).Justify(ui.Center).
-			Children(func() { ui.Icon(c, collGlyph(k)).Size(22, 22).TextColor(t.color) })
+		collMark(c, k, 40)
 		ui.Column(c).Gap(2).Children(func() {
 			ui.Text(c, k.Name).FontSize(17).FontWeight(700).MaxLines(1).TextColor(t.ink)
 			ui.Text(c, sub).FontSize(13).FontWeight(550).TextColor(t.ink.Alpha(0.6))
 		})
 	})
 	if b.LongPressed() {
-		a.collSheet = k.Dir
+		a.holdCollection(k, b.Bounds())
 	}
 	if b.Clicked() {
 		a.openCollection(k)

@@ -36,15 +36,16 @@ in a little under a finger, their corners kept.
 - **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large, with the date, which stay
   where they are; under them a sentence of the day (the tasks open, the days written this week) with its numbers marked
   in coral, the pages and the days in a row, on a field of the hour's colors deepened almost to black, standing still.
-  A sheet comes over it, with no labels over its parts: the tasks open in one row, the collections two to a row, the
-  pages written lately; today's page is the +'s. Scrolled up, the sheet covers the sentence, which moves a third as
+  A sheet comes over it, with no labels over its parts: the collections two to a row and the pages written lately (the
+  tasks open are the summary's and the menu's); today's page is the +'s. Scrolled up, the sheet covers the sentence, which moves a third as
   fast and fades; once its top reaches the date, it stays there with its handle and its corners round, and what is
-  on it scrolls under (#639).
+  on it scrolls under, fading in under it (#639, #640).
 - **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
-  icon, the desktop's: their block, their icon's ground, their icon and their name are all of that color in tones, so
-  that collections tell apart by their colors. A collection held (its block, or its name on its screen) opens its sheet:
-  its colors and its icons, kept at a tap, and its settings, its name and, for the journal, how its days are titled
-  (the days titled again when that changes).
+  icon, the desktop's: their block is a soft gradient of their color, their icon white on a gradient of it, their name
+  a tint of it, so that collections tell apart by their colors. A collection held (its block, or its name on its
+  screen) rises from where it was into a preview at the top, with its pages written last, while its sheet comes up
+  under it (#640): its colors and its icons, kept at a tap and shown on the preview at once, and its settings, its name
+  (kept as the sheet closes) and, for the journal, how its days are titled (the days titled again when that changes).
 - **A page in a list** is its title with its collection's chip at the right, in the collection's color, and its first
   words on a line with when it was written last at the right.
 - **Tasks** are every task not done, by page, ticked off where they are: written to the page at once, shown done

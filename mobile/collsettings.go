@@ -1,7 +1,7 @@
 package main
 
 import (
-	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -10,206 +10,232 @@ import (
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// A collection held (its tile, or its name on its screen) opens its sheet (#638): its color and its icon, chosen with a
-// tap and kept at once, as the desktop keeps them (collicons.go of the desktop), and a way to its settings, a screen
-// of their own: its name, and the journal's way of titling its days (#637). Saved, the journal's days are titled again
-// by the new way.
+// A collection held (its block, or its name on its screen) rises from where it was into a preview over the screen,
+// while its sheet comes up under it (#638, #640): its colors and its icons, chosen with a tap and kept at once, as the
+// desktop keeps them (collicons.go of the desktop), the preview changing with them; and its settings, its name and,
+// for the journal, its way of titling its days, the days titled again by a new way (#637). The name is kept as the
+// sheet closes, or as it is submitted.
 
 // journalFormats are the ways of titling the days to choose, the desktop's.
 var journalFormats = []string{"YYYY-MM-DD", "DD.MM.YYYY", "D MMMM YYYY", "D MMMM YYYY, dddd"}
 
-// collSettings are the settings being changed, before they are saved.
+// collSettings is the collection whose sheet is open, and what is being changed in it.
 type collSettings struct {
-	dir    string // the collection's folder; "" for none
-	name   string
-	format string
+	dir  string  // the collection's folder; "" for none
+	from ui.Rect // where it was held, in the window, that its preview rises from
+	name string  // its name as typed
 }
 
-// openCollSettings shows collection k's settings.
-func (a *app) openCollSettings(k *library.Collection) {
-	a.cs = settingsOf(k)
-	a.closeAll()
-	a.router.Transition = ui.TransitionAuto
-	a.router.Push("/c/" + url.PathEscape(k.Dir) + "/settings")
-}
-
-// settingsOf are collection k's settings as they are.
-func settingsOf(k *library.Collection) collSettings {
-	format := k.JournalFormat
-	if strings.TrimSpace(format) == "" {
-		format = journalFormats[0]
+// holdCollection opens the sheet of collection k, held where from is.
+func (a *app) holdCollection(k *library.Collection, from ui.Rect) {
+	if k.Dynamic() {
+		return
 	}
-	return collSettings{dir: k.Dir, name: k.Name, format: format}
+	a.cs = collSettings{dir: k.Dir, from: from, name: k.Name}
+	a.collSheet = k.Dir
 }
 
-// saveCollSettings writes the settings to collection k, and titles the journal's days again by a new way.
-func (a *app) saveCollSettings(k *library.Collection) {
+// keepName gives the collection whose sheet was open the name typed in it.
+func (a *app) keepName() {
+	k := a.collAt(a.cs.dir)
 	name := strings.TrimSpace(a.cs.name)
-	if name != "" && name != k.Name {
-		if err := k.Rename(name); err != nil {
-			a.say(locales.PageSaveFailed(err.Error()))
-			return
-		}
+	if k == nil || name == "" || name == k.Name {
+		return
 	}
-	retitle := k.Journal && a.cs.format != settingsOf(k).format
-	if retitle {
-		k.JournalFormat = a.cs.format
+	if err := k.Rename(name); err != nil {
+		a.say(locales.PageSaveFailed(err.Error()))
+		return
 	}
+	a.syncSoon()
+}
+
+// setDayFormat titles the journal's days by format f, the past days too: their words stay locked, their title
+// follows the journal's way.
+func (a *app) setDayFormat(k *library.Collection, f string) {
+	k.JournalFormat = f
 	if err := k.Save(); err != nil {
 		a.say(locales.PageSaveFailed(err.Error()))
 		return
 	}
-	if retitle {
-		for _, p := range k.All() {
-			if t := formatDay(k.JournalFormat, dayOf(p)); t != p.Title {
-				locked := p.Locked // a past day keeps its words; its title follows the journal's way
-				p.Locked = ""
-				p.SetTitle(t)
-				p.Locked = locked
-			}
+	for _, p := range k.All() {
+		if t := formatDay(f, dayOf(p)); t != p.Title {
+			locked := p.Locked
+			p.Locked = ""
+			p.SetTitle(t)
+			p.Locked = locked
 		}
 	}
 	a.syncSoon()
-	a.router.Back()
 }
 
-func (a *app) collSettingsScreen(c *ui.Context, k *library.Collection) {
-	if a.cs.dir != k.Dir { // come to by the router's history: as the collection is
-		a.cs = settingsOf(k)
+// dayFormatOf is the journal's way of titling its days, the desktop's first when it has none.
+func dayFormatOf(k *library.Collection) string {
+	if strings.TrimSpace(k.JournalFormat) == "" {
+		return journalFormats[0]
 	}
-	ui.Column(c).Fill().Children(func() {
-		a.topBar(c, true, nil)
-		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Padding(6, side, 140, side).Gap(gap).Children(func() {
-				ui.Text(c, locales.CollSettings()).FontSize(34).FontWeight(800).LineHeight(1.1).Wrap().Padding(0, 0, 8, 0).
-					Role(ui.RoleHeading).Level(1)
-				label(c, locales.CollName())
-				field(c, "name", func() ui.Element {
-					return ui.TextInput(c.Key("name"), &a.cs.name).Label(locales.CollName()).ReturnKey(ui.ReturnDone)
+	return k.JournalFormat
+}
+
+// collSheetView is the preview of the collection held and its sheet, while they show.
+func (a *app) collSheetView(c *ui.Context) {
+	if a.collSheet == "" && a.cs.name != "" { // closed: its name is kept
+		a.keepName()
+		a.cs.name = ""
+	}
+	k := a.collAt(a.cs.dir)
+	open := a.collSheet != "" && k != nil
+	ui.Overlay(c, func() {
+		top, _, bottom, _ := c.SafeArea()
+		winW, _ := c.Size()
+		anchor := ui.Box(c.Key("coll-held")).Absolute().Top(0).Left(0).Size(0, 0)
+		kk := anchor.AnimateTo("open", b2f(open), ui.Animation{Spring: ui.SpringOptions{Duration: 380 * time.Millisecond, Bounce: 0.12}})
+		if (kk < 0.01 && !open) || k == nil {
+			return
+		}
+		grown := min(max(kk, 0), 1)
+
+		// The preview: from where the collection was held to the top of the screen, as wide as it.
+		from := a.cs.from
+		if from.W == 0 {
+			from = ui.Rect{X: side, Y: top + 120, W: winW - 2*side, H: 132}
+		}
+		recent := recentOf(k.All(), 3)
+		h := float32(40 + 48) // its padding and its head; then its pages written last
+		if n := float32(len(recent)); n > 0 {
+			h += 14 + n*20 + (n-1)*8
+		}
+		to := ui.Rect{X: side, Y: top + 28, W: winW - 2*side, H: h}
+		at := func(f, t float32) float32 { return f + (t-f)*kk }
+		t := tonesOf(k)
+		pv := ui.Column(c.Key("coll-preview")).Absolute().Left(at(from.X, to.X)).Top(at(from.Y, to.Y)).
+			Width(at(from.W, to.W)).Height(at(from.H, to.H)).Radius(smallR+4+6*grown).Padding(16+4*grown).Gap(12).Clip().
+			Gradient(t.top, t.ground, 160).Role(ui.RoleButton).Label(k.Name)
+		shadow(pv)
+		pv.Children(func() {
+			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
+				collMark(c, k, 40+8*grown)
+				ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+					ui.Text(c, k.Name).FontSize(17 + 5*grown).FontWeight(750).MaxLines(1).TextColor(t.ink)
+					ui.Text(c, locales.LibraryPages(len(k.All()))).FontSize(13).FontWeight(550).TextColor(t.ink.Alpha(0.6))
 				})
-				if k.Journal {
-					label(c, locales.CollDayTitles())
-					now := time.Now()
-					ui.Column(c).FillWidth().Gap(8).Children(func() {
-						for _, f := range journalFormats {
-							a.formatRow(c, f, formatDay(f, now))
-						}
+			})
+			// Its pages written last, as the preview grows.
+			ui.Column(c).FillWidth().Gap(8).Opacity(max(0, grown*2-1)).Children(func() {
+				for _, p := range recent {
+					ui.Row(c.Key(p)).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Box(c).Size(6, 6).Radius(3).Background(t.color)
+						ui.Text(c, titleOf(p)).FontSize(14).FontWeight(600).TextColor(t.ink).MaxLines(1).Grow(1).MinWidth(0)
+						ui.Text(c, when(p.Modified, time.Now())).FontSize(12).TextColor(t.ink.Alpha(0.55)).Shrink(0)
 					})
 				}
-				b := ui.Row(c.Key("save")).FillWidth().Height(58).Radius(29).Justify(ui.Center).AlignItems(ui.Center).
-					Margin(14, 0, 0, 0).Background(pal.accent).Role(ui.RoleButton).Label(locales.CollSave())
-				pressable(b)
-				b.Children(func() { ui.Text(c, locales.CollSave()).FontSize(17).FontWeight(700).TextColor(pal.accentText) })
-				if b.Clicked() {
-					a.saveCollSettings(k)
-				}
 			})
+		})
+		if pv.Clicked() && open {
+			a.openCollection(k)
+		}
+
+		// The sheet, from the bottom.
+		sheet := ui.Column(c.Key("coll-sheet")).Absolute().Left(10).Right(10).Bottom(10+bottom).Radius(30).
+			Background(pal.block).Padding(10, 16, 16, 16).Gap(16)
+		sheet.Translate(0, (1-kk)*460)
+		shadow(sheet)
+		sheet.Children(func() {
+			ui.Box(c).Size(40, 5).Radius(3).Background(pal.line).AlignSelf(ui.Center)
+			a.colorRow(c, k)
+			a.iconGrid(c, k)
+			ui.Text(c, locales.CollSettings()).FontSize(14).FontWeight(650).TextColor(pal.muted).Padding(2, 4, 0, 4)
+			name := fieldOn(c, "coll-name", pal.raised, func() ui.Element {
+				return ui.TextInput(c.Key("coll-name"), &a.cs.name).Label(locales.CollName()).Placeholder(locales.CollName()).
+					ReturnKey(ui.ReturnDone)
+			})
+			if name.Submitted() {
+				a.keepName()
+			}
+			if k.Journal {
+				a.formatChips(c, k, t)
+			}
 		})
 	})
 }
 
-// formatRow is a way of titling the days, shown as today would be titled, chosen with a tap.
-func (a *app) formatRow(c *ui.Context, f, today string) {
-	on := a.cs.format == f
-	row := pressable(ui.Row(c.Key("fmt:"+f)).FillWidth().Height(58).Padding(0, 18).Gap(12).AlignItems(ui.Center).
-		Radius(20).Background(pal.block).Role(ui.RoleRadio).Label(today).Checked(on))
-	if on {
-		row.Border(2, pal.accent)
-	}
-	row.Children(func() {
-		ui.Text(c, today).FontSize(16).FontWeight(600).Grow(1)
-		if on {
-			ui.Icon(c, iconCheck).Size(20, 20).TextColor(pal.accent)
+// formatChips are the ways of titling the journal's days, each shown as today would be titled, the one it has on its
+// color.
+func (a *app) formatChips(c *ui.Context, k *library.Collection, t tones) {
+	now := time.Now()
+	ui.Row(c.Key("formats")).FillWidth().Wrap().Gap(8).Children(func() {
+		for _, f := range journalFormats {
+			on := dayFormatOf(k) == f
+			b := pressable(ui.Row(c.Key("fmt:"+f)).Height(40).Padding(0, 14).Radius(20).AlignItems(ui.Center).
+				Background(pal.raised).Role(ui.RoleRadio).Label(formatDay(f, now)).Checked(on))
+			color := pal.text
+			if on {
+				b.Gradient(t.markTop, t.markBottom, 160)
+				color = ui.Hex("#FFFFFF")
+			}
+			b.Children(func() { ui.Text(c, formatDay(f, now)).FontSize(14).FontWeight(600).TextColor(color) })
+			if b.Clicked() && !on {
+				a.setDayFormat(k, f)
+			}
 		}
 	})
-	if row.Clicked() {
-		a.cs.format = f
-	}
 }
 
-// collSheetView is the sheet of the collection held, from the bottom: its name in its color, its colors, its icons,
-// and its settings.
-func (a *app) collSheetView(c *ui.Context) {
-	k := a.collAt(a.collSheet)
-	ui.Overlay(c, func() {
-		_, _, bottom, _ := c.SafeArea()
-		sheet := ui.Column(c.Key("coll-sheet")).Absolute().Left(10).Right(10).Bottom(10+bottom).Radius(30).
-			Background(pal.block).Padding(10, 16, 14, 16).Gap(14)
-		open := a.collSheet != "" && k != nil
-		kk := sheet.AnimateTo("open", b2f(open), motionIn(0))
-		if kk < 0.01 && !open {
-			sheet.Hidden(true)
-			return
+// recentOf are the n of ps written last, the last first.
+func recentOf(ps []*library.Page, n int) []*library.Page {
+	out := slices.Clone(ps)
+	slices.SortStableFunc(out, func(x, y *library.Page) int { return y.Modified.Compare(x.Modified) })
+	return out[:min(n, len(out))]
+}
+
+// colorRow is the colors collection k can have: none (one by its name), then c1 to c8, the one it has ringed.
+func (a *app) colorRow(c *ui.Context, k *library.Collection) {
+	ui.Row(c.Key("colors")).FillWidth().Justify(ui.SpaceBetween).Children(func() {
+		for _, name := range append([]string{""}, collColors...) {
+			was := k.Color
+			k.Color = name
+			t := tonesOf(k)
+			k.Color = was
+			on := k.Color == name
+			sw := pressable(ui.Box(c.Key("c:"+name)).Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center).
+				Role(ui.RoleRadio).Label(locales.CollColor()).Checked(on))
+			if on {
+				sw.Border(2.5, t.color)
+			}
+			sw.Children(func() { ui.Box(c).Size(24, 24).Radius(12).Gradient(t.markTop, t.markBottom, 160) })
+			if sw.Clicked() && !on {
+				a.setCollLook(k, name, k.Icon)
+			}
 		}
-		sheet.Translate(0, (1-kk)*320)
-		shadow(sheet)
-		if k == nil {
-			return
-		}
-		t := tonesOf(k)
-		sheet.Children(func() {
-			ui.Box(c).Size(40, 5).Radius(3).Background(pal.line).AlignSelf(ui.Center)
-			ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(42, 42).Radius(14).Background(t.mark).AlignItems(ui.Center).Justify(ui.Center).
-					Children(func() { ui.Icon(c, collGlyph(k)).Size(23, 23).TextColor(t.color) })
-				ui.Text(c, k.Name).FontSize(20).FontWeight(750).TextColor(t.ink).MaxLines(1).Grow(1).MinWidth(0)
-			})
-			// Its colors: none (one by its name), then c1 to c8.
-			ui.Row(c.Key("colors")).FillWidth().Justify(ui.SpaceBetween).Children(func() {
-				for _, name := range append([]string{""}, collColors...) {
-					was := k.Color
-					k.Color = name
-					col := collColor(k)
-					k.Color = was
-					on := k.Color == name
-					sw := pressable(ui.Box(c.Key("c:"+name)).Size(32, 32).Radius(16).Background(col).Role(ui.RoleRadio).
-						Label(locales.CollColor()).Checked(on).AlignItems(ui.Center).Justify(ui.Center))
-					sw.Children(func() {
-						if on {
-							ui.Icon(c, iconCheck).Size(16, 16).TextColor(ui.Hex("#FFFFFF"))
-						} else if name == "" {
-							ui.Box(c).Size(10, 10).Radius(5).Background(ui.Hex("#FFFFFF").Alpha(0.85))
-						}
-					})
-					if sw.Clicked() && !on {
-						a.setCollLook(k, name, k.Icon)
+	})
+}
+
+// iconGrid is the icons collection k can have, six to a row, the one it has on its color.
+func (a *app) iconGrid(c *ui.Context, k *library.Collection) {
+	t := tonesOf(k)
+	ui.Column(c.Key("icons")).FillWidth().Gap(4).Children(func() {
+		for i := 0; i < len(collIcons); i += 6 {
+			ui.Row(c.Key(i)).FillWidth().Justify(ui.SpaceBetween).Children(func() {
+				for j := i; j < i+6; j++ {
+					if j >= len(collIcons) {
+						ui.Box(c).Size(46, 46)
+						continue
+					}
+					ic := collIcons[j]
+					on := k.Icon == ic.name
+					b := pressable(ui.Box(c.Key("i:"+ic.name)).Size(46, 46).Radius(15).AlignItems(ui.Center).
+						Justify(ui.Center).Role(ui.RoleRadio).Label(locales.CollIcon()).Checked(on))
+					color := pal.muted
+					if on {
+						b.Gradient(t.markTop, t.markBottom, 160)
+						color = ui.Hex("#FFFFFF")
+					}
+					b.Children(func() { ui.Icon(c, collGlyphOf(ic.name, k.Journal)).Size(22, 22).TextColor(color) })
+					if b.Clicked() && !on {
+						a.setCollLook(k, k.Color, ic.name)
 					}
 				}
 			})
-			// Its icons, six to a row.
-			ui.Column(c.Key("icons")).FillWidth().Gap(6).Children(func() {
-				for i := 0; i < len(collIcons); i += 6 {
-					ui.Row(c.Key(i)).FillWidth().Justify(ui.SpaceBetween).Children(func() {
-						for j := i; j < i+6; j++ {
-							if j >= len(collIcons) {
-								ui.Box(c).Size(46, 46)
-								continue
-							}
-							ic := collIcons[j]
-							on := k.Icon == ic.name
-							b := pressable(ui.Box(c.Key("i:"+ic.name)).Size(46, 46).Radius(15).AlignItems(ui.Center).
-								Justify(ui.Center).Role(ui.RoleRadio).Label(locales.CollIcon()).Checked(on))
-							if on {
-								b.Background(t.mark)
-							}
-							b.Children(func() {
-								color := pal.muted
-								if on {
-									color = t.color
-								}
-								ui.Icon(c, collGlyphOf(ic.name, k.Journal)).Size(22, 22).TextColor(color)
-							})
-							if b.Clicked() && !on {
-								a.setCollLook(k, k.Color, ic.name)
-							}
-						}
-					})
-				}
-			})
-			if sheetRow(c, "settings", iconGear, locales.CollSettings(), pal.text) {
-				a.openCollSettings(k)
-			}
-		})
+		}
 	})
 }
 

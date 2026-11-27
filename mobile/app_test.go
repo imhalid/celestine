@@ -264,7 +264,8 @@ func TestPlusActions(t *testing.T) {
 	}
 }
 
-// A collection's settings rename it, and the journal's titles its days again by the way chosen (#637).
+// A collection held opens its sheet under its preview, which renames it, colors it, and titles the journal's days
+// again by the way chosen (#637, #638, #640).
 func TestCollSettings(t *testing.T) {
 	a, tt := newTestApp(t)
 	j := a.journalColl()
@@ -276,28 +277,24 @@ func TestCollSettings(t *testing.T) {
 	p.SaveText("dün")
 	a.openCollection(j)
 	tt.Advance(400 * time.Millisecond)
-	a.collSheet = j.Dir // as its name held opens its sheet: a color and an icon are kept at once (#638)
+	a.holdCollection(j, ui.Rect{}) // as its name held opens its sheet, under its preview (#638, #640)
 	tt.Frame()
-	tt.Advance(400 * time.Millisecond)
-	if !tt.HasText(locales.CollSettings()) {
-		t.Fatalf("the sheet: %v", tt.Texts())
+	tt.Advance(500 * time.Millisecond)
+	if !tt.HasText(locales.CollSettings()) || !tt.HasText(titleOf(p)) {
+		t.Fatalf("the sheet and the preview: %v", tt.Texts())
 	}
-	a.setCollLook(j, "c3", "star")
+	a.setCollLook(j, "c3", "star") // a color and an icon are kept at once
 	if c2 := a.collAt(j.Dir); c2.Color != "c3" || c2.Icon != "star" {
 		t.Fatalf("look %q %q", c2.Color, c2.Icon)
 	}
-	if err := tt.Click(locales.CollSettings()); err != nil {
-		t.Fatal(err)
-	}
-	tt.Advance(400 * time.Millisecond)
-	a.cs.name = "Günlük"
+	// The journal's days titled by a way chosen in the sheet, the past ones too; the name kept as the sheet closes.
 	if err := tt.Click(formatDay("D MMMM YYYY", time.Now())); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.Click(locales.CollSave()); err != nil {
-		t.Fatal(err)
-	}
-	tt.Advance(400 * time.Millisecond)
+	a.cs.name = "Günlük"
+	a.closeAll()
+	tt.Frame()
+	tt.Advance(500 * time.Millisecond)
 	if j.Name != "Günlük" || j.JournalFormat != "D MMMM YYYY" || p.Title != formatDay("D MMMM YYYY", d) {
 		t.Fatalf("%q %q %q", j.Name, j.JournalFormat, p.Title)
 	}
