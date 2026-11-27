@@ -13,7 +13,7 @@ import (
 //
 // It is asked for in the frame the editor is made in, once its focus is known.
 func (a *app) tabKey(c *ui.Context, pn *paneState) {
-	if !pn.focused || pn.doc == nil || pn.page == nil {
+	if !pn.focused || pn.doc == nil || pn.page == nil || pn.page.Unreadable != "" || a.pageLocked(pn.page) {
 		return
 	}
 	tab, back := c.Shortcut(0, ui.KeyTab), c.Shortcut(ui.Shift, ui.KeyTab)

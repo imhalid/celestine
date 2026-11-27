@@ -258,6 +258,13 @@ func (c *onnxContext) Score(queries []ContextQuery) ([][]float64, error) {
 		return nil, nil
 	}
 	p := packSubwords(queries)
+	if p.n == 0 {
+		out := make([][]float64, len(queries))
+		for q := range queries {
+			out[q] = []float64{}
+		}
+		return out, nil
+	}
 	flat, err := c.run(p)
 	if err != nil {
 		return nil, err

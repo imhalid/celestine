@@ -174,6 +174,11 @@ func (a *app) undoAgent() {
 		if p == a.pane().page {
 			a.flush()
 		}
+		a.lockDays()
+		if a.pageLocked(p) {
+			a.sayLocked()
+			continue
+		}
 		now, _ := p.FS().ReadFile(p.File())
 		if bytes.Equal(now, r.before[orig]) {
 			continue

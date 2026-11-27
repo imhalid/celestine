@@ -625,8 +625,15 @@ func decodeTensor(b []byte) (*Tensor, error) {
 	}
 	shape := make([]int, len(dims))
 	size := 1
+	const maxTensorElems = 1 << 28
 	for i, d := range dims {
+		if d < 0 || d > maxTensorElems {
+			return nil, fmt.Errorf("onnx: tensor %q has invalid dim %d", name, d)
+		}
 		shape[i] = int(d)
+		if d > 0 && size > maxTensorElems/int(d) {
+			return nil, fmt.Errorf("onnx: tensor %q shape %v overflows", name, dims)
+		}
 		size *= int(d)
 	}
 	t := &Tensor{Shape: shape}
@@ -652,6 +659,9 @@ func decodeTensor(b []byte) (*Tensor, error) {
 			t.F[i] = float32(d)
 		}
 		if raw != nil {
+			if len(raw) != 8*size {
+				return nil, fmt.Errorf("onnx: tensor %q has %d bytes for %d doubles", name, len(raw), size)
+			}
 			t.F = make([]float32, size)
 			for i := range t.F {
 				t.F[i] = float32(math.Float64frombits(binary.LittleEndian.Uint64(raw[8*i:])))
@@ -678,10 +688,16 @@ func decodeTensor(b []byte) (*Tensor, error) {
 		t.I = make([]int64, size)
 		switch {
 		case raw != nil && dataType == typeInt64:
+			if len(raw) != 8*size {
+				return nil, fmt.Errorf("onnx: tensor %q has %d bytes for %d int64s", name, len(raw), size)
+			}
 			for i := range t.I {
 				t.I[i] = int64(binary.LittleEndian.Uint64(raw[8*i:]))
 			}
 		case raw != nil:
+			if len(raw) != 4*size {
+				return nil, fmt.Errorf("onnx: tensor %q has %d bytes for %d int32s", name, len(raw), size)
+			}
 			for i := range t.I {
 				t.I[i] = int64(int32(binary.LittleEndian.Uint32(raw[4*i:])))
 			}

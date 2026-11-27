@@ -115,6 +115,7 @@ func (a *app) toggleSidebar() {
 // nothing; its content keeps its width and slides out under the clip.
 func (a *app) sidebar(c *ui.Context) float32 {
 	t := c.Theme()
+	a.sidePal = makeSidePalette(t, ryugo.From(c).Colors.Accent)
 	full := a.sidebarWidth()
 	target := full
 	history := a.tm.open && !a.tm.closing && !phone // the page's history is open: its timeline is here, the tree faded out
@@ -262,34 +263,70 @@ const (
 	rowOpen
 )
 
-// sideRowLook gives a row of the sidebar the look of its state, and returns its words' and its icon's colors. At
-// rest the row is bare and its words a step toward the muted. Under the pointer the ground takes a light tint of the
-// theme's accent. The open row is a chip a step above the sidebar, tinted a little with the accent, lit from the top
-// (a line of light inside its upper edge, a rim that fades from it downward) and with a soft shadow under it; its
-// words full, its icon the accent.
-func sideRowLook(c *ui.Context, r ui.Element, st rowState) (text, icon ui.Color) {
-	t := c.Theme()
-	accent := ryugo.From(c).Colors.Accent
-	none := t.Text.Alpha(0)
+// sidePalette caches sidebar row colors once per sidebar frame so treeRow and revealButton do not run OKLCH color
+// mixing on every row of every frame.
+type sidePalette struct {
+	dark          bool
+	text, accent  ui.Color
+	none          ui.Color
+	restText      ui.Color
+	restIcon      ui.Color
+	hoverBg       ui.Color
+	hoverIcon     ui.Color
+	openBg        ui.Color
+	openBorder    ui.LinearGradient
+	revealInk     ui.Color
+	revealHoverBg ui.Color
+	revealClear   ui.Color
+}
+
+func makeSidePalette(t *ui.Theme, accent ui.Color) sidePalette {
+	p := sidePalette{
+		dark:          t.Dark,
+		text:          t.Text,
+		accent:        accent,
+		none:          t.Text.Alpha(0),
+		restText:      ryugo.Mix(t.TextMuted, t.Text, 0.6),
+		restIcon:      ryugo.Mix(t.TextMuted, t.Text, 0.75),
+		hoverIcon:     ryugo.Mix(t.TextMuted, t.Text, 0.85),
+		revealInk:     ryugo.Mix(t.TextMuted, t.Text, 0.7),
+		revealHoverBg: accent.Alpha(0.14),
+		revealClear:   accent.Alpha(0),
+	}
+	if t.Dark {
+		p.hoverBg = accent.Alpha(0.12)
+		p.openBg = ryugo.Mix(ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.06), accent, 0.14)
+		p.openBorder = ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.10), To: ui.RGBA(255, 255, 255, 0.025), Angle: 180}
+	} else {
+		p.hoverBg = accent.Alpha(0.07)
+		p.openBg = ryugo.Mix(ui.RGB(255, 255, 255), accent, 0.07)
+		p.openBorder = ui.LinearGradient{From: accent.Alpha(0.10), To: accent.Alpha(0.18), Angle: 180}
+	}
+	return p
+}
+
+// sideRowLook gives a row of the sidebar the look of its state, and returns its words' and its icon's colors.
+func (a *app) sideRowLook(r ui.Element, st rowState) (text, icon ui.Color) {
+	p := &a.sidePal
 	switch st {
 	case rowOpen:
-		if t.Dark {
-			r.Background(ryugo.Mix(ryugo.Mix(t.Surface.Alpha(1), t.Text, 0.06), accent, 0.14)).
-				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.10), To: ui.RGBA(255, 255, 255, 0.025), Angle: 180}).
+		if p.dark {
+			r.Background(p.openBg).
+				Border(1, p.none).BorderLinearGradient(p.openBorder).
 				InsetShadow(0, 1, 0, 0, ui.RGBA(255, 255, 255, 0.05)).
 				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.10))
 		} else {
-			r.Background(ryugo.Mix(ui.RGB(255, 255, 255), accent, 0.07)).
-				Border(1, none).BorderLinearGradient(ui.LinearGradient{From: accent.Alpha(0.10), To: accent.Alpha(0.18), Angle: 180}).
+			r.Background(p.openBg).
+				Border(1, p.none).BorderLinearGradient(p.openBorder).
 				Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.025)).Shadow(0, 3, 8, 0, ui.RGBA(0, 0, 0, 0.025))
 		}
-		return t.Text, accent
+		return p.text, p.accent
 	case rowHover:
-		r.Background(accent.Alpha(map[bool]float32{false: 0.07, true: 0.12}[t.Dark])).Border(1, none)
-		return t.Text, ryugo.Mix(t.TextMuted, t.Text, 0.85)
+		r.Background(p.hoverBg).Border(1, p.none)
+		return p.text, p.hoverIcon
 	}
-	r.Background(none).Border(1, none)
-	return ryugo.Mix(t.TextMuted, t.Text, 0.6), ryugo.Mix(t.TextMuted, t.Text, 0.75)
+	r.Background(p.none).Border(1, p.none)
+	return p.restText, p.restIcon
 }
 
 // stuckRowLook gives a collection's row held at the top of the tree, over its pages, a ground of its own, so that
@@ -357,7 +394,7 @@ func (a *app) treeRow(c *ui.Context, s rowSpec) (row, chev, add bool) {
 	case hover:
 		st = rowHover
 	}
-	textC, iconC := sideRowLook(c, r, st)
+	textC, iconC := a.sideRowLook(r, st)
 	if s.sticky {
 		r.Sticky().Top(0)
 	}
@@ -499,9 +536,9 @@ func (a *app) commitRename() {
 		from := x.Title
 		if err = x.SetTitle(name); err == nil {
 			a.later(func() { a.relinkRenamed(x, from, false) }) // its links follow (relink.go)
-		}
-		if x == a.pane().page {
-			a.pane().title = name
+			if x == a.pane().page {
+				a.pane().title = name
+			}
 		}
 	case *Collection:
 		err = x.Rename(name)
@@ -556,8 +593,8 @@ func (a *app) pageRow(c *ui.Context, p *Page) {
 // A small tree, a drag, a row being renamed or given the focus are built as they are.
 
 const (
-	treeVirtualFrom = 200 // rows: a tree this long is virtual
-	treeMargin      = 2.0 // the views of room built above and below what shows
+	treeVirtualFrom = 100 // rows: virtualize early so medium libraries keep 60 FPS
+	treeMargin      = 0.6 // views of room built above and below what shows
 )
 
 // collectionRows builds the rows of the collections, with their open pages, and gaps for those far from view: a
@@ -854,19 +891,22 @@ func (a *app) barIcon(c *ui.Context, glyph *ui.SVG, label string) bool {
 // the text, to be seen over the row's words; under the pointer it gets a light ground of the theme's accent, and
 // its icon the accent itself, the same on a row at rest, hovered or open.
 func (a *app) revealButton(c *ui.Context, glyph *ui.SVG, label string, shown bool) bool {
-	t := c.Theme()
-	accent := ryugo.From(c).Colors.Accent
+	p := &a.sidePal
 	b := ui.Box(c).Width(rowBtn).Height(rowBtn).Radius(rad(6)).AlignItems(ui.Center).Justify(ui.Center).Label(label).Role(ui.RoleButton).
-		Cursor(ui.CursorPointer).Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
-	ink := ryugo.Mix(t.TextMuted, t.Text, 0.7)
-	if b.Hovered() {
-		b.Background(accent.Alpha(0.14))
-		ink = accent
-	} else {
-		b.Background(accent.Alpha(0))
+		Cursor(ui.CursorPointer)
+	op := b.AnimateTo("shown", map[bool]float32{true: 1, false: 0}[shown], fadeQuick)
+	b.Opacity(op)
+	if op > 0.005 || shown {
+		b.Transition(ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true})
+		ink := p.revealInk
+		if b.Hovered() {
+			b.Background(p.revealHoverBg)
+			ink = p.accent
+		} else {
+			b.Background(p.revealClear)
+		}
+		b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(ink) })
 	}
-	b.Opacity(b.AnimateTo("shown", map[bool]float32{true: 1, false: 0}[shown], fadeQuick))
-	b.Children(func() { ui.Icon(c, glyph).Width(16).Height(16).TextColor(ink) })
 	return b.Clicked()
 }
 

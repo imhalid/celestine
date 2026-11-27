@@ -140,9 +140,13 @@ func (a *app) addExtraTools(s *mcp.Server, ro *mcp.ToolAnnotations) {
 	mcp.AddTool(s, &mcp.Tool{Name: "set_task", Description: "Ticks a task off, or puts it back, by its page, its line and, for a box in the running text, its box (list_tasks gives them)."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in setTaskArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
+				a.lockDays()
 				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
+				}
+				if a.pageLocked(p) {
+					return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
 				}
 				a.linksStale()
 				for _, k := range a.allTasks(true) {

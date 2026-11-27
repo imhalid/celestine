@@ -277,7 +277,7 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 			if face.id == "" || face.id == "blocked" {
 				drawTaskPart(p, at, a.subtasksOf(pn).count[b.Index], color) // as far as its subtasks are done (subtasks.go)
 			}
-			if face.id != "" && a.faceClock(now) >= 0 {
+			if face.id != "" && face.id != "canceled" && a.faceClock(now) >= 0 {
 				moving = true
 			}
 		}

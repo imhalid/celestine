@@ -138,14 +138,18 @@ func (a *app) inlineActiveSpans(pn *paneState, p int, spans []ui.Span) []ui.Span
 	})
 }
 
-// inlineChipActive reports whether ch is the box of the task in the running text the caret is in.
+// inlineChipActive reports whether ch is the box of an active inline task in any pane.
 func (a *app) inlineChipActive(ch *chip) bool {
-	act := a.pane().inlineAct
-	if !act.ok || act.box+act.ps >= act.text.Len() {
-		return false
+	for i := range a.ps.states {
+		act := a.ps.states[i].inlineAct
+		if !act.ok || act.box+act.ps >= act.text.Len() {
+			continue
+		}
+		if att := act.text.AttributesAt(act.ps + act.box).Attachment; att != nil && att.Data == any(ch) {
+			return true
+		}
 	}
-	att := act.text.AttributesAt(act.ps + act.box).Attachment
-	return att != nil && att.Data == any(ch)
+	return false
 }
 
 // tabOutOfInlineTask is Tab in a task in the running text: past its end when it has one, else an end put where the
@@ -194,9 +198,13 @@ func (a *app) drawCheckEnd(p *ui.Painter, r ui.Rect, ch *chip) {
 	h := size * 0.86
 	bottom := r.Y + r.H + size*0.1
 	col := rgba(148, 163, 184, map[bool]float32{true: 0.5, false: 0.6}[dark])
-	if act := a.pane().inlineAct; act.ok && act.end >= 0 && act.ps+act.end < act.text.Len() {
-		if att := act.text.AttributesAt(act.ps + act.end).Attachment; att != nil && att.Data == any(ch) {
-			col = inlineAccent(dark).Alpha(0.9)
+	for i := range a.ps.states {
+		act := a.ps.states[i].inlineAct
+		if act.ok && act.end >= 0 && act.ps+act.end < act.text.Len() {
+			if att := act.text.AttributesAt(act.ps + act.end).Attachment; att != nil && att.Data == any(ch) {
+				col = inlineAccent(dark).Alpha(0.9)
+				break
+			}
 		}
 	}
 	w := max(1.4, size*0.09)

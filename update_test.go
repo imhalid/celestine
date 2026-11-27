@@ -1278,3 +1278,51 @@ func TestRelaunchAppImage(t *testing.T) {
 		t.Fatalf("the command: %s %v %v", cmd.Path, cmd.Args, cmd.Env)
 	}
 }
+
+func TestInstallAppRollbackOutsideBundle(t *testing.T) {
+	dir := t.TempDir()
+	app := filepath.Join(dir, "celestine.app")
+	os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o755)
+	os.WriteFile(filepath.Join(app, "Contents", "MacOS", "celestine"), []byte("old-bin"), 0o755)
+
+	zp := filepath.Join(dir, "new.zip")
+	f, err := os.Create(zp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	w, _ := zw.CreateHeader(&zip.FileHeader{Name: "celestine.app/Contents/MacOS/celestine", Method: zip.Deflate})
+	w.Write([]byte("new-bin"))
+	zw.Close()
+	f.Close()
+
+	target, old, err := installApp(zp, app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mark := filepath.Join(dir, "update-pending")
+	os.WriteFile(mark, []byte("v2.0.0\n"+target+"\n"+old+"\n"), 0o600)
+	if note := rollbackIfBroken(mark, "v2.0.0"); note != "" {
+		t.Fatalf("first start rolled back: %q", note)
+	}
+	note := rollbackIfBroken(mark, "v2.0.0")
+	if !strings.Contains(note, "previous version is back") {
+		t.Fatalf("expected rollback note, got %q", note)
+	}
+	// Broken Contents must be moved outside celestine.app (never celestine.app/Contents.failed).
+	if _, err := os.Stat(filepath.Join(app, "Contents.failed")); !os.IsNotExist(err) {
+		t.Fatal("Contents.failed was left inside .app bundle root")
+	}
+	if _, err := os.Stat(app + ".failed"); err != nil {
+		t.Fatalf("expected failed backup beside bundle: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(app, "Contents", "MacOS", "celestine")); string(got) != "old-bin" {
+		t.Fatalf("restored binary = %q, want old-bin", got)
+	}
+	// Next proved update cleans up any lingering .failed directory.
+	os.WriteFile(mark, []byte("v3.0.0\n"+target+"\n"+old+"\n"), 0o600)
+	updateProved(mark, "v3.0.0")
+	if _, err := os.Stat(app + ".failed"); !os.IsNotExist(err) {
+		t.Fatal("updateProved did not clean up .failed backup")
+	}
+}

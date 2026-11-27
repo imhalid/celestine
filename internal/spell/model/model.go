@@ -156,6 +156,9 @@ func fetch(ctx context.Context, url, path string, f File, step func(int64)) erro
 	if n != f.Size || hex.EncodeToString(h.Sum(nil)) != f.SHA256 {
 		return ErrChanged
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return os.Rename(tmp.Name(), path)
 }
 

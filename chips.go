@@ -308,6 +308,10 @@ func withoutChips(t richtext.Text) richtext.Text {
 			t = replaceKeepIDs(t, f.i, f.i+1, withoutChips(*f.ch.hidden))
 			continue
 		}
+		if f.ch.kind == "checkend" { // an inline task's invisible end marker is never shown in plain text or HTML
+			t = t.Replace(f.i, f.i+1, richtext.Text{})
+			continue
+		}
 		t = t.ReplaceString(f.i, f.i+1, f.ch.markdown(), f.a)
 	}
 	return t
@@ -588,7 +592,7 @@ func (a *app) clickChip(pn *paneState, x, y float32, alt bool) bool {
 			return true
 		}
 		if h.ch.kind == "check" { // done, or not done again
-			a.toggleCheckChip(h.ch)
+			a.toggleCheckChipIn(pn, h.ch)
 			return true
 		}
 		if h.ch.kind == "footnote" { // its note
@@ -610,7 +614,7 @@ func (a *app) clickChip(pn *paneState, x, y float32, alt bool) bool {
 				}
 				a.dateEdit = dateEdit{open: true, ch: h.ch, at: h.r, cal: d}
 			case err == nil: // its day, as a page's link opens its page
-				a.openDay(d)
+				a.openDayIn(pn, d)
 			}
 			return true
 		}

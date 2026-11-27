@@ -59,6 +59,10 @@ func (a *app) extractToPage() {
 	if p == nil || a.noPage() || a.pane().doc == nil {
 		return
 	}
+	if a.pageLocked(p) {
+		a.sayLocked()
+		return
+	}
 	t := a.pane().doc.Text()
 	anchor, caret := a.pane().doc.Selection()
 	s, e, ok := extractRange(t, anchor, caret)

@@ -25,12 +25,30 @@ func (a *app) titleSize(text string, width float32) float32 {
 	return titleSizes[len(titleSizes)-1]
 }
 
-// titleLayout is title text laid out at size in a room width wide (0: on one line).
+// titleEntry caches one shaped title layout so steady frames do not re-shape the title via Pango on every frame.
+type titleEntry struct {
+	text   string
+	size   float32
+	width  float32
+	font   ui.Font
+	layout *ui.TextLayout
+}
+
+// titleLayout is title text laid out at size in a room width wide (0: on one line), cached per (text, size, width, font).
 func (a *app) titleLayout(text string, size, width float32) *ui.TextLayout {
 	if text == "" {
 		text = " " // an empty title is a line high
 	}
-	return ui.ShapeRichTextWith([]ui.Span{{Text: text, Size: size, Weight: titleWeight}}, a.font, ui.TextShape{Width: width})
+	for i := range a.titleCache {
+		e := &a.titleCache[i]
+		if e.layout != nil && e.size == size && e.width == width && e.font == a.font && e.text == text {
+			return e.layout
+		}
+	}
+	l := ui.ShapeRichTextWith([]ui.Span{{Text: text, Size: size, Weight: titleWeight}}, a.font, ui.TextShape{Width: width})
+	a.titleCache[a.titleCacheNext] = titleEntry{text: text, size: size, width: width, font: a.font, layout: l}
+	a.titleCacheNext = (a.titleCacheNext + 1) % len(a.titleCache)
+	return l
 }
 
 // titleRoom notes the width the title was laid out in, which its size and lines are found at; when it changed, the

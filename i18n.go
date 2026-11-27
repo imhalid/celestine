@@ -71,19 +71,25 @@ func msg(id string) string {
 	return id
 }
 
+// namesList are the messages of id in each language of the window, kept separate so searches and prefix rankings match
+// within one language at a time.
+func namesList(id string) []string {
+	var out []string
+	for _, l := range languages {
+		if _, _, ok := locales.Catalog.Message(l.code, id); ok {
+			out = append(out, locales.Catalog.Format(l.code, id, nil))
+		}
+	}
+	if len(out) == 0 {
+		return []string{id}
+	}
+	return out
+}
+
 // names are the words a message of id is found by, typed: its own in each language of the window, so that a
 // setting or a command is found by its Turkish name in the English window too.
 func names(id string) string {
-	var b strings.Builder
-	for _, l := range languages {
-		if _, _, ok := locales.Catalog.Message(l.code, id); ok {
-			b.WriteString(locales.Catalog.Format(l.code, id, nil) + " ")
-		}
-	}
-	if b.Len() == 0 {
-		return id
-	}
-	return b.String()
+	return strings.Join(namesList(id), " ") + " "
 }
 
 // langName is the language's name, in itself.

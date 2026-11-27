@@ -64,14 +64,15 @@ func (a *app) windowButtons(c *ui.Context, w *mygo.Window) {
 		}
 		btn(iconMinimize, locales.WindowMinimize(), false, w.Minimize)
 		btn(iconMaximize, locales.WindowMaximize(), false, w.ToggleMaximize)
-		btn(iconWinClose, "close", true, w.Close)
+		btn(iconWinClose, locales.Close(), true, w.Close)
 	})
 }
 
 // keepInDock has the window w, the app's main one, closed as a Mac app's is (#632): its close button and ⌘W hide it,
-// and the app stays in the Dock, whose icon brings it back, as opening the app again does. A quit (⌘Q, the Dock's
-// Quit, the system's logout) closes it all the same, and the app with it.
-func keepInDock(w *mygo.Window) {
+// and the app stays in the Dock, whose icon brings it back, as opening the app again does. Unsaved edits are flushed
+// before the window stays hidden, so a crash or midnight lock cannot discard them. A quit (⌘Q, the Dock's Quit, the
+// system's logout) closes it all the same, and the app with it.
+func (a *app) keepInDock(w *mygo.Window) {
 	quitting, hidden := false, false
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { quitting = true })
 	mygo.App.OnQuitCanceled(func() { quitting = false })
@@ -82,6 +83,14 @@ func keepInDock(w *mygo.Window) {
 		e.PreventDefault()
 		hidden = true
 		w.Hide()
+		go func() {
+			defer a.guard()
+			a.do(func() error {
+				a.endTitleEdit()
+				a.flush()
+				return nil
+			})
+		}()
 	})
 	mygo.App.OnActivate(func(bool) {
 		if hidden {

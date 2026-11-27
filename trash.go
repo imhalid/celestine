@@ -100,7 +100,7 @@ func (a *app) trashRow(c *ui.Context) {
 		r := ui.Row(c.Key("trash-btn")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8, 0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTrash()).Role(ui.RoleButton).Transition(rowMove)
 		st := navRowState(a.pane().trashOpen, r.Hovered())
-		textC, iconC := sideRowLook(c, r, st)
+		textC, iconC := a.sideRowLook(r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTrash).Width(15).Height(15).TextColor(iconC)
 			ui.Text(c, locales.CommonTrash()).FontSize(14).TextColor(textC).MaxLines(1).Grow(1).MinWidth(0)
@@ -244,7 +244,7 @@ func (a *app) tasksRow(c *ui.Context) {
 		r := ui.Row(c.Key("tasks-row")).Grow(1).Basis(0).MinWidth(0).Height(rowH).Padding(0, 8).Gap(7).Radius(rad(7)).AlignItems(ui.Center).
 			Label(locales.CommonTasks()).Role(ui.RoleButton).Transition(rowMove)
 		st := navRowState(a.pane().tasksOpen, r.Hovered())
-		textC, iconC := sideRowLook(c, r, st)
+		textC, iconC := a.sideRowLook(r, st)
 		r.Children(func() {
 			ui.Icon(c, iconTask).Width(15).Height(15).TextColor(iconC)
 			ui.Text(c, locales.CommonTasks()).FontSize(14).TextColor(textC).MaxLines(1).Grow(1).MinWidth(0)

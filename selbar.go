@@ -46,7 +46,7 @@ var (
 // selectionBar draws the bar over the selection, when there is one to show.
 func (a *app) selectionBar(c *ui.Context) {
 	b := &a.pane().sel
-	if a.pane().doc == nil || a.noPage() || a.pane().page == nil || a.slash.open || a.ctx.open || a.pane().grip.menu || a.dateEdit.open || a.modal() {
+	if a.pane().doc == nil || a.noPage() || a.pane().page == nil || a.pageLocked(a.pane().page) || a.slash.open || a.ctx.open || a.pane().grip.menu || a.dateEdit.open || a.modal() {
 		b.link = false
 		return
 	}

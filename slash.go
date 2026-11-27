@@ -59,18 +59,18 @@ type menuItem struct {
 func slashItems(q string) []struct{ kind, name, md string } {
 	var out []struct{ kind, name, md string }
 	for _, k := range blockKinds {
-		if q == "" || menuHas(q, names(k.name)) || strings.HasPrefix(k.md, q) {
+		if q == "" || menuHas(q, namesList(k.name)...) || strings.HasPrefix(k.md, q) {
 			out = append(out, k)
 		}
 	}
 	slices.SortStableFunc(out, func(x, y struct{ kind, name, md string }) int {
-		return menuRank(q, names(x.name)) - menuRank(q, names(y.name))
+		return menuRank(q, namesList(x.name)...) - menuRank(q, namesList(y.name)...)
 	})
 	return out
 }
 
 // menuHas reports whether one of texts contains q, folded as the app's search folds (Turkish letters, case): what a
-// line of the / menu is found by. A name in each language is one of them (names), so the letters typed are found
+// line of the / menu is found by. A name in each language is one of them (namesList), so the letters typed are found
 // together in a name, never one in the English name and the next in the Turkish one (#609).
 func menuHas(q string, texts ...string) bool {
 	fq := foldText(strings.TrimSpace(q))
@@ -82,23 +82,29 @@ func menuHas(q string, texts ...string) bool {
 	return false
 }
 
-// menuRank is where a line found by q stands among the others: 0 when its name starts with q, 1 when a word of one of
-// its names does, 2 when q is only within one.
-func menuRank(q string, text string) int {
+// menuRank is where a line found by q stands among the others: 0 when one of its names starts with q, 1 when a word of
+// one of its names does, 2 when q is only within one.
+func menuRank(q string, texts ...string) int {
 	fq := foldText(strings.TrimSpace(q))
 	if fq == "" {
 		return 0
 	}
-	f := foldText(text)
-	if strings.HasPrefix(f, fq) {
-		return 0
-	}
-	for _, w := range strings.Fields(f) {
-		if strings.HasPrefix(w, fq) {
-			return 1
+	best := 2
+	for _, text := range texts {
+		f := foldText(text)
+		if strings.HasPrefix(f, fq) {
+			return 0
+		}
+		if best > 1 {
+			for _, w := range strings.Fields(f) {
+				if strings.HasPrefix(w, fq) {
+					best = 1
+					break
+				}
+			}
 		}
 	}
-	return 2
+	return best
 }
 
 type namedDay struct {
@@ -278,7 +284,7 @@ func (a *app) wikiItems(q string) []menuItem {
 	}
 	exact, n := false, 0
 	for _, it := range a.places() {
-		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && !menuHas(q, it.title)) {
+		if it.to.kind != "page" || (a.pane().page != nil && it.to.dir == a.pane().page.Dir) || (q != "" && match(q, it.title) < 0) {
 			continue
 		}
 		if strings.EqualFold(it.title, tq) {

@@ -166,6 +166,9 @@ func (a *app) addImage(name string, data []byte) error {
 	if p == nil || a.pane().doc == nil {
 		return errors.New(locales.PageNoOpenPage())
 	}
+	if a.pageLocked(p) {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	ext := imageExt(data)
 	if ext == "" {
 		return errors.New(notImage())
@@ -296,6 +299,9 @@ var ourPicture = regexp.MustCompile(`^resim-\d{8}-\d{6}(-\d+)?\.(png|jpg|gif|web
 // there by hand, under another name, is left alone. Only a body that was read is swept (docFor), and a picture
 // written in the last minutes is left: a sync may bring it before the page that names it (#126).
 func (a *app) sweepPictures(p *Page, body string) {
+	if a.pageLocked(p) {
+		return
+	}
 	entries, err := p.FS().ReadDir(p.Dir)
 	if err != nil {
 		return

@@ -4,8 +4,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode"
@@ -39,10 +41,14 @@ type spellState struct {
 	done, total int64
 	err         string
 	cancel      context.CancelFunc
+	dlID        uint64 // monotonic id so a cancelled download never overwrites a newer one
 }
 
 // spellRoot is the app's folder, where the model's folder is (model.Dir); a test's own folder in a test.
 func spellRoot() string {
+	if runtime.GOOS == "js" {
+		return ""
+	}
 	if d := os.Getenv("XDG_CONFIG_HOME"); d != "" && testing.Testing() {
 		return filepath.Join(d, "celestine")
 	}
@@ -91,13 +97,30 @@ func (a *app) spellDownload(again bool) {
 	if root == "" || s.status == spellDownloading {
 		return
 	}
+	if again {
+		a.spellUnload()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
+	s.dlID++
+	id := s.dlID
 	s.status, s.err, s.done, s.total, s.cancel = spellDownloading, "", 0, model.TotalSize(), cancel
 	go func() {
+		finished := false
+		defer func() {
+			if !finished {
+				a.do(func() error {
+					if a.spell.dlID == id && a.spell.status == spellDownloading {
+						a.spell.cancel = nil
+						a.spell.status, a.spell.err = spellFailed, "download aborted"
+					}
+					return nil
+				})
+			}
+		}()
 		defer a.guard()
 		err := model.Download(ctx, spellBase, model.Dir(root), again, func(done, total int64) {
 			a.do(func() error {
-				if a.spell.status == spellDownloading {
+				if a.spell.dlID == id && a.spell.status == spellDownloading {
 					a.spell.done, a.spell.total = done, total
 				}
 				return nil
@@ -105,7 +128,7 @@ func (a *app) spellDownload(again bool) {
 		})
 		a.do(func() error {
 			s := &a.spell
-			if s.status != spellDownloading { // cancelled, or deleted meanwhile
+			if s.dlID != id || s.status != spellDownloading { // cancelled, superseded, or deleted meanwhile
 				return nil
 			}
 			s.cancel = nil
@@ -120,12 +143,14 @@ func (a *app) spellDownload(again bool) {
 			}
 			return nil
 		})
+		finished = true
 	}()
 }
 
 // spellCancel stops the download going on.
 func (a *app) spellCancel() {
 	s := &a.spell
+	s.dlID++
 	if s.cancel != nil {
 		s.cancel()
 		s.cancel = nil
@@ -157,6 +182,9 @@ func (a *app) spellDelete() {
 // settingsSpell is the spell checker's settings, in the Editor's section: on or off, and its model: downloaded or
 // not, its download going on, deleted, or downloaded again.
 func (a *app) settingsSpell(c *ui.Context) {
+	if runtime.GOOS == "js" {
+		return
+	}
 	a.spellLook()
 	cl := ryugo.From(c).Colors
 	s := &a.spell
@@ -205,7 +233,14 @@ func (a *app) settingsSpell(c *ui.Context) {
 						}
 					default:
 						if btn("spell-download", locales.SpellDownload(), ryugo.Solid) {
-							a.spellDownload(false)
+							a.spellDownload(s.status == spellFailed)
+						}
+						if s.status == spellFailed {
+							if root := spellRoot(); root != "" && a.spellBegun(root) {
+								if btn("spell-delete", msg("common_delete"), ryugo.Soft) {
+									a.spellDelete()
+								}
+							}
 						}
 					}
 				})
@@ -227,7 +262,7 @@ func (a *app) setSpellCheck(on bool) {
 	}
 	a.spellLook()
 	if on && (a.spell.status == spellMissing || a.spell.status == spellFailed) {
-		a.spellDownload(false)
+		a.spellDownload(a.spell.status == spellFailed)
 	}
 }
 
@@ -240,8 +275,10 @@ const spellChecks = 4000
 // came into view); the context model makes a check cost some milliseconds, not to be spent on a text already gone.
 const spellQueue = 6
 
-// spellEngineState is the engine loaded from the model, and the checks of the paragraphs it made.
+// spellEngineState is the engine loaded from the model, and the checks of the paragraphs it made. mu is a leaf lock
+// held around reads and writes here (paint runs outside a.mu, while spellWork runs in its own goroutine).
 type spellEngineState struct {
+	mu       sync.Mutex
 	eng      *spell.Engine
 	loading  bool
 	checks   map[string]spell.InspectResult // by the paragraph's text as checked (spellText)
@@ -249,59 +286,120 @@ type spellEngineState struct {
 	ctxQueue []string                       // texts checked without the context model, to be checked with it
 	lastFast time.Time                      // when the last check without the context ended
 	working  bool                           // a goroutine checks the queues
+	wake     chan struct{}                  // signaled when queue gets new work during spellSettle
 	gen      int                            // moved by each change of what the underlines show
+	epoch    uint64                         // bumped on unload or Ignore so stale in-flight results are dropped
 }
 
 // spellSettle is how long the text stays as it is before its paragraphs are checked with the context model too: the
 // check without it is a few milliseconds and comes at once, the one with it some hundreds, and not for every key.
 const spellSettle = 800 * time.Millisecond
 
+// spellEngine returns the loaded engine without touching app state (safe to call during paint without a.mu).
+func (a *app) spellEngine() *spell.Engine {
+	s := &a.spellEng
+	s.mu.Lock()
+	eng := s.eng
+	s.mu.Unlock()
+	return eng
+}
+
 // spellOn reports whether the spell checker is on and its engine loaded, loading it the first time it is asked for.
+// Called under a.mu (never from paint).
 func (a *app) spellOn() *spell.Engine {
 	if !a.settings.SpellCheck {
 		return nil
 	}
 	a.spellLook()
 	s := &a.spellEng
+	s.mu.Lock()
 	if s.eng != nil || s.loading || a.spell.status != spellReady {
-		return s.eng
+		eng := s.eng
+		s.mu.Unlock()
+		return eng
 	}
 	root := spellRoot()
 	if root == "" {
+		s.mu.Unlock()
 		return nil
 	}
 	s.loading = true
+	ep := s.epoch
+	s.mu.Unlock()
 	go func() { // some tens of milliseconds, and the frame does not wait
+		finished := false
+		defer func() {
+			if !finished {
+				s.mu.Lock()
+				s.loading = false
+				s.mu.Unlock()
+				a.do(func() error {
+					a.spell.status, a.spell.err = spellFailed, "load aborted"
+					return nil
+				})
+			}
+		}()
 		defer a.guard()
 		eng, err := spell.Load(model.Dir(root), spell.ModeCareful)
 		a.do(func() error {
-			s := &a.spellEng
+			s.mu.Lock()
 			s.loading = false
 			if err != nil {
+				s.mu.Unlock()
 				a.spell.status, a.spell.err = spellFailed, err.Error()
 				return nil
 			}
-			if a.settings.SpellCheck && a.spell.status == spellReady {
+			if a.settings.SpellCheck && a.spell.status == spellReady && s.epoch == ep {
 				s.eng, s.checks = eng, map[string]spell.InspectResult{}
 				s.gen++
 			}
+			s.mu.Unlock()
 			return nil
 		})
+		finished = true
 	}()
 	return nil
 }
 
 // spellUnload lets the engine go: turned off, or its model deleted.
-func (a *app) spellUnload() { a.spellEng = spellEngineState{gen: a.spellEng.gen + 1} }
+func (a *app) spellUnload() {
+	s := &a.spellEng
+	s.mu.Lock()
+	s.eng = nil
+	s.loading = false
+	s.checks = nil
+	s.queue = nil
+	s.ctxQueue = nil
+	s.working = false
+	s.epoch++
+	s.gen++
+	wake := s.wake
+	s.mu.Unlock()
+	if wake != nil {
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
+	}
+}
 
 // spellKey says what the spell checker's underlines in pn show, for the editor to ask for the spans again when it
 // changes: its checks, and the caret, whose word is not underlined while it is typed. 0 while it is off.
 func (a *app) spellKey(pn *paneState) int {
-	if a.spellOn() == nil || pn.doc == nil {
-		return a.spellEng.gen & 0xff
+	eng := a.spellOn()
+	s := &a.spellEng
+	s.mu.Lock()
+	gen := s.gen
+	s.mu.Unlock()
+	if eng == nil || pn.doc == nil {
+		return gen & 0xff
 	}
 	_, c := pn.doc.Selection()
-	return (a.spellEng.gen&0xfff)*131071 + c%131071 + 1
+	foc := 0
+	if pn.focused {
+		foc = 1
+	}
+	return (gen&0x7ff)*262147 + (c%131071)*2 + foc + 1
 }
 
 // spellText is the text of paragraph para as it is checked: inline code and objects as spaces, the same length in
@@ -320,13 +418,19 @@ func spellText(para richtext.Paragraph) string {
 }
 
 // spellCheckOf is the check of a paragraph's text, or false while it is being made: asked for, it is made outside the
-// lock, and the window drawn again when it is there.
+// lock, and the window drawn again when it is there. Safe to call during paint (synchronizes via a.spellEng.mu).
 func (a *app) spellCheckOf(eng *spell.Engine, text string) (spell.InspectResult, bool) {
 	s := &a.spellEng
+	s.mu.Lock()
+	if s.eng != eng {
+		s.mu.Unlock()
+		return spell.InspectResult{}, false
+	}
 	if r, ok := s.checks[text]; ok {
+		s.mu.Unlock()
 		return r, true
 	}
-	if len(s.checks) > spellChecks {
+	if s.checks == nil || len(s.checks) > spellChecks {
 		s.checks = map[string]spell.InspectResult{}
 	}
 	if !slices.Contains(s.queue, text) {
@@ -335,9 +439,22 @@ func (a *app) spellCheckOf(eng *spell.Engine, text string) (spell.InspectResult,
 			s.queue = slices.Delete(s.queue, 0, len(s.queue)-spellQueue)
 		}
 	}
-	if !s.working {
+	if s.wake == nil {
+		s.wake = make(chan struct{}, 1)
+	}
+	wake := s.wake
+	start := !s.working
+	if start {
 		s.working = true
-		go a.spellWork(eng)
+	}
+	s.mu.Unlock()
+	if start {
+		go a.spellWork(eng, wake)
+	} else {
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
 	}
 	return spell.InspectResult{}, false
 }
@@ -347,63 +464,86 @@ func (a *app) spellCheckOf(eng *spell.Engine, text string) (spell.InspectResult,
 // then, once nothing new was asked for spellSettle, with the context model too, the newest first again, its result
 // taking the first's place. A paragraph asked for meanwhile goes first; one checked with the context is not again
 // until its text changes. Without a context model the first pass is the whole check.
-func (a *app) spellWork(eng *spell.Engine) {
+func (a *app) spellWork(eng *spell.Engine, wake <-chan struct{}) {
+	s := &a.spellEng
+	defer func() {
+		s.mu.Lock()
+		if s.eng == eng {
+			s.working = false
+		}
+		s.mu.Unlock()
+	}()
 	defer a.guard()
 	for {
 		var text string
 		var withContext, ok bool
 		var wait time.Duration
-		a.do(func() error {
-			s := &a.spellEng
-			switch {
-			case s.eng != eng:
-				s.working = false
-			case len(s.queue) > 0:
-				text, s.queue, ok = s.queue[len(s.queue)-1], s.queue[:len(s.queue)-1], true
-			case len(s.ctxQueue) > 0:
-				if left := spellSettle - time.Since(s.lastFast); left > 0 {
-					wait = left
-					return nil
-				}
-				text, s.ctxQueue, ok, withContext = s.ctxQueue[len(s.ctxQueue)-1], s.ctxQueue[:len(s.ctxQueue)-1], true, true
-			default:
-				s.working = false
+		var ep uint64
+		s.mu.Lock()
+		switch {
+		case s.eng != eng:
+			s.working = false
+		case len(s.queue) > 0:
+			text, s.queue, ok, ep = s.queue[len(s.queue)-1], s.queue[:len(s.queue)-1], true, s.epoch
+		case len(s.ctxQueue) > 0:
+			if left := spellSettle - time.Since(s.lastFast); left > 0 {
+				wait = left
+			} else {
+				text, s.ctxQueue, ok, withContext, ep = s.ctxQueue[len(s.ctxQueue)-1], s.ctxQueue[:len(s.ctxQueue)-1], true, true, s.epoch
 			}
-			return nil
-		})
+		default:
+			s.working = false
+		}
+		s.mu.Unlock()
 		if wait > 0 {
-			time.Sleep(wait)
+			timer := time.NewTimer(wait)
+			select {
+			case <-wake:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+			case <-timer.C:
+			}
 			continue
 		}
 		if !ok {
 			return
 		}
 		r := eng.Inspect(text, spell.CheckOptions{NoContext: !withContext})
-		a.do(func() error {
-			s := &a.spellEng
-			if s.eng != eng {
-				return nil
+		hasCtx := !withContext && eng.HasContext()
+		updated := false
+		s.mu.Lock()
+		if s.eng == eng && s.epoch == ep {
+			if s.checks == nil {
+				s.checks = map[string]spell.InspectResult{}
 			}
 			s.checks[text] = r
 			s.gen++
+			updated = true
 			if !withContext {
 				s.lastFast = time.Now()
-				if eng.HasContext() && !slices.Contains(s.ctxQueue, text) {
+				if hasCtx && !slices.Contains(s.ctxQueue, text) {
 					s.ctxQueue = append(s.ctxQueue, text)
 					if len(s.ctxQueue) > spellQueue {
 						s.ctxQueue = slices.Delete(s.ctxQueue, 0, len(s.ctxQueue)-spellQueue)
 					}
 				}
 			}
-			return nil
-		})
+		}
+		s.mu.Unlock()
+		if updated {
+			a.do(func() error { return nil })
+		}
 	}
 }
 
 // spellSpans underlines with a wave the words of paragraph p the checker found: a word it would fix in the accent, a
 // word it doubts in red. The word the caret is at the end of is not, while it is being typed.
 func (a *app) spellSpans(pn *paneState, p int, spans []ui.Span) []ui.Span {
-	eng := a.spellOn()
+	eng := a.spellEngine()
 	if eng == nil || a.pageLocked(pn.page) || a.theme == nil {
 		return spans
 	}
@@ -523,19 +663,28 @@ func (a *app) spellItems(at int) []menuItem {
 	t := pn.doc.Text()
 	at = min(at, t.Len())
 	ps, _ := t.ParagraphRange(at)
+	if t.ParagraphStyleAt(ps).CodeBlock {
+		return nil
+	}
 	pt := a.paraTableOf(pn, t)
 	p := a.paraIndex(pn, t, ps)
 	if p >= len(pt.paras) {
 		return nil
 	}
 	text := spellText(pt.paras[p])
-	r, ok := a.spellEng.checks[text]
+	s := &a.spellEng
+	s.mu.Lock()
+	r, ok := s.checks[text]
+	s.mu.Unlock()
 	if !ok {
 		return nil
 	}
 	in := at - ps
 	put := func(from, to int, word string) func() {
 		return func() {
+			if pn.doc == nil || a.pageLocked(pn.page) || !pn.doc.Text().Same(t) {
+				return
+			}
 			attrs := t.AttributesAt(ps + from)
 			attrs.Attachment = nil
 			out := richtext.NewText(word)
@@ -566,8 +715,13 @@ func (a *app) spellItems(at int) []menuItem {
 	if original != "" {
 		out = append(out, menuItem{title: locales.SpellIgnore(original), group: "spell", run: func() {
 			eng.Ignore(original)
-			a.spellEng.checks = map[string]spell.InspectResult{} // checked again, without it
-			a.spellEng.gen++
+			s.mu.Lock()
+			s.checks = map[string]spell.InspectResult{} // checked again, without it
+			s.queue = nil
+			s.ctxQueue = nil
+			s.epoch++
+			s.gen++
+			s.mu.Unlock()
 		}})
 	}
 	return out
@@ -582,15 +736,19 @@ type spellHit struct {
 // spellPlaces notes where the words the spell checker found in the paragraphs in view are drawn, for the editor's
 // menu to find the one under the pointer.
 func (a *app) spellPlaces(pn *paneState, r ui.Rect) {
-	if pn.doc == nil || a.spellEng.eng == nil || a.pageLocked(pn.page) {
+	if pn.doc == nil || a.spellEngine() == nil || a.pageLocked(pn.page) {
 		return
 	}
+	s := &a.spellEng
 	for _, b := range a.shown(pn, r) {
-		s, e, para := a.paraOfBox(pn, b)
-		if e <= s {
+		st, e, para := a.paraOfBox(pn, b)
+		if e <= st || para.Style.CodeBlock {
 			continue
 		}
-		res, ok := a.spellEng.checks[spellText(para)]
+		key := spellText(para)
+		s.mu.Lock()
+		res, ok := s.checks[key]
+		s.mu.Unlock()
 		if !ok || len(res.Fixes)+len(res.Flags) == 0 {
 			continue
 		}
@@ -598,10 +756,10 @@ func (a *app) spellPlaces(pn *paneState, r ui.Rect) {
 		for _, run := range para.Runs {
 			line += run.Text
 		}
-		l, left := a.paraLayout(pn, s, para, r.W)
+		l, left := a.paraLayout(pn, st, para, r.W)
 		place := func(from, to int) {
 			for _, rc := range l.SelectionRects(ui.TextInputRange{Start: units(line, from), End: units(line, to)}) {
-				pn.spellHits = append(pn.spellHits, spellHit{ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, s + from})
+				pn.spellHits = append(pn.spellHits, spellHit{ui.Rect{X: r.X + left + rc.X, Y: r.Y + b.Top + rc.Y, W: rc.W, H: rc.H}, st + from})
 			}
 		}
 		for _, f := range res.Fixes {

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // A past day of the journal is locked: what is typed in it, a tick of its task, a new title and the trash change
@@ -160,5 +162,62 @@ func TestJournalDayNotTrashed(t *testing.T) {
 	a.trashPage(other)
 	if a.inLibrary(other) {
 		t.Fatal("a page that is not a day stayed")
+	}
+}
+
+func TestJournalLockBypassesClosed(t *testing.T) {
+	a, tt := newTestApp(t, "x\n")
+	now := time.Date(2026, 11, 26, 10, 0, 0, 0, time.Local)
+	a.clock = func() time.Time { return now }
+	tt.SetSize(1000, 700)
+	j, err := a.journal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	day, err := a.makeDay(j, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := day.SaveText("- [ ] task one\n\nAl [ ] süt\n"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+
+	// Cross midnight WITHOUT rendering a frame: MCP must still lock and reject writes & set_task.
+	now = now.AddDate(0, 0, 1)
+	cs := agent(t, a)
+	ctx := context.Background()
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "update_page",
+		Arguments: map[string]any{"page": a.idOf(day.Dir), "append": "late edit"},
+	})
+	if err == nil && (res == nil || !res.IsError) {
+		t.Fatal("MCP update_page mutated past journal day after midnight without a frame")
+	}
+	res, err = cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "set_task",
+		Arguments: map[string]any{"page": a.idOf(day.Dir), "line": 0, "done": true},
+	})
+	if err == nil && (res == nil || !res.IsError) {
+		t.Fatal("MCP set_task succeeded on locked past journal day")
+	}
+
+	// Open the locked day and verify Tab, putCover, and extractToPage all refuse cleanly.
+	a.open(day)
+	tt.Frame()
+	beforeText := a.pane().doc.Text().String()
+	a.pane().doc.SetSelection(len([]rune(beforeText)), len([]rune(beforeText)))
+	tt.Key(0, ui.KeyTab)
+	tt.Frame()
+	if got := a.pane().doc.Text().String(); got != beforeText {
+		t.Fatalf("Tab mutated locked page: %q", got)
+	}
+	if err := a.putCover(day, []byte("fake"), ".png"); err == nil || day.Cover != "" {
+		t.Fatalf("putCover mutated locked page: err=%v cover=%q", err, day.Cover)
+	}
+	pagesBefore := len(a.lib.Collections[0].All())
+	a.extractToPage()
+	if len(a.lib.Collections[0].All()) != pagesBefore {
+		t.Fatal("extractToPage created an orphan page from a locked day")
 	}
 }

@@ -369,6 +369,8 @@ func (a *app) reloadLibrary() {
 	refs := a.paneRefs()
 	activePageDir := refs[a.ps.active].page
 	*a.lib = *fresh
+	a.locked = lockKey{} // re-evaluate past day locks against the reloaded pages
+	a.lockDays()
 	a.docs = map[*Page]*richtext.Document{}
 	a.docUse = nil // the pages are new ones: what is kept is listed again below
 	for _, c := range a.lib.Collections {

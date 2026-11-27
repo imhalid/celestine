@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,10 +11,14 @@ import (
 type memKeeper struct {
 	m    map[string]string
 	gets int
+	err  error
 }
 
 func (k *memKeeper) Get(name string) (string, error) {
 	k.gets++
+	if k.err != nil {
+		return "", k.err
+	}
 	if v, ok := k.m[name]; ok {
 		return v, nil
 	}
@@ -60,5 +65,32 @@ func TestFileKeychain(t *testing.T) {
 	}
 	if st, _ := os.Stat(filepath.Dir(k.path)); st.Mode().Perm() != 0o700 {
 		t.Fatalf("folder %v", st.Mode())
+	}
+}
+
+func TestFileKeychainCorruptRecoveryAndOldError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "celestine", "secrets.json")
+	old := &memKeeper{m: map[string]string{"a#syncToken": "tok"}, err: errors.New("keychain locked")}
+	k := &fileKeychain{path: path, old: old}
+
+	// A real Keychain error must be returned and must not permanently mark the key Tried.
+	if _, err := k.Get("a#syncToken"); err == nil || errors.Is(err, errNoSecret) {
+		t.Fatalf("expected keychain error, got %v", err)
+	}
+	old.err = nil
+	if v, err := k.Get("a#syncToken"); err != nil || v != "tok" {
+		t.Fatalf("retry after unlock failed: %q %v", v, err)
+	}
+
+	// Corrupt JSON must not permanently wedge Set.
+	if err := os.WriteFile(path, []byte("{broken json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := k.Set("a#syncToken", "recovered"); err != nil {
+		t.Fatalf("Set on corrupt JSON failed: %v", err)
+	}
+	if v, err := k.Get("a#syncToken"); err != nil || v != "recovered" {
+		t.Fatalf("after recovery: %q %v", v, err)
 	}
 }

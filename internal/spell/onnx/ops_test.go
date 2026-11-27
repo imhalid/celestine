@@ -1,6 +1,7 @@
 package onnx
 
 import (
+	"math"
 	"math/rand/v2"
 	"slices"
 	"testing"
@@ -120,5 +121,36 @@ func TestShapeOperators(t *testing.T) {
 	}
 	if got := run(t, "Mul", nil, floats([]int{2, 1}, 2, 3), x)[0]; !slices.Equal(got.F, []float32{2, 4, 6, 12, 15, 18}) {
 		t.Fatalf("Mul with a column %v", got.F)
+	}
+}
+
+func TestOnnxSafetyAndLayerNorm(t *testing.T) {
+	// Two-pass LayerNormalization must not produce NaN on large nearly-constant rows.
+	large := floats([]int{1, 4}, 1e7, 1e7+1, 1e7, 1e7+1)
+	scale := floats([]int{4}, 1, 1, 1, 1)
+	got := run(t, "LayerNormalization", map[string]attribute{"axis": {i: -1}, "epsilon": {f: 1e-5}}, large, scale)[0]
+	for i, v := range got.F {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			t.Fatalf("LayerNormalization[%d] = %v", i, v)
+		}
+	}
+	// Equal must reject mismatched byte dtypes (Int8 vs Uint8).
+	if _, err := ops["Equal"](&nodeProto{opType: "Equal"}, []*Tensor{
+		{Type: Int8, Shape: []int{1}, B: []byte{0xff}},
+		{Type: Uint8, Shape: []int{1}, B: []byte{0xff}},
+	}); err == nil {
+		t.Fatal("Equal accepted Int8 and Uint8")
+	}
+	// Float32 Range with delta 0 must return an error instead of panicking/hanging.
+	if _, err := ops["Range"](&nodeProto{opType: "Range"}, []*Tensor{
+		floats([]int{}, 0), floats([]int{}, 5), floats([]int{}, 0),
+	}); err == nil {
+		t.Fatal("Range accepted float32 delta=0")
+	}
+	// Duplicate axes in Unsqueeze must return an error instead of panicking.
+	if _, err := ops["Unsqueeze"](&nodeProto{opType: "Unsqueeze"}, []*Tensor{
+		floats([]int{2}, 1, 2), int64s(0, 0),
+	}); err == nil {
+		t.Fatal("Unsqueeze accepted duplicate axes")
 	}
 }

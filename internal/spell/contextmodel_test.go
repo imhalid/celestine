@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 )
 
 // goldenLines calls fn with each line of a gzipped JSON-lines golden in testdata, decoded into a new T.
@@ -245,4 +246,62 @@ func TestParityContext(t *testing.T) {
 	if differ > contextFlips {
 		t.Fatalf("%d inputs say something else than the TypeScript engine with its context, %d allowed", differ, contextFlips)
 	}
+}
+
+type blockingContextModel struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingContextModel) Score(queries []ContextQuery) ([][]float64, error) {
+	select {
+	case <-b.started:
+	default:
+		close(b.started)
+	}
+	<-b.release
+	out := make([][]float64, len(queries))
+	for i, q := range queries {
+		out[i] = make([]float64, len(q.Candidates))
+	}
+	return out, nil
+}
+
+func (b *blockingContextModel) SupportsNameContext() bool { return true }
+
+// NoContext checks and Ignore must not block while a context-model Score call is running.
+func TestEngineNoContextDoesNotWaitForContextModel(t *testing.T) {
+	lex := LexiconFromTSV("çok\t1000\ngeldi\t1000\nsu\t500\nşu\t500\n", "", 1, 1)
+	eng := NewEngine(lex, nil, nil, ModeCareful)
+	bm := &blockingContextModel{started: make(chan struct{}), release: make(chan struct{})}
+	eng.SetContextModel(bm)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		eng.Inspect("su geldi", CheckOptions{})
+	}()
+
+	select {
+	case <-bm.started:
+	case <-done:
+		// If no context query was triggered for this mini lexicon, test passes trivially after unlock check.
+		return
+	}
+
+	fastDone := make(chan struct{})
+	go func() {
+		eng.Check("cok geldi", CheckOptions{NoContext: true})
+		eng.Ignore("cok")
+		close(fastDone)
+	}()
+
+	select {
+	case <-fastDone:
+	case <-time.After(2 * time.Second):
+		close(bm.release)
+		t.Fatal("NoContext Check/Ignore blocked while ContextModel.Score was running")
+	}
+	close(bm.release)
+	<-done
 }

@@ -69,7 +69,8 @@ func menuIcon(glyph *ui.SVG, colored bool) ui.MenuIcon {
 		return nil
 	}
 	if ic, ok := menuIcons.Load(glyph); ok {
-		return ic.(ui.MenuIcon)
+		m, _ := ic.(ui.MenuIcon)
+		return m
 	}
 	ic, err := mygo.NewMenuIconSVG(glyph, !colored)
 	if err != nil {

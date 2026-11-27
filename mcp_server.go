@@ -395,6 +395,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in updateArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
+				a.lockDays()
 				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
@@ -406,11 +407,13 @@ func (a *app) newMCPServer() *mcp.Server {
 					}
 					if p == a.pane().page {
 						a.flush()
-						a.pane().title = t
 					}
 					from := p.Title
 					if err := p.SetTitle(t); err != nil {
 						return err
+					}
+					if p == a.pane().page {
+						a.pane().title = t
 					}
 					a.relinkRenamed(p, from, true) // the links to it follow (relink.go)
 				}
@@ -452,6 +455,7 @@ func (a *app) newMCPServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in moveArgs) (*mcp.CallToolResult, any, error) {
 			var id string
 			err := a.do(func() error {
+				a.lockDays()
 				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err
@@ -530,6 +534,7 @@ func (a *app) newMCPServer() *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "trash_page", Description: "Moves a page, its sub-pages with it, to the trash; the user can put it back.", Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)}},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in pageArgs) (*mcp.CallToolResult, any, error) {
 			err := a.do(func() error {
+				a.lockDays()
 				p, err := a.findPage(in.Page, mcpWrite)
 				if err != nil {
 					return err

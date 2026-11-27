@@ -56,7 +56,8 @@ func (k *fileKeychain) read() (fileSecrets, error) {
 	return s, nil
 }
 
-// write puts s in the file, whole: written beside it and renamed over it, so that a crash leaves the old file or the new.
+// write puts s in the file, whole: written to a unique temp file beside it, synced and renamed over it, so that a
+// crash or another process (celestine mcp) never races on a shared temp name or leaves a partial file.
 func (k *fileKeychain) write(s fileSecrets) error {
 	dir := filepath.Dir(k.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -67,15 +68,36 @@ func (k *fileKeychain) write(s fileSecrets) error {
 	if err != nil {
 		return err
 	}
-	tmp := k.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	f, err := os.CreateTemp(dir, ".secrets-*.tmp")
+	if err != nil {
 		return err
 	}
-	_ = os.Chmod(tmp, 0o600)
+	tmp := f.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o600); err != nil {
+		f.Close()
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
 	if err := os.Rename(tmp, k.path); err != nil {
-		os.Remove(tmp)
 		return err
 	}
+	cleanup = false
 	return nil
 }
 
@@ -92,12 +114,17 @@ func (k *fileKeychain) Get(name string) (string, error) {
 	if k.old == nil || slices.Contains(s.Tried, name) {
 		return "", errNoSecret
 	}
-	s.Tried = append(s.Tried, name)
-	if v, err := k.old.Get(name); err == nil && v != "" {
+	v, oldErr := k.old.Get(name)
+	if oldErr == nil && v != "" {
+		s.Tried = append(s.Tried, name)
 		s.Secrets[name] = v
 		_ = k.write(s) // read all the same: one not written is moved at another start
 		return v, nil
 	}
+	if oldErr != nil && !errors.Is(oldErr, errNoSecret) {
+		return "", oldErr // a real Keychain failure (locked, denied): do not mark Tried permanently
+	}
+	s.Tried = append(s.Tried, name)
 	_ = k.write(s)
 	return "", errNoSecret
 }
@@ -107,7 +134,13 @@ func (k *fileKeychain) Set(name, secret string) error {
 	defer k.mu.Unlock()
 	s, err := k.read()
 	if err != nil {
-		return err
+		var syn *json.SyntaxError
+		var typ *json.UnmarshalTypeError
+		if errors.As(err, &syn) || errors.As(err, &typ) {
+			s = fileSecrets{Secrets: map[string]string{}} // recover from a corrupt file instead of wedging
+		} else {
+			return err
+		}
 	}
 	s.Secrets[name] = secret
 	if !slices.Contains(s.Tried, name) { // set here: what the old keychain has under it is older

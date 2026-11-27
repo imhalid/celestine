@@ -82,3 +82,22 @@ func TestInlineTaskTabEnds(t *testing.T) {
 		t.Fatal("Tab did not go past the end")
 	}
 }
+
+func TestInlineTaskCopyAndCodeEnd(t *testing.T) {
+	a, tt := newTestApp(t, "Al [ ] süt<!--/task--> ve ekmek\n")
+	tt.Frame()
+	src := a.pane().doc.Text()
+	plain := withoutChips(src).PlainText()
+	html := withoutChips(src).HTML()
+	if strings.Contains(plain, "<!--/task-->") || strings.Contains(html, "/task") {
+		t.Fatalf("checkend leaked: plain=%q html=%q", plain, html)
+	}
+	lineTasks := tasksOf(a.pane().page, "- [ ] Buy [ ] milk<!--/task--> today\n")
+	if len(lineTasks) != 1 || strings.Contains(lineTasks[0].text, "<!--/task-->") {
+		t.Fatalf("tasksOf leaked marker: %+v", lineTasks)
+	}
+	inl := inlineTasksOf(a.pane().page, "Note [ ] fix `<!--/task-->` bug\n")
+	if len(inl) != 1 || !strings.Contains(inl[0].text, "bug") {
+		t.Fatalf("inlineTasksOf split on code span: %+v", inl)
+	}
+}

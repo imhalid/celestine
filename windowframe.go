@@ -65,7 +65,15 @@ func trafficLights() *mygo.Point { return &mygo.Point{X: frameW + 12, Y: chromeM
 
 // frameState is what a frame of the window knows of the window's frame.
 type frameState struct {
-	on bool // the frame is drawn
+	on     bool // the frame is drawn
+	key    frameGroundKey
+	hasKey bool
+	ground frameGround
+}
+
+type frameGroundKey struct {
+	page, accent ui.Color
+	dark         bool
 }
 
 // framed reports whether this frame of the window draws the frame: not in a browser's tab nor on a phone, where
@@ -76,9 +84,22 @@ func (a *app) framed() bool {
 }
 
 // frameGround is the frame's ground: a gradient from top through mid and low to bottom, and a tint toward the
-// right over it.
+// right over it, with the OKLCH gradients pre-baked once per theme change.
 type frameGround struct {
 	top, mid, low, bottom, tint ui.Color
+	baseGrad, tintGrad          ui.LinearGradient
+}
+
+// frameGroundCached returns frameGroundOf(c, page), cached on a.wframe until page, accent, or dark changes.
+func (a *app) frameGroundCached(c *ui.Context, page ui.Color) frameGround {
+	t := c.Theme()
+	k := frameGroundKey{page: page, accent: t.Accent, dark: t.Dark}
+	if a.wframe.hasKey && a.wframe.key == k {
+		return a.wframe.ground
+	}
+	g := frameGroundOf(c, page)
+	a.wframe.key, a.wframe.hasKey, a.wframe.ground = k, true, g
+	return g
 }
 
 // frameGroundOf is the frame's ground in c's theme, around cards of the page's color page, so that it goes with the
@@ -108,13 +129,19 @@ func frameGroundOf(c *ui.Context, page ui.Color) frameGround {
 	if !t.Dark {
 		lift = -0.01
 	}
-	return frameGround{
+	g := frameGround{
 		top:    at(lift, 0.3, 0),
 		mid:    at(lift/3, 0.19, 10),
 		low:    at(0, 0.13, 22),
 		bottom: at(-lift/3, 0.1, 34),
 		tint:   at(lift, 0.45, -18).Alpha(0.1),
 	}
+	clear := g.tint
+	clear.A = 0
+	g.baseGrad = ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
+		{Color: g.top}, {Color: g.mid, At: 0.38}, {Color: g.low, At: 0.7}, {Color: g.bottom, At: 1}}})
+	g.tintGrad = ryugo.InOklch(ui.LinearGradient{From: clear, To: g.tint, Angle: 90, Start: 0.35, End: 1})
+	return g
 }
 
 // The frame's ground's step off the page's lightness (OKLCH), dark and light: the default theme's (#620).
@@ -126,11 +153,8 @@ const (
 // paint paints the ground over r: one gradient blended in OKLCH, top at the top, mid at 38%, low at 70% and bottom at
 // the foot, and the tint from clear at 35% of the width to itself at the right.
 func (g frameGround) paint(p *ui.Painter, r ui.Rect) {
-	p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{Angle: 180, Stops: []ui.GradientStop{
-		{Color: g.top}, {Color: g.mid, At: 0.38}, {Color: g.low, At: 0.7}, {Color: g.bottom, At: 1}}}), 0)
-	clear := g.tint
-	clear.A = 0
-	p.FillGradient(r, ryugo.InOklch(ui.LinearGradient{From: clear, To: g.tint, Angle: 90, Start: 0.35, End: 1}), 0)
+	p.FillGradient(r, g.baseGrad, 0)
+	p.FillGradient(r, g.tintGrad, 0)
 }
 
 // frameCard gives el the look of a card on the frame's ground: its fill, lit faintly from the top and fading to

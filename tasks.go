@@ -75,6 +75,9 @@ func tasksOf(p *Page, body string) []taskItem {
 				ln = ln[:boxes[k]] + strings.TrimLeft(ln[boxes[k]+3:], " ")
 			}
 		}
+		if strings.Contains(ln, textnorm.InlineTaskEnd) {
+			ln = stripInlineTaskEnd(ln)
+		}
 		if m := taskLine.FindStringSubmatch(ln); m != nil && m[3] != "" {
 			text, due, every := taskWords(m[3])
 			kind := ""
@@ -135,8 +138,8 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 				to = spots[k+1].Col
 			}
 			ended := false
-			if e := strings.Index(ln[from:to], textnorm.InlineTaskEnd); e >= 0 { // its end, before the next box (#610)
-				to, ended = from+e, true
+			if e := indexTaskEndOutsideCode(ln, from, to); e >= 0 { // its end, before the next box (#610)
+				to, ended = e, true
 			}
 			raw = ln[from:to]
 			if !ended && strings.TrimFunc(raw, notWord) == "" { // nothing after it: what is before it
@@ -144,18 +147,57 @@ func inlineTasksOf(p *Page, body string) []taskItem {
 				if k > 0 && spots[k-1].Line == s.Line && spots[k-1].Col >= 0 {
 					start = spots[k-1].Col + 3
 				}
-				if e := strings.LastIndex(ln[start:s.Col], textnorm.InlineTaskEnd); e >= 0 { // after the task before it
-					start += e + len(textnorm.InlineTaskEnd)
+				if e := lastIndexTaskEndOutsideCode(ln, start, s.Col); e >= 0 { // after the task before it
+					start = e + len(textnorm.InlineTaskEnd)
 				}
 				raw = ln[start:s.Col]
 			}
 		}
-		raw = strings.ReplaceAll(raw, textnorm.InlineTaskEnd, "")
+		raw = stripInlineTaskEnd(raw)
 		raw = strings.TrimFunc(taskLead.ReplaceAllString(raw, ""), notWord)
 		text, due, every := taskWords(raw)
 		out = append(out, taskItem{page: p, line: s.Line, done: s.Done, text: text, due: due, every: every, inl: inl, col: s.Col, folded: foldText(text)})
 	}
 	return out
+}
+
+// stripInlineTaskEnd removes InlineTaskEnd markers from s outside inline code spans.
+func stripInlineTaskEnd(s string) string {
+	return library.OutsideCode(s, func(part string) string {
+		return strings.ReplaceAll(part, textnorm.InlineTaskEnd, "")
+	})
+}
+
+// indexTaskEndOutsideCode returns the first index in [from, to) of InlineTaskEnd outside inline code in ln, or -1.
+func indexTaskEndOutsideCode(ln string, from, to int) int {
+	for pos := from; pos < to; {
+		i := strings.Index(ln[pos:to], textnorm.InlineTaskEnd)
+		if i < 0 {
+			return -1
+		}
+		at := pos + i
+		if !library.InCode(ln, at) {
+			return at
+		}
+		pos = at + len(textnorm.InlineTaskEnd)
+	}
+	return -1
+}
+
+// lastIndexTaskEndOutsideCode returns the last index in [from, to) of InlineTaskEnd outside inline code in ln, or -1.
+func lastIndexTaskEndOutsideCode(ln string, from, to int) int {
+	for end := to; end > from; {
+		i := strings.LastIndex(ln[from:end], textnorm.InlineTaskEnd)
+		if i < 0 {
+			return -1
+		}
+		at := from + i
+		if !library.InCode(ln, at) {
+			return at
+		}
+		end = at
+	}
+	return -1
 }
 
 // taskLead is what starts a line before its words: a quote's marks, a heading's, a list's marker and its box.
@@ -1086,7 +1128,11 @@ func (a *app) taskRow(c *ui.Context, cl ryugo.Colors, pn *paneState, k taskItem)
 	}
 	row.Children(func() {
 		on := k.done || leave >= 0
-		a.taskCheck(c.Key("ck"), &on, a.faceOfTask(k.kind, k.text), locales.TasksTaskLabel(k.text)) // its box as its page draws it (#614)
+		face := a.faceOfTask(k.kind, k.text)
+		if k.inl > 0 { // inline tasks keep the plain open/done box, matching drawCheckChip on the page
+			face = taskFace{slot: -1, color: ui.Hex(taskDone)}
+		}
+		a.taskCheck(c.Key("ck"), &on, face, locales.TasksTaskLabel(k.text)) // its box as its page draws it (#614)
 		col, st := cl.Text, false
 		if k.done || leave >= 0 {
 			col, st = cl.Muted, true

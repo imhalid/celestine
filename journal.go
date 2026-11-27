@@ -311,16 +311,18 @@ func (a *app) journalPage(c *Collection, d time.Time) *Page {
 	return nil
 }
 
-// openDay opens the page of day d in the journal. A day with none gets one
-// only when it is today.
-func (a *app) openDay(d time.Time) {
+// openDay opens the page of day d in the journal in the active pane.
+func (a *app) openDay(d time.Time) { a.openDayIn(a.pane(), d) }
+
+// openDayIn opens the page of day d in the journal in pane pn. A day with none gets one only when it is today.
+func (a *app) openDayIn(pn *paneState, d time.Time) {
 	c, err := a.journal()
 	if err != nil {
 		a.fail(err)
 		return
 	}
 	if p := a.journalPage(c, d); p != nil {
-		a.open(p)
+		a.openIn(pn, p)
 		return
 	}
 	if !sameDay(d, a.clock()) {
@@ -332,7 +334,7 @@ func (a *app) openDay(d time.Time) {
 		a.fail(err)
 	}
 	if p != nil {
-		a.open(p)
+		a.openIn(pn, p)
 	}
 }
 
@@ -389,10 +391,13 @@ func (a *app) openRandomDay() {
 	a.open(days[rand.Intn(len(days))])
 }
 
-// retitleJournal gives every day's page the title the format says, and the links to the days follow (#560).
+// retitleJournal gives every unlocked day's page the title the format says, and the links to the days follow (#560).
 func (a *app) retitleJournal(c *Collection) {
 	var rs []renamed
 	for _, p := range c.All() {
+		if a.pageLocked(p) {
+			continue
+		}
 		if title := dayTitle(c, dayOf(p)); title != p.Title {
 			from := p.Title
 			if err := p.SetTitle(title); err != nil {

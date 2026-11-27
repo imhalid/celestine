@@ -403,9 +403,9 @@ func drawGlyph(p *ui.Painter, g *glyph, r ui.Rect, ink paint) {
 				solid := ink.to.A == 0 && ink.angle == 0
 				switch {
 				case gp.stroke > 0 && solid:
-					p.StrokePath(gp.path, gp.stroke*k, ink.from)
+					p.StrokePath(gp.path, gp.stroke, ink.from)
 				case gp.stroke > 0:
-					p.StrokePathGradient(gp.path, gp.stroke*k, ink.linear())
+					p.StrokePathGradient(gp.path, gp.stroke, ink.linear())
 				case solid:
 					p.FillPath(gp.path, ink.from)
 				default:
@@ -426,23 +426,29 @@ func (a *app) faceClock(now time.Time) float64 {
 
 // drawFace draws the face of a task not done, at the box at: squashed (at.H below at.W) as it turns over.
 func (a *app) drawFace(p *ui.Painter, at ui.Rect, f taskFace, now time.Time) {
-	a.drawBox(p, at, f, false, now)
+	a.drawBoxLook(p, at, f, false, a.settings.TaskLook, now)
+}
+
+// drawFaceLook draws the face of a task not done using an explicit preset look (safe to call during paint without
+// mutating a.settings.TaskLook).
+func (a *app) drawFaceLook(p *ui.Painter, at ui.Rect, f taskFace, look string, now time.Time) {
+	a.drawBoxLook(p, at, f, false, look, now)
 }
 
 // drawFaceBack draws a task done: its status's done look, a white tick in it.
 func (a *app) drawFaceBack(p *ui.Painter, at ui.Rect, f taskFace, now time.Time) {
-	a.drawBox(p, at, f, true, now)
+	a.drawBoxLook(p, at, f, true, a.settings.TaskLook, now)
 }
 
-// drawBox draws a task's box as BetterTask does, done or not.
-func (a *app) drawBox(p *ui.Painter, at ui.Rect, f taskFace, done bool, now time.Time) {
+// drawBoxLook draws a task's box as BetterTask does, done or not, in preset look.
+func (a *app) drawBoxLook(p *ui.Painter, at ui.Rect, f taskFace, done bool, look string, now time.Time) {
 	s := at.W
 	if s <= 0 || at.H <= 0 {
 		return
 	}
 	r := ui.Rect{X: at.X, Y: at.Y + (at.H-s)/2, W: s, H: s}
 	cx, cy := r.X+s/2, r.Y+s/2
-	draw := func() { a.drawBoxIn(p, r, f, done, now) }
+	draw := func() { a.drawBoxIn(p, r, f, done, look, now) }
 	if sy := at.H / s; sy < 0.999 || sy > 1.001 {
 		p.Transform(ui.Scaling(1, sy), cx, cy, draw)
 		return
@@ -451,10 +457,9 @@ func (a *app) drawBox(p *ui.Painter, at ui.Rect, f taskFace, done bool, now time
 }
 
 // drawBoxIn draws a task's box in the square r.
-func (a *app) drawBoxIn(p *ui.Painter, r ui.Rect, f taskFace, done bool, now time.Time) {
+func (a *app) drawBoxIn(p *ui.Painter, r ui.Rect, f taskFace, done bool, look string, now time.Time) {
 	sp := f.spec()
 	dark := darkBg(a.pageBg)
-	look := a.settings.TaskLook
 	t := a.faceClock(now)
 	k := r.W / 16 // BetterTask's measures are for a box 16 points wide
 	cx, cy := r.X+r.W/2, r.Y+r.H/2
@@ -733,9 +738,8 @@ func (a *app) taskCheck(c *ui.Context, checked *bool, f taskFace, label string) 
 				a.drawOpenLit(p, box)
 			default:
 				a.drawFace(p, box, f, p.Now())
-				if f.id != "" && a.faceClock(p.Now()) >= 0 {
+				if f.id != "" && f.id != "canceled" && a.faceClock(p.Now()) >= 0 {
 					p.AnimationFrameRate(30)
-					p.AnimationFrame()
 				}
 			}
 		})

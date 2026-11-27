@@ -267,7 +267,10 @@ func readVarint(bytes []byte, off *int) uint32 {
 }
 
 // decodeCsrPartition reads a CSR partition back into id arrays, returning it and the offset after it.
-func decodeCsrPartition(bytes []byte, startOffset int, groupCount, pairCount, metaLen, innerLen uint32) (csrTable, int) {
+func decodeCsrPartition(bytes []byte, startOffset int, groupCount, pairCount, metaLen, innerLen uint32) (csrTable, int, error) {
+	if uint64(groupCount) > uint64(metaLen) {
+		return csrTable{}, 0, errors.New("spell: corrupt CSR group count")
+	}
 	keys := make([]uint32, groupCount)
 	offsets := make([]uint32, int(groupCount)+1)
 	values := make([]uint32, pairCount)
@@ -281,22 +284,32 @@ func decodeCsrPartition(bytes []byte, startOffset int, groupCount, pairCount, me
 	curKey := uint64(0)
 	curPair := uint64(0)
 	for g := range int(groupCount) {
+		if mOff >= metaEnd {
+			return csrTable{}, 0, errors.New("spell: truncated CSR meta")
+		}
 		curKey += uint64(readVarint(bytes, &mOff))
 		keys[g] = uint32(curKey)
 		offsets[g] = uint32(curPair)
 
+		if mOff >= metaEnd {
+			return csrTable{}, 0, errors.New("spell: truncated CSR degree")
+		}
 		deg := readVarint(bytes, &mOff)
+		if uint64(deg) > uint64(pairCount)-curPair {
+			return csrTable{}, 0, errors.New("spell: corrupt CSR degree")
+		}
 		curVal := uint64(0)
 		for range deg {
-			curVal += uint64(readVarint(bytes, &iOff))
-			if curPair < uint64(len(values)) {
-				values[curPair] = uint32(curVal)
+			if iOff >= innerEnd {
+				return csrTable{}, 0, errors.New("spell: truncated CSR inner")
 			}
+			curVal += uint64(readVarint(bytes, &iOff))
+			values[curPair] = uint32(curVal)
 			curPair++
 		}
 	}
 	offsets[groupCount] = uint32(curPair)
-	return csrTable{keys: keys, offsets: offsets, values: values, counts: counts}, innerEnd + int(pairCount)
+	return csrTable{keys: keys, offsets: offsets, values: values, counts: counts}, innerEnd + int(pairCount), nil
 }
 
 // lookupCsr is the quantized count of the pair (outerId, innerId) in a partition, or 0.
@@ -578,6 +591,9 @@ func NewBinaryLexicon(bytes []byte) (*BinaryLexicon, error) {
 	}
 	alphabet := utf16Units(string(bytes[off : off+alphabetByteLen]))
 	off += alphabetByteLen
+	if len(alphabet) > 254 {
+		return nil, errors.New("spell: lexicon alphabet exceeds 254 symbols")
+	}
 
 	l.alphabetSize = len(alphabet) + 1
 	l.charToByte = new([65536]byte)
@@ -590,8 +606,8 @@ func NewBinaryLexicon(bytes []byte) (*BinaryLexicon, error) {
 	if !need(4*10 + 1) {
 		return nil, truncated
 	}
-	l.wordCount = int(u32())
-	charsByteLen := int(u32())
+	wordCountU := u32()
+	charsByteLenU := u32()
 	csr1Groups, csr1Pairs, csr1MetaLen, csr1InnerLen := u32(), u32(), u32(), u32()
 	csr2Groups, csr2Pairs, csr2MetaLen, csr2InnerLen := u32(), u32(), u32(), u32()
 
@@ -611,17 +627,24 @@ func NewBinaryLexicon(bytes []byte) (*BinaryLexicon, error) {
 		off += 2
 		metas[i].wordCount = u32()
 		metas[i].byteLen = u32()
+		if metas[i].byteLen == 0 && metas[i].kHashes > 0 {
+			return nil, truncated
+		}
 	}
 
 	// Every section must fit before any is read, so a lookup never reads past the end.
-	n := l.wordCount
-	body := 4*n + charsByteLen + int(csr1MetaLen) + int(csr1InnerLen) + int(csr1Pairs) + int(csr2MetaLen) + int(csr2InnerLen) + int(csr2Pairs)
+	body := uint64(4)*uint64(wordCountU) + uint64(charsByteLenU) +
+		uint64(csr1MetaLen) + uint64(csr1InnerLen) + uint64(csr1Pairs) +
+		uint64(csr2MetaLen) + uint64(csr2InnerLen) + uint64(csr2Pairs)
 	for _, m := range metas {
-		body += int(m.byteLen)
+		body += uint64(m.byteLen)
 	}
-	if !need(body) {
+	if body > uint64(len(bytes)-off) {
 		return nil, truncated
 	}
+	l.wordCount = int(wordCountU)
+	charsByteLen := int(charsByteLenU)
+	n := l.wordCount
 	l.prefixLens = bytes[off : off+n : off+n]
 	off += n
 	l.suffixLens = bytes[off : off+n : off+n]
@@ -640,8 +663,15 @@ func NewBinaryLexicon(bytes []byte) (*BinaryLexicon, error) {
 		return nil, truncated
 	}
 
-	l.byFirst, off = decodeCsrPartition(bytes, off, csr1Groups, csr1Pairs, csr1MetaLen, csr1InnerLen)
-	l.bySecond, off = decodeCsrPartition(bytes, off, csr2Groups, csr2Pairs, csr2MetaLen, csr2InnerLen)
+	var err error
+	l.byFirst, off, err = decodeCsrPartition(bytes, off, csr1Groups, csr1Pairs, csr1MetaLen, csr1InnerLen)
+	if err != nil {
+		return nil, err
+	}
+	l.bySecond, off, err = decodeCsrPartition(bytes, off, csr2Groups, csr2Pairs, csr2MetaLen, csr2InnerLen)
+	if err != nil {
+		return nil, err
+	}
 
 	bloomWordTotal := 0
 	for _, m := range metas {

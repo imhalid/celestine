@@ -716,17 +716,24 @@ func installApp(zipFile, app string) (target, old string, err error) {
 			return fail(err)
 		}
 	}
+	target, next := filepath.Join(app, "Contents"), filepath.Join(staging, "Contents")
+	if st, err := os.Stat(next); err != nil || !st.IsDir() {
+		return fail(errors.New(locales.UpdateErrZipPath("Contents")))
+	}
+	nextAbs, err := filepath.EvalSymlinks(next)
+	if err != nil {
+		return fail(err)
+	}
 	// Resolve every symlink only after all links exist so forward-referenced symlink chains
-	// cannot bypass the containment check (#184).
+	// cannot bypass the containment check (#184); symlinks inside Contents must stay inside Contents.
 	for _, sym := range symlinks {
 		eval, err := filepath.EvalSymlinks(sym.dst)
 		if err != nil || !Within(stagingAbs, eval) {
 			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
 		}
-	}
-	target, next := filepath.Join(app, "Contents"), filepath.Join(staging, "Contents")
-	if st, err := os.Stat(next); err != nil || !st.IsDir() {
-		return fail(errors.New(locales.UpdateErrZipPath("Contents")))
+		if Within(next, sym.dst) && !Within(nextAbs, eval) {
+			return fail(errors.New(locales.UpdateErrZipPath(sym.f.Name)))
+		}
 	}
 	old = app + ".old"
 	os.RemoveAll(old)
@@ -742,6 +749,16 @@ func installApp(zipFile, app string) (target, old string, err error) {
 	_ = os.Chtimes(app, now, now) // Launch Services reads the bundle's Info.plist again
 	_ = os.Remove(zipFile)
 	return target, old, nil
+}
+
+// failedUpdatePath is where rollbackIfBroken moves a broken updated target out of the way: beside the bundle for a
+// macOS .app's Contents (never inside the bundle root, which would break its code signature), or target.failed for a
+// single binary.
+func failedUpdatePath(target string) string {
+	if filepath.Base(target) == "Contents" {
+		return filepath.Dir(target) + ".failed"
+	}
+	return target + ".failed"
 }
 
 // startedStamp is the line an update's first start adds to its mark before anything else can fail.
@@ -786,13 +803,18 @@ func rollbackIfBroken(mark, cur string) string {
 	if _, err := os.Stat(old); err != nil {
 		return ""
 	}
-	os.RemoveAll(target + ".failed")
-	if err := os.Rename(target, target+".failed"); err != nil {
+	failed := failedUpdatePath(target)
+	os.RemoveAll(failed)
+	if err := os.Rename(target, failed); err != nil {
 		return ""
 	}
 	if err := os.Rename(old, target); err != nil {
-		os.Rename(target+".failed", target)
+		os.Rename(failed, target)
 		return ""
+	}
+	if filepath.Base(target) == "Contents" {
+		now := time.Now()
+		_ = os.Chtimes(filepath.Dir(target), now, now) // Launch Services reads the restored Info.plist again
 	}
 	return "version " + ver + " died at its first start: the previous version is back"
 }
@@ -805,6 +827,7 @@ func updateProved(mark, cur string) {
 		return
 	}
 	os.RemoveAll(lines[2])
+	os.RemoveAll(failedUpdatePath(lines[1]))
 	os.Remove(mark)
 }
 

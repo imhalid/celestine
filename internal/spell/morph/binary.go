@@ -204,11 +204,11 @@ func parseBinaryDictionaryWithPrior(b []byte) ([]*dictionaryItem, *morphPrior, e
 	}
 
 	off := 5
-	itemCount := int(le32(b[off:]))
+	itemCountU := le32(b[off:])
 	off += 4
 	attrPaletteLen := int(le16(b[off:]))
 	off += 2
-	if off+attrPaletteLen*4+8 > len(b) {
+	if int64(off)+int64(attrPaletteLen)*4+8 > int64(len(b)) {
 		return nil, nil, errTruncated
 	}
 	attrPalette := make([]int, attrPaletteLen)
@@ -216,19 +216,24 @@ func parseBinaryDictionaryWithPrior(b []byte) ([]*dictionaryItem, *morphPrior, e
 		attrPalette[i] = int(int32(le32(b[off:])))
 		off += 4
 	}
-	rootsByteLen := int(le32(b[off:]))
+	rootsByteLenU := le32(b[off:])
 	off += 4
-	extrasByteLen := int(le32(b[off:]))
+	extrasByteLenU := le32(b[off:])
 	off += 4
 
 	wideAttr := attrPaletteLen > 255
-	attrColLen := itemCount
+	attrColLenU := uint64(itemCountU)
 	if wideAttr {
-		attrColLen = itemCount * 2
+		attrColLenU = uint64(itemCountU) * 2
 	}
-	if off+itemCount*4+attrColLen+rootsByteLen+extrasByteLen > len(b) {
+	need := uint64(itemCountU)*4 + attrColLenU + uint64(rootsByteLenU) + uint64(extrasByteLenU)
+	if need > uint64(len(b)-off) {
 		return nil, nil, errTruncated
 	}
+	itemCount := int(itemCountU)
+	attrColLen := int(attrColLenU)
+	rootsByteLen := int(rootsByteLenU)
+	extrasByteLen := int(extrasByteLenU)
 	prefixLens := b[off : off+itemCount]
 	off += itemCount
 	suffixLens := b[off : off+itemCount]
@@ -270,7 +275,7 @@ func parseBinaryDictionaryWithPrior(b []byte) ([]*dictionaryItem, *morphPrior, e
 	}
 	readString := func() string {
 		n := readVarint()
-		if extOff+n > len(extras) {
+		if n < 0 || n > len(extras)-extOff {
 			err = errTruncated
 			return ""
 		}

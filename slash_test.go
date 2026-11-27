@@ -585,3 +585,28 @@ func TestSlashTaskInLine(t *testing.T) {
 		t.Fatalf("at a line's start: %q", got)
 	}
 }
+
+func TestSlashTurkishPrefixAndWikiFuzzy(t *testing.T) {
+	items := slashItems("görev")
+	if len(items) == 0 || items[0].kind != "tasks" {
+		t.Fatalf("Turkish prefix ranking failed: %+v", items)
+	}
+	if cross := slashItems("list madde"); len(cross) != 0 {
+		t.Fatalf("cross-language match should be empty: %+v", cross)
+	}
+	a, tt := newTestApp(t, "x\n")
+	if _, err := a.pane().page.Coll.NewPage(nil, "Dune"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	found := false
+	for _, it := range a.wikiItems("dn") {
+		if it.title == "Dune" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("wikiItems lost fuzzy search for 'dn' -> 'Dune'")
+	}
+}

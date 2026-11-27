@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -111,6 +112,9 @@ func (a *app) putBackVersion() (err error) {
 	}
 	if p == a.pane().page {
 		a.flush()
+	}
+	if a.pageLocked(p) {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
 	}
 	a.keepBefore(p)
 	meta, body, err := SplitPageChecked(data)

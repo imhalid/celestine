@@ -240,6 +240,9 @@ func (p *Page) IsOwn(id string) bool {
 // AddProperty adds a property to page p alone, and writes it. Its id is one no property of the collection has,
 // nor a value the page keeps, so that it starts empty.
 func (p *Page) AddProperty(name, typ string, options []string) (*Property, error) {
+	if p.Locked != "" {
+		return nil, fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("a property needs a name")
@@ -255,15 +258,23 @@ func (p *Page) AddProperty(name, typ string, options []string) (*Property, error
 	}
 	id := freeID(name, func(id string) bool { _, kept := p.Props[id]; return p.Prop(id) != nil || kept })
 	p.Own = append(p.Own, Property{ID: id, Name: name, Type: typ, Options: CleanOptions(options)})
-	return ownProp(p.Own, id), p.saveMeta()
+	if err := p.saveMeta(); err != nil {
+		p.Own = p.Own[:len(p.Own)-1]
+		return nil, err
+	}
+	return ownProp(p.Own, id), nil
 }
 
 // EditProperty renames page p's own property id and, for a choice, gives it options.
 func (p *Page) EditProperty(id, name string, options []string) error {
+	if p.Locked != "" {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	pr := ownProp(p.Own, id)
 	if pr == nil {
 		return fmt.Errorf("%s has no property %q of its own", p.Title, id)
 	}
+	oldName, oldOpts := pr.Name, pr.Options
 	if name = strings.TrimSpace(name); name != "" {
 		if q := p.PropNamed(name); q != nil && q.ID != id {
 			return fmt.Errorf("%s already has %q", p.Title, name)
@@ -273,17 +284,33 @@ func (p *Page) EditProperty(id, name string, options []string) error {
 	if pr.Type == PropChoice && options != nil {
 		pr.Options = CleanOptions(options)
 	}
-	return p.saveMeta()
+	if err := p.saveMeta(); err != nil {
+		pr.Name, pr.Options = oldName, oldOpts
+		return err
+	}
+	return nil
 }
 
 // RemoveProperty takes page p's own property id away, and its value with it.
 func (p *Page) RemoveProperty(id string) error {
+	if p.Locked != "" {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	if ownProp(p.Own, id) == nil {
 		return nil
 	}
+	oldOwn := slices.Clone(p.Own)
+	oldVal, hadVal := p.Props[id]
 	p.Own = slices.DeleteFunc(p.Own, func(pr Property) bool { return pr.ID == id })
 	delete(p.Props, id)
-	return p.saveMeta()
+	if err := p.saveMeta(); err != nil {
+		p.Own = oldOwn
+		if hadVal {
+			p.Props[id] = oldVal
+		}
+		return err
+	}
+	return nil
 }
 
 // saveMeta writes page p with the body it has.
@@ -698,11 +725,16 @@ func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
 	if p.Props == nil {
 		p.Props = map[string]string{}
 	}
+	oldVal, hadVal := p.Props[id]
+	wasRank := make([]int, len(col))
+	for i, q := range col {
+		wasRank[i] = q.Rank
+	}
 	p.Props[id] = v
-	// one change of the store: all of them or none (#138)
-	return InBatch(c.FS, func(tx FS) error {
+	// one change of the store: all of them or none (#138); locked pages in the column are left untouched
+	err := InBatch(c.FS, func(tx FS) error {
 		for i, q := range col {
-			if q.Rank == i+1 && q != p {
+			if q != p && (q.Locked != "" || q.Rank == i+1) {
 				continue
 			}
 			q.Rank = i + 1
@@ -716,6 +748,17 @@ func (c *Collection) MoveOnBoard(p *Page, id, v string, index int) error {
 		}
 		return nil
 	})
+	if err != nil {
+		if hadVal {
+			p.Props[id] = oldVal
+		} else {
+			delete(p.Props, id)
+		}
+		for i, q := range col {
+			q.Rank = wasRank[i]
+		}
+	}
+	return err
 }
 
 // CompareManual orders two pages by their place in the collection's own order: placed ones first, by place, the
@@ -750,10 +793,14 @@ func (c *Collection) SetManual(pages []*Page) error {
 			next++
 		}
 	}
-	// one change of the store: all of them or none (#138)
-	return InBatch(c.FS, func(tx FS) error {
+	// one change of the store: all of them or none (#138); locked pages stay untouched
+	wasManual := make([]int, len(all))
+	for i, p := range all {
+		wasManual[i] = p.Manual
+	}
+	err := InBatch(c.FS, func(tx FS) error {
 		for i, p := range all {
-			if p.Manual == i+1 {
+			if p.Locked != "" || p.Manual == i+1 {
 				continue
 			}
 			p.Manual = i + 1
@@ -767,6 +814,12 @@ func (c *Collection) SetManual(pages []*Page) error {
 		}
 		return nil
 	})
+	if err != nil {
+		for i, p := range all {
+			p.Manual = wasManual[i]
+		}
+	}
+	return err
 }
 
 // SplitTags are the tags of a tags value: the words between its commas, trimmed, each once (its case as first

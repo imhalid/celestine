@@ -244,6 +244,9 @@ func divInt(x, y int64) int64 {
 }
 
 func opEqual(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	if len(in) < 2 || in[0] == nil || in[1] == nil {
+		return nil, fmt.Errorf("onnx: Equal needs 2 inputs")
+	}
 	a, b := in[0], in[1]
 	shape, err := broadcast(a.Shape, b.Shape)
 	if err != nil {
@@ -258,7 +261,7 @@ func opEqual(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
 			eq = a.F[ia[i]] == b.F[ib[i]]
 		case a.I != nil && b.I != nil:
 			eq = a.I[ia[i]] == b.I[ib[i]]
-		case a.B != nil && b.B != nil:
+		case a.B != nil && b.B != nil && a.Type == b.Type:
 			eq = a.B[ia[i]] == b.B[ib[i]]
 		default:
 			return nil, fmt.Errorf("onnx: Equal of %s and %s", a.Type, b.Type)
@@ -492,10 +495,18 @@ func opReshape(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 	for i, d := range dims {
 		switch {
 		case d == 0 && !allowZero:
+			if i >= len(in[0].Shape) {
+				return nil, fmt.Errorf("onnx: Reshape dim 0 at %d out of input rank %d", i, len(in[0].Shape))
+			}
 			shape[i] = in[0].Shape[i]
 		case d == -1:
+			if infer >= 0 {
+				return nil, fmt.Errorf("onnx: Reshape with multiple -1 dims")
+			}
 			infer = i
 			continue
+		case d < 0:
+			return nil, fmt.Errorf("onnx: Reshape with negative dim %d", d)
 		default:
 			shape[i] = int(d)
 		}
@@ -515,6 +526,9 @@ func opReshape(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 }
 
 func opUnsqueeze(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	if len(in) < 2 || in[0] == nil || in[1] == nil {
+		return nil, fmt.Errorf("onnx: Unsqueeze needs 2 inputs")
+	}
 	axes, err := ints(in[1])
 	if err != nil {
 		return nil, err
@@ -525,6 +539,9 @@ func opUnsqueeze(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
 		p, err := axis(a, r)
 		if err != nil {
 			return nil, err
+		}
+		if at[p] {
+			return nil, fmt.Errorf("onnx: Unsqueeze duplicate axis %d", p)
 		}
 		at[p] = true
 	}
@@ -649,11 +666,22 @@ func opConcat(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 }
 
 func opTranspose(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	if len(in) < 1 || in[0] == nil {
+		return nil, fmt.Errorf("onnx: Transpose needs 1 input")
+	}
 	x := in[0]
 	r := len(x.Shape)
 	perm := make([]int, r)
 	if a, ok := n.attrs["perm"]; ok {
+		if len(a.ints) != r {
+			return nil, fmt.Errorf("onnx: Transpose perm len %d for rank %d", len(a.ints), r)
+		}
+		seen := make([]bool, r)
 		for i, p := range a.ints {
+			if p < 0 || int(p) >= r || seen[p] {
+				return nil, fmt.Errorf("onnx: Transpose invalid perm %v", a.ints)
+			}
+			seen[p] = true
 			perm[i] = int(p)
 		}
 	} else {
@@ -686,6 +714,9 @@ func opTranspose(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 }
 
 func opSlice(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	if len(in) < 3 || in[0] == nil || in[1] == nil || in[2] == nil {
+		return nil, fmt.Errorf("onnx: Slice needs at least 3 inputs")
+	}
 	x := in[0]
 	r := len(x.Shape)
 	starts, err := ints(in[1])
@@ -696,19 +727,34 @@ func opSlice(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ends) != len(starts) {
+		return nil, fmt.Errorf("onnx: Slice starts (%d) and ends (%d) differ", len(starts), len(ends))
+	}
 	axes := make([]int64, len(starts))
 	for i := range axes {
 		axes[i] = int64(i)
 	}
 	if len(in) > 3 && in[3] != nil {
-		axes = in[3].I
+		axes, err = ints(in[3])
+		if err != nil {
+			return nil, err
+		}
+		if len(axes) != len(starts) {
+			return nil, fmt.Errorf("onnx: Slice axes (%d) and starts (%d) differ", len(axes), len(starts))
+		}
 	}
 	steps := make([]int64, len(starts))
 	for i := range steps {
 		steps[i] = 1
 	}
 	if len(in) > 4 && in[4] != nil {
-		steps = in[4].I
+		steps, err = ints(in[4])
+		if err != nil {
+			return nil, err
+		}
+		if len(steps) != len(starts) {
+			return nil, fmt.Errorf("onnx: Slice steps (%d) and starts (%d) differ", len(steps), len(starts))
+		}
 	}
 	from, step := make([]int, r), make([]int, r)
 	shape := append([]int{}, x.Shape...)
@@ -779,9 +825,15 @@ func opPad(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 	shape := make([]int, r)
 	for d := range r {
 		shape[d] = x.Shape[d] + int(pads[d]) + int(pads[r+d])
+		if shape[d] < 0 {
+			return nil, fmt.Errorf("onnx: Pad negative output dim %d on axis %d", shape[d], d)
+		}
 	}
 	out := like(x, shape)
 	if len(in) > 2 && in[2] != nil && in[2].len() > 0 { // the constant, where it is not 0
+		if in[2].Type != x.Type {
+			return nil, fmt.Errorf("onnx: Pad constant %s does not match %s", in[2].Type, x.Type)
+		}
 		for i := range size(shape) {
 			switch {
 			case out.F != nil:
@@ -820,7 +872,13 @@ func opPad(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 }
 
 func opRange(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	if len(in) < 3 || in[0] == nil || in[1] == nil || in[2] == nil {
+		return nil, fmt.Errorf("onnx: Range needs 3 inputs")
+	}
 	start, limit, delta := in[0], in[1], in[2]
+	if start.Type != limit.Type || start.Type != delta.Type || start.len() < 1 || limit.len() < 1 || delta.len() < 1 {
+		return nil, fmt.Errorf("onnx: Range mismatched or empty inputs")
+	}
 	switch start.Type {
 	case Int64, Int32:
 		s, l, d := start.I[0], limit.I[0], delta.I[0]
@@ -835,6 +893,9 @@ func opRange(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
 		return []*Tensor{out}, nil
 	case Float32:
 		s, l, d := start.F[0], limit.F[0], delta.F[0]
+		if d == 0 || math.IsNaN(float64(d)) {
+			return nil, fmt.Errorf("onnx: Range with a delta of 0")
+		}
 		m := int(max(0, math.Ceil(float64((l-s)/d))))
 		out := newFloat([]int{m})
 		for i := range out.F {
@@ -1016,13 +1077,17 @@ func opLayerNormalization(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
 	parallelRows(rows, x.len()*8, func(from, to int) {
 		for r := from; r < to; r++ {
 			row := x.F[r*norm : (r+1)*norm]
-			var mean, sq float64 // onnxruntime sums in double for float input
+			var sum float64 // onnxruntime sums in double for float input
 			for _, v := range row {
-				mean += float64(v)
-				sq += float64(v) * float64(v)
+				sum += float64(v)
 			}
-			mean /= float64(norm)
-			variance := sq/float64(norm) - mean*mean
+			mean := sum / float64(norm)
+			var sq float64
+			for _, v := range row {
+				d := float64(v) - mean
+				sq += d * d
+			}
+			variance := max(0, sq/float64(norm))
 			inv := 1 / math.Sqrt(variance+float64(eps))
 			for i, v := range row {
 				y := float32((float64(v) - mean) * inv)
@@ -1101,9 +1166,6 @@ type intWeights struct {
 	k, n   int
 }
 
-// weightsReady are the matrices made ready, by the weight tensor and its zero point: a graph's weights do not change.
-var weightsReady sync.Map // [2]*Tensor → *intWeights
-
 // byteVal is value i of an int8 or uint8 tensor.
 func byteVal(t *Tensor, i int) int32 {
 	if t.Type == Int8 {
@@ -1112,11 +1174,14 @@ func byteVal(t *Tensor, i int) int32 {
 	return int32(t.B[i])
 }
 
-// readyWeights is the matrix b (k by n, with its zero point zp, nil for 0) made ready, once for a weight.
-func readyWeights(b, zp *Tensor, k, n int) *intWeights {
+// readyWeights is the matrix b (k by n, with its zero point zp, nil for 0) made ready, cached in cache when non-nil
+// (per-Model, for constant graph weights so unloading the Model releases the memory).
+func readyWeights(cache *sync.Map, b, zp *Tensor, k, n int) *intWeights {
 	key := [2]*Tensor{b, zp}
-	if w, ok := weightsReady.Load(key); ok {
-		return w.(*intWeights)
+	if cache != nil {
+		if w, ok := cache.Load(key); ok {
+			return w.(*intWeights)
+		}
 	}
 	w := &intWeights{pairs: make([]uint64, (n+1)/2*k), colSum: make([]int64, n), zp: make([]int64, n), k: k, n: n}
 	if b.Type == Int8 {
@@ -1137,7 +1202,9 @@ func readyWeights(b, zp *Tensor, k, n int) *intWeights {
 			w.colSum[j] += int64(v)
 		}
 	}
-	weightsReady.Store(key, w)
+	if cache != nil {
+		cache.Store(key, w)
+	}
 	return w
 }
 
@@ -1198,8 +1265,18 @@ func parallelRows(rows, work int, fn func(from, to int)) {
 // opMatMulInteger multiplies a uint8 or int8 matrix by a two-dimensional int8 or uint8 one, each less its zero point,
 // as onnxruntime does: exact, the products summed two columns at a time (intWeights). The second is a weight of the
 // graph, made ready once; the rows of the first are shared among the processors.
-func opMatMulInteger(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
+func opMatMulInteger(n *nodeProto, in []*Tensor) ([]*Tensor, error) {
+	return opMatMulIntegerCached(n, in, nil)
+}
+
+func opMatMulIntegerCached(_ *nodeProto, in []*Tensor, cache *sync.Map) ([]*Tensor, error) {
+	if len(in) < 2 || in[0] == nil || in[1] == nil {
+		return nil, fmt.Errorf("onnx: MatMulInteger needs at least 2 inputs")
+	}
 	a, b := in[0], in[1]
+	if (a.Type != Int8 && a.Type != Uint8) || (b.Type != Int8 && b.Type != Uint8) {
+		return nil, fmt.Errorf("onnx: MatMulInteger of %s and %s", a.Type, b.Type)
+	}
 	if len(b.Shape) != 2 {
 		return nil, fmt.Errorf("onnx: MatMulInteger by a matrix of rank %d", len(b.Shape))
 	}
@@ -1209,19 +1286,28 @@ func opMatMulInteger(_ *nodeProto, in []*Tensor) ([]*Tensor, error) {
 	}
 	var azp int32
 	if len(in) > 2 && in[2] != nil {
+		if in[2].Type != Int8 && in[2].Type != Uint8 {
+			return nil, fmt.Errorf("onnx: MatMulInteger a_zero_point of %s", in[2].Type)
+		}
 		if in[2].len() != 1 {
 			return nil, fmt.Errorf("onnx: MatMulInteger with a zero point per row")
 		}
 		azp = byteVal(in[2], 0)
 	}
 	var bzp *Tensor
-	if len(in) > 3 {
+	if len(in) > 3 && in[3] != nil {
 		bzp = in[3]
+		if bzp.Type != Int8 && bzp.Type != Uint8 {
+			return nil, fmt.Errorf("onnx: MatMulInteger b_zero_point of %s", bzp.Type)
+		}
+		if bzp.len() != 1 && bzp.len() != n {
+			return nil, fmt.Errorf("onnx: MatMulInteger b_zero_point len %d for %d cols", bzp.len(), n)
+		}
 	}
 	if k >= 66051 { // the halves of a pair's sums would carry into each other
 		return nil, fmt.Errorf("onnx: MatMulInteger over %d values a row; at most 66050 here", k)
 	}
-	w := readyWeights(b, bzp, k, n)
+	w := readyWeights(cache, b, bzp, k, n)
 	rows := size(batch) * m // a's rows, the batch's matrices one after another: b is the same for all
 	out := newInt(Int32, append(append([]int{}, batch...), m, n))
 	var aoff int64 // the activations offset to 0..255 too, for an int8 a

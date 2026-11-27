@@ -1104,6 +1104,9 @@ func (l *Library) MovePage(p *Page, c *Collection, parent *Page, index int) erro
 	if locked := lockedIn(p); locked != nil && c != p.Coll { // out of its collection: a past day out of the journal
 		return fmt.Errorf("%w: %s", ErrLocked, locked.Locked)
 	}
+	if p.Coll != nil && p.Coll.Journal && p.Parent == nil && c != p.Coll { // a day of the journal stays in it (#631)
+		return errors.New("a day of the journal cannot be moved out of the journal")
+	}
 	if parent != nil && p.Contains(parent) {
 		return errors.New("a page cannot go under itself")
 	}
@@ -1177,7 +1180,7 @@ func Renumber(ps []*Page) error {
 	}
 	err := InBatch(ps[0].FS(), func(tx FS) error {
 		for i, p := range ps {
-			if p.Order == i+1 {
+			if p.Locked != "" || p.Order == i+1 {
 				continue
 			}
 			p.Order = i + 1

@@ -404,13 +404,10 @@ func (a *app) settingsTasks(c *ui.Context) {
 func (a *app) taskLookMock(c *ui.Context, look string) {
 	cl := ryugo.From(c).Colors
 	ui.Box(c).Width(112).Height(66).Background(cl.Card).Draw(func(p *ui.Painter, r ui.Rect) {
-		was := a.settings.TaskLook
-		a.settings.TaskLook = look
-		defer func() { a.settings.TaskLook = was }()
 		faces := []taskFace{{id: "progress", slot: -1}, {id: "important", slot: -1}, {id: "tag", slot: 6}, {id: "star", slot: -1}}
 		for i, f := range faces {
 			at := ui.Rect{X: r.X + 12 + float32(i%2)*50, Y: r.Y + 12 + float32(i/2)*26, W: 14, H: 14}
-			a.drawFace(p, at, f, p.Now())
+			a.drawFaceLook(p, at, f, look, p.Now())
 			p.Fill(ui.Rect{X: at.X + 20, Y: at.Y + 5, W: 22, H: 4}, cl.Text.Alpha(0.3), 2)
 		}
 	})

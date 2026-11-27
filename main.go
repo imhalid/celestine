@@ -131,6 +131,9 @@ type app struct {
 
 	treeVirtual       bool          // the sidebar's tree builds only the rows near what it shows (sidebar.go)
 	treeTop, treeView float32       // where the tree is scrolled, and how tall its view is, last frame
+	sidePal           sidePalette   // sidebar row colors precomputed once per sidebar frame (sidebar.go)
+	titleCache        [6]titleEntry // recent title layouts cached so steady frames avoid Pango shaping (titlesize.go)
+	titleCacheNext    int
 	dockHost          *dockwin.Host // the windows of the panes torn off (panewin.go)
 
 	docs map[*Page]*richtext.Document
@@ -683,7 +686,7 @@ func main() {
 			a.handleSecondInstance(args)
 		})
 		if runtime.GOOS == "darwin" {
-			keepInDock(w) // on macOS the window closed is hidden, and the app stays in the Dock (#632)
+			a.keepInDock(w) // on macOS the window closed is hidden, and the app stays in the Dock (#632)
 		}
 		w.OnClosed(mygo.App.Quit) // the window closed is the app closed: the hidden quick note panel does not keep it on
 		w.OnFocus(a.windowIn)     // back from another device: what it wrote comes
@@ -1113,7 +1116,7 @@ func (a *app) viewFrame(c *ui.Context) {
 	var root ui.Element
 	if framed { // the window's frame around the content, a card in it, and the status bar under (windowframe.go)
 		root = ui.Column(c).Fill().AlignItems(ui.Stretch).Padding(0, frameW, 0, frameW)
-		switch g, dark := frameGroundOf(c, a.pageBg), tok.Dark; {
+		switch g, dark := a.frameGroundCached(c, a.pageBg), tok.Dark; {
 		case a.wallActive() && a.wall.ok: // the wallpaper, the same whatever is behind the window (#606)
 			root.Draw(func(p *ui.Painter, r ui.Rect) { a.paintWallGround(p, r, g, dark) })
 		case !useGlass:

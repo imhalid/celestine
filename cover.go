@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"path/filepath"
 
@@ -48,6 +49,9 @@ func checkImage(data []byte) (string, error) {
 
 // putCover makes data, a picture checked, page p's cover.
 func (a *app) putCover(p *Page, data []byte, ext string) error {
+	if a.pageLocked(p) {
+		return fmt.Errorf("%w: %s", ErrLocked, p.Locked)
+	}
 	if p == a.pane().page {
 		a.flush()
 	}
@@ -68,6 +72,9 @@ func (a *app) putCover(p *Page, data []byte, ext string) error {
 		return err
 	}
 	if err := p.Save(body); err != nil {
+		p.Cover = old
+		p.CoverShift = oldShift
+		p.FS().Remove(filepath.Join(p.Dir, name))
 		return err
 	}
 	if old != "" && old != CoverNone && old != name && safeLocalAsset(old) {
@@ -78,6 +85,10 @@ func (a *app) putCover(p *Page, data []byte, ext string) error {
 
 // removeCover takes the cover away, its file with it, and says the page wants none: not the made one either.
 func (a *app) removeCover(p *Page) {
+	if a.pageLocked(p) {
+		a.sayLocked()
+		return
+	}
 	if p.Cover == CoverNone {
 		return
 	}
@@ -97,6 +108,8 @@ func (a *app) removeCover(p *Page) {
 		return
 	}
 	if err := p.Save(body); err != nil {
+		p.Cover = old
+		p.CoverShift = oldShift
 		a.fail(err)
 		return
 	}
@@ -107,6 +120,10 @@ func (a *app) removeCover(p *Page) {
 
 // restoreAutoCover puts the made cover back on a page that had none.
 func (a *app) restoreAutoCover(p *Page) {
+	if a.pageLocked(p) {
+		a.sayLocked()
+		return
+	}
 	if p == a.pane().page {
 		a.flush()
 	}
@@ -119,6 +136,7 @@ func (a *app) restoreAutoCover(p *Page) {
 		return
 	}
 	if err := p.Save(body); err != nil {
+		p.Cover = old
 		a.fail(err)
 	}
 }
@@ -144,7 +162,7 @@ func (a *app) pickCover(p *Page) {
 				err = a.putCover(p, data, ext)
 			}
 			if err != nil {
-				a.say(toastErr, err.Error())
+				a.fail(err)
 			}
 			return nil
 		})

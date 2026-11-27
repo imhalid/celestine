@@ -194,6 +194,10 @@ func (a *app) setPropFile(p *Page, pr *Property, src string) {
 
 // setPropData is setPropFile with the file read: data, named base ("" takes the value away).
 func (a *app) setPropData(p *Page, pr *Property, base string, data []byte) {
+	if a.pageLocked(p) {
+		a.sayLocked()
+		return
+	}
 	old := p.Props[pr.ID]
 	name := ""
 	if base != "" {
@@ -208,6 +212,9 @@ func (a *app) setPropData(p *Page, pr *Property, base string, data []byte) {
 		}
 	}
 	if err := p.SetValue(pr.ID, name); err != nil {
+		if name != "" {
+			p.FS().Remove(filepath.Join(p.Dir, name))
+		}
 		a.fail(err)
 		return
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/imhalid/celestine/internal/spell"
 	"github.com/imhalid/celestine/internal/spell/model"
 	"github.com/imhalid/celestine/locales"
 )
@@ -114,7 +115,10 @@ func TestSpellInTheEditor(t *testing.T) {
 	a.settings.SpellCheck = true
 	for range 400 { // the engine loads, and the paragraph is checked, outside the frame
 		tt.Frame()
-		if a.spellEng.eng != nil && len(a.spellEng.checks) > 0 && len(a.spellEng.queue) == 0 && !a.spellEng.working {
+		a.spellEng.mu.Lock()
+		ready := a.spellEng.eng != nil && len(a.spellEng.checks) > 0 && len(a.spellEng.queue) == 0 && !a.spellEng.working
+		a.spellEng.mu.Unlock()
+		if ready {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -230,6 +234,8 @@ func TestSpellContextAfterSettling(t *testing.T) {
 	tt.SetSize(1000, 700)
 	a.settings.SpellCheck = true
 	byContext := func() bool {
+		a.spellEng.mu.Lock()
+		defer a.spellEng.mu.Unlock()
 		for _, f := range a.spellEng.checks[text].Fixes {
 			if f.ByContext && f.Replacement == "Şu" {
 				return true
@@ -242,7 +248,10 @@ func TestSpellContextAfterSettling(t *testing.T) {
 		tt.Frame()
 		var done bool
 		a.do(func() error {
-			if r, ok := a.spellEng.checks[text]; ok && !sawFast {
+			a.spellEng.mu.Lock()
+			r, ok := a.spellEng.checks[text]
+			a.spellEng.mu.Unlock()
+			if ok && !sawFast {
 				sawFast = true
 				for _, f := range r.Fixes { // the first check: without the context, no fix of its
 					if f.ByContext {
@@ -260,5 +269,45 @@ func TestSpellContextAfterSettling(t *testing.T) {
 	}
 	if !a.spellEng.eng.HasContext() || !sawFast || !byContext() {
 		t.Fatalf("context %v, first check %v, the context's fix %v: %+v", a.spellEng.eng.HasContext(), sawFast, byContext(), a.spellEng.checks[text])
+	}
+}
+
+func TestSpellPaintConcurrentAndCodeBlock(t *testing.T) {
+	lex := spell.LexiconFromTSV("çok\t1000\ngeldi\t1000\n", "", 1, 1)
+	eng := spell.NewEngine(lex, nil, nil, spell.ModeCareful)
+	a, tt := newTestApp(t, "cok geldi\n\n```\ncok geldi\n```\n")
+	a.settings.SpellCheck = true
+	a.spell.status = spellReady
+	a.spellEng.mu.Lock()
+	a.spellEng.eng = eng
+	a.spellEng.checks = map[string]spell.InspectResult{}
+	a.spellEng.mu.Unlock()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 50 {
+			a.spellCheckOf(eng, "cok geldi")
+			a.spellCheckOf(eng, "herkez geldi")
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	for range 15 {
+		tt.Frame()
+		time.Sleep(time.Millisecond)
+	}
+	wg.Wait()
+
+	// Code block paragraphs must never get spell menu items even if their text is in checks.
+	a.spellEng.mu.Lock()
+	a.spellEng.checks["cok geldi"] = spell.InspectResult{
+		Fixes: []spell.Fix{{From: 0, To: 3, Original: "cok", Replacement: "çok"}},
+	}
+	a.spellEng.mu.Unlock()
+	txt := a.pane().doc.Text()
+	codeAt := strings.LastIndex(txt.String(), "cok")
+	if items := a.spellItems(len([]rune(txt.String()[:codeAt]))); len(items) != 0 {
+		t.Fatalf("spellItems returned items inside code block: %+v", items)
 	}
 }

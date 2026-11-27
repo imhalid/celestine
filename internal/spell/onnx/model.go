@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Model is an ONNX graph ready to run: its nodes in the file's order (ONNX keeps them in an order each can run in),
-// its weights, and the names of its inputs and outputs. Run does not change it: a Model may run in several
+// its weights, and the names of its inputs and outputs. Run does not change its graph: a Model may run in several
 // goroutines at once.
 type Model struct {
 	nodes   []nodeProto
 	run     []op
 	weights map[string]*Tensor
+	last    map[string]int
+	outputs map[string]bool
+	intW    sync.Map // [2]*Tensor -> *intWeights, freed with the Model
 	Inputs  []string
 	Outputs []string
 }
@@ -27,15 +31,32 @@ func Load(b []byte) (*Model, error) {
 	if v, ok := mp.opsets[""]; ok && (v < 13 || v > 17) {
 		return nil, fmt.Errorf("onnx: opset %d; the operators here are those of opsets 13 to 17", v)
 	}
-	m := &Model{nodes: mp.graph.nodes, weights: map[string]*Tensor{}}
+	m := &Model{
+		nodes:   mp.graph.nodes,
+		weights: map[string]*Tensor{},
+		last:    map[string]int{},
+		outputs: map[string]bool{},
+	}
 	for _, t := range mp.graph.initializers {
 		m.weights[t.Name] = t
 	}
 	unknown := map[string]bool{}
-	for _, n := range m.nodes {
+	for i, n := range m.nodes {
+		for _, name := range n.inputs {
+			m.last[name] = i
+		}
 		f, ok := ops[n.opType]
 		if !ok || n.domain != "" && n.domain != "ai.onnx" {
 			unknown[n.domain+"::"+n.opType] = true
+		}
+		if n.opType == "MatMulInteger" && ok && (n.domain == "" || n.domain == "ai.onnx") {
+			constB := len(n.inputs) > 1 && m.weights[n.inputs[1]] != nil
+			constZP := len(n.inputs) <= 3 || n.inputs[3] == "" || m.weights[n.inputs[3]] != nil
+			if constB && constZP {
+				f = func(node *nodeProto, in []*Tensor) ([]*Tensor, error) {
+					return opMatMulIntegerCached(node, in, &m.intW)
+				}
+			}
 		}
 		m.run = append(m.run, f)
 	}
@@ -54,6 +75,7 @@ func Load(b []byte) (*Model, error) {
 	}
 	for _, vi := range mp.graph.outputs {
 		m.Outputs = append(m.Outputs, vi.name)
+		m.outputs[vi.name] = true
 	}
 	return m, nil
 }
@@ -69,16 +91,6 @@ func (m *Model) Run(feeds map[string]*Tensor) (map[string]*Tensor, error) {
 	values := make(map[string]*Tensor, len(m.nodes))
 	for k, v := range feeds {
 		values[k] = v
-	}
-	last := map[string]int{} // the last node reading each value
-	for i, n := range m.nodes {
-		for _, name := range n.inputs {
-			last[name] = i
-		}
-	}
-	outputs := map[string]bool{}
-	for _, name := range m.Outputs {
-		outputs[name] = true
 	}
 	for i := range m.nodes {
 		n := &m.nodes[i]
@@ -106,7 +118,7 @@ func (m *Model) Run(feeds map[string]*Tensor) (map[string]*Tensor, error) {
 			}
 		}
 		for _, name := range n.inputs { // what no later node reads
-			if last[name] == i && !outputs[name] {
+			if m.last[name] == i && !m.outputs[name] {
 				delete(values, name)
 			}
 		}

@@ -126,6 +126,10 @@ func (a *app) addFileFrom(src string) {
 		a.say(toastInfo, locales.PageDropFilePage())
 		return
 	}
+	if a.pageLocked(p) {
+		a.sayLocked()
+		return
+	}
 	base := filepath.Base(src)
 	if !validAttachFileName(base) {
 		a.say(toastErr, locales.CommonInvalidAttachmentName(base))
@@ -133,6 +137,10 @@ func (a *app) addFileFrom(src string) {
 	}
 	a.readThen(src, maxFileBytes, func(data []byte, err error) { // a big file away from the window (#177)
 		if a.pane().page != p || a.pane().doc == nil {
+			return
+		}
+		if a.pageLocked(p) {
+			a.sayLocked()
 			return
 		}
 		if err != nil {

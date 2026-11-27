@@ -425,6 +425,21 @@ func (e *Engine) filterFlags(text string, rawFlags []SpellFlag, rawCorrections [
 	return flags
 }
 
+// unlockedModel wraps a ContextModel so Engine.mu is released while Score runs ONNX inference, allowing fast
+// NoContext checks and Ignore calls to proceed without blocking on the neural network.
+type unlockedModel struct {
+	mu *sync.Mutex
+	m  ContextModel
+}
+
+func (u unlockedModel) Score(queries []ContextQuery) ([][]float64, error) {
+	u.mu.Unlock()
+	defer u.mu.Lock()
+	return u.m.Score(queries)
+}
+
+func (u unlockedModel) SupportsNameContext() bool { return u.m.SupportsNameContext() }
+
 // run is a pass of the corrector over text with the call's settings; ok is false when there is nothing to check.
 func (e *Engine) run(text string, opts CheckOptions, collectFlags bool) (result CorrectResult, kindFilter map[string]bool, ok bool) {
 	if text == "" {
@@ -446,14 +461,14 @@ func (e *Engine) run(text string, opts CheckOptions, collectFlags bool) (result 
 	if mode == "" {
 		mode = e.mode
 	}
-	e.corrector.Settings = settingsFor(mode, kindFilter)
-	defer func() { e.corrector.Settings = settingsByMode[e.mode] }()
+	corr := *e.corrector
+	corr.Settings = settingsFor(mode, kindFilter)
 	options := CorrectOptions{AutoMarked: opts.AutoMarked}
 	if e.model != nil && !opts.NoContext {
 		options.PriorTypoOriginals = opts.PriorTypoOriginals
-		result = e.corrector.runModelPass(text, e.model, options, collectFlags)
+		result = corr.runModelPass(text, unlockedModel{mu: &e.mu, m: e.model}, options, collectFlags)
 	} else {
-		result = e.corrector.runCorePass(text, options, collectFlags)
+		result = corr.runCorePass(text, options, collectFlags)
 	}
 	return result, kindFilter, true
 }

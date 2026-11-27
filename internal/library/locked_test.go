@@ -56,3 +56,66 @@ func TestLockedPage(t *testing.T) {
 		t.Fatalf("a page with a locked one under it trashed: %v", err)
 	}
 }
+
+func TestLockedPagePropertyAndBoardSafety(t *testing.T) {
+	lib, err := OpenLibrary(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, _ := lib.NewCollection("Journal")
+	j.Journal = true
+	other, _ := lib.NewCollection("Notes")
+	pr, err := j.AddProperty("Status", PropChoice, []string{"Open", "Done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.Creating = true
+	past, err := j.NewPage(nil, "2026-11-25")
+	if err != nil {
+		t.Fatal(err)
+	}
+	past.SaveText("past\n")
+	if err := past.SetValue(pr.ID, "Open"); err != nil {
+		t.Fatal(err)
+	}
+	own, err := past.AddProperty("Note", PropText, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	today, err := j.NewPage(nil, "2026-11-26")
+	j.Creating = false
+	if err != nil {
+		t.Fatal(err)
+	}
+	today.SaveText("today\n")
+
+	beforePast, _ := os.ReadFile(past.File())
+	past.Locked = "a past day"
+
+	// Own-property mutations on a locked page must fail without changing in-memory slices.
+	if _, err := past.AddProperty("Extra", PropText, nil); !errors.Is(err, ErrLocked) || len(past.Own) != 1 {
+		t.Fatalf("AddProperty: %v, own=%d", err, len(past.Own))
+	}
+	if err := past.EditProperty(own.ID, "Changed", nil); !errors.Is(err, ErrLocked) || past.Own[0].Name != "Note" {
+		t.Fatalf("EditProperty: %v, name=%q", err, past.Own[0].Name)
+	}
+	if err := past.RemoveProperty(own.ID); !errors.Is(err, ErrLocked) || len(past.Own) != 1 {
+		t.Fatalf("RemoveProperty: %v, own=%d", err, len(past.Own))
+	}
+
+	// Setting a choice property on today's unlocked page must succeed even when a locked page is in the column.
+	if err := today.SetValue(pr.ID, "Open"); err != nil {
+		t.Fatalf("today SetValue failed with locked sibling: %v", err)
+	}
+	if today.Props[pr.ID] != "Open" {
+		t.Fatalf("today prop: %q", today.Props[pr.ID])
+	}
+	if afterPast, _ := os.ReadFile(past.File()); string(afterPast) != string(beforePast) {
+		t.Fatal("locked past day file changed during MoveOnBoard")
+	}
+
+	// Even today's unlocked journal day cannot be moved out of the journal collection.
+	if err := lib.MovePage(today, other, nil, 0); err == nil || today.Coll != j {
+		t.Fatalf("today moved out of journal: err=%v coll=%q", err, today.Coll.Name)
+	}
+}
