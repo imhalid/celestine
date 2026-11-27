@@ -27,10 +27,15 @@ type collSettings struct {
 	name string  // its name as typed
 }
 
-// holdCollection opens the sheet of collection k, held where from is.
+// holdCollection opens the sheet of collection k, held where from is: its box as the press shrank it, which is taken
+// back to its size.
 func (a *app) holdCollection(k *library.Collection, from ui.Rect) {
 	if k.Dynamic() {
 		return
+	}
+	if from.W > 0 {
+		w, h := from.W/pressIn, from.H/pressIn
+		from = ui.Rect{X: from.X - (w-from.W)/2, Y: from.Y - (h-from.H)/2, W: w, H: h}
 	}
 	a.cs = collSettings{dir: k.Dir, from: from, name: k.Name}
 	a.collSheet = k.Dir
@@ -91,9 +96,15 @@ func (a *app) collSheetView(c *ui.Context) {
 		winW, _ := c.Size()
 		anchor := ui.Box(c.Key("coll-held")).Absolute().Top(0).Left(0).Size(0, 0)
 		kk := anchor.AnimateTo("open", b2f(open), ui.Animation{Spring: ui.SpringOptions{Duration: 380 * time.Millisecond, Bounce: 0.12}})
-		a.csLifted = kk >= 0.01 // its place on the screen stays empty until it is back in it
-		if !a.csLifted && !open || k == nil {
+		if kk < 0.01 && !open || k == nil {
 			return
+		}
+
+		// Its place is covered while it is out, by the ground the scrim is, and uncovered at once when the preview is
+		// back on it: the card itself never changes, so that nothing flickers as it lands (#648).
+		if a.cs.from.W > 0 {
+			ui.Box(c.Key("coll-place")).Absolute().Left(a.cs.from.X).Top(a.cs.from.Y).Size(a.cs.from.W, a.cs.from.H).
+				Radius(innerR).Background(pal.bg)
 		}
 
 		// The preview is the card as the screen shows it, risen from its place to the top, a little larger.

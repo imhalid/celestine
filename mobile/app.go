@@ -33,7 +33,6 @@ type app struct {
 
 	cs        collSettings    // the collection held, its sheet's (collsettings.go)
 	collSheet string          // the folder of the collection whose sheet is open; "" for none
-	csLifted  bool            // the collection held is out of its place, its preview showing
 	pull      ui.RefreshState // a screen pulled down past its top, which opens the menu
 	ticked    map[string]bool // the tasks ticked off on the Tasks screen, shown done until it is left
 

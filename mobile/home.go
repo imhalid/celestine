@@ -344,14 +344,12 @@ func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 }
 
 // collTile is a collection as a card of its color: its icon and how many pages, its name large under them, in its
-// deep tone. Held, it rises out of its place into its sheet's preview, and its place is left empty.
+// deep tone. Held, it rises out of its place into its sheet's preview, and its place is covered while it is out
+// (collSheetView).
 func (a *app) collTile(c *ui.Context, k *library.Collection, r corners) ui.Element {
 	t := tonesOf(k)
 	b := block(c, k, t.card, outerR).Radius(r[0], r[1], r[2], r[3]).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
 		Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
-	if a.collSheet == k.Dir || (a.cs.dir == k.Dir && a.csLifted) {
-		b.Opacity(0)
-	}
 	b.Children(func() { collCard(c, k, t, 1) })
 	if b.LongPressed() {
 		a.holdCollection(k, b.Bounds())
