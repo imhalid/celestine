@@ -7,9 +7,10 @@ import (
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The app's chrome is its own: no bar of tabs. A round button at the top left opens the menu, which fills the screen
-// over the screen blurred, its places coming in one after another; a round + at the bottom right opens what can be
-// made, rising over it in a column at the right, the + turning to a ×. A page's ··· opens a sheet from the bottom.
+// The app's chrome is its own: no bar of tabs and no button for the menu. A screen pulled down past its top opens the
+// menu, which fills the screen over the screen dimmed, its places coming in one after another, and closes at a tap
+// anywhere else; a round + at the bottom right opens what can be made, rising over it in a column at the right, the +
+// turning to a ×. A page's ··· and a collection's long press open a sheet from the bottom.
 
 // motionIn is how what opens comes in, and goes: quickly, easing out, with no overshoot.
 func motionIn(delay time.Duration) ui.Animation {
@@ -25,22 +26,36 @@ func roundButton(c *ui.Context, key string, glyph *ui.SVG, label string) bool {
 	return b.Clicked()
 }
 
-// topBar is the row at the top of a screen: the menu's button, or back on a screen under another, and what goes at
-// its right end.
+// topBar is the row at the top of a screen under another: back, and what goes at its right end. A screen of the
+// menu's has none, only room above its title.
 func (a *app) topBar(c *ui.Context, back bool, trailing func()) {
+	if !back && trailing == nil {
+		ui.Box(c.Key("top")).Height(22).Shrink(0)
+		return
+	}
 	ui.Row(c.Key("top")).FillWidth().Height(66).Padding(0, side).Gap(10).AlignItems(ui.Center).Shrink(0).Children(func() {
-		if back {
-			if roundButton(c, "back", iconBack, locales.CommonBack()) {
-				a.router.Back()
-			}
-		} else if roundButton(c, "menu", iconMenu, locales.MenuOpen()) {
-			a.menuOpen = true
+		if back && roundButton(c, "back", iconBack, locales.CommonBack()) {
+			a.router.Back()
 		}
 		ui.Box(c).Grow(1)
 		if trailing != nil {
 			trailing()
 		}
 	})
+}
+
+// pullMenu has scroll, a screen's, open the menu when a finger pulls it down past its top.
+func (a *app) pullMenu(scroll ui.Element) ui.Element {
+	if scroll.PullToRefresh(&a.pull) {
+		a.pull.Refreshing = false
+		a.menuOpen, a.plusOpen = true, false
+	}
+	return scroll
+}
+
+// screenScroll is the scroll of a screen of the menu's, which a pull down opens the menu from.
+func (a *app) screenScroll(c *ui.Context) ui.Element {
+	return a.pullMenu(ui.Scroll(c.Key("scroll")).Grow(1).Basis(0).FillWidth())
 }
 
 // bigTitle is a screen's title, large, under its top bar.
@@ -108,7 +123,7 @@ func (a *app) plusActions() []plusAct {
 			continue
 		}
 		k := k
-		acts = append(acts, plusAct{iconFolder, tints[0], locales.ActionIn(k.Name), func() { a.newNote(k) }})
+		acts = append(acts, plusAct{collGlyph(k), collColor(k), locales.ActionIn(k.Name), func() { a.newNote(k) }})
 		n++
 	}
 	acts = append(acts, plusAct{iconSearch, tints[3], locales.ActionSearch(), func() { a.goTo(pathSearch) }})
@@ -151,12 +166,11 @@ func (a *app) menuView(c *ui.Context) {
 			col.Hidden(true)
 			return
 		}
+		if col.Clicked() { // a tap anywhere but on a place
+			a.menuOpen = false
+		}
 		col.Children(func() {
-			ui.Row(c).FillWidth().Height(66).Padding(0, side).AlignItems(ui.Center).Shrink(0).Children(func() {
-				if roundButton(c, "menu-close", iconClose, locales.MenuClose()) {
-					a.menuOpen = false
-				}
-			})
+			ui.Box(c).Height(66).Shrink(0)
 			places := []menuPlace{
 				{pathHome, iconSun, locales.NavHome()},
 				{pathLibrary, iconBooks, locales.TabLibrary()},
@@ -169,9 +183,6 @@ func (a *app) menuView(c *ui.Context) {
 					a.menuItem(c, i, pl)
 				}
 			})
-			ui.Box(c).Grow(1)
-			ui.Text(c, "Celestine").FontSize(13).FontWeight(600).TextColor(pal.faint).Padding(0, side+6, 120, side+6).
-				Opacity(max(0, min(k, 1)))
 		})
 	})
 }

@@ -129,7 +129,7 @@ func (a *app) tasksScreen(c *ui.Context) {
 	slices.SortStableFunc(pages, func(x, y *library.Page) int { return y.Modified.Compare(x.Modified) })
 	ui.Column(c).Fill().Children(func() {
 		a.topBar(c, false, nil)
-		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
+		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
 				ui.Column(c).Padding(6, 0, 10, 0).Gap(4).Children(func() {
 					ui.Text(c, locales.TasksTitle()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1)

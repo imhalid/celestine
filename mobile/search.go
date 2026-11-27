@@ -67,7 +67,7 @@ func (a *app) searchScreen(c *ui.Context) {
 					Background(pal.block).Border(0, pal.block).Label(locales.SearchPlaceholder()).ReturnKey(ui.ReturnSearch)
 			})
 		})
-		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
+		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
 				if strings.TrimSpace(a.query) == "" {
 					ui.Text(c, locales.SearchHint()).FontSize(16).TextColor(pal.muted).Wrap().Padding(4, 4)

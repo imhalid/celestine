@@ -31,8 +31,10 @@ type app struct {
 	sy   syncState // the account and the sync (sync.go)
 	home homeState // the home screen's scrolling and the system bars
 
-	cs     collSettings    // a collection's settings being changed (collsettings.go)
-	ticked map[string]bool // the tasks ticked off on the Tasks screen, shown done until it is left
+	cs        collSettings    // a collection's settings being changed (collsettings.go)
+	collSheet string          // the folder of the collection whose sheet is open; "" for none
+	pull      ui.RefreshState // a screen pulled down past its top, which opens the menu
+	ticked    map[string]bool // the tasks ticked off on the Tasks screen, shown done until it is left
 
 	menuOpen bool // the menu covers the screen
 	plusOpen bool // the + has opened its list of what to make
@@ -111,7 +113,7 @@ func (a *app) view(c *ui.Context) {
 	}
 	a.lockDays() // a day turns past at midnight
 	a.syncTick(c.Now())
-	over := a.menuOpen || a.plusOpen || a.moreOpen
+	over := a.menuOpen || a.plusOpen || a.moreOpen || a.collSheet != ""
 	a.setBars(a.router.Path() == pathHome && !over) // the home's summary is dark under them
 	screen := ui.Box(c.Key("screen")).Fill()
 	veil := screen.AnimateTo("veil", b2f(over), motionIn(0))
@@ -167,19 +169,22 @@ func (a *app) view(c *ui.Context) {
 			}
 		})
 	}
-	if !strings.HasPrefix(a.router.Path(), "/p/") && a.router.Path() != pathSignIn && !a.menuOpen {
+	if !strings.HasPrefix(a.router.Path(), "/p/") && a.router.Path() != pathSignIn && !a.menuOpen && a.collSheet == "" {
 		a.plusButton(c)
 	}
 	a.menuView(c)
 	a.moreSheet(c)
+	a.collSheetView(c)
 	if over && c.Shortcut(0, ui.KeyEscape) { // Android's back closes what is open first
 		a.closeAll()
 	}
 	a.noticeView(c)
 }
 
-// closeAll closes the menu, the +'s list and a page's sheet.
-func (a *app) closeAll() { a.menuOpen, a.plusOpen, a.moreOpen = false, false, false }
+// closeAll closes the menu, the +'s list, a page's sheet and a collection's.
+func (a *app) closeAll() {
+	a.menuOpen, a.plusOpen, a.moreOpen, a.collSheet = false, false, false, ""
+}
 
 // b2f is 1 for true.
 func b2f(b bool) float32 {

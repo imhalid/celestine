@@ -145,10 +145,18 @@ func TestMenuAndTasks(t *testing.T) {
 	if n := len(a.openTasks()); n != 2 {
 		t.Fatalf("%d open tasks", n)
 	}
-	if err := tt.Click(locales.MenuOpen()); err != nil {
-		t.Fatal(err)
+	a.menuOpen = true // as a pull down past the top opens it (the Tester's fingers make no pull, #638)
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	tt.Press(380, 820) // a tap but on a place closes it
+	tt.Release(380, 820)
+	tt.Advance(400 * time.Millisecond)
+	if a.menuOpen {
+		t.Fatal("the menu not closed by a tap beside its places")
 	}
-	tt.Advance(600 * time.Millisecond)
+	a.menuOpen = true
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
 	if err := tt.Click(locales.NavTasks()); err != nil {
 		t.Fatal(err)
 	}
@@ -281,6 +289,16 @@ func TestCollSettings(t *testing.T) {
 	p.SaveText("dün")
 	a.openCollection(j)
 	tt.Advance(400 * time.Millisecond)
+	a.collSheet = j.Dir // as its name held opens its sheet: a color and an icon are kept at once (#638)
+	tt.Frame()
+	tt.Advance(400 * time.Millisecond)
+	if !tt.HasText(locales.CollSettings()) {
+		t.Fatalf("the sheet: %v", tt.Texts())
+	}
+	a.setCollLook(j, "c3", "star")
+	if c2 := a.collAt(j.Dir); c2.Color != "c3" || c2.Icon != "star" {
+		t.Fatalf("look %q %q", c2.Color, c2.Icon)
+	}
 	if err := tt.Click(locales.CollSettings()); err != nil {
 		t.Fatal(err)
 	}
@@ -300,3 +318,4 @@ func TestCollSettings(t *testing.T) {
 		t.Fatalf("at %s", a.router.Path())
 	}
 }
+

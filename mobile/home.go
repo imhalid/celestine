@@ -13,8 +13,8 @@ import (
 
 // The home screen is a summary of the day on a dark ground, and a sheet over it: the weekday and the date, a
 // sentence of the day with its numbers marked, a row of figures; on the sheet the week, the tasks open, the
-// collections and the pages written lately. Scrolled up, the sheet covers the summary, which stays behind, and a bar at
-// the top shows the date alone (#637).
+// collections and the pages written lately. The date's row stays where it is: scrolled up, the sheet comes over the
+// rest of the summary and goes under the row (#637, #638). Pulled down past its top, the screen opens the menu.
 
 // The summary's own colors: it is dark on the light look too.
 var (
@@ -26,9 +26,8 @@ var (
 
 // homeState is what the home screen keeps between frames.
 type homeState struct {
-	scroll  ui.ScrollState
-	summary float32       // the summary's height, as the last frame laid it out; 0 before
-	bars    mygo.BarStyle // the system bars' icons as last set
+	scroll ui.ScrollState
+	bars   mygo.BarStyle // the system bars' icons as last set
 }
 
 // greeting is what the screen says at the hour of now.
@@ -47,23 +46,36 @@ func greeting(now time.Time) string {
 func (a *app) homeScreen(c *ui.Context) {
 	now := time.Now()
 	h := &a.home // the screen is laid out under the system's bar, which the root's ground fills (view)
-	// How far the sheet has covered the summary, from 0 to 1.
-	covered := min(max(h.scroll.Y/max(h.summary-120, 1), 0), 1)
-	ui.Box(c.Key("home")).Fill().Background(nightBg).Children(func() {
-		ui.Scroll(c.Key("home-scroll")).Fill().TrackScroll(&h.scroll).Children(func() {
+	y := max(h.scroll.Y, 0)
+	home := ui.Column(c.Key("home")).Fill()
+	heroField(c, home, summarySky(now), 0)
+	home.Children(func() {
+		a.dateRow(c, now)
+		scroll := ui.Scroll(c.Key("home-scroll")).Grow(1).Basis(0).FillWidth().TrackScroll(&h.scroll)
+		a.pullMenu(scroll)
+		scroll.Children(func() {
 			ui.Column(c).FillWidth().Children(func() {
-				// The summary scrolls a third as fast as the sheet, which comes over it.
-				sum := ui.Column(c.Key("summary")).FillWidth().Padding(66, side+4, 58, side+4).Gap(18)
-				heroField(c, sum, summarySky(now), 0)
-				sum.Opacity(1-covered*0.85).Translate(0, max(h.scroll.Y, 0)*0.65)
+				// The rest of the summary scrolls a third as fast as the sheet, which comes over it.
+				sum := ui.Column(c.Key("summary")).FillWidth().Padding(6, side+4, 58, side+4).Gap(18)
+				sum.Opacity(max(0, 1-y/220)).Translate(0, y*0.65)
 				sum.Children(func() { a.summaryView(c, now) })
-				if b := sum.LayoutBounds(); b.H > 0 {
-					h.summary = b.H
-				}
 				a.homeSheet(c, now)
 			})
 		})
-		a.homeBar(c, now, covered)
+	})
+}
+
+// dateRow is the top of the summary, which stays: the weekday, large, with a dot, and the date at the right.
+func (a *app) dateRow(c *ui.Context, now time.Time) {
+	ui.Row(c.Key("date")).FillWidth().Padding(18, side+4, 4, side+4).AlignItems(ui.Start).Shrink(0).Children(func() {
+		ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, formatDay("ddd", now)).FontSize(46).FontWeight(800).LineHeight(1).TextColor(nightText)
+			ui.Box(c).Size(11, 11).Radius(6).Background(coral).Margin(6, 0, 0, 0)
+		})
+		ui.Column(c).AlignItems(ui.End).Padding(4, 0, 0, 0).Children(func() {
+			ui.Text(c, formatDay("D MMMM", now)).FontSize(15).FontWeight(600).TextColor(nightMuted)
+			ui.Text(c, formatDay("YYYY", now)).FontSize(15).FontWeight(600).TextColor(nightMuted)
+		})
 	})
 }
 
@@ -89,40 +101,8 @@ func (a *app) setBars(onDark bool) {
 	}
 }
 
-// homeBar is the bar at the top of the home screen: the menu's button, and the date once the sheet covers the
-// summary, on the summary's ground.
-func (a *app) homeBar(c *ui.Context, now time.Time, covered float32) {
-	solid := max(0, (covered-0.7)/0.3)
-	bar := ui.Row(c.Key("home-bar")).Absolute().Top(0).Left(0).Right(0).Height(66).Padding(0, side).Gap(14).
-		AlignItems(ui.Center)
-	if solid > 0 {
-		bar.Background(nightBg.Alpha(solid))
-	}
-	bar.Children(func() {
-		b := ui.Box(c.Key("menu")).Size(46, 46).Radius(23).AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
-			Background(nightText.Alpha(0.09)).Role(ui.RoleButton).Label(locales.MenuOpen())
-		pressable(b)
-		b.Children(func() { ui.Icon(c, iconMenu).Size(22, 22).TextColor(nightText) })
-		if b.Clicked() {
-			a.menuOpen = true
-		}
-		ui.Text(c, formatDay("dddd, D MMMM", now)).FontSize(17).FontWeight(700).TextColor(nightText).Opacity(solid).
-			Translate(0, (1-solid)*8)
-	})
-}
-
-// summaryView is the summary: the weekday and the date, the sentence of the day, and the figures under it.
+// summaryView is the rest of the summary: the sentence of the day, and the figures under it.
 func (a *app) summaryView(c *ui.Context, now time.Time) {
-	ui.Row(c).FillWidth().AlignItems(ui.Start).Children(func() {
-		ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, formatDay("ddd", now)).FontSize(46).FontWeight(800).LineHeight(1).TextColor(nightText)
-			ui.Box(c).Size(11, 11).Radius(6).Background(coral).Margin(6, 0, 0, 0)
-		})
-		ui.Column(c).AlignItems(ui.End).Padding(4, 0, 0, 0).Children(func() {
-			ui.Text(c, formatDay("D MMMM", now)).FontSize(15).FontWeight(600).TextColor(nightMuted)
-			ui.Text(c, formatDay("YYYY", now)).FontSize(15).FontWeight(600).TextColor(nightMuted)
-		})
-	})
 	msg := locales.HomeSummary(greeting(now), len(a.openTasks()), a.daysWritten(now))
 	ui.RichText(c, summarySpans(msg)...).FontSize(25).FontWeight(550).LineHeight(1.32).Wrap()
 	ui.Row(c).Gap(18).AlignItems(ui.Center).Children(func() {
@@ -181,13 +161,9 @@ func (a *app) homeSheet(c *ui.Context, now time.Time) {
 		ui.Box(c).Size(40, 5).Radius(3).Background(pal.line).AlignSelf(ui.Center).Margin(0, 0, 6, 0)
 		a.weekStrip(c, now)
 		a.tasksBlock(c)
-		label(c, locales.HomeCollections())
 		a.collGrid(c, a.orderedCollections())
-		if recent := a.recentPages(8); len(recent) > 0 {
-			label(c, locales.HomeRecent())
-			for _, p := range recent {
-				a.pageBlock(c, p, true)
-			}
+		for _, p := range a.recentPages(8) {
+			a.pageBlock(c, p, true)
 		}
 	})
 }
@@ -286,13 +262,13 @@ func (a *app) streak(now time.Time) int {
 	return n
 }
 
-// collGrid lays the collections out two to a row, going down, each in a tone of the one hue.
+// collGrid lays the collections out two to a row, going down, each in the tones of its color.
 func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 	ui.Column(c.Key("grid")).FillWidth().Gap(gap).Children(func() {
 		for i := 0; i < len(colls); i += 2 {
 			ui.Row(c.Key(i)).FillWidth().Gap(gap).Children(func() {
-				for j, k := range colls[i:min(i+2, len(colls))] {
-					a.collTile(c, k, i+j).Grow(1).Basis(0)
+				for _, k := range colls[i:min(i+2, len(colls))] {
+					a.collTile(c, k).Grow(1).Basis(0)
 				}
 				if i+1 >= len(colls) {
 					ui.Box(c).Grow(1).Basis(0)
@@ -302,37 +278,27 @@ func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 	})
 }
 
-// tone is the i-th tone of the collections' one hue, the accent's: a block's ground, deeper by turns, and its mark.
-func tone(i int) (ground, mark ui.Color) {
-	steps := []float32{0.10, 0.17, 0.24, 0.31}
-	s := steps[i%len(steps)]
-	if dark {
-		s *= 1.3
-	}
-	return pal.block.MixOklab(pal.accent, s), pal.accent.MixOklab(pal.text, 0.12*float32(i%len(steps)))
-}
-
-// collTile is a collection as a block in its tone: its mark, its name and how many pages.
-func (a *app) collTile(c *ui.Context, k *library.Collection, i int) ui.Element {
-	ground, mark := tone(i)
-	glyph := iconFolder
-	if k.Journal {
-		glyph = iconCalendar
-	}
+// collTile is a collection as a block in the tones of its color: its icon on its ground, its name, how many pages.
+// A long press opens its sheet: its color, its icon, its settings.
+func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
+	t := tonesOf(k)
 	sub := locales.LibraryPages(len(k.All()))
 	if k.Dynamic() {
 		sub = locales.LibrarySaved()
 	}
-	b := block(c, k, ground, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
+	b := block(c, k, t.ground, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
 		Role(ui.RoleButton).Label(k.Name)
 	b.Children(func() {
-		ui.Box(c).Size(38, 38).Radius(13).Background(mark).AlignItems(ui.Center).Justify(ui.Center).
-			Children(func() { ui.Icon(c, glyph).Size(20, 20).TextColor(pal.accentText) })
+		ui.Box(c).Size(40, 40).Radius(13).Background(t.mark).AlignItems(ui.Center).Justify(ui.Center).
+			Children(func() { ui.Icon(c, collGlyph(k)).Size(22, 22).TextColor(t.color) })
 		ui.Column(c).Gap(2).Children(func() {
-			ui.Text(c, k.Name).FontSize(17).FontWeight(700).MaxLines(1)
-			ui.Text(c, sub).FontSize(13).FontWeight(550).TextColor(pal.muted)
+			ui.Text(c, k.Name).FontSize(17).FontWeight(700).MaxLines(1).TextColor(t.ink)
+			ui.Text(c, sub).FontSize(13).FontWeight(550).TextColor(t.ink.Alpha(0.6))
 		})
 	})
+	if b.LongPressed() {
+		a.collSheet = k.Dir
+	}
 	if b.Clicked() {
 		a.openCollection(k)
 	}

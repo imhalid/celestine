@@ -81,6 +81,16 @@ func (msgs Messages) AppCannotOpen(error string) string {
 	return Catalog.Format(msgs.locale, "app_cannotOpen", map[string]any{"error": error})
 }
 
+// CollColor says "Color"
+// in the language the app shows.
+func CollColor() string { return In(i18n.Locale()).CollColor() }
+
+// CollColor says "Color"
+// in the language of msgs.
+func (msgs Messages) CollColor() string {
+	return Catalog.Format(msgs.locale, "coll_color", nil)
+}
+
 // CollDayTitles says "How days are titled"
 // in the language the app shows.
 func CollDayTitles() string { return In(i18n.Locale()).CollDayTitles() }
@@ -89,6 +99,16 @@ func CollDayTitles() string { return In(i18n.Locale()).CollDayTitles() }
 // in the language of msgs.
 func (msgs Messages) CollDayTitles() string {
 	return Catalog.Format(msgs.locale, "coll_dayTitles", nil)
+}
+
+// CollIcon says "Icon"
+// in the language the app shows.
+func CollIcon() string { return In(i18n.Locale()).CollIcon() }
+
+// CollIcon says "Icon"
+// in the language of msgs.
+func (msgs Messages) CollIcon() string {
+	return Catalog.Format(msgs.locale, "coll_icon", nil)
 }
 
 // CollName says "Name"

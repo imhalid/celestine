@@ -23,26 +23,32 @@ second program with an interface made for a hand, sharing only the library.
 ## The app
 
 Its look is its own, made for a hand, not the desktop's nor Material's: blocks of rounded paper on a warm ground (soft
-ink on a deep one by night), Geist for the words and heavy for what is big, the collections in tones of one hue. Blocks press
+ink on a deep one by night), Geist for the words and heavy for what is big, each collection in its color. Blocks press
 in a little under a finger, their corners kept.
 
-- **No bar of tabs.** A round button at the top left opens the menu, which covers the screen over the screen dimmed,
-  its places (Home, Library, Tasks, Search, Settings) large and coming in one after another; they fade into each
-  other, where a page or a collection slides in. A round **+** at the bottom right is the only other control: tapped,
-  the screen dims and what it makes rises over it at the right (today's page, a note, a note in another collection, a
-  search), the + turning to a ×. Android's back closes what is open first. The screen is dimmed, not blurred: a blur
-  of the whole screen is drawn again each frame of the motion, which made it stutter on a phone (#637).
-- **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large, with the date, a sentence
-  of the day (the tasks open, the days written this week) with its numbers marked in coral, the pages and the days in
-  a row; under it, on a field of the hour's colors deepened almost to black, standing still. A sheet comes over it: the
-  week (the day over its weekday, a dot on the days written, today filled; a day opens its page), the tasks open in one
-  row, the collections two to a row in tones of one hue, the pages written lately. Scrolled up, the sheet covers the
-  summary, which moves a third as fast and fades, and a bar at the top shows the date alone.
-- **Library** is the collections two to a row, as on home; a collection is its pages as blocks under its name, and
-  its settings (the gear at the top) are its name and, for the journal, how its days are titled, the days titled again
-  when that changes.
+- **No bar of tabs, no button for the menu.** A screen pulled down past its top opens the menu (#638), which covers
+  the screen over the screen dimmed, its places (Home, Library, Tasks, Search, Settings) large and coming in one after
+  another, and closes at a tap anywhere else; its places fade into each other, where a page or a collection slides in.
+  A round **+** at the bottom right is the only control: tapped, the screen dims and what it makes rises over it at the
+  right (today's page, a note, a note in another collection, a search), the + turning to a ×. Android's back closes
+  what is open first. The screen is dimmed, not blurred: a blur of the whole screen is drawn again each frame of the
+  motion, which made it stutter on a phone (#637).
+- **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large, with the date, which stay
+  where they are; under them a sentence of the day (the tasks open, the days written this week) with its numbers marked
+  in coral, the pages and the days in a row, on a field of the hour's colors deepened almost to black, standing still.
+  A sheet comes over it, with no labels over its parts: the week (the day over its weekday, a dot on the days written,
+  today filled; a day opens its page), the tasks open in one row, the collections two to a row, the pages written
+  lately. Scrolled up, the sheet covers the sentence, which moves a third as fast and fades, and goes under the date.
+- **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
+  icon, the desktop's: their block, their icon's ground, their icon and their name are all of that color in tones, so
+  that collections tell apart by their colors. A collection held (its block, or its name on its screen) opens its sheet:
+  its colors and its icons, kept at a tap, and its settings, its name and, for the journal, how its days are titled
+  (the days titled again when that changes).
+- **A page in a list** is its title with its collection's chip at the right, in the collection's color, and its first
+  words on a line with when it was written last at the right.
 - **Tasks** are every task not done, by page, ticked off where they are: written to the page at once, shown done
   until the screen is left so that a tick by mistake is taken back. A past day's tasks stay as they were.
+- **Icons** are duotone: a soft fill under the stroke, in the color of where they are (`mobile/icons.go`).
 - **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).
 - **Settings** choose light, dark or the system's look as three blocks (the system's bars follow), and sign in to sync.
 - **A page** is the whole screen to write in and nothing else: its collection, its title (asked for first on a new

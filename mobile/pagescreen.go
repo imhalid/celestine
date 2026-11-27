@@ -136,11 +136,7 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 		ui.Column(c).Grow(1).Basis(0).FillWidth().Padding(0, side+4).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(8, 0, 6, 0).Children(func() {
 				if p.Coll != nil {
-					tint := pal.accent
-					ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(5, 12).Radius(14).Background(tint.Alpha(0.14)).Children(func() {
-						ui.Box(c).Size(8, 8).Radius(4).Background(tint)
-						ui.Text(c, p.Coll.Name).FontSize(13).FontWeight(700).TextColor(tint)
-					})
+					collChip(c, p.Coll)
 				}
 				if ed.readOnly != "" {
 					ui.Icon(c, iconLock).Size(16, 16).TextColor(pal.faint)

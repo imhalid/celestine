@@ -1,21 +1,20 @@
 package main
 
 import (
-	"slices"
-
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The Library screen is the collections as blocks in tones of one hue, two to a row, the journal first; a collection's screen is
-// its pages as blocks under its name, the journal's newest day first.
+// The Library screen is the collections as blocks, each in the tones of its color, two to a row, the journal first; a
+// collection's screen is its pages as blocks under its name in its color (held, its sheet), the journal's newest day
+// first.
 
 func (a *app) libraryScreen(c *ui.Context) {
 	colls := a.orderedCollections()
 	ui.Column(c).Fill().Children(func() {
 		a.topBar(c, false, nil)
-		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
+		a.screenScroll(c).Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 140, 0).Children(func() {
 				bigTitle(c, locales.TabLibrary(), locales.LibraryCount(len(colls)))
 				ui.Column(c).FillWidth().Padding(0, side).Children(func() { a.collGrid(c, colls) })
@@ -35,27 +34,27 @@ func (a *app) collPages(k *library.Collection) []*library.Page {
 }
 
 func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
-	_, mark := tone(slices.Index(a.orderedCollections(), k))
+	t := tonesOf(k)
 	ps := a.collPages(k)
 	ui.Column(c).Fill().Children(func() {
-		a.topBar(c, true, func() {
-			if !k.Dynamic() && roundButton(c, "settings", iconGear, locales.CollSettings()) {
-				a.openCollSettings(k)
-			}
-		})
+		a.topBar(c, true, nil)
 		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
-				ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
-					glyph := iconFolder
-					if k.Journal {
-						glyph = iconCalendar
-					}
-					ui.Box(c).Size(44, 44).Radius(15).Background(mark).AlignItems(ui.Center).Justify(ui.Center).
-						Children(func() { ui.Icon(c, glyph).Size(22, 22).TextColor(pal.accentText) })
-					ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
+				// Its icon, how many pages and its name, in its color; held, its sheet.
+				head := ui.Column(c.Key("head")).FillWidth().Gap(gap).Radius(smallR).Role(ui.RoleButton).Label(k.Name)
+				pressable(head)
+				head.Children(func() {
+					ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
+						ui.Box(c).Size(46, 46).Radius(15).Background(t.mark).AlignItems(ui.Center).Justify(ui.Center).
+							Children(func() { ui.Icon(c, collGlyph(k)).Size(24, 24).TextColor(t.color) })
+						ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
+					})
+					ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).TextColor(t.ink).
+						Role(ui.RoleHeading).Level(1)
 				})
-				ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).
-					Role(ui.RoleHeading).Level(1)
+				if head.LongPressed() && !k.Dynamic() {
+					a.collSheet = k.Dir
+				}
 				if len(ps) == 0 {
 					ui.Text(c, locales.LibraryEmpty()).FontSize(16).TextColor(pal.muted).Wrap().Padding(8, 2)
 				}
