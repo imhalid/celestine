@@ -30,15 +30,15 @@ func main() {
 	}
 	registerFonts()
 	a := newApp(dir)
-	a.applyTheme() // the look the settings chose, from the first frame
 	if err := a.open(); err != nil {
 		a.openErr = locales.AppCannotOpen(err.Error())
 		log.Print(a.openErr)
 	}
 	mygo.App.WhenReady(func() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "Celestine", Width: 412, Height: 860, Content: ui.View(a.view)})
-		a.syncNow() // what the other devices wrote, as the app opens
-		go func() { // a frame every few minutes, whose syncTick makes the pass that is due
+		a.applyTheme() // sync Android system bars to the chosen appearance once the host is ready
+		a.syncNow()    // what the other devices wrote, as the app opens
+		go func() {    // a frame every few minutes, whose syncTick makes the pass that is due
 			for range time.Tick(time.Minute) {
 				a.update(func() {})
 			}
@@ -76,5 +76,6 @@ func (a *app) open() error {
 		a.markPristine()
 	}
 	a.lockDays()
+	a.showToday()
 	return nil
 }

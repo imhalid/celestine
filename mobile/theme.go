@@ -2,115 +2,297 @@ package main
 
 import (
 	_ "embed"
+	"image"
+	"image/color"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The phone's look is its own, not the desktop's: blocks of rounded paper on a warm ground by day, of soft ink on a
-// deep one by night; Geist for the words, heavy for what is big; a color for each collection; the blue of the icon
-// for what is chosen. Blocks press in a little under a finger, with their corners kept.
+// The One Day palette: organic cotton paper with subtle grain that breathes gently with the hour of the day —
+// cool moonlit linen at midnight, blush sunrise at dawn, crisp cotton by morning, golden parchment at sunset —
+// paired with deep atmospheric charcoals in dark mode.
 
 //go:embed fonts/Geist.ttf
 var geistFont []byte
 
-// fontFamily is the app's typeface.
 const fontFamily = "Geist"
 
-// registerFonts gives the text engine the app's typeface. It is called from main, not at init: on Android the text
-// engine is the host's, which is not there while the library loads.
 func registerFonts() {
 	if err := ui.RegisterFont(geistFont, fontFamily); err != nil {
 		log.Printf("font %s: %v", fontFamily, err)
 	}
 }
 
-// palette is one look's colors.
 type palette struct {
-	bg, block, raised, line, text, muted, faint, accent, accentText, danger ui.Color
+	bg         ui.Color // time-of-day living paper canvas
+	sheet      ui.Color // elevated sheet surface
+	surface    ui.Color // recessed pills and inputs
+	raised     ui.Color // pressed surface
+	line       ui.Color // hairline tracks and dividers
+	text       ui.Color // primary editorial ink
+	muted      ui.Color // secondary ink
+	faint      ui.Color // whisper ink
+	accent     ui.Color // living coral tuned to the hour
+	accentSoft ui.Color // soft coral wash
+	accentText ui.Color // foreground on accent
+	danger     ui.Color // sync errors
+	toastBg    ui.Color // dark toast pill background
+	toastText  ui.Color // dark toast pill ink
+	scrim      ui.Color // sheet backdrop dimming
+	grainTint  ui.Color // organic paper grain overlay tint
+}
+
+type dayTone struct {
+	hour   float32 // 0..24
+	bg     ui.Color
+	accent ui.Color
 }
 
 var (
-	lightPalette = palette{
-		bg: ui.Hex("#F2EFE9"), block: ui.Hex("#FFFFFF"), raised: ui.Hex("#E9E5DD"), line: ui.Hex("#E4DFD6"),
-		text: ui.Hex("#17161A"), muted: ui.Hex("#6F6B64"), faint: ui.Hex("#A39E95"), accent: ui.Hex("#3D6EE8"),
-		accentText: ui.Hex("#FFFFFF"), danger: ui.Hex("#D1453B"),
+	lightDayTones = []dayTone{
+		{0.0, ui.Hex("#EFEEE8"), ui.Hex("#C85D4E")},  // midnight moonlit linen
+		{6.0, ui.Hex("#FBF1E6"), ui.Hex("#E06646")},  // dawn sunrise blush
+		{10.0, ui.Hex("#FCF9F2"), ui.Hex("#DF5A43")}, // morning crisp cotton
+		{14.5, ui.Hex("#F8F3E6"), ui.Hex("#D9583E")}, // afternoon warm cream
+		{18.5, ui.Hex("#F5E8D4"), ui.Hex("#CE5338")}, // golden hour parchment
+		{21.5, ui.Hex("#EFEDE5"), ui.Hex("#CA5A4A")}, // evening quiet stone
 	}
-	darkPalette = palette{
-		bg: ui.Hex("#0D0E11"), block: ui.Hex("#18191E"), raised: ui.Hex("#22242A"), line: ui.Hex("#26282E"),
-		text: ui.Hex("#EEEBE6"), muted: ui.Hex("#9C988F"), faint: ui.Hex("#66635D"), accent: ui.Hex("#86A6FF"),
-		accentText: ui.Hex("#0D1220"), danger: ui.Hex("#FF7B6E"),
+	darkDayTones = []dayTone{
+		{0.0, ui.Hex("#0D0F15"), ui.Hex("#E87C6A")},  // midnight indigo inkstone
+		{6.0, ui.Hex("#171316"), ui.Hex("#F2846A")},  // dawn warm plum-charcoal
+		{10.0, ui.Hex("#121316"), ui.Hex("#F07A65")}, // morning crisp charcoal
+		{14.5, ui.Hex("#151412"), ui.Hex("#ED7B5E")}, // afternoon warm graphite
+		{18.5, ui.Hex("#1A1511"), ui.Hex("#F2855C")}, // golden hour espresso
+		{21.5, ui.Hex("#101217"), ui.Hex("#EA7B68")}, // evening deep slate
 	}
 )
 
-// pal is the palette of the frame being built, set with its theme; dark says which.
+// dayPhaseName returns the quiet atmospheric name for the hour of now.
+func dayPhaseName(now time.Time) string {
+	switch h := now.Local().Hour(); {
+	case h >= 5 && h < 8:
+		return locales.DayDawn()
+	case h >= 8 && h < 12:
+		return locales.DayMorning()
+	case h >= 12 && h < 17:
+		return locales.DayAfternoon()
+	case h >= 17 && h < 20:
+		return locales.DaySunset()
+	case h >= 20 && h < 23:
+		return locales.DayEvening()
+	default:
+		return locales.DayMidnight()
+	}
+}
+
+// paperToneAt smoothly interpolates the paper background and accent color for time now.
+func paperToneAt(now time.Time, isDark bool) (bg, accent ui.Color) {
+	stops := lightDayTones
+	if isDark {
+		stops = darkDayTones
+	}
+	t := now.Local()
+	h := float32(t.Hour()) + float32(t.Minute())/60.0
+	n := len(stops)
+	for i := 0; i < n; i++ {
+		cur := stops[i]
+		next := stops[(i+1)%n]
+		h0, h1 := cur.hour, next.hour
+		if h1 <= h0 {
+			h1 += 24
+		}
+		hh := h
+		if hh < h0 {
+			hh += 24
+		}
+		if hh >= h0 && hh <= h1 {
+			k := (hh - h0) / (h1 - h0)
+			return cur.bg.MixOklab(next.bg, k), cur.accent.MixOklab(next.accent, k)
+		}
+	}
+	return stops[0].bg, stops[0].accent
+}
+
+// paletteAt constructs the complete cohesive palette for time now and appearance isDark.
+func paletteAt(now time.Time, isDark bool) palette {
+	bg, accent := paperToneAt(now, isDark)
+	if isDark {
+		return palette{
+			bg:         bg,
+			sheet:      bg.MixOklab(ui.Hex("#FFFFFF"), 0.055),
+			surface:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.10),
+			raised:     bg.MixOklab(ui.Hex("#FFFFFF"), 0.15),
+			line:       bg.MixOklab(ui.Hex("#FFFFFF"), 0.13),
+			text:       ui.Hex("#F0ECE4"),
+			muted:      ui.Hex("#9B968D"),
+			faint:      ui.Hex("#625E57"),
+			accent:     accent,
+			accentSoft: accent.MixOklab(bg, 0.78),
+			accentText: ui.Hex("#141010"),
+			danger:     ui.Hex("#FF7A6D"),
+			toastBg:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.14),
+			toastText:  ui.Hex("#F2EFE9"),
+			scrim:      ui.Hex("#050608"),
+			grainTint:  ui.Hex("#F5EFE4").Alpha(0.055),
+		}
+	}
+	return palette{
+		bg:         bg,
+		sheet:      bg.MixOklab(ui.Hex("#FFFFFF"), 0.65),
+		surface:    bg.MixOklab(ui.Hex("#1A1714"), 0.05),
+		raised:     bg.MixOklab(ui.Hex("#1A1714"), 0.095),
+		line:       bg.MixOklab(ui.Hex("#1A1714"), 0.11),
+		text:       ui.Hex("#191716"),
+		muted:      ui.Hex("#6B645B"),
+		faint:      ui.Hex("#A29A8E"),
+		accent:     accent,
+		accentSoft: accent.MixOklab(bg, 0.85),
+		accentText: ui.Hex("#FFFFFF"),
+		danger:     ui.Hex("#C93E36"),
+		toastBg:    ui.Hex("#1A191D"),
+		toastText:  ui.Hex("#FAF7F2"),
+		scrim:      ui.Hex("#141210"),
+		grainTint:  ui.Hex("#3E3122").Alpha(0.068),
+	}
+}
+
 var (
-	pal  = lightPalette
+	pal  = paletteAt(time.Date(2026, 1, 1, 10, 0, 0, 0, time.Local), false)
 	dark bool
 )
 
-// tints are the colors of collections that were given none, in turn.
-var tints = []ui.Color{ui.Hex("#5B8DEF"), ui.Hex("#E9825B"), ui.Hex("#4FB38A"), ui.Hex("#B07BE0"), ui.Hex("#E3B33F"),
-	ui.Hex("#E26D9A"), ui.Hex("#3FB3C4")}
-
-// themeOf is the window's theme in the light or the dark look.
-func themeOf(isDark bool) *ui.Theme {
+func themeOf(now time.Time, isDark bool) *ui.Theme {
 	t := ui.LightTheme()
-	pal, dark = lightPalette, isDark
 	if isDark {
 		t = ui.DarkTheme()
-		pal = darkPalette
 	}
+	pal, dark = paletteAt(now, isDark), isDark
 	p := pal
 	t.Font, t.FontSize = fontFamily, 16
-	t.Background, t.Surface, t.Border = p.bg, p.block, p.line
-	t.SurfaceHover, t.SurfacePressed = p.raised, p.raised
+	t.Background, t.Surface, t.Border = p.bg, p.sheet, p.line
+	t.SurfaceHover, t.SurfacePressed = p.surface, p.raised
 	t.Text, t.TextMuted = p.text, p.muted
 	t.Accent, t.AccentHover, t.AccentPressed, t.AccentText, t.InactiveAccent = p.accent, p.accent, p.accent, p.accentText, p.accent
 	t.Danger = p.danger
-	t.Selection = p.accent.Alpha(0.25)
-	t.Focus = p.accent.Alpha(0.5)
+	t.Selection = p.accent.Alpha(0.22)
+	t.Focus = p.accent.Alpha(0.45)
 	return t
 }
 
-// textTheme is how a page's text looks in the editor: room between paragraphs, links and the caret in the accent.
 func textTheme() *richtext.Theme {
-	return &richtext.Theme{Text: pal.text, Muted: pal.muted, Link: pal.accent, Caret: pal.accent,
-		Selection: pal.accent.Alpha(0.25), CodeBackground: pal.raised, CodeBlockBackground: pal.raised, ParagraphSpacing: 0.55}
+	return &richtext.Theme{
+		Text:                pal.text,
+		Muted:               pal.muted,
+		Link:                pal.accent,
+		Caret:               pal.accent,
+		Selection:           pal.accent.Alpha(0.22),
+		CodeBackground:      pal.surface,
+		CodeBlockBackground: pal.surface,
+		ParagraphSpacing:    0.65,
+	}
 }
 
-// Block sizes.
-const (
-	side    = 18 // the room at a screen's sides
-	gap     = 12 // between two blocks
-	blockR  = 26 // a block's corners
-	smallR  = 18 // a small block's
-	pressIn = 0.965
+// Organic tileable cotton-paper grain bitmap, synthesized once lazily on first frame for 60 FPS GPU tiling.
+var (
+	grainOnce sync.Once
+	grainBmp  *ui.Bitmap
 )
 
-// block is a rounded block of the screen, in color bg, that presses in under a finger.
-func block(c *ui.Context, key any, bg ui.Color, r float32) ui.Element {
-	e := ui.Column(c.Key(key)).Radius(r).Background(bg)
-	return pressable(e)
+const grainSize = 192
+
+func paperGrainBitmap() *ui.Bitmap {
+	grainOnce.Do(func() {
+		img := image.NewNRGBA(image.Rect(0, 0, grainSize, grainSize))
+		// Deterministic xorshift32 for fine speckle + soft cotton fiber weave.
+		var state uint32 = 0x5EED1927
+		next := func() uint32 {
+			state ^= state << 13
+			state ^= state >> 17
+			state ^= state << 5
+			return state
+		}
+		// Subtle horizontal & vertical fiber bands so it reads as tactile paper, not harsh digital static.
+		rowFiber := make([]int, grainSize)
+		colFiber := make([]int, grainSize)
+		for i := 0; i < grainSize; i++ {
+			rowFiber[i] = int(next()%34) - 17
+			colFiber[i] = int(next()%24) - 12
+		}
+		for y := 0; y < grainSize; y++ {
+			rf := rowFiber[y]
+			for x := 0; x < grainSize; x++ {
+				// Triangular-ish fine grain distribution (sum of two uniform draws) for softer analog tooth.
+				n1 := int(next() & 0x7F)
+				n2 := int(next() & 0x7F)
+				v := n1 + n2 + rf + colFiber[x]
+				if v < 0 {
+					v = 0
+				} else if v > 255 {
+					v = 255
+				}
+				img.SetNRGBA(x, y, color.NRGBA{R: 255, G: 255, B: 255, A: uint8(v)})
+			}
+		}
+		grainBmp = ui.NewBitmap(img)
+	})
+	return grainBmp
 }
 
-// pressable has e press in a little while a finger is on it, its corners kept.
+// drawPaperGrain tiles the subtle cotton-paper texture cleanly across rect r using hardware texture sampling.
+func drawPaperGrain(p *ui.Painter, r ui.Rect) {
+	bmp := paperGrainBitmap()
+	if bmp == nil || r.W <= 0 || r.H <= 0 {
+		return
+	}
+	const tile = float32(grainSize)
+	srcFull := ui.Rect{X: 0, Y: 0, W: tile, H: tile}
+	opt := ui.ImageOptions{Tint: pal.grainTint}
+	for y := r.Y; y < r.Y+r.H; y += tile {
+		h := min(tile, r.Y+r.H-y)
+		for x := r.X; x < r.X+r.W; x += tile {
+			w := min(tile, r.X+r.W-x)
+			src := srcFull
+			if w < tile || h < tile {
+				src = ui.Rect{X: 0, Y: 0, W: w, H: h}
+			}
+			p.ImageRegion(bmp, src, ui.Rect{X: x, Y: y, W: w, H: h}, opt)
+		}
+	}
+}
+
+const (
+	side     = 26
+	sheetPad = 20
+	sheetR   = 28
+	pressIn  = 0.965
+)
+
+func sheetAnim() ui.Animation {
+	return ui.Animation{Spring: ui.SpringOptions{Duration: 280 * time.Millisecond, Bounce: 0.04}}
+}
+
+func fadeAnim() ui.Animation {
+	return ui.Animation{Duration: 190 * time.Millisecond, Ease: ui.EaseOut}
+}
+
 func pressable(e ui.Element) ui.Element {
 	target := float32(1)
 	if e.Pressed() {
 		target = pressIn
 	}
-	s := e.Animate("press", target, 140*time.Millisecond)
+	s := e.Animate("press", target, 110*time.Millisecond)
 	return e.Scale(s, s)
 }
 
-// shadow is the soft shadow under what floats.
 func shadow(e ui.Element) ui.Element {
-	a := float32(0.16)
+	a := float32(0.14)
 	if dark {
-		a = 0.5
+		a = 0.48
 	}
-	return e.Shadow(0, 10, 28, -6, ui.RGB(0, 0, 0).Alpha(a))
+	return e.Shadow(0, 8, 28, -6, ui.RGB(0, 0, 0).Alpha(a))
 }

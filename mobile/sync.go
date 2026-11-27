@@ -144,8 +144,8 @@ func (a *app) signIn() {
 			a.sy.pass = ""
 			a.settings.AccountUser = account.Name(email)
 			a.saveSettings()
-			if a.router.Path() == pathSignIn {
-				a.router.Back()
+			if a.sheet == sheetSignIn {
+				a.sheet = sheetSettings
 			}
 			a.syncNow()
 		})
@@ -262,21 +262,17 @@ func (a *app) syncTick(now time.Time) {
 	}
 }
 
-// reload reads the library again after a pass brought pages, the page being written kept by its ID.
+// reload reads the library again after a pass brought pages, keeping Today's paper fresh.
 func (a *app) reload() {
 	lib, err := library.OpenLibraryIn(a.lib.FS, a.lib.Root)
 	if err != nil {
 		return
 	}
 	a.lib = lib
-	clear(plains)
-	clear(mds)
-	if a.ed.id != "" && !a.ed.dirty { // what came is shown in the page being read
-		if p := a.lib.PageByID(a.ed.id); p != nil {
-			a.ed = a.stateOf(p)
-		}
-	}
 	a.lockDays()
+	if !a.ed.dirty {
+		a.showToday()
+	}
 }
 
 // update runs fn on the window's thread, as the next frame is built; at once where there is no window (a test).

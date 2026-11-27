@@ -74,7 +74,7 @@ func startOfDay(t time.Time) time.Time {
 }
 
 // todayPage is today's page of the journal, or nil when it is not written yet.
-func (a *app) todayPage() *library.Page { return a.dayPage(startOfDay(time.Now())) }
+func (a *app) todayPage() *library.Page { return a.dayPage(startOfDay(a.now())) }
 
 // dayPage is the journal's page of day d (a midnight), or nil when it has none.
 func (a *app) dayPage(d time.Time) *library.Page {
@@ -91,23 +91,25 @@ func (a *app) dayPage(d time.Time) *library.Page {
 }
 
 // makeToday makes today's page, as the desktop makes a day.
-func (a *app) makeToday() (*library.Page, error) {
+func (a *app) makeToday() (*library.Page, error) { return a.makeDay(a.now()) }
+
+// makeDay creates the journal page for day d, matching desktop's journal rules.
+func (a *app) makeDay(d time.Time) (*library.Page, error) {
 	c, err := a.journal()
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
 	c.Creating = true
-	p, err := c.NewPage(nil, formatDay(c.JournalFormat, now))
+	p, err := c.NewPage(nil, formatDay(c.JournalFormat, d))
 	c.Creating = false
 	if err != nil {
 		return nil, err
 	}
-	p.Created = now.Truncate(time.Second)
+	p.Created = d.Truncate(time.Second)
 	if p.Props == nil {
 		p.Props = map[string]string{}
 	}
-	p.Props[journalDayKey] = startOfDay(now).Format("2006-01-02")
+	p.Props[journalDayKey] = startOfDay(d).Format("2006-01-02")
 	return p, p.Save("")
 }
 
@@ -117,7 +119,7 @@ func (a *app) lockDays() {
 	if c == nil {
 		return
 	}
-	today := startOfDay(time.Now())
+	today := startOfDay(a.now())
 	why := locales.PageLocked()
 	for _, p := range c.All() {
 		p.Locked = ""
