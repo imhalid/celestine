@@ -26,7 +26,12 @@ type editorState struct {
 	dirty    bool               // typed since it was saved
 	saveAt   time.Time          // when it is saved, the typing having stopped
 	writing  bool               // its text has the keyboard: the bar of formats shows
+	opened   time.Time          // when its screen came, its text shown once it has landed
 }
+
+// landing is how long a page's screen takes to come before its text is shown: MyGo's rich text editor is costly to
+// draw while it moves, which made a page stutter as it opened (#650); at rest it draws fast.
+const landing = 380 * time.Millisecond
 
 // saveQuiet is how long after the last key the page is saved.
 const saveQuiet = 800 * time.Millisecond
@@ -105,6 +110,7 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 	case a.router.Path() == pagePath(p): // the screen shown: the page being written
 		a.flush()
 		a.ed = a.stateOf(p)
+		a.ed.opened = c.Now()
 	default: // a screen sliding away, or under the one shown: drawn as its file has it
 		tmp := a.stateOf(p)
 		ed, live = &tmp, false
@@ -115,7 +121,7 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 	day := a.journalDay(p)
 	screen := ui.Column(c.Key("page")).Fill().Background(pal.bg)
 	if !ed.writing { // its block in a list grows into it (#649); not while the keyboard is up, so that it resizes at once
-		screen.Transition(pageFlight(p.ID, true))
+		screen.Transition(pageFlight(p.ID))
 	}
 	screen.Children(func() {
 		a.topBar(c, true, func() {
@@ -162,6 +168,14 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 			if ed.readOnly != "" {
 				ui.Text(c, ed.readOnly).FontSize(14).LineHeight(1.4).TextColor(pal.muted).Wrap().Padding(12, 16).Radius(16).
 					Background(pal.raised).Margin(0, 0, 14, 0)
+			}
+			// Its text once it has landed, and not as it goes: in the meantime its room, empty.
+			if !live || c.Now().Sub(ed.opened) < landing {
+				if live {
+					c.AnimationFrame()
+				}
+				ui.Box(c.Key("body-room")).Grow(1).Basis(0).FillWidth()
+				return
 			}
 			body := richtext.EditorBase(c.Key("body:"+p.ID), ed.doc, richtext.EditorOptions{
 				Label: titleOf(p), Placeholder: locales.PagePlaceholder(), ReadOnly: ed.readOnly != "" || !live,

@@ -56,7 +56,10 @@ in a little under a finger, their corners kept.
   screens cross-fade (MyGo's Match transition), and back into its place (#646).
   The other ways in move alike (#649): a page's block grows into its page, the page scaled out of it, and back; a place
   of the menu flies into its screen's title, the same word; a collection's card on home flies to its card in the
-  Library. Not while the keyboard is up, so that a page resizes at once.
+  Library. Not while the keyboard is up, so that a page resizes at once. A page's text is shown once the page has landed, and not
+  as it goes: MyGo's rich text editor is costly to draw while it moves (on a Galaxy S21 the app built each frame in
+  under 2 ms and Go sat all but idle, the time being the GPU's), and a page scaled as a picture on its way was the
+  rest of it, so it is laid out at each size instead (#650).
 - **Haptics:** a collection held lands with a medium tap, a task ticked and the + with a light one, a color or an icon
   chosen with a selection tick; the pull that opens the menu has MyGo's own.
 - **A page in a list** is its title with its collection's chip at the right, in the collection's color, and its first

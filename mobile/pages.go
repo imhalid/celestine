@@ -167,7 +167,7 @@ func (a *app) pageListUnder(c *ui.Context, ps []*library.Page, showColl, under b
 // the first words of it on a line with when it was written last at the right.
 func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool, r corners) ui.Element {
 	b := block(c, p, pal.block, outerR).Radius(r[0], r[1], r[2], r[3]).FillWidth().Padding(16, 18).Gap(8).
-		Role(ui.RoleButton).Label(titleOf(p)).Transition(pageFlight(p.ID, false))
+		Role(ui.RoleButton).Label(titleOf(p)).Transition(pageFlight(p.ID))
 	b.Children(func() {
 		ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, titleOf(p)).FontSize(17).FontWeight(700).MaxLines(1).Grow(1).MinWidth(0)

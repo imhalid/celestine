@@ -372,10 +372,11 @@ func cardFlight(k *library.Collection) ui.ElementTransition {
 // pageMatch is the identity a page's block in a list shares with its page's screen, which comes out of it.
 type pageMatch struct{ id string }
 
-// pageFlight is how a page's block grows into its page and back (#649): the page's screen, scaled from its own size,
-// comes out of the block.
-func pageFlight(id string, scale bool) ui.ElementTransition {
-	return ui.ElementTransition{Match: pageMatch{id}, Fly: true, ScaleContent: scale,
+// pageFlight is how a page's block grows into its page and back (#649): the page's screen comes out of the block,
+// laid out at each size on the way rather than scaled, which drew it anew as a picture each frame and stuttered
+// (#650).
+func pageFlight(id string) ui.ElementTransition {
+	return ui.ElementTransition{Match: pageMatch{id}, Fly: true,
 		Animation: &ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.08}}}
 }
 
