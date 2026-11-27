@@ -125,10 +125,43 @@ func titleOf(p *library.Page) string {
 	return p.Title
 }
 
+// Blocks side by side make a group (#647): the gap between them small, the corners where two meet small, the
+// group's outer corners large.
+const (
+	groupGap = 5
+	outerR   = smallR + 4
+	innerR   = 7
+)
+
+// corners are a block's radii: top left, top right, bottom right, bottom left.
+type corners [4]float32
+
+// groupCorners are the radii of a block with neighbours above, at its right, below and at its left as the flags say:
+// a corner between neighbours is small, one at the group's edge large.
+func groupCorners(up, right, down, left bool) corners {
+	r := func(a, b bool) float32 {
+		if a || b {
+			return innerR
+		}
+		return outerR
+	}
+	return corners{r(up, left), r(up, right), r(down, right), r(down, left)}
+}
+
+// pageList is pages ps as a group of blocks, each its collection's chip when showColl.
+func (a *app) pageList(c *ui.Context, ps []*library.Page, showColl bool) {
+	ui.Column(c.Key("pages")).FillWidth().Gap(groupGap).Children(func() {
+		for i, p := range ps {
+			a.pageBlock(c, p, showColl, groupCorners(i > 0, false, i < len(ps)-1, false))
+		}
+	})
+}
+
 // pageBlock is page p in a list: its title, its collection as a chip in the collection's color at the top right, and
 // the first words of it on a line with when it was written last at the right.
-func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool) ui.Element {
-	b := block(c, p, pal.block, smallR+4).FillWidth().Padding(16, 18).Gap(8).Role(ui.RoleButton).Label(titleOf(p))
+func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool, r corners) ui.Element {
+	b := block(c, p, pal.block, outerR).Radius(r[0], r[1], r[2], r[3]).FillWidth().Padding(16, 18).Gap(8).
+		Role(ui.RoleButton).Label(titleOf(p))
 	b.Children(func() {
 		ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, titleOf(p)).FontSize(17).FontWeight(700).MaxLines(1).Grow(1).MinWidth(0)

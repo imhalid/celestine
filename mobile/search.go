@@ -77,9 +77,11 @@ func (a *app) searchScreen(c *ui.Context) {
 				if len(res) == 0 {
 					ui.Text(c, locales.SearchNone()).FontSize(16).TextColor(pal.muted).Padding(4, 4)
 				}
-				for _, f := range res {
-					a.pageBlock(c, f.p, true)
+				ps := make([]*library.Page, len(res))
+				for i, f := range res {
+					ps[i] = f.p
 				}
+				a.pageList(c, ps, true)
 			})
 		})
 	})

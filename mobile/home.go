@@ -252,9 +252,7 @@ func (a *app) weekScreen(c *ui.Context) {
 				if len(ps) == 0 {
 					ui.Text(c, locales.WeekNone()).FontSize(16).TextColor(pal.muted).Wrap()
 				}
-				for _, p := range ps {
-					a.pageBlock(c, p, true)
-				}
+				a.pageList(c, ps, true)
 			})
 		})
 	})
@@ -293,9 +291,7 @@ func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	sheet.Children(func() {
 		ui.Box(c).FillWidth().Height(sheetTop - gap).Children(func() { sheetHandle(c) })
 		a.collGrid(c, a.orderedCollections())
-		for _, p := range a.recentPages(8) {
-			a.pageBlock(c, p, true)
-		}
+		a.pageList(c, a.recentPages(8), true)
 	})
 }
 
@@ -328,13 +324,16 @@ func (a *app) streak(now time.Time) int {
 	return n
 }
 
-// collGrid lays the collections out two to a row, going down, each in the tones of its color.
+// collGrid lays the collections out two to a row, going down, each in the tones of its color, as a group (#647).
 func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
-	ui.Column(c.Key("grid")).FillWidth().Gap(gap).Children(func() {
+	at := func(i int) bool { return i >= 0 && i < len(colls) }
+	ui.Column(c.Key("grid")).FillWidth().Gap(groupGap).Children(func() {
 		for i := 0; i < len(colls); i += 2 {
-			ui.Row(c.Key(i)).FillWidth().Gap(gap).Children(func() {
-				for _, k := range colls[i:min(i+2, len(colls))] {
-					a.collTile(c, k).Grow(1).Basis(0)
+			ui.Row(c.Key(i)).FillWidth().Gap(groupGap).Children(func() {
+				for j := i; j < min(i+2, len(colls)); j++ {
+					left := j%2 == 1
+					right := j%2 == 0 && at(j+1)
+					a.collTile(c, colls[j], groupCorners(at(j-2), right, at(j+2), left)).Grow(1).Basis(0)
 				}
 				if i+1 >= len(colls) {
 					ui.Box(c).Grow(1).Basis(0)
@@ -346,9 +345,9 @@ func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 
 // collTile is a collection as a card of its color: its icon and how many pages, its name large under them, in its
 // deep tone. Held, it rises out of its place into its sheet's preview, and its place is left empty.
-func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
+func (a *app) collTile(c *ui.Context, k *library.Collection, r corners) ui.Element {
 	t := tonesOf(k)
-	b := block(c, k, t.card, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
+	b := block(c, k, t.card, outerR).Radius(r[0], r[1], r[2], r[3]).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
 		Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
 	if a.collSheet == k.Dir || (a.cs.dir == k.Dir && a.csLifted) {
 		b.Opacity(0)

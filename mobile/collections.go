@@ -56,9 +56,7 @@ func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 				if len(ps) == 0 {
 					ui.Text(c, locales.LibraryEmpty()).FontSize(16).TextColor(pal.muted).Wrap().Padding(8, 2)
 				}
-				for _, p := range ps {
-					a.pageBlock(c, p, false)
-				}
+				a.pageList(c, ps, false)
 			})
 		})
 	})
