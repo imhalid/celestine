@@ -50,7 +50,8 @@ in a little under a finger, their corners kept.
   settings, its name (kept as the sheet closes) and, for the journal, how its days are titled (the days titled again
   when that changes). A day of the journal shows as its date alone.
 - **Blocks side by side group** (#647): the collections' cards and the lists of pages stand a few DIPs apart, the
-  corners where two meet small and the group's outer corners large.
+  corners where two meet small and the group's outer corners large; a collection's head card is one group with its
+  pages.
 - **A card grows into its screen.** A collection's card, tapped, flies into its screen's head, the card larger, as the
   screens cross-fade (MyGo's Match transition), and back into its place (#646).
 - **Haptics:** a collection held lands with a medium tap, a task ticked and the + with a light one, a color or an icon

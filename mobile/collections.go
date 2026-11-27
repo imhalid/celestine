@@ -44,19 +44,21 @@ func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 	ui.Column(c).Fill().Children(func() {
 		a.topBar(c, true, nil)
 		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
+			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(groupGap).Children(func() {
 				// Its head is its card, larger: the card on home and in the Library grows into it (#646). Held, its sheet.
+				// With its pages under it, it is one group with them (#647).
+				r := groupCorners(false, false, len(ps) > 0, false)
 				head := ui.Column(c.Key("head")).FillWidth().Height(168).Padding(20).Justify(ui.SpaceBetween).
-					Radius(smallR + 8).Background(t.card).Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
+					Radius(r[0], r[1], r[2], r[3]).Background(t.card).Role(ui.RoleButton).Label(k.Name).Transition(cardFlight(k))
 				pressable(head)
 				head.Children(func() { collCard(c, k, t, 1.35) })
 				if head.LongPressed() {
 					a.holdCollection(k, head.Bounds())
 				}
 				if len(ps) == 0 {
-					ui.Text(c, locales.LibraryEmpty()).FontSize(16).TextColor(pal.muted).Wrap().Padding(8, 2)
+					ui.Text(c, locales.LibraryEmpty()).FontSize(16).TextColor(pal.muted).Wrap().Padding(12, 2)
 				}
-				a.pageList(c, ps, false)
+				a.pageListUnder(c, ps, false, true)
 			})
 		})
 	})

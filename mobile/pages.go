@@ -150,9 +150,15 @@ func groupCorners(up, right, down, left bool) corners {
 
 // pageList is pages ps as a group of blocks, each its collection's chip when showColl.
 func (a *app) pageList(c *ui.Context, ps []*library.Page, showColl bool) {
+	a.pageListUnder(c, ps, showColl, false)
+}
+
+// pageListUnder is pageList, its first block joined to a block above it when under is set, as a collection's pages
+// to its head.
+func (a *app) pageListUnder(c *ui.Context, ps []*library.Page, showColl, under bool) {
 	ui.Column(c.Key("pages")).FillWidth().Gap(groupGap).Children(func() {
 		for i, p := range ps {
-			a.pageBlock(c, p, showColl, groupCorners(i > 0, false, i < len(ps)-1, false))
+			a.pageBlock(c, p, showColl, groupCorners(i > 0 || under, false, i < len(ps)-1, false))
 		}
 	})
 }
