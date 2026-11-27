@@ -9,8 +9,8 @@ import (
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The home screen is blocks: the day on its drifting field, today's page, the tasks open and the days written in a
-// row, the collections in a row that scrolls sideways, and the pages written lately.
+// The home screen is blocks: the day and its week on the field of the hour's colors, today's page, the tasks open in
+// one row, the collections in a row that scrolls sideways, and the pages written lately.
 
 // greeting is what the screen says at the hour of now.
 func greeting(now time.Time) string {
@@ -33,10 +33,7 @@ func (a *app) homeScreen(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
 				a.heroBlock(c, now)
 				a.todayBlock(c)
-				ui.Row(c).FillWidth().Gap(gap).Children(func() {
-					a.tasksBlock(c)
-					a.streakBlock(c, now)
-				})
+				a.tasksBlock(c)
 				a.collectionsStrip(c)
 				recent := a.recentPages(8)
 				if len(recent) > 0 {
@@ -55,23 +52,76 @@ func label(c *ui.Context, s string) {
 	ui.Text(c, s).FontSize(14).FontWeight(650).TextColor(pal.muted).Padding(14, 4, 0, 4)
 }
 
-// heroBlock is the day, large, on the drifting field.
+// heroBlock is the day, large, and its week on the field of the hour's colors, the days in a row the journal has
+// words beside the greeting.
 func (a *app) heroBlock(c *ui.Context, now time.Time) {
-	hero := ui.Column(c.Key("hero")).FillWidth().Height(210).Radius(blockR).Padding(22).Justify(ui.End).Clip()
-	heroField(c, hero, blockR)
-	ink := ui.Hex("#2A1E1A")
-	if dark {
-		ink = ui.Hex("#F4EEE8")
-	}
+	s := skyAt(now, dark)
+	ink := s.ink()
+	hero := ui.Column(c.Key("hero")).FillWidth().Radius(blockR).Padding(20, 18, 16, 18).Gap(16).Clip()
+	heroField(c, hero, s, blockR)
 	hero.Children(func() {
-		ui.Text(c, greeting(now)).FontSize(16).FontWeight(550).TextColor(ink.Alpha(0.75))
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+			ui.Text(c, greeting(now)).FontSize(16).FontWeight(550).TextColor(ink.Alpha(0.8)).Grow(1)
+			if n := a.streak(now); n > 0 {
+				ui.Row(c).Gap(5).AlignItems(ui.Center).Padding(6, 11).Radius(14).Background(ink.Alpha(0.1)).
+					Label(strconv.Itoa(n) + " " + locales.HomeStreak(n)).Children(func() {
+					ui.Icon(c, iconFlame).Size(15, 15).TextColor(ink)
+					ui.Text(c, strconv.Itoa(n)).FontSize(14).FontWeight(700).TextColor(ink)
+				})
+			}
+		})
 		ui.Row(c).Gap(14).AlignItems(ui.End).Children(func() {
-			ui.Text(c, strconv.Itoa(now.Day())).FontSize(84).FontWeight(800).LineHeight(0.95).TextColor(ink)
-			ui.Column(c).Padding(0, 0, 10, 0).Children(func() {
+			ui.Text(c, strconv.Itoa(now.Day())).FontSize(76).FontWeight(800).LineHeight(0.95).TextColor(ink)
+			ui.Column(c).Padding(0, 0, 8, 0).Children(func() {
 				ui.Text(c, formatDay("dddd", now)).FontSize(22).FontWeight(700).TextColor(ink)
 				ui.Text(c, formatDay("MMMM YYYY", now)).FontSize(16).FontWeight(500).TextColor(ink.Alpha(0.7))
 			})
 		})
+		a.weekStrip(c, now, s)
+	})
+}
+
+// weekStrip is the seven days up to today: those the journal has words in filled, today ringed; a day that has a
+// page opens it.
+func (a *app) weekStrip(c *ui.Context, now time.Time, s sky) {
+	ink := s.ink()
+	today := startOfDay(now)
+	ui.Row(c).FillWidth().Justify(ui.SpaceBetween).Children(func() {
+		for i := 6; i >= 0; i-- {
+			d := today.AddDate(0, 0, -i)
+			p := a.dayPage(d)
+			written := p != nil && plainOf(p) != ""
+			cell := pressable(ui.Column(c.Key(d)).AlignItems(ui.Center).Gap(6).Padding(4, 2).Radius(14).
+				Role(ui.RoleButton).Label(formatDay("dddd D MMMM", d)))
+			cell.Children(func() {
+				ui.Text(c, formatDay("ddd", d)).FontSize(12).FontWeight(600).TextColor(ink.Alpha(0.65))
+				dot := ui.Box(c).Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center)
+				num := ink
+				switch {
+				case written:
+					dot.Background(ink)
+					num = s.cols[0] // filled: the number in the field's ground
+				case i == 0:
+					dot.Border(2, ink.Alpha(0.85))
+				default:
+					dot.Background(ink.Alpha(0.08))
+				}
+				if written && i == 0 {
+					dot.Border(2, ink)
+				}
+				dot.Children(func() {
+					ui.Text(c, strconv.Itoa(d.Day())).FontSize(14).FontWeight(700).TextColor(num)
+				})
+			})
+			if cell.Clicked() {
+				switch {
+				case p != nil:
+					a.openPage(p)
+				case i == 0:
+					a.newNote(a.journalColl())
+				}
+			}
+		}
 	})
 }
 
@@ -102,41 +152,21 @@ func (a *app) todayBlock(c *ui.Context) {
 	}
 }
 
-// tasksBlock is how many tasks are open in the library, which opens them.
+// tasksBlock is one row: how many tasks are open in the library, which opens them.
 func (a *app) tasksBlock(c *ui.Context) {
 	n := len(a.openTasks())
 	tint := tints[2]
-	b := block(c, "tasks", tint.Alpha(0.16), blockR).Grow(1).Basis(0).Height(150).Padding(18).Justify(ui.SpaceBetween).
-		Role(ui.RoleButton).Label(locales.NavTasks())
+	b := block(c, "tasks", pal.block, blockR).FillWidth().Padding(14, 16).Role(ui.RoleButton).Label(locales.NavTasks())
 	b.Children(func() {
-		ui.Icon(c, iconTasks).Size(26, 26).TextColor(tint)
-		ui.Column(c).Children(func() {
-			ui.Text(c, strconv.Itoa(n)).FontSize(40).FontWeight(800).LineHeight(1)
-			ui.Text(c, locales.HomeTasks(n)).FontSize(14).FontWeight(600).TextColor(pal.muted).Wrap()
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+			ui.Box(c).Size(36, 36).Radius(12).Background(tint.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).
+				Children(func() { ui.Icon(c, iconTasks).Size(19, 19).TextColor(tint) })
+			ui.Text(c, strconv.Itoa(n)+" "+locales.HomeTasks(n)).FontSize(16).FontWeight(650).Grow(1)
+			ui.Icon(c, iconArrow).Size(18, 18).TextColor(pal.faint)
 		})
 	})
 	if b.Clicked() {
 		a.goTo(pathTasks)
-	}
-}
-
-// streakBlock is how many days in a row the journal has words, today or yesterday the last.
-func (a *app) streakBlock(c *ui.Context, now time.Time) {
-	n := a.streak(now)
-	tint := tints[4]
-	b := block(c, "streak", tint.Alpha(0.18), blockR).Grow(1).Basis(0).Height(150).Padding(18).Justify(ui.SpaceBetween).
-		Role(ui.RoleButton).Label(locales.HomeStreak(n))
-	b.Children(func() {
-		ui.Icon(c, iconFlame).Size(26, 26).TextColor(tint)
-		ui.Column(c).Children(func() {
-			ui.Text(c, strconv.Itoa(n)).FontSize(40).FontWeight(800).LineHeight(1)
-			ui.Text(c, locales.HomeStreak(n)).FontSize(14).FontWeight(600).TextColor(pal.muted).Wrap()
-		})
-	})
-	if b.Clicked() {
-		if j := a.journalColl(); j != nil {
-			a.openCollection(j)
-		}
 	}
 }
 

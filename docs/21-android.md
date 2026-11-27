@@ -30,9 +30,10 @@ in a little under a finger, their corners kept.
   its places (Home, Library, Tasks, Search, Settings) large and coming in one after another. A round **+** at the bottom
   right is the only other control: tapped, the screen blurs and what it makes rises over it at the right (today's page, a note,
   a note in another collection, a search), the + turning to a ×. Android's back closes what is open first.
-- **Home** is blocks: the day, large, on a field of soft colors that drift slowly (a shader, still with reduced
-  motion); today's page with its first lines and words; the tasks open in the library and the days in a row the
-  journal has words; the collections, colored, in a row that scrolls sideways; the pages written lately.
+- **Home** is a few blocks: on top the day, large, and its week, on a field of soft colors that drift slowly in the
+  hour's colors (dawn, day, evening, night, passing from one to the next; a shader, still with reduced motion), the
+  days the journal has words in filled and the days in a row beside the greeting; today's page with its first lines and
+  words; the tasks open, in one row; the collections, colored, in a row that scrolls sideways; the pages written lately.
 - **Library** is the collections two to a row; a collection is its pages as blocks under its name, in its color.
 - **Tasks** are every task not done, by page; a task taps through to its page.
 - **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).

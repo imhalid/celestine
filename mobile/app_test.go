@@ -183,6 +183,37 @@ func TestStreak(t *testing.T) {
 	}
 }
 
+// The week in the top block opens the page of a day the journal has, and the field's words are light by night and
+// on the dark look, dark by day (#636).
+func TestWeekAndSky(t *testing.T) {
+	a, tt := newTestApp(t)
+	j := a.journalColl()
+	d := startOfDay(time.Now()).AddDate(0, 0, -2)
+	j.Creating = true
+	p, _ := j.NewPage(nil, d.Format("2006-01-02"))
+	j.Creating = false
+	p.Props = map[string]string{journalDayKey: d.Format("2006-01-02")}
+	p.SaveText("iki gün önce")
+	tt.Frame()
+	if err := tt.Click(formatDay("dddd D MMMM", d)); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if a.ed.id != p.ID {
+		t.Fatal("the day's page not opened")
+	}
+	day := func(h int) time.Time { return time.Date(2026, 11, 27, h, 0, 0, 0, time.Local) }
+	if s := skyAt(day(13), false); s.light != 0 {
+		t.Fatalf("noon's words light %v", s.light)
+	}
+	if s := skyAt(day(23), false); s.light != 1 {
+		t.Fatalf("night's words dark %v", s.light)
+	}
+	if s := skyAt(day(13), true); s.light != 1 {
+		t.Fatalf("noon on the dark look's words dark %v", s.light)
+	}
+}
+
 // The + makes today's page, a note, a note in each further collection (two at most) and a search: the first
 // collection of notes is New note's alone.
 func TestPlusActions(t *testing.T) {

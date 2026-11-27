@@ -74,14 +74,16 @@ func startOfDay(t time.Time) time.Time {
 }
 
 // todayPage is today's page of the journal, or nil when it is not written yet.
-func (a *app) todayPage() *library.Page {
+func (a *app) todayPage() *library.Page { return a.dayPage(startOfDay(time.Now())) }
+
+// dayPage is the journal's page of day d (a midnight), or nil when it has none.
+func (a *app) dayPage(d time.Time) *library.Page {
 	c := a.journalColl()
 	if c == nil {
 		return nil
 	}
-	today := startOfDay(time.Now())
 	for _, p := range c.All() {
-		if dayOf(p).Equal(today) {
+		if dayOf(p).Equal(d) {
 			return p
 		}
 	}
