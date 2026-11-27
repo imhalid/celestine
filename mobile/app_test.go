@@ -318,4 +318,3 @@ func TestCollSettings(t *testing.T) {
 		t.Fatalf("at %s", a.router.Path())
 	}
 }
-
