@@ -184,7 +184,7 @@ func (ed *editorState) probeLetters() bool {
 	defer doc.SetSelection(anchor, caret)
 	var out []letter
 	for _, box := range doc.VisibleParagraphs() {
-		start, end := text.ParagraphRange(box.Index)
+		start, end := text.ParagraphRange(box.Start) // by a rune of it, not its number
 		style := text.ParagraphStyleAt(start)
 		size := float32(18)
 		weight := 400
@@ -388,13 +388,21 @@ func (a *app) tapText(ed *editorState, body ui.Element, x, y float32) {
 	if len(boxes) == 0 || ed.readOnly != "" {
 		return
 	}
-	// The paragraph under the tap, or the nearest; below the text, its end.
-	at := -1
+	// The paragraph under the tap, or the nearest above or below it; below the text, its end.
+	at, gap := -1, float32(math.MaxFloat32)
 	for i, b := range boxes {
-		if y < b.Top+b.Height+6 {
-			at = i
-			break
+		d := float32(0)
+		if y < b.Top {
+			d = b.Top - y
+		} else if y >= b.Top+b.Height {
+			d = y - (b.Top + b.Height)
 		}
+		if d < gap {
+			at, gap = i, d
+		}
+	}
+	if last := boxes[len(boxes)-1]; y >= last.Top+last.Height+12 {
+		at = -1
 	}
 	caret := func(i int) ui.Rect {
 		doc.SetSelection(i, i)
@@ -407,7 +415,7 @@ func (a *app) tapText(ed *editorState, body ui.Element, x, y float32) {
 		body.Focus()
 		return
 	}
-	start, end := text.ParagraphRange(boxes[at].Index)
+	start, end := text.ParagraphRange(boxes[at].Start) // by a rune of it, not its number
 	if text.ParagraphStyleAt(start).List == richtext.Tasks && x < caret(start).X-2 {
 		doc.ToggleChecked(start)
 		a.typed(time.Now())
