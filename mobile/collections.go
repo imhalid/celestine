@@ -1,13 +1,15 @@
 package main
 
 import (
+	"slices"
+
 	"github.com/egoist/mygo/ui"
 	"github.com/imhalid/celestine/internal/library"
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The Library screen is the collections as colored blocks, two to a row, the journal first; a collection's screen is
-// its pages as blocks under its name, in its color, the journal's newest day first.
+// The Library screen is the collections as blocks in tones of one hue, two to a row, the journal first; a collection's screen is
+// its pages as blocks under its name, the journal's newest day first.
 
 func (a *app) libraryScreen(c *ui.Context) {
 	colls := a.orderedCollections()
@@ -16,18 +18,7 @@ func (a *app) libraryScreen(c *ui.Context) {
 		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 140, 0).Children(func() {
 				bigTitle(c, locales.TabLibrary(), locales.LibraryCount(len(colls)))
-				ui.Column(c).FillWidth().Padding(0, side).Gap(gap).Children(func() {
-					for i := 0; i < len(colls); i += 2 {
-						ui.Row(c.Key(i)).FillWidth().Gap(gap).Children(func() {
-							for _, k := range colls[i:min(i+2, len(colls))] {
-								a.collTile(c, k, 0, 150).Grow(1).Basis(0)
-							}
-							if i+1 >= len(colls) {
-								ui.Box(c).Grow(1).Basis(0)
-							}
-						})
-					}
-				})
+				ui.Column(c).FillWidth().Padding(0, side).Children(func() { a.collGrid(c, colls) })
 			})
 		})
 	})
@@ -44,10 +35,14 @@ func (a *app) collPages(k *library.Collection) []*library.Page {
 }
 
 func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
-	tint := collTint(k)
+	_, mark := tone(slices.Index(a.orderedCollections(), k))
 	ps := a.collPages(k)
 	ui.Column(c).Fill().Children(func() {
-		a.topBar(c, true, nil)
+		a.topBar(c, true, func() {
+			if !k.Dynamic() && roundButton(c, "settings", iconGear, locales.CollSettings()) {
+				a.openCollSettings(k)
+			}
+		})
 		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
@@ -55,8 +50,8 @@ func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 					if k.Journal {
 						glyph = iconCalendar
 					}
-					ui.Box(c).Size(44, 44).Radius(15).Background(tint).AlignItems(ui.Center).Justify(ui.Center).
-						Children(func() { ui.Icon(c, glyph).Size(22, 22).TextColor(ui.Hex("#FFFFFF")) })
+					ui.Box(c).Size(44, 44).Radius(15).Background(mark).AlignItems(ui.Center).Justify(ui.Center).
+						Children(func() { ui.Icon(c, glyph).Size(22, 22).TextColor(pal.accentText) })
 					ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
 				})
 				ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).

@@ -141,10 +141,9 @@ func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool) ui.Elemen
 		}
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Margin(4, 0, 0, 0).Children(func() {
 			if showColl && p.Coll != nil {
-				tint := collTint(p.Coll)
-				ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Background(tint.Alpha(0.14)).Children(func() {
-					ui.Box(c).Size(7, 7).Radius(4).Background(tint)
-					ui.Text(c, p.Coll.Name).FontSize(12).FontWeight(650).TextColor(tint)
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Background(pal.accent.Alpha(0.1)).Children(func() {
+					ui.Box(c).Size(7, 7).Radius(4).Background(pal.accent)
+					ui.Text(c, p.Coll.Name).FontSize(12).FontWeight(650).TextColor(pal.accent)
 				})
 			}
 			ui.Text(c, ago(p.Modified)).FontSize(13).FontWeight(500).TextColor(pal.faint)
@@ -169,32 +168,4 @@ func (a *app) orderedCollections() []*library.Collection {
 		return 1
 	})
 	return out
-}
-
-// collTint is a collection's color: the one it was given, or one of the tints by its name.
-func collTint(k *library.Collection) ui.Color {
-	if col, ok := namedColor(k.Color); ok {
-		return col
-	}
-	if k.Journal {
-		return tints[1]
-	}
-	h := 0
-	for _, r := range k.Name {
-		h = h*31 + int(r)
-	}
-	return tints[(h%len(tints)+len(tints))%len(tints)]
-}
-
-// namedColor is a collection's color, a name the desktop gives or a hex.
-func namedColor(s string) (ui.Color, bool) {
-	named := map[string]string{"red": "#E5484D", "orange": "#F2862E", "yellow": "#E0B12C", "green": "#30A46C",
-		"teal": "#12A594", "blue": "#3D6EE8", "purple": "#8E4EC6", "pink": "#D6409F", "gray": "#8B8D98", "brown": "#AD7F58"}
-	if h, ok := named[s]; ok {
-		return ui.Hex(h), true
-	}
-	if len(s) == 7 && s[0] == '#' {
-		return ui.Hex(s), true
-	}
-	return ui.Color{}, false
 }

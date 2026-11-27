@@ -11,9 +11,9 @@ import (
 // over the screen blurred, its places coming in one after another; a round + at the bottom right opens what can be
 // made, rising over it in a column at the right, the + turning to a ×. A page's ··· opens a sheet from the bottom.
 
-// motionIn is how what opens comes in: a spring that overshoots a little.
+// motionIn is how what opens comes in, and goes: quickly, easing out, with no overshoot.
 func motionIn(delay time.Duration) ui.Animation {
-	return ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0.22}, Delay: delay}
+	return ui.Animation{Duration: 240 * time.Millisecond, Ease: ui.EaseOut, Delay: delay}
 }
 
 // roundButton is a round button of the chrome, glyph in it, its label for assistive technology.
@@ -108,19 +108,20 @@ func (a *app) plusActions() []plusAct {
 			continue
 		}
 		k := k
-		acts = append(acts, plusAct{iconFolder, collTint(k), locales.ActionIn(k.Name), func() { a.newNote(k) }})
+		acts = append(acts, plusAct{iconFolder, tints[0], locales.ActionIn(k.Name), func() { a.newNote(k) }})
 		n++
 	}
 	acts = append(acts, plusAct{iconSearch, tints[3], locales.ActionSearch(), func() { a.goTo(pathSearch) }})
 	return acts
 }
 
-// plusAction is one of the +'s list: a pill that rises in after the one under it.
+// plusAction is one of the +'s list: a pill that rises and grows in a little after the one under it.
 func (a *app) plusAction(c *ui.Context, i, n int, act plusAct) {
 	row := ui.Row(c.Key(act.label)).Height(56).Padding(0, 22, 0, 8).Gap(12).AlignItems(ui.Center).Radius(28).
 		Background(pal.block).Role(ui.RoleButton).Label(act.label)
-	k := row.AnimateTo("in", b2f(a.plusOpen), motionIn(time.Duration(n-1-i)*30*time.Millisecond))
-	row.Translate(0, (1-k)*36).Opacity(max(0, min(k, 1)))
+	k := row.AnimateTo("in", b2f(a.plusOpen), motionIn(time.Duration(n-1-i)*22*time.Millisecond))
+	s := 0.92 + 0.08*k
+	row.Translate(0, (1-k)*14).Scale(s, s).Opacity(max(0, min(k, 1)))
 	shadow(pressable(row))
 	row.Children(func() {
 		ui.Box(c).Size(40, 40).Radius(20).Background(act.tint.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).
@@ -185,7 +186,7 @@ func (a *app) menuItem(c *ui.Context, i int, pl menuPlace) {
 	row := ui.Row(c.Key(pl.path)).FillWidth().Height(64).Gap(16).AlignItems(ui.Center).Radius(20).Padding(0, 6).
 		Role(ui.RoleButton).Label(pl.name)
 	k := row.AnimateTo("in", b2f(a.menuOpen), motionIn(time.Duration(i)*35*time.Millisecond))
-	row.Translate(-(1-k)*40, 0).Opacity(max(0, min(k, 1)))
+	row.Translate(-(1-k)*18, 0).Opacity(max(0, min(k, 1)))
 	pressable(row)
 	row.Children(func() {
 		ui.Icon(c, pl.glyph).Size(26, 26).TextColor(color)

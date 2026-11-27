@@ -81,6 +81,46 @@ func (msgs Messages) AppCannotOpen(error string) string {
 	return Catalog.Format(msgs.locale, "app_cannotOpen", map[string]any{"error": error})
 }
 
+// CollDayTitles says "How days are titled"
+// in the language the app shows.
+func CollDayTitles() string { return In(i18n.Locale()).CollDayTitles() }
+
+// CollDayTitles says "How days are titled"
+// in the language of msgs.
+func (msgs Messages) CollDayTitles() string {
+	return Catalog.Format(msgs.locale, "coll_dayTitles", nil)
+}
+
+// CollName says "Name"
+// in the language the app shows.
+func CollName() string { return In(i18n.Locale()).CollName() }
+
+// CollName says "Name"
+// in the language of msgs.
+func (msgs Messages) CollName() string {
+	return Catalog.Format(msgs.locale, "coll_name", nil)
+}
+
+// CollSave says "Save"
+// in the language the app shows.
+func CollSave() string { return In(i18n.Locale()).CollSave() }
+
+// CollSave says "Save"
+// in the language of msgs.
+func (msgs Messages) CollSave() string {
+	return Catalog.Format(msgs.locale, "coll_save", nil)
+}
+
+// CollSettings says "Collection settings"
+// in the language the app shows.
+func CollSettings() string { return In(i18n.Locale()).CollSettings() }
+
+// CollSettings says "Collection settings"
+// in the language of msgs.
+func (msgs Messages) CollSettings() string {
+	return Catalog.Format(msgs.locale, "coll_settings", nil)
+}
+
 // CommonBack says "Back"
 // in the language the app shows.
 func CommonBack() string { return In(i18n.Locale()).CommonBack() }
@@ -271,6 +311,18 @@ func (msgs Messages) HomeStreak(count int) string {
 	return Catalog.Format(msgs.locale, "home_streak", map[string]any{"count": count})
 }
 
+// HomeSummary says "{greeting}. {tasks, plural, =0 {Nothing is open on your list} one {You have ⟨# open task⟩} other {You have ⟨# o…"
+// in the language the app shows.
+func HomeSummary(greeting string, tasks int, days int) string {
+	return In(i18n.Locale()).HomeSummary(greeting, tasks, days)
+}
+
+// HomeSummary says "{greeting}. {tasks, plural, =0 {Nothing is open on your list} one {You have ⟨# open task⟩} other {You have ⟨# o…"
+// in the language of msgs.
+func (msgs Messages) HomeSummary(greeting string, tasks int, days int) string {
+	return Catalog.Format(msgs.locale, "home_summary", map[string]any{"greeting": greeting, "tasks": tasks, "days": days})
+}
+
 // HomeTasks says "{count, plural, one {open task} other {open tasks}}"
 // in the language the app shows.
 func HomeTasks(count int) string { return In(i18n.Locale()).HomeTasks(count) }
@@ -279,6 +331,16 @@ func HomeTasks(count int) string { return In(i18n.Locale()).HomeTasks(count) }
 // in the language of msgs.
 func (msgs Messages) HomeTasks(count int) string {
 	return Catalog.Format(msgs.locale, "home_tasks", map[string]any{"count": count})
+}
+
+// HomeWeek says "This week"
+// in the language the app shows.
+func HomeWeek() string { return In(i18n.Locale()).HomeWeek() }
+
+// HomeWeek says "This week"
+// in the language of msgs.
+func (msgs Messages) HomeWeek() string {
+	return Catalog.Format(msgs.locale, "home_week", nil)
 }
 
 // LibraryCollections says "Collections"
@@ -901,6 +963,16 @@ func (msgs Messages) TabToday() string {
 	return Catalog.Format(msgs.locale, "tab_today", nil)
 }
 
+// TasksLocked says "A past day's tasks stay as they were written."
+// in the language the app shows.
+func TasksLocked() string { return In(i18n.Locale()).TasksLocked() }
+
+// TasksLocked says "A past day's tasks stay as they were written."
+// in the language of msgs.
+func (msgs Messages) TasksLocked() string {
+	return Catalog.Format(msgs.locale, "tasks_locked", nil)
+}
+
 // TasksNone says "Nothing to do. Tasks you add to a page show here."
 // in the language the app shows.
 func TasksNone() string { return In(i18n.Locale()).TasksNone() }
@@ -909,6 +981,16 @@ func TasksNone() string { return In(i18n.Locale()).TasksNone() }
 // in the language of msgs.
 func (msgs Messages) TasksNone() string {
 	return Catalog.Format(msgs.locale, "tasks_none", nil)
+}
+
+// TasksTick says "Mark done"
+// in the language the app shows.
+func TasksTick() string { return In(i18n.Locale()).TasksTick() }
+
+// TasksTick says "Mark done"
+// in the language of msgs.
+func (msgs Messages) TasksTick() string {
+	return Catalog.Format(msgs.locale, "tasks_tick", nil)
 }
 
 // TasksTitle says "Tasks"

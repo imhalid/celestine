@@ -28,11 +28,16 @@ type app struct {
 	notice   string      // a short word at the bottom, gone after a moment
 	noticeAt time.Time   // when it was said
 
-	sy syncState // the account and the sync (sync.go)
+	sy   syncState // the account and the sync (sync.go)
+	home homeState // the home screen's scrolling and the system bars
+
+	cs     collSettings    // a collection's settings being changed (collsettings.go)
+	ticked map[string]bool // the tasks ticked off on the Tasks screen, shown done until it is left
 
 	menuOpen bool // the menu covers the screen
 	plusOpen bool // the + has opened its list of what to make
 	moreOpen bool // a page's sheet of what to do with it
+	menuDim  bool // the screen is dimmed for the menu, rather than the + or a sheet
 }
 
 // settings are the phone's own: kept in the app's folder, not the library's, as they are this device's.
@@ -43,7 +48,7 @@ type settings struct {
 }
 
 func newApp(dir string) *app {
-	a := &app{dir: dir, router: ui.NewRouter("/")}
+	a := &app{dir: dir, router: ui.NewRouter("/"), ticked: map[string]bool{}}
 	if b, err := os.ReadFile(a.settingsFile()); err == nil {
 		json.Unmarshal(b, &a.settings)
 	}
@@ -89,11 +94,15 @@ const (
 )
 
 // view is a frame of the window: the theme, the screen the router shows, and over it the + and what it and the menu
-// open, the screen blurred behind them.
+// open, the screen dimmed behind them: dimmed, not blurred, as a blur of the whole screen is drawn again each frame of
+// the motion, which a phone does slowly (#637).
 func (a *app) view(c *ui.Context) {
 	c.SetTheme(themeOf(c.Theme().Dark)) // light or dark as the system says, or the settings (applyTheme)
 	t := c.Theme()
 	c.Root().Background(t.Background)
+	if a.router.Path() == pathHome { // the home's summary goes on under the system's bar
+		c.Root().Background(nightBg)
+	}
 	if a.lib == nil {
 		ui.Column(c).Fill().Justify(ui.Center).Padding(24).Children(func() {
 			ui.Text(c, a.openErr).TextColor(t.TextMuted).Wrap()
@@ -103,11 +112,9 @@ func (a *app) view(c *ui.Context) {
 	a.lockDays() // a day turns past at midnight
 	a.syncTick(c.Now())
 	over := a.menuOpen || a.plusOpen || a.moreOpen
+	a.setBars(a.router.Path() == pathHome && !over) // the home's summary is dark under them
 	screen := ui.Box(c.Key("screen")).Fill()
-	veil := screen.Animate("veil", b2f(over), 260*time.Millisecond)
-	if veil > 0.001 {
-		screen.Blur(veil * 14)
-	}
+	veil := screen.AnimateTo("veil", b2f(over), motionIn(0))
 	screen.Children(func() {
 		a.router.View(c, func(r *ui.Route) {
 			switch {
@@ -123,6 +130,10 @@ func (a *app) view(c *ui.Context) {
 				a.settingsScreen(c)
 			case r.Match(pathSignIn):
 				a.signInScreen(c)
+			case r.Match("/c/{dir}/settings"):
+				if coll := a.collAt(r.Param("dir")); coll != nil {
+					a.collSettingsScreen(c, coll)
+				}
 			case r.Match("/c/{dir}"):
 				if coll := a.collAt(r.Param("dir")); coll != nil {
 					r.Title(coll.Name)
@@ -137,10 +148,20 @@ func (a *app) view(c *ui.Context) {
 		})
 	})
 	a.leaveEditor()
+	if len(a.ticked) > 0 && a.router.Path() != pathTasks {
+		clear(a.ticked)
+	}
 	if veil > 0.001 {
+		if over {
+			a.menuDim = a.menuOpen // kept as the dim fades, so that it fades from where it was
+		}
+		dim := float32(0.8) // the menu's words are large: the screen is all but hidden under them
+		if a.menuDim {
+			dim = 0.96
+		}
 		ui.Overlay(c, func() {
 			scrim := ui.Box(c.Key("scrim")).Absolute().Top(0).Left(0).Right(0).Bottom(0).
-				Background(t.Background.Alpha(0.55 * veil))
+				Background(pal.bg.Alpha(dim * min(veil, 1)))
 			if scrim.Clicked() {
 				a.closeAll()
 			}
@@ -171,18 +192,23 @@ func b2f(b bool) float32 {
 // openPage shows page p to be written in.
 func (a *app) openPage(p *library.Page) {
 	a.closeAll()
+	a.router.Transition = ui.TransitionAuto
 	a.router.Push(pagePath(p))
 }
 
 // openCollection shows the pages of collection c.
 func (a *app) openCollection(c *library.Collection) {
 	a.closeAll()
+	a.router.Transition = ui.TransitionAuto
 	a.router.Push("/c/" + url.PathEscape(c.Dir))
 }
 
-// goTo shows a screen of the menu: home is the bottom of the history, the others one screen over it.
+// goTo shows a screen of the menu: home is the bottom of the history, the others one screen over it. The menu's
+// places fade into each other, as places side by side, where a page or a collection slides in over the screen it
+// was opened from.
 func (a *app) goTo(path string) {
 	a.closeAll()
+	a.router.Transition = ui.TransitionFade
 	if a.router.Path() == path {
 		return
 	}

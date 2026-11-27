@@ -23,19 +23,26 @@ second program with an interface made for a hand, sharing only the library.
 ## The app
 
 Its look is its own, made for a hand, not the desktop's nor Material's: blocks of rounded paper on a warm ground (soft
-ink on a deep one by night), Geist for the words and heavy for what is big, a color for each collection. Blocks press
+ink on a deep one by night), Geist for the words and heavy for what is big, the collections in tones of one hue. Blocks press
 in a little under a finger, their corners kept.
 
-- **No bar of tabs.** A round button at the top left opens the menu, which covers the screen over the screen blurred,
-  its places (Home, Library, Tasks, Search, Settings) large and coming in one after another. A round **+** at the bottom
-  right is the only other control: tapped, the screen blurs and what it makes rises over it at the right (today's page, a note,
-  a note in another collection, a search), the + turning to a ×. Android's back closes what is open first.
-- **Home** is a few blocks: on top the day, large, and its week, on a field of soft colors that drift slowly in the
-  hour's colors (dawn, day, evening, night, passing from one to the next; a shader, still with reduced motion), the
-  days the journal has words in filled and the days in a row beside the greeting; today's page with its first lines and
-  words; the tasks open, in one row; the collections, colored, in a row that scrolls sideways; the pages written lately.
-- **Library** is the collections two to a row; a collection is its pages as blocks under its name, in its color.
-- **Tasks** are every task not done, by page; a task taps through to its page.
+- **No bar of tabs.** A round button at the top left opens the menu, which covers the screen over the screen dimmed,
+  its places (Home, Library, Tasks, Search, Settings) large and coming in one after another; they fade into each
+  other, where a page or a collection slides in. A round **+** at the bottom right is the only other control: tapped,
+  the screen dims and what it makes rises over it at the right (today's page, a note, a note in another collection, a
+  search), the + turning to a ×. Android's back closes what is open first. The screen is dimmed, not blurred: a blur
+  of the whole screen is drawn again each frame of the motion, which made it stutter on a phone (#637).
+- **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large, with the date, a sentence
+  of the day (the tasks open, the days written this week) with its numbers marked in coral, the pages and the days in
+  a row; under it, on a field of the hour's colors deepened almost to black, standing still. A sheet comes over it: the
+  week (the day over its weekday, a dot on the days written, today filled; a day opens its page), the tasks open in one
+  row, the collections two to a row in tones of one hue, the pages written lately. Scrolled up, the sheet covers the
+  summary, which moves a third as fast and fades, and a bar at the top shows the date alone.
+- **Library** is the collections two to a row, as on home; a collection is its pages as blocks under its name, and
+  its settings (the gear at the top) are its name and, for the journal, how its days are titled, the days titled again
+  when that changes.
+- **Tasks** are every task not done, by page, ticked off where they are: written to the page at once, shown done
+  until the screen is left so that a tick by mistake is taken back. A past day's tasks stay as they were.
 - **Search** finds titles and words as they are typed, Turkish letters by their plain ones too (`internal/textnorm`).
 - **Settings** choose light, dark or the system's look as three blocks (the system's bars follow), and sign in to sync.
 - **A page** is the whole screen to write in and nothing else: its collection, its title (asked for first on a new

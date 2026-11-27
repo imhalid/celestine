@@ -27,7 +27,7 @@ func newTestApp(t *testing.T) (*app, *ui.Tester) {
 	return a, tt
 }
 
-// A new library has the desktop's journal; today's card makes today's page, as the desktop makes a day, and what is
+// A new library has the desktop's journal; today in the week's strip makes today's page, as the desktop makes a day, and what is
 // typed in it is saved to its file as the library's document (#633).
 func TestTodayPageWritten(t *testing.T) {
 	a, tt := newTestApp(t)
@@ -35,7 +35,7 @@ func TestTodayPageWritten(t *testing.T) {
 	if j == nil || !j.Journal || j.Icon != "calendar" {
 		t.Fatalf("journal %+v", j)
 	}
-	if err := tt.Click(locales.TodayPage()); err != nil {
+	if err := tt.Click(formatDay("dddd D MMMM", time.Now())); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
@@ -57,7 +57,7 @@ func TestTodayPageWritten(t *testing.T) {
 	a.router.Back()
 	tt.Advance(400 * time.Millisecond)
 	if !tt.HasText("Yazdım kalın") {
-		t.Fatalf("today's card: %v", tt.Texts())
+		t.Fatalf("the pages written lately: %v", tt.Texts())
 	}
 }
 
@@ -156,12 +156,50 @@ func TestMenuAndTasks(t *testing.T) {
 	if a.router.Path() != pathTasks || a.menuOpen || !tt.HasText("süt al") || tt.HasText("yapıldı") {
 		t.Fatalf("tasks: %s %v %v", a.router.Path(), a.menuOpen, tt.Texts())
 	}
+	// Ticked off, the task is written to its page and shown done until the screen is left; ticked again, it is open.
+	if err := tt.Click("süt al"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if md, _ := p.Text(); !strings.Contains(md, "- [x] süt al") || len(a.openTasks()) != 1 || !tt.HasText("süt al") {
+		t.Fatalf("ticked: %q %d", md, len(a.openTasks()))
+	}
+	if err := tt.Click("süt al"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if len(a.openTasks()) != 2 {
+		t.Fatal("not ticked back")
+	}
+	tt.Click("süt al")
+	tt.Frame()
 	if err := tt.Click("Plan"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(600 * time.Millisecond)
-	if a.ed.id != p.ID {
+	if a.ed.id != p.ID || len(a.ticked) != 0 {
 		t.Fatal("the task's page not opened")
+	}
+	a.router.Back()
+	tt.Advance(600 * time.Millisecond)
+	if tt.HasText("süt al") {
+		t.Fatal("a task done still shown, the screen left and come back to")
+	}
+	// A past day's tasks stay as they were.
+	j := a.journalColl()
+	d := startOfDay(time.Now()).AddDate(0, 0, -3)
+	j.Creating = true
+	day, _ := j.NewPage(nil, d.Format("2006-01-02"))
+	j.Creating = false
+	day.Props = map[string]string{journalDayKey: d.Format("2006-01-02")}
+	day.SaveText("- [ ] eski iş")
+	a.lockDays()
+	tt.Frame()
+	if err := tt.Click("eski iş"); err != nil {
+		t.Fatal(err)
+	}
+	if md, _ := day.Text(); strings.Contains(md, "[x]") || a.notice != locales.TasksLocked() {
+		t.Fatalf("a past day's task ticked: %q %q", md, a.notice)
 	}
 }
 
@@ -228,5 +266,37 @@ func TestPlusActions(t *testing.T) {
 	want := []string{locales.ActionToday(), locales.ActionNote(), locales.ActionIn("İş"), locales.ActionIn("Okuma"), locales.ActionSearch()}
 	if strings.Join(labels, "|") != strings.Join(want, "|") {
 		t.Fatalf("%q", labels)
+	}
+}
+
+// A collection's settings rename it, and the journal's titles its days again by the way chosen (#637).
+func TestCollSettings(t *testing.T) {
+	a, tt := newTestApp(t)
+	j := a.journalColl()
+	d := startOfDay(time.Now()).AddDate(0, 0, -1)
+	j.Creating = true
+	p, _ := j.NewPage(nil, d.Format("2006-01-02"))
+	j.Creating = false
+	p.Props = map[string]string{journalDayKey: d.Format("2006-01-02")}
+	p.SaveText("dün")
+	a.openCollection(j)
+	tt.Advance(400 * time.Millisecond)
+	if err := tt.Click(locales.CollSettings()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	a.cs.name = "Günlük"
+	if err := tt.Click(formatDay("D MMMM YYYY", time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click(locales.CollSave()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if j.Name != "Günlük" || j.JournalFormat != "D MMMM YYYY" || p.Title != formatDay("D MMMM YYYY", d) {
+		t.Fatalf("%q %q %q", j.Name, j.JournalFormat, p.Title)
+	}
+	if a.router.Path() != "/c/"+j.Dir {
+		t.Fatalf("at %s", a.router.Path())
 	}
 }

@@ -8,10 +8,11 @@ import (
 	"github.com/egoist/mygo/ui/shader"
 )
 
-// The home screen's top block is a field of soft colors that drift slowly, as light through a window moves over a
-// day: four glows wander on a ground, a fine grain over them, their colors the hour's (dawn, day, evening, night),
-// passing from one to the next as the day goes; on the dark look the same, deeper. The date and the week stand on it.
-// It moves only while it shows, and not at all with reduced motion.
+// The home screen's summary stands on a field of soft colors, as light through a window falls over a day: four glows
+// on a ground, a fine grain over them, their colors the hour's (dawn, day, evening, night), passing from one to the
+// next as the day goes, deepened for the summary (home.go). It stands still: a field drawn again each frame keeps the
+// phone drawing, and its motion under another's (a page sliding in, the menu) is what made them stutter (#637); the
+// glows move with the minutes instead.
 
 // heroShader is the drifting field. Time is in seconds; Ground and Glow1 to Glow4 are the hour's colors.
 var heroShader = shader.MustCompile(heroSource)
@@ -100,20 +101,12 @@ func skyAt(now time.Time, deep bool) sky {
 // ink is the color of words on the sky.
 func (s sky) ink() ui.Color { return ui.Hex("#2A1E1A").Mix(ui.Hex("#F6F1EC"), s.light) }
 
-// heroStart is when the field's clock started.
-var heroStart = time.Now()
-
 // heroField fills e with the drifting field in sky s's colors, its corners rounded r.
 func heroField(c *ui.Context, e ui.Element, s sky, r float32) ui.Element {
 	if testing.Testing() { // the tests draw on the CPU, where a shader over a block takes long: its colors instead
 		return e.Gradient(s.cols[1], s.cols[2], 135)
 	}
-	still := c.Preferences().ReduceMotion
-	t := float32(0)
-	if !still {
-		t = float32(c.Now().Sub(heroStart).Seconds())
-		c.AnimationFrame()
-	}
+	t := float32(c.Now().Hour()*60+c.Now().Minute()) * 0.4 // the glows stand where the hour puts them
 	return e.Draw(func(p *ui.Painter, rect ui.Rect) {
 		heroShader.Draw(p, rect, shader.Options{Uniforms: map[string]any{"Time": t, "Ground": s.cols[0], "Glow1": s.cols[1],
 			"Glow2": s.cols[2], "Glow3": s.cols[3], "Glow4": s.cols[4]}, Radius: r})
