@@ -68,22 +68,20 @@ func (a *app) homeScreen(c *ui.Context) {
 				a.homeSheet(c, now)
 			})
 		})
-		// The date row stays on top, on the ground. Under it the ground fades into what scrolls as the sheet comes
-		// near, so that what goes under the row has no edge; once the sheet's top is under it, its handle stays alone
-		// under the row (#645).
+		// The date row stays on top, on the ground. The sheet comes up over the summary to the row and stays there:
+		// once its top reaches the row, its top, round and with its handle, is drawn there, the ground in its corners,
+		// and what is on it scrolls under it, fading in under it as it goes (#639, #645).
 		noTouch := func(x, y float32, r ui.Rect) bool { return false }
 		ui.Box(c.Key("date-ground")).Absolute().Top(0).Left(0).Right(0).Height(dateRowH).Background(ground).HitTest(noTouch).
 			Children(func() { a.dateRow(c, now) })
-		sheetAt := h.summary - sheetOver - dateRowH // the scroll at which the sheet's top reaches the date row
-		if h.summary > 0 {
-			if fade := min(max((y-sheetAt+56)/56, 0), 1); fade > 0 {
-				ui.Box(c.Key("sheet-fade")).Absolute().Top(dateRowH).Left(0).Right(0).Height(56).
-					Gradient(ground.Alpha(fade), ground.Alpha(0), 180).HitTest(noTouch)
-			}
-			if y >= sheetAt {
-				ui.Box(c.Key("sheet-handle")).Absolute().Top(dateRowH).Left(0).Right(0).HitTest(noTouch).
-					Children(func() { sheetHandle(c) })
-			}
+		if sheetAt := h.summary - sheetOver - dateRowH; h.summary > 0 && y >= sheetAt {
+			ui.Box(c.Key("sheet-corners")).Absolute().Top(dateRowH).Left(0).Right(0).Height(sheetTop).Background(ground).
+				HitTest(noTouch)
+			ui.Box(c.Key("sheet-top")).Absolute().Top(dateRowH).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
+				Radius(30, 30, 0, 0).HitTest(noTouch).Children(func() { sheetHandle(c) })
+			fade := min((y-sheetAt)/48, 1)
+			ui.Box(c.Key("sheet-fade")).Absolute().Top(dateRowH+sheetTop).Left(0).Right(0).Height(32).
+				Gradient(pal.bg.Alpha(fade), pal.bg.Alpha(0), 180).HitTest(noTouch)
 		}
 	})
 }
