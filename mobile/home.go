@@ -75,15 +75,26 @@ func (a *app) homeScreen(c *ui.Context) {
 		ui.Box(c.Key("date-ground")).Absolute().Top(0).Left(0).Right(0).Height(dateRowH).Background(ground).HitTest(noTouch).
 			Children(func() { a.dateRow(c, now) })
 		if sheetAt := h.summary - sheetOver - dateRowH; h.summary > 0 && y >= sheetAt {
-			ui.Box(c.Key("sheet-corners")).Absolute().Top(dateRowH).Left(0).Right(0).Height(sheetTop).Background(ground).
-				HitTest(noTouch)
-			ui.Box(c.Key("sheet-top")).Absolute().Top(dateRowH).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
-				Radius(30, 30, 0, 0).HitTest(noTouch).Children(func() { sheetHandle(c) })
-			fade := min((y-sheetAt)/48, 1)
-			ui.Box(c.Key("sheet-fade")).Absolute().Top(dateRowH+sheetTop).Left(0).Right(0).Height(32).
-				Gradient(pal.bg.Alpha(fade), pal.bg.Alpha(0), 180).HitTest(noTouch)
+			// The ground in the round top's corners, and the top itself a long fade: from the sheet's ground at its
+			// round edge into what scrolls under it, with no band (#645).
+			ui.Box(c.Key("sheet-corners")).Absolute().Top(dateRowH).Left(0).Right(0).Height(30).HitTest(noTouch).
+				Draw(func(p *ui.Painter, r ui.Rect) { p.FillPath(cornersOutside(r, 30), ground) })
+			// It grows from the sheet's own top as the sheet goes under it, so that nothing comes at once.
+			grow := min((y-sheetAt)/40, 1)
+			ui.Box(c.Key("sheet-top")).Absolute().Top(dateRowH).Left(0).Right(0).Height(sheetTop+(sheetFade-sheetTop)*grow).
+				Radius(30, 30, 0, 0).Gradient(pal.bg, pal.bg.Alpha(0), 180).HitTest(noTouch).Children(func() { sheetHandle(c) })
 		}
 	})
+}
+
+// cornersOutside is what is outside the round top corners of radius rad of rect r: the ground they show.
+func cornersOutside(r ui.Rect, rad float32) *ui.Path {
+	k := rad * 0.5523 // a quarter circle's control points
+	p := new(ui.Path)
+	p.MoveTo(r.X, r.Y).LineTo(r.X+rad, r.Y).CubeTo(r.X+rad-k, r.Y, r.X, r.Y+rad-k, r.X, r.Y+rad).Close()
+	x := r.X + r.W
+	p.MoveTo(x, r.Y).LineTo(x-rad, r.Y).CubeTo(x-rad+k, r.Y, x, r.Y+rad-k, x, r.Y+rad).Close()
+	return p
 }
 
 // dateRowH is the height of the date row at the top of home.
@@ -257,10 +268,12 @@ func figure(c *ui.Context, glyph *ui.SVG, s string) {
 	})
 }
 
-// The sheet's top: how far it comes over the summary unscrolled, and the height of its top, where its handle is.
+// The sheet's top: how far it comes over the summary unscrolled, the height of its top, where its handle is, and of
+// its fade once pinned.
 const (
 	sheetOver = 30
 	sheetTop  = 28
+	sheetFade = 120 // how far down the pinned top fades into what scrolls under it
 )
 
 // sheetHandle is the handle on the sheet's top.

@@ -41,7 +41,7 @@ in a little under a finger, their corners kept.
   does not move as the screen scrolls (#641). A sheet comes over it, with no labels over its parts: the collections two
   to a row and the pages written lately (today's page is the +'s). Scrolled up, the sheet comes over the summary to the date
   row and stays there, its top round and with its handle, the ground in its corners with no line; what is on it
-  scrolls under its top, fading in under it (#639, #645).
+  scrolls up under its top and fades out into it over a tall stretch, with no band (#639, #645).
 - **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
   icon, the desktop's. A collection is a card of one flat color: on the light look a pastel of its color, its icon bare
   and its words dark in a deep tone of it (#641); on the dark a deep, quiet tone of it, its words a light tint (#642), so that collections tell apart by their colors. A collection held (its card, or its name on
