@@ -277,7 +277,7 @@ func collCard(c *ui.Context, k *library.Collection, t tones, s float32) {
 		sub = locales.LibrarySaved()
 	}
 	ui.Row(c.Key("card-top")).Gap(7 * s).AlignItems(ui.Center).Children(func() {
-		collIcon(c, k, 20*s)
+		collIcon(c, k, 24*s)
 		ui.Text(c, sub).FontSize(14 * s).FontWeight(550).TextColor(t.ink.Alpha(0.75)).MaxLines(1)
 	})
 	ui.Text(c, k.Name).FontSize(22 * s).FontWeight(650).LineHeight(1.15).MaxLines(2).Wrap().TextColor(t.ink)

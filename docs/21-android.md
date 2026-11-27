@@ -41,8 +41,8 @@ in a little under a finger, their corners kept.
   tasks open are the summary's and the menu's); today's page is the +'s. Scrolled up, the sheet comes over the sentence; once its top reaches the date, it stays there with its handle and its corners round, and what is
   on it scrolls under, fading in under it (#639, #640).
 - **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
-  icon, the desktop's. A collection is a card of one flat pastel of its color, its icon bare and its words dark in a
-  deep tone of it (#641), so that collections tell apart by their colors. A collection held (its card, or its name on
+  icon, the desktop's. A collection is a card of one flat color: on the light look a pastel of its color, its icon bare
+  and its words dark in a deep tone of it (#641); on the dark a deep, quiet tone of it, its words a light tint (#642), so that collections tell apart by their colors. A collection held (its card, or its name on
   its screen) rises out of its place into a preview at the top, the card a little larger, its place left empty, while
   its sheet comes up under it: its colors and its icons, kept at a tap and shown on the preview at once, and its
   settings, its name (kept as the sheet closes) and, for the journal, how its days are titled (the days titled again

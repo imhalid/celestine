@@ -251,16 +251,24 @@ func namedColor(s string) (ui.Color, bool) {
 // deep tone of it, and the color itself, bright.
 type tones struct{ card, ink, color ui.Color }
 
-// tonesOf are collection k's tones: the same on the light look and the dark, as cards of color are.
+// tonesOf are collection k's tones: on the light look a pastel card with deep words, on the dark a deep, quiet card
+// with words a light tint of it, which does not glare there (#642).
 func tonesOf(k *library.Collection) tones {
 	for i, n := range collColors {
 		if n == k.Color || (k.Color == "" && n == defaultColor(k)) {
 			h := chartHues[i]
+			if dark {
+				return tones{card: ui.Oklch(0.31, min(0.075, h[1]*0.45), h[0]), ink: ui.Oklch(0.87, min(0.085, h[1]*0.5), h[0]),
+					color: ui.Oklch(0.72, h[2], h[0])}
+			}
 			return tones{card: ui.Oklch(0.8, min(0.14, h[1]*0.85), h[0]), ink: ui.Oklch(0.3, min(0.09, h[1]*0.55), h[0]),
 				color: ui.Oklch(0.62, h[1], h[0])}
 		}
 	}
 	col := collColor(k) // a color given before the chart colors
+	if dark {
+		return tones{card: col.MixOklab(pal.block, 0.72), ink: col.MixOklab(ui.Hex("#FFFFFF"), 0.62), color: col}
+	}
 	return tones{card: col.MixOklab(ui.Hex("#FFFFFF"), 0.38), ink: col.MixOklab(ui.Hex("#000000"), 0.62), color: col}
 }
 

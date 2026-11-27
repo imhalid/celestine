@@ -56,29 +56,39 @@ var (
 		`<path d="M12 3.5 20.5 8 12 12.5 3.5 8 12 3.5Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16 8.5 4.5 8.5-4.5"/>`)
 )
 
+// cicon is a collection's icon: bolder than the chrome's, its soft part stronger, as it stands alone on a card (#642).
+func cicon(body string) *ui.SVG {
+	body = strings.ReplaceAll(body, `fill-opacity=".24"`, `fill-opacity=".34"`)
+	return ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
+		`stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` + body + `</svg>`))
+}
+
 // collIcons are the icons a collection can have, by the names the desktop gives them (collicons.go of the desktop),
 // in the picker's order; "" is the stack.
 var collIcons = []struct {
 	name  string
 	glyph *ui.SVG
 }{
-	{"", iconStack},
-	{"book", icon(tone(`path d="M5 4.5h10a3 3 0 013 3v6H8a3 3 0 00-3 3z"`) + `<path d="M5 4.5h10a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10"/>`)},
-	{"note", iconPage},
-	{"folder", iconFolder},
-	{"check", icon(tone(`rect x="4" y="4" width="16" height="16" rx="3"`) + `<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>`)},
-	{"calendar", iconCalendar},
-	{"star", icon(tone(`path d="m12 4 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"`) + `<path d="m12 4 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/>`)},
-	{"heart", icon(tone(`path d="M12 19s-7-4.4-7-9.5A3.8 3.8 0 0112 7a3.8 3.8 0 017 2.5C19 14.6 12 19 12 19z"`) + `<path d="M12 19s-7-4.4-7-9.5A3.8 3.8 0 0 1 12 7a3.8 3.8 0 0 1 7 2.5C19 14.6 12 19 12 19z"/>`)},
-	{"flag", icon(tone(`path d="M6 5h11l-2 4 2 4H6z"`) + `<path d="M6 20V4.5M6 5h11l-2 4 2 4H6"/>`)},
-	{"bulb", icon(tone(`path d="M12 3.5a6 6 0 00-3.5 10.9V17h7v-2.6A6 6 0 0012 3.5z"`) + `<path d="M9 17.5h6M10 20.5h4M12 3.5a6 6 0 0 0-3.5 10.9V17h7v-2.6A6 6 0 0 0 12 3.5z"/>`)},
-	{"search", iconSearch},
-	{"code", icon(tone(`rect x="3" y="4.5" width="18" height="15" rx="3"`) + `<path d="m9 8-4 4 4 4M15 8l4 4-4 4"/>`)},
-	{"briefcase", icon(tone(`rect x="3.5" y="7.5" width="17" height="12" rx="2"`) + `<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5.5v2M3.5 12.5h17"/>`)},
-	{"home", icon(tone(`path d="M4.5 11 12 4.5l7.5 6.5V19a1 1 0 01-1 1h-13a1 1 0 01-1-1z"`) + `<path d="M4.5 11 12 4.5l7.5 6.5V19a1 1 0 0 1-1 1h-4v-5h-5v5h-4a1 1 0 0 1-1-1z"/>`)},
-	{"people", icon(tone(`circle cx="9" cy="9" r="3"`) + `<circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M15.5 6.5a3 3 0 0 1 0 5.5M17.5 14a5.5 5.5 0 0 1 3 5"/>`)},
-	{"music", icon(tone(`circle cx="6.5" cy="18" r="2.5"`) + tone(`circle cx="16.5" cy="15.5" r="2.5"`) + `<path d="M9 18V5.5l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/>`)},
-	{"globe", icon(tone(`circle cx="12" cy="12" r="8"`) + `<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 3.5 5 3.5 8s-1 5.5-3.5 8c-2.5-2.5-3.5-5-3.5-8s1-5.5 3.5-8z"/>`)},
+	{"", cicon(tone(`path d="M12 3.5 20.5 8 12 12.5 3.5 8z"`) + `<path d="M12 3.5 20.5 8 12 12.5 3.5 8z"/><path d="m3.5 12.2 8.5 4.5 8.5-4.5M3.5 16.2l8.5 4.5 8.5-4.5"/>`)},
+	{"book", cicon(tone(`path d="M3.5 5.5c3 0 5.8.6 8.5 2.2v12c-2.7-1.6-5.5-2.2-8.5-2.2z"`) +
+		`<path d="M3.5 5.5c3 0 5.8.6 8.5 2.2 2.7-1.6 5.5-2.2 8.5-2.2v12c-3 0-5.8.6-8.5 2.2-2.7-1.6-5.5-2.2-8.5-2.2z"/><path d="M12 7.7v12"/>`)},
+	{"note", cicon(tone(`path d="M6.5 3.5h7l4 4v13h-11z"`) + `<path d="M6.5 3.5h7l4 4v13h-11z"/><path d="M13.5 3.5v4h4M9.5 12.5h5M9.5 16h3.5"/>`)},
+	{"folder", cicon(tone(`path d="M3.5 7a2 2 0 012-2h4l2 2.2h7a2 2 0 012 2V17a2 2 0 01-2 2h-13a2 2 0 01-2-2z"`) +
+		`<path d="M3.5 7a2 2 0 012-2h4l2 2.2h7a2 2 0 012 2V17a2 2 0 01-2 2h-13a2 2 0 01-2-2z"/>`)},
+	{"check", cicon(tone(`rect x="4" y="4" width="16" height="16" rx="4"`) + `<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/>`)},
+	{"calendar", cicon(tone(`path d="M4 10V8a3 3 0 013-3h10a3 3 0 013 3v2z"`) +
+		`<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M8.5 3v4M15.5 3v4"/>`)},
+	{"star", cicon(tone(`path d="m12 3.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"`) + `<path d="m12 3.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/>`)},
+	{"heart", cicon(tone(`path d="M12 19.5s-7.5-4.6-7.5-10A4 4 0 0112 7a4 4 0 017.5 2.5c0 5.4-7.5 10-7.5 10z"`) + `<path d="M12 19.5s-7.5-4.6-7.5-10A4 4 0 0112 7a4 4 0 017.5 2.5c0 5.4-7.5 10-7.5 10z"/>`)},
+	{"flag", cicon(tone(`path d="M6 4.5h12l-2.5 4.5 2.5 4.5H6z"`) + `<path d="M6 20.5v-16M6 4.5h12l-2.5 4.5 2.5 4.5H6"/>`)},
+	{"bulb", cicon(tone(`path d="M12 3.5a6 6 0 00-3.5 10.9V17h7v-2.6A6 6 0 0012 3.5z"`) + `<path d="M9 20.5h6M12 3.5a6 6 0 00-3.5 10.9V17h7v-2.6A6 6 0 0012 3.5z"/>`)},
+	{"search", cicon(tone(`circle cx="11" cy="11" r="6.5"`) + `<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`)},
+	{"code", cicon(tone(`rect x="3" y="4.5" width="18" height="15" rx="3.5"`) + `<rect x="3" y="4.5" width="18" height="15" rx="3.5"/><path d="m10 9.5-2.5 2.5 2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>`)},
+	{"briefcase", cicon(tone(`rect x="3.5" y="7.5" width="17" height="12" rx="2.5"`) + `<rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5v-2A1.5 1.5 0 0110.5 4h3A1.5 1.5 0 0115 5.5v2M3.5 12.5h17"/>`)},
+	{"home", cicon(tone(`path d="M4.5 10.5 12 4.5l7.5 6V19a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 19z"`) + `<path d="M4.5 10.5 12 4.5l7.5 6V19a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 19z"/><path d="M10 20.5v-5h4v5"/>`)},
+	{"people", cicon(tone(`circle cx="9" cy="8.5" r="3.2"`) + `<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0111 0"/><path d="M15.5 5.5a3.2 3.2 0 010 6M17.5 14a5.5 5.5 0 013 5"/>`)},
+	{"music", cicon(tone(`circle cx="6.5" cy="17.5" r="2.5"`) + tone(`circle cx="17" cy="15.5" r="2.5"`) + `<path d="M9 17.5V6l10.5-2.5v12"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17" cy="15.5" r="2.5"/>`)},
+	{"globe", cicon(tone(`circle cx="12" cy="12" r="8.5"`) + `<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z"/>`)},
 }
 
 // collGlyphOf is the icon named name, the journal's calendar for one with none, or the stack.
@@ -89,7 +99,7 @@ func collGlyphOf(name string, journal bool) *ui.SVG {
 		}
 	}
 	if journal {
-		return iconCalendar
+		return collIcons[5].glyph // the calendar
 	}
-	return iconStack
+	return collIcons[0].glyph
 }
