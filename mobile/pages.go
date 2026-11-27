@@ -113,11 +113,11 @@ func ago(t time.Time) string {
 	return locales.EditedDays(int(startOfDay(time.Now()).Sub(startOfDay(t)) / (24 * time.Hour)))
 }
 
-// titleOf is the title page p shows under: a day of the journal its date written out (its title is the journal's
+// titleOf is the title page p shows under: a day of the journal its date written out, without its weekday (#641) (its title is the journal's
 // format, for files and links).
 func titleOf(p *library.Page) string {
 	if p.Coll != nil && p.Coll.Journal && p.Parent == nil {
-		return formatDay("dddd, D MMMM YYYY", dayOf(p))
+		return formatDay("D MMMM YYYY", dayOf(p))
 	}
 	if strings.TrimSpace(p.Title) == "" {
 		return locales.PageUntitled()
@@ -153,8 +153,8 @@ func (a *app) pageBlock(c *ui.Context, p *library.Page, showColl bool) ui.Elemen
 // collChip is collection k's name in a chip of its color.
 func collChip(c *ui.Context, k *library.Collection) {
 	t := tonesOf(k)
-	ui.Row(c.Key("chip")).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Gradient(t.top, t.ground, 160).Shrink(0).Children(func() {
-		ui.Icon(c, collGlyph(k)).Size(13, 13).TextColor(t.color)
+	ui.Row(c.Key("chip")).Gap(6).AlignItems(ui.Center).Padding(4, 10).Radius(12).Background(t.card).Shrink(0).Children(func() {
+		ui.Icon(c, collGlyph(k)).Size(13, 13).TextColor(t.ink)
 		ui.Text(c, k.Name).FontSize(12).FontWeight(650).TextColor(t.ink).MaxLines(1)
 	})
 }
@@ -217,16 +217,21 @@ func collColor(k *library.Collection) ui.Color {
 	if col, ok := namedColor(k.Color); ok {
 		return col
 	}
+	col, _ := chartColor(defaultColor(k))
+	return col
+}
+
+// defaultColor is the chart color of a collection given none: the journal's the seventh, a coral, another's one by its
+// name.
+func defaultColor(k *library.Collection) string {
 	if k.Journal {
-		col, _ := chartColor("c7")
-		return col
+		return "c7"
 	}
 	h := 0
 	for _, r := range k.Name {
 		h = h*31 + int(r)
 	}
-	col, _ := chartColor(collColors[(h%8+8)%8])
-	return col
+	return collColors[(h%8+8)%8]
 }
 
 // namedColor is a color a collection was given before the chart colors: a name or a hex.
@@ -242,30 +247,26 @@ func namedColor(s string) (ui.Color, bool) {
 	return ui.Color{}, false
 }
 
-// tones are a collection's colors, all of its one color: its block's ground, from its top to its bottom, its mark's
-// ground likewise, under a white icon, and its words.
-type tones struct{ top, ground, markTop, markBottom, color, ink ui.Color }
+// tones are a collection's colors (#641): its card, one flat pastel of its color, the words and the icon on it, a
+// deep tone of it, and the color itself, bright.
+type tones struct{ card, ink, color ui.Color }
 
-// tonesOf are collection k's tones (#640).
+// tonesOf are collection k's tones: the same on the light look and the dark, as cards of color are.
 func tonesOf(k *library.Collection) tones {
-	col := collColor(k)
-	t := tones{color: col, markTop: col.MixOklab(ui.Hex("#FFFFFF"), 0.22), markBottom: col.MixOklab(ui.Hex("#000000"), 0.12)}
-	if dark {
-		t.top, t.ground = pal.block.MixOklab(col, 0.32), pal.block.MixOklab(col, 0.12)
-		t.ink = col.MixOklab(ui.Hex("#FFFFFF"), 0.62)
-	} else {
-		t.top, t.ground = pal.block.MixOklab(col, 0.22), pal.block.MixOklab(col, 0.07)
-		t.ink = col.MixOklab(ui.Hex("#000000"), 0.42)
+	for i, n := range collColors {
+		if n == k.Color || (k.Color == "" && n == defaultColor(k)) {
+			h := chartHues[i]
+			return tones{card: ui.Oklch(0.8, min(0.14, h[1]*0.85), h[0]), ink: ui.Oklch(0.3, min(0.09, h[1]*0.55), h[0]),
+				color: ui.Oklch(0.62, h[1], h[0])}
+		}
 	}
-	return t
+	col := collColor(k) // a color given before the chart colors
+	return tones{card: col.MixOklab(ui.Hex("#FFFFFF"), 0.38), ink: col.MixOklab(ui.Hex("#000000"), 0.62), color: col}
 }
 
-// collMark is collection k's icon, white, on a rounded square of its color, size across.
-func collMark(c *ui.Context, k *library.Collection, size float32) {
-	t := tonesOf(k)
-	ui.Box(c.Key("mark")).Size(size, size).Radius(size*0.32).Gradient(t.markTop, t.markBottom, 160).
-		AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
-		Children(func() { ui.Icon(c, collGlyph(k)).Size(size*0.54, size*0.54).TextColor(ui.Hex("#FFFFFF")) })
+// collIcon is collection k's icon, bare, in its deep tone, size across.
+func collIcon(c *ui.Context, k *library.Collection, size float32) {
+	ui.Icon(c, collGlyph(k)).Size(size, size).TextColor(tonesOf(k).ink)
 }
 
 // collGlyph is collection k's icon.

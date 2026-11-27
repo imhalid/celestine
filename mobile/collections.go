@@ -45,10 +45,10 @@ func (a *app) collectionScreen(c *ui.Context, k *library.Collection) {
 				pressable(head)
 				head.Children(func() {
 					ui.Row(c).Gap(12).AlignItems(ui.Center).Padding(4, 2, 0, 2).Children(func() {
-						collMark(c, k, 46)
+						ui.Icon(c, collGlyph(k)).Size(30, 30).TextColor(t.color)
 						ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).FontWeight(600).TextColor(pal.muted)
 					})
-					ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).TextColor(t.ink).
+					ui.Text(c, k.Name).FontSize(38).FontWeight(800).LineHeight(1.05).Wrap().Padding(0, 2, 8, 2).
 						Role(ui.RoleHeading).Level(1)
 				})
 				if head.LongPressed() {

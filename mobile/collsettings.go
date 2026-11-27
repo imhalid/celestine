@@ -1,7 +1,6 @@
 package main
 
 import (
-	"slices"
 	"strings"
 	"time"
 
@@ -10,8 +9,9 @@ import (
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// A collection held (its block, or its name on its screen) rises from where it was into a preview over the screen,
-// while its sheet comes up under it (#638, #640): its colors and its icons, chosen with a tap and kept at once, as the
+// A collection held (its card, or its name on its screen) rises out of its place into a preview over the screen, the
+// card as the screen shows it, a little larger, its place left empty, while its sheet comes up under it (#638, #640,
+// #641): its colors and its icons, chosen with a tap and kept at once, as the
 // desktop keeps them (collicons.go of the desktop), the preview changing with them; and its settings, its name and,
 // for the journal, its way of titling its days, the days titled again by a new way (#637). The name is kept as the
 // sheet closes, or as it is submitted.
@@ -89,47 +89,26 @@ func (a *app) collSheetView(c *ui.Context) {
 		winW, _ := c.Size()
 		anchor := ui.Box(c.Key("coll-held")).Absolute().Top(0).Left(0).Size(0, 0)
 		kk := anchor.AnimateTo("open", b2f(open), ui.Animation{Spring: ui.SpringOptions{Duration: 380 * time.Millisecond, Bounce: 0.12}})
-		if (kk < 0.01 && !open) || k == nil {
+		a.csLifted = kk >= 0.01 // its place on the screen stays empty until it is back in it
+		if !a.csLifted && !open || k == nil {
 			return
 		}
-		grown := min(max(kk, 0), 1)
 
-		// The preview: from where the collection was held to the top of the screen, as wide as it.
+		// The preview is the card as the screen shows it, risen from its place to the top, a little larger.
 		from := a.cs.from
 		if from.W == 0 {
-			from = ui.Rect{X: side, Y: top + 120, W: winW - 2*side, H: 132}
+			from = ui.Rect{X: side, Y: top + 120, W: (winW - 2*side - gap) / 2, H: 132}
 		}
-		recent := recentOf(k.All(), 3)
-		h := float32(40 + 48) // its padding and its head; then its pages written last
-		if n := float32(len(recent)); n > 0 {
-			h += 14 + n*20 + (n-1)*8
-		}
-		to := ui.Rect{X: side, Y: top + 28, W: winW - 2*side, H: h}
+		const grow = 1.18
+		to := ui.Rect{X: (winW - from.W*grow) / 2, Y: top + 40, W: from.W * grow, H: from.H * grow}
 		at := func(f, t float32) float32 { return f + (t-f)*kk }
+		s := at(1, grow)
 		t := tonesOf(k)
 		pv := ui.Column(c.Key("coll-preview")).Absolute().Left(at(from.X, to.X)).Top(at(from.Y, to.Y)).
-			Width(at(from.W, to.W)).Height(at(from.H, to.H)).Radius(smallR+4+6*grown).Padding(16+4*grown).Gap(12).Clip().
-			Gradient(t.top, t.ground, 160).Role(ui.RoleButton).Label(k.Name)
+			Width(at(from.W, to.W)).Height(at(from.H, to.H)).Radius((smallR + 4) * s).Padding(16 * s).Justify(ui.SpaceBetween).
+			Background(t.card).Role(ui.RoleButton).Label(k.Name)
 		shadow(pv)
-		pv.Children(func() {
-			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-				collMark(c, k, 40+8*grown)
-				ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-					ui.Text(c, k.Name).FontSize(17 + 5*grown).FontWeight(750).MaxLines(1).TextColor(t.ink)
-					ui.Text(c, locales.LibraryPages(len(k.All()))).FontSize(13).FontWeight(550).TextColor(t.ink.Alpha(0.6))
-				})
-			})
-			// Its pages written last, as the preview grows.
-			ui.Column(c).FillWidth().Gap(8).Opacity(max(0, grown*2-1)).Children(func() {
-				for _, p := range recent {
-					ui.Row(c.Key(p)).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(6, 6).Radius(3).Background(t.color)
-						ui.Text(c, titleOf(p)).FontSize(14).FontWeight(600).TextColor(t.ink).MaxLines(1).Grow(1).MinWidth(0)
-						ui.Text(c, when(p.Modified, time.Now())).FontSize(12).TextColor(t.ink.Alpha(0.55)).Shrink(0)
-					})
-				}
-			})
-		})
+		pv.Children(func() { collCard(c, k, t, s) })
 		if pv.Clicked() && open {
 			a.openCollection(k)
 		}
@@ -169,8 +148,8 @@ func (a *app) formatChips(c *ui.Context, k *library.Collection, t tones) {
 				Background(pal.raised).Role(ui.RoleRadio).Label(formatDay(f, now)).Checked(on))
 			color := pal.text
 			if on {
-				b.Gradient(t.markTop, t.markBottom, 160)
-				color = ui.Hex("#FFFFFF")
+				b.Background(t.card)
+				color = t.ink
 			}
 			b.Children(func() { ui.Text(c, formatDay(f, now)).FontSize(14).FontWeight(600).TextColor(color) })
 			if b.Clicked() && !on {
@@ -178,13 +157,6 @@ func (a *app) formatChips(c *ui.Context, k *library.Collection, t tones) {
 			}
 		}
 	})
-}
-
-// recentOf are the n of ps written last, the last first.
-func recentOf(ps []*library.Page, n int) []*library.Page {
-	out := slices.Clone(ps)
-	slices.SortStableFunc(out, func(x, y *library.Page) int { return y.Modified.Compare(x.Modified) })
-	return out[:min(n, len(out))]
 }
 
 // colorRow is the colors collection k can have: none (one by its name), then c1 to c8, the one it has ringed.
@@ -199,9 +171,9 @@ func (a *app) colorRow(c *ui.Context, k *library.Collection) {
 			sw := pressable(ui.Box(c.Key("c:"+name)).Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center).
 				Role(ui.RoleRadio).Label(locales.CollColor()).Checked(on))
 			if on {
-				sw.Border(2.5, t.color)
+				sw.Border(2.5, t.card)
 			}
-			sw.Children(func() { ui.Box(c).Size(24, 24).Radius(12).Gradient(t.markTop, t.markBottom, 160) })
+			sw.Children(func() { ui.Box(c).Size(24, 24).Radius(12).Background(t.card) })
 			if sw.Clicked() && !on {
 				a.setCollLook(k, name, k.Icon)
 			}
@@ -226,8 +198,8 @@ func (a *app) iconGrid(c *ui.Context, k *library.Collection) {
 						Justify(ui.Center).Role(ui.RoleRadio).Label(locales.CollIcon()).Checked(on))
 					color := pal.muted
 					if on {
-						b.Gradient(t.markTop, t.markBottom, 160)
-						color = ui.Hex("#FFFFFF")
+						b.Background(t.card)
+						color = t.ink
 					}
 					b.Children(func() { ui.Icon(c, collGlyphOf(ic.name, k.Journal)).Size(22, 22).TextColor(color) })
 					if b.Clicked() && !on {

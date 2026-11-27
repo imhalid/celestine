@@ -58,9 +58,9 @@ func (a *app) homeScreen(c *ui.Context) {
 			a.pullMenu(scroll)
 			scroll.Children(func() {
 				ui.Column(c).FillWidth().Children(func() {
-					// The rest of the summary scrolls a third as fast as the sheet, which comes over it.
+					// The rest of the summary stands still, held against the scrolling, and the sheet comes over it (#641).
 					sum := ui.Column(c.Key("summary")).FillWidth().Padding(6, side+4, 58, side+4).Gap(18)
-					sum.Opacity(max(0, 1-y/220)).Translate(0, y*0.65)
+					sum.Translate(0, y)
 					sum.Children(func() { a.summaryView(c, now) })
 					if b := sum.LayoutBounds(); b.H > 0 {
 						h.summary = b.H
@@ -251,23 +251,16 @@ func (a *app) collGrid(c *ui.Context, colls []*library.Collection) {
 	})
 }
 
-// collTile is a collection as a block in the tones of its color: its icon on its ground, its name, how many pages.
-// A long press opens its sheet: its color, its icon, its settings.
+// collTile is a collection as a card of its color: its icon and how many pages, its name large under them, in its
+// deep tone. Held, it rises out of its place into its sheet's preview, and its place is left empty.
 func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
 	t := tonesOf(k)
-	sub := locales.LibraryPages(len(k.All()))
-	if k.Dynamic() {
-		sub = locales.LibrarySaved()
+	b := block(c, k, t.card, smallR+4).Height(132).Padding(16).Justify(ui.SpaceBetween).MinWidth(0).
+		Role(ui.RoleButton).Label(k.Name)
+	if a.collSheet == k.Dir || (a.cs.dir == k.Dir && a.csLifted) {
+		b.Opacity(0)
 	}
-	b := block(c, k, t.ground, smallR+4).Gradient(t.top, t.ground, 160).Height(132).Padding(16).Justify(ui.SpaceBetween).
-		MinWidth(0).Role(ui.RoleButton).Label(k.Name)
-	b.Children(func() {
-		collMark(c, k, 40)
-		ui.Column(c).Gap(2).Children(func() {
-			ui.Text(c, k.Name).FontSize(17).FontWeight(700).MaxLines(1).TextColor(t.ink)
-			ui.Text(c, sub).FontSize(13).FontWeight(550).TextColor(t.ink.Alpha(0.6))
-		})
-	})
+	b.Children(func() { collCard(c, k, t, 1) })
 	if b.LongPressed() {
 		a.holdCollection(k, b.Bounds())
 	}
@@ -275,6 +268,19 @@ func (a *app) collTile(c *ui.Context, k *library.Collection) ui.Element {
 		a.openCollection(k)
 	}
 	return b
+}
+
+// collCard is what a collection's card shows, at scale s: its icon and how many pages, and its name.
+func collCard(c *ui.Context, k *library.Collection, t tones, s float32) {
+	sub := locales.LibraryPages(len(k.All()))
+	if k.Dynamic() {
+		sub = locales.LibrarySaved()
+	}
+	ui.Row(c.Key("card-top")).Gap(7 * s).AlignItems(ui.Center).Children(func() {
+		collIcon(c, k, 20*s)
+		ui.Text(c, sub).FontSize(14 * s).FontWeight(550).TextColor(t.ink.Alpha(0.75)).MaxLines(1)
+	})
+	ui.Text(c, k.Name).FontSize(22 * s).FontWeight(650).LineHeight(1.15).MaxLines(2).Wrap().TextColor(t.ink)
 }
 
 // newNote makes a page in collection c, or the first collection of notes (made if there is none), and opens it; in
