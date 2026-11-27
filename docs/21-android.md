@@ -59,7 +59,9 @@ in a little under a finger, their corners kept.
   Library. Not while the keyboard is up, so that a page resizes at once. A page's text is shown once the page has landed, and not
   as it goes: MyGo's rich text editor is costly to draw while it moves (on a Galaxy S21 the app built each frame in
   under 2 ms and Go sat all but idle, the time being the GPU's), and a page scaled as a picture on its way was the
-  rest of it, so it is laid out at each size instead (#650).
+  rest of it, so it is laid out at each size instead (#650). Shown, the text comes in: a soft edge of the page's
+  ground sweeps over it from its start to its end, line after line and letter after letter, the editor still under it
+  (#651).
 - **Haptics:** a collection held lands with a medium tap, a task ticked and the + with a light one, a color or an icon
   chosen with a selection tick; the pull that opens the menu has MyGo's own.
 - **A page in a list** is its title with its collection's chip at the right, in the collection's color, and its first

@@ -62,6 +62,36 @@ func (a *app) stateOf(p *library.Page) editorState {
 // pagePath is the router's path of page p's screen.
 func pagePath(p *library.Page) string { return "/p/" + url.PathEscape(p.ID) }
 
+// textSweep has a page's text come in as it is shown (#651): a soft edge of the page's ground sweeps over it from its
+// start to its end, mostly down and a little across, so that it comes line after line and letter after letter. The
+// editor stays still under it, drawing as cheaply as at rest (#650).
+func (a *app) textSweep(c *ui.Context, ed *editorState) {
+	t := c.Now().Sub(ed.opened) - landing
+	if ed.opened.IsZero() || t < 0 {
+		return
+	}
+	// How far the text goes down, about: its lines at the width of the screen, each paragraph a line at least.
+	w, _ := c.Size()
+	perLine := max(int((w-2*(side+4))/9.5), 10)
+	lines := 0
+	for _, para := range strings.Split(ed.doc.Text().PlainText(), "\n") {
+		lines += max(1, (len([]rune(para))+perLine-1)/perLine)
+	}
+	h := float32(lines)*18*1.55*1.25 + 40
+	dur := time.Duration(min(max(h/700, 0.55), 1.1) * float32(time.Second))
+	if t >= dur {
+		return
+	}
+	c.AnimationFrame()
+	r := float32(t) / float32(dur)
+	r = 1 - (1-r)*(1-r)*(1-r) // easing out
+	const band = 0.35
+	start := -band + r*(1+band)
+	ui.Box(c.Key("sweep")).Absolute().Top(0).Left(0).Right(0).Height(h).
+		HitTest(func(x, y float32, r ui.Rect) bool { return false }).
+		LinearGradient(ui.LinearGradient{From: pal.bg.Alpha(0), To: pal.bg, Angle: 160, Start: start, End: start + band})
+}
+
 // flush saves what was typed in the page being written.
 func (a *app) flush() {
 	if a.ed.id == "" || !a.ed.dirty || a.ed.readOnly != "" {
@@ -177,10 +207,14 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 				ui.Box(c.Key("body-room")).Grow(1).Basis(0).FillWidth()
 				return
 			}
-			body := richtext.EditorBase(c.Key("body:"+p.ID), ed.doc, richtext.EditorOptions{
-				Label: titleOf(p), Placeholder: locales.PagePlaceholder(), ReadOnly: ed.readOnly != "" || !live,
-				Font: ui.Font{Family: fontFamily, Size: 18, LineHeight: 1.55}, Theme: textTheme(),
-			}).Grow(1).Basis(0).FillWidth()
+			var body ui.Element
+			ui.Box(c.Key("body-box")).Grow(1).Basis(0).FillWidth().Children(func() {
+				body = richtext.EditorBase(c.Key("body:"+p.ID), ed.doc, richtext.EditorOptions{
+					Label: titleOf(p), Placeholder: locales.PagePlaceholder(), ReadOnly: ed.readOnly != "" || !live,
+					Font: ui.Font{Family: fontFamily, Size: 18, LineHeight: 1.55}, Theme: textTheme(),
+				}).Fill()
+				a.textSweep(c, ed)
+			})
 			if body.Changed() && live {
 				a.typed(c.Now())
 			}
