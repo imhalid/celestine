@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/imhalid/celestine/internal/library"
@@ -85,6 +86,25 @@ func (a *app) stateOf(p *library.Page) editorState {
 
 // pagePath is the router's path of page p's screen.
 func pagePath(p *library.Page) string { return "/p/" + url.PathEscape(p.ID) }
+
+// taskButton makes the line the caret is on a task, or a task a line again (#653): on a phone "[] " at a line's start
+// is hard to type and nobody finds it. It is filled while the line is a task, and keeps the keyboard up.
+func (a *app) taskButton(c *ui.Context, ed *editorState) {
+	on := ed.doc.Formatting().Paragraph.List == richtext.Tasks
+	bg, fg := pal.block, pal.text
+	if on {
+		bg, fg = pal.accent, pal.accentText
+	}
+	b := ui.Box(c.Key("task")).Size(46, 46).Radius(23).AlignItems(ui.Center).Justify(ui.Center).Shrink(0).
+		Background(bg).Border(1, pal.line).Role(ui.RoleCheckBox).Checked(on).Label(locales.PageTask()).KeepFocus()
+	pressable(b)
+	b.Children(func() { ui.Icon(c, iconTasks).Size(22, 22).TextColor(fg) })
+	if b.Clicked() {
+		ed.doc.ToggleList(richtext.Tasks)
+		a.typed(c.Now())
+		mygo.Haptics.Selection()
+	}
+}
 
 // letterHop has a page's letters hop into place as it is shown (#652). MyGo's editor draws its text whole, so the
 // letters are drawn over it for the moment: the frame after the editor first shows (hidden), each visible letter's
@@ -271,6 +291,9 @@ func (a *app) pageScreen(c *ui.Context, p *library.Page) {
 		a.topBar(c, true, func() {
 			if !live {
 				return
+			}
+			if ed.writing {
+				a.taskButton(c, ed)
 			}
 			if ed.writing { // Done puts the keyboard away: it takes the focus from the text
 				done := ui.Row(c.Key("done")).Height(46).Padding(0, 20).Radius(23).AlignItems(ui.Center).

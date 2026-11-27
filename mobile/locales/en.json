@@ -52,6 +52,7 @@
   "page_new": "New page",
   "page_placeholder": "Start writing…",
   "page_saveFailed": "Couldn't save: {error}",
+  "page_task": "Task",
   "page_title": "Title",
   "page_trash": "Move to trash",
   "page_trashed": "Moved to the trash",

@@ -553,6 +553,16 @@ func (msgs Messages) PageSaveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "page_saveFailed", map[string]any{"error": error})
 }
 
+// PageTask says "Task"
+// in the language the app shows.
+func PageTask() string { return In(i18n.Locale()).PageTask() }
+
+// PageTask says "Task"
+// in the language of msgs.
+func (msgs Messages) PageTask() string {
+	return Catalog.Format(msgs.locale, "page_task", nil)
+}
+
 // PageTitle says "Title"
 // in the language the app shows.
 func PageTitle() string { return In(i18n.Locale()).PageTitle() }

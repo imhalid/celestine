@@ -347,3 +347,28 @@ func TestSummaryAndPlusMotion(t *testing.T) {
 		t.Fatalf("the list stood where it ends at once: %v then %v", early, late)
 	}
 }
+
+// While a page is written, the task button makes the caret's line a task and is kept as the page is saved (#653).
+func TestTaskButton(t *testing.T) {
+	a, tt := newTestApp(t)
+	c, _ := a.lib.NewCollection("Notes")
+	p, _ := c.NewPage(nil, "Alışveriş")
+	p.SaveText("süt al")
+	a.openPage(p)
+	tt.Advance(2 * time.Second)
+	chip, ok := tt.Find("Notes") // the text is under the collection's chip and the title
+	if !ok {
+		t.Fatalf("no chip: %v", tt.Texts())
+	}
+	tt.Press(chip.X+40, chip.Y+110)
+	tt.Release(chip.X+40, chip.Y+110)
+	tt.Advance(100 * time.Millisecond)
+	if err := tt.Click(locales.PageTask()); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	tt.Advance(saveQuiet + 200*time.Millisecond)
+	tt.Frame()
+	if md, _ := p.Text(); !strings.Contains(md, "- [ ] süt al") {
+		t.Fatalf("saved %q", md)
+	}
+}
