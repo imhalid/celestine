@@ -27,7 +27,7 @@ func newTestApp(t *testing.T) (*app, *ui.Tester) {
 	return a, tt
 }
 
-// A new library has the desktop's journal; today in the week's strip makes today's page, as the desktop makes a day, and what is
+// A new library has the desktop's journal; the +'s first makes today's page, as the desktop makes a day, and what is
 // typed in it is saved to its file as the library's document (#633).
 func TestTodayPageWritten(t *testing.T) {
 	a, tt := newTestApp(t)
@@ -35,7 +35,11 @@ func TestTodayPageWritten(t *testing.T) {
 	if j == nil || !j.Journal || j.Icon != "calendar" {
 		t.Fatalf("journal %+v", j)
 	}
-	if err := tt.Click(formatDay("dddd D MMMM", time.Now())); err != nil {
+	if err := tt.Click(locales.PlusOpen()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(400 * time.Millisecond)
+	if err := tt.Click(locales.ActionToday()); err != nil {
 		t.Fatal(err)
 	}
 	tt.Advance(400 * time.Millisecond)
@@ -229,25 +233,8 @@ func TestStreak(t *testing.T) {
 	}
 }
 
-// The week in the top block opens the page of a day the journal has, and the field's words are light by night and
-// on the dark look, dark by day (#636).
-func TestWeekAndSky(t *testing.T) {
-	a, tt := newTestApp(t)
-	j := a.journalColl()
-	d := startOfDay(time.Now()).AddDate(0, 0, -2)
-	j.Creating = true
-	p, _ := j.NewPage(nil, d.Format("2006-01-02"))
-	j.Creating = false
-	p.Props = map[string]string{journalDayKey: d.Format("2006-01-02")}
-	p.SaveText("iki gün önce")
-	tt.Frame()
-	if err := tt.Click(formatDay("dddd D MMMM", d)); err != nil {
-		t.Fatal(err)
-	}
-	tt.Advance(400 * time.Millisecond)
-	if a.ed.id != p.ID {
-		t.Fatal("the day's page not opened")
-	}
+// The field's words are light by night and on the dark look, dark by day (#636).
+func TestSky(t *testing.T) {
 	day := func(h int) time.Time { return time.Date(2026, 11, 27, h, 0, 0, 0, time.Local) }
 	if s := skyAt(day(13), false); s.light != 0 {
 		t.Fatalf("noon's words light %v", s.light)

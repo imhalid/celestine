@@ -12,8 +12,8 @@ import (
 )
 
 // The home screen is a summary of the day on a dark ground, and a sheet over it: the weekday and the date, a
-// sentence of the day with its numbers marked, a row of figures; on the sheet the week, the tasks open, the
-// collections and the pages written lately. The date's row stays where it is: scrolled up, the sheet comes over the
+// sentence of the day with its numbers marked, a row of figures; on the sheet the tasks open, the collections
+// and the pages written lately. The date's row stays where it is: scrolled up, the sheet comes over the
 // rest of the summary and goes under the row (#637, #638). Pulled down past its top, the screen opens the menu.
 
 // The summary's own colors: it is dark on the light look too.
@@ -51,7 +51,8 @@ func (a *app) homeScreen(c *ui.Context) {
 	heroField(c, home, summarySky(now), 0)
 	home.Children(func() {
 		a.dateRow(c, now)
-		scroll := ui.Scroll(c.Key("home-scroll")).Grow(1).Basis(0).FillWidth().TrackScroll(&h.scroll)
+		// Its corners round: the sheet scrolled under the date row keeps the corners it has unscrolled (#639).
+		scroll := ui.Scroll(c.Key("home-scroll")).Grow(1).Basis(0).FillWidth().TrackScroll(&h.scroll).Radius(30, 30, 0, 0).Clip()
 		a.pullMenu(scroll)
 		scroll.Children(func() {
 			ui.Column(c).FillWidth().Children(func() {
@@ -150,7 +151,7 @@ func figure(c *ui.Context, glyph *ui.SVG, s string) {
 	})
 }
 
-// homeSheet is the sheet over the summary: the week, the tasks, the collections, the pages written lately.
+// homeSheet is the sheet over the summary: the tasks, the collections, the pages written lately.
 func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	_, _, bottom, _ := c.SafeArea()
 	_, winH := c.Size()
@@ -159,7 +160,6 @@ func (a *app) homeSheet(c *ui.Context, now time.Time) {
 	sheet.Radius(30, 30, 0, 0)
 	sheet.Children(func() {
 		ui.Box(c).Size(40, 5).Radius(3).Background(pal.line).AlignSelf(ui.Center).Margin(0, 0, 6, 0)
-		a.weekStrip(c, now)
 		a.tasksBlock(c)
 		a.collGrid(c, a.orderedCollections())
 		for _, p := range a.recentPages(8) {
@@ -182,43 +182,6 @@ func (a *app) daysWritten(now time.Time) int {
 		}
 	}
 	return n
-}
-
-// weekStrip is the seven days up to today in a block: the day over its weekday, a dot under those the journal has
-// words in, today filled; a day that has a page opens it, and today is made when it has none.
-func (a *app) weekStrip(c *ui.Context, now time.Time) {
-	today := startOfDay(now)
-	ui.Row(c.Key("week")).FillWidth().Justify(ui.SpaceBetween).Padding(10, 8).Radius(blockR).Background(pal.block).
-		Children(func() {
-			for i := 6; i >= 0; i-- {
-				d := today.AddDate(0, 0, -i)
-				p := a.dayPage(d)
-				written := p != nil && plainOf(p) != ""
-				cell := pressable(ui.Column(c.Key(d)).Width(42).AlignItems(ui.Center).Gap(4).Padding(9, 0, 7, 0).Radius(16).
-					Role(ui.RoleButton).Label(formatDay("dddd D MMMM", d)))
-				num, name := pal.text, pal.faint
-				if i == 0 {
-					cell.Background(pal.text)
-					num, name = pal.bg, pal.bg.Alpha(0.65)
-				}
-				cell.Children(func() {
-					ui.Text(c, strconv.Itoa(d.Day())).FontSize(19).FontWeight(700).TextColor(num)
-					ui.Text(c, strings.ToUpper(formatDay("ddd", d))).FontSize(10).FontWeight(700).TextColor(name)
-					dot := ui.Box(c).Size(5, 5).Radius(3)
-					if written {
-						dot.Background(coral)
-					}
-				})
-				if cell.Clicked() {
-					switch {
-					case p != nil:
-						a.openPage(p)
-					case i == 0:
-						a.newNote(a.journalColl())
-					}
-				}
-			}
-		})
 }
 
 // tasksBlock is one row: how many tasks are open in the library, which opens them.
