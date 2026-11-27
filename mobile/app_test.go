@@ -302,3 +302,48 @@ func TestCollSettings(t *testing.T) {
 		t.Fatalf("at %s", a.router.Path())
 	}
 }
+
+// The sentence of the day's marks open what they count, the weekday at the top is at least four letters, and the +'s
+// list rises in rather than standing at once where it ends (#643).
+func TestSummaryAndPlusMotion(t *testing.T) {
+	a, tt := newTestApp(t)
+	c, _ := a.lib.NewCollection("Notes")
+	p, _ := c.NewPage(nil, "Plan")
+	p.SaveText("- [ ] süt al")
+	tt.Frame()
+	if n := len(a.weekPages(time.Now())); n != 1 {
+		t.Fatalf("%d pages this week", n)
+	}
+	if err := tt.Click("1 note"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(500 * time.Millisecond)
+	if a.router.Path() != pathWeek || !tt.HasText("Plan") {
+		t.Fatalf("at %s: %v", a.router.Path(), tt.Texts())
+	}
+	a.router.Back()
+	tt.Advance(500 * time.Millisecond)
+	if err := tt.Click("1 open task"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(500 * time.Millisecond)
+	if a.router.Path() != pathTasks {
+		t.Fatalf("at %s", a.router.Path())
+	}
+	if got := homeDay(time.Date(2026, 11, 27, 9, 0, 0, 0, time.Local)); got != "Friday" {
+		t.Fatalf("the weekday %q", got)
+	}
+
+	a.goTo(pathHome)
+	tt.Advance(500 * time.Millisecond)
+	if err := tt.Click(locales.PlusOpen()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(16 * time.Millisecond)
+	early, _ := tt.Find(locales.ActionNote())
+	tt.Advance(600 * time.Millisecond)
+	late, ok := tt.Find(locales.ActionNote())
+	if !ok || early.Y-late.Y < 2 {
+		t.Fatalf("the list stood where it ends at once: %v then %v", early, late)
+	}
+}

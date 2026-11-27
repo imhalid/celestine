@@ -75,13 +75,14 @@ func (a *app) plusButton(c *ui.Context) {
 		anchor := ui.Column(c.Key("plus-col")).Absolute().Right(side).Bottom(18 + bottom).AlignItems(ui.End).Gap(10)
 		k := anchor.AnimateTo("open", b2f(a.plusOpen), motionIn(0))
 		anchor.Children(func() {
-			if k > 0.01 || a.plusOpen {
-				acts := a.plusActions()
-				for i, act := range acts {
-					a.plusAction(c, i, len(acts), act)
-				}
-				ui.Box(c).Height(6)
+			// Built while closed too, hidden, so that each keeps its motion and rises in as the list opens: made
+			// anew as it opened, it stood at once where it ends (#643).
+			closed := k < 0.01 && !a.plusOpen
+			acts := a.plusActions()
+			for i, act := range acts {
+				a.plusAction(c, i, len(acts), act).Hidden(closed)
 			}
+			ui.Box(c).Height(6).Hidden(closed)
 			b := ui.Box(c.Key("plus")).Size(66, 66).Radius(33).AlignItems(ui.Center).Justify(ui.Center).
 				Gradient(pal.accent, pal.accent.Mix(ui.Hex("#8B5CF6"), 0.45), 135).Role(ui.RoleButton)
 			if a.plusOpen {
@@ -131,7 +132,7 @@ func (a *app) plusActions() []plusAct {
 }
 
 // plusAction is one of the +'s list: a pill that rises and grows in a little after the one under it.
-func (a *app) plusAction(c *ui.Context, i, n int, act plusAct) {
+func (a *app) plusAction(c *ui.Context, i, n int, act plusAct) ui.Element {
 	row := ui.Row(c.Key(act.label)).Height(56).Padding(0, 22, 0, 8).Gap(12).AlignItems(ui.Center).Radius(28).
 		Background(pal.block).Role(ui.RoleButton).Label(act.label)
 	k := row.AnimateTo("in", b2f(a.plusOpen), motionIn(time.Duration(n-1-i)*22*time.Millisecond))
@@ -147,6 +148,7 @@ func (a *app) plusAction(c *ui.Context, i, n int, act plusAct) {
 		a.plusOpen = false
 		act.do()
 	}
+	return row
 }
 
 // menuPlace is a place the menu goes to.
@@ -162,11 +164,8 @@ func (a *app) menuView(c *ui.Context) {
 		top, _, bottom, _ := c.SafeArea() // an overlay is laid out over the system's bars: kept off them
 		col := ui.Column(c.Key("menu")).Absolute().Top(top).Left(0).Right(0).Bottom(bottom)
 		k := col.AnimateTo("open", b2f(a.menuOpen), motionIn(0))
-		if k < 0.01 && !a.menuOpen {
-			col.Hidden(true)
-			return
-		}
-		if col.Clicked() { // a tap anywhere but on a place
+		col.Hidden(k < 0.01 && !a.menuOpen) // built while closed too, so that its places come in as it opens (#643)
+		if col.Clicked() {                  // a tap anywhere but on a place
 			a.menuOpen = false
 		}
 		col.Children(func() {

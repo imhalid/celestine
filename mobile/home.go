@@ -73,19 +73,30 @@ func (a *app) homeScreen(c *ui.Context) {
 			if h.summary > 0 && y >= h.summary-sheetOver {
 				ui.Box(c.Key("sheet-top")).Absolute().Top(0).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
 					Radius(30, 30, 0, 0).Children(func() { sheetHandle(c) })
-				// Under it what scrolls fades in, rather than meeting it at a sharp edge (#640).
+				// Under it what scrolls fades in, rather than meeting it at a sharp edge (#640); the fade comes as the
+				// sheet goes under it, not at once (#643).
+				fade := min((y-(h.summary-sheetOver))/40, 1)
 				ui.Box(c.Key("sheet-fade")).Absolute().Top(sheetTop).Left(0).Right(0).Height(30).
-					Gradient(pal.bg, pal.bg.Alpha(0), 180)
+					Gradient(pal.bg.Alpha(fade), pal.bg.Alpha(0), 180)
 			}
 		})
 	})
+}
+
+// homeDay is now's weekday as the top of home says it, at least four letters: the whole name when it is four or less,
+// else without its vowels after its first letter (Pzrts, Cuma), as its language's catalog has them (#643).
+func homeDay(now time.Time) string {
+	if names := strings.Split(locales.DateDaysHome(), ","); len(names) == 7 {
+		return names[now.Weekday()]
+	}
+	return formatDay("dddd", now)
 }
 
 // dateRow is the top of the summary, which stays: the weekday, large, with a dot, and the date at the right.
 func (a *app) dateRow(c *ui.Context, now time.Time) {
 	ui.Row(c.Key("date")).FillWidth().Padding(18, side+4, 4, side+4).AlignItems(ui.Start).Shrink(0).Children(func() {
 		ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, formatDay("ddd", now)).FontSize(46).FontWeight(800).LineHeight(1).TextColor(nightText)
+			ui.Text(c, homeDay(now)).FontSize(46).FontWeight(800).LineHeight(1).TextColor(nightText)
 			ui.Box(c).Size(11, 11).Radius(6).Background(coral).Margin(6, 0, 0, 0)
 		})
 		ui.Column(c).AlignItems(ui.End).Padding(4, 0, 0, 0).Children(func() {
@@ -117,10 +128,28 @@ func (a *app) setBars(onDark bool) {
 	}
 }
 
-// summaryView is the rest of the summary: the sentence of the day, and the figures under it.
+// summaryView is the rest of the summary: the sentence of the day, and the figures under it. Its marks open what
+// they count: the tasks open the Tasks screen, the notes written this week a screen of them (#643).
 func (a *app) summaryView(c *ui.Context, now time.Time) {
-	msg := locales.HomeSummary(greeting(now), len(a.openTasks()), a.daysWritten(now))
-	ui.RichText(c, summarySpans(msg)...).FontSize(25).FontWeight(550).LineHeight(1.32).Wrap()
+	msg := locales.HomeSummary(greeting(now), len(a.openTasks()), len(a.weekPages(now)))
+	ui.RichText(c.Key("sentence")).FontSize(25).FontWeight(550).LineHeight(1.32).Wrap().TextColor(nightText).Children(func() {
+		for i, part := range summaryParts(msg) {
+			t := ui.Text(c.Key(i), part.text)
+			if part.mark == markNone {
+				continue
+			}
+			t.TextColor(coral).DottedUnderline().DecorationColor(coral.Alpha(0.7)).UnderlineOffset(4).Role(ui.RoleLink)
+			if t.Clicked() {
+				switch part.mark {
+				case markTasks:
+					a.goTo(pathTasks)
+				case markNotes:
+					a.router.Transition = ui.TransitionAuto
+					a.router.Push(pathWeek)
+				}
+			}
+		}
+	})
 	ui.Row(c).Gap(18).AlignItems(ui.Center).Children(func() {
 		figure(c, iconPage, locales.LibraryPages(len(a.allPages())))
 		if n := a.streak(now); n > 0 {
@@ -129,33 +158,85 @@ func (a *app) summaryView(c *ui.Context, now time.Time) {
 	})
 }
 
-// summarySpans is the sentence of the day as spans: what its message has between ⟨ and ⟩ marked in coral, dotted
-// under.
-func summarySpans(msg string) []ui.Span {
-	var spans []ui.Span
+// The marks of the sentence of the day: what its message has between ⟨ and ⟩ is the tasks open, between ⟦ and ⟧ the
+// notes written this week.
+const (
+	markNone = iota
+	markTasks
+	markNotes
+)
+
+// summaryPart is a piece of the sentence of the day, and what it marks.
+type summaryPart struct {
+	text string
+	mark int
+}
+
+// summaryParts are the pieces of message msg, split at its marks.
+func summaryParts(msg string) []summaryPart {
+	var out []summaryPart
 	var b strings.Builder
-	marked := false
+	mark := markNone
 	flush := func() {
 		if b.Len() > 0 {
-			s := ui.Span{Text: b.String(), Color: nightText}
-			if marked {
-				s.Color, s.DottedUnderline, s.DecorationColor, s.UnderlineOffset = coral, true, coral.Alpha(0.7), 4
-			}
-			spans = append(spans, s)
+			out = append(out, summaryPart{b.String(), mark})
 			b.Reset()
 		}
 	}
 	for _, r := range msg {
 		switch r {
-		case '⟨', '⟩':
+		case '⟨':
 			flush()
-			marked = r == '⟨'
+			mark = markTasks
+		case '⟦':
+			flush()
+			mark = markNotes
+		case '⟩', '⟧':
+			flush()
+			mark = markNone
 		default:
 			b.WriteRune(r)
 		}
 	}
 	flush()
-	return spans
+	return out
+}
+
+// weekPages are the pages with words written in the seven days up to now, the last written first.
+func (a *app) weekPages(now time.Time) []*library.Page {
+	since := startOfDay(now).AddDate(0, 0, -6)
+	var out []*library.Page
+	for _, p := range a.recentPages(len(a.allPages())) {
+		if p.Modified.Before(since) {
+			break
+		}
+		if plainOf(p) != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// weekScreen is the notes written this week, as a list.
+func (a *app) weekScreen(c *ui.Context) {
+	ps := a.weekPages(time.Now())
+	ui.Column(c).Fill().Children(func() {
+		a.topBar(c, true, nil)
+		ui.Scroll(c).Grow(1).Basis(0).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().Padding(0, side, 140, side).Gap(gap).Children(func() {
+				ui.Column(c).Padding(6, 0, 10, 0).Gap(4).Children(func() {
+					ui.Text(c, locales.HomeWeek()).FontSize(38).FontWeight(800).Role(ui.RoleHeading).Level(1)
+					ui.Text(c, locales.LibraryPages(len(ps))).FontSize(15).TextColor(pal.muted)
+				})
+				if len(ps) == 0 {
+					ui.Text(c, locales.WeekNone()).FontSize(16).TextColor(pal.muted).Wrap()
+				}
+				for _, p := range ps {
+					a.pageBlock(c, p, true)
+				}
+			})
+		})
+	})
 }
 
 // figure is a number of the summary, with its glyph.
@@ -198,17 +279,6 @@ func (a *app) homeSheet(c *ui.Context, now time.Time) {
 // label names a part of a screen, small, over its blocks.
 func label(c *ui.Context, s string) {
 	ui.Text(c, s).FontSize(14).FontWeight(650).TextColor(pal.muted).Padding(14, 4, 0, 4)
-}
-
-// daysWritten is how many days of the week up to now the journal has words in.
-func (a *app) daysWritten(now time.Time) int {
-	n, today := 0, startOfDay(now)
-	for i := 0; i < 7; i++ {
-		if p := a.dayPage(today.AddDate(0, 0, -i)); p != nil && plainOf(p) != "" {
-			n++
-		}
-	}
-	return n
 }
 
 // streak is how many days in a row up to today, or yesterday when today has none yet, the journal has words.

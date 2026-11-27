@@ -171,6 +171,16 @@ func (msgs Messages) DateDays() string {
 	return Catalog.Format(msgs.locale, "date_days", nil)
 }
 
+// DateDaysHome says "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday"
+// in the language the app shows.
+func DateDaysHome() string { return In(i18n.Locale()).DateDaysHome() }
+
+// DateDaysHome says "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday"
+// in the language of msgs.
+func (msgs Messages) DateDaysHome() string {
+	return Catalog.Format(msgs.locale, "date_daysHome", nil)
+}
+
 // DateDaysShort says "Sun,Mon,Tue,Wed,Thu,Fri,Sat"
 // in the language the app shows.
 func DateDaysShort() string { return In(i18n.Locale()).DateDaysShort() }
@@ -333,14 +343,14 @@ func (msgs Messages) HomeStreak(count int) string {
 
 // HomeSummary says "{greeting}. {tasks, plural, =0 {Nothing is open on your list} one {You have ⟨# open task⟩} other {You have ⟨# o…"
 // in the language the app shows.
-func HomeSummary(greeting string, tasks int, days int) string {
-	return In(i18n.Locale()).HomeSummary(greeting, tasks, days)
+func HomeSummary(greeting string, tasks int, notes int) string {
+	return In(i18n.Locale()).HomeSummary(greeting, tasks, notes)
 }
 
 // HomeSummary says "{greeting}. {tasks, plural, =0 {Nothing is open on your list} one {You have ⟨# open task⟩} other {You have ⟨# o…"
 // in the language of msgs.
-func (msgs Messages) HomeSummary(greeting string, tasks int, days int) string {
-	return Catalog.Format(msgs.locale, "home_summary", map[string]any{"greeting": greeting, "tasks": tasks, "days": days})
+func (msgs Messages) HomeSummary(greeting string, tasks int, notes int) string {
+	return Catalog.Format(msgs.locale, "home_summary", map[string]any{"greeting": greeting, "tasks": tasks, "notes": notes})
 }
 
 // HomeTasks says "{count, plural, one {open task} other {open tasks}}"
@@ -1071,4 +1081,14 @@ func TodayWords(count int) string { return In(i18n.Locale()).TodayWords(count) }
 // in the language of msgs.
 func (msgs Messages) TodayWords(count int) string {
 	return Catalog.Format(msgs.locale, "today_words", map[string]any{"count": count})
+}
+
+// WeekNone says "Nothing written in the last seven days."
+// in the language the app shows.
+func WeekNone() string { return In(i18n.Locale()).WeekNone() }
+
+// WeekNone says "Nothing written in the last seven days."
+// in the language of msgs.
+func (msgs Messages) WeekNone() string {
+	return Catalog.Format(msgs.locale, "week_none", nil)
 }

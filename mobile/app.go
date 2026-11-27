@@ -94,6 +94,7 @@ const (
 	pathSearch   = "/search"
 	pathSettings = "/settings"
 	pathSignIn   = "/signin"
+	pathWeek     = "/week"
 )
 
 // view is a frame of the window: the theme, the screen the router shows, and over it the + and what it and the menu
@@ -133,6 +134,8 @@ func (a *app) view(c *ui.Context) {
 				a.settingsScreen(c)
 			case r.Match(pathSignIn):
 				a.signInScreen(c)
+			case r.Match(pathWeek):
+				a.weekScreen(c)
 			case r.Match("/c/{dir}"):
 				if coll := a.collAt(r.Param("dir")); coll != nil {
 					r.Title(coll.Name)

@@ -33,13 +33,14 @@ in a little under a finger, their corners kept.
   right (today's page, a note, a note in another collection, a search), the + turning to a ×. Android's back closes
   what is open first. The screen is dimmed, not blurred: a blur of the whole screen is drawn again each frame of the
   motion, which made it stutter on a phone (#637).
-- **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large, with the date, which stay
-  where they are; under them a sentence of the day (the tasks open, the days written this week) with its numbers marked
-  in coral, the pages and the days in a row, on a field of the hour's colors deepened almost to black, standing still;
+- **Home** is a summary on a dark ground, as a phone's morning note is: the weekday, large (at least four letters, its
+  vowels dropped when longer: Pzrts, Cuma), with the date, which stay
+  where they are; under them a sentence of the day (the tasks open, the notes written this week) with its numbers
+  marked in coral, each opening what it counts (the Tasks screen, a screen of the week's notes; #643), the pages and the days in a row, on a field of the hour's colors deepened almost to black, standing still;
   the summary does not move as the screen scrolls (#641).
   A sheet comes over it, with no labels over its parts: the collections two to a row and the pages written lately (the
   tasks open are the summary's and the menu's); today's page is the +'s. Scrolled up, the sheet comes over the sentence; once its top reaches the date, it stays there with its handle and its corners round, and what is
-  on it scrolls under, fading in under it (#639, #640).
+  on it scrolls under, a soft edge fading in under it as it goes (#639, #640, #643).
 - **Collections** each have a color, the desktop's eight (c1 to c8, Ryugo's chart colors) or one by their name, and an
   icon, the desktop's. A collection is a card of one flat color: on the light look a pastel of its color, its icon bare
   and its words dark in a deep tone of it (#641); on the dark a deep, quiet tone of it, its words a light tint (#642), so that collections tell apart by their colors. A collection held (its card, or its name on

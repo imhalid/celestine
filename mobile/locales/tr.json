@@ -14,6 +14,7 @@
   "common_back": "Geri",
   "common_open": "Aç",
   "date_days": "Pazar,Pazartesi,Salı,Çarşamba,Perşembe,Cuma,Cumartesi",
+  "date_daysHome": "Pzr,Pzrts,Salı,Çrşmb,Prşmb,Cuma,Cmrts",
   "date_daysShort": "Paz,Pzt,Sal,Çar,Per,Cum,Cmt",
   "date_long": "{day} {month}",
   "date_months": "Ocak,Şubat,Mart,Nisan,Mayıs,Haziran,Temmuz,Ağustos,Eylül,Ekim,Kasım,Aralık",
@@ -30,7 +31,7 @@
   "home_collections": "Koleksiyonlar",
   "home_recent": "Son yazılanlar",
   "home_streak": "{count, plural, one {gün üst üste} other {gün üst üste}}",
-  "home_summary": "{greeting}. {tasks, plural, =0 {Listende açık iş yok} one {⟨# açık görevin⟩ var} other {⟨# açık görevin⟩ var}}, bu hafta {days, plural, =0 {henüz yazmadın} one {⟨# gün⟩ yazdın} other {⟨# gün⟩ yazdın}}.",
+  "home_summary": "{greeting}. {tasks, plural, =0 {Listende açık iş yok} one {⟨# açık görevin⟩ var} other {⟨# açık görevin⟩ var}}, bu hafta {notes, plural, =0 {henüz bir şey yazmadın} one {⟦# not⟧ yazdın} other {⟦# not⟧ yazdın}}.",
   "home_tasks": "{count, plural, one {açık görev} other {açık görev}}",
   "home_week": "Bu hafta",
   "library_collections": "Koleksiyonlar",
@@ -103,5 +104,6 @@
   "today_page": "Bugünün sayfası",
   "today_prompt": "Gününden birkaç satır, bir düşünce, bir iş.",
   "today_start": "Bugünü yaz",
-  "today_words": "{count, plural, one {# kelime} other {# kelime}}"
+  "today_words": "{count, plural, one {# kelime} other {# kelime}}",
+  "week_none": "Son yedi günde bir şey yazılmamış."
 }
