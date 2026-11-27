@@ -46,46 +46,54 @@ func greeting(now time.Time) string {
 
 func (a *app) homeScreen(c *ui.Context) {
 	now := time.Now()
-	h := &a.home // the screen is laid out under the system's bar
+	h := &a.home
 	y := max(h.scroll.Y, 0)
+	ground := homeGround(now)
 	top, _, _, _ := c.SafeArea()
-	home := ui.Column(c.Key("home")).Fill()
-	home.Children(func() {
-		// The field goes on under the system's bar, so that the summary is one ground up to the screen's edge (#644).
-		field := ui.Box(c.Key("field")).Absolute().Top(-top).Left(0).Right(0).Bottom(0).ZIndex(-1).
-			HitTest(func(x, y float32, r ui.Rect) bool { return false }) // under all, and taking no touch
-		heroField(c, field, summarySky(now), 0)
-		a.dateRow(c, now)
-		ui.Box(c.Key("home-body")).Grow(1).Basis(0).FillWidth().Children(func() {
-			// Its corners round: the sheet scrolled under the date row keeps the corners it has unscrolled (#639).
-			scroll := ui.Scroll(c.Key("home-scroll")).Fill().TrackScroll(&h.scroll).Radius(30, 30, 0, 0).Clip()
-			a.pullMenu(scroll)
-			scroll.Children(func() {
-				ui.Column(c).FillWidth().Children(func() {
-					// The rest of the summary stands still, held against the scrolling, and the sheet comes over it (#641).
-					sum := ui.Column(c.Key("summary")).FillWidth().Padding(6, side+4, 58, side+4).Gap(18)
-					sum.Translate(0, y)
-					sum.Children(func() { a.summaryView(c, now) })
-					if b := sum.LayoutBounds(); b.H > 0 {
-						h.summary = b.H
-					}
-					a.homeSheet(c, now)
-				})
+	ui.Box(c.Key("home")).Fill().Background(ground).Children(func() {
+		// The ground goes on under the system's bar at the top; at the bottom the sheet's ground is the root's (#644).
+		ui.Box(c.Key("bar-ground")).Absolute().Top(-top).Left(0).Right(0).Height(top).Background(ground)
+		// What scrolls fills the screen, under the date row: the summary held still, and the sheet coming over it and
+		// on under the row (#641, #645).
+		scroll := ui.Scroll(c.Key("home-scroll")).Fill().TrackScroll(&h.scroll)
+		a.pullMenu(scroll)
+		scroll.Children(func() {
+			ui.Column(c).FillWidth().Children(func() {
+				sum := ui.Column(c.Key("summary")).FillWidth().Padding(dateRowH+6, side+4, 58, side+4).Gap(18)
+				sum.Translate(0, y)
+				sum.Children(func() { a.summaryView(c, now) })
+				if b := sum.LayoutBounds(); b.H > 0 {
+					h.summary = b.H
+				}
+				a.homeSheet(c, now)
 			})
-			// Once the sheet's top reaches the date row, it stays there with its handle, and what is on the sheet
-			// scrolls under it.
-			if h.summary > 0 && y >= h.summary-sheetOver {
-				ui.Box(c.Key("sheet-top")).Absolute().Top(0).Left(0).Right(0).Height(sheetTop).Background(pal.bg).
-					Radius(30, 30, 0, 0).Children(func() { sheetHandle(c) })
-				// Under it what scrolls fades in, rather than meeting it at a sharp edge (#640); the fade comes as the
-				// sheet goes under it, not at once (#643).
-				fade := min((y-(h.summary-sheetOver))/40, 1)
-				ui.Box(c.Key("sheet-fade")).Absolute().Top(sheetTop).Left(0).Right(0).Height(30).
-					Gradient(pal.bg.Alpha(fade), pal.bg.Alpha(0), 180)
-			}
 		})
+		// The date row stays on top, on the ground. Under it the ground fades into what scrolls as the sheet comes
+		// near, so that what goes under the row has no edge; once the sheet's top is under it, its handle stays alone
+		// under the row (#645).
+		noTouch := func(x, y float32, r ui.Rect) bool { return false }
+		ui.Box(c.Key("date-ground")).Absolute().Top(0).Left(0).Right(0).Height(dateRowH).Background(ground).HitTest(noTouch).
+			Children(func() { a.dateRow(c, now) })
+		sheetAt := h.summary - sheetOver - dateRowH // the scroll at which the sheet's top reaches the date row
+		if h.summary > 0 {
+			if fade := min(max((y-sheetAt+56)/56, 0), 1); fade > 0 {
+				ui.Box(c.Key("sheet-fade")).Absolute().Top(dateRowH).Left(0).Right(0).Height(56).
+					Gradient(ground.Alpha(fade), ground.Alpha(0), 180).HitTest(noTouch)
+			}
+			if y >= sheetAt {
+				ui.Box(c.Key("sheet-handle")).Absolute().Top(dateRowH).Left(0).Right(0).HitTest(noTouch).
+					Children(func() { sheetHandle(c) })
+			}
+		}
 	})
 }
+
+// dateRowH is the height of the date row at the top of home.
+const dateRowH = 92
+
+// homeGround is home's ground at now: the hour's color, deepened almost to black, one flat color under the date row
+// and the summary and the system's bar, so that nothing meets at an edge (#644, #645).
+func homeGround(now time.Time) ui.Color { return summarySky(now).cols[0] }
 
 // homeDay is now's weekday as the top of home says it, at least four letters: the whole name when it is four or less,
 // else without its vowels after its first letter (Pzrts, Cuma), as its language's catalog has them (#643).
@@ -98,7 +106,7 @@ func homeDay(now time.Time) string {
 
 // dateRow is the top of the summary, which stays: the weekday, large, with a dot, and the date at the right.
 func (a *app) dateRow(c *ui.Context, now time.Time) {
-	ui.Row(c.Key("date")).FillWidth().Padding(18, side+4, 4, side+4).AlignItems(ui.Start).Shrink(0).Children(func() {
+	ui.Row(c.Key("date")).FillWidth().Height(dateRowH).Padding(18, side+4, 0, side+4).AlignItems(ui.Start).Children(func() {
 		ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, homeDay(now)).FontSize(46).FontWeight(800).LineHeight(1).TextColor(nightText)
 			ui.Box(c).Size(11, 11).Radius(6).Background(coral).Margin(6, 0, 0, 0)

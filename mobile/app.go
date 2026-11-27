@@ -104,9 +104,6 @@ func (a *app) view(c *ui.Context) {
 	c.SetTheme(themeOf(c.Theme().Dark)) // light or dark as the system says, or the settings (applyTheme)
 	t := c.Theme()
 	c.Root().Background(t.Background)
-	if a.router.Path() == pathHome { // the home's summary goes on under the system's bar
-		c.Root().Background(nightBg)
-	}
 	if a.lib == nil {
 		ui.Column(c).Fill().Justify(ui.Center).Padding(24).Children(func() {
 			ui.Text(c, a.openErr).TextColor(t.TextMuted).Wrap()

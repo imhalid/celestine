@@ -1,59 +1,14 @@
 package main
 
 import (
-	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/shader"
 )
 
-// The home screen's summary stands on a field of soft colors, as light through a window falls over a day: four glows
-// on a ground, a fine grain over them, their colors the hour's (dawn, day, evening, night), passing from one to the
-// next as the day goes, deepened for the summary (home.go). It stands still: a field drawn again each frame keeps the
-// phone drawing, and its motion under another's (a page sliding in, the menu) is what made them stutter (#637); the
-// glows move with the minutes instead.
-
-// heroShader is the drifting field. Time is in seconds; Ground and Glow1 to Glow4 are the hour's colors.
-var heroShader = shader.MustCompile(heroSource)
-
-const heroSource = `package main
-
-var Time float
-var Ground vec3
-var Glow1 vec3
-var Glow2 vec3
-var Glow3 vec3
-var Glow4 vec3
-
-func glow(uv vec2, at vec2, size float) float {
-	d := uv - at
-	return exp(-dot(d, d) / (size * size))
-}
-
-func Fragment(dst vec4, pos vec2) vec4 {
-	size := rectSize()
-	uv := pos / size
-	uv.x *= size.x / size.y
-	asp := size.x / size.y
-	t := Time * 0.11
-
-	p1 := vec2(asp*(0.18+0.12*sin(t*1.3)), 0.30+0.22*cos(t*0.9))
-	p2 := vec2(asp*(0.78+0.10*cos(t*1.1)), 0.25+0.20*sin(t*1.4+1.0))
-	p3 := vec2(asp*(0.55+0.18*sin(t*0.7+2.0)), 0.85+0.12*cos(t*1.2))
-	p4 := vec2(asp*(0.95+0.08*sin(t*1.6+3.0)), 0.80+0.15*sin(t*0.8))
-
-	col := Ground
-	col = mix(col, Glow1, glow(uv, p1, 0.55)*0.95)
-	col = mix(col, Glow2, glow(uv, p2, 0.50)*0.90)
-	col = mix(col, Glow3, glow(uv, p3, 0.60)*0.85)
-	col = mix(col, Glow4, glow(uv, p4, 0.40)*0.70)
-
-	grain := fract(sin(dot(dst.xy, vec2(12.9898, 78.233))) * 43758.5453)
-	col += (grain - 0.5) * 0.035
-	return vec4(col, 1)
-}
-`
+// Home's ground takes the colors of the hour (dawn, day, evening, night), passing from one to the next as the day
+// goes, deepened almost to black for the summary (home.go). It was a field of four glows drawn by a shader; one flat
+// color, it meets the date row, the sheet's fade and the system's bar with no edge (#645).
 
 // A sky is the field's colors at an hour: its ground, its four glows, and whether words on it are light.
 type sky struct {
@@ -100,15 +55,3 @@ func skyAt(now time.Time, deep bool) sky {
 
 // ink is the color of words on the sky.
 func (s sky) ink() ui.Color { return ui.Hex("#2A1E1A").Mix(ui.Hex("#F6F1EC"), s.light) }
-
-// heroField fills e with the drifting field in sky s's colors, its corners rounded r.
-func heroField(c *ui.Context, e ui.Element, s sky, r float32) ui.Element {
-	if testing.Testing() { // the tests draw on the CPU, where a shader over a block takes long: its colors instead
-		return e.Gradient(s.cols[1], s.cols[2], 135)
-	}
-	t := float32(c.Now().Hour()*60+c.Now().Minute()) * 0.4 // the glows stand where the hour puts them
-	return e.Draw(func(p *ui.Painter, rect ui.Rect) {
-		heroShader.Draw(p, rect, shader.Options{Uniforms: map[string]any{"Time": t, "Ground": s.cols[0], "Glow1": s.cols[1],
-			"Glow2": s.cols[2], "Glow3": s.cols[3], "Glow4": s.cols[4]}, Radius: r})
-	})
-}
