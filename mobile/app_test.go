@@ -138,6 +138,9 @@ func TestMidnightTurnsThePage(t *testing.T) {
 // tick items without focusing the editor, and the header tally updates live.
 func TestWritingBarTaskTallyAndTapCheckbox(t *testing.T) {
 	a, tt := newTestApp(t)
+	// The tap below schedules its save by the app's clock and the frame checks it by the Tester's: one clock for
+	// both, so a slow frame (as under -race) does not leave the save waiting past the test's Advance.
+	a.clock = tt.Now
 	p, err := a.makeToday()
 	if err != nil {
 		t.Fatal(err)
@@ -249,8 +252,8 @@ func TestDayProgressAndFormatDay(t *testing.T) {
 	mTop, mBot, _, mDark := paperGradientAt(time.Date(2026, 11, 28, 12, 0, 0, 0, time.Local), "", clearWx)
 	eTop, eBot, _, eDark := paperGradientAt(time.Date(2026, 11, 28, 20, 0, 0, 0, time.Local), "", clearWx)
 	nTop, _, _, nDark := paperGradientAt(time.Date(2026, 11, 28, 0, 30, 0, 0, time.Local), "", clearWx)
-	if mDark || luminance(mTop.MixOklab(mBot, 0.5)) < 0.9 {
-		t.Fatalf("midday should be bright daylight, dark=%v lum=%v", mDark, luminance(mTop))
+	if mDark || toLCH(mTop).L < lightMin || toLCH(mBot).L < 0.9 || mTop.B <= mTop.R {
+		t.Fatalf("midday should be a bright open sky, blue above, dark=%v top=%v bottom=%v", mDark, mTop, mBot)
 	}
 	if !eDark || eBot.B <= eBot.R {
 		t.Fatalf("evening should be dark shadowed blue, dark=%v bot=%v", eDark, eBot)

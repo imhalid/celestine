@@ -13,10 +13,8 @@ import (
 	"github.com/imhalid/celestine/mobile/locales"
 )
 
-// The Living Sky-Paper palette: a continuous, minute-by-minute atmospheric gradient anchored to real local sunrise
-// and sunset — crisp airy sky-cotton in the morning, bright open daylight at noon, warm honey-amber golden hour in
-// late afternoon, deep shadowed evening blue after dusk, and dark calm night — subtly modulated by live local weather
-// (rainy slate, misty haze, overcast velvet, storm depth, snowy crispness) under organic cotton-paper grain.
+// The frame's palette is built on the sky (sky.go): the paper's gradient is the sky's, and its ink, surfaces and
+// accent are set against it so they read on every hour and weather, under organic cotton-paper grain.
 
 //go:embed fonts/Geist.ttf
 var geistFont []byte
@@ -50,139 +48,6 @@ type palette struct {
 	grainTint  ui.Color // organic paper grain overlay tint
 }
 
-type skyStop struct {
-	hour   float32 // 0..24 continuous solar hour
-	top    ui.Color
-	bottom ui.Color
-	accent ui.Color
-}
-
-// solarStops builds the 24-hour continuous gradient timeline anchored to local sunrise and sunset hours.
-// Every single minute smoothly interpolates between neighboring stops in OKLab — zero abrupt jumps.
-func solarStops(sunrise, sunset float32) []skyStop {
-	midday := (sunrise + sunset) * 0.5
-	morning := sunrise + (midday-sunrise)*0.48
-	earlyAft := midday + (sunset-midday)*0.48
-	golden := sunset - 0.85  // ~50 min before sunset: unmistakable warm golden hour gradient
-	dusk := sunset + 0.35    // ~20 min after sunset: twilight horizon
-	evening := sunset + 1.65 // rich deep shadowed evening blue
-	lateNight := min(sunset+3.5, 23.0)
-	preDawn := max(sunrise-1.4, 3.5)
-
-	return []skyStop{
-		{0.0, ui.Hex("#070910"), ui.Hex("#0F1320"), ui.Hex("#D97A66")},       // deep calm night
-		{preDawn, ui.Hex("#0F162B"), ui.Hex("#241F36"), ui.Hex("#E88B6E")},   // pre-dawn horizon warmth
-		{sunrise, ui.Hex("#DCE3F0"), ui.Hex("#FCE1C6"), ui.Hex("#DC5D3C")},   // dawn: cool sky meeting peach glow
-		{morning, ui.Hex("#E4F2FA"), ui.Hex("#F9FEFC"), ui.Hex("#2173B8")},   // morning: crisp airy freshness
-		{midday, ui.Hex("#F7FAFD"), ui.Hex("#FFFFFF"), ui.Hex("#2B62B5")},    // bright open daylight
-		{earlyAft, ui.Hex("#FAF7EE"), ui.Hex("#FDECD5"), ui.Hex("#CE6228")},  // warm afternoon leaning gold
-		{golden, ui.Hex("#F4DEC0"), ui.Hex("#F2B582"), ui.Hex("#BE4620")},    // golden hour: glowing warm gradient
-		{dusk, ui.Hex("#243154"), ui.Hex("#7D4E57"), ui.Hex("#F09362")},      // sunset dusk: blue sky & rose horizon
-		{evening, ui.Hex("#0F1A36"), ui.Hex("#1E3158"), ui.Hex("#7AA8F5")},   // evening: deep shadowed blue
-		{lateNight, ui.Hex("#090D18"), ui.Hex("#12192A"), ui.Hex("#DC7D68")}, // settling into dark night
-	}
-}
-
-// forcedLightStops keeps bright paper polarity 24/7 when user explicitly forces Light mode.
-func forcedLightStops(sunrise, sunset float32) []skyStop {
-	midday := (sunrise + sunset) * 0.5
-	morning := sunrise + (midday-sunrise)*0.48
-	golden := sunset - 0.85
-	evening := sunset + 1.5
-	return []skyStop{
-		{0.0, ui.Hex("#E3E9F3"), ui.Hex("#EDF1F7"), ui.Hex("#476294")},     // moonlit cool paper
-		{sunrise, ui.Hex("#E5DFEB"), ui.Hex("#FCE2C8"), ui.Hex("#DC5D3C")}, // dawn peach
-		{morning, ui.Hex("#E4F2FA"), ui.Hex("#F9FEFC"), ui.Hex("#2173B8")}, // crisp fresh morning
-		{midday, ui.Hex("#F7FAFD"), ui.Hex("#FFFFFF"), ui.Hex("#2B62B5")},  // bright daylight
-		{golden, ui.Hex("#F5DFC2"), ui.Hex("#F2B886"), ui.Hex("#BE4620")},  // golden hour gradient
-		{evening, ui.Hex("#DFE6F2"), ui.Hex("#ECEAF3"), ui.Hex("#4B64A0")}, // soft blue-dusk paper
-	}
-}
-
-// forcedDarkStops keeps dark atmospheric polarity 24/7 when user explicitly forces Dark mode.
-func forcedDarkStops(sunrise, sunset float32) []skyStop {
-	midday := (sunrise + sunset) * 0.5
-	morning := sunrise + (midday-sunrise)*0.48
-	golden := sunset - 0.85
-	evening := sunset + 1.5
-	return []skyStop{
-		{0.0, ui.Hex("#070910"), ui.Hex("#0F1320"), ui.Hex("#D97A66")},     // deep night
-		{sunrise, ui.Hex("#1B1524"), ui.Hex("#342026"), ui.Hex("#F08A6C")}, // dawn rose-plum
-		{morning, ui.Hex("#101F2B"), ui.Hex("#1A303E"), ui.Hex("#6AB2F0")}, // fresh deep fjord morning
-		{midday, ui.Hex("#181D24"), ui.Hex("#222830"), ui.Hex("#82B2F5")},  // clear charcoal daylight
-		{golden, ui.Hex("#241914"), ui.Hex("#3B2418"), ui.Hex("#F28855")},  // warm golden ember
-		{evening, ui.Hex("#0F1A36"), ui.Hex("#1E3158"), ui.Hex("#7AA8F5")}, // deep shadowed evening blue
-	}
-}
-
-func sampleStops(stops []skyStop, h float32) (top, bottom, accent ui.Color) {
-	n := len(stops)
-	for i := 0; i < n; i++ {
-		cur := stops[i]
-		next := stops[(i+1)%n]
-		h0, h1 := cur.hour, next.hour
-		if h1 <= h0 {
-			h1 += 24
-		}
-		hh := h
-		if hh < h0 {
-			hh += 24
-		}
-		if hh >= h0 && hh <= h1 {
-			k := (hh - h0) / (h1 - h0)
-			// Smoothstep eases transitions organically around each solar anchor.
-			k = k * k * (3 - 2*k)
-			return cur.top.MixOklab(next.top, k), cur.bottom.MixOklab(next.bottom, k), cur.accent.MixOklab(next.accent, k)
-		}
-	}
-	return stops[0].top, stops[0].bottom, stops[0].accent
-}
-
-// luminance computes perceptual relative luminance (0..1) of an sRGB ui.Color.
-func luminance(c ui.Color) float32 {
-	return (0.2126*float32(c.R) + 0.7152*float32(c.G) + 0.0722*float32(c.B)) / 255.0
-}
-
-// applyWeather modulates the sky-paper gradient according to live weather conditions.
-func applyWeather(top, bottom, accent ui.Color, wx weatherInfo, isDark bool) (ui.Color, ui.Color, ui.Color) {
-	if !wx.HasWeather || wx.Kind == "" || wx.Kind == weatherClear {
-		return top, bottom, accent
-	}
-	switch wx.Kind {
-	case weatherPartly:
-		if isDark {
-			return top.MixOklab(ui.Hex("#18202C"), 0.16), bottom.MixOklab(ui.Hex("#1E2634"), 0.12), accent
-		}
-		return top.MixOklab(ui.Hex("#E3E9F0"), 0.22), bottom.MixOklab(ui.Hex("#F2F4F7"), 0.14), accent
-	case weatherCloudy:
-		if isDark {
-			return top.MixOklab(ui.Hex("#191F28"), 0.42), bottom.MixOklab(ui.Hex("#242B36"), 0.34), accent.MixOklab(ui.Hex("#8FA4BD"), 0.35)
-		}
-		return top.MixOklab(ui.Hex("#D4DCE5"), 0.46), bottom.MixOklab(ui.Hex("#E7ECEF"), 0.38), accent.MixOklab(ui.Hex("#586E87"), 0.38)
-	case weatherFog:
-		if isDark {
-			return top.MixOklab(ui.Hex("#1B2226"), 0.48), bottom.MixOklab(ui.Hex("#283035"), 0.44), accent.MixOklab(ui.Hex("#9BB0B5"), 0.35)
-		}
-		return top.MixOklab(ui.Hex("#DFE5E6"), 0.52), bottom.MixOklab(ui.Hex("#EEF1F1"), 0.48), accent.MixOklab(ui.Hex("#5A757B"), 0.38)
-	case weatherRain:
-		if isDark {
-			return top.MixOklab(ui.Hex("#0E1826"), 0.52), bottom.MixOklab(ui.Hex("#19293D"), 0.46), accent.MixOklab(ui.Hex("#6EA5D8"), 0.55)
-		}
-		return top.MixOklab(ui.Hex("#BACADE"), 0.48), bottom.MixOklab(ui.Hex("#DCE5EE"), 0.42), accent.MixOklab(ui.Hex("#356896"), 0.55)
-	case weatherStorm:
-		if isDark {
-			return top.MixOklab(ui.Hex("#090E18"), 0.62), bottom.MixOklab(ui.Hex("#182032"), 0.52), accent.MixOklab(ui.Hex("#8CA4E8"), 0.5)
-		}
-		return top.MixOklab(ui.Hex("#98A7BC"), 0.55), bottom.MixOklab(ui.Hex("#CCD5E0"), 0.45), accent.MixOklab(ui.Hex("#394E78"), 0.55)
-	case weatherSnow:
-		if isDark {
-			return top.MixOklab(ui.Hex("#141C28"), 0.42), bottom.MixOklab(ui.Hex("#222D3D"), 0.38), accent.MixOklab(ui.Hex("#9EC8F5"), 0.5)
-		}
-		return top.MixOklab(ui.Hex("#ECF3FA"), 0.58), bottom.MixOklab(ui.Hex("#F9FCFF"), 0.55), accent.MixOklab(ui.Hex("#3D79B8"), 0.45)
-	}
-	return top, bottom, accent
-}
-
 // dayPhaseName returns the quiet atmospheric phase name anchored to local sunrise/sunset.
 func dayPhaseName(now time.Time, wx weatherInfo) string {
 	sunrise, sunset := wx.solarWindow(now)
@@ -204,101 +69,90 @@ func dayPhaseName(now time.Time, wx weatherInfo) string {
 	}
 }
 
-// paperGradientAt returns the continuous minute-by-minute (bgTop, bgBottom, accent, isDark) for now, pref, and wx.
+// paperGradientAt returns the sky's zenith, horizon, accent and polarity at now, for pref and wx.
 func paperGradientAt(now time.Time, pref string, wx weatherInfo) (top, bottom, accent ui.Color, isDark bool) {
-	sunrise, sunset := wx.solarWindow(now)
-	t := now.Local()
-	h := float32(t.Hour()) + float32(t.Minute())/60.0 + float32(t.Second())/3600.0
-
-	var stops []skyStop
-	switch pref {
-	case "light":
-		stops = forcedLightStops(sunrise, sunset)
-	case "dark":
-		stops = forcedDarkStops(sunrise, sunset)
-	default:
-		stops = solarStops(sunrise, sunset)
-	}
-	top, bottom, accent = sampleStops(stops, h)
-
-	mid := top.MixOklab(bottom, 0.5)
-	isDark = luminance(mid) < 0.42
-	if pref == "light" {
-		isDark = false
-	} else if pref == "dark" {
-		isDark = true
-	}
-	top, bottom, accent = applyWeather(top, bottom, accent, wx, isDark)
-	return top, bottom, accent, isDark
+	s := skyAt(now, pref, wx)
+	return s.top, s.bottom, s.accent, s.dark
 }
 
 // isDarkFor reports whether the paper at now under pref & wx uses dark polarity (light text & light status bar icons).
 func isDarkFor(now time.Time, pref string, wx weatherInfo) bool {
-	_, _, _, isDark := paperGradientAt(now, pref, wx)
-	return isDark
+	return skyAt(now, pref, wx).dark
 }
 
-// paletteAt constructs the cohesive frame palette from the living gradient and weather.
+// paletteAt builds the frame's palette on the sky at now: its ink is set against the sky's lightest or darkest
+// end, so text, secondary text and the whisper labels keep their contrast on every sky.
 func paletteAt(now time.Time, pref string, wx weatherInfo) (palette, bool) {
-	bgTop, bgBottom, accent, isDark := paperGradientAt(now, pref, wx)
-	bg := bgTop.MixOklab(bgBottom, 0.5)
-	if isDark {
-		ink := ui.Hex("#F1EFEA")
+	return paletteOf(skyAt(now, pref, wx))
+}
+
+func paletteOf(s sky) (palette, bool) {
+	bg := s.top.MixOklab(s.bottom, 0.5)
+	tl, bl := toLCH(s.top), toLCH(s.bottom)
+	hue := tl.H
+	ink := func(l, c float64) ui.Color { return lch{l, c, hue}.color() }
+	if s.dark {
+		edge := max(tl.L, bl.L)
+		text := lch{0.95, 0.012, 85}.color() // warm cream, as a page under a lamp
 		return palette{
-			bgTop:      bgTop,
-			bgBottom:   bgBottom,
+			bgTop:      s.top,
+			bgBottom:   s.bottom,
 			bg:         bg,
-			sheet:      bg.MixOklab(ui.Hex("#FFFFFF"), 0.075),
-			surface:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.125),
-			raised:     bg.MixOklab(ui.Hex("#FFFFFF"), 0.18),
-			line:       bg.MixOklab(ui.Hex("#FFFFFF"), 0.16),
-			text:       ink,
-			muted:      ink.MixOklab(bg, 0.34),
-			faint:      ink.MixOklab(bg, 0.54),
-			accent:     accent,
-			accentSoft: accent.MixOklab(bg, 0.74),
-			accentText: ui.Hex("#121214"),
-			danger:     ui.Hex("#FF7A6D"),
-			toastBg:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.18),
-			toastText:  ink,
-			scrim:      ui.Hex("#05070D"),
-			grainTint:  ui.Hex("#F5F1E8").Alpha(0.055),
+			sheet:      bg.MixOklab(ui.Hex("#FFFFFF"), 0.07),
+			surface:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.11),
+			raised:     bg.MixOklab(ui.Hex("#FFFFFF"), 0.17),
+			line:       bg.MixOklab(ui.Hex("#FFFFFF"), 0.15),
+			text:       text,
+			muted:      reach(lch{min(edge+0.4, 0.83), 0.02, hue}, s, 4.8),
+			faint:      reach(lch{min(edge+0.3, 0.72), 0.025, hue}, s, 3.2),
+			accent:     s.accent,
+			accentSoft: s.accent.MixOklab(bg, 0.76),
+			accentText: ui.Hex("#141317"),
+			danger:     ui.Hex("#FF8272"),
+			toastBg:    bg.MixOklab(ui.Hex("#FFFFFF"), 0.17),
+			toastText:  text,
+			scrim:      ui.Hex("#04060C"),
+			grainTint:  ui.Hex("#F5F1E8").Alpha(0.05),
 		}, true
 	}
-	ink := ui.Hex("#18191D").MixOklab(bgTop, 0.08)
+	edge := min(tl.L, bl.L)
+	text := ink(0.24, 0.018)
 	return palette{
-		bgTop:      bgTop,
-		bgBottom:   bgBottom,
+		bgTop:      s.top,
+		bgBottom:   s.bottom,
 		bg:         bg,
 		sheet:      bg.MixOklab(ui.Hex("#FFFFFF"), 0.66),
-		surface:    bg.MixOklab(ink, 0.065),
-		raised:     bg.MixOklab(ink, 0.115),
-		line:       bg.MixOklab(ink, 0.135),
-		text:       ink,
-		muted:      ink.MixOklab(bg, 0.38),
-		faint:      ink.MixOklab(bg, 0.56),
-		accent:     accent,
-		accentSoft: accent.MixOklab(bg, 0.80),
+		surface:    bg.MixOklab(text, 0.065),
+		raised:     bg.MixOklab(text, 0.115),
+		line:       bg.MixOklab(text, 0.13),
+		text:       text,
+		muted:      reach(lch{max(edge-0.4, 0.38), 0.025, hue}, s, 4.8),
+		faint:      reach(lch{max(edge-0.29, 0.5), 0.03, hue}, s, 3.2),
+		accent:     s.accent,
+		accentSoft: s.accent.MixOklab(bg, 0.8),
 		accentText: ui.Hex("#FFFFFF"),
-		danger:     ui.Hex("#C93E36"),
-		toastBg:    ink,
+		danger:     ui.Hex("#C23C34"),
+		toastBg:    text,
 		toastText:  bg,
 		scrim:      ui.Hex("#121318"),
-		grainTint:  ink.Alpha(0.062),
+		grainTint:  text.Alpha(0.058),
 	}, false
 }
 
 var (
-	pal  palette
-	dark bool
+	pal    palette
+	dark   bool
+	curSky sky // the sky of the frame being built, drawn by drawSky
 )
 
 func init() {
-	pal, dark = paletteAt(time.Date(2026, 1, 1, 10, 0, 0, 0, time.Local), "", weatherInfo{})
+	curSky = skyAt(time.Date(2026, 1, 1, 10, 0, 0, 0, time.Local), "", weatherInfo{})
+	pal, dark = paletteOf(curSky)
 }
 
 func themeOf(now time.Time, pref string, wx weatherInfo) (*ui.Theme, bool) {
-	p, isDark := paletteAt(now, pref, wx)
+	curSky = skyAt(now, pref, wx)
+	p, isDark := paletteOf(curSky)
 	pal, dark = p, isDark
 	t := ui.LightTheme()
 	if isDark {

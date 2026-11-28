@@ -175,6 +175,7 @@ func (a *app) todayView(c *ui.Context) {
 	words := wordCount(ed.doc.Text().PlainText())
 	doneTasks, totalTasks := countTodayTasks(ed.doc)
 	top, _, bottom, _ := c.SafeArea()
+	skyInset = top
 
 	const (
 		spineX = 16 // delicate notebook left margin rule
@@ -183,9 +184,9 @@ func (a *app) todayView(c *ui.Context) {
 	)
 
 	ui.Box(c.Key("today-paper")).Fill().Children(func() {
-		// Full-bleed continuous living sky-paper gradient flowing edge-to-edge behind all content (ZIndex -2).
+		// The sky, full-bleed behind all content (ZIndex -2): its colors, lights and weather (skydraw.go).
 		ui.Box(c.Key("paper-sky")).Absolute().Top(-top).Bottom(-bottom).Left(0).Right(0).ZIndex(-2).
-			Gradient(pal.bgTop, pal.bgBottom, 180).
+			Draw(drawSky).
 			HitTest(func(x, y float32, r ui.Rect) bool { return false })
 
 		// Architectural vertical stationery spine rule running edge-to-edge down the left margin behind content (ZIndex -1).
@@ -288,12 +289,6 @@ func (a *app) todayView(c *ui.Context) {
 					a.typed(c.Now())
 				}
 				ed.writing = body.Focused() && ed.readOnly == ""
-
-				// Quiet stationery colophon at the foot of the sheet.
-				ui.Row(c).FillWidth().Justify(ui.Center).Padding(24, 0, 8, 0).Children(func() {
-					ui.Text(c, "CELESTINE  ·  "+day.Format("02.01.2006")).
-						FontSize(10).FontWeight(650).TextColor(pal.faint.Alpha(0.55))
-				})
 			})
 		})
 	})

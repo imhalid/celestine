@@ -22,13 +22,23 @@ phone; past days and the full library live on desktop Celestine via end-to-end e
 
 ## Design: One Day
 
-- **Continuous Solar & Weather Sky-Paper (`mobile/theme.go`, `mobile/weather.go`, `mobile/app.go`, `mobile/today.go`).**
-  A full-bleed vertical gradient + hardware-tiled cotton-paper grain runs edge-to-edge under both the top status/battery
-  bar and the bottom gesture bar. Anchored to the user's real local sunrise and sunset via Open-Meteo (zero API key,
-  cached 30 min in `weather.json`), the gradient evolves smoothly minute by minute: crisp airy morning sky, bright
-  midday cotton, glowing honey-amber golden hour in late afternoon, deep shadowed evening blue after dusk, and dark calm
-  night — further modulated by live weather (clear, partly cloudy, overcast, misty, rainy slate, stormy, snowy). Android
-  system bar icons (`mygo.SystemBars.SetStyle`) adapt automatically to paper luminance.
+- **The sky (`mobile/sky.go`, `mobile/skydraw.go`, `mobile/theme.go`, `mobile/weather.go`) (#665).** A full-bleed
+  sky with cotton-paper grain runs edge-to-edge under the status bar and the gesture bar. Its colors are one family
+  of anchors across the day, set on the real local sunrise and sunset from Open-Meteo (no API key, cached 30 min in
+  `weather.json`) and mixed minute by minute in OKLab: ink-blue night, violet before dawn, periwinkle over peach at
+  dawn, washed blue morning, open sky at noon, lilac over honey at golden hour, lavender over coral at sunset, indigo
+  over plum at dusk, deep evening blue. Each weather is a mood of its own in OKLab (a tint kept and a tint taken, a
+  lightness, a flattening), stronger at the zenith than at the horizon so the hour still shows low down: pearl
+  overcast, sea-glass mist, slate rain, a storm that darkens even the day, cool snow. Over the colors: the sun's glow
+  on its arc, the moon in its real phase with a halo, stars, soft drifting clouds, bands of mist, fine slanted rain,
+  soft snow, a far double flash in a storm. Rain and snow fall in the sky above the date and thin out over the text.
+  The weather moves only in a live window, not while writing or under a sheet, and not when the system asks for
+  reduced motion, at the lowest frame rate that looks smooth (6–24 fps). A light sky never goes below OKLab
+  lightness 0.82 and a dark one never above 0.4, so the ink always reads; the ink, secondary ink, whisper labels and
+  accent are moved only as far as they must to hold 7, 4.5, 3 and 3 to 1 against both ends of the sky
+  (`TestSkyInkReads` sweeps every five minutes × weather × appearance). The Light and Dark appearances map the same
+  family to moonlit paper by night and to deep blue by day. Android's system bar icons follow the sky's polarity.
+  `SKY_SHOTS=<dir> go test -run TestSkyShots ./mobile/` renders the whole family into one contact sheet.
 - **Swiss-Japanese Stationery Layout (`mobile/today.go`).** A whisper-thin vertical margin rule runs down the left edge
   like a physical notebook spine; the atmospheric time phase (`Night · 00:52`) sits at the top, an oversized sculptural
   day numeral balances the right-aligned weekday & month above a flat 1.5px daylight hairline, and a floating rounded

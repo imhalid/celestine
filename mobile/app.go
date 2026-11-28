@@ -42,6 +42,9 @@ type app struct {
 	sy syncState
 	wx weatherState
 
+	// skyLive lets the sky's weather move without a live window, for tests.
+	skyLive bool
+
 	// Last applied Android system bar icon style.
 	barStyle mygo.BarStyle
 
@@ -174,6 +177,7 @@ func (a *app) view(c *ui.Context) {
 	a.lockDays()
 	a.syncTick(c.Now())
 	a.weatherTick(c.Now())
+	skyMotion = (a.win != nil || a.skyLive) && !a.ed.writing && a.sheet == sheetNone
 
 	// Today's Living Paper stays completely stationary behind any sheet for locked 60 FPS.
 	ui.Box(c.Key("today-root")).Fill().Children(func() {
