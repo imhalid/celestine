@@ -185,3 +185,41 @@ func TestSettingDefsOnce(t *testing.T) {
 		t.Fatal("made again")
 	}
 }
+
+// TestOwnMarker: the editor paints no marker the app draws itself, the box of every task and the mark of a list with
+// a look of its own, and paints the others; the app covered the editor's before, a dark square on the glass (#664).
+func TestOwnMarker(t *testing.T) {
+	a, tt := newTestApp(t, "- bir\n- iki\n\n1. elma\n2. armut\n\n- [ ] görev\n")
+	tt.Frame()
+	pn := a.pane()
+	own := func(word string) bool {
+		t.Helper()
+		i := 0
+		for _, para := range pn.doc.Text().Paragraphs() {
+			var line strings.Builder
+			for _, r := range para.Runs {
+				line.WriteString(r.Text)
+			}
+			if line.String() == word {
+				return a.ownMarker(pn, i, para.Style)
+			}
+			i++
+		}
+		t.Fatalf("no paragraph %q", word)
+		return false
+	}
+	if !own("görev") {
+		t.Fatal("the editor paints a task's box under the app's")
+	}
+	if own("bir") || own("elma") {
+		t.Fatal("the editor paints no marker of a list without a look of its own")
+	}
+	a.setListSpec(0, listSpec{mark: "★"})
+	tt.Frame()
+	if !own("bir") || !own("iki") {
+		t.Fatal("the editor paints the bullets of a list the app marks with a star")
+	}
+	if own("elma") {
+		t.Fatal("the editor paints no number of a list without a look of its own")
+	}
+}

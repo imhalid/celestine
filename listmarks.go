@@ -218,6 +218,30 @@ func (a *app) listItemAt(pn *paneState, p int) *listItem {
 	return a.listLooks(pn).items[p]
 }
 
+// ownMarker reports whether the app draws the marker of paragraph index p, of style st, itself, for the editor to
+// paint none (EditorOptions.NoMarker): a task's box outside a heading (drawTasks), and the bullet or number of a list
+// whose spec gives its own (drawListMarks). The app covered the editor's with the page's color before, which on the
+// glass of macOS, where the page is a card the desktop shows through, was a dark square round the box (#664).
+func (a *app) ownMarker(pn *paneState, p int, st richtext.ParagraphStyle) bool {
+	if st.Heading > 0 || a.theme == nil {
+		return false
+	}
+	switch st.List {
+	case richtext.Tasks:
+		return true
+	case richtext.Bullets, richtext.Numbers:
+		it := a.listItemAt(pn, p)
+		if it == nil || it.group.kind != st.List {
+			return false
+		}
+		if st.List == richtext.Bullets {
+			return it.spec.mark != ""
+		}
+		return it.spec.num != ""
+	}
+	return false
+}
+
 // markedTask reports whether the task of paragraph index p has a bullet or a number before its box.
 func (a *app) markedTask(pn *paneState, p int, st richtext.ParagraphStyle) bool {
 	if st.List != richtext.Tasks {
@@ -249,7 +273,8 @@ func listMarkText(it *listItem, kind richtext.ListKind) string {
 	return ""
 }
 
-// drawListMarks draws the marks of the lists that have a spec over richtext's, in view; r is the editor's box.
+// drawListMarks draws the marks of the lists that have a spec where richtext's would be (it paints none: ownMarker),
+// in view; r is the editor's box.
 func (a *app) drawListMarks(pn *paneState, p *ui.Painter, r ui.Rect) {
 	if pn.doc == nil || a.theme == nil {
 		return
@@ -280,20 +305,17 @@ func (a *app) drawListMarks(pn *paneState, p *ui.Painter, r ui.Rect) {
 			if it.spec.mark == "" {
 				continue
 			}
-			p.Fill(ui.Rect{X: x - indent, Y: line.Y, W: indent - 1, H: line.H}, a.pageBg, 0) // richtext's bullet, covered
 			a.drawBullet(p, it.spec.mark, x-indent*0.5, line, size)
 		case richtext.Numbers:
 			if it.spec.num == "" {
 				continue
 			}
-			p.Fill(ui.Rect{X: x - indent*1.6, Y: line.Y, W: indent*1.6 - 1, H: line.H}, a.pageBg, 0)
 			a.drawNumber(p, listMarkText(it, st.List), x-indent*0.25, line, size)
 		case richtext.Tasks:
 			if it.spec.task == "" {
 				continue
 			}
 			box := markedTaskBox(x, line, size)
-			p.Fill(ui.Rect{X: x - indent - 2, Y: line.Y, W: indent + 1, H: line.H}, a.pageBg, 0) // richtext's box: drawTasks draws the app's
 			if it.spec.task == "number" {
 				a.drawNumber(p, listMarkText(it, st.List), box.X-size*0.3, line, size)
 			} else {

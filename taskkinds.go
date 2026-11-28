@@ -187,7 +187,8 @@ func (a *app) taskBoxAt(pn *paneState, b richtext.ParagraphBox, st richtext.Para
 	return ui.Rect{X: x, Y: y, W: box, H: box}, true
 }
 
-// drawTasks draws every task's box in view over richtext's, turning those just checked or unchecked.
+// drawTasks draws every task's box in view where richtext's would be (it paints none: ownMarker), turning those just
+// checked or unchecked.
 func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 	fx := &a.tasks
 	text := pn.doc.Text()
@@ -249,8 +250,6 @@ func (a *app) drawTasks(pn *paneState, p *ui.Painter, r ui.Rect) {
 		if tint := face.spec().tint; !a.settings.TaskNoTint && !st.Checked && tint.A > 0 { // the row in its status's color, fading (#597)
 			rowTint(p, box, r.X+r.W, tint)
 		}
-		// richtext's box, covered
-		p.Fill(ui.Rect{X: box.X - 2, Y: box.Y - 2, W: box.W + 4, H: box.H + 4}, a.pageBg, 0)
 		back := st.Checked // what shows: its back (checked) or its face
 		sy, grow := float32(1), float32(0)
 		if turn, ok := fx.flips[b.Start]; ok {

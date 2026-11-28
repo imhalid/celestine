@@ -1386,6 +1386,8 @@ func (a *app) pageBody(c *ui.Context, pn *paneState, p *Page, th *richtext.Theme
 		// page's, which showed when a split pane narrowed it and the height worked out was a frame behind (#190), and
 		// no window on a long text scrolling in itself (#314)
 		NoScrollbar: true,
+		// the boxes of tasks and the marks of lists with a look of their own are the app's (drawTasks, drawListMarks)
+		NoMarker: func(i int, st richtext.ParagraphStyle) bool { return a.ownMarker(pn, i, st) },
 	}).FillWidth().Height(a.editorH(c, pn)).FocusRing(false) // the caret shows where the text has the focus
 	// this editor's paragraphs, read right after it is built: with the page open in two panes, each pane's are its
 	// own, laid out at its width, and its height is worked out from them (#190)
