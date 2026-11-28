@@ -22,11 +22,13 @@ phone; past days and the full library live on desktop Celestine via end-to-end e
 
 ## Design: One Day
 
-- **Edge-to-Edge Living Paper & Grain (`mobile/theme.go`, `mobile/app.go`, `mobile/today.go`).** A hardware-tiled
-  cotton-paper grain overlay runs edge-to-edge across the full physical screen — extending seamlessly underneath both
-  the top status/battery bar and the bottom gesture bar — over a paper color that shifts smoothly across the 24-hour
-  clock in OKLab (moonlit linen at midnight, blush sunrise at dawn, crisp cotton by morning, golden parchment at
-  sunset, and atmospheric charcoals in dark mode).
+- **Continuous Solar & Weather Sky-Paper (`mobile/theme.go`, `mobile/weather.go`, `mobile/app.go`, `mobile/today.go`).**
+  A full-bleed vertical gradient + hardware-tiled cotton-paper grain runs edge-to-edge under both the top status/battery
+  bar and the bottom gesture bar. Anchored to the user's real local sunrise and sunset via Open-Meteo (zero API key,
+  cached 30 min in `weather.json`), the gradient evolves smoothly minute by minute: crisp airy morning sky, bright
+  midday cotton, glowing honey-amber golden hour in late afternoon, deep shadowed evening blue after dusk, and dark calm
+  night — further modulated by live weather (clear, partly cloudy, overcast, misty, rainy slate, stormy, snowy). Android
+  system bar icons (`mygo.SystemBars.SetStyle`) adapt automatically to paper luminance.
 - **Swiss-Japanese Stationery Layout (`mobile/today.go`).** A whisper-thin vertical margin rule runs down the left edge
   like a physical notebook spine; the atmospheric time phase (`Night · 00:52`) sits at the top, an oversized sculptural
   day numeral balances the right-aligned weekday & month above a flat 1.5px daylight hairline, and a floating rounded

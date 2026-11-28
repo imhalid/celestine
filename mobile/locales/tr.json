@@ -34,7 +34,7 @@
   "settings_dark": "Koyu",
   "settings_light": "Açık",
   "settings_sync": "Senkron",
-  "settings_system": "Sistem",
+  "settings_system": "Vakte göre",
   "settings_title": "Bugün",
   "settings_version": "Sürüm",
   "sync_about": "Bugünün sayfasını uçtan uca şifreli senkronlamak için masaüstündeki Celestine hesabınla giriş yap.",
@@ -56,5 +56,12 @@
   "sync_signOut": "Çıkış yap",
   "sync_signingIn": "Giriş yapılıyor…",
   "sync_syncNow": "Şimdi senkronla",
-  "sync_syncing": "Senkronlanıyor…"
+  "sync_syncing": "Senkronlanıyor…",
+  "weather_clear": "Açık",
+  "weather_cloudy": "Bulutlu",
+  "weather_fog": "Sisli",
+  "weather_partly": "Parçalı bulutlu",
+  "weather_rain": "Yağmurlu",
+  "weather_snow": "Karlı",
+  "weather_storm": "Fırtınalı"
 }

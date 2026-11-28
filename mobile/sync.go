@@ -269,6 +269,7 @@ func (a *app) reload() {
 		return
 	}
 	a.lib = lib
+	a.cleanEmptyDuplicateJournals()
 	a.lockDays()
 	if !a.ed.dirty {
 		a.showToday()

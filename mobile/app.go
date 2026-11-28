@@ -38,8 +38,12 @@ type app struct {
 	// Discreet Settings / Sign-In sheet.
 	sheet sheetKind
 
-	// Sync state (sync.go).
+	// Sync state (sync.go) and live weather state (weather.go).
 	sy syncState
+	wx weatherState
+
+	// Last applied Android system bar icon style.
+	barStyle mygo.BarStyle
 
 	// Brief ephemeral toast.
 	notice   string
@@ -57,6 +61,7 @@ func newApp(dir string) *app {
 	if b, err := os.ReadFile(a.settingsFile()); err == nil {
 		json.Unmarshal(b, &a.settings)
 	}
+	a.loadWeather()
 	return a
 }
 
@@ -79,14 +84,28 @@ func (a *app) applyTheme() {
 	if a.win == nil {
 		return
 	}
-	src := mygo.ThemeSystem
-	switch a.settings.Theme {
-	case "light":
-		src = mygo.ThemeLight
-	case "dark":
-		src = mygo.ThemeDark
+	if isDarkFor(a.now(), a.settings.Theme, a.wx.info) {
+		mygo.Theme.SetSource(mygo.ThemeDark)
+		a.setBars(true)
+	} else {
+		mygo.Theme.SetSource(mygo.ThemeLight)
+		a.setBars(false)
 	}
-	mygo.Theme.SetSource(src)
+}
+
+// setBars keeps the Android status/nav bar icons crisp dark on daylight paper and light on night paper.
+func (a *app) setBars(onDark bool) {
+	if a.win == nil {
+		return
+	}
+	style := mygo.BarStyleDark
+	if onDark {
+		style = mygo.BarStyleLight
+	}
+	if a.barStyle != style {
+		a.barStyle = style
+		mygo.SystemBars.SetStyle(style)
+	}
 }
 
 func (a *app) say(s string) { a.notice, a.noticeAt = s, a.now() }
@@ -139,16 +158,11 @@ func (a *app) handleBack() bool {
 
 // view renders one frame: Today's Living Paper, optional dimmed scrim, minimal Settings/Sign-In sheet, and toast.
 func (a *app) view(c *ui.Context) {
-	isDark := c.Theme().Dark
-	switch a.settings.Theme {
-	case "dark":
-		isDark = true
-	case "light":
-		isDark = false
-	}
-	c.SetTheme(themeOf(a.now(), isDark))
-	t := c.Theme()
-	c.Root().Background(t.Background)
+	now := a.now()
+	t, isDark := themeOf(now, a.settings.Theme, a.wx.info)
+	c.SetTheme(t)
+	a.setBars(isDark)
+	c.Root().Background(pal.bgTop)
 	if a.lib == nil {
 		ui.Column(c).Fill().Justify(ui.Center).Padding(24).Children(func() {
 			ui.Text(c, a.openErr).TextColor(t.TextMuted).Wrap()
@@ -159,6 +173,7 @@ func (a *app) view(c *ui.Context) {
 	a.checkMidnightRollover()
 	a.lockDays()
 	a.syncTick(c.Now())
+	a.weatherTick(c.Now())
 
 	// Today's Living Paper stays completely stationary behind any sheet for locked 60 FPS.
 	ui.Box(c.Key("today-root")).Fill().Children(func() {

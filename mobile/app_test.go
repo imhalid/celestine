@@ -25,13 +25,12 @@ func newTestApp(t *testing.T) (*app, *ui.Tester) {
 	return a, tt
 }
 
-// Launching the app opens directly onto Today's single editable sheet with zero taps and creates no empty file
-// until content is actually written.
+// Launching the app opens directly onto Today's single editable sheet with zero taps and creates no empty journal
+// collection or page on disk until content is actually written (preventing duplicate "Journal" + "Günlük" on sync).
 func TestOpensOnlyOnToday(t *testing.T) {
 	a, tt := newTestApp(t)
-	j := a.journalColl()
-	if j == nil || !j.Journal || j.Icon != "calendar" {
-		t.Fatalf("journal %+v", j)
+	if len(a.lib.Collections) != 0 {
+		t.Fatalf("fresh open should not create placeholder collections before writing or sync: %+v", a.lib.Collections)
 	}
 	if !a.ed.isTodayDraft || a.todayPage() != nil {
 		t.Fatal("expected clean unwritten Today draft on launch")
@@ -42,6 +41,10 @@ func TestOpensOnlyOnToday(t *testing.T) {
 	tt.Advance(saveQuiet + 200*time.Millisecond)
 	tt.Frame()
 
+	j := a.journalColl()
+	if j == nil || !j.Journal || j.Icon != "calendar" {
+		t.Fatalf("journal not created on first write: %+v", j)
+	}
 	p := a.todayPage()
 	if p == nil || p.Props[journalDayKey] != startOfDay(a.now()).Format("2006-01-02") {
 		t.Fatalf("today page not saved: %+v", p)
@@ -55,6 +58,41 @@ func TestOpensOnlyOnToday(t *testing.T) {
 	}
 	if !tt.HasText(locales.PageWords(2)) {
 		t.Fatalf("expected live word count, got: %v", tt.Texts())
+	}
+}
+
+// When desktop sync brings a localized journal (e.g. "Günlük"), the phone picks it over any empty placeholder
+// "Journal" and removes the empty duplicate cleanly.
+func TestJournalPrefersLocalizedAndCleansEmptyDuplicate(t *testing.T) {
+	a, _ := newTestApp(t)
+	// Simulate an empty English "Journal" and a synced Turkish "Günlük" with pages.
+	en, err := a.journal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, err := a.lib.NewCollection("Günlük")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.Journal = true
+	if err := tr.Save(); err != nil {
+		t.Fatal(err)
+	}
+	tr.Creating = true
+	p, err := tr.NewPage(nil, "2026-11-27")
+	tr.Creating = false
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Props = map[string]string{journalDayKey: "2026-11-27"}
+	p.SaveText("Masaüstünden")
+
+	if got := a.journalColl(); got != tr {
+		t.Fatalf("journalColl = %q, want Günlük (en=%q)", got.Name, en.Name)
+	}
+	a.cleanEmptyDuplicateJournals()
+	if len(a.lib.Collections) != 1 || a.lib.Collections[0].Name != "Günlük" {
+		t.Fatalf("empty duplicate Journal was not cleaned: %+v", a.lib.Collections)
 	}
 }
 
@@ -190,12 +228,51 @@ func TestDayProgressAndFormatDay(t *testing.T) {
 	if p := dayProgress(noon); p < 0.49 || p > 0.51 {
 		t.Fatalf("noon progress = %v, want ~0.5", p)
 	}
-	dawnBg, _ := paperToneAt(time.Date(2026, 11, 28, 6, 0, 0, 0, time.Local), false)
-	sunsetBg, _ := paperToneAt(time.Date(2026, 11, 28, 18, 30, 0, 0, time.Local), false)
-	nightBg, _ := paperToneAt(time.Date(2026, 11, 28, 0, 0, 0, 0, time.Local), true)
-	if dawnBg == sunsetBg || nightBg == dawnBg {
-		t.Fatalf("expected distinct time-of-day paper tones: dawn=%v sunset=%v night=%v", dawnBg, sunsetBg, nightBg)
+
+	// Verify continuous minute-by-minute solar gradient progression (not blocky jumps).
+	clearWx := weatherInfo{HasWeather: true, Kind: weatherClear, SunriseHr: 7.0, SunsetHr: 18.0, SolarDay: "2026-11-28"}
+	t1700 := time.Date(2026, 11, 28, 17, 0, 0, 0, time.Local)
+	t1720 := time.Date(2026, 11, 28, 17, 20, 0, 0, time.Local)
+	top1, bot1, _, dark1 := paperGradientAt(t1700, "", clearWx)
+	top2, bot2, _, _ := paperGradientAt(t1720, "", clearWx)
+	if top1 == top2 || bot1 == bot2 {
+		t.Fatalf("expected continuous minute-by-minute gradient shift between 17:00 and 17:20")
 	}
+	if top1 == bot1 {
+		t.Fatalf("golden hour should render a vertical gradient, got flat %v", top1)
+	}
+	if dark1 {
+		t.Fatal("17:00 golden hour should still use daylight polarity")
+	}
+
+	// Bright midday vs shadowed dark-blue evening vs deep night.
+	mTop, mBot, _, mDark := paperGradientAt(time.Date(2026, 11, 28, 12, 0, 0, 0, time.Local), "", clearWx)
+	eTop, eBot, _, eDark := paperGradientAt(time.Date(2026, 11, 28, 20, 0, 0, 0, time.Local), "", clearWx)
+	nTop, _, _, nDark := paperGradientAt(time.Date(2026, 11, 28, 0, 30, 0, 0, time.Local), "", clearWx)
+	if mDark || luminance(mTop.MixOklab(mBot, 0.5)) < 0.9 {
+		t.Fatalf("midday should be bright daylight, dark=%v lum=%v", mDark, luminance(mTop))
+	}
+	if !eDark || eBot.B <= eBot.R {
+		t.Fatalf("evening should be dark shadowed blue, dark=%v bot=%v", eDark, eBot)
+	}
+	if !nDark || luminance(nTop) >= luminance(eTop) {
+		t.Fatalf("midnight should be darker than evening: night=%v evening=%v", nTop, eTop)
+	}
+
+	// Live weather modulates the sky-paper gradient cleanly.
+	rainWx := clearWx
+	rainWx.Kind = weatherRain
+	rTop, _, _, _ := paperGradientAt(noon, "", rainWx)
+	if rTop == mTop {
+		t.Fatal("rainy weather did not modulate midday sky-paper color")
+	}
+	if wmoToWeatherKind(61, 90) != weatherRain || wmoToWeatherKind(73, 100) != weatherSnow || wmoToWeatherKind(95, 100) != weatherStorm {
+		t.Fatal("WMO weather classification mismatch")
+	}
+	if hr, day, ok := parseLocalISOHour("2026-11-28T17:38"); !ok || day != "2026-11-28" || hr < 17.6 || hr > 17.7 {
+		t.Fatalf("parseLocalISOHour = %v %q %v", hr, day, ok)
+	}
+
 	if paperGrainBitmap() == nil {
 		t.Fatal("paper grain bitmap not created")
 	}

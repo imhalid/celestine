@@ -371,11 +371,11 @@ func (msgs Messages) SettingsSync() string {
 	return Catalog.Format(msgs.locale, "settings_sync", nil)
 }
 
-// SettingsSystem says "System"
+// SettingsSystem says "Daylight"
 // in the language the app shows.
 func SettingsSystem() string { return In(i18n.Locale()).SettingsSystem() }
 
-// SettingsSystem says "System"
+// SettingsSystem says "Daylight"
 // in the language of msgs.
 func (msgs Messages) SettingsSystem() string {
 	return Catalog.Format(msgs.locale, "settings_system", nil)
@@ -599,4 +599,74 @@ func SyncSyncing() string { return In(i18n.Locale()).SyncSyncing() }
 // in the language of msgs.
 func (msgs Messages) SyncSyncing() string {
 	return Catalog.Format(msgs.locale, "sync_syncing", nil)
+}
+
+// WeatherClear says "Clear"
+// in the language the app shows.
+func WeatherClear() string { return In(i18n.Locale()).WeatherClear() }
+
+// WeatherClear says "Clear"
+// in the language of msgs.
+func (msgs Messages) WeatherClear() string {
+	return Catalog.Format(msgs.locale, "weather_clear", nil)
+}
+
+// WeatherCloudy says "Overcast"
+// in the language the app shows.
+func WeatherCloudy() string { return In(i18n.Locale()).WeatherCloudy() }
+
+// WeatherCloudy says "Overcast"
+// in the language of msgs.
+func (msgs Messages) WeatherCloudy() string {
+	return Catalog.Format(msgs.locale, "weather_cloudy", nil)
+}
+
+// WeatherFog says "Misty"
+// in the language the app shows.
+func WeatherFog() string { return In(i18n.Locale()).WeatherFog() }
+
+// WeatherFog says "Misty"
+// in the language of msgs.
+func (msgs Messages) WeatherFog() string {
+	return Catalog.Format(msgs.locale, "weather_fog", nil)
+}
+
+// WeatherPartly says "Partly cloudy"
+// in the language the app shows.
+func WeatherPartly() string { return In(i18n.Locale()).WeatherPartly() }
+
+// WeatherPartly says "Partly cloudy"
+// in the language of msgs.
+func (msgs Messages) WeatherPartly() string {
+	return Catalog.Format(msgs.locale, "weather_partly", nil)
+}
+
+// WeatherRain says "Rainy"
+// in the language the app shows.
+func WeatherRain() string { return In(i18n.Locale()).WeatherRain() }
+
+// WeatherRain says "Rainy"
+// in the language of msgs.
+func (msgs Messages) WeatherRain() string {
+	return Catalog.Format(msgs.locale, "weather_rain", nil)
+}
+
+// WeatherSnow says "Snowy"
+// in the language the app shows.
+func WeatherSnow() string { return In(i18n.Locale()).WeatherSnow() }
+
+// WeatherSnow says "Snowy"
+// in the language of msgs.
+func (msgs Messages) WeatherSnow() string {
+	return Catalog.Format(msgs.locale, "weather_snow", nil)
+}
+
+// WeatherStorm says "Stormy"
+// in the language the app shows.
+func WeatherStorm() string { return In(i18n.Locale()).WeatherStorm() }
+
+// WeatherStorm says "Stormy"
+// in the language of msgs.
+func (msgs Messages) WeatherStorm() string {
+	return Catalog.Format(msgs.locale, "weather_storm", nil)
 }

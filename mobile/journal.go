@@ -43,12 +43,26 @@ func (a *app) journal() (*library.Collection, error) {
 	return c, c.Save()
 }
 
-// journalColl is the journal if the library has one: the one marked so, or one of before called Journal or Günlük.
+// journalColl returns the canonical journal collection: among collections marked Journal, prefers the one with the
+// most pages (tie-breaker: a localized/custom name such as "Günlük" over the default "Journal"). Falls back to a
+// legacy collection named Journal or Günlük if none has the Journal flag yet.
 func (a *app) journalColl() *library.Collection {
+	var best *library.Collection
 	for _, c := range a.lib.Collections {
-		if c.Journal {
-			return c
+		if !c.Journal {
+			continue
 		}
+		if best == nil {
+			best = c
+			continue
+		}
+		n, bn := len(c.All()), len(best.All())
+		if n > bn || (n == bn && !strings.EqualFold(c.Name, journalName) && strings.EqualFold(best.Name, journalName)) {
+			best = c
+		}
+	}
+	if best != nil {
+		return best
 	}
 	for _, c := range a.lib.Collections {
 		if strings.EqualFold(c.Name, journalName) || strings.EqualFold(c.Name, "Günlük") {
@@ -56,6 +70,27 @@ func (a *app) journalColl() *library.Collection {
 		}
 	}
 	return nil
+}
+
+// cleanEmptyDuplicateJournals removes an empty placeholder "Journal" collection if sync brought another real journal
+// (for example a localized "Günlük"). Non-empty collections are never removed.
+func (a *app) cleanEmptyDuplicateJournals() {
+	canon := a.journalColl()
+	if canon == nil {
+		return
+	}
+	var toRemove []*library.Collection
+	for _, c := range a.lib.Collections {
+		if c != canon && c.Journal && len(c.All()) == 0 && strings.EqualFold(c.Name, journalName) {
+			toRemove = append(toRemove, c)
+		}
+	}
+	for _, dup := range toRemove {
+		dup.Journal = false
+		if _, err := a.lib.TrashCollection(dup); err == nil {
+			a.syncSoon()
+		}
+	}
 }
 
 // dayOf is the day page p of the journal is for.
@@ -113,18 +148,19 @@ func (a *app) makeDay(d time.Time) (*library.Page, error) {
 	return p, p.Save("")
 }
 
-// lockDays locks the past days of the journal, as the desktop does: the library then refuses their edits.
+// lockDays locks the past days of every journal collection, as the desktop does: the library then refuses their edits.
 func (a *app) lockDays() {
-	c := a.journalColl()
-	if c == nil {
-		return
-	}
 	today := startOfDay(a.now())
 	why := locales.PageLocked()
-	for _, p := range c.All() {
-		p.Locked = ""
-		if dayOf(p).Before(today) {
-			p.Locked = why
+	for _, c := range a.lib.Collections {
+		if !c.Journal {
+			continue
+		}
+		for _, p := range c.All() {
+			p.Locked = ""
+			if dayOf(p).Before(today) {
+				p.Locked = why
+			}
 		}
 	}
 }

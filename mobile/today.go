@@ -182,28 +182,26 @@ func (a *app) todayView(c *ui.Context) {
 		padR   = 24 // right margin
 	)
 
-	ui.Box(c.Key("today-paper")).Fill().Background(pal.bg).Children(func() {
-		// Bleed paper color seamlessly under top status bar and bottom gesture navigation bar.
-		if top > 0 {
-			ui.Box(c.Key("bleed-top")).Absolute().Top(-top).Left(0).Right(0).Height(top + 2).Background(pal.bg).
-				HitTest(func(x, y float32, r ui.Rect) bool { return false })
-		}
-		if bottom > 0 {
-			ui.Box(c.Key("bleed-bot")).Absolute().Bottom(-bottom).Left(0).Right(0).Height(bottom + 2).Background(pal.bg).
-				HitTest(func(x, y float32, r ui.Rect) bool { return false })
-		}
-
-		// Architectural vertical stationery spine rule running edge-to-edge down the left margin.
-		ui.Box(c.Key("paper-spine")).Absolute().Top(-top).Bottom(-bottom).Left(spineX).Width(1).
-			Background(pal.accent.Alpha(0.18)).
+	ui.Box(c.Key("today-paper")).Fill().Children(func() {
+		// Full-bleed continuous living sky-paper gradient flowing edge-to-edge behind all content (ZIndex -2).
+		ui.Box(c.Key("paper-sky")).Absolute().Top(-top).Bottom(-bottom).Left(0).Right(0).ZIndex(-2).
+			Gradient(pal.bgTop, pal.bgBottom, 180).
 			HitTest(func(x, y float32, r ui.Rect) bool { return false })
 
-		ui.Scroll(c.Key("today-scroll")).Fill().Children(func() {
+		// Architectural vertical stationery spine rule running edge-to-edge down the left margin behind content (ZIndex -1).
+		ui.Box(c.Key("paper-spine")).Absolute().Top(-top).Bottom(-bottom).Left(spineX).Width(1).ZIndex(-1).
+			Background(pal.accent.Alpha(0.22)).
+			HitTest(func(x, y float32, r ui.Rect) bool { return false })
+
+		ui.Scroll(c.Key("today-scroll")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() {
 			ui.Column(c).FillWidth().Padding(14, padR, 96, padL).Children(func() {
-				// Top atmospheric whisper strip: day phase + live clock on left, task tally & discreet sync trigger on right.
+				// Top atmospheric whisper strip: solar phase + clock + live weather on left, task tally & sync on right.
 				ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Padding(0, 0, 14, 0).Children(func() {
-					phase := strings.ToUpper(dayPhaseName(now)) + "  ·  " + now.Local().Format("15:04")
-					ui.Text(c, phase).FontSize(11).FontWeight(700).TextColor(pal.faint).Grow(1)
+					phase := strings.ToUpper(dayPhaseName(now, a.wx.info)) + "  ·  " + now.Local().Format("15:04")
+					if wl := a.wx.info.label(); wl != "" {
+						phase += "  ·  " + strings.ToUpper(wl)
+					}
+					ui.Text(c, phase).FontSize(11).FontWeight(700).TextColor(pal.faint).MaxLines(1).Grow(1).MinWidth(0)
 
 					if totalTasks > 0 {
 						ui.Row(c.Key("task-tally")).Height(24).Padding(0, 8).Radius(12).

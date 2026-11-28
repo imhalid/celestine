@@ -34,7 +34,7 @@
   "settings_dark": "Dark",
   "settings_light": "Light",
   "settings_sync": "Sync",
-  "settings_system": "System",
+  "settings_system": "Daylight",
   "settings_title": "Today",
   "settings_version": "Version",
   "sync_about": "Sign in with your desktop Celestine account to sync today's page end-to-end encrypted.",
@@ -56,5 +56,12 @@
   "sync_signOut": "Sign out",
   "sync_signingIn": "Signing in…",
   "sync_syncNow": "Sync now",
-  "sync_syncing": "Syncing…"
+  "sync_syncing": "Syncing…",
+  "weather_clear": "Clear",
+  "weather_cloudy": "Overcast",
+  "weather_fog": "Misty",
+  "weather_partly": "Partly cloudy",
+  "weather_rain": "Rainy",
+  "weather_snow": "Snowy",
+  "weather_storm": "Stormy"
 }
